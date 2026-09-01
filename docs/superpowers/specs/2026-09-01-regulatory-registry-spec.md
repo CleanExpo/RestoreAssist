@@ -82,7 +82,7 @@
 - Entry shape carrying: instrument, jurisdiction, commencement/effective date,
   source URL, `verifiedAt`, `verifiedBy`, and a plain-English requirement.
 - `scripts/check-regulatory-registry.ts` — CI gate (rules in §11).
-- Domains, in the order of §17: asbestos (**done**), crystalline silica (**done**), electrical (**done**), chemicals and VOCs (**done**),
+- Domains, in the order of §17: asbestos (**done**), crystalline silica (**done**), electrical (**done**), chemicals and VOCs (**done**), building codes (**done**),
   electrical on wet sites, VOCs and hazardous chemicals, building codes.
 - The document catalogue (§9.3) as the registry's first consumer.
 
@@ -282,6 +282,47 @@ hospital-grade, surface or domestic claims fall to the **TGA** under Therapeutic
 Goods Order 54. It turns on the claim the product makes, not on what the
 technician intends to do with it. Applying an unregistered product, or a
 registered one off-label without an APVMA permit, is not a technique choice.
+
+### 9.2.3 Building codes — the domain that must NOT own its own data
+
+`lib/anz/ncc-adoption.ts` already models NCC adoption per jurisdiction and per
+date, and it is **correct**. Copying those dates into the registry would create a
+second source of truth for one fact — the exact defect the registry exists to
+stop, and the one that let a single PDF print NCC 2025 in the scope and NCC 2022
+in the footer.
+
+So the building-code entries carry **provenance, not a parallel table**: the
+legal instrument behind each unusual jurisdiction, its source, its check date.
+`registry.test.ts` then **binds** them to `resolveNccEdition()`, so registry and
+table cannot drift apart — sabotaging either reddens the suite.
+
+Three jurisdictions each break an assumption a developer would otherwise make:
+
+| | What breaks | Reality as at 2026-09-01 |
+| --- | --- | --- |
+| **TAS** | adoption is monotonic | Commenced NCC 2025 on 1 May 2026, **reverted** to NCC 2022 Amendment 2 on 5 June 2026 by the Building Amendment Act 2026 (Tas). Back to NCC 2025 on 1 May 2027. |
+| **NT** | non-adoption is missing data | Gazetted that NCC 2025 **does not apply**. That is an answer, not a gap to fill with the national position. |
+| **SA** | adoption is all-or-nothing | Volume Three (plumbing) from 1 May 2026; Volumes One and Two (building) deferred to 2027. Restoration scopes building, so SA is on Amendment 2. |
+
+And New Zealand has **no NCC in any form** — citing one is not an imprecision,
+it names a document that does not govern the job.
+
+**What was actually wrong.** The executable table was right; two *comments* in
+`nir-standards-mapping.ts` (lines 833, 983) still listed TAS among the
+jurisdictions on NCC 2025, five weeks after Tasmania reverted. No output was
+affected — `resolveNccEdition("TAS")` correctly returns NCC 2022 Amendment 2 —
+but a stale comment is how a correct table gets "fixed" into a wrong one by the
+next maintainer. Corrected, with the non-monotonic behaviour called out so it
+does not read as a typo.
+
+**A gate bug this domain surfaced.** The entry-id rule was
+`^[a-z0-9]+(\.[a-z0-9-]+)+$` — no hyphen permitted in the *first* segment, which
+silently made the registered domain `building-code` unusable as an id prefix.
+All five entries failed until the id rule and the domain list were reconciled.
+The pattern now allows hyphenated segments while still rejecting uppercase,
+single-segment ids, leading, trailing and doubled hyphens, empty segments, spaces
+and underscores — 12 cases checked explicitly, because loosening a regex is how
+the rule-4 hole got in earlier on this branch.
 
 **Still asserted by the CARSI course and NOT independently verified** — these
 enter the registry only after checking: the 2025 lead blood-level changes

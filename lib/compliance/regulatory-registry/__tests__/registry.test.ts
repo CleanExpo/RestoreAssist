@@ -8,6 +8,7 @@ import {
   regulatoryIds,
 } from "../index";
 import { asbestosEraBasis, presumeAsbestosFromEra } from "../../asbestos-era";
+import { resolveNccEdition } from "../../../anz/ncc-adoption";
 
 /**
  * The registry's job is to make a regulation impossible to state without its
@@ -64,8 +65,9 @@ describe("regulationFor", () => {
   // Serving an Australian rule on a NZ job is how a product tells a technician
   // the wrong law with total confidence.
   it("returns undefined rather than the Australian answer for an uncovered domain", () => {
-    expect(regulationFor("building-code", "NZ")).toBeUndefined();
-    expect(regulationFor("building-code", "AU")).toBeUndefined();
+    // Every domain in REGULATORY_DOMAINS is now seeded, so the uncovered case is
+    // a jurisdiction with no rule and no national fallback: NZ never inherits AU.
+    expect(regulationFor("asbestos", "NZ", "register")).toBeUndefined();
   });
 });
 
@@ -309,6 +311,87 @@ describe("chemicals", () => {
     expect(r).toMatch(/APVMA/);
     expect(r).toMatch(/TGA/);
     expect(r).toMatch(/DEPENDS ON THE CLAIM/i);
+  });
+});
+
+/**
+ * Building codes.
+ *
+ * These entries deliberately do NOT restate the adoption dates: lib/anz/ncc-adoption.ts
+ * owns them, and a second copy here would be the very defect the registry exists
+ * to stop. What the entries carry is provenance -- the instrument behind each
+ * unusual jurisdiction -- and these tests bind the two together so they cannot
+ * drift apart silently.
+ */
+describe("building codes bind to the adoption table rather than copying it", () => {
+  /**
+   * Tasmania commenced NCC 2025 on 1 May 2026 and reverted five weeks later by
+   * primary legislation. Adoption is not monotonic, and a model that assumes it
+   * is gets Tasmania wrong for eleven months.
+   */
+  it("agrees with the table across Tasmania's reversion", () => {
+    const entry = regulation("building-code.ncc-reversion.tas");
+    expect(entry.effectiveFrom).toBe("2026-06-05");
+    expect(entry.value).toBe("NCC 2022 Amendment 2");
+
+    // Before the reversion: the newer code. After it: the older one.
+    expect(resolveNccEdition("TAS", "2026-06-04")).toBe("NCC 2025");
+    expect(resolveNccEdition("TAS", entry.effectiveFrom)).toBe(entry.value);
+    expect(resolveNccEdition("TAS", "2027-04-30")).toBe(entry.value);
+    // And forward again, with no further instrument.
+    expect(resolveNccEdition("TAS", "2027-05-01")).toBe("NCC 2025");
+  });
+
+  it("agrees with the table that the Northern Territory never adopted", () => {
+    const entry = regulation("building-code.ncc-non-adoption.nt");
+    expect(entry.value).toBe("NCC 2022 Amendment 2");
+    for (const day of ["2026-05-01", "2026-09-01", "2027-05-01"]) {
+      expect(resolveNccEdition("NT", day)).toBe(entry.value);
+    }
+  });
+
+  /**
+   * South Australia took the plumbing volume in 2026 and deferred the building
+   * volumes to 2027. RestoreAssist scopes building reinstatement, so the
+   * building date is the one that governs a scope here.
+   */
+  it("agrees with the table on South Australia's split adoption", () => {
+    const entry = regulation("building-code.ncc-split-adoption.sa");
+    expect(entry.value).toBe("NCC 2022 Amendment 2");
+    // Plumbing moved in 2026; the building code did not.
+    expect(resolveNccEdition("SA", "2026-05-01")).toBe(entry.value);
+    expect(resolveNccEdition("SA", "2027-05-01")).toBe("NCC 2025");
+  });
+
+  /**
+   * The jurisdictions that did move, as a control: without these the tests above
+   * would still pass if the table returned the old edition for everyone.
+   */
+  it("still shows the jurisdictions that did adopt on time", () => {
+    for (const state of ["ACT", "VIC", "WA"] as const) {
+      expect(resolveNccEdition(state, "2026-09-01")).toBe("NCC 2025");
+    }
+  });
+
+  /**
+   * New Zealand has no NCC. Citing one is not an imprecision; it names a
+   * document that does not govern the job.
+   */
+  it("gives New Zealand its own code and no NCC at all", () => {
+    const nz = regulationFor("building-code", "NZ");
+    expect(nz?.jurisdiction).toBe("NZ");
+    expect(nz?.instrument).toMatch(/Building Act 2004/i);
+    expect(nz?.requirement).toMatch(/NO National Construction Code in New Zealand/i);
+    expect(nz?.instrument).not.toMatch(/National Construction Code/i);
+  });
+
+  // The registry must not become a second adoption table.
+  it("does not restate adoption dates the table owns", () => {
+    const building = REGULATORY_ENTRIES.filter((e) => e.domain === "building-code");
+    expect(building.length).toBeGreaterThan(0);
+    const au = regulation("building-code.ncc-adoption.au");
+    expect(au.requirement).toMatch(/lib\/anz\/ncc-adoption\.ts/);
+    expect(au.requirement).toMatch(/never a literal/i);
   });
 });
 

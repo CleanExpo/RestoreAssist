@@ -132,7 +132,13 @@ const seenIds = new Set<string>();
 for (const entry of REGULATORY_ENTRIES) {
   const at = `entry "${entry.id || "(no id)"}"`;
 
-  if (!entry.id || !/^[a-z0-9]+(\.[a-z0-9-]+)+$/.test(entry.id)) {
+  // Segments are lowercase alphanumeric words joined by single hyphens, at least
+  // two segments. The first segment originally could not contain a hyphen, which
+  // silently made the registered domain `building-code` unusable as an id prefix:
+  // every building-code entry failed until the domain and the id rule were
+  // reconciled. Still rejects a leading/trailing hyphen, a doubled hyphen, an
+  // empty segment and a single-segment id.
+  if (!entry.id || !/^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)+$/.test(entry.id)) {
     violations.push({
       rule: "entry-integrity",
       where: at,

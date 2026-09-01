@@ -13,6 +13,7 @@
  *     December 2026.
  */
 import { ASBESTOS_ENTRIES } from "./asbestos";
+import { BUILDING_CODE_ENTRIES } from "./building-code";
 import { CHEMICALS_ENTRIES } from "./chemicals";
 import { ELECTRICAL_ENTRIES } from "./electrical";
 import { SILICA_ENTRIES } from "./silica";
@@ -30,6 +31,7 @@ export const REGULATORY_ENTRIES: readonly RegulatoryEntry[] = [
   ...SILICA_ENTRIES,
   ...ELECTRICAL_ENTRIES,
   ...CHEMICALS_ENTRIES,
+  ...BUILDING_CODE_ENTRIES,
 ];
 
 const BY_ID = new Map(REGULATORY_ENTRIES.map((e) => [e.id, e]));

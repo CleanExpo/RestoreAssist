@@ -829,9 +829,12 @@ export const S540_FIELD_MAP = {
  *
  * NOT HERE, DELIBERATELY:
  *   - `NCC`. The National Construction Code is not an ANSI/IICRC standard, and it
- *     is not a constant: it takes effect per state on different dates, and NCC 2025
- *     is in force in ACT/TAS/VIC/WA while NSW/QLD/SA remain on NCC 2022 Amendment 2
- *     and the NT has not adopted it at all. Keeping it here created a SECOND source
+ *     is not a constant: it takes effect per state on different dates, and as at
+ *     2026-09-01 NCC 2025 is in force in ACT/VIC/WA while NSW/QLD/SA/TAS are on
+ *     NCC 2022 Amendment 2 and the NT has not adopted it at all. TASMANIA IS NOT A
+ *     TYPO HERE: it commenced NCC 2025 on 1 May 2026 and reverted five weeks later
+ *     by primary legislation, so adoption is not monotonic. Keeping it here created
+ *     a SECOND source
  *     of truth alongside lib/anz/ncc-edition.ts, and the two diverged — the same PDF
  *     could print NCC 2025 in the scope and NCC 2022 in the footer. Use
  *     `getNccEdition(state, asAt)`.
@@ -980,7 +983,7 @@ export function standardEdition(std: StandardKey): string {
  *   - Every New Zealand report cited "NCC 2022". NZ has no NCC; it is governed by
  *     the New Zealand Building Code. The footer now omits NCC entirely for NZ.
  *   - Every Australian report cited "NCC 2022" regardless of state or date, four
- *     months after ACT/TAS/VIC/WA moved to NCC 2025 and a year after Amendment 2
+ *     months after ACT/VIC/WA moved to NCC 2025 and a year after Amendment 2
  *     superseded plain NCC 2022 everywhere.
  *
  * `state` is optional: without it `getNccEdition` returns the edition in force in
