@@ -301,7 +301,7 @@ const STEP_HAZMAT_ASSESSMENT: WorkflowStepDefinition = {
   stepKey: "hazmat_assessment",
   stepTitle: "Hazardous Materials Assessment",
   stepDescription:
-    "Identify potential hazardous materials: asbestos (pre-1990 buildings), " +
+    "Identify potential hazardous materials: asbestos (buildings before 2004 in AU, 2000 in NZ), " +
     "lead paint, chemical contamination, biological hazards. " +
     "Do NOT disturb suspected asbestos — photograph and note location only. " +
     "Arrange licensed assessor if asbestos suspected. Record PPE worn.",
@@ -424,7 +424,7 @@ const WORKFLOW_WATER_DAMAGE: WorkflowTemplate = {
   ],
   riskEscalationTriggers: [
     "Category 3 water detected — upgrade contamination step to risk tier 3",
-    "Asbestos-era building (pre-1990) — add hazmat assessment step",
+    "Asbestos-era building (before 2004 in AU, 2000 in NZ) — add hazmat assessment step",
     "Loss > 72 hours old — upgrade mould risk assessment",
   ],
 };

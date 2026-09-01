@@ -20,6 +20,7 @@
  *   - Implicit any removed from area calculations
  */
 
+import { regulation } from "@/lib/compliance/regulatory-registry";
 import { BuildingCodeRequirements } from "./nir-building-codes";
 import { S500_FIELD_MAP } from "./nir-standards-mapping";
 
@@ -257,6 +258,10 @@ export function determineScopeItems(
   if (input.buildingCodeTriggers?.triggered) {
     const actions = input.buildingCodeTriggers.requiredActions;
     const codeRef = input.buildingCodeRequirements?.codeVersion ?? "NCC 2022";
+    // Instruments come from lib/compliance/regulatory-registry, so a clause
+    // reference cannot drift from the regulation it claims to cite.
+    const auAsbestos = regulation("asbestos.presumption-year.au");
+    const nzAsbestos = regulation("asbestos.presumption-year.nz");
 
     if (actions.some((a) => a.toLowerCase().includes("dehumidification"))) {
       if (
@@ -297,10 +302,17 @@ export function determineScopeItems(
       scopeItems.push({
         itemType: "asbestos_assessment",
         description: "Asbestos Assessment (Building Code Requirement)",
+        // AUSTRALIAN PATHWAY. `ScopeDeterminationInput` carries no jurisdiction
+        // and buildingCodeRequirements defaults to an NCC edition, so every item
+        // this branch emits is an Australian one. The clause reference is taken
+        // from the registry rather than typed: it previously read "WHS
+        // Regulations 2011", which is neither the current instrument for most
+        // states nor applicable at all to a New Zealand job -- a false legal
+        // basis on a scope item an assessor reads.
         justification:
-          "Building code requires asbestos assessment for pre-1990 buildings.",
+          `${auAsbestos.requirement} New Zealand is governed instead by the ${nzAsbestos.instrument}, under which 1 January 2000 is a likelihood boundary for presuming asbestos, not a ban date; this item is generated on the Australian pathway.`,
         standardReference: codeRef,
-        clauseRefs: [codeRef, "WHS Regulations 2011"],
+        clauseRefs: [codeRef, auAsbestos.instrument],
         isRequired: true,
       });
     }

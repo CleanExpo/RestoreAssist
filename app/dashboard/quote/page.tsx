@@ -143,6 +143,21 @@ export default function QuotePage() {
   const [savedEstimateId, setSavedEstimateId] = useState<string | null>(null);
   const [savedInvoiceId, setSavedInvoiceId] = useState<string | null>(null);
 
+  /**
+   * A critical advisory means the quote AS CONFIGURED is unsafe to act on --
+   * Phase 1 air movers priced over active mould, which S520 forbids.
+   *
+   * Saving is what turns a quote into a document someone works from, so it is
+   * blocked rather than merely warned about: an advisory you can click straight
+   * past is decoration. Print is deliberately left alone -- that is the operator
+   * reading their own screen, not creating a record. Fix the conflict by pricing
+   * the air movers to Phase 2 or correcting the mould flag, and the buttons
+   * return.
+   */
+  const hasCriticalSafetyConflict = Boolean(
+    quoteResult?.safety?.advisories?.some((a) => a.severity === "critical"),
+  );
+
   const updateField = (field: string, value: string | number | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -589,7 +604,12 @@ export default function QuotePage() {
               <button
                 type="button"
                 onClick={handleSaveEstimate}
-                disabled={savingEstimate}
+                disabled={savingEstimate || hasCriticalSafetyConflict}
+                title={
+                  hasCriticalSafetyConflict
+                    ? "Resolve the safety conflict above before saving this quote as a document."
+                    : undefined
+                }
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 disabled:opacity-50"
               >
                 {savingEstimate ? (
@@ -602,7 +622,12 @@ export default function QuotePage() {
               <button
                 type="button"
                 onClick={handleCreateInvoiceDraft}
-                disabled={savingInvoice}
+                disabled={savingInvoice || hasCriticalSafetyConflict}
+                title={
+                  hasCriticalSafetyConflict
+                    ? "Resolve the safety conflict above before creating an invoice from this quote."
+                    : undefined
+                }
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-800 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 dark:bg-slate-900 dark:text-white dark:border-slate-600 disabled:opacity-50"
               >
                 {savingInvoice ? (

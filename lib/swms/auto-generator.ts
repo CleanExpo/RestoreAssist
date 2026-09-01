@@ -12,6 +12,11 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import {
+  asbestosEraBasis,
+  presumeAsbestosFromEra,
+  type AsbestosJurisdiction,
+} from "@/lib/compliance/asbestos-era";
 import { getStateInfo } from "@/lib/state-detection";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -129,23 +134,28 @@ const MOULD_HAZARD: SwmsHazard = {
   ],
 };
 
-const ASBESTOS_RISK_HAZARD: SwmsHazard = {
-  category: "asbestos_risk",
-  description:
-    "Asbestos risk — building constructed pre-1990; asbestos-containing materials (ACM) may be present",
-  riskLevel: "HIGH",
-  controls: [
-    "Do not disturb suspect materials until asbestos assessment completed",
-    "Engage licensed asbestos assessor before any demolition or material removal",
-    "If ACM confirmed: engage licensed asbestos removalist (Class A or B as required)",
-    "Asbestos management plan required before restoration proceeds",
-    "Notify state WHS regulator per jurisdictional requirements",
-  ],
-  clauseRefs: [
-    "ANSI/IICRC S500:2021 §7.1 — Stabilisation: hazardous material identification",
-    "ANSI/IICRC S500:2021 §6.4 — Hazardous building materials",
-  ],
-};
+function asbestosRiskHazard(
+  jurisdiction: AsbestosJurisdiction,
+): SwmsHazard {
+  const basis = asbestosEraBasis(jurisdiction);
+  return {
+    category: "asbestos_risk",
+    description: `Asbestos risk — building constructed before ${basis.year}; asbestos-containing materials (ACM) may be present. ${basis.authority}.`,
+    riskLevel: "HIGH",
+    controls: [
+      "Do not disturb suspect materials until asbestos assessment completed",
+      "Engage licensed asbestos assessor before any demolition or material removal",
+      "If ACM confirmed: engage licensed asbestos removalist (Class A or B as required)",
+      "Asbestos management plan required before restoration proceeds",
+      basis.guidance,
+      "Notify the WHS regulator per jurisdictional requirements",
+    ],
+    clauseRefs: [
+      "ANSI/IICRC S500:2021 §7.1 — Stabilisation: hazardous material identification",
+      "ANSI/IICRC S500:2021 §6.4 — Hazardous building materials",
+    ],
+  };
+}
 
 // ── State detection (mirrors safework-notification-gate.ts pattern) ────────
 
@@ -248,20 +258,34 @@ export async function generateSwmsDraft(
     hazards.push(BIOLOGICAL_HAZARD);
   }
 
-  // ── Asbestos risk: pre-1990 building ──────────────────────────────────────
-  if (
-    inspection.propertyYearBuilt != null &&
-    inspection.propertyYearBuilt < 1990
-  ) {
-    hazards.push(ASBESTOS_RISK_HAZARD);
-  }
-
-  // ── NZ-specific asbestos threshold (pre-2000) ─────────────────────────────
-  // NZ postcodes are 4-digit starting with 0-9 but never overlap with AU;
-  // safework-notification-gate uses post-1120 country field — we detect NZ
-  // conservatively by checking postcode range outside AU states.
+  // ── Asbestos risk from the building's age ─────────────────────────────────
+  // The threshold is jurisdictional and the two dates are NOT the same: AU
+  // presumes ACM before 2004 (banned 31 Dec 2003), NZ before 2000. This used a
+  // flat pre-1990 -- Queensland's asbestos-REGISTER exemption, applied to every
+  // job in the country -- so a 1995 building anywhere produced a SWMS with no
+  // asbestos hazard on it at all. See lib/compliance/asbestos-era.ts.
   const stateCode = detectStateCode(inspection.propertyPostcode);
   const stateInfo = getStateInfo(stateCode);
+
+  // AUSTRALIA ONLY, and stated rather than implied.
+  //
+  // An earlier revision of this line read `stateInfo ? "AU" : "NZ"`, which reads
+  // as jurisdiction-aware and is not: `detectStateCode` falls back to "NSW" for
+  // any unparseable or out-of-range postcode and never returns a non-Australian
+  // code, so `stateInfo` is always defined and the ternary always yielded "AU".
+  // A New Zealand job would have received Australia's 2004 threshold while the
+  // code looked as though it had checked.
+  //
+  // `Inspection` carries no country field (see the RA-1120 note in
+  // safework-notification-gate.ts), and this generator selects only
+  // propertyPostcode and propertyYearBuilt, so NZ genuinely cannot be resolved
+  // here yet. Pinning it honestly is better than a ternary that cannot fire:
+  // when the country field lands, this is the one line to change.
+  const jurisdiction: AsbestosJurisdiction = "AU";
+
+  if (presumeAsbestosFromEra(inspection.propertyYearBuilt, jurisdiction)) {
+    hazards.push(asbestosRiskHazard(jurisdiction));
+  }
 
   const whsRefs: string[] = [];
   if (stateInfo) {

@@ -17,6 +17,8 @@
  * Annual review against major insurer protocol updates required.
  */
 
+import { presumeAsbestosFromEra } from "@/lib/compliance/asbestos-era";
+
 export interface JurisdictionConfig {
   state: string;
   fullName: string;
@@ -87,12 +89,12 @@ export const JURISDICTIONAL_MATRIX: Record<string, JurisdictionConfig> = {
       },
       {
         triggerType: "asbestos",
-        condition: "Building constructed pre-1990",
+        condition: "Building constructed before 2004",
         regulationRef: "Work Health and Safety Regulation 2011 (QLD) §§419–431",
         requiredAction:
           "Asbestos assessment required before any demolition or material removal.",
         scopeImpact:
-          "Asbestos management plan may be required. Licensed removalist if friable asbestos found.",
+          "Asbestos management plan may be required. Licensed removalist if friable asbestos found. Note: Queensland alone exempts buildings built after 31 December 1989 from the asbestos REGISTER requirement — that exemption does not make a 1990s building asbestos-free, and the assessment duty still applies.",
       },
       {
         triggerType: "structural",
@@ -159,11 +161,12 @@ export const JURISDICTIONAL_MATRIX: Record<string, JurisdictionConfig> = {
       },
       {
         triggerType: "asbestos",
-        condition: "Building constructed pre-1987",
+        condition: "Building constructed before 2004",
         regulationRef: "NSW Work Health and Safety Regulation 2017",
         requiredAction:
-          "Asbestos assessment required. Different pre-1987 (not pre-1990) cutoff to QLD.",
-        scopeImpact: "Asbestos register required for any commercial property.",
+          "Asbestos assessment required before any demolition or material removal.",
+        scopeImpact:
+          "Asbestos register required for a workplace constructed before 31 December 2003 (SafeWork NSW). A prior revision of this matrix asserted a pre-1987 NSW cutoff and contrasted it with Queensland; no such cutoff exists — NSW uses the national date.",
       },
     ],
     insurerNotes: [
@@ -1408,7 +1411,7 @@ export function getActiveTriggers(
         return inspectionContext.isHeritageListed;
       case "asbestos":
         return inspectionContext.buildingYearBuilt
-          ? inspectionContext.buildingYearBuilt < 1990
+          ? presumeAsbestosFromEra(inspectionContext.buildingYearBuilt) // regulatory-year-ignore: delegated
           : false;
       case "seismic":
         return inspectionContext.isSeismicZone;

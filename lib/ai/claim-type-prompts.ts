@@ -527,7 +527,7 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
  * Water Damage + Fire & Smoke
  * Standards: IICRC S500:2021 + IICRC S700:2025
  * Key hazards: smoke-saturated wet materials, mould risk from suppression water,
- * asbestos in wet demolition debris (pre-1990 Australian construction).
+ * asbestos in wet demolition debris (Australian construction before 2004).
  */
 function getWaterFirePrompt(category?: number, damageClass?: number): string {
   const categoryGuidance = buildWaterCategoryGuidance(category);
@@ -553,7 +553,7 @@ This job involves both fire/smoke damage AND water intrusion from fire suppressi
 CROSS-CONTAMINATION RISKS (MUST address in scope)
 1. Smoke-impregnated wet materials: wet organic materials (carpet, insulation, plasterboard) absorb smoke and soot, making deodorisation significantly harder. These materials must be assessed for removal rather than drying in place.
 2. Mould risk from suppression water: fire suppression water creates rapid mould colonisation risk within 24–72 hours. Anti-microbial treatment must commence within 24 hours of water intrusion per IICRC S500:2021 §5.
-3. Asbestos in wet demolition debris: Australian residential construction pre-1990 commonly uses asbestos-containing materials (fibre cement sheeting, vinyl floor tiles, textured ceilings). Wet cutting, demolition, or disturbance requires licensed asbestos removalist — DO NOT dry-disturb. Reference Safe Work Australia Code of Practice for Asbestos Removal.
+3. Asbestos in wet demolition debris: Australian residential construction before 2004 (New Zealand before 2000) commonly uses asbestos-containing materials (fibre cement sheeting, vinyl floor tiles, textured ceilings). Asbestos was not banned in Australian workplaces until 31 December 2003 — a 1990s building is NOT clear. Wet cutting, demolition, or disturbance requires licensed asbestos removalist — DO NOT dry-disturb. Reference Safe Work Australia Code of Practice for Asbestos Removal.
 4. Contamination of suppression water: suppression water flowing through fire debris may be Category 2 or 3 — assess and escalate protocols accordingly.
 
 SUPPRESSION WATER CLASSIFICATION
@@ -590,7 +590,7 @@ Produce the scope in exactly these 8 numbered sections:
 2. Smoke Zone & Water Intrusion Mapping
    — Zone map by room: char / smoke / odour classification (S700:2025 §3.1) PLUS water intrusion extent per room (m²). Document suppression water pathways and category assessment (S500:2021 §5).
 3. Cross-Contamination Risk Assessment
-   — Identify all smoke-impregnated wet materials. Flag asbestos risk for pre-1990 structures. Classify suppression water category. Document where smoke + water co-exist and escalate protocols accordingly.
+   — Identify all smoke-impregnated wet materials. Flag asbestos risk for structures built before 2004 (AU) or 2000 (NZ). Classify suppression water category. Document where smoke + water co-exist and escalate protocols accordingly.
 4. Affected Materials — Removal vs Drying Assessment
    — Room-by-room materials list with dual assessment: (a) smoke zone classification per S700:2025 §3.1, (b) drying viability assessment per S500:2021 §6. Porous materials in char or smoke zones with water saturation: removal recommended in most cases.
 5. Emergency Water Extraction & Antimicrobial Treatment
@@ -1339,7 +1339,7 @@ All technical claims must reference:
 - State-specific regulations: SafeWork NSW, WorkSafe VIC, WorkSafe QLD (WHSQ), WorkSafe WA, SafeWork SA, WorkSafe TAS/ACT/NT
 
 ASBESTOS RISK CONTEXT (AUSTRALIAN RESIDENTIAL)
-The following materials in residential construction built before 1990 are presumed to contain asbestos until tested: fibro (fibre cement) sheeting (wall cladding, eaves, soffits, wet area lining); vinyl floor tiles and floor tile adhesive; textured ceiling coatings (popcorn, stipple); insulation board; roof sheeting (super six corrugated cement sheet); pipe lagging and duct insulation; render coats on fibro walls.
+The following materials in residential construction built before 2004 (Australia) or 2000 (New Zealand) are presumed to contain asbestos until tested: fibro (fibre cement) sheeting (wall cladding, eaves, soffits, wet area lining); vinyl floor tiles and floor tile adhesive; textured ceiling coatings (popcorn, stipple); insulation board; roof sheeting (super six corrugated cement sheet); pipe lagging and duct insulation; render coats on fibro walls.
 
 NON-FRIABLE vs FRIABLE ACM
 - Non-friable (bonded) ACM: asbestos fibres bound within a matrix (cement, vinyl, bitumen). Lower risk if undisturbed. Licensed removalist required for >10 m² of bonded ACM (state thresholds vary).
@@ -1374,7 +1374,7 @@ SCOPE FORMAT — EXACTLY 7 SECTIONS
 Produce the scope in exactly these 7 numbered sections:
 
 1. ACM Identification & Risk Assessment
-   — Confirm construction era (pre-1990 = assume ACM until proven otherwise). Identify suspected ACM by type and location (wall cladding, ceiling, floor tiles, eaves, etc.). Sample testing status: tested (provide lab reference) / not tested (assume ACM). Classify as non-friable or friable. Document area or length of each ACM type. Cite Safe Work Australia Code of Practice — How to Manage and Control Asbestos §2.1–2.3.
+   — Confirm construction era (before 2004 in AU, or 2000 in NZ = assume ACM until proven otherwise). Identify suspected ACM by type and location (wall cladding, ceiling, floor tiles, eaves, etc.). Sample testing status: tested (provide lab reference) / not tested (assume ACM). Classify as non-friable or friable. Document area or length of each ACM type. Cite Safe Work Australia Code of Practice — How to Manage and Control Asbestos §2.1–2.3.
 2. Regulatory Requirements for This Scope
    — State jurisdiction and applicable regulations (SafeWork NSW / WorkSafe VIC etc.). Confirm whether removal area exceeds 10 m² bonded threshold (requires licensed removalist). Confirm whether any friable ACM is present (requires Class A licensed removalist — non-negotiable). Note notification requirements: WHS Regulations 2011 §468 (7-day notice to regulator for friable, 5-day for non-friable licensed removal). Notify insurer of asbestos risk in writing.
 3. Work Halt & Containment (if required)

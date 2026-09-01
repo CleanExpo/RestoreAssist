@@ -194,6 +194,15 @@ jobs:
       - name: Standards citation gate
         run: npm run check:standards
 
+      # Regulatory registry gate. A regulation must carry its instrument, an
+      # https source and a verifiedAt date, and must not sit in a string: the
+      # tree once held pre-1990 (Queensland's register exemption, applied
+      # nationally) and pre-1987 (a NSW cutoff that does not exist) alongside the
+      # correct pre-2004. All four rules were watched failing before being
+      # trusted. The hard-coded-year rule is baselined and ratchets down.
+      - name: Regulatory registry gate
+        run: npm run check:regulatory-registry
+
       # Copyright tripwire (Standards KB gate G6). Fails if a known verbatim
       # canary sentence from the licensed standards appears in tracked
       # source/data files. Was defined in package.json but never enforced in

@@ -72,6 +72,7 @@
     "start": "sh scripts/start-production.sh",
     "lint": "eslint -c config/eslint.config.mjs . --max-warnings 851",
     "check:standards": "tsx scripts/check-standards-citations.ts",
+    "check:regulatory-registry": "tsx scripts/check-regulatory-registry.ts",
     "check:no-verbatim": "tsx scripts/check-no-verbatim-standards.ts",
     "check:marketing-verbatim": "tsx scripts/check-marketing-verbatim.ts",
     "check:au-english": "node scripts/check-au-english.mjs",

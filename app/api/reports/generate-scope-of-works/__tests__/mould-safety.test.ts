@@ -109,6 +109,43 @@ describe("scope of works — the mould gate reads every signal the report does",
   });
 
   /**
+   * Raised by CodeRabbit on this PR, and verified: scope rows are frequently
+   * absent, and the route then derives the area from the affected-area text or
+   * `Report.affectedArea`. It handed the reconciler only `scopeAreas`, so on
+   * exactly those jobs the reconciler saw ZERO area and skipped the equipment
+   * plan and every power advisory. The mould gate still fired; nothing checked
+   * the load fit the supply.
+   *
+   * Sabotage: drop the `affectedAreaM2` argument -- `equipmentPlan` goes null.
+   */
+  it("still plans equipment when the area came from text, not scope rows", () => {
+    const s = buildScopeOfWorksData({
+      report: {
+        id: "rep_1",
+        reportNumber: "RA-1",
+        waterCategory: "2",
+        biologicalMouldDetected: false,
+        biologicalMouldCategory: null,
+        hazardType: "water damage",
+        technicianFieldReport: "Burst flexi hose.",
+        inspection: null,
+      },
+      analysis: null,
+      tier1: { T1_Q7_hazards: ["None identified"] },
+      tier2: null,
+      // The affected area as the technician recorded it — free text, which is
+      // where it lives when nobody captured structured scope rows.
+      tier3: { T3_Q4_totalAffectedArea: "Kitchen and hallway, approx 45 sqm" },
+      pricingConfig: PRICING,
+      stateInfo: null,
+      equipmentSelection: AIR_MOVERS,
+      scopeAreas: [], // none captured — the case that was silently unplanned
+    }) as { safety: { equipmentPlan: unknown } };
+
+    expect(s.safety.equipmentPlan).not.toBeNull();
+  });
+
+  /**
    * The scoping guard. `hasMould` also drives PRICED lines (mould remediation
    * treatment, PPE, hazard surcharges) and is deliberately NOT widened: doing so
    * would start charging mould remediation on a prose mention, which is a

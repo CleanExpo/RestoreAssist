@@ -137,7 +137,8 @@ export async function analyzeClaimPDF(
 - Safety equipment (barriers, signage, ventilation)
 - Environmental controls
 - Waste disposal procedures
-- Asbestos/lead testing (for pre-1990 buildings)
+- Asbestos testing and management: buildings before 2004 (AU, banned 31 Dec 2003) or before 2000 (NZ)
+- Lead paint testing and management: SEPARATE and EARLIER thresholds — buildings before 1970 (AU); built in the 1980s or earlier (NZ, WorkSafe NZ; post-1980 paintwork is generally low-lead). Do NOT apply the asbestos dates to lead.
 - Heat stress management
 - Emergency procedures
 
