@@ -1,6 +1,6 @@
 {
   "note": "Lines asserting a regulatory year outside lib/compliance/regulatory-registry/. Ratchet DOWN by moving each into the registry; never up.",
-  "total": 69,
+  "total": 68,
   "files": {
     "app/api/inspections/[id]/australian-compliance/route.ts": 3,
     "components/inspection/NIRClaimAssessmentPanel.tsx": 1,
@@ -20,7 +20,7 @@
     "lib/interview/question-templates.ts": 1,
     "lib/nir-building-codes.ts": 22,
     "lib/nir-jurisdictional-matrix.ts": 6,
-    "lib/nir-scope-determination.ts": 2,
+    "lib/nir-scope-determination.ts": 1,
     "lib/restoration/ppe-requirements.ts": 1,
     "lib/swms/auto-generator.ts": 2,
     "lib/validation.ts": 1
