@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  effectiveFromRange,
   REGULATORY_ENTRIES,
   REGULATORY_DOMAINS,
   regulation,
@@ -213,6 +214,83 @@ describe("silica exposure standards differ across the Tasman", () => {
 
     expect(au.requirement).toMatch(/31 December 2024/);
     expect(vic.requirement).toMatch(/NO transitional period/);
+  });
+});
+
+/**
+ * Commencement precision.
+ *
+ * CodeRabbit caught this on #2154: New Zealand's silica reduction was written
+ * `2023-11-01` when only "November 2023" had been established. The contract
+ * called effectiveFrom an exact date, so the unknown day got padded to the
+ * first of the month -- which asserts a commencement nobody verified and reads
+ * as exact to any date comparison. A rule could be reported in force three
+ * weeks before it was.
+ *
+ * The fix is to let the field say less when less is known, and to make the
+ * partial forms mean an interval rather than a point.
+ */
+describe("effectiveFrom states only the precision that was established", () => {
+  it("treats a full date as a single day", () => {
+    const r = effectiveFromRange(regulation("silica.engineered-stone-ban.au"));
+    expect(r).toEqual({
+      precision: "day",
+      earliest: "2024-07-01",
+      latest: "2024-07-01",
+    });
+  });
+
+  // The entry the review was about.
+  it("carries New Zealand's silica reduction as a month, not a padded day", () => {
+    const entry = regulation("silica.exposure-standard.nz");
+    expect(entry.effectiveFrom).toBe("2023-11");
+    expect(effectiveFromRange(entry)).toEqual({
+      precision: "month",
+      earliest: "2023-11-01",
+      latest: "2023-11-30",
+    });
+  });
+
+  it("carries a standard known only by publication year as a year", () => {
+    const entry = regulation("electrical.wiring-rules.au");
+    expect(entry.effectiveFrom).toBe("2018");
+    expect(effectiveFromRange(entry)).toEqual({
+      precision: "year",
+      earliest: "2018-01-01",
+      latest: "2018-12-31",
+    });
+  });
+
+  // Month ends are computed, not assumed to be the 30th.
+  it("gets February right, leap year included", () => {
+    const feb = (y: number) =>
+      effectiveFromRange({ ...regulation("silica.exposure-standard.nz"), effectiveFrom: `${y}-02` });
+    expect(feb(2024).latest).toBe("2024-02-29");
+    expect(feb(2023).latest).toBe("2023-02-28");
+  });
+
+  it("refuses a value it cannot parse rather than guessing", () => {
+    expect(() =>
+      effectiveFromRange({
+        ...regulation("silica.exposure-standard.nz"),
+        effectiveFrom: "November 2023",
+      }),
+    ).toThrow(/unparseable effectiveFrom/i);
+  });
+
+  /**
+   * The padding this whole change exists to stop. An entry whose requirement
+   * admits the day is unknown must not also state one.
+   */
+  it("does not pad a day onto an entry that admits the day is unknown", () => {
+    for (const e of REGULATORY_ENTRIES) {
+      const admitsUnknown = /day was not established|not the commencement day/i.test(
+        e.requirement,
+      );
+      if (admitsUnknown) {
+        expect(effectiveFromRange(e).precision).not.toBe("day");
+      }
+    }
   });
 });
 

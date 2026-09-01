@@ -78,9 +78,9 @@ export const ELECTRICAL_ENTRIES: RegulatoryEntry[] = [
     jurisdiction: "AU",
     instrument:
       "AS/NZS 3012:2019 (Amendment 1:2020), Electrical installations - Construction and demolition sites",
-    effectiveFrom: "2019-01-01",
+    effectiveFrom: "2019",
     requirement:
-      "On a construction or demolition site every appliance, luminaire and item of electrical equipment must be supplied from a residual current device protected circuit, with a rated tripping current no greater than 30 mA. The RCD may sit at the switchboard, in the socket outlet, or in a portable socket-outlet assembly. A restoration strip-out is this kind of site: drying and extraction equipment running off site power falls inside the scope, not outside it. effectiveFrom records the publication year; the day was not established from the sources reachable here.",
+      "On a construction or demolition site every appliance, luminaire and item of electrical equipment must be supplied from a residual current device protected circuit, with a rated tripping current no greater than 30 mA. The RCD may sit at the switchboard, in the socket outlet, or in a portable socket-outlet assembly. A restoration strip-out is this kind of site: drying and extraction equipment running off site power falls inside the scope, not outside it. effectiveFrom carries year precision: the publication day was not established from the sources reachable here.",
     sourceUrl: "https://store.standards.org.au/product/as-nzs-3012-2019",
     verifiedAt: "2026-09-01",
     verification: "secondary-quoting-primary",
@@ -92,7 +92,7 @@ export const ELECTRICAL_ENTRIES: RegulatoryEntry[] = [
     jurisdiction: "AU",
     instrument:
       "AS/NZS 3760:2022, In-service safety inspection and testing of electrical equipment and RCDs",
-    effectiveFrom: "2022-06-01",
+    effectiveFrom: "2022-06",
     requirement:
       "Cord-and-plug connected equipment -- portable appliances, power tools, extension leads, power boards and portable RCDs -- is subject to in-service visual inspection and testing, covering earth continuity, insulation resistance and polarity. Fixed installations are outside this standard's scope. There is no single legislated interval: the frequency depends on the operating environment, the equipment type and how likely it is to be damaged in normal use, so a fixed number must not be presented as the requirement. AS/NZS 3760:2022 was published in June 2022 and superseded the 2010 edition; a citation of the 2010 edition is out of date.",
     sourceUrl:
@@ -107,7 +107,7 @@ export const ELECTRICAL_ENTRIES: RegulatoryEntry[] = [
     jurisdiction: "AU",
     instrument:
       "AS/NZS 3000:2018, Electrical installations (Australian/New Zealand Wiring Rules)",
-    effectiveFrom: "2018-01-01",
+    effectiveFrom: "2018",
     requirement:
       "The current Wiring Rules are the sixth edition, AS/NZS 3000:2018, incorporating Amendment 1 (2020), Amendment 2 (2021), Amendment 3 (2023, mainly switchboard and switchgear clauses) and Ruling 1 (2024). Cite the edition with its amendment state rather than a bare year. This entry records currency only: the standard's text is copyright and must not be reproduced in RestoreAssist output.",
     sourceUrl: "https://www.standards.org.au/flagship-projects/wiring-rules",
