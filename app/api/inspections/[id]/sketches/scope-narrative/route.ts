@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { buildScopeExport } from "@/lib/export/scope-contract";
+import {
+  PLAN_INPUT_SELECT,
+  planInputsFromRow,
+  type PlanInputRow,
+} from "@/lib/restoration/fetch-plan-inputs";
 import { buildScopeNarrative } from "@/lib/export/scope-narrative";
 import { serverAuthoritativeFloors } from "@/lib/sketch/measured-sketch-data";
 import type { DamageCause } from "@/lib/nz/nhcover";
@@ -48,8 +53,12 @@ export async function POST(
 
     const inspection = await prisma.inspection.findUnique({
       where: { id },
-      select: { propertyAddress: true },
+      // RA-7005: the mould signals and the power assessment come from the same
+      // row and the same shared select the report uses, so the scope's drying
+      // plan cannot contradict the report's for one job.
+      select: { propertyAddress: true, ...PLAN_INPUT_SELECT },
     });
+    const planInputs = planInputsFromRow(inspection as PlanInputRow | null);
     // ra-query-ok: Material is a seed-only reference catalogue (no tenant write path).
     const materials = await (prisma as any).material.findMany({
       select: { slug: true, name: true, isPotentialAcm: true },
@@ -74,6 +83,7 @@ export async function POST(
       : "AU";
 
     const scope = buildScopeExport({
+      ...planInputs,
       // RA-6761: server-authoritative, measured-only geometry for scope.
       floors: serverAuthoritativeFloors(body.floors, sketchRows),
       materials,

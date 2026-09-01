@@ -92,23 +92,17 @@ export function getMaterialType(id: MaterialTypeId) {
   return MATERIAL_TYPES.find((m) => m.id === id);
 }
 
-// ── Equipment ratios (IICRC S500:2021 §8.3) ──────────────────
-
-/** Recommended equipment counts per m² (IICRC S500:2021 §8.3) */
-export const IICRC_EQUIPMENT_RATIOS = {
-  dehumidifier: 40, // 1 per 40 m²
-  airMover: 15, // 1 per 15 m²
-  airScrubber: 100, // 1 per 100 m²
-} as const;
-
-export type EquipmentType = keyof typeof IICRC_EQUIPMENT_RATIOS;
-
-export function recommendedEquipment(
-  totalM2: number,
-): Record<EquipmentType, number> {
-  return {
-    dehumidifier: Math.ceil(totalM2 / IICRC_EQUIPMENT_RATIOS.dehumidifier),
-    airMover: Math.ceil(totalM2 / IICRC_EQUIPMENT_RATIOS.airMover),
-    airScrubber: Math.ceil(totalM2 / IICRC_EQUIPMENT_RATIOS.airScrubber),
-  };
-}
+// ── Equipment sizing lives in lib/restoration/equipment-planner.ts ──
+//
+// `recommendedEquipment(totalM2)` and its per-m² ratios used to be here: three
+// lines of `Math.ceil(area / ratio)`. It is deleted rather than deprecated
+// because it had no way to express either of RA-7005's two non-negotiable
+// rules — no air movers while mould is active (S520), and a load that fits the
+// derated supply (AS/NZS 3000) — so any call to it could emit a plan that is
+// unsafe to build. Its last callers (the sketch PDF annex and the scope export
+// contract) now go through `planDrying` via
+// lib/restoration/scope-drying-plan.ts, as the report, the pricing reconciler
+// and Margot already did.
+//
+// If you want equipment counts, call `buildScopeDryingPlan`. Leaving a shim
+// here would only make it easy to reintroduce the defect.

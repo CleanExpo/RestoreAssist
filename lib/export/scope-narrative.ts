@@ -8,6 +8,7 @@
  * routes via NHCover (Natural Hazards Insurance Act 2023). It references no
  * US/foreign estimating format.
  */
+import { standardCite } from "@/lib/nir-standards-mapping";
 import type { ScopeExport } from "./scope-contract";
 
 const area = (m2: number) => `${m2.toFixed(1)} m²`;
@@ -99,10 +100,51 @@ export function buildScopeNarrative(scope: ScopeExport): string {
   lines.push("");
 
   // ── Drying equipment ──
-  lines.push("## Drying equipment (ANSI/IICRC S500:2021 §6 — indicative)");
-  lines.push(`- Dehumidifiers: ${scope.dryingEquipment.dehumidifier}`);
-  lines.push(`- Air movers: ${scope.dryingEquipment.airMover}`);
-  lines.push(`- Air scrubbers: ${scope.dryingEquipment.airScrubber}`);
+  // Phased and power-bounded (RA-7005), not an area division. On a mould job the
+  // sequence is the point: Phase 1 carries no air movers at all, and a narrative
+  // that flattened the phases into one list would read as a plain equipment
+  // count and lose the S520 gate that makes it safe.
+  const plan = scope.dryingPlan;
+  lines.push(
+    `## Drying equipment (${plan ? plan.citation : standardCite("S500", "6")})`,
+  );
+  if (!plan) {
+    lines.push(
+      "No affected floor area recorded — no drying equipment sized. Record room geometry before scoping equipment.",
+    );
+  } else {
+    if (plan.mouldActive) {
+      lines.push(
+        "**Active mould on this job.** Air movers are withheld until the area clears to Condition 1 — running them over live growth aerosolises spores through the building.",
+      );
+      lines.push("");
+    }
+    for (const phase of plan.phases) {
+      lines.push(`### Phase ${phase.phase} — ${phase.label}`);
+      lines.push(`- Dehumidifiers: ${phase.equipment.dehumidifier}`);
+      lines.push(
+        `- Air movers: ${phase.equipment.airMover}${phase.airMoversAllowed ? "" : " (NONE this phase — gated behind PRV clearance)"}`,
+      );
+      lines.push(`- Air scrubbers / AFD: ${phase.equipment.airScrubber}`);
+      lines.push(`- Load: ${phase.ampsTotal}A`);
+      lines.push("");
+    }
+    const power = plan.power;
+    lines.push(
+      `Power budget: ${power.circuits} x ${power.circuitRatingA}A derated to ${Math.round(power.deratePct * 100)}% = ${power.siteUsableA}A usable.` +
+        (power.assumed
+          ? " **ASSUMED** — no on-site power assessment is on file for this job; confirm before equipment goes in."
+          : ""),
+    );
+    if (plan.powerConstrained) {
+      lines.push(
+        "The ideal equipment count exceeds what this supply can power; the counts above are what fits.",
+      );
+    }
+    for (const advisory of plan.advisories) {
+      lines.push(`- ${advisory}`);
+    }
+  }
   lines.push("");
 
   // ── Reinstatement references ──

@@ -17,6 +17,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSketchPdf, type SketchFloor } from "@/lib/generate-sketch-pdf";
+import {
+  PLAN_INPUT_SELECT,
+  planInputsFromRow,
+  type PlanInputRow,
+} from "@/lib/restoration/fetch-plan-inputs";
 import { serverAuthoritativeFloors } from "@/lib/sketch/measured-sketch-data";
 import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import type { DamageCause } from "@/lib/nz/nhcover";
@@ -63,6 +68,9 @@ export async function POST(
         user: {
           select: { businessName: true, businessLogo: true },
         },
+        // RA-7005: mould signals + power assessment for the annex's drying plan,
+        // via the shared select so this route cannot silently narrow it.
+        ...PLAN_INPUT_SELECT,
       },
     });
     if (!inspection) {
@@ -161,6 +169,7 @@ export async function POST(
         businessName: inspection.user?.businessName,
         businessLogo: inspection.user?.businessLogo,
       },
+      ...planInputsFromRow(inspection as PlanInputRow),
     });
 
     const fileName = `floor-plan-${id.slice(-8)}.pdf`;

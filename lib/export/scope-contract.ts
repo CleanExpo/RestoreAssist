@@ -22,10 +22,26 @@ import {
   type MoisturePinInput,
 } from "@/lib/sketch/pdf-scope";
 import { extractRooms, type RoomInfo } from "@/lib/sketch/extract-rooms";
-import { recommendedEquipment } from "@/lib/sketch/iicrc-utils";
+import {
+  buildScopeDryingPlan,
+  deployableEquipment,
+  type DryingEquipmentCounts,
+  type ScopeDryingPlan,
+} from "@/lib/restoration/scope-drying-plan";
+import type { PowerAssessment } from "@/lib/restoration/equipment-planner";
 import type { DamageCause } from "@/lib/nz/nhcover";
 
-export const SCOPE_SCHEMA_VERSION = "1.0";
+/**
+ * 1.1 replaced the drying-equipment calculator.
+ *
+ * Through 1.0, `dryingEquipment` was `area / per-unit coverage` with no mould
+ * gate and no electrical limit, so a mould job could be quoted air movers that
+ * the same job's report forbade. 1.1 sizes it with RA-7005's `planDrying` and
+ * adds `dryingPlan` alongside. The three keys and their meaning are unchanged
+ * for a consumer — but the NUMBERS move, and on a mould job `airMover` is now 0
+ * because the S520 sequence puts air movers in Phase 2, behind clearance.
+ */
+export const SCOPE_SCHEMA_VERSION = "1.1";
 
 export type { ScopeMaterialInfo };
 
@@ -41,12 +57,21 @@ export interface ScopeExport {
   property: { address: string; reportNumber: string };
   floors: ScopeExportFloor[];
   totalFloorAreaM2: number;
-  /** Indicative S500 §8.3 drying equipment from the total affected area. */
-  dryingEquipment: {
-    dehumidifier: number;
-    airMover: number;
-    airScrubber: number;
-  };
+  /**
+   * What may be deployed NOW — the plan's Phase 1 set.
+   *
+   * On a mould job this carries zero air movers by design (S520: they aerosolise
+   * spores until the area clears to Condition 1). The Phase 2 count is in
+   * `dryingPlan`, where it is labelled as gated behind clearance; putting it
+   * here would undo the sequence.
+   */
+  dryingEquipment: DryingEquipmentCounts;
+  /**
+   * The full phased, power-bounded plan, or null when there is nothing to dry.
+   * Carries the mould gate, the circuit budget, and whether that budget was
+   * measured or assumed.
+   */
+  dryingPlan: ScopeDryingPlan | null;
   /** Same annex object the PDF renders (materials, ACM, drying log, NCC|NHCover). */
   compliance: ComplianceAnnex;
 }
@@ -61,6 +86,15 @@ export interface ScopeExportInput {
   nccEdition?: string;
   nhCause?: DamageCause;
   estimatedRepairNzd?: number;
+  /**
+   * Active mould on the job. Derive it with `deriveMouldActive` from the same
+   * signals the report uses (`lib/restoration/fetch-plan-inputs.ts`) — a caller
+   * that computes it its own way is how the scope and the report end up
+   * contradicting each other on one job.
+   */
+  mouldActive?: boolean;
+  /** On-site power assessment. Omitted means assumed, and the plan says so. */
+  powerAssessment?: PowerAssessment;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -92,6 +126,12 @@ export function buildScopeExport(input: ScopeExportInput): ScopeExport {
     },
   );
 
+  const dryingPlan = buildScopeDryingPlan({
+    totalAreaM2: round2(totalArea),
+    mouldActive: input.mouldActive ?? false,
+    powerAssessment: input.powerAssessment,
+  });
+
   return {
     schemaVersion: SCOPE_SCHEMA_VERSION,
     jurisdiction: input.country ?? "AU",
@@ -101,7 +141,8 @@ export function buildScopeExport(input: ScopeExportInput): ScopeExport {
     },
     floors,
     totalFloorAreaM2: round2(totalArea),
-    dryingEquipment: recommendedEquipment(totalArea),
+    dryingEquipment: deployableEquipment(dryingPlan),
+    dryingPlan,
     compliance,
   };
 }
