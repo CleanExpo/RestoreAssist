@@ -18,19 +18,17 @@
  * rule in one state, not a national answer to "could this building contain
  * asbestos" -- and it was applied to every job in the country.
  *
- * Verified 2026-09-01 against the regulators, not against the codebase:
- *   AU -- all asbestos prohibited in Australian workplaces from 31 December
- *         2003; buildings constructed before that date require an asbestos
- *         survey, and a register plus management plan where ACM is found.
- *         (Safe Work Australia)
- *   NZ -- assume any building constructed OR RENOVATED before 1 January 2000
- *         may contain asbestos; a PCBU must hold an asbestos management plan
- *         for a building constructed prior to 2000.
- *         (WorkSafe New Zealand; Health and Safety at Work (Asbestos)
- *         Regulations 2016)
- *
- * The two dates differ because the two bans differ. Do not collapse them.
+ * THIS MODULE NO LONGER OWNS THE DATES. They live in
+ * lib/compliance/regulatory-registry/asbestos.ts with their instrument, source
+ * and verification date, and `check:regulatory-registry` fails the build if an
+ * entry loses its source or goes unchecked for a year. This module is the
+ * ergonomic front door: the question callers actually ask is "should I presume
+ * asbestos on this job", not "what does the register rule say".
  */
+import {
+  regulation,
+  type RegulatoryEntry,
+} from "./regulatory-registry";
 
 /** Jurisdictions whose asbestos presumption year differs. */
 export type AsbestosJurisdiction = "AU" | "NZ";
@@ -42,9 +40,24 @@ export type AsbestosJurisdiction = "AU" | "NZ";
  * Australia's ban took effect 31 December 2003, so a 2003 build is still in
  * scope; New Zealand's threshold is stated by WorkSafe as 1 January 2000.
  */
+export const ASBESTOS_PRESUMPTION_ENTRY_ID: Record<
+  AsbestosJurisdiction,
+  string
+> = {
+  AU: "asbestos.presumption-year.au",
+  NZ: "asbestos.presumption-year.nz",
+};
+
+/**
+ * Presume ACM in anything built BEFORE this year, read from the registry.
+ *
+ * The two dates differ because the two bans differ -- Australia's took effect
+ * 31 December 2003, New Zealand's threshold is 1 January 2000. Do not collapse
+ * them.
+ */
 export const ASBESTOS_PRESUMPTION_YEAR: Record<AsbestosJurisdiction, number> = {
-  AU: 2004,
-  NZ: 2000,
+  AU: Number(regulation(ASBESTOS_PRESUMPTION_ENTRY_ID.AU).value),
+  NZ: Number(regulation(ASBESTOS_PRESUMPTION_ENTRY_ID.NZ).value),
 };
 
 export interface AsbestosEraBasis {
@@ -55,22 +68,13 @@ export interface AsbestosEraBasis {
   guidance: string;
 }
 
-const BASIS: Record<AsbestosJurisdiction, AsbestosEraBasis> = {
-  AU: {
-    year: ASBESTOS_PRESUMPTION_YEAR.AU,
-    authority:
-      "Safe Work Australia — all asbestos prohibited in Australian workplaces from 31 December 2003",
-    guidance:
-      "Treat any building constructed before 2004 as possibly containing asbestos until tested. Check the asbestos register first; if a material cannot be tested, assume it is asbestos.",
-  },
-  NZ: {
-    year: ASBESTOS_PRESUMPTION_YEAR.NZ,
-    authority:
-      "WorkSafe New Zealand — Health and Safety at Work (Asbestos) Regulations 2016",
-    guidance:
-      "Treat any building constructed or renovated before 2000 as possibly containing asbestos until tested. A PCBU must hold an asbestos management plan for a pre-2000 building.",
-  },
-};
+function basisFrom(entry: RegulatoryEntry): AsbestosEraBasis {
+  return {
+    year: Number(entry.value),
+    authority: `${entry.instrument} (${entry.sourceUrl})`,
+    guidance: entry.requirement,
+  };
+}
 
 /**
  * Should this job presume asbestos from the building's age alone?
@@ -94,5 +98,5 @@ export function presumeAsbestosFromEra(
 export function asbestosEraBasis(
   jurisdiction: AsbestosJurisdiction = "AU",
 ): AsbestosEraBasis {
-  return BASIS[jurisdiction];
+  return basisFrom(regulation(ASBESTOS_PRESUMPTION_ENTRY_ID[jurisdiction]));
 }

@@ -1,0 +1,28 @@
+{
+  "note": "Lines asserting a regulatory year outside lib/compliance/regulatory-registry/. Ratchet DOWN by moving each into the registry; never up.",
+  "total": 56,
+  "files": {
+    "app/api/inspections/[id]/australian-compliance/route.ts": 2,
+    "components/inspection/NIRClaimAssessmentPanel.tsx": 1,
+    "components/RestorationInspectionReportViewer.tsx": 3,
+    "components/sketch/SketchSelectionPanel.tsx": 1,
+    "components/Tier1Questions.tsx": 2,
+    "components/VisualDashboardReport.tsx": 1,
+    "lib/ai/claim-type-prompts.ts": 5,
+    "lib/anz/materials.ts": 1,
+    "lib/anz/whs-gate.ts": 1,
+    "lib/auto-triggers.ts": 1,
+    "lib/claim-analysis-engine.ts": 1,
+    "lib/compliance/safework-notification-gate.ts": 2,
+    "lib/evidence/workflow-definitions.ts": 3,
+    "lib/gap-analysis.ts": 1,
+    "lib/generate-forensic-report-pdf.ts": 1,
+    "lib/interview/question-templates.ts": 1,
+    "lib/nir-building-codes.ts": 20,
+    "lib/nir-jurisdictional-matrix.ts": 3,
+    "lib/nir-scope-determination.ts": 2,
+    "lib/restoration/ppe-requirements.ts": 1,
+    "lib/swms/auto-generator.ts": 2,
+    "lib/validation.ts": 1
+  }
+}

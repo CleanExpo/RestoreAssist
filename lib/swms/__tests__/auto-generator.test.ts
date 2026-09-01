@@ -237,8 +237,12 @@ describe("generateSwmsDraft", () => {
       const draft = await generateSwmsDraft("insp-001");
       const asbestos = draft.hazards.find((h) => h.category === "asbestos_risk");
 
+      // The hazard now carries the INSTRUMENT and its source URL, taken from
+      // lib/compliance/regulatory-registry, rather than a hand-written phrase.
+      // That is what an assessor reads the SWMS for.
       expect(asbestos?.description).toContain("2004");
-      expect(asbestos?.description).toMatch(/Safe Work Australia/i);
+      expect(asbestos?.description).toMatch(/Work Health and Safety Regulations/i);
+      expect(asbestos?.description).toContain("https://");
     });
 
     it("does NOT include asbestos_risk for a building built after the ban", async () => {
