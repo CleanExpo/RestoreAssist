@@ -82,7 +82,7 @@
 - Entry shape carrying: instrument, jurisdiction, commencement/effective date,
   source URL, `verifiedAt`, `verifiedBy`, and a plain-English requirement.
 - `scripts/check-regulatory-registry.ts` — CI gate (rules in §11).
-- Domains, in the order of §17: asbestos (**done**), crystalline silica (**done**),
+- Domains, in the order of §17: asbestos (**done**), crystalline silica (**done**), electrical (**done**), chemicals and VOCs (**done**),
   electrical on wet sites, VOCs and hazardous chemicals, building codes.
 - The document catalogue (§9.3) as the registry's first consumer.
 
@@ -197,10 +197,96 @@ triggered where a risk assessment finds the processing of a crystalline silica
 substance is **high risk**, not by every job touching a silica-bearing material.
 The registry entry says so.
 
+### 9.2.1 Electrical — and one claim that did not survive checking
+
+Verified and seeded: the flood-reconnection inspection duty (an inundated
+installation is inspected and certified by a licensed electrical worker
+**before** supply is reconnected; submerged breakers, RCDs, relays and
+contactors are replaced, not dried and re-used; NSW records it on an Electrical
+Installation Inspection Safety Certificate); the model WHS reg 157 prohibition
+on energised work, where **convenience is expressly not an exception**; the
+AS/NZS 3012:2019 (A1:2020) requirement that all site equipment run on
+RCD-protected circuits tripping at **no more than 30 mA**; AS/NZS 3760:2022
+in-service testing, which **has no single legislated interval** and replaced the
+2010 edition; AS/NZS 3000:2018 currency (6th ed, Amd 1:2020, 2:2021, 3:2023,
+Ruling 1:2024); and New Zealand's separate route via the Electricity (Safety)
+Regulations 2010 reg 65 certificate of compliance.
+
+**Deliberately NOT seeded: the "80% continuous-load rule".** Three files assert
+it and they do not agree on its authority:
+
+| File | Cites |
+| --- | --- |
+| `lib/equipment-power.ts:35` | AS/NZS **3012**:2019 |
+| `lib/equipment-calculator-fire.ts:10` | AS/NZS **3012**:2019 |
+| `lib/restoration/equipment-planner.ts:17,60` | AS/NZS **3000** |
+
+Same rule, two authorities — the one-fact-two-answers shape that produced the
+asbestos defect. Worse, the 80%/125% continuous-load construct is
+characteristic of the **US National Electrical Code** (NEC 210.19/210.20, where
+80% is simply the inverse of the 125% multiplier). AS/NZS 3000 sizes circuits by
+maximum demand and diversity (Appendix C, Tables C1/C2) and the
+`Ib <= In <= Iz` inequality — a different method, not the same rule renamed.
+
+To be precise about what is and is not in doubt: **the number may well be sound
+conservative engineering. The citation is unproven and self-contradictory.**
+Deciding it requires the licensed text of AS/NZS 3000 and AS/NZS 3012, which
+this environment cannot reach and which is copyright regardless. Seeding it
+would be exactly the confident-sourced-unverified claim the registry exists to
+stop, so `registry.test.ts` pins the omission: any electrical entry mentioning
+`80%` or "continuous-load" fails the suite.
+
+**Owner decision E-1:** resolve the derate's authority against the standards,
+then either seed it or correct the three files to describe it as a RestoreAssist
+engineering margin rather than a standards requirement. Note one file ships the
+citation to users -- `equipment-calculator-water` surfaces `AS/NZS 3012:2019` in
+`circuitLoadWarning`, with a test asserting that string -- so this is
+customer-facing wording, not just a comment.
+
+### 9.2.2 Chemicals and VOCs — two invented limits and a threefold gap
+
+**GHS 7 has three dates, not one.** Australia 1 Jan 2023; **Western Australia
+31 Mar 2023**, three months later than every other jurisdiction; New Zealand
+reached the same revision by a different road — adopted under HSNO on
+30 Apr 2021, administered by the EPA, transition closing 30 Apr 2025. The CARSI
+course asserts "GHS 7 mandatory from 1 Jan 2023", which is wrong for a Western
+Australian workplace in that window and wrong about the instrument in NZ. The
+revision was right; nothing else was.
+
+**There is no exposure standard for total VOCs.** Standards are
+substance-specific. A hand-held TVOC meter produces a number, and a number
+invites comparison against a limit that does not exist — so "VOC levels within
+the limit" cannot be true as written. Recorded as a deliberate absence, because
+an invented limit is easier to write than a missing one is to notice.
+
+**The methamphetamine figures are not law, and not the same number.**
+
+| | Threshold | Instrument | Legal force |
+| --- | --- | --- | --- |
+| AU | **0.5 µg/100cm²** | Clandestine Drug Laboratory Remediation Guidelines | **voluntary**, not cited in legislation |
+| NZ | **1.5 µg/100cm²** high-use, 3.8 limited-use | NZS 8510:2017 | **voluntary**, not cited in legislation |
+
+New Zealand's high-use figure is **three times** Australia's. Applying the wrong
+country's number either fails a property that passes or clears one that does
+not — on a figure that decides whether a house is habitable. And a report
+calling either a legal requirement is wrong about its own foundation.
+
+A units warning worth keeping: one secondary source gave "1.5 **mg**/100cm²"
+where every other gives 1.5 **µg**/100cm². That is a thousandfold error on a
+clearance threshold. The microgram figures are the corroborated ones — this is
+exactly why a single source is not verification.
+
+**Which regulator, depends on the claim.** Products making mould, algae or pest
+claims are APVMA-registered under the Agvet Code; disinfectants making
+hospital-grade, surface or domestic claims fall to the **TGA** under Therapeutic
+Goods Order 54. It turns on the claim the product makes, not on what the
+technician intends to do with it. Applying an unregistered product, or a
+registered one off-label without an APVMA permit, is not a technique choice.
+
 **Still asserted by the CARSI course and NOT independently verified** — these
 enter the registry only after checking: the 2025 lead blood-level changes
-(20 / 5 µg/dL); GHS 7 mandatory from 1 Jan 2023; AS/NZS 1715/1716, 3012, 3760
-currency; the 85 dB(A) noise standard. Also unconfirmed: the claim in this
+(20 / 5 µg/dL); AS/NZS 1715/1716 currency; the 85 dB(A) noise standard. The
+course's GHS 7 claim has now been checked and was incomplete — see §9.2.2. Also unconfirmed: the claim in this
 repository that exposure standards become *workplace exposure limits* in
 December 2026.
 

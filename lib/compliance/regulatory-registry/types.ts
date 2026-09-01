@@ -65,7 +65,23 @@ export interface RegulatoryEntry {
   instrument: string;
   /** Section, regulation or chapter, where the rule sits at one. */
   provision?: string;
-  /** ISO date the rule commenced. */
+  /**
+   * When the rule commenced, AT THE PRECISION ACTUALLY ESTABLISHED.
+   *
+   * One of `YYYY-MM-DD`, `YYYY-MM` or `YYYY`. A shorter form is a positive
+   * claim about what is known, not a placeholder to be padded out.
+   *
+   * This began as "ISO date the rule commenced", and entries whose day was
+   * never established were written as the first of the month or the first of
+   * the year to satisfy it. That is worse than it looks: `2023-11-01` asserts
+   * a commencement day nobody verified, and any date-sensitive lookup reads it
+   * as exact -- so a rule could be reported in force three weeks before it was.
+   * Padding an unknown to fit a format is how a gap becomes a false fact.
+   *
+   * Compare with `effectiveFromRange()` rather than string ordering: a partial
+   * value denotes an interval, and which end is the safe one depends on the
+   * question being asked.
+   */
   effectiveFrom: string;
   /**
    * The requirement IN OUR OWN WORDS.

@@ -13,6 +13,8 @@
  *     December 2026.
  */
 import { ASBESTOS_ENTRIES } from "./asbestos";
+import { CHEMICALS_ENTRIES } from "./chemicals";
+import { ELECTRICAL_ENTRIES } from "./electrical";
 import { SILICA_ENTRIES } from "./silica";
 import type {
   RegulatoryDomain,
@@ -26,6 +28,8 @@ export * from "./types";
 export const REGULATORY_ENTRIES: readonly RegulatoryEntry[] = [
   ...ASBESTOS_ENTRIES,
   ...SILICA_ENTRIES,
+  ...ELECTRICAL_ENTRIES,
+  ...CHEMICALS_ENTRIES,
 ];
 
 const BY_ID = new Map(REGULATORY_ENTRIES.map((e) => [e.id, e]));
@@ -80,4 +84,49 @@ export function regulationFor(
         e.jurisdiction !== jurisdiction,
     )
   );
+}
+
+/** `YYYY-MM-DD`, `YYYY-MM` or `YYYY`. */
+const EFFECTIVE_FROM = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/;
+
+export type DatePrecision = "day" | "month" | "year";
+
+export interface EffectiveFromRange {
+  precision: DatePrecision;
+  /** Earliest day the rule could have commenced (inclusive), `YYYY-MM-DD`. */
+  earliest: string;
+  /** Latest day the rule could have commenced (inclusive), `YYYY-MM-DD`. */
+  latest: string;
+}
+
+/**
+ * Resolve `effectiveFrom` into the interval it actually denotes.
+ *
+ * A partial value is a range, not a point, and the two ends answer opposite
+ * questions. Asking "was this rule certainly in force on D?" use `latest`;
+ * asking "could it have been?" use `earliest`. Callers that compare
+ * `effectiveFrom` as a raw string get the earliest end by accident and will
+ * over-claim on a partial entry.
+ */
+export function effectiveFromRange(entry: RegulatoryEntry): EffectiveFromRange {
+  const m = EFFECTIVE_FROM.exec(entry.effectiveFrom);
+  if (!m) {
+    throw new Error(
+      `Entry "${entry.id}" has an unparseable effectiveFrom "${entry.effectiveFrom}". Use YYYY-MM-DD, YYYY-MM or YYYY.`,
+    );
+  }
+  const [, year, month, day] = m;
+  if (day) {
+    return { precision: "day", earliest: entry.effectiveFrom, latest: entry.effectiveFrom };
+  }
+  if (month) {
+    // Day 0 of the next month is the last day of this one, leap years included.
+    const end = new Date(Date.UTC(Number(year), Number(month), 0));
+    return {
+      precision: "month",
+      earliest: `${year}-${month}-01`,
+      latest: `${year}-${month}-${String(end.getUTCDate()).padStart(2, "0")}`,
+    };
+  }
+  return { precision: "year", earliest: `${year}-01-01`, latest: `${year}-12-31` };
 }

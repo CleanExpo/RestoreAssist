@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  effectiveFromRange,
   REGULATORY_ENTRIES,
   REGULATORY_DOMAINS,
   regulation,
@@ -63,7 +64,84 @@ describe("regulationFor", () => {
   // Serving an Australian rule on a NZ job is how a product tells a technician
   // the wrong law with total confidence.
   it("returns undefined rather than the Australian answer for an uncovered domain", () => {
-    expect(regulationFor("electrical", "AU")).toBeUndefined();
+    expect(regulationFor("building-code", "NZ")).toBeUndefined();
+    expect(regulationFor("building-code", "AU")).toBeUndefined();
+  });
+});
+
+/**
+ * Electrical. The domain a water-damage job touches before any drying kit is
+ * plugged in, and the one where the shared standard hides a split legal route.
+ */
+describe("electrical", () => {
+  /**
+   * The restoration-critical rule, and it is not in a wiring standard: a
+   * flood-inundated installation is inspected and certified BEFORE supply comes
+   * back. Energising a dehumidifier off a wet board skips a step the law does
+   * not treat as optional.
+   */
+  it("requires inspection before an inundated installation is re-energised", () => {
+    const au = regulation("electrical.flood-reconnection-inspection.au");
+    expect(au.requirement).toMatch(/before supply is reconnected/i);
+    expect(au.requirement).toMatch(/licensed electrical worker/i);
+    // Submerged protective devices are replaced, not dried and re-used.
+    expect(au.requirement).toMatch(/replaced rather than dried/i);
+  });
+
+  it("keeps convenience out of the energised-work exceptions", () => {
+    const r = regulation("electrical.energised-work-prohibition.au").requirement;
+    expect(r).toMatch(/prohibited/i);
+    expect(r).toMatch(/convenience is expressly not an exception/i);
+  });
+
+  it("carries the RCD trip threshold as a number, not prose", () => {
+    expect(regulationFor("electrical", "AU", "rcd")?.value).toBe(30);
+  });
+
+  /**
+   * AS/NZS 3000 is a joint standard, so the figure and the document are shared
+   * -- but New Zealand reaches it through the Electricity (Safety) Regulations
+   * 2010 and the EWRB, not through work health and safety regulations. Same
+   * trap as Victoria in the silica domain: right document, wrong legal hook.
+   */
+  it("cites New Zealand's own legal route to the shared Wiring Rules", () => {
+    const nz = regulationFor("electrical", "NZ", "wiring-rules");
+    expect(nz?.jurisdiction).toBe("NZ");
+    expect(nz?.instrument).toMatch(/Electricity \(Safety\) Regulations 2010/i);
+
+    const au = regulationFor("electrical", "AU", "wiring-rules");
+    expect(au?.jurisdiction).toBe("AU");
+    expect(au?.instrument).not.toMatch(/Electricity \(Safety\) Regulations/i);
+  });
+
+  it("does not serve the Australian WHS prohibition on a New Zealand job", () => {
+    expect(
+      regulationFor("electrical", "NZ", "energised-work-prohibition"),
+    ).toBeUndefined();
+    expect(
+      regulationFor("electrical", "NZ", "prescribed-work-certification")
+        ?.jurisdiction,
+    ).toBe("NZ");
+  });
+
+  /**
+   * A deliberate ABSENCE, pinned so it cannot be quietly filled in.
+   *
+   * Three files in this repo apply an "80% continuous-load rule" and disagree
+   * about whether its authority is AS/NZS 3000 or AS/NZS 3012. The 80%/125%
+   * continuous-load construct belongs to the US National Electrical Code;
+   * AS/NZS 3000 sizes circuits by maximum demand and diversity instead. The
+   * derate may be sound engineering, but the citation is unproven, and settling
+   * it needs the licensed standard text. Until then it must not enter the
+   * registry wearing a source it may not have.
+   */
+  it("does not assert an 80% derate it cannot source", () => {
+    const electrical = REGULATORY_ENTRIES.filter((e) => e.domain === "electrical");
+    expect(electrical.length).toBeGreaterThan(0);
+    for (const e of electrical) {
+      expect(e.requirement).not.toMatch(/80\s*%/);
+      expect(e.requirement).not.toMatch(/continuous[- ]load/i);
+    }
   });
 });
 
@@ -136,6 +214,165 @@ describe("silica exposure standards differ across the Tasman", () => {
 
     expect(au.requirement).toMatch(/31 December 2024/);
     expect(vic.requirement).toMatch(/NO transitional period/);
+  });
+});
+
+/**
+ * Commencement precision.
+ *
+ * CodeRabbit caught this on #2154: New Zealand's silica reduction was written
+ * `2023-11-01` when only "November 2023" had been established. The contract
+ * called effectiveFrom an exact date, so the unknown day got padded to the
+ * first of the month -- which asserts a commencement nobody verified and reads
+ * as exact to any date comparison. A rule could be reported in force three
+ * weeks before it was.
+ *
+ * The fix is to let the field say less when less is known, and to make the
+ * partial forms mean an interval rather than a point.
+ */
+/**
+ * Chemicals and VOCs. Three claims here are easy to state confidently and
+ * wrongly, and a restoration report makes all three in passing.
+ */
+describe("chemicals", () => {
+  /**
+   * Western Australia moved to GHS 7 three months after everyone else. A
+   * compliance line citing 1 January 2023 is wrong for a WA workplace in that
+   * window -- the state-over-national fallback has to land on the state.
+   */
+  it("gives Western Australia its own later GHS date", () => {
+    const wa = regulationFor("chemicals", "WA", "ghs");
+    const au = regulationFor("chemicals", "AU", "ghs");
+    expect(wa?.jurisdiction).toBe("WA");
+    expect(wa?.effectiveFrom).toBe("2023-03-31");
+    expect(au?.effectiveFrom).toBe("2023-01-01");
+    expect(wa?.effectiveFrom).not.toBe(au?.effectiveFrom);
+  });
+
+  it("falls back to the national GHS date in a state with no rule of its own", () => {
+    expect(regulationFor("chemicals", "NSW", "ghs")?.jurisdiction).toBe("AU");
+  });
+
+  // Same revision, different statute and different dates.
+  it("reaches GHS 7 in New Zealand by New Zealand's own route", () => {
+    const nz = regulationFor("chemicals", "NZ", "ghs");
+    expect(nz?.value).toBe(7);
+    expect(nz?.jurisdiction).toBe("NZ");
+    expect(nz?.instrument).toMatch(/Hazardous Substances and New Organisms Act 1996/i);
+    expect(nz?.instrument).not.toMatch(/Work Health and Safety Regulations/i);
+  });
+
+  /**
+   * The number that is three times different across the Tasman, on a figure
+   * that decides whether a house is habitable.
+   */
+  it("keeps the two methamphetamine thresholds apart", () => {
+    const au = regulation("chemicals.meth-remediation-guideline.au");
+    const nz = regulation("chemicals.meth-remediation-standard.nz");
+    expect(au.value).toBe(0.5);
+    expect(nz.value).toBe(1.5);
+    expect(au.value).not.toBe(nz.value);
+  });
+
+  /**
+   * And neither is law. A product selling compliance must not present
+   * guidance as a legal requirement -- that misstates its own foundation.
+   */
+  it("records that neither methamphetamine figure is legally binding", () => {
+    expect(
+      regulation("chemicals.meth-remediation-guideline.au").requirement,
+    ).toMatch(/not cited in legislation|GUIDANCE, NOT LAW/i);
+    expect(
+      regulation("chemicals.meth-remediation-standard.nz").requirement,
+    ).toMatch(/VOLUNTARY standard and is not cited in legislation/i);
+  });
+
+  /**
+   * An absence recorded on purpose. A hand-held TVOC meter produces a number,
+   * and a number invites a comparison to a limit that does not exist. An
+   * invented limit is easier to write than a missing one is to notice.
+   */
+  it("denies that a total-VOC exposure standard exists", () => {
+    const voc = regulation("chemicals.total-voc-exposure-standard.au");
+    expect(voc.requirement).toMatch(/NO workplace exposure standard for total volatile organic compounds/i);
+    expect(voc.requirement).toMatch(/substance by substance/i);
+    // An absence must not carry a scalar: a number here would be read as the limit.
+    expect(voc.value).toBeUndefined();
+  });
+
+  /**
+   * Which regulator applies turns on the claim the product makes, not on what
+   * the technician means to do with it.
+   */
+  it("keeps the APVMA and TGA split visible on antimicrobials", () => {
+    const r = regulation("chemicals.antimicrobial-registration.au").requirement;
+    expect(r).toMatch(/APVMA/);
+    expect(r).toMatch(/TGA/);
+    expect(r).toMatch(/DEPENDS ON THE CLAIM/i);
+  });
+});
+
+describe("effectiveFrom states only the precision that was established", () => {
+  it("treats a full date as a single day", () => {
+    const r = effectiveFromRange(regulation("silica.engineered-stone-ban.au"));
+    expect(r).toEqual({
+      precision: "day",
+      earliest: "2024-07-01",
+      latest: "2024-07-01",
+    });
+  });
+
+  // The entry the review was about.
+  it("carries New Zealand's silica reduction as a month, not a padded day", () => {
+    const entry = regulation("silica.exposure-standard.nz");
+    expect(entry.effectiveFrom).toBe("2023-11");
+    expect(effectiveFromRange(entry)).toEqual({
+      precision: "month",
+      earliest: "2023-11-01",
+      latest: "2023-11-30",
+    });
+  });
+
+  it("carries a standard known only by publication year as a year", () => {
+    const entry = regulation("electrical.wiring-rules.au");
+    expect(entry.effectiveFrom).toBe("2018");
+    expect(effectiveFromRange(entry)).toEqual({
+      precision: "year",
+      earliest: "2018-01-01",
+      latest: "2018-12-31",
+    });
+  });
+
+  // Month ends are computed, not assumed to be the 30th.
+  it("gets February right, leap year included", () => {
+    const feb = (y: number) =>
+      effectiveFromRange({ ...regulation("silica.exposure-standard.nz"), effectiveFrom: `${y}-02` });
+    expect(feb(2024).latest).toBe("2024-02-29");
+    expect(feb(2023).latest).toBe("2023-02-28");
+  });
+
+  it("refuses a value it cannot parse rather than guessing", () => {
+    expect(() =>
+      effectiveFromRange({
+        ...regulation("silica.exposure-standard.nz"),
+        effectiveFrom: "November 2023",
+      }),
+    ).toThrow(/unparseable effectiveFrom/i);
+  });
+
+  /**
+   * The padding this whole change exists to stop. An entry whose requirement
+   * admits the day is unknown must not also state one.
+   */
+  it("does not pad a day onto an entry that admits the day is unknown", () => {
+    for (const e of REGULATORY_ENTRIES) {
+      const admitsUnknown = /day was not established|not the commencement day/i.test(
+        e.requirement,
+      );
+      if (admitsUnknown) {
+        expect(effectiveFromRange(e).precision).not.toBe("day");
+      }
+    }
   });
 });
 

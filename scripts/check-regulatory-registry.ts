@@ -113,6 +113,17 @@ interface Violation {
 const violations: Violation[] = [];
 const yearHits: Array<{ file: string; line: number; text: string }> = [];
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/**
+ * `effectiveFrom` may state less than a full date, because sometimes less than
+ * a full date is what was established. Padding an unknown day to `-01` asserts
+ * a commencement nobody verified and reads as exact to any date comparison, so
+ * the partial forms are legal here and the padding is not.
+ *
+ * `verifiedAt` keeps ISO_DATE: that is a day we performed an action on, always
+ * known exactly, so a partial value there would be a mistake rather than a
+ * disclosure.
+ */
+const EFFECTIVE_FROM_DATE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
 const today = new Date();
 
 // ── Rule 1 + 2 — entry integrity and staleness ───────────────────────────────
@@ -154,11 +165,12 @@ for (const entry of REGULATORY_ENTRIES) {
       detail: "sourceUrl missing or not https — an unsourced regulation may not ship",
     });
   }
-  if (!ISO_DATE.test(entry.effectiveFrom ?? "")) {
+  if (!EFFECTIVE_FROM_DATE.test(entry.effectiveFrom ?? "")) {
     violations.push({
       rule: "entry-integrity",
       where: at,
-      detail: "effectiveFrom must be an ISO date (YYYY-MM-DD)",
+      detail:
+        "effectiveFrom must be YYYY-MM-DD, YYYY-MM or YYYY — at the precision actually established, never padded",
     });
   }
   if (!VERIFICATION_KINDS.includes(entry.verification)) {

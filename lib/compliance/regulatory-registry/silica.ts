@@ -70,9 +70,9 @@ export const SILICA_ENTRIES: RegulatoryEntry[] = [
     jurisdiction: "NZ",
     instrument:
       "Health and Safety at Work Act 2015; WorkSafe New Zealand workplace exposure standards",
-    effectiveFrom: "2023-11-01",
+    effectiveFrom: "2023-11",
     requirement:
-      "New Zealand's workplace exposure standard for respirable crystalline silica is 0.025 mg/m3 as an eight-hour time-weighted average -- half the Australian figure. WorkSafe reduced it from 0.05 mg/m3 in November 2023. Do not apply the Australian number on a New Zealand job. The sources reachable when this entry was written established the month but not the commencement day, so effectiveFrom records the first of that month; WorkSafe reissues the exposure-standard schedule periodically, so confirm the current edition before relying on this for monitoring.",
+      "New Zealand's workplace exposure standard for respirable crystalline silica is 0.025 mg/m3 as an eight-hour time-weighted average -- half the Australian figure. WorkSafe reduced it from 0.05 mg/m3 in November 2023. Do not apply the Australian number on a New Zealand job. The sources reachable when this entry was written established the month but not the commencement day, so effectiveFrom carries month precision rather than a padded day; WorkSafe reissues the exposure-standard schedule periodically, so confirm the current edition before relying on this for monitoring.",
     sourceUrl:
       "https://www.worksafe.govt.nz/topic-and-industry/monitoring/workplace-exposure-standards-and-biological-exposure-indices/all-substances/view/silica-crystalline-all-forms",
     verifiedAt: "2026-09-01",
