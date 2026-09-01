@@ -11,6 +11,9 @@ import {
   PortalContentSections,
 } from "@/components/portal/PortalContentHub";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
+import { requireAddonForWorkspace } from "@/lib/entitlements";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { CLIENT_EDUCATION_SKU } from "@/lib/billing/client-education-addon";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -105,9 +108,38 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
   const reportReady = inspection.report?.status === "COMPLETED";
 
-  const portalArticles = await fetchPublishedPortalContent("customer").catch(
-    () => [],
-  );
+  // CLIENT_EDUCATION add-on gate.
+  //
+  // This page has NO session user — the homeowner opens it from a token link —
+  // so the user-keyed requireAddon() cannot be used, and reaching for the
+  // technician's id would be wrong anyway: the add-on belongs to the firm that
+  // owns the job, not to whoever is assigned to it. Resolve the entitlement the
+  // way the job itself is owned: token -> Inspection -> owner -> workspace.
+  //
+  // FAILS CLOSED. Any error here (no workspace, database blip) yields the FREE
+  // article set, never the paid one. The opposite direction would leak the
+  // add-on's content on a transient fault and nothing would look wrong on the
+  // page — it would simply be fuller than the firm had paid for.
+  //
+  // An unentitled client sees the free explainers and no upsell: they are not
+  // the buyer, and a 402 about their restorer's billing is not their problem.
+  const educationEntitled = await (async () => {
+    try {
+      const workspace = await getWorkspaceForUser(inspection.userId);
+      if (!workspace) return false;
+      const gate = await requireAddonForWorkspace(
+        workspace.id,
+        CLIENT_EDUCATION_SKU,
+      );
+      return gate.allowed;
+    } catch {
+      return false;
+    }
+  })();
+
+  const portalArticles = await fetchPublishedPortalContent("customer", {
+    includeAddonContent: educationEntitled,
+  }).catch(() => []);
 
   const org = inspection.user.organization;
 
