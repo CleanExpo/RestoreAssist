@@ -9,9 +9,16 @@
  * Speech (mic) + speechSynthesis (TTS) are progressive enhancements that only
  * appear when supported. No lucide imports (design-md-lint bans net-new icons).
  *
- * The /turn route is the real gate: it returns 402 { upgradeRequired: true } for
- * an inactive subscription, or 402 PAYMENT_REQUIRED when the workspace has no
- * Anthropic (BYOK) key. Each maps to a distinct call-to-action here.
+ * The /turn route is the real gate, and it now returns THREE distinct 402s, in
+ * the order the customer has to resolve them:
+ *
+ *   { upgradeRequired: true }   inactive subscription      -> subscribe
+ *   { code: "ADDON_REQUIRED" }  no AI_COPILOT entitlement  -> enable the add-on
+ *   PAYMENT_REQUIRED            no workspace Anthropic key -> add a key
+ *
+ * Each maps to its own call-to-action below. They must be discriminated, not
+ * fallen through: telling a workspace to add an API key when the real blocker
+ * is the add-on sends them to do work that changes nothing.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -31,7 +38,7 @@ import {
 } from "@/lib/live-teacher/turn-stream";
 
 type Jurisdiction = "AU" | "NZ";
-type Gate = "subscription" | "byok" | "session";
+type Gate = "subscription" | "addon" | "byok" | "session";
 
 interface VoiceAssistantProps {
   inspectionId: string;
@@ -193,7 +200,21 @@ export function VoiceAssistant({
       if (!res.ok) {
         if (res.status === 402) {
           const body = await res.json().catch(() => ({}));
-          setGate(body?.upgradeRequired ? "subscription" : "byok");
+          // Three different 402s now reach here, so this must DISCRIMINATE
+          // rather than fall through. It used to read
+          // `upgradeRequired ? "subscription" : "byok"` — a binary, which meant
+          // any 402 that was not the subscription one rendered "add your
+          // Anthropic key". Once the add-on gate landed that told an unentitled
+          // workspace to go and provision a key it already had, and left the
+          // real blocker invisible. Match ADDON_REQUIRED explicitly and keep
+          // byok as the last resort.
+          setGate(
+            body?.upgradeRequired
+              ? "subscription"
+              : body?.code === "ADDON_REQUIRED"
+                ? "addon"
+                : "byok",
+          );
           setTurns((prev) =>
             prev.filter((t) => t.id !== assistantId && t.id !== userId),
           );
@@ -409,6 +430,22 @@ export function VoiceAssistant({
             onClick={() => router.push("/dashboard/pricing")}
           >
             View plans
+          </Button>
+        </Card>
+      )}
+
+      {gate === "addon" && (
+        <Card className="border-amber-300 bg-amber-50/60 p-3 dark:border-amber-800/50 dark:bg-amber-900/10">
+          <p className="text-sm text-neutral-700 dark:text-slate-200">
+            Margot is an add-on to your plan. Enable it to ask standards
+            questions on site and write findings straight into the job.
+          </p>
+          <Button
+            size="sm"
+            className="mt-2"
+            onClick={() => router.push("/dashboard/addons")}
+          >
+            Enable Margot
           </Button>
         </Card>
       )}

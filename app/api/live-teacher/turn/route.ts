@@ -14,6 +14,8 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { requireAddon } from "@/lib/entitlements";
+import { AI_COPILOT_SKU } from "@/lib/billing/ai-copilot-addon";
 
 // POST — stream an SSE response for a user utterance turn
 // Rule 1: getServerSession required
@@ -123,6 +125,29 @@ export async function POST(request: NextRequest) {
       { status: 402, headers: { "Content-Type": "application/json" } },
     );
   }
+
+  // Add-on gate. RestoreAssist is the CRM; the co-pilot is an $11/month bolt-on
+  // (lib/billing/ai-copilot-addon.ts). Until this gate it was gated only on the
+  // base subscription plus a workspace key, so any workspace that brought a key
+  // used it inside the base plan.
+  //
+  // ORDER MATTERS, AND IT IS NOT ARBITRARY. This sits AFTER the subscription
+  // check and BEFORE resolveWorkspaceAiKey, so each denial names the next thing
+  // the customer actually has to do: subscribe -> buy the add-on -> add a key.
+  // With the key check first, a workspace lacking both would be told to go and
+  // provision an Anthropic key, and only after doing that work discover it also
+  // needed the add-on.
+  //
+  // requireAddon() is the user-keyed guard, which is right here: the technician
+  // IS the session user and their workspace owns the entitlement. The portal's
+  // requireAddonForWorkspace() sibling exists for surfaces with no session.
+  //
+  // Its 402 carries code ADDON_REQUIRED, which is what lets the client tell this
+  // apart from the BYOK 402 — see the Gate union in VoiceAssistant.tsx. Existing
+  // users were grandfathered by scripts/grandfather-ai-copilot-addon.ts, merged
+  // ahead of this gate.
+  const addonGate = await requireAddon(session.user.id, AI_COPILOT_SKU);
+  if (!addonGate.allowed) return addonGate.response;
 
   // RA-6963 (BYOK, P1) — Live Teacher is a customer AI workload; resolve the
   // workspace's own Anthropic key after the subscription gate and pass it into

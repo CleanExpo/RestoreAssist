@@ -83,6 +83,19 @@ vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
   NoWorkspaceKeyError: MockNoWorkspaceKeyError,
 }));
 
+// The AI_COPILOT add-on gate sits between the subscription check and the key
+// resolution. Default to ENTITLED (and, like the two mocks above, defined so it
+// survives vi.clearAllMocks) so every pre-existing turn test is unaffected by
+// the gate's arrival; the gate's own tests below override it per-case.
+const mockRequireAddon = vi.fn().mockResolvedValue({
+  allowed: true,
+  sku: "AI_COPILOT",
+  workspaceId: "ws-1",
+});
+vi.mock("@/lib/entitlements", () => ({
+  requireAddon: (...args: unknown[]) => mockRequireAddon(...args),
+}));
+
 // ---------------------------------------------------------------------------
 // RA-7052 — mock the evidence completeness gate for the "before" snapshot.
 // normalizeClaimType runs for real (pure); validateSubmission is mocked.
@@ -279,6 +292,64 @@ describe("POST /api/live-teacher/turn", () => {
     expect(json.error.code).toBe("PAYMENT_REQUIRED");
     // The customer workload must never reach the cloud client on no key.
     expect(mockInvokeClaudeCloud).not.toHaveBeenCalled();
+  });
+
+  it("returns 402 ADDON_REQUIRED when the workspace lacks the AI_COPILOT add-on", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    mockRequireAddon.mockResolvedValueOnce({
+      allowed: false,
+      reason: "NOT_ENTITLED",
+      sku: "AI_COPILOT",
+      response: new Response(
+        JSON.stringify({ code: "ADDON_REQUIRED", sku: "AI_COPILOT" }),
+        { status: 402, headers: { "Content-Type": "application/json" } },
+      ),
+    });
+
+    const { POST } = await import("../turn/route");
+    const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
+      sessionId: "sess-1",
+      utterance: "How many air movers for this room?",
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(402);
+    const json = await res.json();
+    // The client discriminates on this code to show "Enable Margot" rather than
+    // the BYOK "add an API key" CTA.
+    expect(json.code).toBe("ADDON_REQUIRED");
+    expect(mockRequireAddon).toHaveBeenCalledWith("user-1", "AI_COPILOT");
+    expect(mockInvokeClaudeCloud).not.toHaveBeenCalled();
+  });
+
+  // ORDERING, LOCKED. The add-on gate must run BEFORE resolveWorkspaceAiKey, so
+  // a workspace missing both is told to enable the add-on rather than sent off
+  // to provision an Anthropic key that would change nothing. Nothing about the
+  // 402 status alone would catch a reordering — only this does.
+  it("denies the add-on before ever resolving a workspace key", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    mockRequireAddon.mockResolvedValueOnce({
+      allowed: false,
+      reason: "NOT_ENTITLED",
+      sku: "AI_COPILOT",
+      response: new Response(JSON.stringify({ code: "ADDON_REQUIRED" }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      }),
+    });
+
+    const { POST } = await import("../turn/route");
+    const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
+      sessionId: "sess-1",
+      utterance: "What class is this loss?",
+    });
+
+    await POST(req);
+    expect(mockResolveWorkspaceAiKey).not.toHaveBeenCalled();
   });
 
   it("4. persists user + assistant utterance and streams SSE", async () => {
