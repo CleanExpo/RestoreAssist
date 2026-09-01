@@ -73,13 +73,29 @@ export function resolvePowerAssessment(
     : { assessment: ASSUMED_POWER_ASSESSMENT, assumed: true };
 }
 
-/** The mould signals, spread across Report columns and the tier-1 answers. */
+/**
+ * The mould signals, spread across Report columns and the tier-1 answers.
+ *
+ * This set must stay at least as wide as the one `deriveHazardProfile` in
+ * `lib/reports/build-structured-report.ts` uses, or the two disagree on the same
+ * job: the hazard profile would classify it mould-active while the drying plan
+ * was built with `mouldActive: false` and put air movers in Phase 1. That helper
+ * now delegates its boolean determination here so they cannot drift apart.
+ */
 export interface MouldSignals {
   biologicalMouldDetected?: boolean | null;
   biologicalMouldCategory?: string | null;
   hazardType?: string | null;
   /** Tier-1 hazard checklist answers (`T1_Q7_hazards`). */
   hazards?: readonly string[] | null;
+  /** Raw technician narrative — mould is often only mentioned in prose. */
+  technicianFieldReport?: string | null;
+  /**
+   * The whole tier-1 payload, parsed or still serialised. Both work: it is
+   * stringified before matching, so a caller that has not parsed
+   * `Report.tier1Responses` yet does not have to.
+   */
+  tier1?: unknown;
 }
 
 /**
@@ -95,10 +111,34 @@ export interface MouldSignals {
  */
 export function deriveMouldActive(signals: MouldSignals | null | undefined): boolean {
   if (!signals) return false;
-  return (
-    Boolean(signals.biologicalMouldDetected) ||
-    Boolean(signals.biologicalMouldCategory) ||
-    /mou?ld/i.test(String(signals.hazardType ?? "")) ||
-    (signals.hazards ?? []).some((h) => /mou?ld/i.test(String(h)))
-  );
+  if (signals.biologicalMouldDetected || signals.biologicalMouldCategory) {
+    return true;
+  }
+  if ((signals.hazards ?? []).some((h) => MOULD.test(String(h)))) return true;
+
+  // Same free-text sweep `deriveHazardProfile` performs. tier1 is stringified
+  // rather than walked: mould can be recorded under any of its keys, and a
+  // structured reader would need updating every time the questionnaire changes.
+  // Serialising also means a caller may pass Report.tier1Responses raw.
+  const text = [
+    String(signals.hazardType ?? ""),
+    String(signals.technicianFieldReport ?? ""),
+    safeStringify(signals.tier1),
+  ].join(" ");
+  return MOULD.test(text);
+}
+
+/** Both spellings. Declared per-call-site free of the /g flag, which is stateful. */
+const MOULD = /mou?ld/i;
+
+function safeStringify(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value) ?? "";
+  } catch {
+    // A circular or otherwise unserialisable payload must not throw here — a
+    // crash in the mould check would take the whole equipment plan with it.
+    return "";
+  }
 }
