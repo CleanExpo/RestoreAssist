@@ -82,8 +82,11 @@
 - Entry shape carrying: instrument, jurisdiction, commencement/effective date,
   source URL, `verifiedAt`, `verifiedBy`, and a plain-English requirement.
 - `scripts/check-regulatory-registry.ts` — CI gate (rules in §11).
-- Domains, in the order of §17: asbestos (**done**), crystalline silica (**done**), electrical (**done**), chemicals and VOCs (**done**), building codes (**done**),
-  electrical on wet sites, VOCs and hazardous chemicals, building codes.
+- Domains, in the order of §17 — **all five now seeded**: asbestos, crystalline
+  silica, electrical, chemicals and VOCs, building codes. The pending list that
+  sat here has been removed rather than left beside the completed one: a
+  half-updated checklist reads as though work remains and is how a finished item
+  gets done twice.
 - The document catalogue (§9.3) as the registry's first consumer.
 
 ### Out of scope

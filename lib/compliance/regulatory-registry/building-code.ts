@@ -100,12 +100,12 @@ export const BUILDING_CODE_ENTRIES: RegulatoryEntry[] = [
     domain: "building-code",
     jurisdiction: "NZ",
     instrument:
-      "Building Act 2004; New Zealand Building Code, Schedule 1 of the Building Regulations 1992",
-    effectiveFrom: "2004-08-25",
+      "New Zealand Building Code, Schedule 1 of the Building Regulations 1992 (SR 1992/150), originally made under the Building Act 1991 and now administered under the Building Act 2004",
+    effectiveFrom: "1992-07-01",
     requirement:
-      "New Zealand is governed by the New Zealand Building Code, which is Schedule 1 of the Building Regulations 1992 made under the Building Act 2004. It is performance-based: the Code states what a building must achieve rather than how, and compliance is demonstrated through Acceptable Solutions, Verification Methods or an alternative solution. There is NO National Construction Code in New Zealand. Citing the NCC on a New Zealand report is not an imprecision to be tolerated -- it names a document that does not govern the job. getNccEdition() returns null for a New Zealand job for exactly this reason, and callers must handle that rather than substituting an Australian edition.",
+      "New Zealand is governed by the New Zealand Building Code, which is Schedule 1 of the Building Regulations 1992. Those regulations came into force on 1 July 1992 under the Building Act 1991; the Building Act 2004 replaced that Act and the Code continues under it. Do not describe the 1992 regulations as made under the 2004 Act -- a 1992 instrument cannot be made under a statute passed twelve years later, and the registry's own commencement date must not be the later Act's. It is performance-based: the Code states what a building must achieve rather than how, and compliance is demonstrated through Acceptable Solutions, Verification Methods or an alternative solution. There is NO National Construction Code in New Zealand. Citing the NCC on a New Zealand report is not an imprecision to be tolerated -- it names a document that does not govern the job. getNccEdition() returns null for a New Zealand job for exactly this reason, and callers must handle that rather than substituting an Australian edition.",
     sourceUrl:
-      "https://www.legislation.govt.nz/act/public/2004/0072/latest/DLM306036.html",
+      "https://www.legislation.govt.nz/regulation/public/1992/0150/latest/DLM162576.html",
     verifiedAt: "2026-09-01",
     verification: "secondary-quoting-primary",
   },

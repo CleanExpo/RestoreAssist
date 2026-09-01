@@ -377,6 +377,25 @@ describe("building codes bind to the adoption table rather than copying it", () 
    * New Zealand has no NCC. Citing one is not an imprecision; it names a
    * document that does not govern the job.
    */
+  /**
+   * Two errors lived in this one entry. CodeRabbit caught the first: the
+   * commencement was recorded as 2004-08-25, which is the later Act's date, not
+   * the Code's. Checking that surfaced the second, which the review did not
+   * flag -- the entry described the Building Regulations 1992 as "made under
+   * the Building Act 2004", and a 1992 instrument cannot be made under a
+   * statute passed twelve years later.
+   */
+  it("dates the New Zealand Building Code from its own commencement, not the later Act", () => {
+    const nz = regulation("building-code.building-code.nz");
+    expect(nz.effectiveFrom).toBe("1992-07-01");
+    expect(effectiveFromRange(nz).precision).toBe("day");
+    // The anachronism, pinned so an edit cannot quietly restore it.
+    expect(nz.requirement).not.toMatch(/Regulations 1992 made under the Building Act 2004/i);
+    expect(nz.requirement).toMatch(/came into force on 1 July 1992 under the Building Act 1991/i);
+    // Provenance points at the regulations that carry the Code, not the Act.
+    expect(nz.sourceUrl).toMatch(/regulation\/public\/1992\/0150/);
+  });
+
   it("gives New Zealand its own code and no NCC at all", () => {
     const nz = regulationFor("building-code", "NZ");
     expect(nz?.jurisdiction).toBe("NZ");
