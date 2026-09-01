@@ -738,6 +738,14 @@ export function buildScopeOfWorksData(data: {
   });
   const safety = reconcilePricingSafety({
     scopeAreas,
+    // Scope rows are the better source, but they are often absent: the area
+    // then comes from the affected-area text ("45 sqm") or Report.affectedArea.
+    // Passing only `scopeAreas` meant the reconciler saw ZERO area on those
+    // jobs and silently skipped the equipment plan and every power advisory --
+    // the mould gate still fired, but nothing checked the load fit the supply.
+    // `affectedAreaM2` takes precedence only when it is > 0, so a job with real
+    // scope rows is unaffected.
+    affectedAreaM2: affectedAreaSqm > 0 ? affectedAreaSqm : undefined,
     equipmentSelection,
     waterCategory,
     mouldActive: mouldActiveForSafety,
