@@ -8530,19 +8530,26 @@ model ClientInvite {
 
 // Customer portal content hub — platform defaults + optional NRPG seed rows.
 model PortalContent {
-  id          String    @id @default(cuid())
-  scope       String // PLATFORM_DEFAULT | NRPG_SEED
-  audience    String    @default("customer")
-  category    String
-  slug        String
-  mdxContent  String    @db.Text
-  videoSlug   String?
-  state       String    @default("DRAFT")
-  publishedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  scope         String // PLATFORM_DEFAULT | NRPG_SEED
+  audience      String    @default("customer")
+  category      String
+  slug          String
+  mdxContent    String    @db.Text
+  videoSlug     String?
+  state         String    @default("DRAFT")
+  /// Behind the CLIENT_EDUCATION add-on. False (the default) means the row is
+  /// part of the free explainer set every client already sees — gating those
+  /// would remove a feature rather than sell one. Explicit rather than inferred
+  /// from `category`, which breaks the first time a free article lands under a
+  /// new category name.
+  requiresAddon Boolean   @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([scope, slug])
   @@index([audience, category, state])
+  @@index([audience, state, requiresAddon])
   @@map("PortalContent")
 }
