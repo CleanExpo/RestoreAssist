@@ -1,123 +1,61 @@
 /**
- * Seed script for Authority Form Templates
+ * Seed script for Authority Form Templates.
  * Run with: npx tsx prisma/seed-authority-forms.ts
+ *
+ * The templates themselves live in lib/documents/authority-catalogue.ts, which
+ * is the single source of truth and the thing check:regulatory-registry gates.
+ * They used to be defined here as JSON blobs, which put the only definition of
+ * five customer-facing consent documents inside a script that nothing
+ * type-checked and no gate could see.
+ *
+ * This script is now just the writer: read the catalogue, upsert the rows.
  */
-
 import { PrismaClient } from "@prisma/client";
+import {
+  AUTHORITY_TEMPLATES,
+  formContentFor,
+} from "../lib/documents/authority-catalogue";
 
 const prisma = new PrismaClient();
-
-const formTemplates = [
-  {
-    name: "Authority to Commence Work",
-    code: "AUTH_COMMENCE",
-    description:
-      "Authorization for restoration company to commence work on the property",
-    formContent: JSON.stringify({
-      fields: [
-        {
-          id: "authorityDescription",
-          type: "textarea",
-          label: "Authority Description",
-          required: true,
-        },
-      ],
-      defaultSignatories: ["CLIENT"],
-    }),
-    isActive: true,
-  },
-  {
-    name: "Authority to Dispose",
-    code: "AUTH_DISPOSE",
-    description:
-      "Authorization to dispose of contaminated or damaged materials",
-    formContent: JSON.stringify({
-      fields: [
-        {
-          id: "authorityDescription",
-          type: "textarea",
-          label: "Authority Description",
-          required: true,
-        },
-      ],
-      defaultSignatories: ["CLIENT", "INSURER"],
-    }),
-    isActive: true,
-  },
-  {
-    name: "Authority to Not Remove Recommended Damaged Building Materials",
-    code: "AUTH_NO_REMOVE",
-    description:
-      "Client authorization to not remove recommended damaged building materials",
-    formContent: JSON.stringify({
-      fields: [
-        {
-          id: "authorityDescription",
-          type: "textarea",
-          label: "Authority Description",
-          required: true,
-        },
-      ],
-      defaultSignatories: ["CLIENT"],
-    }),
-    isActive: true,
-  },
-  {
-    name: "Authority for Chemical Treatment",
-    code: "AUTH_CHEMICAL",
-    description:
-      "Authorization for antimicrobial or chemical treatment application",
-    formContent: JSON.stringify({
-      fields: [
-        {
-          id: "authorityDescription",
-          type: "textarea",
-          label: "Authority Description",
-          required: true,
-        },
-      ],
-      defaultSignatories: ["CLIENT"],
-    }),
-    isActive: true,
-  },
-  {
-    name: "Authority for Extended Drying Period",
-    code: "AUTH_EXTENDED_DRYING",
-    description:
-      "Authorization for extended drying period beyond standard timeline",
-    formContent: JSON.stringify({
-      fields: [
-        {
-          id: "authorityDescription",
-          type: "textarea",
-          label: "Authority Description",
-          required: true,
-        },
-      ],
-      defaultSignatories: ["CLIENT"],
-    }),
-    isActive: true,
-  },
-];
 
 async function main() {
   console.log("Seeding authority form templates...");
 
-  for (const template of formTemplates) {
+  for (const spec of AUTHORITY_TEMPLATES) {
+    const formContent = formContentFor(spec);
     const existing = await prisma.authorityFormTemplate.findUnique({
-      where: { code: template.code },
+      where: { code: spec.code },
     });
 
     if (existing) {
-      console.log(`Template ${template.code} already exists, skipping...`);
+      // Previously this skipped, which meant a template that gained a
+      // regulatory citation never reached an environment that had already been
+      // seeded -- the catalogue and the database would silently disagree, and
+      // the database is what renders the document. Update the content-bearing
+      // fields and leave isActive alone so an operator's decision to retire a
+      // template is not undone by a re-seed.
+      await prisma.authorityFormTemplate.update({
+        where: { code: spec.code },
+        data: {
+          name: spec.name,
+          description: spec.description,
+          formContent,
+        },
+      });
+      console.log(`Updated template: ${spec.code}`);
       continue;
     }
 
     await prisma.authorityFormTemplate.create({
-      data: template,
+      data: {
+        code: spec.code,
+        name: spec.name,
+        description: spec.description,
+        formContent,
+        isActive: spec.isActive,
+      },
     });
-
-    console.log(`Created template: ${template.name}`);
+    console.log(`Created template: ${spec.name}`);
   }
 
   console.log("Authority form templates seeded successfully!");
