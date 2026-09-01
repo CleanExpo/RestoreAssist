@@ -15,13 +15,21 @@
 # Stdin: Stop-hook payload JSON
 # Stdout: empty (allow Stop) OR {"decision":"block","reason":"..."}
 # Exit: ALWAYS 0.
+#
+# Blocking is ONE-SHOT per turn. Claude Code sets stop_hook_active on every
+# Stop that this hook itself caused, and we allow those unconditionally. Without
+# that the claim-truthfulness domain loops forever: it greps the current turn's
+# assistant text, and text already in the transcript cannot be un-said, so the
+# same violation is re-detected on every re-stop until the CLI gives up with
+# "a hook blocked the turn from ending N consecutive times". The counter below
+# is the second line of defence, for blocks spread across separate turns.
 
 set -uo pipefail
 
 HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB="$HOOK_DIR/lib"
 REPO_DIR="$(cd "$HOOK_DIR/.." && pwd)"   # .claude/
-REPORTS_DIR="$REPO_DIR/verifier-reports"
+REPORTS_DIR="${VERIFIER_REPORTS_DIR:-$REPO_DIR/verifier-reports}"
 ERROR_LOG="$REPORTS_DIR/_hook-errors.log"
 LOOP_CAP="${VERIFIER_LOOP_CAP:-2}"
 
@@ -45,6 +53,17 @@ PAYLOAD=$(cat)
 SESSION_ID=$(echo "$PAYLOAD" | jq -r '.session_id // "unknown"' 2>/dev/null || echo "unknown")
 TRANSCRIPT=$(echo "$PAYLOAD" | jq -r '.transcript_path // empty' 2>/dev/null || echo "")
 
+STOP_HOOK_ACTIVE=$(echo "$PAYLOAD" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
+
+# ---- Recursion guard (authoritative) ----
+# True means Claude is only still running because a Stop hook blocked it. It has
+# already been told what to fix; blocking again cannot tell it anything new, and
+# for transcript-grep domains it can never clear. Allow the Stop.
+if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then
+  echo "[verifier] stop_hook_active — already blocked this turn; allowing Stop" >&2
+  exit 0
+fi
+
 if [[ -z "$TRANSCRIPT" || ! -r "$TRANSCRIPT" ]]; then
   log_err "session=$SESSION_ID: transcript not readable: $TRANSCRIPT"
   exit 0
@@ -54,9 +73,18 @@ fi
 COUNT_FILE="$REPORTS_DIR/${SESSION_ID}.count"
 COUNT=0
 if [[ -r "$COUNT_FILE" ]]; then
-  COUNT=$(cat "$COUNT_FILE" 2>/dev/null | tr -d '[:space:]')
+  COUNT=$(cat "$COUNT_FILE" 2>/dev/null | tr -cd '[:digit:]')
   [[ -z "$COUNT" ]] && COUNT=0
 fi
+
+# Record one verify cycle. Returns non-zero when the count could not be
+# persisted — the caller must then ALLOW Stop, because an unwritable reports
+# dir means nothing bounds the blocking.
+bump_count() {
+  echo $((COUNT + 1)) > "$COUNT_FILE" 2>/dev/null || true
+  [[ -r "$COUNT_FILE" ]] && (( $(cat "$COUNT_FILE" 2>/dev/null | tr -cd '[:digit:]' || echo 0) > COUNT ))
+}
+
 if (( COUNT >= LOOP_CAP )); then
   echo "[verifier] loop guard hit (${COUNT}/${LOOP_CAP}); allowing Stop" >&2
   exit 0
@@ -181,7 +209,11 @@ while IFS=$'\t' read -r D_NAME D_MATCH D_STATIC D_PROMPT; do
     continue   # domain passed (or was fail-open) → next domain
   fi
   # Domain blocked: count one verify cycle and emit the block decision.
-  echo $((COUNT + 1)) > "$COUNT_FILE" 2>/dev/null || true
+  if ! bump_count; then
+    log_err "session=$SESSION_ID: cannot persist $COUNT_FILE; allowing Stop rather than blocking unbounded"
+    echo "[verifier] loop counter unwritable; allowing Stop" >&2
+    exit 0
+  fi
   [[ -n "$DECISION" ]] && echo "$DECISION"
   exit 0
 done < <(verifier_domains)
