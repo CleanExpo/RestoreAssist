@@ -48,6 +48,7 @@ import {
   REGULATORY_ENTRIES,
   regulatoryIds,
 } from "../lib/compliance/regulatory-registry";
+import { AUTHORITY_TEMPLATES } from "../lib/documents/authority-catalogue";
 import { VERIFICATION_KINDS } from "../lib/compliance/regulatory-registry/types";
 
 /** How long an entry may go unchecked before the build fails. */
@@ -273,6 +274,59 @@ for (const root of SCAN_ROOTS) {
       }
     });
   });
+}
+
+// ── Rule 5 — document templates cite regulations by id, never in prose ───────
+//
+// spec 9.3: "a document template may only cite a registry entry id. A template
+// that hard-codes a regulation fails the gate."
+//
+// The failure this stops is one layer out from the registry itself. Before this
+// existed, "Authority for Chemical Treatment" -- a client consenting to an
+// antimicrobial being applied to their home -- carried a single free-text box
+// and no regulatory grounding whatever, so whatever the technician typed became
+// the authority. A rule stated in a document's prose is indistinguishable from
+// a rule that was checked, which is exactly how "pre-1990" survived.
+for (const spec of AUTHORITY_TEMPLATES) {
+  const at = `authority template "${spec.code}"`;
+
+  for (const id of spec.citesRegulations) {
+    if (!knownIds.has(id)) {
+      violations.push({
+        rule: "template-citation",
+        where: at,
+        detail: `cites "${id}", which is not in the registry`,
+      });
+    }
+  }
+
+  // Prose the template renders. Field HELP is included: it is shown to the
+  // person signing, so a regulation asserted there is asserted to them.
+  const prose = [
+    spec.name,
+    spec.description,
+    ...spec.fields.flatMap((f) => [f.label, f.help ?? ""]),
+  ].join(" \n ");
+
+  if (REGULATORY_KEYWORD.test(prose) && spec.citesRegulations.length === 0) {
+    violations.push({
+      rule: "template-citation",
+      where: at,
+      detail:
+        "prose names a regulated hazard but the template cites no registry entry — add the entry id to citesRegulations rather than describing the rule in the template",
+    });
+  }
+
+  // A year threshold in a template is the "pre-1990" shape in a customer-facing
+  // surface. The registry owns those; a template must resolve them at render.
+  if (YEAR_CLAIM.test(prose)) {
+    violations.push({
+      rule: "template-citation",
+      where: at,
+      detail:
+        "prose states a year threshold — resolve it from a registry entry at render time instead of writing it into the template",
+    });
+  }
 }
 
 // ── Rule 4 — compare per-file counts against the baseline ────────────────────
