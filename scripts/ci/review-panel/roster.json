@@ -4,18 +4,19 @@
     "panel.ts. Two seats sharing a family are one vote, because they share their",
     "blind spots.",
     "",
-    "COST. Every seat with \"enabled\": true is an OpenRouter `:free` variant. That",
-    "is not a cheap tier, it is a structural zero: a `:free` model cannot bill the",
-    "platform key at all, which is the invariant lib/ai/openrouter.ts enforces and",
-    "the reason the existing Stop-hook verifier can run on the shared key. Adding",
-    "a paid seat is a spend decision (rule 31), so paid seats ship disabled.",
+    "COST. Three enabled seats are OpenRouter `:free` variants. That is not a cheap",
+    "tier but a structural zero: a `:free` model cannot bill the platform key at",
+    "all, which is the invariant lib/ai/openrouter.ts enforces and the reason the",
+    "Stop-hook verifier can share that key. The fourth enabled seat, MiniMax-M2.5,",
+    "does bill — about 1.5 US cents per pull request — and the owner authorised it",
+    "in session on 2026-09-02. Any further paid seat is a new spend decision",
+    "(rule 31); that is why the OpenAI seat and the adjudicator ship disabled.",
     "",
     "The free-model landscape shifts weekly. Re-check these ids against",
     "openrouter.ai/collections/free-models when a seat starts failing; a model",
     "that has been withdrawn shows up as a failed seat, which the panel reports",
     "rather than silently counting as agreement."
   ],
-
   "seats": [
     {
       "id": "nemotron-super",
@@ -48,7 +49,7 @@
       "model": "gpt-5.1",
       "enabled": false,
       "requiresEnv": "OPENAI_API_KEY",
-      "note": "A third independent family, and the strongest available. Off by default because it bills per token: a ChatGPT Plus/Pro plan does NOT authenticate this — plan subscriptions cover the ChatGPT apps and Codex CLI signed in on your own machine, while an API call from a CI runner needs a separately-billed platform key. Enable only with the owner's spend decision."
+      "note": "The OpenAI family as a billed API seat. Disabled, and it should usually stay that way, because the `codex` local seat gets the same family for free: Codex CLI signed in with a ChatGPT plan draws on plan limits, while this seat bills per token through a separate OpenAI Platform account. A ChatGPT subscription does NOT authenticate this — the two are different billing systems. Enable it only if the panel needs an OpenAI opinion inside CI, where the plan-based seat cannot go."
     },
     {
       "id": "minimax",
@@ -61,7 +62,6 @@
       "note": "A third genuinely independent family, and the panel's paid seat. The owner authorised it in session on 2026-09-02. Model id, base URL and prices verified against MiniMax's own OpenAPI spec at platform.minimax.io on the same day, not assumed: the enum is MiniMax-M3 / M2.7 / M2.5 / M2.1 / M2 (with -highspeed variants), and M2.5 is the value pick at $0.30 per M input and $1.20 per M output. A 120KB diff plus REVIEW.md is roughly 40K input and 2K output, so about 1.5 US cents per pull request. Two things to keep straight: this is api.minimax.io, NOT the third-party minimax-m2.com deployment that also advertises an OpenAI-compatible endpoint at different prices; and it is /v1/chat/completions, NOT the /v2/video_generation endpoint the same account uses for MiniMax-H3. Consider M3 if diffs start exceeding M2.5's 204,800-token context — it carries 1M and is the coding SOTA, at a price to confirm."
     }
   ],
-
   "adjudicator": {
     "$comment": [
       "Called ONLY when the free panel splits on a Critical finding — one family",
@@ -81,5 +81,41 @@
     "requiresEnv": "ANTHROPIC_API_KEY",
     "invokeWhen": "contested-critical-only",
     "maxCallsPerRun": 3
-  }
+  },
+  "localSeats": [
+    {
+      "id": "codex",
+      "family": "openai",
+      "command": "codex",
+      "args": [
+        "exec",
+        "--ephemeral",
+        "-"
+      ],
+      "enabled": true,
+      "note": "OpenAI Codex CLI signed in with the owner's ChatGPT plan (`codex login`). Codex is INCLUDED with Plus/Pro/Business/Edu/Enterprise, so this seat draws on plan limits and bills nothing per token — it is the cheapest way to get an OpenAI-family opinion. It is deliberately a LOCAL seat only. OpenAI's own guidance is that a ChatGPT plan is licensed for interactive use by a person and automation should hold its own credential; the documented CI paths are an API key (billed) or a CODEX_AUTH_JSON bootstrap that only works cleanly on a persistent self-hosted runner. So this never runs in GitHub Actions."
+    },
+    {
+      "id": "claude-code",
+      "family": "anthropic",
+      "command": "claude",
+      "args": [
+        "-p",
+        "--output-format",
+        "text"
+      ],
+      "enabled": true,
+      "note": "Claude Code signed in with the owner's Claude plan. Same reasoning as the Codex seat: on the owner's own machine it is covered by the subscription, so it adds a fourth family at no marginal cost. Local only — the CI adjudicator remains a separate, disabled, API-key-billed thing."
+    }
+  ],
+  "$localComment": [
+    "Seats that run as a local CLI on the owner's machine rather than as an HTTP",
+    "call. They exist because both are already paid for: Codex is included with a",
+    "ChatGPT plan and Claude Code with a Claude plan, so on a laptop they are two",
+    "more independent families for nothing.",
+    "",
+    "run-local-panel.sh runs these ALONGSIDE the free OpenRouter seats, giving a",
+    "five-seat, five-family panel at zero marginal cost. run-panel.sh (the CI path)",
+    "ignores them entirely."
+  ]
 }
