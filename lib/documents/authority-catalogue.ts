@@ -25,7 +25,13 @@
  * which meant the only definition lived in a script nothing type-checked
  * against the registry.
  */
-import { regulation } from "@/lib/compliance/regulatory-registry";
+import {
+  regulation,
+  REGULATORY_ENTRIES,
+  type RegulatoryDomain,
+  type RegulatoryEntry,
+  type RegulatoryJurisdiction,
+} from "@/lib/compliance/regulatory-registry";
 
 /** Roles the existing AuthoritySignatoryRole enum accepts. */
 export type SignatoryRole =
@@ -46,6 +52,36 @@ export interface TemplateField {
   help?: string;
 }
 
+/**
+ * A rule cited by WHICH RULE IT IS, leaving the country to be chosen per job.
+ *
+ * WHY THIS EXISTS ALONGSIDE `citesRegulations`. An exact id names one country's
+ * rule. That is right for a duty only one country has -- the APVMA registration
+ * cited by AUTH_CHEMICAL has no verified New Zealand counterpart, so naming the
+ * Australian id and letting the provenance block mark it foreign is honest.
+ *
+ * It is WRONG for a duty both countries have. Asbestos and silica are the
+ * obvious cases: citing both `asbestos.presumption-year.au` and `.nz` renders
+ * both, and the foreign-entry notice then tells an Australian reader
+ * "RestoreAssist holds no verified Australian equivalent" while the Australian
+ * entry sits directly above it. A true statement about a single-country duty
+ * becomes a false one the moment the other country's entry is in the same
+ * block, and the reader has no way to tell which sentence to believe.
+ *
+ * So a family resolves to ONE entry, chosen for the job, through
+ * `regulationFor()` -- which also gives a state job its state entry and falls
+ * back to the national one, and which never hands a New Zealand job an
+ * Australian rule.
+ */
+export interface RegulationFamily {
+  domain: RegulatoryDomain;
+  /**
+   * Identifies the rule within its domain, matched against the entry id, e.g.
+   * "presumption-year" for asbestos.presumption-year.au / .nz.
+   */
+  rule: string;
+}
+
 export interface AuthorityTemplateSpec {
   code: string;
   name: string;
@@ -61,6 +97,13 @@ export interface AuthorityTemplateSpec {
    * copy that stops tracking its source the moment the entry is re-verified.
    */
   citesRegulations: string[];
+  /**
+   * Rules cited by family, resolved to the job's country at render time.
+   *
+   * Optional: the five original templates predate it and cite exact ids or
+   * nothing. Prefer this form for any duty both countries carry.
+   */
+  citesRegulationFamilies?: RegulationFamily[];
   isActive: boolean;
 }
 
@@ -176,6 +219,156 @@ export const AUTHORITY_TEMPLATES: AuthorityTemplateSpec[] = [
     citesRegulations: [],
     isActive: true,
   },
+  {
+    // Spec 9.3. The document a job needs BEFORE anyone disturbs material in a
+    // building old enough to be presumed to contain asbestos.
+    //
+    // Note what is deliberately absent from every string below: a year. The
+    // presumption year differs by country (and the registry holds both), and a
+    // year typed here would be a fourth copy of the value that already caused
+    // this repository to report a 1995 building as asbestos-free. The gate
+    // rejects a year threshold in template prose for exactly that reason; the
+    // year reaches the page through the resolved registry entry at render time.
+    code: "AUTH_ASBESTOS_ASSESSMENT",
+    name: "Asbestos Assessment Authority",
+    description:
+      "Records how asbestos was established for the property before work begins, and authorises the approach taken",
+    fields: [
+      {
+        id: "authorityDescription",
+        type: "textarea",
+        label: "Authority Description",
+        required: true,
+      },
+      {
+        id: "buildingYearBuilt",
+        type: "text",
+        label: "Year the building was constructed",
+        required: true,
+        help: "As recorded on the title, a council record or the owner's advice. Record where it came from. If nobody knows, write 'not established' — an estimate here decides whether the material is presumed to contain asbestos, and a guess is indistinguishable from a record once it is on the page.",
+      },
+      {
+        id: "assessmentBasis",
+        type: "text",
+        label: "Basis for the asbestos position",
+        required: true,
+        help: "One of: a licensed assessor's report, an existing asbestos register for the site, or presumption from the building's age. Name which.",
+      },
+      {
+        id: "assessmentReference",
+        type: "text",
+        label: "Assessor or register reference",
+        required: false,
+        help: "The report or register number, and the assessor's name and licence. Leave blank only where the basis is presumption.",
+      },
+      {
+        id: "assessmentDate",
+        type: "date",
+        label: "Date of assessment or register entry",
+        required: false,
+      },
+      {
+        id: "presumedMaterials",
+        type: "textarea",
+        label: "Materials being treated as asbestos-containing",
+        required: true,
+        help: "List them by location. A material that cannot be tested is treated as asbestos, so it belongs on this list rather than off it.",
+      },
+      {
+        id: "clientAdvisedNoDisturbance",
+        type: "checkbox",
+        label:
+          "The client has been advised not to disturb the materials listed above before work begins",
+        required: true,
+      },
+    ],
+    defaultSignatories: ["CLIENT", "CONTRACTOR"],
+    citesRegulations: [],
+    // Both countries carry a presumption duty, so it is cited by family and the
+    // job's country picks the entry. The register rules are cited separately
+    // because NSW's requirement and Queensland's exemption are DIFFERENT rules,
+    // not one rule with two spellings: a job in either state gets its own, and
+    // a job elsewhere correctly gets neither rather than a neighbour's.
+    citesRegulationFamilies: [
+      { domain: "asbestos", rule: "presumption-year" },
+      { domain: "asbestos", rule: "register-requirement" },
+      { domain: "asbestos", rule: "register-exemption" },
+    ],
+    isActive: true,
+  },
+  {
+    // Spec 9.3. Restoration cuts, grinds and drills concrete, masonry, render
+    // and tile far more often than it touches a benchtop, so this plan is built
+    // around the exposure standard and the substance regime rather than the
+    // engineered-stone prohibition. The prohibition is a different workflow with
+    // a different document, and Australia and New Zealand name their positions
+    // differently enough (a ban here, an explicit absence of one there) that
+    // citing it by family would resolve to nothing on a New Zealand job and say
+    // less than the registry actually holds. It is not cited here rather than
+    // cited badly.
+    code: "SILICA_CONTROL_PLAN",
+    name: "Silica Risk Control Plan",
+    description:
+      "Records the crystalline silica exposure expected from the planned work and the controls that will be in place before it starts",
+    fields: [
+      {
+        id: "authorityDescription",
+        type: "textarea",
+        label: "Scope of work generating dust",
+        required: true,
+      },
+      {
+        id: "materialsWorked",
+        type: "textarea",
+        label: "Materials to be cut, ground, drilled or demolished",
+        required: true,
+        help: "Concrete, masonry, render, screed, tile, fibre cement, mortar. Name each and where it is.",
+      },
+      {
+        id: "tasksAndDuration",
+        type: "textarea",
+        label: "Tasks and how long each will run",
+        required: true,
+        help: "Duration drives exposure as much as the tool does, so record it rather than the task alone.",
+      },
+      {
+        id: "engineeringControls",
+        type: "textarea",
+        label: "Controls applied at the source",
+        required: true,
+        help: "Water suppression, on-tool extraction with the class of unit, enclosure. These come before respiratory protection, not instead of it.",
+      },
+      {
+        id: "respiratoryProtection",
+        type: "text",
+        label: "Respiratory protection and fit-test reference",
+        required: true,
+        help: "The class of respirator and the date each wearer was fit-tested. An untested respirator is recorded as untested.",
+      },
+      {
+        id: "airMonitoringReference",
+        type: "text",
+        label: "Air monitoring reference",
+        required: false,
+        help: "Where monitoring has been done for comparable work, cite it. Leave blank where none has been.",
+      },
+      {
+        id: "exclusionZone",
+        type: "textarea",
+        label: "Exclusion zone and who else is on site",
+        required: true,
+        help: "Include occupants and other trades. Their exposure counts.",
+      },
+    ],
+    defaultSignatories: ["CONTRACTOR", "TECHNICIAN"],
+    // Australia-only, and cited by exact id for that reason: New Zealand has no
+    // verified counterpart in the registry, so the provenance block marks it
+    // foreign and says the New Zealand position is not held. That is the honest
+    // shape for a single-country duty, and the reason both citation forms exist.
+    citesRegulations: ["silica.crystalline-silica-substance-regime.au"],
+    citesRegulationFamilies: [{ domain: "silica", rule: "exposure-standard" }],
+    isActive: true,
+  },
 ];
 
 /**
@@ -217,6 +410,11 @@ export function formContentFor(spec: AuthorityTemplateSpec): string {
     fields: spec.fields,
     defaultSignatories: spec.defaultSignatories,
     citesRegulations: spec.citesRegulations,
+    // Omitted entirely when absent, so the five templates already seeded in
+    // live databases keep their exact stored JSON and do not churn on reseed.
+    ...(spec.citesRegulationFamilies?.length
+      ? { citesRegulationFamilies: spec.citesRegulationFamilies }
+      : {}),
   });
 }
 
@@ -260,4 +458,75 @@ export function authorityTemplate(code: string): AuthorityTemplateSpec {
     );
   }
   return spec;
+}
+
+/**
+ * Every entry a family could resolve to, in any jurisdiction.
+ *
+ * Matches the id's RULE SEGMENT EXACTLY rather than by substring. Ids are
+ * `domain.rule.jurisdiction`, and substring matching silently over-matches:
+ * "engineered-stone" also catches `engineered-stone-import-ban.au`, so a plan
+ * citing the workplace prohibition could render the customs one instead
+ * depending only on array order. An id that resolves by accident of ordering is
+ * the same class of defect as a padded date -- it looks deliberate and is not.
+ *
+ * The build gate uses this: a family matching nothing is a typo that would
+ * otherwise surface as a document silently missing its regulatory basis, which
+ * is the failure a citation-by-id was introduced to remove.
+ */
+export function familyCandidates(family: RegulationFamily): RegulatoryEntry[] {
+  return REGULATORY_ENTRIES.filter((e) => {
+    if (e.domain !== family.domain || e.supersededBy) return false;
+    const parts = e.id.split(".");
+    return parts.length === 3 && parts[1] === family.rule;
+  });
+}
+
+/**
+ * The one entry a family resolves to for a job, or undefined.
+ *
+ * Undefined has two distinct causes and the caller must tell them apart,
+ * because they are different sentences on the document:
+ *
+ *   - `jurisdiction` is null. Nobody recorded the job's country, so no rule can
+ *     be chosen. Guessing here would always guess Australia and would therefore
+ *     always look right -- see lib/documents/job-jurisdiction.ts.
+ *   - No entry exists for that country.
+ *
+ * The jurisdiction rules mirror `regulationFor()` deliberately: a state job
+ * takes its state entry and otherwise falls back to the national Australian
+ * one, and NEW ZEALAND NEVER FALLS BACK. Silence is safer than another
+ * country's law. This resolves from `familyCandidates()` rather than calling
+ * `regulationFor()` so the gate and the renderer cannot disagree about which
+ * entries a family covers -- they read the same list.
+ */
+export function resolveFamily(
+  family: RegulationFamily,
+  jurisdiction: RegulatoryJurisdiction | null,
+): RegulatoryEntry | undefined {
+  if (jurisdiction === null) return undefined;
+  const candidates = familyCandidates(family);
+  const exact = candidates.find((e) => e.jurisdiction === jurisdiction);
+  if (exact) return exact;
+  if (jurisdiction === "NZ") return undefined;
+  return candidates.find((e) => e.jurisdiction === "AU");
+}
+
+/** How a template describes a family in prose and in error messages. */
+export function familyLabel(family: RegulationFamily): string {
+  return `${family.domain}.${family.rule}`;
+}
+
+/**
+ * Does this template cite anything at all, by either form?
+ *
+ * The gate's hazard-keyword rule asks this question. Asking it of
+ * `citesRegulations` alone would leave a family-only template unguarded --
+ * exactly the hole CodeRabbit found on #2158, one form of citation later.
+ */
+export function citesAnything(spec: AuthorityTemplateSpec): boolean {
+  return (
+    spec.citesRegulations.length > 0 ||
+    (spec.citesRegulationFamilies?.length ?? 0) > 0
+  );
 }

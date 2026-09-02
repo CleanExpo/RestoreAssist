@@ -52,6 +52,9 @@ import {
   AUTHORITY_TEMPLATES,
   TEMPLATE_HAZARD_KEYWORD,
   templateProse,
+  citesAnything,
+  familyCandidates,
+  familyLabel,
 } from "../lib/documents/authority-catalogue";
 import { VERIFICATION_KINDS } from "../lib/compliance/regulatory-registry/types";
 
@@ -308,7 +311,47 @@ for (const spec of AUTHORITY_TEMPLATES) {
   // person signing, so a regulation asserted there is asserted to them.
   const prose = templateProse(spec);
 
-  if (TEMPLATE_HAZARD_KEYWORD.test(prose) && spec.citesRegulations.length === 0) {
+  // A family that matches no entry is a typo. Left unchecked it renders as a
+  // document silently missing its regulatory basis -- which is the exact
+  // failure citing by id was introduced to remove, reintroduced one level up.
+  for (const family of spec.citesRegulationFamilies ?? []) {
+    const candidates = familyCandidates(family);
+    if (candidates.length === 0) {
+      violations.push({
+        rule: "template-citation",
+        where: at,
+        detail: `cites family "${familyLabel(family)}", which matches no registry entry`,
+      });
+      continue;
+    }
+
+    // Two entries for one jurisdiction means resolution depends on array order,
+    // so the document would cite whichever happened to be declared first. An id
+    // that resolves by accident of ordering is as unverified as a padded date.
+    const perJurisdiction = new Map<string, string[]>();
+    for (const e of candidates) {
+      perJurisdiction.set(e.jurisdiction, [
+        ...(perJurisdiction.get(e.jurisdiction) ?? []),
+        e.id,
+      ]);
+    }
+    for (const [jurisdiction, ids] of perJurisdiction) {
+      if (ids.length > 1) {
+        violations.push({
+          rule: "template-citation",
+          where: at,
+          detail: `family "${familyLabel(family)}" is ambiguous for ${jurisdiction}: ${ids.join(", ")} — resolution would depend on declaration order`,
+        });
+      }
+    }
+  }
+
+  // Counts BOTH citation forms. Asking only about `citesRegulations` would
+  // leave a family-only template unguarded -- the same hole CodeRabbit found on
+  // #2158, one citation form later. Observed failing: AUTH_ASBESTOS_ASSESSMENT
+  // tripped this rule when it cited families only and the check still read
+  // `spec.citesRegulations.length === 0`.
+  if (TEMPLATE_HAZARD_KEYWORD.test(prose) && !citesAnything(spec)) {
     violations.push({
       rule: "template-citation",
       where: at,
