@@ -13,6 +13,13 @@ name: Review panel
 # AUTHORITY. The panel comments and nothing else. It cannot approve, cannot
 # block a merge, and has no write access to the branch. `permissions` below is
 # the enforcement of that, not a description of it.
+#
+# SUPPLY CHAIN. Every external action is pinned to a full immutable commit SHA
+# and drawn from the allowlist in scripts/ci/check-release-bootstrap.mjs. The
+# first version of this workflow used floating @v4 tags and actions/github-script,
+# which is not on that list at all; check:release-bootstrap caught both. The PR
+# comment is therefore posted with curl against the REST API rather than by
+# pulling in another action.
 
 on:
   pull_request:
@@ -37,15 +44,45 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      # No key for any seat means the panel is not configured yet, which is a
+      # setup state rather than a review result. Say so once and stop, instead
+      # of failing on every pull request until somebody adds a secret — a check
+      # that is permanently red teaches people to ignore red.
+      - name: Is any seat configured?
+        id: configured
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$MINIMAX_API_KEY" ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Review panel has no seat credentials configured, so it did not run. Add OPENROUTER_API_KEY (free-tier seats) or MINIMAX_API_KEY to repository secrets."
+          else
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4
+        if: steps.configured.outputs.any == 'true'
         with:
-          node-version: 20
+          node-version-file: .nvmrc
+          cache: npm
+
+      # summarise.ts runs through tsx, which lives in devDependencies. The first
+      # version of this workflow called `npx --no-install tsx` without ever
+      # installing anything, and npx refused with "canceled due to missing
+      # packages".
+      - name: Install dependencies
+        if: steps.configured.outputs.any == 'true'
+        env:
+          PRISMA_SKIP_POSTINSTALL_GENERATE: 1
+        run: npm ci --ignore-scripts
 
       - name: Collect the diff
+        if: steps.configured.outputs.any == 'true'
         run: |
           git diff --unified=3 \
             "origin/${{ github.event.pull_request.base.ref }}...HEAD" \
@@ -54,7 +91,7 @@ jobs:
           echo "diff bytes: $(wc -c < /tmp/pr.diff)"
 
       - name: Run the panel
-        id: panel
+        if: steps.configured.outputs.any == 'true'
         env:
           # The platform key. Safe to share with the OpenRouter seats because
           # openrouter-call.sh refuses a non-`:free` model against OpenRouter
@@ -73,6 +110,7 @@ jobs:
 
       - name: Summarise
         id: summarise
+        if: steps.configured.outputs.any == 'true'
         run: |
           set +e
           npx --no-install tsx scripts/ci/review-panel/summarise.ts < /tmp/panel.json > /tmp/comment.md
@@ -91,40 +129,42 @@ jobs:
           fi
           cat /tmp/comment.md
 
+      # Posted with curl rather than actions/github-script, which is not on this
+      # repository's approved-action allowlist. Updates the panel's own previous
+      # comment rather than adding one per push: a PR with fifteen stale review
+      # comments is worse than none.
       - name: Post the comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const body = fs.readFileSync('/tmp/comment.md', 'utf8');
-            const marker = '## Review panel';
+        if: steps.configured.outputs.any == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API: ${{ github.api_url }}/repos/${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          body=$(jq -Rs . < /tmp/comment.md)
 
-            // Update the panel's own previous comment rather than adding one per
-            // push. A PR with fifteen stale review comments is worse than none.
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const mine = comments.find(
-              (c) => c.user.type === 'Bot' && c.body.startsWith(marker),
-            );
+          existing=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" \
+                       -H "Accept: application/vnd.github+json" \
+                       "$API/issues/$PR/comments?per_page=100" \
+                     | jq -r 'map(select(.user.type == "Bot"
+                                         and (.body | startswith("## Review panel"))))
+                              | first | .id // empty')
 
-            if (mine) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: mine.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+          if [ -n "$existing" ]; then
+            curl -sS -X PATCH \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API/issues/comments/$existing" \
+              -d "{\"body\": $body}" > /dev/null
+            echo "updated comment $existing"
+          else
+            curl -sS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API/issues/$PR/comments" \
+              -d "{\"body\": $body}" > /dev/null
+            echo "posted a new comment"
+          fi
 
       - name: Note a degraded run
         if: steps.summarise.outputs.degraded == 'true'
