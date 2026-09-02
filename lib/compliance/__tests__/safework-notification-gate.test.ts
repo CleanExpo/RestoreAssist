@@ -22,6 +22,7 @@ function makeInspection(overrides: object = {}) {
     inspectionDate: BASE_DATE,
     propertyPostcode: "2000", // NSW
     propertyYearBuilt: null,
+    propertyCountry: "AU",
     affectedAreas: [],
     whsIncidents: [],
     ...overrides,
@@ -160,5 +161,82 @@ describe("checkSafeworkGate", () => {
     expect(types).toContain("asbestos");
     expect(types).toContain("mould");
     expect(types).toContain("biohazard");
+  });
+});
+
+/**
+ * A New Zealand job must be notified to WorkSafe New Zealand.
+ *
+ * This was broken in a way that could not be seen from the map: REGULATOR_MAP
+ * has always had an NZ entry, but the jurisdiction came from
+ * detectJurisdiction(postcode), which parses Australian postcode ranges and
+ * falls back to "NSW". The NZ entry was unreachable, so a New Zealand
+ * technician was told to notify SafeWork NSW within 24 hours of a notifiable
+ * incident. Australian and New Zealand postcodes are both four digits and
+ * overlap, so the postcode could never have distinguished them.
+ */
+describe("jurisdiction follows the country, not the postcode", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("notifies WorkSafe New Zealand on a New Zealand job", async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      makeInspection({
+        propertyCountry: "NZ",
+        // 2000 is a Sydney postcode. Country must win.
+        propertyPostcode: "2000",
+        propertyYearBuilt: 1980,
+        whsIncidents: [{ incidentType: "asbestos_ceiling_tiles" }],
+      }),
+    );
+
+    const result = await checkSafeworkGate("insp-nz");
+
+    expect(result.notifications).toHaveLength(1);
+    expect(result.notifications[0].regulator).toBe("WorkSafe New Zealand");
+    expect(result.notifications[0].regulatorUrl).toBe(
+      "https://www.worksafe.govt.nz",
+    );
+    // The bug: an Australian state regulator on a New Zealand job.
+    expect(result.notifications[0].regulator).not.toMatch(/NSW|SafeWork SA/);
+  });
+
+  /**
+   * propertyCountry is `@default("AU")`, so an "AU" value may simply be the
+   * default. It therefore falls through to postcode-based state detection
+   * exactly as before — every existing Australian result is unchanged.
+   */
+  it("still detects the Australian state from the postcode", async () => {
+    for (const [postcode, expected] of [
+      ["2000", "SafeWork NSW"],
+      ["3000", "WorkSafe Victoria"],
+      ["6000", "WorkSafe Western Australia"],
+    ] as const) {
+      vi.clearAllMocks();
+      mockFindUnique.mockResolvedValueOnce(
+        makeInspection({
+          propertyCountry: "AU",
+          propertyPostcode: postcode,
+          propertyYearBuilt: 1980,
+          whsIncidents: [{ incidentType: "asbestos_ceiling_tiles" }],
+        }),
+      );
+      const result = await checkSafeworkGate(`insp-${postcode}`);
+      expect(result.notifications[0].regulator).toBe(expected);
+    }
+  });
+
+  it("treats a missing country as Australian rather than throwing", async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      makeInspection({
+        propertyCountry: null,
+        propertyPostcode: "4000",
+        propertyYearBuilt: 1980,
+        whsIncidents: [{ incidentType: "asbestos_ceiling_tiles" }],
+      }),
+    );
+    const result = await checkSafeworkGate("insp-null-country");
+    expect(result.notifications[0].regulator).toMatch(/Queensland/);
   });
 });
