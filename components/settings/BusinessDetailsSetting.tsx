@@ -25,22 +25,35 @@ const emptyForm: BusinessForm = { businessName: "", businessAddress: "" };
 export function BusinessDetailsSetting() {
   const [form, setForm] = useState<BusinessForm>(emptyForm);
   const [loading, setLoading] = useState(true);
+  // Review P1 (03/09): a failed load must never expose an empty, saveable form,
+  // or one tap would overwrite the stored name and address with "".
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
+    setLoadFailed(false);
     fetch("/api/user/profile")
       .then(async (response) => {
         if (!response.ok) throw new Error("Business details could not be loaded");
         return response.json();
       })
-      .then(({ profile }) =>
+      .then(({ profile }) => {
         setForm({
           businessName: profile?.businessName ?? "",
           businessAddress: profile?.businessAddress ?? "",
-        }),
-      )
-      .catch((error) => toast.error(error.message))
-      .finally(() => setLoading(false));
+        });
+        setLoading(false);
+      })
+      .catch((error) => {
+        setLoadFailed(true);
+        setLoading(false);
+        toast.error(error instanceof Error ? error.message : "Business details could not be loaded");
+      });
+  };
+
+  useEffect(() => {
+    load();
   }, []);
 
   const save = async () => {
@@ -90,6 +103,16 @@ export function BusinessDetailsSetting() {
         <p role="status" className="text-sm text-slate-400">
           Loading business details…
         </p>
+      ) : loadFailed ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p role="alert" className="text-sm text-amber-400">
+            Your stored business details could not be loaded, so editing is
+            paused to avoid overwriting them.
+          </p>
+          <Button type="button" variant="outline" onClick={load} className="min-h-11">
+            Try again
+          </Button>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5">

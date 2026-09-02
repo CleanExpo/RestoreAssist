@@ -68,6 +68,26 @@ describe("BusinessDetailsSetting (RA-7432)", () => {
     });
   });
 
+  it("never offers an empty form when the stored details could not be loaded (review P1)", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({}) });
+    render(<BusinessDetailsSetting />);
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(screen.queryByLabelText("Business name")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save business details" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Try again reloads and then shows the stored details", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({}) })
+      .mockResolvedValueOnce(profileResponse({ businessName: "Acme", businessAddress: "1 Main St" }));
+    render(<BusinessDetailsSetting />);
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.getByLabelText("Business name")).toHaveValue("Acme"));
+    expect(screen.getByLabelText("Business address")).toHaveValue("1 Main St");
+  });
+
   it("surfaces the server's error message when the save is refused", async () => {
     fetchMock
       .mockResolvedValueOnce(profileResponse({}))
