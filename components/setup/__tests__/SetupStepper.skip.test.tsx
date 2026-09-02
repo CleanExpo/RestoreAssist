@@ -39,6 +39,41 @@ describe("SetupStepper — Skip setup for now (RA-7427)", () => {
     expect(screen.getByRole("button", { name: /skip setup for now/i })).toBeEnabled();
   });
 
+  it("locks the finish CTA and Next while a skip is pending (review P1: no two activation flows)", async () => {
+    const onSkip = vi.fn(() => new Promise<void>(() => {}));
+    const onFinish = vi.fn(() => new Promise<void>(() => {}));
+    const ready: SetupStepperItem[] = [
+      { key: "welcome", title: "Welcome", required: false, complete: true, content: <div>W</div> },
+      { key: "ai_key", title: "AI key", required: true, complete: true, content: <div>K</div> },
+      { key: "first_report", title: "First report", required: false, complete: false, content: <div>R</div> },
+    ];
+    render(<SetupStepper items={ready} initialIndex={2} onSkip={onSkip} onFinish={onFinish} />);
+    const finish = screen.getByRole("button", { name: /generate your first report/i });
+    expect(finish).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: /skip setup for now/i }));
+    await waitFor(() => expect(onSkip).toHaveBeenCalledTimes(1));
+    expect(finish).toBeDisabled();
+    expect(screen.getByRole("button", { name: /back/i })).toBeDisabled();
+    fireEvent.click(finish);
+    expect(onFinish).not.toHaveBeenCalled();
+  });
+
+  it("locks the skip control while a finish is pending", async () => {
+    const onSkip = vi.fn();
+    const onFinish = vi.fn(() => new Promise<void>(() => {}));
+    const ready: SetupStepperItem[] = [
+      { key: "ai_key", title: "AI key", required: true, complete: true, content: <div>K</div> },
+      { key: "first_report", title: "First report", required: false, complete: false, content: <div>R</div> },
+    ];
+    render(<SetupStepper items={ready} initialIndex={1} onSkip={onSkip} onFinish={onFinish} />);
+    fireEvent.click(screen.getByRole("button", { name: /generate your first report/i }));
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
+    const skip = screen.getByRole("button", { name: /skip setup for now/i });
+    expect(skip).toBeDisabled();
+    fireEvent.click(skip);
+    expect(onSkip).not.toHaveBeenCalled();
+  });
+
   it("does not render the control when no onSkip is wired", () => {
     render(<SetupStepper items={items()} />);
     expect(screen.queryByRole("button", { name: /skip setup for now/i })).not.toBeInTheDocument();
