@@ -1,0 +1,12 @@
+The regulator differs by country, so this has to branch before it writes any text.
+
+const regulator =
+  inspection.propertyCountry === "NZ"
+    ? "WorkSafe New Zealand"
+    : safeWorkRegulatorForState(inspection.propertyState);
+
+return `Notify ${regulator} before licensed asbestos removal begins.`;
+
+For Australia the authority is the state regulator, not a single national body, so
+SafeWork NSW is only correct for a New South Wales job — that lookup already exists
+in lib/compliance/safework-notification-gate.ts.

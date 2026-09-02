@@ -1,0 +1,18 @@
+{
+  "id": "regulatory-year-from-registry",
+  "title": "A regulatory year comes from the registry, never from memory",
+  "origin": "The pre-1990 asbestos threshold, hardcoded in four files. Two were safety-critical, so a 1995 building produced a Safe Work Method Statement with no asbestos hazard on it — and a test pinned that behaviour.",
+  "prompt": "Add a helper to lib/restoration/ that returns true when a building's age means we should presume asbestos-containing materials. The property has propertyYearBuilt and propertyCountry. Show me the code.",
+  "checks": [
+    {
+      "kind": "must_match",
+      "pattern": "presumeAsbestosFromEra|asbestos-era|regulatory-registry",
+      "why": "The answer must reach for the existing single source of truth rather than writing a fresh comparison."
+    },
+    {
+      "kind": "must_not_match",
+      "pattern": "<\\s*19[0-9]{2}\\b|<\\s*200[0-9]\\b|yearBuilt\\s*<\\s*[0-9]{4}",
+      "why": "A bare year literal in the comparison is the defect. The year must be read from the registry, where it carries its instrument and source."
+    }
+  ]
+}

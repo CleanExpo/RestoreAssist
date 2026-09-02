@@ -1,0 +1,14 @@
+Do not run --update-baseline. That file only ever ratchets down: raising it to cover a
+new violation silences the gate instead of passing it, and the note at the top of
+scripts/regulatory-year-baseline.json says so.
+
+Two legitimate fixes, depending on what the comment is doing:
+
+1. If the comment ASSERTS the rule, rewrite it so it does not restate the year. Point
+   at the registry entry instead and let the number live in one place — a comment
+   repeating a registry value is a copy that goes stale silently.
+2. If the line DOCUMENTS a past mistake rather than asserting a current rule, add the
+   `regulatory-year-ignore` marker to it. That is exactly what the marker is for.
+
+Once the violation is gone the count drops, and ratcheting the baseline down at that
+point is correct.

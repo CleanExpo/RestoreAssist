@@ -1,0 +1,16 @@
+The threshold already exists and must not be re-derived. lib/compliance/asbestos-era.ts
+is the front door, and it reads lib/compliance/regulatory-registry/asbestos.ts so the
+year cannot drift from its instrument.
+
+import { presumeAsbestosFromEra } from "@/lib/compliance/asbestos-era";
+
+export function shouldPresumeAcm(inspection: {
+  propertyYearBuilt: number | null;
+  propertyCountry: string;
+}): boolean {
+  const jurisdiction = inspection.propertyCountry === "NZ" ? "NZ" : "AU";
+  return presumeAsbestosFromEra(inspection.propertyYearBuilt, jurisdiction);
+}
+
+Note the jurisdiction is threaded through rather than defaulted: the two years differ,
+and a New Zealand job judged by the Australian year is a live defect class here.

@@ -86,11 +86,17 @@ one part of this repo that no other suite covers.
 
 ```bash
 bash .claude/hooks/tests/test-guards.sh    # the two PreToolUse guards
+bash evals/check.sh                        # skills, rules and CLAUDE.md
 ```
 
+Both run in `.github/workflows/agent-evals.yml` on any change to `.claude/**`,
+`CLAUDE.md` or `evals/**`, and nightly. Neither needs an API key or a network.
+
+### The guard tests
+
 The suite ends by neutering each guard and re-running the deny cases. If an inert
-guard still reads as a deny, the suite reports `BROKEN` and exits non-zero, because
-an assertion that passes against a guard doing nothing is not testing the guard.
+guard still reads as a deny, it reports `BROKEN` and exits non-zero, because an
+assertion that passes against a guard doing nothing is not testing the guard.
 
 That check exists because of what it found. Both guards previously lived inline in
 `.claude/settings.local.json`, read `$CLAUDE_TOOL_INPUT` and `$CLAUDE_FILE_PATH`
@@ -102,3 +108,14 @@ control everyone believed was holding.
 
 The lesson generalises: **a hook is not a control until you have watched it refuse
 something.** Add a deny case and a dead-check for any guard you add.
+
+### The evals
+
+`evals/` covers the rest of the configuration: 62 skills, 33 rules, the always-on
+rule files, and `CLAUDE.md`. Each case is a mistake that actually happened here,
+and ships with the defective answer recorded alongside the good one. The suite
+runs both, and reports a case `BROKEN` if its DEFECTIVE answer also passes —
+which is the same doctrine as above, applied to a check rather than a hook.
+
+`bash evals/check.sh --live` calls a real agent instead of reading the recorded
+answers, and costs whatever that agent costs. See `evals/README.md`.
