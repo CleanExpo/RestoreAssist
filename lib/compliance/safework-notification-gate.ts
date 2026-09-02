@@ -20,6 +20,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { resolveAreaSqm } from "@/lib/units";
+import {
+  asbestosEraBasis,
+  presumeAsbestosFromEra,
+  type AsbestosJurisdiction,
+} from "./asbestos-era";
 
 type Jurisdiction =
   | "NSW"
@@ -144,9 +149,26 @@ export async function checkSafeworkGate(
   );
 
   // ── Trigger 1: Asbestos suspected ─────────────────────────────────────────
-  // AU: pre-2004 building; NZ: pre-2000 building (NZ check skipped until RA-1120)
+  //
+  // Through the SSOT, not a literal. This carried `yearBuilt < 2004` beside a
+  // comment reading "NZ check skipped until RA-1120", which was harmless only
+  // for as long as `jurisdiction` could never BE New Zealand -- it came from an
+  // Australian postcode map. Reading propertyCountry above made NZ reachable
+  // and turned that dormant note into a live defect: New Zealand's threshold is
+  // 1 January 2000, so a 2002 Auckland building was told it pre-dated the
+  // threshold when its own rule says it does not.
+  //
+  // presumeAsbestosFromEra reads both years from
+  // lib/compliance/regulatory-registry/asbestos.ts, where each carries its
+  // instrument, source and verification date.
+  const asbestosJurisdiction: AsbestosJurisdiction =
+    jurisdiction === "NZ" ? "NZ" : "AU";
+  const eraBasis = asbestosEraBasis(asbestosJurisdiction);
   const yearBuilt = inspection.propertyYearBuilt;
-  const buildingPreDates = yearBuilt != null && yearBuilt < 2004;
+  const buildingPreDates = presumeAsbestosFromEra(
+    yearBuilt,
+    asbestosJurisdiction,
+  );
   const hasAsbestosIncident = incidentTypes.some((t) => t.includes("asbestos"));
   if (buildingPreDates && hasAsbestosIncident) {
     notifications.push({
@@ -156,7 +178,10 @@ export async function checkSafeworkGate(
       deadline,
     });
     warnings.push(
-      `Asbestos suspected (pre-2004 building, year built: ${yearBuilt}). ` +
+      // The year the gate actually applied, not a fixed one. "pre-2004" printed
+      // on a New Zealand job teaches the technician the wrong rule even when
+      // the decision itself was right.
+      `Asbestos suspected (pre-${eraBasis.year} building, year built: ${yearBuilt}). ` +
         `Notify ${regulator.name} by ${deadline.toISOString()}.`,
     );
   }

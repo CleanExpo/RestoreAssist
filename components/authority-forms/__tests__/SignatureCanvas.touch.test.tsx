@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { SignatureCanvas } from "../SignatureCanvas";
 
 /**
@@ -25,6 +25,7 @@ function ctxStub() {
     lineTo: vi.fn(),
     stroke: vi.fn(),
     setTransform: vi.fn(),
+    drawImage: vi.fn(),
     getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4) })),
     putImageData: vi.fn(),
     clearRect: vi.fn(),
@@ -34,6 +35,34 @@ function ctxStub() {
     lineJoin: "",
     lineWidth: 0,
   };
+}
+
+/**
+ * Give the canvas the CSS box the component itself just set on it.
+ *
+ * jsdom's getBoundingClientRect is all zeros. Hardcoding a box instead would
+ * make the test assert against a shape the component never produces -- a first
+ * attempt used 400x200 while the component had sized itself 400x167, and the
+ * coordinate correction for a CSS-scaled element then fired legitimately and
+ * looked like a failure.
+ */
+function stubBoxFromStyle(canvas: HTMLCanvasElement) {
+  const width = parseFloat(canvas.style.width) || 0;
+  const height = parseFloat(canvas.style.height) || 0;
+  canvas.getBoundingClientRect = () =>
+    ({ left: 0, top: 0, right: width, bottom: height, width, height, x: 0, y: 0,
+       toJSON: () => ({}) }) as DOMRect;
+  return { width, height };
+}
+
+function pointer(type: string, clientX: number, clientY: number) {
+  const e = new Event(type, { bubbles: true, cancelable: true }) as Event & {
+    clientX: number; clientY: number; pointerId: number;
+  };
+  e.clientX = clientX;
+  e.clientY = clientY;
+  e.pointerId = 1;
+  return e;
 }
 
 describe("SignatureCanvas on touch devices", () => {
@@ -121,5 +150,105 @@ describe("SignatureCanvas on touch devices", () => {
   it("still renders the signing affordance", () => {
     render(<SignatureCanvas onSave={vi.fn()} />);
     expect(screen.getByText(/draw your signature/i)).toBeInTheDocument();
+  });
+});
+
+describe("SignatureCanvas under a device-pixel-ratio backing store", () => {
+  // ONE shared context, unlike the block above. vi.fn(ctxStub) builds a fresh
+  // stub per getContext() call, so a test that grabbed its own would be
+  // inspecting a different object than the component drew into -- every spy
+  // reads zero calls and the assertion fails for a reason that has nothing to
+  // do with the component.
+  let ctx: ReturnType<typeof ctxStub>;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    ctx = ctxStub();
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      value: 402,
+    });
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ctx) as never;
+    HTMLCanvasElement.prototype.toDataURL = vi.fn(() => "data:image/png;base64,AA");
+    HTMLCanvasElement.prototype.setPointerCapture = vi.fn();
+    Object.defineProperty(window, "devicePixelRatio", {
+      configurable: true,
+      value: 2,
+    });
+  });
+
+  /**
+   * The stroke must land where the finger is.
+   *
+   * The context is scaled with setTransform(dpr, ...), so it expects CSS-pixel
+   * coordinates. A pointer helper that ALSO multiplies by the ratio doubles
+   * every coordinate: on a dpr-2 phone the signature is drawn at twice the
+   * touch position and most of it falls outside the canvas. That is a defect
+   * the DPR change introduced, on exactly the devices it was meant to improve,
+   * and it is invisible at dpr 1 where the factor is 1.
+   */
+  it("draws at the pointer position, not at the pointer position times the ratio", () => {
+    const { container } = render(<SignatureCanvas onSave={vi.fn()} />);
+    const canvas = container.querySelector("canvas")!;
+    stubBoxFromStyle(canvas);
+
+    act(() => {
+      canvas.dispatchEvent(pointer("pointerdown", 100, 50));
+    });
+
+    expect(ctx.moveTo).toHaveBeenCalledWith(100, 50);
+  });
+
+  /**
+   * Rotating the tablet must not wipe the signature.
+   *
+   * Assigning canvas.width or canvas.height resets the bitmap, and the sizing
+   * effect does both whenever canvasSize changes. Adding an orientationchange
+   * listener made that fire on the one gesture the change was written for, so
+   * a client who rotated the tablet mid-signature watched it vanish. The effect
+   * has to carry the pixels across the resize.
+   */
+  it("carries the drawn signature across an orientation change", () => {
+    const { container } = render(<SignatureCanvas onSave={vi.fn()} />);
+    const canvas = container.querySelector("canvas")!;
+    stubBoxFromStyle(canvas);
+
+    act(() => {
+      canvas.dispatchEvent(pointer("pointerdown", 100, 50));
+    });
+    canvas.dispatchEvent(pointer("pointermove", 140, 70));
+    ctx.drawImage.mockClear();
+
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      value: 302,
+    });
+    act(() => {
+      window.dispatchEvent(new Event("orientationchange"));
+    });
+
+    expect(ctx.drawImage).toHaveBeenCalled();
+  });
+
+  /**
+   * The negative control for the test above. Without it, an effect that called
+   * drawImage unconditionally on every resize would satisfy the assertion while
+   * restoring nothing.
+   */
+  it("does not restore anything when nothing has been drawn", () => {
+    const { container } = render(<SignatureCanvas onSave={vi.fn()} />);
+    const canvas = container.querySelector("canvas")!;
+    stubBoxFromStyle(canvas);
+    ctx.drawImage.mockClear();
+
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      value: 302,
+    });
+    act(() => {
+      window.dispatchEvent(new Event("orientationchange"));
+    });
+
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 });
