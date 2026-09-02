@@ -31,6 +31,10 @@ export function SignatureCanvas({
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [strokeHistory, setStrokeHistory] = useState<ImageData[]>([]);
+  // Whether anything has been drawn, readable from the sizing effect WITHOUT
+  // putting it in that effect's dependencies -- doing so would re-run the
+  // effect on every stroke, and the effect resets the bitmap.
+  const hasDrawnRef = useRef(false);
   const [canvasSize, setCanvasSize] = useState({ width, height });
   const [lineColor, setLineColor] = useState(initialLineColor);
   const [lineWidth, setLineWidth] = useState(initialLineWidth);
@@ -83,6 +87,22 @@ export function SignatureCanvas({
         ? Math.min(window.devicePixelRatio, 3)
         : 1;
 
+    // Assigning width or height RESETS the bitmap, so anything already drawn is
+    // gone. This effect re-runs whenever canvasSize changes, and the
+    // orientationchange listener above made that fire on the one gesture this
+    // component was fixed for: a client rotating the tablet mid-signature
+    // watched their signature vanish. Copy it to an offscreen canvas first --
+    // canvas-to-canvas drawImage is synchronous, unlike an Image from a data
+    // URL, so there is no frame where the signature is missing.
+    let preserved: HTMLCanvasElement | null = null;
+    if (hasDrawnRef.current && canvas.width > 0 && canvas.height > 0) {
+      const off = document.createElement("canvas");
+      off.width = canvas.width;
+      off.height = canvas.height;
+      off.getContext("2d")?.drawImage(canvas, 0, 0);
+      preserved = off;
+    }
+
     canvas.width = Math.round(canvasSize.width * dpr);
     canvas.height = Math.round(canvasSize.height * dpr);
     canvas.style.width = `${canvasSize.width}px`;
@@ -91,6 +111,15 @@ export function SignatureCanvas({
 
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+    if (preserved) {
+      // Scaled into the new CSS box: a rotation changes the width, and a
+      // signature redrawn at its old pixel size would be cropped instead.
+      ctx.drawImage(preserved, 0, 0, canvasSize.width, canvasSize.height);
+      // The undo stack holds ImageData at the OLD backing-store dimensions.
+      // putImageData ignores the transform and does not scale, so replaying one
+      // after a resize would paint a mis-sized rectangle over the signature.
+      setStrokeHistory([]);
+    }
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = lineWidth;
@@ -102,14 +131,24 @@ export function SignatureCanvas({
       const canvas = canvasRef.current;
       if (!canvas) return { x: 0, y: 0 };
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
+      // CSS pixels, NOT backing-store pixels. The context is scaled with
+      // setTransform(dpr, ...), so it already maps CSS pixels onto the larger
+      // bitmap; scaling here as well multiplied every coordinate by the device
+      // pixel ratio, and on a dpr-2 phone the stroke landed at twice the touch
+      // position with most of it off the canvas. Invisible at dpr 1, which is
+      // every desktop, which is why it needed a test rather than a look.
+      //
+      // The ratio below is canvasSize over the measured box, which is 1 unless
+      // CSS has scaled the element -- it corrects for that case and for nothing
+      // else.
+      const scaleX = rect.width ? canvasSize.width / rect.width : 1;
+      const scaleY = rect.height ? canvasSize.height / rect.height : 1;
       return {
         x: (e.clientX - rect.left) * scaleX,
         y: (e.clientY - rect.top) * scaleY,
       };
     },
-    [],
+    [canvasSize],
   );
 
   const saveSnapshot = useCallback(() => {
@@ -131,6 +170,7 @@ export function SignatureCanvas({
       if (!ctx) return;
 
       saveSnapshot();
+      hasDrawnRef.current = true;
       setIsDrawing(true);
       canvas.setPointerCapture(e.pointerId);
 
@@ -206,16 +246,20 @@ export function SignatureCanvas({
     if (!ctx) return;
 
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // CSS pixels: the transform scales this up to the backing store. Passing
+    // canvas.width here painted a rectangle dpr times too large -- harmless for
+    // a clear, but it is the same units confusion that displaced the strokes.
+    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = lineWidth;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
+    hasDrawnRef.current = false;
     setHasSignature(false);
     setStrokeHistory([]);
     onClear?.();
-  }, [lineColor, lineWidth, onClear]);
+  }, [canvasSize, lineColor, lineWidth, onClear]);
 
   const handleUndo = useCallback(() => {
     if (strokeHistory.length === 0) return;
