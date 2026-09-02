@@ -77,3 +77,28 @@ After changes to these areas, run the corresponding checks:
 | Invoice system    | `npx playwright test e2e/billing.spec.ts`           |
 | Integration sync  | Check `IntegrationSyncLog` for errors after sync    |
 | Prisma schema     | `npx prisma validate` then `npx prisma migrate dev` |
+| Agent hooks       | `bash .claude/hooks/tests/test-guards.sh`           |
+
+## Testing the agent's own configuration
+
+The hooks, skills and rules under `.claude/` steer every session, and they are the
+one part of this repo that no other suite covers.
+
+```bash
+bash .claude/hooks/tests/test-guards.sh    # the two PreToolUse guards
+```
+
+The suite ends by neutering each guard and re-running the deny cases. If an inert
+guard still reads as a deny, the suite reports `BROKEN` and exits non-zero, because
+an assertion that passes against a guard doing nothing is not testing the guard.
+
+That check exists because of what it found. Both guards previously lived inline in
+`.claude/settings.local.json`, read `$CLAUDE_TOOL_INPUT` and `$CLAUDE_FILE_PATH`
+(variables Claude Code does not set — the payload arrives as JSON on stdin), and
+exited 1 on a match. Exit 1 is a non-blocking hook error; only exit 2, or a
+`permissionDecision` of `"deny"`, blocks. So for as long as they existed they
+printed the word `BLOCKED` and let the call through. Two independent defects, in a
+control everyone believed was holding.
+
+The lesson generalises: **a hook is not a control until you have watched it refuse
+something.** Add a deny case and a dead-check for any guard you add.
