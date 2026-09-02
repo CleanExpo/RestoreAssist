@@ -1,0 +1,85 @@
+{
+  "$comment": [
+    "Who sits on the review panel. Seats are counted by FAMILY, not by id — see",
+    "panel.ts. Two seats sharing a family are one vote, because they share their",
+    "blind spots.",
+    "",
+    "COST. Every seat with \"enabled\": true is an OpenRouter `:free` variant. That",
+    "is not a cheap tier, it is a structural zero: a `:free` model cannot bill the",
+    "platform key at all, which is the invariant lib/ai/openrouter.ts enforces and",
+    "the reason the existing Stop-hook verifier can run on the shared key. Adding",
+    "a paid seat is a spend decision (rule 31), so paid seats ship disabled.",
+    "",
+    "The free-model landscape shifts weekly. Re-check these ids against",
+    "openrouter.ai/collections/free-models when a seat starts failing; a model",
+    "that has been withdrawn shows up as a failed seat, which the panel reports",
+    "rather than silently counting as agreement."
+  ],
+
+  "seats": [
+    {
+      "id": "nemotron-super",
+      "family": "nemotron",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "enabled": true,
+      "note": "The default the repo already runs for Margot and the Stop verifier. Quality 60, 1M context, built for agentic work."
+    },
+    {
+      "id": "gemma",
+      "family": "gemma",
+      "provider": "openrouter",
+      "model": "google/gemma-4-31b-it:free",
+      "enabled": true,
+      "note": "A genuinely different family, and the highest generic-quality free model at the last review (Quality 65, 262K). This seat is what makes the panel a panel."
+    },
+    {
+      "id": "nemotron-ultra",
+      "family": "nemotron",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "enabled": true,
+      "note": "SAME FAMILY as nemotron-super, deliberately. It adds depth, not independence: when both Nemotron seats agree and Gemma does not, that is one vote against one, not two against one. panel.ts enforces this by counting families."
+    },
+    {
+      "id": "openai",
+      "family": "openai",
+      "provider": "openai",
+      "model": "gpt-5.1",
+      "enabled": false,
+      "requiresEnv": "OPENAI_API_KEY",
+      "note": "A third independent family, and the strongest available. Off by default because it bills per token: a ChatGPT Plus/Pro plan does NOT authenticate this — plan subscriptions cover the ChatGPT apps and Codex CLI signed in on your own machine, while an API call from a CI runner needs a separately-billed platform key. Enable only with the owner's spend decision."
+    },
+    {
+      "id": "minimax",
+      "family": "minimax",
+      "provider": "openai-compatible",
+      "baseUrl": "https://api.minimax.io/v1",
+      "model": "MiniMax-M2.5",
+      "enabled": true,
+      "requiresEnv": "MINIMAX_API_KEY",
+      "note": "A third genuinely independent family, and the panel's paid seat. The owner authorised it in session on 2026-09-02. Model id, base URL and prices verified against MiniMax's own OpenAPI spec at platform.minimax.io on the same day, not assumed: the enum is MiniMax-M3 / M2.7 / M2.5 / M2.1 / M2 (with -highspeed variants), and M2.5 is the value pick at $0.30 per M input and $1.20 per M output. A 120KB diff plus REVIEW.md is roughly 40K input and 2K output, so about 1.5 US cents per pull request. Two things to keep straight: this is api.minimax.io, NOT the third-party minimax-m2.com deployment that also advertises an OpenAI-compatible endpoint at different prices; and it is /v1/chat/completions, NOT the /v2/video_generation endpoint the same account uses for MiniMax-H3. Consider M3 if diffs start exceeding M2.5's 204,800-token context — it carries 1M and is the coding SOTA, at a price to confirm."
+    }
+  ],
+
+  "adjudicator": {
+    "$comment": [
+      "Called ONLY when the free panel splits on a Critical finding — one family",
+      "says a security or data-loss defect exists and the others do not. That is",
+      "the one question worth paying to settle, because both possible errors are",
+      "expensive: shipping the defect, or crying wolf until reviews get ignored.",
+      "",
+      "It is not a reviewer. It sees the contested finding and the diff, and",
+      "answers whether the finding stands. Everything else stays free.",
+      "",
+      "Disabled until the owner makes the spend decision. While disabled, a",
+      "contested Critical is reported as an unconfirmed lead and says so."
+    ],
+    "enabled": false,
+    "provider": "anthropic",
+    "model": "claude-opus-5",
+    "requiresEnv": "ANTHROPIC_API_KEY",
+    "invokeWhen": "contested-critical-only",
+    "maxCallsPerRun": 3
+  }
+}
