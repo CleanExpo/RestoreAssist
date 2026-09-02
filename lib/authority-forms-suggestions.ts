@@ -47,6 +47,15 @@ export interface ReportAnalysis {
   jurisdiction?: "AU" | "NZ" | null;
   /** Cutting, grinding, drilling or breaking silica-bearing material. */
   hasDustGeneratingWork?: boolean;
+  /**
+   * How many WHS incidents the linked inspection carries.
+   *
+   * Any at all makes the Notifiable Incident Record required. Whether a given
+   * incident is legally notifiable is a judgement about facts that belongs with
+   * a person and their regulator -- so this offers the document and lets them
+   * decide, rather than deciding for them and being silently wrong.
+   */
+  whsIncidentCount?: number;
 }
 
 export interface SuggestedForm {
@@ -216,6 +225,21 @@ export function suggestAuthorityForms(
     });
   }
 
+  // 10. Notifiable Incident Record
+  // The one document here with a statutory clock on it. Both countries run the
+  // notification duty from the moment the business becomes aware, and neither
+  // gives a grace period, so this is offered as required the instant an
+  // incident exists rather than waiting for anyone to classify it.
+  if ((analysis.whsIncidentCount ?? 0) > 0) {
+    suggestions.push({
+      templateCode: "NOTIFIABLE_INCIDENT_RECORD",
+      templateName: "Notifiable Incident Record",
+      priority: "required",
+      reason:
+        "An incident has been recorded on this job. Confirm with the regulator whether it is notifiable, and record when the business became aware -- that is when the duty to notify starts running",
+    });
+  }
+
   // Sort by priority: required > recommended > optional
   return suggestions.sort((a, b) => {
     const priorityOrder = { required: 0, recommended: 1, optional: 2 };
@@ -292,6 +316,7 @@ export function extractReportAnalysis(report: any): ReportAnalysis {
     biologicalMouldDetected: report.biologicalMouldDetected || false,
     methamphetamineScreen: report.methamphetamineScreen,
     hasDustGeneratingWork,
+    whsIncidentCount: report.inspection?._count?.whsIncidents ?? 0,
     // Both live on the linked inspection, not on Report. A report with no
     // inspection yields null for each, which reads as NOT RECORDED rather than
     // as a modern building -- see the note on ReportAnalysis.

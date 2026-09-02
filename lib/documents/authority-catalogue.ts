@@ -609,6 +609,113 @@ export const AUTHORITY_TEMPLATES: AuthorityTemplateSpec[] = [
     citesStandards: [{ standard: "S500" }, { standard: "S520" }],
     isActive: true,
   },
+  {
+    // Spec 9.3, and the last of the eight. It was blocked for weeks because the
+    // registry held no notification duty to cite, and the rule that makes this
+    // system safe is that a template may cite a registry id and never restate a
+    // rule in its own prose. The duties are now seeded from primary sources in
+    // lib/compliance/regulatory-registry/whs.ts.
+    //
+    // THIS ONE RECORDS; IT DOES NOT AUTHORISE. Every other template here is a
+    // consent -- a client permitting something to happen. Nobody authorises an
+    // incident. It sits in this catalogue because the underlying model is a
+    // template that generates an instance against a job and collects
+    // signatures, which is exactly what an incident record needs, and a parallel
+    // system for one document would be worse. Do not "fix" the naming by adding
+    // a client signatory.
+    //
+    // THE FIELD THAT MATTERS MOST is "when the business became aware". Both
+    // countries run the notification duty from that moment, not from the
+    // incident, not from the inspection. Getting it recorded at the time is the
+    // difference between demonstrating compliance and arguing about it later.
+    code: "NOTIFIABLE_INCIDENT_RECORD",
+    name: "Notifiable Incident Record",
+    description:
+      "Records a notifiable incident, when the business became aware of it, how the regulator was notified, and what was done to preserve the site",
+    fields: [
+      {
+        id: "authorityDescription",
+        type: "textarea",
+        label: "What happened",
+        required: true,
+        help: "Plain facts in the order they occurred. What the person was doing, what failed, what the outcome was. Not an assessment of fault.",
+      },
+      {
+        id: "incidentDateTime",
+        type: "text",
+        label: "Date and time the incident happened",
+        required: true,
+        help: "As precisely as it is known. If the time is uncertain, say so rather than estimating a figure that will later be read as exact.",
+      },
+      {
+        id: "becameAwareDateTime",
+        type: "text",
+        label: "Date and time the business became aware",
+        required: true,
+        help: "This is the moment the duty to notify starts running, and it is often later than the incident itself. In general the business becomes aware once any supervisor or manager knows. Record it even where it is the same as the incident time.",
+      },
+      {
+        id: "incidentCategory",
+        type: "text",
+        label: "Category",
+        required: true,
+        help: "Death, serious injury or illness, or dangerous incident. Where it is not clear which, record what is known and ask the regulator rather than deciding alone.",
+      },
+      {
+        id: "personsInvolved",
+        type: "textarea",
+        label: "People involved and their role",
+        required: true,
+        help: "Worker, contractor, occupant or member of the public. The duty covers all of them, not only employees.",
+      },
+      {
+        id: "regulatorNotified",
+        type: "text",
+        label: "Regulator notified, and by whom",
+        required: true,
+        help: "Name the regulator and the person who made the call. The regulator for the job's jurisdiction is shown in the regulatory basis below.",
+      },
+      {
+        id: "notificationDateTimeAndMethod",
+        type: "text",
+        label: "When and how the regulator was notified",
+        required: true,
+        help: "Telephone, online form, or both, with the time. Emergency services attending is not notification.",
+      },
+      {
+        id: "notificationReference",
+        type: "text",
+        label: "Regulator reference number",
+        required: false,
+        help: "Where one was issued. Leave blank if the regulator gave none.",
+      },
+      {
+        id: "sitePreservation",
+        type: "textarea",
+        label: "What was preserved, and what was disturbed",
+        required: true,
+        help: "Record anything moved and why. Helping an injured person, removing a deceased person, making the site safe and assisting police are all permitted -- but they are only defensible if written down at the time.",
+      },
+      {
+        id: "regulatorAttendance",
+        type: "text",
+        label: "Has an inspector attended or given a direction",
+        required: false,
+        help: "Including any non-disturbance notice and the period it covers.",
+      },
+    ],
+    defaultSignatories: ["MANAGER", "CONTRACTOR"],
+    citesRegulations: [],
+    // Both duties, both by family, so a New Zealand job is governed by the HSWA
+    // and an Australian job by the model WHS Act. On a document with a statutory
+    // clock attached, serving the wrong country's rule is the worst outcome the
+    // provenance block exists to prevent.
+    citesRegulationFamilies: [
+      { domain: "whs", rule: "notifiable-incident-duty" },
+      { domain: "whs", rule: "incident-site-preservation" },
+    ],
+    isActive: true,
+  },
 ];
 
 /**

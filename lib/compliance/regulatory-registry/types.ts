@@ -19,6 +19,12 @@ export const REGULATORY_DOMAINS = [
   "electrical",
   "chemicals",
   "building-code",
+  // Not a hazard like the six above, but a DUTY: what must be reported, to whom,
+  // and how fast. It earns a domain because the answer differs by country and by
+  // state, and because it was previously carried as unsourced literals in
+  // lib/compliance/safework-notification-gate.ts -- including a 24-hour
+  // notification deadline that appears in neither country's Act.
+  "whs",
 ] as const;
 
 export type RegulatoryDomain = (typeof REGULATORY_DOMAINS)[number];

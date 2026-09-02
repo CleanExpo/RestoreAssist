@@ -49,7 +49,14 @@ export async function GET(
         // report. Without these the era is simply unrecorded, and the hazard
         // documents are offered at a lower priority instead of being withheld.
         inspection: {
-          select: { propertyYearBuilt: true, propertyCountry: true },
+          select: {
+            propertyYearBuilt: true,
+            propertyCountry: true,
+            // A count, not the rows: the suggestion only needs to know whether
+            // any notifiable incident exists, and incident detail is sensitive
+            // enough not to pull into a list endpoint that does not render it.
+            _count: { select: { whsIncidents: true } },
+          },
         },
       },
     });

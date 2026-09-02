@@ -61,10 +61,22 @@ describe("checkSafeworkGate", () => {
     expect(result.notifications[0].regulatorUrl).toBe(
       "https://www.safework.nsw.gov.au",
     );
-    // Deadline is 24h after inspectionDate
-    expect(result.notifications[0].deadline.getTime()).toBe(
-      BASE_DATE.getTime() + 24 * 60 * 60 * 1000,
-    );
+    // WAS: `expect(deadline).toBe(BASE_DATE + 24h)`.
+    //
+    // That assertion encoded the defect rather than catching it. There is no
+    // 24-hour deadline in either country's Act -- Australia requires
+    // notification IMMEDIATELY (WHS Act s38) and New Zealand AS SOON AS
+    // POSSIBLE (HSWA s56) -- and the clock ran from the inspection date rather
+    // than from when the business became aware, so an incident discovered later
+    // got a deadline already past. The test passed because it was written from
+    // the code instead of from the source.
+    const au = result.notifications[0];
+    expect(au.notifyBy).toMatch(/immediately/i);
+    expect(au.registryEntryId).toBe("whs.notifiable-incident-duty.au");
+    expect(au.sourceUrl).toMatch(/^https:/);
+    expect(au.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // No hour figure anywhere in what the user is shown.
+    expect(au.notifyBy).not.toMatch(/\b\d+\s*(hour|hr)/i);
   });
 
   describe("the asbestos era threshold follows the job's country", () => {

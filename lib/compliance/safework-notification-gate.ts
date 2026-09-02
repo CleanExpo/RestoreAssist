@@ -19,6 +19,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { regulationFor } from "@/lib/compliance/regulatory-registry";
 import { resolveAreaSqm } from "@/lib/units";
 import {
   asbestosEraBasis,
@@ -74,7 +75,28 @@ export type SafeWorkNotification = {
   type: "asbestos" | "mould" | "biohazard";
   regulator: string;
   regulatorUrl: string;
-  deadline: Date;
+  /**
+   * What the law actually requires, resolved from the registry per country.
+   *
+   * REPLACES A `deadline: Date` THAT WAS WRONG TWICE OVER. It was computed as
+   * `inspectionDate + 24 hours` under a comment reading "per WHS Act". The
+   * figure 24 appears in neither country's Act: Australia requires notification
+   * IMMEDIATELY (WHS Act s38) and New Zealand AS SOON AS POSSIBLE (HSWA s56).
+   * And the clock ran from the inspection date rather than from the moment the
+   * business became aware, so an incident found later was handed a deadline
+   * already in the past.
+   *
+   * A countdown is the wrong shape for this duty at all: it tells a reader they
+   * have time in hand, and they do not. So the notification now carries the
+   * instruction, its source, and the date it was checked.
+   */
+  notifyBy: string;
+  /** The registry entry backing the above, so the claim is traceable. */
+  registryEntryId: string;
+  instrument: string;
+  provision?: string;
+  sourceUrl: string;
+  verifiedAt: string;
 };
 
 export type SafeWorkGateResult = {
@@ -139,10 +161,34 @@ export async function checkSafeworkGate(
       ? "NZ"
       : detectJurisdiction(inspection.propertyPostcode);
   const regulator = REGULATOR_MAP[jurisdiction];
-  // Deadline: inspectionDate + 24 hours per WHS Act
-  const deadline = new Date(
-    inspection.inspectionDate.getTime() + 24 * 60 * 60 * 1000,
+
+  // The duty, from the registry rather than from a literal here. Resolved for
+  // the job's country: a New Zealand job must never be shown Australia's rule.
+  const duty = regulationFor(
+    "whs",
+    jurisdiction,
+    "notifiable-incident-duty",
   );
+  const notifyBy = duty
+    ? {
+        notifyBy: firstSentence(duty.requirement),
+        registryEntryId: duty.id,
+        instrument: duty.instrument,
+        provision: duty.provision,
+        sourceUrl: duty.sourceUrl,
+        verifiedAt: duty.verifiedAt,
+      }
+    : // Cannot happen with the registry as it stands -- both countries carry an
+      // entry -- but silence here would be a notification with no duty on it,
+      // so say plainly that the requirement could not be resolved.
+      {
+        notifyBy:
+          "RestoreAssist could not resolve the notification requirement for this jurisdiction. Contact the regulator named above without delay.",
+        registryEntryId: "",
+        instrument: "",
+        sourceUrl: "",
+        verifiedAt: "",
+      };
 
   const incidentTypes = inspection.whsIncidents.map((i) =>
     i.incidentType.toLowerCase(),
@@ -175,14 +221,14 @@ export async function checkSafeworkGate(
       type: "asbestos",
       regulator: regulator.name,
       regulatorUrl: regulator.url,
-      deadline,
+      ...notifyBy,
     });
     warnings.push(
       // The year the gate actually applied, not a fixed one. "pre-2004" printed
       // on a New Zealand job teaches the technician the wrong rule even when
       // the decision itself was right.
       `Asbestos suspected (pre-${eraBasis.year} building, year built: ${yearBuilt}). ` +
-        `Notify ${regulator.name} by ${deadline.toISOString()}.`,
+        `${regulator.name}: ${notifyBy.notifyBy}`,
     );
   }
 
@@ -197,11 +243,11 @@ export async function checkSafeworkGate(
       type: "mould",
       regulator: regulator.name,
       regulatorUrl: regulator.url,
-      deadline,
+      ...notifyBy,
     });
     warnings.push(
       `Mould Category 3 area exceeds 10 m². ` +
-        `Notify ${regulator.name} by ${deadline.toISOString()}.`,
+        `${regulator.name}: ${notifyBy.notifyBy}`,
     );
   }
 
@@ -215,13 +261,25 @@ export async function checkSafeworkGate(
       type: "biohazard",
       regulator: regulator.name,
       regulatorUrl: regulator.url,
-      deadline,
+      ...notifyBy,
     });
     warnings.push(
       `Biohazard condition detected. ` +
-        `Notify ${regulator.name} by ${deadline.toISOString()}.`,
+        `${regulator.name}: ${notifyBy.notifyBy}`,
     );
   }
 
   return { canSubmit: true, warnings, notifications };
+}
+
+/**
+ * The first sentence of a requirement, for a surface with one line to give.
+ *
+ * The full text and its source travel alongside on the same object, so this is
+ * a summary the reader can expand -- never a paraphrase, which would be a second
+ * wording of the rule and could drift from the registry's.
+ */
+function firstSentence(requirement: string): string {
+  const stop = requirement.indexOf(". ");
+  return stop === -1 ? requirement : requirement.slice(0, stop + 1).trim();
 }
