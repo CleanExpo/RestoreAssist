@@ -17,10 +17,18 @@
  *
  * THE RULE IT FOLLOWS. A field the inspection does not record is ABSENT from the
  * output -- never "" and never a default. An empty string is indistinguishable
- * from a value the technician deliberately cleared, and a default is worse: the
- * guided-interview path in app/dashboard/reports/new/page.tsx defaults
- * `hazardType` to "WATER_DAMAGE", so an asbestos job that reaches it silently
- * claims to be a water job. Nothing here defaults.
+ * from a value the technician deliberately cleared, and a default is worse: it
+ * asserts something nobody recorded.
+ *
+ * The example this comment used to give was wrong and is corrected here. It said
+ * the guided-interview path in app/dashboard/reports/new/page.tsx defaults
+ * `hazardType` to "WATER_DAMAGE" so an asbestos job silently claims to be a
+ * water job. The CODE does say that -- but the branch cannot execute. Nothing in
+ * this repository ever writes the `interviewData` query parameter that branch
+ * reads, and there is no `formFieldId: "hazardType"` in
+ * lib/interview/question-templates.ts for the panel's own fallback to match.
+ * It is a half-built handoff, not a live defect, and calling it live overstated
+ * the evidence. The rule above stands on its own merits.
  */
 
 import { normalizeClaimType } from "@/lib/evidence/claim-type";
