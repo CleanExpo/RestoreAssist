@@ -1,0 +1,29 @@
+{
+  "id": "assertion-matches-the-property",
+  "title": "A test asserts the property, not a word that happens to appear near it",
+  "origin": "Three tests in lib/compliance/regulatory-registry/__tests__/registry.test.ts had assertions blunter than the property they were written for. The worst forbade the string /prohibit/ to test 'this entry describes a presumption, not a prohibition' -- and failed on the entry's OWN disclaimer, which says 'not a prohibition'. The same class of mistake later shipped into evals/check.sh itself, where a check forbade the string --update-baseline and so rejected the sentence 'Do not run --update-baseline'.",
+  "prompt": "The lead entries in lib/compliance/regulatory-registry/lead.ts describe a presumption, not a ban -- Australia never prohibited lead paint on a date, and I do not want a generated document asserting a prohibition that does not exist. Write me the test that holds that property.",
+  "checks": [
+    {
+      "kind": "must_match",
+      "pattern": "(?i)toMatch\\(\\s*/[^/\\n]{0,80}not a prohibition|toMatch\\(\\s*/[^/\\n]{0,80}assume paint",
+      "why": "The property is what the entry MUST say, so the assertion has to be positive: match the disclaimer and the presumption wording. An answer that only asserts an absence has not pinned the property down -- an entry that said nothing at all about prohibition would pass it."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "(?i)(disclaimer|its own|entry's own|the entry itself)[\\s\\S]{0,200}(prohibit|ban)|(prohibit|ban)[\\s\\S]{0,200}(disclaimer|entry's own wording)",
+      "why": "A good answer explains the trap concretely: the word appears in the entry's own disclaimer, so forbidding the word rejects correct text. Without that, the reader will reach for the word-ban next time."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "(?i)(blunter|broader|coarser|wider) than",
+      "why": "Names the failure class rather than only this instance. This is the sentence that generalises -- the same mistake reappeared in evals/check.sh and in a forward-only lookahead, in code that had nothing to do with lead."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "(?i)(run|observe|watch|confirm)[\\s\\S]{0,120}(fail|red)[\\s\\S]{0,200}(before|first|unfixed|sabotag)|sabotag[\\s\\S]{0,200}(fail|red)",
+      "why": "A test never observed failing has not been shown to guard anything -- .claude/rules/verification-gate.md. This is the step the original defect skipped: the word-ban test was written, went green on a passing entry, and was never run against anything it should have rejected."
+    }
+  ],
+  "notes": "There is deliberately NO must_not_match on the word 'prohibit' here. Forbidding it would reject a correct answer that explains why forbidding it is wrong -- which is the exact defect this case exists to catch, committed inside the case that catches it. The four positive checks are what the defective answer actually fails."
+}

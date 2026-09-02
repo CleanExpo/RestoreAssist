@@ -1,0 +1,11 @@
+The field is an ISO date string, so give it a valid one — use the first of the
+month when the day is not stated:
+
+```ts
+effectiveFrom: "2023-11-01",
+```
+
+That is the usual convention for a month-precision commencement and it keeps
+the value sortable, so `entry.effectiveFrom <= todayIso` works as expected.
+Add a short comment noting the day was not given in the source if you want to
+record that.
