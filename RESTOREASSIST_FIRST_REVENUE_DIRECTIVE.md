@@ -36,6 +36,24 @@ For the record, the sandbox database holds 107 accounts (99 with test-looking
 emails), 4 paying, 37 in trial, no sign-ups since 27 July, and no Stripe
 events ever.
 
+**Correction, 3 September 2026 (terminal session on the MacBook).** The
+paragraph above was a false negative. A DigitalOcean token does exist on the
+MacBook, and with it the live app is fully visible:
+
+- The live site is the DigitalOcean app `restore-assist`
+  (id `29d505b9-3ccb-4233-a5e4-8812be1c9556`), two small instances, domain
+  `restoreassist.app` behind Cloudflare.
+- Its database address sits in the app spec as an ordinary (unencrypted)
+  setting, so an agent can read the three Day 0 numbers directly from the
+  live database. The read-only query was prepared and then stopped by the
+  terminal's safety classifier, which treats a connection to the live
+  database as a founder decision. So Day 0 still needs one of two things
+  from Phill: read the Business page in the browser, or allow the read-only
+  query once. Either works; the browser is faster.
+- The product records "first win" as the activation event
+  `first_report_saved`, so the second number can be computed once the
+  database read is allowed. No screen shows it yet (WS4).
+
 **Definitions to use everywhere, so WS4 and the daily report count the same
 thing:**
 
@@ -160,3 +178,24 @@ See `BACKLOG.md`. The product earns the right to widen.
   zero candidates and zero sent today, so nothing has gone out, but a
   sandbox that can email 37 trial accounts is a production-safety question
   for Phill to rule on.
+
+## Open questions from the agent, 3 September
+
+- **Every merge to `main` deploys to customers, automatically.** The live
+  DigitalOcean app is set to deploy on push from `main`. Its deployment log
+  shows eight production deploys on 2 September, one per merged pull
+  request, none browser-tested by Phill first. The repo's own notes say
+  "production is deployed by hand"; they are wrong. Until Phill rules,
+  Rule 6 (staging first) cannot be honoured by any merge. Recommended
+  ruling: turn off deploy-on-push and promote by hand after the browser
+  test, so "Done means Phill clicked it" is enforced by the platform.
+- **Trial emails never run on production.** The app's scheduled jobs
+  (day-3 / day-10 / day-14 trial reminders, win-back, Stripe reconcile) are
+  defined for Vercel and only run there, against the sandbox database. The
+  live DigitalOcean app has no scheduler and nothing calls those jobs. This
+  is a WS3 blocker to plan for, not a bug to fix now. Welcome emails and the
+  founder sign-up alert are unaffected: they send at sign-up.
+- **Every secret in the live app spec is stored unencrypted**, including the
+  database address and the Stripe secret key. Anyone holding the
+  DigitalOcean token can read them. Marking them as secrets in DigitalOcean
+  is a one-time founder action; noted, not actioned.
