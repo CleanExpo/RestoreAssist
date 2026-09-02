@@ -76,10 +76,26 @@ export interface TemplateField {
 export interface RegulationFamily {
   domain: RegulatoryDomain;
   /**
-   * Identifies the rule within its domain, matched against the entry id, e.g.
-   * "presumption-year" for asbestos.presumption-year.au / .nz.
+   * Identifies the rule within its domain, matched against the entry id's rule
+   * segment, e.g. "presumption-year" for asbestos.presumption-year.au / .nz.
+   *
+   * SEVERAL SEGMENTS MEAN "these are answers to the same question". New South
+   * Wales requires an asbestos register and Queensland exempts a class of
+   * premises from one; the ids therefore differ in the rule segment, but a job
+   * has one asbestos-register position, not two.
+   *
+   * Citing them as separate families was wrong in a way that reached the page:
+   * a New South Wales document reported "no verified Australian entry for
+   * asbestos.register-exemption", which reads as a gap in our coverage when it
+   * is simply Queensland's rule not applying in New South Wales. One family
+   * resolves to whichever applies, and reports nothing missing when one does.
    */
-  rule: string;
+  rule: string | string[];
+}
+
+/** The rule segments a family covers, normalised. */
+export function familyRules(family: RegulationFamily): string[] {
+  return Array.isArray(family.rule) ? family.rule : [family.rule];
 }
 
 export interface AuthorityTemplateSpec {
@@ -291,8 +307,13 @@ export const AUTHORITY_TEMPLATES: AuthorityTemplateSpec[] = [
     // a job elsewhere correctly gets neither rather than a neighbour's.
     citesRegulationFamilies: [
       { domain: "asbestos", rule: "presumption-year" },
-      { domain: "asbestos", rule: "register-requirement" },
-      { domain: "asbestos", rule: "register-exemption" },
+      // ONE family, not two. New South Wales requires a register and Queensland
+      // exempts a class of premises from one -- two answers to a single
+      // question, so a job resolves whichever applies and reports nothing
+      // missing. A state with neither (Victoria has a register duty the
+      // registry has not seeded) still reports the family unresolved, which is
+      // the case the notice is actually for.
+      { domain: "asbestos", rule: ["register-requirement", "register-exemption"] },
     ],
     isActive: true,
   },
@@ -475,10 +496,11 @@ export function authorityTemplate(code: string): AuthorityTemplateSpec {
  * is the failure a citation-by-id was introduced to remove.
  */
 export function familyCandidates(family: RegulationFamily): RegulatoryEntry[] {
+  const rules = familyRules(family);
   return REGULATORY_ENTRIES.filter((e) => {
     if (e.domain !== family.domain || e.supersededBy) return false;
     const parts = e.id.split(".");
-    return parts.length === 3 && parts[1] === family.rule;
+    return parts.length === 3 && rules.includes(parts[1]);
   });
 }
 
@@ -514,7 +536,7 @@ export function resolveFamily(
 
 /** How a template describes a family in prose and in error messages. */
 export function familyLabel(family: RegulationFamily): string {
-  return `${family.domain}.${family.rule}`;
+  return `${family.domain}.${familyRules(family).join("/")}`;
 }
 
 /**
