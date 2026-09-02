@@ -1,8 +1,8 @@
 {
   "note": "Lines asserting a regulatory year outside lib/compliance/regulatory-registry/. Ratchet DOWN by moving each into the registry; never up.",
-  "total": 67,
+  "total": 65,
   "files": {
-    "app/api/inspections/[id]/australian-compliance/route.ts": 3,
+    "app/api/inspections/[id]/australian-compliance/route.ts": 1,
     "components/inspection/NIRClaimAssessmentPanel.tsx": 1,
     "components/RestorationInspectionReportViewer.tsx": 3,
     "components/sketch/SketchSelectionPanel.tsx": 1,
