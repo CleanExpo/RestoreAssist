@@ -18,6 +18,7 @@ import { CHEMICALS_ENTRIES } from "./chemicals";
 import { LEAD_ENTRIES } from "./lead";
 import { ELECTRICAL_ENTRIES } from "./electrical";
 import { SILICA_ENTRIES } from "./silica";
+import { WHS_ENTRIES } from "./whs";
 import type {
   RegulatoryDomain,
   RegulatoryEntry,
@@ -33,6 +34,7 @@ export const REGULATORY_ENTRIES: readonly RegulatoryEntry[] = [
   ...SILICA_ENTRIES,
   ...ELECTRICAL_ENTRIES,
   ...CHEMICALS_ENTRIES,
+  ...WHS_ENTRIES,
   ...BUILDING_CODE_ENTRIES,
 ];
 

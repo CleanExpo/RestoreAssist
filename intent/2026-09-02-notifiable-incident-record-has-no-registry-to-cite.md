@@ -1,6 +1,41 @@
 # Intent: the Notifiable Incident Record cannot be built, because nothing tells it who to notify
 
-**Author:** Claude (agent), on behalf of the RestoreAssist owner · **Date:** 2026-09-02 · **Status:** draft
+**Author:** Claude (agent), on behalf of the RestoreAssist owner · **Date:** 2026-09-02 · **Status:** accepted
+
+## Resolved, 2026-09-02
+
+Built. The four duties were verified against primary sources the same day this
+intent was written, which lifted the block:
+
+| Entry | Source |
+| --- | --- |
+| `whs.notifiable-incident-duty.au` | model WHS Act 2011 ss35-38, via Safe Work Australia |
+| `whs.notifiable-incident-duty.nz` | HSWA 2015 ss25 & 56, via WorkSafe New Zealand |
+| `whs.incident-site-preservation.au` | model WHS Act 2011 s39 |
+| `whs.incident-site-preservation.nz` | HSWA 2015 s55 |
+
+**Open question 0 answered, and the answer was worse than the question.** The
+24-hour deadline in `safework-notification-gate.ts` was not merely unsourced --
+it was wrong twice. Australia requires notification IMMEDIATELY and New Zealand
+AS SOON AS POSSIBLE; the figure 24 appears in neither Act, and the only 48 hours
+in the WHS Act is a written follow-up conditional on the regulator asking. The
+clock also ran from the inspection date rather than from becoming aware, so an
+incident discovered later was handed a deadline already in the past. The gate now
+resolves the duty from the registry per country and states it rather than
+counting down.
+
+**Open question 3 answered by the owner:** the record lives in the authority
+catalogue, with `MANAGER` and `CONTRACTOR` signatories and no client, and a
+comment saying it records rather than authorises so nobody later "fixes" it.
+
+**Open questions 1 and 2 remain partly open by decision.** The 2025 model WHS Act
+amendments are recorded as "may apply -- confirm with your regulator" rather than
+asserted as in force, because adoption varies by jurisdiction and Safe Work
+Australia's own guidance is to check. Per-state entries were not written.
+
+`REGULATOR_MAP` still holds nine regulator names and URLs outside the registry.
+That is a directory rather than a rule with a commencement date, and moving it is
+its own change.
 
 ## Problem
 
