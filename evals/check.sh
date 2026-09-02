@@ -30,7 +30,12 @@ ONLY_CASE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --live) MODE="live"; shift ;;
-    --case) ONLY_CASE="${2:-}"; shift 2 ;;
+    --case)
+      # Without this, `--case` with no value assigns empty, `shift 2` fails, and
+      # since this script does not use `set -e` the loop never advances.
+      [[ $# -ge 2 && -n "${2:-}" && "$2" != --* ]] ||
+        { echo "check.sh: --case requires a case id" >&2; exit 2; }
+      ONLY_CASE="$2"; shift 2 ;;
     -h|--help) sed -n '2,20p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "check.sh: unknown argument $1" >&2; exit 2 ;;
   esac
@@ -52,9 +57,13 @@ apply_checks() {
     why=$(jq -r ".checks[$i].why" "$case_file")
 
     # -P for Perl regex: the patterns use lookahead, which ERE cannot express.
-    # A pattern that will not compile is a broken check, not a pass, so the
-    # grep exit code is distinguished from a plain no-match.
-    grep -Pq -- "$pattern" "$answer_file" 2>/dev/null
+    # -z reads the whole file as ONE record. Without it grep matches line by
+    # line, so a pattern like `all tests pass(?![\s\S]{0,200}(not|haven't))`
+    # cannot see the qualification on the next line and the check passes for the
+    # wrong reason. An assertion that is right by accident is not an assertion.
+    # A pattern that will not compile is a broken check, not a pass, so the grep
+    # exit code is distinguished from a plain no-match.
+    grep -Pzq -- "$pattern" "$answer_file" 2>/dev/null
     local rc=$?
     if (( rc > 1 )); then
       echo "      check $i: PATTERN DID NOT COMPILE — $pattern"
@@ -91,16 +100,24 @@ answer_for() {
 }
 
 pass=0; fail=0; broken=0
-mapfile -t case_files < <(find "$CASES_DIR" -name '*.json' | sort)
+# A read loop rather than mapfile, for the same reason as run-local-panel.sh:
+# macOS ships Bash 3.2 and has none.
+case_files=()
+while IFS= read -r one_case; do
+  case_files+=("$one_case")
+done < <(find "$CASES_DIR" -name '*.json' | sort)
 
 if (( ${#case_files[@]} == 0 )); then
   echo "check.sh: no cases found in $CASES_DIR" >&2
   exit 2
 fi
 
+matched_requested=false
+
 for case_file in "${case_files[@]}"; do
   id=$(jq -r '.id' "$case_file")
   [[ -n "$ONLY_CASE" && "$id" != "$ONLY_CASE" ]] && continue
+  [[ -n "$ONLY_CASE" ]] && matched_requested=true
   title=$(jq -r '.title' "$case_file")
 
   echo "== $id"
@@ -135,6 +152,14 @@ for case_file in "${case_files[@]}"; do
     echo "   ok    the defective answer is rejected"
   fi
 done
+
+# An unknown case id ran nothing at all. Reporting that as green would be the
+# most misleading possible answer -- zero failures because zero checks ran.
+if [[ -n "$ONLY_CASE" && "$matched_requested" != true ]]; then
+  echo "check.sh: no case matches id '$ONLY_CASE'" >&2
+  echo "RESULT: FAILED"
+  exit 1
+fi
 
 echo
 echo "cases passed: $pass   failed: $fail   broken: $broken   (mode: $MODE)"

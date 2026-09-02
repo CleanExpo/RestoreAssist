@@ -111,7 +111,12 @@ function main(): void {
     `  ${summary.populatedWindows} populated day(s) across ${summary.distinctSessions} session(s), ` +
       `spanning ${summary.spanDays} days`,
   );
-  console.log(`  ${fresh.length} report(s) in the directory not yet in the ledger`);
+  const appended = args.has("--append") ? fresh.length : 0;
+  const stillPending = args.has("--append") ? 0 : fresh.length;
+  if (appended > 0) {
+    console.log(`  ${appended} report(s) appended to the ledger just now`);
+  }
+  console.log(`  ${stillPending} report(s) in the directory not yet in the ledger`);
   if (fresh.length > 0 && !args.has("--append")) {
     console.log("  (run with --append to absorb them; the reports directory is gitignored)");
   }

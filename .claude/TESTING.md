@@ -92,8 +92,8 @@ bash evals/check.sh                            # skills, rules and CLAUDE.md
 ```
 
 All three run in `.github/workflows/agent-evals.yml` on any change to
-`.claude/**`, `CLAUDE.md` or `evals/**`, and nightly. None needs an API key or a
-network.
+`CLAUDE.md`, `AGENTS.md`, `REVIEW.md`, `.claude/**`, `evals/**`, or the workflow
+itself, and nightly. None needs an API key or a network.
 
 ### The guard tests
 
