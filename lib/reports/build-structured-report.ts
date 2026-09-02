@@ -1,4 +1,8 @@
 import { getEquipmentGroupById } from "@/lib/equipment-matrix";
+import {
+  asbestosEraBasis,
+  presumeAsbestosFromEra,
+} from "@/lib/compliance/asbestos-era";
 import { planDrying } from "@/lib/restoration/equipment-planner";
 import {
   deriveMouldActive,
@@ -588,6 +592,26 @@ export function buildStructuredBasicReport(data: {
   }
 
   // Calculate summary metrics
+  // Asbestos/lead era flag, from the registry rather than a literal.
+  //
+  // These flagged on `< 1990`, which is the Queensland asbestos-REGISTER  regulatory-year-ignore
+  // exemption date -- an administrative record-keeping rule that
+  // lib/compliance/regulatory-registry/asbestos.ts says in as many words must
+  // not be used as a national safety threshold. Australia's presumption year is
+  // 2004 (the ban took effect 31 December 2003), so every building from 1990 to
+  // 2003 came back null. Null here is not "unknown": the report viewer prints it
+  // as no risk identified.
+  //
+  // The value carries the year it was decided by, so a stale threshold cannot
+  // travel downstream inside the answer the way "PRE-1990_BUILDING" did.
+  const hazardEraYearBuilt =
+    parseInt(String(report?.buildingAge ?? ""), 10) ||
+    parseInt(String(analysis?.buildingAge ?? ""), 10) ||
+    null;
+  const hazardEraFlag = presumeAsbestosFromEra(hazardEraYearBuilt, "AU")
+    ? `PRE-${asbestosEraBasis("AU").year}_BUILDING`
+    : null;
+
   const totalCost =
     costEstimates.length > 0
       ? costEstimates.reduce((sum, c) => sum + (Number(c.total) || 0), 0)
@@ -788,16 +812,15 @@ export function buildStructuredBasicReport(data: {
         report.biologicalMouldCategory ||
         analysis?.biologicalMouldCategory ||
         null,
-      asbestosRisk:
-        (report.buildingAge && parseInt(report.buildingAge) < 1990) ||
-        (analysis?.buildingAge && parseInt(analysis.buildingAge) < 1990)
-          ? "PRE-1990_BUILDING"
-          : null,
-      leadRisk:
-        (report.buildingAge && parseInt(report.buildingAge) < 1990) ||
-        (analysis?.buildingAge && parseInt(analysis.buildingAge) < 1990)
-          ? "PRE-1990_BUILDING"
-          : null,
+      asbestosRisk: hazardEraFlag,
+      // Rides on the ASBESTOS era, and that is a stated approximation rather
+      // than a sourced lead threshold: the regulatory registry has no lead
+      // domain at all (asbestos, building-code, chemicals, electrical, silica),
+      // so there is no verified year to read. Keeping the flag is the
+      // conservative choice -- dropping it would remove a hazard warning -- but
+      // it must not be read as a lead determination. A lead entry in the
+      // registry is the real fix.
+      leadRisk: hazardEraFlag,
     },
     scopeItems: scopeItemsList,
     costEstimates: costEstimates,

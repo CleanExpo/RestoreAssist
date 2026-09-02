@@ -14,6 +14,7 @@
 /** Domains the registry covers. Adding one is a deliberate act, not a typo. */
 export const REGULATORY_DOMAINS = [
   "asbestos",
+  "lead",
   "silica",
   "electrical",
   "chemicals",
