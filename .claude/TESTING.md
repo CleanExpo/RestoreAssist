@@ -78,6 +78,7 @@ After changes to these areas, run the corresponding checks:
 | Integration sync  | Check `IntegrationSyncLog` for errors after sync    |
 | Prisma schema     | `npx prisma validate` then `npx prisma migrate dev` |
 | Agent hooks       | `bash .claude/hooks/tests/test-guards.sh`           |
+| Verifier metrics  | `bash .claude/hooks/tests/test-ledger-append.sh`    |
 
 ## Testing the agent's own configuration
 
@@ -85,12 +86,14 @@ The hooks, skills and rules under `.claude/` steer every session, and they are t
 one part of this repo that no other suite covers.
 
 ```bash
-bash .claude/hooks/tests/test-guards.sh    # the two PreToolUse guards
-bash evals/check.sh                        # skills, rules and CLAUDE.md
+bash .claude/hooks/tests/test-guards.sh        # the two PreToolUse guards
+bash .claude/hooks/tests/test-ledger-append.sh # the Stop hook's metrics write
+bash evals/check.sh                            # skills, rules and CLAUDE.md
 ```
 
-Both run in `.github/workflows/agent-evals.yml` on any change to `.claude/**`,
-`CLAUDE.md` or `evals/**`, and nightly. Neither needs an API key or a network.
+All three run in `.github/workflows/agent-evals.yml` on any change to
+`.claude/**`, `CLAUDE.md` or `evals/**`, and nightly. None needs an API key or a
+network.
 
 ### The guard tests
 
@@ -119,3 +122,19 @@ which is the same doctrine as above, applied to a check rather than a hook.
 
 `bash evals/check.sh --live` calls a real agent instead of reading the recorded
 answers, and costs whatever that agent costs. See `evals/README.md`.
+
+### The ledger write
+
+`.claude/hooks/lib/ledger-append.sh` records each verification into
+`scripts/observability/verifier-ledger.jsonl` as the Stop hook produces it,
+because `.claude/verifier-reports/` is gitignored and sweeping it afterwards only
+works on a machine that still has it.
+
+Its test pins the one property that is easy to break silently: the shell writer
+and `collect-verifier-metrics.ts` write into the same file and are read back by
+the same parser, so their line shapes must match key for key. It also feeds what
+the shell wrote through `summarise()` and checks the status survives, not just
+the row count.
+
+The write can never fail a Stop — a missing, malformed, skipped or unwritable
+target all return 0 silently. `VERIFIER_LEDGER_SKIP=1` turns it off.

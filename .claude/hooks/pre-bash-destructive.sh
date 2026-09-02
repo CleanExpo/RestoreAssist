@@ -76,15 +76,29 @@ if ! printf '%s' "$CMD" | grep -qE '[;&|`]|\$\(|<\(|>\('; then
   esac
 fi
 
-# `rm` needs three facts checked together rather than one regex: that rm is a
-# command word (not a substring of charm-rf.ts), and that the flags carry both
-# recursive and force in whatever order or spelling. Known gap: `xargs rm -rf`
-# and other indirection are not caught — the deny list and the owner gates are
-# the layers behind this one.
+# `rm` needs two facts checked together: that rm is a command word (not a
+# substring of charm-rf.ts), and that ITS OWN flags carry both recursive and
+# force, in whatever order or spelling.
+#
+# "Its own" is the part that took two attempts. The first version tested the
+# whole command for a recursive-ish flag and a force-ish flag independently, and
+# `-[[:alnum:]]*r` matches any flag containing an r — so `jq --argjson` supplied
+# the "recursive" half and an unrelated `rm -f` elsewhere supplied the rest. It
+# denied a python heredoc that only mentioned those strings as data. A guard
+# with false positives gets switched off, which is worse than not having it.
+#
+# So the flags are read from the rm invocation itself: everything from the rm
+# command word up to the first argument that is not a flag.
+#
+# Known gap: `xargs rm -rf` and other indirection are not caught — the deny list
+# and the owner gates are the layers behind this one.
 CMD_WORD_RM='(^|[;&|(])[[:space:]]*(sudo[[:space:]]+)?rm[[:space:]]'
+rm_flags="$(printf '%s' "$SCAN" \
+  | grep -oE '(^|[;&|(])[[:space:]]*(sudo[[:space:]]+)?rm([[:space:]]+-{1,2}[A-Za-z-]+)*' \
+  | head -1)"
 if matches "$CMD_WORD_RM" \
-   && matches '(-[[:alnum:]]*r|--recursive)' \
-   && matches '(-[[:alnum:]]*f|--force)'; then
+   && printf '%s' "$rm_flags" | grep -qE -- '(-[A-Za-z]*r|--recursive)' \
+   && printf '%s' "$rm_flags" | grep -qE -- '(-[A-Za-z]*f|--force)'; then
   deny "Blocked by .claude/hooks/pre-bash-destructive.sh: recursive force-delete removes files with no undo.
 
 Command: $CMD

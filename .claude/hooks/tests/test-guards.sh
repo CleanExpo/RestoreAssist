@@ -70,6 +70,19 @@ check "search exemption stops at &&"     "$BASH_GUARD" "$(bash_payload "grep -r 
 check "a filename containing rm"         "$BASH_GUARD" "$(bash_payload 'cat lib/charm-rf.ts')"           allow
 check "empty command"                    "$BASH_GUARD" '{"tool_name":"Bash","tool_input":{}}'            allow
 
+# Flags belong to the rm that carries them, not to the command as a whole. This
+# guard blocked its own author over exactly this: an unrelated `jq --argjson`
+# supplied the "recursive" half (--argjson contains -a...r), a plain `rm -f`
+# supplied the force half, and the two were credited to each other.
+check "rm -f plus an unrelated -r- flag"  "$BASH_GUARD" \
+  "$(bash_payload 'jq --argjson t 1 -n "{}" && rm -f /tmp/one.json')"                                    allow
+check "rm -f beside --recursive on rsync" "$BASH_GUARD" \
+  "$(bash_payload 'rsync --recursive a/ b/ && rm -f /tmp/one.txt')"                                      allow
+check "flags still caught on the rm itself" "$BASH_GUARD" \
+  "$(bash_payload "jq --argjson t 1 -n '{}' && $RM_RF /tmp/x")"                                          deny
+check "long-form flags on the rm itself"  "$BASH_GUARD" \
+  "$(bash_payload 'rm --recursive --force /tmp/x')"                                                      deny
+
 # A heredoc body is data, not shell code. A commit message that describes these
 # patterns must not be blocked by them — that is not hypothetical, it is how this
 # guard's own commit was first refused.

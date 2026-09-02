@@ -47,3 +47,8 @@ jobs:
       # they are shell, not TypeScript.
       - name: Run the PreToolUse guard tests
         run: bash .claude/hooks/tests/test-guards.sh
+
+      # The Stop hook's metrics write. Its own shape must stay identical to the
+      # TypeScript writer's, or two records of one event disagree.
+      - name: Run the ledger-append tests
+        run: bash .claude/hooks/tests/test-ledger-append.sh
