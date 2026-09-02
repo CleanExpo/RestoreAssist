@@ -19,6 +19,10 @@
 import { createZipArchive } from "@/lib/exports/create-zip-archive";
 import { PassThrough, Readable } from "node:stream";
 import { prisma } from "@/lib/prisma";
+import {
+  AUTHORITY_FORM_RENDER_INCLUDE,
+  renderAuthorityFormPdf,
+} from "@/lib/documents/render-authority-form";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import type { ClientBrandTheme } from "@/lib/clients/brand";
 
@@ -232,35 +236,30 @@ export async function buildJobPackageStream(
   // RA-7003: signed client authorisations (waivers) are part of the evidence
   // package contract — previously captured + signed but never bundled.
   if (inspection.reportId) {
+    // No `pdfUrl` filter. That column is read here and in the report
+    // export-package route, and written NOWHERE — nothing in the codebase
+    // assigns it — so this query matched zero rows on every job that has ever
+    // run, and the signed authorisations RA-7003 promises were silently absent
+    // from every evidence pack. The PDFs are rendered here instead, from the
+    // same shared renderer the download endpoint uses.
     const signedForms = await prisma.authorityFormInstance.findMany({
       where: {
         reportId: inspection.reportId,
         status: "COMPLETED",
-        pdfUrl: { not: null },
       },
-      select: {
-        id: true,
-        pdfUrl: true,
-        template: { select: { code: true } },
-      },
+      include: AUTHORITY_FORM_RENDER_INCLUDE,
       take: 50,
     });
     for (const form of signedForms) {
       try {
-        const response = await fetch(form.pdfUrl!);
-        if (!response.ok) {
-          console.error(
-            `[Job Package] authority form ${form.id} fetch failed: ${response.status}`,
-          );
-          continue;
-        }
-        const arr = await response.arrayBuffer();
-        archive.append(Buffer.from(arr), {
+        const { bytes } = await renderAuthorityFormPdf(form);
+        archive.append(Buffer.from(bytes), {
           name: `authority-forms/${form.template?.code ?? "FORM"}-${form.id}.pdf`,
         });
       } catch (err) {
+        // One unrenderable form must not cost the operator the whole pack.
         console.error(
-          `[Job Package] authority form ${form.id} fetch error:`,
+          `[Job Package] authority form ${form.id} render error:`,
           err,
         );
       }
