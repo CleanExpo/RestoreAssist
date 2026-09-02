@@ -55,6 +55,7 @@ import {
   citesAnything,
   familyCandidates,
   familyLabel,
+  STANDARD_DESIGNATION_IN_PROSE,
 } from "../lib/documents/authority-catalogue";
 import { VERIFICATION_KINDS } from "../lib/compliance/regulatory-registry/types";
 
@@ -357,6 +358,20 @@ for (const spec of AUTHORITY_TEMPLATES) {
       where: at,
       detail:
         "prose names a regulated hazard but the template cites no registry entry — add the entry id to citesRegulations rather than describing the rule in the template",
+    });
+  }
+
+  // A standard's designation or edition year written into template prose. The
+  // standards analogue of the year-threshold rule below: which IICRC document
+  // governs depends on the country -- AS-IICRC S500:2025 in Australia, the
+  // ANSI/IICRC S500-2021 it adopts in New Zealand -- so a designation typed here
+  // is wrong for one of them and goes stale on the next adoption.
+  if (STANDARD_DESIGNATION_IN_PROSE.test(prose)) {
+    violations.push({
+      rule: "template-citation",
+      where: at,
+      detail:
+        "prose names an IICRC standard designation or edition year — put the key in citesStandards and let applicableStandard() resolve it for the job",
     });
   }
 

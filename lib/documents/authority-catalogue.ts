@@ -32,6 +32,12 @@ import {
   type RegulatoryEntry,
   type RegulatoryJurisdiction,
 } from "@/lib/compliance/regulatory-registry";
+import {
+  applicableStandard,
+  STANDARDS_VERSIONS,
+  type StandardKey,
+  type StandardsJurisdiction,
+} from "@/lib/nir-standards-mapping";
 
 /** Roles the existing AuthoritySignatoryRole enum accepts. */
 export type SignatoryRole =
@@ -82,6 +88,38 @@ export interface RegulationFamily {
   rule: string;
 }
 
+/**
+ * An IICRC standard cited by a document.
+ *
+ * A SECOND SSOT, AND A SECOND JURISDICTION PROBLEM. The regulatory registry does
+ * not hold IICRC standards -- they are licensed, copyrighted documents, and
+ * `lib/standards/copyright-guard.ts` exists because of it. They live in
+ * `lib/nir-standards-mapping.ts`, and which one GOVERNS depends on the country
+ * exactly as a regulation does:
+ *
+ *   - On an Australian job the governing document is the Standards Australia
+ *     adoption, `AS-IICRC S500:2025`. It is a MODIFIED adoption whose Australian
+ *     changes sit in Appendix ZZ, so citing the ANSI original does not merely
+ *     lose precision -- it omits requirements.
+ *   - New Zealand has no adoption, so the ANSI publication governs there.
+ *
+ * The two also carry DIFFERENT YEARS: `AS-IICRC S500:2025` adopts
+ * `ANSI/IICRC S500:2021`. A designation typed into a template would be wrong for
+ * one country and carry the wrong year for the other. `applicableStandard()`
+ * resolves both from the job, which is why this stores a KEY and never a string.
+ */
+export interface StandardCitation {
+  standard: StandardKey;
+  /**
+   * A clause, where one has been established. Deliberately unused by the
+   * templates here: `standardCite()` numbers clauses against the ANSI edition,
+   * and the Australian adoption renumbers nothing but adds Appendix ZZ, so a
+   * clause cited on an Australian job would point into the document the job is
+   * not governed by. Cite the standard, not a clause, until that is resolved.
+   */
+  section?: string;
+}
+
 export interface AuthorityTemplateSpec {
   code: string;
   name: string;
@@ -104,6 +142,13 @@ export interface AuthorityTemplateSpec {
    * nothing. Prefer this form for any duty both countries carry.
    */
   citesRegulationFamilies?: RegulationFamily[];
+  /**
+   * IICRC standards this document says the works were performed under.
+   *
+   * Separate from the two registry forms because it is a separate source of
+   * truth with its own licence conditions, not because it is less important.
+   */
+  citesStandards?: StandardCitation[];
   isActive: boolean;
 }
 
@@ -369,6 +414,180 @@ export const AUTHORITY_TEMPLATES: AuthorityTemplateSpec[] = [
     citesRegulationFamilies: [{ domain: "silica", rule: "exposure-standard" }],
     isActive: true,
   },
+  {
+    // Spec 9.3, "Registry dependency: multiple". This is the document that names
+    // the hazards actually present, to the people who will be standing in them.
+    //
+    // Every hazard is cited BY FAMILY, including the ones with no New Zealand
+    // entry seeded. That is deliberate and it is the distinction between the two
+    // registry citation forms:
+    //
+    //   - An exact id says "this duty exists in one country". AUTH_CHEMICAL's
+    //     APVMA registration is genuinely Australian; New Zealand regulates
+    //     those products under HSNO through a different regulator entirely.
+    //   - A family that resolves to nothing says "no verified entry is held for
+    //     this country". RCD protection is not an Australian peculiarity -- New
+    //     Zealand plainly requires residual current devices too; the registry
+    //     simply has not seeded the New Zealand rule yet.
+    //
+    // Citing RCD protection by exact id would print an Australian regulation on
+    // a New Zealand induction under a notice reading "no verified New Zealand
+    // equivalent" -- which a reader could fairly take as "New Zealand has no RCD
+    // duty". On an induction record that is a dangerous sentence, so the family
+    // form is used and the document says an entry is missing instead.
+    code: "WHS_SITE_INDUCTION",
+    name: "WHS Site Induction Record",
+    description:
+      "Records that each person attending the site has been briefed on the hazards present, the controls in place and the emergency arrangements",
+    fields: [
+      {
+        id: "authorityDescription",
+        type: "textarea",
+        label: "Site and works being inducted for",
+        required: true,
+      },
+      {
+        id: "hazardsPresent",
+        type: "textarea",
+        label: "Hazards identified on this site",
+        required: true,
+        help: "Name each one and where it is. Asbestos, lead paint, silica dust, electrical, confined space, biological contamination, working at height. A hazard nobody wrote down is a hazard nobody was inducted on.",
+      },
+      {
+        id: "controlsInPlace",
+        type: "textarea",
+        label: "Controls in place before entry",
+        required: true,
+        help: "Exclusion zones, isolation and lock-out, extraction, decontamination. Say which are already in place and which are still to be established.",
+      },
+      {
+        id: "temporaryPowerArrangements",
+        type: "text",
+        label: "Temporary power and residual current protection",
+        required: true,
+        help: "How site equipment is supplied, and how it is protected. Record the test date of the protective device rather than only its presence.",
+      },
+      {
+        id: "ppeRequired",
+        type: "textarea",
+        label: "Personal protective equipment required",
+        required: true,
+        help: "Including respiratory protection class and whose fit-tests are current. PPE is the last control, not the first.",
+      },
+      {
+        id: "chemicalsOnSite",
+        type: "textarea",
+        label: "Chemicals on site and where the safety data sheets are",
+        required: false,
+        help: "Leave blank only if no chemical will be brought onto or used at the site.",
+      },
+      {
+        id: "emergencyArrangements",
+        type: "textarea",
+        label: "Emergency arrangements",
+        required: true,
+        help: "First aid, assembly point, nearest hospital, and who to call. Include the site address as it would be given to an ambulance.",
+      },
+      {
+        id: "inducteeQuestionsRaised",
+        type: "textarea",
+        label: "Questions or concerns raised during induction",
+        required: false,
+        help: "Record them even where they were resolved on the spot. An induction with no questions ever recorded is an induction nobody is reading back.",
+      },
+      {
+        id: "inductionDate",
+        type: "date",
+        label: "Date of induction",
+        required: true,
+      },
+    ],
+    defaultSignatories: ["TECHNICIAN", "CONTRACTOR", "MANAGER"],
+    citesRegulations: [],
+    citesRegulationFamilies: [
+      { domain: "asbestos", rule: "presumption-year" },
+      { domain: "lead", rule: "presumption-year" },
+      { domain: "silica", rule: "exposure-standard" },
+      { domain: "electrical", rule: "rcd-protection" },
+      { domain: "chemicals", rule: "sds-and-register" },
+    ],
+    isActive: true,
+  },
+  {
+    // Spec 9.3, "S500/S520 via standardCite()".
+    //
+    // The designation is resolved per job, never typed. On an Australian job the
+    // governing document is AS-IICRC S500:2025; on a New Zealand job it is
+    // ANSI/IICRC S500-2021, which the Australian one adopts. Four years apart,
+    // and a certificate is exactly the document someone later reads to decide
+    // whether the works met the standard in force.
+    //
+    // No clause is cited. `standardCite()` numbers against the ANSI edition, and
+    // an Australian job is not governed by that document -- a clause reference
+    // would point into the wrong publication. The standard is named; the clause
+    // waits until the adoption's numbering has been established.
+    //
+    // S520 is cited alongside S500 because a restoration job may include mould
+    // remediation, and the field below records whether it did. Both standards
+    // are named and the field says which applied, rather than the document
+    // asserting a remediation standard for a job that never involved mould.
+    code: "CERT_COMPLETION",
+    name: "Certificate of Completion",
+    description:
+      "Certifies that the restoration works are complete, and records the drying and clearance evidence they were completed against",
+    fields: [
+      {
+        id: "authorityDescription",
+        type: "textarea",
+        label: "Works completed",
+        required: true,
+      },
+      {
+        id: "dryingGoalBasis",
+        type: "textarea",
+        label: "Drying goal and how it was established",
+        required: true,
+        help: "The target and where it came from -- an unaffected reference area, the material's own dry standard, or a documented alternative. A goal with no basis cannot be shown to have been met.",
+      },
+      {
+        id: "finalMoistureReadings",
+        type: "textarea",
+        label: "Final readings against that goal",
+        required: true,
+        help: "By location and material, with the instrument used. Record any location that did not reach the goal and what was agreed about it.",
+      },
+      {
+        id: "mouldRemediationIncluded",
+        type: "checkbox",
+        label: "Mould remediation formed part of these works",
+        required: false,
+      },
+      {
+        id: "clearanceEvidence",
+        type: "text",
+        label: "Clearance evidence reference",
+        required: false,
+        help: "The post-remediation verification or clearance report, and who issued it. Required where mould remediation was performed; leave blank otherwise.",
+      },
+      {
+        id: "outstandingItems",
+        type: "textarea",
+        label: "Items not completed, and why",
+        required: false,
+        help: "Write them here rather than leaving the certificate silent. A certificate that omits an outstanding item reads as though there were none.",
+      },
+      {
+        id: "completionDate",
+        type: "date",
+        label: "Date works were completed",
+        required: true,
+      },
+    ],
+    defaultSignatories: ["CLIENT", "CONTRACTOR"],
+    citesRegulations: [],
+    citesStandards: [{ standard: "S500" }, { standard: "S520" }],
+    isActive: true,
+  },
 ];
 
 /**
@@ -415,6 +634,11 @@ export function formContentFor(spec: AuthorityTemplateSpec): string {
     ...(spec.citesRegulationFamilies?.length
       ? { citesRegulationFamilies: spec.citesRegulationFamilies }
       : {}),
+    // Omitting this was a real defect, caught by its own test: the spec carried
+    // the standards in memory while the SEEDED ROW carried none -- and the row
+    // is what renders the document. It would have shipped as a certificate that
+    // named no standard at all, on every environment that had been seeded.
+    ...(spec.citesStandards?.length ? { citesStandards: spec.citesStandards } : {}),
   });
 }
 
@@ -527,6 +751,50 @@ export function familyLabel(family: RegulationFamily): string {
 export function citesAnything(spec: AuthorityTemplateSpec): boolean {
   return (
     spec.citesRegulations.length > 0 ||
-    (spec.citesRegulationFamilies?.length ?? 0) > 0
+    (spec.citesRegulationFamilies?.length ?? 0) > 0 ||
+    (spec.citesStandards?.length ?? 0) > 0
   );
 }
+
+export interface ResolvedStandard {
+  standard: StandardKey;
+  /** What governs THIS job: the AS adoption in Australia, else the ANSI one. */
+  designation: string;
+  /** True when the Australian adoption is what governs, rather than the ANSI. */
+  isAustralianAdoption: boolean;
+}
+
+/**
+ * Resolve a template's standards for a job, or report that it cannot.
+ *
+ * `null` jurisdiction returns an EMPTY list rather than defaulting to Australia.
+ * Defaulting would pick `AS-IICRC S500:2025` for every job whose country nobody
+ * recorded, and on a New Zealand job that names a document which does not govern
+ * it -- the same failure the registry side refuses to make, in the SSOT where the
+ * two designations differ by four years.
+ */
+export function citedStandards(
+  spec: AuthorityTemplateSpec,
+  jurisdiction: StandardsJurisdiction | null,
+): ResolvedStandard[] {
+  if (jurisdiction === null) return [];
+  return (spec.citesStandards ?? []).map((c) => {
+    const designation = applicableStandard(c.standard, jurisdiction);
+    return {
+      standard: c.standard,
+      designation,
+      isAustralianAdoption:
+        designation !== STANDARDS_VERSIONS[c.standard].designation,
+    };
+  });
+}
+
+/**
+ * A designation or an edition year written into a template's own prose.
+ *
+ * The standards analogue of the gate's year-threshold rule. `AS-IICRC S500:2025`
+ * typed into a field label is wrong on every New Zealand job and goes stale on
+ * the next adoption, and nothing would catch either.
+ */
+export const STANDARD_DESIGNATION_IN_PROSE =
+  /\b(?:ANSI\/IICRC|AS-IICRC|AS\/NZS-IICRC)\b|\bS(?:100|500|520|540|700)\s*[:-]\s*\d{4}\b/i;
