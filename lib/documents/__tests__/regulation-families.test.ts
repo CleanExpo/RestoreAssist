@@ -103,6 +103,24 @@ describe("family resolution picks the job's country, and never another's", () =>
     ).toEqual(["silica.engineered-stone-ban.au", "silica.engineered-stone-ban.vic"]);
   });
 
+  it("covers every alternative a multi-rule family names", () => {
+    const ids = familyCandidates({
+      domain: "asbestos",
+      rule: ["register-requirement", "register-exemption"],
+    }).map((e) => e.id);
+    // Set membership, not order: candidates come back in registry declaration
+    // order, which is incidental. Asserting the order would couple this test to
+    // where someone happened to put an entry in asbestos.ts.
+    expect(new Set(ids)).toEqual(
+      new Set([
+        "asbestos.register-requirement.nsw",
+        "asbestos.register-exemption.qld",
+      ]),
+    );
+    // Still exact-segment: a prefix of both matches neither.
+    expect(familyCandidates({ domain: "asbestos", rule: "register" })).toEqual([]);
+  });
+
   it("reports no candidates for a rule the registry does not hold", () => {
     expect(familyCandidates({ domain: "asbestos", rule: "no-such-rule" })).toEqual(
       [],
@@ -191,7 +209,25 @@ describe("the provenance block a job actually renders", () => {
     expect(ids).not.toContain("asbestos.presumption-year.au");
   });
 
-  it("adds the state register rule on a job in that state", () => {
+  it("does not report the OTHER state's rule as missing", () => {
+    // CodeRabbit's finding on #2167, reproduced before it was fixed. NSW
+    // requires an asbestos register; Queensland exempts a class of premises
+    // from one. Cited as two families, an NSW document read "no verified
+    // Australian entry for asbestos.register-exemption" -- which says we have a
+    // coverage gap, when Queensland's rule simply does not apply in NSW.
+    //
+    // One family, two answers to the same question. Whichever applies resolves,
+    // and nothing is reported missing.
+    const nsw = buildProvenanceBlock(asbestos(), "NSW");
+    expect(nsw.unresolved).toEqual([]);
+    expect(nsw.notices.join(" ")).not.toMatch(/no verified Australian entry for/);
+
+    const qld = buildProvenanceBlock(asbestos(), "QLD");
+    expect(qld.unresolved).toEqual([]);
+    expect(qld.notices.join(" ")).not.toMatch(/no verified Australian entry for/);
+  });
+
+  it("resolves one family to whichever alternative that state actually has", () => {
     const nsw = buildProvenanceBlock(asbestos(), "NSW").entries.map((e) => e.id);
     expect(nsw).toContain("asbestos.register-requirement.nsw");
     expect(nsw).not.toContain("asbestos.register-exemption.qld");
@@ -206,13 +242,15 @@ describe("the provenance block a job actually renders", () => {
     // the line: an absence of a checked entry is not a finding that no duty
     // applies, and a Victorian reader is entitled to know which it is.
     const block = buildProvenanceBlock(asbestos(), "VIC");
-    expect(block.unresolved).toContain("asbestos.register-requirement");
+    expect(block.unresolved).toContain(
+      "asbestos.register-requirement/register-exemption",
+    );
     // `[^.]*` here would never match: the family labels themselves contain
     // dots. Anchor on the sentence and assert the label separately.
     const notice = block.notices.find((n) =>
       n.startsWith("RestoreAssist holds no verified Australian entry for:"),
     );
-    expect(notice).toContain("asbestos.register-requirement");
+    expect(notice).toContain("asbestos.register-requirement/register-exemption");
     expect(block.notices.join(" ")).toMatch(/not a finding that no duty applies/i);
   });
 
