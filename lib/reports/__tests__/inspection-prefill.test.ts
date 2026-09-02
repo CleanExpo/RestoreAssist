@@ -78,9 +78,10 @@ describe("buildReportPrefill", () => {
   });
 
   it("carries the year built across unchanged, not an age in years", () => {
-    // Report.buildingAge is the YEAR (the pre-1990 asbestos/lead trigger). An
-    // age would be ~52 here, which reads as a building built in year 52 and
-    // moves a 1974 property out of the trigger entirely.
+    // Report.buildingAge is the YEAR BUILT, and downstream asbestos/lead logic
+    // resolves its presumption threshold from the registry. An age would be a
+    // two-digit number here, which reads as a building constructed in that year
+    // and drops the property out of the era assessment entirely.
     const { fields } = buildReportPrefill(inspection({ propertyYearBuilt: 1974 }));
     expect(fields.buildingAge).toBe(1974);
   });

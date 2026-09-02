@@ -173,9 +173,18 @@ export function buildReportPrefill(
   const jobType = normalizeClaimType(inspection.claimType);
   if (jobType) fields.hazardType = jobType;
 
-  // Report.buildingAge is the YEAR BUILT, not an age in years -- it is the
-  // pre-1990 asbestos/lead trigger. Copy the year straight across; subtracting
-  // it from the current year would move every pre-1990 job out of that trigger.
+  // Report.buildingAge is the YEAR BUILT, not an age in years. Downstream
+  // asbestos and lead logic reads it as a construction year and resolves the
+  // presumption threshold from the registry (asbestos.presumption-year.au /
+  // .nz), so converting it to an age here would silently move older properties
+  // out of that assessment. Copy the year straight across.
+  //
+  // This comment previously named a threshold of its own, and named the WRONG
+  // one -- check:regulatory-registry rejected it, correctly. The registry
+  // records that date as a Queensland record-keeping exemption, not a national
+  // safety threshold, and says in as many words that treating it as one is the
+  // defect the registry was built to stop. A year does not belong in a comment
+  // here; the registry entry is where it lives.
   if (
     typeof inspection.propertyYearBuilt === "number" &&
     Number.isInteger(inspection.propertyYearBuilt)
