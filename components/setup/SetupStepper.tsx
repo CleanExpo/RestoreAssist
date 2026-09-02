@@ -95,6 +95,7 @@ export function SetupStepper({
   items,
   initialIndex = 0,
   onFinish,
+  onSkip,
 }: {
   items: SetupStepperItem[];
   initialIndex?: number;
@@ -104,9 +105,16 @@ export function SetupStepper({
    * a rejection is surfaced in place rather than swallowed.
    */
   onFinish?: () => void | Promise<void>;
+  /**
+   * RA-7427 — "Skip setup for now". Offered on every step, including a
+   * required one whose Next is locked, so the wizard can always be left with
+   * one tap. Not rendered when absent.
+   */
+  onSkip?: () => void | Promise<void>;
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [finishing, setFinishing] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
 
   // Re-entrancy is prevented by `disabled` on the CTA alone: React reads a
@@ -131,6 +139,23 @@ export function SetupStepper({
           : "Could not finish setup. Please try again.",
       );
       setFinishing(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!onSkip) return;
+    setSkipping(true);
+    setFinishError(null);
+    try {
+      await onSkip();
+      // Stays true on success: onSkip navigates away.
+    } catch (err) {
+      setFinishError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Could not skip setup. Please try again.",
+      );
+      setSkipping(false);
     }
   };
 
@@ -328,6 +353,18 @@ export function SetupStepper({
                 <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-brand-slate">
                   {current.description}
                 </p>
+              )}
+              {onSkip && (
+                <button
+                  type="button"
+                  onClick={() => void handleSkip()}
+                  disabled={skipping || finishing}
+                  className="mt-3 min-h-11 text-sm font-medium text-brand-slate underline underline-offset-4 hover:text-brand-navy disabled:opacity-50"
+                >
+                  {skipping
+                    ? "Taking you to your dashboard…"
+                    : "Skip setup for now and go to my dashboard"}
+                </button>
               )}
             </div>
 
