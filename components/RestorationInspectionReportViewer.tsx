@@ -327,6 +327,14 @@ export default function RestorationInspectionReportViewer({
   };
 
   // Generate detailed observations text
+  /**
+   * Bullet observations for the report's summary section.
+   *
+   * Hazard-era sentences take their year from the flag rather than holding a
+   * copy: the flag is "PRE-<year>_BUILDING" precisely so a threshold change has
+   * one place to happen. Lead additionally carries LEAD_ERA_QUALIFIER, because
+   * its year is borrowed from asbestos and a reader must be told so.
+   */
   const generateObservations = () => {
     const observations: string[] = [];
 
@@ -404,6 +412,13 @@ export default function RestorationInspectionReportViewer({
   };
 
   // Generate professional narrative summary using standards-based language
+  /**
+   * The prose summary paragraph, assembled from whatever the job recorded.
+   *
+   * Same rule as generateObservations: no sentence here may hold its own copy
+   * of a regulatory year. Four sentences in this component did, and a report
+   * could print two different asbestos eras in one document as a result.
+   */
   const generateProfessionalSummary = () => {
     const summaryParts: string[] = [];
 

@@ -97,6 +97,21 @@ function pathwayRecorded(input: WhsGateInput): boolean {
   );
 }
 
+/**
+ * Decide whether a scope action may proceed on possibly-asbestos material.
+ *
+ * Blocks a destructive action on suspected ACM until a WHS pathway is recorded
+ * -- friable/non-friable classification, licensed removal, or a sampling
+ * result. Non-destructive actions never block, and an element with no ACM
+ * potential never blocks.
+ *
+ * Conservative in both unknowns it can meet: an unrecorded build year is
+ * treated as at-risk, and an unresolvable country falls back to Australia's
+ * later presumption year, which over-blocks rather than under-warns.
+ *
+ * @param input Material, build year, action and any recorded pathway.
+ * @returns Whether the action is allowed, and the reason either way.
+ */
 export function evaluateWhsGate(input: WhsGateInput): WhsGateResult {
   const materialAcm =
     input.isPotentialAcm ??
