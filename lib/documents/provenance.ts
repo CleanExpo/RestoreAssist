@@ -31,8 +31,10 @@ import {
 } from "@/lib/compliance/regulatory-registry";
 import {
   citedRegulations,
+  citedStandards,
   familyLabel,
   resolveFamily,
+  type ResolvedStandard,
   type AuthorityTemplateSpec,
   type RegulationFamily,
 } from "./authority-catalogue";
@@ -89,6 +91,14 @@ export interface ProvenanceBlock {
    * ends up with no asbestos-register line and no indication one was sought.
    */
   unresolved: string[];
+  /**
+   * IICRC standards resolved for this job, empty when none are cited OR when the
+   * job's country is unknown -- which are different situations, distinguished by
+   * `standardsUnselected` rather than by an empty array that means both.
+   */
+  standards: ResolvedStandard[];
+  /** True when standards ARE cited but the country was never recorded. */
+  standardsUnselected: boolean;
 }
 
 const NOT_LEGAL_ADVICE =
@@ -138,8 +148,26 @@ export function buildProvenanceBlock(
   const cited = citedRegulations(spec);
   const families: RegulationFamily[] = spec.citesRegulationFamilies ?? [];
 
-  if (cited.length === 0 && families.length === 0) {
-    return { heading: "", entries: [], notices: [], empty: true, unresolved: [] };
+  const standardsCited = spec.citesStandards ?? [];
+  const standardsJurisdiction =
+    jobJurisdiction === null
+      ? null
+      : isAustralianJurisdiction(jobJurisdiction)
+        ? ("AU" as const)
+        : ("NZ" as const);
+  const standards = citedStandards(spec, standardsJurisdiction);
+  const standardsUnselected = standardsCited.length > 0 && standardsJurisdiction === null;
+
+  if (cited.length === 0 && families.length === 0 && standardsCited.length === 0) {
+    return {
+      heading: "",
+      entries: [],
+      notices: [],
+      empty: true,
+      unresolved: [],
+      standards: [],
+      standardsUnselected: false,
+    };
   }
 
   const toProvenance = (entry: RegulatoryEntry): ProvenanceEntry => ({
@@ -195,7 +223,20 @@ export function buildProvenanceBlock(
     if (entries.some((e) => e.verification === "secondary-quoting-primary")) {
       notices.push(SECONDARY_SOURCE);
     }
-    return { heading: "Regulatory basis", entries, notices, empty: false, unresolved };
+    if (standardsUnselected) {
+      notices.push(
+        "The standard governing these works could not be named, because which one governs depends on the country: an Australian job is governed by the Standards Australia adoption and a New Zealand job by the ANSI publication it adopts, and they carry different years.",
+      );
+    }
+    return {
+      heading: "Regulatory basis",
+      entries,
+      notices,
+      empty: false,
+      unresolved,
+      standards,
+      standardsUnselected,
+    };
   }
 
   // Requirement 3, and it goes FIRST: a reader who stops after one line must
@@ -257,6 +298,8 @@ export function buildProvenanceBlock(
     notices,
     empty: false,
     unresolved,
+    standards,
+    standardsUnselected,
   };
 }
 
@@ -271,6 +314,11 @@ export function provenanceLines(block: ProvenanceBlock): string[] {
     lines.push(e.requirement);
     lines.push(`Source: ${e.sourceUrl}`);
     lines.push(`Checked: ${e.verifiedAt}`);
+  }
+  for (const std of block.standards) {
+    lines.push(
+      `${std.standard}: ${std.designation}${std.isAustralianAdoption ? " (Standards Australia adoption)" : ""}`,
+    );
   }
   lines.push(...block.notices);
   return lines;
