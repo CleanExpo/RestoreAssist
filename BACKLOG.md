@@ -1,7 +1,7 @@
 # Backlog — parked, not dead
 
 Feature freeze until 2 October 2026 under the First Revenue Directive
-(`FIRST-REVENUE-DIRECTIVE.md`). One line per idea. Nothing here is sequenced
+(`RESTOREASSIST_FIRST_REVENUE_DIRECTIVE.md`). One line per idea. Nothing here is sequenced
 until restoration is converting.
 
 - Multi-trade expansion: small builders, roofers, plasterers, bricklayers,
