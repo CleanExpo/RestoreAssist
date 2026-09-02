@@ -31,14 +31,19 @@ this person. Keep going while an important part is still a guess.
 Ask about these specifically, because a spec written without them is wrong rather
 than incomplete, and the person may not know they matter:
 
-- **Australia or New Zealand, or both?** GST is 10 per cent AU and 15 per cent NZ
-  (`lib/gst-rules.ts`); asbestos presumption 2004 AU and 2000 NZ; lead 1970 AU and
-  1980 NZ; different regulators are notified. An intent that does not say which
-  country it is about will produce a spec that is wrong for one of them.
+- **Australia or New Zealand, or both?** Ask, and record the answer. The two
+  differ on the GST rate, on the asbestos and lead presumption years, and on
+  which regulator is notified — an intent that does not say which country it is
+  about will produce a spec that is wrong for one of them. **Do not quote the
+  figures from memory or from this file.** They live in `lib/gst-rules.ts` and
+  `lib/compliance/regulatory-registry/`, which is the only place they are
+  maintained; a copy in a skill is a copy that goes stale and then teaches every
+  new intent the stale value.
 - **Does it assert a regulatory fact?** Any year, threshold, standard or clause
   must come from `lib/compliance/regulatory-registry/`, verifiable against a
-  source. If the intent needs a fact nobody has verified, that is an open
-  question, not an assumption to write down.
+  source. Read the entry rather than recalling it. If the intent needs a fact
+  nobody has verified, that is an open question, not an assumption to write
+  down.
 - **Does it touch money, evidence custody, or organisation isolation?** Say so.
 
 ## Writing the file

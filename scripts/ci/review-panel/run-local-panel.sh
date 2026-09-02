@@ -43,6 +43,14 @@ if [[ ! -s "$DIFF_FILE" ]]; then
   exit 2
 fi
 
+# summarise.ts runs through tsx from devDependencies. Say so plainly rather than
+# letting npx fail with "canceled due to missing packages" at the very end, after
+# every seat has already been called.
+if ! npx --no-install tsx --version >/dev/null 2>&1; then
+  echo "run-local-panel: tsx is not installed. Run 'npm ci' in the repo first." >&2
+  exit 2
+fi
+
 PROMPT_FILE="$(mktemp)"
 trap 'rm -f "$PROMPT_FILE"; $CLEANUP_DIFF && rm -f "$DIFF_FILE"' EXIT
 {
@@ -81,7 +89,13 @@ while IFS=$'\t' read -r id family command args_json; do
     continue
   fi
 
-  mapfile -t args < <(jq -r '.[]' <<<"$args_json")
+  # A read loop, not mapfile. macOS ships Bash 3.2, which has no mapfile, and
+  # this script exists precisely to run on a laptop — the failure would have been
+  # the seat invoked with NO arguments, which is worse than not running.
+  args=()
+  while IFS= read -r one_arg; do
+    args+=("$one_arg")
+  done < <(jq -r '.[]' <<<"$args_json")
 
   raw="$("$command" "${args[@]}" < "$PROMPT_FILE" 2>/dev/null)"
   rc=$?

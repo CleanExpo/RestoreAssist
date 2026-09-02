@@ -6,12 +6,13 @@
 # Output: a JSON array of SeatResult (see panel.ts), ready to pipe into
 # summarise.ts, which does the merging and writes the PR comment.
 #
-# COST. Every seat enabled in roster.json is an OpenRouter `:free` variant, which
-# structurally cannot bill — the same invariant that lets the Stop-hook verifier
-# share the platform key (lib/ai/openrouter.ts). Paid seats ship disabled and
-# need an owner spend decision (rule 31). This script refuses to enable one for
-# you: a seat runs only if roster.json says enabled AND its required env var is
-# present.
+# COST. Three enabled seats are OpenRouter `:free` variants, which structurally
+# cannot bill — the invariant that lets the Stop-hook verifier share the platform
+# key (lib/ai/openrouter.ts). The fourth, MiniMax-M2.5, DOES bill, at roughly 1.5
+# US cents per pull request, and the owner authorised it on 2026-09-02. Any
+# further paid seat is a new spend decision (rule 31). This script will not
+# enable one for you: a seat runs only if roster.json says enabled AND its
+# required env var is present.
 #
 # A SEAT THAT FAILS IS ABSENT, NOT AGREEMENT. Every failure is recorded with its
 # reason and carried through to the report, because a panel that silently drops a
@@ -87,10 +88,32 @@ while IFS=$'\t' read -r id family provider model base_url requires_env; do
   api_base="$base_url"
   [[ -z "$api_base" || "$api_base" == "null" ]] && api_base="https://openrouter.ai/api/v1"
 
+  # Never put a bearer token on the wire in clear text, whatever a roster edit
+  # says. This is cheap and it is the last line of defence if someone points a
+  # seat at a local proxy over http.
+  if [[ "$api_base" != https://* ]]; then
+    results=$(jq --arg s "$id" --arg f "$family" --arg e "refusing to send a credential to a non-HTTPS base URL ($api_base)" \
+      '. + [{seat:$s, family:$f, findings:[], error:$e}]' <<<"$results")
+    continue
+  fi
+
+  # THE SEAT'S OWN KEY, NOT WHATEVER openrouter-call.sh FINDS FIRST. Its
+  # resolution order is VERIFIER_API_KEY, OPENROUTER_VERIFIER_KEY,
+  # OPENROUTER_API_KEY, DEEPSEEK_API_KEY -- it has never heard of MINIMAX_API_KEY.
+  # Without this the MiniMax seat, pointed at api.minimax.io, would have sent the
+  # OpenRouter platform key to a third party. Passing the seat's declared
+  # credential explicitly makes that structurally impossible rather than a
+  # question of ordering.
+  seat_key=""
+  if [[ -n "$requires_env" && "$requires_env" != "null" ]]; then
+    seat_key="${!requires_env:-}"
+  fi
+
   # Reuse the existing caller rather than writing a second HTTP client. It
   # already resolves keys in a documented order, retries, and enforces the
   # `:free` pin against OpenRouter.
   raw=$(VERIFIER_API_BASE="$api_base" \
+        ${seat_key:+VERIFIER_API_KEY="$seat_key"} \
         VERIFIER_MODEL_ID="$model" \
         VERIFIER_PROMPT_FILE="$SYSTEM_FILE" \
         VERIFIER_MAX_OUTPUT_TOKENS="${PANEL_MAX_OUTPUT_TOKENS:-4000}" \
