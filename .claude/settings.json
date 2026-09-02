@@ -43,5 +43,8 @@
       "mcp__Linear__list_issue_statuses",
       "mcp__Linear__search_documentation"
     ]
+  },
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
   }
 }
