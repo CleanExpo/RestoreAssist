@@ -31,7 +31,10 @@ import {
 } from "@/lib/compliance/regulatory-registry";
 import {
   citedRegulations,
+  familyLabel,
+  resolveFamily,
   type AuthorityTemplateSpec,
+  type RegulationFamily,
 } from "./authority-catalogue";
 
 /** Jurisdictions that are Australian for the purpose of "is this our law". */
@@ -77,6 +80,15 @@ export interface ProvenanceBlock {
   notices: string[];
   /** True when nothing was cited: the caller renders no block at all. */
   empty: boolean;
+  /**
+   * Families that named a real rule but resolved to no entry FOR THIS JOB.
+   *
+   * Kept separate from `entries` because the document has to say something it
+   * cannot say by printing a requirement: that a duty was looked for and no
+   * verified entry was held. Dropping these silently is how a Victorian job
+   * ends up with no asbestos-register line and no indication one was sought.
+   */
+  unresolved: string[];
 }
 
 const NOT_LEGAL_ADVICE =
@@ -124,24 +136,41 @@ export function buildProvenanceBlock(
   options: { mayBeSchemaDefault?: boolean } = {},
 ): ProvenanceBlock {
   const cited = citedRegulations(spec);
-  if (cited.length === 0) {
-    return { heading: "", entries: [], notices: [], empty: true };
+  const families: RegulationFamily[] = spec.citesRegulationFamilies ?? [];
+
+  if (cited.length === 0 && families.length === 0) {
+    return { heading: "", entries: [], notices: [], empty: true, unresolved: [] };
   }
 
-  const entries: ProvenanceEntry[] = cited.map((c) => {
-    const entry = regulation(c.id);
-    return {
-      id: c.id,
-      instrument: c.instrument,
-      provision: c.provision,
-      requirement: c.requirement,
-      sourceUrl: c.sourceUrl,
-      verifiedAt: c.verifiedAt,
-      verification: c.verification,
-      jurisdiction: entry.jurisdiction,
-      foreignToJob: foreignTo(entry, jobJurisdiction),
-    };
+  const toProvenance = (entry: RegulatoryEntry): ProvenanceEntry => ({
+    id: entry.id,
+    instrument: entry.instrument,
+    provision: entry.provision,
+    requirement: entry.requirement,
+    sourceUrl: entry.sourceUrl,
+    verifiedAt: entry.verifiedAt,
+    verification: entry.verification,
+    jurisdiction: entry.jurisdiction,
+    foreignToJob: foreignTo(entry, jobJurisdiction),
   });
+
+  const entries: ProvenanceEntry[] = cited.map((c) => toProvenance(regulation(c.id)));
+
+  // Families resolve to the job's country. By construction one never resolves
+  // to a foreign entry -- `resolveFamily` gives New Zealand no Australian
+  // fallback -- so every foreign entry in this block came from an exact id.
+  const unresolved: string[] = [];
+  for (const family of families) {
+    const entry = resolveFamily(family, jobJurisdiction);
+    if (!entry) {
+      unresolved.push(familyLabel(family));
+      continue;
+    }
+    // A rule cited both ways renders once. The duplicate would otherwise read
+    // as two independent sources saying the same thing.
+    if (entries.some((e) => e.id === entry.id)) continue;
+    entries.push(toProvenance(entry));
+  }
 
   const notices: string[] = [];
 
@@ -151,13 +180,22 @@ export function buildProvenanceBlock(
   // catastrophically wrong.
   if (jobJurisdiction === null) {
     notices.push(
-      "The country this job sits in was not recorded, so RestoreAssist cannot confirm the requirement below applies. Confirm the position for the job's jurisdiction before relying on it.",
+      entries.length > 0
+        ? "The country this job sits in was not recorded, so RestoreAssist cannot confirm the requirement below applies. Confirm the position for the job's jurisdiction before relying on it."
+        : "The country this job sits in was not recorded, so RestoreAssist could not select the requirements that apply. Nothing below states the rule for this job. Record the country and reissue this document.",
     );
+    // Naming them matters: a reader can then ask for the missing rule by name
+    // instead of reading the absence as "no such duty".
+    if (unresolved.length > 0) {
+      notices.push(
+        `Not selected, because the job's country is unrecorded: ${unresolved.join(", ")}.`,
+      );
+    }
     notices.push(NOT_LEGAL_ADVICE);
     if (entries.some((e) => e.verification === "secondary-quoting-primary")) {
       notices.push(SECONDARY_SOURCE);
     }
-    return { heading: "Regulatory basis", entries, notices, empty: false };
+    return { heading: "Regulatory basis", entries, notices, empty: false, unresolved };
   }
 
   // Requirement 3, and it goes FIRST: a reader who stops after one line must
@@ -168,8 +206,14 @@ export function buildProvenanceBlock(
       ? "Australian"
       : "New Zealand";
     const otherCountry = jobCountry === "Australian" ? "New Zealand" : "Australian";
+    // The instruments are NAMED. The unnamed version of this sentence was true
+    // when a block could hold only foreign entries; once a family can resolve a
+    // local rule into the same block, "RestoreAssist holds no verified
+    // Australian equivalent" sits directly beneath an Australian entry and the
+    // reader cannot tell which line it disclaims. Naming them keeps it true.
+    const named = foreign.map((e) => e.instrument).join("; ");
     notices.push(
-      `This job is ${jobCountry}. ${foreign.length === 1 ? "The requirement" : "Some requirements"} shown below ${foreign.length === 1 ? "is" : "are"} ${otherCountry} and ${foreign.length === 1 ? "does" : "do"} not govern this job. RestoreAssist holds no verified ${jobCountry} equivalent, so treat this as background only and confirm the ${jobCountry} position with your regulator.`,
+      `This job is ${jobCountry}. ${foreign.length === 1 ? "The following requirement is" : "The following requirements are"} ${otherCountry} and ${foreign.length === 1 ? "does" : "do"} not govern this job: ${named}. RestoreAssist holds no verified ${jobCountry} equivalent for ${foreign.length === 1 ? "it" : "them"}, so treat ${foreign.length === 1 ? "it" : "them"} as background only and confirm the ${jobCountry} position with your regulator.`,
     );
   }
 
@@ -179,6 +223,20 @@ export function buildProvenanceBlock(
   if (options.mayBeSchemaDefault && foreign.length === 0) {
     notices.push(
       "The job's country was taken from a field that defaults to Australia, so it may not have been confirmed for this job. If this is a New Zealand job, the requirement below does not govern it.",
+    );
+  }
+
+  // A duty was looked for and no verified entry was held for this country.
+  // Stated as an absence of a CHECKED ENTRY, never as a finding that no duty
+  // exists: a Victorian asbestos register duty is not absent because this
+  // registry has not yet seeded it, and a document that implied otherwise would
+  // be worse than one that said nothing.
+  if (unresolved.length > 0) {
+    const jobCountryName = isAustralianJurisdiction(jobJurisdiction)
+      ? "Australian"
+      : "New Zealand";
+    notices.push(
+      `RestoreAssist holds no verified ${jobCountryName} entry for: ${unresolved.join(", ")}. That is an absence of a checked entry, not a finding that no duty applies. Confirm the position with your regulator before relying on this document.`,
     );
   }
 
@@ -198,6 +256,7 @@ export function buildProvenanceBlock(
     entries,
     notices,
     empty: false,
+    unresolved,
   };
 }
 
