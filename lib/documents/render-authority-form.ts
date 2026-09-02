@@ -89,6 +89,20 @@ export interface RenderedAuthorityForm {
   filename: string;
 }
 
+/**
+ * Render an authority form to PDF bytes, with its regulatory provenance.
+ *
+ * The single renderer for every surface that needs this document: the download
+ * route, the job-package ZIP and the report export package. Fetch the form with
+ * AUTHORITY_FORM_RENDER_INCLUDE so all three read the same shape.
+ *
+ * @param form The instance, its template, signatures and report/inspection.
+ * @param options.draft Strip the captured signature strokes -- a draft must not
+ *   look executed. The signatories are still named.
+ * @param options.now The date printed on the document; defaults to now.
+ *   Injectable so callers can be reproducible.
+ * @returns The PDF bytes and the filename a download should use.
+ */
 export async function renderAuthorityFormPdf(
   form: AuthorityFormRenderSource,
   options: { draft?: boolean; now?: Date } = {},

@@ -148,6 +148,18 @@ export const DELIBERATELY_NOT_PREFILLED = [
   "incidentDate",
 ] as const;
 
+/**
+ * Map an inspection onto the report form's fields.
+ *
+ * Pure: no database, no clock, no I/O. Every field it emits is a value the
+ * inspection actually recorded; a field the inspection does not record is
+ * ABSENT from the result rather than `""` or a default, so the form can tell
+ * "not recorded" from "recorded as nothing". See DELIBERATELY_NOT_PREFILLED for
+ * the fields this will never populate and why.
+ *
+ * @param inspection Narrow projection of an Inspection; see the interface.
+ * @returns The fields to pre-fill, and their names in a stable order.
+ */
 export function buildReportPrefill(
   inspection: InspectionPrefillSource,
 ): ReportPrefill {

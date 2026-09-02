@@ -67,6 +67,89 @@ describe("checkSafeworkGate", () => {
     );
   });
 
+  describe("the asbestos era threshold follows the job's country", () => {
+    /**
+     * The two thresholds are not the same and must not be collapsed. Australia's
+     * ban took effect 31 December 2003, so anything built before 2004 is in
+     * scope; WorkSafe New Zealand states 1 January 2000. Both live in
+     * lib/compliance/regulatory-registry/asbestos.ts and are reached through
+     * presumeAsbestosFromEra.
+     *
+     * This gate carried a literal 2004 with a comment reading "NZ check skipped
+     * until RA-1120". That was harmless only because the jurisdiction could
+     * never BE New Zealand -- it came from an Australian postcode map. Reading
+     * propertyCountry made NZ reachable and turned a dormant note into a live
+     * defect: a New Zealand building from 2000-2003 was told it pre-dates the
+     * threshold when its own rule says it does not.
+     */
+    it("does not presume asbestos on a 2002 New Zealand building", async () => {
+      mockFindUnique.mockResolvedValueOnce(
+        makeInspection({
+          propertyCountry: "NZ",
+          propertyYearBuilt: 2002,
+          whsIncidents: [{ incidentType: "asbestos_soffit" }],
+        }),
+      );
+
+      const result = await checkSafeworkGate("insp-nz-2002");
+
+      expect(result.notifications.map((n) => n.type)).not.toContain("asbestos");
+    });
+
+    it("does presume asbestos on a 1999 New Zealand building", async () => {
+      // The other side of the same boundary: without this, a gate that simply
+      // never fires in New Zealand would satisfy the assertion above.
+      mockFindUnique.mockResolvedValueOnce(
+        makeInspection({
+          propertyCountry: "NZ",
+          propertyYearBuilt: 1999,
+          whsIncidents: [{ incidentType: "asbestos_soffit" }],
+        }),
+      );
+
+      const result = await checkSafeworkGate("insp-nz-1999");
+
+      const asbestos = result.notifications.find((n) => n.type === "asbestos");
+      expect(asbestos).toBeDefined();
+      expect(asbestos!.regulator).toContain("WorkSafe");
+    });
+
+    it("still presumes asbestos on a 2002 Australian building", async () => {
+      // Guards the opposite collapse: adopting New Zealand's year everywhere
+      // would drop 2000-2003 Australian buildings out of the trigger.
+      mockFindUnique.mockResolvedValueOnce(
+        makeInspection({
+          propertyYearBuilt: 2002,
+          whsIncidents: [{ incidentType: "asbestos_soffit" }],
+        }),
+      );
+
+      const result = await checkSafeworkGate("insp-au-2002");
+
+      expect(result.notifications.map((n) => n.type)).toContain("asbestos");
+    });
+
+    it("states the year it actually applied, rather than a fixed one", async () => {
+      // The warning read "pre-2004 building" unconditionally. A New Zealand
+      // technician reading that would take away the wrong rule even on a job
+      // the gate handled correctly.
+      mockFindUnique.mockResolvedValueOnce(
+        makeInspection({
+          propertyCountry: "NZ",
+          propertyYearBuilt: 1990,
+          whsIncidents: [{ incidentType: "asbestos_soffit" }],
+        }),
+      );
+
+      const result = await checkSafeworkGate("insp-nz-warning");
+
+      const warning = result.warnings.find((w) => w.includes("Asbestos"));
+      expect(warning).toBeDefined();
+      expect(warning).toContain("2000");
+      expect(warning).not.toContain("2004");
+    });
+  });
+
   it("triggers mould notification for Cat 3 area at/above 10 m² (RA-7001, canonical m²)", async () => {
     mockFindUnique.mockResolvedValueOnce(
       makeInspection({
