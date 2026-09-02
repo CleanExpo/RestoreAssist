@@ -15,6 +15,7 @@
 import { ASBESTOS_ENTRIES } from "./asbestos";
 import { BUILDING_CODE_ENTRIES } from "./building-code";
 import { CHEMICALS_ENTRIES } from "./chemicals";
+import { LEAD_ENTRIES } from "./lead";
 import { ELECTRICAL_ENTRIES } from "./electrical";
 import { SILICA_ENTRIES } from "./silica";
 import type {
@@ -28,6 +29,7 @@ export * from "./types";
 /** Every entry, in one place, so the gate can see all of them. */
 export const REGULATORY_ENTRIES: readonly RegulatoryEntry[] = [
   ...ASBESTOS_ENTRIES,
+  ...LEAD_ENTRIES,
   ...SILICA_ENTRIES,
   ...ELECTRICAL_ENTRIES,
   ...CHEMICALS_ENTRIES,

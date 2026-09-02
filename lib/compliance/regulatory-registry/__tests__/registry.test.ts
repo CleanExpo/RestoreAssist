@@ -506,3 +506,55 @@ describe("asbestos-era reads the registry rather than its own copy", () => {
     expect(presumeAsbestosFromEra(undefined, "AU")).toBe(false);
   });
 });
+
+describe("lead is its own hazard, not a copy of asbestos", () => {
+  const nz = REGULATORY_ENTRIES.find((e) => e.id === "lead.presumption-year.nz");
+
+  it("seeds New Zealand's presumption year, which is NOT the asbestos one", () => {
+    // The whole reason this domain exists. leadRisk rode on the asbestos year
+    // because the registry had no lead domain; NZ lead is 1980 against NZ
+    // asbestos 2000, so the borrowed year was over-warning by two decades.
+    expect(nz).toBeDefined();
+    expect(nz!.value).toBe(1980);
+    expect(nz!.jurisdiction).toBe("NZ");
+    expect(nz!.domain).toBe("lead");
+  });
+
+  it("describes a presumption, never a prohibition", () => {
+    // Australia banned asbestos on a date; nothing equivalent happened for lead
+    // paint. An entry that said "banned" would invite a document to state a
+    // prohibition that does not exist.
+    // Asserted positively rather than by banning a word. The first version of
+    // this test forbade /prohibit/ outright and failed on the entry's own
+    // disclaimer, "not a prohibition" -- the assertion was blunter than the
+    // property it was checking.
+    expect(nz!.requirement).toMatch(/presume that a building/i);
+    expect(nz!.requirement).toMatch(/not a prohibition/i);
+    expect(nz!.requirement).toMatch(/no single date on which lead paint became unlawful/i);
+  });
+
+  it("says a later build year is not a clearance", () => {
+    // The failure mode this guards: a reader treating "built 1985" as lead-free.
+    expect(nz!.requirement).toMatch(/may still carry lead paint/i);
+  });
+
+  it("states only the precision established, and admits the source was secondary", () => {
+    // Every regulator domain that could settle these is egress-blocked here.
+    expect(nz!.effectiveFrom).toBe("2013");
+    expect(nz!.verification).toBe("secondary-quoting-primary");
+  });
+
+  it("does NOT seed Australia, because its commencement year is unresolved", () => {
+    // Deliberate, and the reason is in lead.ts: sources disagree between a 2014
+    // publication and a 2016 Commonwealth copyright line, and effectiveFrom is
+    // documented as a positive claim about what is known rather than a
+    // placeholder. Seeding a guessed year would be the exact defect this
+    // registry exists to stop -- committed inside the registry itself.
+    //
+    // Delete this test when an Australian entry lands with a sourced year.
+    const au = REGULATORY_ENTRIES.find(
+      (e) => e.domain === "lead" && e.jurisdiction === "AU",
+    );
+    expect(au).toBeUndefined();
+  });
+});
