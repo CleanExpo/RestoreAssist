@@ -206,17 +206,23 @@ describe("buildStructuredBasicReport — moisture readings", () => {
 });
 
 describe("buildStructuredBasicReport — hazards (building age inference)", () => {
-  it("flags pre-1990 buildings for asbestos and lead risk", () => {
+  it("flags an era building for asbestos and lead risk", () => {
+    // Was `toBe("PRE-1990_BUILDING")`. That assertion pinned the defect: the
+    // wrong threshold was inside the value, so the test passing was the reason
+    // nobody noticed. Updated deliberately, and this is the ONE kind of test
+    // edit that is a fix rather than a dodge -- the assertion described the
+    // behaviour being removed. The building is still flagged; only the year the
+    // flag names has changed, and it now comes from the registry.
     const result = buildStructuredBasicReport({
       report: baseReport({ buildingAge: "1975" }),
       analysis: null,
       stateInfo: null,
     } as Parameters<typeof buildStructuredBasicReport>[0]);
-    expect(result.hazards.asbestosRisk).toBe("PRE-1990_BUILDING");
-    expect(result.hazards.leadRisk).toBe("PRE-1990_BUILDING");
+    expect(result.hazards.asbestosRisk).toBe("PRE-2004_BUILDING");
+    expect(result.hazards.leadRisk).toBe("PRE-2004_BUILDING");
   });
 
-  it("does not flag asbestos/lead for post-1990 buildings", () => {
+  it("does not flag asbestos/lead for a post-presumption-year building", () => {
     const result = buildStructuredBasicReport({
       report: baseReport({ buildingAge: "2005" }),
       analysis: null,
@@ -224,6 +230,50 @@ describe("buildStructuredBasicReport — hazards (building age inference)", () =
     } as Parameters<typeof buildStructuredBasicReport>[0]);
     expect(result.hazards.asbestosRisk).toBeNull();
     expect(result.hazards.leadRisk).toBeNull();
+  });
+});
+
+describe("buildStructuredBasicReport — the asbestos era comes from the registry", () => {
+  /**
+   * These flagged on `< 1990`, which is the Queensland asbestos-REGISTER
+   * exemption date. lib/compliance/regulatory-registry/asbestos.ts records it as
+   * an administrative record-keeping rule and states that applying it as a
+   * national safety threshold is the defect that registry exists to stop.
+   * Australia's presumption year is 2004 — the ban took effect 31 December 2003.
+   *
+   * So every building from 1990 to 2003 came back with asbestosRisk: null, and
+   * a null here is not "unknown", it is "no risk identified" — printed as such
+   * by components/RestorationInspectionReportViewer.tsx.
+   */
+  it("flags a 1995 building, which the 1990 rule cleared", () => {
+    const result = buildStructuredBasicReport({
+      report: baseReport({ buildingAge: "1995" }),
+      analysis: null,
+      stateInfo: null,
+    } as Parameters<typeof buildStructuredBasicReport>[0]);
+    expect(result.hazards.asbestosRisk).toBeTruthy();
+    expect(result.hazards.leadRisk).toBeTruthy();
+  });
+
+  it("flags a 2003 building — the ban took effect 31 December 2003", () => {
+    const result = buildStructuredBasicReport({
+      report: baseReport({ buildingAge: "2003" }),
+      analysis: null,
+      stateInfo: null,
+    } as Parameters<typeof buildStructuredBasicReport>[0]);
+    expect(result.hazards.asbestosRisk).toBeTruthy();
+  });
+
+  it("does not carry a stale year in the flag's own value", () => {
+    // The value was the literal string "PRE-1990_BUILDING", so the wrong
+    // threshold travelled downstream inside the answer itself.
+    const result = buildStructuredBasicReport({
+      report: baseReport({ buildingAge: "1975" }),
+      analysis: null,
+      stateInfo: null,
+    } as Parameters<typeof buildStructuredBasicReport>[0]);
+    expect(result.hazards.asbestosRisk).not.toContain("1990");
+    expect(result.hazards.asbestosRisk).toContain("2004");
   });
 });
 

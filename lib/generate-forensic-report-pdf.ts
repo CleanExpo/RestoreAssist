@@ -19,6 +19,10 @@ import {
   buildStandardsContextPrompt,
 } from "./standards-retrieval";
 import { describeClause } from "./reports/clause-descriptions";
+import {
+  asbestosEraBasis,
+  presumeAsbestosFromEra,
+} from "@/lib/compliance/asbestos-era";
 import { standardDesignation } from "./nir-standards-mapping";
 import { isSafePublicHttpsUrl } from "./security/safe-external-url";
 
@@ -2883,7 +2887,16 @@ function buildForensicSummary(
 
   // Add property intelligence if available
   if (report.buildingAge) {
-    summary += ` Building age: ${report.buildingAge} (${report.buildingAge < 1990 ? "Pre-1990 - Asbestos/Lead assessment required" : "Post-1990"}).`;
+    // The era judgement comes from the registry, not a literal.
+    //
+    // This read `< 1990` and printed "Post-1990" otherwise -- so a 1995
+    // building was affirmatively labelled clear IN A FORENSIC REPORT an insurer
+    // reads. That is worse than saying nothing: 1990 is the Queensland
+    // asbestos-REGISTER exemption date, and Australia did not prohibit asbestos
+    // in workplaces until 31 December 2003, so the presumption year is 2004.
+    const eraYear = asbestosEraBasis("AU").year;
+    const preEra = presumeAsbestosFromEra(Number(report.buildingAge), "AU");
+    summary += ` Building age: ${report.buildingAge} (${preEra ? `Pre-${eraYear} - Asbestos/Lead assessment required` : `Post-${eraYear}`}).`;
   }
 
   if (report.structureType) {

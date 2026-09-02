@@ -251,6 +251,23 @@ interface RestorationInspectionReportViewerProps {
   data: RestorationInspectionReportData;
 }
 
+
+/**
+ * Turn a hazard-era flag into prose for a reader.
+ *
+ * The flag is produced by lib/reports/build-structured-report.ts and carries the
+ * year it was decided by ("PRE-2004_BUILDING"), precisely so that this sentence
+ * does not have to hold a copy of the threshold. It previously said
+ * "(pre-1990 building)" unconditionally, which was the wrong year and would
+ * have kept asserting it after the flag was corrected.
+ *
+ * Unrecognised values are passed through rather than guessed at.
+ */
+function describeHazardEra(flag: string): string {
+  const m = /^PRE-(\d{4})_BUILDING$/.exec(flag);
+  return m ? `pre-${m[1]} building` : flag;
+}
+
 export default function RestorationInspectionReportViewer({
   data,
 }: RestorationInspectionReportViewerProps) {
@@ -321,14 +338,20 @@ export default function RestorationInspectionReportViewer({
       );
     }
 
+    // The basis comes from the flag itself. These sentences hardcoded
+    // "(pre-1990 building)", which was the wrong threshold and would have gone
+    // on asserting it to a reader even after the flag behind it was corrected --
+    // the flag now carries the year it was decided by.
     if (data.hazards.asbestosRisk) {
       observations.push(
-        "Potential asbestos risk identified (pre-1990 building)",
+        `Potential asbestos risk identified (${describeHazardEra(data.hazards.asbestosRisk)})`,
       );
     }
 
     if (data.hazards.leadRisk) {
-      observations.push("Potential lead risk identified (pre-1990 building)");
+      observations.push(
+        `Potential lead risk identified (${describeHazardEra(data.hazards.leadRisk)})`,
+      );
     }
 
     if (data.summary.estimatedDuration) {
