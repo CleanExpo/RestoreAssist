@@ -251,8 +251,10 @@ describe("buildStructuredBasicReport — the asbestos era comes from the registr
       analysis: null,
       stateInfo: null,
     } as Parameters<typeof buildStructuredBasicReport>[0]);
-    expect(result.hazards.asbestosRisk).toBeTruthy();
-    expect(result.hazards.leadRisk).toBeTruthy();
+    // Exact, not truthy. `toBeTruthy()` accepts "PRE-1990_BUILDING" — the very
+    // value being removed — so it would have passed against the defect.
+    expect(result.hazards.asbestosRisk).toBe("PRE-2004_BUILDING");
+    expect(result.hazards.leadRisk).toBe("PRE-2004_BUILDING");
   });
 
   it("flags a 2003 building — the ban took effect 31 December 2003", () => {
@@ -261,7 +263,8 @@ describe("buildStructuredBasicReport — the asbestos era comes from the registr
       analysis: null,
       stateInfo: null,
     } as Parameters<typeof buildStructuredBasicReport>[0]);
-    expect(result.hazards.asbestosRisk).toBeTruthy();
+    expect(result.hazards.asbestosRisk).toBe("PRE-2004_BUILDING");
+    expect(result.hazards.leadRisk).toBe("PRE-2004_BUILDING");
   });
 
   it("does not carry a stale year in the flag's own value", () => {

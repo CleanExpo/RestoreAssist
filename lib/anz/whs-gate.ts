@@ -9,9 +9,22 @@
  */
 
 import { getMaterial } from "./materials";
+import {
+  ASBESTOS_PRESUMPTION_YEAR,
+  presumeAsbestosFromEra,
+  type AsbestosJurisdiction,
+} from "@/lib/compliance/asbestos-era";
 
-/** Work after the national ban is treated as ACM-free. */
-export const ASBESTOS_BAN_YEAR = 2004;
+/**
+ * Work after the national ban is treated as ACM-free.
+ *
+ * Re-exported from the registry rather than declared. The VALUE here was always
+ * right for Australia, so nothing was broken -- but a regulatory year living in
+ * a second place is how this class regenerates. The same asbestos question was
+ * answered differently in nine files before lib/compliance/asbestos-era.ts was
+ * built, and the safety-critical copies had the wrong answer.
+ */
+export const ASBESTOS_BAN_YEAR = ASBESTOS_PRESUMPTION_YEAR.AU;
 
 /** Scope actions that physically disturb material and therefore trigger the gate. */
 const DESTRUCTIVE_ACTIONS = new Set([
@@ -38,6 +51,19 @@ export interface WhsGateInput {
   isPotentialAcm?: boolean;
   /** Year the property was built. Unknown is treated conservatively as at-risk. */
   propertyYearBuilt?: number;
+  /**
+   * Country whose presumption year applies. Defaults to Australia.
+   *
+   * New Zealand's threshold is 1 January 2000 against Australia's 2004, so a
+   * 2002 building is inside the Australian window and outside the New Zealand
+   * one. The default is deliberate rather than lazy: the only caller today
+   * (components/sketch/SketchSelectionPanel.tsx) receives propertyYearBuilt and
+   * NO country or postcode, so it genuinely cannot resolve one. Defaulting to
+   * Australia over-blocks a New Zealand job from 2000-2003 rather than
+   * under-warning it, which is the safe direction for a gate that stops
+   * destructive work.
+   */
+  jurisdiction?: AsbestosJurisdiction;
   /** The scope action being attempted. */
   action: string;
   /** Recorded hazard pathway state, if any. */
@@ -80,7 +106,10 @@ export function evaluateWhsGate(input: WhsGateInput): WhsGateResult {
   // Unknown build year => treat as at-risk; post-ban construction => no ACM risk.
   const preBan =
     input.propertyYearBuilt === undefined ||
-    input.propertyYearBuilt < ASBESTOS_BAN_YEAR;
+    presumeAsbestosFromEra(
+      input.propertyYearBuilt,
+      input.jurisdiction ?? "AU",
+    );
 
   const suspectedAcm = materialAcm && preBan;
 

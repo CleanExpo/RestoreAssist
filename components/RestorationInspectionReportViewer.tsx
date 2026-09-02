@@ -268,6 +268,24 @@ function describeHazardEra(flag: string): string {
   return m ? `pre-${m[1]} building` : flag;
 }
 
+/** The bare year from a hazard-era flag, for sentences that read "pre-YYYY". */
+function hazardEraYear(flag: string): string {
+  const m = /^PRE-(\d{4})_BUILDING$/.exec(flag);
+  return m ? m[1] : "the presumption year";
+}
+
+/**
+ * The lead flag rides on the ASBESTOS era, and a reader must be told so.
+ *
+ * lib/reports/build-structured-report.ts derives leadRisk from the asbestos
+ * presumption year because the regulatory registry holds no lead domain, so
+ * there is no sourced lead threshold to read. The code comment there is not
+ * enough on its own: it is invisible to the person holding the report, who
+ * would otherwise take "pre-2004" as a lead-specific determination.
+ */
+const LEAD_ERA_QUALIFIER =
+  "based on the asbestos-era threshold, not a lead-specific determination";
+
 export default function RestorationInspectionReportViewer({
   data,
 }: RestorationInspectionReportViewerProps) {
@@ -350,7 +368,7 @@ export default function RestorationInspectionReportViewer({
 
     if (data.hazards.leadRisk) {
       observations.push(
-        `Potential lead risk identified (${describeHazardEra(data.hazards.leadRisk)})`,
+        `Potential lead risk identified (${describeHazardEra(data.hazards.leadRisk)}; ${LEAD_ERA_QUALIFIER})`,
       );
     }
 
@@ -455,13 +473,13 @@ export default function RestorationInspectionReportViewer({
 
     if (data.hazards.asbestosRisk) {
       summaryParts.push(
-        `Given the building's age (pre-1990), potential asbestos-containing materials may be present, requiring assessment in accordance with Work Health and Safety Regulations 2011 before any demolition or structural work.`,
+        `Given the building's age (pre-${hazardEraYear(data.hazards.asbestosRisk)}), potential asbestos-containing materials may be present, requiring assessment in accordance with Work Health and Safety Regulations 2011 before any demolition or structural work.`,
       );
     }
 
     if (data.hazards.leadRisk) {
       summaryParts.push(
-        `Lead-based materials may be present in this pre-1990 structure, necessitating appropriate safety measures per Work Health and Safety Regulations 2011.`,
+        `Lead-based materials may be present in this pre-${hazardEraYear(data.hazards.leadRisk)} structure (${LEAD_ERA_QUALIFIER}), necessitating appropriate safety measures per Work Health and Safety Regulations 2011.`,
       );
     }
 
@@ -1925,10 +1943,10 @@ export default function RestorationInspectionReportViewer({
                         </p>
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
                           <strong>Compliance:</strong> Work Health and Safety
-                          Regulations 2011 (WHS) require asbestos assessment for
-                          pre-1990 buildings. Licensed asbestos assessor
-                          consultation recommended before any demolition or
-                          structural work.
+                          Regulations 2011 (WHS) require asbestos assessment
+                          for pre-{hazardEraYear(data.hazards.asbestosRisk)}{" "}
+                          buildings. Licensed asbestos assessor consultation
+                          recommended before any demolition or structural work.
                         </p>
                       </div>
                     </div>
@@ -1943,8 +1961,9 @@ export default function RestorationInspectionReportViewer({
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
                           <strong>Compliance:</strong> Work Health and Safety
                           Regulations 2011 (WHS) require lead assessment for
-                          pre-1990 buildings. Appropriate PPE and containment
-                          measures required.
+                          pre-{hazardEraYear(data.hazards.leadRisk)} buildings
+                          ({LEAD_ERA_QUALIFIER}). Appropriate PPE and
+                          containment measures required.
                         </p>
                       </div>
                     </div>
