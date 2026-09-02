@@ -1,0 +1,29 @@
+Put the month in, and stop there:
+
+```ts
+effectiveFrom: "2023-11",
+```
+
+Do not pad it to `2023-11-01`. The field is documented as "when the rule
+commenced, at the precision actually established" — one of `YYYY-MM-DD`,
+`YYYY-MM` or `YYYY` — and a shorter form is a positive claim about what is
+known, not a placeholder waiting to be filled in. Padding to the first of the
+month asserts a commencement day nobody verified, and nothing downstream can
+tell the difference between the day you found and the day you invented.
+
+The harm is concrete rather than theoretical. Any date-sensitive lookup reads a
+padded value as exact, so an entry padded to the first would report the rule in
+force up to three weeks before it actually was — on a compliance document, for
+a rule the reader is being told applies to their job.
+
+Then compare it with `effectiveFromRange()` from
+lib/compliance/regulatory-registry/index.ts, not with string ordering. A
+partial value denotes an interval — `2023-11` means somewhere in that month —
+and which end of the interval is the safe one depends on the question. "Was
+this in force on the inspection date?" wants the late end; "has this been in
+force since?" wants the early one. `entry.effectiveFrom <= todayIso` silently
+picks one and is wrong half the time.
+
+If you later find the day in a primary source, tighten it to `2023-11-24` then.
+Widening precision as evidence arrives is the intended direction; starting wide
+costs nothing.

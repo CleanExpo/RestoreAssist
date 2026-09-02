@@ -22,7 +22,7 @@ chain is the audit trail — who asked for what, when, and what was decided.
 
 ## The chain
 
-```
+```text
 intent/*.md  →  docs/superpowers/specs/*.md  →  docs/superpowers/plans/*.md  →  the diff, its tests, the PR
    Stage 1              Stage 2                          Stage 3                        Stage 3–5
    what and why         what it must do                  how it will be built           what was built

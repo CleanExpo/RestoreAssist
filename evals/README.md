@@ -38,9 +38,11 @@ catch exactly the failures a model would not notice in itself.
 ## Seeded from real defects, not invented ones
 
 Every case in this suite is a mistake that actually happened in this repository,
-with a known correct outcome. That matters: a case invented to look hard tends to
-test the author's imagination, while a case taken from a defect tests the thing
-that actually went wrong once.
+or was caught one step before it did, with a known correct outcome either way.
+That matters: a case invented to look hard tends to test the author's
+imagination, while a case taken from a defect tests the thing that actually went
+wrong. `baseline-ratchets-down-only` is the near miss — it was stopped at the
+point of running the command, which is exactly the moment worth encoding.
 
 | Case | The original defect |
 | --- | --- |
@@ -83,6 +85,6 @@ usually accepts the bad one too.
 
 ## Where CI runs this
 
-`.github/workflows/agent-evals.yml`, on any change to `CLAUDE.md`, `AGENTS.md`
-or `.claude/**`, and nightly. The fixture mode needs no API key and no network,
+`.github/workflows/agent-evals.yml`, on any change to `CLAUDE.md`, `AGENTS.md`,
+`REVIEW.md`, `.claude/**`, `evals/**`, or the workflow itself, and nightly. The fixture mode needs no API key and no network,
 so it runs on every such pull request at no cost.

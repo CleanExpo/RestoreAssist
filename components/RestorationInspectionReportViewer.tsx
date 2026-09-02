@@ -264,13 +264,21 @@ interface RestorationInspectionReportViewerProps {
  * Unrecognised values are passed through rather than guessed at.
  */
 function describeHazardEra(flag: string): string {
-  const m = /^PRE-(\d{4})_BUILDING$/.exec(flag);
-  return m ? `pre-${m[1]} building` : flag;
+  const pre = /^PRE-(\d{4})_BUILDING$/.exec(flag);
+  if (pre) return `pre-${pre[1]} building`;
+  const post = /^POST-(\d{4})_NOT_CLEARED$/.exec(flag);
+  if (post) return `built after ${post[1]}, which is not a clearance`;
+  return flag;
+}
+
+/** True when the flag means the presumption applies, rather than merely not being a clearance. */
+function isPresumedHazard(flag: string | null): boolean {
+  return flag !== null && /^PRE-\d{4}_BUILDING$/.test(flag);
 }
 
 /** The bare year from a hazard-era flag, for sentences that read "pre-YYYY". */
 function hazardEraYear(flag: string): string {
-  const m = /^PRE-(\d{4})_BUILDING$/.exec(flag);
+  const m = /^(?:PRE|POST)-(\d{4})(?:_BUILDING|_NOT_CLEARED)$/.exec(flag);
   return m ? m[1] : "the presumption year";
 }
 
@@ -383,9 +391,13 @@ export default function RestorationInspectionReportViewer({
       );
     }
 
-    if (data.hazards.leadRisk) {
+    if (isPresumedHazard(data.hazards.leadRisk)) {
       observations.push(
-        `Potential lead risk identified (${describeHazardEra(data.hazards.leadRisk)}; ${LEAD_ERA_QUALIFIER})`,
+        `Potential lead risk identified (${describeHazardEra(data.hazards.leadRisk!)}; ${LEAD_ERA_QUALIFIER})`,
+      );
+    } else if (data.hazards.leadRisk) {
+      observations.push(
+        `Lead not presumed from building age (${describeHazardEra(data.hazards.leadRisk)}) — test before disturbing coatings`,
       );
     }
 
@@ -501,9 +513,13 @@ export default function RestorationInspectionReportViewer({
       );
     }
 
-    if (data.hazards.leadRisk) {
+    if (isPresumedHazard(data.hazards.leadRisk)) {
       summaryParts.push(
-        `Lead-based materials may be present in this pre-${hazardEraYear(data.hazards.leadRisk)} structure (${LEAD_ERA_QUALIFIER}), necessitating appropriate safety measures per Work Health and Safety Regulations 2011.`,
+        `Lead-based materials may be present in this pre-${hazardEraYear(data.hazards.leadRisk!)} structure (${LEAD_ERA_QUALIFIER}), necessitating appropriate safety measures per Work Health and Safety Regulations 2011.`,
+      );
+    } else if (data.hazards.leadRisk) {
+      summaryParts.push(
+        `This structure was built after ${hazardEraYear(data.hazards.leadRisk)}, so lead-based paint is not presumed from its age alone. That is not a clearance: the guidance is explicit that later buildings can carry lead paint on earlier layers or repainted joinery, so test before disturbing coatings.`,
       );
     }
 
@@ -1975,7 +1991,7 @@ export default function RestorationInspectionReportViewer({
                       </div>
                     </div>
                   )}
-                  {data.hazards.leadRisk && (
+                  {isPresumedHazard(data.hazards.leadRisk) && (
                     <div className="flex items-start gap-2">
                       <HardHat className="w-5 h-5 print:w-4 print:h-4 text-destructive mt-0.5 flex-shrink-0" />
                       <div>
@@ -1985,13 +2001,41 @@ export default function RestorationInspectionReportViewer({
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
                           <strong>Compliance:</strong> Work Health and Safety
                           Regulations 2011 (WHS) require lead assessment for
-                          pre-{hazardEraYear(data.hazards.leadRisk)} buildings.
+                          pre-{hazardEraYear(data.hazards.leadRisk!)} buildings.
                           This is {LEAD_ERA_QUALIFIER}. Appropriate PPE and
                           containment measures required.
                         </p>
                       </div>
                     </div>
                   )}
+                  {/*
+                    The building is later than the presumption year. That is NOT
+                    a clearance, and saying nothing here would let a reader treat
+                    the absence of a lead alert as one — the exact gap that
+                    collapsing this state into null created. Rendered in the
+                    neutral slate rather than the destructive red: it is a
+                    caveat, not a hazard finding.
+                  */}
+                  {data.hazards.leadRisk &&
+                    !isPresumedHazard(data.hazards.leadRisk) && (
+                      <div className="flex items-start gap-2">
+                        <HardHat className="w-5 h-5 print:w-4 print:h-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-semibold text-slate-900 text-base print:text-sm">
+                            Lead Not Presumed From Building Age
+                          </p>
+                          <p className="text-sm print:text-xs text-slate-600 mt-1">
+                            Built after {hazardEraYear(data.hazards.leadRisk)}, so
+                            lead-based paint is not presumed from age alone.{" "}
+                            <strong>This is not a clearance.</strong> The guidance
+                            is explicit that later buildings can still carry lead
+                            paint on earlier layers or repainted joinery, and other
+                            Australian bodies set a later threshold again. Test
+                            before disturbing coatings.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   {data.hazards.methamphetamineScreen && (
                     <div className="flex items-start gap-2">
                       <Shield className="w-5 h-5 print:w-4 print:h-4 text-destructive mt-0.5 flex-shrink-0" />

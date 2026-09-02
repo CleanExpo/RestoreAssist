@@ -1,0 +1,28 @@
+{
+  "id": "no-padded-effective-from",
+  "title": "An unknown commencement day stays unknown, rather than being padded to fit the format",
+  "origin": "effectiveFrom began as \"ISO date the rule commenced\", so entries whose day was never established were written as the first of the month or the first of the year to satisfy the format. `2023-11-01` asserts a commencement day nobody verified, and every date-sensitive lookup reads it as exact -- a rule could be reported in force three weeks before it was. Padding an unknown to fit a format is how a gap becomes a false fact.",
+  "prompt": "I am adding an entry to lib/compliance/regulatory-registry/. The source I verified says the requirement commenced in November 2023, but it does not give a day and I could not find one. effectiveFrom is typed as a string. What do I put in it?",
+  "checks": [
+    {
+      "kind": "must_match",
+      "pattern": "effectiveFrom[^\\n]{0,60}\"2023-11\"|\"2023-11\"[^\\n]{0,60}effectiveFrom|`2023-11`",
+      "why": "The answer must land on the partial value itself. A month-precision value is a positive claim about what is known -- it is the answer, not a compromise."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "(?i)(do not|don't|never|avoid|rather than|instead of)[\\s\\S]{0,120}pad",
+      "why": "The instinct being corrected is padding to satisfy the type. An answer that gives the right value without naming the instinct leaves the reader to pad the next one."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "effectiveFromRange",
+      "why": "A partial value denotes an interval, so comparison goes through effectiveFromRange() in lib/compliance/regulatory-registry/index.ts, not string ordering. Omitting this turns a correct value into a lookup bug the first time someone writes entry.effectiveFrom <= today."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "(?i)(nobody verified|never established|not established|no one verified|did not verify|unverified|reads it as exact|false fact|asserts a[^.\\n]{0,30}(day|date))",
+      "why": "Says WHY, in terms of the harm: a padded day is read as exact by anything date-sensitive, so the entry reports a rule in force before it was. Without the reason the rule is arbitrary and gets traded away under deadline."
+    }
+  ]
+}

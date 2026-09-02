@@ -223,7 +223,11 @@ describe("buildStructuredBasicReport — hazards (building age inference)", () =
     // asbestos presumption and outside its lead one, so the old code reported a
     // lead risk on an asbestos ban's authority -- for every building from the
     // lead year through to 2003.
-    expect(result.hazards.leadRisk).toBeNull();
+    //
+    // But NOT null either. Null would say the same thing as "we do not know the
+    // year", and the cited guidance is explicit that a later build year is not a
+    // clearance. The flag has to distinguish the two.
+    expect(result.hazards.leadRisk).toBe("POST-1970_NOT_CLEARED");
   });
 
   it("flags a genuinely pre-lead-era building for lead, with the lead year", () => {
@@ -241,14 +245,18 @@ describe("buildStructuredBasicReport — hazards (building age inference)", () =
     expect(result.hazards.leadRisk).not.toBe(result.hazards.asbestosRisk);
   });
 
-  it("does not flag asbestos/lead for a post-presumption-year building", () => {
+  it("does not presume asbestos or lead for a post-presumption-year building", () => {
     const result = buildStructuredBasicReport({
       report: baseReport({ buildingAge: "2005" }),
       analysis: null,
       stateInfo: null,
     } as Parameters<typeof buildStructuredBasicReport>[0]);
+    // Asbestos rests on a ban with a commencement date, so after it there is
+    // genuinely nothing to say from age alone: null.
     expect(result.hazards.asbestosRisk).toBeNull();
-    expect(result.hazards.leadRisk).toBeNull();
+    // Lead does not. Its instrument refuses to treat a later build year as a
+    // clearance, so the flag carries that instead of falling silent.
+    expect(result.hazards.leadRisk).toBe("POST-1970_NOT_CLEARED");
   });
 });
 
@@ -273,7 +281,7 @@ describe("buildStructuredBasicReport — the asbestos era comes from the registr
     // Exact, not truthy. `toBeTruthy()` accepts "PRE-1990_BUILDING" — the very
     // value being removed — so it would have passed against the defect.
     expect(result.hazards.asbestosRisk).toBe("PRE-2004_BUILDING");
-    expect(result.hazards.leadRisk).toBeNull();
+    expect(result.hazards.leadRisk).toBe("POST-1970_NOT_CLEARED");
   });
 
   it("flags a 2003 building — the ban took effect 31 December 2003", () => {
@@ -283,7 +291,22 @@ describe("buildStructuredBasicReport — the asbestos era comes from the registr
       stateInfo: null,
     } as Parameters<typeof buildStructuredBasicReport>[0]);
     expect(result.hazards.asbestosRisk).toBe("PRE-2004_BUILDING");
-    expect(result.hazards.leadRisk).toBeNull();
+    expect(result.hazards.leadRisk).toBe("POST-1970_NOT_CLEARED");
+  });
+
+  it("keeps null for lead ONLY when the build year is unknown", () => {
+    // Three states, and this is the one that earns the third. Before this, a
+    // 1975 building and a building with no recorded year both came back null,
+    // so the report said nothing at all about lead in either case -- and for
+    // the 1975 one the guidance says something specific: not presumed, and not
+    // cleared.
+    const unknown = buildStructuredBasicReport({
+      report: baseReport({ buildingAge: "" }),
+      analysis: null,
+      stateInfo: null,
+    } as Parameters<typeof buildStructuredBasicReport>[0]);
+    expect(unknown.hazards.leadRisk).toBeNull();
+    expect(unknown.hazards.asbestosRisk).toBeNull();
   });
 
   it("does not carry a stale year in the flag's own value", () => {

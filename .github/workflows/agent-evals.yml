@@ -23,6 +23,9 @@ on:
       - "REVIEW.md"
       - ".claude/**"
       - "evals/**"
+      # Its own definition. A workflow-only edit can disable a step or widen
+      # permissions without ever running the gate that would notice.
+      - ".github/workflows/agent-evals.yml"
   schedule:
     # Nightly, so a skill broken by an upstream change surfaces without waiting
     # for someone to touch .claude/ again.
@@ -37,6 +40,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # This job runs repository-controlled scripts after checkout. Without
+          # this the job's git credential stays in .git/config for them to read.
+          persist-credentials: false
 
       # The eval suite and the guard tests are pure bash and jq. Only the
       # ledger-append agreement probe needs tsx, and it is the assertion most

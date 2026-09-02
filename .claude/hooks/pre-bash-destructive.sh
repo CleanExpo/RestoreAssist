@@ -39,7 +39,11 @@ CMD="$(field "$PAYLOAD" '.tool_input.command')"
 # `cat <<EOF | sh` are code, and are scanned in full.
 strip_heredocs() {
   local cmd="$1"
-  if printf '%s' "$cmd" | grep -qE '(^|[;&|(][[:space:]]*)(sudo[[:space:]]+)?(ba|z|k|da)?sh([[:space:]]|$)|\|[[:space:]]*(sudo[[:space:]]+)?(ba|z|k|da)?sh([[:space:]]|$)|(^|[[:space:]])(eval|source)([[:space:]]|$)'; then
+  # Wrapper words hide the interpreter. `env bash <<EOF` and `command bash <<EOF`
+  # both slipped past a test that only allowed `sudo` in front of the shell, so
+  # their heredoc bodies were treated as data and never scanned.
+  local wrap='((sudo|env|command|exec|nohup|time|xargs|nice|stdbuf)[[:space:]]+)*'
+  if printf '%s' "$cmd" | grep -qE "(^|[;&|(][[:space:]]*)${wrap}(ba|z|k|da)?sh([[:space:]]|$)|\\|[[:space:]]*${wrap}(ba|z|k|da)?sh([[:space:]]|$)|(^|[[:space:]])(eval|source)([[:space:]]|$)"; then
     printf '%s' "$cmd"
     return
   fi
@@ -92,9 +96,15 @@ fi
 #
 # Known gap: `xargs rm -rf` and other indirection are not caught — the deny list
 # and the owner gates are the layers behind this one.
-CMD_WORD_RM='(^|[;&|(])[[:space:]]*(sudo[[:space:]]+)?rm[[:space:]]'
+# A quote opens a command context as surely as a semicolon does: the body of
+# `bash -c 'rm -rf x'` is code, and treating the quote as ordinary text let that
+# form through entirely. Same for `sh -c "..."`. The cost is that a command
+# merely QUOTING the pattern, such as echo "rm -rf", is now denied too; that is
+# the right way round for a guard whose failure mode is deleting a tree.
+SQ=$'\047'
+CMD_WORD_RM="(^|[;&|(${SQ}\"\`])[[:space:]]*(sudo[[:space:]]+)?rm[[:space:]]"
 rm_flags="$(printf '%s' "$SCAN" \
-  | grep -oE '(^|[;&|(])[[:space:]]*(sudo[[:space:]]+)?rm([[:space:]]+-{1,2}[A-Za-z-]+)*' \
+  | grep -oE "(^|[;&|(${SQ}\"\`])[[:space:]]*(sudo[[:space:]]+)?rm([[:space:]]+-{1,2}[A-Za-z-]+)*" \
   | head -1)"
 if matches "$CMD_WORD_RM" \
    && printf '%s' "$rm_flags" | grep -qE -- '(-[A-Za-z]*r|--recursive)' \

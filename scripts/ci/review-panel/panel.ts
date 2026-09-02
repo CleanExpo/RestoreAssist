@@ -195,8 +195,11 @@ export function renderVerdict(verdict: PanelVerdict, opts: { adjudicated?: boole
 
   if (verdict.degraded) {
     lines.push(
-      `> **Degraded run.** Only ${verdict.respondingFamilies.length} model family responded, so nothing below is corroborated. ` +
-        `Read every finding as one opinion.`,
+      verdict.respondingFamilies.length === 0
+        ? `> **Degraded run.** No model family responded at all, so this report says nothing whatever about the change. ` +
+          `Do not read the absence of findings below as a clean result.`
+        : `> **Degraded run.** Only ${verdict.respondingFamilies.length} model family responded, so nothing below is corroborated. ` +
+          `Read every finding as one opinion.`,
       "",
     );
   }

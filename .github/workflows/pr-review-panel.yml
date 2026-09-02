@@ -47,6 +47,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
+          # This job runs repository-controlled scripts after checkout. Without
+          # this the job's git credential stays in .git/config for them to read.
+          persist-credentials: false
 
       # No key for any seat means the panel is not configured yet, which is a
       # setup state rather than a review result. Say so once and stop, instead
@@ -143,12 +146,23 @@ jobs:
           set -euo pipefail
           body=$(jq -Rs . < /tmp/comment.md)
 
-          existing=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" \
-                       -H "Accept: application/vnd.github+json" \
-                       "$API/issues/$PR/comments?per_page=100" \
-                     | jq -r 'map(select(.user.type == "Bot"
-                                         and (.body | startswith("## Review panel"))))
-                              | first | .id // empty')
+          # Paginate. One page is 100 comments; a busy PR passes that, and the
+          # panel would then stop finding its own comment and post a new one on
+          # every push.
+          existing=""
+          page=1
+          while :; do
+            batch=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" \
+                      -H "Accept: application/vnd.github+json" \
+                      "$API/issues/$PR/comments?per_page=100&page=$page")
+            count=$(jq 'length' <<<"$batch")
+            found=$(jq -r 'map(select(.user.type == "Bot"
+                                      and (.body | startswith("## Review panel"))))
+                           | first | .id // empty' <<<"$batch")
+            [ -n "$found" ] && { existing="$found"; break; }
+            [ "$count" -lt 100 ] && break
+            page=$((page + 1))
+          done
 
           if [ -n "$existing" ]; then
             curl -sS -X PATCH \

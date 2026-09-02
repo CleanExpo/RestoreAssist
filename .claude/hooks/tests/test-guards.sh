@@ -99,6 +99,19 @@ check "heredoc handed to bash directly"  "$BASH_GUARD" \
 check "danger after the heredoc closes"  "$BASH_GUARD" \
   "$(bash_payload "$(printf 'cat > n.md <<%sEOF%s\nharmless\nEOF\n%s /tmp/x' "'" "'" "$RM_RF")")"        deny
 
+# Shell-mediated forms. All four were ALLOWED until CodeRabbit pointed them out
+# on PR #2165, and each was confirmed by running the payload through the guard
+# before the fix. A quote opens a command context, and a wrapper word does not
+# stop the thing after it being an interpreter.
+check "bash -c with a quoted body"       "$BASH_GUARD" \
+  "$(bash_payload "bash -c '$RM_RF /tmp/x'")"                                                             deny
+check "sh -c with a quoted body"         "$BASH_GUARD" \
+  "$(bash_payload "sh -c \"$RM_RF /tmp/x\"")"                                                             deny
+check "env bash heredoc"                 "$BASH_GUARD" \
+  "$(bash_payload "$(printf 'env bash <<%sEOF%s\n%s /tmp/x\nEOF' "'" "'" "$RM_RF")")"                     deny
+check "command bash heredoc"             "$BASH_GUARD" \
+  "$(bash_payload "$(printf 'command bash <<%sEOF%s\n%s /tmp/x\nEOF' "'" "'" "$RM_RF")")"                 deny
+
 echo
 echo "== sensitive file guard =="
 check "the .env file"                    "$EDIT_GUARD" "$(edit_payload '/repo/.env')"                    deny
@@ -113,6 +126,13 @@ check "a service-account key"            "$EDIT_GUARD" "$(edit_payload '/repo/se
 check ".env.example is a template"       "$EDIT_GUARD" "$(edit_payload '/repo/.env.example')"             allow
 check "ordinary source file"             "$EDIT_GUARD" "$(edit_payload '/repo/lib/gst-rules.ts')"         allow
 check "a file merely named keyboard.ts"  "$EDIT_GUARD" "$(edit_payload '/repo/lib/keyboard.ts')"          allow
+
+# Case. A case-insensitive filesystem makes these the same file as the lowercase
+# forms above, so matching only lowercase was a real bypass, not a curiosity.
+check "an uppercase key extension"       "$EDIT_GUARD" "$(edit_payload '/repo/certs/server.PEM')"          deny
+check "an uppercase ssh key name"        "$EDIT_GUARD" "$(edit_payload '/home/u/.ssh/ID_ED25519')"        deny
+check "an uppercase secrets directory"   "$EDIT_GUARD" "$(edit_payload '/repo/SECRETS/stripe.json')"       deny
+check "an uppercase .ENV"                "$EDIT_GUARD" "$(edit_payload '/repo/.ENV.production')"           deny
 check "no path in the payload"           "$EDIT_GUARD" '{"tool_name":"Edit","tool_input":{}}'             allow
 
 echo

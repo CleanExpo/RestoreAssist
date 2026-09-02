@@ -64,7 +64,10 @@ PATTERNS=(
 )
 
 for ((i = 0; i < ${#PATTERNS[@]}; i += 2)); do
-  if printf '%s' "$PATH_ARG" | grep -qE -e "${PATTERNS[i]}"; then
+  # Case-insensitive. server.PEM, ID_ED25519 and SECRETS/ all walked past the
+  # case-sensitive version, and a filesystem that does not care about case makes
+  # that a real bypass rather than a curiosity.
+  if printf '%s' "$PATH_ARG" | grep -qiE -e "${PATTERNS[i]}"; then
     deny "Blocked by .claude/hooks/pre-edit-sensitive.sh: ${PATTERNS[i+1]}.
 
 Path: $PATH_ARG

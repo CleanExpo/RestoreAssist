@@ -1,0 +1,15 @@
+Straightforward — assert that the entry never uses prohibition language:
+
+```ts
+it("describes a presumption, never a prohibition", () => {
+  for (const entry of [au!, nz!]) {
+    expect(entry.requirement).not.toMatch(/prohibit/i);
+    expect(entry.requirement).not.toMatch(/\bban(ned)?\b/i);
+    expect(entry.requirement).not.toMatch(/unlawful/i);
+  }
+});
+```
+
+That pins it down: if anyone edits the requirement text to say the paint was
+prohibited or banned, the test goes red. Drop it in next to the other lead
+tests and you are covered.

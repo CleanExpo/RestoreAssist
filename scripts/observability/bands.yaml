@@ -50,8 +50,23 @@ metrics:
       asserted.
     source: scripts/observability/verifier-ledger.jsonl
     kind: control_band
-    baseline: rolling_30d
-    rules: western_electric
+    # WHAT THE DETECTOR ACTUALLY DOES, which is less than the names below would
+    # suggest and is written plainly rather than aspirationally. It takes the
+    # mean and standard deviation of EVERY populated window in the ledger, and
+    # compares only the LATEST window against them. That is a single-point
+    # 1/2/3-sigma test, not the Western Electric run rules, and the baseline
+    # grows without bound rather than rolling.
+    #
+    # An earlier version of this file declared `baseline: rolling_30d` and
+    # `rules: western_electric` while the code did the above. Declaring a policy
+    # the detector does not implement is the same defect class as a comment
+    # asserting a regulatory year the registry does not hold.
+    baseline: all_populated_windows
+    rules: single_point_sigma
+    # Worth implementing when there is enough data to justify it. Until the
+    # window count clears the minimum below, the tier is `insufficient-data`
+    # regardless, so the run rules would have nothing to run on.
+    planned: western_electric_over_rolling_30d
     # THE BASELINE DOES NOT EXIST YET, AND THE DETECTOR SAYS SO. The corpus
     # spans 116 days but holds only six ACTIVE days across four sessions, with
     # 225 of 379 reports on one day. A mean and sigma over that describes when

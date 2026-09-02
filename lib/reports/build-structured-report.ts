@@ -612,12 +612,21 @@ export function buildStructuredBasicReport(data: {
   const hazardEraFlag = presumeAsbestosFromEra(hazardEraYearBuilt, "AU")
     ? `PRE-${asbestosEraBasis("AU").year}_BUILDING`
     : null;
-  // Lead has its own year and its own instrument, and they are not close: AU
-  // lead is 1970 against AU asbestos 2004. Sharing the asbestos flag flagged
-  // every 1970-2003 building for lead on an asbestos ban's authority.
-  const leadEraFlag = presumeLeadFromEra(hazardEraYearBuilt, "AU")
-    ? `PRE-${leadEraBasis("AU").year}_BUILDING`
-    : null;
+  // Lead has its own year and its own instrument, and the two are not close.
+  // Sharing the asbestos flag flagged every building from the lead year to 2003
+  // for lead on an asbestos ban's authority.
+  //
+  // THREE STATES, NOT TWO. Collapsing "built after the presumption year" into
+  // the same null as "we do not know the year" loses the thing the cited
+  // guidance is most insistent about: a later build year is NOT a clearance,
+  // and a building just after the line can still carry lead paint on earlier
+  // layers. Null now means only that the year is unknown.
+  const leadEraFlag =
+    hazardEraYearBuilt == null
+      ? null
+      : presumeLeadFromEra(hazardEraYearBuilt, "AU")
+        ? `PRE-${leadEraBasis("AU").year}_BUILDING`
+        : `POST-${leadEraBasis("AU").year}_NOT_CLEARED`;
 
   const totalCost =
     costEstimates.length > 0
@@ -827,11 +836,12 @@ export function buildStructuredBasicReport(data: {
       // was endangered -- but a borrowed threshold cannot be cited, and the two
       // years are 34 apart.
       //
-      // A null is NOT a clearance, and the report viewer must not present it
-      // as one: the cited guidance is explicit that homes built after its own
-      // presumption year may still carry lead paint, and other Australian
-      // bodies put the line later still. See presumeLeadFromEra, and the
-      // entry's requirement text for the divergent years themselves.
+      // Carries one of three values: PRE-<year>_BUILDING when the presumption
+      // applies, POST-<year>_NOT_CLEARED when the building is later but the
+      // guidance still refuses to call it clear, and null only when the year is
+      // unknown. The viewer renders the middle state too — see
+      // RestorationInspectionReportViewer, and the entry's requirement text for
+      // the divergent years themselves.
       leadRisk: leadEraFlag,
     },
     scopeItems: scopeItemsList,
