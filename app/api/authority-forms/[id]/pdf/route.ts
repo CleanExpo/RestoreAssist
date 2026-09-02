@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateAuthorityFormPDF } from "@/lib/generate-authority-form-pdf";
 import { apiError, fromException } from "@/lib/api-errors";
+import { AUTHORITY_TEMPLATES } from "@/lib/documents/authority-catalogue";
+import { buildProvenanceBlock } from "@/lib/documents/provenance";
+import { resolveJobJurisdiction } from "@/lib/documents/job-jurisdiction";
 
 /**
  * GET /api/authority-forms/:id/pdf
@@ -42,6 +45,9 @@ export async function GET(
             assignedManagerId: true,
             assignedAdminId: true,
             claimReferenceNumber: true,
+            // The job's country, for the provenance block. Report itself has no
+            // country field; the inspection is the only per-job source.
+            inspection: { select: { propertyCountry: true } },
           },
         },
       },
@@ -77,6 +83,22 @@ export async function GET(
       signatoryEmail: sig.signatoryEmail,
     }));
 
+    // Regulatory basis for this authority, resolved from the template's registry
+    // citations and the job's jurisdiction.
+    //
+    // A template not in the code catalogue (a row seeded before it existed, or
+    // one added directly to the database) yields no block rather than throwing:
+    // an authority form must still render. It simply carries no regulatory
+    // basis, which is the truthful outcome — the catalogue is what knows which
+    // regulations a template cites.
+    const spec = AUTHORITY_TEMPLATES.find((t) => t.code === form.template.code);
+    const { jurisdiction, mayBeSchemaDefault } = resolveJobJurisdiction({
+      inspectionPropertyCountry: form.report.inspection?.propertyCountry,
+    });
+    const provenance = spec
+      ? buildProvenanceBlock(spec, jurisdiction, { mayBeSchemaDefault })
+      : null;
+
     // Generate PDF
     const pdfBytes = await generateAuthorityFormPDF({
       companyName: form.companyName,
@@ -95,6 +117,7 @@ export async function GET(
       authorityDescription: form.authorityDescription,
       date: new Date(),
       signatures,
+      provenance,
     });
 
     // Return PDF

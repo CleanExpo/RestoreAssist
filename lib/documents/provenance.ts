@@ -82,7 +82,21 @@ export interface ProvenanceBlock {
 const NOT_LEGAL_ADVICE =
   "This is guidance drawn from a sourced regulatory register, not legal advice. Verify the current requirement with your regulator before relying on it.";
 
-function foreignTo(entry: RegulatoryEntry, job: RegulatoryJurisdiction): boolean {
+const SECONDARY_SOURCE =
+  "Marked sources were confirmed against publications quoting the regulator rather than the regulator's own page, which was unreachable when the entry was checked.";
+
+/**
+ * Is this entry's law foreign to the job?
+ *
+ * An unrecorded jurisdiction is NOT "foreign": we do not know, and claiming the
+ * rule is foreign would be as unfounded as claiming it applies. The unknown
+ * case gets its own notice instead, which says exactly that.
+ */
+function foreignTo(
+  entry: RegulatoryEntry,
+  job: RegulatoryJurisdiction | null,
+): boolean {
+  if (job === null) return false;
   const entryIsAu = isAustralianJurisdiction(entry.jurisdiction);
   const jobIsAu = isAustralianJurisdiction(job);
   return entryIsAu !== jobIsAu;
@@ -97,7 +111,17 @@ function foreignTo(entry: RegulatoryEntry, job: RegulatoryJurisdiction): boolean
  */
 export function buildProvenanceBlock(
   spec: AuthorityTemplateSpec,
-  jobJurisdiction: RegulatoryJurisdiction,
+  /**
+   * null when no source recorded the job's country.
+   *
+   * Deliberately not defaulted to "AU". Report has no country field,
+   * Inspection.propertyCountry and Organization.country both default to "AU",
+   * and postcode cannot separate the two countries -- so assuming Australia is
+   * how a New Zealand job silently receives Australian law. Unknown is stated,
+   * not guessed. See lib/documents/job-jurisdiction.ts.
+   */
+  jobJurisdiction: RegulatoryJurisdiction | null,
+  options: { mayBeSchemaDefault?: boolean } = {},
 ): ProvenanceBlock {
   const cited = citedRegulations(spec);
   if (cited.length === 0) {
@@ -121,6 +145,21 @@ export function buildProvenanceBlock(
 
   const notices: string[] = [];
 
+  // No recorded country. Say so rather than assuming: the assumption that
+  // would be made here is "Australian", and every entry cited today is
+  // Australian, so the assumption would always look right and sometimes be
+  // catastrophically wrong.
+  if (jobJurisdiction === null) {
+    notices.push(
+      "The country this job sits in was not recorded, so RestoreAssist cannot confirm the requirement below applies. Confirm the position for the job's jurisdiction before relying on it.",
+    );
+    notices.push(NOT_LEGAL_ADVICE);
+    if (entries.some((e) => e.verification === "secondary-quoting-primary")) {
+      notices.push(SECONDARY_SOURCE);
+    }
+    return { heading: "Regulatory basis", entries, notices, empty: false };
+  }
+
   // Requirement 3, and it goes FIRST: a reader who stops after one line must
   // still have been told the rule is not theirs.
   const foreign = entries.filter((e) => e.foreignToJob);
@@ -134,6 +173,15 @@ export function buildProvenanceBlock(
     );
   }
 
+  // A stored "AU" may be the column default rather than a confirmation. Say so
+  // where it could change the answer -- that is, where an Australian rule is
+  // being shown on the strength of an unconfirmed Australian job.
+  if (options.mayBeSchemaDefault && foreign.length === 0) {
+    notices.push(
+      "The job's country was taken from a field that defaults to Australia, so it may not have been confirmed for this job. If this is a New Zealand job, the requirement below does not govern it.",
+    );
+  }
+
   notices.push(NOT_LEGAL_ADVICE);
 
   // Verification level, disclosed rather than hidden. Spec 11 contemplated an
@@ -142,9 +190,7 @@ export function buildProvenanceBlock(
   // would list all of them and tell the reader nothing. Printing the level on
   // the document is strictly more informative than a hidden exemption.
   if (entries.some((e) => e.verification === "secondary-quoting-primary")) {
-    notices.push(
-      "Marked sources were confirmed against publications quoting the regulator rather than the regulator's own page, which was unreachable when the entry was checked.",
-    );
+    notices.push(SECONDARY_SOURCE);
   }
 
   return {
