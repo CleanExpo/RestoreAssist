@@ -101,6 +101,18 @@ check "full key set" '["claimsFailed","claimsTotal","claimsWarned","domain","ses
 # temp ledger through summarise() is the real agreement test: it proves the
 # shell writer's lines are readable by the same parser that reads the
 # TypeScript writer's, without touching the repo's own ledger.
+if ! command -v npx >/dev/null 2>&1 || [[ ! -d "$PROJECT_ROOT/node_modules" ]]; then
+  # Distinguish "did not run" from "ran and found nothing", per
+  # .claude/rules/verification-gate.md. A missing toolchain is not a shape
+  # mismatch, and reporting it as one would send someone hunting the wrong bug.
+  printf '  SKIP  the agreement probe needs tsx and node_modules; run npm ci to include it\n'
+  echo
+  echo "passed: $pass   failed: $fail   (agreement probe did not run)"
+  if (( fail > 0 )); then echo "RESULT: FAILED"; exit 1; fi
+  echo "RESULT: green (with a skip)"
+  exit 0
+fi
+
 probe="$tmp/probe.ts"
 cat > "$probe" <<'TS'
 import { readFileSync } from "node:fs";
