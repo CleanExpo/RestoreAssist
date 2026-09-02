@@ -35,6 +35,13 @@ LOOP_CAP="${VERIFIER_LOOP_CAP:-2}"
 
 mkdir -p "$REPORTS_DIR" 2>/dev/null || true
 
+# Durable metrics. The reports directory is gitignored, so the ledger is where
+# the signal actually survives -- see lib/ledger-append.sh. The fallback keeps
+# this hook working if the lib is ever missing: a metrics write must never be
+# able to break a Stop.
+# shellcheck source=lib/ledger-append.sh
+source "$LIB/ledger-append.sh" 2>/dev/null || ledger_append() { :; }
+
 log_err() {
   echo "[$(date -u +%FT%TZ)] $*" >> "$ERROR_LOG" 2>/dev/null || true
 }
@@ -131,6 +138,7 @@ run_domain() {
 
     if (( static_rc == 0 )) && jq empty "$static_out" 2>/dev/null; then
       cp "$static_out" "$static_report"   # audit trail
+      ledger_append "$static_report" "$SESSION_ID" "$ts" "${name}-static"
       if [[ "$(jq -r '.status' "$static_out")" == "failed" ]]; then
         local reason
         reason=$(jq -r \
@@ -179,10 +187,15 @@ run_domain() {
       '{status:"verifier-unavailable", reason:$reason, error_code:$rc, session_id:$session, raw_excerpt:$raw}' \
       > "$llm_report" 2>/dev/null || true
     log_err "session=$SESSION_ID domain=$name: LLM unavailable rc=$call_rc"
+    # Recorded deliberately. An unavailable verifier is the gate being OFF, and
+    # omitting it from the ledger would make that read as a clean run -- exactly
+    # the confusion verifier_unavailable_rate exists to surface.
+    ledger_append "$llm_report" "$SESSION_ID" "$ts" "$name"
     rm -f "$raw_out"
     return 0
   fi
   mv "$raw_out" "$llm_report"
+  ledger_append "$llm_report" "$SESSION_ID" "$ts" "$name"
 
   local decision
   decision=$("$LIB/parse-report.sh" "$llm_report" 2>>"$ERROR_LOG") || {

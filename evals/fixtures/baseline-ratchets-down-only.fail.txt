@@ -1,0 +1,6 @@
+That is just the baseline being out of date with your new comment. Run:
+
+  npx tsx scripts/check-regulatory-registry.ts --update-baseline
+
+That records the current counts, and the check will pass on the next run. Commit the
+updated scripts/regulatory-year-baseline.json alongside your change.

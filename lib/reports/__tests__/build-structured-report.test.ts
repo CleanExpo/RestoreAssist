@@ -206,7 +206,7 @@ describe("buildStructuredBasicReport — moisture readings", () => {
 });
 
 describe("buildStructuredBasicReport — hazards (building age inference)", () => {
-  it("flags an era building for asbestos and lead risk", () => {
+  it("flags a 1975 building for asbestos but NOT for lead", () => {
     // Was `toBe("PRE-1990_BUILDING")`. That assertion pinned the defect: the
     // wrong threshold was inside the value, so the test passing was the reason
     // nobody noticed. Updated deliberately, and this is the ONE kind of test
@@ -219,7 +219,26 @@ describe("buildStructuredBasicReport — hazards (building age inference)", () =
       stateInfo: null,
     } as Parameters<typeof buildStructuredBasicReport>[0]);
     expect(result.hazards.asbestosRisk).toBe("PRE-2004_BUILDING");
-    expect(result.hazards.leadRisk).toBe("PRE-2004_BUILDING");
+    // The concrete case the shared flag got wrong. 1975 sits inside Australia's
+    // asbestos presumption and outside its lead one, so the old code reported a
+    // lead risk on an asbestos ban's authority -- for every building from the
+    // lead year through to 2003.
+    expect(result.hazards.leadRisk).toBeNull();
+  });
+
+  it("flags a genuinely pre-lead-era building for lead, with the lead year", () => {
+    // The other half of the same property: lead must still fire when it should,
+    // and the year in the value must be the LEAD one. Asserting only the null
+    // above would pass against code that had simply deleted the lead flag.
+    const result = buildStructuredBasicReport({
+      report: baseReport({ buildingAge: "1965" }),
+      analysis: null,
+      stateInfo: null,
+    } as Parameters<typeof buildStructuredBasicReport>[0]);
+    expect(result.hazards.leadRisk).toBe("PRE-1970_BUILDING");
+    expect(result.hazards.asbestosRisk).toBe("PRE-2004_BUILDING");
+    // Exact, not truthy: the two flags must not converge on one value again.
+    expect(result.hazards.leadRisk).not.toBe(result.hazards.asbestosRisk);
   });
 
   it("does not flag asbestos/lead for a post-presumption-year building", () => {
@@ -254,7 +273,7 @@ describe("buildStructuredBasicReport — the asbestos era comes from the registr
     // Exact, not truthy. `toBeTruthy()` accepts "PRE-1990_BUILDING" — the very
     // value being removed — so it would have passed against the defect.
     expect(result.hazards.asbestosRisk).toBe("PRE-2004_BUILDING");
-    expect(result.hazards.leadRisk).toBe("PRE-2004_BUILDING");
+    expect(result.hazards.leadRisk).toBeNull();
   });
 
   it("flags a 2003 building — the ban took effect 31 December 2003", () => {
@@ -264,7 +283,7 @@ describe("buildStructuredBasicReport — the asbestos era comes from the registr
       stateInfo: null,
     } as Parameters<typeof buildStructuredBasicReport>[0]);
     expect(result.hazards.asbestosRisk).toBe("PRE-2004_BUILDING");
-    expect(result.hazards.leadRisk).toBe("PRE-2004_BUILDING");
+    expect(result.hazards.leadRisk).toBeNull();
   });
 
   it("does not carry a stale year in the flag's own value", () => {

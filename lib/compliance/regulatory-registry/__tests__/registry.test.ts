@@ -8,6 +8,7 @@ import {
   regulatoryIds,
 } from "../index";
 import { asbestosEraBasis, presumeAsbestosFromEra } from "../../asbestos-era";
+import { leadEraBasis, presumeLeadFromEra } from "../../lead-era";
 import { resolveNccEdition } from "../../../anz/ncc-adoption";
 
 /**
@@ -508,16 +509,42 @@ describe("asbestos-era reads the registry rather than its own copy", () => {
 });
 
 describe("lead is its own hazard, not a copy of asbestos", () => {
+  const au = REGULATORY_ENTRIES.find((e) => e.id === "lead.presumption-year.au");
   const nz = REGULATORY_ENTRIES.find((e) => e.id === "lead.presumption-year.nz");
 
-  it("seeds New Zealand's presumption year, which is NOT the asbestos one", () => {
-    // The whole reason this domain exists. leadRisk rode on the asbestos year
-    // because the registry had no lead domain; NZ lead is 1980 against NZ
-    // asbestos 2000, so the borrowed year was over-warning by two decades.
+  it("seeds both jurisdictions, with the years their own instruments state", () => {
+    // The whole reason this domain exists. leadRisk rode on the ASBESTOS year
+    // because the registry had no lead domain at all.
+    expect(au).toBeDefined();
     expect(nz).toBeDefined();
+    expect(au!.value).toBe(1970);
     expect(nz!.value).toBe(1980);
-    expect(nz!.jurisdiction).toBe("NZ");
-    expect(nz!.domain).toBe("lead");
+  });
+
+  it("keeps every lead year clear of its asbestos counterpart", () => {
+    // Lead is earlier than asbestos in BOTH countries -- 1970 against 2004 in
+    // Australia, 1980 against 2000 in New Zealand -- so no jurisdiction can
+    // quietly share one number with the other domain.
+    //
+    // An earlier draft of this test asserted NZ lead was LATER than NZ asbestos
+    // and went red. The test was wrong, not the registry; the note is kept
+    // because getting these four numbers muddled is exactly the mistake the
+    // whole domain exists to prevent.
+    expect(asbestosEraBasis("AU").year).toBe(2004);
+    expect(asbestosEraBasis("NZ").year).toBe(2000);
+    expect(leadEraBasis("AU").year).toBeLessThan(asbestosEraBasis("AU").year);
+    expect(leadEraBasis("NZ").year).toBeLessThan(asbestosEraBasis("NZ").year);
+  });
+
+  it("reverses the jurisdiction ordering between the two domains", () => {
+    // The trap for anyone reasoning about lead by analogy with asbestos.
+    // Australia's ASBESTOS year is LATER than New Zealand's (2004 > 2000), but
+    // its LEAD year is EARLIER (1970 < 1980). "AU is always the later one" is a
+    // false generalisation, and this is what catches code built on it.
+    expect(asbestosEraBasis("AU").year).toBeGreaterThan(
+      asbestosEraBasis("NZ").year,
+    );
+    expect(leadEraBasis("AU").year).toBeLessThan(leadEraBasis("NZ").year);
   });
 
   it("describes a presumption, never a prohibition", () => {
@@ -528,33 +555,67 @@ describe("lead is its own hazard, not a copy of asbestos", () => {
     // this test forbade /prohibit/ outright and failed on the entry's own
     // disclaimer, "not a prohibition" -- the assertion was blunter than the
     // property it was checking.
-    expect(nz!.requirement).toMatch(/presume that a building/i);
-    expect(nz!.requirement).toMatch(/not a prohibition/i);
-    expect(nz!.requirement).toMatch(/no single date on which lead paint became unlawful/i);
+    for (const entry of [au!, nz!]) {
+      expect(entry.requirement).toMatch(/assume paintwork|assume paint in/i);
+      expect(entry.requirement).toMatch(/not a prohibition/i);
+      expect(entry.requirement).toMatch(
+        /no single date on which lead paint became unlawful|set no single date on which lead paint became unlawful/i,
+      );
+    }
   });
 
-  it("says a later build year is not a clearance", () => {
-    // The failure mode this guards: a reader treating "built 1985" as lead-free.
+  it("says a later build year is not a clearance, in both entries", () => {
+    // The failure mode this guards: a reader treating "built 1975" as lead-free
+    // in Australia, where the cited guidance itself says otherwise and other
+    // Australian bodies put the line as late as 1980.
+    expect(au!.requirement).toMatch(/not a clearance/i);
+    expect(au!.requirement).toMatch(/may still carry paint above 1 per cent/i);
     expect(nz!.requirement).toMatch(/may still carry lead paint/i);
   });
 
-  it("states only the precision established, and admits the source was secondary", () => {
-    // Every regulator domain that could settle these is egress-blocked here.
-    expect(nz!.effectiveFrom).toBe("2013");
-    expect(nz!.verification).toBe("secondary-quoting-primary");
+  it("records where the sources disagree rather than averaging them", () => {
+    // Both countries have regulators stating different years. The entry cites
+    // one instrument and carries the divergence in its text, so a reader is not
+    // misled into thinking the threshold is crisper than it is.
+    expect(au!.requirement).toMatch(/SA Health/i);
+    expect(au!.requirement).toMatch(/NHMRC/i);
+    expect(nz!.requirement).toMatch(/1980s or earlier/i);
   });
 
-  it("does NOT seed Australia, because its commencement year is unresolved", () => {
-    // Deliberate, and the reason is in lead.ts: sources disagree between a 2014
-    // publication and a 2016 Commonwealth copyright line, and effectiveFrom is
-    // documented as a positive claim about what is known rather than a
-    // placeholder. Seeding a guessed year would be the exact defect this
-    // registry exists to stop -- committed inside the registry itself.
-    //
-    // Delete this test when an Australian entry lands with a sourced year.
-    const au = REGULATORY_ENTRIES.find(
-      (e) => e.domain === "lead" && e.jurisdiction === "AU",
-    );
-    expect(au).toBeUndefined();
+  it("states only the precision established, from the primary source", () => {
+    // 2016 is the Commonwealth-hosted fifth edition's own copyright and
+    // attribution year. The 2014 seen elsewhere is an earlier PRINTING of the
+    // same edition under a CC-BY 3.0 licence, which is why this entry was held
+    // back until the two could be told apart rather than averaged or guessed.
+    expect(au!.effectiveFrom).toBe("2016");
+    expect(nz!.effectiveFrom).toBe("2013");
+    expect(au!.verification).toBe("primary-source");
+    expect(nz!.verification).toBe("primary-source");
+  });
+
+  it("cites the New Zealand guideline's own sections, not just the landing page", () => {
+    expect(nz!.provision).toMatch(/4\.3/);
+    expect(nz!.sourceUrl).toContain("dmsdocument");
+  });
+
+  it("presumes lead below the year and not at or above it", () => {
+    expect(presumeLeadFromEra(1969, "AU")).toBe(true);
+    expect(presumeLeadFromEra(1970, "AU")).toBe(false);
+    expect(presumeLeadFromEra(1979, "NZ")).toBe(true);
+    expect(presumeLeadFromEra(1980, "NZ")).toBe(false);
+  });
+
+  it("does not treat a 1975 Australian building the way asbestos would", () => {
+    // The concrete case the shared flag got wrong: a 1975 build is inside the
+    // asbestos presumption (pre-2004) but outside the lead one (pre-1970).
+    // Under the old code it was flagged for lead on an asbestos ban's authority.
+    expect(presumeAsbestosFromEra(1975, "AU")).toBe(true);
+    expect(presumeLeadFromEra(1975, "AU")).toBe(false);
+  });
+
+  it("returns false for an unknown year rather than warning on every job", () => {
+    expect(presumeLeadFromEra(null, "AU")).toBe(false);
+    expect(presumeLeadFromEra(undefined, "NZ")).toBe(false);
+    expect(presumeLeadFromEra(Number.NaN, "AU")).toBe(false);
   });
 });

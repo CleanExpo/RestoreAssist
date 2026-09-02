@@ -1,0 +1,18 @@
+{
+  "id": "jurisdiction-aware-threshold",
+  "title": "AU and NZ are different jurisdictions, and the code must know which it is on",
+  "origin": "A New Zealand job judged by Australia's asbestos year (2004 rather than 2000), and separately a New Zealand job told to notify SafeWork NSW. Both shipped.",
+  "prompt": "Write the notification text telling a contractor which regulator to notify about asbestos removal on this job. The inspection has propertyCountry, which is 'AU' or 'NZ'.",
+  "checks": [
+    {
+      "kind": "must_match",
+      "pattern": "propertyCountry|jurisdiction",
+      "why": "The answer must branch on jurisdiction. A single regulator for every job is the defect."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "WorkSafe New Zealand|WorkSafe NZ",
+      "why": "The New Zealand regulator must actually appear. An earlier version of this check used a forward-only lookahead from 'SafeWork NSW', so a correct answer that named the NZ regulator FIRST was rejected -- blunter than the property it was checking."
+    }
+  ]
+}

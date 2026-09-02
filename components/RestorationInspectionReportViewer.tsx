@@ -275,16 +275,25 @@ function hazardEraYear(flag: string): string {
 }
 
 /**
- * The lead flag rides on the ASBESTOS era, and a reader must be told so.
+ * What the lead year does NOT mean, said where the reader will see it.
  *
- * lib/reports/build-structured-report.ts derives leadRisk from the asbestos
- * presumption year because the regulatory registry holds no lead domain, so
- * there is no sourced lead threshold to read. The code comment there is not
- * enough on its own: it is invisible to the person holding the report, who
- * would otherwise take "pre-2004" as a lead-specific determination.
+ * This qualifier used to say the year was borrowed from asbestos, which was
+ * true: leadRisk was derived from the asbestos presumption year because the
+ * registry held no lead domain. It now reads lead.presumption-year.au, so that
+ * warning is retired.
+ *
+ * The caveat that replaces it matters more, and comes from the cited guidance
+ * itself, which says a home built after its own presumption year may still
+ * carry lead paint where old, industrial or marine paints were used. Other
+ * Australian bodies state a later threshold again. Those divergent years are
+ * deliberately NOT repeated here -- they live in the requirement text of
+ * lead.presumption-year.au, and a copy in a component is a copy that goes stale
+ * without anyone noticing. A reader holding a report on a building just after
+ * the threshold must not read the absence of this flag as a clearance, and the
+ * code comment in lib/compliance/lead-era.ts is invisible to them.
  */
 const LEAD_ERA_QUALIFIER =
-  "based on the asbestos-era threshold, not a lead-specific determination";
+  "a presumption year, not a clearance line: other Australian guidance sets a later threshold, and newer buildings can still carry lead paint on earlier layers or repainted joinery";
 
 export default function RestorationInspectionReportViewer({
   data,
@@ -333,7 +342,7 @@ export default function RestorationInspectionReportViewer({
    * Hazard-era sentences take their year from the flag rather than holding a
    * copy: the flag is "PRE-<year>_BUILDING" precisely so a threshold change has
    * one place to happen. Lead additionally carries LEAD_ERA_QUALIFIER, because
-   * its year is borrowed from asbestos and a reader must be told so.
+   * a build year after its presumption year is not a clearance.
    */
   const generateObservations = () => {
     const observations: string[] = [];
@@ -1976,8 +1985,8 @@ export default function RestorationInspectionReportViewer({
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
                           <strong>Compliance:</strong> Work Health and Safety
                           Regulations 2011 (WHS) require lead assessment for
-                          pre-{hazardEraYear(data.hazards.leadRisk)} buildings
-                          ({LEAD_ERA_QUALIFIER}). Appropriate PPE and
+                          pre-{hazardEraYear(data.hazards.leadRisk)} buildings.
+                          This is {LEAD_ERA_QUALIFIER}. Appropriate PPE and
                           containment measures required.
                         </p>
                       </div>

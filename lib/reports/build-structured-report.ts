@@ -3,6 +3,7 @@ import {
   asbestosEraBasis,
   presumeAsbestosFromEra,
 } from "@/lib/compliance/asbestos-era";
+import { leadEraBasis, presumeLeadFromEra } from "@/lib/compliance/lead-era";
 import { planDrying } from "@/lib/restoration/equipment-planner";
 import {
   deriveMouldActive,
@@ -611,6 +612,12 @@ export function buildStructuredBasicReport(data: {
   const hazardEraFlag = presumeAsbestosFromEra(hazardEraYearBuilt, "AU")
     ? `PRE-${asbestosEraBasis("AU").year}_BUILDING`
     : null;
+  // Lead has its own year and its own instrument, and they are not close: AU
+  // lead is 1970 against AU asbestos 2004. Sharing the asbestos flag flagged
+  // every 1970-2003 building for lead on an asbestos ban's authority.
+  const leadEraFlag = presumeLeadFromEra(hazardEraYearBuilt, "AU")
+    ? `PRE-${leadEraBasis("AU").year}_BUILDING`
+    : null;
 
   const totalCost =
     costEstimates.length > 0
@@ -813,14 +820,19 @@ export function buildStructuredBasicReport(data: {
         analysis?.biologicalMouldCategory ||
         null,
       asbestosRisk: hazardEraFlag,
-      // Rides on the ASBESTOS era, and that is a stated approximation rather
-      // than a sourced lead threshold: the regulatory registry has no lead
-      // domain at all (asbestos, building-code, chemicals, electrical, silica),
-      // so there is no verified year to read. Keeping the flag is the
-      // conservative choice -- dropping it would remove a hazard warning -- but
-      // it must not be read as a lead determination. A lead entry in the
-      // registry is the real fix.
-      leadRisk: hazardEraFlag,
+      // Its own year now, from lead.presumption-year.au, rather than the
+      // asbestos flag it used to share. That sharing was the defect CodeRabbit
+      // raised on PR #2164: a reader was shown an asbestos-derived year as a
+      // lead determination. It over-warned rather than under-warned, so nobody
+      // was endangered -- but a borrowed threshold cannot be cited, and the two
+      // years are 34 apart.
+      //
+      // A null is NOT a clearance, and the report viewer must not present it
+      // as one: the cited guidance is explicit that homes built after its own
+      // presumption year may still carry lead paint, and other Australian
+      // bodies put the line later still. See presumeLeadFromEra, and the
+      // entry's requirement text for the divergent years themselves.
+      leadRisk: leadEraFlag,
     },
     scopeItems: scopeItemsList,
     costEstimates: costEstimates,

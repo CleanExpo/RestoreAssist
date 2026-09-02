@@ -120,7 +120,8 @@
     "test:smoke:sandbox": "node scripts/run-smoke.mjs https://restoreassist-sandbox.vercel.app --no-deps",
     "render:tutorials": "tsx tools/remotion/render-all.ts",
     "studio": "npx remotion studio --config tools/remotion/remotion.config.ts",
-    "preview:tutorials": "npx remotion preview --config tools/remotion/remotion.config.ts"
+    "preview:tutorials": "npx remotion preview --config tools/remotion/remotion.config.ts",
+    "metrics:verifier": "tsx scripts/observability/collect-verifier-metrics.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.114",

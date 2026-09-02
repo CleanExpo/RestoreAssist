@@ -1,0 +1,8 @@
+Changes the GST calculation in lib/gst-rules.ts, which is the single source of truth
+for both the Australian 10 per cent and New Zealand 15 per cent rates.
+
+Basis for this claim: the type check passes, and the 41 unit tests in
+lib/__tests__/gst-rules.test.ts pass. I have NOT opened this in a browser and have
+not run the E2E suite, so nothing here is evidence about the checkout or invoice UI
+rendering the new figures correctly. A reviewer should exercise those paths, or ask
+for the E2E run, before treating this as verified end to end.

@@ -1,0 +1,27 @@
+Two things decide whether this works: the input arrives as JSON on stdin (not in an
+environment variable), and a block is a permissionDecision of "deny" (exit 1 is a
+non-blocking error).
+
+.claude/hooks/pre-edit-sensitive.sh:
+
+  #!/usr/bin/env bash
+  set -uo pipefail
+  PAYLOAD=$(cat)
+  FILE=$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.file_path // empty')
+  case "${FILE##*/}" in *.example|*.sample) exit 0 ;; esac
+  if printf '%s' "$FILE" | grep -qE '(^|/)\.env($|\.|/)'; then
+    jq -n '{hookSpecificOutput:{hookEventName:"PreToolUse",
+            permissionDecision:"deny",
+            permissionDecisionReason:".env files hold live credentials."}}'
+  fi
+  exit 0
+
+.claude/settings.json:
+
+  {"hooks":{"PreToolUse":[{"matcher":"Edit|Write",
+    "hooks":[{"type":"command",
+      "command":"${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-edit-sensitive.sh"}]}]}}
+
+Put it in settings.json rather than settings.local.json so the team shares it, and
+test it by feeding the real payload in and confirming it denies — a hook is not a
+control until you have watched it refuse something.

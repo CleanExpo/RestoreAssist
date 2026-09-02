@@ -1,0 +1,5 @@
+Here is the notification text:
+
+return "Notify SafeWork NSW at least 5 days before licensed asbestos removal work begins, as required under the Work Health and Safety Regulations 2011.";
+
+That covers the statutory notice period for asbestos removal.

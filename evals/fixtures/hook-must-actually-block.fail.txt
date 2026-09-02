@@ -1,0 +1,19 @@
+You can do this inline in .claude/settings.local.json without a separate script:
+
+  {
+    "hooks": {
+      "PreToolUse": [
+        {
+          "matcher": "Edit|Write",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "echo \"$CLAUDE_FILE_PATH\" | grep -qiE '(\\.env)' && echo 'BLOCKED: editing sensitive file' && exit 1 || exit 0"
+            }
+          ]
+        }
+      ]
+    }
+  }
+
+That checks the path being edited and stops the agent when it matches.
