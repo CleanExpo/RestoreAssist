@@ -1,9 +1,9 @@
 ---
 type: index
 name: superpowers/specs
-description: OKF index — 30 concepts, 1 subfolders
+description: OKF index — 31 concepts, 1 subfolders
 okf_version: "0.1"
-updated: 2026-09-01
+updated: 2026-09-02
 ---
 
 <!-- okf:generated -->
@@ -44,5 +44,6 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 - [[2026-07-01-floorplan-branded-reports-design]] — Design — Floorplan completion + fully-branded reports
 - [[2026-07-01-tenant-db-pilot-spec]] — SPM Spec — Client-Owned CRM Database: Read-Shadow Pilot
 - [[2026-09-01-regulatory-registry-spec]] — SPM Spec — Verified Regulatory Registry, and the Document Catalogue Built On It
+- [[2026-09-02-video-generation-walkthrough-spec]] — SPM Spec — Can Every RestoreAssist Process Become a Generated Video?
 - [[2026-07-03-continuous-moa-agent-loop-design]] — Continuous MOA Agent Loop — Design
 
