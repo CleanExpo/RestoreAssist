@@ -21,7 +21,6 @@
 import { prisma } from "@/lib/prisma";
 import { resolveAreaSqm } from "@/lib/units";
 
-// TODO RA-1120: add propertyCountry to Inspection model. Until then, default AU.
 type Jurisdiction =
   | "NSW"
   | "VIC"
@@ -92,7 +91,7 @@ export async function checkSafeworkGate(
       inspectionDate: true,
       propertyPostcode: true,
       propertyYearBuilt: true,
-      // TODO RA-1120: select propertyCountry once added to schema
+      propertyCountry: true,
       affectedAreas: {
         select: {
           category: true,
@@ -115,9 +114,25 @@ export async function checkSafeworkGate(
   const notifications: SafeWorkNotification[] = [];
   const warnings: string[] = [];
 
-  // TODO RA-1120: derive jurisdiction from propertyCountry when available.
-  // For now, treat all inspections as AU and detect state from postcode.
-  const jurisdiction = detectJurisdiction(inspection.propertyPostcode);
+  // A New Zealand job is notified to WorkSafe New Zealand, not to an Australian
+  // state regulator.
+  //
+  // This used to read the postcode alone. detectJurisdiction() parses Australian
+  // postcode ranges and falls back to "NSW", so it can never return NZ -- which
+  // made the NZ entry in REGULATOR_MAP unreachable and told a New Zealand
+  // technician to notify SafeWork NSW within 24 hours. Australian and New
+  // Zealand postcodes are both four digits and overlap, so the postcode could
+  // not have distinguished them even in principle.
+  //
+  // Inspection.propertyCountry has existed since RA-6996; the TODOs claiming
+  // otherwise were stale. It defaults to "AU", so only a positive "NZ" is
+  // treated as decisive -- an "AU" falls through to postcode-based state
+  // detection exactly as before, which keeps every existing Australian result
+  // unchanged.
+  const jurisdiction: Jurisdiction =
+    inspection.propertyCountry?.trim().toUpperCase() === "NZ"
+      ? "NZ"
+      : detectJurisdiction(inspection.propertyPostcode);
   const regulator = REGULATOR_MAP[jurisdiction];
   // Deadline: inspectionDate + 24 hours per WHS Act
   const deadline = new Date(

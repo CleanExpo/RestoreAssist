@@ -35,7 +35,11 @@ export function SignatureCanvas({
   const [lineColor, setLineColor] = useState(initialLineColor);
   const [lineWidth, setLineWidth] = useState(initialLineWidth);
 
-  // Responsive sizing
+  // Responsive sizing.
+  //
+  // `orientationchange` matters as much as `resize` here: a tablet rotated
+  // mid-signing fires it, and a canvas left at the old width crops the
+  // signature that has already been drawn.
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
@@ -48,18 +52,45 @@ export function SignatureCanvas({
 
     updateSize();
     window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
+    window.addEventListener("orientationchange", updateSize);
+    return () => {
+      window.removeEventListener("resize", updateSize);
+      window.removeEventListener("orientationchange", updateSize);
+    };
   }, [width, height]);
 
-  // Init canvas with white background
+  /**
+   * Init the canvas, backing it with a device-pixel-ratio buffer.
+   *
+   * Without this the canvas is one bitmap pixel per CSS pixel, so on a retina
+   * tablet -- which is what a technician actually hands the client -- the
+   * signature renders visibly soft AND `toDataURL()` exports at roughly a third
+   * of the resolution the screen displayed. That export is the signature of
+   * record on an authority form, so the resolution is not cosmetic.
+   *
+   * The backing store is scaled up and the drawing context scaled down by the
+   * same factor, so every coordinate below stays in CSS pixels and no other
+   * code has to know.
+   */
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const dpr =
+      typeof window !== "undefined" && window.devicePixelRatio
+        ? Math.min(window.devicePixelRatio, 3)
+        : 1;
+
+    canvas.width = Math.round(canvasSize.width * dpr);
+    canvas.height = Math.round(canvasSize.height * dpr);
+    canvas.style.width = `${canvasSize.width}px`;
+    canvas.style.height = `${canvasSize.height}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = lineWidth;
@@ -146,6 +177,28 @@ export function SignatureCanvas({
     [isDrawing],
   );
 
+  /**
+   * End the stroke when the browser takes the gesture away.
+   *
+   * On touch, `pointercancel` fires instead of `pointerup` whenever the system
+   * claims the gesture -- a palm touch, an edge-swipe, an incoming call, the
+   * browser deciding mid-drag that it is a scroll. Without a handler `isDrawing`
+   * stays true, so the NEXT touch continues the interrupted path from wherever
+   * the finger lands: a stray line straight across the signature. That is a
+   * touch-only failure, which is why it survived on desktop.
+   *
+   * `hasSignature` is still set: the strokes drawn before the interruption are
+   * really on the canvas, and pretending otherwise would disable the Save
+   * button on a signature the client can see.
+   */
+  const handlePointerCancel = useCallback(() => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    setHasSignature(true);
+    const ctx = canvasRef.current?.getContext("2d");
+    ctx?.beginPath();
+  }, [isDrawing]);
+
   const handleClear = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -199,6 +252,7 @@ export function SignatureCanvas({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
           className="w-full cursor-crosshair"
           style={{ touchAction: "none" }}
         />

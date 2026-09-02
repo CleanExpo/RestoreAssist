@@ -148,6 +148,19 @@ export default function NewReportPage() {
     const urlReportId = searchParams.get("reportId");
     const interviewDataParam = searchParams.get("interviewData");
     const interviewMetadataParam = searchParams.get("interviewMetadata");
+    const inspectionIdParam = searchParams.get("inspectionId");
+
+    // The inspections list has linked "Generate report" to
+    // ?inspectionId=<id> since it was written, and this page never read it: the
+    // technician landed on an empty form and retyped the address, postcode,
+    // their own name, the attendance date and the water classification that the
+    // inspection already held. The mapping is server-side and shared
+    // (lib/reports/inspection-prefill.ts) rather than inline here, because this
+    // file already carries one hand-rolled mapping and a second one would be the
+    // same fact computed two ways.
+    if (inspectionIdParam && !urlReportId && !interviewDataParam) {
+      loadInspectionPrefill(inspectionIdParam);
+    }
 
     // Handle interview data from guided interview
     if (interviewDataParam && interviewMetadataParam) {
@@ -244,14 +257,54 @@ export default function NewReportPage() {
       if (typeof window !== "undefined") {
         localStorage.removeItem("currentReportId");
       }
-      if (!interviewDataParam) {
-        // Only clear if not loading interview data
+      if (!interviewDataParam && !inspectionIdParam) {
+        // Only clear if not loading interview data or an inspection prefill.
+        // Without the inspectionId guard this ran in the same pass as the fetch
+        // above and blanked the form the moment it arrived.
         setReportId(null);
         setUploadedData(null);
         setFileName("");
       }
     }
   }, [searchParams]);
+
+  const loadInspectionPrefill = async (inspectionId: string) => {
+    try {
+      const response = await fetch(
+        `/api/inspections/${encodeURIComponent(inspectionId)}/report-prefill`,
+      );
+      if (!response.ok) {
+        // Not fatal: the form still works, it just is not pre-filled. Saying so
+        // matters -- a silent failure looks identical to an inspection that
+        // recorded nothing, and the technician cannot tell which they are
+        // looking at.
+        toast.error(
+          response.status === 404
+            ? "That inspection could not be found, so the form was not pre-filled."
+            : "Could not pre-fill from the inspection. The form is empty; nothing was lost.",
+        );
+        return;
+      }
+      const data = await response.json();
+      const filled: string[] = Array.isArray(data?.filled) ? data.filled : [];
+      if (filled.length === 0) {
+        toast(
+          `${data?.inspectionNumber ?? "That inspection"} has nothing recorded yet that this form can use.`,
+        );
+        return;
+      }
+      setUploadedData(data.fields);
+      toast.success(
+        `${filled.length} field${filled.length === 1 ? "" : "s"} pre-filled from ${data?.inspectionNumber ?? "the inspection"}. Check them before generating.`,
+        { duration: 5000 },
+      );
+    } catch (error) {
+      console.error("Error loading inspection prefill:", error);
+      toast.error(
+        "Could not pre-fill from the inspection. The form is empty; nothing was lost.",
+      );
+    }
+  };
 
   const checkOnboardingStatus = async () => {
     try {
