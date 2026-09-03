@@ -357,17 +357,25 @@ export async function PUT(request: NextRequest) {
         status: 400,
       });
     }
-    const name = sanitizeString(body.name, 200);
+    // RA-7432: only a field PRESENT in the body is written. `sanitizeString`
+    // turns an absent value into "", and before this guard that "" was written
+    // to the row — so saving Full Name from Settings silently wiped business
+    // name, address, ABN, phone, email and logo, and the onboarding
+    // business_profile step could never stay green. Settings now saves from
+    // two cards that each send only their own fields.
+    const field = (key: string, maxLength: number): string | undefined =>
+      body[key] === undefined ? undefined : sanitizeString(body[key], maxLength);
+    const name = field("name", 200);
     const email = body.email
       ? sanitizeString(body.email, 320).toLowerCase()
       : undefined;
-    const businessName = sanitizeString(body.businessName, 200);
-    const businessAddress = sanitizeString(body.businessAddress, 500);
-    const businessLogo = sanitizeString(body.businessLogo, 2000);
-    const businessABNRaw = sanitizeString(body.businessABN, 20);
+    const businessName = field("businessName", 200);
+    const businessAddress = field("businessAddress", 500);
+    const businessLogo = field("businessLogo", 2000);
+    const businessABN = field("businessABN", 20);
     // Validate ABN using ATO weighted-sum checksum — invalid ABNs on tax invoices
     // require recipients to withhold 47% PAYG (GST Act compliance).
-    if (businessABNRaw && !isValidABN(businessABNRaw)) {
+    if (businessABN && !isValidABN(businessABN)) {
       return apiError(request, {
         code: "VALIDATION",
         message:
@@ -375,9 +383,8 @@ export async function PUT(request: NextRequest) {
         status: 400,
       });
     }
-    const businessABN = businessABNRaw || "";
-    const businessPhone = sanitizeString(body.businessPhone, 50);
-    const businessEmail = sanitizeString(body.businessEmail, 320);
+    const businessPhone = field("businessPhone", 50);
+    const businessEmail = field("businessEmail", 320);
 
     // Build update data object
     const updateData: any = {};
