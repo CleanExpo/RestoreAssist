@@ -266,5 +266,21 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     window.location.assign('/dashboard/reports/new');
   };
 
-  return <SetupStepper items={steps} onFinish={handleFinish} />;
+  // RA-7427 — leave the wizard with one tap. Same three-step discipline as
+  // finishing: activate (skip mode) → re-mint the JWT → full document load.
+  const handleSkip = async () => {
+    const res = await fetch('/api/setup/activate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ skip: true }),
+    });
+    if (!res.ok && res.status !== 409) {
+      const body = await res.json().catch(() => null);
+      throw new Error(activationErrorMessage(res.status, body));
+    }
+    await refreshSession();
+    window.location.assign('/dashboard');
+  };
+
+  return <SetupStepper items={steps} onFinish={handleFinish} onSkip={handleSkip} />;
 }

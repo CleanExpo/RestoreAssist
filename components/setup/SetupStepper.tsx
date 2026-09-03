@@ -95,6 +95,7 @@ export function SetupStepper({
   items,
   initialIndex = 0,
   onFinish,
+  onSkip,
 }: {
   items: SetupStepperItem[];
   initialIndex?: number;
@@ -104,9 +105,16 @@ export function SetupStepper({
    * a rejection is surfaced in place rather than swallowed.
    */
   onFinish?: () => void | Promise<void>;
+  /**
+   * RA-7427 — "Skip setup for now". Offered on every step, including a
+   * required one whose Next is locked, so the wizard can always be left with
+   * one tap. Not rendered when absent.
+   */
+  onSkip?: () => void | Promise<void>;
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [finishing, setFinishing] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
 
   // Re-entrancy is prevented by `disabled` on the CTA alone: React reads a
@@ -131,6 +139,23 @@ export function SetupStepper({
           : "Could not finish setup. Please try again.",
       );
       setFinishing(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!onSkip) return;
+    setSkipping(true);
+    setFinishError(null);
+    try {
+      await onSkip();
+      // Stays true on success: onSkip navigates away.
+    } catch (err) {
+      setFinishError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Could not skip setup. Please try again.",
+      );
+      setSkipping(false);
     }
   };
 
@@ -329,6 +354,18 @@ export function SetupStepper({
                   {current.description}
                 </p>
               )}
+              {onSkip && (
+                <button
+                  type="button"
+                  onClick={() => void handleSkip()}
+                  disabled={skipping || finishing}
+                  className="mt-3 min-h-11 text-sm font-medium text-brand-slate underline underline-offset-4 hover:text-brand-navy disabled:opacity-50"
+                >
+                  {skipping
+                    ? "Taking you to your dashboard…"
+                    : "Skip setup for now and go to my dashboard"}
+                </button>
+              )}
             </div>
 
             <div key={current.key} className="min-h-0 flex-1">
@@ -370,7 +407,7 @@ export function SetupStepper({
               variant="outline"
               className="h-12 gap-2 rounded-xl border-brand-navy/20 px-6 text-[15px] font-medium text-brand-navy hover:bg-brand-navy/5"
               onClick={() => setIndex((i) => Math.max(0, i - 1))}
-              disabled={state.isFirstStep}
+              disabled={state.isFirstStep || skipping || finishing}
             >
               <ArrowMark direction="left" />
               Back
@@ -390,7 +427,7 @@ export function SetupStepper({
                 <Button
                   className="h-12 gap-2 rounded-xl bg-brand-navy px-7 text-[15px] font-semibold text-white shadow-lg shadow-brand-navy/25 transition-all hover:bg-brand-navy-hover hover:shadow-brand-navy/35 disabled:shadow-none"
                   onClick={() => void handleFinish()}
-                  disabled={!state.allRequiredComplete || finishing}
+                  disabled={!state.allRequiredComplete || finishing || skipping}
                   title={
                     state.allRequiredComplete
                       ? undefined
@@ -412,7 +449,7 @@ export function SetupStepper({
                   onClick={() =>
                     setIndex((i) => Math.min(items.length - 1, i + 1))
                   }
-                  disabled={!state.canAdvance}
+                  disabled={!state.canAdvance || skipping || finishing}
                 >
                   Next
                   <ArrowMark direction="right" />

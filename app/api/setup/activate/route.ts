@@ -53,8 +53,22 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Re-run pre-flight checks (defence-in-depth — UI already checked but server is authoritative)
+    // RA-7427: "Skip setup for now". The wizard locks Next on the AI-key step
+    // and every route back to the dashboard re-enters the wizard, so a new
+    // user without a key had no way in. `{ skip: true }` (boolean, nothing
+    // else) activates without the red-check gate; report generation stays
+    // gated on the key by the report page itself. The default path is
+    // unchanged: any red check still refuses.
+    let skip = false;
+    try {
+      const body = await request.json();
+      skip = body?.skip === true;
+    } catch {
+      // No body, or not JSON: not a skip.
+    }
+
     const checks = await runAllChecks(org.id);
-    const reds = checks.filter((c) => c.status === "red");
+    const reds = skip ? [] : checks.filter((c) => c.status === "red");
     if (reds.length > 0) {
       // RA-1548 — kept raw: carries a top-level `failedChecks` sibling array
       // the setup wizard reads to render which capabilities blocked activation
@@ -145,6 +159,10 @@ export async function POST(request: NextRequest) {
       timeToActivateMs: timeToActivate,
       hydrationSuccess: checks.filter((c) => c.status === "green").length,
       optionalSkipped: checks.filter((c) => c.status === "yellow").length,
+      skippedSetup: skip,
+      requiredSkipped: skip
+        ? checks.filter((c) => c.status === "red").map((c) => c.capability)
+        : [],
     });
 
     const user = await prisma.user.findUnique({
@@ -169,7 +187,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       data: {
         organizationId: result.id,
-        redirectTo: "/dashboard?firstRun=1",
+        redirectTo: skip ? "/dashboard" : "/dashboard?firstRun=1",
       },
     });
   } catch (err) {
