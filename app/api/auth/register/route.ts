@@ -18,6 +18,15 @@ import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
+// RA-7423: the post-signup notifications (welcome email, in-app notification,
+// founder alert, audit log, analytics) are awaited so a rejection can never
+// escape (RA-1309), but they held the HTTP response hostage: 15 s on the
+// founder's phone and 39 s on a desktop browser on 02-03/09/2026, all spent
+// waiting on email sends after the user row was already committed. The
+// response now goes out after this cap even if a send is still in flight; the
+// sends keep running to completion and every one still has its own .catch.
+const SIDE_EFFECT_CAP_MS = 3_000;
+
 // Free-trial grant — sourced from PRICING_CONFIG so the marketing copy
 // (signup page, pricing page, welcome email) can never drift from what we
 // actually grant. See lib/__tests__/pricing-integrity.test.ts.
@@ -236,7 +245,8 @@ export async function POST(request: NextRequest) {
       // instead of being caught locally. allSettled guarantees one of the
       // callback `.catch()`s swallows each rejection so nothing bubbles.
       const reqCtx = extractRequestContext(request);
-      await Promise.allSettled([
+      const sideEffectsStartedAt = Date.now();
+      const sideEffects = Promise.allSettled([
         deliverEmailOnce({
           idempotencyKey: `signup-welcome:${updatedUser.id}`,
           kind: "SIGNUP_WELCOME",
@@ -285,6 +295,24 @@ export async function POST(request: NextRequest) {
           hasOrganization: true,
         }).catch(() => {}),
       ]);
+      let capTimer: ReturnType<typeof setTimeout> | undefined;
+      const capped = await Promise.race([
+        sideEffects.then(() => false),
+        new Promise<boolean>((resolve) => {
+          capTimer = setTimeout(() => resolve(true), SIDE_EFFECT_CAP_MS);
+        }),
+      ]);
+      if (capTimer) clearTimeout(capTimer);
+      if (capped) {
+        console.warn(
+          `[Register] notifications still running after ${SIDE_EFFECT_CAP_MS}ms; responding now (user ${updatedUser.id})`,
+        );
+        void sideEffects.then(() =>
+          console.log(
+            `[Register] notifications finished after ${Date.now() - sideEffectsStartedAt}ms (user ${updatedUser.id})`,
+          ),
+        );
+      }
       const { password: _, ...userWithoutPassword } = updatedUser;
       return NextResponse.json(
         { message: "User created successfully", user: userWithoutPassword },
