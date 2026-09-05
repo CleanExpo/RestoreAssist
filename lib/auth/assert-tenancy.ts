@@ -163,7 +163,12 @@ export async function assertReportTenancy(
 /**
  * Assert the session user owns (via direct ownership OR active workspace
  * membership) the given Inspection. Mirrors the pattern in
- * `app/api/inspections/[id]/media/route.ts`. Admins bypass.
+ * `app/api/inspections/[id]/media/route.ts`.
+ *
+ * A tenant ADMIN does NOT bypass this: `role: "ADMIN"` is granted to every firm
+ * that self-registers, so it widens reach only as far as the caller's own
+ * organisation. Only an allowlisted platform-support operator
+ * (`PLATFORM_SUPPORT_USER_IDS`) reads across tenants.
  */
 export async function assertInspectionTenancy(
   session: SessionLike | null,
@@ -208,17 +213,19 @@ export async function assertInspectionTenancy(
 /**
  * RA-6800: resolve ownership-scoped `where` fragments for WRITING to an
  * inspection or its child records. Verifies access using the same model as
- * `assertInspectionTenancy` (direct owner OR active workspace member; admins
- * bypass), then returns reusable scopes so mutations re-assert ownership
- * atomically at write time — closing the TOCTOU gap between the access check
- * and the write.
+ * `assertInspectionTenancy` (direct owner OR active workspace member, widened
+ * to the caller's organisation for a tenant ADMIN), then returns reusable
+ * scopes so mutations re-assert ownership atomically at write time — closing
+ * the TOCTOU gap between the access check and the write.
  *
  *   - `inspectionWhere`     → for `inspection.update` / `delete` (unique where).
  *   - `inspectionManyWhere` → for `inspection.updateMany` (merge extra
  *                             conditions, e.g. a status CAS guard).
  *   - `childInspectionFilter` → relation filter for child-record writes, used
- *                             as `{ inspection: childInspectionFilter }`;
- *                             `undefined` for admins (no per-tenant scope).
+ *                             as `{ inspection: childInspectionFilter }`.
+ *                             `undefined` ONLY for an allowlisted platform
+ *                             support operator, which has no tenant scope. A
+ *                             tenant ADMIN always receives a real filter.
  *
  * Returns 401/404 (never 403) on failure so callers map directly to a response
  * and tenants cannot enumerate inspection IDs.
