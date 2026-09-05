@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
   assertInspectionTenancy,
   resolveInspectionWrite,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -128,56 +129,67 @@ export async function POST(
 
     const data = parsed.data;
 
-    const record = await prisma.hVACAssessment.upsert({
-      where: { inspectionId: id },
-      create: {
-        inspectionId: id,
-        hvacSystemInspected: data.hvacSystemInspected ?? false,
-        ductContaminationLevel: data.ductContaminationLevel ?? undefined,
-        visibleSootInDucts: data.visibleSootInDucts ?? false,
-        smokeOdourInDucts: data.smokeOdourInDucts ?? false,
-        filterCondition: data.filterCondition ?? undefined,
-        coilContaminationLevel: data.coilContaminationLevel ?? undefined,
-        hvacCleaningRequired: data.hvacCleaningRequired ?? false,
-        insulationResistanceMegaohm:
-          data.insulationResistanceMegaohm ?? undefined,
-        insulationTestPerformedBy: data.insulationTestPerformedBy ?? undefined,
-      },
-      update: {
-        ...(data.hvacSystemInspected !== undefined && {
-          hvacSystemInspected: data.hvacSystemInspected,
+    const record = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { claimType: "HVAC" },
+      (tx) =>
+        tx.hVACAssessment.upsert({
+          where: { inspectionId: id },
+          create: {
+            inspectionId: id,
+            hvacSystemInspected: data.hvacSystemInspected ?? false,
+            ductContaminationLevel: data.ductContaminationLevel ?? undefined,
+            visibleSootInDucts: data.visibleSootInDucts ?? false,
+            smokeOdourInDucts: data.smokeOdourInDucts ?? false,
+            filterCondition: data.filterCondition ?? undefined,
+            coilContaminationLevel: data.coilContaminationLevel ?? undefined,
+            hvacCleaningRequired: data.hvacCleaningRequired ?? false,
+            insulationResistanceMegaohm:
+              data.insulationResistanceMegaohm ?? undefined,
+            insulationTestPerformedBy:
+              data.insulationTestPerformedBy ?? undefined,
+          },
+          update: {
+            ...(data.hvacSystemInspected !== undefined && {
+              hvacSystemInspected: data.hvacSystemInspected,
+            }),
+            ...(data.ductContaminationLevel !== undefined && {
+              ductContaminationLevel: data.ductContaminationLevel,
+            }),
+            ...(data.visibleSootInDucts !== undefined && {
+              visibleSootInDucts: data.visibleSootInDucts,
+            }),
+            ...(data.smokeOdourInDucts !== undefined && {
+              smokeOdourInDucts: data.smokeOdourInDucts,
+            }),
+            ...(data.filterCondition !== undefined && {
+              filterCondition: data.filterCondition,
+            }),
+            ...(data.coilContaminationLevel !== undefined && {
+              coilContaminationLevel: data.coilContaminationLevel,
+            }),
+            ...(data.hvacCleaningRequired !== undefined && {
+              hvacCleaningRequired: data.hvacCleaningRequired,
+            }),
+            ...(data.insulationResistanceMegaohm !== undefined && {
+              insulationResistanceMegaohm: data.insulationResistanceMegaohm,
+            }),
+            ...(data.insulationTestPerformedBy !== undefined && {
+              insulationTestPerformedBy: data.insulationTestPerformedBy,
+            }),
+          },
         }),
-        ...(data.ductContaminationLevel !== undefined && {
-          ductContaminationLevel: data.ductContaminationLevel,
-        }),
-        ...(data.visibleSootInDucts !== undefined && {
-          visibleSootInDucts: data.visibleSootInDucts,
-        }),
-        ...(data.smokeOdourInDucts !== undefined && {
-          smokeOdourInDucts: data.smokeOdourInDucts,
-        }),
-        ...(data.filterCondition !== undefined && {
-          filterCondition: data.filterCondition,
-        }),
-        ...(data.coilContaminationLevel !== undefined && {
-          coilContaminationLevel: data.coilContaminationLevel,
-        }),
-        ...(data.hvacCleaningRequired !== undefined && {
-          hvacCleaningRequired: data.hvacCleaningRequired,
-        }),
-        ...(data.insulationResistanceMegaohm !== undefined && {
-          insulationResistanceMegaohm: data.insulationResistanceMegaohm,
-        }),
-        ...(data.insulationTestPerformedBy !== undefined && {
-          insulationTestPerformedBy: data.insulationTestPerformedBy,
-        }),
-      },
-    });
+    );
 
-    await prisma.inspection.update({
-      where: tenancy.data.inspectionWhere,
-      data: { claimType: "HVAC" },
-    });
+    // Null means the caller's scope no longer claims this inspection.
+    // 404, never 403, so a tenant cannot learn the id exists.
+    if (!record) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json(record);
   } catch (err) {

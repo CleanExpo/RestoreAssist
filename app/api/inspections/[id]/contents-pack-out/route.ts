@@ -20,6 +20,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import {
   assertInspectionTenancy,
   resolveInspectionWrite,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -173,31 +174,43 @@ export async function POST(
 
       const data = parsed.data;
 
-      const record = await prisma.contentsPackOutItem.create({
-        data: {
-          inspectionId: id,
-          itemDescription: data.itemDescription,
-          make: data.make ?? null,
-          model: data.model ?? null,
-          serialNumber: data.serialNumber ?? null,
-          ageYears: data.ageYears ?? null,
-          conditionPreLoss: data.conditionPreLoss ?? null,
-          conditionPostLoss: data.conditionPostLoss ?? null,
-          replacementValueAud: data.replacementValueAud ?? null,
-          restorationCostEstimate: data.restorationCostEstimate ?? null,
-          packOutDecision: data.packOutDecision ?? null,
-          packOutTag: data.packOutTag ?? null,
-          beforePhotoUrl: data.beforePhotoUrl ?? null,
-          afterPhotoUrl: data.afterPhotoUrl ?? null,
-          claimType: data.claimType ?? null,
-        },
-      });
+      const record = await writeWithinInspectionScope(
+        tenancy.data.inspectionManyWhere,
+        // Stamp Inspection.claimType = CONTENTS; this scoped update is also the
+        // gate, so the item is only created while the caller still holds the
+        // inspection.
+        { claimType: "CONTENTS" },
+        (tx) =>
+          tx.contentsPackOutItem.create({
+            data: {
+              inspectionId: id,
+              itemDescription: data.itemDescription,
+              make: data.make ?? null,
+              model: data.model ?? null,
+              serialNumber: data.serialNumber ?? null,
+              ageYears: data.ageYears ?? null,
+              conditionPreLoss: data.conditionPreLoss ?? null,
+              conditionPostLoss: data.conditionPostLoss ?? null,
+              replacementValueAud: data.replacementValueAud ?? null,
+              restorationCostEstimate: data.restorationCostEstimate ?? null,
+              packOutDecision: data.packOutDecision ?? null,
+              packOutTag: data.packOutTag ?? null,
+              beforePhotoUrl: data.beforePhotoUrl ?? null,
+              afterPhotoUrl: data.afterPhotoUrl ?? null,
+              claimType: data.claimType ?? null,
+            },
+          }),
+      );
 
-      // Stamp Inspection.claimType = CONTENTS if no claim type already set
-      await prisma.inspection.update({
-        where: tenancy.data.inspectionWhere,
-        data: { claimType: "CONTENTS" },
-      });
+      // Null means the caller's scope no longer claims this inspection.
+      // 404, never 403, so a tenant cannot learn the id exists.
+      if (!record) {
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
 
       return NextResponse.json(record, { status: 201 });
     } catch (err) {

@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
   assertInspectionTenancy,
   resolveInspectionWrite,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -143,53 +144,63 @@ export async function POST(
 
     const data = parsed.data;
 
-    const record = await prisma.biohazardAssessment.upsert({
-      where: { inspectionId: id },
-      create: {
-        inspectionId: id,
-        biohazardType: data.biohazardType ?? undefined,
-        contaminationAreaM2: data.contaminationAreaM2 ?? undefined,
-        atpReadingPre: data.atpReadingPre ?? undefined,
-        atpReadingPost: data.atpReadingPost ?? undefined,
-        swmsCompleted: data.swmsCompleted ?? false,
-        ppeLevel: data.ppeLevel ?? undefined,
-        wasteDisposalManifestId: data.wasteDisposalManifestId ?? undefined,
-        disposalFacilityLicense: data.disposalFacilityLicense ?? undefined,
-        disposalCertificateUrl: data.disposalCertificateUrl ?? undefined,
-      },
-      update: {
-        ...(data.biohazardType !== undefined && {
-          biohazardType: data.biohazardType,
+    const record = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { claimType: "BIOHAZARD" },
+      (tx) =>
+        tx.biohazardAssessment.upsert({
+          where: { inspectionId: id },
+          create: {
+            inspectionId: id,
+            biohazardType: data.biohazardType ?? undefined,
+            contaminationAreaM2: data.contaminationAreaM2 ?? undefined,
+            atpReadingPre: data.atpReadingPre ?? undefined,
+            atpReadingPost: data.atpReadingPost ?? undefined,
+            swmsCompleted: data.swmsCompleted ?? false,
+            ppeLevel: data.ppeLevel ?? undefined,
+            wasteDisposalManifestId: data.wasteDisposalManifestId ?? undefined,
+            disposalFacilityLicense: data.disposalFacilityLicense ?? undefined,
+            disposalCertificateUrl: data.disposalCertificateUrl ?? undefined,
+          },
+          update: {
+            ...(data.biohazardType !== undefined && {
+              biohazardType: data.biohazardType,
+            }),
+            ...(data.contaminationAreaM2 !== undefined && {
+              contaminationAreaM2: data.contaminationAreaM2,
+            }),
+            ...(data.atpReadingPre !== undefined && {
+              atpReadingPre: data.atpReadingPre,
+            }),
+            ...(data.atpReadingPost !== undefined && {
+              atpReadingPost: data.atpReadingPost,
+            }),
+            ...(data.swmsCompleted !== undefined && {
+              swmsCompleted: data.swmsCompleted,
+            }),
+            ...(data.ppeLevel !== undefined && { ppeLevel: data.ppeLevel }),
+            ...(data.wasteDisposalManifestId !== undefined && {
+              wasteDisposalManifestId: data.wasteDisposalManifestId,
+            }),
+            ...(data.disposalFacilityLicense !== undefined && {
+              disposalFacilityLicense: data.disposalFacilityLicense,
+            }),
+            ...(data.disposalCertificateUrl !== undefined && {
+              disposalCertificateUrl: data.disposalCertificateUrl,
+            }),
+          },
         }),
-        ...(data.contaminationAreaM2 !== undefined && {
-          contaminationAreaM2: data.contaminationAreaM2,
-        }),
-        ...(data.atpReadingPre !== undefined && {
-          atpReadingPre: data.atpReadingPre,
-        }),
-        ...(data.atpReadingPost !== undefined && {
-          atpReadingPost: data.atpReadingPost,
-        }),
-        ...(data.swmsCompleted !== undefined && {
-          swmsCompleted: data.swmsCompleted,
-        }),
-        ...(data.ppeLevel !== undefined && { ppeLevel: data.ppeLevel }),
-        ...(data.wasteDisposalManifestId !== undefined && {
-          wasteDisposalManifestId: data.wasteDisposalManifestId,
-        }),
-        ...(data.disposalFacilityLicense !== undefined && {
-          disposalFacilityLicense: data.disposalFacilityLicense,
-        }),
-        ...(data.disposalCertificateUrl !== undefined && {
-          disposalCertificateUrl: data.disposalCertificateUrl,
-        }),
-      },
-    });
+    );
 
-    await prisma.inspection.update({
-      where: tenancy.data.inspectionWhere,
-      data: { claimType: "BIOHAZARD" },
-    });
+    // Null means the caller's scope no longer claims this inspection.
+    // 404, never 403, so a tenant cannot learn the id exists.
+    if (!record) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json(record);
   } catch (err) {

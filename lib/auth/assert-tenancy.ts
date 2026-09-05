@@ -35,16 +35,87 @@ export interface SessionLike {
   } | null;
 }
 
-async function hasCurrentAdminRole(
+/**
+ * How wide the caller's reach is.
+ *
+ *   self      only records they own, or whose workspace they are an active
+ *             member of
+ *   org       the above, plus records owned by anyone in their organisation
+ *   platform  every tenant — RestoreAssist support only
+ */
+export type TenantScope =
+  | { kind: "self" }
+  | { kind: "org"; organizationId: string }
+  | { kind: "platform" };
+
+/**
+ * Cross-tenant support access, allowlisted by stable `User.id` in server
+ * configuration.
+ *
+ * `role: "ADMIN"` is granted to every firm that self-registers
+ * (`app/api/auth/register/route.ts`), so it means "owner of this tenant" and
+ * has never meant "RestoreAssist staff". Treating it as the latter let one
+ * customer read another customer's inspections by id across ~100 routes.
+ *
+ * This is the rule `verifyStorePublishingOperator` already applies to a
+ * different platform-owned resource, in its own words: "tenant ADMIN is not
+ * sufficient authority. Operators must be explicitly allowlisted by stable
+ * User.id in server configuration. Missing or empty configuration deliberately
+ * fails closed."
+ */
+function isPlatformSupportOperator(userId: string): boolean {
+  const allowlist = (process.env.PLATFORM_SUPPORT_USER_IDS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return allowlist.includes(userId);
+}
+
+/**
+ * Resolve the caller's reach from the DATABASE, never from the session claim
+ * alone — the JWT carries a role for up to 90 days and a demotion does not
+ * rewrite it.
+ */
+async function resolveTenantScope(
   session: SessionLike | null | undefined,
-): Promise<boolean> {
-  if (session?.user?.role !== "ADMIN" || !session.user.id) return false;
+): Promise<TenantScope> {
+  const sessionUserId = session?.user?.id;
+  if (!sessionUserId) return { kind: "self" };
 
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
+    where: { id: sessionUserId },
+    select: { role: true, organizationId: true },
   });
-  return user?.role === "ADMIN";
+
+  // Only a real, currently-ADMIN account can be raised any further. The
+  // allowlist widens an admin's scope; it is not a role of its own.
+  if (user?.role !== "ADMIN") return { kind: "self" };
+
+  if (isPlatformSupportOperator(sessionUserId)) return { kind: "platform" };
+
+  // A null organisation must never match another null organisation, or every
+  // solo operator would share one tenant.
+  return user.organizationId
+    ? { kind: "org", organizationId: user.organizationId }
+    : { kind: "self" };
+}
+
+/**
+ * The ownership clauses a caller of this scope may read or write through.
+ * Never empty: the narrowest form still requires direct ownership.
+ */
+function ownershipClauses(
+  userId: string,
+  scope: TenantScope,
+): NonNullable<Prisma.InspectionWhereInput["OR"]> {
+  const clauses: NonNullable<Prisma.InspectionWhereInput["OR"]> = [
+    { userId },
+    { workspace: { members: { some: { userId, status: "ACTIVE" } } } },
+  ];
+  if (scope.kind === "org") {
+    clauses.push({ user: { organizationId: scope.organizationId } });
+  }
+  return clauses;
 }
 
 /**
@@ -61,16 +132,29 @@ export async function assertReportTenancy(
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
   const userId = session.user.id;
-  const admin = await hasCurrentAdminRole(session);
+  const scope = await resolveTenantScope(session);
 
   const report = await prisma.report.findUnique({
     where: { id: reportId },
-    select: { id: true, userId: true },
+    select: {
+      id: true,
+      userId: true,
+      user: { select: { organizationId: true } },
+    },
   });
   if (!report) {
     return { ok: false, status: 404, reason: "Report not found" };
   }
-  if (!admin && report.userId !== userId) {
+
+  const reachable =
+    scope.kind === "platform" ||
+    report.userId === userId ||
+    (scope.kind === "org" &&
+      // Compared against a non-null organisationId from the scope, so two
+      // org-less accounts never match each other.
+      report.user?.organizationId === scope.organizationId);
+
+  if (!reachable) {
     return { ok: false, status: 404, reason: "Report not found" };
   }
   return { ok: true, data: { id: report.id, userId: report.userId } };
@@ -79,7 +163,12 @@ export async function assertReportTenancy(
 /**
  * Assert the session user owns (via direct ownership OR active workspace
  * membership) the given Inspection. Mirrors the pattern in
- * `app/api/inspections/[id]/media/route.ts`. Admins bypass.
+ * `app/api/inspections/[id]/media/route.ts`.
+ *
+ * A tenant ADMIN does NOT bypass this: `role: "ADMIN"` is granted to every firm
+ * that self-registers, so it widens reach only as far as the caller's own
+ * organisation. Only an allowlisted platform-support operator
+ * (`PLATFORM_SUPPORT_USER_IDS`) reads across tenants.
  */
 export async function assertInspectionTenancy(
   session: SessionLike | null,
@@ -91,10 +180,11 @@ export async function assertInspectionTenancy(
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
   const userId = session.user.id;
-  const admin = await hasCurrentAdminRole(session);
+  const scope = await resolveTenantScope(session);
 
-  // Admin path: read by id only.
-  if (admin) {
+  // Platform support only: read by id, across tenants. Fails closed when the
+  // allowlist is unset, because resolveTenantScope never returns this kind.
+  if (scope.kind === "platform") {
     const insp = await prisma.inspection.findUnique({
       where: { id: inspectionId },
       select: { id: true, userId: true, workspaceId: true },
@@ -105,18 +195,12 @@ export async function assertInspectionTenancy(
     return { ok: true, data: insp };
   }
 
-  // Member path: own the inspection OR be an active member of its workspace.
+  // Everyone else, tenant ADMIN included: own it, be an active member of its
+  // workspace, or share an organisation with its owner.
   const insp = await prisma.inspection.findFirst({
     where: {
       id: inspectionId,
-      OR: [
-        { userId },
-        {
-          workspace: {
-            members: { some: { userId, status: "ACTIVE" } },
-          },
-        },
-      ],
+      OR: ownershipClauses(userId, scope),
     },
     select: { id: true, userId: true, workspaceId: true },
   });
@@ -129,17 +213,19 @@ export async function assertInspectionTenancy(
 /**
  * RA-6800: resolve ownership-scoped `where` fragments for WRITING to an
  * inspection or its child records. Verifies access using the same model as
- * `assertInspectionTenancy` (direct owner OR active workspace member; admins
- * bypass), then returns reusable scopes so mutations re-assert ownership
- * atomically at write time — closing the TOCTOU gap between the access check
- * and the write.
+ * `assertInspectionTenancy` (direct owner OR active workspace member, widened
+ * to the caller's organisation for a tenant ADMIN), then returns reusable
+ * scopes so mutations re-assert ownership atomically at write time — closing
+ * the TOCTOU gap between the access check and the write.
  *
  *   - `inspectionWhere`     → for `inspection.update` / `delete` (unique where).
  *   - `inspectionManyWhere` → for `inspection.updateMany` (merge extra
  *                             conditions, e.g. a status CAS guard).
  *   - `childInspectionFilter` → relation filter for child-record writes, used
- *                             as `{ inspection: childInspectionFilter }`;
- *                             `undefined` for admins (no per-tenant scope).
+ *                             as `{ inspection: childInspectionFilter }`.
+ *                             `undefined` ONLY for an allowlisted platform
+ *                             support operator, which has no tenant scope. A
+ *                             tenant ADMIN always receives a real filter.
  *
  * Returns 401/404 (never 403) on failure so callers map directly to a response
  * and tenants cannot enumerate inspection IDs.
@@ -158,10 +244,10 @@ export async function resolveInspectionWrite(
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
   const userId = session.user.id;
-  const admin = await hasCurrentAdminRole(session);
+  const scope = await resolveTenantScope(session);
 
-  // Admin path: authorized globally; scope writes by id only.
-  if (admin) {
+  // Platform support only: authorized across tenants; scope writes by id.
+  if (scope.kind === "platform") {
     const insp = await prisma.inspection.findUnique({
       where: { id: inspectionId },
       select: { id: true },
@@ -179,11 +265,13 @@ export async function resolveInspectionWrite(
     };
   }
 
-  // Member path: own the inspection OR be an active member of its workspace.
-  const ownerOr: Prisma.InspectionWhereInput["OR"] = [
-    { userId },
-    { workspace: { members: { some: { userId, status: "ACTIVE" } } } },
-  ];
+  // Everyone else, tenant ADMIN included. The same clauses are returned to the
+  // caller as the write filter, so the mutation re-asserts ownership itself
+  // rather than trusting this read.
+  const ownerOr: Prisma.InspectionWhereInput["OR"] = ownershipClauses(
+    userId,
+    scope,
+  );
   const insp = await prisma.inspection.findFirst({
     where: { id: inspectionId, OR: ownerOr },
     select: { id: true },
@@ -199,6 +287,37 @@ export async function resolveInspectionWrite(
       childInspectionFilter: { OR: ownerOr },
     },
   };
+}
+
+/**
+ * Write a CHILD record of an inspection with the caller's scope re-asserted,
+ * atomically.
+ *
+ * `resolveInspectionWrite` hands back a scoped `where`, but a route that then
+ * upserts a child keyed on `inspectionId` alone has silently dropped it. An
+ * independent review found that across six assessment routes: the child upsert
+ * committed on the bare id, and the scoped parent update ran afterwards as a
+ * separate statement — so the child write landed even when the scope claimed
+ * nothing, and nothing rolled it back.
+ *
+ * Here the scoped parent update IS the gate. If it claims no row the child
+ * work never runs, and both live in one transaction so a later failure undoes
+ * the whole thing. Returns null when the scope no longer matches; callers map
+ * that to 404, never 403, so a tenant cannot learn the id exists.
+ */
+export async function writeWithinInspectionScope<T>(
+  scopeWhere: Prisma.InspectionWhereInput,
+  parentData: Prisma.InspectionUpdateManyMutationInput,
+  work: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T | null> {
+  return prisma.$transaction(async (tx) => {
+    const claimed = await tx.inspection.updateMany({
+      where: scopeWhere,
+      data: parentData,
+    });
+    if (claimed.count === 0) return null;
+    return work(tx);
+  });
 }
 
 /**

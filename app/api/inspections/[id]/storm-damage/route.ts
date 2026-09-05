@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
   assertInspectionTenancy,
   resolveInspectionWrite,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -136,81 +137,91 @@ export async function POST(
 
     const data = parsed.data;
 
-    const record = await prisma.stormDamageAssessment.upsert({
-      where: { inspectionId: id },
-      create: {
-        inspectionId: id,
-        bomEventReference: data.bomEventReference ?? undefined,
-        windSpeedKmh: data.windSpeedKmh ?? undefined,
-        eventType: data.eventType ?? undefined,
-        eventTimestamp: data.eventTimestamp
-          ? new Date(data.eventTimestamp)
-          : undefined,
-        roofMaterialType: data.roofMaterialType ?? undefined,
-        roofDamageAreaM2: data.roofDamageAreaM2 ?? undefined,
-        damagePenetration: data.damagePenetration ?? undefined,
-        waterIngressPoints: data.waterIngressPoints ?? undefined,
-        engineerClearanceRequired: data.engineerClearanceRequired ?? false,
-        emergencyTarpingCompleted: data.emergencyTarpingCompleted ?? false,
-        emergencyTarpingM2: data.emergencyTarpingM2 ?? undefined,
-        emergencyTarpingTimestamp: data.emergencyTarpingTimestamp
-          ? new Date(data.emergencyTarpingTimestamp)
-          : undefined,
-        waterCategory: data.waterCategory ?? undefined,
-        asbestosRiskFlag: data.asbestosRiskFlag ?? false,
-      },
-      update: {
-        ...(data.bomEventReference !== undefined && {
-          bomEventReference: data.bomEventReference,
+    const record = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { claimType: "STORM" },
+      (tx) =>
+        tx.stormDamageAssessment.upsert({
+          where: { inspectionId: id },
+          create: {
+            inspectionId: id,
+            bomEventReference: data.bomEventReference ?? undefined,
+            windSpeedKmh: data.windSpeedKmh ?? undefined,
+            eventType: data.eventType ?? undefined,
+            eventTimestamp: data.eventTimestamp
+              ? new Date(data.eventTimestamp)
+              : undefined,
+            roofMaterialType: data.roofMaterialType ?? undefined,
+            roofDamageAreaM2: data.roofDamageAreaM2 ?? undefined,
+            damagePenetration: data.damagePenetration ?? undefined,
+            waterIngressPoints: data.waterIngressPoints ?? undefined,
+            engineerClearanceRequired: data.engineerClearanceRequired ?? false,
+            emergencyTarpingCompleted: data.emergencyTarpingCompleted ?? false,
+            emergencyTarpingM2: data.emergencyTarpingM2 ?? undefined,
+            emergencyTarpingTimestamp: data.emergencyTarpingTimestamp
+              ? new Date(data.emergencyTarpingTimestamp)
+              : undefined,
+            waterCategory: data.waterCategory ?? undefined,
+            asbestosRiskFlag: data.asbestosRiskFlag ?? false,
+          },
+          update: {
+            ...(data.bomEventReference !== undefined && {
+              bomEventReference: data.bomEventReference,
+            }),
+            ...(data.windSpeedKmh !== undefined && {
+              windSpeedKmh: data.windSpeedKmh,
+            }),
+            ...(data.eventType !== undefined && { eventType: data.eventType }),
+            ...(data.eventTimestamp !== undefined && {
+              eventTimestamp: data.eventTimestamp
+                ? new Date(data.eventTimestamp)
+                : null,
+            }),
+            ...(data.roofMaterialType !== undefined && {
+              roofMaterialType: data.roofMaterialType,
+            }),
+            ...(data.roofDamageAreaM2 !== undefined && {
+              roofDamageAreaM2: data.roofDamageAreaM2,
+            }),
+            ...(data.damagePenetration !== undefined && {
+              damagePenetration: data.damagePenetration,
+            }),
+            ...(data.waterIngressPoints !== undefined && {
+              waterIngressPoints: data.waterIngressPoints,
+            }),
+            ...(data.engineerClearanceRequired !== undefined && {
+              engineerClearanceRequired: data.engineerClearanceRequired,
+            }),
+            ...(data.emergencyTarpingCompleted !== undefined && {
+              emergencyTarpingCompleted: data.emergencyTarpingCompleted,
+            }),
+            ...(data.emergencyTarpingM2 !== undefined && {
+              emergencyTarpingM2: data.emergencyTarpingM2,
+            }),
+            ...(data.emergencyTarpingTimestamp !== undefined && {
+              emergencyTarpingTimestamp: data.emergencyTarpingTimestamp
+                ? new Date(data.emergencyTarpingTimestamp)
+                : null,
+            }),
+            ...(data.waterCategory !== undefined && {
+              waterCategory: data.waterCategory,
+            }),
+            ...(data.asbestosRiskFlag !== undefined && {
+              asbestosRiskFlag: data.asbestosRiskFlag,
+            }),
+          },
         }),
-        ...(data.windSpeedKmh !== undefined && {
-          windSpeedKmh: data.windSpeedKmh,
-        }),
-        ...(data.eventType !== undefined && { eventType: data.eventType }),
-        ...(data.eventTimestamp !== undefined && {
-          eventTimestamp: data.eventTimestamp
-            ? new Date(data.eventTimestamp)
-            : null,
-        }),
-        ...(data.roofMaterialType !== undefined && {
-          roofMaterialType: data.roofMaterialType,
-        }),
-        ...(data.roofDamageAreaM2 !== undefined && {
-          roofDamageAreaM2: data.roofDamageAreaM2,
-        }),
-        ...(data.damagePenetration !== undefined && {
-          damagePenetration: data.damagePenetration,
-        }),
-        ...(data.waterIngressPoints !== undefined && {
-          waterIngressPoints: data.waterIngressPoints,
-        }),
-        ...(data.engineerClearanceRequired !== undefined && {
-          engineerClearanceRequired: data.engineerClearanceRequired,
-        }),
-        ...(data.emergencyTarpingCompleted !== undefined && {
-          emergencyTarpingCompleted: data.emergencyTarpingCompleted,
-        }),
-        ...(data.emergencyTarpingM2 !== undefined && {
-          emergencyTarpingM2: data.emergencyTarpingM2,
-        }),
-        ...(data.emergencyTarpingTimestamp !== undefined && {
-          emergencyTarpingTimestamp: data.emergencyTarpingTimestamp
-            ? new Date(data.emergencyTarpingTimestamp)
-            : null,
-        }),
-        ...(data.waterCategory !== undefined && {
-          waterCategory: data.waterCategory,
-        }),
-        ...(data.asbestosRiskFlag !== undefined && {
-          asbestosRiskFlag: data.asbestosRiskFlag,
-        }),
-      },
-    });
+    );
 
-    await prisma.inspection.update({
-      where: tenancy.data.inspectionWhere,
-      data: { claimType: "STORM" },
-    });
+    // Null means the caller's scope no longer claims this inspection.
+    // 404, never 403, so a tenant cannot learn the id exists.
+    if (!record) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json(record);
   } catch (err) {
