@@ -9,11 +9,29 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
+// The transaction client the scoped-write helper hands to the route. Shared
+// with the prisma mock so `mockUpsert` observes the same function either way.
+const hoisted = vi.hoisted(() => ({
+  tx: { carpetRestorationAssessment: { upsert: vi.fn(), delete: vi.fn() } },
+}));
+
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(),
   resolveInspectionWrite: vi.fn(),
+  // The child write now runs inside the caller's tenancy scope. The real
+  // helper gates on a scoped updateMany claiming a row; here we stand in for a
+  // scope that still claims it, so this suite keeps testing the route's own
+  // behaviour rather than the helper's (covered in
+  // lib/auth/__tests__/inspection-scoped-write.test.ts).
+  writeWithinInspectionScope: vi.fn(
+    async (
+      _scope: unknown,
+      _parentData: unknown,
+      work: (tx: unknown) => Promise<unknown>,
+    ) => work(hoisted.tx),
+  ),
 }));
 vi.mock("@/lib/prisma-helpers", () => ({
   softDelete: (fn: () => Promise<unknown>) => fn(),
@@ -21,7 +39,7 @@ vi.mock("@/lib/prisma-helpers", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: vi.fn(), update: vi.fn() },
-    carpetRestorationAssessment: { upsert: vi.fn(), delete: vi.fn() },
+    carpetRestorationAssessment: hoisted.tx.carpetRestorationAssessment,
   },
 }));
 

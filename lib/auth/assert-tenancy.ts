@@ -283,6 +283,37 @@ export async function resolveInspectionWrite(
 }
 
 /**
+ * Write a CHILD record of an inspection with the caller's scope re-asserted,
+ * atomically.
+ *
+ * `resolveInspectionWrite` hands back a scoped `where`, but a route that then
+ * upserts a child keyed on `inspectionId` alone has silently dropped it. An
+ * independent review found that across six assessment routes: the child upsert
+ * committed on the bare id, and the scoped parent update ran afterwards as a
+ * separate statement — so the child write landed even when the scope claimed
+ * nothing, and nothing rolled it back.
+ *
+ * Here the scoped parent update IS the gate. If it claims no row the child
+ * work never runs, and both live in one transaction so a later failure undoes
+ * the whole thing. Returns null when the scope no longer matches; callers map
+ * that to 404, never 403, so a tenant cannot learn the id exists.
+ */
+export async function writeWithinInspectionScope<T>(
+  scopeWhere: Prisma.InspectionWhereInput,
+  parentData: Prisma.InspectionUpdateManyMutationInput,
+  work: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T | null> {
+  return prisma.$transaction(async (tx) => {
+    const claimed = await tx.inspection.updateMany({
+      where: scopeWhere,
+      data: parentData,
+    });
+    if (claimed.count === 0) return null;
+    return work(tx);
+  });
+}
+
+/**
  * Portal-client download tenancy: scopes by Client.id stored on the
  * portal session, NOT by the report's userId. Mirrors the pattern in
  * `app/api/portal/reports/[id]/download/route.ts`.
