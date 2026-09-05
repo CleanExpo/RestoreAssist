@@ -74,6 +74,14 @@ describe.skipIf(!HAS_DB)("ownership-scoped writes enforce at the DB (RA-6800)", 
       where: { id: adminA.id },
       data: { organizationId: orgA.id },
     });
+    // adminB is a REAL second tenant, not an org-less admin. Without this the
+    // cross-tenant denial below would only prove that a null organisationId
+    // falls back to `self` -- a much weaker claim than "org B's admin cannot
+    // reach org A's inspection".
+    await prisma.user.update({
+      where: { id: adminB.id },
+      data: { organizationId: orgB.id },
+    });
 
     const userA = await prisma.user.create({
       data: { email: `${S}-userA@test.local`, organizationId: orgA.id },
@@ -304,16 +312,35 @@ describe.skipIf(!HAS_DB)("ownership-scoped writes enforce at the DB (RA-6800)", 
     expect(rDenied.ok).toBe(false);
     if (!rDenied.ok) expect(rDenied.status).toBe(404);
 
-    // admin bypass -> id-only scope, no child relation filter
+    // A tenant ADMIN reaches its OWN organisation's records -- and carries the
+    // ownership clauses into every write, child writes included. `role: "ADMIN"`
+    // is granted to every firm that self-registers, so it is never a global
+    // bypass; until commit 5b7a39398 this block asserted the bypass as intended.
     const rAdmin = await resolveInspectionWrite(
       { user: { id: ids.adminA, role: "ADMIN" } },
       ids.inspA,
     );
     expect(rAdmin.ok).toBe(true);
     if (rAdmin.ok) {
-      expect(rAdmin.data.childInspectionFilter).toBeUndefined();
-      expect("OR" in rAdmin.data.inspectionWhere).toBe(false);
+      expect(rAdmin.data.childInspectionFilter).toBeDefined();
+      expect("OR" in rAdmin.data.inspectionWhere).toBe(true);
+
+      // The scope it hands back must actually claim the row at the DB.
+      const claimed = await prisma.inspection.updateMany({
+        where: rAdmin.data.inspectionManyWhere,
+        data: { propertyAddress: "org-admin-edit" },
+      });
+      expect(claimed.count).toBe(1);
     }
+
+    // Cross-tenant: org B's ADMIN is denied org A's inspection, 404 not 403 so
+    // it cannot learn the id exists.
+    const rAdminB = await resolveInspectionWrite(
+      { user: { id: ids.adminB, role: "ADMIN" } },
+      ids.inspA,
+    );
+    expect(rAdminB.ok).toBe(false);
+    if (!rAdminB.ok) expect(rAdminB.status).toBe(404);
 
     // The nested workspace relation filter enforces at the DB:
     const blocked = await prisma.inspection.updateMany({
