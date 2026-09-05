@@ -17,7 +17,11 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
+import type { Prisma } from "@prisma/client";
+import {
+  resolveInspectionWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 
 const HAS_DB = !!process.env.DATABASE_URL;
 const S = `ra6800-${Date.now().toString(36)}`; // unique suffix per run
@@ -366,6 +370,83 @@ describe.skipIf(!HAS_DB)("ownership-scoped writes enforce at the DB (RA-6800)", 
       });
       expect(allowed.count).toBe(1);
     }
+  });
+
+  // 4b. writeWithinInspectionScope at the DB — lib/auth/assert-tenancy.ts
+  //
+  // The six assessment routes all take the same shape: the scoped parent
+  // updateMany IS the gate, and the child upsert runs inside the same
+  // transaction. An independent review found the mocked helper tests kill a
+  // work-before-gate mutant but cannot prove REAL rollback, because they mock
+  // Prisma. This exercises the production shape against Postgres.
+  it("writeWithinInspectionScope: denied scope writes no child; a throw rolls the parent back", async () => {
+    const hvacUpsert = (tx: Prisma.TransactionClient) =>
+      tx.hVACAssessment.upsert({
+        where: { inspectionId: ids.inspA },
+        create: { inspectionId: ids.inspA, hvacSystemInspected: true },
+        update: { hvacSystemInspected: true },
+      });
+
+    // A scope that claims nothing: userB has no relation to inspA.
+    const denied = await writeWithinInspectionScope(
+      { id: ids.inspA, OR: [{ userId: ids.userB }] },
+      { claimType: "HVAC" },
+      hvacUpsert,
+    );
+    expect(denied).toBeNull();
+
+    // The child row must not exist. This is the assertion the mocked tests
+    // cannot make: a work-before-gate ordering bug creates it anyway.
+    const noChild = await prisma.hVACAssessment.findUnique({
+      where: { inspectionId: ids.inspA },
+    });
+    expect(noChild).toBeNull();
+
+    // ...and the parent was not touched either.
+    const untouched = await prisma.inspection.findUnique({
+      where: { id: ids.inspA },
+      select: { claimType: true },
+    });
+    expect(untouched?.claimType).toBeNull();
+
+    // The owner's scope claims the row, so both writes land.
+    const rOwner = await resolveInspectionWrite({ user: { id: ids.userA } }, ids.inspA);
+    expect(rOwner.ok).toBe(true);
+    if (!rOwner.ok) return;
+
+    const allowed = await writeWithinInspectionScope(
+      rOwner.data.inspectionManyWhere,
+      { claimType: "HVAC" },
+      hvacUpsert,
+    );
+    expect(allowed).not.toBeNull();
+    const child = await prisma.hVACAssessment.findUnique({
+      where: { inspectionId: ids.inspA },
+    });
+    expect(child?.hvacSystemInspected).toBe(true);
+    const parent = await prisma.inspection.findUnique({
+      where: { id: ids.inspA },
+      select: { claimType: true },
+    });
+    expect(parent?.claimType).toBe("HVAC");
+
+    // A failure inside the child work must undo the parent update too --
+    // real rollback, not a mocked one.
+    await expect(
+      writeWithinInspectionScope(
+        rOwner.data.inspectionManyWhere,
+        { claimType: "MOULD" },
+        async () => {
+          throw new Error("child write failed");
+        },
+      ),
+    ).rejects.toThrow("child write failed");
+
+    const afterRollback = await prisma.inspection.findUnique({
+      where: { id: ids.inspA },
+      select: { claimType: true },
+    });
+    expect(afterRollback?.claimType).toBe("HVAC");
   });
 
   // 5. IDOR gate + relation update — app/api/scopes/route.ts:78,120
