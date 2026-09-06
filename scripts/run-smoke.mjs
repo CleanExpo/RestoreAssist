@@ -37,7 +37,11 @@
  *   1  production is broken: unreachable, migration parity failed, or a
  *      @smoke user flow failed
  *   2  usage or local setup error (bad base URL, Playwright not installed)
- *   3  production is HEALTHY but STALE -- it is not serving this revision.
+ *   3  production is HEALTHY but STALE -- it names a revision that is not this
+ *      one. Nothing is broken; the release was never promoted. A deployment
+ *      that does not name a revision at all is UNREPORTED, not STALE: it is
+ *      reported loudly and the flows still run, because absence of a SHA is
+ *      not evidence of an old build. See classify-deployment-freshness.mjs.
  *      Nothing is broken; the release was never promoted. Kept distinct from
  *      1 so an un-deployed backlog cannot masquerade as an outage, and so a
  *      real outage during such a backlog is still visible.
@@ -65,6 +69,7 @@ import {
   classifyDeploymentFreshness,
   FRESH,
   STALE,
+  UNREPORTED,
 } from "./ci/classify-deployment-freshness.mjs";
 import { finalSmokeExitCode, parseSmokeArgs } from "./ci/smoke-args.mjs";
 import {
@@ -195,12 +200,33 @@ if (!isLocal && expectedSha) {
     }
   }
 
-  // STALE is excluded explicitly: reaching here as STALE means `--allow-stale`
-  // was passed and the branch above deliberately fell through. Without this,
-  // a tolerated stale run would exit 1 and report an outage — collapsing the
-  // very distinction between "not deployed" and "down" that the separate exit
-  // codes exist to preserve.
-  if (verdict !== FRESH && verdict !== STALE) {
+  // UNREPORTED: the app answered normally but does not say which build it is.
+  // On DigitalOcean that is the NORMAL state, because nothing injects a commit
+  // SHA unless the app spec declares one — so this must not be reported as an
+  // outage, and it must not be reported as staleness either. Both would be
+  // claims the probe cannot support. It is said out loud instead, because a
+  // check that cannot tell fresh from stale is carrying no information, and
+  // silence would let that pass for a green.
+  if (verdict === UNREPORTED) {
+    console.warn(`Deployment freshness UNVERIFIABLE: ${reason}`);
+    reportToStepSummary(
+      "🟡 Which build is running cannot be verified",
+      `${reason}\n\nThe application answered \`/api/health\` normally, so this is ` +
+        `**not** an outage — and it is **not** evidence of a stale deploy either. ` +
+        `Until the deployment reports its own revision, this check cannot tell a ` +
+        `current production from an un-promoted one.\n\n` +
+        `**Fix:** set \`GIT_SHA\` in the app spec so \`/api/health\` reports it.`,
+    );
+    // Fall through to the flows: an app whose build identity is unknown still
+    // has to be up, and the flows are the only thing that can say so.
+  }
+
+  // STALE and UNREPORTED are excluded explicitly: reaching here as STALE means
+  // `--allow-stale` was passed and the branch above deliberately fell through.
+  // Without this, a tolerated stale run would exit 1 and report an outage —
+  // collapsing the very distinction between "not deployed" and "down" that the
+  // separate exit codes exist to preserve.
+  if (verdict !== FRESH && verdict !== STALE && verdict !== UNREPORTED) {
     const detail = fetchError ? `${reason}: ${fetchError}` : reason;
     console.error(`Deployment freshness preflight failed: ${detail}`);
     reportToStepSummary(
