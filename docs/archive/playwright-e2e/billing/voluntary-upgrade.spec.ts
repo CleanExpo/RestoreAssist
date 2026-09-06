@@ -1,6 +1,17 @@
 import { test, expect } from "@playwright/test";
 import { applySessionCookieFromResponse } from "../helpers/session-cookie";
 
+// KNOWN RED — RA-7465. The trial banner renders correctly, but its "Upgrade now"
+// link cannot be clicked: the fixed <aside> sidebar intercepts the pointer
+// events, for BOTH matching links, at 1280x720. That is a real revenue defect,
+// not a test problem.
+//
+// test.fail() rather than a skip, and rather than continue-on-error on the CI
+// step. It inverts the expectation: the moment RA-7465 is fixed and this test
+// PASSES, the run goes RED and tells us. A skip would go quiet instead, and a
+// step-level continue-on-error would also swallow regressions in the six
+// specs beside it -- which is the defect this replaces.
+test.fail();
 test("TRIAL user with 2 days left sees banner and reaches upgrade page", async ({ page, request, context }) => {
   const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 2 } });
   const { data } = await seed.json();
@@ -35,10 +46,15 @@ test("TRIAL user with 2 days left sees banner and reaches upgrade page", async (
   // The overlap itself is a real UI question and is filed separately -- an
   // upgrade call-to-action sitting under a fixed sidebar is a revenue surface
   // that some viewport cannot click.
+  // Bounded to 5s on purpose. Unbounded, the click waits the full 30s test
+  // budget and Playwright records `timedOut`, which is a DIFFERENT status from
+  // `failed` and does NOT satisfy the test.fail() above -- measured: the run
+  // reported `expected=failed results=['timedOut'] -> unexpected`. Bounding it
+  // makes the real defect report as the failure it is.
   await page
     .locator('a[href="/billing/upgrade?reason=voluntary"]:visible')
     .last()
-    .click();
+    .click({ timeout: 5_000 });
   await expect(page).toHaveURL(/\/billing\/upgrade/);
   await expect(page.getByText(/Standard/i)).toBeVisible();
 });

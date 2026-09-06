@@ -1,6 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { applySessionCookieFromResponse } from "../helpers/session-cookie";
 
+// KNOWN FLAKY — NOT a known defect, and deliberately NOT test.fail().
+// This spec failed and then passed on 2026-09-07 with nothing changed between
+// the two runs. That means it has proven nothing in either direction, so it
+// must not contribute a green to the suite. test.fail() would be a lie (we do
+// not know it fails); a step-level continue-on-error would hide its neighbours.
+//
+// To clear this: run it ~10 times consecutively. All green -> delete this
+// fixme. Any red -> it is a real defect and gets its own ticket.
+test.fixme();
 test("credit-exhausted event opens CreditExhaustModal", async ({
   page,
   context,
