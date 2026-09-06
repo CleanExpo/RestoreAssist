@@ -28,6 +28,7 @@ scripts/ci/__tests__/assert-migration-health.test.mjs             run
 scripts/ci/__tests__/assert-production-smoke-origin.test.mjs      run
 scripts/ci/__tests__/check-release-bootstrap.test.mjs             run
 scripts/ci/__tests__/expected-migration-ledger.test.mjs           run
+scripts/ci/__tests__/e2e-coverage.test.mjs                        run
 scripts/ci/__tests__/production-deployment-blocked.test.mjs       run
 scripts/ci/__tests__/smoke-skip-policy.test.mjs                   run
 scripts/ci/__tests__/render-production-app-spec.test.mjs          run
