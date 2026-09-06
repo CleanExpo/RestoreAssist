@@ -6,7 +6,7 @@ test("upgrade page renders feature-gated reason copy", async ({ page, request })
     data: { daysUntilExpiry: 10, subscriptionStatus: "ACTIVE" },
   });
   const { data } = await seed.json();
-  await request.post("/api/test/sign-in-as", { data: { email: data.email } });
+  await request.post("/api/test/sign-in-as", { data: { role: "USER", email: data.email } });
 
   // Visit upgrade page directly with feature reason — FeatureGate mount-sites are out of scope here
   await page.goto("/billing/upgrade?reason=feature&feature=advanced-damage");

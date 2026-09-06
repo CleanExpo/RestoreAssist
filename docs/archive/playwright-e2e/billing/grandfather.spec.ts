@@ -6,7 +6,7 @@ test("existing TRIAL user with 27 days remaining (grandfathered) is unchanged", 
   expect(data.daysRemaining).toBe(27);
 
   // Verify via the trial-status API that their daysRemaining is preserved post-migration
-  await request.post("/api/test/sign-in-as", { data: { email: data.email } });
+  await request.post("/api/test/sign-in-as", { data: { role: "USER", email: data.email } });
   const status = await request.get("/api/billing/trial-status");
   expect(status.ok()).toBe(true);
   const body = await status.json();
