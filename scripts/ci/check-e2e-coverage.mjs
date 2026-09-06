@@ -24,6 +24,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   findCoverageDrift,
+  hasSmokeTitle,
+  mentionsSpec,
   parseCoverageManifest,
   stripComments,
   summarise,
@@ -54,12 +56,14 @@ function discoverSpecs() {
 }
 
 function smokeTaggedSpecs(specs) {
-  // Comments are stripped first: `@smoke` in a comment is not a tag, and
-  // Playwright's grep would not select the spec. Counting it as covered was a
-  // way for this gate to pass while the spec stayed unexecuted.
+  // Two narrowings, both because Playwright's --grep matches TEST TITLES and
+  // nothing else. Comments are stripped first, then the tag must actually sit
+  // in a test()/describe() title -- `@smoke` in a string literal or a run
+  // instruction selects no test, so counting it claimed a spec runs when it
+  // does not. Either way the gate would have passed on an unexecuted spec.
   return specs.filter((s) =>
-    stripComments(readFileSync(path.join(E2E_ROOT, s), "utf8"), "ts").includes(
-      "@smoke",
+    hasSmokeTitle(
+      stripComments(readFileSync(path.join(E2E_ROOT, s), "utf8"), "ts"),
     ),
   );
 }
@@ -90,13 +94,16 @@ function workflowNamedSpecs(specs) {
     if (!wf.endsWith(".yml") && !wf.endsWith(".yaml")) continue;
     // Same reason as smokeTaggedSpecs: a spec named in a YAML comment is not
     // run by that workflow, and must not be recorded as covered by it.
+    //
+    // mentionsSpec, not includes(): one spec's basename appearing inside
+    // another's used to count. `auth.spec.ts` sits inside
+    // `invite-tech-google-oauth.spec.ts`, and `health.spec.ts` inside
+    // `crm-health.spec.ts` -- both live in this repo right now.
     const text = stripComments(
       readFileSync(path.join(WORKFLOWS, wf), "utf8"),
       "yml",
     );
-    const named = specs.filter(
-      (s) => text.includes(s) || text.includes(s.split("/").pop()),
-    );
+    const named = specs.filter((s) => mentionsSpec(text, s));
     if (named.length) map.set(wf, named);
   }
   return map;

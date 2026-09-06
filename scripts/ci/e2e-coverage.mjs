@@ -80,6 +80,55 @@ export function stripComments(text, kind) {
     .replace(/(^|[^:])\/\/.*$/gmu, "$1");
 }
 
+function escapeRegExp(v) {
+  return v.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+/**
+ * Does `text` genuinely NAME this spec?
+ *
+ * A bare `text.includes(name)` counted one spec's basename appearing INSIDE
+ * another's. Two such pairs exist in this repository today:
+ *   auth.spec.ts   is a substring of  invite-tech-google-oauth.spec.ts
+ *   health.spec.ts is a substring of  crm-health.spec.ts
+ * A workflow naming only the longer one silently satisfied the shorter one's
+ * coverage claim, and the shorter spec stayed unexecuted while the gate passed.
+ *
+ * The needle must therefore not be glued to a filename character on either
+ * side. `/` is allowed BEFORE it, so a path-qualified mention still counts;
+ * that is the whole reason this is not a plain word boundary.
+ *
+ * @param {string} text
+ * @param {string} spec spec path relative to the e2e root
+ */
+export function mentionsSpec(text, spec) {
+  const candidates = [spec, spec.split("/").pop()];
+  return candidates.some((needle) =>
+    new RegExp(
+      `(^|[^A-Za-z0-9_.\\-])${escapeRegExp(needle)}(?![A-Za-z0-9_.\\-])`,
+      "mu",
+    ).test(text ?? ""),
+  );
+}
+
+/**
+ * Playwright's `--grep` matches TEST TITLES. `@smoke` written anywhere else --
+ * a string literal, a run instruction, a variable -- selects nothing, so
+ * counting it as smoke coverage claims a spec runs when it does not. Comments
+ * were already excluded by stripComments; this closes the rest by requiring the
+ * tag to sit in the title argument of a test() or describe() call.
+ *
+ * @param {string} source spec file contents
+ */
+export function hasSmokeTitle(source) {
+  const call =
+    /(?:^|[^A-Za-z0-9_$.])(?:test|describe)(?:\s*\.\s*\w+)*\s*\(\s*(['"`])([\s\S]*?)\1/gmu;
+  for (const m of (source ?? "").matchAll(call)) {
+    if (m[2].includes("@smoke")) return true;
+  }
+  return false;
+}
+
 export function parseCoverageManifest(text) {
   const out = new Map();
   for (const raw of (text ?? "").split("\n")) {

@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   findCoverageDrift,
   parseCoverageManifest,
+  hasSmokeTitle,
+  mentionsSpec,
   stripComments,
   summarise,
 } from "../e2e-coverage.mjs";
@@ -165,4 +167,37 @@ test("a tag or filename that appears only in a comment does not count", () => {
 test("a tag or filename outside a comment still counts", () => {
   assert.equal(stripComments("test('x @smoke', () => {});\n", "ts").includes("@smoke"), true);
   assert.equal(stripComments("run: npx playwright test billing.spec.ts\n", "yml").includes("billing.spec.ts"), true);
+});
+
+// Independent review, round 3 — P1. Coverage was decided by a bare substring
+// search, so one spec's basename appearing INSIDE another's counted as a
+// mention. Two such pairs exist in this repository today:
+//   auth.spec.ts   is a substring of  invite-tech-google-oauth.spec.ts
+//   health.spec.ts is a substring of  crm-health.spec.ts
+// A workflow naming only the longer one silently satisfied the shorter one's
+// coverage claim, and the shorter spec stayed unexecuted.
+test("one spec's name inside another's does not count as a mention", () => {
+  assert.equal(mentionsSpec("run: playwright test invite-tech-google-oauth.spec.ts", "auth.spec.ts"), false);
+  assert.equal(mentionsSpec("run: playwright test crm-health.spec.ts", "health.spec.ts"), false);
+});
+
+test("a genuine mention still counts, path-qualified or not", () => {
+  assert.equal(mentionsSpec("run: playwright test auth.spec.ts", "auth.spec.ts"), true);
+  assert.equal(mentionsSpec("run: playwright test docs/archive/playwright-e2e/auth.spec.ts", "auth.spec.ts"), true);
+  assert.equal(mentionsSpec("run: playwright test billing/auth.spec.ts --project=chromium", "auth.spec.ts"), true);
+  assert.equal(mentionsSpec('run: npx playwright test "auth.spec.ts"', "auth.spec.ts"), true);
+});
+
+// Independent review, round 3 — P1. Playwright's grep matches TEST TITLES. A
+// `@smoke` anywhere else in the file -- a string literal, a run instruction --
+// selects nothing, so counting it as smoke coverage claims a spec runs when it
+// does not. Comments were already excluded; this closes the rest.
+test("@smoke only counts when it is in a test or describe title", () => {
+  assert.equal(hasSmokeTitle('test.describe("@smoke pilot workflow", () => {});'), true);
+  assert.equal(hasSmokeTitle('test("@smoke does a thing", async () => {});'), true);
+  assert.equal(hasSmokeTitle("test.describe('@smoke single quoted', () => {});"), true);
+  // not a title
+  assert.equal(hasSmokeTitle('console.log("@smoke");'), false);
+  assert.equal(hasSmokeTitle('const tag = "@smoke";'), false);
+  assert.equal(hasSmokeTitle('// Run: pnpm test:smoke (any subset matching @smoke)'), false);
 });
