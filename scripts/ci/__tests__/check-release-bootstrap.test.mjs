@@ -800,7 +800,12 @@ test("semantic workflow inspection rejects cyclic local reusable workflows", () 
 test("semantic workflow inspection covers the current workflow population", () => {
   const workflowPopulation = readdirSync(join(process.cwd(), ".github", "workflows"))
     .filter((name) => /\.ya?ml$/i.test(name));
-  assert.equal(workflowPopulation.length, 20);
+  // A deliberate review tripwire: adding a workflow must force someone to
+  // re-confirm the inspection below still holds over the new population.
+  // Reviewed 2026-09-06 at 20 -> 24: findReleaseBootstrapViolations returned
+  // 0 over all 24 workflows. The tripwire had been firing unseen because no
+  // pipeline ran this file; that is fixed by scripts/ci/run-mjs-tests.mjs.
+  assert.equal(workflowPopulation.length, 24);
   assert.deepEqual(findReleaseBootstrapViolations(process.cwd()), []);
 });
 
