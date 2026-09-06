@@ -34,14 +34,14 @@
 account-deletion.spec.ts                 unrun:DATA DELETION path, and unrun for the same reason as the money specs below
 auth.spec.ts                             a1
 billing.spec.ts                          unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
-billing/cancel-flow.spec.ts              unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
-billing/credit-exhaust.spec.ts           unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
-billing/feature-gate.spec.ts             unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
-billing/grandfather.spec.ts              unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
-billing/trial-expired-soft-gate.spec.ts  unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec. Replaces hard-paywall.spec.ts per the RA-7439 decision (soft gating is intended); PASSES against a real seeded expired trial, run locally 2026-09-07
-billing/multi-tab.spec.ts                unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
-billing/voluntary-upgrade.spec.ts        unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
-billing/webhook-race.spec.ts             unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+billing/cancel-flow.spec.ts              workflow:sketch-e2e.yml
+billing/credit-exhaust.spec.ts           workflow:sketch-e2e.yml
+billing/feature-gate.spec.ts             workflow:sketch-e2e.yml
+billing/grandfather.spec.ts              workflow:sketch-e2e.yml
+billing/trial-expired-soft-gate.spec.ts  workflow:sketch-e2e.yml
+billing/multi-tab.spec.ts                workflow:sketch-e2e.yml
+billing/voluntary-upgrade.spec.ts        workflow:sketch-e2e.yml
+billing/webhook-race.spec.ts             workflow:sketch-e2e.yml
 crm-health.spec.ts                       unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
 dr-nrpg-inbound-job.spec.ts              unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
 first-tradie-flow.spec.ts                a1
