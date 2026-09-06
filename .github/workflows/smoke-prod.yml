@@ -109,19 +109,34 @@ jobs:
             exit 0
           fi
 
+          # Exit 4 means the deployment will not say which build it is, so the
+          # question could not be ANSWERED -- distinct from stale, which is an
+          # answer. Nothing injects a commit SHA on DigitalOcean today, so this
+          # is the permanent state until GIT_SHA is set in the app spec. It is
+          # surfaced the same way staleness is: a warning on the frequent watch
+          # so an outage alarm is not drowned out, and a failure on the daily
+          # dedicated run so a blind freshness check cannot stay blind unnoticed.
+          if [ "$code" -eq 4 ]; then
+            echo "stale=unverifiable" >> "$GITHUB_OUTPUT"
+            if [ "$STALE_FAILS_THE_RUN" = "true" ]; then
+              echo "::error::Which build production is running cannot be verified: /api/health reports no deploymentSha. Set GIT_SHA in the DigitalOcean app spec so this check carries information."
+              exit 4
+            fi
+            echo "::warning::Which build production is running cannot be verified (no deploymentSha). Not an outage, and not evidence of staleness -- the daily 22:23 UTC run fails on this. Flow smoke continues below."
           # Only exit 3 means "stale". Anything else is a preflight that could
           # not answer the question, which is never something to wave through.
-          if [ "$code" -ne 3 ]; then
+          elif [ "$code" -ne 3 ]; then
             echo "::error::Production preflight failed with exit $code -- this is not staleness."
             exit "$code"
-          fi
+          else
 
-          echo "stale=true" >> "$GITHUB_OUTPUT"
-          if [ "$STALE_FAILS_THE_RUN" = "true" ]; then
-            echo "::error::Production is stale: main has moved ahead of the deployed build. Promote a release."
-            exit 3
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            if [ "$STALE_FAILS_THE_RUN" = "true" ]; then
+              echo "::error::Production is stale: main has moved ahead of the deployed build. Promote a release."
+              exit 3
+            fi
+            echo "::warning::Production is stale (serving an older build than main). Not an outage -- the daily 22:23 UTC run fails on this. Flow smoke continues below."
           fi
-          echo "::warning::Production is stale (serving an older build than main). Not an outage -- the daily 22:23 UTC run fails on this. Flow smoke continues below."
 
       # Runs even when production is stale. Against a stale build this proves
       # availability rather than that THIS revision works -- which is exactly

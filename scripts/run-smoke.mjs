@@ -88,6 +88,19 @@ const { preflightOnly, allowStale, flowsDespiteDegraded, extraArgs } =
 let degradedPreflight = null;
 
 /**
+ * Set to the reason when the deployment will not say which build it is.
+ *
+ * This exists because `--preflight-only` used to print "production is current"
+ * and exit 0 on UNREPORTED -- a statement the probe cannot support, and the
+ * exact silence the STALE/UNREPORTED split was introduced to avoid. On
+ * DigitalOcean nothing injects a commit SHA, so UNREPORTED is this
+ * production's PERMANENT state: a freshness watch that exits 0 on it can never
+ * fail, and a check that cannot fail is not a check. Raised twice by
+ * independent review, at P0 the second time.
+ */
+let unverifiableBuild = null;
+
+/**
  * State the verdict where the run page shows it without opening logs. Silent
  * when not on Actions, and never fatal -- a summary that cannot be written
  * must not change the gate's outcome.
@@ -208,6 +221,7 @@ if (!isLocal && expectedSha) {
   // check that cannot tell fresh from stale is carrying no information, and
   // silence would let that pass for a green.
   if (verdict === UNREPORTED) {
+    unverifiableBuild = reason;
     console.warn(`Deployment freshness UNVERIFIABLE: ${reason}`);
     reportToStepSummary(
       "🟡 Which build is running cannot be verified",
@@ -308,6 +322,17 @@ if (preflightOnly) {
   if (degradedPreflight) {
     console.error("Preflight only: migration health is failing.");
     process.exit(1);
+  }
+  if (unverifiableBuild) {
+    // Exit 4, deliberately NOT 3. Conflating "cannot tell" with "stale" would
+    // undo the distinction this branch introduced; exiting 0 would assert a
+    // currency the probe never established. The caller decides what to do with
+    // it -- smoke-prod.yml warns on the 15-minute watch and fails on the daily
+    // dedicated run, the same shape it already uses for staleness.
+    console.error(
+      `Preflight only: which build is running CANNOT BE VERIFIED. ${unverifiableBuild}`,
+    );
+    process.exit(4);
   }
   console.log("Preflight only: production is current. Not running Playwright.");
   process.exit(0);

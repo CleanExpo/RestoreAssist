@@ -33,7 +33,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -225,7 +225,15 @@ function main(argv) {
   return result.status ?? 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// `file://${process.argv[1]}` is not a correct file URL: a path containing a
+// space (or a Windows backslash) encodes differently, the comparison silently
+// fails, main() never runs, and the process exits 0 having checked NOTHING.
+// Proved 2026-09-07 by invoking this gate through a directory with a space in
+// its name: zero output, exit 0, gate fully disarmed while looking green.
+// `pathToFileURL` is the encoding-correct form, and is what audit-api-routes.ts,
+// audit-env.ts, supabase-advisor-gate.ts and pg-ssl-for-migrate.mjs already use.
+// Raised by independent review.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exit(main(process.argv.slice(2)));
 }
 
