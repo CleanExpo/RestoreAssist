@@ -11,13 +11,17 @@
 # Stdin: Stop-hook payload JSON
 # Stdout: empty (allow Stop) OR {"decision":"block","reason":"..."}
 # Exit: ALWAYS 0.
+#
+# Blocking is ONE-SHOT per turn: a payload carrying stop_hook_active means this
+# hook is the only reason the agent is still running, and re-blocking it just
+# burns turns until the host aborts. Mirrors .claude/hooks/stop-verifier.sh.
 
 set -uo pipefail
 
 HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB="$HOOK_DIR/lib"
 REPO_DIR="$(cd "$HOOK_DIR/.." && pwd)"   # .claude/
-REPORTS_DIR="$REPO_DIR/verifier-reports"
+REPORTS_DIR="${VERIFIER_REPORTS_DIR:-$REPO_DIR/verifier-reports}"
 ERROR_LOG="$REPORTS_DIR/_hook-errors.log"
 LOOP_CAP="${VERIFIER_LOOP_CAP:-2}"
 
@@ -41,6 +45,14 @@ PAYLOAD=$(cat)
 SESSION_ID=$(echo "$PAYLOAD" | jq -r '.session_id // "unknown"' 2>/dev/null || echo "unknown")
 TRANSCRIPT=$(echo "$PAYLOAD" | jq -r '.transcript_path // empty' 2>/dev/null || echo "")
 
+STOP_HOOK_ACTIVE=$(echo "$PAYLOAD" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
+
+# ---- Recursion guard ----
+if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then
+  echo "[ios-verifier] stop_hook_active — already blocked this turn; allowing Stop" >&2
+  exit 0
+fi
+
 if [[ -z "$TRANSCRIPT" || ! -r "$TRANSCRIPT" ]]; then
   log_err "session=$SESSION_ID: transcript not readable: $TRANSCRIPT"
   exit 0
@@ -50,9 +62,16 @@ fi
 COUNT_FILE="$REPORTS_DIR/${SESSION_ID}.count"
 COUNT=0
 if [[ -r "$COUNT_FILE" ]]; then
-  COUNT=$(cat "$COUNT_FILE" 2>/dev/null | tr -d '[:space:]')
+  COUNT=$(cat "$COUNT_FILE" 2>/dev/null | tr -cd '[:digit:]')
   [[ -z "$COUNT" ]] && COUNT=0
 fi
+# Record one verify cycle. Non-zero when the count could not be persisted —
+# the caller must then ALLOW Stop, since nothing would bound the blocking.
+bump_count() {
+  echo $((COUNT + 1)) > "$COUNT_FILE" 2>/dev/null || true
+  [[ -r "$COUNT_FILE" ]] && (( $(cat "$COUNT_FILE" 2>/dev/null | tr -cd '[:digit:]' || echo 0) > COUNT ))
+}
+
 if (( COUNT >= LOOP_CAP )); then
   echo "[ios-verifier] loop guard hit (${COUNT}/${LOOP_CAP}); allowing Stop" >&2
   exit 0
@@ -97,9 +116,12 @@ else
       + "\n\nFull report: '"$STATIC_REPORT"'"
       + "\n\nFix the items above and re-state your work before stopping."
     ' "$STATIC_OUTPUT")
-    jq -n --arg reason "$REASON" '{decision:"block", reason:$reason}'
-    echo $((COUNT + 1)) > "$COUNT_FILE" 2>/dev/null || true
     rm -f "$STATIC_OUTPUT"
+    if ! bump_count; then
+      log_err "session=$SESSION_ID: cannot persist $COUNT_FILE; allowing Stop rather than blocking unbounded"
+      exit 0
+    fi
+    jq -n --arg reason "$REASON" '{decision:"block", reason:$reason}'
     exit 0
   fi
 
@@ -172,8 +194,11 @@ if (( PARSE_RC != 0 )); then
 fi
 
 if [[ -n "$DECISION" ]]; then
-  echo $((COUNT + 1)) > "$COUNT_FILE" 2>/dev/null || true
-  echo "$DECISION"
+  if bump_count; then
+    echo "$DECISION"
+  else
+    log_err "session=$SESSION_ID: cannot persist $COUNT_FILE; allowing Stop rather than blocking unbounded"
+  fi
 fi
 
 exit 0

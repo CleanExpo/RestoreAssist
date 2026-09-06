@@ -45,6 +45,18 @@ export async function POST(
       });
     }
 
+    const sketch = await (prisma as any).claimSketch.findFirst({
+      where: { id: sketchId, inspectionId: id },
+      select: { id: true },
+    });
+    if (!sketch) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Sketch not found",
+        status: 404,
+      });
+    }
+
     const insuranceContext = await (prisma as any).insuranceContext.upsert({
       where: { sketchId },
       create: { sketchId, pathway, notes: notes ?? null },

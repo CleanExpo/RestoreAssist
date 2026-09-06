@@ -118,9 +118,16 @@ RUN chmod +x ./entrypoint.sh
 USER node
 EXPOSE 3000
 
-# App Platform also health-checks /api/health/migrations (see .do/app.yaml).
-# This one is for anything running the image outside App Platform.
+# Readiness, not drift. This probed /api/health/migrations, a migration-drift
+# watchdog: any drift marked the container unhealthy, so the deploy that would
+# FIX the drift could never come up. /api/health answers the question a health
+# check is actually asking -- can this container serve traffic. See
+# scripts/ci/render-production-app-spec.mjs for the full reasoning.
+#
+# App Platform health-checks the same path via .do/app.yaml, with its own
+# timings. This one is for anything running the image outside App Platform;
+# start-period and timeout clear the minimums that spec pins.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health/migrations').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["./entrypoint.sh"]

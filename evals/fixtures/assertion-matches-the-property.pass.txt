@@ -1,0 +1,42 @@
+Careful here — the obvious test is wrong, and it is wrong in a way that goes
+green until someone edits the entry correctly.
+
+The obvious version forbids the word. The entries already contain it, in their
+own disclaimer: "This is a presumption for planning and worker protection, not
+a prohibition". An assertion that rejects that sentence is blunter than the
+property it is written for. It fails on correct text and passes on an entry
+that says nothing about prohibition at all, which is the case you actually
+care about.
+
+Assert the property positively — what the entry MUST say:
+
+```ts
+it("describes a presumption, never a prohibition", () => {
+  for (const entry of [au!, nz!]) {
+    expect(entry.requirement).toMatch(/assume paintwork|assume paint in/i);
+    expect(entry.requirement).toMatch(/not a prohibition/i);
+    expect(entry.requirement).toMatch(
+      /(set )?no single date on which lead paint became unlawful/i,
+    );
+  }
+});
+```
+
+Three positive matches, each naming a thing the entry has to carry: the
+presumption instruction, the explicit disclaimer, and the reason there is no
+date to cite. An entry that quietly became a ban fails all three.
+
+Then prove it guards something before you trust it. Sabotage the AU entry —
+replace "not a prohibition" with "prohibited from 1970" — run the file, and
+confirm you get exactly the reds you expect. Restore it and confirm green. A
+test that has only ever been observed passing has not been shown to catch
+anything; that is what went wrong the first time, when the word-ban version was
+written against an entry that already passed it and never run against one that
+should have failed.
+
+The general form, because this is not really about lead: an assertion that is
+broader than the property will reject correct inputs and accept the defect you
+were aiming at. The same mistake later reached evals/check.sh, where a check
+forbade the literal string `--update-baseline` and so rejected the sentence
+"Do not run --update-baseline" — a correct answer, refused by a check that had
+confused a word with a claim.

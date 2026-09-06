@@ -1,7 +1,7 @@
 /**
  * RA-1131: Auto-SWMS Generator unit tests
  *
- * Covers: AU happy path, NZ happy path, Cat 3 water hazards, pre-1990 asbestos risk.
+ * Covers: AU happy path, NZ happy path, Cat 3 water hazards, asbestos risk by era.
  * Uses vitest + prisma mock via vi.mock.
  */
 
@@ -196,8 +196,19 @@ describe("generateSwmsDraft", () => {
     });
   });
 
-  describe("pre-1990 asbestos risk", () => {
-    it("includes asbestos_risk hazard for pre-1990 building", async () => {
+  /**
+   * Asbestos was legal in Australian workplaces until 31 December 2003, and
+   * WorkSafe NZ says assume it before 1 January 2000. This suite previously
+   * asserted the OPPOSITE for a 1995 building -- "does NOT include
+   * asbestos_risk for post-1990 building" -- pinning a Safe Work Method
+   * Statement that told a crew a 1995 building carried no asbestos risk.
+   *
+   * 1990 was Queensland's asbestos-REGISTER exemption, applied nationally.
+   *
+   * Sabotage: put the `< 1990` check back -- the 1995 and 2001 cases go red.
+   */
+  describe("asbestos risk from building era", () => {
+    it("includes asbestos_risk hazard for a clearly pre-ban building", async () => {
       mockFindUnique.mockResolvedValue(
         makeInspection({ propertyYearBuilt: 1975 }) as never,
       );
@@ -206,9 +217,37 @@ describe("generateSwmsDraft", () => {
       expect(categories).toContain("asbestos_risk");
     });
 
-    it("does NOT include asbestos_risk for post-1990 building", async () => {
+    // THE CASE THAT WAS WRONG. Asbestos was still legal in 1995.
+    it.each([1990, 1995, 2001, 2003])(
+      "includes asbestos_risk for a building from %i, still before the AU ban",
+      async (propertyYearBuilt) => {
+        mockFindUnique.mockResolvedValue(
+          makeInspection({ propertyYearBuilt }) as never,
+        );
+        const draft = await generateSwmsDraft("insp-001");
+        const categories = draft.hazards.map((h) => h.category);
+        expect(categories).toContain("asbestos_risk");
+      },
+    );
+
+    it("names the jurisdiction's own threshold and authority on the hazard", async () => {
       mockFindUnique.mockResolvedValue(
         makeInspection({ propertyYearBuilt: 1995 }) as never,
+      );
+      const draft = await generateSwmsDraft("insp-001");
+      const asbestos = draft.hazards.find((h) => h.category === "asbestos_risk");
+
+      // The hazard now carries the INSTRUMENT and its source URL, taken from
+      // lib/compliance/regulatory-registry, rather than a hand-written phrase.
+      // That is what an assessor reads the SWMS for.
+      expect(asbestos?.description).toContain("2004");
+      expect(asbestos?.description).toMatch(/Work Health and Safety Regulations/i);
+      expect(asbestos?.description).toContain("https://");
+    });
+
+    it("does NOT include asbestos_risk for a building built after the ban", async () => {
+      mockFindUnique.mockResolvedValue(
+        makeInspection({ propertyYearBuilt: 2010 }) as never,
       );
       const draft = await generateSwmsDraft("insp-001");
       const categories = draft.hazards.map((h) => h.category);

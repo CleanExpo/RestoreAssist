@@ -102,4 +102,17 @@ describe("ClientPortalPage — no raw moisture exposure (RA-6995)", () => {
     expect(screen.queryByText(/Drying complete/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Drying in progress/)).not.toBeInTheDocument();
   });
+
+  it("shows affected rooms in plain language without technical classifications or measurements", async () => {
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(screen.getByText("Master Bedroom")).toBeInTheDocument();
+    expect(
+      screen.getByText("Included in the restoration plan"),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/\bCat(?:egory)?\s*2\b/i);
+    expect(document.body.textContent).not.toMatch(/\bClass\s*2\b/i);
+    expect(document.body.textContent).not.toMatch(/\bm²\b/i);
+  });
 });

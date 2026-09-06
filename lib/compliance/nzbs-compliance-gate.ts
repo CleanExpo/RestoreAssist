@@ -66,8 +66,14 @@ export async function checkNzbsGate(
     return { canSubmit: true, blockers: [], requiredClauses: [] };
   }
 
-  // TODO RA-1120: replace with `inspection.propertyCountry ?? "AU"` once field added.
-  // Currently no country field exists — default AU so this gate is a no-op.
+  // TODO RA-1120: this gate is still a no-op, but NOT for the reason recorded here
+  // until 2026-08-31. The old comment said "no country field exists"; it does —
+  // `Inspection.propertyCountry String @default("AU")` landed in RA-6996 (schema
+  // drift reconciliation, verified against prod 2026-07-05). So no migration is
+  // needed: this needs the caller to thread the inspection's country through to
+  // here, and it needs its own change set because un-no-opping this gate starts
+  // BLOCKING New Zealand submissions that currently pass. Left inert deliberately;
+  // see docs/findings/iicrc-standards-provenance.md.
   const propertyCountry: string = "AU";
 
   if (propertyCountry !== "NZ") {

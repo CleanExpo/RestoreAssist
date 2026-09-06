@@ -91,14 +91,26 @@ describe("assertReportTenancy", () => {
     expect(r.data.userId).toBe("u_1");
   });
 
-  it("admin bypass: returns the report regardless of owner", async () => {
-    userFindUnique.mockResolvedValueOnce({ role: "ADMIN" });
-    reportFindUnique.mockResolvedValueOnce({ id: "r_1", userId: "u_other" });
+  // Was "admin bypass: returns the report regardless of owner", asserting the
+  // cross-tenant read as intended behaviour. Every firm self-registers as
+  // ADMIN, so that made one customer's records reachable by another.
+  it("tenant ADMIN does NOT reach a report owned by another tenant", async () => {
+    userFindUnique.mockResolvedValueOnce({
+      role: "ADMIN",
+      organizationId: null,
+    });
+    reportFindUnique.mockResolvedValueOnce({
+      id: "r_1",
+      userId: "u_other",
+      user: { organizationId: "org_other" },
+    });
     const r = await assertReportTenancy(
       { user: { id: "u_admin", role: "ADMIN" } },
       "r_1",
     );
-    expect(r.ok).toBe(true);
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(404);
   });
 
   it("stale admin JWT does not bypass report ownership", async () => {
@@ -126,20 +138,28 @@ describe("assertInspectionTenancy", () => {
     expect(r.status).toBe(401);
   });
 
-  it("admin path: uses findUnique by id only", async () => {
-    userFindUnique.mockResolvedValueOnce({ role: "ADMIN" });
+  // Was "admin path: uses findUnique by id only". An unscoped read by id is
+  // now reserved for allowlisted platform support, never a tenant ADMIN.
+  it("tenant ADMIN does NOT read another tenant's inspection by id", async () => {
+    userFindUnique.mockResolvedValueOnce({
+      role: "ADMIN",
+      organizationId: null,
+    });
     inspFindUnique.mockResolvedValueOnce({
       id: "i_1",
       userId: "u_other",
       workspaceId: "ws_other",
     });
+    inspFindFirst.mockResolvedValueOnce(null);
     const r = await assertInspectionTenancy(
       { user: { id: "u_admin", role: "ADMIN" } },
       "i_1",
     );
-    expect(r.ok).toBe(true);
-    expect(inspFindUnique).toHaveBeenCalledTimes(1);
-    expect(inspFindFirst).not.toHaveBeenCalled();
+    expect(r.ok).toBe(false);
+    // The scoped lookup is the one that must run; the unscoped read by id is
+    // now reserved for allowlisted platform support.
+    expect(inspFindFirst).toHaveBeenCalledTimes(1);
+    expect(inspFindUnique).not.toHaveBeenCalled();
   });
 
   it("admin path: 404 when inspection does not exist", async () => {
@@ -291,8 +311,15 @@ describe("resolveInspectionWrite", () => {
     expect(r.status).toBe(404);
   });
 
-  it("admin: bypasses ownership — id-only scope, no child relation filter", async () => {
-    userFindUnique.mockResolvedValue({ role: "ADMIN" });
+  // Was "admin: bypasses ownership — id-only scope, no child relation filter".
+  // The id-only write scope is the dangerous one: it let a later update touch
+  // a record the caller does not own. It now belongs to platform support only.
+  it("platform support operator: id-only scope, no child relation filter", async () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "admin_1");
+    userFindUnique.mockResolvedValue({
+      role: "ADMIN",
+      organizationId: "org_a",
+    });
     inspFindUnique.mockResolvedValue({ id: "insp_1" });
     const r = await resolveInspectionWrite(
       { user: { id: "admin_1", role: "ADMIN" } },
@@ -302,8 +329,25 @@ describe("resolveInspectionWrite", () => {
     if (!r.ok) throw new Error("unreachable");
     expect(r.data.inspectionWhere).toEqual({ id: "insp_1" });
     expect(r.data.childInspectionFilter).toBeUndefined();
-    // admin must not be narrowed by an ownership findFirst
+    // a platform operator must not be narrowed by an ownership findFirst
     expect(inspFindFirst).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it("tenant ADMIN gets a SCOPED write filter, never id-only", async () => {
+    userFindUnique.mockResolvedValue({
+      role: "ADMIN",
+      organizationId: "org_a",
+    });
+    inspFindFirst.mockResolvedValue({ id: "insp_1" });
+    const r = await resolveInspectionWrite(
+      { user: { id: "admin_1", role: "ADMIN" } },
+      "insp_1",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    expect(r.data.inspectionManyWhere).not.toEqual({ id: "insp_1" });
+    expect(r.data.childInspectionFilter).toBeDefined();
   });
 
   it("admin token but DB role no longer ADMIN: falls back to ownership scope", async () => {

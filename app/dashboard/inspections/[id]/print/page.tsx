@@ -180,7 +180,7 @@ export default function InspectionPrintPage({
     (sum, c) => sum + c.total,
     0,
   );
-  const gst = totalCost / 11;
+  const gst = Math.max(0, totalCost - subtotalCost);
   const grandTotal = totalCost;
   const generatedAt = new Date().toLocaleString("en-AU", {
     day: "2-digit",
@@ -708,7 +708,7 @@ export default function InspectionPrintPage({
                       colSpan={5}
                       className="px-3 py-2 text-right text-sm text-neutral-600"
                     >
-                      GST (10%)
+                      GST
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-neutral-900">
                       ${fmtCurrency(gst)}

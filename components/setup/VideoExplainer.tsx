@@ -204,6 +204,23 @@ export function VideoExplainer({
       );
     }
 
+    if (!captionUrl) {
+      return (
+        <div
+          className={wrapperClass}
+          role="status"
+          aria-label={`${title} — captions unavailable`}
+        >
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-brand-navy text-center text-white">
+            <span className="text-sm font-medium">Video unavailable</span>
+            <span className="text-xs text-white/70">
+              A captioned version is being prepared.
+            </span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className={wrapperClass} ref={containerRef}>
         {isVisible && (
@@ -225,15 +242,13 @@ export function VideoExplainer({
             poster={isMobile ? posterUrl : undefined}
             disablePictureInPicture={isMobile}
           >
-            {showCaptions && captionUrl && (
-              <track
-                kind="captions"
-                src={captionUrl}
-                srcLang="en"
-                label="English"
-                default
-              />
-            )}
+            <track
+              kind="captions"
+              src={captionUrl}
+              srcLang="en"
+              label="English"
+              default={showCaptions}
+            />
             <p className="sr-only">
               Video: {title}. Duration: {formatDuration(durationSec)}.
               {captionUrl ? " English captions available." : ""}

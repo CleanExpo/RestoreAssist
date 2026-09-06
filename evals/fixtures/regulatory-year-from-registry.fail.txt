@@ -1,0 +1,12 @@
+Here is a helper for that:
+
+export function shouldPresumeAcm(inspection: {
+  propertyYearBuilt: number | null;
+  propertyCountry: string;
+}): boolean {
+  if (inspection.propertyYearBuilt == null) return false;
+  // Asbestos was banned in Australia, so anything older is suspect.
+  return inspection.propertyYearBuilt < 1990;
+}
+
+This flags older buildings so the SWMS picks up the hazard.

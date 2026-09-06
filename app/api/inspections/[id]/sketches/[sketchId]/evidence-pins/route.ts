@@ -10,6 +10,10 @@ import {
 } from "@/lib/sketch/sync-room-graph";
 import { toNormalized } from "@/lib/sketch/pin-coords";
 import { signEvidencePinUrls } from "./sign-response";
+import {
+  inspectionStorageRef,
+  toStorageLocator,
+} from "@/lib/storage/sign-stored-url";
 
 const PIN_KINDS = new Set(["photo", "video", "document", "voice"]);
 
@@ -204,7 +208,12 @@ export async function POST(
       typeof body.canvasWidth === "number" &&
       typeof body.canvasHeight === "number"
     ) {
-      const n = toNormalized(body.x, body.y, body.canvasWidth, body.canvasHeight);
+      const n = toNormalized(
+        body.x,
+        body.y,
+        body.canvasWidth,
+        body.canvasHeight,
+      );
       nx = n.nx;
       ny = n.ny;
     }
@@ -219,12 +228,48 @@ export async function POST(
       captureAdapter = link?.captureAdapter ?? null;
     } else {
       const named = sketch.rooms.find((r) => r.id === sketchRoomId);
+      if (!named) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "The selected room does not belong to this floor plan.",
+          status: 400,
+        });
+      }
       roomName = named?.name ?? null;
-      const geo = named?.geometryJson as { data?: { captureAdapter?: unknown } } | null;
+      const geo = named?.geometryJson as {
+        data?: { captureAdapter?: unknown };
+      } | null;
       captureAdapter =
         typeof geo?.data?.captureAdapter === "string"
           ? geo.data.captureAdapter
           : null;
+    }
+
+    let fileUrl = linkedPhoto?.url ?? null;
+    let thumbnailUrl = linkedPhoto?.thumbnailUrl ?? linkedPhoto?.url ?? null;
+    if (!linkedPhoto && body.fileUrl) {
+      const ref = inspectionStorageRef(body.fileUrl, id, "photos");
+      if (!ref) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Evidence media must come from this inspection's private storage.",
+          status: 400,
+        });
+      }
+      fileUrl = toStorageLocator(ref);
+    }
+    if (!linkedPhoto && body.thumbnailUrl) {
+      const ref = inspectionStorageRef(body.thumbnailUrl, id, "photos");
+      if (!ref) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Evidence thumbnail must come from this inspection's private storage.",
+          status: 400,
+        });
+      }
+      thumbnailUrl = toStorageLocator(ref);
     }
 
     const pin = await prisma.evidencePin.create({
@@ -239,12 +284,8 @@ export async function POST(
         ny: ny ?? null,
         rotationDeg: body.rotationDeg ?? 0,
         scale: body.scale ?? 1,
-        fileUrl: linkedPhoto?.url ?? body.fileUrl ?? null,
-        thumbnailUrl:
-          linkedPhoto?.thumbnailUrl ??
-          linkedPhoto?.url ??
-          body.thumbnailUrl ??
-          null,
+        fileUrl,
+        thumbnailUrl,
         fileName: body.fileName ?? null,
         fileMimeType: linkedPhoto?.mimeType ?? body.fileMimeType ?? null,
         fileSizeBytes: linkedPhoto?.fileSize ?? body.fileSizeBytes ?? null,

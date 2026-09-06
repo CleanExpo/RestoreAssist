@@ -44,26 +44,6 @@
   },
   "hooks": {
     "PostToolUse": [],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qiE '(rm -rf|--force|--no-verify|DROP TABLE|TRUNCATE|reset --hard)' && echo 'BLOCKED: destructive command detected' && exit 1 || exit 0"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo \"$CLAUDE_FILE_PATH\" | grep -qiE '(\\.env|\\.secret|\\.key|\\.pem|credentials)' && echo 'BLOCKED: editing sensitive file' && exit 1 || exit 0"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "compact",

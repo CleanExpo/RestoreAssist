@@ -1,0 +1,187 @@
+name: Review panel
+
+# A multi-model review pass on every PR.
+#
+# COST. Three of the four enabled seats are OpenRouter `:free` variants, which
+# structurally cannot bill the platform key — the invariant lib/ai/openrouter.ts
+# enforces for Margot and the Stop-hook verifier. The fourth is MiniMax-M2.5,
+# authorised by the owner on 2026-09-02 at roughly 1.5 US cents per pull request
+# ($0.30 per M input, $1.20 per M output, against a ~40K-token prompt). The
+# OpenAI seat and the Anthropic adjudicator remain disabled in roster.json and
+# need their own spend decision (rule 31) before they run.
+#
+# AUTHORITY. The panel comments and nothing else. It cannot approve, cannot
+# block a merge, and has no write access to the branch. `permissions` below is
+# the enforcement of that, not a description of it.
+#
+# SUPPLY CHAIN. Every external action is pinned to a full immutable commit SHA
+# and drawn from the allowlist in scripts/ci/check-release-bootstrap.mjs. The
+# first version of this workflow used floating @v4 tags and actions/github-script,
+# which is not on that list at all; check:release-bootstrap caught both. The PR
+# comment is therefore posted with curl against the REST API rather than by
+# pulling in another action.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  # One panel per PR. A rapid re-push cancels the previous run rather than
+  # racing it, so the comment always reflects the latest head.
+  group: review-panel-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  panel:
+    runs-on: ubuntu-latest
+    # A fork PR runs with a read-only token and no access to secrets, so the
+    # panel would produce a degraded run it could not even post. Skip rather
+    # than post a misleading empty result.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          fetch-depth: 0
+          # This job runs repository-controlled scripts after checkout. Without
+          # this the job's git credential stays in .git/config for them to read.
+          persist-credentials: false
+
+      # No key for any seat means the panel is not configured yet, which is a
+      # setup state rather than a review result. Say so once and stop, instead
+      # of failing on every pull request until somebody adds a secret — a check
+      # that is permanently red teaches people to ignore red.
+      - name: Is any seat configured?
+        id: configured
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ] && [ -z "$MINIMAX_API_KEY" ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Review panel has no seat credentials configured, so it did not run. Add OPENROUTER_API_KEY (free-tier seats) or MINIMAX_API_KEY to repository secrets."
+          else
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4
+        if: steps.configured.outputs.any == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # summarise.ts runs through tsx, which lives in devDependencies. The first
+      # version of this workflow called `npx --no-install tsx` without ever
+      # installing anything, and npx refused with "canceled due to missing
+      # packages".
+      - name: Install dependencies
+        if: steps.configured.outputs.any == 'true'
+        env:
+          PRISMA_SKIP_POSTINSTALL_GENERATE: 1
+        run: npm ci --ignore-scripts
+
+      - name: Collect the diff
+        if: steps.configured.outputs.any == 'true'
+        run: |
+          git diff --unified=3 \
+            "origin/${{ github.event.pull_request.base.ref }}...HEAD" \
+            -- . ':(exclude)package-lock.json' ':(exclude)**/*.snap' \
+            > /tmp/pr.diff
+          echo "diff bytes: $(wc -c < /tmp/pr.diff)"
+
+      - name: Run the panel
+        if: steps.configured.outputs.any == 'true'
+        env:
+          # The platform key. Safe to share with the OpenRouter seats because
+          # openrouter-call.sh refuses a non-`:free` model against OpenRouter
+          # rather than silently billing it. The MiniMax seat does not touch this
+          # key — it runs on its own base URL and its own key below.
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # The one paid seat, authorised by the owner on 2026-09-02. About 1.5
+          # US cents per PR at MiniMax-M2.5 rates. If the secret is absent the
+          # seat reports itself failed and the panel carries on with the free
+          # seats — it never silently drops to a single opinion.
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+        run: |
+          bash scripts/ci/review-panel/run-panel.sh /tmp/pr.diff > /tmp/panel.json
+          echo "seats returning findings:"
+          jq '[.results[] | select((.error // "") == "")] | length' /tmp/panel.json
+
+      - name: Summarise
+        id: summarise
+        if: steps.configured.outputs.any == 'true'
+        run: |
+          set +e
+          npx --no-install tsx scripts/ci/review-panel/summarise.ts < /tmp/panel.json > /tmp/comment.md
+          rc=$?
+          set -e
+          # Capture the exit code into a variable first. Reading $? inside the
+          # echo that consumes it works, but only by accident of expansion order,
+          # and a later edit would silently break it.
+          if [ "$rc" -eq 3 ]; then
+            echo "degraded=true" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -ne 0 ]; then
+            echo "summarise failed with exit $rc" >&2
+            exit "$rc"
+          else
+            echo "degraded=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat /tmp/comment.md
+
+      # Posted with curl rather than actions/github-script, which is not on this
+      # repository's approved-action allowlist. Updates the panel's own previous
+      # comment rather than adding one per push: a PR with fifteen stale review
+      # comments is worse than none.
+      - name: Post the comment
+        if: steps.configured.outputs.any == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API: ${{ github.api_url }}/repos/${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          body=$(jq -Rs . < /tmp/comment.md)
+
+          # Paginate. One page is 100 comments; a busy PR passes that, and the
+          # panel would then stop finding its own comment and post a new one on
+          # every push.
+          existing=""
+          page=1
+          while :; do
+            batch=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" \
+                      -H "Accept: application/vnd.github+json" \
+                      "$API/issues/$PR/comments?per_page=100&page=$page")
+            count=$(jq 'length' <<<"$batch")
+            found=$(jq -r 'map(select(.user.type == "Bot"
+                                      and (.body | startswith("## Review panel"))))
+                           | first | .id // empty' <<<"$batch")
+            [ -n "$found" ] && { existing="$found"; break; }
+            [ "$count" -lt 100 ] && break
+            page=$((page + 1))
+          done
+
+          if [ -n "$existing" ]; then
+            curl -sS -X PATCH \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API/issues/comments/$existing" \
+              -d "{\"body\": $body}" > /dev/null
+            echo "updated comment $existing"
+          else
+            curl -sS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API/issues/$PR/comments" \
+              -d "{\"body\": $body}" > /dev/null
+            echo "posted a new comment"
+          fi
+
+      - name: Note a degraded run
+        if: steps.summarise.outputs.degraded == 'true'
+        run: |
+          echo "::notice::Review panel was degraded — fewer than two model families responded."
+          echo "Not failing the check: a rate-limited free model is not evidence about this PR."

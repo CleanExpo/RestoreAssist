@@ -13,6 +13,8 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
+import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
+import { getGstTreatment } from "@/lib/gst-rules";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
@@ -42,6 +44,9 @@ export async function POST(request: NextRequest) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
+          organization: {
+            select: { country: true },
+          },
           pricingConfig: {
             select: {
               id: true,
@@ -70,6 +75,16 @@ export async function POST(request: NextRequest) {
           status: 404,
         });
       }
+
+      const country = user.organization?.country;
+      if (country !== "AU" && country !== "NZ") {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Complete your organisation country before calculating tax.",
+          status: 422,
+        });
+      }
+      const gstTreatment = getGstTreatment(country);
 
       // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
       const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
@@ -193,6 +208,7 @@ export async function POST(request: NextRequest) {
         equipmentSelection,
         psychrometricAssessment,
         scopeAreas,
+        gstTreatment,
       });
 
       // Generate the document - build it server-side with exact values, use AI only for narrative enhancement
@@ -231,7 +247,14 @@ export async function POST(request: NextRequest) {
   });
 }
 
-function buildCostEstimationData(data: {
+/**
+ * Exported for test. buildCostEstimationData is the pure builder that decides,
+ * among much else, the mould flag handed to the safety reconciler --
+ * the one thing on this priced document that must never contradict the
+ * report for the same job. Reaching it through POST would mean mocking an
+ * AI call and a credit ledger to assert a boolean.
+ */
+export function buildCostEstimationData(data: {
   report: any;
   analysis: any;
   tier1: any;
@@ -243,6 +266,7 @@ function buildCostEstimationData(data: {
   equipmentSelection?: any[];
   psychrometricAssessment?: any;
   scopeAreas?: any[];
+  gstTreatment: ReturnType<typeof getGstTreatment>;
 }) {
   const {
     report,
@@ -255,6 +279,7 @@ function buildCostEstimationData(data: {
     equipmentSelection = [],
     psychrometricAssessment,
     scopeAreas = [],
+    gstTreatment,
   } = data;
 
   // Extract information
@@ -717,7 +742,7 @@ function buildCostEstimationData(data: {
     totalAdmin +
     totalCallOut +
     totalThermal;
-  const gst = subtotal * 0.1; // 10% GST
+  const gst = subtotal * gstTreatment.rate;
   const totalIncGST = subtotal + gst;
 
   // Industry comparison
@@ -776,12 +801,36 @@ function buildCostEstimationData(data: {
   // plan so the estimate can never silently contradict the report's safety
   // sequence (mould air-mover gate + derated power budget). Robust mould
   // detection also consults Report.biologicalMouldDetected (Gap 3).
-  const mouldActiveForSafety =
-    hasMould ||
-    Boolean(report.biologicalMouldDetected) ||
-    Boolean(report.biologicalMouldCategory);
+  // The SAFETY flag is derived with the shared helper, NOT with `hasMould`
+  // above. `hasMould` reads only the tier-1 hazard TICKBOXES, so it misses
+  // mould recorded in `T1_Q7_hazardsOther` (the free text beside "Other" on
+  // that same question), in the technician's written report, in `hazardType`,
+  // or spelled the American way. The report acts on all of those, so a job
+  // could be classified mould-active while THIS document was priced with mould
+  // off and carried Phase 1 air movers. Same defect as #2149/#2150/#2151.
+  //
+  // `hasMould` is deliberately left alone: it also drives PRICED lines (mould
+  // remediation treatment, PPE, hazard surcharges), and widening those would
+  // start charging mould remediation on a prose mention. That is a repricing,
+  // not a safety fix. The two therefore differ on purpose.
+  const mouldActiveForSafety = deriveMouldActive({
+    biologicalMouldDetected: report.biologicalMouldDetected,
+    biologicalMouldCategory: report.biologicalMouldCategory,
+    hazardType: report.hazardType,
+    hazards,
+    technicianFieldReport: report.technicianFieldReport,
+    tier1,
+  });
   const safety = reconcilePricingSafety({
     scopeAreas,
+    // Scope rows are the better source, but they are often absent: the area
+    // then comes from the affected-area text ("45 sqm") or Report.affectedArea.
+    // Passing only `scopeAreas` meant the reconciler saw ZERO area on those
+    // jobs and silently skipped the equipment plan and every power advisory --
+    // the mould gate still fired, but nothing checked the load fit the supply.
+    // `affectedAreaM2` takes precedence only when it is > 0, so a job with real
+    // scope rows is unaffected.
+    affectedAreaM2: affectedAreaSqm > 0 ? affectedAreaSqm : undefined,
     equipmentSelection,
     waterCategory: report.waterCategory,
     mouldActive: mouldActiveForSafety,
@@ -810,6 +859,8 @@ function buildCostEstimationData(data: {
       subtotal,
       gst,
       totalIncGST,
+      gstPercentLabel: gstTreatment.percentLabel,
+      currency: gstTreatment.currency,
     },
     industryComparison: {
       average: industryAverage,
@@ -923,7 +974,7 @@ ${formatCategories(costData.categories)}
 - Total Administrative & Miscellaneous: $${costData.totals.totalAdmin.toFixed(2)}
 - ———————————————————
 - **SUBTOTAL (Restoration Works): $${costData.totals.subtotal.toFixed(2)}**
-- GST (10%): $${costData.totals.gst.toFixed(2)}
+- GST (${costData.totals.gstPercentLabel}): $${costData.totals.gst.toFixed(2)}
 - **TOTAL ESTIMATED COST (Restoration Services): $${costData.totals.totalIncGST.toFixed(2)}**
 
 # SECTION 3: COST COMPARISON AND JUSTIFICATION

@@ -201,10 +201,11 @@ function SignupForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-brand-navy mb-1">
+            <label htmlFor="portal-signup-email" className="block text-sm font-medium text-brand-navy mb-1">
               Email
             </label>
             <input
+              id="portal-signup-email"
               type="email"
               value={invitationData.email}
               disabled
@@ -213,10 +214,11 @@ function SignupForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-brand-navy mb-1">
+            <label htmlFor="portal-signup-name" className="block text-sm font-medium text-brand-navy mb-1">
               Full Name *
             </label>
             <input
+              id="portal-signup-name"
               type="text"
               value={formData.name}
               onChange={(e) =>
@@ -229,10 +231,11 @@ function SignupForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-brand-navy mb-1">
+            <label htmlFor="portal-signup-phone" className="block text-sm font-medium text-brand-navy mb-1">
               Phone (Optional)
             </label>
             <input
+              id="portal-signup-phone"
               type="tel"
               value={formData.phone}
               onChange={(e) =>
@@ -244,10 +247,11 @@ function SignupForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-brand-navy mb-1">
+            <label htmlFor="portal-signup-password" className="block text-sm font-medium text-brand-navy mb-1">
               Password *
             </label>
             <input
+              id="portal-signup-password"
               type="password"
               value={formData.password}
               onChange={(e) =>
@@ -262,10 +266,11 @@ function SignupForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-brand-navy mb-1">
+            <label htmlFor="portal-signup-confirm-password" className="block text-sm font-medium text-brand-navy mb-1">
               Confirm Password *
             </label>
             <input
+              id="portal-signup-confirm-password"
               type="password"
               value={formData.confirmPassword}
               onChange={(e) =>
@@ -281,7 +286,7 @@ function SignupForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3 bg-brand-bronze text-white rounded-lg font-medium hover:bg-brand-bronze/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full min-h-11 py-3 bg-brand-cta text-white rounded-lg font-medium hover:bg-brand-cta/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? "Creating Account..." : "Create Account & Sign In"}
           </button>

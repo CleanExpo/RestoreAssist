@@ -11,12 +11,8 @@ import {
 import { generateVerificationChecklist } from "@/lib/nir-verification-checklist";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveAreaSqm } from "@/lib/units";
-import {
-  claimSketchesToFloors,
-  uploadedFloorPlanToFloor,
-} from "@/lib/reports/claim-sketch-floors";
+import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
-import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 
 // Dynamic import for ExcelJS to handle cases where it's not installed
@@ -153,6 +149,22 @@ export async function GET(
             renderedPngUrl: true,
             sketchData: true,
             moisturePoints: true,
+            underlayReferences: {
+              select: { verifiedAt: true, verificationJson: true },
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+            inspection: {
+              select: {
+                sketchUnderlayReferences: {
+                  select: {
+                    floorNumber: true,
+                    verifiedAt: true,
+                    verificationJson: true,
+                  },
+                },
+              },
+            },
           },
         },
         report: {
@@ -382,17 +394,6 @@ async function resolveFloorPlanOutput(
         };
       }
 
-      if (!(await isSafePublicHttpsUrl(sketch.renderedPngUrl))) {
-        return {
-          status: {
-            ...status,
-            reason:
-              "The stored image location was not eligible for secure retrieval.",
-          },
-          floor: null,
-        };
-      }
-
       const [floor] = await claimSketchesToFloors([sketch]);
       return floor
         ? { status: { ...status, status: "included" }, floor }
@@ -407,47 +408,9 @@ async function resolveFloorPlanOutput(
     }),
   );
 
-  if (!inspection.floorPlanImageUrl) return sketchOutput;
-
-  const uploadedStatus: NirFloorPlanStatus = {
-    label: "Uploaded Floor Plan",
-    source: "uploaded_floor_plan",
-    status: "unavailable",
-  };
-
-  if (!(await isSafePublicHttpsUrl(inspection.floorPlanImageUrl))) {
-    return [
-      ...sketchOutput,
-      {
-        status: {
-          ...uploadedStatus,
-          reason:
-            "The stored image location was not eligible for secure retrieval.",
-        },
-        floor: null,
-      },
-    ];
-  }
-
-  const uploadedFloor = await uploadedFloorPlanToFloor(
-    inspection.floorPlanImageUrl,
-  );
-  return [
-    ...sketchOutput,
-    uploadedFloor
-      ? {
-          status: { ...uploadedStatus, status: "included" },
-          floor: uploadedFloor,
-        }
-      : {
-          status: {
-            ...uploadedStatus,
-            reason:
-              "The stored image could not be retrieved at report generation time.",
-          },
-          floor: null,
-        },
-  ];
+  // Legacy uploaded reference artwork is never a report source. Only the
+  // underlay-free rendered ClaimSketch floors above qualify.
+  return sketchOutput;
 }
 
 // ─── EXCEL ────────────────────────────────────────────────────────────────────

@@ -4,15 +4,22 @@
  */
 
 import { z } from "zod";
+import { getGstTreatment, type Country } from "@/lib/gst-rules";
 
 /** Minimum charge enforced on all quotes (ex-GST), AUD dollars. */
 export const MINIMUM_CHARGE_EX_GST = 2750;
 
-/** Australian GST rate. */
-export const GST_RATE = 0.1;
-
 export const QuoteRequestSchema = z.object({
   jobType: z.enum(["water", "fire", "mould", "storm", "bioclean"]),
+  /**
+   * Active mould on this job, independent of jobType.
+   *
+   * Needed because jobType alone cannot express the commonest real case: a
+   * WATER job with mould growth. Without this the S520 air-mover gate would
+   * only ever fire on a job someone had already labelled "mould", which is the
+   * case least likely to be mis-priced.
+   */
+  mouldActive: z.boolean().default(false),
   affectedAreaM2: z.number().min(1).max(10000),
   numberOfRooms: z.number().int().min(1).max(50),
   dryingDays: z.number().int().min(1).max(30),
@@ -57,11 +64,15 @@ export function applyMinimumCharge(subtotalExGST: number): {
   };
 }
 
-export function calcGstOnSubtotal(subtotalExGST: number): {
+export function calcGstOnSubtotal(
+  subtotalExGST: number,
+  country: Country = "AU",
+): {
   gst: number;
   totalIncGST: number;
 } {
-  const gst = Math.round(subtotalExGST * GST_RATE * 100) / 100;
+  const gst =
+    Math.round(subtotalExGST * getGstTreatment(country).rate * 100) / 100;
   const totalIncGST = Math.round((subtotalExGST + gst) * 100) / 100;
   return { gst, totalIncGST };
 }

@@ -85,6 +85,50 @@ describe("buildScopeNarrative (AU)", () => {
     expect(md).toMatch(/Air movers: \d+/);
   });
 
+  /**
+   * The narrative is what a technician and an adjuster actually read. On a mould
+   * job the SEQUENCE is the safety rule, so a narrative that flattened the
+   * phases into one equipment list would read as a plain count and lose it.
+   */
+  it("leads with the mould gate and keeps the phases apart", () => {
+    const mouldy = buildScopeNarrative(
+      buildScopeExport({
+        floors: [FLOOR],
+        materials: MATERIALS,
+        mouldActive: true,
+      }),
+    );
+
+    expect(mouldy).toContain("**Active mould on this job.**");
+    expect(mouldy).toMatch(/aerosolises spores/);
+    expect(mouldy).toContain("### Phase 1");
+    expect(mouldy).toContain("### Phase 2");
+    expect(mouldy).toMatch(
+      /### Phase 1[\s\S]*?- Air movers: 0 \(NONE this phase/,
+    );
+    // They are withheld, not removed: Phase 2 has them once cleared.
+    expect(mouldy).toMatch(/### Phase 2[\s\S]*?- Air movers: [1-9]/);
+  });
+
+  it("says out loud when the power budget was never measured", () => {
+    expect(md).toContain("**ASSUMED**");
+    expect(buildScopeNarrative(
+      buildScopeExport({
+        floors: [FLOOR],
+        materials: MATERIALS,
+        powerAssessment: { circuits: 4, circuitRatingA: 20 },
+      }),
+    )).not.toContain("**ASSUMED**");
+  });
+
+  it("does not invent equipment for a scope with no rooms", () => {
+    const empty = buildScopeNarrative(
+      buildScopeExport({ floors: [], materials: MATERIALS }),
+    );
+    expect(empty).toContain("No affected floor area recorded");
+    expect(empty).not.toMatch(/- Dehumidifiers: \d/);
+  });
+
   it("does not reference any foreign estimating format", () => {
     expect(md.toLowerCase()).not.toMatch(/xactimate|symbility|cotality|esx/);
   });

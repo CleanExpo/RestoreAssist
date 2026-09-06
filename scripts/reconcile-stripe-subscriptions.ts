@@ -52,6 +52,9 @@ for (const f of [".env.production.local", ".env.local", ".env"]) {
 
 import { PrismaClient, SubscriptionStatus } from "@prisma/client";
 import Stripe from "stripe";
+// One owner for the API version. This file used to pin its own literal and
+// drifted four versions behind lib/stripe.ts without anything noticing.
+import { STRIPE_API_VERSION } from "../lib/stripe";
 import { writeFileSync } from "node:fs";
 
 // ── CLI flags ────────────────────────────────────────────────────────────────
@@ -71,8 +74,15 @@ if (!process.env.STRIPE_SECRET_KEY)
   throw new Error("STRIPE_SECRET_KEY is required");
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 
+// This pinned 2026-05-27.dahlia -- three versions behind lib/stripe.ts -- and
+// nothing objected, because `scripts/**` is excluded from tsconfig.json and tsc
+// never opened the file. It was a genuine type error sitting in the tree,
+// invisible to the gate. A reconciler reading Stripe on a different API version
+// than the writer can see differently shaped objects, which is precisely the
+// class of silent disagreement this script exists to detect.
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-05-27.dahlia",
+  apiVersion: STRIPE_API_VERSION,
+  typescript: true,
 });
 const prisma = new PrismaClient();
 

@@ -44,6 +44,20 @@ export async function GET(
         userId: true,
         assignedManagerId: true,
         assignedAdminId: true,
+        // The building's age and country decide whether the asbestos and lead
+        // presumptions apply, and both live on the inspection rather than the
+        // report. Without these the era is simply unrecorded, and the hazard
+        // documents are offered at a lower priority instead of being withheld.
+        inspection: {
+          select: {
+            propertyYearBuilt: true,
+            propertyCountry: true,
+            // A count, not the rows: the suggestion only needs to know whether
+            // any notifiable incident exists, and incident detail is sensitive
+            // enough not to pull into a list endpoint that does not render it.
+            _count: { select: { whsIncidents: true } },
+          },
+        },
       },
     });
 

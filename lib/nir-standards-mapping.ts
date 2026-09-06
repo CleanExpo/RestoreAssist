@@ -18,6 +18,8 @@
 
 // ─── S500 WATER DAMAGE FIELD MAP ──────────────────────────────────────────────
 
+import { getNccEdition } from "./anz/ncc-edition";
+
 export const S500_FIELD_MAP = {
   /**
    * Moisture content thresholds per material type
@@ -821,20 +823,128 @@ export const S540_FIELD_MAP = {
  *   - S540: ANSI/IICRC S540-2023, 2nd ed.
  *   - S100: ANSI/IICRC S100-2021, 7th ed.
  *
+ * All five verified again 2026-08-31 against the IICRC's own published pages
+ * (iicrc.org/s500/, /s520/, /s540/, /s700/, /s100/) — the first check of this
+ * registry against a source other than itself. All five match.
+ *
+ * NOT HERE, DELIBERATELY:
+ *   - `NCC`. The National Construction Code is not an ANSI/IICRC standard, and it
+ *     is not a constant: it takes effect per state on different dates, and as at
+ *     2026-09-01 NCC 2025 is in force in ACT/VIC/WA while NSW/QLD/SA/TAS are on
+ *     NCC 2022 Amendment 2 and the NT has not adopted it at all. TASMANIA IS NOT A
+ *     TYPO HERE: it commenced NCC 2025 on 1 May 2026 and reverted five weeks later
+ *     by primary legislation, so adoption is not monotonic. Keeping it here created
+ *     a SECOND source
+ *     of truth alongside lib/anz/ncc-edition.ts, and the two diverged — the same PDF
+ *     could print NCC 2025 in the scope and NCC 2022 in the footer. Use
+ *     `getNccEdition(state, asAt)`.
+ *   - `nextRevisionExpected`. Removed per .planning/specs/01-JUDGE-VERDICT-revise.md:71
+ *     ("Delete nextRevisionExpected... Predicted dates never gate anything"). Nothing
+ *     read it, and two of its values were already contradicted by the IICRC's own
+ *     status pages, which say consensus bodies have begun revising S540 and S700.
+ *     A prediction nothing consumes and nobody re-checks is a liability, not data.
+ *
+ * The Australian adoptions of these standards are in AS_IICRC_ADOPTIONS below; for
+ * an Australian job that adoption governs, not the ANSI publication.
+ *
  * Every citation string in the product should derive from this registry (see
  * standardCite / standardDesignation). scripts/check-standards-citations.ts
  * guards against literals drifting out of sync.
  */
 export const STANDARDS_VERSIONS = {
-  S500: { edition: "5th", year: 2021, designation: "ANSI/IICRC S500-2021", nextRevisionExpected: 2026 },
-  S520: { edition: "4th", year: 2024, designation: "ANSI/IICRC S520-2024", nextRevisionExpected: 2029 },
-  S540: { edition: "2nd", year: 2023, designation: "ANSI/IICRC S540-2023", nextRevisionExpected: 2028 },
-  S700: { edition: "1st", year: 2025, designation: "ANSI/IICRC S700-2025", nextRevisionExpected: 2030 },
-  S100: { edition: "7th", year: 2021, designation: "ANSI/IICRC S100-2021", nextRevisionExpected: 2026 },
-  NCC: { edition: "2022", year: 2022, designation: "NCC 2022", nextRevisionExpected: 2025 },
+  S500: { edition: "5th", year: 2021, designation: "ANSI/IICRC S500-2021" },
+  S520: { edition: "4th", year: 2024, designation: "ANSI/IICRC S520-2024" },
+  S540: { edition: "2nd", year: 2023, designation: "ANSI/IICRC S540-2023" },
+  S700: { edition: "1st", year: 2025, designation: "ANSI/IICRC S700-2025" },
+  S100: { edition: "7th", year: 2021, designation: "ANSI/IICRC S100-2021" },
 } as const;
 
 export type StandardKey = keyof typeof STANDARDS_VERSIONS;
+
+// ─── AUSTRALIAN ADOPTIONS ─────────────────────────────────────────────────────
+
+/**
+ * Standards Australia adoptions of the ANSI/IICRC standards.
+ *
+ * For an AUSTRALIAN job the governing document is the AS-IICRC adoption, NOT the
+ * ANSI original it adopts. Both are MODIFIED adoptions: the Australian changes are
+ * collected in Appendix ZZ, so an ANSI-only citation is not merely less precise —
+ * it omits requirements.
+ *
+ * AUSTRALIA ONLY. These are designated `AS-IICRC`, not `AS/NZS-IICRC`: Standards
+ * Australia publishes joint trans-Tasman standards under the `AS/NZS` prefix, and
+ * these do not carry it. The adoption boilerplate in the preface mentions
+ * "Australia/New Zealand", but that is template text, not a joint designation —
+ * docs/marketing/pillar-c/icp-nz.md:144 records the same finding from independent
+ * NZ research. So NZ falls back to the ANSI publication, which is what
+ * `hasAsAdoption` implements. If Standards New Zealand later adopts these, that is
+ * a new entry here, not a change to this rule.
+ *
+ * Verified 2026-08-31 against the Standards Australia catalogue and the IICRC's
+ * own publication announcement (iicrc.org/wp-content/uploads/2025/04/
+ * AS-IICRC-S500-Published-Press-Release_March-2025.pdf). Both were prepared by
+ * Standards Australia committee ME-094 (Mould and Water Restoration), on which
+ * the IICRC, the Insurance Council of Australia, RIA Australasia, the HIA,
+ * Master Builders Australia and IAQAA are represented.
+ *
+ * Copyright note: AS-IICRC is a Standards Australia publication — a DIFFERENT
+ * licensor from the IICRC, with its own terms. The repo's no-verbatim rule
+ * applies to both; see docs/compliance/IICRC-STANDARDS-LICENSING.md.
+ *
+ * Only S500 and S520 have been adopted. ME-094 has stated further work is
+ * planned, so absence here means "not adopted as at the verification date"
+ * — never "does not exist". `applicableStandard()` falls back to the ANSI
+ * designation for any standard with no adoption, which is the correct answer.
+ */
+export const AS_IICRC_ADOPTIONS = {
+  S500: {
+    year: 2025,
+    designation: "AS-IICRC S500:2025",
+    adopts: "ANSI/IICRC S500:2021",
+    published: "2025-03-28",
+  },
+  S520: {
+    year: 2025,
+    designation: "AS-IICRC S520:2025",
+    adopts: "ANSI/IICRC S520:2024",
+    published: "2025-11-28",
+  },
+} as const;
+
+export type AsIicrcKey = keyof typeof AS_IICRC_ADOPTIONS;
+
+/** Countries whose jurisdiction changes which standard governs. */
+export type StandardsJurisdiction = "AU" | "NZ" | "INTL";
+
+/**
+ * Is there a Standards Australia adoption of this standard that governs in the
+ * given jurisdiction? Australia only — see the AUSTRALIA ONLY note above. NZ and
+ * INTL both fall back to the ANSI publication.
+ */
+export function hasAsAdoption(
+  std: StandardKey,
+  jurisdiction: StandardsJurisdiction,
+): std is AsIicrcKey & StandardKey {
+  if (jurisdiction !== "AU") return false;
+  return std in AS_IICRC_ADOPTIONS;
+}
+
+/**
+ * The formal designation of the standard that actually governs a job, e.g.
+ * `applicableStandard("S500", "AU")` → "AS-IICRC S500:2025", but
+ * `applicableStandard("S700", "AU")` → "ANSI/IICRC S700-2025" because S700 has
+ * no Australian adoption. Use this anywhere a report, scope or prompt names the
+ * governing standard for a specific job.
+ */
+export function applicableStandard(
+  std: StandardKey,
+  jurisdiction: StandardsJurisdiction,
+): string {
+  if (hasAsAdoption(std, jurisdiction)) {
+    return AS_IICRC_ADOPTIONS[std].designation;
+  }
+  return STANDARDS_VERSIONS[std].designation;
+}
 
 /**
  * Canonical in-product short citation, e.g. `standardCite("S500")` → "S500:2021",
@@ -853,29 +963,64 @@ export function standardDesignation(std: StandardKey): string {
 
 /**
  * Human-readable edition label for report/insurer text, e.g. `standardEdition("S500")`
- * → "5th Ed". NCC has no ordinal edition, so its year-style label ("2022") is returned
- * as-is. Derives from STANDARDS_VERSIONS so an edition bump to the registry can't leave
- * a hard-coded label stale (CLAUDE.md rule #12).
+ * → "5th Ed". Derives from STANDARDS_VERSIONS so an edition bump to the registry can't
+ * leave a hard-coded label stale (CLAUDE.md rule #12).
+ *
+ * NCC is not a key here — it has no ordinal edition and varies by jurisdiction.
+ * Use `getNccEdition(state, asAt)` from lib/anz/ncc-edition.ts.
  */
 export function standardEdition(std: StandardKey): string {
   const { edition } = STANDARDS_VERSIONS[std];
-  return std === "NCC" ? edition : `${edition} Ed`;
+  return `${edition} Ed`;
 }
 
 /**
- * The IICRC/NCC standards line printed in the generated-PDF report footer. Built
- * entirely from STANDARDS_VERSIONS so a future edition bump to the registry updates
- * the insurer-facing footer automatically instead of drifting to a stale literal
- * (CLAUDE.md rule #12; guarded by lib/__tests__/report-footer-standards.test.ts).
- * e.g. "IICRC S500:2021, S520 4th Ed (2024), S700 1st Ed (2025), NCC 2022".
+ * The standards line printed in the generated-PDF report footer.
+ *
+ * Takes the job's jurisdiction because the answer depends on it, and printing one
+ * global answer was a live defect in two directions at once:
+ *
+ *   - Every New Zealand report cited "NCC 2022". NZ has no NCC; it is governed by
+ *     the New Zealand Building Code. The footer now omits NCC entirely for NZ.
+ *   - Every Australian report cited "NCC 2022" regardless of state or date, four
+ *     months after ACT/VIC/WA moved to NCC 2025 and a year after Amendment 2
+ *     superseded plain NCC 2022 everywhere.
+ *
+ * `state` is optional: without it `getNccEdition` returns the edition in force in
+ * every Australian jurisdiction, which understates rather than overstates. Pass the
+ * state whenever the job records one.
+ *
+ * Guarded by lib/__tests__/report-footer-standards.test.ts.
  */
-export function reportStandardsFooterLine(): string {
-  return [
+export function reportStandardsFooterLine(
+  jurisdiction: StandardsJurisdiction = "AU",
+  state?: string | null,
+  asAt?: string,
+): string {
+  const parts = [
     `IICRC ${standardCite("S500")}`,
     `S520 ${standardEdition("S520")} (${STANDARDS_VERSIONS.S520.year})`,
     `S700 ${standardEdition("S700")} (${STANDARDS_VERSIONS.S700.year})`,
-    standardDesignation("NCC"),
-  ].join(", ");
+  ];
+
+  // The Australian adoption governs an AU job, so name it alongside the ANSI
+  // citation rather than instead of it — the adoption is what applies, the ANSI
+  // edition is what it adopts, and an insurer reading the footer needs both.
+  if (jurisdiction === "AU") {
+    // Both adoptions, not just S500. A mould report that cites the ANSI S520 while
+    // the S500 line carries its Australian adoption is inconsistent about which
+    // document governs, and it is the S520 adoption that carries Appendix ZZ for
+    // mould work.
+    parts.unshift(
+      AS_IICRC_ADOPTIONS.S500.designation,
+      AS_IICRC_ADOPTIONS.S520.designation,
+    );
+  }
+
+  const ncc = jurisdiction === "NZ" ? null : getNccEdition(state, asAt);
+  if (ncc) parts.push(ncc);
+
+  return parts.join(", ");
 }
 
 /**

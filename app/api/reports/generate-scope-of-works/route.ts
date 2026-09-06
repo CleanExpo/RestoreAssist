@@ -11,6 +11,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
+import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -254,7 +255,14 @@ export async function POST(request: NextRequest) {
   });
 }
 
-function buildScopeOfWorksData(data: {
+/**
+ * Exported for test. buildScopeOfWorksData is the pure builder that decides,
+ * among much else, the mould flag handed to the safety reconciler --
+ * the one thing on this priced document that must never contradict the
+ * report for the same job. Reaching it through POST would mean mocking an
+ * AI call and a credit ledger to assert a boolean.
+ */
+export function buildScopeOfWorksData(data: {
   report: any;
   analysis: any;
   tier1: any;
@@ -708,12 +716,36 @@ function buildScopeOfWorksData(data: {
   // RA-7006 Gap 1: reconcile the scoped equipment against the RA-7005 safety
   // plan (mould air-mover gate + derated power budget). Robust mould detection
   // also consults Report.biologicalMouldDetected (Gap 3).
-  const mouldActiveForSafety =
-    hasMould ||
-    Boolean(report.biologicalMouldDetected) ||
-    Boolean(report.biologicalMouldCategory);
+  // The SAFETY flag is derived with the shared helper, NOT with `hasMould`
+  // above. `hasMould` reads only the tier-1 hazard TICKBOXES, so it misses
+  // mould recorded in `T1_Q7_hazardsOther` (the free text beside "Other" on
+  // that same question), in the technician's written report, in `hazardType`,
+  // or spelled the American way. The report acts on all of those, so a job
+  // could be classified mould-active while THIS document was priced with mould
+  // off and carried Phase 1 air movers. Same defect as #2149/#2150/#2151.
+  //
+  // `hasMould` is deliberately left alone: it also drives PRICED lines (mould
+  // remediation treatment, PPE, hazard surcharges), and widening those would
+  // start charging mould remediation on a prose mention. That is a repricing,
+  // not a safety fix. The two therefore differ on purpose.
+  const mouldActiveForSafety = deriveMouldActive({
+    biologicalMouldDetected: report.biologicalMouldDetected,
+    biologicalMouldCategory: report.biologicalMouldCategory,
+    hazardType: report.hazardType,
+    hazards,
+    technicianFieldReport: report.technicianFieldReport,
+    tier1,
+  });
   const safety = reconcilePricingSafety({
     scopeAreas,
+    // Scope rows are the better source, but they are often absent: the area
+    // then comes from the affected-area text ("45 sqm") or Report.affectedArea.
+    // Passing only `scopeAreas` meant the reconciler saw ZERO area on those
+    // jobs and silently skipped the equipment plan and every power advisory --
+    // the mould gate still fired, but nothing checked the load fit the supply.
+    // `affectedAreaM2` takes precedence only when it is > 0, so a job with real
+    // scope rows is unaffected.
+    affectedAreaM2: affectedAreaSqm > 0 ? affectedAreaSqm : undefined,
     equipmentSelection,
     waterCategory,
     mouldActive: mouldActiveForSafety,

@@ -7,7 +7,14 @@
 
 import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Scan, Square, Upload, Droplets, ImageIcon, Loader2 } from "lucide-react";
+import {
+  Scan,
+  Square,
+  Upload,
+  Droplets,
+  ImageIcon,
+  Loader2,
+} from "lucide-react";
 import { prepareUnderlayFile } from "@/lib/sketch/prepare-underlay-file";
 import { commitUnderlayImport } from "@/lib/sketch/commit-underlay-import";
 import {
@@ -26,6 +33,7 @@ export interface SketchStartOverlayProps {
   /** Full studio upload: persist + apply without leaving the chooser. */
   onApplyUnderlay?: (imageUrl: string, opacity: number) => void;
   inspectionId?: string;
+  floorNumber?: number;
   onPlaceMoisture: () => void;
   className?: string;
 }
@@ -38,6 +46,7 @@ export function SketchStartOverlay({
   onImportUnderlay,
   onApplyUnderlay,
   inspectionId,
+  floorNumber = 0,
   onPlaceMoisture,
   className,
 }: SketchStartOverlayProps) {
@@ -99,6 +108,7 @@ export function SketchStartOverlay({
     const result = await commitUnderlayImport({
       selectedImage: preview,
       inspectionId,
+      floorNumber,
       holdsRights,
       compliesWithSourceTerms: compliesTerms,
       source: "upload",
@@ -228,9 +238,7 @@ export function SketchStartOverlay({
                 type="button"
                 onClick={() => void handleApply()}
                 disabled={!attestation.ok || applying}
-                title={
-                  !attestation.ok ? attestation.reason : undefined
-                }
+                title={!attestation.ok ? attestation.reason : undefined}
                 className="flex-1 min-h-11 rounded-xl bg-[#E55A2B] text-white text-sm font-semibold hover:bg-[#d14e22] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {applying ? "Placing plan…" : "Place on canvas"}
@@ -289,7 +297,9 @@ export function SketchStartOverlay({
               >
                 <div className="flex items-center gap-2 text-white">
                   <Square size={18} className="shrink-0 text-[#C5E063]" />
-                  <span className="text-sm font-semibold">Draw from scratch</span>
+                  <span className="text-sm font-semibold">
+                    Draw from scratch
+                  </span>
                 </div>
                 <p className="mt-1.5 text-[12px] text-white/50 leading-relaxed">
                   Tap to place a 3.86 m room. Drag for a custom size. L and T

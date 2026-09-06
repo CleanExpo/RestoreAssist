@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
   assertInspectionTenancy,
   resolveInspectionWrite,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -149,69 +150,80 @@ export async function POST(
 
     const data = parsed.data;
 
-    const record = await prisma.carpetRestorationAssessment.upsert({
-      where: { inspectionId: id },
-      create: {
-        inspectionId: id,
-        fiberType: data.fiberType ?? undefined,
-        pileType: data.pileType ?? undefined,
-        backingType: data.backingType ?? undefined,
-        standingWaterHours: data.standingWaterHours ?? undefined,
-        extractionRateLitresPerHour:
-          data.extractionRateLitresPerHour ?? undefined,
-        extractionPasses: data.extractionPasses ?? undefined,
-        residualMoisturePostExtraction:
-          data.residualMoisturePostExtraction ?? undefined,
-        delaminationTestResult: data.delaminationTestResult ?? undefined,
-        finalMoisturePercent: data.finalMoisturePercent ?? undefined,
-        stainType: data.stainType ?? undefined,
-        stainPH: data.stainPH ?? undefined,
-        stainTreatmentProduct: data.stainTreatmentProduct ?? undefined,
-        stainRemovalResult: data.stainRemovalResult ?? undefined,
-        restorationDecision: data.restorationDecision ?? undefined,
-      },
-      update: {
-        ...(data.fiberType !== undefined && { fiberType: data.fiberType }),
-        ...(data.pileType !== undefined && { pileType: data.pileType }),
-        ...(data.backingType !== undefined && {
-          backingType: data.backingType,
+    const record = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { claimType: "CARPET" },
+      (tx) =>
+        tx.carpetRestorationAssessment.upsert({
+          where: { inspectionId: id },
+          create: {
+            inspectionId: id,
+            fiberType: data.fiberType ?? undefined,
+            pileType: data.pileType ?? undefined,
+            backingType: data.backingType ?? undefined,
+            standingWaterHours: data.standingWaterHours ?? undefined,
+            extractionRateLitresPerHour:
+              data.extractionRateLitresPerHour ?? undefined,
+            extractionPasses: data.extractionPasses ?? undefined,
+            residualMoisturePostExtraction:
+              data.residualMoisturePostExtraction ?? undefined,
+            delaminationTestResult: data.delaminationTestResult ?? undefined,
+            finalMoisturePercent: data.finalMoisturePercent ?? undefined,
+            stainType: data.stainType ?? undefined,
+            stainPH: data.stainPH ?? undefined,
+            stainTreatmentProduct: data.stainTreatmentProduct ?? undefined,
+            stainRemovalResult: data.stainRemovalResult ?? undefined,
+            restorationDecision: data.restorationDecision ?? undefined,
+          },
+          update: {
+            ...(data.fiberType !== undefined && { fiberType: data.fiberType }),
+            ...(data.pileType !== undefined && { pileType: data.pileType }),
+            ...(data.backingType !== undefined && {
+              backingType: data.backingType,
+            }),
+            ...(data.standingWaterHours !== undefined && {
+              standingWaterHours: data.standingWaterHours,
+            }),
+            ...(data.extractionRateLitresPerHour !== undefined && {
+              extractionRateLitresPerHour: data.extractionRateLitresPerHour,
+            }),
+            ...(data.extractionPasses !== undefined && {
+              extractionPasses: data.extractionPasses,
+            }),
+            ...(data.residualMoisturePostExtraction !== undefined && {
+              residualMoisturePostExtraction:
+                data.residualMoisturePostExtraction,
+            }),
+            ...(data.delaminationTestResult !== undefined && {
+              delaminationTestResult: data.delaminationTestResult,
+            }),
+            ...(data.finalMoisturePercent !== undefined && {
+              finalMoisturePercent: data.finalMoisturePercent,
+            }),
+            ...(data.stainType !== undefined && { stainType: data.stainType }),
+            ...(data.stainPH !== undefined && { stainPH: data.stainPH }),
+            ...(data.stainTreatmentProduct !== undefined && {
+              stainTreatmentProduct: data.stainTreatmentProduct,
+            }),
+            ...(data.stainRemovalResult !== undefined && {
+              stainRemovalResult: data.stainRemovalResult,
+            }),
+            ...(data.restorationDecision !== undefined && {
+              restorationDecision: data.restorationDecision,
+            }),
+          },
         }),
-        ...(data.standingWaterHours !== undefined && {
-          standingWaterHours: data.standingWaterHours,
-        }),
-        ...(data.extractionRateLitresPerHour !== undefined && {
-          extractionRateLitresPerHour: data.extractionRateLitresPerHour,
-        }),
-        ...(data.extractionPasses !== undefined && {
-          extractionPasses: data.extractionPasses,
-        }),
-        ...(data.residualMoisturePostExtraction !== undefined && {
-          residualMoisturePostExtraction: data.residualMoisturePostExtraction,
-        }),
-        ...(data.delaminationTestResult !== undefined && {
-          delaminationTestResult: data.delaminationTestResult,
-        }),
-        ...(data.finalMoisturePercent !== undefined && {
-          finalMoisturePercent: data.finalMoisturePercent,
-        }),
-        ...(data.stainType !== undefined && { stainType: data.stainType }),
-        ...(data.stainPH !== undefined && { stainPH: data.stainPH }),
-        ...(data.stainTreatmentProduct !== undefined && {
-          stainTreatmentProduct: data.stainTreatmentProduct,
-        }),
-        ...(data.stainRemovalResult !== undefined && {
-          stainRemovalResult: data.stainRemovalResult,
-        }),
-        ...(data.restorationDecision !== undefined && {
-          restorationDecision: data.restorationDecision,
-        }),
-      },
-    });
+    );
 
-    await prisma.inspection.update({
-      where: tenancy.data.inspectionWhere,
-      data: { claimType: "CARPET" },
-    });
+    // Null means the caller's scope no longer claims this inspection.
+    // 404, never 403, so a tenant cannot learn the id exists.
+    if (!record) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json(record);
   } catch (err) {

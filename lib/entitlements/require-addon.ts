@@ -125,11 +125,54 @@ export async function requireAddon(
     };
   }
 
+  return requireAddonForWorkspace(workspace.id, sku);
+}
+
+/**
+ * Workspace-keyed sibling of `requireAddon()`.
+ *
+ * WHY THIS EXISTS. Entitlement is stored per WORKSPACE — `FeatureEntitlement` is
+ * keyed `@@unique([workspaceId, sku])` — but until now the only way to ask about
+ * it was through a user id. That is fine for a dashboard route with a session,
+ * and impossible for a surface that has no session user at all.
+ *
+ * The client portal is exactly that surface: `/portal/<token>` is opened by the
+ * homeowner, who has no account. There is no user id to pass, and passing the
+ * technician's would be wrong even where one is to hand — the add-on belongs to
+ * the restoration firm that owns the job, not to whichever staff member last
+ * touched it. Resolving through a user would also make the answer depend on
+ * which technician is assigned, which is not what anyone is buying.
+ *
+ * `requireAddon()` now resolves the workspace and delegates here, so the
+ * entitlement rule itself exists once. A second copy of this query is how the
+ * two would quietly disagree — one honouring `active`, the other forgetting it,
+ * for instance.
+ *
+ * The caller supplies the workspace id, so the caller owns proving it is the
+ * right one. For the portal that means token -> Inspection -> owning workspace,
+ * never a workspace id taken from user input.
+ */
+export async function requireAddonForWorkspace(
+  workspaceId: string,
+  sku: string,
+): Promise<AddonGateResult> {
+  if (!isAddonSku(sku)) {
+    return {
+      allowed: false,
+      reason: "UNKNOWN_SKU",
+      sku,
+      response: unknownSkuResponse(sku),
+    };
+  }
+
   const entitlement = await prisma.featureEntitlement.findUnique({
-    where: { workspaceId_sku: { workspaceId: workspace.id, sku } },
+    where: { workspaceId_sku: { workspaceId, sku } },
     select: { id: true, active: true },
   });
 
+  // An entitlement row that exists but is inactive (cancelled, or expired by the
+  // Stripe webhook) denies exactly like an absent one. Checking only for the
+  // row's presence would keep a cancelled add-on working indefinitely.
   if (!entitlement || !entitlement.active) {
     return {
       allowed: false,
@@ -139,7 +182,7 @@ export async function requireAddon(
     };
   }
 
-  return { allowed: true, sku, workspaceId: workspace.id };
+  return { allowed: true, sku, workspaceId };
 }
 
 /**

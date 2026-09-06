@@ -11,6 +11,7 @@ import {
   getRecurringAddon,
   getRecurringAddonBySubscriptionType,
 } from "../addon-registry";
+import { ADDON_SKUS } from "@/lib/entitlements/types";
 
 describe("RECURRING_ADDONS — BOOKKEEPING", () => {
   it("resolves by add-on key with the correct price + currency", () => {
@@ -114,5 +115,97 @@ describe("RECURRING_ADDONS — TECHNICIAN_SEATS (RA-6920 B6)", () => {
 
     expect(descriptor?.sku).toBe("TECHNICIAN_SEATS");
     expect(descriptor?.perSeat).toBe(true);
+  });
+});
+
+describe("RECURRING_ADDONS — CLIENT_EDUCATION", () => {
+  it("resolves by add-on key with the correct price + currency", () => {
+    const descriptor = getRecurringAddon("CLIENT_EDUCATION");
+
+    expect(descriptor).toMatchObject({
+      sku: "CLIENT_EDUCATION",
+      amount: 11.0,
+      currency: "AUD",
+      interval: "month",
+      subscriptionType: "client_education_addon",
+    });
+  });
+
+  it("resolves in reverse by the subscription-metadata marker", () => {
+    const descriptor = getRecurringAddonBySubscriptionType(
+      "client_education_addon",
+    );
+
+    expect(descriptor?.sku).toBe("CLIENT_EDUCATION");
+  });
+
+  it("is flat, not per-seat — adding a technician must not change the price", () => {
+    expect(getRecurringAddon("CLIENT_EDUCATION")?.perSeat).toBeUndefined();
+  });
+});
+
+describe("RECURRING_ADDONS — AI_COPILOT", () => {
+  it("resolves by add-on key with the correct price + currency", () => {
+    const descriptor = getRecurringAddon("AI_COPILOT");
+
+    expect(descriptor).toMatchObject({
+      sku: "AI_COPILOT",
+      amount: 11.0,
+      currency: "AUD",
+      interval: "month",
+      subscriptionType: "ai_copilot_addon",
+    });
+  });
+
+  it("resolves in reverse by the subscription-metadata marker", () => {
+    const descriptor = getRecurringAddonBySubscriptionType("ai_copilot_addon");
+
+    expect(descriptor?.sku).toBe("AI_COPILOT");
+  });
+
+  it("is flat, not per-seat — every technician on the workspace is covered", () => {
+    expect(getRecurringAddon("AI_COPILOT")?.perSeat).toBeUndefined();
+  });
+});
+
+/**
+ * Registry-wide invariants. The per-SKU blocks above each prove ONE entry
+ * resolves; neither of these two failures would show up in any of them.
+ */
+describe("RECURRING_ADDONS — registry invariants", () => {
+  // A SKU can exist in the Prisma enum, be gated by requireAddon(), and have NO
+  // registry entry. Nothing breaks at build time: getRecurringAddon() returns
+  // undefined and the checkout route treats that as "fall through to the
+  // one-time path". The result is an add-on that gates a surface but cannot be
+  // bought — a dead end reachable only by a customer trying to pay.
+  it("registers every AddonSku, so no SKU can gate a surface it cannot sell", () => {
+    const unregistered = ADDON_SKUS.filter((sku) => !getRecurringAddon(sku));
+
+    expect(unregistered).toEqual([]);
+  });
+
+  // addon-registry.ts states the marker "MUST be globally unique across the
+  // registry so the reverse lookup is unambiguous" — and nothing enforced it.
+  // A duplicate makes getRecurringAddonBySubscriptionType() resolve whichever
+  // entry Object.entries reaches first, so a Stripe webhook for one add-on
+  // would activate a DIFFERENT one: the customer pays for A and is entitled
+  // to B. Silent, and only visible on the invoice.
+  it("keeps every subscription-metadata marker unique", () => {
+    const markers = ADDON_SKUS.map(
+      (sku) => getRecurringAddon(sku)?.subscriptionType,
+    ).filter((m): m is string => Boolean(m));
+
+    expect(new Set(markers).size).toBe(markers.length);
+  });
+
+  // TECHNICIAN_SEATS is the ONLY quantity-based add-on. Confirmed deliberate
+  // 2026-09-01: it stays per-seat while every other bolt-on is flat to the
+  // company. Asserted from both directions so neither drifts into the other.
+  it("keeps TECHNICIAN_SEATS the only per-seat add-on", () => {
+    const perSeat = ADDON_SKUS.filter(
+      (sku) => getRecurringAddon(sku)?.perSeat === true,
+    );
+
+    expect(perSeat).toEqual(["TECHNICIAN_SEATS"]);
   });
 });

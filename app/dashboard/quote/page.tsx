@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { dollarsToCents } from "@/lib/quotes/quote-calc";
+import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
 /* ─── Types ─── */
 
@@ -35,6 +36,11 @@ interface QuoteResponse {
   jobType: string;
   standardApplied: string;
   applicableStandards: string[];
+  safety?: {
+    mouldActive: boolean;
+    airMoverQty: number;
+    advisories: { severity: "critical" | "warning"; text: string }[];
+  };
   contractor: {
     businessName: string;
     abn: string;
@@ -115,6 +121,7 @@ const DEFAULT_FORM = {
   includeCallOut: true,
   includeAdminFee: true,
   includeThermalCamera: false,
+  mouldActive: false,
   clientName: "",
   clientAddress: "",
   clientPhone: "",
@@ -125,6 +132,7 @@ const DEFAULT_FORM = {
 /* ─── Component ─── */
 
 export default function QuotePage() {
+  const { treatment: gstTreatment } = useOrganizationGst();
   const router = useRouter();
   const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -134,6 +142,21 @@ export default function QuotePage() {
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [savedEstimateId, setSavedEstimateId] = useState<string | null>(null);
   const [savedInvoiceId, setSavedInvoiceId] = useState<string | null>(null);
+
+  /**
+   * A critical advisory means the quote AS CONFIGURED is unsafe to act on --
+   * Phase 1 air movers priced over active mould, which S520 forbids.
+   *
+   * Saving is what turns a quote into a document someone works from, so it is
+   * blocked rather than merely warned about: an advisory you can click straight
+   * past is decoration. Print is deliberately left alone -- that is the operator
+   * reading their own screen, not creating a record. Fix the conflict by pricing
+   * the air movers to Phase 2 or correcting the mould flag, and the buttons
+   * return.
+   */
+  const hasCriticalSafetyConflict = Boolean(
+    quoteResult?.safety?.advisories?.some((a) => a.severity === "critical"),
+  );
 
   const updateField = (field: string, value: string | number | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -227,7 +250,7 @@ export default function QuotePage() {
         category: "Quote",
         quantity: li.qty,
         unitPrice: dollarsToCents(li.rate),
-        gstRate: 10,
+        gstRate: gstTreatment.ratePercent,
       }));
       // If minimum charge padded the subtotal without a matching line, add a top-up line
       const linesEx = lineItems.reduce(
@@ -241,7 +264,7 @@ export default function QuotePage() {
           category: "Quote",
           quantity: 1,
           unitPrice: targetEx - linesEx,
-          gstRate: 10,
+          gstRate: gstTreatment.ratePercent,
         });
       }
 
@@ -547,6 +570,14 @@ export default function QuotePage() {
                 checked={form.includeThermalCamera}
                 onChange={(v) => updateField("includeThermalCamera", v)}
               />
+              {/* Job type alone cannot express a WATER job with mould growth,
+                  which is the case most likely to be mis-priced -- nobody
+                  relabels a burst-pipe claim as a "mould job". */}
+              <CheckboxField
+                label="Active mould on this job"
+                checked={form.mouldActive}
+                onChange={(v) => updateField("mouldActive", v)}
+              />
             </div>
           </Section>
 
@@ -573,7 +604,12 @@ export default function QuotePage() {
               <button
                 type="button"
                 onClick={handleSaveEstimate}
-                disabled={savingEstimate}
+                disabled={savingEstimate || hasCriticalSafetyConflict}
+                title={
+                  hasCriticalSafetyConflict
+                    ? "Resolve the safety conflict above before saving this quote as a document."
+                    : undefined
+                }
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 disabled:opacity-50"
               >
                 {savingEstimate ? (
@@ -586,7 +622,12 @@ export default function QuotePage() {
               <button
                 type="button"
                 onClick={handleCreateInvoiceDraft}
-                disabled={savingInvoice}
+                disabled={savingInvoice || hasCriticalSafetyConflict}
+                title={
+                  hasCriticalSafetyConflict
+                    ? "Resolve the safety conflict above before creating an invoice from this quote."
+                    : undefined
+                }
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-800 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 dark:bg-slate-900 dark:text-white dark:border-slate-600 disabled:opacity-50"
               >
                 {savingInvoice ? (
@@ -685,6 +726,43 @@ export default function QuotePage() {
                 </p>
               </div>
             </div>
+
+            {/* RA-7005 safety reconciliation. Shown ABOVE the priced lines
+                because a critical advisory means the quote as configured must
+                not be sent -- pricing Phase 1 air movers over active mould is
+                what reconcile-pricing-safety.ts calls remediation negligence
+                (S520). Burying it under the total would make it a footnote. */}
+            {quoteResult.safety?.advisories &&
+              quoteResult.safety.advisories.length > 0 && (
+                <div className="space-y-2">
+                  {quoteResult.safety.advisories.map((advisory, i) => (
+                    <div
+                      key={i}
+                      role="alert"
+                      className={
+                        advisory.severity === "critical"
+                          ? "rounded-md border border-red-300 bg-red-50 p-3 dark:border-red-800/60 dark:bg-red-950/30"
+                          : "rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-800/60 dark:bg-amber-950/30"
+                      }
+                    >
+                      <p
+                        className={
+                          advisory.severity === "critical"
+                            ? "text-xs font-semibold uppercase tracking-wider text-red-700 dark:text-red-400"
+                            : "text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400"
+                        }
+                      >
+                        {advisory.severity === "critical"
+                          ? "Do not send — safety conflict"
+                          : "Check before sending"}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                        {advisory.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
 
             {/* Client & Job Info */}
             <div className="grid grid-cols-2 gap-6">
@@ -790,7 +868,7 @@ export default function QuotePage() {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
-                  <span>GST (10%)</span>
+                  <span>GST</span>
                   <span>{fmt(quoteResult.gst)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold border-t-2 border-slate-300 dark:border-slate-600 pt-2 text-slate-900 dark:text-white">

@@ -27,6 +27,7 @@ import {
   syncNIRToSpecificIntegration,
   type NIRJobPayload,
 } from "@/lib/integrations/nir-sync-orchestrator";
+import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,17 +92,22 @@ export async function POST(request: NextRequest) {
       0,
     );
     const fallback = report.totalCost ?? 0;
+    const gstTreatment = await resolveUserGstTreatment(session.user.id);
 
     const totalExGST = Math.round(
       (totalExGSTDollars > 0 ? totalExGSTDollars : fallback) * 100,
     );
     const totalIncGST = Math.round(
-      (totalIncGSTDollars > 0 ? totalIncGSTDollars : fallback * 1.1) * 100,
+      (totalIncGSTDollars > 0
+        ? totalIncGSTDollars
+        : fallback * (1 + gstTreatment.rate)) * 100,
     );
     const gstAmount = totalIncGST - totalExGST;
 
     const payload: NIRJobPayload = {
       reportId: report.id,
+      country: gstTreatment.country,
+      currency: gstTreatment.currency,
       clientName: report.client?.name ?? report.clientName,
       clientEmail: report.client?.email ?? undefined,
       clientPhone: report.client?.phone ?? undefined,
@@ -127,7 +133,7 @@ export async function POST(request: NextRequest) {
           (costEstimates.find((ce) => ce.scopeItemId === item.id)?.rate ?? 0) *
             100,
         ),
-        gstRate: 10,
+        gstRate: gstTreatment.ratePercent,
         subtotalExGST: Math.round(
           (costEstimates.find((ce) => ce.scopeItemId === item.id)?.subtotal ??
             0) * 100,
@@ -147,7 +153,13 @@ export async function POST(request: NextRequest) {
     };
 
     const results = targetIntegrationId
-      ? [await syncNIRToSpecificIntegration(targetIntegrationId, payload)]
+      ? [
+          await syncNIRToSpecificIntegration(
+            session.user.id,
+            targetIntegrationId,
+            payload,
+          ),
+        ]
       : await syncNIRToAllConnectedIntegrations(session.user.id, payload);
 
     return NextResponse.json({

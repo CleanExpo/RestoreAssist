@@ -706,6 +706,7 @@ export function SketchEditor({
           defaultAddress={propertyAddress}
           defaultPostcode={propertyPostcode}
           inspectionId={inspectionId}
+          floorNumber={activeFloor?.floorNumber ?? 0}
           onApply={handleApplyBackground}
           onClear={handleClearBackground}
           hasBackground={!!backgroundUrls[activeFloor?.id ?? ""]}

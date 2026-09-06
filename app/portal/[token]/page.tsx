@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
-import { verifyPortalToken } from "@/lib/portal-token";
-import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
+import { resolvePortalInspectionId } from "@/lib/portal/resolve-portal-inspection";
 import { prisma } from "@/lib/prisma";
-import { resolveAreaSqm } from "@/lib/units";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
 import { ClientPortalAuthorities } from "@/components/portal/ClientPortalAuthorities";
@@ -12,21 +10,11 @@ import {
   PortalContentSections,
 } from "@/components/portal/PortalContentHub";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
-
-const CATEGORY_COLOURS: Record<string, string> = {
-  "1": "bg-success-subtle text-success-subtle-foreground",
-  "2": "bg-warning-subtle text-warning-subtle-foreground",
-  "3": "bg-orange-100 text-orange-800",
-  "4": "bg-destructive-subtle text-destructive-subtle-foreground",
-  A: "bg-info-subtle text-info-subtle-foreground",
-  B: "bg-purple-100 text-purple-800",
-  C: "bg-pink-100 text-pink-800",
-};
-
-function categoryBadge(category: string | null): string {
-  if (!category) return "bg-slate-100 text-slate-600";
-  return CATEGORY_COLOURS[category] ?? "bg-slate-100 text-slate-600";
-}
+import { requireAddonForWorkspace } from "@/lib/entitlements";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { CLIENT_EDUCATION_SKU } from "@/lib/billing/client-education-addon";
+import { fetchTechnicianIdentity } from "@/lib/portal/fetch-technician-identity";
+import { TechnicianIdentityCard } from "@/components/portal/TechnicianIdentityCard";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -35,37 +23,12 @@ interface PageProps {
 export default async function ClientPortalPage({ params }: PageProps) {
   const { token } = await params;
 
-  // ─── Lookup order (RA-4861 deliberation short-circuit #1) ─────────────
-  // 1. First try the new ClientPortalAccount table — revocable,
-  //    rotatable, client-scoped tokens. When this hits we surface the
-  //    client's most-recent inspection so the existing rich timeline UI
-  //    still renders against real data instead of changing shape.
-  // 2. Fall back to the legacy HMAC inspection-scoped tokens minted by
-  //    `lib/portal-token.ts` + `/api/portal/generate`. Existing links
-  //    in the wild MUST keep working — they're emailed with up to a
-  //    7-day TTL.
-  // 3. If neither resolves, render the framework 404 (notFound()).
-  //    The legacy "Link Expired" friendly card remains below for the
-  //    legacy-path miss case (verified but inspection deleted).
-  let inspectionId: string | null = null;
-
-  const portalAccount = await lookupPortalAccount(token);
-  if (portalAccount) {
-    // Inspection has no direct `clientId` — it links to Client through
-    // `Report.clientId` (1:0..1 between Report and Inspection). Pick
-    // the newest Inspection whose Report points at this Client.
-    const latest = await prisma.inspection.findFirst({
-      where: { report: { clientId: portalAccount.clientId } },
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
-    });
-    inspectionId = latest?.id ?? null;
-  }
-
-  if (!inspectionId) {
-    const verified = verifyPortalToken(token);
-    if (verified) inspectionId = verified.inspectionId;
-  }
+  // Token -> inspection. The lookup order (ClientPortalAccount first, legacy
+  // HMAC tokens second) lives in resolvePortalInspectionId so the /learn kiosk
+  // resolves identically — see that file for why it is shared rather than
+  // copied. If neither path resolves, the framework 404 renders; the friendly
+  // "Link Expired" card below still covers the legacy hit-but-deleted case.
+  const inspectionId = await resolvePortalInspectionId(token);
 
   if (!inspectionId) {
     notFound();
@@ -74,9 +37,17 @@ export default async function ClientPortalPage({ params }: PageProps) {
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
     include: {
-      affectedAreas: true,
+      affectedAreas: {
+        select: {
+          id: true,
+          roomZoneId: true,
+        },
+      },
       scopeItems: {
         where: { isSelected: true },
+        select: {
+          id: true,
+        },
       },
       report: {
         select: { status: true, id: true },
@@ -113,9 +84,49 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
   const reportReady = inspection.report?.status === "COMPLETED";
 
-  const portalArticles = await fetchPublishedPortalContent("customer").catch(
-    () => [],
-  );
+  // CLIENT_EDUCATION add-on gate.
+  //
+  // This page has NO session user — the homeowner opens it from a token link —
+  // so the user-keyed requireAddon() cannot be used, and reaching for the
+  // technician's id would be wrong anyway: the add-on belongs to the firm that
+  // owns the job, not to whoever is assigned to it. Resolve the entitlement the
+  // way the job itself is owned: token -> Inspection -> owner -> workspace.
+  //
+  // FAILS CLOSED. Any error here (no workspace, database blip) yields the FREE
+  // article set, never the paid one. The opposite direction would leak the
+  // add-on's content on a transient fault and nothing would look wrong on the
+  // page — it would simply be fuller than the firm had paid for.
+  //
+  // An unentitled client sees the free explainers and no upsell: they are not
+  // the buyer, and a 402 about their restorer's billing is not their problem.
+  const educationEntitled = await (async () => {
+    try {
+      const workspace = await getWorkspaceForUser(inspection.userId);
+      if (!workspace) return false;
+      const gate = await requireAddonForWorkspace(
+        workspace.id,
+        CLIENT_EDUCATION_SKU,
+      );
+      return gate.allowed;
+    } catch {
+      return false;
+    }
+  })();
+
+  const portalArticles = await fetchPublishedPortalContent("customer", {
+    includeAddonContent: educationEntitled,
+  }).catch(() => []);
+
+  // The identity card rides on the same add-on as the library. Nothing is taken
+  // away by gating it: the technician's NAME has always been shown above and
+  // still is, entitled or not, so a client is never left wondering who is at
+  // their door. The add-on adds the photo, biography and checkable credentials.
+  const technician = educationEntitled
+    ? await fetchTechnicianIdentity(
+        inspection.technicianId,
+        inspection.technicianName,
+      ).catch(() => null)
+    : null;
 
   const org = inspection.user.organization;
 
@@ -212,23 +223,9 @@ export default async function ClientPortalPage({ params }: PageProps) {
                   <span className="text-sm text-slate-700">
                     {area.roomZoneId}
                   </span>
-                  <div className="flex items-center gap-2">
-                    {area.category && (
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryBadge(area.category)}`}
-                      >
-                        Cat {area.category}
-                      </span>
-                    )}
-                    {area.class && (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600">
-                        Class {area.class}
-                      </span>
-                    )}
-                    <span className="text-xs text-slate-400">
-                      {resolveAreaSqm(area).toFixed(1)} m²
-                    </span>
-                  </div>
+                  <span className="text-xs text-slate-500">
+                    Included in the restoration plan
+                  </span>
                 </li>
               ))}
             </ul>
@@ -261,7 +258,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
                       clipRule="evenodd"
                     />
                   </svg>
-                  {item.description}
+                  Restoration work item included
                 </li>
               ))}
             </ul>
@@ -292,6 +289,11 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
         {/* Client evidence upload — photos + a note (quarantined for staff review) */}
         <ClientPortalUpload token={token} />
+
+        {/* Who is in your home. Falls back to the bare name above when the
+            technician is not linked to a profile, or has opted out of being
+            shown publicly. */}
+        {technician && <TechnicianIdentityCard technician={technician} />}
 
         <PortalAboutSection
           logoUrl={org?.logoUrl}

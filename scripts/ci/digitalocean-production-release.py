@@ -34,6 +34,29 @@ SAFE_RECEIPT_ENV_VALUES = {
     "NEXTAUTH_URL",
     "TENANT_DATABASE_PROVISIONING_ENABLED",
 }
+# READINESS, NOT DRIFT -- and the timings are half the contract.
+#
+# This validator used to exact-match {"http_path": "/api/health/migrations"},
+# which did two damaging things at once. It pinned the probe to a
+# migration-drift watchdog, so any drift failed the deployment and rolled it
+# back -- including the deploy that would have FIXED the drift. And because it
+# was an equality check against a single-key dict, it also REQUIRED the timing
+# fields to be absent, forcing App Platform's defaults: a 1-second timeout with
+# no startup grace, against an endpoint that opens a database connection on a
+# basic-xxs instance.
+#
+# So the guard meant to protect the release path was enforcing the exact
+# configuration that broke every deploy. It now requires the readiness probe
+# and a floor under each timing. A floor rather than an equality check, so
+# raising a timeout is not a contract break. Kept in step with
+# scripts/ci/render-production-app-spec.mjs, which applies the same minimums.
+HEALTH_CHECK_PATH = "/api/health"
+HEALTH_CHECK_MINIMUMS = {
+    "initial_delay_seconds": 30,
+    "period_seconds": 5,
+    "timeout_seconds": 5,
+    "failure_threshold": 3,
+}
 APPROVED_ENV = {
     "NODE_ENV": {"value": "production"},
     "ALLOWED_APP_HOSTS": {
@@ -234,8 +257,25 @@ def validate_release_spec(
         or image.get("registry_credentials") in ("", "${GHCR_PULL_CREDENTIALS}", "[REDACTED]")
     ):
         raise RuntimeError("DigitalOcean services/web image source is not exact and immutable")
-    if service.get("health_check") != {"http_path": "/api/health/migrations"}:
-        raise RuntimeError("DigitalOcean services/web health contract drifted")
+    health_check = service.get("health_check")
+    if not isinstance(health_check, dict):
+        raise RuntimeError("DigitalOcean services/web has no health check object")
+    if health_check.get("http_path") != HEALTH_CHECK_PATH:
+        raise RuntimeError(
+            "DigitalOcean services/web health check must probe "
+            f"{HEALTH_CHECK_PATH}; observed {health_check.get('http_path')!r}"
+        )
+    for key, minimum in HEALTH_CHECK_MINIMUMS.items():
+        observed = health_check.get(key)
+        if (
+            not isinstance(observed, int)
+            or isinstance(observed, bool)
+            or observed < minimum
+        ):
+            raise RuntimeError(
+                f"DigitalOcean services/web health check {key} must be an "
+                f"integer >= {minimum}; observed {observed!r}"
+            )
     if (
         service.get("instance_count") != 1
         or service.get("instance_size_slug") != "basic-xxs"

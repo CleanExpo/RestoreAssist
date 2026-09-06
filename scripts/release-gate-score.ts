@@ -20,6 +20,13 @@ import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import {
+  sourceTreeDigest,
+  trustedKeysFromEnv,
+  verifyReleaseReceipt,
+} from "./ci/release-receipt";
+import { A1_JOURNEY_STEPS } from "./ci/producers/a1-core-journeys";
+
 type CriterionStatus = "pass" | "fail" | "skip";
 export type ReleaseProfile = "web" | "mobile";
 
@@ -101,7 +108,7 @@ function sectionBodyFrom(lines: string[], start: number): string {
   return lines.slice(start + 1, end).join("\n").trim();
 }
 
-function markdownSection(body: string, heading: string): string | null {
+export function markdownSection(body: string, heading: string): string | null {
   const lines = body.replace(/\r\n/g, "\n").split("\n");
   const start = lines.findIndex(
     (line) => line.trim().toLowerCase() === `## ${heading.toLowerCase()}`,
@@ -354,11 +361,44 @@ export function ownerEvidence(
       detail: `evidence criterion mismatch: expected ${criterionId}`,
     };
   }
-  if (releaseSha !== expectedSha || !/^[0-9a-f]{40}$/i.test(releaseSha ?? "")) {
+  if (!/^[0-9a-f]{40}$/i.test(releaseSha ?? "")) {
     return {
       status: "fail",
-      detail: `evidence release_sha is not bound to HEAD ${expectedSha}`,
+      detail: "evidence release_sha must be a full 40-character commit SHA",
     };
+  }
+  // BOUND TO THE SOURCE, NOT TO HEAD.
+  //
+  // This required `release_sha === HEAD`, which is the same catch-22 the
+  // receipt binding had: release-receipt.yml commits each receipt to `main`,
+  // moving HEAD, so every evidence file went stale the moment any receipt was
+  // recorded -- and each further receipt re-staled the rest.
+  //
+  // Comparing the SOURCE digest keeps the property that matters (evidence
+  // written against different source is rejected) while letting evidence about
+  // the source survive the act of recording it. Any change to a non-evidence
+  // file still invalidates every file.
+  if (releaseSha !== expectedSha) {
+    let sameSource = false;
+    try {
+      sameSource =
+        sourceTreeDigest(releaseSha as string, ROOT) ===
+        sourceTreeDigest(expectedSha, ROOT);
+    } catch {
+      // A SHA this checkout does not contain cannot be compared. That is a
+      // rejection, not a pass, and it is reported distinctly so a shallow
+      // clone is not mistaken for stale evidence.
+      return {
+        status: "fail",
+        detail: `evidence release_sha ${releaseSha} is not resolvable in this checkout`,
+      };
+    }
+    if (!sameSource) {
+      return {
+        status: "fail",
+        detail: `evidence release_sha ${releaseSha} names source that differs from HEAD ${expectedSha}`,
+      };
+    }
   }
   if (!owner || !reviewer || owner === reviewer) {
     return {
@@ -419,17 +459,11 @@ export function ownerEvidence(
     };
   }
   const criterionTerms: Record<string, string[]> = {
-    "A1-core-journeys": [
-      "signup",
-      "login",
-      "onboarding",
-      "storage setup",
-      "restore",
-      "inspection",
-      "claim",
-      "attest",
-      "pdf",
-    ],
+    // One owner for this list: scripts/ci/producers/a1-core-journeys.ts.
+    // It was duplicated here, and a criterion whose step list can drift
+    // between the thing that measures it and the thing that scores it can
+    // disagree with itself without either side being obviously wrong.
+    "A1-core-journeys": [...A1_JOURNEY_STEPS],
     "E3-release-rollback-plan": [
       "app review",
       "release",
@@ -476,13 +510,48 @@ export function ownerEvidence(
     };
   }
   // A hash of prose proves only that the prose did not change; it does not
-  // prove the external observation. Until each owner criterion has a signed,
-  // machine-verifiable producer and verifier, it must earn zero release points.
+  // prove the external observation. What earns points is a signed receipt from
+  // a producer the owner trusts, verified against THIS checkout -- see
+  // scripts/ci/release-receipt.ts and the "Unresolved signed-receipt producers"
+  // section of docs/RELEASE_GATE.md.
+  //
+  // Absent such a receipt the criterion still scores zero, exactly as before.
+  // That is the fail-closed default and it is load-bearing: no committed file,
+  // however well-formed, can move the score on its own.
+  const receiptPath = path.join(dir, `${criterionId}.receipt.json`);
+  if (!fs.existsSync(receiptPath)) {
+    return {
+      status: "fail",
+      detail:
+        `owner evidence is structurally complete but not machine-verifiable: ${criterionId}.md; ` +
+        "a signed criterion-specific receipt verifier is required",
+    };
+  }
+  const verified = verifyReleaseReceipt(
+    fs.readFileSync(receiptPath, "utf8"),
+    {
+      criterionId,
+      gateVersion,
+      releaseSha: expectedSha,
+      releaseTree: gitTree(),
+      evidenceDigest: `sha256:${createHash("sha256").update(evidenceSection).digest("hex")}`,
+      maxAgeDays: EVIDENCE_MAX_AGE_DAYS,
+      // Active only in CI, where GITHUB_REPOSITORY is trustworthy. Locally
+      // there is nothing to compare against and inventing a value would be
+      // theatre; the workflow and ref checks still apply either way.
+      repository: process.env.GITHUB_REPOSITORY,
+    },
+    trustedKeysFromEnv(),
+  );
+  if (!verified.ok) {
+    return {
+      status: "fail",
+      detail: `signed receipt rejected for ${criterionId}: ${verified.message}`,
+    };
+  }
   return {
-    status: "fail",
-    detail:
-      `owner evidence is structurally complete but not machine-verifiable: ${criterionId}.md; ` +
-      "a signed criterion-specific receipt verifier is required",
+    status: "pass",
+    detail: `signed receipt verified for ${criterionId} against ${expectedSha.slice(0, 12)}`,
   };
 }
 
@@ -901,8 +970,15 @@ export const CRITERIA: Criterion[] = [
     points: 5,
     kind: "owner-evidence",
     profiles: ALL_PROFILES,
+    // Was "Vercel Observability alert rules configured for auth/billing/restore".
+    // That named the wrong platform: production is DigitalOcean App Platform
+    // (.do/app.yaml binds restoreassist.app), and the only Vercel project
+    // linked to this repository is restoreassist-sandbox, which does not serve
+    // that domain. Three alert rules there would have satisfied the old wording
+    // while watching preview deployments. The criterion itself, as its evidence
+    // file states it, was always platform-neutral.
     description:
-      "Vercel Observability alert rules configured for auth/billing/restore",
+      "Monitoring and alerting configured for auth failures, billing webhook errors, and restore/job failures",
     run: () => ownerEvidence("F1-monitoring-alerting", GATE_VERSION),
   },
   {
@@ -919,6 +995,22 @@ export const CRITERIA: Criterion[] = [
 function gitSha(): string {
   try {
     return execSync("git rev-parse HEAD", { cwd: ROOT }).toString().trim();
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * HEAD's tree. Bound alongside the commit because the tree is what a scan
+ * actually reads: a receipt cannot then be carried across a rebase that keeps
+ * the content but changes the SHA, nor reused on a commit with different
+ * content.
+ */
+function gitTree(): string {
+  try {
+    return execSync("git rev-parse HEAD^{tree}", { cwd: ROOT })
+      .toString()
+      .trim();
   } catch {
     return "unknown";
   }

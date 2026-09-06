@@ -33,6 +33,7 @@ owner; do not re-derive the value.
 | IICRC citations | `standardCite()` in `lib/nir-standards-mapping.ts` | a hand-typed edition or year |
 | Brand colour | `app/globals.css` `--color-brand-*` | a hex literal in a component |
 | Room identity | `SketchRoom`, keyed by `fabricObjectId` | a free-text room name column |
+| Stripe API version | `STRIPE_API_VERSION` in `lib/stripe.ts` | a second `apiVersion:` literal; one drifted four versions behind unnoticed |
 
 ## Costly to get wrong here
 

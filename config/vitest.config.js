@@ -22,6 +22,8 @@ export default {
       "app/billing/**/__tests__/**/*.test.tsx",
       "app/capture/**/__tests__/**/*.test.tsx",
       "app/dashboard/**/__tests__/**/*.test.tsx",
+      "app/portal/**/__tests__/**/*.test.ts",
+      "app/portal/**/__tests__/**/*.test.tsx",
       "app/__tests__/**/*.test.tsx",
       "data/content/videos/__tests__/**/*.test.ts",
     ],
@@ -36,6 +38,10 @@ export default {
   },
   resolve: {
     alias: {
+      // Next.js replaces this marker during its build. Vitest runs outside the
+      // Next resolver, so map it to a no-op test module instead of making every
+      // server-only caller fail during collection.
+      "server-only": resolve(repoRoot, "test/stubs/server-only.ts"),
       "@/content": resolve(repoRoot, "data/content"),
       "@": repoRoot,
     },

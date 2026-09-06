@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  AUTHORITY_FORM_RENDER_INCLUDE,
+  renderAuthorityFormPdf,
+} from "@/lib/documents/render-authority-form";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { apiError, fromException } from "@/lib/api-errors";
 import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
@@ -16,7 +20,6 @@ import {
 } from "@/lib/reports/ai-ownership";
 import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
 import { aiOwnershipExportMeta } from "@/lib/reports/ai-ownership-export-meta";
-
 
 /**
  * RA-7003: the "complete package" previously contained only the three text
@@ -48,6 +51,22 @@ async function appendArtifactsToPackage(
           renderedPngUrl: true,
           sketchData: true,
           moisturePoints: true,
+          underlayReferences: {
+            select: { verifiedAt: true, verificationJson: true },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+          inspection: {
+            select: {
+              sketchUnderlayReferences: {
+                select: {
+                  floorNumber: true,
+                  verifiedAt: true,
+                  verificationJson: true,
+                },
+              },
+            },
+          },
         },
         orderBy: { floorNumber: "asc" },
         take: 20,
@@ -81,9 +100,16 @@ async function appendArtifactsToPackage(
     }
   }
 
+  // No `pdfUrl` filter. That column is read here and in lib/exports/job-package-zip.ts
+  // and written NOWHERE — nothing in the codebase assigns it — so this query
+  // matched zero rows on every job that has ever run, and no signed
+  // authorisation was ever appended to an export package. The pages are
+  // rendered here instead, through the same shared renderer the download
+  // endpoint uses, which also removes an outbound HTTP request the export was
+  // making to fetch back data it already had.
   const signedForms = await prisma.authorityFormInstance.findMany({
-    where: { reportId: report.id, status: "COMPLETED", pdfUrl: { not: null } },
-    select: { id: true, pdfUrl: true },
+    where: { reportId: report.id, status: "COMPLETED" },
+    include: AUTHORITY_FORM_RENDER_INCLUDE,
     take: 50,
   });
   if (signedForms.length > 0) {
@@ -91,15 +117,12 @@ async function appendArtifactsToPackage(
       const target = await PDFDocument.load(bytes);
       for (const form of signedForms) {
         try {
-          const response = await fetch(form.pdfUrl!);
-          if (!response.ok) continue;
-          const source = await PDFDocument.load(await response.arrayBuffer());
-          const pages = await target.copyPages(
-            source,
-            source.getPageIndices(),
-          );
+          const { bytes: formBytes } = await renderAuthorityFormPdf(form);
+          const source = await PDFDocument.load(formBytes);
+          const pages = await target.copyPages(source, source.getPageIndices());
           pages.forEach((page) => target.addPage(page));
         } catch (err) {
+          // One unrenderable form must not cost the whole package.
           console.error(
             `[export-package] authority form ${form.id} skipped:`,
             err,

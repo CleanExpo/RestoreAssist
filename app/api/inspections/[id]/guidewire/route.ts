@@ -33,6 +33,8 @@ import {
 } from "@/lib/nir-guidewire-integration";
 import { getPropertyLocationFlags } from "@/lib/nir-location-services";
 import { standardEdition } from "@/lib/nir-standards-mapping";
+import { getNccEdition } from "@/lib/anz/ncc-edition";
+import { stateFromPostcode } from "@/lib/anz/postcode-state";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -294,14 +296,25 @@ export function buildNirReportOutput(
       : ref.startsWith("IICRC S700")
         ? ("IICRC S700" as const)
         : ref.startsWith("NCC")
-          ? ("NCC 2022" as const)
+          ? ("NCC" as const)
           : ("IICRC S500" as const),
     edition: ref.startsWith("IICRC S520")
       ? standardEdition("S520")
       : ref.startsWith("IICRC S700")
         ? standardEdition("S700")
         : ref.startsWith("NCC")
-          ? standardEdition("NCC")
+          ? // Resolve from the property's own state and inspection date. An earlier
+            // revision of this comment claimed no state was available and cited
+            // RA-1120; that was wrong on both counts — this route already derives
+            // the state from the postcode, and propertyCountry landed in RA-6996.
+            (getNccEdition(
+              inspection.propertyCountry === "NZ"
+                ? "NZ"
+                : stateFromPostcode(inspection.propertyPostcode),
+              inspection.inspectionDate
+                ? new Date(inspection.inspectionDate).toISOString().slice(0, 10)
+                : undefined,
+            ) ?? "")
           : standardEdition("S500"),
     clauseRef: ref,
     fieldName: "Water category / class classification",

@@ -129,3 +129,54 @@ describe("every other guard is still present and ordered", () => {
     expect(parsed.jobs.deploy.needs).toBe("build");
   });
 });
+
+describe("the App Platform health check is a readiness probe", () => {
+  /**
+   * Production served a build older than the `deploymentSha` field for weeks
+   * while every image build went green. The spec named only `http_path`, and
+   * pointed it at `/api/health/migrations` -- a migration-drift watchdog whose
+   * own docstring calls it a probe for "UptimeRobot, manual probe".
+   *
+   * Two failures in one line. It answers the wrong question: a container can
+   * serve traffic perfectly while the database ledger has drift, and that
+   * endpoint returns 503 on any drift and 504 when slow -- so App Platform
+   * fails the deployment and rolls back. And it deadlocks, because the deploy
+   * that would FIX the drift can never go green while the drift exists.
+   *
+   * Omitting the timings is the other half: App Platform then applies its
+   * defaults -- a 1-second timeout with no startup grace -- against an endpoint
+   * that opens a database connection, on a basic-xxs instance.
+   *
+   * These assertions live HERE rather than in
+   * scripts/ci/__tests__/production-deployment-blocked.test.mjs because that
+   * file is a .test.mjs and config/vitest.config.js never runs it. A guard on
+   * the production release path that CI does not execute is the thing this
+   * whole file exists to correct.
+   */
+  const spec = () =>
+    parse(readFileSync(join(ROOT, ".do", "app.yaml"), "utf8")) as {
+      services: Array<{
+        health_check?: Record<string, unknown>;
+      }>;
+    };
+
+  it("probes readiness, not migration drift", () => {
+    expect(spec().services[0].health_check?.http_path).toBe("/api/health");
+  });
+
+  it("never points the probe back at the drift watchdog", () => {
+    // Stated separately from the assertion above so the reason survives: this
+    // is the exact value that blocked every deploy.
+    expect(spec().services[0].health_check?.http_path).not.toBe(
+      "/api/health/migrations",
+    );
+  });
+
+  it("sets its own timings rather than inheriting a one-second default", () => {
+    const health = spec().services[0].health_check ?? {};
+    expect(health.initial_delay_seconds).toBeGreaterThanOrEqual(30);
+    expect(health.timeout_seconds).toBeGreaterThanOrEqual(5);
+    expect(health.failure_threshold).toBeGreaterThanOrEqual(3);
+    expect(health.period_seconds).toBeGreaterThanOrEqual(5);
+  });
+});

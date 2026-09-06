@@ -24,6 +24,10 @@ import {
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  asbestosEraBasis,
+  presumeAsbestosFromEra,
+} from "@/lib/compliance/asbestos-era";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -139,12 +143,30 @@ export async function POST(
 
     const data = parsed.data;
 
-    // Warn if asbestos risk is present in a pre-1990 property but not acknowledged
+    // Warn when the property pre-dates the asbestos presumption year and the
+    // risk has not been acknowledged.
+    //
+    // This read `< 1990`, which is the wrong year and not by a little. 1990 is
+    // the Queensland asbestos-REGISTER exemption date; the registry entry
+    // asbestos.register-exemption.qld describes it as an administrative
+    // record-keeping rule and states outright: "Applying this date as a national
+    // safety threshold is the defect this registry was built to stop." Australia
+    // prohibited asbestos in workplaces from 31 December 2003, so the
+    // presumption year is 2004 (asbestos.presumption-year.au).
+    //
+    // Every property built 1990-2003 therefore got NO warning here, and a missing
+    // warning is indistinguishable from a property that was checked and cleared.
+    //
+    // "AU" is passed deliberately rather than resolved from the inspection: this
+    // record IS the Australian compliance overlay (AustralianComplianceRecord),
+    // so the Australian year is the right one by the record's own definition.
+    // That is not the same as the hardcoded "AU" in nzbs-compliance-gate.ts,
+    // which stands in for a country nobody threaded through.
+    const asbestosEra = asbestosEraBasis("AU");
     const asbestosWarning =
-      data.propertyYearBuilt != null &&
-      data.propertyYearBuilt < 1990 &&
+      presumeAsbestosFromEra(data.propertyYearBuilt, "AU") &&
       data.asbestosRiskAcknowledged !== true
-        ? "Property built before 1990 — asbestos-containing materials must be assumed present until tested. Set asbestosRiskAcknowledged: true after review."
+        ? `Property built before ${asbestosEra.year} — asbestos-containing materials must be assumed present until tested. Set asbestosRiskAcknowledged: true after review.`
         : null;
 
     const record = await prisma.australianComplianceRecord.upsert({

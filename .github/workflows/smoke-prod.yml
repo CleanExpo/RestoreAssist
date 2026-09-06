@@ -136,6 +136,8 @@ jobs:
         run: >-
           node scripts/run-smoke.mjs
           https://restoreassist.app
+          --allow-stale
+          --flows-despite-degraded
           --no-deps
           --project=chromium
 

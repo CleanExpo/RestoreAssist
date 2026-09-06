@@ -1,0 +1,23 @@
+-- Add the AI_COPILOT value to the AddonSku enum.
+--
+-- Layer 2 of the Margot technician co-pilot (the live-teacher routes): a
+-- recurring $11/month add-on whose active FeatureEntitlement unlocks the
+-- co-pilot on the inspection screen.
+--
+-- Until now the co-pilot was gated ONLY on an active base subscription plus a
+-- workspace-supplied Anthropic key (app/api/live-teacher/turn/route.ts), so it
+-- was bundled into the $99 base plan for any workspace that brought a key.
+-- RestoreAssist is the CRM; every other function is a bolt-on, and the co-pilot
+-- is one.
+--
+-- Workspaces already using the co-pilot are grandfathered by
+-- scripts/grandfather-ai-copilot-addon.ts BEFORE the gate goes live, so this
+-- migration alone changes nothing a user can observe.
+--
+-- Additive + idempotent + deploy-safe:
+--   * ADD VALUE only extends the enum; no existing value is renamed or removed.
+--   * IF NOT EXISTS makes a replay a no-op (Postgres 12+).
+--   * Ordered after 20260705000000_ra_6922_feature_entitlement, which creates
+--     the AddonSku type, so the type always exists when this runs.
+
+ALTER TYPE "AddonSku" ADD VALUE IF NOT EXISTS 'AI_COPILOT';

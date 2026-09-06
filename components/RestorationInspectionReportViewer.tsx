@@ -251,6 +251,58 @@ interface RestorationInspectionReportViewerProps {
   data: RestorationInspectionReportData;
 }
 
+
+/**
+ * Turn a hazard-era flag into prose for a reader.
+ *
+ * The flag is produced by lib/reports/build-structured-report.ts and carries the
+ * year it was decided by ("PRE-2004_BUILDING"), precisely so that this sentence
+ * does not have to hold a copy of the threshold. It previously said
+ * "(pre-1990 building)" unconditionally, which was the wrong year and would
+ * have kept asserting it after the flag was corrected.
+ *
+ * Unrecognised values are passed through rather than guessed at.
+ */
+function describeHazardEra(flag: string): string {
+  const pre = /^PRE-(\d{4})_BUILDING$/.exec(flag);
+  if (pre) return `pre-${pre[1]} building`;
+  const post = /^POST-(\d{4})_NOT_CLEARED$/.exec(flag);
+  if (post) return `built after ${post[1]}, which is not a clearance`;
+  return flag;
+}
+
+/** True when the flag means the presumption applies, rather than merely not being a clearance. */
+function isPresumedHazard(flag: string | null): boolean {
+  return flag !== null && /^PRE-\d{4}_BUILDING$/.test(flag);
+}
+
+/** The bare year from a hazard-era flag, for sentences that read "pre-YYYY". */
+function hazardEraYear(flag: string): string {
+  const m = /^(?:PRE|POST)-(\d{4})(?:_BUILDING|_NOT_CLEARED)$/.exec(flag);
+  return m ? m[1] : "the presumption year";
+}
+
+/**
+ * What the lead year does NOT mean, said where the reader will see it.
+ *
+ * This qualifier used to say the year was borrowed from asbestos, which was
+ * true: leadRisk was derived from the asbestos presumption year because the
+ * registry held no lead domain. It now reads lead.presumption-year.au, so that
+ * warning is retired.
+ *
+ * The caveat that replaces it matters more, and comes from the cited guidance
+ * itself, which says a home built after its own presumption year may still
+ * carry lead paint where old, industrial or marine paints were used. Other
+ * Australian bodies state a later threshold again. Those divergent years are
+ * deliberately NOT repeated here -- they live in the requirement text of
+ * lead.presumption-year.au, and a copy in a component is a copy that goes stale
+ * without anyone noticing. A reader holding a report on a building just after
+ * the threshold must not read the absence of this flag as a clearance, and the
+ * code comment in lib/compliance/lead-era.ts is invisible to them.
+ */
+const LEAD_ERA_QUALIFIER =
+  "a presumption year, not a clearance line: other Australian guidance sets a later threshold, and newer buildings can still carry lead paint on earlier layers or repainted joinery";
+
 export default function RestorationInspectionReportViewer({
   data,
 }: RestorationInspectionReportViewerProps) {
@@ -292,6 +344,14 @@ export default function RestorationInspectionReportViewer({
   };
 
   // Generate detailed observations text
+  /**
+   * Bullet observations for the report's summary section.
+   *
+   * Hazard-era sentences take their year from the flag rather than holding a
+   * copy: the flag is "PRE-<year>_BUILDING" precisely so a threshold change has
+   * one place to happen. Lead additionally carries LEAD_ERA_QUALIFIER, because
+   * a build year after its presumption year is not a clearance.
+   */
   const generateObservations = () => {
     const observations: string[] = [];
 
@@ -321,14 +381,24 @@ export default function RestorationInspectionReportViewer({
       );
     }
 
+    // The basis comes from the flag itself. These sentences hardcoded
+    // "(pre-1990 building)", which was the wrong threshold and would have gone
+    // on asserting it to a reader even after the flag behind it was corrected --
+    // the flag now carries the year it was decided by.
     if (data.hazards.asbestosRisk) {
       observations.push(
-        "Potential asbestos risk identified (pre-1990 building)",
+        `Potential asbestos risk identified (${describeHazardEra(data.hazards.asbestosRisk)})`,
       );
     }
 
-    if (data.hazards.leadRisk) {
-      observations.push("Potential lead risk identified (pre-1990 building)");
+    if (isPresumedHazard(data.hazards.leadRisk)) {
+      observations.push(
+        `Potential lead risk identified (${describeHazardEra(data.hazards.leadRisk!)}; ${LEAD_ERA_QUALIFIER})`,
+      );
+    } else if (data.hazards.leadRisk) {
+      observations.push(
+        `Lead not presumed from building age (${describeHazardEra(data.hazards.leadRisk)}) — test before disturbing coatings`,
+      );
     }
 
     if (data.summary.estimatedDuration) {
@@ -363,6 +433,13 @@ export default function RestorationInspectionReportViewer({
   };
 
   // Generate professional narrative summary using standards-based language
+  /**
+   * The prose summary paragraph, assembled from whatever the job recorded.
+   *
+   * Same rule as generateObservations: no sentence here may hold its own copy
+   * of a regulatory year. Four sentences in this component did, and a report
+   * could print two different asbestos eras in one document as a result.
+   */
   const generateProfessionalSummary = () => {
     const summaryParts: string[] = [];
 
@@ -432,13 +509,17 @@ export default function RestorationInspectionReportViewer({
 
     if (data.hazards.asbestosRisk) {
       summaryParts.push(
-        `Given the building's age (pre-1990), potential asbestos-containing materials may be present, requiring assessment in accordance with Work Health and Safety Regulations 2011 before any demolition or structural work.`,
+        `Given the building's age (pre-${hazardEraYear(data.hazards.asbestosRisk)}), potential asbestos-containing materials may be present, requiring assessment in accordance with Work Health and Safety Regulations 2011 before any demolition or structural work.`,
       );
     }
 
-    if (data.hazards.leadRisk) {
+    if (isPresumedHazard(data.hazards.leadRisk)) {
       summaryParts.push(
-        `Lead-based materials may be present in this pre-1990 structure, necessitating appropriate safety measures per Work Health and Safety Regulations 2011.`,
+        `Lead-based materials may be present in this pre-${hazardEraYear(data.hazards.leadRisk!)} structure (${LEAD_ERA_QUALIFIER}), necessitating appropriate safety measures per Work Health and Safety Regulations 2011.`,
+      );
+    } else if (data.hazards.leadRisk) {
+      summaryParts.push(
+        `This structure was built after ${hazardEraYear(data.hazards.leadRisk)}, so lead-based paint is not presumed from its age alone. That is not a clearance: the guidance is explicit that later buildings can carry lead paint on earlier layers or repainted joinery, so test before disturbing coatings.`,
       );
     }
 
@@ -1902,15 +1983,15 @@ export default function RestorationInspectionReportViewer({
                         </p>
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
                           <strong>Compliance:</strong> Work Health and Safety
-                          Regulations 2011 (WHS) require asbestos assessment for
-                          pre-1990 buildings. Licensed asbestos assessor
-                          consultation recommended before any demolition or
-                          structural work.
+                          Regulations 2011 (WHS) require asbestos assessment
+                          for pre-{hazardEraYear(data.hazards.asbestosRisk)}{" "}
+                          buildings. Licensed asbestos assessor consultation
+                          recommended before any demolition or structural work.
                         </p>
                       </div>
                     </div>
                   )}
-                  {data.hazards.leadRisk && (
+                  {isPresumedHazard(data.hazards.leadRisk) && (
                     <div className="flex items-start gap-2">
                       <HardHat className="w-5 h-5 print:w-4 print:h-4 text-destructive mt-0.5 flex-shrink-0" />
                       <div>
@@ -1920,12 +2001,41 @@ export default function RestorationInspectionReportViewer({
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
                           <strong>Compliance:</strong> Work Health and Safety
                           Regulations 2011 (WHS) require lead assessment for
-                          pre-1990 buildings. Appropriate PPE and containment
-                          measures required.
+                          pre-{hazardEraYear(data.hazards.leadRisk!)} buildings.
+                          This is {LEAD_ERA_QUALIFIER}. Appropriate PPE and
+                          containment measures required.
                         </p>
                       </div>
                     </div>
                   )}
+                  {/*
+                    The building is later than the presumption year. That is NOT
+                    a clearance, and saying nothing here would let a reader treat
+                    the absence of a lead alert as one — the exact gap that
+                    collapsing this state into null created. Rendered in the
+                    neutral slate rather than the destructive red: it is a
+                    caveat, not a hazard finding.
+                  */}
+                  {data.hazards.leadRisk &&
+                    !isPresumedHazard(data.hazards.leadRisk) && (
+                      <div className="flex items-start gap-2">
+                        <HardHat className="w-5 h-5 print:w-4 print:h-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-semibold text-slate-900 text-base print:text-sm">
+                            Lead Not Presumed From Building Age
+                          </p>
+                          <p className="text-sm print:text-xs text-slate-600 mt-1">
+                            Built after {hazardEraYear(data.hazards.leadRisk)}, so
+                            lead-based paint is not presumed from age alone.{" "}
+                            <strong>This is not a clearance.</strong> The guidance
+                            is explicit that later buildings can still carry lead
+                            paint on earlier layers or repainted joinery, and other
+                            Australian bodies set a later threshold again. Test
+                            before disturbing coatings.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   {data.hazards.methamphetamineScreen && (
                     <div className="flex items-start gap-2">
                       <Shield className="w-5 h-5 print:w-4 print:h-4 text-destructive mt-0.5 flex-shrink-0" />

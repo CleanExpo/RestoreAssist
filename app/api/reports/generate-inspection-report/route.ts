@@ -25,6 +25,11 @@ import {
 import { localiseForAUNZ } from "@/lib/anz/localisation";
 import type { ChunkResult } from "@/lib/rag/retrieve";
 import { planDrying } from "@/lib/restoration/equipment-planner";
+import {
+  deriveMouldActive,
+  powerAssessmentFromInspection,
+  resolvePowerAssessment,
+} from "@/lib/restoration/plan-inputs";
 import { requiredPpe, summarisePpe } from "@/lib/restoration/ppe-requirements";
 import { deriveHazardProfile } from "@/lib/reports/build-structured-report";
 import { claimRecommendations } from "@/lib/restoration/claim-recommendations";
@@ -32,6 +37,7 @@ import {
   AI_OWNERSHIP_PROMPT_INSTRUCTION,
   aiDraftResetOnGenerate,
 } from "@/lib/reports/ai-ownership";
+import { isClaimSketchExportEligible } from "@/lib/reports/claim-sketch-floors";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -125,7 +131,6 @@ export async function POST(request: NextRequest) {
         },
         inspection: {
           select: {
-            floorPlanImageUrl: true,
             contentsManifestDraft: true,
             powerCircuits: true,
             powerCircuitRatingA: true,
@@ -135,6 +140,23 @@ export async function POST(request: NextRequest) {
                 floorNumber: true,
                 floorLabel: true,
                 renderedPngUrl: true,
+                sketchData: true,
+                underlayReferences: {
+                  select: { verifiedAt: true, verificationJson: true },
+                  orderBy: { createdAt: "desc" },
+                  take: 1,
+                },
+                inspection: {
+                  select: {
+                    sketchUnderlayReferences: {
+                      select: {
+                        floorNumber: true,
+                        verifiedAt: true,
+                        verificationJson: true,
+                      },
+                    },
+                  },
+                },
               },
               orderBy: { floorNumber: "asc" },
             },
@@ -317,7 +339,8 @@ export async function POST(request: NextRequest) {
 
       standardsContext = buildStandardsContextPrompt(retrievedStandards);
       for (const doc of retrievedStandards.documents) {
-        if (doc.extractedContent) standardsSourceTexts.push(doc.extractedContent);
+        if (doc.extractedContent)
+          standardsSourceTexts.push(doc.extractedContent);
         standardsSourceTexts.push(...doc.relevantSections);
       }
     } catch (error: any) {
@@ -339,9 +362,8 @@ export async function POST(request: NextRequest) {
     // never block report generation.
     let citationChunks: ChunkResult[] = [];
     try {
-      const { retrieveForCitation, formatChunksAsContext } = await import(
-        "@/lib/rag/retrieve"
-      );
+      const { retrieveForCitation, formatChunksAsContext } =
+        await import("@/lib/rag/retrieve");
       const citationQuery = [
         `${reportType} damage restoration standards compliance`,
         report.waterCategory ? `Category ${report.waterCategory}` : "",
@@ -417,23 +439,13 @@ export async function POST(request: NextRequest) {
 
     const floorPlans = [
       ...(report.inspection?.claimSketches ?? [])
-        .filter((s) => s.renderedPngUrl)
+        .filter(isClaimSketchExportEligible)
         .map((s) => ({
           floorNumber: s.floorNumber,
           floorLabel: s.floorLabel,
           imageUrl: s.renderedPngUrl,
           source: "sketch" as const,
         })),
-      ...(report.inspection?.floorPlanImageUrl
-        ? [
-            {
-              floorNumber: null,
-              floorLabel: "Uploaded floor plan",
-              imageUrl: report.inspection.floorPlanImageUrl,
-              source: "upload" as const,
-            },
-          ]
-        : []),
     ];
 
     const signedAuthorityForms = (report.authorityForms ?? []).map((f) => ({
@@ -456,22 +468,18 @@ export async function POST(request: NextRequest) {
     // RA-7005: resolve the power assessment (captured or assumed) + mould flag
     // once, so both the structured builder and the AI prompt use the same
     // safety inputs.
-    const inspForPower = report.inspection;
-    const powerAssessment =
-      inspForPower?.powerCircuits && inspForPower?.powerCircuitRatingA
-        ? {
-            circuits: inspForPower.powerCircuits,
-            circuitRatingA: inspForPower.powerCircuitRatingA,
-            deratePct: inspForPower.powerDeratePct ?? 0.8,
-          }
-        : undefined;
-    const mouldActive =
-      Boolean((report as any).biologicalMouldDetected) ||
-      Boolean((report as any).biologicalMouldCategory) ||
-      String(report.hazardType ?? "")
-        .toLowerCase()
-        .includes("mould") ||
-      (tier1?.T1_Q7_hazards ?? []).some((h: string) => /mould|mold/i.test(h));
+    // Both derivations are shared with the Margot co-pilot's recommend_method
+    // tool (lib/restoration/plan-inputs.ts). A surface that decides mouldActive
+    // differently from this one will contradict this report on the same job.
+    const powerAssessment = powerAssessmentFromInspection(report.inspection);
+    const mouldActive = deriveMouldActive({
+      biologicalMouldDetected: (report as any).biologicalMouldDetected,
+      biologicalMouldCategory: (report as any).biologicalMouldCategory,
+      hazardType: report.hazardType,
+      hazards: tier1?.T1_Q7_hazards,
+      technicianFieldReport: (report as any).technicianFieldReport,
+      tier1,
+    });
 
     // For basic and enhanced reports, use structured data directly from Report model (no AI - ensures 100% accurate data)
     if (reportType === "basic" || reportType === "enhanced") {
@@ -615,20 +623,23 @@ export async function POST(request: NextRequest) {
           )
         : 0;
       if (areaM2 > 0) {
-        // RA-7005: use the hoisted power assessment (captured or assumed 2×20A).
-        const assessment = powerAssessment ?? { circuits: 2, circuitRatingA: 20 };
+        // RA-7005: the hoisted power assessment, or the assumed 2×20A budget.
+        const { assessment, assumed: powerAssumed } =
+          resolvePowerAssessment(powerAssessment);
         const plan = planDrying(
           { affectedAreaM2: Math.round(areaM2 * 10) / 10, mouldActive },
           assessment,
         );
         safetyPlanContext += [
           `\n\n--- EQUIPMENT & SAFETY PLAN (RA-7005 — non-negotiable) ---`,
-          `Power (${powerAssessment ? `assessed on site: ${assessment.circuits}× ${assessment.circuitRatingA}A/230V` : "ASSUMED 2× 20A/230V — confirm on site"}): ${plan.budget.siteUsableA}A usable at ${plan.budget.deratePct * 100}% derate (AS/NZS 3000), ${plan.budget.perCircuitUsableA}A/circuit.`,
+          `Power (${powerAssumed ? `ASSUMED ${assessment.circuits}× ${assessment.circuitRatingA}A/230V — confirm on site` : `assessed on site: ${assessment.circuits}× ${assessment.circuitRatingA}A/230V`}): ${plan.budget.siteUsableA}A usable at ${plan.budget.deratePct * 100}% derate (AS/NZS 3000), ${plan.budget.perCircuitUsableA}A/circuit.`,
           ...plan.phases.map(
             (ph) =>
               `${ph.label} Equipment: ${ph.lines
                 .map((l) => `${l.quantity}× ${l.kind.replace("_", " ")}`)
-                .join(", ")} (${ph.packing.totalA}A${ph.packing.fits ? "" : " — EXCEEDS SUPPLY"}).`,
+                .join(
+                  ", ",
+                )} (${ph.packing.totalA}A${ph.packing.fits ? "" : " — EXCEEDS SUPPLY"}).`,
           ),
           ...plan.advisories.map((a) => `ADVISORY: ${a}`),
           `You MUST describe drying in this sequence and NEVER place air movers over active mould. Reflect the power constraint and any sectional-mitigation advisory.`,
@@ -639,9 +650,8 @@ export async function POST(request: NextRequest) {
         // tiers, since this is reasoning not a citation). Best-effort: an empty
         // corpus or unreachable embedder must never block generation.
         try {
-          const { retrieveForReasoning, formatChunksAsContext } = await import(
-            "@/lib/rag/retrieve"
-          );
+          const { retrieveForReasoning, formatChunksAsContext } =
+            await import("@/lib/rag/retrieve");
           const groundingQuery = [
             mouldActive
               ? "mould remediation containment sequence air movers dehumidifiers Condition 1"
@@ -691,7 +701,9 @@ export async function POST(request: NextRequest) {
       floorPlans.length
         ? `\n\n--- FLOOR PLANS ON FILE (${floorPlans.length}) ---\n${floorPlans
             .map((f) => `- ${f.floorLabel ?? `Floor ${f.floorNumber}`}`)
-            .join("\n")}\nReference these in the documentation section; they are appended to the final PDF.`
+            .join(
+              "\n",
+            )}\nReference these in the documentation section; they are appended to the final PDF.`
         : "",
       signedAuthorityForms.length
         ? `\n\n--- SIGNED CLIENT AUTHORISATIONS (${signedAuthorityForms.length}) ---\n${signedAuthorityForms
@@ -699,7 +711,9 @@ export async function POST(request: NextRequest) {
               (f) =>
                 `- ${f.name}${f.completedAt ? ` (signed ${new Date(f.completedAt).toLocaleDateString("en-AU")})` : ""}`,
             )
-            .join("\n")}\nRecord these authorisations in the administrative/documentation section.`
+            .join(
+              "\n",
+            )}\nRecord these authorisations in the administrative/documentation section.`
         : "",
       contentsManifest
         ? `\n\n--- CONTENTS MANIFEST ---\nA contents inventory has been captured for this claim. Summarise its existence in the contents section; the itemised manifest accompanies the report.`
@@ -732,7 +746,8 @@ export async function POST(request: NextRequest) {
       artifactContext +
       knowledgeContext;
 
-    const systemPrompt = appendCopyrightGroundingInstruction(`You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
+    const systemPrompt =
+      appendCopyrightGroundingInstruction(`You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
 
 ${AI_OWNERSHIP_PROMPT_INSTRUCTION}
 

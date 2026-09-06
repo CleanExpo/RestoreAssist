@@ -21,8 +21,19 @@ download from the verified Drive folder, not something the script automates.
 
 ### A1. Download the standards docs from Drive
 
-Folder (verified genuine, RA-6934 audit): **"IICRC Standards"**
+Folder: **"IICRC Standards"**
 `https://drive.google.com/drive/folders/1lFqpslQZ0kGovGh6WiHhgC3_gs9Rzbl1`
+
+> **Which account can read this matters, and was never recorded.** This previously
+> said "verified genuine, RA-6934 audit" without naming the account that verified
+> it. Re-checked 2026-08-31 from the account this session holds: the folder is real
+> (owned by `phill.mcgurk@gmail.com`, modified 2026-02-03) but is **not shared with
+> that account** — its metadata resolves by ID while listing its children returns
+> nothing. So `getStandardsFolderId()` in `lib/google-drive.ts` defaults to a folder
+> the application's own Drive identity cannot read, and `lib/standards-retrieval.ts`
+> would ground reports on an empty listing even if the service-account credentials
+> were supplied. Confirm read access from the identity that will actually run the
+> ingest before following the rest of this runbook.
 
 Download each document to a local working folder, **one subfolder per
 standard** — the ingest script tags every file in a `--dir` run with a single
@@ -34,7 +45,17 @@ mkdir -p ~/iicrc-source/{S500,S520,S540,S700,S900,S410,S400,S300}
 ```
 
 Editions per the RA-6934 audit (cross-check the cover page of what you
-actually download — this is what you pass as `--edition`):
+actually download — this is what you pass as `--edition`).
+
+> **Only the first three rows have been verified against the publisher.** S500,
+> S520 and S540 match the IICRC's own pages as at 2026-08-31. The S900/S410/S400/
+> S300 row asserts an edition for four standards that `STANDARDS_VERSIONS` does not
+> carry and that a full Drive sweep on the same date did not find in any form —
+> ingesting and tagging them from this table would stamp an unverified edition onto
+> the corpus. Verify each cover page against the publisher before ingesting those
+> four. Australian jobs: note that S500 and S520 also have Standards Australia
+> adoptions (AS-IICRC S500:2025, AS-IICRC S520:2025) with additional requirements
+> in Appendix ZZ. See `docs/findings/iicrc-standards-provenance.md`.
 
 | Standard | Edition (per audit) |
 |---|---|

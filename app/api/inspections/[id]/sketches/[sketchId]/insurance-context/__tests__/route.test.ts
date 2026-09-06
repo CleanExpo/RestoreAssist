@@ -7,7 +7,10 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { insuranceContext: { upsert: vi.fn() } },
+  prisma: {
+    claimSketch: { findFirst: vi.fn() },
+    insuranceContext: { upsert: vi.fn() },
+  },
 }));
 
 import { getServerSession } from "next-auth";
@@ -21,12 +24,14 @@ const mockTenancy = assertInspectionTenancy as unknown as ReturnType<
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
+  claimSketch: { findFirst: ReturnType<typeof vi.fn> };
   insuranceContext: { upsert: ReturnType<typeof vi.fn> };
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ user: { id: "u_1" } });
+  p.claimSketch.findFirst.mockResolvedValue({ id: "s1" });
   p.insuranceContext.upsert.mockImplementation(async ({ create }: any) => ({
     id: "ic_1",
     ...create,
@@ -83,5 +88,12 @@ describe("POST insurance-context", () => {
     });
     const res = await POST(post({ pathway: "au_private" }), params);
     expect(res.status).toBe(403);
+  });
+
+  it("404s before writing when the sketch belongs to another inspection", async () => {
+    p.claimSketch.findFirst.mockResolvedValueOnce(null);
+    const res = await POST(post({ pathway: "au_private" }), params);
+    expect(res.status).toBe(404);
+    expect(p.insuranceContext.upsert).not.toHaveBeenCalled();
   });
 });

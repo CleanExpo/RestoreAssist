@@ -1,5 +1,14 @@
 import { getEquipmentGroupById } from "@/lib/equipment-matrix";
+import {
+  asbestosEraBasis,
+  presumeAsbestosFromEra,
+} from "@/lib/compliance/asbestos-era";
+import { leadEraBasis, presumeLeadFromEra } from "@/lib/compliance/lead-era";
 import { planDrying } from "@/lib/restoration/equipment-planner";
+import {
+  deriveMouldActive,
+  resolvePowerAssessment,
+} from "@/lib/restoration/plan-inputs";
 import {
   requiredPpe,
   type HazardProfile,
@@ -37,10 +46,20 @@ export function deriveHazardProfile(
   if (m) mouldCondition = Number(m[1]) as MouldCondition;
   // RA-7006 Gap 3: the schema's biologicalMouldDetected boolean must also gate
   // air movers — a report can print "mould detected: true" with no category.
+  // Delegates to the same helper planDrying is fed from, so the hazard profile
+  // and the drying plan cannot classify one job differently — the failure this
+  // whole change exists to remove. `mouldActive` stays in the OR because a
+  // caller may have derived it from signals not reachable from `report` here.
   else if (
     mouldActive ||
-    Boolean(report?.biologicalMouldDetected) ||
-    has(/mould|mold/)
+    deriveMouldActive({
+      biologicalMouldDetected: report?.biologicalMouldDetected,
+      biologicalMouldCategory: report?.biologicalMouldCategory,
+      hazardType: report?.hazardType,
+      hazards: tier1?.T1_Q7_hazards,
+      technicianFieldReport: report?.technicianFieldReport,
+      tier1,
+    })
   )
     mouldCondition = 3;
   const wc = report?.waterCategory ? String(report.waterCategory) : null;
@@ -149,7 +168,7 @@ export function buildStructuredBasicReport(data: {
           affectedAreaM2: Math.round(planAreaM2 * 10) / 10,
           mouldActive: planMouldActive,
         },
-        powerAssessment ?? { circuits: 2, circuitRatingA: 20 },
+        resolvePowerAssessment(powerAssessment).assessment,
       );
     }
   } catch {
@@ -574,6 +593,41 @@ export function buildStructuredBasicReport(data: {
   }
 
   // Calculate summary metrics
+  // Asbestos/lead era flag, from the registry rather than a literal.
+  //
+  // These flagged on `< 1990`, which is the Queensland asbestos-REGISTER  regulatory-year-ignore
+  // exemption date -- an administrative record-keeping rule that
+  // lib/compliance/regulatory-registry/asbestos.ts says in as many words must
+  // not be used as a national safety threshold. Australia's presumption year is
+  // 2004 (the ban took effect 31 December 2003), so every building from 1990 to
+  // 2003 came back null. Null here is not "unknown": the report viewer prints it
+  // as no risk identified.
+  //
+  // The value carries the year it was decided by, so a stale threshold cannot
+  // travel downstream inside the answer the way "PRE-1990_BUILDING" did.
+  const hazardEraYearBuilt =
+    parseInt(String(report?.buildingAge ?? ""), 10) ||
+    parseInt(String(analysis?.buildingAge ?? ""), 10) ||
+    null;
+  const hazardEraFlag = presumeAsbestosFromEra(hazardEraYearBuilt, "AU")
+    ? `PRE-${asbestosEraBasis("AU").year}_BUILDING`
+    : null;
+  // Lead has its own year and its own instrument, and the two are not close.
+  // Sharing the asbestos flag flagged every building from the lead year to 2003
+  // for lead on an asbestos ban's authority.
+  //
+  // THREE STATES, NOT TWO. Collapsing "built after the presumption year" into
+  // the same null as "we do not know the year" loses the thing the cited
+  // guidance is most insistent about: a later build year is NOT a clearance,
+  // and a building just after the line can still carry lead paint on earlier
+  // layers. Null now means only that the year is unknown.
+  const leadEraFlag =
+    hazardEraYearBuilt == null
+      ? null
+      : presumeLeadFromEra(hazardEraYearBuilt, "AU")
+        ? `PRE-${leadEraBasis("AU").year}_BUILDING`
+        : `POST-${leadEraBasis("AU").year}_NOT_CLEARED`;
+
   const totalCost =
     costEstimates.length > 0
       ? costEstimates.reduce((sum, c) => sum + (Number(c.total) || 0), 0)
@@ -774,16 +828,21 @@ export function buildStructuredBasicReport(data: {
         report.biologicalMouldCategory ||
         analysis?.biologicalMouldCategory ||
         null,
-      asbestosRisk:
-        (report.buildingAge && parseInt(report.buildingAge) < 1990) ||
-        (analysis?.buildingAge && parseInt(analysis.buildingAge) < 1990)
-          ? "PRE-1990_BUILDING"
-          : null,
-      leadRisk:
-        (report.buildingAge && parseInt(report.buildingAge) < 1990) ||
-        (analysis?.buildingAge && parseInt(analysis.buildingAge) < 1990)
-          ? "PRE-1990_BUILDING"
-          : null,
+      asbestosRisk: hazardEraFlag,
+      // Its own year now, from lead.presumption-year.au, rather than the
+      // asbestos flag it used to share. That sharing was the defect CodeRabbit
+      // raised on PR #2164: a reader was shown an asbestos-derived year as a
+      // lead determination. It over-warned rather than under-warned, so nobody
+      // was endangered -- but a borrowed threshold cannot be cited, and the two
+      // years are 34 apart.
+      //
+      // Carries one of three values: PRE-<year>_BUILDING when the presumption
+      // applies, POST-<year>_NOT_CLEARED when the building is later but the
+      // guidance still refuses to call it clear, and null only when the year is
+      // unknown. The viewer renders the middle state too — see
+      // RestorationInspectionReportViewer, and the entry's requirement text for
+      // the divergent years themselves.
+      leadRisk: leadEraFlag,
     },
     scopeItems: scopeItemsList,
     costEstimates: costEstimates,

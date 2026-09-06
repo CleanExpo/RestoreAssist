@@ -14,6 +14,7 @@
  * the document + response so an unsafe configuration is visible, not hidden.
  */
 import { planDrying, type EquipmentPlan } from "./equipment-planner";
+import { resolvePowerAssessment } from "./plan-inputs";
 import {
   requiredPpe,
   type PpeRequirement,
@@ -63,6 +64,16 @@ function sumAirMovers(equipmentSelection?: any[]): number {
  */
 export function reconcilePricingSafety(input: {
   scopeAreas?: any[];
+  /**
+   * Wet floor area in m2, when the caller already has it as a number.
+   *
+   * Takes precedence over `scopeAreas`. The quote calculator
+   * (app/api/calculate) has no scope rows at all — it is a standalone
+   * calculator that collects `affectedAreaM2` directly — and synthesising a
+   * fake length x width row to smuggle it through would put a fictional
+   * geometry in the one place an estimator might later read one.
+   */
+  affectedAreaM2?: number;
   equipmentSelection?: any[];
   waterCategory?: string | null;
   mouldActive: boolean;
@@ -73,7 +84,9 @@ export function reconcilePricingSafety(input: {
     deratePct?: number;
   };
 }): PricingSafetyResult {
-  const areaM2 = Array.isArray(input.scopeAreas)
+  const areaM2 = Number.isFinite(input.affectedAreaM2)
+    ? Math.max(0, Number(input.affectedAreaM2))
+    : Array.isArray(input.scopeAreas)
     ? input.scopeAreas.reduce(
         (sum: number, a: any) =>
           sum +
@@ -95,7 +108,7 @@ export function reconcilePricingSafety(input: {
             affectedAreaM2: Math.round(areaM2 * 10) / 10,
             mouldActive,
           },
-          input.powerAssessment ?? { circuits: 2, circuitRatingA: 20 },
+          resolvePowerAssessment(input.powerAssessment).assessment,
         )
       : null;
 

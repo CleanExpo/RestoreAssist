@@ -1,0 +1,117 @@
+# Control bands over the agent's own behaviour.
+#
+# Stage 6 of the AI-native SDLC: a deterministic script watches a metric, and a
+# breach authorises a response. The tiers below say what each level of deviation
+# permits — they are a permission ladder, not a severity label.
+#
+# DETECTION IS DETERMINISTIC AND STAYS THAT WAY. No model decides whether a band
+# is breached. A model in the detector fails in the same ways as the thing it is
+# watching, which is the one correlation a control cannot have.
+#
+# WHAT IS AND IS NOT WIRED TODAY:
+#   - The metrics and the detector are real and tested
+#     (scripts/observability/verifier-metrics.ts).
+#   - The ledger they read is real and committed.
+#   - The TRIGGER LAYER IS NOT WIRED. Nothing invokes Claude on a breach. That
+#     needs a scheduled job with model access and a spend decision (rule 31),
+#     and the `propose` tier below would have an agent opening pull requests
+#     without a person starting it. Both are the owner's to authorise, so this
+#     file currently documents the ladder rather than executing it.
+
+metrics:
+  # ------------------------------------------------------------------
+  # Is the gate even running?
+  # ------------------------------------------------------------------
+  verifier_unavailable_rate:
+    description: >-
+      Share of turns where the Stop-hook verifier could not run. On those turns
+      the LLM stage of the gate was OFF, and in any summary that counts only
+      failures that reads identically to a clean pass.
+    source: scripts/observability/verifier-ledger.jsonl
+    # A FIXED THRESHOLD, NOT A BAND. A control that is off has no acceptable
+    # background rate to be measured against, so this needs no baseline and
+    # fires from the first window. That is why it is the signal wired first.
+    kind: threshold
+    threshold: 0.02
+    on_breach: diagnose
+    likely_cause: >-
+      A missing API key. See the resolution order documented at the top of
+      .claude/hooks/lib/openrouter-call.sh; error_code 4 in the report means no
+      key was found at all.
+
+  # ------------------------------------------------------------------
+  # How often is a completion claim caught unbacked?
+  # ------------------------------------------------------------------
+  unbacked_claim_rate:
+    description: >-
+      Share of turns the verifier stopped because a claim about tests, CI or a
+      build was not backed by anything that actually ran. This is the failure
+      .claude/rules/verification-gate.md exists to prevent, measured rather than
+      asserted.
+    source: scripts/observability/verifier-ledger.jsonl
+    kind: control_band
+    # WHAT THE DETECTOR ACTUALLY DOES, which is less than the names below would
+    # suggest and is written plainly rather than aspirationally. It takes the
+    # mean and standard deviation of EVERY populated window in the ledger, and
+    # compares only the LATEST window against them. That is a single-point
+    # 1/2/3-sigma test, not the Western Electric run rules, and the baseline
+    # grows without bound rather than rolling.
+    #
+    # An earlier version of this file declared `baseline: rolling_30d` and
+    # `rules: western_electric` while the code did the above. Declaring a policy
+    # the detector does not implement is the same defect class as a comment
+    # asserting a regulatory year the registry does not hold.
+    baseline: all_populated_windows
+    rules: single_point_sigma
+    # Worth implementing when there is enough data to justify it. Until the
+    # window count clears the minimum below, the tier is `insufficient-data`
+    # regardless, so the run rules would have nothing to run on.
+    planned: western_electric_over_rolling_30d
+    # THE BASELINE DOES NOT EXIST YET, AND THE DETECTOR SAYS SO. The corpus
+    # spans 116 days but holds only six ACTIVE days across four sessions, with
+    # 225 of 379 reports on one day. A mean and sigma over that describes when
+    # somebody happened to be working, not how the agent behaves. Below this
+    # many populated windows the detector returns `insufficient-data` and
+    # reports the raw rate as an observation instead of a band position.
+    minimum_populated_windows: 8
+
+# ------------------------------------------------------------------
+# What each tier authorises
+# ------------------------------------------------------------------
+tiers:
+  ok:
+    action: none
+
+  log:
+    action: log
+    detail: >-
+      Record the position. No agent is invoked. One window outside 1 sigma is
+      ordinary variation, and paging a human for it is how a signal gets muted.
+
+  diagnose:
+    action: diagnose
+    tools: "Read, Grep, Bash(git log *), Bash(npm run *)"
+    detail: >-
+      Claude may be invoked READ-ONLY to explain the movement, and writes its
+      finding as an intent.md in intent/ using the Stage 1 template. It may not
+      edit code, and the finding goes into the triage queue rather than
+      straight to a fix.
+
+  propose:
+    action: propose
+    routes: [pull_request]
+    detail: >-
+      Claude may open a pull request into the normal review gate. It may not
+      merge, may not push to main, and may not touch a production resource.
+      A code owner still approves through branch protection.
+    # Deliberately narrower than the playbook's example, which also allows a
+    # pre-approved rollback runbook at this tier. Production deploys and
+    # rollbacks here are owner-gated (rule 33) and deploy-production.yml
+    # requires a human to type a 40-character SHA, so there is no runbook an
+    # agent may trigger unattended. Do not add one without that decision.
+
+  insufficient-data:
+    action: report_as_observation
+    detail: >-
+      Not a clean result and not a breach. The metric is reported with its
+      sample size and explicitly not as a band position.

@@ -13,6 +13,7 @@ import {
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
+import { validateOrganizationLocaleProfile } from "@/lib/locale/validate-organization-profile";
 
 /**
  * New-client startup readiness checks.
@@ -28,7 +29,7 @@ import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
  *   green  = satisfied.
  *
  * Required (RED-when-unmet) — must pass to start using the app:
- *   - business_profile       (legalName + state + ABN or PRE_TRADING)
+ *   - business_profile       (legalName + region + timezone + ABN/NZBN or PRE_TRADING)
  *   - branding               (logoUrl or primaryColor)
  *   - pricing                (master qualified hours + administration fee)
  *   - ai_generation          (AI inference reachable — system health)
@@ -53,7 +54,15 @@ type Check = (orgId: string) => Promise<CheckResult>;
 const businessProfileCheck: Check = async (orgId) => {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
-    select: { legalName: true, abn: true, state: true, tradingStatus: true },
+    select: {
+      legalName: true,
+      country: true,
+      abn: true,
+      nzbn: true,
+      state: true,
+      timezone: true,
+      tradingStatus: true,
+    },
   });
   if (!org) {
     return {
@@ -63,16 +72,22 @@ const businessProfileCheck: Check = async (orgId) => {
       note: "Organization not found",
     };
   }
+  const localeValidation = validateOrganizationLocaleProfile(
+    org,
+    { requireComplete: org.tradingStatus !== "PRE_TRADING" },
+  );
   const missing =
     !org.legalName ||
     !org.state ||
-    (!org.abn && org.tradingStatus !== "PRE_TRADING");
+    !localeValidation.valid;
   return {
     capability: "business_profile",
     label: "Business profile complete",
     status: missing ? "red" : "green",
     note: missing
-      ? "Add legal name, state, and ABN (or mark pre-trading)"
+      ? !localeValidation.valid
+        ? localeValidation.error
+        : `Add legal name and region${org.tradingStatus === "PRE_TRADING" ? "" : `, plus a valid ${org.country === "NZ" ? "NZBN" : "ABN"}`}`
       : undefined,
   };
 };
@@ -111,7 +126,10 @@ export const pricingCheck: Check = async (orgId) => {
     where: { organizationId: orgId },
     select: { masterQualifiedNormalHours: true, administrationFee: true },
   });
-  const ready = p != null && p.masterQualifiedNormalHours != null && p.administrationFee != null;
+  const ready =
+    p != null &&
+    p.masterQualifiedNormalHours != null &&
+    p.administrationFee != null;
   return {
     capability: "pricing",
     label: "Pricing config",

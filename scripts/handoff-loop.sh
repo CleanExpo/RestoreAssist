@@ -187,21 +187,45 @@ gate_audits() {
 # apply — the exact class RA-1546 exists to catch — while appearing to cover it.
 #
 # So: drift stays a CI gate, and `npm run test:db` is the local parity path an
-# operator can run deliberately. gate_tests does NOT invoke it automatically:
-# measured 2026-07-31 on origin/main, `npm run test:db` is currently RED — 125 test
-# files / 178 tests fail with "headers was called outside a request scope", a
-# Next.js request-context problem unrelated to the database. Wiring a gate to a
-# suite that is already red would just get the gate ignored. Fix test:db first,
-# then consider promoting it here.
+# operator can run deliberately.
+#
+# The RED measurement this comment used to carry is OUT OF DATE and was being
+# quoted as current a month after it was taken. It read: "measured 2026-07-31 on
+# origin/main, `npm run test:db` is currently RED - 125 test files / 178 tests
+# fail with 'headers was called outside a request scope'".
+#
+# Re-measured 2026-08-31 against a Postgres 16 + pgvector cluster with migrations
+# applied and DATABASE_URL, DIRECT_URL and RELEASE_DB_PROFILE=1 exported:
+#
+#   Test Files  960 passed (960)
+#   Tests       7520 passed (7520)
+#
+# with check-test-parity.mjs --strict confirming all 20 env-gated suites ran
+# rather than skipping. The suite is GREEN. The request-context failures are
+# gone.
+#
+# Date any measurement written into a comment. An undated "currently RED" is
+# indistinguishable from a fresh one and gets requoted as fact -- this one was,
+# in a review of the /done command, as evidence that a green run covers no tests.
+#
+# gate_tests still does NOT invoke test:db automatically, and that is unchanged
+# by the above. The reason was never that the suite was red; it is the
+# destructive-truncation hazard documented at the gate itself. Promoting the gate
+# is now a question about whether a database is reliably available to every
+# caller, not about whether the suite passes.
 #
 # Do not add a migrate-deploy against an unknown DATABASE_URL in this script.
 #
-# STANDING HAZARD, pre-existing and NOT introduced here: --full runs
-# gate_build_full -> npm run build -> scripts/build.sh:48, which itself runs
-# `prisma migrate deploy` whenever DATABASE_URL is set and VERCEL_ENV is not
-# preview/development. So running --full against a real DATABASE_URL already
-# mutates that database. Run --full with DATABASE_URL unset, or against a
-# throwaway database only.
+# The migrate-deploy hazard this comment used to describe is CLOSED, and the
+# comment outlived it. It said --full reaches `prisma migrate deploy` via
+# scripts/build.sh:48. scripts/build.sh is ten lines long, runs `prisma generate`
+# and `next build`, and line 2 states outright that builds never mutate a
+# database. `npm run check:release-bootstrap` now fails any build path that
+# reaches a migration, so the hazard cannot silently return.
+#
+# What remains, and is much smaller: `next build` may READ DATABASE_URL during
+# static generation. A read, not a write. Point --full at a throwaway database if
+# that matters to you; it will not migrate one.
 
 # ---- Dispatch by mode ----
 

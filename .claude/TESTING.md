@@ -77,3 +77,64 @@ After changes to these areas, run the corresponding checks:
 | Invoice system    | `npx playwright test e2e/billing.spec.ts`           |
 | Integration sync  | Check `IntegrationSyncLog` for errors after sync    |
 | Prisma schema     | `npx prisma validate` then `npx prisma migrate dev` |
+| Agent hooks       | `bash .claude/hooks/tests/test-guards.sh`           |
+| Verifier metrics  | `bash .claude/hooks/tests/test-ledger-append.sh`    |
+
+## Testing the agent's own configuration
+
+The hooks, skills and rules under `.claude/` steer every session, and they are the
+one part of this repo that no other suite covers.
+
+```bash
+bash .claude/hooks/tests/test-guards.sh        # the two PreToolUse guards
+bash .claude/hooks/tests/test-ledger-append.sh # the Stop hook's metrics write
+bash evals/check.sh                            # skills, rules and CLAUDE.md
+```
+
+All three run in `.github/workflows/agent-evals.yml` on any change to
+`CLAUDE.md`, `AGENTS.md`, `REVIEW.md`, `.claude/**`, `evals/**`, or the workflow
+itself, and nightly. None needs an API key or a network.
+
+### The guard tests
+
+The suite ends by neutering each guard and re-running the deny cases. If an inert
+guard still reads as a deny, it reports `BROKEN` and exits non-zero, because an
+assertion that passes against a guard doing nothing is not testing the guard.
+
+That check exists because of what it found. Both guards previously lived inline in
+`.claude/settings.local.json`, read `$CLAUDE_TOOL_INPUT` and `$CLAUDE_FILE_PATH`
+(variables Claude Code does not set — the payload arrives as JSON on stdin), and
+exited 1 on a match. Exit 1 is a non-blocking hook error; only exit 2, or a
+`permissionDecision` of `"deny"`, blocks. So for as long as they existed they
+printed the word `BLOCKED` and let the call through. Two independent defects, in a
+control everyone believed was holding.
+
+The lesson generalises: **a hook is not a control until you have watched it refuse
+something.** Add a deny case and a dead-check for any guard you add.
+
+### The evals
+
+`evals/` covers the rest of the configuration: 62 skills, 33 rules, the always-on
+rule files, and `CLAUDE.md`. Each case is a mistake that actually happened here,
+and ships with the defective answer recorded alongside the good one. The suite
+runs both, and reports a case `BROKEN` if its DEFECTIVE answer also passes —
+which is the same doctrine as above, applied to a check rather than a hook.
+
+`bash evals/check.sh --live` calls a real agent instead of reading the recorded
+answers, and costs whatever that agent costs. See `evals/README.md`.
+
+### The ledger write
+
+`.claude/hooks/lib/ledger-append.sh` records each verification into
+`scripts/observability/verifier-ledger.jsonl` as the Stop hook produces it,
+because `.claude/verifier-reports/` is gitignored and sweeping it afterwards only
+works on a machine that still has it.
+
+Its test pins the one property that is easy to break silently: the shell writer
+and `collect-verifier-metrics.ts` write into the same file and are read back by
+the same parser, so their line shapes must match key for key. It also feeds what
+the shell wrote through `summarise()` and checks the status survives, not just
+the row count.
+
+The write can never fail a Stop — a missing, malformed, skipped or unwritable
+target all return 0 silently. `VERIFIER_LEDGER_SKIP=1` turns it off.

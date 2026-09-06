@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import {
   safe,
   dataUrlToBytes,
@@ -259,5 +260,145 @@ describe("generateSketchPdf — branding is threaded into the export (RA-6851)",
       floors: [{ label: "Ground", pngDataUrl: PNG_1PX }],
     });
     expect(Buffer.from(bytes.slice(0, 5)).toString("latin1")).toBe("%PDF-");
+  });
+});
+
+// A 3m x 4m room, enough for the compliance annex to have geometry to size.
+const ANNEX_FABRIC = {
+  objects: [
+    {
+      type: "polygon",
+      stroke: "#3b82f6",
+      points: [
+        { x: 0, y: 0 },
+        { x: 300, y: 0 },
+        { x: 300, y: 400 },
+        { x: 0, y: 400 },
+      ],
+      data: { type: "room", material: "fibro", label: "Bathroom" },
+    },
+  ],
+};
+const ANNEX_MATERIALS = [
+  { slug: "fibro", name: "Fibro", isPotentialAcm: true },
+];
+
+/**
+ * Read the drawn text back out of a saved PDF.
+ *
+ * Needed because byte comparison cannot verify page CONTENT, and — worse — is
+ * not even a valid proxy for it here: `generateSketchPdf` stamps
+ * `doc.setCreationDate(new Date())`, so two identical calls a second apart
+ * already differ. Verified directly: the same options 1.5 s apart produced
+ * unequal buffers. Any "these two exports differ" assertion therefore passes
+ * whether or not the option under test does anything.
+ *
+ * pdf-lib writes text as `<hex> Tj` inside Flate-compressed streams, so this
+ * decodes the streams and then the hex operands.
+ */
+async function pdfText(bytes: Uint8Array): Promise<string> {
+  const doc = await PDFDocument.load(bytes);
+  let raw = "";
+  for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+    if (obj instanceof PDFRawStream) {
+      try {
+        raw += Buffer.from(decodePDFRawStream(obj).decode()).toString("latin1");
+      } catch {
+        // Not a decodable stream (an embedded image, say) — nothing to read.
+      }
+    }
+  }
+  return Array.from(raw.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g))
+    .map((m) => Buffer.from(m[1], "hex").toString("latin1"))
+    .join("\n");
+}
+
+describe("generateSketchPdf — the annex's drying plan is mould-gated (RA-7005)", () => {
+  const floors = [
+    { label: "Ground", pngDataUrl: PNG_1PX, fabricJson: ANNEX_FABRIC },
+  ];
+
+  it("extracts drawn text at all (guards the assertions below)", async () => {
+    const text = await pdfText(
+      await generateSketchPdf({ floors, materials: ANNEX_MATERIALS }),
+    );
+    // If the extractor silently returned "", every toContain below would still
+    // pass a `not.toContain` and every toContain would fail loudly — but a
+    // future pdf-lib could change the operator and make this quietly useless.
+    expect(text).toContain("Compliance Annex");
+  });
+
+  /**
+   * THE LOAD-BEARING TEST for the PDF.
+   *
+   * This page is what a technician works from on site. Before this change the
+   * annex divided the area by a ratio and printed the result, so a job with
+   * live mould growth carried a positive air-mover count here while the report
+   * for the same job classified it mould-active.
+   */
+  it("prints zero Phase 1 air movers AND the reason, when mould is active", async () => {
+    const text = await pdfText(
+      await generateSketchPdf({
+        floors,
+        materials: ANNEX_MATERIALS,
+        mouldActive: true,
+      }),
+    );
+
+    expect(text).toMatch(/Phase 1: .*Air movers: 0/);
+    // A bare zero reads as an omission and gets "corrected" on site.
+    expect(text).toMatch(/NO air movers this phase/);
+    expect(text).toContain("aerosolise spores");
+    expect(text).toContain("S520");
+    // Withheld, not deleted: they return once the area clears.
+    expect(text).toMatch(/Phase 2: .*Air movers: [1-9]/);
+  });
+
+  it("runs air movers from the start when there is no mould", async () => {
+    const text = await pdfText(
+      await generateSketchPdf({
+        floors,
+        materials: ANNEX_MATERIALS,
+        mouldActive: false,
+      }),
+    );
+
+    expect(text).toMatch(/Air movers: [1-9]/);
+    expect(text).not.toContain("NO air movers this phase");
+    expect(text).not.toContain("Phase 2:");
+  });
+
+  it("marks the power budget ASSUMED until someone assesses the site", async () => {
+    const assumed = await pdfText(
+      await generateSketchPdf({ floors, materials: ANNEX_MATERIALS }),
+    );
+    expect(assumed).toContain("ASSUMED");
+    expect(assumed).toContain("2 x 20A");
+
+    const measured = await pdfText(
+      await generateSketchPdf({
+        floors,
+        materials: ANNEX_MATERIALS,
+        powerAssessment: { circuits: 4, circuitRatingA: 20 },
+      }),
+    );
+    expect(measured).not.toContain("ASSUMED");
+    expect(measured).toContain("4 x 20A");
+  });
+
+  // A floor plan with no room geometry must not put one dehumidifier on the
+  // page for a job with nothing to dry.
+  it("prints no drying block at all when there is no measured area", async () => {
+    const text = await pdfText(
+      await generateSketchPdf({
+        floors: [{ label: "Ground", pngDataUrl: PNG_1PX }],
+        materials: ANNEX_MATERIALS,
+        mouldActive: true,
+      }),
+    );
+
+    expect(text).toContain("Compliance Annex");
+    expect(text).not.toContain("Drying equipment");
+    expect(text).not.toMatch(/Dehumidifiers: \d/);
   });
 });

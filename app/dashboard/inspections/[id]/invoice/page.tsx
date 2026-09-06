@@ -257,7 +257,7 @@ export default function InspectionInvoicePage({
               </div>
               <div>
                 <span className="text-neutral-400 text-xs uppercase tracking-wider block">
-                  GST (10%)
+                  GST
                 </span>
                 <span className="font-semibold">
                   {centsToAud(invoice.gstAmount)}

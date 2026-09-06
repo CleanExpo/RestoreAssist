@@ -23,6 +23,7 @@ import { z } from "zod";
 import {
   assertInspectionTenancy,
   resolveInspectionWrite,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -164,94 +165,104 @@ export async function POST(
     const data = parsed.data;
     const gates = computeGates(data);
 
-    const record = await prisma.fireSmokeDamageAssessment.upsert({
-      where: { inspectionId: id },
-      create: {
-        inspectionId: id,
-        structuralStability: data.structuralStability ?? undefined,
-        electricalDisconnectVerified:
-          data.electricalDisconnectVerified ?? false,
-        gasShutoffVerified: data.gasShutoffVerified ?? false,
-        charringDepthMm: data.charringDepthMm ?? undefined,
-        engineerClearanceRequired: data.engineerClearanceRequired ?? false,
-        smokeResidueType: data.smokeResidueType ?? undefined,
-        residueLocation: data.residueLocation ?? undefined,
-        surfacePH: data.surfacePH ?? undefined,
-        pHMeterModel: data.pHMeterModel ?? undefined,
-        odourSeverityScore: data.odourSeverityScore ?? undefined,
-        hvacAffected: data.hvacAffected ?? false,
-        odourType: data.odourType ?? undefined,
-        ozoneTreatmentDuration: data.ozoneTreatmentDuration ?? undefined,
-        ozoneConcentrationPpm: data.ozoneConcentrationPpm ?? undefined,
-        evacuationOrderTimestamp: data.evacuationOrderTimestamp
-          ? new Date(data.evacuationOrderTimestamp)
-          : undefined,
-        reentryApprovalTimestamp: data.reentryApprovalTimestamp
-          ? new Date(data.reentryApprovalTimestamp)
-          : undefined,
-        spaceVolumeM3: data.spaceVolumeM3 ?? undefined,
-        ...gates,
-      },
-      update: {
-        ...(data.structuralStability !== undefined && {
-          structuralStability: data.structuralStability,
+    const record = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { claimType: "FIRE" },
+      (tx) =>
+        tx.fireSmokeDamageAssessment.upsert({
+          where: { inspectionId: id },
+          create: {
+            inspectionId: id,
+            structuralStability: data.structuralStability ?? undefined,
+            electricalDisconnectVerified:
+              data.electricalDisconnectVerified ?? false,
+            gasShutoffVerified: data.gasShutoffVerified ?? false,
+            charringDepthMm: data.charringDepthMm ?? undefined,
+            engineerClearanceRequired: data.engineerClearanceRequired ?? false,
+            smokeResidueType: data.smokeResidueType ?? undefined,
+            residueLocation: data.residueLocation ?? undefined,
+            surfacePH: data.surfacePH ?? undefined,
+            pHMeterModel: data.pHMeterModel ?? undefined,
+            odourSeverityScore: data.odourSeverityScore ?? undefined,
+            hvacAffected: data.hvacAffected ?? false,
+            odourType: data.odourType ?? undefined,
+            ozoneTreatmentDuration: data.ozoneTreatmentDuration ?? undefined,
+            ozoneConcentrationPpm: data.ozoneConcentrationPpm ?? undefined,
+            evacuationOrderTimestamp: data.evacuationOrderTimestamp
+              ? new Date(data.evacuationOrderTimestamp)
+              : undefined,
+            reentryApprovalTimestamp: data.reentryApprovalTimestamp
+              ? new Date(data.reentryApprovalTimestamp)
+              : undefined,
+            spaceVolumeM3: data.spaceVolumeM3 ?? undefined,
+            ...gates,
+          },
+          update: {
+            ...(data.structuralStability !== undefined && {
+              structuralStability: data.structuralStability,
+            }),
+            ...(data.electricalDisconnectVerified !== undefined && {
+              electricalDisconnectVerified: data.electricalDisconnectVerified,
+            }),
+            ...(data.gasShutoffVerified !== undefined && {
+              gasShutoffVerified: data.gasShutoffVerified,
+            }),
+            ...(data.charringDepthMm !== undefined && {
+              charringDepthMm: data.charringDepthMm,
+            }),
+            ...(data.engineerClearanceRequired !== undefined && {
+              engineerClearanceRequired: data.engineerClearanceRequired,
+            }),
+            ...(data.smokeResidueType !== undefined && {
+              smokeResidueType: data.smokeResidueType,
+            }),
+            ...(data.residueLocation !== undefined && {
+              residueLocation: data.residueLocation,
+            }),
+            ...(data.surfacePH !== undefined && { surfacePH: data.surfacePH }),
+            ...(data.pHMeterModel !== undefined && {
+              pHMeterModel: data.pHMeterModel,
+            }),
+            ...(data.odourSeverityScore !== undefined && {
+              odourSeverityScore: data.odourSeverityScore,
+            }),
+            ...(data.hvacAffected !== undefined && {
+              hvacAffected: data.hvacAffected,
+            }),
+            ...(data.odourType !== undefined && { odourType: data.odourType }),
+            ...(data.ozoneTreatmentDuration !== undefined && {
+              ozoneTreatmentDuration: data.ozoneTreatmentDuration,
+            }),
+            ...(data.ozoneConcentrationPpm !== undefined && {
+              ozoneConcentrationPpm: data.ozoneConcentrationPpm,
+            }),
+            ...(data.evacuationOrderTimestamp !== undefined && {
+              evacuationOrderTimestamp: data.evacuationOrderTimestamp
+                ? new Date(data.evacuationOrderTimestamp)
+                : null,
+            }),
+            ...(data.reentryApprovalTimestamp !== undefined && {
+              reentryApprovalTimestamp: data.reentryApprovalTimestamp
+                ? new Date(data.reentryApprovalTimestamp)
+                : null,
+            }),
+            ...(data.spaceVolumeM3 !== undefined && {
+              spaceVolumeM3: data.spaceVolumeM3,
+            }),
+            ...gates,
+          },
         }),
-        ...(data.electricalDisconnectVerified !== undefined && {
-          electricalDisconnectVerified: data.electricalDisconnectVerified,
-        }),
-        ...(data.gasShutoffVerified !== undefined && {
-          gasShutoffVerified: data.gasShutoffVerified,
-        }),
-        ...(data.charringDepthMm !== undefined && {
-          charringDepthMm: data.charringDepthMm,
-        }),
-        ...(data.engineerClearanceRequired !== undefined && {
-          engineerClearanceRequired: data.engineerClearanceRequired,
-        }),
-        ...(data.smokeResidueType !== undefined && {
-          smokeResidueType: data.smokeResidueType,
-        }),
-        ...(data.residueLocation !== undefined && {
-          residueLocation: data.residueLocation,
-        }),
-        ...(data.surfacePH !== undefined && { surfacePH: data.surfacePH }),
-        ...(data.pHMeterModel !== undefined && {
-          pHMeterModel: data.pHMeterModel,
-        }),
-        ...(data.odourSeverityScore !== undefined && {
-          odourSeverityScore: data.odourSeverityScore,
-        }),
-        ...(data.hvacAffected !== undefined && {
-          hvacAffected: data.hvacAffected,
-        }),
-        ...(data.odourType !== undefined && { odourType: data.odourType }),
-        ...(data.ozoneTreatmentDuration !== undefined && {
-          ozoneTreatmentDuration: data.ozoneTreatmentDuration,
-        }),
-        ...(data.ozoneConcentrationPpm !== undefined && {
-          ozoneConcentrationPpm: data.ozoneConcentrationPpm,
-        }),
-        ...(data.evacuationOrderTimestamp !== undefined && {
-          evacuationOrderTimestamp: data.evacuationOrderTimestamp
-            ? new Date(data.evacuationOrderTimestamp)
-            : null,
-        }),
-        ...(data.reentryApprovalTimestamp !== undefined && {
-          reentryApprovalTimestamp: data.reentryApprovalTimestamp
-            ? new Date(data.reentryApprovalTimestamp)
-            : null,
-        }),
-        ...(data.spaceVolumeM3 !== undefined && {
-          spaceVolumeM3: data.spaceVolumeM3,
-        }),
-        ...gates,
-      },
-    });
+    );
 
-    await prisma.inspection.update({
-      where: tenancy.data.inspectionWhere,
-      data: { claimType: "FIRE" },
-    });
+    // Null means the caller's scope no longer claims this inspection.
+    // 404, never 403, so a tenant cannot learn the id exists.
+    if (!record) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json(record);
   } catch (err) {

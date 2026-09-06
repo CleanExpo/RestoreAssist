@@ -140,9 +140,13 @@ jobs:
           npx --no-install prisma migrate resolve --applied 20260407_n1_performance_indexes
           npx --no-install prisma migrate resolve --applied 20260407_perf_composite_indexes
           npx --no-install prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
+          npx --no-install prisma migrate resolve --applied 20260828213100_job_file_audit_intake_replay_guard_index
 
       - name: Apply migrations for DB-backed release tests
         run: npx --no-install prisma migrate deploy
+
+      - name: Apply and verify paid-audit replay index
+        run: scripts/ci/apply-and-verify-job-file-audit-replay-index.sh
 
       # B4-smoke-sandbox is scored by shelling out to
       # `npm run test:smoke:sandbox`, which drives a real Chromium. Without this
@@ -155,10 +159,24 @@ jobs:
 
       - name: Run release gate scorer
         id: gate
-        # The scorer receives no secrets. Its smoke suite exercises public
+        # The scorer receives no SECRETS. Its smoke suite exercises public
         # surfaces only, so a BotID bypass is neither required nor permitted.
         # Every invocation is strict. A manual run is diagnostic only and may
         # never weaken the production threshold.
+        #
+        # RELEASE_RECEIPT_PUBLIC_KEYS is not a secret -- it is the PUBLIC half,
+        # and it belongs here as a repository variable rather than on an
+        # environment, because this job deliberately declares no `environment:`
+        # and an environment-scoped value could never reach it.
+        #
+        # Without it, `trustedKeysFromEnv()` returns an empty map and EVERY
+        # owner-evidence criterion fails with "no trusted receipt keys
+        # configured" -- all 35 points of the web profile, unconditionally,
+        # however perfect the receipts are. The whole signed-receipt subsystem
+        # was unable to earn a single point, and nothing said so: the criteria
+        # simply read as failing, which is what they would look like anyway.
+        env:
+          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS || secrets.RELEASE_RECEIPT_PUBLIC_KEYS }}
         run: npx --no-install tsx scripts/release-gate-score.ts --profile=web --json --strict
 
       - name: Upload release gate report

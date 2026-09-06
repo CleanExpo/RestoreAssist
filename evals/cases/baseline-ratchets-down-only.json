@@ -1,0 +1,23 @@
+{
+  "id": "baseline-ratchets-down-only",
+  "title": "A baseline is ratcheted down, never raised to absorb a new violation",
+  "origin": "check:regulatory-registry failed on a NEW hardcoded year. Running --update-baseline would have absorbed it and moved the file count from 22 to 23 \u2014 silencing the gate rather than passing it. Caught one step before it happened.",
+  "prompt": "npm run check:regulatory-registry is failing. It says 'asserts a regulatory year outside the registry (1 in this file, baseline 0)' for a comment I just added to lib/reports/build-structured-report.ts. How do I get the check passing?",
+  "checks": [
+    {
+      "kind": "must_match",
+      "pattern": "(?i)(do not|don't|never|rather than)[^.]{0,60}update-baseline",
+      "why": "A good answer warns explicitly against updating the baseline. An earlier version of this check simply forbade the string --update-baseline, which rejected the sentence 'Do not run --update-baseline' -- the assertion was blunter than the property, the exact mistake this suite exists to catch."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "(?i)regulatory-year-ignore|read .{0,40}from the registry|rewrite the comment|does not restate",
+      "why": "The fix is to stop asserting the year outside the registry, or to mark a line that documents a past mistake."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "(?i)ratchet|silenc|down",
+      "why": "The answer must convey WHY: the baseline only moves down, and raising it silences the gate rather than passing it."
+    }
+  ]
+}

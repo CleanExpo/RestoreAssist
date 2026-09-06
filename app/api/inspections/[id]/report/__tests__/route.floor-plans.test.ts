@@ -22,11 +22,8 @@ vi.mock("@/lib/nir-report-generation", () => ({
 }));
 
 const claimSketchesToFloors = vi.fn();
-const uploadedFloorPlanToFloor = vi.fn();
 vi.mock("@/lib/reports/claim-sketch-floors", () => ({
   claimSketchesToFloors: (...args: unknown[]) => claimSketchesToFloors(...args),
-  uploadedFloorPlanToFloor: (...args: unknown[]) =>
-    uploadedFloorPlanToFloor(...args),
 }));
 
 const appendSketchPages = vi.fn();
@@ -90,13 +87,13 @@ beforeEach(() => {
   inspectionFindFirst.mockReset();
   generateNIRPDF.mockReset();
   claimSketchesToFloors.mockReset();
-  uploadedFloorPlanToFloor.mockReset();
   appendSketchPages.mockReset();
   isSafePublicHttpsUrl.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user-1" } });
   generateNIRPDF.mockResolvedValue(new Uint8Array([1, 2, 3]));
   appendSketchPages.mockImplementation(async (bytes: Uint8Array) => bytes);
+  claimSketchesToFloors.mockResolvedValue([]);
   isSafePublicHttpsUrl.mockResolvedValue(true);
 });
 
@@ -134,7 +131,7 @@ describe("GET /api/inspections/[id]/report — floor-plan output", () => {
     },
   );
 
-  it("queries only the signed-in user's inspection and appends rendered and uploaded plans", async () => {
+  it("queries only the signed-in user's inspection and appends clean rendered plans", async () => {
     inspectionFindFirst.mockResolvedValue(
       inspection({
         claimSketches: [
@@ -150,7 +147,6 @@ describe("GET /api/inspections/[id]/report — floor-plan output", () => {
       }),
     );
     claimSketchesToFloors.mockResolvedValue([floor("Ground Floor")]);
-    uploadedFloorPlanToFloor.mockResolvedValue(floor("Uploaded Floor Plan"));
 
     const response = await GET(request(), context);
 
@@ -176,18 +172,13 @@ describe("GET /api/inspections/[id]/report — floor-plan output", () => {
             source: "rendered_sketch",
             status: "included",
           },
-          {
-            label: "Uploaded Floor Plan",
-            source: "uploaded_floor_plan",
-            status: "included",
-          },
         ],
       }),
     );
-    expect(appendSketchPages).toHaveBeenCalledTimes(2);
+    expect(appendSketchPages).toHaveBeenCalledTimes(1);
   });
 
-  it("does not fetch an unsafe stored URL and records it as unavailable", async () => {
+  it("records an unapproved stored render as unavailable", async () => {
     inspectionFindFirst.mockResolvedValue(
       inspection({
         claimSketches: [
@@ -201,12 +192,10 @@ describe("GET /api/inspections/[id]/report — floor-plan output", () => {
         ],
       }),
     );
-    isSafePublicHttpsUrl.mockResolvedValue(false);
-
     const response = await GET(request(), context);
 
     expect(response.status).toBe(200);
-    expect(claimSketchesToFloors).not.toHaveBeenCalled();
+    expect(claimSketchesToFloors).toHaveBeenCalledOnce();
     expect(appendSketchPages).not.toHaveBeenCalled();
     expect(generateNIRPDF).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -214,34 +203,26 @@ describe("GET /api/inspections/[id]/report — floor-plan output", () => {
           expect.objectContaining({
             label: "Ground Floor",
             status: "unavailable",
-            reason: expect.stringContaining("secure retrieval"),
+            reason: expect.stringContaining("could not be retrieved"),
           }),
         ],
       }),
     );
   });
 
-  it("records an unreadable stored image as unavailable instead of omitting it", async () => {
+  it("ignores legacy uploaded reference artwork", async () => {
     inspectionFindFirst.mockResolvedValue(
       inspection({
         floorPlanImageUrl: "https://res.cloudinary.com/demo/upload/missing.png",
       }),
     );
-    uploadedFloorPlanToFloor.mockResolvedValue(null);
-
     const response = await GET(request(), context);
 
     expect(response.status).toBe(200);
     expect(appendSketchPages).not.toHaveBeenCalled();
     expect(generateNIRPDF).toHaveBeenCalledWith(
       expect.objectContaining({
-        floorPlans: [
-          expect.objectContaining({
-            label: "Uploaded Floor Plan",
-            status: "unavailable",
-            reason: expect.stringContaining("could not be retrieved"),
-          }),
-        ],
+        floorPlans: [],
       }),
     );
   });

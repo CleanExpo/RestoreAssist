@@ -8,14 +8,14 @@ RestoreAssist — Water Damage Compliance
 
 ### Short Description (80 chars max)
 
-IICRC-compliant water damage restoration platform for Australian professionals
+Water damage restoration built to AS-IICRC S500:2025, Australia's standard
 
 ### Full Description (4000 chars max)
 
 RestoreAssist is the all-in-one field and reporting platform built exclusively for Australian water damage, fire, and storm restoration professionals.
 
-**IICRC-Compliant Workflow**
-Conduct room-by-room inspections aligned with IICRC S500:2021, S520:2024, and S700:2025 standards. Record moisture readings, drying logs, equipment placements, and scope of works — all in a structured format that satisfies insurance and state building-authority requirements.
+**Standards-Aligned Workflow**
+Conduct room-by-room inspections structured to AS-IICRC S500:2025 and AS-IICRC S520:2025 — Australia's adoptions of ANSI/IICRC S500:2021 and S520:2024 — and to ANSI/IICRC S700:2025. Record moisture readings, drying logs, equipment placements, and scope of works — all in a structured format that satisfies insurance and state building-authority requirements.
 
 **AI-Powered Efficiency**
 Point your camera at a moisture meter and let RestoreAssist read the value automatically. AI photo analysis eliminates manual data entry and reduces errors on site.
@@ -30,10 +30,10 @@ Generate PDF inspection reports, scope of works, and visual cost estimates in se
 Push jobs and invoices directly to Xero, MYOB, QuickBooks, Ascora, and ServiceM8. Eliminate double entry and keep your back-office in sync with every site visit.
 
 **Built for Australian Compliance**
-• IICRC S500:2021 water damage inspection workflows (5th edition)
-• IICRC S520:2024 mould remediation scope support
-• IICRC S540:2023 trauma & biohazard remediation
-• IICRC S700:2025 fire and smoke damage assessments
+• AS-IICRC S500:2025 water damage inspection workflows (Australia's adoption of ANSI/IICRC S500:2021, 5th edition)
+• AS-IICRC S520:2025 mould remediation scope support (Australia's adoption of ANSI/IICRC S520:2024)
+• ANSI/IICRC S540:2023 trauma and biohazard remediation
+• ANSI/IICRC S700:2025 fire and smoke damage assessments
 • NCC Volume 2 Part 3.5 storm-damage NCC compliance
 • NADCA ACR 2021 + AS/NZS 3666 HVAC hygiene
 • GST-compliant invoicing (10% Australian GST)
@@ -73,8 +73,8 @@ Water Damage Compliance
 
 RestoreAssist is the all-in-one field and reporting platform built exclusively for Australian water damage, fire, and storm restoration professionals.
 
-IICRC-COMPLIANT WORKFLOW
-Conduct room-by-room inspections aligned with IICRC S500:2021, S520:2024, and S700:2025 standards. Record moisture readings, drying logs, equipment placements, and scope of works — all in a structured format that satisfies insurance and state building-authority requirements.
+STANDARDS-ALIGNED WORKFLOW
+Conduct room-by-room inspections structured to AS-IICRC S500:2025 and AS-IICRC S520:2025 — Australia's adoptions of ANSI/IICRC S500:2021 and S520:2024 — and to ANSI/IICRC S700:2025. Record moisture readings, drying logs, equipment placements, and scope of works — all in a structured format that satisfies insurance and state building-authority requirements.
 
 AI-POWERED EFFICIENCY
 Point your camera at a moisture meter and let RestoreAssist read the value automatically. AI photo analysis eliminates manual data entry and reduces errors on site.
@@ -89,10 +89,10 @@ SEAMLESS INTEGRATIONS
 Push jobs and invoices directly to Xero, MYOB, QuickBooks, Ascora, and ServiceM8. Eliminate double entry and keep your back-office in sync with every site visit.
 
 BUILT FOR AUSTRALIAN COMPLIANCE
-• IICRC S500:2021 water damage inspection workflows (5th edition)
-• IICRC S520:2024 mould remediation scope support
-• IICRC S540:2023 trauma & biohazard remediation
-• IICRC S700:2025 fire and smoke damage assessments
+• AS-IICRC S500:2025 water damage inspection workflows (Australia's adoption of ANSI/IICRC S500:2021, 5th edition)
+• AS-IICRC S520:2025 mould remediation scope support (Australia's adoption of ANSI/IICRC S520:2024)
+• ANSI/IICRC S540:2023 trauma and biohazard remediation
+• ANSI/IICRC S700:2025 fire and smoke damage assessments
 • NCC Volume 2 Part 3.5 storm-damage NCC compliance
 • NADCA ACR 2021 + AS/NZS 3666 HVAC hygiene
 • GST-compliant invoicing (10% Australian GST)
@@ -119,7 +119,7 @@ water damage,restoration,IICRC,moisture,mould,flood,insurance,scope,report,compl
 
 ### Promotional Text (170 chars max)
 
-Now available for Australian restoration professionals. IICRC S500/S520/S700 compliant inspection workflows, AI photo analysis, and seamless Xero/MYOB/Ascora integration.
+Now available for Australian restoration professionals. Inspection workflows built to AS-IICRC S500:2025, AI photo analysis, and Xero/MYOB/Ascora integration.
 
 ### Support URL
 

@@ -26,12 +26,13 @@ export async function GET(request: NextRequest) {
         totalCost: true,
         createdAt: true,
         updatedAt: true,
-        waterCategory: true,
-        waterClass: true,
         completionDate: true,
         approvals: {
           orderBy: {
             createdAt: "desc",
+          },
+          select: {
+            status: true,
           },
         },
       },

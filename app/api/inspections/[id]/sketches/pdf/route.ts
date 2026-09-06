@@ -17,8 +17,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSketchPdf, type SketchFloor } from "@/lib/generate-sketch-pdf";
+import {
+  PLAN_INPUT_SELECT,
+  planInputsFromRow,
+  type PlanInputRow,
+} from "@/lib/restoration/fetch-plan-inputs";
 import { serverAuthoritativeFloors } from "@/lib/sketch/measured-sketch-data";
-import { expandFloorsWithRoomMoisture } from "@/lib/reports/claim-sketch-floors";
+import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import type { DamageCause } from "@/lib/nz/nhcover";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -63,6 +68,9 @@ export async function POST(
         user: {
           select: { businessName: true, businessLogo: true },
         },
+        // RA-7005: mould signals + power assessment for the annex's drying plan,
+        // via the shared select so this route cannot silently narrow it.
+        ...PLAN_INPUT_SELECT,
       },
     });
     if (!inspection) {
@@ -91,32 +99,6 @@ export async function POST(
       });
     }
 
-    if (!Array.isArray(body.floors) || body.floors.length === 0) {
-      return apiError(req, {
-        code: "VALIDATION",
-        message: "floors[] must be a non-empty array",
-        status: 400,
-      });
-    }
-
-    // Validate each floor has required fields
-    for (const floor of body.floors) {
-      if (!floor.label || typeof floor.label !== "string") {
-        return apiError(req, {
-          code: "VALIDATION",
-          message: "Each floor must have a label",
-          status: 400,
-        });
-      }
-      if (!floor.pngDataUrl || !floor.pngDataUrl.startsWith("data:image/png")) {
-        return apiError(req, {
-          code: "VALIDATION",
-          message: "Each floor must have a valid pngDataUrl",
-          status: 400,
-        });
-      }
-    }
-
     // ANZ materials library for the compliance annex (spec §11).
     // ra-query-ok: Material is a seed-only reference catalogue (no tenant write
     // path); the full list is required for the compliance annex.
@@ -128,10 +110,28 @@ export async function POST(
     const sketchRows = await (prisma as any).claimSketch.findMany({
       where: { inspectionId: id },
       select: {
+        floorNumber: true,
         floorLabel: true,
+        renderedPngUrl: true,
         sketchData: true,
         moisturePoints: true,
         country: true,
+        underlayReferences: {
+          select: { verifiedAt: true, verificationJson: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+        inspection: {
+          select: {
+            sketchUnderlayReferences: {
+              select: {
+                floorNumber: true,
+                verifiedAt: true,
+                verificationJson: true,
+              },
+            },
+          },
+        },
       },
       take: 100,
     });
@@ -144,14 +144,20 @@ export async function POST(
     )
       ? "NZ"
       : "AU";
+    const storedFloors = await claimSketchesToFloors(sketchRows);
+    if (storedFloors.length === 0) {
+      return apiError(req, {
+        code: "CONFLICT",
+        message: "Save a verified floor-plan render before exporting the PDF.",
+        status: 409,
+      });
+    }
 
     const pdfBytes = await generateSketchPdf({
       // RA-6761: server-authoritative geometry — room areas + compliance annex
       // come from the saved ClaimSketch (measured-only), not client fabricJson.
       // Room moisture crop meta expands to a companion report page when present.
-      floors: expandFloorsWithRoomMoisture(
-        serverAuthoritativeFloors(body.floors, sketchRows),
-      ),
+      floors: serverAuthoritativeFloors(storedFloors, sketchRows),
       propertyAddress: body.propertyAddress ?? inspection.propertyAddress ?? "",
       reportNumber: body.reportNumber ?? id.slice(-8).toUpperCase(),
       materials,
@@ -163,6 +169,7 @@ export async function POST(
         businessName: inspection.user?.businessName,
         businessLogo: inspection.user?.businessLogo,
       },
+      ...planInputsFromRow(inspection as PlanInputRow),
     });
 
     const fileName = `floor-plan-${id.slice(-8)}.pdf`;

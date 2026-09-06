@@ -80,27 +80,304 @@ Profile omission does not award points: excluded criteria are removed from that 
 
 | Pts | Criterion | Verification |
 |---|---|---|
-| 5 | Monitoring/alerting for auth, billing webhook errors, restore failures | Vercel Observability alert rules configured (owner evidence remains blocked pending a trusted verifier) |
+| 5 | Monitoring/alerting for auth, billing webhook errors, restore failures | Signed receipt from `scripts/ci/producers/f1-monitoring-alerting.ts`: every scheduled production check green and fresh, every notifier label resolvable, and an alert registered for each of the three failure classes |
 | 5 | Runbooks + support SLAs (P1 response ≤1h, customer comms template ready) | Deterministic repository verifier: `docs/MOBILE_RELEASE_RUNBOOK.md`, `docs/PILOT_CUTOVER_CHECKLIST.md`, `docs/SUPPORT_SLA.md`, and `docs/CUSTOMER_COMMS_TEMPLATE.md` with rollback tree + templates A-E + P1 ≤1h |
 
 ## Machine-verifiable vs blocked owner-evidence breakdown
 
 - **Web profile machine-verifiable (50 / 85 pts):** A2 (10), all of B (20), C1 (10), D2 (5), and F2 (5).
-- **Web profile owner-evidence still blocked (35 / 85 pts):** A1/A3 (15), C2 (5), D1/D3 (10), and F1 (5).
+- **Web profile reachable by signed receipt (35 / 85 pts):** A1 (10), C2 (5), A3 (5), D1 (5), D3 (5) and F1 (5) all have registered producers, so each can be measured and signed. Reachable is not the same as passing: a receipt earns points only when the measurement itself passes. See "Signed receipts" below.
+- **Every web criterion now has a path to a receipt.** No criterion is unsignable for want of a producer.
 - **Mobile-only blocked additions (15 / 100 pts):** E1-E3 remain required in the `mobile` profile and are excluded from the `web` profile.
+
+### What still stands between the gate and a pass
+
+Having a producer is not having the points. Measured against production on
+2026-08-30:
+
+- **F1 fails on real conditions, precisely.** Three of four scheduled checks are
+  red (`smoke-prod`, `supabase-advisor-gate`, `deepsec-weekly`), the `security`
+  label a notifier asks for does not exist so that alarm cannot fire, and no
+  alert covers any of the three failure classes the criterion names. The
+  producer reports each of these by name rather than a bare fail.
+- **C2 and A3 need owner setup** — the keypair and the `release-receipts`
+  environment, plus `A3_EXPECTED_VIEWER_ID`.
+- **A1 fails until `restore` is exercised.** No spec covers the storage-restore journey step, so the coverage map names it and A1 fails closed.
 
 Committed prose, screenshots, URLs and hashes of narrative evidence do not earn release points: they are self-attestable. The scorer validates their structure and freshness for diagnostics, then fails closed until each owner criterion has a signed, criterion-specific machine receipt producer and verifier. A1 requires signup, login, onboarding, storage setup, restore, inspection, claim, attestation and PDF observations. E3 requires App Review, release, rollback and reviewer observations. Freshness is aged from the stated date, never filesystem metadata.
 
-### Unresolved signed-receipt producers
+### Signed receipts
 
-No trusted producer or verifier currently exists for A1, A3, C2, D1, D3,
-E1-E3 or F1. F2 is now verified directly from repository content rather than
-from committed owner prose. This is a release blocker, not an operator checkbox. Each
-producer must bind its criterion ID, exact release SHA, observed environment,
-timestamp and raw evidence digest into a signed receipt; a separately trusted
-verifier must validate the signature and criterion-specific measurements.
-Until those implementations and their planted-defect controls exist, the
-scorer deliberately awards these criteria zero points.
+The verifier this section used to call for now exists:
+`scripts/ci/release-receipt.ts`, with its planted-defect controls in
+`scripts/ci/__tests__/release-receipt.test.ts` and the producer in
+`scripts/ci/sign-release-receipt.ts`. An owner criterion earns its points when
+`<criterion>.receipt.json` sits beside the evidence file and verifies.
+
+Three properties carry the scheme, and each has a test that fails without it:
+
+1. **The trust root is not in this repository.** Public keys are read from the
+   `RELEASE_RECEIPT_PUBLIC_KEYS` environment variable, which on Actions means a
+   repository **variable** — *not* a secret, and *not* an environment secret. The
+   scorer job in `release-gate.yml` deliberately declares no `environment:`, so an
+   environment-scoped value can never reach it, and these are the PUBLIC halves
+   anyway. A committed key would be worthless: anyone who can open a
+   pull request could swap in a key they hold and sign their own receipts. The
+   private half stays with the owner and must never be committed. Each key is
+   scoped to the criteria it may sign:
+
+   ```json
+   {"<key-id>": {"publicKey": "<PEM>", "criteria": ["C2-secrets-scan"]}}
+   ```
+
+   Issue one key per producer. They run in different places with different
+   blast radii, and a leaked key should reach only its own criterion. A bare
+   `"<key-id>": "<PEM>"` is rejected rather than read as unscoped.
+2. **Every absence fails closed.** No key set configured, an unknown key id, a
+   key not authorised for the criterion it signed, or a criterion with no
+   registered policy all score zero. A receipt file appearing in the repository
+   moves nothing on its own.
+3. **The signer cannot be handed a measurement.** It invokes the registered
+   producer itself and signs what that returns. This is the fix for a P1 found
+   by CodeRabbit reviewing #2109 after it merged: `sign-release-receipt.ts`
+   previously took a `--measurements` argument and signed it unchanged, so a
+   holder of a valid key could certify `openBlockerCount: 0` with no producer
+   ever running, and every check below would pass. That is self-attestation
+   with a signature on it — precisely what this scheme exists to replace.
+
+   The flag was removed rather than validated: an input that must never be
+   trusted should not exist. A criterion with no registered producer cannot be
+   signed at all — the state `D3-revenue-reconciliation` sat in until its
+   producer could measure the webhook half itself rather than reading it from
+   the environment.
+
+   Three lists have to agree on which criteria those are: `PRODUCERS` (what can
+   be measured), `CRITERION_POLICIES` (what can be verified) and the workflow's
+   dispatch options (what can be run). `release-receipt-workflow.test.ts` pins
+   them against each other, because drift in any direction fails quietly — a
+   criterion dispatchable but unsignable dies mid-run, and one signable but
+   unverifiable earns nothing after being measured.
+
+4. **A receipt must come from the protected workflow.** Every receipt carries
+   `provenance` — repository, workflow ref, run id, run attempt — straight from
+   the Actions runtime, and the signer refuses to run outside Actions. The
+   verifier requires `.github/workflows/release-receipt.yml@refs/heads/main`.
+
+   The ref matters as much as the path: a pull request can edit that workflow
+   file, so a receipt minted from a PR branch would prove nothing about what
+   ran. Secrets live on the gated `release-receipts` environment, never as
+   repository-wide secrets, which every workflow can read.
+
+   Together with the key living only in that environment, this is what makes
+   "holder of the key" mean "that workflow" rather than "whoever has the key".
+
+5. **Measurements are re-derived where possible, and constrained where not.** A
+   signature says who produced the bytes, never that they are true, so the
+   verifier recomputes the release SHA, the source tree and the evidence digest
+   against the checkout being scored. A receipt taken on a different tree is
+   rejected even when its signature is perfect. The observed `environment` is
+   checked against the criterion's policy, so C2 cannot claim to have been
+   measured anywhere but CI.
+
+   What remains is stated rather than papered over: a scanner's finding count
+   is the producer's word, pinned to an exact tree. That residue is the reason
+   these criteria need an accountable signer at all. A measurement CI can take
+   unaided does not belong here — it belongs as a machine criterion, the way
+   C1 and F2 already do.
+
+That third property is why a signature alone cannot enable a criterion. Each
+one needs a registered measurement check saying what "measured" means for it,
+and a criterion absent from that registry cannot pass however good its key.
+
+**Registered:**
+
+- **C2-secrets-scan** — produced by `scripts/ci/producers/c2-secrets-scan.ts`.
+  Each control answers a line of that criterion's own evidence file, which
+  records how it held a PASS it had not earned:
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | `controlCanaryDetected` must be `true` | The `.gitleaks.toml` this criterion rested on allowlisted `(?i)\.md$`, so the scan could not have detected a secret committed to any markdown file and reported "no leaks found" regardless. The producer plants a Stripe-shaped canary in a `.md` inside the export and rescans; without that proof, `findings: 0` is silence rather than evidence. |
+  | `scannedRef` pinned to `git-checkout-index` | `gitleaks --no-git` ignores `.gitignore`, so a working-directory scan is not a scan of what ships. |
+  | `scannedFileCount` must be positive | An export that produced no files scans clean, which reads as a pass — A3's unplugged smoke detector in a different costume. |
+  | `envSource` pinned to production | `getEnvStatus()` on a CI runner reads the *runner's* environment. A sandbox or preview host answers a different question than the one this criterion asks. |
+  | `findings` and `missingEnvVars` must be 0 | The criterion itself. |
+
+  The canary value is assembled at run time rather than written as a literal.
+  That seam is load-bearing: the producer's own source sits inside the tracked
+  tree it scans, so an inlined literal would be found by the real scan and
+  `findings` could never reach 0 — the control permanently failing the
+  criterion it exists to make trustworthy.
+
+  The scanner is installed by the workflow at a pinned version and checksum,
+  not by the producer. A producer that fetches its own instrument is not
+  reporting on a reviewed one.
+- **A1-core-journeys** — produced by
+  `scripts/ci/producers/a1-core-journeys.ts`. This is the largest single award
+  in the gate, and it previously rested on **text matching**: `ownerEvidence()`
+  passed A1 if a markdown file's `## Evidence` section contained the words
+  "signup", "login", "onboarding", "storage setup", "restore", "inspection",
+  "claim", "attest" and "pdf". Ten points for a document containing nine words —
+  and "we did not test signup" contains "signup".
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | `deploymentSha` must equal the receipt's `releaseSha` | The criterion says "independently verified **on this SHA**". A green journey against yesterday's build is evidence about yesterday's build. Production served a revision older than its own `deploymentSha` field for weeks, so this is a failure that has happened here. |
+  | `testsExecuted` must be positive AND `specsMissingFromReport` empty | Playwright exits 0 when it matches no tests. A filter typo, a renamed spec or a moved `testDir` each produce a green run that executed nothing, and "0 failures" reads identically to a passing suite. |
+  | `journeySteps` pinned, `coveredSteps` must equal it | Compared against the criterion's own step list, so a producer that stopped reporting a step cannot pass by omission. |
+  | `baseUrl` pinned to the sandbox | The journey signs up companies and pushes an invoice. Running it against production would create customer-visible records on every gate run; the SHA binding is what makes a sandbox run meaningful. |
+
+  `A1_JOURNEY_STEPS` is the **single owner** of the step list —
+  `scripts/release-gate-score.ts` imports it rather than repeating it, because a
+  list that can drift between the thing measuring and the thing scoring can
+  disagree with itself without either side looking wrong.
+
+  **A1 does not pass today, and the map says why.** `restore` has no covering
+  spec: the matches for "restore" across the suite are incidental hits on
+  `restoreassist.app`, not exercises of the storage-restore journey.
+
+  The pilot-tester swarm was considered as the instrument and rejected. It is a
+  strong harness — `packages/pilot-tester/src/runner/release-gate.ts` already
+  enforces a 5x7 fixture population, unique sandbox identities and complete
+  grading — but its journey is "bootstrap auth cookie, create inspection, upload
+  photos, seed readings, generate assessment, grade". That is login, inspection
+  and assessment: three of the nine steps. Signing A1 off it would have repeated
+  F1's mistake, measuring a real thing that is not the thing the criterion names.
+
+  A known weakness, recorded rather than hidden: `storage setup` rests on a spec
+  that **mocks** the Google OAuth exchange. That verifies this application's half
+  of the handshake and nothing about the provider's.
+
+- **F1-monitoring-alerting** — produced by
+  `scripts/ci/producers/f1-monitoring-alerting.ts`. Two halves, both required:
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | Every declared check green AND fresh | The Supabase advisor gate was red for eight consecutive weeks, so the check watching prod for RLS-disabled tables had not looked at prod since 2026-06-22. A check that stopped running reports exactly what a healthy system reports: nothing. |
+  | `notifierLabelsDeclared` must be non-empty | A repository with no failure notifier reports zero *missing* labels, which passes a bare emptiness check while alerting on nothing. |
+  | `missingNotifierLabels` must be empty | Those eight weeks produced ZERO notifications: the notifier runs `gh issue create --label "security"`, and that label does not exist. `gh issue create` rejects a non-existent label, so the step failed and no issue was ever filed. |
+  | `requiredClasses` pinned, `coveredClasses` must equal it | Compared against the criterion's own class list rather than trusting `uncoveredClasses` to be empty, so a producer that stopped reporting a class cannot pass by omission. |
+
+  **The criterion's description was wrong, and is corrected.** It read "Vercel
+  Observability alert rules configured for auth/billing/restore". Production is
+  DigitalOcean App Platform — `.do/app.yaml` binds `restoreassist.app` — and the
+  only Vercel project linked to this repository is `restoreassist-sandbox`,
+  whose domains are `*.vercel.app`. Three alert rules there would have satisfied
+  the old wording word for word while watching preview deployments and alerting
+  on nothing a customer touches. The criterion as its evidence file states it
+  was always platform-neutral, and that is what the producer measures.
+
+  `F1_ALERT_COVERAGE` ships **empty**, so F1 cannot pass. The signals exist in
+  code and nothing watches them — `SecurityEvent` rows for every `LOGIN_FAILED`,
+  `StripeWebhookEvent.status = 'FAILED'` plus the
+  `stage = "stripe-webhook:processing"` log line, `StorageRestoreJob` failures
+  and `reportError()`. Filling the map is an owner action: it means choosing
+  where alerts live now that production is not on Vercel, and whatever is chosen
+  must be reachable by this producer to be measured.
+
+- **A3-no-sev1-sev2-open** — produced by
+  `scripts/ci/producers/a3-open-blockers.ts`, which counts open Urgent/High
+  issues on Linear team RA. Every check on it answers a line of that
+  criterion's own evidence file, which records how it once scored 5 points it
+  had not earned:
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | `populationCount` must be positive | The recorded query named a project that did not exist. Linear answered "Could not find project", and the empty result read as zero blockers — "the absence of a measurement, in the way an unplugged smoke detector reports no smoke." |
+  | `stateTypesScanned` must be all four open types | The old query scanned `state = started` only, so triage, backlog and unstarted blockers were invisible. |
+  | `prioritiesScanned` must be `1,2` | Urgent alone does not answer a criterion about Urgent **and** High. |
+  | `excludedProjects` must be exactly `Margot,Pi-Dev-Ops` | Exclusions can drive any count to zero. The RA-2232 scope verdict is pinned here, so widening it is a reviewed code change rather than a producer flag. |
+
+  **A3 cannot pass yet, by design.** Linear personal API keys see only what
+  their user sees and can be narrowed to particular teams, so `populationCount`
+  proves the query returned *something*, never *everything* — a key without
+  access to a private team reports a healthy population while omitting exactly
+  the blockers living there. `A3_EXPECTED_VIEWER_ID` pins the Linear identity
+  that may take the measurement, and is deliberately empty until the owner
+  creates a service identity with verified read access across team RA. While it
+  is empty the criterion fails closed, which is the honest state.
+
+  The producer deliberately does **not** judge severity. Priority is not
+  severity — an epic or a growth ticket can carry Urgent without being a
+  customer-impacting defect, and that mismatch is why the criterion drifted.
+  Reconciling the two is a human call made in Linear by downgrading the ticket.
+
+- **D1-billing-flows** — produced by
+  `scripts/ci/producers/d1-billing-flows.ts`. Two halves, both required.
+
+  **Scope correction first.** The criterion says "Stripe **and Apple IAP**", but
+  RestoreAssist ships no Apple In-App Purchase — RA-1842 "Path B", locked
+  2026-05-02 after App Review rejected build 1.0(3) on guideline 3.1.1. iOS
+  stays free and sales happen only on the website. The evidence file is blunt
+  that hunting for an IAP sandbox purchase is "the single biggest time sink in
+  this item", so the producer measures Stripe only, and measures the iOS
+  **block** instead of an iOS purchase.
+
+  | Check | The failure it answers |
+  | --- | --- |
+  | `missingStages` empty, `lifecycleStages` pinned | Purchase, renewal and cancellation must each be observed. Compared against the criterion's own list so a producer that stopped reporting a stage cannot pass by omission. |
+  | Renewal read from `billing_reason = "subscription_cycle"` | The FIRST invoice on a new subscription is `subscription_create`. Counting `invoice.payment_succeeded` outright would let one purchase satisfy both "purchase" and "renewal" — an event standing as evidence for something it never showed. This is why the walk script uses a Stripe test clock. |
+  | `mode` pinned to `test` | The walk creates subscriptions and cancels them. The evidence file: "Never run this against prod Stripe." Reconciling live revenue is D3's job. |
+  | `billingRoutesScanned` positive, `guardedRoutes` positive | Zero discovered routes reports zero unguarded and zero unclassified, and reads as a fully guarded application — A3's unplugged smoke detector again. |
+  | `unclassifiedBillingRoutes` empty | The regression this exists for: a checkout route added without `rejectIfIOSCapacitor()`, unnoticed until App Review notices. |
+  | `appleIapShipped` must be `false` | If StoreKit or an IAP library ever lands, "Apple IAP is not applicable" stops being a fact and D1 must be re-scoped rather than quietly measuring Stripe alone. |
+
+  Routes are **discovered, not listed**. Every `app/api/**/route.ts` importing
+  `lib/stripe` is a candidate, and each must be either guarded or declared in
+  `D1_NOT_PURCHASE_INITIATING` with a reason. A new route is neither by default,
+  so it fails until someone decides which it is. A hardcoded list would have
+  gone stale silently — the same defect as A3's filter naming a project that no
+  longer existed. Measured against the real tree: 17 Stripe routes, 6 guarded,
+  11 classified, 0 unclassified.
+
+  Not every Stripe-touching route belongs behind the guard, which is why the
+  classification carries reasons rather than being a bare allowlist. Cancellation
+  and account deletion are deliberately reachable from iOS — blocking those
+  would trap subscribers — and `invoices/[id]/checkout` is a contractor's
+  customer paying for restoration **work**, which guideline 3.1.1 does not reach.
+
+- **D3-revenue-reconciliation** — registered. It was unregistered while its
+  producer could not measure the webhook half itself: the stand-in read
+  `failedWebhookDeliveries` from an environment variable, reintroducing the
+  caller-supplied-measurement hole that removing `--measurements` closed.
+
+  It is now derived from Stripe's `pending_webhooks`, which rides on every
+  Event the producer already fetches, so the field costs no extra call and
+  cannot be asserted by anyone. **Read the claim narrowly:** `pending_webhooks`
+  counts deliveries not yet successful *at read time*, so an event that failed
+  twice and then succeeded reports 0. That is not the dashboard's "failed
+  deliveries over 7 days", and the measurement is named
+  `undeliveredWebhookEvents` rather than `failedWebhookDeliveries` so it cannot
+  be mistaken for it. What it catches is a delivery still outstanding when the
+  two sides were compared — a row that is not there yet and may never arrive.
+  A delivery that eventually landed wrote its row, and a genuine shortfall is
+  already caught by `missingInDb`, which compares the two sets. Produced by
+  `scripts/ci/producers/d3-revenue-reconciliation.ts`, which reconciles live
+  Stripe subscription events against the `SubscriptionEvent` rows the webhook
+  wrote, over the current 7-day window. Observed in `production`, not `ci`:
+  test-mode events are not revenue.
+
+  | Check | Why |
+  | --- | --- |
+  | `stripeEventCount` must be positive | The evidence file states the trap outright: *"0 events on both sides reconciles, but it does NOT prove the pipeline works; it only proves nothing happened."* Two empty queries agreeing is an absent measurement. |
+  | `missingInDb` must be 0, and `matchedInDb` must equal `stripeEventCount` | Equal totals are weak — five events on each side can be five **different** events, which is exactly what a partially-failing webhook produces. `SubscriptionEvent.stripeEventId` is `@unique`, so the ids are compared as sets. |
+  | `windowEndsAt` must be current | A freely chosen window can be shopped for: an earlier week where the two sides happened to agree. |
+  | `duplicateStripeIds` must be 0 | The `@unique` constraint should make this impossible; measuring it is how you learn the constraint still works. |
+  | `dbEventsWithoutStripeId` must be 0 | Anything Stripe-originated carries an event id, so a row without one means something other than the webhook is writing revenue events. |
+  | `failedWebhookDeliveries` must be 0 | The evidence file calls this "the most likely explanation for a shortfall on the DB side". The producer defaults it to `-1` when unsupplied, so an unmeasured value fails rather than passing as a silent zero. |
+
+  The window is defined once on the Stripe side and the database is queried by
+  event id rather than `createdAt`, which removes the boundary skew a two-sided
+  time window creates. Tolerating those edge mismatches is where a real
+  shortfall would hide.
+
+**Still unregistered, and therefore still scoring zero:** A1, D1, F1
+and E1-E3. Each needs a producer that can take its measurement without a human
+retyping it -- a Linear query for A3, Stripe reconciliation for D3, an
+instrumented end-to-end run for A1 -- plus its own measurement check and
+planted-defect tests. **The web profile therefore still cannot reach 85/85, so
+the release rule below still blocks.** This remains a release blocker, not an
+operator checkbox.
 
 ## Release rule (fail-closed)
 
@@ -133,3 +410,70 @@ Any failed criterion = release blocked. No partial-credit overrides. To override
 - [[lint-debt-followup]] — known lint baseline (non-blocker)
 - [[ra-4983]] — local test-DB bootstrap doc (improves criterion B5 reproducibility)
 - [[ra-4984]] — middleware hard-paywall restoration (currently degrades A2 to "tests pass with .skip")
+
+## Owner setup for signed receipts
+
+Two steps, both deliberately outside any agent's reach.
+
+**1. Create the keypair.** The public half is configuration; the private half
+must never be committed or pasted anywhere but the secret store.
+
+```bash
+openssl genpkey -algorithm ed25519 -out release-signing.pem
+openssl pkey -in release-signing.pem -pubout
+```
+
+**2a. Add the PUBLIC keys as a repository VARIABLE.**
+Settings > Secrets and variables > Actions > **Variables** tab > New repository
+variable. Name `RELEASE_RECEIPT_PUBLIC_KEYS`, value:
+
+```json
+{"<key-id>": {"publicKey": "<public PEM>", "criteria": ["A3-no-sev1-sev2-open"]}}
+```
+
+**This must be a repository variable, not an environment secret, and the
+distinction is not cosmetic.** The scorer step in `release-gate.yml` runs in a job
+with no `environment:`, so it can read `vars.` and repository-wide `secrets.` but
+can *never* read a secret scoped to the `release-receipts` environment. Put the
+public keys there and `trustedKeysFromEnv()` returns an empty map, every
+owner-evidence criterion fails with "no trusted receipt keys configured", and all
+35 points are lost — while looking exactly like criteria that legitimately failed.
+
+Worse, the minting workflow's own verify step *would still pass*, because it runs
+inside the environment and can see the value. So the run reports success and
+commits a receipt that scores zero. This document told owners to do precisely that
+until 2026-08-31; `scripts/ci/__tests__/release-receipt-workflow.test.ts` now
+asserts these instructions stay correct.
+
+**2b. Create the `release-receipts` GitHub environment** and add these SECRETS
+to *it*, not to repository-wide secrets:
+
+| Secret | Value |
+| --- | --- |
+| `RELEASE_RECEIPT_PRIVATE_KEY` | the private PEM |
+| `LINEAR_API_KEY` | a dedicated Linear service identity, not a personal key (A3) |
+| `STRIPE_SECRET_KEY` | live key; the producer reads live/test from its prefix (D3) |
+| `DATABASE_URL` | production database, read-only is sufficient (D3) |
+
+**Add a deployment-branch rule restricting `release-receipts` to `main`, and
+required reviewers.** The branch rule is not optional hardening — it is the
+control.
+
+`workflow_dispatch` lets whoever dispatches choose any branch, and the chosen
+branch's copy of `release-receipt.yml` supplies the `run:` blocks. A branch can
+therefore drop the workflow's own `if: github.ref == 'refs/heads/main'` guard,
+export a forged `GITHUB_WORKFLOW_REF` ending `@refs/heads/main`, and mint a
+receipt that satisfies `checkProvenance`. The in-file guard cannot stop that,
+because the attacker supplies the file.
+
+The deployment-branch rule can, because GitHub enforces it outside the workflow
+file: a run from any other ref never receives the environment's secrets, so it
+has no key to sign with. Required reviewers alone do not close it either — a
+dispatcher who is also an approved reviewer can approve their own branch run.
+
+Then set `A3_EXPECTED_VIEWER_ID` in `scripts/ci/producers/a3-open-blockers.ts`
+to that service identity's Linear `viewer.id`, as a reviewed code change.
+
+Receipts are minted by running the **Release Receipt** workflow manually. It
+measures, signs, verifies the result the way the scorer will, and only then
+commits.

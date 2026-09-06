@@ -24,10 +24,12 @@ import { prisma } from "@/lib/prisma";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import {
   requireAddon,
+  requireAddonForWorkspace,
   requireAddonOrThrow,
   AddonNotEntitledError,
 } from "../require-addon";
 import { ADDON_SKUS } from "../types";
+import { AddonSku as PrismaAddonSku } from "@prisma/client";
 
 const mockFindUnique = prisma.featureEntitlement
   .findUnique as ReturnType<typeof vi.fn>;
@@ -138,6 +140,17 @@ describe("requireAddon", () => {
       expect(result.allowed).toBe(true);
     }
   });
+
+  // ADDON_SKUS is a HAND-MAINTAINED mirror of the Prisma `AddonSku` enum, and
+  // the loop above only proves each listed key is valid — it says nothing about
+  // a key the list is MISSING. Without this, adding a SKU to schema.prisma and
+  // forgetting types.ts (or the reverse) fails no test: isAddonSku() then
+  // rejects a real SKU as UNKNOWN_SKU at runtime, and the surface it gates is
+  // unreachable for everyone. Exactly the drift that left TECHNICIAN_SEATS out
+  // of the e2e seeder's hardcoded list for weeks with nothing going red.
+  it("stays in lockstep with the Prisma AddonSku enum", () => {
+    expect([...ADDON_SKUS].sort()).toEqual(Object.values(PrismaAddonSku).sort());
+  });
 });
 
 describe("requireAddonOrThrow", () => {
@@ -162,5 +175,91 @@ describe("requireAddonOrThrow", () => {
     await expect(
       requireAddonOrThrow("user_1", "NOPE"),
     ).rejects.toMatchObject({ reason: "UNKNOWN_SKU", sku: "NOPE" });
+  });
+});
+
+describe("requireAddonForWorkspace", () => {
+  it("allows when the workspace has an ACTIVE entitlement", async () => {
+    mockFindUnique.mockResolvedValue({ id: "fe_1", active: true });
+
+    const result = await requireAddonForWorkspace("ws_123", "CLIENT_EDUCATION");
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      expect(result.workspaceId).toBe("ws_123");
+      expect(result.sku).toBe("CLIENT_EDUCATION");
+    }
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: {
+        workspaceId_sku: { workspaceId: "ws_123", sku: "CLIENT_EDUCATION" },
+      },
+      select: { id: true, active: true },
+    });
+  });
+
+  // THE REASON THIS FUNCTION EXISTS. The client portal is opened by the
+  // homeowner from a token link — there is no session, so there is no user id to
+  // resolve a workspace from. If this guard reached for one it could not gate
+  // the portal at all. Asserting the resolver is never touched is what keeps a
+  // later "tidy-up" from reintroducing the dependency.
+  it("never resolves a user — the portal has no session user", async () => {
+    mockFindUnique.mockResolvedValue({ id: "fe_1", active: true });
+
+    await requireAddonForWorkspace("ws_123", "AI_COPILOT");
+
+    expect(mockGetWorkspaceForUser).not.toHaveBeenCalled();
+  });
+
+  it("denies with 402 NOT_ENTITLED when the workspace has no entitlement row", async () => {
+    mockFindUnique.mockResolvedValue(null);
+
+    const result = await requireAddonForWorkspace("ws_123", "CLIENT_EDUCATION");
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toBe("NOT_ENTITLED");
+      expect(result.response.status).toBe(402);
+    }
+  });
+
+  // A cancelled or webhook-expired add-on leaves the row in place with
+  // active:false. Testing only the absent-row case would let a cancelled
+  // subscription keep working forever.
+  it("denies when the entitlement row exists but is inactive", async () => {
+    mockFindUnique.mockResolvedValue({ id: "fe_1", active: false });
+
+    const result = await requireAddonForWorkspace("ws_123", "AI_COPILOT");
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) expect(result.reason).toBe("NOT_ENTITLED");
+  });
+
+  it("denies an unknown SKU with 400 before touching the database", async () => {
+    const result = await requireAddonForWorkspace("ws_123", "NOT_A_SKU");
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toBe("UNKNOWN_SKU");
+      expect(result.response.status).toBe(400);
+    }
+    expect(mockFindUnique).not.toHaveBeenCalled();
+  });
+
+  // requireAddon() delegates here rather than repeating the query. If someone
+  // reinstates a second copy, this stays green while the two implementations
+  // drift — so assert the delegation is observable: the user-keyed call must
+  // query the workspace the resolver returned.
+  it("is what requireAddon() delegates to, keyed on the resolved workspace", async () => {
+    mockFindUnique.mockResolvedValue({ id: "fe_1", active: true });
+
+    await requireAddon("user_1", "AI_COPILOT");
+
+    expect(mockGetWorkspaceForUser).toHaveBeenCalledWith("user_1");
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: {
+        workspaceId_sku: { workspaceId: WORKSPACE.id, sku: "AI_COPILOT" },
+      },
+      select: { id: true, active: true },
+    });
   });
 });

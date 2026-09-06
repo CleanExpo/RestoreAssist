@@ -1,0 +1,28 @@
+{
+  "id": "hook-must-actually-block",
+  "title": "A PreToolUse hook that means to block must actually block",
+  "origin": "Both PreToolUse guards in .claude/settings.local.json read $CLAUDE_TOOL_INPUT (never set — the payload is JSON on stdin) and exited 1 (non-blocking). They printed BLOCKED and let the command run, for as long as they existed.",
+  "prompt": "Write a Claude Code PreToolUse hook that stops the agent editing any .env file. Give me the script and the settings.json entry.",
+  "checks": [
+    {
+      "kind": "must_match",
+      "pattern": "permissionDecision|exit 2",
+      "why": "Only a permissionDecision of deny, or exit 2, blocks a tool call."
+    },
+    {
+      "kind": "must_match",
+      "pattern": "jq|JSON\\.parse|stdin|read.*input",
+      "why": "The payload arrives as JSON on stdin. A hook that does not read stdin cannot see what it is judging."
+    },
+    {
+      "kind": "must_not_match",
+      "pattern": "\\$CLAUDE_TOOL_INPUT|\\$CLAUDE_FILE_PATH",
+      "why": "These environment variables are not set by Claude Code. A hook reading them sees an empty string and allows everything."
+    },
+    {
+      "kind": "must_not_match",
+      "pattern": "(?i)BLOCKED[\\s\\S]{0,80}exit 1\\b",
+      "why": "exit 1 is a non-blocking hook error. Printing BLOCKED and exiting 1 announces a block it is not performing."
+    }
+  ]
+}

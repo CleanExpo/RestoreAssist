@@ -15,10 +15,26 @@ export default async function SetupPage() {
   const org = await prisma.organization.findFirst({
     where: { ownerId: session.user.id },
     select: {
-      id: true, legalName: true, tradingName: true, abn: true, acn: true,
-      state: true, address: true, phone: true, email: true, website: true,
-      logoUrl: true, primaryColor: true, accentColor: true, aboutCopy: true,
-      tradingStatus: true, setupStartedAt: true, setupCompletedAt: true,
+      id: true,
+      legalName: true,
+      tradingName: true,
+      country: true,
+      abn: true,
+      nzbn: true,
+      acn: true,
+      timezone: true,
+      state: true,
+      address: true,
+      phone: true,
+      email: true,
+      website: true,
+      logoUrl: true,
+      primaryColor: true,
+      accentColor: true,
+      aboutCopy: true,
+      tradingStatus: true,
+      setupStartedAt: true,
+      setupCompletedAt: true,
       pricingConfig: true,
       hydrationJobs: { select: { kind: true, status: true } },
     },
@@ -36,6 +52,7 @@ export default async function SetupPage() {
   const { setupStartedAt, setupCompletedAt, ...orgRest } = org;
   const initial = {
     ...orgRest,
+    country: orgRest.country === 'NZ' ? ('NZ' as const) : ('AU' as const),
     setupStartedAt: (setupStartedAt as Date | null)?.toISOString() ?? null,
     setupCompletedAt: (setupCompletedAt as Date | null)?.toISOString() ?? null,
   };

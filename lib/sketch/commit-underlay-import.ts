@@ -1,13 +1,11 @@
 /**
- * Persist a prepared underlay and record the rights attestation.
+ * Persist a prepared underlay and record content-bound rights custody.
  *
  * Shared by the start-studio overlay and the underlay panel so both paths
  * fail closed the same way: no apply without a recorded attestation.
  */
 
-import { persistUnderlayImage } from "@/lib/sketch/persist-underlay-image";
 import {
-  buildUnderlayAttestationRecord,
   evaluateUnderlayAttestation,
   type UnderlaySource,
 } from "@/lib/sketch/underlay-attestation";
@@ -19,40 +17,19 @@ export type CommitUnderlayResult =
 export interface CommitUnderlayImportInput {
   selectedImage: string;
   inspectionId?: string;
+  floorNumber?: number;
   holdsRights: boolean;
   compliesWithSourceTerms: boolean;
   source: UnderlaySource;
-  persist?: (
-    selectedImage: string,
-    inspectionId: string | undefined,
-  ) => Promise<string>;
-  postAttestation?: (
-    body: Record<string, unknown>,
-  ) => Promise<{ ok: boolean }>;
+  sourcePageUrl?: string;
+  submit?: (url: string, body: FormData) => Promise<Response>;
 }
 
-async function defaultPersist(
-  selectedImage: string,
-  inspectionId: string | undefined,
-): Promise<string> {
-  const { dataUrlToBlob, uploadFloorPlanUnderlay } = await import(
-    "@/lib/sketch-storage"
-  );
-  return persistUnderlayImage(selectedImage, inspectionId, {
-    toBlob: dataUrlToBlob,
-    upload: uploadFloorPlanUnderlay,
-  });
-}
-
-async function defaultPostAttestation(
-  body: Record<string, unknown>,
-): Promise<{ ok: boolean }> {
-  const res = await fetch("/api/sketch/underlay-attestation", {
+async function defaultSubmit(url: string, body: FormData): Promise<Response> {
+  return fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body,
   });
-  return { ok: res.ok };
 }
 
 export async function commitUnderlayImport(
@@ -68,30 +45,54 @@ export async function commitUnderlayImport(
       error: attestation.reason ?? "Confirm the rights attestation first.",
     };
   }
+  if (!input.inspectionId) {
+    return {
+      ok: false,
+      error: "Save the inspection before importing a floor plan.",
+    };
+  }
 
   try {
-    const persist = input.persist ?? defaultPersist;
-    const imageUrl = await persist(input.selectedImage, input.inspectionId);
-
-    const record = buildUnderlayAttestationRecord(
-      {
-        holdsRights: input.holdsRights,
-        compliesWithSourceTerms: input.compliesWithSourceTerms,
-      },
-      input.source,
+    const form = new FormData();
+    form.set("source", input.source);
+    form.set("floorNumber", String(input.floorNumber ?? 0));
+    form.set("holdsRights", String(input.holdsRights));
+    form.set("compliesWithSourceTerms", String(input.compliesWithSourceTerms));
+    if (input.source === "url") {
+      form.set("remoteImageUrl", input.selectedImage);
+      form.set("sourcePageUrl", input.sourcePageUrl ?? "");
+    } else {
+      const { dataUrlToBlob } = await import("@/lib/sketch-storage");
+      form.set("file", dataUrlToBlob(input.selectedImage), "floor-plan.png");
+    }
+    const submit = input.submit ?? defaultSubmit;
+    const res = await submit(
+      `/api/inspections/${input.inspectionId}/sketches/underlay`,
+      form,
     );
-    const post = input.postAttestation ?? defaultPostAttestation;
-    const res = await post({
-      ...record,
-      inspectionId: input.inspectionId ?? null,
-    });
     if (!res.ok) {
+      const payload = (await res.json().catch(() => null)) as {
+        error?: { message?: string } | string;
+      } | null;
+      const detail =
+        typeof payload?.error === "string"
+          ? payload.error
+          : payload?.error?.message;
       return {
         ok: false,
-        error: "Couldn't record the rights attestation — please try again.",
+        error:
+          detail ??
+          "Couldn't store the reference floor plan — please try again.",
       };
     }
-    return { ok: true, imageUrl };
+    const payload = (await res.json()) as { imageUrl?: unknown };
+    if (typeof payload.imageUrl !== "string" || !payload.imageUrl) {
+      return {
+        ok: false,
+        error: "The stored floor plan did not return a preview.",
+      };
+    }
+    return { ok: true, imageUrl: payload.imageUrl };
   } catch {
     return {
       ok: false,

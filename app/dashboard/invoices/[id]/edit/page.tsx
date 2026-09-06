@@ -10,6 +10,10 @@ import {
   toLocalDateInputValue,
   addDaysLocalDateInputValue,
 } from "@/lib/invoices/calc";
+import {
+  DEFAULT_GST_TREATMENT,
+  getGstTreatmentForCurrency,
+} from "@/lib/gst-rules";
 
 interface Client {
   id: string;
@@ -33,6 +37,7 @@ interface FetchedInvoice {
   id: string;
   invoiceNumber: string;
   status: string;
+  currency: string;
   customerName: string;
   customerEmail: string;
   customerPhone?: string | null;
@@ -67,6 +72,9 @@ export default function EditInvoicePage({
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [loadingClients, setLoadingClients] = useState(false);
+  const [defaultGstRate, setDefaultGstRate] = useState<number>(
+    DEFAULT_GST_TREATMENT.ratePercent,
+  );
 
   const [customerType, setCustomerType] = useState<"client" | "manual">(
     "manual",
@@ -95,7 +103,7 @@ export default function EditInvoicePage({
       category: "",
       quantity: 1,
       unitPrice: 0,
-      gstRate: 10.0,
+      gstRate: DEFAULT_GST_TREATMENT.ratePercent,
     },
   ]);
 
@@ -134,6 +142,8 @@ export default function EditInvoicePage({
         }
         const data = await res.json();
         const inv: FetchedInvoice = data.invoice;
+        const invoiceGstRate = getGstTreatmentForCurrency(inv.currency).ratePercent;
+        setDefaultGstRate(invoiceGstRate);
         if (inv.status !== "DRAFT") {
           setFetchError("Only draft invoices can be edited.");
           return;
@@ -170,7 +180,7 @@ export default function EditInvoicePage({
                 quantity: li.quantity ?? 1,
                 unitPrice:
                   typeof li.unitPrice === "number" ? li.unitPrice / 100 : 0,
-                gstRate: li.gstRate ?? 10.0,
+                gstRate: li.gstRate ?? invoiceGstRate,
               }))
             : [
                 {
@@ -179,7 +189,7 @@ export default function EditInvoicePage({
                   category: "",
                   quantity: 1,
                   unitPrice: 0,
-                  gstRate: 10.0,
+                  gstRate: invoiceGstRate,
                 },
               ],
         );
@@ -250,7 +260,7 @@ export default function EditInvoicePage({
         category: "",
         quantity: 1,
         unitPrice: 0,
-        gstRate: 10.0,
+        gstRate: defaultGstRate,
       },
     ]);
   };
@@ -293,6 +303,7 @@ export default function EditInvoicePage({
       shippingAmount: shippingAmount
         ? Math.round(parseFloat(shippingAmount) * 100)
         : undefined,
+      defaultGstRatePercent: defaultGstRate,
     });
     return {
       subtotal: subtotalExGST,
@@ -803,7 +814,7 @@ export default function EditInvoicePage({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-600 dark:text-slate-400">
-                  GST (10%)
+                  GST
                 </span>
                 <span className="font-medium text-slate-900 dark:text-white">
                   ${(financials.gst / 100).toFixed(2)}

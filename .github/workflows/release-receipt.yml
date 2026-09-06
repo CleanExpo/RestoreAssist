@@ -1,0 +1,205 @@
+# Mints signed release-gate receipts.
+#
+# This workflow is the ONLY thing that may hold RELEASE_RECEIPT_PRIVATE_KEY.
+# That is the whole control, so the two properties below are load-bearing:
+#
+#   1. `workflow_dispatch` only. There is no `pull_request` trigger, because a
+#      pull request can edit this file, and a run from a PR branch would let
+#      whoever opened it reach the signing key.
+#   2. `environment:` scopes the secrets. Put the key and the producer
+#      credentials on the `release-receipts` GitHub environment with required
+#      reviewers, NOT in repository-wide secrets -- a repo secret is reachable
+#      by every workflow, which is the hole this exists to close.
+#
+# Why it matters: scripts/ci/sign-release-receipt.ts used to accept a
+# `--measurements` argument and sign whatever it was handed, so a holder of a
+# valid key could certify "zero open blockers" with no producer ever running.
+# The signer no longer accepts measurements -- it invokes the registered
+# producer itself -- and scripts/ci/release-receipt.ts rejects any receipt whose
+# provenance is not this workflow on refs/heads/main.
+
+name: Release Receipt
+
+on:
+  workflow_dispatch:
+    inputs:
+      criterion:
+        description: Criterion to measure and sign
+        required: true
+        type: choice
+        options:
+          - A1-core-journeys
+          - A3-no-sev1-sev2-open
+          - C2-secrets-scan
+          - D1-billing-flows
+          - D3-revenue-reconciliation
+          - F1-monitoring-alerting
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-receipt-${{ inputs.criterion }}
+  cancel-in-progress: false
+
+jobs:
+  mint:
+    runs-on: ubuntu-latest
+    # DEFENCE IN DEPTH ONLY -- this guard cannot be the control.
+    #
+    # `workflow_dispatch` lets the dispatcher choose any branch, and the chosen
+    # branch's copy of THIS FILE supplies the `run:` blocks. An attacker's
+    # branch simply omits this line, then exports a forged
+    # GITHUB_WORKFLOW_REF=...@refs/heads/main into the signer's environment and
+    # mints a receipt that satisfies checkProvenance. Found by CodeRabbit
+    # reviewing #2112.
+    #
+    # The control that actually holds is the `release-receipts` environment
+    # carrying a deployment-branch rule for `main` only: GitHub enforces that
+    # OUTSIDE the workflow file, so a branch run never receives the secrets and
+    # has no key to sign with. See "Owner setup" in docs/RELEASE_GATE.md.
+    #
+    # This line still earns its place: an accidental branch dispatch fails
+    # loudly instead of quietly minting a receipt the scorer would reject.
+    if: github.ref == 'refs/heads/main'
+    # Gates the secrets below. Configure required reviewers on this
+    # environment: minting a receipt is an owner action, not an agent one.
+    environment: release-receipts
+
+    steps:
+      # Receipts bind to the exact tree they were measured against, so this
+      # must be main and must not be a shallow or detached surprise.
+      # Pinned to a full commit SHA, not a tag: check:release-bootstrap enforces
+      # it, and the reason bites hardest here. A tag is mutable, so a compromised
+      # action release would run inside the one job that can reach the signing key.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # C2's instrument, pinned by version AND checksum.
+      #
+      # The producer deliberately does not fetch its own scanner: a producer
+      # that installs whatever it can reach at run time is not reporting on a
+      # reviewed instrument. Same version and digest as the working-tree scan
+      # in pr-checks.yml, so CI and the receipt are the same instrument rather
+      # than two that merely share a name.
+      #
+      # Conditional because this job holds the signing key, and a criterion
+      # that does not need a download should not perform one.
+      - name: Install gitleaks (C2 only)
+        if: inputs.criterion == 'C2-secrets-scan'
+        run: |
+          set -euo pipefail
+          VERSION=8.30.1
+          ARCHIVE="gitleaks_${VERSION}_linux_x64.tar.gz"
+          ARCHIVE_SHA256="551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+          curl -sSfL --retry 3 --retry-delay 5 \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/${ARCHIVE}" \
+            -o "/tmp/${ARCHIVE}"
+          echo "${ARCHIVE_SHA256}  /tmp/${ARCHIVE}" | sha256sum --check --strict
+          tar -xzf "/tmp/${ARCHIVE}" -C /tmp gitleaks
+          /tmp/gitleaks version
+
+      # A1's instrument: a real Playwright run against the sandbox.
+      #
+      # This did not exist. The signer was handed
+      # `A1_PLAYWRIGHT_REPORT: ${{ env.A1_PLAYWRIGHT_REPORT }}`, an `env`
+      # context nothing ever populated, so it resolved EMPTY and the producer
+      # failed on a missing argument. A1 could not be minted at all -- the
+      # producer was complete and unreachable.
+      #
+      # The spec list comes from the producer itself (`--list-specs`), not from
+      # a list written here. A spec added to A1_STEP_COVERAGE is then executed
+      # automatically; a hardcoded list would drift, and the drift would surface
+      # as `specsMissingFromReport` -- a real failure wearing a misleading cause.
+      - name: Run the core journey against the sandbox (A1 only)
+        if: inputs.criterion == 'A1-core-journeys'
+        env:
+          PLAYWRIGHT_BASE_URL: https://restoreassist-sandbox.vercel.app
+          PLAYWRIGHT_JSON_OUTPUT_NAME: /tmp/a1-playwright-report.json
+        run: |
+          set -euo pipefail
+          npx --no-install playwright install --with-deps chromium
+          mapfile -t SPECS < <(npx --no-install tsx \
+            scripts/ci/producers/a1-core-journeys.ts --list-specs)
+          if [ "${#SPECS[@]}" -eq 0 ]; then
+            echo "::error::the producer declared no specs; refusing to run an empty journey"
+            exit 1
+          fi
+          echo "Running ${#SPECS[@]} declared specs against $PLAYWRIGHT_BASE_URL"
+          # A FAILING TEST IS A MEASUREMENT, NOT A BROKEN JOB. The producer
+          # reads pass, fail and skip from the report and the verifier decides;
+          # aborting here would turn a red journey into "could not measure",
+          # which is a different and less useful claim.
+          npx --no-install playwright test -c config/playwright.config.ts \
+            "${SPECS[@]}" --project=chromium --reporter=json || true
+          # A MISSING report is a broken job, and is not tolerated: it means
+          # Playwright never ran, which must not be mistaken for a clean run.
+          if [ ! -s "$PLAYWRIGHT_JSON_OUTPUT_NAME" ]; then
+            echo "::error::Playwright produced no report at $PLAYWRIGHT_JSON_OUTPUT_NAME"
+            exit 1
+          fi
+          echo "A1_PLAYWRIGHT_REPORT=$PLAYWRIGHT_JSON_OUTPUT_NAME" >> "$GITHUB_ENV"
+
+      - name: Measure and sign
+        env:
+          RELEASE_RECEIPT_PRIVATE_KEY: ${{ secrets.RELEASE_RECEIPT_PRIVATE_KEY }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GITLEAKS_BINARY: /tmp/gitleaks
+          GITHUB_TOKEN: ${{ github.token }}
+          A1_PLAYWRIGHT_REPORT: ${{ env.A1_PLAYWRIGHT_REPORT }}
+        run: |
+          npx --no-install tsx scripts/ci/sign-release-receipt.ts \
+            --criterion='${{ inputs.criterion }}'
+
+      # Verify before committing. A receipt that the scorer would reject is
+      # worse than none: it looks like evidence in the tree while earning
+      # nothing, which is the shape of failure this whole subsystem exists to
+      # remove.
+      # The key MUST come from the same store the scorer reads. This step used to
+      # read `secrets.` while release-gate.yml's scorer reads `vars.`, and
+      # sign-release-receipt.ts documented it as a secret -- three statements, two
+      # stores. Populate only the secret, as the doc said, and this step PASSES
+      # (it can see the key) while the scorer sees an empty map and fails every
+      # owner-evidence criterion. The workflow would report success and commit a
+      # receipt that earns nothing -- which is exactly the failure this step was
+      # added to prevent, arriving through the step itself.
+      #
+      # `vars` first because these are PUBLIC keys and the scorer's job declares no
+      # `environment:`, so an environment-scoped secret could never reach it. The
+      # `secrets` fallback means an owner who already followed the old doc is not
+      # silently broken.
+      - name: Verify the receipt the way the scorer will
+        env:
+          RELEASE_RECEIPT_PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS || secrets.RELEASE_RECEIPT_PUBLIC_KEYS }}
+        run: |
+          npx --no-install tsx -e "
+            import { ownerEvidence } from './scripts/release-gate-score';
+            const r = ownerEvidence('${{ inputs.criterion }}', '1.0.0');
+            console.log(JSON.stringify(r, null, 2));
+            if (r.status !== 'pass') process.exit(1);
+          "
+
+      - name: Commit the receipt
+        run: |
+          set -euo pipefail
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add "docs/evidence/release-gate/1.0.0/${{ inputs.criterion }}.receipt.json"
+          if git diff --cached --quiet; then
+            echo "Receipt unchanged; nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore(release-gate): receipt for ${{ inputs.criterion }} (run ${GITHUB_RUN_ID})"
+          git push origin main

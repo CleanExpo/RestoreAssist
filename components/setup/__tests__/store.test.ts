@@ -21,8 +21,11 @@ describe('useSetupStore', () => {
       id: 'org-1',
       legalName: 'Acme',
       tradingName: null,
+      country: 'AU',
       abn: '53004085616',
+      nzbn: null,
       acn: null,
+      timezone: 'Australia/Sydney',
       state: 'NSW',
       address: null,
       phone: null,
@@ -53,10 +56,26 @@ describe('useSetupStore', () => {
 
   it('updateOrgField patches a single field when org is set', () => {
     useSetupStore.getState().setOrg({
-      id: 'org-1', legalName: 'Old', tradingName: null, abn: null, acn: null, state: null,
-      address: null, phone: null, email: null, website: null, logoUrl: null,
-      primaryColor: null, accentColor: null, aboutCopy: null, tradingStatus: 'ACTIVE',
-      setupStartedAt: null, setupCompletedAt: null,
+      id: 'org-1',
+      legalName: 'Old',
+      tradingName: null,
+      country: 'AU',
+      abn: null,
+      nzbn: null,
+      acn: null,
+      timezone: 'Australia/Sydney',
+      state: null,
+      address: null,
+      phone: null,
+      email: null,
+      website: null,
+      logoUrl: null,
+      primaryColor: null,
+      accentColor: null,
+      aboutCopy: null,
+      tradingStatus: 'ACTIVE',
+      setupStartedAt: null,
+      setupCompletedAt: null,
     });
     useSetupStore.getState().updateOrgField('legalName', 'New');
     expect(useSetupStore.getState().org?.legalName).toBe('New');

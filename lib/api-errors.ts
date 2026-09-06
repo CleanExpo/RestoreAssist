@@ -125,6 +125,22 @@ export function fromException(
       ? (err as { code: string }).code
       : undefined;
 
+  // A tenant who has not set their organisation locale yet is a 4xx, not a
+  // server fault. Matched by code rather than by importing the class: that
+  // module is `server-only` and this helper must stay edge-usable, which is
+  // the same reason the Prisma cases below are duck-typed.
+  if (prismaCode === "ORGANIZATION_LOCALE_REQUIRED") {
+    return apiError(request, {
+      code: "VALIDATION",
+      message:
+        "Set your organisation locale (country) before creating financial records",
+      status: 422,
+      err,
+      stage: opts.stage,
+      context: opts.context,
+    });
+  }
+
   if (prismaCode === "P2025") {
     return apiError(request, {
       code: "NOT_FOUND",

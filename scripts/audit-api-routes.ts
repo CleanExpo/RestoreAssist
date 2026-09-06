@@ -54,6 +54,14 @@ const PUBLIC_TOKEN_ROUTE_PREFIXES = [
   "app/api/margot/public-chat/",
 ];
 
+// Exact public revenue endpoints. Do not make this a directory prefix: a new
+// route below job-file-audit must receive the default authentication error
+// until its own capability controls and behaviour tests are reviewed.
+const PUBLIC_TOKEN_ROUTE_PATHS = new Set([
+  "app/api/revenue/job-file-audit/checkout/route.ts",
+  "app/api/revenue/job-file-audit/intake/route.ts",
+]);
+
 function normalisePath(file: string): string {
   return file.split(path.sep).join("/");
 }
@@ -78,6 +86,13 @@ function isPrefixMatch(file: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => file.startsWith(prefix));
 }
 
+function isPublicTokenRoute(file: string): boolean {
+  return (
+    PUBLIC_TOKEN_ROUTE_PATHS.has(file) ||
+    isPrefixMatch(file, PUBLIC_TOKEN_ROUTE_PREFIXES)
+  );
+}
+
 function addFinding(
   findings: ApiRouteFinding[],
   file: string,
@@ -97,7 +112,12 @@ function hasAuth(content: string): boolean {
     // requireOwner() is the codebase's named ownership gate; it resolves to
     // getServerSession internally. Recognising it here is behaviour-based
     // (any route that actually calls the gate passes) rather than path-exempt.
-    content.includes("requireOwner(")
+    content.includes("requireOwner(") ||
+    // requireClientAuth() is the codebase's named homeowner portal gate; it
+    // resolves to getServerSession internally for next-auth / portal-jwt.
+    // Recognising it here is behaviour-based (any route that actually calls the
+    // gate passes) rather than path-exempt.
+    content.includes("requireClientAuth(")
   );
 }
 
@@ -237,14 +257,11 @@ export function auditApiRoute(
   const isExempt = isPrefixMatch(normalized, EXEMPT_ROUTE_PREFIXES);
   const isGuardedTestHelper =
     normalized.startsWith("app/api/test/") && hasTestHelperEnvGuard(content);
-  const isPublicTokenRoute = isPrefixMatch(
-    normalized,
-    PUBLIC_TOKEN_ROUTE_PREFIXES,
-  );
+  const publicTokenRoute = isPublicTokenRoute(normalized);
 
   if (
     !isExempt &&
-    !isPublicTokenRoute &&
+    !publicTokenRoute &&
     !isGuardedTestHelper &&
     !hasAuth(content)
   ) {
@@ -253,7 +270,7 @@ export function auditApiRoute(
       normalized,
       "api-auth-required",
       "error",
-      "Route is not in an auth/cron/webhook exemption and does not call getServerSession/getToken/verifyAdminFromDb.",
+      "Route is not in an auth/cron/webhook/public-capability exemption and does not call a recognised authentication gate.",
     );
   }
 
@@ -310,13 +327,13 @@ export function auditApiRoute(
     );
   }
 
-  if (isPublicTokenRoute && !hasAuth(content)) {
+  if (publicTokenRoute && !hasAuth(content)) {
     addFinding(
       findings,
       normalized,
       "public-token-route-review",
       "warning",
-      "Public/token/monitoring route is unauthenticated by design candidate; verify scope, expiry where applicable, audit event, and rate limit.",
+      "Public/capability/monitoring route is unauthenticated by design; verify scope, expiry or payment proof where applicable, audit event, and rate limit.",
       true,
     );
   }

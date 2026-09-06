@@ -53,10 +53,17 @@ const REFERENCES: Record<string, NccReferenceEntry> = {
   },
 };
 
+/**
+ * `edition` may be null — `getNccEdition()` returns null for a New Zealand job,
+ * which has no NCC. No edition in force means no NCC reference to attach, so this
+ * returns null rather than emitting a reference stamped with an Australian code
+ * that does not apply.
+ */
 export function getNccReference(
   topic: string,
-  edition: string = getNccEdition(),
+  edition: string | null = getNccEdition(),
 ): NccReference | null {
+  if (edition === null) return null;
   const entry = REFERENCES[topic];
   if (!entry) return null;
   return { edition, ...entry };

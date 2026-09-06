@@ -86,7 +86,7 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "App Store Connect — Privacy 
 | Demo Account Password | (provisioned at §J)                                                                                                                                                                                                                                                                  |
 | Demo Account Notes    | "Sign in with email + password. After login, the dashboard shows recent inspections. Tap any inspection to view its room-by-room moisture readings, photos, and scope of works. The 'New Inspection' flow demonstrates offline-first capture; toggle airplane mode to see queueing." |
 | Contact Information   | Phill McGurk · phill@unite-group.in (or substitute) · phone (your AU mobile)                                                                                                                                                                                                         |
-| Notes (general)       | "RestoreAssist is a server-hosted Capacitor WebView. The native shell wraps `https://restoreassist.app`. Apple's review team can sign in with the demo creds above to access the full IICRC-compliant inspection workflow without subscription."                                     |
+| Notes (general)       | "RestoreAssist is a server-hosted Capacitor WebView. The native shell wraps `https://restoreassist.app`. Apple's review team can sign in with the demo creds above to access the full standards-aligned inspection workflow without subscription."                                     |
 | Attachment            | (Optional) screen-recorded walkthrough video — not required if demo creds work                                                                                                                                                                                                       |
 
 ---
@@ -98,7 +98,7 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "App Store Connect — Privacy 
 | Version                              | `1.0`                                                                                                                                                                        | matches Xcode `MARKETING_VERSION` |
 | Build                                | `1`                                                                                                                                                                          | from `ios-release.yml` autobump   |
 | What's New in This Version           | (paste from `distribution/whatsnew/whatsnew-en-AU`, see §G below)                                                                                                            | first release                     |
-| Promotional Text (170 chars)         | "Now available for Australian restoration professionals. IICRC S500/S520/S700 compliant inspection workflows, AI photo analysis, and seamless Xero/MYOB/Ascora integration." | `store-listings.md`               |
+| Promotional Text (170 chars)         | "Now available for Australian restoration professionals. Inspection workflows built to AS-IICRC S500:2025, AI photo analysis, and Xero/MYOB/Ascora integration." | `store-listings.md`               |
 | Description (4000 chars)             | (paste full description below)                                                                                                                                               | `store-listings.md`               |
 | Keywords (100 chars)                 | `water damage,restoration,IICRC,moisture,mould,flood,insurance,scope,report,compliance,contractor`                                                                           | `store-listings.md`               |
 | Screenshot — 6.7" iPhone (1290×2796) | `distribution/screenshots/app-store/6.7-iphone/*.png` (run capture script first)                                                                                             | `capture-screenshots.mjs`         |
@@ -114,8 +114,8 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "App Store Connect — Privacy 
 ```
 RestoreAssist is the all-in-one field and reporting platform built exclusively for Australian water damage, fire, and storm restoration professionals.
 
-IICRC-COMPLIANT WORKFLOW
-Conduct room-by-room inspections aligned with IICRC S500:2021, S520:2024, and S700:2025 standards. Record moisture readings, drying logs, equipment placements, and scope of works — all in a structured format that satisfies insurance and state building-authority requirements.
+STANDARDS-ALIGNED WORKFLOW
+Conduct room-by-room inspections structured to AS-IICRC S500:2025 and AS-IICRC S520:2025 — Australia's adoptions of ANSI/IICRC S500:2021 and S520:2024 — and to ANSI/IICRC S700:2025. Record moisture readings, drying logs, equipment placements, and scope of works — all in a structured format that satisfies insurance and state building-authority requirements.
 
 AI-POWERED EFFICIENCY
 Point your camera at a moisture meter and let RestoreAssist read the value automatically. AI photo analysis eliminates manual data entry and reduces errors on site.
@@ -130,10 +130,10 @@ SEAMLESS INTEGRATIONS
 Push jobs and invoices directly to Xero, MYOB, QuickBooks, Ascora, and ServiceM8. Eliminate double entry and keep your back-office in sync with every site visit.
 
 BUILT FOR AUSTRALIAN COMPLIANCE
-• IICRC S500:2021 water damage inspection workflows (5th edition)
-• IICRC S520:2024 mould remediation scope support
-• IICRC S540:2023 trauma & biohazard remediation
-• IICRC S700:2025 fire and smoke damage assessments
+• AS-IICRC S500:2025 water damage inspection workflows (Australia's adoption of ANSI/IICRC S500:2021, 5th edition)
+• AS-IICRC S520:2025 mould remediation scope support (Australia's adoption of ANSI/IICRC S520:2024)
+• ANSI/IICRC S540:2023 trauma and biohazard remediation
+• ANSI/IICRC S700:2025 fire and smoke damage assessments
 • NCC Volume 2 Part 3.5 storm-damage NCC compliance
 • NADCA ACR 2021 + AS/NZS 3666 HVAC hygiene
 • GST-compliant invoicing (10% Australian GST)
@@ -160,7 +160,7 @@ RestoreAssist is used by independent restoration contractors, franchise operator
 ```
 First release of RestoreAssist — the property restoration reporting platform for Australian water, fire, and storm damage technicians.
 
-• IICRC S500, S520, and S700 compliant inspection workflow
+• Inspection workflow structured to AS-IICRC S500:2025, AS-IICRC S520:2025 and ANSI/IICRC S700:2025
 • Room-by-room moisture readings, photos, and scope of works
 • AI-powered photo analysis for meter readings
 • Offline-first — field data syncs when connection is restored

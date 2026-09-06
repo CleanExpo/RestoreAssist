@@ -14,14 +14,12 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { STANDARDS_FINGERPRINTS } from "./standards-fingerprints";
 
 // Verbatim sentences from the licensed standards. If any appears in the repo,
-// chapter prose was pasted in — fail. (Kept short + distinctive; these are
-// quoted here only as detection fingerprints, not as redistributed content.)
-const CANARIES: string[] = [
-  "Mitigation following water damage events should begin as soon as safely possible",
-  "establish drying goals that would be expected to inhibit microbial growth and return materials",
-];
+// chapter prose was pasted in — fail. One shared list with the marketing gate;
+// see scripts/standards-fingerprints.ts for why it is not duplicated here.
+const CANARIES: readonly string[] = STANDARDS_FINGERPRINTS;
 
 const ROOTS = ["lib", "app", "components", "data"];
 const EXT = /\.(ts|tsx|js|jsx|json|md|mdx)$/;

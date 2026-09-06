@@ -1,5 +1,30 @@
 import Stripe from "stripe";
 
+/**
+ * The Stripe API version this application speaks. THE single source of truth.
+ *
+ * Two things make this line load-bearing, and both were learned the hard way.
+ *
+ * The SDK types `apiVersion?: LatestApiVersion` -- a single literal, constrained
+ * UNCONDITIONALLY (node_modules/stripe/esm/lib.d.ts:27). So a dependency bump
+ * that moves the default fails the type-check wherever tsc can see the call,
+ * which is why this value moves in lockstep with `stripe` in package.json
+ * (2026-05-27 -> 06-24 -> 07-29 -> 08-26).
+ *
+ * A correction worth keeping, because the wrong version of it was committed
+ * first: `typescript: true` has NOTHING to do with that. Stripe documents it as
+ * a user-agent string with "no runtime effect" (lib.d.ts:34-37). The reconciler
+ * drifted three versions behind for a different reason entirely -- `scripts/**`
+ * is excluded from tsconfig.json, so tsc never opened the file. The stale pin
+ * was a real type error sitting in the tree, invisible to the gate.
+ *
+ * That means a shared constant alone does NOT restore build-time protection for
+ * anything under `scripts/`. A future script can still hardcode a stale literal
+ * and stay green. What this file buys is one owner and a runtime guard; closing
+ * the hole needs `scripts/` brought under a type-check.
+ */
+export const STRIPE_API_VERSION = "2026-08-26.dahlia" as const;
+
 // Lazy singleton — the Stripe constructor throws on falsy keys, so we defer
 // instantiation until the first actual call. This prevents Next.js build from
 // failing during "Collecting page data" when STRIPE_SECRET_KEY is absent
@@ -7,6 +32,7 @@ import Stripe from "stripe";
 // All 14 callers are server-side API routes, so the key is always present
 // at runtime. Any missing-key errors surface as Stripe 401s, caught in
 // each route's try/catch.
+
 let _stripe: Stripe | null = null;
 
 function getInstance(): Stripe {
@@ -44,7 +70,7 @@ function getInstance(): Stripe {
     }
 
     _stripe = new Stripe(key, {
-      apiVersion: "2026-07-29.dahlia",
+      apiVersion: STRIPE_API_VERSION,
       typescript: true,
     });
   }

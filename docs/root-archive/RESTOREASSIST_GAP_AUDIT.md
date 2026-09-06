@@ -727,3 +727,104 @@ were found in `.planning/` video docs.
     rather than by a carrier round-trip. No production database was read; the reachability of the
     NULL path is proven from the schema (`Float?`) and the conditional write in the upload route,
     not from a row count.
+- [PASS] **Release-gate F1 — the billing-webhook alert signal (prerequisite, not a gap-audit
+  row)** — the release gate ran to completion for the first time on 2026-08-26 and scored
+  **35/85, blocked fail-closed** (PR #2067). Of the 35 remaining points, F1-monitoring-alerting
+  is the only criterion carrying a code-side prerequisite an agent can close; A1, A3, C2, D1 and
+  D3 need a live environment, a Stripe dashboard lookup, or owner evidence.
+  - **The defect, quoted from F1's own evidence file:** the rules table's obvious alert for
+    "billing webhook errors" would never have fired. On an **ordinary** processing failure the
+    Stripe webhook handler wrote `StripeWebhookEvent.status = 'FAILED'` and returned a bare
+    `NextResponse.json(…, { status: 500 })` with **no console output at all** — the two
+    `console.error` calls in that catch block sit inside the audit write's own `.catch()` and
+    fire only on the rare **double** failure. Vercel Observability cannot read a database row,
+    so the only observable signal was a status code carrying neither the Stripe event id nor
+    the error. F1 offered Option A (alert on the bare 500) and Option B (emit a log line first),
+    and warned: make the code change **before** creating the rule, or the rule matches nothing.
+  - **Option B is now done, and it is a one-file convergence rather than new machinery.** That
+    catch block was the only error path in the handler not going through `apiError` — the same
+    helper its `no signature`, `webhook secret not configured` and `invalid signature` paths
+    already use, and which calls `reportError` for every 5xx. The 500 is unchanged, so Stripe's
+    retry behaviour is untouched and Option A survives as a fallback rule; the failure now also
+    emits the repository's standard `[error]` line with
+    `stage: "stripe-webhook:processing"`, the route, the correlation `eventId`, the Stripe
+    event id, the event type and the original message.
+  - **The other two F1 failure classes were checked and need nothing.** Auth failures already
+    emit `[security] LOGIN_FAILED` (`lib/security-audit.ts:65-70`, deliberately non-PII), and
+    restore/report failures already emit `console.error` at the failure point
+    (`lib/queue/storage-restore.ts`). The sweep of the other money-path webhook routes (Xero,
+    QuickBooks, MYOB, Ascora, ServiceM8, dr-nrpg) found every raw 500 already logging, so this
+    was the single silent one and no other file is touched.
+  - **Tests:** `app/api/webhooks/stripe/__tests__/processing-failure-observability.test.ts`
+    (4/4) pins the fields an alert rule filters on — stage, route, status, code, Stripe event
+    id, event type, original message — rather than the wording of the message, plus the 500 and
+    the FAILED audit write as regression guards.
+  - **Positive control:** the suite was run against the **unmodified `origin/main`** handler and
+    **3 of its 4 tests fail**. The fourth is the negative control ("no `[error]` line on a
+    successful delivery"), which must pass on both sides and does — so the suite is not
+    trivially green.
+  - **Mutation controls — five mutants, all killed**, sources restored byte-identical after each
+    (`route.ts` sha256 `2776f309…`, `lib/api-errors.ts` sha256 `59e0af33…`, before and after):
+    dropping `err` loses the error message; mis-labelling the `stage` breaks the field the rule
+    filters on; dropping the Stripe context loses the event id; logging **unconditionally** —
+    which would page on every healthy webhook — kills the negative control; and generating the
+    response's `eventId` independently of the log's makes the two diverge, killing the
+    correlation assertion. The sweep was re-run over **all five** after the correlation
+    assertion was added, not carried over, because that edit changed the shared test file every
+    mutant crosses.
+  - **Independent review — every finding drained, none argued away.** Codex was probed live and
+    is usage-capped, so review went over HTTP through OpenRouter to `openai/gpt-5.6-sol` — a
+    different vendor's model in a fresh context, not a subagent of the implementing agent. Four
+    findings were raised across successive rounds; what each one did to this branch:
+    - **P1, "forwarding the unsanitised exception to observability creates a new sensitive-data
+      disclosure path" — refuted by measurement, then withdrawn by the reviewer.**
+      `fromException` (`lib/api-errors.ts:112-190`) forwards the raw `err` to `apiError` on
+      **every** branch including the catch-all 500, and **442 of ~465** API route files use it —
+      the whole PII-bearing surface (`app/api/invoices/**`, `users/**`, `auth/**`, `support/**`)
+      included. This route's bare `NextResponse.json` was the outlier that *lacked* the
+      convention. Sanitising here alone would make it the one route whose 500s carry no
+      diagnostic, defeat F1's explicit ask for the error message, and leave the 442-route
+      exposure untouched. The reviewer's own words on reconsideration: "no concrete sensitive
+      value is demonstrated here, so this is not sustained as the round-1 P1." The repo-wide
+      `reportError` redaction question survives as a **documented P2**.
+    - **P2, the correlation id was claimed but not asserted — fixed, not filed.** The tests
+      established a structured log and a non-empty response `eventId` separately but never
+      asserted the two were the *same* value, while the evidence said the id "pairs" them. A
+      claim with no control. The assertion and mutant M5 were added.
+    - **P1, the fifth mutant was represented as measured without a record — supplied.** The
+      claim was true and the run had happened, but the reviewer had not been shown it. Correct
+      finding against the evidence, not the code.
+    - **P1, "before and after each" overstated a per-sweep hash as a per-mutant one — measured
+      rather than reworded.** The first sweep hashed once at each end. The wording could have
+      been weakened; instead the sweep was re-run printing all three source hashes **after
+      every single restoration**, so the sentence is now literally what was measured. All five
+      restorations return `2776f309…` / `59e0af33…` / `7f23e334…`.
+    - **No Linear ticket id is quoted for the surviving P2** because the Linear MCP is
+      unauthenticated in this non-interactive session; inventing an id would be worse than
+      naming the gap.
+  - **Verified on a clean `npm ci` install with the Prisma client generated** — the whole
+    repository definition of done, not a subset: `npm run type-check` exit **0**;
+    `npm run lint` exit **0** (707 pre-existing warnings, zero errors); the **full** vitest
+    suite exit **0** — **904 files passed / 20 skipped, 6946 tests passed / 107 skipped**;
+    `npx eslint -c config/eslint.config.mjs` over both changed source files — exit 0, no
+    output; and all **12** CI `Quality Checks` guards enumerated from
+    `.github/workflows/pr-checks.yml` — **12/12 PASS**, `audit:prod` included (no un-ignored
+    high/critical advisories across 1403 prod packages).
+  - **An earlier reading of the typecheck was an environment artefact, and is recorded rather
+    than quietly dropped.** Before the clean install, this worktree borrowed the main
+    checkout's `node_modules`, and `tsc --noEmit` reported **97 errors** — all in
+    `lib/pilot-tester/budget-contract.ts`, `lib/pilot-tester/judge.ts`,
+    `lib/ai/adjuster-agent.ts` and two route files, none of which this change touches. The
+    cause was a **stale generated Prisma client**: `prisma/schema.prisma` declares
+    `PilotJudgeReceipt` (`:6062`) and `PilotBudgetReservation` (`:5973`) and the borrowed
+    client lacked both. That was first shown to be not-this-branch by diffing against a
+    pristine `origin/main` worktree in the identical environment (byte-identical output), and
+    is now shown **directly**: with `npm ci` plus `prisma generate`, `type-check` exits 0 and
+    the 97 errors do not exist. The comparison was the weaker instrument and the direct run
+    supersedes it — a borrowed `node_modules` is a confound to remove, not to reason around.
+  - **Still owner-gated, and untouched by this:** creating the three Vercel Observability alert
+    rules (F1 Step 2), firing the alert test against sandbox (Step 3), setting the empty
+    `SUPABASE_ACCESS_TOKEN` secret, and creating the missing `security` GitHub label so the
+    advisor gate's failure notifier can actually file an issue. **Not observed:** no run against
+    a live deployment — code cannot create a Vercel alert rule, and a rule that has never fired
+    is not evidence. This closes only the prerequisite F1 names.

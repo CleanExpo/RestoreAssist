@@ -9,11 +9,26 @@ describe('PricingCard', () => {
   beforeEach(() => {
     useSetupStore.getState().reset();
     useSetupStore.getState().setOrg({
-      id: 'org-1', legalName: 'Acme', tradingName: null, abn: null, acn: null,
-      state: null, address: null, phone: null, email: null, website: null,
-      logoUrl: null, primaryColor: null, accentColor: null, aboutCopy: null,
+      id: 'org-1',
+      legalName: 'Acme',
+      tradingName: null,
+      country: 'AU',
+      abn: null,
+      nzbn: null,
+      acn: null,
+      timezone: 'Australia/Sydney',
+      state: null,
+      address: null,
+      phone: null,
+      email: null,
+      website: null,
+      logoUrl: null,
+      primaryColor: null,
+      accentColor: null,
+      aboutCopy: null,
       tradingStatus: 'ACTIVE',
-      setupStartedAt: null, setupCompletedAt: null,
+      setupStartedAt: null,
+      setupCompletedAt: null,
     });
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

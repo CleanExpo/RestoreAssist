@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateAuthorityFormPDF } from "@/lib/generate-authority-form-pdf";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  AUTHORITY_FORM_RENDER_INCLUDE,
+  renderAuthorityFormPdf,
+} from "@/lib/documents/render-authority-form";
 
 /**
  * GET /api/authority-forms/:id/pdf
@@ -30,21 +33,7 @@ export async function GET(
     // Fetch form with all data
     const form = await prisma.authorityFormInstance.findUnique({
       where: { id: formId },
-      include: {
-        template: true,
-        signatures: {
-          orderBy: { createdAt: "asc" },
-        },
-        report: {
-          select: {
-            id: true,
-            userId: true,
-            assignedManagerId: true,
-            assignedAdminId: true,
-            claimReferenceNumber: true,
-          },
-        },
-      },
+      include: AUTHORITY_FORM_RENDER_INCLUDE,
     });
 
     if (!form) {
@@ -68,44 +57,16 @@ export async function GET(
       });
     }
 
-    // Prepare signature data
-    const signatures = form.signatures.map((sig) => ({
-      signatoryName: sig.signatoryName,
-      signatoryRole: sig.signatoryRole,
-      signatureData: draft ? null : sig.signatureData, // Don't include signatures in draft
-      signedAt: sig.signedAt,
-      signatoryEmail: sig.signatoryEmail,
-    }));
+    // Assembly, provenance and generation all live in the shared renderer: the
+    // two evidence exports build the same PDF and must not build it differently.
+    const { bytes, filename } = await renderAuthorityFormPdf(form, { draft });
 
-    // Generate PDF
-    const pdfBytes = await generateAuthorityFormPDF({
-      companyName: form.companyName,
-      companyLogo: form.companyLogo,
-      companyABN: form.companyABN,
-      companyPhone: form.companyPhone,
-      companyEmail: form.companyEmail,
-      companyWebsite: form.companyWebsite,
-      companyAddress: form.companyAddress,
-      clientName: form.clientName,
-      clientAddress: form.clientAddress,
-      incidentDate: form.incidentDate,
-      incidentBrief: form.incidentBrief,
-      claimReferenceNumber: form.report.claimReferenceNumber,
-      formName: form.template.name,
-      authorityDescription: form.authorityDescription,
-      date: new Date(),
-      signatures,
-    });
-
-    // Return PDF
-    const filename = `${form.template.code}-${form.report.claimReferenceNumber || form.id.slice(-6)}.pdf`;
-
-    return new NextResponse(Buffer.from(pdfBytes), {
+    return new NextResponse(Buffer.from(bytes), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": pdfBytes.length.toString(),
+        "Content-Length": bytes.length.toString(),
       },
     });
   } catch (error) {

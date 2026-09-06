@@ -90,7 +90,7 @@ describe("export pipeline — AU end to end", () => {
   });
 
   it("structured contract carries the full DoD chain", () => {
-    expect(structured.schemaVersion).toBe("1.0");
+    expect(structured.schemaVersion).toBe("1.1");
     expect(structured.floors).toHaveLength(2);
     expect(structured.totalFloorAreaM2).toBeGreaterThan(0);
     expect(structured.compliance.acmElements).toContain("Bathroom"); // fibro → ACM

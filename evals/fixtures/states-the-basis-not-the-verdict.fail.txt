@@ -1,0 +1,2 @@
+Updates the GST calculation in lib/gst-rules.ts. Fully tested and verified — all tests
+pass and the change is working as expected. Ready to merge.

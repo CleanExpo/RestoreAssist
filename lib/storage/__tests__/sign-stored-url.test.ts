@@ -17,6 +17,7 @@ describe("parseSupabaseStorageUrl", () => {
     expect(
       parseSupabaseStorageUrl(
         `${HOST}/storage/v1/object/public/evidence-optimised/org1/insp1/photo.jpg`,
+        HOST,
       ),
     ).toEqual({ bucket: "evidence-optimised", path: "org1/insp1/photo.jpg" });
   });
@@ -25,6 +26,7 @@ describe("parseSupabaseStorageUrl", () => {
     expect(
       parseSupabaseStorageUrl(
         `${HOST}/storage/v1/object/sign/sketch-media/org1/sketch.png?token=eyJhbGc`,
+        HOST,
       ),
     ).toEqual({ bucket: "sketch-media", path: "org1/sketch.png" });
   });
@@ -33,14 +35,37 @@ describe("parseSupabaseStorageUrl", () => {
     expect(
       parseSupabaseStorageUrl(
         `${HOST}/storage/v1/object/public/evidence-optimised/org1/a%20b/c.jpg`,
+        HOST,
       ),
     ).toEqual({ bucket: "evidence-optimised", path: "org1/a b/c.jpg" });
   });
 
   it("returns null for a non-Supabase URL (legacy Cloudinary)", () => {
     expect(
-      parseSupabaseStorageUrl("https://res.cloudinary.com/x/image/upload/a.jpg"),
+      parseSupabaseStorageUrl(
+        "https://res.cloudinary.com/x/image/upload/a.jpg",
+      ),
     ).toBeNull();
+  });
+
+  it("refuses a forged host with a Supabase-looking path", () => {
+    expect(
+      parseSupabaseStorageUrl(
+        "https://evil.example/storage/v1/object/public/sketch-media/inspections/victim/plan.png",
+        HOST,
+      ),
+    ).toBeNull();
+  });
+
+  it("parses an opaque server-owned storage locator", () => {
+    expect(
+      parseSupabaseStorageUrl(
+        "storage://sketch-media/inspections/i1/underlays/plan.png",
+      ),
+    ).toEqual({
+      bucket: "sketch-media",
+      path: "inspections/i1/underlays/plan.png",
+    });
   });
 
   it("returns null for empty / bucket-only / malformed input", () => {

@@ -40,6 +40,7 @@ describe("invoice header equals the sum of its line items", () => {
 
   it("agrees on the reviewer's fractional-quantity case", () => {
     const header = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: FRACTIONAL.map((i) => ({
         quantity: i.quantity,
         unitPrice: Math.round(i.unitPrice * 100),
@@ -55,6 +56,7 @@ describe("invoice header equals the sum of its line items", () => {
   it("POSITIVE CONTROL: the old expression genuinely disagreed", () => {
     // Proves this test class can fail — a green result above is meaningful.
     const header = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
       lineItems: FRACTIONAL.map((i) => ({
         quantity: i.quantity,
         unitPrice: Math.round(i.unitPrice * 100),
@@ -78,6 +80,7 @@ describe("invoice header equals the sum of its line items", () => {
         for (const gstRate of rates) {
           const item = { quantity, unitPrice, gstRate };
           const header = calculateInvoiceTotals({
+      defaultGstRatePercent: 10,
             lineItems: [
               {
                 quantity,

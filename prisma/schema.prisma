@@ -954,13 +954,15 @@ model Organization {
   storageProviderAccountEmail   String? // The gmail the user OAuth'd as — shown on StorageCard
   storageProviderPkceVerifier   String? // Transient: cleared on successful callback
 
-  // RA-1120: NZ locale support — "AU" | "NZ"
-  country String @default("AU")
+  // D-021: authoritative tenant locale — "AU" | "NZ"
+  country  String @default("AU")
+  timezone String @default("Australia/Sydney")
 
   // Setup wizard additions (Migration A, 2026-05-12)
   legalName        String?
   tradingName      String?
   abn              String?       @unique
+  nzbn             String?       @unique
   acn              String?
   state            String?
   address          String?
@@ -2198,9 +2200,10 @@ model Inspection {
   workspace   Workspace? @relation("InspectionWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
 
   // V2: Sketch tool, DR-NRPG sync, drying goals
-  claimSketches    ClaimSketch[]
-  drNrpgJobSync    DrNrpgJobSync?
-  dryingGoalRecord DryingGoalRecord?
+  claimSketches            ClaimSketch[]
+  sketchUnderlayReferences SketchUnderlayReference[]
+  drNrpgJobSync            DrNrpgJobSync?
+  dryingGoalRecord         DryingGoalRecord?
 
   // RA-6949 — Restoration Pulse per-job comms log (send + suppression audit).
   clientCommsLogs ClientCommsLog[]
@@ -3429,13 +3432,14 @@ model InspectionPhoto {
   // longitude are the mobile-capture coordinates (distinct from the existing
   // gpsLatitude/gpsLongitude EXIF fields).
   roomId        String?
-  room          Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  room          Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
   latitude      Float?
   longitude     Float?
   width         Int?
   height        Int?
   mobileLocalId String?
-  metadata      Json?   @default("{}")
+  metadata      Json?         @default("{}")
+  evidencePins  EvidencePin[]
 
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -5431,6 +5435,11 @@ model SupportTicket {
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  // Stable producer-owned key for exactly-once external fulfilment. Nullable
+  // so ordinary support requests remain unaffected; uniqueness is enforced by
+  // Postgres for paid or webhook-created tickets that supply a key.
+  externalReference String? @unique
+
   email   String
   name    String
   subject String
@@ -6382,13 +6391,20 @@ enum AddonSku {
   PAYMENTS // Payments Collection (Stripe Connect on the client's own account)
   FLOORPLAN_UNDERLAY // RA-6922: Floor Plan Underlay — recurring $9.95/mo internet-floorplan-overlay entitlement
   CLIENT_COMMS // RA-6954: Restoration Pulse client-comms — recurring $11/mo client-facing email updates entitlement
+  CLIENT_EDUCATION // Client education library + /learn kiosk on the client portal — recurring $11/mo
+  AI_COPILOT // Margot technician co-pilot (the live-teacher routes) — recurring $11/mo
 }
 
 // FeatureEntitlement — per-workspace record of which add-on SKUs are active.
-// RA-6922 scaffold: the model + guard (lib/entitlements/requireAddon) exist but
-// are NOT yet enforced at any surface, so existing workspaces are unaffected.
-// Stripe linkage is nullable so the recurring Price/subscription can be wired
-// later (owner Stripe action, out of scope for this PR).
+// The RA-6922 header here used to say the guard was "NOT yet enforced at any
+// surface". That has been false since the P2 wiring landed — every SKU is live
+// behind requireAddon() (Pulse sends, Ascora/DR-NRPG connect, bookkeeping OAuth,
+// invoice payments, the floorplan scrape, ElevenLabs SFX). An absent row now
+// denies, so a workspace missing one loses that surface.
+// `seats` is read ONLY by the per-seat TECHNICIAN_SEATS add-on and stays null
+// for every flat one (billed at Stripe quantity 1).
+// Stripe linkage is nullable because add-ons price inline via `price_data` at
+// checkout — there is no pre-created Stripe Product or Price to reference.
 model FeatureEntitlement {
   id          String    @id @default(cuid())
   workspaceId String
@@ -6525,17 +6541,16 @@ model IicrcChunk {
 // ─── V2: Sketch Tool (RA-89) ──────────────────────────────────────────────────
 
 model ClaimSketch {
-  id                      String                  @id @default(cuid())
+  id                      String                    @id @default(cuid())
   inspectionId            String
-  inspection              Inspection              @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  floorNumber             Int                     @default(0)
-  floorLabel              String                  @default("Ground Floor")
-  sketchType              String                  @default("structural")
+  inspection              Inspection                @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  floorNumber             Int                       @default(0)
+  floorLabel              String                    @default("Ground Floor")
+  sketchType              String                    @default("structural")
   sketchData              Json?
   backgroundImageUrl      String?
-  // RA-120 (PR2): rasterised PNG of the floor (underlay + annotations) captured
-  // client-side via Fabric canvas.toDataURL and uploaded to sketch-media/exports.
-  // The canonical IICRC report embeds this per floor (server can't render Fabric).
+  // Immutable server-rendered PNG of allowlisted floor geometry. Reference
+  // pixels and client-supplied raster bytes are never canonical report input.
   renderedPngUrl          String?
   // RA-120 (PR4): per-floor underlay opacity (0..1). Without this the slider
   // value lived in React state only and reset to the default on every reload.
@@ -6555,8 +6570,8 @@ model ClaimSketch {
   pendingHomeownerCapture Json?
   // RestoreAssist Mapping V2 (spec §12): canonical model + ANZ context
   totalFloorAreaM2        Float?
-  country                 String                  @default("AU") // AU | NZ
-  captureAdapter          String                  @default("manual") // manual | roomplan | cloud_ai | underlay_import
+  country                 String                    @default("AU") // AU | NZ
+  captureAdapter          String                    @default("manual") // manual | roomplan | cloud_ai | underlay_import
   annotations             SketchAnnotation[]
   elements                SketchElement[]
   rooms                   SketchRoom[]
@@ -6564,11 +6579,52 @@ model ClaimSketch {
   hazards                 Hazard[]
   insuranceContext        InsuranceContext?
   sketchMoistureReadings  SketchMoistureReading[]
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
+  underlayReferences      SketchUnderlayReference[]
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
 
   @@index([inspectionId])
   @@index([inspectionId, floorNumber])
+}
+
+// Durable custody + rights record for an imported floor-plan reference.
+// The imported pixels are private orientation material only. `ClaimSketch`
+// stores the active private storage URL for the editor; reports consume only
+// the source-free rendered geometry. Prior rows remain retained when a plan is
+// replaced so the attestation history cannot be silently rewritten.
+model SketchUnderlayReference {
+  id                      String       @id @default(cuid())
+  inspectionId            String
+  inspection              Inspection   @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  sketchId                String?
+  sketch                  ClaimSketch? @relation(fields: [sketchId], references: [id], onDelete: SetNull)
+  floorNumber             Int          @default(0)
+  storagePath             String
+  sourceType              String // upload | url
+  sourcePageUrl           String?
+  sourceImageUrl          String?
+  contentSha256           String
+  mimeType                String
+  sourceSizeBytes         Int
+  storedSizeBytes         Int
+  attestationVersion      String
+  attestationStatement    String       @db.Text
+  holdsRights             Boolean
+  compliesWithSourceTerms Boolean
+  attestedByUserId        String
+  attestedAt              DateTime
+  verifiedByUserId        String?
+  verifiedAt              DateTime?
+  verificationMethod      String?
+  verificationJson        Json?
+  replacedAt              DateTime?
+  removedAt               DateTime?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  @@index([inspectionId, floorNumber, replacedAt, removedAt])
+  @@index([sketchId])
+  @@index([contentSha256])
 }
 
 // RoomGraph V1 — derived room nodes. Fabric sketchData remains render SSOT;
@@ -6638,20 +6694,21 @@ model RoomPlanCaptureReceipt {
 
 // Evidence pins on the floor plan — photos/videos/docs/voice at canvas coords.
 model EvidencePin {
-  id                String      @id @default(cuid())
+  id                String           @id @default(cuid())
   sketchId          String
-  sketch            ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  sketch            ClaimSketch      @relation(fields: [sketchId], references: [id], onDelete: Cascade)
   sketchRoomId      String?
-  sketchRoom        SketchRoom? @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
+  sketchRoom        SketchRoom?      @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
   inspectionPhotoId String?
-  kind              String      @default("photo") // photo | video | document | voice
+  inspectionPhoto   InspectionPhoto? @relation(fields: [inspectionPhotoId], references: [id], onDelete: SetNull)
+  kind              String           @default("photo") // photo | video | document | voice
   // Absolute canvas px (legacy render) + normalized 0..1 (stable under zoom/pan).
   x                 Float
   y                 Float
   nx                Float?
   ny                Float?
-  rotationDeg       Float       @default(0)
-  scale             Float       @default(1)
+  rotationDeg       Float            @default(0)
+  scale             Float            @default(1)
   fileUrl           String?
   thumbnailUrl      String?
   fileName          String?
@@ -6659,11 +6716,11 @@ model EvidencePin {
   fileSizeBytes     Int?
   caption           String?
   capturedByUserId  String?
-  captureSource     String      @default("web") // web | camera | upload | import
-  offlineQueued     Boolean     @default(false)
-  syncState         String      @default("synced") // pending | synced | failed
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  captureSource     String           @default("web") // web | camera | upload | import
+  offlineQueued     Boolean          @default(false)
+  syncState         String           @default("synced") // pending | synced | failed
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@index([sketchId])
   @@index([sketchRoomId])
@@ -8473,19 +8530,26 @@ model ClientInvite {
 
 // Customer portal content hub — platform defaults + optional NRPG seed rows.
 model PortalContent {
-  id          String    @id @default(cuid())
-  scope       String // PLATFORM_DEFAULT | NRPG_SEED
-  audience    String    @default("customer")
-  category    String
-  slug        String
-  mdxContent  String    @db.Text
-  videoSlug   String?
-  state       String    @default("DRAFT")
-  publishedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  scope         String // PLATFORM_DEFAULT | NRPG_SEED
+  audience      String    @default("customer")
+  category      String
+  slug          String
+  mdxContent    String    @db.Text
+  videoSlug     String?
+  state         String    @default("DRAFT")
+  /// Behind the CLIENT_EDUCATION add-on. False (the default) means the row is
+  /// part of the free explainer set every client already sees — gating those
+  /// would remove a feature rather than sell one. Explicit rather than inferred
+  /// from `category`, which breaks the first time a free article lands under a
+  /// new category name.
+  requiresAddon Boolean   @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([scope, slug])
   @@index([audience, category, state])
+  @@index([audience, state, requiresAddon])
   @@map("PortalContent")
 }

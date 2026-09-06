@@ -97,3 +97,63 @@ test("rejects any branch source or weakened health contract", () => {
     /health check/,
   );
 });
+
+test("rejects a health check that omits or weakens its timings", () => {
+  // The failure this exists for. The original spec named only `http_path`, so
+  // App Platform applied its DEFAULTS -- a 1-second timeout with no startup
+  // grace -- against an endpoint that opens a database connection, on a
+  // basic-xxs instance. A correct health path still fails every deploy if the
+  // timings are missing, so dropping them must be rejected as loudly as
+  // pointing the probe somewhere useless.
+  const noTimings = structuredClone(template);
+  noTimings.services[0].health_check = { http_path: "/api/health" };
+  assert.throws(
+    () =>
+      renderProductionAppSpec({
+        template: noTimings,
+        digest,
+        gitSha,
+        registryCredentials: "user:token",
+      }),
+    /initial_delay_seconds must be a number >= 30/,
+  );
+
+  for (const [key, weakened] of [
+    ["initial_delay_seconds", 5],
+    ["timeout_seconds", 1],
+    ["failure_threshold", 1],
+  ]) {
+    const weak = structuredClone(template);
+    weak.services[0].health_check[key] = weakened;
+    assert.throws(
+      () =>
+        renderProductionAppSpec({
+          template: weak,
+          digest,
+          gitSha,
+          registryCredentials: "user:token",
+        }),
+      new RegExp(`${key} must be a number >=`),
+      `weakening ${key} to ${weakened} must be rejected`,
+    );
+  }
+});
+
+test("keeps the probe on readiness, not on the migration-drift watchdog", () => {
+  // /api/health/migrations answers "is the ledger in the expected state?", not
+  // "can this container serve traffic?". Pointing the probe back at it
+  // reintroduces a deadlock: with drift present, the deploy that would fix the
+  // drift can never go green.
+  const driftProbe = structuredClone(template);
+  driftProbe.services[0].health_check.http_path = "/api/health/migrations";
+  assert.throws(
+    () =>
+      renderProductionAppSpec({
+        template: driftProbe,
+        digest,
+        gitSha,
+        registryCredentials: "user:token",
+      }),
+    /must use \/api\/health/,
+  );
+});

@@ -1,10 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { getGstTreatment, computeGstCents } from "../gst-rules";
+import {
+  getGstTreatment,
+  getGstTreatmentForCurrency,
+  resolveLineGstRatePercent,
+  computeGstCents,
+} from "../gst-rules";
 
 describe("getGstTreatment", () => {
   it("returns 10% rate for AU", () => {
     const treatment = getGstTreatment("AU");
     expect(treatment.rate).toBe(0.1);
+    expect(treatment.ratePercent).toBe(10);
     expect(treatment.currency).toBe("AUD");
     expect(treatment.percentLabel).toBe("10%");
     expect(treatment.xeroTaxType).toBe("OUTPUT");
@@ -15,11 +21,28 @@ describe("getGstTreatment", () => {
   it("returns 15% rate for NZ", () => {
     const treatment = getGstTreatment("NZ");
     expect(treatment.rate).toBe(0.15);
+    expect(treatment.ratePercent).toBe(15);
     expect(treatment.currency).toBe("NZD");
     expect(treatment.percentLabel).toBe("15%");
     expect(treatment.xeroTaxType).toBe("OUTPUT2");
     expect(treatment.myobTaxCode).toBe("GST15");
     expect(treatment.qboTaxRateName).toBe("GST NZ");
+  });
+});
+
+describe("resolveLineGstRatePercent", () => {
+  it("normalises legacy taxable defaults to the tenant jurisdiction", () => {
+    expect(resolveLineGstRatePercent(10, getGstTreatment("NZ"))).toBe(15);
+    expect(resolveLineGstRatePercent(undefined, getGstTreatment("AU"))).toBe(10);
+    expect(resolveLineGstRatePercent(0, getGstTreatment("NZ"))).toBe(0);
+  });
+});
+
+describe("getGstTreatmentForCurrency", () => {
+  it("keeps existing invoice tax tied to its stored currency", () => {
+    expect(getGstTreatmentForCurrency("AUD").country).toBe("AU");
+    expect(getGstTreatmentForCurrency("NZD").country).toBe("NZ");
+    expect(() => getGstTreatmentForCurrency("USD")).toThrow(/AUD or NZD/);
   });
 });
 

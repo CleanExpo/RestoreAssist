@@ -4,10 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { resolveOrgBrandTheme } from "@/lib/clients/brand";
-import {
-  claimSketchesToFloors,
-  uploadedFloorPlanToFloor,
-} from "@/lib/reports/claim-sketch-floors";
+import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
 import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
@@ -103,7 +100,6 @@ export async function GET(
         inspection: {
           select: {
             // RA-7006 Gap 6: uploaded floor-plan image, appended to the PDF.
-            floorPlanImageUrl: true,
             claimSketches: {
               select: {
                 floorNumber: true,
@@ -113,6 +109,22 @@ export async function GET(
                 // RA-120 §3: moisture-overlay pins, overlaid on the sketch image
                 // so the moisture map is included alongside the structural sketch.
                 moisturePoints: true,
+                underlayReferences: {
+                  select: { verifiedAt: true, verificationJson: true },
+                  orderBy: { createdAt: "desc" },
+                  take: 1,
+                },
+                inspection: {
+                  select: {
+                    sketchUnderlayReferences: {
+                      select: {
+                        floorNumber: true,
+                        verifiedAt: true,
+                        verificationJson: true,
+                      },
+                    },
+                  },
+                },
                 evidencePins: {
                   orderBy: { createdAt: "asc" },
                   take: 1000,
@@ -196,19 +208,10 @@ export async function GET(
     );
     const { floors, labelsByPhotoId } =
       crossReferenceEvidencePhotos(parsedFloors);
-    // RA-7006 Gap 6: also append an uploaded floor-plan image (viewer-only until
-    // now). Best-effort — a broken image is skipped, never blocks the download.
-    const uploadedFloor = await uploadedFloorPlanToFloor(
-      report.inspection?.floorPlanImageUrl,
-    );
-    pdfBytes = await appendSketchPages(
-      pdfBytes,
-      uploadedFloor ? [...floors, uploadedFloor] : floors,
-      {
-        propertyAddress: report.propertyAddress ?? undefined,
-        reportNumber: report.reportNumber ?? undefined,
-      },
-    );
+    pdfBytes = await appendSketchPages(pdfBytes, floors, {
+      propertyAddress: report.propertyAddress ?? undefined,
+      reportNumber: report.reportNumber ?? undefined,
+    });
 
     // RA-120 (PR3): append the inspection's evidence photos as a captioned
     // grid. A broken image is skipped — it must never block the download.
