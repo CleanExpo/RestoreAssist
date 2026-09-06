@@ -35,6 +35,51 @@
  */
 
 /** @returns {Map<string,string>} spec path -> disposition */
+/**
+ * The only dispositions that mean anything. An unrecognised one -- a typo like
+ * `smok`, or `unrun` without its colon -- used to escape every verification
+ * branch in findCoverageDrift and still be counted as executed by summarise.
+ * A typo was therefore the one way to claim coverage that nothing checked.
+ * Found by independent review (independent cross-vendor review, 2026-09-07).
+ */
+const KNOWN_EXACT = new Set(["smoke", "a1"]);
+const KNOWN_PREFIXES = ["workflow:", "unrun:"];
+
+export function assertKnownDisposition(spec, disposition) {
+  if (KNOWN_EXACT.has(disposition)) return;
+  for (const prefix of KNOWN_PREFIXES) {
+    if (disposition.startsWith(prefix) && disposition.slice(prefix.length).trim()) {
+      return;
+    }
+  }
+  throw new Error(
+    `unknown disposition for ${spec}: ${JSON.stringify(disposition)}. ` +
+      `Expected one of: smoke, a1, workflow:<file>, unrun:<reason>.`,
+  );
+}
+
+/**
+ * Coverage was decided by searching raw file text, so `@smoke` written in a
+ * comment, or a spec filename mentioned in a YAML comment, both counted as
+ * "this spec is executed". Playwright's grep and the workflow runner see
+ * neither. Strip comments before asking.
+ *
+ * Deliberately conservative: `//` is only treated as a comment when it is not
+ * preceded by `:`, so a `https://` URL is left intact rather than truncating
+ * the rest of the line and inventing a different false answer.
+ *
+ * @param {string} text
+ * @param {"ts"|"yml"} kind
+ */
+export function stripComments(text, kind) {
+  if (kind === "yml") {
+    return (text ?? "").replace(/(^|\s)#.*$/gmu, "$1");
+  }
+  return (text ?? "")
+    .replace(/\/\*[\s\S]*?\*\//gu, "")
+    .replace(/(^|[^:])\/\/.*$/gmu, "$1");
+}
+
 export function parseCoverageManifest(text) {
   const out = new Map();
   for (const raw of (text ?? "").split("\n")) {
@@ -45,6 +90,7 @@ export function parseCoverageManifest(text) {
     if (!disposition) {
       throw new Error(`manifest entry has no disposition: ${spec}`);
     }
+    assertKnownDisposition(spec, disposition);
     out.set(spec, disposition);
   }
   return out;

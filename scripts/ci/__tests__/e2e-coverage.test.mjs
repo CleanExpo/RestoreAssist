@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   findCoverageDrift,
   parseCoverageManifest,
+  stripComments,
   summarise,
 } from "../e2e-coverage.mjs";
 
@@ -118,4 +119,50 @@ test("summarise counts what actually runs, not what is claimed", () => {
   assert.equal(s.executed, 2);
   assert.equal(s.unrun, 2);
   assert.equal(s.total, 4);
+});
+
+// Independent review (independent cross-vendor review, 2026-09-07) — P1.
+// A disposition that is not one of the known kinds escaped every verification
+// branch in findCoverageDrift AND was counted as executed by summarise. So a
+// typo was the one way to claim coverage that nothing ever checked.
+test("a manifest disposition that is not a known kind is rejected", () => {
+  assert.throws(
+    () => parseCoverageManifest("auth.spec.ts   smok"),
+    /unknown disposition/i,
+  );
+  assert.throws(
+    () => parseCoverageManifest("auth.spec.ts   unrun"),
+    /unknown disposition/i,
+  );
+  assert.throws(
+    () => parseCoverageManifest("auth.spec.ts   workflow"),
+    /unknown disposition/i,
+  );
+});
+
+test("every known disposition kind is still accepted", () => {
+  const parsed = parseCoverageManifest(
+    [
+      "a.spec.ts   smoke",
+      "b.spec.ts   a1",
+      "c.spec.ts   workflow:sketch-e2e.yml",
+      "d.spec.ts   unrun:nothing boots the app",
+    ].join("\n"),
+  );
+  assert.equal(parsed.size, 4);
+});
+
+// Independent review — P1. Coverage was decided by a raw substring search, so
+// `@smoke` in a comment, or a spec filename mentioned in a YAML comment, both
+// counted as "this spec is executed". Playwright's grep and the workflow runner
+// see neither.
+test("a tag or filename that appears only in a comment does not count", () => {
+  assert.equal(stripComments("// @smoke\nconst x = 1;\n", "ts").includes("@smoke"), false);
+  assert.equal(stripComments("/* @smoke */\nconst x = 1;\n", "ts").includes("@smoke"), false);
+  assert.equal(stripComments("# runs billing.spec.ts one day\njobs:\n", "yml").includes("billing.spec.ts"), false);
+});
+
+test("a tag or filename outside a comment still counts", () => {
+  assert.equal(stripComments("test('x @smoke', () => {});\n", "ts").includes("@smoke"), true);
+  assert.equal(stripComments("run: npx playwright test billing.spec.ts\n", "yml").includes("billing.spec.ts"), true);
 });

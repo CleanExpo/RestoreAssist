@@ -66,6 +66,30 @@ export function discover(root = repoRoot) {
 }
 
 /** @returns {Map<string,string>} repo-relative path -> disposition */
+/**
+ * main() buckets suites with `=== "run"`, `startsWith("elsewhere:")` and
+ * `startsWith("skip:")`. A disposition matching none of those landed the suite
+ * in no bucket at all — neither run nor reported — and the gate still exited 0.
+ * The drift check could not catch it either, because the file WAS mentioned.
+ * So a typo was the one way to disarm a suite silently.
+ * Found by independent review (independent cross-vendor review, 2026-09-07).
+ */
+const KNOWN_EXACT = new Set(["run"]);
+const KNOWN_PREFIXES = ["elsewhere:", "skip:"];
+
+export function assertKnownDisposition(entry, disposition) {
+  if (KNOWN_EXACT.has(disposition)) return;
+  for (const prefix of KNOWN_PREFIXES) {
+    if (disposition.startsWith(prefix) && disposition.slice(prefix.length).trim()) {
+      return;
+    }
+  }
+  throw new Error(
+    `unknown disposition for ${entry}: ${JSON.stringify(disposition)}. ` +
+      `Expected one of: run, elsewhere:<where>, skip:<reason>.`,
+  );
+}
+
 export function readManifest(file = MANIFEST) {
   const out = new Map();
   for (const raw of readFileSync(file, "utf8").split("\n")) {
@@ -76,6 +100,7 @@ export function readManifest(file = MANIFEST) {
     if (!disposition) {
       throw new Error(`manifest entry has no disposition: ${entry}`);
     }
+    assertKnownDisposition(entry, disposition);
     out.set(entry, disposition);
   }
   return out;

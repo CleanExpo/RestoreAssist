@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import {
   findCoverageDrift,
   parseCoverageManifest,
+  stripComments,
   summarise,
 } from "./e2e-coverage.mjs";
 
@@ -53,8 +54,13 @@ function discoverSpecs() {
 }
 
 function smokeTaggedSpecs(specs) {
+  // Comments are stripped first: `@smoke` in a comment is not a tag, and
+  // Playwright's grep would not select the spec. Counting it as covered was a
+  // way for this gate to pass while the spec stayed unexecuted.
   return specs.filter((s) =>
-    readFileSync(path.join(E2E_ROOT, s), "utf8").includes("@smoke"),
+    stripComments(readFileSync(path.join(E2E_ROOT, s), "utf8"), "ts").includes(
+      "@smoke",
+    ),
   );
 }
 
@@ -82,7 +88,12 @@ function workflowNamedSpecs(specs) {
   const map = new Map();
   for (const wf of readdirSync(WORKFLOWS)) {
     if (!wf.endsWith(".yml") && !wf.endsWith(".yaml")) continue;
-    const text = readFileSync(path.join(WORKFLOWS, wf), "utf8");
+    // Same reason as smokeTaggedSpecs: a spec named in a YAML comment is not
+    // run by that workflow, and must not be recorded as covered by it.
+    const text = stripComments(
+      readFileSync(path.join(WORKFLOWS, wf), "utf8"),
+      "yml",
+    );
     const named = specs.filter(
       (s) => text.includes(s) || text.includes(s.split("/").pop()),
     );
