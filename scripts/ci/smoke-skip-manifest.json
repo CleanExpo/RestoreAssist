@@ -1,0 +1,21 @@
+{
+  "_readme": [
+    "Declared skips for the @smoke suite, keyed by target. Read by scripts/run-smoke.mjs.",
+    "A skip is permitted ONLY if it appears here with a reason. An undeclared skip fails",
+    "the run, and so does a declaration that no longer matches a real skip, because a stale",
+    "exemption is how a suite quietly stops being run.",
+    "",
+    "Declaring a skip does NOT make the flow proven. It makes the gap named, and the runner",
+    "prints what the run did not cover. Every entry here is a debt with an owner.",
+    "",
+    "Keyed by target because the same spec legitimately RUNS on sandbox (where",
+    "ALLOW_TEST_HELPERS is set) and cannot run on production (where it correctly is not).",
+    "A blanket exemption would have excused a real gap on sandbox too."
+  ],
+  "production": {
+    "/dashboard/inspections/new renders for a TRIAL user with no upgrade wall": "UNPROVEN ON PRODUCTION. trial-no-paywall.spec.ts signs in via /api/test/sign-in-as, gated behind ALLOW_TEST_HELPERS, which production correctly does not set. Closing this needs a seeded production trial account the smoke can authenticate as -- founder-gated, it is a credential. Until then production smoke proves nothing about a trial user reaching first value.",
+    "/dashboard/reports/new renders for a TRIAL user with no upgrade wall": "UNPROVEN ON PRODUCTION. Same cause and same remedy as the inspections leg above.",
+    "connects via mocked OAuth and shows 'Connected as <email>'": "Quarantined at source: setup-storage-google-drive.spec.ts is marked test.fixme. Recorded in the estate as restoreassist-gdrive-smoke-quarantine. It is declared here so the quarantine is visible in every run rather than only in the spec file."
+  },
+  "default": {}
+}

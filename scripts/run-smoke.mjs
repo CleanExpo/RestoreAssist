@@ -55,8 +55,9 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertMigrationHealthPayload } from "./ci/assert-migration-health.mjs";
@@ -66,6 +67,10 @@ import {
   STALE,
 } from "./ci/classify-deployment-freshness.mjs";
 import { finalSmokeExitCode, parseSmokeArgs } from "./ci/smoke-args.mjs";
+import {
+  assessSkips,
+  smokeCoverageExitCode,
+} from "./ci/smoke-skip-policy.mjs";
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -290,6 +295,12 @@ try {
   process.exit(2);
 }
 
+// A machine-readable report alongside the human one. Without it the only
+// signal about the run is Playwright's exit status, and that status is 0 when
+// every test SKIPPED -- see scripts/ci/smoke-skip-policy.mjs.
+const reportDir = mkdtempSync(path.join(tmpdir(), "ra-smoke-"));
+const reportPath = path.join(reportDir, "report.json");
+
 const result = spawnSync(
   process.execPath,
   [
@@ -299,13 +310,18 @@ const result = spawnSync(
     "config/playwright.config.ts",
     "--grep",
     "@smoke",
-    "--reporter=line",
+    "--reporter=line,json",
     ...extraArgs,
   ],
   {
     cwd: repoRoot,
     stdio: "inherit",
-    env: { ...process.env, CI: "true", PLAYWRIGHT_BASE_URL: baseUrl },
+    env: {
+      ...process.env,
+      CI: "true",
+      PLAYWRIGHT_BASE_URL: baseUrl,
+      PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath,
+    },
   },
 );
 
@@ -318,6 +334,60 @@ if (result.error) {
 // rather than letting `?? 0` turn a SIGKILL into a green gate.
 const flowStatus = result.status ?? 1;
 
+// COVERAGE. Playwright exits 0 when tests are skipped, so the status above
+// cannot distinguish "the flows passed" from "the flows never ran". Observed
+// against production 2026-09-06: 3 skipped, and those three were the only
+// specs that would have touched an authenticated surface. A skip is allowed
+// only if it is declared with a reason.
+let coverageExit = flowStatus;
+try {
+  const report = JSON.parse(readFileSync(reportPath, "utf8"));
+  const manifest = JSON.parse(
+    readFileSync(path.join(repoRoot, "scripts/ci/smoke-skip-manifest.json"), "utf8"),
+  );
+  const declared = (isProduction ? manifest.production : manifest.default) ?? {};
+  const assessment = assessSkips(report, declared);
+
+  for (const s of assessment.declared) {
+    console.warn(
+      `NOT COVERED BY THIS RUN: "${s.title}"\n  ${s.reason}`,
+    );
+  }
+  for (const s of assessment.undeclared) {
+    console.error(
+      `UNDECLARED SKIP: "${s.title}" (${s.file}) did not run, and nothing says why. ` +
+        "A skipped flow is not a passed flow -- declare it in " +
+        "scripts/ci/smoke-skip-manifest.json with a reason, or make it run.",
+    );
+  }
+  for (const title of assessment.staleDeclarations) {
+    console.error(
+      `STALE SKIP DECLARATION: "${title}" is exempted in ` +
+        "scripts/ci/smoke-skip-manifest.json but did not skip. Remove the " +
+        "exemption -- a stale one is how a suite quietly stops being run.",
+    );
+  }
+  if (assessment.declared.length) {
+    console.warn(
+      `This run left ${assessment.declared.length} declared flow(s) unproven. ` +
+        "It is not a statement that they work.",
+    );
+  }
+
+  coverageExit = smokeCoverageExitCode({
+    flowStatus,
+    undeclaredCount: assessment.undeclared.length,
+    staleCount: assessment.staleDeclarations.length,
+  });
+} catch (error) {
+  // Coverage we cannot read is coverage we cannot claim. Exit 2 is this
+  // script's established "could not run", which is never a pass.
+  console.error(`Smoke coverage could not be assessed: ${error}`);
+  rmSync(reportDir, { recursive: true, force: true });
+  process.exit(2);
+}
+rmSync(reportDir, { recursive: true, force: true });
+
 // The deferred exit -- see finalSmokeExitCode, where the rule is unit-tested.
 if (degradedPreflight) {
   console.error(
@@ -328,4 +398,9 @@ if (degradedPreflight) {
   );
 }
 
-process.exit(finalSmokeExitCode({ degraded: Boolean(degradedPreflight), flowStatus }));
+process.exit(
+  finalSmokeExitCode({
+    degraded: Boolean(degradedPreflight),
+    flowStatus: coverageExit,
+  }),
+);
