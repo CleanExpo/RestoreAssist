@@ -10,9 +10,9 @@
  * here via middleware until the form submits successfully.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { getSession, useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -88,8 +88,25 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function AccountTypeOnboardingPage() {
   const router = useRouter();
-  const { update } = useSession();
+  const { status, update } = useSession();
   const [submitting, setSubmitting] = useState(false);
+
+  // A completed save can leave a stale JWT `needsOnboarding: true`.
+  // Re-read the session so middleware stops bouncing dashboard links.
+  useEffect(() => {
+    if (status === "loading") return;
+    let cancelled = false;
+    void (async () => {
+      const fresh = await getSession();
+      if (cancelled) return;
+      if (fresh?.user && !fresh.user.needsOnboarding) {
+        router.replace("/dashboard");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, router]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -115,10 +132,18 @@ export default function AccountTypeOnboardingPage() {
         toast.error(payload?.error || "Could not save. Please try again.");
         return;
       }
-      // Refresh JWT so middleware stops redirecting.
+      // Force a session re-encode so the cookie drops the stale
+      // needsOnboarding claim before middleware sees /dashboard.
       await update();
+      const fresh = await getSession();
+      if (fresh?.user?.needsOnboarding) {
+        toast.error(
+          "Details saved, but your session is still catching up. Refresh the page, then continue.",
+        );
+        return;
+      }
       toast.success("Account setup complete");
-      router.replace("/dashboard");
+      window.location.assign("/dashboard");
     } catch (err) {
       console.error("[onboarding] submit failed:", err);
       toast.error("Network error — please try again.");

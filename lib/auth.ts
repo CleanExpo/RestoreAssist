@@ -489,13 +489,18 @@ export const authOptions: NextAuthOptions = {
         (token as any).customExp =
           Math.floor(Date.now() / 1000) + lifetimeSeconds;
       }
-      // RA-1259: keep `needsOnboarding` fresh on first mint and after the
-      // client calls `update()` post-onboarding so middleware stops
-      // redirecting once the user completes the form.
+      // RA-1259: keep `needsOnboarding` fresh on first mint, after the
+      // client calls `update()`, and while the gate is still closed.
+      // Middleware reads getToken() and cannot see the DB. A stale
+      // `true` claim after POST /api/onboarding/account-type therefore
+      // bounced every /dashboard click back to the form. Routine
+      // session GETs do not pass trigger="update", so we re-query
+      // whenever the cookie still says the user needs onboarding.
       const shouldRefresh =
         Boolean(user) ||
         trigger === "update" ||
-        (token as any).needsOnboarding === undefined;
+        (token as any).needsOnboarding === undefined ||
+        (token as any).needsOnboarding === true;
       if (token.sub && shouldRefresh) {
         try {
           const fresh = await prisma.user.findUnique({
