@@ -31,7 +31,16 @@ const RECOMMENDED_VARS = [
   "CLOUDINARY_URL",
   // TURNSTILE_SECRET_KEY removed — replaced by Vercel BotID (no env var needed).
   "XERO_WEBHOOK_KEY", // RA-1802 — without it, Xero invoice/payment events return 500
-  "GITHUB_WEBHOOK_SECRET", // RA-1803 — without it, auto-release-notes returns 500
+  // RA-1803 — this said "without it, auto-release-notes returns 500". The route says
+  // otherwise: app/api/webhooks/github/route.ts returns a 200 no-op when the secret is
+  // absent, and its own RA-1803 comment records that it was changed AWAY from 500 so a
+  // sandbox-to-main merge would stop polluting the error feed. Two comments citing the
+  // same ticket, disagreeing. The route is the one that runs.
+  //
+  // It stays RECOMMENDED, and the reason is worth stating accurately, because this is
+  // the single variable holding production at "degraded" as at 2026-09-06 -- which reds
+  // the 15-minute customer-facing smoke, on a fault no customer can feel.
+  "GITHUB_WEBHOOK_SECRET", // without it the GitHub webhook accepts and ignores deliveries
 ] as const;
 
 const TRANSACTIONAL_EMAIL_RECOMMENDATION = "MAILTRAP_API_KEY+SENDER_EMAIL";
