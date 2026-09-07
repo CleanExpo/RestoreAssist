@@ -442,12 +442,29 @@ CREATE TRIGGER "ai_runner_receipt_freeze"
 CREATE OR REPLACE FUNCTION "ai_runtime_delete_only_with_workspace"() RETURNS trigger
 LANGUAGE plpgsql AS $ai_runtime_delete$
 BEGIN
-  IF EXISTS (SELECT 1 FROM "Workspace" WHERE "id" = OLD."workspaceId") THEN
-    RAISE EXCEPTION
-      '% % may not be deleted while its workspace exists; it is a ledger row, and a correction is a new row',
-      TG_TABLE_NAME, OLD."id";
+  -- Cascade detection is pg_trigger_depth(), not a lookup of the parent row.
+  --
+  -- The first version ran `EXISTS (SELECT 1 FROM "Workspace" ...)` per row, and
+  -- review round 8 (P1) was right that deleting a busy tenant would then run one
+  -- extra query per receipt. pg_trigger_depth() answers the same question with
+  -- no query at all.
+  --
+  -- The constant is > 1, NOT > 0, and the difference is the whole guard. This
+  -- function IS a trigger, so inside it the depth is already at least 1; `> 0`
+  -- is therefore true on a direct DELETE as well and would permit everything.
+  -- A referential CASCADE runs the child delete from inside Postgres's own
+  -- internal RI trigger, so our trigger sits one level deeper -- depth 2.
+  --
+  -- Anything at depth 1 is someone deleting a ledger row on its own, and is
+  -- refused. `lib/ai-runtime/__tests__/schema-tenancy.test.ts` asserts both
+  -- halves, so the constant is not a matter of opinion here.
+  IF pg_trigger_depth() > 1 THEN
+    RETURN OLD;   -- reached through a cascade; the workspace is going with it
   END IF;
-  RETURN OLD;   -- the workspace is already gone: this is its cascade
+
+  RAISE EXCEPTION
+    '% % may not be deleted on its own; it is a ledger row, and a correction is a new row',
+    TG_TABLE_NAME, OLD."id";
 END;
 $ai_runtime_delete$;
 

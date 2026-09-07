@@ -259,8 +259,19 @@ SELFTEST_CASES = [
      "DO " + _D * 2 + " BEGIN /* DROP TABLE x */ PERFORM 1; END " + _D * 2 + ";", False),
     ("round 7 P1  but an EXECUTABLE drop inside a dollar body must still be seen",
      "DO " + _D * 2 + " BEGIN DROP TABLE \"Workspace\"; END " + _D * 2 + ";", True),
+    # Review round 8 (P0) killed the first version of this case: it asserted the
+    # DROP stayed VISIBLE, but under the bug the spurious tag was UNTERMINATED
+    # and hit the fail-closed path, which also keeps everything. Visible in both
+    # states -- a control that cannot fail, which is the exact defect this whole
+    # branch keeps finding elsewhere, written into its own selftest.
+    #
+    # This version discriminates. Correct: `a$b$c` is code and `\'$b$\'` is an
+    # ordinary literal, so the DROP on the next line survives. Buggy: the tag
+    # opens at the first `$` and CLOSES on the `$b$` inside that literal, which
+    # leaves the scanner mid-string afterwards -- the trailing quote then opens a
+    # literal that runs to end of file and blanks the DROP.
     ("round 7 P1  a $ inside an identifier must not open a dollar tag",
-     "ALTER TABLE a" + _D + "b" + _D + "c ADD COLUMN x TEXT;\nDROP TABLE \"Workspace\";", True),
+     "SELECT a" + _D + "b" + _D + "c, \'" + _D + "b" + _D + "\';\nDROP TABLE \"Workspace\";", True),
     ("round 6 P2  literals carrying /* and */ swallowed the statement between",
      "INSERT INTO t VALUES (\'/* o\');\nDROP TABLE \"Workspace\";\nINSERT INTO t VALUES (\'*/ c\');", True),
     ("round 6 P2  an apostrophe in a quoted identifier opened a literal",
