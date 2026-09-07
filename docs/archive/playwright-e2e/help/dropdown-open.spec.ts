@@ -11,6 +11,15 @@ test("Help dropdown opens and lists 8 categories", async ({ page, request, conte
   // content and is not. Same defect billing/webhook-race.spec.ts records.
   // `role` is also required by the helper route (400 without it).
   const signIn = await request.post("/api/test/sign-in-as", {
+    // NOTE: this spec cannot pass with the account seed-trial-user
+    // creates. DashboardShell derives
+    // `isTechnician = session?.user?.role === "USER"` and renders the How To
+    // dropdown as `{!isTechnician && <HowToDropdown />}`, so a USER-role
+    // account never sees it. seed-trial-user creates a USER, and asking
+    // sign-in-as for MANAGER against that same email returns 409 (role
+    // mismatch), so the role cannot simply be raised here. It needs a
+    // non-technician seed. The spec comment calling the dropdown
+    // "universal" is wrong; the component is mounted, just role-gated.
     data: { role: "USER", email: data.email },
   });
   await applySessionCookieFromResponse(context, signIn);
