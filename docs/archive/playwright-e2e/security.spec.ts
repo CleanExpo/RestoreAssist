@@ -32,9 +32,12 @@ import { test, expect } from "@playwright/test";
 const NON_ADMIN_EMAIL = "e2e-nonadmin@test.local";
 
 
+type SignInRole = "USER" | "ADMIN" | "MANAGER";
+
 async function getSessionCookie(
   request: import("@playwright/test").APIRequestContext,
   email: string,
+  role: SignInRole = "USER",
 ): Promise<string> {
   // Was: POST /api/auth/signin/credentials with csrfToken "__skip__" and the
   // comment "CSRF not checked in test env". NextAuth DOES check CSRF on that
@@ -48,8 +51,12 @@ async function getSessionCookie(
   // Uses /api/test/sign-in-as, the same helper auth.setup.ts and the billing
   // specs already sign in with. THROWS rather than returning null so this
   // failure can never again disguise itself as a header type error.
+  // The role MUST match how the account is already seeded: sign-in-as answers
+  // 409 on a mismatch rather than issuing a session with the wrong role. A
+  // hardcoded "USER" here would crash the cross-tenant tests during setup the
+  // moment E2E_USER_B_EMAIL is supplied, because E2E_USER_EMAIL is seeded ADMIN.
   const res = await request.post("/api/test/sign-in-as", {
-    data: { role: "USER", email },
+    data: { role, email },
     failOnStatusCode: false,
   });
   if (!res.ok()) {
@@ -141,6 +148,7 @@ test.describe("2 · Cross-tenant isolation", () => {
     const sessionA = await getSessionCookie(
       request,
       process.env.E2E_USER_EMAIL!,
+      "ADMIN", // this account is seeded ADMIN; asking for USER returns 409
     );
     expect(sessionA, "User A login failed").toBeTruthy();
 
@@ -160,7 +168,10 @@ test.describe("2 · Cross-tenant isolation", () => {
       test.skip(true, `Inspection creation failed: ${createRes.status()}`);
       return;
     }
-    const { data: inspection } = await createRes.json();
+    // POST /api/inspections returns { inspection } at 201 — not { data }.
+    // The old destructure yielded undefined, so this test failed at its own
+    // setup and never reached the isolation assertion it exists for.
+    const { inspection } = await createRes.json();
     const inspectionId = inspection?.id;
     expect(inspectionId).toBeTruthy();
 
@@ -168,6 +179,9 @@ test.describe("2 · Cross-tenant isolation", () => {
     const sessionB = await getSessionCookie(
       request,
       process.env.E2E_USER_B_EMAIL!,
+      // Whoever enables E2E_USER_B_EMAIL must seed that account USER, or change
+      // this argument to match — sign-in-as 409s on a role mismatch.
+      "USER",
     );
     expect(sessionB, "User B login failed").toBeTruthy();
 
@@ -186,10 +200,14 @@ test.describe("2 · Cross-tenant isolation", () => {
     const sessionA = await getSessionCookie(
       request,
       process.env.E2E_USER_EMAIL!,
+      "ADMIN", // this account is seeded ADMIN; asking for USER returns 409
     );
     const sessionB = await getSessionCookie(
       request,
       process.env.E2E_USER_B_EMAIL!,
+      // Whoever enables E2E_USER_B_EMAIL must seed that account USER, or change
+      // this argument to match — sign-in-as 409s on a role mismatch.
+      "USER",
     );
 
     // User B creates a client
@@ -205,7 +223,9 @@ test.describe("2 · Cross-tenant isolation", () => {
       test.skip(true, `Client creation failed: ${createRes.status()}`);
       return;
     }
-    const { data: client } = await createRes.json();
+    // POST /api/clients spreads the created client at the TOP level
+    // ({ ...client, totalRevenue, ... }), so there is no `data` wrapper.
+    const client = await createRes.json();
 
     // User A tries to delete User B's client
     const deleteRes = await request.delete(`/api/clients/${client?.id}`, {
