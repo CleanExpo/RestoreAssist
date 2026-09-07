@@ -83,7 +83,7 @@ describe("RA-7493 AI-runtime models exist and point at a workspace", () => {
     // binary floating point. AiUsageLog.estimatedCostUsd is a Float, which is
     // right for a telemetry estimate and would be wrong here.
     const budget = model("AiRunnerBudget");
-    for (const f of ["maxMicroUsd", "spentMicroUsd"]) {
+    for (const f of ["maxMicroUsd", "remainingMicroUsd"]) {
       expect(budget.fields.find((x) => x.name === f)?.type, f).toBe("BigInt");
     }
     expect(
@@ -243,6 +243,7 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
         workspaceId: ws.id,
         runner: "JOB_COPILOT",
         taskType: "suggest",
+        keySource: "TENANT_BYOK",
         idempotencyKey: `k-${Date.now()}`,
       },
     });
@@ -270,35 +271,141 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
       workspaceId: ws.id,
       runner: "INGESTION" as const,
       taskType: "normalise",
+      keySource: "TENANT_BYOK" as const,
       idempotencyKey: `replay-${Date.now()}`,
     };
     await prisma.aiRunnerReceipt.create({ data: row });
     await expect(prisma.aiRunnerReceipt.create({ data: row })).rejects.toThrow();
   });
 
-  it("DOCUMENTED HAZARD: two workspace-wide budgets for one period are NOT refused by the database", async () => {
-    // Postgres treats NULLs as distinct in a unique index, so
-    // @@unique([workspaceId, runner, periodStart]) does not constrain rows
-    // where runner IS NULL. This test makes that concrete rather than leaving
-    // it as a comment nobody reads: writers of workspace-wide budgets must
-    // upsert on a deterministic id. If a later change makes the database refuse
-    // this — a partial unique index, or NULLS NOT DISTINCT — this test fails,
-    // and the correct response is to delete it and drop the upsert rule.
+  it("the database refuses a second workspace-wide budget for one period", async () => {
+    // This replaces a test that asserted the opposite. The first version made
+    // `runner` nullable, and Postgres treats NULLs as distinct in a unique
+    // index — so @@unique did not constrain workspace-wide rows at all. That
+    // was documented and a test asserted the duplicate was ALLOWED, which the
+    // review correctly called a rationalisation: the hole was cheap to close.
+    // `AiRunner.WORKSPACE` is a real enum value, `runner` is NOT NULL, and the
+    // ordinary constraint does the work. The old test is gone rather than
+    // adjusted, because it asserted a property the schema no longer has.
     const ws = await seedWorkspace(`ra7493-budget-${Date.now()}`);
     const periodStart = new Date("2026-09-01T00:00:00.000Z");
     const base = {
       workspaceId: ws.id,
-      runner: null,
+      runner: "WORKSPACE" as const,
       periodStart,
       periodEnd: new Date("2026-10-01T00:00:00.000Z"),
       maxMicroUsd: 1_000_000n,
+      remainingMicroUsd: 1_000_000n,
     };
     await prisma.aiRunnerBudget.create({ data: base });
-    await prisma.aiRunnerBudget.create({ data: base });
+    await expect(prisma.aiRunnerBudget.create({ data: base })).rejects.toThrow();
+  });
+
+  it("a budget deduction is atomic and refuses at the boundary without a prior read", async () => {
+    // The P0 from review round 1. Prisma's updateMany cannot compare two
+    // columns, so a `spent <= max - cost` guard needs `max` as an application
+    // literal — which means reading the row first, which rule 9 forbids and
+    // which races if the ceiling changes. Storing what is LEFT removes the
+    // second column from the comparison entirely.
+    const ws = await seedWorkspace(`ra7493-atomic-${Date.now()}`);
+    const budget = await prisma.aiRunnerBudget.create({
+      data: {
+        workspaceId: ws.id,
+        runner: "JOB_COPILOT",
+        periodStart: new Date("2026-09-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+        maxMicroUsd: 100n,
+        remainingMicroUsd: 100n,
+      },
+    });
+
+    const spend = (cost: bigint) =>
+      prisma.aiRunnerBudget.updateMany({
+        where: { id: budget.id, remainingMicroUsd: { gte: cost } },
+        data: { remainingMicroUsd: { decrement: cost } },
+      });
+
+    // Exactly at the boundary: allowed, and it empties the budget.
+    expect((await spend(100n)).count).toBe(1);
     expect(
-      await prisma.aiRunnerBudget.count({
-        where: { workspaceId: ws.id, runner: null, periodStart },
+      (await prisma.aiRunnerBudget.findUniqueOrThrow({ where: { id: budget.id } }))
+        .remainingMicroUsd,
+    ).toBe(0n);
+
+    // One micro-dollar past it: refused, and count === 0 is the refusal signal.
+    expect((await spend(1n)).count).toBe(0);
+
+    // The control that makes the two above mean something: the same statement
+    // on a funded budget still succeeds, so "refused" is not "this never works".
+    const funded = await prisma.aiRunnerBudget.create({
+      data: {
+        workspaceId: ws.id,
+        runner: "STYLE",
+        periodStart: new Date("2026-09-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+        maxMicroUsd: 100n,
+        remainingMicroUsd: 100n,
+      },
+    });
+    const res = await prisma.aiRunnerBudget.updateMany({
+      where: { id: funded.id, remainingMicroUsd: { gte: 1n } },
+      data: { remainingMicroUsd: { decrement: 1n } },
+    });
+    expect(res.count).toBe(1);
+  });
+
+  it("two concurrent deductions of the whole budget cannot both succeed", async () => {
+    const ws = await seedWorkspace(`ra7493-race-${Date.now()}`);
+    const b = await prisma.aiRunnerBudget.create({
+      data: {
+        workspaceId: ws.id,
+        runner: "INGESTION",
+        periodStart: new Date("2026-09-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+        maxMicroUsd: 50n,
+        remainingMicroUsd: 50n,
+      },
+    });
+    const both = await Promise.all([
+      prisma.aiRunnerBudget.updateMany({
+        where: { id: b.id, remainingMicroUsd: { gte: 50n } },
+        data: { remainingMicroUsd: { decrement: 50n } },
       }),
-    ).toBe(2);
+      prisma.aiRunnerBudget.updateMany({
+        where: { id: b.id, remainingMicroUsd: { gte: 50n } },
+        data: { remainingMicroUsd: { decrement: 50n } },
+      }),
+    ]);
+    expect(both.map((r) => r.count).sort()).toEqual([0, 1]);
+    expect(
+      (await prisma.aiRunnerBudget.findUniqueOrThrow({ where: { id: b.id } }))
+        .remainingMicroUsd,
+    ).toBe(0n);
+  });
+
+  it("keySource is NOT NULL, so the compliance query cannot be blinded", async () => {
+    // Nullable keySource defeated the column's own purpose: a naive
+    // `WHERE "keySource" = 'PLATFORM'` silently misses NULL rows, hiding the
+    // promise breach. NONE is explicit for a call refused before a provider
+    // was chosen.
+    const rows = await prisma.$queryRaw<{ is_nullable: string }[]>`
+      SELECT is_nullable FROM information_schema.columns
+      WHERE table_name = 'AiRunnerReceipt' AND column_name = 'keySource'
+    `;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].is_nullable).toBe("NO");
+
+    const ws = await seedWorkspace(`ra7493-key-${Date.now()}`);
+    await expect(
+      prisma.aiRunnerReceipt.create({
+        data: {
+          workspaceId: ws.id,
+          runner: "STYLE",
+          taskType: "profile",
+          idempotencyKey: `nokey-${Date.now()}`,
+          // keySource deliberately omitted
+        } as never,
+      }),
+    ).rejects.toThrow();
   });
 });

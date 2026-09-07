@@ -6541,6 +6541,10 @@ model AiUsageLog {
 //     to the assessment pipeline.
 
 enum AiRunner {
+  /// Not a runner. The scope value for a workspace-wide budget, so `runner` can
+  /// be NOT NULL and @@unique actually constrains it. Postgres treats NULLs as
+  /// distinct, so a nullable scope column silently permits duplicates.
+  WORKSPACE
   GOVERNOR
   INGESTION
   FIELD
@@ -6555,6 +6559,10 @@ enum AiRunner {
 enum AiKeySource {
   TENANT_BYOK
   PLATFORM
+  /// No key was reached — the call was refused before a provider was chosen.
+  /// Explicit rather than NULL: `WHERE "keySource" = 'PLATFORM'` must never be
+  /// blinded by rows that simply failed to record one.
+  NONE
 }
 
 enum AiReceiptOutcome {
@@ -6602,35 +6610,48 @@ model AiRunnerFlag {
   @@index([runner, enabled])
 }
 
-/// Spend and token ceiling for one window. `runner = null` is the
-/// workspace-wide cap; a non-null runner narrows it to that runner.
+/// Spend and token ceiling for one window. `runner = WORKSPACE` is the
+/// workspace-wide cap; any other value narrows it to that runner.
 ///
 /// Money is INTEGER MICRO-USD, never Float. AiUsageLog.estimatedCostUsd is a
 /// Float, which is fine for a telemetry estimate and unusable for a ceiling
 /// that has to refuse exactly at a boundary.
 ///
-/// Deducted with the atomic pattern .claude/RULES.md rule 9 requires:
-///   updateMany({ where: { id, spentMicroUsd: { lte: max - cost } }, ... })
-/// then treat `result.count === 0` as "refused". Never read-then-write.
+/// COUNTS DOWN, NOT UP, and that is the whole design. Rule 9 requires an atomic
+/// deduction, and Prisma's `updateMany` cannot compare two columns — so a
+/// `spent <= max - cost` guard needs `max` as an application-supplied literal,
+/// which means reading the row first. That is read-then-write, and it races if
+/// the ceiling changes between the read and the write.
 ///
-/// Postgres treats NULLs as distinct in a unique index, so the constraint below
-/// does NOT stop two workspace-wide rows for one period. Writers must upsert on
-/// a deterministic id; `lib/ai-runtime/__tests__/schema-tenancy.test.ts` asserts
-/// the duplicate is refused, because the database alone will not.
+/// Storing what is LEFT removes the second column from the comparison:
+///   updateMany({ where: { id, remainingMicroUsd: { gte: cost } },
+///                data:  { remainingMicroUsd: { decrement: cost } } })
+/// then treat `result.count === 0` as "refused". One statement, no prior read,
+/// and two runners spending the same budget concurrently cannot both pass.
+/// `maxMicroUsd` survives only for reporting and for resetting the window; it is
+/// never read as part of a spend decision.
 model AiRunnerBudget {
   id          String    @id @default(cuid())
   workspaceId String
   workspace   Workspace @relation("WorkspaceAiRunnerBudgets", fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  runner AiRunner?
+  /// WORKSPACE = the workspace-wide cap; any other value narrows it to that runner.
+  runner AiRunner
 
   periodStart DateTime
   periodEnd   DateTime
 
-  maxMicroUsd   BigInt
-  spentMicroUsd BigInt  @default(0)
-  maxTokens     BigInt?
-  spentTokens   BigInt  @default(0)
+  /// The ceiling as granted, kept for reporting and for resetting the window.
+  /// NEVER read as part of a spend decision.
+  maxMicroUsd BigInt
+  /// The only field a deduction touches:
+  ///   updateMany({ where: { id, remainingMicroUsd: { gte: cost } },
+  ///                data:  { remainingMicroUsd: { decrement: cost } } })
+  /// then treat `count === 0` as refused. One statement, no prior read, and two
+  /// runners spending the same budget in the same millisecond cannot both pass.
+  remainingMicroUsd BigInt
+  maxTokens         BigInt?
+  remainingTokens   BigInt?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -6663,7 +6684,7 @@ model AiRunnerReceipt {
 
   /// Whose key paid. The reason this table exists rather than a wider
   /// AiUsageLog.
-  keySource AiKeySource?
+  keySource AiKeySource
 
   inputTokens  Int    @default(0)
   outputTokens Int    @default(0)

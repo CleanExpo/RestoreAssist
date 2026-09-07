@@ -7,9 +7,12 @@
 --   AiRunnerFlag     per-(workspace, runner) operational switch + kill-switch.
 --                    NO ROW MEANS OFF, so nothing turns on by accident and no
 --                    backfill is needed.
---   AiRunnerBudget   spend/token ceiling per window. Money is BIGINT micro-USD,
---                    never a float, because a ceiling has to refuse exactly at
---                    a boundary.
+--   AiRunnerBudget   ceiling per window, COUNTING DOWN. Money is BIGINT micro-USD,
+--                    never a float, because a ceiling has to refuse exactly at a
+--                    boundary. It stores what is LEFT, not what is spent, so the
+--                    atomic guard is `remaining >= cost` and needs no prior read
+--                    (review round 1, P0: Prisma's updateMany cannot compare two
+--                    columns, so a `spent <= max - cost` guard was read-then-write).
 --   AiRunnerReceipt  append-only, one row per attempted runner call, carrying
 --                    which key paid (keySource) so the published BYOK promise
 --                    becomes queryable instead of asserted.
@@ -40,10 +43,10 @@
 --   cannot be a query looking in the wrong place.
 
 -- CreateEnum
-CREATE TYPE "AiRunner" AS ENUM ('GOVERNOR', 'INGESTION', 'FIELD', 'JOB_COPILOT', 'STYLE', 'SELF_HEAL');
+CREATE TYPE "AiRunner" AS ENUM ('WORKSPACE', 'GOVERNOR', 'INGESTION', 'FIELD', 'JOB_COPILOT', 'STYLE', 'SELF_HEAL');
 
 -- CreateEnum
-CREATE TYPE "AiKeySource" AS ENUM ('TENANT_BYOK', 'PLATFORM');
+CREATE TYPE "AiKeySource" AS ENUM ('TENANT_BYOK', 'PLATFORM', 'NONE');
 
 -- CreateEnum
 CREATE TYPE "AiReceiptOutcome" AS ENUM ('PENDING', 'OK', 'REFUSED_NO_KEY', 'REFUSED_BUDGET', 'REFUSED_FLAG_OFF', 'FAILED');
@@ -71,13 +74,13 @@ CREATE TABLE "AiRunnerFlag" (
 CREATE TABLE "AiRunnerBudget" (
     "id" TEXT NOT NULL,
     "workspaceId" TEXT NOT NULL,
-    "runner" "AiRunner",
+    "runner" "AiRunner" NOT NULL,
     "periodStart" TIMESTAMP(3) NOT NULL,
     "periodEnd" TIMESTAMP(3) NOT NULL,
     "maxMicroUsd" BIGINT NOT NULL,
-    "spentMicroUsd" BIGINT NOT NULL DEFAULT 0,
+    "remainingMicroUsd" BIGINT NOT NULL,
     "maxTokens" BIGINT,
-    "spentTokens" BIGINT NOT NULL DEFAULT 0,
+    "remainingTokens" BIGINT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -93,7 +96,7 @@ CREATE TABLE "AiRunnerReceipt" (
     "taskType" TEXT NOT NULL,
     "provider" "AiProvider",
     "model" TEXT,
-    "keySource" "AiKeySource",
+    "keySource" "AiKeySource" NOT NULL,
     "inputTokens" INTEGER NOT NULL DEFAULT 0,
     "outputTokens" INTEGER NOT NULL DEFAULT 0,
     "costMicroUsd" BIGINT NOT NULL DEFAULT 0,
