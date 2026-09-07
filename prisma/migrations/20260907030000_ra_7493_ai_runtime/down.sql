@@ -12,12 +12,6 @@
 -- is still standing — so a pass means "removed", not "the query was pointed
 -- somewhere empty".
 
--- The freeze trigger goes with its table, but the FUNCTION it calls does not --
--- a dropped table takes its triggers and leaves the function standing, which
--- would leave this migration only partly reversed.
-DROP FUNCTION IF EXISTS "ai_runner_receipt_freeze"();
-DROP FUNCTION IF EXISTS "ai_runner_budget_monotonic"();
-
 -- AiJobSuggestion holds the FK to AiRunnerReceipt, so it goes first.
 DROP TABLE IF EXISTS "AiJobSuggestion";
 
@@ -28,6 +22,15 @@ DROP TABLE IF EXISTS "AiRunnerReceipt";
 DROP TABLE IF EXISTS "AiStyleProfile";
 DROP TABLE IF EXISTS "AiRunnerBudget";
 DROP TABLE IF EXISTS "AiRunnerFlag";
+
+-- Trigger FUNCTIONS after their tables, not before. A dropped table takes its
+-- triggers with it, but leaves the function standing -- so these must be named
+-- explicitly or the migration is only partly reversed. They must also come
+-- AFTER the DROP TABLEs: while a trigger still references a function, Postgres
+-- refuses to drop it, and the rollback half of migration-roundtrip.sh caught
+-- exactly that when they were ordered the other way.
+DROP FUNCTION IF EXISTS "ai_runner_receipt_freeze"();
+DROP FUNCTION IF EXISTS "ai_runner_budget_monotonic"();
 
 -- Enums last: a type cannot be dropped while a column still uses it.
 DROP TYPE IF EXISTS "AiSuggestionState";

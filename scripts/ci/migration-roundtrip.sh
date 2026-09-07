@@ -324,6 +324,17 @@ for line in sys.stdin.read().splitlines():
         n="$(psql_q "SELECT count(*) FROM pg_type WHERE typname='$ty';")"
         [ "$n" = "0" ] || { echo "STILL PRESENT after rollback: type $ty" >&2; rc=1; }
       done
+      # Functions, because this check enumerated only tables and types and a
+      # trigger function is neither. A down.sql that dropped the tables and
+      # forgot the functions would have left them behind and still reported
+      # PASS — the leak was invisible to the very check whose job is to see it.
+      # Triggers need no separate pass: a dropped table takes its triggers, and
+      # a surviving trigger keeps its function alive, so a leaked function is
+      # what a leaked trigger looks like from here.
+      for fn in $(grep -oEi 'CREATE (OR REPLACE )?FUNCTION "?([A-Za-z_][A-Za-z0-9_]*)"?' "$f" | sed -E 's/.*[[:space:]]"?([A-Za-z_][A-Za-z0-9_]*)"?$/\1/' | sort -u); do
+        n="$(psql_q "SELECT count(*) FROM pg_proc p JOIN pg_namespace ns ON ns.oid = p.pronamespace WHERE ns.nspname='public' AND p.proname='$fn';")"
+        [ "$n" = "0" ] || { echo "STILL PRESENT after rollback: function $fn" >&2; rc=1; }
+      done
     done < <(new_migrations)
     [ "$rc" = "0" ] && echo "rollback: PASS — every object the new migrations created is gone, and pre-existing tables remain"
     exit "$rc"
