@@ -35,7 +35,14 @@ while read -r spec disposition; do
   fi
 
   # The workflow names specs by their path under docs/archive/playwright-e2e.
-  if ! grep -qF "$spec" "$wf"; then
+  #
+  # Match on "/$spec", not "$spec". A bare substring match cannot fail in the
+  # case this gate exists to catch: drop health.spec.ts from the workflow and
+  # grep -qF "health.spec.ts" still matches crm-health.spec.ts, so the drift
+  # reports clean. Both of those specs are in this manifest today, so the hole
+  # was live and not hypothetical. The leading slash anchors the match to a
+  # whole path segment.
+  if ! grep -qF "/$spec" "$wf"; then
     echo "FAIL  $spec claims $disposition but that workflow never names it"
     FAILED=1
   fi
