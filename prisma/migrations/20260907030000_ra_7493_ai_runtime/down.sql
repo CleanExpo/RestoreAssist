@@ -12,6 +12,12 @@
 -- is still standing — so a pass means "removed", not "the query was pointed
 -- somewhere empty".
 
+-- The freeze trigger goes with its table, but the FUNCTION it calls does not --
+-- a dropped table takes its triggers and leaves the function standing, which
+-- would leave this migration only partly reversed.
+DROP FUNCTION IF EXISTS "ai_runner_receipt_freeze"();
+DROP FUNCTION IF EXISTS "ai_runner_budget_monotonic"();
+
 -- AiJobSuggestion holds the FK to AiRunnerReceipt, so it goes first.
 DROP TABLE IF EXISTS "AiJobSuggestion";
 
@@ -27,4 +33,5 @@ DROP TABLE IF EXISTS "AiRunnerFlag";
 DROP TYPE IF EXISTS "AiSuggestionState";
 DROP TYPE IF EXISTS "AiReceiptOutcome";
 DROP TYPE IF EXISTS "AiKeySource";
+DROP TYPE IF EXISTS "AiBudgetScope";
 DROP TYPE IF EXISTS "AiRunner";

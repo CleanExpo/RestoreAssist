@@ -43,7 +43,17 @@
 --   cannot be a query looking in the wrong place.
 
 -- CreateEnum
-CREATE TYPE "AiRunner" AS ENUM ('WORKSPACE', 'GOVERNOR', 'INGESTION', 'FIELD', 'JOB_COPILOT', 'STYLE', 'SELF_HEAL');
+CREATE TYPE "AiRunner" AS ENUM ('GOVERNOR', 'INGESTION', 'FIELD', 'JOB_COPILOT', 'STYLE', 'SELF_HEAL');
+
+-- CreateEnum
+-- What ONE budget row caps. A SEPARATE enum from AiRunner on purpose: a budget
+-- needs a workspace-wide scope and needs it NOT NULL (Postgres treats NULLs as
+-- distinct, so a nullable scope permits two workspace-wide budgets per period),
+-- but adding WORKSPACE to AiRunner made that value legal on every table AiRunner
+-- touches -- a flag for a runner that does not exist, a receipt attributed to no
+-- runner. Review round 2, P1. The drift risk of a parallel list is covered by a
+-- test that asserts AiBudgetScope == AiRunner + WORKSPACE.
+CREATE TYPE "AiBudgetScope" AS ENUM ('WORKSPACE', 'GOVERNOR', 'INGESTION', 'FIELD', 'JOB_COPILOT', 'STYLE', 'SELF_HEAL');
 
 -- CreateEnum
 CREATE TYPE "AiKeySource" AS ENUM ('TENANT_BYOK', 'PLATFORM', 'NONE');
@@ -74,7 +84,7 @@ CREATE TABLE "AiRunnerFlag" (
 CREATE TABLE "AiRunnerBudget" (
     "id" TEXT NOT NULL,
     "workspaceId" TEXT NOT NULL,
-    "runner" "AiRunner" NOT NULL,
+    "scope" "AiBudgetScope" NOT NULL,
     "periodStart" TIMESTAMP(3) NOT NULL,
     "periodEnd" TIMESTAMP(3) NOT NULL,
     "maxMicroUsd" BIGINT NOT NULL,
@@ -164,7 +174,7 @@ CREATE UNIQUE INDEX "AiRunnerFlag_workspaceId_runner_key" ON "AiRunnerFlag"("wor
 CREATE INDEX "AiRunnerBudget_workspaceId_periodEnd_idx" ON "AiRunnerBudget"("workspaceId", "periodEnd");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AiRunnerBudget_workspaceId_runner_periodStart_key" ON "AiRunnerBudget"("workspaceId", "runner", "periodStart");
+CREATE UNIQUE INDEX "AiRunnerBudget_workspaceId_scope_periodStart_key" ON "AiRunnerBudget"("workspaceId", "scope", "periodStart");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "AiRunnerReceipt_supersedesId_key" ON "AiRunnerReceipt"("supersedesId");
@@ -225,4 +235,135 @@ ALTER TABLE "AiJobSuggestion" ADD CONSTRAINT "AiJobSuggestion_receiptId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "AiStyleProfile" ADD CONSTRAINT "AiStyleProfile_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- ---------------------------------------------------------------------------
+-- Invariants the DATABASE holds, because the application guard is not enough.
+--
+-- The spend guard is `updateMany({ where: { remainingMicroUsd: { gte: cost } },
+-- data: { remainingMicroUsd: { decrement: cost } } })`. Review round 2 found the
+-- P0 in it: `decrement` accepts a NEGATIVE number, and a negative cost passes
+-- its own guard trivially (`remaining >= -50`) and then ADDS to the balance.
+--
+-- `remaining >= 0` alone does NOT close that -- an inflated balance is still
+-- >= 0. It takes the upper bound to stop it, which is why both are here.
+-- Together they pin `0 <= remaining <= max` no matter what arithmetic a future
+-- caller passes in.
+-- ---------------------------------------------------------------------------
+ALTER TABLE "AiRunnerBudget"
+  ADD CONSTRAINT "AiRunnerBudget_remainingMicroUsd_within_max"
+  CHECK ("remainingMicroUsd" >= 0 AND "remainingMicroUsd" <= "maxMicroUsd");
+
+-- The token ceiling, same shape. Both columns null means "no token ceiling";
+-- one null and one set is the state that would silently disable the ceiling
+-- while the row still looked like it had one, so it is refused.
+ALTER TABLE "AiRunnerBudget"
+  ADD CONSTRAINT "AiRunnerBudget_remainingTokens_within_max"
+  CHECK (
+    ("maxTokens" IS NULL AND "remainingTokens" IS NULL)
+    OR ("maxTokens" IS NOT NULL AND "remainingTokens" IS NOT NULL
+        AND "remainingTokens" >= 0 AND "remainingTokens" <= "maxTokens")
+  );
+
+-- A granted budget starts full. Without this, a row can be inserted already
+-- spent, or (with remaining > 0 and max = 0) inconsistent from birth.
+ALTER TABLE "AiRunnerBudget"
+  ADD CONSTRAINT "AiRunnerBudget_maxMicroUsd_nonnegative"
+  CHECK ("maxMicroUsd" >= 0);
+
+-- ---------------------------------------------------------------------------
+-- A budget only ever counts DOWN inside one window.
+--
+-- The CHECK above pins `0 <= remaining <= max`, and that is NOT enough on its
+-- own. A negative cost of -60 against a budget sitting at 40 of 100 leaves 100
+-- -- an increase, but still within the ceiling, so every CHECK passes and the
+-- spend is quietly refunded. The invariant that actually protects the ceiling
+-- is monotonicity, and only a trigger can see the previous value.
+--
+-- Raising the window's ceiling is a real operation, so it is not forbidden --
+-- it is made explicit: move periodStart, which starts a new window and is
+-- exactly what a reset does. An in-place increase is refused.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION "ai_runner_budget_monotonic"() RETURNS trigger
+LANGUAGE plpgsql AS $ai_budget_monotonic$
+BEGIN
+  IF NEW."periodStart" IS DISTINCT FROM OLD."periodStart" THEN
+    RETURN NEW;   -- a new window; the reset is the point
+  END IF;
+
+  IF NEW."remainingMicroUsd" > OLD."remainingMicroUsd" THEN
+    RAISE EXCEPTION
+      'AiRunnerBudget % may only count down within a window (% -> %); a negative cost cannot refund a spend, and a ceiling is raised by starting a new period',
+      OLD."id", OLD."remainingMicroUsd", NEW."remainingMicroUsd";
+  END IF;
+
+  IF NEW."remainingTokens" IS NOT NULL
+     AND OLD."remainingTokens" IS NOT NULL
+     AND NEW."remainingTokens" > OLD."remainingTokens" THEN
+    RAISE EXCEPTION
+      'AiRunnerBudget % token balance may only count down within a window (% -> %)',
+      OLD."id", OLD."remainingTokens", NEW."remainingTokens";
+  END IF;
+
+  RETURN NEW;
+END;
+$ai_budget_monotonic$;
+
+CREATE TRIGGER "ai_runner_budget_monotonic"
+  BEFORE UPDATE ON "AiRunnerBudget"
+  FOR EACH ROW EXECUTE FUNCTION "ai_runner_budget_monotonic"();
+
+-- ---------------------------------------------------------------------------
+-- AiRunnerReceipt: the row's STORY is immutable.
+--
+-- Round 2 asked for append-only to be enforced rather than asserted, and
+-- suggested revoking UPDATE. That would break the design: a receipt is written
+-- PENDING before the provider is called and resolved after, which needs exactly
+-- one update. So the trigger permits that ONE transition and freezes the rest.
+--
+-- Permitted: PENDING -> a terminal outcome, touching only the facts that are
+-- genuinely unknowable until the call returns. Everything that makes the row a
+-- receipt -- who it belongs to, which runner, whose key paid, what it was
+-- grounded in -- is frozen at insert. A different story needs a NEW row
+-- pointing at this one through supersedesId.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION "ai_runner_receipt_freeze"() RETURNS trigger
+LANGUAGE plpgsql AS $ai_receipt_freeze$
+BEGIN
+  IF OLD."outcome" <> 'PENDING' THEN
+    RAISE EXCEPTION
+      'AiRunnerReceipt % is already resolved (%); receipts are corrected by a new row via supersedesId, never rewritten',
+      OLD."id", OLD."outcome";
+  END IF;
+
+  IF NEW."outcome" = 'PENDING' THEN
+    RAISE EXCEPTION
+      'AiRunnerReceipt % update must resolve it to a terminal outcome, not back to PENDING',
+      OLD."id";
+  END IF;
+
+  IF NEW."id"             IS DISTINCT FROM OLD."id"
+  OR NEW."workspaceId"    IS DISTINCT FROM OLD."workspaceId"
+  OR NEW."inspectionId"   IS DISTINCT FROM OLD."inspectionId"
+  OR NEW."runner"         IS DISTINCT FROM OLD."runner"
+  OR NEW."taskType"       IS DISTINCT FROM OLD."taskType"
+  OR NEW."provider"       IS DISTINCT FROM OLD."provider"
+  OR NEW."model"          IS DISTINCT FROM OLD."model"
+  OR NEW."keySource"      IS DISTINCT FROM OLD."keySource"
+  OR NEW."provenance"     IS DISTINCT FROM OLD."provenance"
+  OR NEW."idempotencyKey" IS DISTINCT FROM OLD."idempotencyKey"
+  OR NEW."supersedesId"   IS DISTINCT FROM OLD."supersedesId"
+  OR NEW."createdAt"      IS DISTINCT FROM OLD."createdAt"
+  THEN
+    RAISE EXCEPTION
+      'AiRunnerReceipt % is frozen at insert except for resolution fields (outcome, errorType, resolvedAt, latencyMs, inputTokens, outputTokens, costMicroUsd)',
+      OLD."id";
+  END IF;
+
+  RETURN NEW;
+END;
+$ai_receipt_freeze$;
+
+CREATE TRIGGER "ai_runner_receipt_freeze"
+  BEFORE UPDATE ON "AiRunnerReceipt"
+  FOR EACH ROW EXECUTE FUNCTION "ai_runner_receipt_freeze"();
 

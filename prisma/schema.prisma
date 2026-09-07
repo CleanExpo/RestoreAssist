@@ -6541,9 +6541,31 @@ model AiUsageLog {
 //     to the assessment pipeline.
 
 enum AiRunner {
-  /// Not a runner. The scope value for a workspace-wide budget, so `runner` can
-  /// be NOT NULL and @@unique actually constrains it. Postgres treats NULLs as
-  /// distinct, so a nullable scope column silently permits duplicates.
+  GOVERNOR
+  INGESTION
+  FIELD
+  JOB_COPILOT
+  STYLE
+  SELF_HEAL
+}
+
+/// What ONE budget row caps. Deliberately a separate enum from AiRunner rather
+/// than a WORKSPACE member added to it.
+///
+/// A budget needs a workspace-wide scope, and it needs that scope NOT NULL —
+/// Postgres treats NULLs as distinct in a unique index, so a nullable scope
+/// silently permits two workspace-wide budgets for one period. Review round 2
+/// showed the obvious shortcut (add WORKSPACE to AiRunner) pays for that with a
+/// value that is legal everywhere AiRunner is used: a feature flag for a runner
+/// that does not exist, a receipt attributed to no runner, a suggestion authored
+/// by "WORKSPACE". A sentinel in a domain enum pollutes every table that enum
+/// touches.
+///
+/// The cost of a second enum is drift — a seventh runner added to AiRunner and
+/// forgotten here. `schema-tenancy.test.ts` asserts the two stay in step, so
+/// that drift fails a test instead of silently making a runner unbudgetable.
+enum AiBudgetScope {
+  /// Not a runner. The workspace-wide cap.
   WORKSPACE
   GOVERNOR
   INGESTION
@@ -6610,7 +6632,7 @@ model AiRunnerFlag {
   @@index([runner, enabled])
 }
 
-/// Spend and token ceiling for one window. `runner = WORKSPACE` is the
+/// Spend and token ceiling for one window. `scope = WORKSPACE` is the
 /// workspace-wide cap; any other value narrows it to that runner.
 ///
 /// Money is INTEGER MICRO-USD, never Float. AiUsageLog.estimatedCostUsd is a
@@ -6636,7 +6658,7 @@ model AiRunnerBudget {
   workspace   Workspace @relation("WorkspaceAiRunnerBudgets", fields: [workspaceId], references: [id], onDelete: Cascade)
 
   /// WORKSPACE = the workspace-wide cap; any other value narrows it to that runner.
-  runner AiRunner
+  scope AiBudgetScope
 
   periodStart DateTime
   periodEnd   DateTime
@@ -6649,23 +6671,54 @@ model AiRunnerBudget {
   ///                data:  { remainingMicroUsd: { decrement: cost } } })
   /// then treat `count === 0` as refused. One statement, no prior read, and two
   /// runners spending the same budget in the same millisecond cannot both pass.
+  ///
+  /// The `gte` guard is NOT sufficient on its own, and the database does not
+  /// trust it. `decrement` accepts a negative number, and a negative cost passes
+  /// its own guard trivially (`remaining >= -50`) and then ADDS to the balance.
+  /// Review round 2 found that as a P0. Two CHECK constraints in the migration
+  /// pin the invariant `0 <= remaining <= max` so the ceiling holds even when a
+  /// future caller's arithmetic does not:
+  ///   * `remaining >= 0` stops an overspend the guard let through;
+  ///   * `remaining <= max` stops a NEGATIVE cost inflating the budget, which
+  ///     the >= 0 constraint alone would happily allow.
   remainingMicroUsd BigInt
   maxTokens         BigInt?
-  remainingTokens   BigInt?
+  /// Nullable ONLY in lockstep with maxTokens — a CHECK constraint requires the
+  /// pair to be both null (no token ceiling) or both set. A null remaining
+  /// against a non-null max would silently disable the token ceiling while the
+  /// row still looked like it had one.
+  remainingTokens BigInt?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([workspaceId, runner, periodStart])
+  @@unique([workspaceId, scope, periodStart])
   @@index([workspaceId, periodEnd])
 }
 
-/// Append-only receipt, one row per attempted runner call.
+/// One row per attempted runner call, and the row's STORY is immutable.
 ///
 /// Written BEFORE the provider is called (outcome PENDING) and resolved after,
 /// so a crash mid-call leaves a receipt that says so rather than leaving no
 /// trace at all. Corrections supersede; rows are never UPDATEd to a different
 /// story, which is the rule ProgressTransition already follows (RULES.md 22).
+///
+/// "Append-only" was the wrong word and review round 2 was right to attack it —
+/// though its suggested fix (revoke UPDATE, or block every update with a
+/// trigger) would have broken the PENDING → resolved design above, which needs
+/// exactly one update per row.
+///
+/// The claim the schema now ENFORCES, via a BEFORE UPDATE trigger in the
+/// migration rather than a comment asking writers to behave:
+///   * a receipt may be resolved ONCE, PENDING → a terminal outcome;
+///   * that update may touch only outcome, errorType, resolvedAt, latencyMs,
+///     inputTokens, outputTokens and costMicroUsd — the facts genuinely not
+///     knowable until the call returns;
+///   * everything that makes the row a receipt — workspaceId, runner, keySource,
+///     provider, model, provenance, idempotencyKey — is frozen at insert;
+///   * a second update, or any update to a row that is already resolved, raises.
+/// A different story therefore needs a NEW row pointing at this one through
+/// supersedesId, which is what supersedesId was always for.
 model AiRunnerReceipt {
   id          String    @id @default(cuid())
   workspaceId String

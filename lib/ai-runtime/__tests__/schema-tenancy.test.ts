@@ -202,23 +202,55 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
         AND ccu.table_name = 'Workspace'
         AND tc.table_name IN ('AiRunnerFlag','AiRunnerBudget','AiRunnerReceipt','AiJobSuggestion','AiStyleProfile')
     `;
-    const tenantColumn = new Map(fks.map((f) => [f.table_name, f.column_name]));
+    // `new Map` would silently keep the LAST row per table. Review round 2:
+    // if a table ever gains a second FK to Workspace (a `sharedWorkspaceId`,
+    // say), the discovery would quietly start checking the wrong column — and
+    // a wrong column here means a correct policy fails or an incorrect one
+    // passes, with nothing on screen to say which. Ambiguity is refused
+    // outright instead, because the honest answer is "this test no longer
+    // knows which column is the tenant column".
+    const byTable = new Map<string, string[]>();
+    for (const f of fks) {
+      byTable.set(f.table_name, [...(byTable.get(f.table_name) ?? []), f.column_name]);
+    }
+    const ambiguous = [...byTable.entries()].filter(([, cols]) => cols.length !== 1);
+    expect(
+      ambiguous.map(([t, cols]) => `${t}: ${cols.join(", ")}`),
+      "a table has more than one foreign key to Workspace — this test can no longer tell which column is the tenant column, so it refuses to guess",
+    ).toEqual([]);
+    const tenantColumn = new Map([...byTable].map(([t, cols]) => [t, cols[0]]));
     // Control on the discovery itself: if the FK lookup found nothing, every
     // assertion below would be checking against `undefined`.
     expect([...tenantColumn.keys()].sort()).toEqual([...RUNTIME_MODELS].sort());
 
     for (const r of rows) {
       const col = tenantColumn.get(r.tablename)!;
+      // Assert the COMPARISON, not the mention. Round 2: asserting only that
+      // the qual contains `"Table"."workspaceId"` and is not a literal
+      // self-comparison would pass a predicate that mentions the outer column
+      // somewhere harmless while the actual join is to a constant, to another
+      // table, or to the wrong alias —
+      //   wm."workspaceId" = other."workspaceId" AND "AiRunnerFlag"."workspaceId" IS NOT NULL
+      // satisfied both of the old assertions and isolates nothing.
+      //
+      // The predicate that matters is an equality between the WorkspaceMember
+      // row's tenant column and THIS table's own, in either order, whatever
+      // alias Postgres chose for the subquery. Two capture groups pinned to
+      // the same alias on both sides is what makes it a real join rather than
+      // two unrelated mentions.
+      const outer = `"${r.tablename}"\\."${col}"`;
+      const member = `(\\w+)\\."${col}"`;
+      const joined = new RegExp(`(?:${member} = ${outer})|(?:${outer} = ${member})`);
       expect(
         r.qual,
-        `${r.policyname} does not reference "${r.tablename}"."${col}" — the outer table's own tenant column`,
-      ).toContain(`"${r.tablename}"."${col}"`);
-      // The other direction, because the first assertion alone would pass a
-      // predicate that mentioned the outer table somewhere else while still
-      // carrying the tautology.
+        `${r.policyname} never compares "${r.tablename}"."${col}" to a WorkspaceMember row's ${col} — it may mention the column without joining on it`,
+      ).toMatch(joined);
+      // Still assert the other direction: the join above must not be the outer
+      // table (or WorkspaceMember) compared to ITSELF, which is true for every
+      // row and isolates nothing.
       expect(
         r.qual,
-        `${r.policyname} compares WorkspaceMember's ${col} to itself — the policy is true for every row`,
+        `${r.policyname} compares ${col} to itself — the policy is true for every row`,
       ).not.toMatch(new RegExp(`(\\w+)\\."${col}" = \\1\\."${col}"`));
     }
   });
@@ -282,16 +314,21 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     // This replaces a test that asserted the opposite. The first version made
     // `runner` nullable, and Postgres treats NULLs as distinct in a unique
     // index — so @@unique did not constrain workspace-wide rows at all. That
-    // was documented and a test asserted the duplicate was ALLOWED, which the
-    // review correctly called a rationalisation: the hole was cheap to close.
-    // `AiRunner.WORKSPACE` is a real enum value, `runner` is NOT NULL, and the
-    // ordinary constraint does the work. The old test is gone rather than
-    // adjusted, because it asserted a property the schema no longer has.
+    // was documented and a test asserted the duplicate was ALLOWED, which
+    // review round 1 correctly called a rationalisation: the hole was cheap to
+    // close. The old test is gone rather than adjusted, because it asserted a
+    // property the schema no longer has.
+    //
+    // Round 2 then attacked the FIX: closing it by adding WORKSPACE to
+    // AiRunner made that value legal on every table AiRunner touches. The
+    // scope now lives in its own enum, `AiBudgetScope`, so the budget gets its
+    // NOT NULL workspace-wide value without a receipt ever being attributable
+    // to a runner that does not exist.
     const ws = await seedWorkspace(`ra7493-budget-${Date.now()}`);
     const periodStart = new Date("2026-09-01T00:00:00.000Z");
     const base = {
       workspaceId: ws.id,
-      runner: "WORKSPACE" as const,
+      scope: "WORKSPACE" as const,
       periodStart,
       periodEnd: new Date("2026-10-01T00:00:00.000Z"),
       maxMicroUsd: 1_000_000n,
@@ -311,7 +348,7 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     const budget = await prisma.aiRunnerBudget.create({
       data: {
         workspaceId: ws.id,
-        runner: "JOB_COPILOT",
+        scope: "JOB_COPILOT",
         periodStart: new Date("2026-09-01T00:00:00.000Z"),
         periodEnd: new Date("2026-10-01T00:00:00.000Z"),
         maxMicroUsd: 100n,
@@ -340,7 +377,7 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     const funded = await prisma.aiRunnerBudget.create({
       data: {
         workspaceId: ws.id,
-        runner: "STYLE",
+        scope: "STYLE",
         periodStart: new Date("2026-09-01T00:00:00.000Z"),
         periodEnd: new Date("2026-10-01T00:00:00.000Z"),
         maxMicroUsd: 100n,
@@ -359,7 +396,7 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     const b = await prisma.aiRunnerBudget.create({
       data: {
         workspaceId: ws.id,
-        runner: "INGESTION",
+        scope: "INGESTION",
         periodStart: new Date("2026-09-01T00:00:00.000Z"),
         periodEnd: new Date("2026-10-01T00:00:00.000Z"),
         maxMicroUsd: 50n,
@@ -407,5 +444,211 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
         } as never,
       }),
     ).rejects.toThrow();
+  });
+
+  it("AiBudgetScope stays in step with AiRunner", async () => {
+    // The cost of giving the budget its own scope enum instead of polluting
+    // AiRunner with a WORKSPACE sentinel is drift: a seventh runner added to
+    // AiRunner and forgotten here would be silently unbudgetable — no error,
+    // just a runner nobody can cap. This is the control that turns that into a
+    // failing test instead.
+    const values = async (typeName: string) =>
+      (
+        await prisma.$queryRaw<{ enumlabel: string }[]>`
+          SELECT e.enumlabel
+          FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+          WHERE t.typname = ${typeName}
+          ORDER BY e.enumsortorder
+        `
+      ).map((r) => r.enumlabel);
+
+    const runners = await values("AiRunner");
+    const scopes = await values("AiBudgetScope");
+
+    // Positive control: a lookup that found nothing would make the comparison
+    // below trivially true.
+    expect(runners.length).toBeGreaterThan(0);
+    expect(runners).not.toContain("WORKSPACE");
+    expect(scopes.slice().sort()).toEqual([...runners, "WORKSPACE"].sort());
+  });
+
+  it("a negative cost cannot inflate a budget — the database refuses it", async () => {
+    // Review round 2's P0. The spend guard is
+    //   where: { remainingMicroUsd: { gte: cost } }, data: { decrement: cost }
+    // and `decrement` accepts a NEGATIVE number. A negative cost passes its own
+    // guard trivially (remaining >= -50) and then ADDS to the balance: the
+    // ceiling raises itself.
+    //
+    // Two layers, because one is genuinely not enough:
+    //   * `remaining >= 0` alone does not catch it — an inflated balance is
+    //     still >= 0;
+    //   * `remaining <= max` catches an inflation past the ceiling, but NOT a
+    //     refund back up to it: -60 against 40 of 100 lands exactly on 100 and
+    //     every CHECK passes while the spend is quietly undone.
+    // Monotonicity is what actually protects the ceiling, and only a trigger
+    // can see the previous value. The attack below is the -60 case — the one
+    // the constraints alone would have let through.
+    const ws = await seedWorkspace(`ra7493-negcost-${Date.now()}`);
+    const b = await prisma.aiRunnerBudget.create({
+      data: {
+        workspaceId: ws.id,
+        scope: "FIELD",
+        periodStart: new Date("2026-09-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+        maxMicroUsd: 100n,
+        remainingMicroUsd: 40n,
+      },
+    });
+
+    // The attack: cost = -60. The application guard passes trivially
+    // (40 >= -60) and the decrement lands on exactly 100 — inside the ceiling,
+    // so no CHECK fires. The monotonic trigger is what refuses it.
+    await expect(
+      prisma.aiRunnerBudget.updateMany({
+        where: { id: b.id, remainingMicroUsd: { gte: -60n } },
+        data: { remainingMicroUsd: { decrement: -60n } },
+      }),
+    ).rejects.toThrow();
+
+    // And the ceiling itself still cannot be exceeded, which is the CHECK
+    // rather than the trigger — both layers proved, not just the outer one.
+    await expect(
+      prisma.aiRunnerBudget.updateMany({
+        where: { id: b.id, remainingMicroUsd: { gte: -61n } },
+        data: { remainingMicroUsd: { decrement: -61n } },
+      }),
+    ).rejects.toThrow();
+
+    // And it did not partially apply.
+    expect(
+      (await prisma.aiRunnerBudget.findUniqueOrThrow({ where: { id: b.id } }))
+        .remainingMicroUsd,
+    ).toBe(40n);
+
+    // The control: an ordinary deduction on the same row still works, so
+    // "refused" above is the constraint firing, not the row being unwritable.
+    const ok = await prisma.aiRunnerBudget.updateMany({
+      where: { id: b.id, remainingMicroUsd: { gte: 10n } },
+      data: { remainingMicroUsd: { decrement: 10n } },
+    });
+    expect(ok.count).toBe(1);
+
+    // The second control: refilling IS allowed when the window moves, which is
+    // what a reset is. Without this, "monotonic" would have made the budget
+    // un-resettable and the feature unusable — a guard that blocks the real
+    // operation is not a stricter guard, it is a broken one.
+    const reset = await prisma.aiRunnerBudget.update({
+      where: { id: b.id },
+      data: {
+        periodStart: new Date("2026-10-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-11-01T00:00:00.000Z"),
+        remainingMicroUsd: 100n,
+      },
+    });
+    expect(reset.remainingMicroUsd).toBe(100n);
+  });
+
+  it("a budget cannot be created already over its own ceiling", async () => {
+    const ws = await seedWorkspace(`ra7493-overmax-${Date.now()}`);
+    await expect(
+      prisma.aiRunnerBudget.create({
+        data: {
+          workspaceId: ws.id,
+          scope: "GOVERNOR",
+          periodStart: new Date("2026-09-01T00:00:00.000Z"),
+          periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+          maxMicroUsd: 100n,
+          remainingMicroUsd: 101n,
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("a token ceiling cannot be half-set", async () => {
+    // maxTokens set with remainingTokens null would look like a live token
+    // ceiling while enforcing nothing.
+    const ws = await seedWorkspace(`ra7493-halftoken-${Date.now()}`);
+    await expect(
+      prisma.aiRunnerBudget.create({
+        data: {
+          workspaceId: ws.id,
+          scope: "SELF_HEAL",
+          periodStart: new Date("2026-09-01T00:00:00.000Z"),
+          periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+          maxMicroUsd: 100n,
+          remainingMicroUsd: 100n,
+          maxTokens: 5_000n,
+          // remainingTokens deliberately omitted
+        },
+      }),
+    ).rejects.toThrow();
+
+    // Control: both set is accepted, so the rejection above is the pairing
+    // rule and not "this table refuses token ceilings".
+    const okRow = await prisma.aiRunnerBudget.create({
+      data: {
+        workspaceId: ws.id,
+        scope: "STYLE",
+        periodStart: new Date("2026-09-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+        maxMicroUsd: 100n,
+        remainingMicroUsd: 100n,
+        maxTokens: 5_000n,
+        remainingTokens: 5_000n,
+      },
+    });
+    expect(okRow.remainingTokens).toBe(5_000n);
+  });
+
+  it("a receipt resolves exactly once, and its story is frozen at insert", async () => {
+    // Round 2 asked for the append-only claim to be enforced rather than
+    // asserted. Its suggested fix — revoke UPDATE — would have broken the
+    // PENDING → resolved design, which needs exactly one update. The trigger
+    // permits that one transition and nothing else.
+    const ws = await seedWorkspace(`ra7493-freeze-${Date.now()}`);
+    const mk = () =>
+      prisma.aiRunnerReceipt.create({
+        data: {
+          workspaceId: ws.id,
+          runner: "FIELD",
+          taskType: "summarise",
+          keySource: "TENANT_BYOK",
+          idempotencyKey: `freeze-${Date.now()}-${Math.random()}`,
+        },
+      });
+
+    // Permitted: PENDING → terminal, touching only resolution fields.
+    const a = await mk();
+    const resolved = await prisma.aiRunnerReceipt.update({
+      where: { id: a.id },
+      data: { outcome: "OK", costMicroUsd: 42n, resolvedAt: new Date(), latencyMs: 120 },
+    });
+    expect(resolved.outcome).toBe("OK");
+    expect(resolved.costMicroUsd).toBe(42n);
+
+    // Refused: a second resolution. A correction is a NEW row via supersedesId.
+    await expect(
+      prisma.aiRunnerReceipt.update({
+        where: { id: a.id },
+        data: { outcome: "FAILED" },
+      }),
+    ).rejects.toThrow();
+
+    // Refused: rewriting the story on a still-PENDING row. keySource is the
+    // one that matters most — it is the BYOK promise made queryable, and a
+    // receipt that can be edited from PLATFORM to TENANT_BYOK after the fact
+    // proves nothing at all.
+    const b = await mk();
+    await expect(
+      prisma.aiRunnerReceipt.update({
+        where: { id: b.id },
+        data: { outcome: "OK", keySource: "PLATFORM" },
+      }),
+    ).rejects.toThrow();
+
+    // It did not partially apply: b is still PENDING and still BYOK.
+    const after = await prisma.aiRunnerReceipt.findUniqueOrThrow({ where: { id: b.id } });
+    expect(after.outcome).toBe("PENDING");
+    expect(after.keySource).toBe("TENANT_BYOK");
   });
 });

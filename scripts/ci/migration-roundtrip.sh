@@ -121,6 +121,23 @@ case "$MODE" in
     # Static check. No database needed: a destructive statement is destructive
     # whether or not it happens to succeed today.
     require_new_migrations
+    # Every table the NEW migrations create, gathered BEFORE the per-file loop
+    # because the DROP POLICY exemption below is cross-file: this branch creates
+    # its tables in one migration and its policies in the next.
+    NEW_TABLES="$(
+      while read -r m; do
+        [ -n "$m" ] || continue
+        [ -f "prisma/migrations/$m/migration.sql" ] || continue
+        # `|| [ $? -eq 1 ]` and NOT `|| true`: a migration with no CREATE TABLE
+        # is an ordinary, valid answer (grep exit 1), but a grep that genuinely
+        # ERRORED (exit 2 — unreadable file, bad pattern) must still bring the
+        # script down. Blanket-swallowing here would be the same fail-open shape
+        # review round 1 found in new_migrations(), one function further along.
+        { grep -oEi 'CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?"?[A-Za-z_][A-Za-z0-9_]*"?' \
+            "prisma/migrations/$m/migration.sql" || [ "$?" -eq 1 ]; } \
+          | sed -E 's/.*[[:space:]]"?([A-Za-z_][A-Za-z0-9_]*)"?$/\1/'
+      done < <(new_migrations) | sort -u
+    )"
     rc=0
     while read -r mig; do
       [ -n "$mig" ] || continue
@@ -135,6 +152,15 @@ case "$MODE" in
       # `INSERT ... VALUES ('DROP TABLE x')` and `/* DROP TABLE x */` both read
       # as destruction (false red), while a rationale in a block comment was
       # never covered at all.
+      #
+      # Dollar-quoted bodies ($$ ... $$, $tag$ ... $tag$) are DELIBERATELY not
+      # blanked. They are the one place a destructive statement is both quoted
+      # AND executable — `DO $$ BEGIN ... DROP TABLE x ... END $$` really does
+      # drop the table. Blanking them to silence a hypothetical false red would
+      # open a hole big enough to drive the whole check through. The cost is a
+      # false red on a DROP mentioned inside a function body's own comment or
+      # error string, which is a nuisance a human resolves in seconds; the
+      # alternative is a miss nobody ever sees.
       stripped="$(python3 - "$f" <<'PYEOF'
 import re, sys
 src = open(sys.argv[1], encoding="utf8").read()
@@ -149,12 +175,35 @@ PYEOF
       # so `ALTER TABLE foo DROP bar` is a column drop and must match. Hence
       # `DROP` followed by an optional keyword, then an identifier.
       hits="$(printf '%s\n' "$stripped" | grep -nEi '(DROP[[:space:]]+(TABLE|COLUMN|CONSTRAINT|INDEX|TYPE|SCHEMA|SEQUENCE|VIEW|TRIGGER|FUNCTION)?[[:space:]]*(IF[[:space:]]+EXISTS[[:space:]]+)?"?[A-Za-z_]|RENAME[[:space:]]+(TO|COLUMN)|ALTER[[:space:]]+COLUMN[[:space:]]+.*[[:space:]]TYPE[[:space:]]|SET[[:space:]]+NOT[[:space:]]+NULL|TRUNCATE|DELETE[[:space:]]+FROM)' || true)"
-      # DROP POLICY is exempt: a policy is re-created immediately after in the
-      # same file (Postgres has no CREATE POLICY IF NOT EXISTS), so dropping one
-      # is how an idempotent policy migration is written. Every other DROP is a
-      # finding. Checked on the ORIGINAL line, not the blanked one.
+      # DROP POLICY is exempt ONLY on a table this branch itself creates.
+      #
+      # Postgres has no CREATE POLICY IF NOT EXISTS, so drop-then-create is how
+      # an idempotent policy migration is written — but review round 2 showed the
+      # blanket `grep -v 'DROP POLICY'` this replaces was a security hole of its
+      # own: it equally waved through `DROP POLICY "tenant_isolation" ON
+      # "Workspace"`, silently removing tenant isolation from a PRE-EXISTING
+      # table. Dropping a policy you just wrote is housekeeping; dropping one
+      # that was already protecting live rows is exactly what this check exists
+      # to catch.
+      #
+      # Anything that is not recognisably `DROP POLICY ... ON <new table>` stays
+      # a finding, including a DROP POLICY whose target cannot be parsed. Fail
+      # closed: an unreadable exemption is not an exemption.
       if [ -n "$hits" ]; then
-        hits="$(printf '%s\n' "$hits" | grep -viE 'DROP[[:space:]]+POLICY' || true)"
+        hits="$(printf '%s\n' "$hits" | NEW_TABLES="$NEW_TABLES" python3 -c '
+import os, re, sys
+new = {t.strip().strip(chr(34)) for t in os.environ["NEW_TABLES"].split() if t.strip()}
+drop_policy = re.compile(r"\bDROP\s+POLICY\b", re.I)
+target = re.compile(r"\bDROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?\"?[A-Za-z_][A-Za-z0-9_]*\"?\s+ON\s+(?:ONLY\s+)?\"?([A-Za-z_][A-Za-z0-9_]*)\"?", re.I)
+for line in sys.stdin.read().splitlines():
+    if not line.strip():
+        continue
+    if drop_policy.search(line):
+        m = target.search(line)
+        if m and m.group(1) in new:
+            continue          # housekeeping on a table this branch creates
+    sys.stdout.write(line + "\n")
+' || true)"
       fi
       if [ -n "$hits" ]; then
         echo "NOT ADDITIVE — $f" >&2
