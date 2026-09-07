@@ -26,6 +26,7 @@ import {
   findCoverageDrift,
   hasSmokeTitle,
   mentionsSpec,
+  resolveDeclared,
   parseCoverageManifest,
   stripComments,
   summarise,
@@ -145,11 +146,19 @@ function main(argv) {
   if (argv.includes("--init")) {
     // Emit what is true right now, so the reasons can be written by a person
     // rather than invented by this script.
+    //
+    // THE THIRD CONSUMER of spec identity, and it carried the same basename
+    // fallback the other two did: `a1Declared.includes(spec.split("/").pop())`
+    // would have written `a1` against `billing/auth.spec.ts` because the
+    // producer declared root-level `auth.spec.ts`. findCoverageDrift now
+    // resolves properly, so that entry would be rejected as a false claim the
+    // moment the gate ran -- this script would have generated a manifest that
+    // fails its own check. Same resolver, one answer.
+    const a1Resolved = resolveDeclared(a1Declared, specs);
     for (const spec of specs) {
       let disposition = "unrun:REASON REQUIRED";
       if (smokeTagged.includes(spec)) disposition = "smoke";
-      else if (a1Declared.includes(spec) || a1Declared.includes(spec.split("/").pop()))
-        disposition = "a1";
+      else if (a1Resolved.has(spec)) disposition = "a1";
       else {
         for (const [wf, named] of workflowNamed) {
           if (named.includes(spec)) {
