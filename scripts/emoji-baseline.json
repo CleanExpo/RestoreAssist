@@ -58,7 +58,7 @@
     "docs/PHASE_5_RUNBOOK.md": 31,
     "docs/PILOT_CUTOVER_CHECKLIST.md": 30,
     "docs/RA-2073-OWNER-RUNBOOK.md": 2,
-    "docs/archive/playwright-e2e/setup-happy-path.spec.ts": 1,
+    "e2e/setup-happy-path.spec.ts": 1,
     "docs/compliance/infrastructure-debt-2026-04-23.md": 4,
     "docs/compliance/property-data-api-investigation.md": 17,
     "docs/data-hygiene-audit-2026-06-15.md": 3,

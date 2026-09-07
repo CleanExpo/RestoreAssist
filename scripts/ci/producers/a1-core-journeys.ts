@@ -127,7 +127,7 @@ export const A1_STEP_COVERAGE: Record<string, readonly string[]> = {
   "storage setup": ["setup-storage-google-drive.spec.ts"],
   // STILL NO COVERING SPEC, deliberately.
   //
-  // `docs/archive/playwright-e2e/storage-restore.spec.ts` now exists and covers
+  // `e2e/storage-restore.spec.ts` now exists and covers
   // the restore SURFACE -- the owner-only gate, the API contract, that Preview
   // enqueues nothing, and that the mode defaults to non-destructive MISSING.
   // It is real coverage of a path that had none.

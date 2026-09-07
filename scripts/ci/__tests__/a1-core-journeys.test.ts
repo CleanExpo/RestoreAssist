@@ -36,7 +36,7 @@ describe("readPlaywrightReport", () => {
     const report = {
       suites: [
         {
-          file: "docs/archive/playwright-e2e/auth.spec.ts",
+          file: "e2e/auth.spec.ts",
           specs: [{ ok: true, tests: [{ status: "expected" }] }],
           suites: [{ specs: [{ ok: true, tests: [{ status: "expected" }] }, { ok: false, tests: [{ status: "unexpected" }] }] }],
         },
@@ -80,7 +80,7 @@ describe("a skipped spec is not a passing spec", () => {
    * producer read `ok` and counted a quarantined `test.fixme` spec as PASSED,
    * which marked its journey step covered and inflated `testsExecuted`.
    *
-   * `docs/archive/playwright-e2e/setup-storage-google-drive.spec.ts` is exactly
+   * `e2e/setup-storage-google-drive.spec.ts` is exactly
    * that: `test.fixme(true, "Quarantined from A1/B4 gate ...")`. The `storage
    * setup` step was green on a spec that has not run since it was quarantined.
    *
@@ -92,7 +92,7 @@ describe("a skipped spec is not a passing spec", () => {
     const report = {
       suites: [
         {
-          file: "docs/archive/playwright-e2e/setup-storage-google-drive.spec.ts",
+          file: "e2e/setup-storage-google-drive.spec.ts",
           specs: [{ ok: true, tests: [{ status: "skipped" }] }],
         },
       ],

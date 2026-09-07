@@ -12,7 +12,7 @@ name: Sketch E2E
 on:
   pull_request:
     paths:
-      - "docs/archive/playwright-e2e/**"
+      - "e2e/**"
       - "components/sketch/**"
       - "app/api/inspections/**/sketches/**"
       - "lib/sketch/**"
@@ -117,7 +117,7 @@ jobs:
       # (v2-sketch-workflow.spec.ts) has stale selectors and is stabilised
       # separately before being added.
       - name: Run Sketch E2E
-        run: npx --no-install playwright test -c config/playwright.config.ts docs/archive/playwright-e2e/sketch-api.spec.ts --project=chromium --reporter=line
+        run: npx --no-install playwright test -c config/playwright.config.ts e2e/sketch-api.spec.ts --project=chromium --reporter=line
 
       # The billing suite had never been executed by any pipeline, so nothing
       # had established whether it passed. Run locally on 2026-09-07 it was
@@ -141,14 +141,14 @@ jobs:
       - name: Run billing E2E
         run: >-
           npx --no-install playwright test -c config/playwright.config.ts
-          docs/archive/playwright-e2e/billing/cancel-flow.spec.ts
-          docs/archive/playwright-e2e/billing/credit-exhaust.spec.ts
-          docs/archive/playwright-e2e/billing/feature-gate.spec.ts
-          docs/archive/playwright-e2e/billing/grandfather.spec.ts
-          docs/archive/playwright-e2e/billing/multi-tab.spec.ts
-          docs/archive/playwright-e2e/billing/trial-expired-soft-gate.spec.ts
-          docs/archive/playwright-e2e/billing/voluntary-upgrade.spec.ts
-          docs/archive/playwright-e2e/billing/webhook-race.spec.ts
+          e2e/billing/cancel-flow.spec.ts
+          e2e/billing/credit-exhaust.spec.ts
+          e2e/billing/feature-gate.spec.ts
+          e2e/billing/grandfather.spec.ts
+          e2e/billing/multi-tab.spec.ts
+          e2e/billing/trial-expired-soft-gate.spec.ts
+          e2e/billing/voluntary-upgrade.spec.ts
+          e2e/billing/webhook-race.spec.ts
           --project=chromium --reporter=line
 
       # The 36 specs below were every remaining spec declared unrun because "no pipeline
@@ -170,42 +170,42 @@ jobs:
       - name: Run remaining E2E
         run: >-
           npx --no-install playwright test -c config/playwright.config.ts
-          docs/archive/playwright-e2e/account-deletion.spec.ts
-          docs/archive/playwright-e2e/billing.spec.ts
-          docs/archive/playwright-e2e/crm-health.spec.ts
-          docs/archive/playwright-e2e/dr-nrpg-inbound-job.spec.ts
-          docs/archive/playwright-e2e/health-migrations.spec.ts
-          docs/archive/playwright-e2e/health.spec.ts
-          docs/archive/playwright-e2e/help/article-detail.spec.ts
-          docs/archive/playwright-e2e/help/dropdown-open.spec.ts
-          docs/archive/playwright-e2e/help/public-mirror.spec.ts
-          docs/archive/playwright-e2e/help/redirects.spec.ts
-          docs/archive/playwright-e2e/help/search-cmd-k.spec.ts
-          docs/archive/playwright-e2e/invite-tech-already-used.spec.ts
-          docs/archive/playwright-e2e/invite-tech-expired.spec.ts
-          docs/archive/playwright-e2e/invite-tech-google-oauth.spec.ts
-          docs/archive/playwright-e2e/invite-tech-happy-path.spec.ts
-          docs/archive/playwright-e2e/ios-billing-gates.spec.ts
-          docs/archive/playwright-e2e/job-close-preconditions.spec.ts
-          docs/archive/playwright-e2e/login-callback-url.spec.ts
-          docs/archive/playwright-e2e/navigation.spec.ts
-          docs/archive/playwright-e2e/nir-routes-regression.spec.ts
-          docs/archive/playwright-e2e/procurement.spec.ts
-          docs/archive/playwright-e2e/security.spec.ts
-          docs/archive/playwright-e2e/setup-abr-unreachable.spec.ts
-          docs/archive/playwright-e2e/setup-no-abn.spec.ts
-          docs/archive/playwright-e2e/setup-resume.spec.ts
-          docs/archive/playwright-e2e/setup-skip-manual.spec.ts
-          docs/archive/playwright-e2e/setup-technician-gate.spec.ts
-          docs/archive/playwright-e2e/setup-website-failure.spec.ts
-          docs/archive/playwright-e2e/storage-restore.spec.ts
-          docs/archive/playwright-e2e/stripe-payment-intent-webhook.spec.ts
-          docs/archive/playwright-e2e/tech-banner-auto-dismiss.spec.ts
-          docs/archive/playwright-e2e/tech-evidence-capture-no-modal.spec.ts
-          docs/archive/playwright-e2e/tech-second-signoff-prefilled.spec.ts
-          docs/archive/playwright-e2e/tech-signoff-modal-cancel.spec.ts
-          docs/archive/playwright-e2e/warehouse.spec.ts
-          docs/archive/playwright-e2e/workshop.spec.ts
+          e2e/account-deletion.spec.ts
+          e2e/billing.spec.ts
+          e2e/crm-health.spec.ts
+          e2e/dr-nrpg-inbound-job.spec.ts
+          e2e/health-migrations.spec.ts
+          e2e/health.spec.ts
+          e2e/help/article-detail.spec.ts
+          e2e/help/dropdown-open.spec.ts
+          e2e/help/public-mirror.spec.ts
+          e2e/help/redirects.spec.ts
+          e2e/help/search-cmd-k.spec.ts
+          e2e/invite-tech-already-used.spec.ts
+          e2e/invite-tech-expired.spec.ts
+          e2e/invite-tech-google-oauth.spec.ts
+          e2e/invite-tech-happy-path.spec.ts
+          e2e/ios-billing-gates.spec.ts
+          e2e/job-close-preconditions.spec.ts
+          e2e/login-callback-url.spec.ts
+          e2e/navigation.spec.ts
+          e2e/nir-routes-regression.spec.ts
+          e2e/procurement.spec.ts
+          e2e/security.spec.ts
+          e2e/setup-abr-unreachable.spec.ts
+          e2e/setup-no-abn.spec.ts
+          e2e/setup-resume.spec.ts
+          e2e/setup-skip-manual.spec.ts
+          e2e/setup-technician-gate.spec.ts
+          e2e/setup-website-failure.spec.ts
+          e2e/storage-restore.spec.ts
+          e2e/stripe-payment-intent-webhook.spec.ts
+          e2e/tech-banner-auto-dismiss.spec.ts
+          e2e/tech-evidence-capture-no-modal.spec.ts
+          e2e/tech-second-signoff-prefilled.spec.ts
+          e2e/tech-signoff-modal-cancel.spec.ts
+          e2e/warehouse.spec.ts
+          e2e/workshop.spec.ts
           --project=chromium --reporter=line
 
       - name: Upload Playwright report

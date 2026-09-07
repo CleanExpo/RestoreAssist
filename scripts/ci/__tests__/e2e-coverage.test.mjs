@@ -182,7 +182,7 @@ test("one spec's name inside another's does not count as a mention", () => {
   assert.equal(mentionsSpec("run: playwright test crm-health.spec.ts", "health.spec.ts"), false);
 });
 
-const E2E = "docs/archive/playwright-e2e";
+const E2E = "e2e";
 
 test("a genuine mention still counts, path-qualified or not", () => {
   assert.equal(mentionsSpec("run: playwright test auth.spec.ts", "auth.spec.ts", [E2E]), true);

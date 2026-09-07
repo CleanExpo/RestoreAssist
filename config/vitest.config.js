@@ -28,7 +28,6 @@ export default {
       "data/content/videos/__tests__/**/*.test.ts",
     ],
     exclude: [
-      "docs/archive/playwright-e2e/**",
       "e2e/**",
       "node_modules/**",
       ".next/**",

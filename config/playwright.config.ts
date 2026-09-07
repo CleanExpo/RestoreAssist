@@ -10,7 +10,7 @@ const repoRoot = path.join(configDir, "..");
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
-  testDir: path.join(repoRoot, "docs/archive/playwright-e2e"),
+  testDir: path.join(repoRoot, "e2e"),
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

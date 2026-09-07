@@ -19,7 +19,7 @@ function report(specs) {
             title: "inner",
             specs: specs.map(([title, status]) => ({
               title,
-              file: "docs/archive/playwright-e2e/example.spec.ts",
+              file: "e2e/example.spec.ts",
               tests: [{ status, results: [{ status }] }],
             })),
           },

@@ -20,58 +20,84 @@ import { test, expect } from "@playwright/test";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** POST /api/auth/callback/credentials to get a session cookie */
-// A dedicated non-admin identity, created on demand by /api/test/sign-in-as.
-//
-// E2E_USER_EMAIL is seeded as ADMIN in this harness. Section 6 asserts "403 for
-// a NON-admin user" while signing in as that account, so it was asserting the
-// opposite of what it set up: an admin is not forbidden, and the test could
-// never have held. It read as a red test; it was a meaningless one. The helper
-// route refuses the role mismatch outright (409) rather than issuing an ADMIN
-// session, which is the only reason this surfaced at all.
-const NON_ADMIN_EMAIL = "e2e-nonadmin@test.local";
-
-
-type SignInRole = "USER" | "ADMIN" | "MANAGER";
-
+/**
+ * Sign in with real credentials and return the NextAuth session cookie.
+ *
+ * Three things here were wrong and each one alone returned null, which then
+ * surfaced one call later as `headers[0].value: expected string, got object`
+ * -- because `Cookie: session!` passed `null` and `typeof null === "object"`.
+ * That error reads like a header bug and is not one. Measured 07/09/2026
+ * against a booted app, both endpoints, same credentials:
+ *
+ *   POST /api/auth/signin/credentials    200, sets csrf-token + callback-url
+ *                                        and NO session-token
+ *   POST /api/auth/callback/credentials  200, sets next-auth.session-token
+ *
+ * 1. NextAuth's credentials provider mints a session only on the CALLBACK
+ *    endpoint. `signin` renders the sign-in page. The doc comment on this
+ *    helper always said `callback`; the code did not.
+ * 2. CSRF IS enforced. The old `csrfToken: "__skip__"` was not true of this
+ *    app -- the token must come from /api/auth/csrf, and the matching
+ *    csrf cookie must ride with the POST. Playwright's `request` fixture
+ *    keeps its own cookie jar, so the GET below arms the POST.
+ * 3. `res.headers()` COLLAPSES repeated Set-Cookie headers into one string.
+ *    The callback response sets two, so the session token could be hidden
+ *    behind the callback-url one. `headersArray()` preserves them.
+ */
 async function getSessionCookie(
   request: import("@playwright/test").APIRequestContext,
   email: string,
-  role: SignInRole = "USER",
+  password: string,
 ): Promise<string> {
-  // Was: POST /api/auth/signin/credentials with csrfToken "__skip__" and the
-  // comment "CSRF not checked in test env". NextAuth DOES check CSRF on that
-  // route, so it never issued a cookie and this helper returned null. The null
-  // then reached `headers: { Cookie: session! }`, and Playwright reported
-  // "headers[0].value: expected string, got object" -- because typeof null is
-  // "object". Nine tests failed with an error naming the HEADER, not the
-  // sign-in, which is why the cause read as a test-code type bug for a whole
-  // session. Observed red 2026-09-07, 9 failed of 9 in this file.
-  //
-  // Uses /api/test/sign-in-as, the same helper auth.setup.ts and the billing
-  // specs already sign in with. THROWS rather than returning null so this
-  // failure can never again disguise itself as a header type error.
-  // The role MUST match how the account is already seeded: sign-in-as answers
-  // 409 on a mismatch rather than issuing a session with the wrong role. A
-  // hardcoded "USER" here would crash the cross-tenant tests during setup the
-  // moment E2E_USER_B_EMAIL is supplied, because E2E_USER_EMAIL is seeded ADMIN.
-  const res = await request.post("/api/test/sign-in-as", {
-    data: { role, email },
-    failOnStatusCode: false,
+  // THROW, never return null. Returning null was the whole reason the old
+  // helper's failures were unreadable: the null travelled one call further
+  // and re-surfaced as a Playwright header type error naming neither the
+  // user nor the step that actually failed. Found by independent review
+  // (gemini, 07/09/2026). Every message below names the email, because a
+  // cross-tenant test signs in twice and "login failed" alone does not say
+  // which side broke.
+  const csrfRes = await request.get("/api/auth/csrf");
+  if (!csrfRes.ok()) {
+    throw new Error(
+      `getSessionCookie(${email}): GET /api/auth/csrf returned ` +
+        `${csrfRes.status()}; cannot sign in without a CSRF token.`,
+    );
+  }
+  const { csrfToken } = (await csrfRes.json()) as { csrfToken?: string };
+  if (!csrfToken) {
+    throw new Error(
+      `getSessionCookie(${email}): /api/auth/csrf returned no csrfToken field.`,
+    );
+  }
+
+  const res = await request.post("/api/auth/callback/credentials", {
+    form: {
+      email,
+      password,
+      csrfToken,
+      callbackUrl: "/dashboard",
+      json: "true",
+    },
   });
-  if (!res.ok()) {
-    throw new Error(
-      `sign-in helper POST /api/test/sign-in-as failed: ${res.status()} ` +
-        `${await res.text()} — ALLOW_TEST_HELPERS must be the STRING "true".`,
+
+  for (const header of res.headersArray()) {
+    if (header.name.toLowerCase() !== "set-cookie") continue;
+    // ANCHORED. A Set-Cookie value always begins with the cookie name, so
+    // without `^` this matched any cookie whose name merely ENDS in
+    // `next-auth.session-token` -- `fake-next-auth.session-token=...` would
+    // have been accepted as a real session. Found by independent review
+    // (gemini, 07/09/2026). `__Secure-` is NextAuth's prefix wherever the
+    // app runs with NODE_ENV=production.
+    const match = header.value.match(
+      /^((?:__Secure-)?next-auth\.session-token=[^;]+)/,
     );
+    if (match) return match[1];
   }
-  const setCookie = res.headers()["set-cookie"];
-  if (!setCookie) {
-    throw new Error(
-      "sign-in helper returned 2xx but no Set-Cookie; no session was issued",
-    );
-  }
-  return setCookie.split(";")[0];
+  throw new Error(
+    `getSessionCookie(${email}): POST /api/auth/callback/credentials returned ` +
+      `${res.status()} with no next-auth.session-token cookie. Wrong ` +
+      `credentials, or the user is not seeded in this database.`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -139,8 +165,13 @@ test.describe("1 · Unauthenticated access", () => {
 
 test.describe("2 · Cross-tenant isolation", () => {
   test.skip(
-    !process.env.E2E_USER_EMAIL || !process.env.E2E_USER_B_EMAIL,
-    "Requires E2E_USER_EMAIL and E2E_USER_B_EMAIL env vars",
+    !process.env.E2E_USER_EMAIL ||
+      !process.env.E2E_USER_PASSWORD ||
+      !process.env.E2E_USER_B_EMAIL ||
+      !process.env.E2E_USER_B_PASSWORD,
+    "Requires E2E_USER_EMAIL, E2E_USER_PASSWORD, E2E_USER_B_EMAIL and E2E_USER_B_PASSWORD " +
+      "env vars \u2014 the test bodies dereference all four, so guarding on the emails alone " +
+      "lets the suite run with an undefined password and fail for the wrong reason",
   );
 
   test("User A cannot read User B's inspection", async ({ request }) => {
@@ -148,7 +179,7 @@ test.describe("2 · Cross-tenant isolation", () => {
     const sessionA = await getSessionCookie(
       request,
       process.env.E2E_USER_EMAIL!,
-      "ADMIN", // this account is seeded ADMIN; asking for USER returns 409
+      process.env.E2E_USER_PASSWORD!,
     );
     expect(sessionA, "User A login failed").toBeTruthy();
 
@@ -163,25 +194,34 @@ test.describe("2 · Cross-tenant isolation", () => {
         damageClass: "CLASS_1",
       },
     });
-    // May fail if fields differ — adjust to actual required fields
-    if (createRes.status() !== 201 && createRes.status() !== 200) {
-      test.skip(true, `Inspection creation failed: ${createRes.status()}`);
-      return;
-    }
-    // POST /api/inspections returns { inspection } at 201 — not { data }.
-    // The old destructure yielded undefined, so this test failed at its own
-    // setup and never reached the isolation assertion it exists for.
-    const { inspection } = await createRes.json();
+    // A broken precondition is a FAILURE, not a skip. This test guards cross-tenant
+    // isolation — the defect class PR #2178 fixed in production. Skipping here meant the
+    // guard reported green precisely when the API shape drifted underneath it.
+    expect(
+      [200, 201],
+      `Inspection creation failed: ${createRes.status()}. The precondition for the ` +
+        `cross-tenant check could not be established, so isolation was NOT verified.`,
+    ).toContain(createRes.status());
+    // ENVELOPE. POST /api/inspections returns `{ inspection }`
+    // (app/api/inspections/route.ts:473), NOT `{ data }`. Destructuring `data`
+    // yielded undefined, and the id assertion below is what caught it.
+    // Probed live 07/09/2026: top-level keys are exactly ["inspection"].
+    const { inspection } = (await createRes.json()) as {
+      inspection?: { id?: string };
+    };
     const inspectionId = inspection?.id;
-    expect(inspectionId).toBeTruthy();
+    expect(
+      inspectionId,
+      "Inspection was created but no id came back, so the cross-tenant read " +
+        "below would target /api/inspections/undefined and pass on a 404 " +
+        "that proves nothing.",
+    ).toBeTruthy();
 
     // Step 2: User B tries to read User A's inspection
     const sessionB = await getSessionCookie(
       request,
       process.env.E2E_USER_B_EMAIL!,
-      // Whoever enables E2E_USER_B_EMAIL must seed that account USER, or change
-      // this argument to match — sign-in-as 409s on a role mismatch.
-      "USER",
+      process.env.E2E_USER_B_PASSWORD!,
     );
     expect(sessionB, "User B login failed").toBeTruthy();
 
@@ -200,14 +240,12 @@ test.describe("2 · Cross-tenant isolation", () => {
     const sessionA = await getSessionCookie(
       request,
       process.env.E2E_USER_EMAIL!,
-      "ADMIN", // this account is seeded ADMIN; asking for USER returns 409
+      process.env.E2E_USER_PASSWORD!,
     );
     const sessionB = await getSessionCookie(
       request,
       process.env.E2E_USER_B_EMAIL!,
-      // Whoever enables E2E_USER_B_EMAIL must seed that account USER, or change
-      // this argument to match — sign-in-as 409s on a role mismatch.
-      "USER",
+      process.env.E2E_USER_B_PASSWORD!,
     );
 
     // User B creates a client
@@ -219,19 +257,40 @@ test.describe("2 · Cross-tenant isolation", () => {
         phone: "0412345678",
       },
     });
-    if (createRes.status() !== 201 && createRes.status() !== 200) {
-      test.skip(true, `Client creation failed: ${createRes.status()}`);
-      return;
-    }
-    // POST /api/clients spreads the created client at the TOP level
-    // ({ ...client, totalRevenue, ... }), so there is no `data` wrapper.
-    const client = await createRes.json();
+    expect(
+      [200, 201],
+      `Client creation failed: ${createRes.status()}. The precondition for the ` +
+        `cross-tenant delete check could not be established, so isolation was NOT verified.`,
+    ).toContain(createRes.status());
+    // ENVELOPE. POST /api/clients returns the client object at the TOP LEVEL
+    // (app/api/clients/route.ts:202 spreads it), NOT under `data`. Probed live
+    // 07/09/2026: top-level keys begin ["id","name","email",...] and there is
+    // no `data` key.
+    //
+    // THIS IS WHY THE ASSERTION BELOW EXISTS. With `{ data: client }` the id
+    // was undefined, so this test sent `DELETE /api/clients/undefined`, got
+    // 404, and PASSED -- while proving only that deleting a nonexistent id
+    // 404s. A vacuous pass on the guard for the #2178 P0 is worse than a
+    // failure, because it is quoted as coverage. Verified by probe:
+    // DELETE /api/clients/undefined returns 404.
+    const client = (await createRes.json()) as { id?: string };
+    expect(
+      client?.id,
+      "Client was created but no id came back. Without a real id the delete " +
+        "below targets /api/clients/undefined, which 404s and makes this " +
+        "isolation check vacuous.",
+    ).toBeTruthy();
 
     // User A tries to delete User B's client
-    const deleteRes = await request.delete(`/api/clients/${client?.id}`, {
+    const deleteRes = await request.delete(`/api/clients/${client.id}`, {
       headers: { Cookie: sessionA! },
     });
-    expect([403, 404]).toContain(deleteRes.status());
+    expect(
+      [403, 404],
+      `Expected 403 or 404 when user A deletes user B's client ` +
+        `${client.id}, got ${deleteRes.status()}. A 200 here is the #2178 ` +
+        `cross-tenant defect, live.`,
+    ).toContain(deleteRes.status());
   });
 });
 
@@ -245,7 +304,8 @@ test.describe("3 · Missing field validation", () => {
   test("POST /api/clients with no body → 400", async ({ request }) => {
     const session = await getSessionCookie(
       request,
-      NON_ADMIN_EMAIL,
+      process.env.E2E_USER_EMAIL!,
+      process.env.E2E_USER_PASSWORD!,
     );
     const res = await request.post("/api/clients", {
       headers: { Cookie: session! },
@@ -259,7 +319,8 @@ test.describe("3 · Missing field validation", () => {
   }) => {
     const session = await getSessionCookie(
       request,
-      NON_ADMIN_EMAIL,
+      process.env.E2E_USER_EMAIL!,
+      process.env.E2E_USER_PASSWORD!,
     );
     const res = await request.post("/api/reports/generate-question", {
       headers: { Cookie: session! },
@@ -273,7 +334,8 @@ test.describe("3 · Missing field validation", () => {
   }) => {
     const session = await getSessionCookie(
       request,
-      NON_ADMIN_EMAIL,
+      process.env.E2E_USER_EMAIL!,
+      process.env.E2E_USER_PASSWORD!,
     );
     const res = await request.post("/api/invoices", {
       headers: { Cookie: session! },
@@ -285,11 +347,10 @@ test.describe("3 · Missing field validation", () => {
   test("POST /api/contractors/reviews with rating=0 → 400 (out of range)", async ({
     request,
   }) => {
-    test.fail(); // POST /api/contractors/reviews 500s for EVERY authenticated caller: prisma.clientUser.findUnique is keyed on userId, a field ClientUser does not have. See docs/e2e-36-spec-triage.md
-
     const session = await getSessionCookie(
       request,
-      NON_ADMIN_EMAIL,
+      process.env.E2E_USER_EMAIL!,
+      process.env.E2E_USER_PASSWORD!,
     );
     const res = await request.post("/api/contractors/reviews", {
       headers: { Cookie: session! },
@@ -305,11 +366,10 @@ test.describe("3 · Missing field validation", () => {
   test("POST /api/contractors/reviews with qualityRating=99 → 400 (sub-rating out of range)", async ({
     request,
   }) => {
-    test.fail(); // same defect as the rating=0 case above; validation is never reached
-
     const session = await getSessionCookie(
       request,
-      NON_ADMIN_EMAIL,
+      process.env.E2E_USER_EMAIL!,
+      process.env.E2E_USER_PASSWORD!,
     );
     const res = await request.post("/api/contractors/reviews", {
       headers: { Cookie: session! },
@@ -347,6 +407,7 @@ test.describe("4 · Concurrent credit deduction", () => {
     const session = await getSessionCookie(
       request,
       process.env.E2E_LOW_CREDIT_EMAIL!,
+      process.env.E2E_LOW_CREDIT_PASSWORD!,
     );
     expect(session).toBeTruthy();
 
@@ -398,6 +459,7 @@ test.describe("5 · Subscription gate enforcement", () => {
       const session = await getSessionCookie(
         request,
         process.env.E2E_CANCELED_EMAIL!,
+        process.env.E2E_CANCELED_PASSWORD!,
       );
       expect(session).toBeTruthy();
 
@@ -420,24 +482,29 @@ test.describe("5 · Subscription gate enforcement", () => {
 
 test.describe("6 · Admin route enforcement", () => {
   test.skip(
-    !process.env.E2E_USER_EMAIL,
-    "Requires E2E_USER_EMAIL env var (non-admin user)",
+    !process.env.E2E_USER_C_EMAIL || !process.env.E2E_USER_C_PASSWORD,
+    "Requires E2E_USER_C_EMAIL and E2E_USER_C_PASSWORD -- a NON-ADMIN user. " +
+      "E2E_USER_EMAIL is seeded as ADMIN, so it cannot answer this question.",
   );
 
-  const ADMIN_ROUTES = [
-    "/api/admin/stats",
-    "/api/admin/users",
-    // "/api/admin/seed-demo" is NOT in this GET list: the route exports POST
-    // only, so Next.js answers GET with 405 BEFORE any auth code runs. The test
-    // read as "admin route not enforcing 403" and was really method routing.
-    // Its POST is asserted separately below, and that assertion passes.
-  ];
+  // These tests assert 403 "for a non-admin user" and used E2E_USER_EMAIL,
+  // which scripts/seed-e2e-user.ts seeds as ADMIN. The app was right and the
+  // premise was wrong: an admin correctly gets 200. Seed a third user with
+  // E2E_USER_ROLE=USER and point these at it. Do NOT downgrade
+  // E2E_USER_EMAIL instead -- describes 2 and 4 rely on its admin role.
+  //
+  // /api/admin/seed-demo is NOT in this list. It exports only POST
+  // (app/api/admin/seed-demo/route.ts:81), so a GET returns 405 whatever the
+  // caller's role -- measured 07/09/2026 -- and the test could never pass or
+  // mean anything. The POST test below is the real check for that route.
+  const ADMIN_ROUTES = ["/api/admin/stats", "/api/admin/users"];
 
   for (const path of ADMIN_ROUTES) {
     test(`GET ${path} → 403 for non-admin user`, async ({ request }) => {
       const session = await getSessionCookie(
         request,
-        NON_ADMIN_EMAIL,
+        process.env.E2E_USER_C_EMAIL!,
+        process.env.E2E_USER_C_PASSWORD!,
       );
       expect(session).toBeTruthy();
 
@@ -457,12 +524,17 @@ test.describe("6 · Admin route enforcement", () => {
   }) => {
     const session = await getSessionCookie(
       request,
-      NON_ADMIN_EMAIL,
+      process.env.E2E_USER_C_EMAIL!,
+      process.env.E2E_USER_C_PASSWORD!,
     );
     const res = await request.post("/api/admin/seed-demo", {
       headers: { Cookie: session! },
       data: {},
     });
-    expect(res.status()).toBe(403);
+    expect(
+      res.status(),
+      `Expected 403 from POST /api/admin/seed-demo for a non-admin user, ` +
+        `got ${res.status()}. A 200 here means the admin gate is open.`,
+    ).toBe(403);
   });
 });
