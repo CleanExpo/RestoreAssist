@@ -1,4 +1,10 @@
 import { test, expect } from "@playwright/test";
+// Credential-gated. the OAuth path cannot start without a client id; the server logs error=OAuthSignin
+test.skip(
+  !process.env.GOOGLE_CLIENT_ID,
+  "requires GOOGLE_CLIENT_ID; see docs/e2e-36-spec-triage.md",
+);
+
 
 test.use({ viewport: { width: 393, height: 852 } });
 

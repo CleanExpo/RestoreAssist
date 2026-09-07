@@ -56,6 +56,22 @@ jobs:
       NEXTAUTH_URL: http://localhost:3000
       E2E_USER_EMAIL: test@restoreassist.app
       E2E_USER_PASSWORD: Test1234!
+      # A SECOND tenant and a THIRD, NON-ADMIN user. Without these,
+      # security.spec.ts describe 2 (cross-tenant isolation) and describe 6
+      # (admin route enforcement) call test.skip() and report as skipped --
+      # which is indistinguishable from passing in a run summary. Cross-tenant
+      # isolation on a multi-tenant product is the single most valuable
+      # assertion in this file and it had never executed anywhere.
+      E2E_USER_B_EMAIL: e2e-tenant-b@restoreassist.app
+      E2E_USER_B_PASSWORD: Test1234!
+      E2E_USER_C_EMAIL: e2e-nonadmin@restoreassist.app
+      E2E_USER_C_PASSWORD: Test1234!
+      # Turns three cron-auth assertions from skipped into executed. The app
+      # and the specs read the same variable in this job, so a literal test
+      # value is enough -- no secret is required and none is used. Without it
+      # security.spec.ts:152 skips, and a skipped auth check looks exactly
+      # like a passing one in the run summary.
+      CRON_SECRET: e2e-cron-secret-not-for-prod
       # Must be the STRING "true". The value 1 makes every /api/test/* helper
       # return 403, which reads exactly like a payment bug and is not one.
       # Absent from every workflow in this repo until now, which is why the
@@ -108,6 +124,35 @@ jobs:
       - name: Seed e2e login account
         run: npx --no-install tsx scripts/seed-e2e-user.ts
 
+      # scripts/seed-e2e-user.ts is parameterised by env, so it seeds one
+      # account per invocation. A distinct ABN per organisation is REQUIRED:
+      # the column is unique, and a hardcoded ABN is exactly what made a
+      # second tenant impossible before it was fixed. The ABNs below are
+      # different valid values, not variations of the first.
+      - name: Seed second tenant (user B)
+        run: npx --no-install tsx scripts/seed-e2e-user.ts
+        env:
+          E2E_USER_EMAIL: e2e-tenant-b@restoreassist.app
+          E2E_USER_PASSWORD: Test1234!
+          E2E_USER_ROLE: USER
+          E2E_ORG_NAME: E2E Tenant B Organisation
+          E2E_ORG_LEGAL_NAME: E2E Tenant B Pty Ltd
+          E2E_ORG_ABN: "51824753556"
+
+      # E2E_USER_EMAIL is seeded ADMIN, so it cannot answer "is a NON-admin
+      # forbidden?". Do NOT downgrade it -- describes 2 and 4 rely on its
+      # admin role. A separate USER-role account is the only way describe 6
+      # tests what it claims to test.
+      - name: Seed non-admin account (user C)
+        run: npx --no-install tsx scripts/seed-e2e-user.ts
+        env:
+          E2E_USER_EMAIL: e2e-nonadmin@restoreassist.app
+          E2E_USER_PASSWORD: Test1234!
+          E2E_USER_ROLE: USER
+          E2E_ORG_NAME: E2E Non-Admin Organisation
+          E2E_ORG_LEGAL_NAME: E2E Non-Admin Pty Ltd
+          E2E_ORG_ABN: "29002589460"
+
       - name: Install Playwright (chromium)
         run: npx --no-install playwright install --with-deps chromium
 
@@ -149,6 +194,63 @@ jobs:
           e2e/billing/trial-expired-soft-gate.spec.ts
           e2e/billing/voluntary-upgrade.spec.ts
           e2e/billing/webhook-race.spec.ts
+          --project=chromium --reporter=line
+
+      # The 36 specs below were every remaining spec declared unrun because "no pipeline
+      # boots the app with a seeded database and an authenticated session". That statement
+      # was true when it was written and stopped being true when the billing step above
+      # landed: the job now does exactly that, and eight billing specs were observed
+      # passing through it. The reason outlived the condition it described.
+      #
+      # These have never been executed by any pipeline, so nothing here claims they pass.
+      # This step exists to find out. Whatever it reports is the first real information
+      # anyone has had about them.
+      #
+      # NO continue-on-error, for the reason written on the billing step: it would tolerate
+      # every spec in the list, not just the ones already known to be red, and a regression
+      # in any of them would score green.
+      #
+      # Named individually, not globbed, because scripts/ci/check-e2e-coverage.mjs verifies
+      # this workflow actually names each spec the manifest claims it runs.
+      - name: Run remaining E2E
+        run: >-
+          npx --no-install playwright test -c config/playwright.config.ts
+          e2e/account-deletion.spec.ts
+          e2e/billing.spec.ts
+          e2e/crm-health.spec.ts
+          e2e/dr-nrpg-inbound-job.spec.ts
+          e2e/health-migrations.spec.ts
+          e2e/health.spec.ts
+          e2e/help/article-detail.spec.ts
+          e2e/help/dropdown-open.spec.ts
+          e2e/help/public-mirror.spec.ts
+          e2e/help/redirects.spec.ts
+          e2e/help/search-cmd-k.spec.ts
+          e2e/invite-tech-already-used.spec.ts
+          e2e/invite-tech-expired.spec.ts
+          e2e/invite-tech-google-oauth.spec.ts
+          e2e/invite-tech-happy-path.spec.ts
+          e2e/ios-billing-gates.spec.ts
+          e2e/job-close-preconditions.spec.ts
+          e2e/login-callback-url.spec.ts
+          e2e/navigation.spec.ts
+          e2e/nir-routes-regression.spec.ts
+          e2e/procurement.spec.ts
+          e2e/security.spec.ts
+          e2e/setup-abr-unreachable.spec.ts
+          e2e/setup-no-abn.spec.ts
+          e2e/setup-resume.spec.ts
+          e2e/setup-skip-manual.spec.ts
+          e2e/setup-technician-gate.spec.ts
+          e2e/setup-website-failure.spec.ts
+          e2e/storage-restore.spec.ts
+          e2e/stripe-payment-intent-webhook.spec.ts
+          e2e/tech-banner-auto-dismiss.spec.ts
+          e2e/tech-evidence-capture-no-modal.spec.ts
+          e2e/tech-second-signoff-prefilled.spec.ts
+          e2e/tech-signoff-modal-cancel.spec.ts
+          e2e/warehouse.spec.ts
+          e2e/workshop.spec.ts
           --project=chromium --reporter=line
 
       - name: Upload Playwright report
