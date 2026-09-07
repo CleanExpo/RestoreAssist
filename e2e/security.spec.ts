@@ -48,11 +48,27 @@ async function getSessionCookie(
   request: import("@playwright/test").APIRequestContext,
   email: string,
   password: string,
-): Promise<string | null> {
+): Promise<string> {
+  // THROW, never return null. Returning null was the whole reason the old
+  // helper's failures were unreadable: the null travelled one call further
+  // and re-surfaced as a Playwright header type error naming neither the
+  // user nor the step that actually failed. Found by independent review
+  // (gemini, 07/09/2026). Every message below names the email, because a
+  // cross-tenant test signs in twice and "login failed" alone does not say
+  // which side broke.
   const csrfRes = await request.get("/api/auth/csrf");
-  if (!csrfRes.ok()) return null;
+  if (!csrfRes.ok()) {
+    throw new Error(
+      `getSessionCookie(${email}): GET /api/auth/csrf returned ` +
+        `${csrfRes.status()}; cannot sign in without a CSRF token.`,
+    );
+  }
   const { csrfToken } = (await csrfRes.json()) as { csrfToken?: string };
-  if (!csrfToken) return null;
+  if (!csrfToken) {
+    throw new Error(
+      `getSessionCookie(${email}): /api/auth/csrf returned no csrfToken field.`,
+    );
+  }
 
   const res = await request.post("/api/auth/callback/credentials", {
     form: {
@@ -66,13 +82,22 @@ async function getSessionCookie(
 
   for (const header of res.headersArray()) {
     if (header.name.toLowerCase() !== "set-cookie") continue;
-    // `__Secure-` prefix on any deploy running with NODE_ENV=production.
+    // ANCHORED. A Set-Cookie value always begins with the cookie name, so
+    // without `^` this matched any cookie whose name merely ENDS in
+    // `next-auth.session-token` -- `fake-next-auth.session-token=...` would
+    // have been accepted as a real session. Found by independent review
+    // (gemini, 07/09/2026). `__Secure-` is NextAuth's prefix wherever the
+    // app runs with NODE_ENV=production.
     const match = header.value.match(
-      /((?:__Secure-)?next-auth\.session-token=[^;]+)/,
+      /^((?:__Secure-)?next-auth\.session-token=[^;]+)/,
     );
     if (match) return match[1];
   }
-  return null;
+  throw new Error(
+    `getSessionCookie(${email}): POST /api/auth/callback/credentials returned ` +
+      `${res.status()} with no next-auth.session-token cookie. Wrong ` +
+      `credentials, or the user is not seeded in this database.`,
+  );
 }
 
 // ---------------------------------------------------------------------------
