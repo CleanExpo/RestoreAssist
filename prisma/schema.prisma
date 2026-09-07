@@ -2136,6 +2136,11 @@ model Inspection {
   clientMutations    ClientMutation[]
   fieldCaptureEvents FieldCaptureEvent[]
 
+  // RA-7493: AI runtime — receipts and suggestions land on the job record
+  aiRunnerReceipts AiRunnerReceipt[] @relation("InspectionAiRunnerReceipts")
+  aiJobSuggestions AiJobSuggestion[] @relation("InspectionAiJobSuggestions")
+
+
   // RA-1717 — Unified assessment-generation artefacts.
   assessmentGenerations AssessmentGeneration[] @relation("InspectionAssessmentGenerations")
 
@@ -5968,6 +5973,14 @@ model Workspace {
   clientMutations    ClientMutation[]
   fieldCaptureEvents FieldCaptureEvent[]
 
+  // RA-7493: AI runtime (six runners on the CRM spine)
+  aiRunnerFlags    AiRunnerFlag[]    @relation("WorkspaceAiRunnerFlags")
+  aiRunnerBudgets  AiRunnerBudget[]  @relation("WorkspaceAiRunnerBudgets")
+  aiRunnerReceipts AiRunnerReceipt[] @relation("WorkspaceAiRunnerReceipts")
+  aiJobSuggestions AiJobSuggestion[] @relation("WorkspaceAiJobSuggestions")
+  aiStyleProfile   AiStyleProfile?   @relation("WorkspaceAiStyleProfile")
+
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -6505,6 +6518,250 @@ model AiUsageLog {
   @@index([taskType])
   @@index([success])
   @@index([createdAt])
+}
+
+// ─── RA-7493: AI runtime — the six runners' data layer ───────────────────────
+//
+// Phase 0 is data only. Nothing here runs. No runner runs for a workspace
+// without an AiRunnerFlag row saying so, and absence of a row means OFF.
+//
+// Why these are new tables rather than columns bolted onto what exists:
+//
+//   * AiUsageLog is a fire-and-forget cost/latency telemetry log with three
+//     live writers and a writer that swallows its own errors (lib/usage/
+//     log-usage.ts). That is correct for telemetry and wrong for a ledger the
+//     Governor must trust BEFORE it lets a call proceed. Widening it would also
+//     change the meaning of every row already in it.
+//   * FeatureEntitlement is the BILLING switch — the customer bought an add-on.
+//     A runner flag is the OPERATIONAL switch — we turned it on for this
+//     tenant, or we killed it. Conflating the two means a kill-switch cannot be
+//     thrown without cancelling somebody's subscription.
+//   * The Pilot*Receipt family is an exactly-once SPEND ledger for one specific
+//     harness, keyed to AssessmentGeneration. Reusing it would tie every runner
+//     to the assessment pipeline.
+
+enum AiRunner {
+  GOVERNOR
+  INGESTION
+  FIELD
+  JOB_COPILOT
+  STYLE
+  SELF_HEAL
+}
+
+/// Which key paid for a call. Recorded on every receipt so the published BYOK
+/// promise becomes MEASURABLE instead of asserted: a PLATFORM row against a
+/// tenant-facing runner is a promise breach a single query can find.
+enum AiKeySource {
+  TENANT_BYOK
+  PLATFORM
+}
+
+enum AiReceiptOutcome {
+  PENDING
+  OK
+  REFUSED_NO_KEY
+  REFUSED_BUDGET
+  REFUSED_FLAG_OFF
+  FAILED
+}
+
+enum AiSuggestionState {
+  PENDING
+  ACCEPTED
+  DISMISSED
+  EXPIRED
+}
+
+/// Operational on/off per (workspace, runner).
+///
+/// NO ROW MEANS OFF. The default is absence, so enabling a runner is always a
+/// deliberate write and no migration or backfill can switch one on by accident.
+model AiRunnerFlag {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation("WorkspaceAiRunnerFlags", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  runner  AiRunner
+  enabled Boolean  @default(false)
+
+  /// Kill-switch. A non-null killedAt wins over `enabled`, so throwing the
+  /// switch is one write and does not touch the entitlement a customer paid
+  /// for. Clearing it is the deliberate act of turning the runner back on.
+  killedAt     DateTime?
+  killedReason String?
+
+  enabledByUserId String?
+  enabledAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, runner])
+  @@index([workspaceId])
+  @@index([runner, enabled])
+}
+
+/// Spend and token ceiling for one window. `runner = null` is the
+/// workspace-wide cap; a non-null runner narrows it to that runner.
+///
+/// Money is INTEGER MICRO-USD, never Float. AiUsageLog.estimatedCostUsd is a
+/// Float, which is fine for a telemetry estimate and unusable for a ceiling
+/// that has to refuse exactly at a boundary.
+///
+/// Deducted with the atomic pattern .claude/RULES.md rule 9 requires:
+///   updateMany({ where: { id, spentMicroUsd: { lte: max - cost } }, ... })
+/// then treat `result.count === 0` as "refused". Never read-then-write.
+///
+/// Postgres treats NULLs as distinct in a unique index, so the constraint below
+/// does NOT stop two workspace-wide rows for one period. Writers must upsert on
+/// a deterministic id; `lib/ai-runtime/__tests__/schema-tenancy.test.ts` asserts
+/// the duplicate is refused, because the database alone will not.
+model AiRunnerBudget {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation("WorkspaceAiRunnerBudgets", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  runner AiRunner?
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  maxMicroUsd   BigInt
+  spentMicroUsd BigInt  @default(0)
+  maxTokens     BigInt?
+  spentTokens   BigInt  @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, runner, periodStart])
+  @@index([workspaceId, periodEnd])
+}
+
+/// Append-only receipt, one row per attempted runner call.
+///
+/// Written BEFORE the provider is called (outcome PENDING) and resolved after,
+/// so a crash mid-call leaves a receipt that says so rather than leaving no
+/// trace at all. Corrections supersede; rows are never UPDATEd to a different
+/// story, which is the rule ProgressTransition already follows (RULES.md 22).
+model AiRunnerReceipt {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation("WorkspaceAiRunnerReceipts", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// The job this call was about. Null only for workspace-level runners
+  /// (Self-heal, Governor housekeeping) whose work is not about one job.
+  inspectionId String?
+  inspection   Inspection? @relation("InspectionAiRunnerReceipts", fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  runner   AiRunner
+  taskType String
+
+  provider AiProvider?
+  model    String?
+
+  /// Whose key paid. The reason this table exists rather than a wider
+  /// AiUsageLog.
+  keySource AiKeySource?
+
+  inputTokens  Int    @default(0)
+  outputTokens Int    @default(0)
+  costMicroUsd BigInt @default(0)
+  latencyMs    Int?
+
+  outcome   AiReceiptOutcome @default(PENDING)
+  errorType String?
+
+  /// What the runner read to produce this — job-record field paths, chunk ids,
+  /// document ids. "No invisible AI" is only true if the grounding can be
+  /// inspected afterwards by someone who was not there.
+  provenance Json?
+
+  /// Same contract as ClientMutation (lib/idempotency.ts): a replayed call
+  /// finds its own receipt instead of spending twice.
+  idempotencyKey String
+
+  supersedesId String?          @unique
+  supersedes   AiRunnerReceipt? @relation("AiRunnerReceiptSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy AiRunnerReceipt? @relation("AiRunnerReceiptSupersedes")
+
+  suggestions AiJobSuggestion[] @relation("AiRunnerReceiptSuggestions")
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, createdAt])
+  @@index([inspectionId, createdAt])
+  @@index([runner, outcome])
+  @@index([workspaceId, keySource])
+}
+
+/// The Job Copilot's suggestion queue. A suggestion is a proposal on a job
+/// record; a human accepts or dismisses it and that verdict is kept, because it
+/// is the training signal the Style runner later learns from.
+model AiJobSuggestion {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation("WorkspaceAiJobSuggestions", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  inspectionId String
+  inspection   Inspection @relation("InspectionAiJobSuggestions", fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  runner AiRunner
+  kind   String
+  title  String
+  body   String @db.Text
+
+  /// Job-record facts only, cited. A suggestion that cannot show its grounding
+  /// does not get shown.
+  grounding Json?
+
+  state           AiSuggestionState @default(PENDING)
+  decidedByUserId String?
+  decidedAt       DateTime?
+  decisionNote    String?
+
+  receiptId String?
+  receipt   AiRunnerReceipt? @relation("AiRunnerReceiptSuggestions", fields: [receiptId], references: [id], onDelete: SetNull)
+
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([workspaceId, state])
+  @@index([inspectionId, state, createdAt])
+  @@index([runner, state])
+}
+
+/// Per-tenant writing and delivery profile, learned ONLY from that tenant's own
+/// documents and edit history.
+///
+/// Opt-in: no consentedAt, no profile build. The consent wording and its
+/// default are founder decisions and are deliberately NOT encoded here.
+/// Deletion is logical so that "delete my profile" stops it applying at once
+/// and still leaves an auditable record that it was deleted.
+model AiStyleProfile {
+  id          String    @id @default(cuid())
+  workspaceId String    @unique
+  workspace   Workspace @relation("WorkspaceAiStyleProfile", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  profile Json
+
+  sourceDocumentCount Int       @default(0)
+  lastBuiltAt         DateTime?
+
+  consentedAt       DateTime?
+  consentedByUserId String?
+
+  exportedAt DateTime?
+  deletedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deletedAt])
 }
 
 // ─── IICRC RAG Knowledge Base (RA-434) ───────────────────────────────────────
