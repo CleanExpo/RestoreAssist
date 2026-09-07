@@ -21,24 +21,50 @@ import { test, expect } from "@playwright/test";
 // ---------------------------------------------------------------------------
 
 /** POST /api/auth/callback/credentials to get a session cookie */
+// A dedicated non-admin identity, created on demand by /api/test/sign-in-as.
+//
+// E2E_USER_EMAIL is seeded as ADMIN in this harness. Section 6 asserts "403 for
+// a NON-admin user" while signing in as that account, so it was asserting the
+// opposite of what it set up: an admin is not forbidden, and the test could
+// never have held. It read as a red test; it was a meaningless one. The helper
+// route refuses the role mismatch outright (409) rather than issuing an ADMIN
+// session, which is the only reason this surfaced at all.
+const NON_ADMIN_EMAIL = "e2e-nonadmin@test.local";
+
+
 async function getSessionCookie(
   request: import("@playwright/test").APIRequestContext,
   email: string,
-  password: string,
-): Promise<string | null> {
-  const res = await request.post("/api/auth/signin/credentials", {
-    form: {
-      email,
-      password,
-      csrfToken: "__skip__", // CSRF not checked in test env
-      callbackUrl: "/dashboard",
-      json: "true",
-    },
+): Promise<string> {
+  // Was: POST /api/auth/signin/credentials with csrfToken "__skip__" and the
+  // comment "CSRF not checked in test env". NextAuth DOES check CSRF on that
+  // route, so it never issued a cookie and this helper returned null. The null
+  // then reached `headers: { Cookie: session! }`, and Playwright reported
+  // "headers[0].value: expected string, got object" -- because typeof null is
+  // "object". Nine tests failed with an error naming the HEADER, not the
+  // sign-in, which is why the cause read as a test-code type bug for a whole
+  // session. Observed red 2026-09-07, 9 failed of 9 in this file.
+  //
+  // Uses /api/test/sign-in-as, the same helper auth.setup.ts and the billing
+  // specs already sign in with. THROWS rather than returning null so this
+  // failure can never again disguise itself as a header type error.
+  const res = await request.post("/api/test/sign-in-as", {
+    data: { role: "USER", email },
+    failOnStatusCode: false,
   });
-  // NextAuth returns Set-Cookie with __Secure-next-auth.session-token
-  const setCookie = res.headers()["set-cookie"] ?? "";
-  const match = setCookie.match(/(next-auth\.session-token=[^;]+)/);
-  return match ? match[1] : null;
+  if (!res.ok()) {
+    throw new Error(
+      `sign-in helper POST /api/test/sign-in-as failed: ${res.status()} ` +
+        `${await res.text()} — ALLOW_TEST_HELPERS must be the STRING "true".`,
+    );
+  }
+  const setCookie = res.headers()["set-cookie"];
+  if (!setCookie) {
+    throw new Error(
+      "sign-in helper returned 2xx but no Set-Cookie; no session was issued",
+    );
+  }
+  return setCookie.split(";")[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +141,6 @@ test.describe("2 · Cross-tenant isolation", () => {
     const sessionA = await getSessionCookie(
       request,
       process.env.E2E_USER_EMAIL!,
-      process.env.E2E_USER_PASSWORD!,
     );
     expect(sessionA, "User A login failed").toBeTruthy();
 
@@ -143,7 +168,6 @@ test.describe("2 · Cross-tenant isolation", () => {
     const sessionB = await getSessionCookie(
       request,
       process.env.E2E_USER_B_EMAIL!,
-      process.env.E2E_USER_B_PASSWORD!,
     );
     expect(sessionB, "User B login failed").toBeTruthy();
 
@@ -162,12 +186,10 @@ test.describe("2 · Cross-tenant isolation", () => {
     const sessionA = await getSessionCookie(
       request,
       process.env.E2E_USER_EMAIL!,
-      process.env.E2E_USER_PASSWORD!,
     );
     const sessionB = await getSessionCookie(
       request,
       process.env.E2E_USER_B_EMAIL!,
-      process.env.E2E_USER_B_PASSWORD!,
     );
 
     // User B creates a client
@@ -203,8 +225,7 @@ test.describe("3 · Missing field validation", () => {
   test("POST /api/clients with no body → 400", async ({ request }) => {
     const session = await getSessionCookie(
       request,
-      process.env.E2E_USER_EMAIL!,
-      process.env.E2E_USER_PASSWORD!,
+      NON_ADMIN_EMAIL,
     );
     const res = await request.post("/api/clients", {
       headers: { Cookie: session! },
@@ -218,8 +239,7 @@ test.describe("3 · Missing field validation", () => {
   }) => {
     const session = await getSessionCookie(
       request,
-      process.env.E2E_USER_EMAIL!,
-      process.env.E2E_USER_PASSWORD!,
+      NON_ADMIN_EMAIL,
     );
     const res = await request.post("/api/reports/generate-question", {
       headers: { Cookie: session! },
@@ -233,8 +253,7 @@ test.describe("3 · Missing field validation", () => {
   }) => {
     const session = await getSessionCookie(
       request,
-      process.env.E2E_USER_EMAIL!,
-      process.env.E2E_USER_PASSWORD!,
+      NON_ADMIN_EMAIL,
     );
     const res = await request.post("/api/invoices", {
       headers: { Cookie: session! },
@@ -248,8 +267,7 @@ test.describe("3 · Missing field validation", () => {
   }) => {
     const session = await getSessionCookie(
       request,
-      process.env.E2E_USER_EMAIL!,
-      process.env.E2E_USER_PASSWORD!,
+      NON_ADMIN_EMAIL,
     );
     const res = await request.post("/api/contractors/reviews", {
       headers: { Cookie: session! },
@@ -267,8 +285,7 @@ test.describe("3 · Missing field validation", () => {
   }) => {
     const session = await getSessionCookie(
       request,
-      process.env.E2E_USER_EMAIL!,
-      process.env.E2E_USER_PASSWORD!,
+      NON_ADMIN_EMAIL,
     );
     const res = await request.post("/api/contractors/reviews", {
       headers: { Cookie: session! },
@@ -306,7 +323,6 @@ test.describe("4 · Concurrent credit deduction", () => {
     const session = await getSessionCookie(
       request,
       process.env.E2E_LOW_CREDIT_EMAIL!,
-      process.env.E2E_LOW_CREDIT_PASSWORD!,
     );
     expect(session).toBeTruthy();
 
@@ -358,7 +374,6 @@ test.describe("5 · Subscription gate enforcement", () => {
       const session = await getSessionCookie(
         request,
         process.env.E2E_CANCELED_EMAIL!,
-        process.env.E2E_CANCELED_PASSWORD!,
       );
       expect(session).toBeTruthy();
 
@@ -388,15 +403,17 @@ test.describe("6 · Admin route enforcement", () => {
   const ADMIN_ROUTES = [
     "/api/admin/stats",
     "/api/admin/users",
-    "/api/admin/seed-demo",
+    // "/api/admin/seed-demo" is NOT in this GET list: the route exports POST
+    // only, so Next.js answers GET with 405 BEFORE any auth code runs. The test
+    // read as "admin route not enforcing 403" and was really method routing.
+    // Its POST is asserted separately below, and that assertion passes.
   ];
 
   for (const path of ADMIN_ROUTES) {
     test(`GET ${path} → 403 for non-admin user`, async ({ request }) => {
       const session = await getSessionCookie(
         request,
-        process.env.E2E_USER_EMAIL!,
-        process.env.E2E_USER_PASSWORD!,
+        NON_ADMIN_EMAIL,
       );
       expect(session).toBeTruthy();
 
@@ -416,8 +433,7 @@ test.describe("6 · Admin route enforcement", () => {
   }) => {
     const session = await getSessionCookie(
       request,
-      process.env.E2E_USER_EMAIL!,
-      process.env.E2E_USER_PASSWORD!,
+      NON_ADMIN_EMAIL,
     );
     const res = await request.post("/api/admin/seed-demo", {
       headers: { Cookie: session! },

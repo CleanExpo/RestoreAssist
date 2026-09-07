@@ -11,7 +11,12 @@ test.describe("Public Navigation", () => {
 
     // Homepage should load with key elements
     await expect(page).toHaveTitle(/RestoreAssist|Restore/i);
-    await expect(page.getByRole("navigation")).toBeVisible();
+    // Two <nav> landmarks are visible at the 1280px default viewport --
+    // "Primary" (lg:flex) and "Page sections" (xl:flex) -- so an unnamed
+    // getByRole("navigation") is a strict-mode violation, not a missing nav.
+    await expect(
+      page.getByRole("navigation", { name: "Primary" }),
+    ).toBeVisible();
   });
 
   test("should navigate to features page", async ({ page }) => {

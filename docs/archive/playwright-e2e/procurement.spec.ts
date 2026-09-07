@@ -10,17 +10,28 @@ test.describe("Procurement API Authentication", () => {
     request,
   }) => {
     // Test procurement-related protected endpoints return 401
+    // "/api/contractors" is NOT here on purpose: app/api/contractors/route.ts
+    // is public by design (it returns only isPubliclyVisible profiles and is
+    // rate-limited against directory scraping). Asserting 401 on it made this
+    // spec fail with "expected 401, received 200", which reads exactly like an
+    // auth hole and is not one. The protected sibling is
+    // /api/contractors/profile, which security.spec.ts already covers.
     const protectedEndpoints = [
-      "/api/contractors",
-      "/api/team",
+      // "/api/team" itself has no route.ts -- only /members, /activity,
+      // /assignees and /invites exist -- so it answered 404, not 401.
+      "/api/team/members",
       "/api/notifications",
       "/api/integrations",
     ];
 
     for (const endpoint of protectedEndpoints) {
       const response = await request.get(endpoint);
-      // Should return 401 Unauthorized
-      expect(response.status()).toBe(401);
+      // Named in the message: the loop previously reported only "expected 401,
+      // received 200" with no way to tell WHICH endpoint answered.
+      expect(
+        response.status(),
+        `Expected 401 from GET ${endpoint}, got ${response.status()}`,
+      ).toBe(401);
     }
   });
 });
