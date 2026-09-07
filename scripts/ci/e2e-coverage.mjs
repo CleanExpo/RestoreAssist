@@ -3,7 +3,7 @@
  *
  * THE FAULT THIS EXISTS FOR
  * -------------------------
- * Measured 2026-09-06 against `docs/archive/playwright-e2e`: **55 spec files,
+ * Measured 2026-09-06 against the e2e suite (then under `docs/archive/`): **55 spec files,
  * 10 executed by any pipeline, 45 by nothing.** Among the 45 were all nine
  * billing specs — hard-paywall, credit-exhaust, cancel-flow, webhook-race,
  * feature-gate, grandfather, multi-tab, voluntary-upgrade and billing.spec.ts —

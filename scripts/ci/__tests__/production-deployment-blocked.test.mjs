@@ -21,7 +21,7 @@ const releaseGateWorkflow = readFileSync(
 );
 const productionSmoke = readFileSync(
   new URL(
-    "../../../docs/archive/playwright-e2e/pilot-workflow.spec.ts",
+    "../../../e2e/pilot-workflow.spec.ts",
     import.meta.url,
   ),
   "utf8",

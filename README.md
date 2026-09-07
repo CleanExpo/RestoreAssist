@@ -13,6 +13,7 @@ public/        Static assets
 scripts/       Build / ops
 config/        ESLint, Vitest, Playwright, Lighthouse
 docs/          Long-form docs
+e2e/           Playwright end-to-end specs
 data/content/  Help, training, video scripts (runtime)
 tools/         Remotion video pipeline + local render output
 packages/      Workspace packages (pilot-tester)
@@ -21,7 +22,7 @@ mobile/        Expo
 ios/ android/  Capacitor shells
 ```
 
-Playwright e2e lives under `docs/archive/playwright-e2e/` (not at repo root).
+Playwright e2e lives under `e2e/` at the repo root.
 
 Env template: `.env.example`.
 
