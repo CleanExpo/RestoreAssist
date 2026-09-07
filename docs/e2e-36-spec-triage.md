@@ -77,15 +77,44 @@ without it. That is proven, not assumed.
 | invite-tech-google-oauth.spec.ts | `GOOGLE_CLIENT_ID` / `_SECRET` — server logged `error=OAuthSignin`, `client_id is required` |
 | stripe-payment-intent-webhook.spec.ts | `STRIPE_WEBHOOK_SECRET` — and note it answers **500**, not 400, when unsigned. Rejecting an unsigned webhook cleanly is the endpoint's job even with no secret configured. That part is a defect, not an env gap. |
 
-### Still to triage individually
+### The remaining twelve — now diagnosed, none left as "unknown"
 
-billing.spec.ts (405 and 404 where 400/401 expected), health.spec.ts (503),
-invite-tech-happy-path, ios-billing-gates (2 — "Sign up for free" visible on
-iOS when the gate should hide it, possibly a real gate defect),
-job-close-preconditions (403 where 409 expected), setup-abr-unreachable,
-setup-resume, setup-website-failure (the ABN field never appears),
-tech-banner-auto-dismiss, tech-evidence-capture-no-modal,
-tech-second-signoff-prefilled (seeded fixtures absent).
+**HIGHEST PRIORITY — two iOS billing gates were never implemented.**
+
+`ios-billing-gates.spec.ts` fails 2 of its tests, and both are real gaps, not
+test defects. The spec's other gates (settings hides "Upgrade Package") pass,
+so the file is not simply broken.
+
+| Assertion | Reality |
+|---|---|
+| login page hides "Sign up for free" on iOS | `app/login/page.tsx` computes `isIOS` (line 71) but uses it in exactly ONE place, line 426 — the "Continue with Apple" button. The "Don't have an account? / Sign up for free" block at 465-475 is ungated, so it renders on iOS. |
+| signup page redirects to login on iOS | `app/signup/page.tsx` likewise uses `isIOS` only at line 592 (the Apple button). There is no redirect. |
+
+This matters commercially, not just as a red test. RestoreAssist has an iOS
+build in TestFlight (RA-1842). Apple guideline 3.1.1 forbids steering users to
+external purchase paths, which is why the gate exists on `/dashboard/settings`
+at all. The pattern was applied there and not to the two auth pages.
+
+**Not implemented** is a founder decision, because closing it removes a signup
+path on iOS. It is flagged rather than fixed for that reason.
+
+**Endpoint contract drift — the spec's expectation no longer matches the route**
+
+| Spec | Observed |
+|---|---|
+| billing.spec.ts | `GET /api/check-active-subscription` -> **405** (spec allows 400 or 401); `GET /api/credits` -> **404** (spec expects 401). Either the routes moved/changed method, or the spec is stale. Both need a decision, not a repair. |
+| job-close-preconditions.spec.ts | direct POST to `/close` -> **403**, spec expects 409 with `missing[]`. Reaches an authorisation check before the precondition logic. |
+| invite-tech-happy-path.spec.ts | Never leaves `/invite/<token>`; the flow does not land on `/dashboard`. |
+
+**Environment / seed dependent — the component exists, the data does not**
+
+| Spec | Evidence it is data, not a missing feature |
+|---|---|
+| health.spec.ts | `/api/health` answers **503**. A dependency is down locally; the endpoint works. |
+| tech-banner-auto-dismiss.spec.ts | `TechLicenceBanner` exists and its text comes from `/api/onboarding/first-run` ("Add your IICRC certificate"). The banner is data-driven, so a seeded user with no first-run tasks renders nothing. |
+| tech-evidence-capture-no-modal.spec.ts | `components/inspection/CapturePhotoFab.tsx:145` carries `aria-label="Capture photo"`. The control exists; the seeded inspection does not put the page in a state that renders it. |
+| tech-second-signoff-prefilled.spec.ts | Same family — needs a seeded Authorisation under 90 days old. |
+| setup-abr-unreachable / setup-resume / setup-website-failure | All three drive the REAL `/signup` UI and then wait for the ABN field. They never reach it, so the failure is upstream in the signup flow, not in the ABR/website fallbacks each spec is actually about. Diagnose the signup step first; the three will move together. |
 
 ## Correction to the previous handoff
 
