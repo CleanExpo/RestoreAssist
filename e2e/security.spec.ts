@@ -20,25 +20,84 @@ import { test, expect } from "@playwright/test";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** POST /api/auth/callback/credentials to get a session cookie */
+/**
+ * Sign in with real credentials and return the NextAuth session cookie.
+ *
+ * Three things here were wrong and each one alone returned null, which then
+ * surfaced one call later as `headers[0].value: expected string, got object`
+ * -- because `Cookie: session!` passed `null` and `typeof null === "object"`.
+ * That error reads like a header bug and is not one. Measured 07/09/2026
+ * against a booted app, both endpoints, same credentials:
+ *
+ *   POST /api/auth/signin/credentials    200, sets csrf-token + callback-url
+ *                                        and NO session-token
+ *   POST /api/auth/callback/credentials  200, sets next-auth.session-token
+ *
+ * 1. NextAuth's credentials provider mints a session only on the CALLBACK
+ *    endpoint. `signin` renders the sign-in page. The doc comment on this
+ *    helper always said `callback`; the code did not.
+ * 2. CSRF IS enforced. The old `csrfToken: "__skip__"` was not true of this
+ *    app -- the token must come from /api/auth/csrf, and the matching
+ *    csrf cookie must ride with the POST. Playwright's `request` fixture
+ *    keeps its own cookie jar, so the GET below arms the POST.
+ * 3. `res.headers()` COLLAPSES repeated Set-Cookie headers into one string.
+ *    The callback response sets two, so the session token could be hidden
+ *    behind the callback-url one. `headersArray()` preserves them.
+ */
 async function getSessionCookie(
   request: import("@playwright/test").APIRequestContext,
   email: string,
   password: string,
-): Promise<string | null> {
-  const res = await request.post("/api/auth/signin/credentials", {
+): Promise<string> {
+  // THROW, never return null. Returning null was the whole reason the old
+  // helper's failures were unreadable: the null travelled one call further
+  // and re-surfaced as a Playwright header type error naming neither the
+  // user nor the step that actually failed. Found by independent review
+  // (gemini, 07/09/2026). Every message below names the email, because a
+  // cross-tenant test signs in twice and "login failed" alone does not say
+  // which side broke.
+  const csrfRes = await request.get("/api/auth/csrf");
+  if (!csrfRes.ok()) {
+    throw new Error(
+      `getSessionCookie(${email}): GET /api/auth/csrf returned ` +
+        `${csrfRes.status()}; cannot sign in without a CSRF token.`,
+    );
+  }
+  const { csrfToken } = (await csrfRes.json()) as { csrfToken?: string };
+  if (!csrfToken) {
+    throw new Error(
+      `getSessionCookie(${email}): /api/auth/csrf returned no csrfToken field.`,
+    );
+  }
+
+  const res = await request.post("/api/auth/callback/credentials", {
     form: {
       email,
       password,
-      csrfToken: "__skip__", // CSRF not checked in test env
+      csrfToken,
       callbackUrl: "/dashboard",
       json: "true",
     },
   });
-  // NextAuth returns Set-Cookie with __Secure-next-auth.session-token
-  const setCookie = res.headers()["set-cookie"] ?? "";
-  const match = setCookie.match(/(next-auth\.session-token=[^;]+)/);
-  return match ? match[1] : null;
+
+  for (const header of res.headersArray()) {
+    if (header.name.toLowerCase() !== "set-cookie") continue;
+    // ANCHORED. A Set-Cookie value always begins with the cookie name, so
+    // without `^` this matched any cookie whose name merely ENDS in
+    // `next-auth.session-token` -- `fake-next-auth.session-token=...` would
+    // have been accepted as a real session. Found by independent review
+    // (gemini, 07/09/2026). `__Secure-` is NextAuth's prefix wherever the
+    // app runs with NODE_ENV=production.
+    const match = header.value.match(
+      /^((?:__Secure-)?next-auth\.session-token=[^;]+)/,
+    );
+    if (match) return match[1];
+  }
+  throw new Error(
+    `getSessionCookie(${email}): POST /api/auth/callback/credentials returned ` +
+      `${res.status()} with no next-auth.session-token cookie. Wrong ` +
+      `credentials, or the user is not seeded in this database.`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -143,9 +202,20 @@ test.describe("2 · Cross-tenant isolation", () => {
       `Inspection creation failed: ${createRes.status()}. The precondition for the ` +
         `cross-tenant check could not be established, so isolation was NOT verified.`,
     ).toContain(createRes.status());
-    const { data: inspection } = await createRes.json();
+    // ENVELOPE. POST /api/inspections returns `{ inspection }`
+    // (app/api/inspections/route.ts:473), NOT `{ data }`. Destructuring `data`
+    // yielded undefined, and the id assertion below is what caught it.
+    // Probed live 07/09/2026: top-level keys are exactly ["inspection"].
+    const { inspection } = (await createRes.json()) as {
+      inspection?: { id?: string };
+    };
     const inspectionId = inspection?.id;
-    expect(inspectionId).toBeTruthy();
+    expect(
+      inspectionId,
+      "Inspection was created but no id came back, so the cross-tenant read " +
+        "below would target /api/inspections/undefined and pass on a 404 " +
+        "that proves nothing.",
+    ).toBeTruthy();
 
     // Step 2: User B tries to read User A's inspection
     const sessionB = await getSessionCookie(
@@ -192,13 +262,35 @@ test.describe("2 · Cross-tenant isolation", () => {
       `Client creation failed: ${createRes.status()}. The precondition for the ` +
         `cross-tenant delete check could not be established, so isolation was NOT verified.`,
     ).toContain(createRes.status());
-    const { data: client } = await createRes.json();
+    // ENVELOPE. POST /api/clients returns the client object at the TOP LEVEL
+    // (app/api/clients/route.ts:202 spreads it), NOT under `data`. Probed live
+    // 07/09/2026: top-level keys begin ["id","name","email",...] and there is
+    // no `data` key.
+    //
+    // THIS IS WHY THE ASSERTION BELOW EXISTS. With `{ data: client }` the id
+    // was undefined, so this test sent `DELETE /api/clients/undefined`, got
+    // 404, and PASSED -- while proving only that deleting a nonexistent id
+    // 404s. A vacuous pass on the guard for the #2178 P0 is worse than a
+    // failure, because it is quoted as coverage. Verified by probe:
+    // DELETE /api/clients/undefined returns 404.
+    const client = (await createRes.json()) as { id?: string };
+    expect(
+      client?.id,
+      "Client was created but no id came back. Without a real id the delete " +
+        "below targets /api/clients/undefined, which 404s and makes this " +
+        "isolation check vacuous.",
+    ).toBeTruthy();
 
     // User A tries to delete User B's client
-    const deleteRes = await request.delete(`/api/clients/${client?.id}`, {
+    const deleteRes = await request.delete(`/api/clients/${client.id}`, {
       headers: { Cookie: sessionA! },
     });
-    expect([403, 404]).toContain(deleteRes.status());
+    expect(
+      [403, 404],
+      `Expected 403 or 404 when user A deletes user B's client ` +
+        `${client.id}, got ${deleteRes.status()}. A 200 here is the #2178 ` +
+        `cross-tenant defect, live.`,
+    ).toContain(deleteRes.status());
   });
 });
 
