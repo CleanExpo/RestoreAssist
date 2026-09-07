@@ -10,4 +10,4 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /** Serialized browser storage state written by e2e/auth.setup.ts. */
-export const AUTH_FILE = path.join(__dirname, "../playwright-auth-dir/.auth/user.json");
+export const AUTH_FILE = path.join(__dirname, ".auth/user.json");

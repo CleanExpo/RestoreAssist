@@ -23,7 +23,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from "
 import { join, extname, relative } from "node:path";
 
 const ROOT = process.cwd();
-const SCAN_DIRS = ["app", "src", "components", "prompts", "docs"];
+const SCAN_DIRS = ["app", "src", "components", "prompts", "docs", "e2e"];
 const EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".md", ".mdx"]);
 const IGNORE_DIRS = new Set([
   "node_modules",

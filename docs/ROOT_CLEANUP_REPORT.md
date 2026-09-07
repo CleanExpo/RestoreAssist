@@ -91,6 +91,10 @@ Root now reads as a normal Next.js + Prisma app; secondary trees live under `dat
 
 Moved Playwright suite to `docs/archive/playwright-e2e` (auth dir alongside). Root no longer has a `tests/` folder. **pnpm stays** — it is the required package manager for this repo.
 
+> **Superseded 2026-09-07 (B1-05).** The suite was moved back to `e2e/` at the repo root. It
+> guards live revenue and did not belong under `docs/archive/`. Auth state now lives in
+> `e2e/.auth/`. This paragraph is kept as the record of what Pass 5 did, not as current state.
+
 ## Pass 6 — remove agent/env clutter
 
 Deleted: `AGENTS.md`, `CLAUDE.md`, `.vercelignore`, `.nvmrc`, `.env.test.local.example`, `.claudeignore`, `.agents/`.

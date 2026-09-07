@@ -136,7 +136,7 @@ videos/*.mp4
 public/videos/remotion/*.mp4
 remotion/output/*.mp4
 
-docs/archive/playwright-auth-dir/.auth/user.json
+e2e/.auth/
 tools/videos/*.mp4
 !tools/videos/.gitkeep
 tools/remotion/output/*.mp4
