@@ -38,6 +38,15 @@ const prisma = new PrismaClient({
 const EMAIL = process.env.E2E_USER_EMAIL ?? "test@restoreassist.app";
 const PASSWORD = process.env.E2E_USER_PASSWORD ?? "Test1234!";
 
+// Organization.abn is @unique, so a SECOND seeded user cannot reuse the first
+// organisation's ABN -- the create fails with P2002 and that user is left with no
+// tenant at all. Seeding a second tenant (for the cross-tenant isolation specs)
+// therefore has to pass its own ABN. Observed 07/09/2026:
+//   Unique constraint failed on the constraint: `Organization_abn_key`
+const ORG_NAME = process.env.E2E_ORG_NAME ?? "E2E Test Organisation";
+const ORG_LEGAL_NAME = process.env.E2E_ORG_LEGAL_NAME ?? "E2E Test Pty Ltd";
+const ABN = process.env.E2E_ORG_ABN ?? "53004085616";
+
 async function main() {
   const hashedPassword = await bcrypt.hash(PASSWORD, 12);
   const oneYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
@@ -74,12 +83,12 @@ async function main() {
     where: { ownerId: user.id },
   });
   const orgData = {
-    name: "E2E Test Organisation",
+    name: ORG_NAME,
     ownerId: user.id,
     // Setup-gate prerequisites (business_profile check + setupCompletedAt) so the
     // seeded user lands on /dashboard, not /setup.
-    legalName: "E2E Test Pty Ltd",
-    abn: "53004085616", // valid ABN checksum
+    legalName: ORG_LEGAL_NAME,
+    abn: ABN, // valid ABN checksum
     state: "NSW",
     setupCompletedAt: new Date(),
   };
