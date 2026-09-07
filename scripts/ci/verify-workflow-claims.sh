@@ -34,15 +34,27 @@ while read -r spec disposition; do
     continue
   fi
 
-  # The workflow names specs by their path under docs/archive/playwright-e2e.
+  # The workflow names specs by their path under e2e/ (main moved the suite out
+  # of docs/archive/playwright-e2e/ in #2183).
   #
-  # Match on "/$spec", not "$spec". A bare substring match cannot fail in the
-  # case this gate exists to catch: drop health.spec.ts from the workflow and
-  # grep -qF "health.spec.ts" still matches crm-health.spec.ts, so the drift
-  # reports clean. Both of those specs are in this manifest today, so the hole
-  # was live and not hypothetical. The leading slash anchors the match to a
-  # whole path segment.
-  if ! grep -qF "/$spec" "$wf"; then
+  # Match the FULL path "e2e/$spec" as a whole token, not "$spec" and not
+  # "/$spec". Two distinct holes, both probed:
+  #
+  #   1. A bare substring cannot fail in the case this gate exists to catch:
+  #      drop health.spec.ts from the workflow and grep -qF "health.spec.ts"
+  #      still matches crm-health.spec.ts, so the drift reports clean. Both of
+  #      those specs are in this manifest today, so that hole was live.
+  #
+  #   2. A leading slash alone is still satisfied by a LONGER nested path: a
+  #      claim for billing/cancel-flow.spec.ts matches a workflow line naming
+  #      e2e/vendor/billing/cancel-flow.spec.ts, because "/billing/cancel-flow
+  #      .spec.ts" is a substring of it. Found by independent review 07/09/2026;
+  #      check-e2e-coverage.mjs was already immune, this script was not, and
+  #      anyone running this script alone would have been lied to.
+  #
+  # -w anchors both ends to non-word boundaries, and the e2e/ prefix pins the
+  # path to the suite root, so a deeper path no longer satisfies a root claim.
+  if ! grep -qw -- "e2e/$spec" "$wf"; then
     echo "FAIL  $spec claims $disposition but that workflow never names it"
     FAILED=1
   fi

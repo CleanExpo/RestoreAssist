@@ -324,6 +324,16 @@ jobs:
       - name: End-to-end coverage record
         run: node scripts/ci/check-e2e-coverage.mjs --summary
 
+      # The companion gate to the one above, and until now it ran NOWHERE.
+      # check-e2e-coverage proves the manifest's claims about SPECS; this
+      # proves the workflows' claims about what they RUN. It was written,
+      # watched failing, fixed -- and never wired into CI, so its green was
+      # worth nothing to anyone but the person running it by hand. A gate
+      # that no pipeline invokes cannot catch a regression; it can only be
+      # quoted. Found by independent review 07/09/2026.
+      - name: Workflow claim verification
+        run: bash scripts/ci/verify-workflow-claims.sh
+
       # RA-6685 — apply migrations BEFORE the unit tests so the DB-gated suites
       # (described with `describe.skipIf(!process.env.DATABASE_URL)`:
       # trial-handling, setup checks, subscription-event, google-drive oauth,
