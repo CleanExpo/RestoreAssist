@@ -779,6 +779,52 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     }
   });
 
+  it("a receipt and a budget cannot be deleted on their own, only with their workspace", async () => {
+    // Rounds 3, 4 and 7 all raised this and the first two deferred it. Both
+    // BEFORE UPDATE triggers are bypassed entirely by DELETE + re-INSERT: a
+    // budget deleted and reinserted is a budget refilled with no UPDATE to see,
+    // and a receipt deleted is a runner call that never happened.
+    const ws = await seedWorkspace(`ra7493-nodelete-${Date.now()}`);
+    const receipt = await prisma.aiRunnerReceipt.create({
+      data: {
+        workspaceId: ws.id,
+        runner: "FIELD",
+        taskType: "summarise",
+        keySource: "TENANT_BYOK",
+        idempotencyKey: `nodel-${Date.now()}`,
+      },
+    });
+    const budget = await prisma.aiRunnerBudget.create({
+      data: {
+        workspaceId: ws.id,
+        scope: "FIELD",
+        periodStart: new Date("2026-09-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+        maxMicroUsd: 100n,
+        remainingMicroUsd: 0n,
+      },
+    });
+
+    await expect(
+      prisma.aiRunnerReceipt.delete({ where: { id: receipt.id } }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.aiRunnerBudget.delete({ where: { id: budget.id } }),
+    ).rejects.toThrow();
+
+    // Both survived — the rejection was the guard, not a half-applied delete.
+    expect(await prisma.aiRunnerReceipt.count({ where: { workspaceId: ws.id } })).toBe(1);
+    expect(await prisma.aiRunnerBudget.count({ where: { workspaceId: ws.id } })).toBe(1);
+
+    // The control that makes the guard usable rather than merely strict:
+    // deleting the WORKSPACE still takes both rows with it. A guard that blocks
+    // tenant deletion would not be stricter, it would be broken.
+    await prisma.workspace.delete({ where: { id: ws.id } });
+    madeWorkspaces.splice(madeWorkspaces.indexOf(ws.id), 1);
+    expect(await prisma.aiRunnerReceipt.count({ where: { workspaceId: ws.id } })).toBe(0);
+    expect(await prisma.aiRunnerBudget.count({ where: { workspaceId: ws.id } })).toBe(0);
+  });
+
   it("a receipt resolves exactly once, and its story is frozen at insert", async () => {
     // Round 2 asked for the append-only claim to be enforced rather than
     // asserted. Its suggested fix — revoke UPDATE — would have broken the

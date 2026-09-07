@@ -416,3 +416,46 @@ CREATE TRIGGER "ai_runner_receipt_freeze"
   BEFORE UPDATE ON "AiRunnerReceipt"
   FOR EACH ROW EXECUTE FUNCTION "ai_runner_receipt_freeze"();
 
+-- ---------------------------------------------------------------------------
+-- DELETE closes the last way round both guards.
+--
+-- Review rounds 3, 4 and 7 all raised it and the first two deferred it, which
+-- is its own kind of finding: a blocker reported three times without progress
+-- is not a status update. Both BEFORE UPDATE triggers above are bypassed
+-- entirely by DELETE + re-INSERT --
+--   * a budget row deleted and reinserted is a budget refilled, with no UPDATE
+--     for the monotonic trigger to see;
+--   * a receipt deleted is a runner call that never happened, which is the
+--     "no invisible AI" promise removed by the one statement nobody guarded.
+--
+-- The complication, and the reason this is a trigger rather than a revoked
+-- grant: both tables cascade from Workspace, and deleting a tenant MUST still
+-- take their rows. A blanket refusal would break tenant deletion, and a guard
+-- that blocks the real operation is not stricter, it is broken.
+--
+-- Postgres deletes the parent row before cascading to children, so inside a
+-- child's BEFORE DELETE the Workspace row is already gone within the same
+-- transaction. That is the discriminator: no workspace means a cascade and is
+-- allowed; a live workspace means someone is deleting the row on its own, and
+-- is refused.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION "ai_runtime_delete_only_with_workspace"() RETURNS trigger
+LANGUAGE plpgsql AS $ai_runtime_delete$
+BEGIN
+  IF EXISTS (SELECT 1 FROM "Workspace" WHERE "id" = OLD."workspaceId") THEN
+    RAISE EXCEPTION
+      '% % may not be deleted while its workspace exists; it is a ledger row, and a correction is a new row',
+      TG_TABLE_NAME, OLD."id";
+  END IF;
+  RETURN OLD;   -- the workspace is already gone: this is its cascade
+END;
+$ai_runtime_delete$;
+
+CREATE TRIGGER "ai_runner_receipt_no_delete"
+  BEFORE DELETE ON "AiRunnerReceipt"
+  FOR EACH ROW EXECUTE FUNCTION "ai_runtime_delete_only_with_workspace"();
+
+CREATE TRIGGER "ai_runner_budget_no_delete"
+  BEFORE DELETE ON "AiRunnerBudget"
+  FOR EACH ROW EXECUTE FUNCTION "ai_runtime_delete_only_with_workspace"();
+

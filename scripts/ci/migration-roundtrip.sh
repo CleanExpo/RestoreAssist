@@ -116,6 +116,16 @@ apply_all() {
   npx --no-install prisma migrate deploy
 }
 
+# The lexer these checks depend on proves itself BEFORE any of them runs.
+# Its nine cases are review findings, in both directions: a fail-open hides
+# destructive SQL from the check, a false red makes the check noisy enough to be
+# ignored. A gate whose instrument is untested is a gate that reports whatever
+# the instrument happens to say.
+python3 scripts/ci/sql_ident.py --selftest >&2 || {
+  echo "REFUSING TO RUN: the SQL lexer failed its own selftest" >&2
+  exit 5
+}
+
 case "$MODE" in
   additive-only)
     # Static check. No database needed: a destructive statement is destructive

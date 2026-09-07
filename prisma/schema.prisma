@@ -6788,8 +6788,22 @@ model AiJobSuggestion {
   title  String
   body   String @db.Text
 
-  /// Job-record facts only, cited. A suggestion that cannot show its grounding
-  /// does not get shown.
+  /// REFERENCES to job-record facts, never copies of them: field paths, chunk
+  /// ids, document ids, inspection ids. A suggestion that cannot show its
+  /// grounding does not get shown.
+  ///
+  /// The distinction is principle 1, and review round 7 was right that the
+  /// previous wording ("job-record facts only, cited") did not settle it — a
+  /// reader could take "facts" as licence to store the values, and a JSON blob
+  /// of copied job values is exactly the shadow store the principle forbids: it
+  /// goes stale the moment the job record changes, and a reader cannot tell.
+  ///
+  /// Storing a pointer means the value is resolved from the CRM at read time,
+  /// so it cannot disagree with the job record. `title` and `body` are NOT
+  /// covered by this and are not a shadow store either: they are the PROPOSED
+  /// text, which by definition does not exist on the job record — nothing has
+  /// been accepted yet. If it is accepted, it is written through the same
+  /// validated path a human would use, and this row keeps only the verdict.
   grounding Json?
 
   state           AiSuggestionState @default(PENDING)

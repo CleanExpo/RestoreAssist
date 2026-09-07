@@ -29,6 +29,7 @@ DROP TABLE IF EXISTS "AiRunnerFlag";
 -- AFTER the DROP TABLEs: while a trigger still references a function, Postgres
 -- refuses to drop it, and the rollback half of migration-roundtrip.sh caught
 -- exactly that when they were ordered the other way.
+DROP FUNCTION IF EXISTS "ai_runtime_delete_only_with_workspace"();
 DROP FUNCTION IF EXISTS "ai_runner_receipt_freeze"();
 DROP FUNCTION IF EXISTS "ai_runner_budget_monotonic"();
 
