@@ -6724,10 +6724,18 @@ model AiRunnerReceipt {
   workspaceId String
   workspace   Workspace @relation("WorkspaceAiRunnerReceipts", fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  /// The job this call was about. Null only for workspace-level runners
-  /// (Self-heal, Governor housekeeping) whose work is not about one job.
+  /// The job this call was about. Null for workspace-level runners (Self-heal,
+  /// Governor housekeeping) whose work is not about one job — and null once the
+  /// job itself is deleted, which is the point of SetNull below.
+  ///
+  /// SetNull, NOT Cascade. Review round 9 (P0): a cascade from Inspection
+  /// deletes the receipt while its workspace is still very much alive, so the
+  /// spend stays deducted from the budget and the record of what was spent on
+  /// disappears. That is the "no invisible AI" promise removed by deleting a
+  /// job. Only deleting the WORKSPACE removes its receipts, because then there
+  /// is no tenant left to be accountable to.
   inspectionId String?
-  inspection   Inspection? @relation("InspectionAiRunnerReceipts", fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspection   Inspection? @relation("InspectionAiRunnerReceipts", fields: [inspectionId], references: [id], onDelete: SetNull)
 
   runner   AiRunner
   taskType String

@@ -252,48 +252,68 @@ def blank_noncode(src: str) -> str:
 _D = "$"
 
 SELFTEST_CASES = [
-    # (name, sql, must the destructive statement still be VISIBLE afterwards?)
-    ("round 7 P0  E-string backslash escape desynchronised the scanner",
-     "SELECT E\'\\\' /* \' ; DROP TABLE \"Workspace\"; -- */", True),
-    ("round 7 P1  a comment inside a dollar body became a false red",
-     "DO " + _D * 2 + " BEGIN /* DROP TABLE x */ PERFORM 1; END " + _D * 2 + ";", False),
-    ("round 7 P1  but an EXECUTABLE drop inside a dollar body must still be seen",
-     "DO " + _D * 2 + " BEGIN DROP TABLE \"Workspace\"; END " + _D * 2 + ";", True),
-    # Review round 8 (P0) killed the first version of this case: it asserted the
-    # DROP stayed VISIBLE, but under the bug the spurious tag was UNTERMINATED
-    # and hit the fail-closed path, which also keeps everything. Visible in both
-    # states -- a control that cannot fail, which is the exact defect this whole
-    # branch keeps finding elsewhere, written into its own selftest.
+    # (name, sql, what must be searched for, must it still be VISIBLE afterwards?)
     #
-    # This version discriminates. Correct: `a$b$c` is code and `\'$b$\'` is an
-    # ordinary literal, so the DROP on the next line survives. Buggy: the tag
-    # opens at the first `$` and CLOSES on the `$b$` inside that literal, which
-    # leaves the scanner mid-string afterwards -- the trailing quote then opens a
-    # literal that runs to end of file and blanks the DROP.
-    ("round 7 P1  a $ inside an identifier must not open a dollar tag",
-     "SELECT a" + _D + "b" + _D + "c, \'" + _D + "b" + _D + "\';\nDROP TABLE \"Workspace\";", True),
-    ("round 6 P2  literals carrying /* and */ swallowed the statement between",
-     "INSERT INTO t VALUES (\'/* o\');\nDROP TABLE \"Workspace\";\nINSERT INTO t VALUES (\'*/ c\');", True),
-    ("round 6 P2  an apostrophe in a quoted identifier opened a literal",
-     "ALTER TABLE t ADD COLUMN \"it\'s\" TEXT;\nDROP TABLE \"Workspace\";", True),
-    ("baseline    a drop named in a line comment is not a drop",
-     "-- DROP TABLE \"Workspace\"\nSELECT 1;", False),
-    ("baseline    a drop named in a string literal is not a drop",
-     "INSERT INTO t VALUES (\'DROP TABLE \"Workspace\"\');", False),
-    ("baseline    an unterminated dollar body keeps the rest visible (fail closed)",
-     "DO " + _D * 2 + " BEGIN\nDROP TABLE \"Workspace\";", True),
+    # The NEEDLE matters as much as the case. Review round 9 found a mutant that
+    # survived because every "visible" case searched for the bare substring
+    # `DROP TABLE`, which survives even when the object name is blanked -- and a
+    # `DROP TABLE` with its identifier blanked no longer matches the gate's own
+    # pattern, so that mutant was a fail-open the selftest could not see. Cases
+    # that care about the object name say so.
+    ('round 7 P0  E-string backslash escape desynchronised the scanner',
+     'SELECT E\'\\\' /* \' ; DROP TABLE "Workspace"; -- */',
+     'DROP TABLE "Workspace"', True),
+    ('round 7 P1  a comment inside a dollar body became a false red',
+     'DO $$ BEGIN /* DROP TABLE x */ PERFORM 1; END $$;',
+     'DROP TABLE', False),
+    ('round 7 P1  but an EXECUTABLE drop inside a dollar body must still be seen',
+     'DO $$ BEGIN DROP TABLE "Workspace"; END $$;',
+     'DROP TABLE "Workspace"', True),
+    ('round 7 P1  a $ inside an identifier must not open a dollar tag',
+     'SELECT a$b$c, \'$b$\';\nDROP TABLE "Workspace";',
+     'DROP TABLE "Workspace"', True),
+    ('round 6 P2  literals carrying /* and */ swallowed the statement between',
+     'INSERT INTO t VALUES (\'/* o\');\nDROP TABLE "Workspace";\nINSERT INTO t VALUES (\'*/ c\');',
+     'DROP TABLE "Workspace"', True),
+    ('round 6 P2  an apostrophe in a quoted identifier opened a literal',
+     'ALTER TABLE t ADD COLUMN "it\'s" TEXT;\nDROP TABLE "Workspace";',
+     'DROP TABLE "Workspace"', True),
+    ('baseline    a drop named in a line comment is not a drop',
+     '-- DROP TABLE "Workspace"\nSELECT 1;',
+     'DROP TABLE', False),
+    ('baseline    a drop named in a string literal is not a drop',
+     'INSERT INTO t VALUES (\'DROP TABLE "Workspace"\');',
+     'DROP TABLE', False),
+    ('baseline    an unterminated dollar body keeps the rest visible (fail closed)',
+     'DO $$ BEGIN\nDROP TABLE "Workspace";',
+     'DROP TABLE "Workspace"', True),
+    ('round 9 P1  the dollar handler must run: an apostrophe inside a body must not leak out',
+     'SELECT $$ it\'s fine $$;\nDROP TABLE "Workspace";',
+     'DROP TABLE "Workspace"', True),
+    ('round 9 P1  a doubled quote is an ESCAPE, not the end of the literal',
+     'INSERT INTO t VALUES (\'a\'\'; DROP TABLE "Workspace"; --\');',
+     'DROP TABLE', False),
+    ('round 9 P1  a doubled quote inside a quoted IDENTIFIER is an escape too',
+     'ALTER TABLE t ADD COLUMN "a""; \' " TEXT;\nDROP TABLE "Workspace";',
+     'DROP TABLE "Workspace"', True),
+    ('round 9 P1  block comments NEST, so an inner close does not end the outer',
+     '/* outer /* inner */ DROP TABLE "Workspace"; */\nSELECT 1;',
+     'DROP TABLE', False),
+    ('round 9 matrix  a quoted identifier is CODE: blanking it hides the object of a DROP',
+     'DROP TABLE "Workspace";',
+     'DROP TABLE "Workspace"', True),
 ]
 
 
 def selftest() -> int:
     failures = 0
-    for name, sql, should_see in SELFTEST_CASES:
-        seen = "DROP TABLE" in blank_noncode(sql)
+    for name, sql, needle, should_see in SELFTEST_CASES:
+        seen = needle in blank_noncode(sql)
         if seen != should_see:
             failures += 1
             print(
-                "sql_ident selftest FAILED: %s (visible=%s, expected=%s)"
-                % (name, seen, should_see)
+                "sql_ident selftest FAILED: %s (looking for %r: visible=%s, expected=%s)"
+                % (name, needle, seen, should_see)
             )
     if failures:
         print("sql_ident: %d of %d selftest cases FAILED" % (failures, len(SELFTEST_CASES)))
@@ -304,4 +324,3 @@ def selftest() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(selftest() if "--selftest" in sys.argv else 0)
-

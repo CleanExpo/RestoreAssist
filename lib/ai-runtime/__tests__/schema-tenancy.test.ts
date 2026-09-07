@@ -825,6 +825,81 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     expect(await prisma.aiRunnerBudget.count({ where: { workspaceId: ws.id } })).toBe(0);
   });
 
+  it("deleting a JOB detaches its receipts instead of destroying them", async () => {
+    // Review round 9 (P0). `inspectionId` was ON DELETE CASCADE, so deleting a
+    // job deleted the receipts for every AI call made about it — while the
+    // workspace was still very much alive. The spend stayed deducted from the
+    // budget and the record of what it was spent on vanished, which is the
+    // "no invisible AI" promise removed by deleting one job.
+    //
+    // The delete guard could not save it either: a cascade arrives at
+    // pg_trigger_depth() > 1, which is exactly what the guard treats as a
+    // legitimate tenant-level cascade.
+    const ws = await seedWorkspace(`ra7493-jobdel-${Date.now()}`);
+    const owner = await prisma.user.create({
+      data: { email: `jobdel-${Date.now()}@ra7493.test`, name: "RA-7493 fixture" },
+    });
+    madeUsers.push(owner.id);
+    const inspection = await prisma.inspection.create({
+      data: {
+        inspectionNumber: `NIR-RA7493-${Date.now()}`,
+        propertyAddress: "1 Test St",
+        propertyPostcode: "4000",
+        userId: owner.id,
+      },
+    });
+
+    // One PENDING and one RESOLVED, because the freeze trigger treats them
+    // differently and the detach has to survive both.
+    const pending = await prisma.aiRunnerReceipt.create({
+      data: {
+        workspaceId: ws.id,
+        inspectionId: inspection.id,
+        runner: "FIELD",
+        taskType: "summarise",
+        keySource: "TENANT_BYOK",
+        idempotencyKey: `jobdel-p-${Date.now()}`,
+      },
+    });
+    const resolved = await prisma.aiRunnerReceipt.create({
+      data: {
+        workspaceId: ws.id,
+        inspectionId: inspection.id,
+        runner: "FIELD",
+        taskType: "summarise",
+        keySource: "TENANT_BYOK",
+        idempotencyKey: `jobdel-r-${Date.now()}`,
+      },
+    });
+    await prisma.aiRunnerReceipt.update({
+      where: { id: resolved.id },
+      data: { outcome: "OK", costMicroUsd: 7n, resolvedAt: new Date() },
+    });
+
+    await prisma.inspection.delete({ where: { id: inspection.id } });
+
+    // Both receipts survive, detached.
+    const after = await prisma.aiRunnerReceipt.findMany({
+      where: { id: { in: [pending.id, resolved.id] } },
+      orderBy: { idempotencyKey: "asc" },
+    });
+    expect(after).toHaveLength(2);
+    expect(after.map((r) => r.inspectionId)).toEqual([null, null]);
+
+    // And the detach did not rewrite anything else — the resolved one still
+    // says what it cost and whose key paid.
+    const stillResolved = after.find((r) => r.id === resolved.id)!;
+    expect(stillResolved.outcome).toBe("OK");
+    expect(stillResolved.costMicroUsd).toBe(7n);
+    expect(stillResolved.keySource).toBe("TENANT_BYOK");
+
+    // The control: the workspace cascade still removes them, so "receipts
+    // survive a job delete" is not "receipts can never be removed".
+    await prisma.workspace.delete({ where: { id: ws.id } });
+    madeWorkspaces.splice(madeWorkspaces.indexOf(ws.id), 1);
+    expect(await prisma.aiRunnerReceipt.count({ where: { workspaceId: ws.id } })).toBe(0);
+  });
+
   it("a receipt resolves exactly once, and its story is frozen at insert", async () => {
     // Round 2 asked for the append-only claim to be enforced rather than
     // asserted. Its suggested fix — revoke UPDATE — would have broken the

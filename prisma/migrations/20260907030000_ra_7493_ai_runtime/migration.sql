@@ -219,7 +219,7 @@ ALTER TABLE "AiRunnerBudget" ADD CONSTRAINT "AiRunnerBudget_workspaceId_fkey" FO
 ALTER TABLE "AiRunnerReceipt" ADD CONSTRAINT "AiRunnerReceipt_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "AiRunnerReceipt" ADD CONSTRAINT "AiRunnerReceipt_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AiRunnerReceipt" ADD CONSTRAINT "AiRunnerReceipt_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AiRunnerReceipt" ADD CONSTRAINT "AiRunnerReceipt_supersedesId_fkey" FOREIGN KEY ("supersedesId") REFERENCES "AiRunnerReceipt"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -367,6 +367,32 @@ DECLARE
   frozen_old "AiRunnerReceipt";
   frozen_new "AiRunnerReceipt";
 BEGIN
+  -- The ONE update this function must let through that is not a resolution:
+  -- Postgres detaching the row from a deleted Inspection.
+  --
+  -- `inspectionId` is ON DELETE SET NULL (review round 9, P0 -- a cascade there
+  -- would delete a ledger row while its workspace still exists). SET NULL is
+  -- implemented as an UPDATE on the child, so it arrives here, and every check
+  -- below would refuse it: a resolved receipt fails the PENDING test, and a
+  -- pending one fails the frozen-column comparison because inspectionId moved.
+  -- Without this the whole feature is simply "inspections can no longer be
+  -- deleted", which is a guard breaking the product rather than protecting it.
+  --
+  -- Kept as narrow as it can be: only from inside another trigger (the RI
+  -- machinery, never a plain application UPDATE), only non-null to null, and
+  -- only when NOTHING else about the row changed.
+  IF pg_trigger_depth() > 1
+     AND OLD."inspectionId" IS NOT NULL
+     AND NEW."inspectionId" IS NULL THEN
+    frozen_old := OLD;
+    frozen_new := NEW;
+    frozen_old."inspectionId" := NULL;
+    frozen_new."inspectionId" := NULL;
+    IF frozen_old IS NOT DISTINCT FROM frozen_new THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+
   IF OLD."outcome" <> 'PENDING' THEN
     RAISE EXCEPTION
       'AiRunnerReceipt % is already resolved (%); receipts are corrected by a new row via supersedesId, never rewritten',
