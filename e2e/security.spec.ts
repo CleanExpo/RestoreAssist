@@ -20,25 +20,59 @@ import { test, expect } from "@playwright/test";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** POST /api/auth/callback/credentials to get a session cookie */
+/**
+ * Sign in with real credentials and return the NextAuth session cookie.
+ *
+ * Three things here were wrong and each one alone returned null, which then
+ * surfaced one call later as `headers[0].value: expected string, got object`
+ * -- because `Cookie: session!` passed `null` and `typeof null === "object"`.
+ * That error reads like a header bug and is not one. Measured 07/09/2026
+ * against a booted app, both endpoints, same credentials:
+ *
+ *   POST /api/auth/signin/credentials    200, sets csrf-token + callback-url
+ *                                        and NO session-token
+ *   POST /api/auth/callback/credentials  200, sets next-auth.session-token
+ *
+ * 1. NextAuth's credentials provider mints a session only on the CALLBACK
+ *    endpoint. `signin` renders the sign-in page. The doc comment on this
+ *    helper always said `callback`; the code did not.
+ * 2. CSRF IS enforced. The old `csrfToken: "__skip__"` was not true of this
+ *    app -- the token must come from /api/auth/csrf, and the matching
+ *    csrf cookie must ride with the POST. Playwright's `request` fixture
+ *    keeps its own cookie jar, so the GET below arms the POST.
+ * 3. `res.headers()` COLLAPSES repeated Set-Cookie headers into one string.
+ *    The callback response sets two, so the session token could be hidden
+ *    behind the callback-url one. `headersArray()` preserves them.
+ */
 async function getSessionCookie(
   request: import("@playwright/test").APIRequestContext,
   email: string,
   password: string,
 ): Promise<string | null> {
-  const res = await request.post("/api/auth/signin/credentials", {
+  const csrfRes = await request.get("/api/auth/csrf");
+  if (!csrfRes.ok()) return null;
+  const { csrfToken } = (await csrfRes.json()) as { csrfToken?: string };
+  if (!csrfToken) return null;
+
+  const res = await request.post("/api/auth/callback/credentials", {
     form: {
       email,
       password,
-      csrfToken: "__skip__", // CSRF not checked in test env
+      csrfToken,
       callbackUrl: "/dashboard",
       json: "true",
     },
   });
-  // NextAuth returns Set-Cookie with __Secure-next-auth.session-token
-  const setCookie = res.headers()["set-cookie"] ?? "";
-  const match = setCookie.match(/(next-auth\.session-token=[^;]+)/);
-  return match ? match[1] : null;
+
+  for (const header of res.headersArray()) {
+    if (header.name.toLowerCase() !== "set-cookie") continue;
+    // `__Secure-` prefix on any deploy running with NODE_ENV=production.
+    const match = header.value.match(
+      /((?:__Secure-)?next-auth\.session-token=[^;]+)/,
+    );
+    if (match) return match[1];
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
