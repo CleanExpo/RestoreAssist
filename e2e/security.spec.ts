@@ -106,8 +106,13 @@ test.describe("1 · Unauthenticated access", () => {
 
 test.describe("2 · Cross-tenant isolation", () => {
   test.skip(
-    !process.env.E2E_USER_EMAIL || !process.env.E2E_USER_B_EMAIL,
-    "Requires E2E_USER_EMAIL and E2E_USER_B_EMAIL env vars",
+    !process.env.E2E_USER_EMAIL ||
+      !process.env.E2E_USER_PASSWORD ||
+      !process.env.E2E_USER_B_EMAIL ||
+      !process.env.E2E_USER_B_PASSWORD,
+    "Requires E2E_USER_EMAIL, E2E_USER_PASSWORD, E2E_USER_B_EMAIL and E2E_USER_B_PASSWORD " +
+      "env vars \u2014 the test bodies dereference all four, so guarding on the emails alone " +
+      "lets the suite run with an undefined password and fail for the wrong reason",
   );
 
   test("User A cannot read User B's inspection", async ({ request }) => {
@@ -130,11 +135,14 @@ test.describe("2 · Cross-tenant isolation", () => {
         damageClass: "CLASS_1",
       },
     });
-    // May fail if fields differ — adjust to actual required fields
-    if (createRes.status() !== 201 && createRes.status() !== 200) {
-      test.skip(true, `Inspection creation failed: ${createRes.status()}`);
-      return;
-    }
+    // A broken precondition is a FAILURE, not a skip. This test guards cross-tenant
+    // isolation — the defect class PR #2178 fixed in production. Skipping here meant the
+    // guard reported green precisely when the API shape drifted underneath it.
+    expect(
+      [200, 201],
+      `Inspection creation failed: ${createRes.status()}. The precondition for the ` +
+        `cross-tenant check could not be established, so isolation was NOT verified.`,
+    ).toContain(createRes.status());
     const { data: inspection } = await createRes.json();
     const inspectionId = inspection?.id;
     expect(inspectionId).toBeTruthy();
@@ -179,10 +187,11 @@ test.describe("2 · Cross-tenant isolation", () => {
         phone: "0412345678",
       },
     });
-    if (createRes.status() !== 201 && createRes.status() !== 200) {
-      test.skip(true, `Client creation failed: ${createRes.status()}`);
-      return;
-    }
+    expect(
+      [200, 201],
+      `Client creation failed: ${createRes.status()}. The precondition for the ` +
+        `cross-tenant delete check could not be established, so isolation was NOT verified.`,
+    ).toContain(createRes.status());
     const { data: client } = await createRes.json();
 
     // User A tries to delete User B's client
