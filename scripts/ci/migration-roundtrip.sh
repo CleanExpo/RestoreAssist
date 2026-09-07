@@ -124,92 +124,38 @@ case "$MODE" in
     # Every table the NEW migrations create, gathered BEFORE the per-file loop
     # because the DROP POLICY exemption below is cross-file: this branch creates
     # its tables in one migration and its policies in the next.
+    # Every table the NEW migrations create, gathered BEFORE the per-file loop
+    # because the DROP POLICY exemption is cross-file: this branch creates its
+    # tables in one migration and its policies in the next. Names are folded the
+    # way Postgres folds them, which is why this is a python helper and not a
+    # grep -- see scripts/ci/sql_list_tables.py.
     NEW_TABLES="$(
       while read -r m; do
         [ -n "$m" ] || continue
         [ -f "prisma/migrations/$m/migration.sql" ] || continue
-        # `|| [ $? -eq 1 ]` and NOT `|| true`: a migration with no CREATE TABLE
-        # is an ordinary, valid answer (grep exit 1), but a grep that genuinely
-        # ERRORED (exit 2 — unreadable file, bad pattern) must still bring the
-        # script down. Blanket-swallowing here would be the same fail-open shape
-        # review round 1 found in new_migrations(), one function further along.
-        { grep -oEi 'CREATE[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+)?"?[A-Za-z_][A-Za-z0-9_]*"?' \
-            "prisma/migrations/$m/migration.sql" || [ "$?" -eq 1 ]; } \
-          | sed -E 's/.*[[:space:]]"?([A-Za-z_][A-Za-z0-9_]*)"?$/\1/'
-      done < <(new_migrations) | sort -u
+        printf '%s\n' "prisma/migrations/$m/migration.sql"
+      done < <(new_migrations) | xargs python3 scripts/ci/sql_list_tables.py
     )"
     rc=0
     while read -r mig; do
       [ -n "$mig" ] || continue
       f="prisma/migrations/$mig/migration.sql"
       [ -f "$f" ] || continue
-      # Blank out anything that is not executable SQL before matching, in this
-      # order: /* block comments */, then '...' string literals, then -- line
-      # comments. Each is replaced rather than deleted so reported line numbers
-      # still point at the real line.
-      #
-      # Why all three: the earlier version stripped only `--`, so
-      # `INSERT ... VALUES ('DROP TABLE x')` and `/* DROP TABLE x */` both read
-      # as destruction (false red), while a rationale in a block comment was
-      # never covered at all.
-      #
-      # Dollar-quoted bodies ($$ ... $$, $tag$ ... $tag$) are DELIBERATELY not
-      # blanked. They are the one place a destructive statement is both quoted
-      # AND executable — `DO $$ BEGIN ... DROP TABLE x ... END $$` really does
-      # drop the table. Blanking them to silence a hypothetical false red would
-      # open a hole big enough to drive the whole check through. The cost is a
-      # false red on a DROP mentioned inside a function body's own comment or
-      # error string, which is a nuisance a human resolves in seconds; the
-      # alternative is a miss nobody ever sees.
-      stripped="$(NEW_TABLES="$NEW_TABLES" python3 - "$f" <<'PYEOF'
-import os, re, sys
-src = open(sys.argv[1], encoding="utf8").read()
-blank = lambda m: re.sub(r"[^\n]", " ", m.group(0))   # keep line numbering
-src = re.sub(r"/\*.*?\*/", blank, src, flags=re.S)     # block comments
-src = re.sub(r"'(?:[^']|'')*'", blank, src, flags=re.S)  # string literals ('' escapes)
-src = re.sub(r"--[^\n]*", blank, src)                  # line comments
-
-# The DROP POLICY exemption, applied HERE as a text blanking rather than as a
-# filter over the grep output lines. Review round 3 (P1) found the line-filter
-# form reintroduced the very hole it closed: it skipped the WHOLE line on a
-# match, so
-#
-# NB: no apostrophes in this heredoc. It sits inside a $( ) command
-# substitution, where bash still tracks quote parity through the heredoc body,
-# so a lone apostrophe in a comment breaks the whole script with a syntax error
-# pointing at a case terminator 170 lines further down.
-#   DROP POLICY "a" ON "AiRunnerFlag"; DROP POLICY "b" ON "Workspace";
-# smuggled the second statement past on the coat-tails of the first. Blanking
-# each exempt STATEMENT leaves everything else on the line still visible to the
-# match below, and preserves line numbers for reporting.
-new_tables = {t.strip().strip('"') for t in os.environ.get("NEW_TABLES", "").split() if t.strip()}
-def exempt(m):
-    return blank(m) if m.group("tbl").strip('"') in new_tables else m.group(0)
-src = re.sub(
-    r'DROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?"?[A-Za-z_][A-Za-z0-9_]*"?\s+ON\s+(?:ONLY\s+)?(?P<tbl>"?[A-Za-z_][A-Za-z0-9_]*"?)',
-    exempt, src, flags=re.I)
-sys.stdout.write(src)
-PYEOF
-)"
+      # Blank everything the destructive-SQL match must not see: block
+      # comments, string literals, line comments, and the DROP POLICY
+      # statements exempted because they target a table this branch itself
+      # creates. Line numbers are preserved. Why each pass exists, and what is
+      # deliberately NOT blanked (dollar-quoted bodies), is documented in
+      # scripts/ci/sql_blank_nonexecutable.py.
+      stripped="$(NEW_TABLES="$NEW_TABLES" python3 scripts/ci/sql_blank_nonexecutable.py "$f")"
       # DROP <object> — the object keyword is OPTIONAL in Postgres for a column,
       # so `ALTER TABLE foo DROP bar` is a column drop and must match. Hence
       # `DROP` followed by an optional keyword, then an identifier.
       hits="$(printf '%s\n' "$stripped" | grep -nEi '(DROP[[:space:]]+(TABLE|COLUMN|CONSTRAINT|INDEX|TYPE|SCHEMA|SEQUENCE|VIEW|TRIGGER|FUNCTION)?[[:space:]]*(IF[[:space:]]+EXISTS[[:space:]]+)?"?[A-Za-z_]|RENAME[[:space:]]+(TO|COLUMN)|ALTER[[:space:]]+COLUMN[[:space:]]+.*[[:space:]]TYPE[[:space:]]|SET[[:space:]]+NOT[[:space:]]+NULL|TRUNCATE|DELETE[[:space:]]+FROM)' || true)"
-      # The DROP POLICY exemption is applied ABOVE, as a statement-level
-      # blanking of the SQL text, not as a filter over these result lines.
-      #
-      # Postgres has no CREATE POLICY IF NOT EXISTS, so drop-then-create is how
-      # an idempotent policy migration is written — but the blanket
-      # `grep -v 'DROP POLICY'` two rounds ago was a hole of its own: it equally
-      # waved through `DROP POLICY "tenant_isolation" ON "Workspace"`, silently
-      # removing tenant isolation from a PRE-EXISTING table. Dropping a policy
-      # you just wrote is housekeeping; dropping one already protecting live
-      # rows is exactly what this check exists to catch.
-      #
-      # Anything not recognisably `DROP POLICY ... ON <table this branch
-      # creates>` is left in the text and stays a finding, including a DROP
-      # POLICY whose target cannot be parsed. Fail closed: an unreadable
-      # exemption is not an exemption.
+      # The DROP POLICY exemption was applied ABOVE, per STATEMENT, before this
+      # match ran — deliberately not as a filter over these result lines. A
+      # line-level filter let a second statement travel on the first one's
+      # exemption; see the python file for the whole history.
       if [ -n "$hits" ]; then
         echo "NOT ADDITIVE — $f" >&2
         printf '%s\n' "$hits" >&2
@@ -349,34 +295,7 @@ PYEOF
         [ -n "$pol" ] || continue
         n="$(psql_q "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='$tbl' AND policyname='$pol';")"
         [ "$n" = "0" ] || { echo "STILL PRESENT after rollback: policy $pol on $tbl" >&2; rc=1; }
-      done < <(python3 - "$f" <<'PYPOL'
-import re, sys
-# Identifier CASE is the whole reason this is python and not sed. Postgres folds
-# an UNQUOTED identifier to lower case, and preserves a quoted one exactly. A
-# sed that merely strips quotes emits the spelling from the file, so
-# `CREATE POLICY MyPolicy ON MyTable` is looked up in pg_policies as MyPolicy /
-# MyTable, matches nothing, and a leaked policy reads as PASS -- review round 4
-# (P1). Quotedness has to survive the extraction, so fold here exactly as
-# Postgres would.
-def fold(tok):
-    return tok[1:-1] if tok.startswith('"') else tok.lower()
-
-pat = re.compile(
-    r'CREATE\s+POLICY\s+(?P<pol>"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)'
-    r'\s+ON\s+(?:ONLY\s+)?'
-    r'(?:(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)\s*\.\s*)?'      # optional schema
-    r'(?P<tbl>"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)',
-    re.I | re.S)
-
-src = open(sys.argv[1], encoding="utf8").read()
-seen = set()
-for m in pat.finditer(src):
-    row = (fold(m.group("pol")), fold(m.group("tbl")))
-    if row not in seen:
-        seen.add(row)
-        sys.stdout.write("%s\t%s\n" % row)
-PYPOL
-)
+      done < <(python3 scripts/ci/sql_list_policies.py "$f")
     done < <(new_migrations)
     # The claim names its own SCOPE. "Every object" was wider than what this
     # check inspects, and review round 3 was right to call it: an unscoped claim
