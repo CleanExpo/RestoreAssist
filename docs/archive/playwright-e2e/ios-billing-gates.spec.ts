@@ -17,6 +17,8 @@ test.describe("iOS billing gates", () => {
   test.use({ storageState: AUTH_FILE });
 
   test("login page hides Sign up link on iOS", async ({ page }) => {
+    test.fail(); // NOT IMPLEMENTED: app/login/page.tsx computes isIOS but uses it only for the Apple button (line ~426); the Sign up block is ungated. Apple 3.1.1 exposure — see docs/e2e-36-spec-triage.md
+
     await mockCapacitorIOS(page);
     await page.goto("/login");
     await expect(page.getByText("Sign up for free")).not.toBeVisible();
@@ -24,6 +26,8 @@ test.describe("iOS billing gates", () => {
   });
 
   test("signup page redirects to login on iOS", async ({ page }) => {
+    test.fail(); // NOT IMPLEMENTED: app/signup/page.tsx uses isIOS only for the Apple button; no redirect exists
+
     await mockCapacitorIOS(page);
     await page.goto("/signup");
     await expect(page).toHaveURL(/\/login/, { timeout: 8000 });

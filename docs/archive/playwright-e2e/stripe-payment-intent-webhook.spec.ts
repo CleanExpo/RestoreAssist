@@ -101,6 +101,25 @@ const WEBHOOK_SECRET =
 const isDeployedWithoutSecret =
   !!process.env.PLAYWRIGHT_BASE_URL && !process.env.STRIPE_WEBHOOK_SECRET;
 
+// The guard above only fires when PLAYWRIGHT_BASE_URL is ALSO set, so a local
+// run with no secret did not skip -- it ran with the fabricated fallback above,
+// signed with a key the server does not share, and failed. The signature tests
+// cannot mean anything without the real secret regardless of which URL is
+// targeted, so gate them on the secret itself.
+//
+// Leaving the fabricated fallback in place deliberately: removing it changes
+// behaviour for anyone who DOES set the variable. It is flagged rather than
+// silently altered, and it should be deleted once the skip below is trusted --
+// a test that invents a credential when one is absent is the anti-pattern, not
+// the fallback value.
+test.skip(
+  !process.env.STRIPE_WEBHOOK_SECRET,
+  "requires STRIPE_WEBHOOK_SECRET; without it the signature is signed with a " +
+    "fabricated key. SEPARATE DEFECT not covered by this skip: the endpoint " +
+    "answers 500, not 400, to an unsigned webhook — rejecting cleanly is its " +
+    "job even with no secret configured. See docs/e2e-36-spec-triage.md",
+);
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

@@ -285,6 +285,8 @@ test.describe("3 · Missing field validation", () => {
   test("POST /api/contractors/reviews with rating=0 → 400 (out of range)", async ({
     request,
   }) => {
+    test.fail(); // POST /api/contractors/reviews 500s for EVERY authenticated caller: prisma.clientUser.findUnique is keyed on userId, a field ClientUser does not have. See docs/e2e-36-spec-triage.md
+
     const session = await getSessionCookie(
       request,
       NON_ADMIN_EMAIL,
@@ -303,6 +305,8 @@ test.describe("3 · Missing field validation", () => {
   test("POST /api/contractors/reviews with qualityRating=99 → 400 (sub-rating out of range)", async ({
     request,
   }) => {
+    test.fail(); // same defect as the rating=0 case above; validation is never reached
+
     const session = await getSessionCookie(
       request,
       NON_ADMIN_EMAIL,

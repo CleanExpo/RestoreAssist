@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { applySessionCookieFromResponse } from "../helpers/session-cookie";
+// Credential-gated. same Screenshot dependency as public-mirror; passes with the variable set
+test.skip(
+  !process.env.CLOUDINARY_URL,
+  "requires CLOUDINARY_URL; see docs/e2e-36-spec-triage.md",
+);
+
 
 test("Article detail page renders frontmatter + body + related", async ({ page, request, context }) => {
   const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 10 } });
