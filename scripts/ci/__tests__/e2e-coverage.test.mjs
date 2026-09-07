@@ -6,6 +6,7 @@ import {
   parseCoverageManifest,
   hasSmokeTitle,
   mentionsSpec,
+  resolveDeclared,
   stripComments,
   summarise,
 } from "../e2e-coverage.mjs";
@@ -243,4 +244,71 @@ test("@smoke only counts when it is in a test or describe title", () => {
   assert.equal(hasSmokeTitle('console.log("@smoke");'), false);
   assert.equal(hasSmokeTitle('const tag = "@smoke";'), false);
   assert.equal(hasSmokeTitle('// Run: pnpm test:smoke (any subset matching @smoke)'), false);
+});
+
+// Independent review round 2, 2026-09-07 — P1, and the SECOND instance of the
+// class round 1's `test.step` finding was supposed to close. The first fix was a
+// deny-list excluding `step`, and it still admitted every Playwright hook that
+// takes a title `--grep` does not match. A deny-list on this surface needs one
+// more spelling forever; the matcher is now an allow-list.
+test("a title in a hook --grep never matches does not count as smoke coverage", () => {
+  for (const hook of ["step", "beforeEach", "beforeAll", "afterEach", "afterAll"]) {
+    assert.equal(
+      hasSmokeTitle(`test.${hook}("setup @smoke", async () => {});`),
+      false,
+      `test.${hook} must not count`,
+    );
+  }
+  // every chain --grep DOES select still counts, so the allow-list is not a blanket refusal
+  assert.equal(hasSmokeTitle('test("checkout @smoke", async () => {});'), true);
+  assert.equal(hasSmokeTitle('test.only("x @smoke", async () => {});'), true);
+  assert.equal(hasSmokeTitle('test.skip("x @smoke", async () => {});'), true);
+  assert.equal(hasSmokeTitle('test.describe.serial("b @smoke", () => {});'), true);
+  assert.equal(hasSmokeTitle('test.describe.parallel("b @smoke", () => {});'), true);
+  assert.equal(hasSmokeTitle('describe("bare @smoke", () => {});'), true);
+});
+
+// Independent review round 2, 2026-09-07 — P1. Fixing mentionsSpec and leaving
+// its consumer alone fixed nothing: findCoverageDrift had its own
+// `named.includes(base(spec))` fallback, which re-opened the exact
+// cross-directory collision the matcher had just been rewritten to close.
+test("a workflow naming only the root-level spec does not discharge a nested one", () => {
+  const onDisk = ["auth.spec.ts", "billing/auth.spec.ts"];
+  const workflowNamed = new Map([["ci.yml", ["auth.spec.ts"]]]);
+
+  const drift = findCoverageDrift({
+    onDisk,
+    manifest: new Map([["billing/auth.spec.ts", "workflow:ci.yml"]]),
+    workflowNamed,
+    smokeTagged: [],
+    a1Declared: [],
+  });
+  assert.equal(drift.falseClaims.length, 1);
+
+  // the spec that IS named is still accepted, so this is not a blanket refusal
+  const ok = findCoverageDrift({
+    onDisk,
+    manifest: new Map([["auth.spec.ts", "workflow:ci.yml"]]),
+    workflowNamed,
+    smokeTagged: [],
+    a1Declared: [],
+  });
+  assert.deepEqual(ok.falseClaims, []);
+});
+
+// The A1 producer prints bare filenames, so its declarations are resolved
+// against the real spec set. An ambiguous bare name resolves to NOTHING rather
+// than to whichever spec asked first -- failing closed reds the gate, failing
+// open greened it.
+test("an ambiguous bare spec name resolves to nothing", () => {
+  const ambiguous = ["a/x.spec.ts", "b/x.spec.ts"];
+  assert.deepEqual([...resolveDeclared(["x.spec.ts"], ambiguous)], []);
+  assert.deepEqual([...resolveDeclared(["a/x.spec.ts"], ambiguous)], ["a/x.spec.ts"]);
+
+  // an exact path match is never ambiguous, even when a basename twin exists
+  const mixed = ["auth.spec.ts", "billing/auth.spec.ts"];
+  assert.deepEqual([...resolveDeclared(["auth.spec.ts"], mixed)], ["auth.spec.ts"]);
+  assert.deepEqual([...resolveDeclared(["billing/auth.spec.ts"], mixed)], ["billing/auth.spec.ts"]);
+
+  assert.deepEqual([...resolveDeclared(["ghost.spec.ts"], mixed)], []);
 });

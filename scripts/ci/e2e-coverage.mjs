@@ -122,6 +122,21 @@ export function mentionsSpec(text, spec, roots = []) {
   return tokens.some((t) => wanted.has(t.replace(/^\.\//u, "")));
 }
 
+// The modifier chains whose titles Playwright's `--grep` actually selects.
+// Anything not named here -- step, beforeEach, beforeAll, afterEach, afterAll,
+// use, extend, setTimeout, info -- takes a title that --grep never matches, so a
+// tag sitting in one selects no test.
+const TITLE_MODIFIERS = new Set([
+  "only",
+  "skip",
+  "fixme",
+  "fail",
+  "slow",
+  "describe",
+  "serial",
+  "parallel",
+]);
+
 /**
  * Playwright's `--grep` matches TEST TITLES. `@smoke` written anywhere else --
  * a string literal, a run instruction, a variable -- selects nothing, so
@@ -129,7 +144,16 @@ export function mentionsSpec(text, spec, roots = []) {
  * were already excluded by stripComments; this closes the rest by requiring the
  * tag to sit in the title argument of a test() or describe() call.
  *
- * `.step` IS EXCLUDED, and it is the whole reason for the negative lookahead.
+ * ONLY the modifier chains Playwright's `--grep` actually selects are accepted,
+ * and they are an ALLOW-LIST. The first attempt at this was a deny-list that
+ * excluded `step` -- and it still admitted `test.beforeEach("setup @smoke")`,
+ * `beforeAll`, `afterEach` and `afterAll`, every one of which takes a title that
+ * `--grep` does not match. A deny-list on this surface needs one more spelling
+ * forever, and each missing spelling is a spec recorded as covered while nothing
+ * runs it. Found by independent review round 2, 2026-09-07, in the very fix
+ * written for round 1's `test.step` finding.
+ *
+ * `.step` was the first instance and remains excluded.
  * `test.step()` also takes a title string, so the earlier modifier chain
  * `(?:\s*\.\s*\w+)*` matched it -- but `--grep` does not match step titles.
  * A spec whose only `@smoke` sat in a `test.step()` was therefore recorded as
@@ -141,9 +165,14 @@ export function mentionsSpec(text, spec, roots = []) {
  */
 export function hasSmokeTitle(source) {
   const call =
-    /(?:^|[^A-Za-z0-9_$.])(?:test|describe)(?:\s*\.\s*(?!step\b)\w+)*\s*\(\s*(['"`])([\s\S]*?)\1/gmu;
+    /(?:^|[^A-Za-z0-9_$.])(test|describe)((?:\s*\.\s*\w+)*)\s*\(\s*(['"`])([\s\S]*?)\3/gmu;
   for (const m of (source ?? "").matchAll(call)) {
-    if (m[2].includes("@smoke")) return true;
+    const modifiers = m[2].match(/\w+/gu) ?? [];
+    // ALLOW-LIST. A deny-list here needed one more spelling forever: excluding
+    // `step` still admitted beforeEach, beforeAll, afterEach and afterAll, every
+    // one of which takes a title that `--grep` does not match.
+    if (!modifiers.every((mod) => TITLE_MODIFIERS.has(mod))) continue;
+    if (m[4].includes("@smoke")) return true;
   }
   return false;
 }
@@ -172,6 +201,39 @@ export function parseCoverageManifest(text) {
  * @param {string[]} input.a1Declared specs the A1 producer lists.
  * @param {Map<string,string[]>} input.workflowNamed workflow file -> specs it names.
  */
+/**
+ * Resolve a producer's declared spec names against the real spec set.
+ *
+ * A declaration may be a full e2e-root-relative path or a bare filename. A bare
+ * filename is honoured only when exactly one spec carries it; if two specs in
+ * different directories share a basename the declaration is ambiguous and
+ * resolves to NOTHING, so the claim fails rather than silently attaching to the
+ * wrong spec. Failing closed here reds the gate; failing open greened it.
+ *
+ * @param {string[]} declared
+ * @param {string[]} specs e2e-root-relative spec paths
+ * @returns {Set<string>} the specs unambiguously declared
+ */
+export function resolveDeclared(declared, specs) {
+  const byBase = new Map();
+  for (const s of specs) {
+    const b = s.split("/").pop();
+    byBase.set(b, (byBase.get(b) ?? []).concat(s));
+  }
+  const out = new Set();
+  for (const d of declared ?? []) {
+    const name = String(d).trim().replace(/^\.\//u, "");
+    if (!name) continue;
+    if (specs.includes(name)) {
+      out.add(name);
+      continue;
+    }
+    const hits = byBase.get(name.split("/").pop()) ?? [];
+    if (hits.length === 1 && name.indexOf("/") === -1) out.add(hits[0]);
+  }
+  return out;
+}
+
 export function findCoverageDrift({
   onDisk,
   manifest,
@@ -183,7 +245,6 @@ export function findCoverageDrift({
   const missing = [...manifest.keys()].filter((f) => !onDisk.includes(f));
 
   const falseClaims = [];
-  const base = (f) => f.split("/").pop();
 
   for (const [spec, disposition] of manifest) {
     if (!onDisk.includes(spec)) continue; // already reported as missing
@@ -198,7 +259,12 @@ export function findCoverageDrift({
     }
 
     if (disposition === "a1") {
-      if (!a1Declared.includes(spec) && !a1Declared.includes(base(spec))) {
+      // The A1 producer prints bare filenames, so a declaration is resolved
+      // against the spec set and accepted ONLY when it identifies exactly one
+      // spec. An ambiguous basename resolves to nothing rather than to whichever
+      // spec asked first -- that is the same collision as above, arriving
+      // through the producer instead of through a workflow.
+      if (!resolveDeclared(a1Declared, onDisk).has(spec)) {
         falseClaims.push(
           `${spec} is recorded as an A1 core journey, but the A1 producer's --list-specs does not name it.`,
         );
@@ -209,7 +275,13 @@ export function findCoverageDrift({
     if (disposition.startsWith("workflow:")) {
       const wf = disposition.slice("workflow:".length).trim();
       const named = workflowNamed.get(wf) ?? [];
-      if (!named.includes(spec) && !named.includes(base(spec))) {
+      // NO base(spec) FALLBACK. `named` already holds exact e2e-root-relative
+      // spec paths from mentionsSpec, so a basename comparison here re-opened
+      // precisely the cross-directory collision mentionsSpec was rewritten to
+      // close: a workflow naming root-level `auth.spec.ts` discharged the claim
+      // for `billing/auth.spec.ts`, which then ran nowhere behind a green gate.
+      // Fixing the matcher and leaving its consumer alone fixed nothing.
+      if (!named.includes(spec)) {
         falseClaims.push(
           `${spec} is recorded as run by ${wf}, but that workflow does not name it.`,
         );
