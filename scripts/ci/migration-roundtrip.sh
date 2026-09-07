@@ -349,9 +349,34 @@ PYEOF
         [ -n "$pol" ] || continue
         n="$(psql_q "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='$tbl' AND policyname='$pol';")"
         [ "$n" = "0" ] || { echo "STILL PRESENT after rollback: policy $pol on $tbl" >&2; rc=1; }
-      done < <(grep -oEi 'CREATE POLICY "?[A-Za-z_][A-Za-z0-9_]*"? ON (ONLY )?"?[A-Za-z_][A-Za-z0-9_]*"?' "$f" \
-                 | sed -E 's/[Cc][Rr][Ee][Aa][Tt][Ee] [Pp][Oo][Ll][Ii][Cc][Yy] "?([A-Za-z_][A-Za-z0-9_]*)"? [Oo][Nn] ([Oo][Nn][Ll][Yy] )?"?([A-Za-z_][A-Za-z0-9_]*)"?/\1 \3/' \
-                 | sort -u)
+      done < <(python3 - "$f" <<'PYPOL'
+import re, sys
+# Identifier CASE is the whole reason this is python and not sed. Postgres folds
+# an UNQUOTED identifier to lower case, and preserves a quoted one exactly. A
+# sed that merely strips quotes emits the spelling from the file, so
+# `CREATE POLICY MyPolicy ON MyTable` is looked up in pg_policies as MyPolicy /
+# MyTable, matches nothing, and a leaked policy reads as PASS -- review round 4
+# (P1). Quotedness has to survive the extraction, so fold here exactly as
+# Postgres would.
+def fold(tok):
+    return tok[1:-1] if tok.startswith('"') else tok.lower()
+
+pat = re.compile(
+    r'CREATE\s+POLICY\s+(?P<pol>"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)'
+    r'\s+ON\s+(?:ONLY\s+)?'
+    r'(?:(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)\s*\.\s*)?'      # optional schema
+    r'(?P<tbl>"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)',
+    re.I | re.S)
+
+src = open(sys.argv[1], encoding="utf8").read()
+seen = set()
+for m in pat.finditer(src):
+    row = (fold(m.group("pol")), fold(m.group("tbl")))
+    if row not in seen:
+        seen.add(row)
+        sys.stdout.write("%s\t%s\n" % row)
+PYPOL
+)
     done < <(new_migrations)
     # The claim names its own SCOPE. "Every object" was wider than what this
     # check inspects, and review round 3 was right to call it: an unscoped claim

@@ -675,6 +675,110 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     expect(reset.remainingTokens).toBe(5_000n);
   });
 
+  it("a budget cannot be refilled by nudging periodStart inside the same window", async () => {
+    // Review round 4 (P1). "periodStart changed" was taken as proof of a reset,
+    // so shifting it by a microsecond and setting remaining back to max minted
+    // an unlimited series of refills inside what is, in every sense that
+    // matters, the same window. A reset must start at or after the previous
+    // window ENDED.
+    const ws = await seedWorkspace(`ra7493-nudge-${Date.now()}`);
+    const start = new Date("2026-09-01T00:00:00.000Z");
+    const end = new Date("2026-10-01T00:00:00.000Z");
+    const b = await prisma.aiRunnerBudget.create({
+      data: {
+        workspaceId: ws.id,
+        scope: "FIELD",
+        periodStart: start,
+        periodEnd: end,
+        maxMicroUsd: 100n,
+        remainingMicroUsd: 0n,
+      },
+    });
+
+    // The attack: nudge the window by a millisecond and refill.
+    await expect(
+      prisma.aiRunnerBudget.update({
+        where: { id: b.id },
+        data: { periodStart: new Date(start.getTime() + 1), remainingMicroUsd: 100n },
+      }),
+    ).rejects.toThrow();
+
+    // Moving it BACKWARD is refused too — otherwise the same trick works in
+    // the other direction.
+    await expect(
+      prisma.aiRunnerBudget.update({
+        where: { id: b.id },
+        data: { periodStart: new Date(start.getTime() - 86_400_000), remainingMicroUsd: 100n },
+      }),
+    ).rejects.toThrow();
+
+    expect(
+      (await prisma.aiRunnerBudget.findUniqueOrThrow({ where: { id: b.id } })).remainingMicroUsd,
+    ).toBe(0n);
+
+    // The control: a genuine new window — starting at or after the old one
+    // ended — still resets. Without this the guard would just be "budgets can
+    // never be reset", which is a broken feature, not a stricter one.
+    const reset = await prisma.aiRunnerBudget.update({
+      where: { id: b.id },
+      data: {
+        periodStart: end,
+        periodEnd: new Date("2026-11-01T00:00:00.000Z"),
+        remainingMicroUsd: 100n,
+      },
+    });
+    expect(reset.remainingMicroUsd).toBe(100n);
+  });
+
+  it("a column added to AiRunnerReceipt later is frozen without touching the trigger", async () => {
+    // Review round 4 (P1): the freeze enumerated the FROZEN columns, so any
+    // column a later migration added would be absent from the list and
+    // therefore silently mutable — the guard would quietly stop covering the
+    // newest, least-reviewed field on the table. It now enumerates the
+    // PERMITTED columns and compares everything else wholesale.
+    //
+    // This is the only honest test of that: add a column the trigger has never
+    // heard of, and prove it is frozen anyway.
+    const ws = await seedWorkspace(`ra7493-failclosed-${Date.now()}`);
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "AiRunnerReceipt" ADD COLUMN "ra7493ProbeColumn" TEXT',
+    );
+    try {
+      const r = await prisma.aiRunnerReceipt.create({
+        data: {
+          workspaceId: ws.id,
+          runner: "STYLE",
+          taskType: "probe",
+          keySource: "TENANT_BYOK",
+          idempotencyKey: `failclosed-${Date.now()}`,
+        },
+      });
+
+      // Resolving while also writing the unknown column: refused, because the
+      // column is not in the permitted set and nothing had to name it to be
+      // protected.
+      await expect(
+        prisma.$executeRawUnsafe(
+          `UPDATE "AiRunnerReceipt" SET "outcome" = 'OK', "ra7493ProbeColumn" = 'mutated' WHERE "id" = $1`,
+          r.id,
+        ),
+      ).rejects.toThrow();
+
+      // The control: the same resolution WITHOUT touching the unknown column
+      // still succeeds, so the rejection above is the new column being frozen
+      // and not the trigger refusing every update.
+      const n = await prisma.$executeRawUnsafe(
+        `UPDATE "AiRunnerReceipt" SET "outcome" = 'OK' WHERE "id" = $1`,
+        r.id,
+      );
+      expect(n).toBe(1);
+    } finally {
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "AiRunnerReceipt" DROP COLUMN IF EXISTS "ra7493ProbeColumn"',
+      );
+    }
+  });
+
   it("a receipt resolves exactly once, and its story is frozen at insert", async () => {
     // Round 2 asked for the append-only claim to be enforced rather than
     // asserted. Its suggested fix — revoke UPDATE — would have broken the

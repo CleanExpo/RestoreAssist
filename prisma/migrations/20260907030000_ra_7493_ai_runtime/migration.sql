@@ -286,8 +286,26 @@ ALTER TABLE "AiRunnerBudget"
 CREATE OR REPLACE FUNCTION "ai_runner_budget_monotonic"() RETURNS trigger
 LANGUAGE plpgsql AS $ai_budget_monotonic$
 BEGIN
+  -- A reset is a NEW window, and review round 4 (P1) showed that "periodStart
+  -- changed" is not the same claim. Shifting it by one microsecond --
+  --   SET "periodStart" = "periodStart" + interval '1 us',
+  --       "remainingMicroUsd" = "maxMicroUsd"
+  -- satisfied the old condition and minted an unlimited series of refills
+  -- inside what is, in every sense that matters, the same window.
+  --
+  -- The new window must START AT OR AFTER the old one ENDED, and must be a
+  -- window at all. Anything else is an in-place edit wearing a reset's clothes.
+  IF NEW."periodStart" >= OLD."periodEnd" AND NEW."periodEnd" > NEW."periodStart" THEN
+    RETURN NEW;   -- a genuinely new window; the reset is the point
+  END IF;
+
+  -- periodStart moved, but not to a new window. Say so explicitly rather than
+  -- letting it fall through to the balance checks, where the error message
+  -- would blame the balance for a period problem.
   IF NEW."periodStart" IS DISTINCT FROM OLD."periodStart" THEN
-    RETURN NEW;   -- a new window; the reset is the point
+    RAISE EXCEPTION
+      'AiRunnerBudget % period may only move forward to a new window (% -> %, previous window ended %)',
+      OLD."id", OLD."periodStart", NEW."periodStart", OLD."periodEnd";
   END IF;
 
   IF NEW."remainingMicroUsd" > OLD."remainingMicroUsd" THEN
@@ -345,6 +363,9 @@ CREATE TRIGGER "ai_runner_budget_monotonic"
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION "ai_runner_receipt_freeze"() RETURNS trigger
 LANGUAGE plpgsql AS $ai_receipt_freeze$
+DECLARE
+  frozen_old "AiRunnerReceipt";
+  frozen_new "AiRunnerReceipt";
 BEGIN
   IF OLD."outcome" <> 'PENDING' THEN
     RAISE EXCEPTION
@@ -358,19 +379,30 @@ BEGIN
       OLD."id";
   END IF;
 
-  IF NEW."id"             IS DISTINCT FROM OLD."id"
-  OR NEW."workspaceId"    IS DISTINCT FROM OLD."workspaceId"
-  OR NEW."inspectionId"   IS DISTINCT FROM OLD."inspectionId"
-  OR NEW."runner"         IS DISTINCT FROM OLD."runner"
-  OR NEW."taskType"       IS DISTINCT FROM OLD."taskType"
-  OR NEW."provider"       IS DISTINCT FROM OLD."provider"
-  OR NEW."model"          IS DISTINCT FROM OLD."model"
-  OR NEW."keySource"      IS DISTINCT FROM OLD."keySource"
-  OR NEW."provenance"     IS DISTINCT FROM OLD."provenance"
-  OR NEW."idempotencyKey" IS DISTINCT FROM OLD."idempotencyKey"
-  OR NEW."supersedesId"   IS DISTINCT FROM OLD."supersedesId"
-  OR NEW."createdAt"      IS DISTINCT FROM OLD."createdAt"
-  THEN
+  -- FAIL CLOSED on columns nobody has thought of yet.
+  --
+  -- This used to enumerate the FROZEN columns by name, and review round 4 (P1)
+  -- was right that it had the polarity backwards: a column added by a later
+  -- migration would be absent from the list and therefore silently mutable --
+  -- the freeze would quietly stop covering the newest, least-reviewed field on
+  -- the table.
+  --
+  -- So enumerate the PERMITTED columns instead, blank exactly those on a copy
+  -- of both rows, and require everything else to be byte-identical. A new
+  -- column is frozen the day it is added, with no edit here, which is the only
+  -- version of this that stays true.
+  frozen_old := OLD;
+  frozen_new := NEW;
+
+  frozen_old."outcome"      := NULL; frozen_new."outcome"      := NULL;
+  frozen_old."errorType"    := NULL; frozen_new."errorType"    := NULL;
+  frozen_old."resolvedAt"   := NULL; frozen_new."resolvedAt"   := NULL;
+  frozen_old."latencyMs"    := NULL; frozen_new."latencyMs"    := NULL;
+  frozen_old."inputTokens"  := NULL; frozen_new."inputTokens"  := NULL;
+  frozen_old."outputTokens" := NULL; frozen_new."outputTokens" := NULL;
+  frozen_old."costMicroUsd" := NULL; frozen_new."costMicroUsd" := NULL;
+
+  IF frozen_old IS DISTINCT FROM frozen_new THEN
     RAISE EXCEPTION
       'AiRunnerReceipt % is frozen at insert except for resolution fields (outcome, errorType, resolvedAt, latencyMs, inputTokens, outputTokens, costMicroUsd)',
       OLD."id";
