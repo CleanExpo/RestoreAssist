@@ -47,6 +47,27 @@ const ORG_NAME = process.env.E2E_ORG_NAME ?? "E2E Test Organisation";
 const ORG_LEGAL_NAME = process.env.E2E_ORG_LEGAL_NAME ?? "E2E Test Pty Ltd";
 const ABN = process.env.E2E_ORG_ABN ?? "53004085616";
 
+// The role was hardcoded ADMIN, which made `security.spec.ts` describe 6
+// unsatisfiable: four tests there assert 403 "for a non-admin user" while the
+// only seeded user was an admin, so the app correctly returned 200 and the
+// tests failed for a premise error rather than a defect.
+//
+// Default stays ADMIN so every existing caller keeps its exact behaviour. Only
+// a caller that asks for USER or MANAGER gets anything different.
+const VALID_ROLES = ["USER", "ADMIN", "MANAGER"] as const;
+type SeedRole = (typeof VALID_ROLES)[number];
+const requestedRole = process.env.E2E_USER_ROLE ?? "ADMIN";
+if (!(VALID_ROLES as readonly string[]).includes(requestedRole)) {
+  // Refuse rather than silently seeding an admin. A typo here would recreate
+  // the exact defect this parameter exists to fix, and it would look like a
+  // failing authorisation test.
+  console.error(
+    `E2E_USER_ROLE must be one of ${VALID_ROLES.join(" | ")}; got ${JSON.stringify(requestedRole)}`,
+  );
+  process.exit(1);
+}
+const ROLE = requestedRole as SeedRole;
+
 async function main() {
   const hashedPassword = await bcrypt.hash(PASSWORD, 12);
   const oneYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
@@ -58,17 +79,17 @@ async function main() {
     where: { email: EMAIL },
     update: {
       password: hashedPassword,
-      role: "ADMIN",
+      role: ROLE,
       subscriptionStatus: "TRIAL",
       trialEndsAt: oneYear,
       creditsRemaining: 999,
       quickFillCreditsRemaining: 999,
     },
     create: {
-      name: "E2E Test User",
+      name: `E2E Test User (${ROLE})`,
       email: EMAIL,
       password: hashedPassword,
-      role: "ADMIN",
+      role: ROLE,
       subscriptionStatus: "TRIAL",
       creditsRemaining: 999,
       totalCreditsUsed: 0,

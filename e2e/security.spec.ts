@@ -482,22 +482,29 @@ test.describe("5 · Subscription gate enforcement", () => {
 
 test.describe("6 · Admin route enforcement", () => {
   test.skip(
-    !process.env.E2E_USER_EMAIL,
-    "Requires E2E_USER_EMAIL env var (non-admin user)",
+    !process.env.E2E_USER_C_EMAIL || !process.env.E2E_USER_C_PASSWORD,
+    "Requires E2E_USER_C_EMAIL and E2E_USER_C_PASSWORD -- a NON-ADMIN user. " +
+      "E2E_USER_EMAIL is seeded as ADMIN, so it cannot answer this question.",
   );
 
-  const ADMIN_ROUTES = [
-    "/api/admin/stats",
-    "/api/admin/users",
-    "/api/admin/seed-demo",
-  ];
+  // These tests assert 403 "for a non-admin user" and used E2E_USER_EMAIL,
+  // which scripts/seed-e2e-user.ts seeds as ADMIN. The app was right and the
+  // premise was wrong: an admin correctly gets 200. Seed a third user with
+  // E2E_USER_ROLE=USER and point these at it. Do NOT downgrade
+  // E2E_USER_EMAIL instead -- describes 2 and 4 rely on its admin role.
+  //
+  // /api/admin/seed-demo is NOT in this list. It exports only POST
+  // (app/api/admin/seed-demo/route.ts:81), so a GET returns 405 whatever the
+  // caller's role -- measured 07/09/2026 -- and the test could never pass or
+  // mean anything. The POST test below is the real check for that route.
+  const ADMIN_ROUTES = ["/api/admin/stats", "/api/admin/users"];
 
   for (const path of ADMIN_ROUTES) {
     test(`GET ${path} → 403 for non-admin user`, async ({ request }) => {
       const session = await getSessionCookie(
         request,
-        process.env.E2E_USER_EMAIL!,
-        process.env.E2E_USER_PASSWORD!,
+        process.env.E2E_USER_C_EMAIL!,
+        process.env.E2E_USER_C_PASSWORD!,
       );
       expect(session).toBeTruthy();
 
@@ -517,13 +524,17 @@ test.describe("6 · Admin route enforcement", () => {
   }) => {
     const session = await getSessionCookie(
       request,
-      process.env.E2E_USER_EMAIL!,
-      process.env.E2E_USER_PASSWORD!,
+      process.env.E2E_USER_C_EMAIL!,
+      process.env.E2E_USER_C_PASSWORD!,
     );
     const res = await request.post("/api/admin/seed-demo", {
       headers: { Cookie: session! },
       data: {},
     });
-    expect(res.status()).toBe(403);
+    expect(
+      res.status(),
+      `Expected 403 from POST /api/admin/seed-demo for a non-admin user, ` +
+        `got ${res.status()}. A 200 here means the admin gate is open.`,
+    ).toBe(403);
   });
 });
