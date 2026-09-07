@@ -1,0 +1,40 @@
+# Decision record for `*.test.mjs` suites — read by scripts/ci/run-mjs-tests.mjs
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# config/vitest.config.js includes `scripts/**/__tests__/**/*.test.ts` — note the
+# `.ts`. Every `.test.mjs` file under scripts/ was therefore collected by nothing.
+# Measured 2026-09-06: 12 such files, 116 tests, of which exactly ONE file was
+# invoked by any workflow. Two assertions had been failing unseen — a rename had
+# broken one, and a deliberate review tripwire (workflow population 20 -> 24) had
+# been firing into the void.
+#
+# pr-checks.yml already states the principle, for the Python suite it fixed:
+#   "a guard on the production release path that CI does not execute is not a
+#    guard ... naming the module means a rename breaks the build instead of
+#    quietly disarming it."
+# This file applies that same rule to the .mjs suites.
+#
+# THE RULE
+# --------
+# Every `*.test.mjs` on disk under scripts/ must appear here, or the build FAILS.
+# A suite may only go unrun if somebody wrote down why. Discovery is the source of
+# truth; this file is the decision.
+#
+# Format:  <path><TAB or spaces><run | elsewhere:<workflow> | skip:<reason>>
+
+scripts/ci/__tests__/assert-direct-database-url.test.mjs          run
+scripts/ci/__tests__/assert-migration-health.test.mjs             run
+scripts/ci/__tests__/assert-production-smoke-origin.test.mjs      run
+scripts/ci/__tests__/check-release-bootstrap.test.mjs             run
+scripts/ci/__tests__/expected-migration-ledger.test.mjs           run
+scripts/ci/__tests__/e2e-coverage.test.mjs                        run
+scripts/ci/__tests__/run-mjs-tests.test.mjs                       run
+scripts/ci/__tests__/production-deployment-blocked.test.mjs       run
+scripts/ci/__tests__/smoke-skip-policy.test.mjs                   run
+scripts/ci/__tests__/render-production-app-spec.test.mjs          run
+scripts/ci/__tests__/verify-database-identity.test.mjs            run
+scripts/ci/__tests__/verify-production-environment.test.mjs       run
+scripts/ci/__tests__/verify-release-gate-run.test.mjs             run
+scripts/ci/__tests__/verify-release-provenance.test.mjs           run
+scripts/pilot/__tests__/validate-paid-pilot-package.test.mjs      elsewhere:paid-pilot-preflight.yml

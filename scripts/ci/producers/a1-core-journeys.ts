@@ -21,7 +21,8 @@
  * about yesterday's build. This is not hypothetical: production was serving a
  * revision older than its own `deploymentSha` field for weeks while every image
  * build went green, and the smoke runner's own words were "production reports
- * no deploymentSha, so it predates that field".
+ * no deploymentSha". That is UNREPORTED, not STALE: on DigitalOcean the field
+ * is never injected, so its absence says nothing about the build's age.
  *
  * So this producer probes the target's `/api/health` and records the revision
  * it reports, and the verifier requires that revision to equal the receipt's

@@ -1,0 +1,88 @@
+# Coverage record for the end-to-end specs — read by scripts/ci/check-e2e-coverage.mjs
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# Measured 2026-09-06: 55 spec files under docs/archive/playwright-e2e, 10 executed
+# by any pipeline, 45 by nothing. Among the 45 were ALL NINE billing specs --
+# trial-expired-soft-gate, credit-exhaust, cancel-flow, webhook-race, feature-gate,
+# grandfather, multi-tab, voluntary-upgrade and billing.spec.ts -- plus
+# stripe-payment-intent-webhook, ios-billing-gates, account-deletion and security.
+# On a product that takes money.
+#
+# Nothing was wrong with any of them. They ran nowhere, and a suite that runs
+# nowhere fails silently and for free: it never goes red, so it never asks anybody
+# for anything. Same defect pr-checks.yml recorded for the Python release-script
+# suite, and scripts/ci/run-mjs-tests.mjs closed for the .test.mjs guards.
+#
+# THE RULE
+# --------
+# Every spec on disk must appear here, or the check FAILS. Each disposition is
+# verified against the mechanism that would have to be true for it to hold, so a
+# spec cannot be recorded as covered while nothing runs it:
+#
+#   smoke            the file must actually contain the @smoke tag
+#   a1               the A1 producer's own --list-specs must name it
+#   workflow:<file>  that workflow file must actually name it
+#   unrun:<reason>   a reason is mandatory
+#
+# `unrun` is honest and permitted. It is a debt with a name, and the summary counts
+# it as NOT executed. The fix for nearly every line below is one CI job that boots
+# the app against a seeded database -- the harness sketch-e2e.yml already contains.
+#
+# Format:  <spec path relative to docs/archive/playwright-e2e>  <disposition>
+
+account-deletion.spec.ts                 unrun:DATA DELETION path, and unrun for the same reason as the money specs below
+auth.spec.ts                             a1
+billing.spec.ts                          unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+billing/cancel-flow.spec.ts              workflow:sketch-e2e.yml
+billing/credit-exhaust.spec.ts           workflow:sketch-e2e.yml
+billing/feature-gate.spec.ts             workflow:sketch-e2e.yml
+billing/grandfather.spec.ts              workflow:sketch-e2e.yml
+billing/trial-expired-soft-gate.spec.ts  workflow:sketch-e2e.yml
+billing/multi-tab.spec.ts                workflow:sketch-e2e.yml
+billing/voluntary-upgrade.spec.ts        workflow:sketch-e2e.yml
+billing/webhook-race.spec.ts             workflow:sketch-e2e.yml
+crm-health.spec.ts                       unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+dr-nrpg-inbound-job.spec.ts              unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+first-tradie-flow.spec.ts                a1
+health-migrations.spec.ts                unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+health.spec.ts                           unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+help/article-detail.spec.ts              unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+help/dropdown-open.spec.ts               unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+help/public-mirror.spec.ts               unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+help/redirects.spec.ts                   unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+help/search-cmd-k.spec.ts                unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+invite-tech-already-used.spec.ts         unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+invite-tech-expired.spec.ts              unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+invite-tech-google-oauth.spec.ts         unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+invite-tech-happy-path.spec.ts           unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+ios-billing-gates.spec.ts                unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+job-close-happy-path.spec.ts             a1
+job-close-preconditions.spec.ts          unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+login-callback-url.spec.ts               unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+navigation.spec.ts                       unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+nir-routes-regression.spec.ts            unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+pilot-workflow.spec.ts                   smoke
+procurement.spec.ts                      unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+security.spec.ts                         unrun:SECURITY assertions, and unrun for the same reason as the money specs below
+setup-abr-unreachable.spec.ts            unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+setup-happy-path.spec.ts                 a1
+setup-no-abn.spec.ts                     unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+setup-resume.spec.ts                     unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+setup-skip-manual.spec.ts                unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+setup-storage-google-drive.spec.ts       smoke
+setup-technician-gate.spec.ts            unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+setup-website-failure.spec.ts            unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+sketch-api.spec.ts                       workflow:sketch-e2e.yml
+storage-restore.spec.ts                  unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+stripe-payment-intent-webhook.spec.ts    unrun:MONEY PATH, and no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+tech-banner-auto-dismiss.spec.ts         unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+tech-evidence-capture-no-modal.spec.ts   unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+tech-second-signoff-prefilled.spec.ts    unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+tech-signoff-modal-cancel.spec.ts        unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+tech-signoff-modal-fresh.spec.ts         a1
+tech-visual-baselines.spec.ts            unrun:visual baselines need committed reference images and a stable renderer; no pipeline provides either
+trial-no-paywall.spec.ts                 smoke
+v2-sketch-workflow.spec.ts               a1
+warehouse.spec.ts                        unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec
+workshop.spec.ts                         unrun:no pipeline boots the app with a seeded database and an authenticated session; sketch-e2e.yml is the only workflow that does and it runs one named spec

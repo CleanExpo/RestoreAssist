@@ -93,6 +93,8 @@
     "check:release-bootstrap": "node scripts/ci/check-release-bootstrap.mjs",
     "test:unit": "vitest run --config config/vitest.config.js",
     "test:parity": "node scripts/ci/check-test-parity.mjs",
+    "test:mjs": "node scripts/ci/run-mjs-tests.mjs",
+    "check:e2e-coverage": "node scripts/ci/check-e2e-coverage.mjs --summary",
     "test:db": "bash scripts/ci/test-with-db.sh",
     "e2e:p0-1": "node scripts/e2e/p0-1-private-buckets-acceptance.mjs",
     "audit:ai": "tsx scripts/audit-ai-call-sites.ts --gate",

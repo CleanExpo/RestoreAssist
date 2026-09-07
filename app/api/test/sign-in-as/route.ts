@@ -64,8 +64,27 @@ export async function POST(req: NextRequest) {
 
   let user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, email: true, organizationId: true },
+    // `role` is selected so the session below can be minted from what the
+    // database actually says. Without it this helper forged the session from
+    // the request body, so a spec could seed a user one way and authenticate as
+    // something else, and pass on a claim the database never made.
+    // Found by independent review (independent cross-vendor review, 2026-09-07).
+    select: { id: true, email: true, organizationId: true, role: true },
   });
+
+  if (user && user.role !== role) {
+    // Refuse rather than silently preferring either side. Overriding the body
+    // would hide a spec's wrong assumption; overriding the database would forge
+    // the session. Saying they disagree is the only answer that cannot mislead.
+    return NextResponse.json(
+      {
+        error:
+          `role mismatch: ${email} is stored as ${user.role}, but the request asked for ${role}. ` +
+          `Seed the user with the role the spec needs, or ask for the role it has.`,
+      },
+      { status: 409 },
+    );
+  }
 
   if (!user) {
     const created = await prisma.user.create({
@@ -77,7 +96,7 @@ export async function POST(req: NextRequest) {
         // occlude the IICRC banner / other dashboard surfaces in E2E specs.
         productTourDismissedAt: new Date(),
       },
-      select: { id: true, email: true, organizationId: true },
+      select: { id: true, email: true, organizationId: true, role: true },
     });
     user = created;
   } else {

@@ -291,6 +291,38 @@ jobs:
       - name: Production release script tests
         run: python3 -m unittest scripts.ci.test_digitalocean_production_release -v
 
+      # The `.test.mjs` suites sitting next to those Python tests were the OTHER
+      # half of the same defect — named in the comment above, never closed. 12
+      # files, 116 tests, collected by nothing, because config/vitest.config.js
+      # includes `*.test.ts` only. Measured 2026-09-06: two assertions had been
+      # failing unseen, one broken by a variable rename and one a deliberate
+      # review tripwire (workflow population 20 -> 24) firing into the void.
+      # They guard release provenance, production environment verification,
+      # migration health and the production deployment block.
+      #
+      # The runner refuses blind discovery for the reason stated above: it
+      # compares the disk against scripts/ci/mjs-test-manifest.txt and fails on
+      # drift in either direction, so neither a new suite nor a rename can
+      # quietly disarm the set. `--self-test` proves that check can fail.
+      - name: Guard-script tests (.test.mjs)
+        run: node scripts/ci/run-mjs-tests.mjs
+
+      # The e2e layer had the same hole, and wider. Measured 2026-09-06: 55 spec
+      # files under docs/archive/playwright-e2e, 10 executed by any pipeline, 45
+      # by nothing -- including all nine billing specs, stripe-payment-intent-
+      # webhook, ios-billing-gates, account-deletion and security, on a product
+      # that takes money. Nothing was wrong with them; they simply ran nowhere,
+      # and a suite that runs nowhere never goes red, so it never asks anybody
+      # for anything.
+      #
+      # This does not make them run -- that needs a job booting the app against a
+      # seeded database, which sketch-e2e.yml already demonstrates. It makes the
+      # gap NAMED and stops it growing silently. Every disposition is verified
+      # against the mechanism that would have to be true for it to hold, so a
+      # spec cannot be recorded as covered while nothing selects it.
+      - name: End-to-end coverage record
+        run: node scripts/ci/check-e2e-coverage.mjs --summary
+
       # RA-6685 — apply migrations BEFORE the unit tests so the DB-gated suites
       # (described with `describe.skipIf(!process.env.DATABASE_URL)`:
       # trial-handling, setup checks, subscription-event, google-drive oauth,

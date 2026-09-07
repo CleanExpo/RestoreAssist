@@ -4,6 +4,7 @@ import {
   FRESH,
   STALE,
   UNREACHABLE,
+  UNREPORTED,
   // @ts-expect-error -- plain .mjs helper, no type declarations by design
 } from "../classify-deployment-freshness.mjs";
 
@@ -75,27 +76,54 @@ describe("classifyDeploymentFreshness", () => {
     });
   });
 
-  describe("STALE — production is up, just not this revision", () => {
-    it("when deploymentSha is absent, the un-promoted-build case", () => {
-      // This is the exact shape production served through the RA smoke outage:
-      // a healthy 200 from a build predating the deploymentSha field.
+  describe("UNREPORTED — production does not say which build it is", () => {
+    // WHY THESE MOVED OUT OF STALE, 2026-09-06.
+    //
+    // The old reading was "an absent deploymentSha means a build predating the
+    // field, which is exactly the un-promoted case". That held on Vercel, where
+    // VERCEL_GIT_COMMIT_SHA is always injected, so absence could only mean age.
+    //
+    // Production runs on DigitalOcean, and app/api/health/route.ts computes the
+    // field as `VERCEL_GIT_COMMIT_SHA || GIT_SHA || null`. DigitalOcean sets
+    // neither unless the app spec declares it, so the key is absent on EVERY
+    // build however fresh. Measured 2026-09-06: the ACTIVE DigitalOcean
+    // deployment was `commit 9b8285e pushed to main` — current main, deployed
+    // 05:51Z — and /api/health still reported deploymentSha: null.
+    //
+    // So the verdict was permanently STALE, which is the collapse this module's
+    // own docstring exists to prevent: a genuinely un-promoted production is
+    // indistinguishable from the normal state. Absent is not old. It is
+    // unverifiable, and unverifiable is its own answer.
+    it("when deploymentSha is absent", () => {
       const body = { status: "ok", uptime: 1234 };
       const result = classifyDeploymentFreshness(probe({ body }));
-      expect(result.verdict).toBe(STALE);
+      expect(result.verdict).toBe(UNREPORTED);
       expect(result.reason).toMatch(/no deploymentSha/);
+    });
+
+    it("names the remedy rather than asserting an age it cannot know", () => {
+      const body = { status: "ok" };
+      const result = classifyDeploymentFreshness(probe({ body }));
+      expect(result.reason).not.toMatch(/older|predates/);
+      expect(result.reason).toMatch(/GIT_SHA/);
     });
 
     it("when deploymentSha is explicitly null", () => {
       const body = { deploymentSha: null };
-      expect(classifyDeploymentFreshness(probe({ body })).verdict).toBe(STALE);
+      expect(classifyDeploymentFreshness(probe({ body })).verdict).toBe(
+        UNREPORTED,
+      );
     });
 
-    it("when deploymentSha is malformed", () => {
+    it("when deploymentSha is malformed — it reported something unusable", () => {
       const body = { deploymentSha: "not-a-sha" };
       const result = classifyDeploymentFreshness(probe({ body }));
-      expect(result.verdict).toBe(STALE);
+      expect(result.verdict).toBe(UNREPORTED);
       expect(result.reason).toMatch(/malformed/);
     });
+  });
+
+  describe("STALE — production is up, and names a DIFFERENT revision", () => {
 
     it("when a different revision is serving, and names both", () => {
       const body = {

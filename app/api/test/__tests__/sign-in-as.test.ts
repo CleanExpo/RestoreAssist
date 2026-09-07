@@ -59,6 +59,7 @@ describe("POST /api/test/sign-in-as", () => {
       id: "u_1",
       email: "test-user@test.local",
       organizationId: null,
+      role: "USER",
     });
     orgCreate.mockResolvedValueOnce({ id: "org_1" });
     userUpdate.mockResolvedValueOnce({ id: "u_1" });
@@ -86,6 +87,7 @@ describe("POST /api/test/sign-in-as", () => {
       id: "u_setup_smoke",
       email: "setup-smoke@test.local",
       organizationId: null,
+      role: "USER",
     });
     orgCreate.mockResolvedValueOnce({ id: "org_setup_smoke" });
     userUpdate.mockResolvedValueOnce({ id: "u_setup_smoke" });
@@ -103,7 +105,7 @@ describe("POST /api/test/sign-in-as", () => {
 
     expect(userFindUnique).toHaveBeenCalledWith({
       where: { email: "setup-smoke@test.local" },
-      select: { id: true, email: true, organizationId: true },
+      select: { id: true, email: true, organizationId: true, role: true },
     });
     expect(orgCreate).toHaveBeenCalledWith({
       data: {
@@ -122,6 +124,7 @@ describe("POST /api/test/sign-in-as", () => {
       id: "u_2",
       email: "test-user@test.local",
       organizationId: "org_existing",
+      role: "USER",
     });
     // RC6: existing user gets an idempotent update to re-assert
     // productTourDismissedAt.
@@ -144,6 +147,7 @@ describe("POST /api/test/sign-in-as", () => {
       id: "u_3",
       email: "test-user@test.local",
       organizationId: "org_existing",
+      role: "USER",
     });
     userUpdate.mockResolvedValueOnce({ id: "u_3" });
 
@@ -165,6 +169,7 @@ describe("POST /api/test/sign-in-as", () => {
       id: "u_rc6_create",
       email: "test-user@test.local",
       organizationId: null,
+      role: "USER",
     });
     orgCreate.mockResolvedValueOnce({ id: "org_rc6" });
     userUpdate.mockResolvedValueOnce({ id: "u_rc6_create" });
@@ -188,6 +193,7 @@ describe("POST /api/test/sign-in-as", () => {
       id: "u_rc6_existing",
       email: "test-user@test.local",
       organizationId: "org_existing",
+      role: "USER",
     });
     userUpdate.mockResolvedValueOnce({ id: "u_rc6_existing" });
 
@@ -203,6 +209,51 @@ describe("POST /api/test/sign-in-as", () => {
     };
     expect(updateArg.where.id).toBe("u_rc6_existing");
     expect(updateArg.data.productTourDismissedAt).toBeInstanceOf(Date);
+    vi.unstubAllEnvs();
+  });
+});
+
+// Independent review (independent cross-vendor review, 2026-09-07) — P1.
+// The helper minted the session JWT from the role in the REQUEST BODY, without
+// ever reading the role of the user it had just found in the database. A spec
+// could therefore seed a user one way and authenticate as something else, and
+// the test would pass on a claim the database never made.
+describe("an existing user's role comes from the database, not the request", () => {
+  it("refuses when the requested role disagrees with the stored role", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    vi.resetModules();
+    userFindUnique.mockResolvedValue({
+      id: "u1",
+      email: "seeded@example.com",
+      organizationId: "org1",
+      role: "ADMIN",
+    });
+    const { POST } = await import("../sign-in-as/route");
+    const res = await POST(
+      makeReq({ role: "USER", email: "seeded@example.com" }),
+    );
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: expect.stringMatching(/role/i),
+    });
+    vi.unstubAllEnvs();
+  });
+
+  it("signs in when the requested role matches the stored role", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    vi.resetModules();
+    userFindUnique.mockResolvedValue({
+      id: "u1",
+      email: "seeded@example.com",
+      organizationId: "org1",
+      role: "USER",
+    });
+    userUpdate.mockResolvedValue({});
+    const { POST } = await import("../sign-in-as/route");
+    const res = await POST(
+      makeReq({ role: "USER", email: "seeded@example.com" }),
+    );
+    expect(res.status).toBe(200);
     vi.unstubAllEnvs();
   });
 });

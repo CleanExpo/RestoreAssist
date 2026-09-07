@@ -112,8 +112,34 @@ describe("smoke-prod freshness step", () => {
     expect(r.stdout).toContain("::error::");
   });
 
-  // Tolerating exit 3 must never widen into tolerating a broken production.
-  it.each([1, 2, 4, 127])(
+  // Exit 4 is "the deployment will not say which build it is" -- the question
+  // could not be ANSWERED, as opposed to stale, which is an answer. It gets the
+  // same shape as staleness (warn on the watch, fail on the daily run) because
+  // the app DID answer /api/health normally, so it is not an availability
+  // failure and must not drown out the outage alarm; but a freshness check that
+  // can never fail is not a check, and on DigitalOcean this is the permanent
+  // state until GIT_SHA is set in the app spec.
+  //
+  // This deliberately WIDENS what the watch tolerates, from one code to two.
+  // Recorded rather than glossed: the pair below is the whole of the widening,
+  // and 1, 2 and 127 remain immediate failures at every schedule.
+  it("warns but does not fail the fifteen-minute watch when the build is unverifiable", () => {
+    const r = runFreshness(4, false);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("::warning::");
+    expect(r.stdout).not.toContain("::error::");
+    expect(r.outputs).toContain("stale=unverifiable");
+  });
+
+  it("fails once a day, and on demand, when the build is unverifiable", () => {
+    const r = runFreshness(4, true);
+    expect(r.code).toBe(4);
+    expect(r.stdout).toContain("::error::");
+    expect(r.stdout).toContain("GIT_SHA");
+  });
+
+  // Tolerating exit 3 and 4 must never widen into tolerating a broken production.
+  it.each([1, 2, 127])(
     "still fails immediately on preflight exit %i, which is not staleness",
     (code) => {
       for (const staleFails of [true, false]) {

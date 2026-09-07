@@ -198,7 +198,32 @@ test("production smoke cannot pass when guarded routes or health are absent", ()
   assert.match(productionSmoke, /expect\(parsed\.hash\)\.toBe\(""\)/);
   const smokeRunner = readFileSync(new URL("../../run-smoke.mjs", import.meta.url), "utf8");
   assert.match(smokeRunner, /redirect: "manual"/);
-  assert.match(smokeRunner, /response\.url !== healthUrl\.toString\(\)/);
+  // The intent is that the runner compares the RESPONSE url against THE URL IT
+  // ASKED FOR, so a redirect cannot satisfy the probe.
+  //
+  // This assertion was previously `\w*[Uu]rl\.toString\(\)`, which is
+  // rename-proof but also satisfied by comparing against the WRONG url -- it
+  // asserts only that *some* variable ending in "url" was used. Loosening a
+  // guard so a rename cannot break it removes the thing the guard was for.
+  // Raised by independent review; the earlier justification was wrong.
+  //
+  // Rename-proof AND specific: read the variable the request URL was built
+  // into, then require the comparison to use THAT name.
+  const urlBinding = /const (\w+) = new URL\(\s*"\/api\/health\/migrations"/.exec(
+    smokeRunner,
+  );
+  assert.ok(
+    urlBinding,
+    "run-smoke.mjs no longer builds the migration-health URL into a named const; " +
+      "the response-URL comparison below cannot be bound to it.",
+  );
+  const urlName = urlBinding[1];
+  assert.match(
+    smokeRunner,
+    new RegExp(`response\\.url !== ${urlName}\\.toString\\(\\)`),
+    `run-smoke.mjs must compare response.url against ${urlName} -- the URL it ` +
+      "actually requested -- not against some other url-shaped variable.",
+  );
   assert.match(
     smokeWorkflow,
     /node scripts\/run-smoke\.mjs[\s\S]*https:\/\/restoreassist\.app/,

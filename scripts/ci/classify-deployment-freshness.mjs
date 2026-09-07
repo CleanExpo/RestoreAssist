@@ -2,8 +2,10 @@ const SHA1_HEX = /^[0-9a-f]{40}$/i;
 
 /** Production is serving the exact revision CI expects. */
 export const FRESH = "fresh";
-/** Production is healthy, but is not serving the revision CI expects. */
+/** Production is healthy, and names a DIFFERENT revision than CI expects. */
 export const STALE = "stale";
+/** Production is healthy but does not say which revision it is serving. */
+export const UNREPORTED = "unreported";
 /** Production could not be probed at all. */
 export const UNREACHABLE = "unreachable";
 
@@ -26,9 +28,29 @@ export const UNREACHABLE = "unreachable";
  * A 200 JSON body proves the app is up and serving. So an absent, malformed,
  * or mismatched `deploymentSha` on an otherwise healthy response is a
  * statement about *which build* is running, not about whether it is running:
- * that is STALE, not UNREACHABLE. (An older build predating the
- * `deploymentSha` field omits the key entirely, which is exactly the
- * un-promoted case.)
+ * never UNREACHABLE.
+ *
+ * ABSENT IS NOT OLD — corrected 2026-09-06.
+ * This module used to read a missing `deploymentSha` as "a build predating the
+ * field, which is exactly the un-promoted case". That inference held on Vercel,
+ * where `VERCEL_GIT_COMMIT_SHA` is always injected, so absence could only mean
+ * age. Production runs on DigitalOcean, and `app/api/health/route.ts` computes
+ * the field as `VERCEL_GIT_COMMIT_SHA || GIT_SHA || null`. DigitalOcean injects
+ * neither unless the app spec declares it, so the key was absent on every build
+ * however fresh, and the verdict was permanently STALE.
+ *
+ * Measured that day: the ACTIVE DigitalOcean deployment was `commit 9b8285e
+ * pushed to main` — current main, deployed 05:51Z — while `/api/health` still
+ * reported `deploymentSha: null` and the 15-minute smoke reported STALE. That
+ * is the exact collapse the paragraph above exists to prevent, arrived at from
+ * the other direction: when the answer never changes, a genuinely un-promoted
+ * production is indistinguishable from the normal state.
+ *
+ * So a revision the deployment does not report is UNREPORTED: build identity is
+ * unverifiable. It is not silently fine either — the caller must say so out
+ * loud, because absence of evidence is not evidence. The remedy is to make the
+ * deployment report its own revision (set `GIT_SHA` in the app spec), after
+ * which this check starts carrying information again.
  *
  * Pure and side-effect free so every branch is unit-testable without a
  * network; the caller does the fetching and maps the verdict to an exit code.
@@ -85,16 +107,21 @@ export function classifyDeploymentFreshness({
 
   if (typeof observed !== "string" || observed.length === 0) {
     return {
-      verdict: STALE,
+      verdict: UNREPORTED,
       reason:
-        "production reports no deploymentSha, so it predates that field — it is running a build older than this revision",
+        "production reports no deploymentSha, so which build is running cannot be " +
+        "verified from here — this says nothing about its age. Set GIT_SHA in the " +
+        "app spec so the deployment reports its own revision.",
     };
   }
 
   if (!SHA1_HEX.test(observed)) {
     return {
-      verdict: STALE,
-      reason: `production reported a malformed deploymentSha ${JSON.stringify(observed)}`,
+      verdict: UNREPORTED,
+      reason:
+        `production reported a malformed deploymentSha ${JSON.stringify(observed)}, ` +
+        "so which build is running cannot be verified. Set GIT_SHA in the app spec " +
+        "to a real 40-character commit SHA.",
     };
   }
 

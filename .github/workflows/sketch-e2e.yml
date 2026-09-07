@@ -56,6 +56,11 @@ jobs:
       NEXTAUTH_URL: http://localhost:3000
       E2E_USER_EMAIL: test@restoreassist.app
       E2E_USER_PASSWORD: Test1234!
+      # Must be the STRING "true". The value 1 makes every /api/test/* helper
+      # return 403, which reads exactly like a payment bug and is not one.
+      # Absent from every workflow in this repo until now, which is why the
+      # billing specs could not have been wired in without this line.
+      ALLOW_TEST_HELPERS: "true"
 
     steps:
       - name: Checkout
@@ -113,6 +118,38 @@ jobs:
       # separately before being added.
       - name: Run Sketch E2E
         run: npx --no-install playwright test -c config/playwright.config.ts docs/archive/playwright-e2e/sketch-api.spec.ts --project=chromium --reporter=line
+
+      # The billing suite had never been executed by any pipeline, so nothing
+      # had established whether it passed. Run locally on 2026-09-07 it was
+      # 3 pass / 6 fail; after repairing the sign-in cookie jar it is 7 of 9.
+      #
+      # NO continue-on-error. An earlier version of this step had it, to tolerate
+      # two known-red specs -- which also tolerated the OTHER SIX. A regression in
+      # any of them would have scored green and said nothing. That is a gate that
+      # cannot fail, the exact defect the rest of this branch removes, and it was
+      # caught by independent review rather than by me.
+      #
+      # The two known failures are marked in the SPEC CODE instead, where the
+      # marking is specific to them: voluntary-upgrade carries test.fail()
+      # (RA-7465, a real defect -- so if it ever passes, the run goes red and
+      # tells us), credit-exhaust carries test.fixme() (flaky, unproven, so it
+      # must not contribute a green). Everything else fails this step honestly.
+      #
+      # Specs are named individually on purpose: scripts/ci/check-e2e-coverage.mjs
+      # verifies that this workflow actually names each spec the manifest claims
+      # it runs, and a directory glob would make every one of those claims false.
+      - name: Run billing E2E
+        run: >-
+          npx --no-install playwright test -c config/playwright.config.ts
+          docs/archive/playwright-e2e/billing/cancel-flow.spec.ts
+          docs/archive/playwright-e2e/billing/credit-exhaust.spec.ts
+          docs/archive/playwright-e2e/billing/feature-gate.spec.ts
+          docs/archive/playwright-e2e/billing/grandfather.spec.ts
+          docs/archive/playwright-e2e/billing/multi-tab.spec.ts
+          docs/archive/playwright-e2e/billing/trial-expired-soft-gate.spec.ts
+          docs/archive/playwright-e2e/billing/voluntary-upgrade.spec.ts
+          docs/archive/playwright-e2e/billing/webhook-race.spec.ts
+          --project=chromium --reporter=line
 
       - name: Upload Playwright report
         if: always()

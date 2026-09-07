@@ -37,7 +37,11 @@
  *   1  production is broken: unreachable, migration parity failed, or a
  *      @smoke user flow failed
  *   2  usage or local setup error (bad base URL, Playwright not installed)
- *   3  production is HEALTHY but STALE -- it is not serving this revision.
+ *   3  production is HEALTHY but STALE -- it names a revision that is not this
+ *      one. Nothing is broken; the release was never promoted. A deployment
+ *      that does not name a revision at all is UNREPORTED, not STALE: it is
+ *      reported loudly and the flows still run, because absence of a SHA is
+ *      not evidence of an old build. See classify-deployment-freshness.mjs.
  *      Nothing is broken; the release was never promoted. Kept distinct from
  *      1 so an un-deployed backlog cannot masquerade as an outage, and so a
  *      real outage during such a backlog is still visible.
@@ -55,8 +59,9 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertMigrationHealthPayload } from "./ci/assert-migration-health.mjs";
@@ -64,8 +69,13 @@ import {
   classifyDeploymentFreshness,
   FRESH,
   STALE,
+  UNREPORTED,
 } from "./ci/classify-deployment-freshness.mjs";
 import { finalSmokeExitCode, parseSmokeArgs } from "./ci/smoke-args.mjs";
+import {
+  assessSkips,
+  smokeCoverageExitCode,
+} from "./ci/smoke-skip-policy.mjs";
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -76,6 +86,19 @@ const { preflightOnly, allowStale, flowsDespiteDegraded, extraArgs } =
 
 /** Set to the migration-health error when the run continues past it. */
 let degradedPreflight = null;
+
+/**
+ * Set to the reason when the deployment will not say which build it is.
+ *
+ * This exists because `--preflight-only` used to print "production is current"
+ * and exit 0 on UNREPORTED -- a statement the probe cannot support, and the
+ * exact silence the STALE/UNREPORTED split was introduced to avoid. On
+ * DigitalOcean nothing injects a commit SHA, so UNREPORTED is this
+ * production's PERMANENT state: a freshness watch that exits 0 on it can never
+ * fail, and a check that cannot fail is not a check. Raised twice by
+ * independent review, at P0 the second time.
+ */
+let unverifiableBuild = null;
 
 /**
  * State the verdict where the run page shows it without opening logs. Silent
@@ -190,12 +213,34 @@ if (!isLocal && expectedSha) {
     }
   }
 
-  // STALE is excluded explicitly: reaching here as STALE means `--allow-stale`
-  // was passed and the branch above deliberately fell through. Without this,
-  // a tolerated stale run would exit 1 and report an outage — collapsing the
-  // very distinction between "not deployed" and "down" that the separate exit
-  // codes exist to preserve.
-  if (verdict !== FRESH && verdict !== STALE) {
+  // UNREPORTED: the app answered normally but does not say which build it is.
+  // On DigitalOcean that is the NORMAL state, because nothing injects a commit
+  // SHA unless the app spec declares one — so this must not be reported as an
+  // outage, and it must not be reported as staleness either. Both would be
+  // claims the probe cannot support. It is said out loud instead, because a
+  // check that cannot tell fresh from stale is carrying no information, and
+  // silence would let that pass for a green.
+  if (verdict === UNREPORTED) {
+    unverifiableBuild = reason;
+    console.warn(`Deployment freshness UNVERIFIABLE: ${reason}`);
+    reportToStepSummary(
+      "🟡 Which build is running cannot be verified",
+      `${reason}\n\nThe application answered \`/api/health\` normally, so this is ` +
+        `**not** an outage — and it is **not** evidence of a stale deploy either. ` +
+        `Until the deployment reports its own revision, this check cannot tell a ` +
+        `current production from an un-promoted one.\n\n` +
+        `**Fix:** set \`GIT_SHA\` in the app spec so \`/api/health\` reports it.`,
+    );
+    // Fall through to the flows: an app whose build identity is unknown still
+    // has to be up, and the flows are the only thing that can say so.
+  }
+
+  // STALE and UNREPORTED are excluded explicitly: reaching here as STALE means
+  // `--allow-stale` was passed and the branch above deliberately fell through.
+  // Without this, a tolerated stale run would exit 1 and report an outage —
+  // collapsing the very distinction between "not deployed" and "down" that the
+  // separate exit codes exist to preserve.
+  if (verdict !== FRESH && verdict !== STALE && verdict !== UNREPORTED) {
     const detail = fetchError ? `${reason}: ${fetchError}` : reason;
     console.error(`Deployment freshness preflight failed: ${detail}`);
     reportToStepSummary(
@@ -278,6 +323,17 @@ if (preflightOnly) {
     console.error("Preflight only: migration health is failing.");
     process.exit(1);
   }
+  if (unverifiableBuild) {
+    // Exit 4, deliberately NOT 3. Conflating "cannot tell" with "stale" would
+    // undo the distinction this branch introduced; exiting 0 would assert a
+    // currency the probe never established. The caller decides what to do with
+    // it -- smoke-prod.yml warns on the 15-minute watch and fails on the daily
+    // dedicated run, the same shape it already uses for staleness.
+    console.error(
+      `Preflight only: which build is running CANNOT BE VERIFIED. ${unverifiableBuild}`,
+    );
+    process.exit(4);
+  }
   console.log("Preflight only: production is current. Not running Playwright.");
   process.exit(0);
 }
@@ -290,6 +346,12 @@ try {
   process.exit(2);
 }
 
+// A machine-readable report alongside the human one. Without it the only
+// signal about the run is Playwright's exit status, and that status is 0 when
+// every test SKIPPED -- see scripts/ci/smoke-skip-policy.mjs.
+const reportDir = mkdtempSync(path.join(tmpdir(), "ra-smoke-"));
+const reportPath = path.join(reportDir, "report.json");
+
 const result = spawnSync(
   process.execPath,
   [
@@ -299,13 +361,18 @@ const result = spawnSync(
     "config/playwright.config.ts",
     "--grep",
     "@smoke",
-    "--reporter=line",
+    "--reporter=line,json",
     ...extraArgs,
   ],
   {
     cwd: repoRoot,
     stdio: "inherit",
-    env: { ...process.env, CI: "true", PLAYWRIGHT_BASE_URL: baseUrl },
+    env: {
+      ...process.env,
+      CI: "true",
+      PLAYWRIGHT_BASE_URL: baseUrl,
+      PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath,
+    },
   },
 );
 
@@ -318,6 +385,60 @@ if (result.error) {
 // rather than letting `?? 0` turn a SIGKILL into a green gate.
 const flowStatus = result.status ?? 1;
 
+// COVERAGE. Playwright exits 0 when tests are skipped, so the status above
+// cannot distinguish "the flows passed" from "the flows never ran". Observed
+// against production 2026-09-06: 3 skipped, and those three were the only
+// specs that would have touched an authenticated surface. A skip is allowed
+// only if it is declared with a reason.
+let coverageExit = flowStatus;
+try {
+  const report = JSON.parse(readFileSync(reportPath, "utf8"));
+  const manifest = JSON.parse(
+    readFileSync(path.join(repoRoot, "scripts/ci/smoke-skip-manifest.json"), "utf8"),
+  );
+  const declared = (isProduction ? manifest.production : manifest.default) ?? {};
+  const assessment = assessSkips(report, declared);
+
+  for (const s of assessment.declared) {
+    console.warn(
+      `NOT COVERED BY THIS RUN: "${s.title}"\n  ${s.reason}`,
+    );
+  }
+  for (const s of assessment.undeclared) {
+    console.error(
+      `UNDECLARED SKIP: "${s.title}" (${s.file}) did not run, and nothing says why. ` +
+        "A skipped flow is not a passed flow -- declare it in " +
+        "scripts/ci/smoke-skip-manifest.json with a reason, or make it run.",
+    );
+  }
+  for (const title of assessment.staleDeclarations) {
+    console.error(
+      `STALE SKIP DECLARATION: "${title}" is exempted in ` +
+        "scripts/ci/smoke-skip-manifest.json but did not skip. Remove the " +
+        "exemption -- a stale one is how a suite quietly stops being run.",
+    );
+  }
+  if (assessment.declared.length) {
+    console.warn(
+      `This run left ${assessment.declared.length} declared flow(s) unproven. ` +
+        "It is not a statement that they work.",
+    );
+  }
+
+  coverageExit = smokeCoverageExitCode({
+    flowStatus,
+    undeclaredCount: assessment.undeclared.length,
+    staleCount: assessment.staleDeclarations.length,
+  });
+} catch (error) {
+  // Coverage we cannot read is coverage we cannot claim. Exit 2 is this
+  // script's established "could not run", which is never a pass.
+  console.error(`Smoke coverage could not be assessed: ${error}`);
+  rmSync(reportDir, { recursive: true, force: true });
+  process.exit(2);
+}
+rmSync(reportDir, { recursive: true, force: true });
+
 // The deferred exit -- see finalSmokeExitCode, where the rule is unit-tested.
 if (degradedPreflight) {
   console.error(
@@ -328,4 +449,9 @@ if (degradedPreflight) {
   );
 }
 
-process.exit(finalSmokeExitCode({ degraded: Boolean(degradedPreflight), flowStatus }));
+process.exit(
+  finalSmokeExitCode({
+    degraded: Boolean(degradedPreflight),
+    flowStatus: coverageExit,
+  }),
+);
