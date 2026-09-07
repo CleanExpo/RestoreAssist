@@ -136,7 +136,12 @@ videos/*.mp4
 public/videos/remotion/*.mp4
 remotion/output/*.mp4
 
+# Playwright auth state. The suite moved from docs/archive/ to e2e/ (B1-05); the OLD
+# rule is kept deliberately, because a developer who ran the suite before the move still
+# has a real session cookie at the old path and nothing else would ignore it.
 e2e/.auth/
+!e2e/.auth/.gitkeep
+docs/archive/playwright-auth-dir/
 tools/videos/*.mp4
 !tools/videos/.gitkeep
 tools/remotion/output/*.mp4
