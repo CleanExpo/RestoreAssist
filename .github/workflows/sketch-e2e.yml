@@ -151,6 +151,63 @@ jobs:
           docs/archive/playwright-e2e/billing/webhook-race.spec.ts
           --project=chromium --reporter=line
 
+      # The 36 specs below were every remaining spec declared unrun because "no pipeline
+      # boots the app with a seeded database and an authenticated session". That statement
+      # was true when it was written and stopped being true when the billing step above
+      # landed: the job now does exactly that, and eight billing specs were observed
+      # passing through it. The reason outlived the condition it described.
+      #
+      # These have never been executed by any pipeline, so nothing here claims they pass.
+      # This step exists to find out. Whatever it reports is the first real information
+      # anyone has had about them.
+      #
+      # NO continue-on-error, for the reason written on the billing step: it would tolerate
+      # every spec in the list, not just the ones already known to be red, and a regression
+      # in any of them would score green.
+      #
+      # Named individually, not globbed, because scripts/ci/check-e2e-coverage.mjs verifies
+      # this workflow actually names each spec the manifest claims it runs.
+      - name: Run remaining E2E
+        run: >-
+          npx --no-install playwright test -c config/playwright.config.ts
+          docs/archive/playwright-e2e/account-deletion.spec.ts
+          docs/archive/playwright-e2e/billing.spec.ts
+          docs/archive/playwright-e2e/crm-health.spec.ts
+          docs/archive/playwright-e2e/dr-nrpg-inbound-job.spec.ts
+          docs/archive/playwright-e2e/health-migrations.spec.ts
+          docs/archive/playwright-e2e/health.spec.ts
+          docs/archive/playwright-e2e/help/article-detail.spec.ts
+          docs/archive/playwright-e2e/help/dropdown-open.spec.ts
+          docs/archive/playwright-e2e/help/public-mirror.spec.ts
+          docs/archive/playwright-e2e/help/redirects.spec.ts
+          docs/archive/playwright-e2e/help/search-cmd-k.spec.ts
+          docs/archive/playwright-e2e/invite-tech-already-used.spec.ts
+          docs/archive/playwright-e2e/invite-tech-expired.spec.ts
+          docs/archive/playwright-e2e/invite-tech-google-oauth.spec.ts
+          docs/archive/playwright-e2e/invite-tech-happy-path.spec.ts
+          docs/archive/playwright-e2e/ios-billing-gates.spec.ts
+          docs/archive/playwright-e2e/job-close-preconditions.spec.ts
+          docs/archive/playwright-e2e/login-callback-url.spec.ts
+          docs/archive/playwright-e2e/navigation.spec.ts
+          docs/archive/playwright-e2e/nir-routes-regression.spec.ts
+          docs/archive/playwright-e2e/procurement.spec.ts
+          docs/archive/playwright-e2e/security.spec.ts
+          docs/archive/playwright-e2e/setup-abr-unreachable.spec.ts
+          docs/archive/playwright-e2e/setup-no-abn.spec.ts
+          docs/archive/playwright-e2e/setup-resume.spec.ts
+          docs/archive/playwright-e2e/setup-skip-manual.spec.ts
+          docs/archive/playwright-e2e/setup-technician-gate.spec.ts
+          docs/archive/playwright-e2e/setup-website-failure.spec.ts
+          docs/archive/playwright-e2e/storage-restore.spec.ts
+          docs/archive/playwright-e2e/stripe-payment-intent-webhook.spec.ts
+          docs/archive/playwright-e2e/tech-banner-auto-dismiss.spec.ts
+          docs/archive/playwright-e2e/tech-evidence-capture-no-modal.spec.ts
+          docs/archive/playwright-e2e/tech-second-signoff-prefilled.spec.ts
+          docs/archive/playwright-e2e/tech-signoff-modal-cancel.spec.ts
+          docs/archive/playwright-e2e/warehouse.spec.ts
+          docs/archive/playwright-e2e/workshop.spec.ts
+          --project=chromium --reporter=line
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
