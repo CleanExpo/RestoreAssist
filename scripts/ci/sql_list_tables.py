@@ -3,51 +3,40 @@
 
 Used by scripts/ci/migration-roundtrip.sh (additive-only mode) to build the set
 of tables the branch itself creates, which is what the DROP POLICY exemption is
-scoped to.
+scoped to. Accepts any number of migration files; emits one folded name per line.
 
-Why this is not the one-line `grep | sed | tr -d '"'` it replaces: stripping the
-quotes throws away the one bit of information that decides the name. Postgres
-folds an UNQUOTED identifier to lower case and preserves a quoted one, so
+Why this is not the `grep | sed | tr -d '"'` it replaces: stripping the quotes
+throws away the one bit of information that decides the name. Postgres folds an
+UNQUOTED identifier to lower case and preserves a quoted one, so
 `CREATE TABLE "AiRunnerFlag"` is AiRunnerFlag while `CREATE TABLE MyTable` is
-mytable. An extractor that strips quotes emits `AiRunnerFlag` and `MyTable` --
-one right by luck, one wrong -- and the comparison against a folded name on the
-other side then silently fails, disabling the exemption for every table.
+mytable. The old extractor emitted `AiRunnerFlag` -- right by luck -- and would
+emit `MyTable`, which matches nothing. Grammar and fold are shared in
+sql_ident.py, one copy.
 
-Same fold, one implementation, both sides: see sql_list_policies.py, where the
-same defect cost review round 4 a P1.
+Comments and string literals are blanked first, so a CREATE TABLE mentioned in a
+comment does not silently widen the DROP POLICY exemption to a table the branch
+does not actually create.
 """
 
-import re
+import os
 import sys
 
-# A Postgres identifier: quoted (with "" as an escaped quote) or bare.
-IDENT = r'"(?:[^"]|"")*"|[A-Za-z_][A-Za-z0-9_$]*'
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-CREATE_TABLE = re.compile(
-    r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"
-    r"(?:(?:" + IDENT + r")\s*\.\s*)?"          # optional schema qualifier
-    r"(?P<tbl>" + IDENT + r")",
-    re.I | re.S,
-)
-
-
-def fold(token: str) -> str:
-    """Fold an identifier exactly as Postgres does."""
-    if token.startswith('"'):
-        return token[1:-1].replace('""', '"')
-    return token.lower()
+from sql_ident import CREATE_TABLE, blank_noncode, fold  # noqa: E402
 
 
 def main() -> int:
     seen = set()
     for path in sys.argv[1:]:
         try:
-            src = open(path, encoding="utf8").read()
-        except OSError:
-            # A caller that names an unreadable file is a caller bug, and a
-            # silently empty table set would DISABLE the exemption rather than
-            # widen it -- annoying, not dangerous -- but say so anyway.
-            sys.stderr.write("sql_list_tables: cannot read %s\n" % path)
+            src = blank_noncode(open(path, encoding="utf8").read())
+        except OSError as exc:
+            # Exit non-zero rather than emitting a short list. An empty or
+            # partial table set DISABLES the exemption, which turns a clean tree
+            # red -- noisy and safe -- but the caller runs under `set -e` and
+            # must stop on a real read error rather than proceed on a guess.
+            sys.stderr.write("sql_list_tables: cannot read %s: %s\n" % (path, exc))
             return 2
         for match in CREATE_TABLE.finditer(src):
             seen.add(fold(match.group("tbl")))
