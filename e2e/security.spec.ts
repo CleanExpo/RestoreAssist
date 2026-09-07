@@ -202,9 +202,20 @@ test.describe("2 · Cross-tenant isolation", () => {
       `Inspection creation failed: ${createRes.status()}. The precondition for the ` +
         `cross-tenant check could not be established, so isolation was NOT verified.`,
     ).toContain(createRes.status());
-    const { data: inspection } = await createRes.json();
+    // ENVELOPE. POST /api/inspections returns `{ inspection }`
+    // (app/api/inspections/route.ts:473), NOT `{ data }`. Destructuring `data`
+    // yielded undefined, and the id assertion below is what caught it.
+    // Probed live 07/09/2026: top-level keys are exactly ["inspection"].
+    const { inspection } = (await createRes.json()) as {
+      inspection?: { id?: string };
+    };
     const inspectionId = inspection?.id;
-    expect(inspectionId).toBeTruthy();
+    expect(
+      inspectionId,
+      "Inspection was created but no id came back, so the cross-tenant read " +
+        "below would target /api/inspections/undefined and pass on a 404 " +
+        "that proves nothing.",
+    ).toBeTruthy();
 
     // Step 2: User B tries to read User A's inspection
     const sessionB = await getSessionCookie(
@@ -251,13 +262,35 @@ test.describe("2 · Cross-tenant isolation", () => {
       `Client creation failed: ${createRes.status()}. The precondition for the ` +
         `cross-tenant delete check could not be established, so isolation was NOT verified.`,
     ).toContain(createRes.status());
-    const { data: client } = await createRes.json();
+    // ENVELOPE. POST /api/clients returns the client object at the TOP LEVEL
+    // (app/api/clients/route.ts:202 spreads it), NOT under `data`. Probed live
+    // 07/09/2026: top-level keys begin ["id","name","email",...] and there is
+    // no `data` key.
+    //
+    // THIS IS WHY THE ASSERTION BELOW EXISTS. With `{ data: client }` the id
+    // was undefined, so this test sent `DELETE /api/clients/undefined`, got
+    // 404, and PASSED -- while proving only that deleting a nonexistent id
+    // 404s. A vacuous pass on the guard for the #2178 P0 is worse than a
+    // failure, because it is quoted as coverage. Verified by probe:
+    // DELETE /api/clients/undefined returns 404.
+    const client = (await createRes.json()) as { id?: string };
+    expect(
+      client?.id,
+      "Client was created but no id came back. Without a real id the delete " +
+        "below targets /api/clients/undefined, which 404s and makes this " +
+        "isolation check vacuous.",
+    ).toBeTruthy();
 
     // User A tries to delete User B's client
-    const deleteRes = await request.delete(`/api/clients/${client?.id}`, {
+    const deleteRes = await request.delete(`/api/clients/${client.id}`, {
       headers: { Cookie: sessionA! },
     });
-    expect([403, 404]).toContain(deleteRes.status());
+    expect(
+      [403, 404],
+      `Expected 403 or 404 when user A deletes user B's client ` +
+        `${client.id}, got ${deleteRes.status()}. A 200 here is the #2178 ` +
+        `cross-tenant defect, live.`,
+    ).toContain(deleteRes.status());
   });
 });
 
