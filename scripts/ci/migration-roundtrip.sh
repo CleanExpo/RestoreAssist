@@ -161,13 +161,33 @@ case "$MODE" in
       # false red on a DROP mentioned inside a function body's own comment or
       # error string, which is a nuisance a human resolves in seconds; the
       # alternative is a miss nobody ever sees.
-      stripped="$(python3 - "$f" <<'PYEOF'
-import re, sys
+      stripped="$(NEW_TABLES="$NEW_TABLES" python3 - "$f" <<'PYEOF'
+import os, re, sys
 src = open(sys.argv[1], encoding="utf8").read()
 blank = lambda m: re.sub(r"[^\n]", " ", m.group(0))   # keep line numbering
 src = re.sub(r"/\*.*?\*/", blank, src, flags=re.S)     # block comments
 src = re.sub(r"'(?:[^']|'')*'", blank, src, flags=re.S)  # string literals ('' escapes)
 src = re.sub(r"--[^\n]*", blank, src)                  # line comments
+
+# The DROP POLICY exemption, applied HERE as a text blanking rather than as a
+# filter over the grep output lines. Review round 3 (P1) found the line-filter
+# form reintroduced the very hole it closed: it skipped the WHOLE line on a
+# match, so
+#
+# NB: no apostrophes in this heredoc. It sits inside a $( ) command
+# substitution, where bash still tracks quote parity through the heredoc body,
+# so a lone apostrophe in a comment breaks the whole script with a syntax error
+# pointing at a case terminator 170 lines further down.
+#   DROP POLICY "a" ON "AiRunnerFlag"; DROP POLICY "b" ON "Workspace";
+# smuggled the second statement past on the coat-tails of the first. Blanking
+# each exempt STATEMENT leaves everything else on the line still visible to the
+# match below, and preserves line numbers for reporting.
+new_tables = {t.strip().strip('"') for t in os.environ.get("NEW_TABLES", "").split() if t.strip()}
+def exempt(m):
+    return blank(m) if m.group("tbl").strip('"') in new_tables else m.group(0)
+src = re.sub(
+    r'DROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?"?[A-Za-z_][A-Za-z0-9_]*"?\s+ON\s+(?:ONLY\s+)?(?P<tbl>"?[A-Za-z_][A-Za-z0-9_]*"?)',
+    exempt, src, flags=re.I)
 sys.stdout.write(src)
 PYEOF
 )"
@@ -175,36 +195,21 @@ PYEOF
       # so `ALTER TABLE foo DROP bar` is a column drop and must match. Hence
       # `DROP` followed by an optional keyword, then an identifier.
       hits="$(printf '%s\n' "$stripped" | grep -nEi '(DROP[[:space:]]+(TABLE|COLUMN|CONSTRAINT|INDEX|TYPE|SCHEMA|SEQUENCE|VIEW|TRIGGER|FUNCTION)?[[:space:]]*(IF[[:space:]]+EXISTS[[:space:]]+)?"?[A-Za-z_]|RENAME[[:space:]]+(TO|COLUMN)|ALTER[[:space:]]+COLUMN[[:space:]]+.*[[:space:]]TYPE[[:space:]]|SET[[:space:]]+NOT[[:space:]]+NULL|TRUNCATE|DELETE[[:space:]]+FROM)' || true)"
-      # DROP POLICY is exempt ONLY on a table this branch itself creates.
+      # The DROP POLICY exemption is applied ABOVE, as a statement-level
+      # blanking of the SQL text, not as a filter over these result lines.
       #
       # Postgres has no CREATE POLICY IF NOT EXISTS, so drop-then-create is how
-      # an idempotent policy migration is written — but review round 2 showed the
-      # blanket `grep -v 'DROP POLICY'` this replaces was a security hole of its
-      # own: it equally waved through `DROP POLICY "tenant_isolation" ON
-      # "Workspace"`, silently removing tenant isolation from a PRE-EXISTING
-      # table. Dropping a policy you just wrote is housekeeping; dropping one
-      # that was already protecting live rows is exactly what this check exists
-      # to catch.
+      # an idempotent policy migration is written — but the blanket
+      # `grep -v 'DROP POLICY'` two rounds ago was a hole of its own: it equally
+      # waved through `DROP POLICY "tenant_isolation" ON "Workspace"`, silently
+      # removing tenant isolation from a PRE-EXISTING table. Dropping a policy
+      # you just wrote is housekeeping; dropping one already protecting live
+      # rows is exactly what this check exists to catch.
       #
-      # Anything that is not recognisably `DROP POLICY ... ON <new table>` stays
-      # a finding, including a DROP POLICY whose target cannot be parsed. Fail
-      # closed: an unreadable exemption is not an exemption.
-      if [ -n "$hits" ]; then
-        hits="$(printf '%s\n' "$hits" | NEW_TABLES="$NEW_TABLES" python3 -c '
-import os, re, sys
-new = {t.strip().strip(chr(34)) for t in os.environ["NEW_TABLES"].split() if t.strip()}
-drop_policy = re.compile(r"\bDROP\s+POLICY\b", re.I)
-target = re.compile(r"\bDROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?\"?[A-Za-z_][A-Za-z0-9_]*\"?\s+ON\s+(?:ONLY\s+)?\"?([A-Za-z_][A-Za-z0-9_]*)\"?", re.I)
-for line in sys.stdin.read().splitlines():
-    if not line.strip():
-        continue
-    if drop_policy.search(line):
-        m = target.search(line)
-        if m and m.group(1) in new:
-            continue          # housekeeping on a table this branch creates
-    sys.stdout.write(line + "\n")
-' || true)"
-      fi
+      # Anything not recognisably `DROP POLICY ... ON <table this branch
+      # creates>` is left in the text and stays a finding, including a DROP
+      # POLICY whose target cannot be parsed. Fail closed: an unreadable
+      # exemption is not an exemption.
       if [ -n "$hits" ]; then
         echo "NOT ADDITIVE — $f" >&2
         printf '%s\n' "$hits" >&2
@@ -335,8 +340,28 @@ for line in sys.stdin.read().splitlines():
         n="$(psql_q "SELECT count(*) FROM pg_proc p JOIN pg_namespace ns ON ns.oid = p.pronamespace WHERE ns.nspname='public' AND p.proname='$fn';")"
         [ "$n" = "0" ] || { echo "STILL PRESENT after rollback: function $fn" >&2; rc=1; }
       done
+      # Policies, by (policy, table) pair. A policy on a NEW table goes with its
+      # table, so those are free — but a migration may add a policy to a
+      # PRE-EXISTING table, and that one survives every DROP TABLE in the
+      # down.sql. Review round 3 (P1): without this, such a policy leaks and
+      # stays ACTIVE on live rows while the check still prints PASS.
+      while read -r pol tbl; do
+        [ -n "$pol" ] || continue
+        n="$(psql_q "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='$tbl' AND policyname='$pol';")"
+        [ "$n" = "0" ] || { echo "STILL PRESENT after rollback: policy $pol on $tbl" >&2; rc=1; }
+      done < <(grep -oEi 'CREATE POLICY "?[A-Za-z_][A-Za-z0-9_]*"? ON (ONLY )?"?[A-Za-z_][A-Za-z0-9_]*"?' "$f" \
+                 | sed -E 's/[Cc][Rr][Ee][Aa][Tt][Ee] [Pp][Oo][Ll][Ii][Cc][Yy] "?([A-Za-z_][A-Za-z0-9_]*)"? [Oo][Nn] ([Oo][Nn][Ll][Yy] )?"?([A-Za-z_][A-Za-z0-9_]*)"?/\1 \3/' \
+                 | sort -u)
     done < <(new_migrations)
-    [ "$rc" = "0" ] && echo "rollback: PASS — every object the new migrations created is gone, and pre-existing tables remain"
+    # The claim names its own SCOPE. "Every object" was wider than what this
+    # check inspects, and review round 3 was right to call it: an unscoped claim
+    # is how a leak of some object class nobody enumerated gets read as proof
+    # there was none. Inspected here: tables, types, functions, policies. NOT
+    # inspected: sequences, views, extensions, grants, and indexes created
+    # outside a CREATE TABLE. None of those are created by this branch; a branch
+    # that creates one must extend this list rather than inherit the word
+    # "every".
+    [ "$rc" = "0" ] && echo "rollback: PASS — every table, type, function and policy the new migrations created is gone, and pre-existing tables remain"
     exit "$rc"
     ;;
 

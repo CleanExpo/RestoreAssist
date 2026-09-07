@@ -600,6 +600,81 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     expect(okRow.remainingTokens).toBe(5_000n);
   });
 
+  it("a token budget cannot be refilled by routing through NULL", async () => {
+    // Review round 3's P0, and the third time in this branch that a fix has
+    // reintroduced its own defect one line below the guard. The monotonic
+    // trigger compared token balances only when BOTH sides were non-null, so
+    // the ceiling could be lifted in two legal steps inside one window: set the
+    // pair to NULL (the check skips, NEW is null), then set it back full (the
+    // check skips, OLD is null). periodStart never moves; the budget refills.
+    const ws = await seedWorkspace(`ra7493-nulltok-${Date.now()}`);
+    const b = await prisma.aiRunnerBudget.create({
+      data: {
+        workspaceId: ws.id,
+        scope: "INGESTION",
+        periodStart: new Date("2026-09-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+        maxMicroUsd: 100n,
+        remainingMicroUsd: 100n,
+        maxTokens: 1_000n,
+        remainingTokens: 10n,
+      },
+    });
+
+    // Step one of the attack is now refused on its own: removing the ceiling
+    // mid-window grants unlimited tokens.
+    await expect(
+      prisma.aiRunnerBudget.update({
+        where: { id: b.id },
+        data: { maxTokens: null, remainingTokens: null },
+      }),
+    ).rejects.toThrow();
+
+    // And the balance is untouched, so the rejection was the trigger and not a
+    // half-applied write.
+    expect(
+      (await prisma.aiRunnerBudget.findUniqueOrThrow({ where: { id: b.id } })).remainingTokens,
+    ).toBe(10n);
+
+    // The control: counting DOWN still works, so the row is not simply frozen.
+    const ok = await prisma.aiRunnerBudget.updateMany({
+      where: { id: b.id, remainingTokens: { gte: 4n } },
+      data: { remainingTokens: { decrement: 4n } },
+    });
+    expect(ok.count).toBe(1);
+
+    // The mirror image: a budget with NO token ceiling cannot gain one
+    // mid-window either, which would grant a balance that was not there.
+    const noCeiling = await prisma.aiRunnerBudget.create({
+      data: {
+        workspaceId: ws.id,
+        scope: "GOVERNOR",
+        periodStart: new Date("2026-09-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-10-01T00:00:00.000Z"),
+        maxMicroUsd: 100n,
+        remainingMicroUsd: 100n,
+      },
+    });
+    await expect(
+      prisma.aiRunnerBudget.update({
+        where: { id: noCeiling.id },
+        data: { maxTokens: 5_000n, remainingTokens: 5_000n },
+      }),
+    ).rejects.toThrow();
+
+    // Both are legal when the window moves, because that is a reset.
+    const reset = await prisma.aiRunnerBudget.update({
+      where: { id: noCeiling.id },
+      data: {
+        periodStart: new Date("2026-10-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-11-01T00:00:00.000Z"),
+        maxTokens: 5_000n,
+        remainingTokens: 5_000n,
+      },
+    });
+    expect(reset.remainingTokens).toBe(5_000n);
+  });
+
   it("a receipt resolves exactly once, and its story is frozen at insert", async () => {
     // Round 2 asked for the append-only claim to be enforced rather than
     // asserted. Its suggested fix — revoke UPDATE — would have broken the

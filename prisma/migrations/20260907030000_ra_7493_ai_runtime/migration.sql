@@ -296,6 +296,23 @@ BEGIN
       OLD."id", OLD."remainingMicroUsd", NEW."remainingMicroUsd";
   END IF;
 
+  -- The token half, and the NULL transition is the whole point of writing it
+  -- this way. Review round 3 (P0) found the obvious form --
+  --   IF NEW IS NOT NULL AND OLD IS NOT NULL AND NEW > OLD
+  -- reintroduced the refill it was added to stop, one line below the guard:
+  -- set the pair to NULL (permitted, NEW is null so the check is skipped), then
+  -- set it back to a full balance (permitted, OLD is null so the check is
+  -- skipped). Two legal updates, a refilled budget, periodStart untouched.
+  --
+  -- So within a window the token ceiling's PRESENCE is frozen as well as its
+  -- value. Removing it mid-window grants unlimited tokens; adding one grants a
+  -- balance that was not there. Both are a raise, and a raise is a new period.
+  IF (OLD."remainingTokens" IS NULL) <> (NEW."remainingTokens" IS NULL) THEN
+    RAISE EXCEPTION
+      'AiRunnerBudget % may not add or remove its token ceiling within a window; start a new period instead',
+      OLD."id";
+  END IF;
+
   IF NEW."remainingTokens" IS NOT NULL
      AND OLD."remainingTokens" IS NOT NULL
      AND NEW."remainingTokens" > OLD."remainingTokens" THEN
