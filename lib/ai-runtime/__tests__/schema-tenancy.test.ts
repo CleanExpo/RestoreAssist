@@ -147,6 +147,57 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     expect(rows.filter((r) => r.delete_rule !== "CASCADE")).toEqual([]);
   });
 
+  it("every AI-runtime table has RLS enabled", async () => {
+    const rows = await prisma.$queryRaw<{ relname: string; relrowsecurity: boolean }[]>`
+      SELECT c.relname, c.relrowsecurity
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relname IN ('AiRunnerFlag','AiRunnerBudget','AiRunnerReceipt','AiJobSuggestion','AiStyleProfile')
+    `;
+    expect(rows.map((r) => r.relname).sort()).toEqual([...RUNTIME_MODELS].sort());
+    expect(rows.filter((r) => !r.relrowsecurity).map((r) => r.relname)).toEqual([]);
+  });
+
+  it("each SELECT policy actually compares WorkspaceMember to ITS OWN table's workspaceId", async () => {
+    // The bug this catches is not hypothetical and it is invisible to review.
+    // An unqualified "workspaceId" inside the policy subquery binds to
+    // WorkspaceMember's own column, so the predicate becomes
+    // wm."workspaceId" = wm."workspaceId" — always true, for every row, for any
+    // member of any workspace. It reads exactly like tenant isolation.
+    //
+    // Postgres stores the RESOLVED predicate, so pg_policies.qual shows which
+    // binding actually happened. Asserting on the stored qual is the only way
+    // to tell the two apart; the migration text cannot.
+    //
+    // Measured, not assumed. The same predicate written both ways stores as:
+    //   qualified:   (wm."workspaceId" = "AiRunnerFlag"."workspaceId")
+    //   unqualified: (wm."workspaceId" = wm."workspaceId")        ← tautology
+    // The table name comes back QUOTED, which is why the expected substring
+    // below is quoted too — an earlier draft looked for an unquoted name and
+    // failed against a policy that was perfectly correct.
+    const rows = await prisma.$queryRaw<{ tablename: string; policyname: string; qual: string }[]>`
+      SELECT tablename, policyname, qual FROM pg_policies
+      WHERE schemaname = 'public'
+        AND tablename IN ('AiRunnerFlag','AiRunnerBudget','AiRunnerReceipt','AiJobSuggestion','AiStyleProfile')
+    `;
+    // Control: all five policies must be found, or "no bad predicates" would
+    // just mean the query matched nothing.
+    expect(rows.map((r) => r.tablename).sort()).toEqual([...RUNTIME_MODELS].sort());
+    for (const r of rows) {
+      expect(
+        r.qual,
+        `${r.policyname} does not reference "${r.tablename}"."workspaceId"`,
+      ).toContain(`"${r.tablename}"."workspaceId"`);
+      // The other direction, because the first assertion alone would pass a
+      // predicate that mentioned the outer table somewhere else while still
+      // carrying the tautology.
+      expect(
+        r.qual,
+        `${r.policyname} compares WorkspaceMember's workspaceId to itself — the policy is true for every row`,
+      ).not.toContain(`wm."workspaceId" = wm."workspaceId"`);
+    }
+  });
+
   it("AiRunnerFlag.enabled defaults to false in the database", async () => {
     const rows = await prisma.$queryRaw<{ column_default: string | null }[]>`
       SELECT column_default FROM information_schema.columns
