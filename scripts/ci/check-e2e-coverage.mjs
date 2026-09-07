@@ -37,6 +37,7 @@ const repoRoot = path.join(
   "..",
 );
 const E2E_ROOT = path.join(repoRoot, "docs", "archive", "playwright-e2e");
+const E2E_REL = path.relative(repoRoot, E2E_ROOT).split(path.sep).join("/");
 const WORKFLOWS = path.join(repoRoot, ".github", "workflows");
 const MANIFEST = path.join(repoRoot, "scripts", "ci", "e2e-coverage-manifest.txt");
 
@@ -103,7 +104,12 @@ function workflowNamedSpecs(specs) {
       readFileSync(path.join(WORKFLOWS, wf), "utf8"),
       "yml",
     );
-    const named = specs.filter((s) => mentionsSpec(text, s));
+    // The e2e root is passed so a mention may be written either bare
+    // (`auth.spec.ts`) or fully qualified
+    // (`docs/archive/playwright-e2e/auth.spec.ts`) and still be compared for
+    // EQUALITY rather than containment. Without it a path-qualified mention
+    // of a different spec with the same basename would discharge this claim.
+    const named = specs.filter((s) => mentionsSpec(text, s, [E2E_REL]));
     if (named.length) map.set(wf, named);
   }
   return map;

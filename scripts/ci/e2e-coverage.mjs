@@ -94,21 +94,32 @@ function escapeRegExp(v) {
  * A workflow naming only the longer one silently satisfied the shorter one's
  * coverage claim, and the shorter spec stayed unexecuted while the gate passed.
  *
- * The needle must therefore not be glued to a filename character on either
- * side. `/` is allowed BEFORE it, so a path-qualified mention still counts;
- * that is the whole reason this is not a plain word boundary.
+ * THE FIRST FIX FOR THAT WAS STILL SUBSTRING MATCHING, and it left the same
+ * class open one turn later. It allowed `/` before the needle so a
+ * path-qualified mention would count, which meant a DIFFERENT spec sharing a
+ * basename satisfied the claim: a workflow running `other/cancel-flow.spec.ts`
+ * discharged the coverage obligation for `billing/cancel-flow.spec.ts`, and the
+ * billing spec stayed unexecuted while the gate passed. Same false green, same
+ * file, second instance. Found by independent review 2026-09-07 and confirmed by
+ * executable probe before being believed.
+ *
+ * So this no longer matches substrings at all. The text is split into whole
+ * path tokens and each is compared for EQUALITY against the spec, optionally
+ * prefixed by one of the known e2e roots. `billing/auth.spec.ts` is simply not
+ * equal to `auth.spec.ts`, so no amount of shared basename can discharge the
+ * wrong spec's claim.
  *
  * @param {string} text
  * @param {string} spec spec path relative to the e2e root
+ * @param {string[]} roots repo-relative e2e roots a mention may be prefixed by
  */
-export function mentionsSpec(text, spec) {
-  const candidates = [spec, spec.split("/").pop()];
-  return candidates.some((needle) =>
-    new RegExp(
-      `(^|[^A-Za-z0-9_.\\-])${escapeRegExp(needle)}(?![A-Za-z0-9_.\\-])`,
-      "mu",
-    ).test(text ?? ""),
-  );
+export function mentionsSpec(text, spec, roots = []) {
+  const wanted = new Set([
+    spec,
+    ...roots.map((r) => `${String(r).replace(/\/+$/u, "")}/${spec}`),
+  ]);
+  const tokens = String(text ?? "").match(/[A-Za-z0-9_.\-]+(?:\/[A-Za-z0-9_.\-]+)*/gu) ?? [];
+  return tokens.some((t) => wanted.has(t.replace(/^\.\//u, "")));
 }
 
 /**
@@ -118,11 +129,19 @@ export function mentionsSpec(text, spec) {
  * were already excluded by stripComments; this closes the rest by requiring the
  * tag to sit in the title argument of a test() or describe() call.
  *
+ * `.step` IS EXCLUDED, and it is the whole reason for the negative lookahead.
+ * `test.step()` also takes a title string, so the earlier modifier chain
+ * `(?:\s*\.\s*\w+)*` matched it -- but `--grep` does not match step titles.
+ * A spec whose only `@smoke` sat in a `test.step()` was therefore recorded as
+ * smoke-covered while `--grep @smoke` selected nothing and Playwright exited 0,
+ * leaving the spec unexecuted and the gate green. Found by independent review
+ * 2026-09-07 and confirmed by executable probe before being believed.
+ *
  * @param {string} source spec file contents
  */
 export function hasSmokeTitle(source) {
   const call =
-    /(?:^|[^A-Za-z0-9_$.])(?:test|describe)(?:\s*\.\s*\w+)*\s*\(\s*(['"`])([\s\S]*?)\1/gmu;
+    /(?:^|[^A-Za-z0-9_$.])(?:test|describe)(?:\s*\.\s*(?!step\b)\w+)*\s*\(\s*(['"`])([\s\S]*?)\1/gmu;
   for (const m of (source ?? "").matchAll(call)) {
     if (m[2].includes("@smoke")) return true;
   }

@@ -181,17 +181,60 @@ test("one spec's name inside another's does not count as a mention", () => {
   assert.equal(mentionsSpec("run: playwright test crm-health.spec.ts", "health.spec.ts"), false);
 });
 
+const E2E = "docs/archive/playwright-e2e";
+
 test("a genuine mention still counts, path-qualified or not", () => {
-  assert.equal(mentionsSpec("run: playwright test auth.spec.ts", "auth.spec.ts"), true);
-  assert.equal(mentionsSpec("run: playwright test docs/archive/playwright-e2e/auth.spec.ts", "auth.spec.ts"), true);
-  assert.equal(mentionsSpec("run: playwright test billing/auth.spec.ts --project=chromium", "auth.spec.ts"), true);
-  assert.equal(mentionsSpec('run: npx playwright test "auth.spec.ts"', "auth.spec.ts"), true);
+  assert.equal(mentionsSpec("run: playwright test auth.spec.ts", "auth.spec.ts", [E2E]), true);
+  assert.equal(mentionsSpec(`run: playwright test ${E2E}/auth.spec.ts`, "auth.spec.ts", [E2E]), true);
+  assert.equal(mentionsSpec('run: npx playwright test "auth.spec.ts"', "auth.spec.ts", [E2E]), true);
+});
+
+// Independent review 2026-09-07 — P1, and the SECOND instance of the class the
+// test above was written for. The first fix was still substring matching: it
+// permitted `/` before the needle so a path-qualified mention would count, which
+// meant a DIFFERENT spec sharing a basename discharged the wrong spec's claim.
+//
+// This assertion previously read `true` and was WRONG. `billing/auth.spec.ts` is
+// not `auth.spec.ts`; a workflow running the former left the latter unexecuted
+// while the gate passed. Changing it to `false` makes the gate stricter, never
+// weaker -- the failure direction is now a missed mention, which reds the gate,
+// instead of a phantom mention, which greened it.
+test("a same-basename spec in another directory does not discharge the claim", () => {
+  assert.equal(
+    mentionsSpec("run: playwright test billing/auth.spec.ts --project=chromium", "auth.spec.ts", [E2E]),
+    false,
+  );
+  assert.equal(
+    mentionsSpec("run: playwright test other/cancel-flow.spec.ts", "billing/cancel-flow.spec.ts", [E2E]),
+    false,
+  );
+  // and the spec that IS named still counts, so this is not a blanket refusal
+  assert.equal(
+    mentionsSpec("run: playwright test other/cancel-flow.spec.ts", "other/cancel-flow.spec.ts", [E2E]),
+    true,
+  );
 });
 
 // Independent review, round 3 — P1. Playwright's grep matches TEST TITLES. A
 // `@smoke` anywhere else in the file -- a string literal, a run instruction --
 // selects nothing, so counting it as smoke coverage claims a spec runs when it
 // does not. Comments were already excluded; this closes the rest.
+// Independent review 2026-09-07 — P1. `test.step()` also takes a title string,
+// so the modifier chain matched it -- but Playwright's `--grep` does not match
+// step titles. A spec whose only `@smoke` sat in a `test.step()` was recorded as
+// smoke-covered while `--grep @smoke` selected nothing, Playwright exited 0, and
+// the spec went unexecuted behind a green gate.
+test("@smoke inside a test.step title does not count as smoke coverage", () => {
+  assert.equal(
+    hasSmokeTitle('test("plain", async () => { await test.step("inner @smoke", async () => {}); });'),
+    false,
+  );
+  // the same tag in a real title still counts, so the exclusion is narrow
+  assert.equal(hasSmokeTitle('test("checkout @smoke", async () => {});'), true);
+  // a legitimate modifier chain is untouched
+  assert.equal(hasSmokeTitle('test.describe.serial("billing @smoke", () => {});'), true);
+});
+
 test("@smoke only counts when it is in a test or describe title", () => {
   assert.equal(hasSmokeTitle('test.describe("@smoke pilot workflow", () => {});'), true);
   assert.equal(hasSmokeTitle('test("@smoke does a thing", async () => {});'), true);
