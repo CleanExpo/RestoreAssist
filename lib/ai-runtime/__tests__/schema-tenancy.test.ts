@@ -183,18 +183,43 @@ describe.skipIf(!HAS_DB)("RA-7493 tenancy holds in the database, not just the mo
     // Control: all five policies must be found, or "no bad predicates" would
     // just mean the query matched nothing.
     expect(rows.map((r) => r.tablename).sort()).toEqual([...RUNTIME_MODELS].sort());
+
+    // The tenant column is DISCOVERED from the foreign key, not hardcoded.
+    // Hardcoding "workspaceId" makes this test fail noisily on a rename that
+    // Postgres handles correctly: the stored expression tree is rewritten to
+    // the new name, the policy stays valid, and only the assertion breaks.
+    // Asking the database which column actually points at Workspace keeps the
+    // check aimed at the property (is the outer table's own tenant column on
+    // the right-hand side) rather than at a spelling.
+    const fks = await prisma.$queryRaw<{ table_name: string; column_name: string }[]>`
+      SELECT tc.table_name, kcu.column_name
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON kcu.constraint_name = tc.constraint_name
+      JOIN information_schema.constraint_column_usage ccu
+        ON ccu.constraint_name = tc.constraint_name
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND ccu.table_name = 'Workspace'
+        AND tc.table_name IN ('AiRunnerFlag','AiRunnerBudget','AiRunnerReceipt','AiJobSuggestion','AiStyleProfile')
+    `;
+    const tenantColumn = new Map(fks.map((f) => [f.table_name, f.column_name]));
+    // Control on the discovery itself: if the FK lookup found nothing, every
+    // assertion below would be checking against `undefined`.
+    expect([...tenantColumn.keys()].sort()).toEqual([...RUNTIME_MODELS].sort());
+
     for (const r of rows) {
+      const col = tenantColumn.get(r.tablename)!;
       expect(
         r.qual,
-        `${r.policyname} does not reference "${r.tablename}"."workspaceId"`,
-      ).toContain(`"${r.tablename}"."workspaceId"`);
+        `${r.policyname} does not reference "${r.tablename}"."${col}" — the outer table's own tenant column`,
+      ).toContain(`"${r.tablename}"."${col}"`);
       // The other direction, because the first assertion alone would pass a
       // predicate that mentioned the outer table somewhere else while still
       // carrying the tautology.
       expect(
         r.qual,
-        `${r.policyname} compares WorkspaceMember's workspaceId to itself — the policy is true for every row`,
-      ).not.toContain(`wm."workspaceId" = wm."workspaceId"`);
+        `${r.policyname} compares WorkspaceMember's ${col} to itself — the policy is true for every row`,
+      ).not.toMatch(new RegExp(`(\\w+)\\."${col}" = \\1\\."${col}"`));
     }
   });
 

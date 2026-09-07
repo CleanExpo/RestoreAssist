@@ -43,10 +43,29 @@ PRE_RESOLVED=(
 
 new_migrations() {
   # Directory names present in the working tree and absent at the merge base.
-  local base
-  base="$(git merge-base HEAD "$BASE_REF")"
+  #
+  # FAILS CLOSED. In a shallow clone (CI with fetch-depth: 1) `git merge-base`
+  # returns empty and exits non-zero. The previous version then ran
+  # `git ls-tree ""`, whose failure was swallowed by the process substitution,
+  # producing an EMPTY base list — so `comm -13` reported every migration in the
+  # repo's history as "new" and the checks ran against all 226 of them,
+  # tripping over a legitimate DROP in a 2025 migration. A gate that turns a
+  # missing base into "everything is new" is worse than no gate: it fails loudly
+  # for the wrong reason and gets disabled.
+  local base base_list
+  if ! base="$(git merge-base HEAD "$BASE_REF" 2>/dev/null)" || [ -z "$base" ]; then
+    echo "Cannot resolve merge-base of HEAD and $BASE_REF." >&2
+    echo "In CI this usually means a shallow clone — set fetch-depth: 0, or point" >&2
+    echo "RA_ROUNDTRIP_BASE_REF at a ref this checkout actually has." >&2
+    echo "Refusing to guess: an unresolvable base would make every migration look new." >&2
+    exit 4
+  fi
+  if ! base_list="$(git ls-tree --name-only "$base" prisma/migrations/ 2>/dev/null)"; then
+    echo "git ls-tree failed at base $base — refusing to treat that as an empty base." >&2
+    exit 4
+  fi
   comm -13 \
-    <(git ls-tree --name-only "$base" prisma/migrations/ | sed 's#prisma/migrations/##' | sed 's#/$##' | sort) \
+    <(printf '%s\n' "$base_list" | sed 's#prisma/migrations/##' | sed 's#/$##' | sort) \
     <(ls -1 prisma/migrations | grep -v '^migration_lock.toml$' | sort)
 }
 
@@ -107,9 +126,36 @@ case "$MODE" in
       [ -n "$mig" ] || continue
       f="prisma/migrations/$mig/migration.sql"
       [ -f "$f" ] || continue
-      # Strip -- comments so a rationale that MENTIONS "DROP COLUMN" is not a hit.
-      stripped="$(sed 's/--.*$//' "$f")"
-      hits="$(printf '%s\n' "$stripped" | grep -nEi '(DROP[[:space:]]+(TABLE|COLUMN|CONSTRAINT|INDEX|TYPE|SCHEMA)|RENAME[[:space:]]+(TO|COLUMN)|ALTER[[:space:]]+COLUMN[[:space:]]+.*[[:space:]]TYPE[[:space:]]|SET[[:space:]]+NOT[[:space:]]+NULL|TRUNCATE|DELETE[[:space:]]+FROM)' || true)"
+      # Blank out anything that is not executable SQL before matching, in this
+      # order: /* block comments */, then '...' string literals, then -- line
+      # comments. Each is replaced rather than deleted so reported line numbers
+      # still point at the real line.
+      #
+      # Why all three: the earlier version stripped only `--`, so
+      # `INSERT ... VALUES ('DROP TABLE x')` and `/* DROP TABLE x */` both read
+      # as destruction (false red), while a rationale in a block comment was
+      # never covered at all.
+      stripped="$(python3 - "$f" <<'PYEOF'
+import re, sys
+src = open(sys.argv[1], encoding="utf8").read()
+blank = lambda m: re.sub(r"[^\n]", " ", m.group(0))   # keep line numbering
+src = re.sub(r"/\*.*?\*/", blank, src, flags=re.S)     # block comments
+src = re.sub(r"'(?:[^']|'')*'", blank, src, flags=re.S)  # string literals ('' escapes)
+src = re.sub(r"--[^\n]*", blank, src)                  # line comments
+sys.stdout.write(src)
+PYEOF
+)"
+      # DROP <object> — the object keyword is OPTIONAL in Postgres for a column,
+      # so `ALTER TABLE foo DROP bar` is a column drop and must match. Hence
+      # `DROP` followed by an optional keyword, then an identifier.
+      hits="$(printf '%s\n' "$stripped" | grep -nEi '(DROP[[:space:]]+(TABLE|COLUMN|CONSTRAINT|INDEX|TYPE|SCHEMA|SEQUENCE|VIEW|TRIGGER|FUNCTION)?[[:space:]]*(IF[[:space:]]+EXISTS[[:space:]]+)?"?[A-Za-z_]|RENAME[[:space:]]+(TO|COLUMN)|ALTER[[:space:]]+COLUMN[[:space:]]+.*[[:space:]]TYPE[[:space:]]|SET[[:space:]]+NOT[[:space:]]+NULL|TRUNCATE|DELETE[[:space:]]+FROM)' || true)"
+      # DROP POLICY is exempt: a policy is re-created immediately after in the
+      # same file (Postgres has no CREATE POLICY IF NOT EXISTS), so dropping one
+      # is how an idempotent policy migration is written. Every other DROP is a
+      # finding. Checked on the ORIGINAL line, not the blanked one.
+      if [ -n "$hits" ]; then
+        hits="$(printf '%s\n' "$hits" | grep -viE 'DROP[[:space:]]+POLICY' || true)"
+      fi
       if [ -n "$hits" ]; then
         echo "NOT ADDITIVE — $f" >&2
         printf '%s\n' "$hits" >&2
