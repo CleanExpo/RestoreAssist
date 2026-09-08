@@ -19,13 +19,33 @@ interface HealthData {
   reason?: string;
 }
 
+type FieldStatus = "loaded" | "empty" | "missing" | "error";
+
 type NexusContext = {
   fetchedAt: string;
   source?: string;
+  fields?: Partial<Record<string, FieldStatus>>;
+  sources?: {
+    disk: boolean;
+    hermes: "off" | "ok" | "unreachable";
+    hermesReason?: string;
+  };
   voice: string;
   icp: string;
   memorySummary: string;
   wikiIndexExcerpt: string;
+};
+
+/**
+ * Why a field is blank matters more than the fact that it is. Rendering a
+ * failed read and a genuinely empty file identically is the same lie as
+ * showing an unreachable board as a finished week.
+ */
+const STATUS_COPY: Record<FieldStatus, string> = {
+  loaded: "",
+  empty: "(file present but empty)",
+  missing: "(not synced to this deployment)",
+  error: "(could not be read)",
 };
 
 function excerpt(text: string, max = 280): string {
@@ -33,6 +53,34 @@ function excerpt(text: string, max = 280): string {
   if (!t) return "(empty)";
   if (t.length <= max) return t;
   return `${t.slice(0, max)}…`;
+}
+
+function ContextField({
+  label,
+  text,
+  status,
+  max,
+}: {
+  label: string;
+  text: string;
+  status?: FieldStatus;
+  max: number;
+}) {
+  const unavailable = status !== undefined && status !== "loaded";
+  return (
+    <div>
+      <p className="font-medium text-muted-foreground">{label}</p>
+      {unavailable ? (
+        <p className="mt-1 text-xs italic text-amber-600">
+          {STATUS_COPY[status]}
+        </p>
+      ) : (
+        <p className="mt-1 whitespace-pre-wrap font-mono text-xs leading-relaxed">
+          {excerpt(text, max)}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function MissionControlPage() {
@@ -141,27 +189,34 @@ export default function MissionControlPage() {
               Loaded {context.fetchedAt}
               {context.source ? ` · ${context.source}` : ""}
             </p>
+            {context.sources?.hermes === "unreachable" && (
+              <p className="text-xs text-amber-600">
+                Hermes is configured but did not answer
+                {context.sources.hermesReason
+                  ? `: ${context.sources.hermesReason}`
+                  : ""}
+                . The fields it supplies are unavailable, not empty.
+              </p>
+            )}
             <div className="space-y-3 text-sm">
-              <div>
-                <p className="font-medium text-muted-foreground">Voice</p>
-                <p className="mt-1 whitespace-pre-wrap font-mono text-xs leading-relaxed">
-                  {excerpt(context.voice, 400)}
-                </p>
-              </div>
-              <div>
-                <p className="font-medium text-muted-foreground">ICP</p>
-                <p className="mt-1 whitespace-pre-wrap font-mono text-xs leading-relaxed">
-                  {excerpt(context.icp, 400)}
-                </p>
-              </div>
-              <div>
-                <p className="font-medium text-muted-foreground">
-                  Memory summary
-                </p>
-                <p className="mt-1 whitespace-pre-wrap font-mono text-xs leading-relaxed">
-                  {excerpt(context.memorySummary, 320)}
-                </p>
-              </div>
+              <ContextField
+                label="Voice"
+                text={context.voice}
+                status={context.fields?.voice}
+                max={400}
+              />
+              <ContextField
+                label="ICP"
+                text={context.icp}
+                status={context.fields?.icp}
+                max={400}
+              />
+              <ContextField
+                label="Memory summary"
+                text={context.memorySummary}
+                status={context.fields?.memorySummary}
+                max={320}
+              />
             </div>
           </>
         ) : (
