@@ -7,7 +7,10 @@ import {
   getEffectiveSubscription,
   getOrganizationOwner,
 } from "@/lib/organization-credits";
-import { hasActiveOperatingProviderConnection } from "@/lib/workspace/provider-connections";
+import {
+  getFailedOperatingProviderConnection,
+  hasActiveOperatingProviderConnection,
+} from "@/lib/workspace/provider-connections";
 import { canUsePlatformTrialCredential } from "@/lib/ai/platform-trial-credential";
 import {
   AI_PROVIDER_ROUTE,
@@ -164,12 +167,25 @@ export async function GET(request: NextRequest) {
     // onboarding/status would disagree with the setup gate (byok_keys check),
     // which already reads ProviderConnection. Resolve the workspace owner
     // (Admin's for team members) and check for an ACTIVE Anthropic/OpenAI key.
+    // RA-7428: a FAILED stored key is not "no key" — surface the rejection
+    // (provider + when) so the dashboard does not say "add a key".
+    let rejectedKey: { provider: string; rejectedAt: Date } | null = null;
     if (!hasApiKey) {
       const byokOwnerId = isTeamMember
         ? await getOrganizationOwner(session.user.id)
         : session.user.id;
       if (byokOwnerId) {
         hasApiKey = await hasActiveOperatingProviderConnection(byokOwnerId);
+        if (!hasApiKey) {
+          const failed =
+            await getFailedOperatingProviderConnection(byokOwnerId);
+          if (failed) {
+            rejectedKey = {
+              provider: failed.provider,
+              rejectedAt: failed.rejectedAt,
+            };
+          }
+        }
       }
     }
 
@@ -206,6 +222,7 @@ export async function GET(request: NextRequest) {
       ai_provider: buildAiProviderOnboardingStep({
         hasByokKey: hasApiKey,
         canUsePlatformTrial,
+        rejectedKey,
       }),
       first_inspection: {
         completed: inspectionCount > 0,

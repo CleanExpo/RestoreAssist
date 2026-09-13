@@ -46,6 +46,9 @@ export function AiKeySetupBanner() {
   // Nothing until we know, so a user who has already finished setup never sees
   // a flash of "you can't generate reports".
   if (!step || step.completed) return null;
+  // RA-7428: a stored-but-rejected key is owned by AiProviderBanner so the
+  // dashboard shows one "rejected" warning, not a second "add your key" card.
+  if (step.rejectedKey) return null;
 
   return (
     <div className="mx-6 mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">

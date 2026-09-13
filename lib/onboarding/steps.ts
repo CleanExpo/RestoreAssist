@@ -12,6 +12,16 @@
  * dead code that never matched).
  */
 
+/**
+ * Present on `ai_provider` when a stored operating key exists but failed
+ * validation (RA-7428). Distinct from "no key" so the dashboard can say
+ * "rejected" instead of "add a key".
+ */
+export interface RejectedAiKey {
+  provider: string;
+  rejectedAt: string;
+}
+
 /** One step as returned by GET /api/onboarding/status `steps` map. */
 export interface OnboardingApiStep {
   completed: boolean;
@@ -19,6 +29,7 @@ export interface OnboardingApiStep {
   title: string;
   description: string;
   route: string;
+  rejectedKey?: RejectedAiKey;
 }
 
 /** Full shape of the GET /api/onboarding/status response. */
