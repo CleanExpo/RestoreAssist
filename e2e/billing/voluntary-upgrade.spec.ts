@@ -37,5 +37,5 @@ test("TRIAL user with 2 days left sees banner and reaches upgrade page", async (
   // not need STRIPE_SECRET_KEY to render. "Standard" was a retired tier
   // name (RA-6929 single-catalogue collapse) and is not on this page.
   await expect(page.getByRole("heading", { name: /Choose a plan/i })).toBeVisible();
-  await expect(page.getByText("Monthly plan")).toBeVisible();
+  await expect(page.getByText("Monthly plan", { exact: true })).toBeVisible();
 });
