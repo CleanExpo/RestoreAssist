@@ -157,6 +157,51 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
     await expect(page.getByTestId("sketch-selection-panel")).toHaveCount(0);
   });
 
+  test("dock Zoom In moves pin screen coords; Fit Canvas restores them", async ({
+    page,
+    request,
+  }) => {
+    const inspectionId = await createInspection(request);
+    expect(inspectionId, "createInspection must return an inspection id").toBeTruthy();
+    const sketchId = await saveMeasuredRoom(request, inspectionId);
+    await placeEvidencePin(request, inspectionId, sketchId);
+    await openSketch(page, inspectionId);
+
+    const pin = page.getByTestId("sketch-evidence-pin").first();
+    await expect(pin, "seeded photo marker must render on the live canvas").toBeVisible({
+      timeout: 15_000,
+    });
+
+    const beforeZoom = await pin.boundingBox();
+    expect(beforeZoom, "pin box before dock zoom").toBeTruthy();
+
+    await page.getByRole("button", { name: /^Zoom In$/ }).click();
+    await expect(pin).toBeVisible();
+    const afterZoom = await pin.boundingBox();
+    expect(afterZoom, "pin box after dock Zoom In").toBeTruthy();
+    const moved = Math.hypot(
+      afterZoom!.x - beforeZoom!.x,
+      afterZoom!.y - beforeZoom!.y,
+    );
+    expect(
+      moved,
+      `dock Zoom In must move pin screen coords (moved ${moved.toFixed(1)}px)`,
+    ).toBeGreaterThan(8);
+
+    await page.getByRole("button", { name: /^Fit Canvas$/ }).click();
+    await expect(pin).toBeVisible();
+    const afterReset = await pin.boundingBox();
+    expect(afterReset, "pin box after Fit Canvas").toBeTruthy();
+    const resetDelta = Math.hypot(
+      afterReset!.x - beforeZoom!.x,
+      afterReset!.y - beforeZoom!.y,
+    );
+    expect(
+      resetDelta,
+      "Fit Canvas must return the pin near its pre-zoom screen position",
+    ).toBeLessThan(12);
+  });
+
   test("Photo tool opens image insert on the canvas (file picker, not chrome)", async ({
     page,
     request,

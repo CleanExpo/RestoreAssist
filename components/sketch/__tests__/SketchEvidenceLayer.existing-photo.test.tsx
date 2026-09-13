@@ -155,3 +155,50 @@ describe("SketchEvidenceLayer existing-photo placement", () => {
     });
   });
 });
+
+describe("SketchEvidenceLayer dock-zoom overlay", () => {
+  const pin = {
+    id: "pin-1",
+    kind: "photo",
+    x: 200,
+    y: 150,
+    nx: 0.25,
+    ny: 0.25,
+    caption: "Kitchen leak",
+  };
+
+  it("moves pin screen coords when overlayViewport zoom changes (toolbar zoom)", () => {
+    const { rerender } = render(
+      <SketchEvidenceLayer
+        pins={[pin]}
+        active={false}
+        width={800}
+        height={600}
+        overlayViewport={{ zoom: 1, panX: 0, panY: 0 }}
+        onPlace={vi.fn().mockResolvedValue(undefined)}
+        onMove={() => {}}
+        onRemove={() => {}}
+      />,
+    );
+
+    const el = screen.getByTestId("sketch-evidence-pin");
+    expect(el.style.left).toBe("200px");
+    expect(el.style.top).toBe("150px");
+
+    rerender(
+      <SketchEvidenceLayer
+        pins={[pin]}
+        active={false}
+        width={800}
+        height={600}
+        overlayViewport={{ zoom: 1.2, panX: 0, panY: 0 }}
+        onPlace={vi.fn().mockResolvedValue(undefined)}
+        onMove={() => {}}
+        onRemove={() => {}}
+      />,
+    );
+
+    expect(el.style.left).toBe("240px");
+    expect(el.style.top).toBe("180px");
+  });
+});

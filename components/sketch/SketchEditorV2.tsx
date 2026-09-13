@@ -103,6 +103,7 @@ import {
   IDENTITY_OVERLAY_VIEWPORT,
   type OverlayViewport,
 } from "@/lib/sketch/overlay-viewport";
+import { applyDockZoom, resetDockZoom } from "@/lib/sketch/dock-zoom";
 import type {
   EvidencePinView,
   ExistingEvidencePhoto,
@@ -1171,10 +1172,11 @@ export function SketchEditorV2({
         getZoom: () => number;
         setZoom: (z: number) => void;
         renderAll: () => void;
+        viewportTransform?: ArrayLike<number> | null;
       } | null;
       if (!fc) return;
-      const z = Math.max(0.3, Math.min(4, fc.getZoom() * factor));
-      fc.setZoom(z);
+      // RA-7547: dock setZoom used to skip overlay notify — pins drifted.
+      setOverlayVpt(applyDockZoom(fc, factor));
       fc.renderAll();
     },
     [activeFloor],
@@ -1184,9 +1186,10 @@ export function SketchEditorV2({
     const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
       setZoom: (z: number) => void;
       renderAll: () => void;
+      viewportTransform?: ArrayLike<number> | null;
     } | null;
     if (!fc) return;
-    fc.setZoom(1);
+    setOverlayVpt(resetDockZoom(fc));
     fc.renderAll();
   }, [activeFloor]);
 
