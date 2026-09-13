@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { fabricObjectToSelected } from "../selected-object";
+import {
+  fabricObjectToSelected,
+  shouldClearSelectionOnEmptyCanvasClick,
+} from "../selected-object";
 
 describe("fabricObjectToSelected", () => {
   it("maps a fabric room object (with custom data) to the panel view model", () => {
@@ -105,5 +108,34 @@ describe("fabricObjectToSelected", () => {
     });
     expect(room?.wallThicknessM).toBe(0.23);
     expect(room?.ceilingHeightM).toBe(2.7);
+  });
+});
+
+describe("shouldClearSelectionOnEmptyCanvasClick (RA-7542)", () => {
+  it("clears when Select tool hits empty canvas", () => {
+    expect(
+      shouldClearSelectionOnEmptyCanvasClick({
+        toolMode: "select",
+        fabricTarget: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not clear when an object is hit", () => {
+    expect(
+      shouldClearSelectionOnEmptyCanvasClick({
+        toolMode: "select",
+        fabricTarget: { data: { id: "el1" } },
+      }),
+    ).toBe(false);
+  });
+
+  it("does not clear while drawing", () => {
+    expect(
+      shouldClearSelectionOnEmptyCanvasClick({
+        toolMode: "room",
+        fabricTarget: undefined,
+      }),
+    ).toBe(false);
   });
 });

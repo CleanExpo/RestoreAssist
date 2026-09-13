@@ -404,6 +404,8 @@ export function SketchEditorV2({
 
   // ── Load sketch data from API ──────────────────────────
   useEffect(() => {
+    // RA-7542 — job change must not keep the previous job's selection chrome.
+    setSelectedObj(null);
     if (!inspectionId || captureMode) {
       setSketchesHydrated(true);
       return;

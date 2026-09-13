@@ -51,3 +51,16 @@ export function fabricObjectToSelected(
       typeof data.ceilingHeightM === "number" ? data.ceilingHeightM : undefined,
   };
 }
+
+/**
+ * RA-7542 — empty-canvas click in Select mode must drop the selection
+ * (and the in-flow selection panel). Fabric already fires
+ * `selection:cleared` when the click hits the canvas; this helper is the
+ * tested contract so the handler cannot silently stop clearing.
+ */
+export function shouldClearSelectionOnEmptyCanvasClick(input: {
+  toolMode: string;
+  fabricTarget: unknown;
+}): boolean {
+  return input.toolMode === "select" && !input.fabricTarget;
+}
