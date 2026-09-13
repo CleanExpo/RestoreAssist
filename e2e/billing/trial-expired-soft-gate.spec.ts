@@ -52,8 +52,17 @@ test("an expired trial sees the subscribe banner and reaches the pay page", asyn
   });
   await expect(page.getByText(/your trial has ended/i)).toBeVisible();
 
-  await page.getByTestId("trial-expired-subscribe").click({ timeout: 5_000 });
+  // Same click contract as voluntary-upgrade (RA-7465): the CTA must be
+  // reachable at Desktop Chrome 1280x720 after the banner moved into the
+  // offset column. A covered link fails actionability; this is the proof.
+  await page
+    .locator('a[href="/billing/upgrade?reason=trial-expired"]:visible')
+    .last()
+    .click({ timeout: 5_000 });
   await expect(page).toHaveURL(/\/billing\/upgrade\?reason=trial-expired/);
+  await expect(
+    page.getByRole("heading", { name: /Continue with RestoreAssist/i }),
+  ).toBeVisible();
 });
 
 test("creating a report after the trial ends opens the subscribe page", async ({

@@ -21,7 +21,7 @@ export default function TrialCountdownBanner() {
     return (
       <div
         data-testid="trial-expired-banner"
-        className="relative z-40 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm"
+        className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm"
       >
         <div className="container mx-auto flex items-center justify-between">
           <span>
