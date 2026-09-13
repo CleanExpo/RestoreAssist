@@ -289,9 +289,9 @@ const GROUPS: readonly FeatureGroup[] = [
       "Two things about this product are deliberately not ours: the model that drafts your report, and the liability for what it says.",
     items: [
       {
-        label: "Report generation runs on your own provider key",
+        label: "Basic reports work without pasting an API key",
         detail:
-          "Adding one is a required step in setup on every plan, including the free trial. You pay your provider directly, at cost, and the usage sits in your account rather than ours.",
+          "The free trial can produce a Basic report without a workspace key. Add your own Anthropic or OpenAI key when you want usage billed to your account — you pay that provider directly, at cost.",
       },
       {
         label: "Anthropic today, four more connectable",
@@ -347,7 +347,7 @@ const TRIAL_INCLUDES: readonly string[] = [
   `${freeCfg.trialReportCredits} inspection report credits`,
   "Basic, Enhanced and Optimised report types, same as on the paid plan",
   "Every capture, evidence, standards and export capability above",
-  "Your own AI key, same as on the paid plan",
+  "Basic reports without pasting an API key",
 ];
 
 const PAID_ADDS: readonly string[] = [

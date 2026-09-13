@@ -305,11 +305,12 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
       unmount();
     });
 
-    it("home page states BYOK as cost control, not a hero AI pitch", () => {
+    it("home page states Basic works without a key, not a BYOK wall", () => {
       const { container, unmount } = render(<Home />);
       const text = container.textContent ?? "";
       expect(text).toContain("Do I need my own AI key?");
-      expect(text).toContain(
+      expect(text).toContain("Basic reports work without an API key");
+      expect(text).not.toContain(
         "Drafting runs on your workspace Anthropic or OpenAI key — your spend, your control.",
       );
       unmount();
