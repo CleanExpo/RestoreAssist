@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { parseAiProviderQueryParam } from "@/lib/onboarding/ai-provider-step";
 import {
   Brain,
   Check,
@@ -114,6 +116,7 @@ const STATUS_COLOUR: Record<ConnectionStatus, string> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AiProvidersPage() {
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const [wsStatus, setWsStatus] = useState<WorkspaceStatus | null>(null);
   const [connections, setConnections] = useState<ProviderConnectionSummary[]>(
     [],
@@ -161,6 +164,22 @@ export default function AiProvidersPage() {
     }
     void load();
   }, [reloadTick]);
+
+  // RA-7428: `?provider=ANTHROPIC` (from the rejected-key banner) lands on
+  // that row, open, so "Replace key" is a single click from the dashboard.
+  useEffect(() => {
+    const provider = parseAiProviderQueryParam(searchParams.get("provider"));
+    if (provider) setExpanded(provider);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (loading || !expanded) return;
+    const fromQuery = parseAiProviderQueryParam(searchParams.get("provider"));
+    if (fromQuery !== expanded) return;
+    document.getElementById(`provider-${expanded}`)?.scrollIntoView({
+      block: "center",
+    });
+  }, [loading, expanded, searchParams]);
 
   const getConn = (provider: AiProvider) =>
     connections.find((c) => c.provider === provider) ?? null;
@@ -327,6 +346,7 @@ export default function AiProvidersPage() {
             return (
               <div
                 key={p.id}
+                id={`provider-${p.id}`}
                 className="border rounded-xl overflow-hidden bg-white dark:bg-slate-900 dark:border-slate-700"
               >
                 {/* Row header */}

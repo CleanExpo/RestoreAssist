@@ -301,6 +301,51 @@ export async function hasActiveOperatingProviderConnection(
   return count > 0;
 }
 
+/** A stored operating key that failed validation (401 / KEY_INVALID). */
+export interface FailedOperatingProviderConnection {
+  provider: AiProvider;
+  rejectedAt: Date;
+  lastError: string | null;
+}
+
+/**
+ * RA-7428: the most recently rejected operating-provider key, if any.
+ *
+ * Used when there is no ACTIVE operating key so the dashboard can say the
+ * stored key was rejected (with when) instead of asking the user to "add a
+ * key" they already have. Returns null when the user has no workspace or no
+ * FAILED operating connection.
+ */
+export async function getFailedOperatingProviderConnection(
+  userId: string,
+): Promise<FailedOperatingProviderConnection | null> {
+  const workspace = await getWorkspaceForUser(userId);
+  if (!workspace) return null;
+
+  const row = await prisma.providerConnection.findFirst({
+    where: {
+      workspaceId: workspace.id,
+      status: CONNECTION_FAILED_STATUS,
+      provider: { in: OPERATING_PROVIDERS },
+    },
+    select: {
+      provider: true,
+      lastValidatedAt: true,
+      lastError: true,
+      updatedAt: true,
+    },
+    orderBy: [{ lastValidatedAt: "desc" }, { updatedAt: "desc" }],
+  });
+
+  if (!row) return null;
+
+  return {
+    provider: row.provider as AiProvider,
+    rejectedAt: row.lastValidatedAt ?? row.updatedAt,
+    lastError: row.lastError ?? null,
+  };
+}
+
 /**
  * Upsert a provider connection — encrypt the plaintext key and persist.
  * Creates the row if it doesn't exist; updates it if it does.

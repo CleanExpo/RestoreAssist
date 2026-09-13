@@ -89,6 +89,32 @@ describe("AiKeySetupBanner", () => {
     expect(container.textContent).toBe("");
   });
 
+  it("stays hidden when a stored key was rejected so the shell banner is the only warning (RA-7428)", async () => {
+    mockStatus({
+      isComplete: false,
+      incompleteSteps: ["ai_provider"],
+      steps: {
+        ai_provider: {
+          completed: false,
+          required: true,
+          title: "Your Anthropic key was rejected on 25 Aug 2026",
+          description:
+            "The stored key failed validation. Replace it to generate reports.",
+          route: "/dashboard/settings/ai-providers?provider=ANTHROPIC",
+          rejectedKey: {
+            provider: "ANTHROPIC",
+            rejectedAt: "2026-08-25T00:00:00.000Z",
+          },
+        },
+      },
+    });
+    const { container } = render(<AiKeySetupBanner />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(container.textContent).toBe("");
+    expect(screen.queryByText(/add your AI key/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /add your key/i })).not.toBeInTheDocument();
+  });
+
   it("does not render when ai_provider is absent from the payload", async () => {
     mockStatus({ isComplete: false, incompleteSteps: ["business_profile"], steps: {} });
     const { container } = render(<AiKeySetupBanner />);
