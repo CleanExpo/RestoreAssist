@@ -184,6 +184,10 @@ describe("SketchEvidenceLayer dock-zoom overlay", () => {
     const el = screen.getByTestId("sketch-evidence-pin");
     expect(el.style.left).toBe("200px");
     expect(el.style.top).toBe("150px");
+    expect(screen.getByTestId("sketch-evidence-layer")).toHaveAttribute(
+      "data-overlay-zoom",
+      "1",
+    );
 
     rerender(
       <SketchEvidenceLayer
@@ -200,5 +204,9 @@ describe("SketchEvidenceLayer dock-zoom overlay", () => {
 
     expect(el.style.left).toBe("240px");
     expect(el.style.top).toBe("180px");
+    expect(screen.getByTestId("sketch-evidence-layer")).toHaveAttribute(
+      "data-overlay-zoom",
+      "1.2",
+    );
   });
 });

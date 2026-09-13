@@ -216,6 +216,9 @@ export function SketchEvidenceLayer({
       role="presentation"
       aria-label="Evidence pin layer"
       data-testid="sketch-evidence-layer"
+      data-overlay-zoom={String(vpt.zoom)}
+      data-overlay-pan-x={String(vpt.panX)}
+      data-overlay-pan-y={String(vpt.panY)}
       tabIndex={active ? 0 : -1}
     >
       <input

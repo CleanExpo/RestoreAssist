@@ -1185,6 +1185,7 @@ export function SketchEditorV2({
   const handleZoomReset = useCallback(() => {
     const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
       setZoom: (z: number) => void;
+      setViewportTransform?: (vpt: number[]) => void;
       renderAll: () => void;
       viewportTransform?: ArrayLike<number> | null;
     } | null;

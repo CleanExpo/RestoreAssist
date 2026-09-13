@@ -9,11 +9,14 @@ export type SketchEditorMode = "quick" | "advanced";
 
 export const EDITOR_MODE_STORAGE_KEY = "ra-sketch-editor-mode";
 
-/** Quick Edit tools: select, label (text), measure, pan. */
+/** Quick Edit tools: select, label (text), measure, photo, pan.
+ * Photo stays here so image insert works after a plan arrives (RA-7547) —
+ * Quick is the default dock for confirm/annotate. */
 export const QUICK_EDIT_TOOLS: ReadonlySet<ToolMode> = new Set([
   "select",
   "text",
   "measure",
+  "photo",
   "pan",
 ]);
 

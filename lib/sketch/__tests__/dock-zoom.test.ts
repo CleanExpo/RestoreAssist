@@ -13,6 +13,10 @@ function fakeFabric(initialZoom = 1, panX = 40, panY = -8) {
       this.zoom = z;
       this.viewportTransform = [z, 0, 0, z, panX, panY];
     },
+    setViewportTransform(vpt: number[]) {
+      this.viewportTransform = vpt;
+      this.zoom = vpt[0];
+    },
   };
 }
 
@@ -58,10 +62,21 @@ describe("applyDockZoom — overlay must track toolbar setZoom (RA-7547)", () =>
 });
 
 describe("resetDockZoom", () => {
-  it("writes identity zoom and keeps Fabric pan in the overlay vpt", () => {
+  it("writes an identity viewport so leftover pan cannot park pins off-screen", () => {
     const fc = fakeFabric(2, 12, 9);
     const vpt = resetDockZoom(fc);
-    expect(vpt).toEqual({ zoom: 1, panX: 12, panY: 9 });
-    expect(overlayScreenPoint(80, 20, vpt)).toEqual({ left: 92, top: 29 });
+    expect(vpt).toEqual({ zoom: 1, panX: 0, panY: 0 });
+    expect(fc.viewportTransform).toEqual([1, 0, 0, 1, 0, 0]);
+    expect(overlayScreenPoint(80, 20, vpt)).toEqual({ left: 80, top: 20 });
+  });
+
+  it("falls back to setZoom(1) when setViewportTransform is missing", () => {
+    const fc = {
+      setZoom(z: number) {
+        this.viewportTransform = [z, 0, 0, z, 99, -4];
+      },
+      viewportTransform: [2, 0, 0, 2, 99, -4] as number[],
+    };
+    expect(resetDockZoom(fc)).toEqual({ zoom: 1, panX: 99, panY: -4 });
   });
 });

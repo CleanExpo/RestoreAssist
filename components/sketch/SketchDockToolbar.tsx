@@ -351,6 +351,7 @@ export function SketchDockToolbar({
             key={mode}
             active={toolMode === mode}
             onClick={() => onToolChange(mode)}
+            testId={`sketch-tool-${mode}`}
             label={`${
               mode === "room" && !onScanRoom && !guided
                 ? "Room — draw manually"
@@ -507,6 +508,7 @@ export function SketchDockToolbar({
         <ToolBtn
           active={toolMode === "pan"}
           onClick={() => onToolChange("pan")}
+          testId="sketch-tool-pan"
           label="Pan (H)"
           Icon={Hand}
         />
@@ -537,18 +539,21 @@ export function SketchDockToolbar({
       <ToolBtn
         active={false}
         onClick={onZoomIn}
+        testId="sketch-tool-zoom-in"
         label="Zoom In"
         Icon={ZoomIn}
       />
       <ToolBtn
         active={false}
         onClick={onZoomOut}
+        testId="sketch-tool-zoom-out"
         label="Zoom Out"
         Icon={ZoomOut}
       />
       <ToolBtn
         active={false}
         onClick={onZoomReset}
+        testId="sketch-tool-zoom-reset"
         label="Fit Canvas"
         Icon={Maximize2}
       />
@@ -654,6 +659,7 @@ interface ToolBtnProps {
   label: string;
   Icon: React.ElementType;
   danger?: boolean;
+  testId?: string;
 }
 
 function ToolBtn({
@@ -663,12 +669,15 @@ function ToolBtn({
   label,
   Icon,
   danger,
+  testId,
 }: ToolBtnProps) {
   return (
     <button
       type="button"
       title={label}
       aria-label={label}
+      aria-pressed={active}
+      data-testid={testId}
       onClick={onClick}
       disabled={disabled}
       className={cn(

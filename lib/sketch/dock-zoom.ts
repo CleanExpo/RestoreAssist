@@ -10,6 +10,7 @@ export const DOCK_ZOOM_MAX = 4;
 export interface DockZoomCanvas {
   getZoom: () => number;
   setZoom: (z: number) => void;
+  setViewportTransform?: (vpt: number[]) => void;
   viewportTransform?: ArrayLike<number> | null;
 }
 
@@ -30,9 +31,23 @@ export function applyDockZoom(
   return overlayViewportFromVpt(fc.viewportTransform);
 }
 
+/**
+ * Fit Canvas — identity viewport, not `setZoom(1)` alone.
+ * Fabric `setZoom` zooms around (0, 0) and leaves leftover pan, so pins can
+ * jump thousands of pixels from their pre-zoom screen position while staying
+ * glued to the plan. A real reset writes `[1,0,0,1,0,0]` and returns that vpt
+ * so the React overlay matches.
+ */
 export function resetDockZoom(
-  fc: Pick<DockZoomCanvas, "setZoom" | "viewportTransform">,
+  fc: Pick<
+    DockZoomCanvas,
+    "setZoom" | "setViewportTransform" | "viewportTransform"
+  >,
 ): OverlayViewport {
-  fc.setZoom(1);
+  if (typeof fc.setViewportTransform === "function") {
+    fc.setViewportTransform([1, 0, 0, 1, 0, 0]);
+  } else {
+    fc.setZoom(1);
+  }
   return overlayViewportFromVpt(fc.viewportTransform);
 }

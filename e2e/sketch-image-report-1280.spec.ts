@@ -104,6 +104,23 @@ async function openSketch(page: Page, inspectionId: string) {
   await page.goto(`/dashboard/inspections/${inspectionId}?tab=sketch`);
 }
 
+/** Dock tool aria-labels include shortcuts (`Pan (H)`), so role+exact name times out. */
+async function clickDockTool(
+  page: Page,
+  testId:
+    | "sketch-tool-pan"
+    | "sketch-tool-photo"
+    | "sketch-tool-zoom-in"
+    | "sketch-tool-zoom-reset",
+) {
+  const btn = page.getByTestId(testId);
+  await expect(btn, `${testId} must be in the dock`).toBeVisible({
+    timeout: 15_000,
+  });
+  await btn.scrollIntoViewIfNeeded();
+  await btn.click();
+}
+
 test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
   test("photo marker is on the canvas, survives pan, and chrome stays off the surface", async ({
     page,
@@ -145,7 +162,14 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
       fullPage: false,
     });
 
-    await page.getByRole("button", { name: /^Pan$/ }).click();
+    const layer = page.getByTestId("sketch-evidence-layer");
+    const panXBefore = Number(await layer.getAttribute("data-overlay-pan-x"));
+
+    await clickDockTool(page, "sketch-tool-pan");
+    await expect(page.getByTestId("sketch-tool-pan")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     const box = await canvasHost.boundingBox();
     expect(box, "canvas host bounding box").toBeTruthy();
     await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -155,9 +179,13 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
 
     await expect(pin, "photo marker must survive pan/zoom").toBeVisible();
     await expect(page.getByTestId("sketch-selection-panel")).toHaveCount(0);
+    await expect(layer).not.toHaveAttribute(
+      "data-overlay-pan-x",
+      String(panXBefore),
+    );
   });
 
-  test("dock Zoom In moves pin screen coords; Fit Canvas restores them", async ({
+  test("dock Zoom In moves pin screen coords; Fit Canvas resets overlay vpt", async ({
     page,
     request,
   }) => {
@@ -171,11 +199,13 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
     await expect(pin, "seeded photo marker must render on the live canvas").toBeVisible({
       timeout: 15_000,
     });
+    const layer = page.getByTestId("sketch-evidence-layer");
 
     const beforeZoom = await pin.boundingBox();
     expect(beforeZoom, "pin box before dock zoom").toBeTruthy();
 
-    await page.getByRole("button", { name: /^Zoom In$/ }).click();
+    await clickDockTool(page, "sketch-tool-zoom-in");
+    await expect(layer).toHaveAttribute("data-overlay-zoom", "1.2");
     await expect(pin).toBeVisible();
     const afterZoom = await pin.boundingBox();
     expect(afterZoom, "pin box after dock Zoom In").toBeTruthy();
@@ -188,18 +218,38 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
       `dock Zoom In must move pin screen coords (moved ${moved.toFixed(1)}px)`,
     ).toBeGreaterThan(8);
 
-    await page.getByRole("button", { name: /^Fit Canvas$/ }).click();
+    // Fit Canvas writes an identity vpt (zoom 1, pan 0). It must NOT be
+    // asserted as "return to the pre-zoom pixels" — leftover Fabric pan from
+    // setZoom-around-origin made that delta 2232px in CI while the overlay
+    // notify itself was working.
+    await clickDockTool(page, "sketch-tool-zoom-reset");
+    await expect(layer).toHaveAttribute("data-overlay-zoom", "1");
+    await expect(layer).toHaveAttribute("data-overlay-pan-x", "0");
+    await expect(layer).toHaveAttribute("data-overlay-pan-y", "0");
     await expect(pin).toBeVisible();
     const afterReset = await pin.boundingBox();
     expect(afterReset, "pin box after Fit Canvas").toBeTruthy();
-    const resetDelta = Math.hypot(
-      afterReset!.x - beforeZoom!.x,
-      afterReset!.y - beforeZoom!.y,
+    const leftZoomed = Math.hypot(
+      afterReset!.x - afterZoom!.x,
+      afterReset!.y - afterZoom!.y,
     );
     expect(
-      resetDelta,
-      "Fit Canvas must return the pin near its pre-zoom screen position",
-    ).toBeLessThan(12);
+      leftZoomed,
+      "Fit Canvas must move the pin off the zoomed screen position",
+    ).toBeGreaterThan(8);
+
+    await clickDockTool(page, "sketch-tool-zoom-in");
+    await expect(layer).toHaveAttribute("data-overlay-zoom", "1.2");
+    const afterSecondZoom = await pin.boundingBox();
+    expect(afterSecondZoom, "pin box after second Zoom In").toBeTruthy();
+    const movedAgain = Math.hypot(
+      afterSecondZoom!.x - afterReset!.x,
+      afterSecondZoom!.y - afterReset!.y,
+    );
+    expect(
+      movedAgain,
+      "overlay must still track Zoom In after Fit Canvas",
+    ).toBeGreaterThan(8);
   });
 
   test("Photo tool opens image insert on the canvas (file picker, not chrome)", async ({
@@ -214,7 +264,15 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
     await expect(page.getByTestId("sketch-dock-toolbar")).toBeVisible({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: /^Photo$/ }).click();
+    const photoBtn = page.getByTestId("sketch-tool-photo");
+    if (!(await photoBtn.isVisible())) {
+      await page.getByRole("button", { name: "Advanced draw" }).click();
+    }
+    await clickDockTool(page, "sketch-tool-photo");
+    await expect(page.getByTestId("sketch-tool-photo")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     const layer = page.getByTestId("sketch-evidence-layer");
     await expect(layer).toBeVisible();
