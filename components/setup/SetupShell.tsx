@@ -41,6 +41,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
   // AI-key completion is the one gate the store doesn't already carry, so read
   // it from the canonical onboarding status (same signal the setup gate uses).
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [aiKeyRequired, setAiKeyRequired] = useState(true);
   useEffect(() => {
     let active = true;
     fetch('/api/onboarding/status')
@@ -48,6 +49,8 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       .then((d) => {
         if (active && d?.steps?.ai_provider) {
           setHasApiKey(!!d.steps.ai_provider.completed);
+          // RA-6801: funded trials mark the AI-key step optional.
+          setAiKeyRequired(d.steps.ai_provider.required !== false);
         }
       })
       .catch(() => {
@@ -143,10 +146,12 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     },
     {
       key: 'ai_key',
-      title: 'Add your AI key',
-      required: true,
-      complete: hasApiKey,
-      description: 'Connect your own AI provider key — it powers report drafting and stays in your workspace.',
+      title: aiKeyRequired ? 'Add your AI key' : 'Add your AI key (optional)',
+      required: aiKeyRequired,
+      complete: hasApiKey || !aiKeyRequired,
+      description: aiKeyRequired
+        ? 'Connect your own AI provider key — it powers report drafting and stays in your workspace.'
+        : 'Trial credits power report generation. Add your own Anthropic or OpenAI key anytime as an optional upgrade.',
       content: <AiKeyCard onSaved={() => setHasApiKey(true)} />,
     },
     {
@@ -205,7 +210,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
           </div>
           <ul className="divide-y divide-brand-navy/5 px-6 py-2 sm:px-10">
             {[
-              { label: 'AI key connected', done: hasApiKey },
+              { label: aiKeyRequired ? 'AI key connected' : 'Report generation ready', done: hasApiKey || !aiKeyRequired },
               { label: 'Business details saved', done: businessComplete },
               { label: 'Branding applied', done: brandingComplete },
               { label: 'Pricing configured', done: pricingComplete },

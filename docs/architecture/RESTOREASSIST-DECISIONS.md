@@ -161,4 +161,14 @@ Append-only record of resolved product and architecture decisions. New decisions
 
 ---
 
+### D-022 — Funded trial may use the platform Anthropic key (RA-6801)
+
+- **Decision:** An in-date `TRIAL` account with `creditsRemaining >= 1` and a configured platform `ANTHROPIC_API_KEY` may generate reports without a workspace BYOK key. BYOK remains the optional upgrade path. `ACTIVE` / `CANCELED` / `PAST_DUE` / expired / zero-credit accounts must not receive that key.
+- **Reason:** Founder choice on RA-6801 (2026-09-13): a stranger who starts a free trial must complete signup → first report without pasting a personal API key. D-006's silent-fallback ban still holds for paid workspaces.
+- **Alternatives:** pre-signup BYOK disclosure only (rejected — leaves the trial non-working); copy the platform key into `ProviderConnection` (rejected — secret duplication).
+- **Consequences:** `lib/ai/platform-trial-credential.ts` is the single predicate. Onboarding, check-credits, setup `byok_keys`, and `resolveWorkspaceAiKey` consume it. Report-gen routes keep calling `resolveWorkspaceAiKey`.
+- **Evidence:** RA-6801 SPM walk 2026-09-13; founder AUTO option 1. **Date:** 2026-09-13. **Owner:** Phill McGurk.
+
+---
+
 _Non-blocking owner inputs still open (do not block V1 start): authorised drying-goal methodology source; the full per-stage water-damage completeness rule list (baseline minimum is specified; engine scaffolds now); per-organisation completeness baseline content; the approved retention matrix (D-017 — legal/privacy review before any automated destruction); pilot-partner selection. Tracked here, not escalated._

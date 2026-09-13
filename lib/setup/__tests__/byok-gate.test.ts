@@ -47,11 +47,16 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
   OPERATING_PROVIDERS: ["ANTHROPIC", "OPENAI", "OPENROUTER"],
 }));
 
+vi.mock("@/lib/ai/platform-trial-credential", () => ({
+  canUsePlatformTrialCredential: vi.fn(),
+}));
+
 import {
   getWorkspaceForUser,
   listProviderConnections,
   validateProviderKey,
 } from "@/lib/workspace/provider-connections";
+import { canUsePlatformTrialCredential } from "@/lib/ai/platform-trial-credential";
 import { prisma } from "@/lib/prisma";
 
 // Import AFTER mocks are set up
@@ -60,6 +65,9 @@ import { byokKeysCheck } from "../checks";
 const mockGetWorkspaceForUser = getWorkspaceForUser as ReturnType<typeof vi.fn>;
 const mockListProviderConnections = listProviderConnections as ReturnType<typeof vi.fn>;
 const mockValidateProviderKey = validateProviderKey as ReturnType<typeof vi.fn>;
+const mockCanUsePlatformTrial = canUsePlatformTrialCredential as ReturnType<
+  typeof vi.fn
+>;
 const mockOrgFindUnique = (prisma.organization.findUnique as ReturnType<typeof vi.fn>);
 
 const FAKE_ORG_ID = "org-test-123";
@@ -71,6 +79,8 @@ beforeEach(() => {
   mockOrgFindUnique.mockResolvedValue({ ownerId: "user-test-789" });
   // Default: workspace exists
   mockGetWorkspaceForUser.mockResolvedValue(FAKE_WORKSPACE);
+  // Paid / no-credits default — existing red assertions stay red.
+  mockCanUsePlatformTrial.mockResolvedValue(false);
 });
 
 describe("byokKeysCheck — operating key gate", () => {
@@ -215,5 +225,16 @@ describe("byokKeysCheck — operating key gate", () => {
 
     expect(result.status).toBe("red");
     expect(result.note).toMatch(/Anthropic, OpenAI, or OpenRouter/i);
+  });
+
+  it("RA-6801: returns YELLOW (not red) when a funded trial has no BYOK key", async () => {
+    mockListProviderConnections.mockResolvedValue([]);
+    mockCanUsePlatformTrial.mockResolvedValue(true);
+
+    const result = await byokKeysCheck(FAKE_ORG_ID);
+
+    expect(result.status).toBe("yellow");
+    expect(result.note).toMatch(/trial credits/i);
+    expect(mockValidateProviderKey).not.toHaveBeenCalled();
   });
 });
