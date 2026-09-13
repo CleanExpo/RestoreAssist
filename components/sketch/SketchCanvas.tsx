@@ -118,6 +118,10 @@ import {
 } from "@/lib/sketch/short-dim-affordance";
 import { findNearestDimLabel, type DimLabelHitCandidate } from "@/lib/sketch/dim-label-hit";
 import type { SelectedObject } from "./SketchSelectionPanel";
+import {
+  overlayViewportFromVpt,
+  type OverlayViewport,
+} from "@/lib/sketch/overlay-viewport";
 
 export interface SketchCanvasProps {
   width?: number;
@@ -139,6 +143,8 @@ export interface SketchCanvasProps {
   onReady?: (canvas: FabricCanvasRef) => void;
   onModified?: () => void;
   onSelect?: (obj: SelectedObject | null) => void;
+  /** Fired when Fabric zoom/pan changes so pin overlays can stay on the plan. */
+  onViewportChange?: (vpt: OverlayViewport) => void;
   readonly?: boolean;
   className?: string;
   /** When toolMode is "damage", tap/brush stamps this damage kind. */
@@ -215,6 +221,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       backgroundImageOffsetY,
       backgroundImageLockAspect = true,
       onReady,
+      onViewportChange,
       onModified,
       readonly = false,
       className,
@@ -239,6 +246,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     const sizeRef = useRef({ width, height });
     sizeRef.current = { width, height };
     // ── Drawing state for the click/drag tools (read inside Fabric handlers) ──
+    const onViewportChangeRef = useRef(onViewportChange);
+    onViewportChangeRef.current = onViewportChange;
     const toolModeRef = useRef<ToolMode>(toolMode);
     const equipmentKindRef = useRef<EquipmentKind>(equipmentKind);
     const roomTemplateKindRef = useRef<RoomTemplateKind>(roomTemplateKind);
@@ -451,6 +460,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           zoom *= 0.999 ** delta;
           zoom = Math.max(0.3, Math.min(4, zoom));
           canvas.setZoom(zoom);
+          onViewportChangeRef.current?.(
+            overlayViewportFromVpt(
+              (canvas as { viewportTransform?: number[] }).viewportTransform,
+            ),
+          );
           e.preventDefault();
           e.stopPropagation();
         });
@@ -473,6 +487,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             x: e.clientX - lastPos.x,
             y: e.clientY - lastPos.y,
           });
+          onViewportChangeRef.current?.(
+            overlayViewportFromVpt(
+              (canvas as { viewportTransform?: number[] }).viewportTransform,
+            ),
+          );
           lastPos = { x: e.clientX, y: e.clientY };
         });
         canvas.on("mouse:up", () => {
@@ -2999,6 +3018,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // the current closure rather than the one captured at init.
           refreshWallBands: () => refreshWallBandsRef.current(),
         });
+        onViewportChangeRef.current?.(
+          overlayViewportFromVpt(
+            (canvas as { viewportTransform?: number[] }).viewportTransform,
+          ),
+        );
 
         // Cleanup
         return () => {

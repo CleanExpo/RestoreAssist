@@ -76,6 +76,7 @@ setup-technician-gate.spec.ts            workflow:sketch-e2e.yml
 setup-website-failure.spec.ts            workflow:sketch-e2e.yml
 sketch-api.spec.ts                       workflow:sketch-e2e.yml
 sketch-chrome-1280.spec.ts               workflow:sketch-e2e.yml
+sketch-image-report-1280.spec.ts         workflow:sketch-e2e.yml
 storage-restore.spec.ts                  workflow:sketch-e2e.yml
 stripe-payment-intent-webhook.spec.ts    workflow:sketch-e2e.yml
 tech-banner-auto-dismiss.spec.ts         workflow:sketch-e2e.yml

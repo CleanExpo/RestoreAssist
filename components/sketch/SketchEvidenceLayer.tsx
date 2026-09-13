@@ -19,6 +19,12 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { pinPixelPosition, toNormalized } from "@/lib/sketch/pin-coords";
+import {
+  IDENTITY_OVERLAY_VIEWPORT,
+  overlayScenePoint,
+  overlayScreenPoint,
+  type OverlayViewport,
+} from "@/lib/sketch/overlay-viewport";
 
 export interface EvidencePinView {
   id: string;
@@ -54,6 +60,8 @@ export interface SketchEvidenceLayerProps {
   width: number;
   height: number;
   canvasZoom?: number;
+  /** Fabric zoom/pan — pins stay glued to the plan (RA-7547). */
+  overlayViewport?: OverlayViewport;
   uploading?: boolean;
   existingPhotos?: ExistingEvidencePhoto[];
   onPlace: (coords: {
@@ -81,6 +89,7 @@ export function SketchEvidenceLayer({
   width,
   height,
   canvasZoom = 1,
+  overlayViewport,
   uploading = false,
   existingPhotos = [],
   onPlace,
@@ -102,13 +111,18 @@ export function SketchEvidenceLayer({
     origY: number;
   } | null>(null);
 
+  const vpt =
+    overlayViewport ??
+    (canvasZoom === 1 || !canvasZoom
+      ? IDENTITY_OVERLAY_VIEWPORT
+      : { zoom: canvasZoom, panX: 0, panY: 0 });
+
   const handleLayerClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!active || uploading || sourcePickerOpen) return;
       if ((e.target as HTMLElement).closest("[data-evidence-pin]")) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / canvasZoom;
-      const y = (e.clientY - rect.top) / canvasZoom;
+      const { x, y } = overlayScenePoint(e.clientX, e.clientY, rect, vpt);
       pendingClick.current = { x, y };
       if (existingPhotos.length > 0 && onPlaceExisting) {
         setSourcePickerOpen(true);
@@ -119,10 +133,12 @@ export function SketchEvidenceLayer({
     [
       active,
       uploading,
-      canvasZoom,
       existingPhotos.length,
       onPlaceExisting,
       sourcePickerOpen,
+      vpt.zoom,
+      vpt.panX,
+      vpt.panY,
     ],
   );
 
@@ -174,8 +190,8 @@ export function SketchEvidenceLayer({
   const onPointerMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
-    const dx = (e.clientX - d.startX) / canvasZoom;
-    const dy = (e.clientY - d.startY) / canvasZoom;
+    const dx = (e.clientX - d.startX) / (vpt.zoom || 1);
+    const dy = (e.clientY - d.startY) / (vpt.zoom || 1);
     const x = d.origX + dx;
     const y = d.origY + dy;
     const { nx, ny } = toNormalized(x, y, width, height);
@@ -199,6 +215,7 @@ export function SketchEvidenceLayer({
       onPointerUp={onPointerUp}
       role="presentation"
       aria-label="Evidence pin layer"
+      data-testid="sketch-evidence-layer"
       tabIndex={active ? 0 : -1}
     >
       <input
@@ -284,15 +301,17 @@ export function SketchEvidenceLayer({
 
       {pins.map((pin) => {
         const pos = pinPixelPosition(pin, width, height);
+        const screen = overlayScreenPoint(pos.left, pos.top, vpt);
         const thumb = pin.thumbnailUrl || pin.fileUrl;
         return (
           <div
             key={pin.id}
             data-evidence-pin
+            data-testid="sketch-evidence-pin"
             className="absolute pointer-events-auto"
             style={{
-              left: pos.left,
-              top: pos.top,
+              left: screen.left,
+              top: screen.top,
               transform: "translate(-50%, -50%)",
             }}
             onPointerDown={(e) => onPointerDown(e, pin)}

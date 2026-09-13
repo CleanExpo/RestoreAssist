@@ -99,6 +99,10 @@ import { ANZ_MATERIAL_OPTIONS } from "@/lib/anz/material-options";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
+import {
+  IDENTITY_OVERLAY_VIEWPORT,
+  type OverlayViewport,
+} from "@/lib/sketch/overlay-viewport";
 import type {
   EvidencePinView,
   ExistingEvidencePhoto,
@@ -267,6 +271,9 @@ export function SketchEditorV2({
   // right half of wide viewports was dead space (strokes/clicks only on the left).
   const canvasHostRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ width, height });
+  const [overlayVpt, setOverlayVpt] = useState<OverlayViewport>(
+    IDENTITY_OVERLAY_VIEWPORT,
+  );
 
   useEffect(() => {
     const el = canvasHostRef.current;
@@ -304,6 +311,10 @@ export function SketchEditorV2({
     },
   ]);
   const [activeIdx, setActiveIdx] = useState(0);
+
+  useEffect(() => {
+    setOverlayVpt(IDENTITY_OVERLAY_VIEWPORT);
+  }, [activeIdx]);
 
   // ── UI state ───────────────────────────────────────────
   const [toolMode, setToolMode] = useState<ToolMode>("select");
@@ -2368,6 +2379,9 @@ export function SketchEditorV2({
                   );
                 }}
                 onSelect={setSelectedObj}
+                onViewportChange={
+                  idx === activeIdx ? setOverlayVpt : undefined
+                }
                 className="w-full h-full"
               />
 
@@ -2375,6 +2389,7 @@ export function SketchEditorV2({
               <SketchMoistureLayer
                 pins={fd.moisturePins}
                 onChange={handleMoisturePinsChange}
+                overlayViewport={overlayVpt}
                 active={toolMode === "moisture" && idx === activeIdx}
                 width={viewport.width}
                 height={viewport.height}
@@ -2397,6 +2412,7 @@ export function SketchEditorV2({
                   active={
                     toolMode === "photo" && idx === activeIdx && !readonly
                   }
+                  overlayViewport={overlayVpt}
                   width={viewport.width}
                   height={viewport.height}
                   uploading={evidenceUploading && idx === activeIdx}

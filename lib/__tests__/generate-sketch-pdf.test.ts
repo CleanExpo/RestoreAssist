@@ -313,6 +313,40 @@ async function pdfText(bytes: Uint8Array): Promise<string> {
     .join("\n");
 }
 
+/** Distinctive 17×13 gold PNG — not a 1×1 transparent pixel that would look blank. */
+const PNG_17x13 =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAANCAIAAADAGxJNAAAAFklEQVR42mO4srSEVMQwqmdUDx31AABidKmpPSOQawAAAABJRU5ErkJggg==";
+
+function pngIhdrSize(bytes: Uint8Array): { w: number; h: number } | null {
+  if (
+    bytes.length < 24 ||
+    bytes[0] !== 0x89 ||
+    bytes[1] !== 0x50 ||
+    bytes[2] !== 0x4e ||
+    bytes[3] !== 0x47
+  ) {
+    return null;
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { w: view.getUint32(16), h: view.getUint32(20) };
+}
+
+async function embeddedPngSizes(pdfBytes: Uint8Array): Promise<Array<{ w: number; h: number }>> {
+  const doc = await PDFDocument.load(pdfBytes);
+  const sizes: Array<{ w: number; h: number }> = [];
+  for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+    if (!(obj instanceof PDFRawStream)) continue;
+    try {
+      const decoded = decodePDFRawStream(obj).decode();
+      const size = pngIhdrSize(decoded);
+      if (size) sizes.push(size);
+    } catch {
+      // image / non-text stream we cannot decode as PNG
+    }
+  }
+  return sizes;
+}
+
 describe("generateSketchPdf — the annex's drying plan is mould-gated (RA-7005)", () => {
   const floors = [
     { label: "Ground", pngDataUrl: PNG_1PX, fabricJson: ANNEX_FABRIC },
@@ -400,5 +434,43 @@ describe("generateSketchPdf — the annex's drying plan is mould-gated (RA-7005)
     expect(text).toContain("Compliance Annex");
     expect(text).not.toContain("Drying equipment");
     expect(text).not.toMatch(/Dehumidifiers: \d/);
+  });
+});
+
+describe("generateSketchPdf — image insert + report embed (RA-7547)", () => {
+  it("embeds the floor PNG at its native size, not a blank/cropped substitute", async () => {
+    const bytes = await generateSketchPdf({
+      floors: [{ label: "Ground", pngDataUrl: PNG_17x13 }],
+    });
+    expect(Buffer.from(bytes.slice(0, 5)).toString("latin1")).toBe("%PDF-");
+    const sizes = await embeddedPngSizes(bytes);
+    expect(sizes.length, "the floor-plan page must carry a PNG XObject").toBeGreaterThan(0);
+    expect(sizes).toContainEqual({ w: 17, h: 13 });
+    expect(sizes.some((s) => s.w === 0 || s.h === 0)).toBe(false);
+  });
+
+  it("draws evidence-pin labels and captions on the same page as the sketch", async () => {
+    const bytes = await generateSketchPdf({
+      floors: [
+        {
+          label: "Ground",
+          pngDataUrl: PNG_17x13,
+          evidencePins: [
+            {
+              label: "E1",
+              nx: 0.25,
+              ny: 0.75,
+              caption: "Kitchen leak",
+              inspectionPhotoId: "photo-1",
+            },
+          ],
+        },
+      ],
+    });
+    const text = await pdfText(bytes);
+    expect(text).toContain("Floor Plan");
+    expect(text).toContain("E1");
+    expect(text).toContain("Kitchen leak");
+    expect(await embeddedPngSizes(bytes)).toContainEqual({ w: 17, h: 13 });
   });
 });
