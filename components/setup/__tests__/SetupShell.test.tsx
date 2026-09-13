@@ -77,6 +77,27 @@ describe("SetupShell — one-step wizard wiring", () => {
     ).toBeInTheDocument();
   });
 
+  it("RA-6801: does not lock the AI-key step when onboarding marks it optional (trial)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          steps: { ai_provider: { completed: true, required: false } },
+        }),
+      }),
+    );
+    render(<SetupShell initial={initial} />);
+    await screen.findByText(/Step 1 of 7: Welcome/);
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Step 2 of 7: Add your AI key \(optional\)/),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
+  });
+
   it("restores a completed New Zealand business step without an ABR hydration job", async () => {
     const nzInitial = {
       id: "nz-org",

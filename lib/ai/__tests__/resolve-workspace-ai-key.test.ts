@@ -2,10 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const getWorkspaceForUser = vi.fn();
 const getProviderApiKey = vi.fn();
+const tryPlatformTrialApiKey = vi.fn();
 
 vi.mock("../../workspace/provider-connections", () => ({
   getWorkspaceForUser: (...args: unknown[]) => getWorkspaceForUser(...args),
   getProviderApiKey: (...args: unknown[]) => getProviderApiKey(...args),
+}));
+
+vi.mock("../platform-trial-credential", () => ({
+  tryPlatformTrialApiKey: (...args: unknown[]) => tryPlatformTrialApiKey(...args),
 }));
 
 import {
@@ -16,6 +21,8 @@ import {
 beforeEach(() => {
   getWorkspaceForUser.mockReset();
   getProviderApiKey.mockReset();
+  tryPlatformTrialApiKey.mockReset();
+  tryPlatformTrialApiKey.mockResolvedValue(null);
 });
 
 describe("resolveWorkspaceAiKey (RA-6921 P0)", () => {
@@ -57,5 +64,32 @@ describe("resolveWorkspaceAiKey (RA-6921 P0)", () => {
     );
 
     delete process.env.OPENAI_API_KEY;
+  });
+
+  it("RA-6801: funded trial without BYOK receives the platform Anthropic key", async () => {
+    getWorkspaceForUser.mockResolvedValue({ id: "ws_1", name: "Trial Co" });
+    getProviderApiKey.mockResolvedValue(null);
+    tryPlatformTrialApiKey.mockResolvedValue("sk-ant-platform-trial");
+
+    const result = await resolveWorkspaceAiKey("trial_user", "ANTHROPIC");
+
+    expect(result).toEqual({
+      workspaceId: "ws_1",
+      apiKey: "sk-ant-platform-trial",
+    });
+    expect(tryPlatformTrialApiKey).toHaveBeenCalledWith("trial_user", "ANTHROPIC");
+  });
+
+  it("RA-6801: non-trial without BYOK still throws even if a platform env key exists", async () => {
+    getWorkspaceForUser.mockResolvedValue({ id: "ws_1", name: "Paid Co" });
+    getProviderApiKey.mockResolvedValue(null);
+    tryPlatformTrialApiKey.mockResolvedValue(null);
+    process.env.ANTHROPIC_API_KEY = "sk-ant-must-not-leak";
+
+    await expect(
+      resolveWorkspaceAiKey("paid_user", "ANTHROPIC"),
+    ).rejects.toBeInstanceOf(NoWorkspaceKeyError);
+
+    delete process.env.ANTHROPIC_API_KEY;
   });
 });

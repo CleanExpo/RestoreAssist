@@ -35,6 +35,10 @@ vi.mock("@/lib/ai/model-router", () => ({
   routeBasic: vi.fn(),
 }));
 
+vi.mock("@/lib/ai/platform-trial-credential", () => ({
+  canUsePlatformTrialCredential: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock("@/lib/credential-vault", () => ({
   decrypt: vi.fn((v: string) => v.replace(/^enc:/, "")),
 }));

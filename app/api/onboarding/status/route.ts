@@ -8,9 +8,14 @@ import {
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 import { hasActiveOperatingProviderConnection } from "@/lib/workspace/provider-connections";
+import { canUsePlatformTrialCredential } from "@/lib/ai/platform-trial-credential";
+import {
+  AI_PROVIDER_ROUTE,
+  buildAiProviderOnboardingStep,
+} from "@/lib/onboarding/ai-provider-step";
 import { apiError, fromException } from "@/lib/api-errors";
 
-export const AI_PROVIDER_ROUTE = "/dashboard/settings/ai-providers";
+export { AI_PROVIDER_ROUTE };
 
 export async function GET(request: NextRequest) {
   try {
@@ -192,22 +197,16 @@ export async function GET(request: NextRequest) {
     // generating a report, so we mark them clearly optional ("when you're
     // ready") and never count them as blocking incomplete steps for trials.
     // Paid users still see them as required.
+    // RA-6801: funded trials generate on the platform key — BYOK is optional.
+    // Paid / expired / zero-credit accounts still hard-require a workspace key.
+    const canUsePlatformTrial = await canUsePlatformTrialCredential(
+      session.user.id,
+    );
     const steps = {
-      // RA-6801 / RA-6799: Surface the AI key requirement early in onboarding.
-      // RA-6932 removed the platform-key fallback — trial and paid users are
-      // both hard-402'd on report generation without a workspace-owned BYOK
-      // key, so `required` tracks `!hasApiKey` for every user, not just paid.
-      ai_provider: {
-        completed: hasApiKey,
-        required: !hasApiKey,
-        title: hasApiKey
-          ? "AI provider key configured"
-          : "Add your Anthropic or OpenAI API key",
-        description: hasApiKey
-          ? "An Anthropic or OpenAI API key is configured — AI report generation is active."
-          : "An Anthropic or OpenAI API key is required to operate RestoreAssist. You pay providers directly, at cost. Add it in Settings → AI Providers.",
-        route: AI_PROVIDER_ROUTE,
-      },
+      ai_provider: buildAiProviderOnboardingStep({
+        hasByokKey: hasApiKey,
+        canUsePlatformTrial,
+      }),
       first_inspection: {
         completed: inspectionCount > 0,
         required: false, // Self-serve first value, not a hard gate

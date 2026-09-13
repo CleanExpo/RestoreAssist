@@ -14,6 +14,7 @@ import {
 } from "@/lib/workspace/provider-connections";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { validateOrganizationLocaleProfile } from "@/lib/locale/validate-organization-profile";
+import { canUsePlatformTrialCredential } from "@/lib/ai/platform-trial-credential";
 
 /**
  * New-client startup readiness checks.
@@ -35,7 +36,8 @@ import { validateOrganizationLocaleProfile } from "@/lib/locale/validate-organiz
  *   - ai_generation          (AI inference reachable — system health)
  *   - sample_report_render   (IICRC PDF generation works — system health)
  *   - chain_of_custody       (hashing + UTC timestamps work — system health)
- *   - byok_keys              (≥1 ACTIVE Anthropic or OpenAI key that validates)
+ *   - byok_keys              (≥1 ACTIVE Anthropic or OpenAI key that validates,
+ *                            or a funded TRIAL with platform credits — yellow)
  *
  * Optional (YELLOW-when-unmet) — do not block activation:
  *   - cloud_storage, accounting, welcome_email
@@ -490,6 +492,14 @@ export const byokKeysCheck: Check = async (orgId) => {
 
   const workspace = await getWorkspaceForUser(org.ownerId);
   if (!workspace) {
+    if (await canUsePlatformTrialCredential(org.ownerId)) {
+      return {
+        capability,
+        label,
+        status: "yellow",
+        note: "Platform trial credits will power report generation. Add your own key anytime as an optional upgrade.",
+      };
+    }
     return {
       capability,
       label,
@@ -510,6 +520,17 @@ export const byokKeysCheck: Check = async (orgId) => {
   );
 
   if (operatingActive.length === 0) {
+    // RA-6801: a funded trial does not need BYOK to activate — platform
+    // credits power the first report. Paid / expired / zero-credit orgs
+    // still red-block here.
+    if (await canUsePlatformTrialCredential(org.ownerId)) {
+      return {
+        capability,
+        label,
+        status: "yellow",
+        note: "Platform trial credits will power report generation. Add your own key anytime as an optional upgrade.",
+      };
+    }
     return {
       capability,
       label,
