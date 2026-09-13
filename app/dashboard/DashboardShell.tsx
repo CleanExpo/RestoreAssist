@@ -502,24 +502,6 @@ export default function DashboardShell({
           "text-neutral-900 dark:text-slate-50",
         )}
       >
-        {/* SP-3 T16 — trial-countdown banner. Renders at the very top of
-            the dashboard chrome (above demo banner, sidebar, and nav) so
-            it's the first thing every trial user sees on every page. */}
-        {!hideBillingNav && <TrialCountdownBanner />}
-        {/* RA-1583 — demo-mode banner. Makes it obvious the user is
-            exploring sample data (seeded via /api/admin/seed-demo) so
-            data they create during the demo session isn't mistaken
-            for their real tenant. */}
-        {isDemoAccount && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
-          >
-            DEMO MODE — you're signed in as the sample account. Data shown is
-            illustrative; changes are shared with other demo viewers.
-          </div>
-        )}
         {/* Mobile backdrop */}
         {mobileMenuOpen && (
           <div
@@ -712,6 +694,27 @@ export default function DashboardShell({
             sidebarOpen ? "md:ml-64" : "md:ml-20",
           )}
         >
+          {/* SP-3 T16 / RA-7465 — trial-countdown banner. Must live in this
+              offset column, not as a sibling of the fixed sidebar. The
+              sidebar is `fixed left-0 top-0 h-screen z-40` and `w-64` when
+              expanded; mounting the banner above it left "Upgrade now"
+              under the sidebar header, which swallowed pointer events at
+              1280x720. */}
+          {!hideBillingNav && <TrialCountdownBanner />}
+          {/* RA-1583 — demo-mode banner. Makes it obvious the user is
+              exploring sample data (seeded via /api/admin/seed-demo) so
+              data they create during the demo session isn't mistaken
+              for their real tenant. */}
+          {isDemoAccount && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
+            >
+              DEMO MODE — you're signed in as the sample account. Data shown is
+              illustrative; changes are shared with other demo viewers.
+            </div>
+          )}
           {/* Top Bar */}
           <header
             className={cn(
