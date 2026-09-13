@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { applyRateLimitEdge } from "@/lib/rate-limiter-edge";
+import {
+  TRIAL_EXPIRED_PAY_PATH,
+  TRIAL_EXPIRED_PAY_ROUTE,
+  shouldLockDashboardForSubscription,
+} from "@/lib/billing/trial-expired-pay-route";
 
 /**
  * Middleware handles two orthogonal slices:
@@ -186,37 +191,20 @@ function isHardPaywallWhitelisted(pathname: string): boolean {
   );
 }
 
-// RA-4984 — JWT-claim-driven hard-paywall. The middleware runs in edge
-// runtime where Prisma is unavailable, so this reads the subscription
-// claims stamped by jwt() in lib/auth.ts. Returns true when the user
-// should be blocked. Defense-in-depth only — the API-route subscription
-// gate (CLAUDE.md rule #5) remains the authoritative revenue check.
+// RA-4984 / RA-7439 / RA-7462 — JWT-claim-driven dashboard lockout.
+// Edge-safe: reads subscriptionStatus / trialEndsAt / lifetimeAccess from
+// the JWT stamped in lib/auth.ts. Defense-in-depth only — the API-route
+// subscription gate remains the authoritative revenue check.
 //
-// Allowlist (NOT blocked):
-//   - lifetimeAccess === true
-//   - subscriptionStatus === "ACTIVE"
-//   - subscriptionStatus === "TRIAL" AND (trialEndsAt unset OR not expired)
-//
-// Everything else blocks: TRIAL with expired trialEndsAt, CANCELED,
-// EXPIRED, PAST_DUE. Tokens missing the claim entirely (legacy sessions
-// from before RA-4984 mint) are treated as allow — they refresh on next
-// updateAge tick. This matches the fail-open posture of trial-handling.ts.
+// Soft-gate (NOT blocked): lifetime, ACTIVE, TRIAL (including expired),
+// EXPIRED (trial sweep), and tokens missing the claim (legacy JWT).
+// Hard-lock: CANCELED, PAST_DUE, and any other paid-account failure.
 function shouldHardPaywall(token: {
   subscriptionStatus?: string | null;
   trialEndsAt?: string | null;
   lifetimeAccess?: boolean | null;
 }): boolean {
-  if (token.lifetimeAccess === true) return false;
-  const status = token.subscriptionStatus;
-  if (status === "ACTIVE") return false;
-  if (status === "TRIAL") {
-    if (!token.trialEndsAt) return false;
-    const ends = Date.parse(token.trialEndsAt);
-    if (Number.isNaN(ends)) return false;
-    return Date.now() > ends;
-  }
-  if (status == null) return false;
-  return true;
+  return shouldLockDashboardForSubscription(token);
 }
 
 export async function proxy(req: NextRequest) {
@@ -334,8 +322,8 @@ export async function proxy(req: NextRequest) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (token && shouldHardPaywall(token as any)) {
       const url = req.nextUrl.clone();
-      url.pathname = "/billing/upgrade";
-      url.search = "?reason=trial-expired";
+      url.pathname = TRIAL_EXPIRED_PAY_PATH;
+      url.search = new URL(TRIAL_EXPIRED_PAY_ROUTE, "http://local").search;
       return NextResponse.redirect(url, 307);
     }
   }

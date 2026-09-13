@@ -31,4 +31,40 @@ describe("TrialCountdownBanner", () => {
     const { container } = render(<TrialCountdownBanner />);
     expect(container.firstChild).toBeNull();
   });
+
+  it("renders the ended-trial subscribe banner when hasTrialExpired=true", () => {
+    vi.mocked(useTrialStatus).mockReturnValue({
+      data: {
+        showCountdownBanner: false,
+        hasTrialExpired: true,
+        lifetimeAccess: false,
+        daysRemaining: 0,
+      } as any,
+      isLoading: false,
+    } as any);
+    render(<TrialCountdownBanner />);
+    expect(
+      screen.getByText(/your trial has ended/i),
+    ).toBeInTheDocument();
+    const link = screen.getByTestId("trial-expired-subscribe");
+    expect(link).toHaveAttribute(
+      "href",
+      "/billing/upgrade?reason=trial-expired",
+    );
+    expect(link).toHaveTextContent(/subscribe to continue/i);
+  });
+
+  it("does not show the ended-trial banner for lifetime access", () => {
+    vi.mocked(useTrialStatus).mockReturnValue({
+      data: {
+        showCountdownBanner: false,
+        hasTrialExpired: true,
+        lifetimeAccess: true,
+        daysRemaining: 0,
+      } as any,
+      isLoading: false,
+    } as any);
+    const { container } = render(<TrialCountdownBanner />);
+    expect(container.firstChild).toBeNull();
+  });
 });

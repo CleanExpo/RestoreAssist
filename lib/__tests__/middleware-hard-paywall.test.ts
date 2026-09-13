@@ -5,17 +5,19 @@
  * SP-3 T15 behaviour without Prisma so the check survives edge runtime.
  *
  * The middleware reads subscriptionStatus / trialEndsAt / lifetimeAccess
- * directly from the JWT (stamped in lib/auth.ts jwt()). When the user's
- * claims indicate trial expiry / cancellation / past-due AND the path
- * is not on the whitelist (e.g. /pricing, /billing/upgrade), middleware
- * issues a 307 to /billing/upgrade?reason=trial-expired.
+ * directly from the JWT (stamped in lib/auth.ts jwt()).
+ *
+ * RA-7439 / RA-7462 — expired trial (TRIAL past trialEndsAt, or EXPIRED
+ * after the sweep) KEEPS the dashboard. The wall is at report creation.
+ * Cancelled / past-due paid accounts still 307 to /billing/upgrade.
  *
  * Allowlist (NOT blocked):
  *   - lifetimeAccess === true
  *   - subscriptionStatus === "ACTIVE"
- *   - subscriptionStatus === "TRIAL" with trialEndsAt unset or in the future
+ *   - subscriptionStatus === "TRIAL" (active or expired)
+ *   - subscriptionStatus === "EXPIRED"
  *
- * Block: TRIAL+expired, CANCELED, EXPIRED, PAST_DUE.
+ * Block: CANCELED, PAST_DUE.
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -58,19 +60,17 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     process.env.SETUP_WIZARD_ENABLED = "false";
   });
 
-  it("redirects expired TRIAL user to /billing/upgrade?reason=trial-expired", async () => {
+  it("does NOT redirect an expired TRIAL user away from the dashboard (RA-7439)", async () => {
     const yesterday = new Date(Date.now() - 86_400_000).toISOString();
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: "TRIAL", trialEndsAt: yesterday }) as any,
     );
     const res = await proxy(mkReq("/dashboard"));
-    expect((res as any).status).toBe(307);
-    expect((res as any).headers.get("location")).toContain(
-      "/billing/upgrade?reason=trial-expired",
-    );
+    expect((res as any).status).not.toBe(307);
+    expect((res as any).headers.get("location")).toBeNull();
   });
 
-  it("does not let an onboarded expired user bypass the paywall on nested dashboard routes", async () => {
+  it("does NOT redirect an expired trial on nested dashboard routes", async () => {
     const yesterday = new Date(Date.now() - 86_400_000).toISOString();
     mockGetToken.mockResolvedValue(
       baseToken({ subscriptionStatus: "TRIAL", trialEndsAt: yesterday }) as any,
@@ -78,10 +78,18 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
 
     const res = await proxy(mkReq("/dashboard/inspections"));
 
-    expect((res as any).status).toBe(307);
-    expect((res as any).headers.get("location")).toContain(
-      "/billing/upgrade?reason=trial-expired",
+    expect((res as any).status).not.toBe(307);
+    expect((res as any).headers.get("location")).toBeNull();
+  });
+
+  it("does NOT redirect after the trial status flips to EXPIRED", async () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "EXPIRED", trialEndsAt: yesterday }) as any,
     );
+    const res = await proxy(mkReq("/dashboard"));
+    expect((res as any).status).not.toBe(307);
+    expect((res as any).headers.get("location")).toBeNull();
   });
 
   it("does NOT redirect ACTIVE user even with expired trialEndsAt", async () => {

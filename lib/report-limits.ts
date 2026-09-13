@@ -4,6 +4,11 @@ import {
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 import { checkAndUpdateTrialStatus } from "@/lib/trial-handling";
+import {
+  isExpiredTrialStatus,
+  isExpiredTrialWindow,
+  trialExpiredRefusal,
+} from "@/lib/billing/trial-expired-pay-route";
 
 /**
  * F3 (RA-6929/6930/6931) — stable, self-contained base report limits keyed on
@@ -180,12 +185,32 @@ export async function getUserReportLimits(
  */
 export async function canCreateReport(
   userId: string,
-): Promise<{ allowed: boolean; reason?: string }> {
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  code?: string;
+  payRoute?: string;
+}> {
   // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
   const effectiveSub = await getEffectiveSubscription(userId);
 
   if (!effectiveSub) {
     return { allowed: false, reason: "User not found" };
+  }
+
+  // RA-7462 — an ended trial (still TRIAL, or already flipped to EXPIRED)
+  // refuses report creation with the subscribe URL, not a silent credits wall.
+  if (
+    isExpiredTrialStatus(effectiveSub.subscriptionStatus) ||
+    isExpiredTrialWindow(
+      effectiveSub.subscriptionStatus,
+      effectiveSub.trialEndsAt,
+    )
+  ) {
+    if (effectiveSub.subscriptionStatus === "TRIAL") {
+      await checkAndUpdateTrialStatus(effectiveSub.id);
+    }
+    return trialExpiredRefusal();
   }
 
   // Trial users: the 15-day trial is CAPPED at a fixed report-credit grant
@@ -196,21 +221,13 @@ export async function canCreateReport(
   if (effectiveSub.subscriptionStatus === "TRIAL") {
     const trialExpired = await checkAndUpdateTrialStatus(effectiveSub.id);
     if (trialExpired) {
-      return {
-        allowed: false,
-        reason:
-          "Your 15-day free trial has expired. Please subscribe to continue using RestoreAssist.",
-      };
+      return trialExpiredRefusal();
     }
     if (
       effectiveSub.trialEndsAt &&
       new Date() > new Date(effectiveSub.trialEndsAt)
     ) {
-      return {
-        allowed: false,
-        reason:
-          "Your 15-day free trial has expired. Please subscribe to continue using RestoreAssist.",
-      };
+      return trialExpiredRefusal();
     }
     // Trial report cap — exhausted credits block further reports even while
     // the trial window is still open, so the "50 report credits" promise is
@@ -264,16 +281,22 @@ export async function canCreateBulkReports(
 
   // Trial users: capped at the trial report-credit grant. Bulk creation must
   // fit inside both the trial window AND the remaining credit balance.
+  if (
+    isExpiredTrialStatus(effectiveSub.subscriptionStatus) ||
+    isExpiredTrialWindow(
+      effectiveSub.subscriptionStatus,
+      effectiveSub.trialEndsAt,
+    )
+  ) {
+    return trialExpiredRefusal();
+  }
+
   if (effectiveSub.subscriptionStatus === "TRIAL") {
     if (
       effectiveSub.trialEndsAt &&
       new Date() > new Date(effectiveSub.trialEndsAt)
     ) {
-      return {
-        allowed: false,
-        reason:
-          "Your 15-day free trial has expired. Please subscribe to continue.",
-      };
+      return trialExpiredRefusal();
     }
     const trialCreditsRemaining = effectiveSub.creditsRemaining ?? 0;
     if (trialCreditsRemaining < count) {

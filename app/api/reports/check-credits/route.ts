@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
       canCreate: result.allowed,
       reason: result.reason,
       hasApiKey,
+      code: result.code,
+      payRoute: result.payRoute,
     });
   } catch (error) {
     console.error("Error checking credits:", error);

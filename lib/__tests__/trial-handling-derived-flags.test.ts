@@ -41,12 +41,12 @@ describe.skipIf(!process.env.DATABASE_URL)("getTrialStatus derived flags", () =>
     expect(status!.showHardWall).toBe(false);
   });
 
-  it("showHardWall=true when trial expired and not ACTIVE", async () => {
+  it("hasTrialExpired=true when trial expired; showHardWall stays false (RA-7439)", async () => {
     const user = await seedUser(-1, "TRIAL");
     const status = await getTrialStatus(user.id);
     expect(status).not.toBeNull();
     expect(status!.hasTrialExpired).toBe(true);
-    expect(status!.showHardWall).toBe(true);
+    expect(status!.showHardWall).toBe(false);
     expect(status!.showCountdownBanner).toBe(false);
   });
 
