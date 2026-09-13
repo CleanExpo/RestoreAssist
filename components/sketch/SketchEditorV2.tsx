@@ -101,6 +101,7 @@ import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
+  overlayViewportFromVpt,
   type OverlayViewport,
 } from "@/lib/sketch/overlay-viewport";
 import { applyDockZoom, resetDockZoom } from "@/lib/sketch/dock-zoom";
@@ -275,6 +276,8 @@ export function SketchEditorV2({
   const [overlayVpt, setOverlayVpt] = useState<OverlayViewport>(
     IDENTITY_OVERLAY_VIEWPORT,
   );
+  /** Live Fabric vpt from before the first dock Zoom In/Out this gesture. */
+  const dockZoomBaselineRef = useRef<OverlayViewport | null>(null);
 
   useEffect(() => {
     const el = canvasHostRef.current;
@@ -314,7 +317,12 @@ export function SketchEditorV2({
   const [activeIdx, setActiveIdx] = useState(0);
 
   useEffect(() => {
-    setOverlayVpt(IDENTITY_OVERLAY_VIEWPORT);
+    dockZoomBaselineRef.current = null;
+    const fc = floorsData[activeIdx]?.canvasRef.current?.getFabricCanvas() as
+      | { viewportTransform?: ArrayLike<number> | null }
+      | null
+      | undefined;
+    setOverlayVpt(overlayViewportFromVpt(fc?.viewportTransform));
   }, [activeIdx]);
 
   // ── UI state ───────────────────────────────────────────
@@ -1175,6 +1183,13 @@ export function SketchEditorV2({
         viewportTransform?: ArrayLike<number> | null;
       } | null;
       if (!fc) return;
+      // Snapshot the live Fabric vpt *before* setZoom — overlay may still be
+      // identity while Fabric already has pan (the 2232px Fit Canvas class).
+      if (!dockZoomBaselineRef.current) {
+        dockZoomBaselineRef.current = overlayViewportFromVpt(
+          fc.viewportTransform,
+        );
+      }
       // RA-7547: dock setZoom used to skip overlay notify — pins drifted.
       setOverlayVpt(applyDockZoom(fc, factor));
       fc.renderAll();
@@ -1190,7 +1205,10 @@ export function SketchEditorV2({
       viewportTransform?: ArrayLike<number> | null;
     } | null;
     if (!fc) return;
-    setOverlayVpt(resetDockZoom(fc));
+    // Restore the pre-dock-zoom Fabric matrix, then read the live vpt the
+    // same way Zoom In does. setZoom(1) alone leaves leftover pan.
+    setOverlayVpt(resetDockZoom(fc, dockZoomBaselineRef.current));
+    dockZoomBaselineRef.current = null;
     fc.renderAll();
   }, [activeFloor]);
 

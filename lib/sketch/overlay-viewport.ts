@@ -29,6 +29,11 @@ export function overlayViewportFromVpt(
   return { zoom, panX, panY };
 }
 
+/** Inverse of overlayViewportFromVpt — write this matrix back onto Fabric. */
+export function overlayViewportToVpt(v: OverlayViewport): number[] {
+  return [v.zoom, 0, 0, v.zoom, v.panX, v.panY];
+}
+
 export function overlayScreenPoint(
   sceneX: number,
   sceneY: number,

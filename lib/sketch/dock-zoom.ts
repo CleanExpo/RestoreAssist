@@ -1,5 +1,6 @@
 import {
   overlayViewportFromVpt,
+  overlayViewportToVpt,
   type OverlayViewport,
 } from "@/lib/sketch/overlay-viewport";
 
@@ -12,6 +13,17 @@ export interface DockZoomCanvas {
   setZoom: (z: number) => void;
   setViewportTransform?: (vpt: number[]) => void;
   viewportTransform?: ArrayLike<number> | null;
+}
+
+/**
+ * Read the overlay vpt from the live canvas after a dock mutation.
+ * Copy the matrix so a later Fabric write cannot alias the React snapshot.
+ */
+export function overlayFromDockCanvas(fc: DockZoomCanvas): OverlayViewport {
+  const raw = fc.viewportTransform;
+  const copy =
+    raw && raw.length >= 6 ? [raw[0], raw[1], raw[2], raw[3], raw[4], raw[5]] : null;
+  return overlayViewportFromVpt(copy);
 }
 
 /**
@@ -28,26 +40,30 @@ export function applyDockZoom(
     Math.min(DOCK_ZOOM_MAX, fc.getZoom() * factor),
   );
   fc.setZoom(z);
-  return overlayViewportFromVpt(fc.viewportTransform);
+  return overlayFromDockCanvas(fc);
 }
 
 /**
- * Fit Canvas — identity viewport, not `setZoom(1)` alone.
- * Fabric `setZoom` zooms around (0, 0) and leaves leftover pan, so pins can
- * jump thousands of pixels from their pre-zoom screen position while staying
- * glued to the plan. A real reset writes `[1,0,0,1,0,0]` and returns that vpt
- * so the React overlay matches.
+ * Fit Canvas. Fabric `setZoom(1)` zooms around (0, 0) and leaves leftover
+ * pan — pins can jump thousands of pixels from their pre-zoom screen
+ * position (Critic measured 2232px). Restore the snapshot taken *before*
+ * dock Zoom In/Out, then read the live `viewportTransform` the same way
+ * `applyDockZoom` does. No snapshot → identity matrix on both surfaces.
  */
 export function resetDockZoom(
   fc: Pick<
     DockZoomCanvas,
     "setZoom" | "setViewportTransform" | "viewportTransform"
   >,
+  baseline?: OverlayViewport | null,
 ): OverlayViewport {
+  const matrix = baseline
+    ? overlayViewportToVpt(baseline)
+    : [1, 0, 0, 1, 0, 0];
   if (typeof fc.setViewportTransform === "function") {
-    fc.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    fc.setViewportTransform(matrix);
   } else {
-    fc.setZoom(1);
+    fc.setZoom(matrix[0]);
   }
-  return overlayViewportFromVpt(fc.viewportTransform);
+  return overlayFromDockCanvas(fc);
 }

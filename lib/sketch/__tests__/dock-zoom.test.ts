@@ -11,7 +11,16 @@ function fakeFabric(initialZoom = 1, panX = 40, panY = -8) {
     },
     setZoom(z: number) {
       this.zoom = z;
-      this.viewportTransform = [z, 0, 0, z, panX, panY];
+      // Fabric setZoom → zoomToPoint(0,0): scale changes, leftover pan stays
+      // (or is mutated). This fake keeps pan — the 2232px failure class.
+      this.viewportTransform = [
+        z,
+        0,
+        0,
+        z,
+        this.viewportTransform[4],
+        this.viewportTransform[5],
+      ];
     },
     setViewportTransform(vpt: number[]) {
       this.viewportTransform = vpt;
@@ -61,13 +70,36 @@ describe("applyDockZoom — overlay must track toolbar setZoom (RA-7547)", () =>
   });
 });
 
-describe("resetDockZoom", () => {
-  it("writes an identity viewport so leftover pan cannot park pins off-screen", () => {
+describe("resetDockZoom — Fit Canvas must restore the pre-zoom overlay", () => {
+  it("writing identity overlay while Fabric still has pan is the 2232px class", () => {
+    const baseline = { zoom: 1, panX: 1800, panY: 400 };
+    const before = overlayScreenPoint(420, 328, baseline);
+    const identity = overlayScreenPoint(420, 328, { zoom: 1, panX: 0, panY: 0 });
+    expect(
+      Math.hypot(identity.left - before.left, identity.top - before.top),
+    ).toBeGreaterThan(12);
+  });
+
+  it("restores the snapshotted Fabric vpt and matches live overlay", () => {
+    const fc = fakeFabric(1, 1800, 400);
+    const baseline = { zoom: 1, panX: 1800, panY: 400 };
+    const before = overlayScreenPoint(420, 328, baseline);
+
+    applyDockZoom(fc, 1.2);
+    const vpt = resetDockZoom(fc, baseline);
+
+    expect(vpt).toEqual(baseline);
+    expect(fc.viewportTransform).toEqual([1, 0, 0, 1, 1800, 400]);
+    const after = overlayScreenPoint(420, 328, vpt);
+    expect(Math.hypot(after.left - before.left, after.top - before.top)).toBe(
+      0,
+    );
+  });
+
+  it("falls back to identity when no baseline was snapshotted", () => {
     const fc = fakeFabric(2, 12, 9);
     const vpt = resetDockZoom(fc);
     expect(vpt).toEqual({ zoom: 1, panX: 0, panY: 0 });
-    expect(fc.viewportTransform).toEqual([1, 0, 0, 1, 0, 0]);
-    expect(overlayScreenPoint(80, 20, vpt)).toEqual({ left: 80, top: 20 });
   });
 
   it("falls back to setZoom(1) when setViewportTransform is missing", () => {

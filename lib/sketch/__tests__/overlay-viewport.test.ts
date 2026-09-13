@@ -4,6 +4,7 @@ import {
   overlayScenePoint,
   overlayScreenPoint,
   overlayViewportFromVpt,
+  overlayViewportToVpt,
 } from "../overlay-viewport";
 
 describe("overlayViewportFromVpt", () => {
@@ -22,6 +23,11 @@ describe("overlayViewportFromVpt", () => {
 
   it("rejects a non-positive scale instead of inverting the overlay", () => {
     expect(overlayViewportFromVpt([0, 0, 0, 0, 10, 10]).zoom).toBe(1);
+  });
+
+  it("round-trips through overlayViewportToVpt", () => {
+    const v = overlayViewportFromVpt([1.2, 0, 0, 1.2, 1800, 400]);
+    expect(overlayViewportToVpt(v)).toEqual([1.2, 0, 0, 1.2, 1800, 400]);
   });
 });
 

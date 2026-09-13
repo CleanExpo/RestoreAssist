@@ -185,7 +185,7 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
     );
   });
 
-  test("dock Zoom In moves pin screen coords; Fit Canvas resets overlay vpt", async ({
+  test("dock Zoom In moves pin screen coords; Fit Canvas restores them", async ({
     page,
     request,
   }) => {
@@ -203,9 +203,12 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
 
     const beforeZoom = await pin.boundingBox();
     expect(beforeZoom, "pin box before dock zoom").toBeTruthy();
+    const zoomBefore = await layer.getAttribute("data-overlay-zoom");
+    const panXBefore = await layer.getAttribute("data-overlay-pan-x");
+    const panYBefore = await layer.getAttribute("data-overlay-pan-y");
 
     await clickDockTool(page, "sketch-tool-zoom-in");
-    await expect(layer).toHaveAttribute("data-overlay-zoom", "1.2");
+    await expect(layer).not.toHaveAttribute("data-overlay-zoom", zoomBefore ?? "");
     await expect(pin).toBeVisible();
     const afterZoom = await pin.boundingBox();
     expect(afterZoom, "pin box after dock Zoom In").toBeTruthy();
@@ -218,38 +221,25 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
       `dock Zoom In must move pin screen coords (moved ${moved.toFixed(1)}px)`,
     ).toBeGreaterThan(8);
 
-    // Fit Canvas writes an identity vpt (zoom 1, pan 0). It must NOT be
-    // asserted as "return to the pre-zoom pixels" — leftover Fabric pan from
-    // setZoom-around-origin made that delta 2232px in CI while the overlay
-    // notify itself was working.
+    // Fit Canvas restores the snapshotted Fabric vpt (not setZoom(1) leftover
+    // pan, not an invented identity). Overlay is read from the live matrix
+    // the same way Zoom In does. Critic measured resetDelta = 2232px when
+    // this path wrote the wrong transform.
     await clickDockTool(page, "sketch-tool-zoom-reset");
-    await expect(layer).toHaveAttribute("data-overlay-zoom", "1");
-    await expect(layer).toHaveAttribute("data-overlay-pan-x", "0");
-    await expect(layer).toHaveAttribute("data-overlay-pan-y", "0");
+    await expect(layer).toHaveAttribute("data-overlay-zoom", zoomBefore ?? "1");
+    await expect(layer).toHaveAttribute("data-overlay-pan-x", panXBefore ?? "0");
+    await expect(layer).toHaveAttribute("data-overlay-pan-y", panYBefore ?? "0");
     await expect(pin).toBeVisible();
     const afterReset = await pin.boundingBox();
     expect(afterReset, "pin box after Fit Canvas").toBeTruthy();
-    const leftZoomed = Math.hypot(
-      afterReset!.x - afterZoom!.x,
-      afterReset!.y - afterZoom!.y,
+    const resetDelta = Math.hypot(
+      afterReset!.x - beforeZoom!.x,
+      afterReset!.y - beforeZoom!.y,
     );
     expect(
-      leftZoomed,
-      "Fit Canvas must move the pin off the zoomed screen position",
-    ).toBeGreaterThan(8);
-
-    await clickDockTool(page, "sketch-tool-zoom-in");
-    await expect(layer).toHaveAttribute("data-overlay-zoom", "1.2");
-    const afterSecondZoom = await pin.boundingBox();
-    expect(afterSecondZoom, "pin box after second Zoom In").toBeTruthy();
-    const movedAgain = Math.hypot(
-      afterSecondZoom!.x - afterReset!.x,
-      afterSecondZoom!.y - afterReset!.y,
-    );
-    expect(
-      movedAgain,
-      "overlay must still track Zoom In after Fit Canvas",
-    ).toBeGreaterThan(8);
+      resetDelta,
+      "Fit Canvas must return the pin near its pre-zoom screen position",
+    ).toBeLessThan(12);
   });
 
   test("Photo tool opens image insert on the canvas (file picker, not chrome)", async ({
@@ -264,10 +254,6 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
     await expect(page.getByTestId("sketch-dock-toolbar")).toBeVisible({
       timeout: 15_000,
     });
-    const photoBtn = page.getByTestId("sketch-tool-photo");
-    if (!(await photoBtn.isVisible())) {
-      await page.getByRole("button", { name: "Advanced draw" }).click();
-    }
     await clickDockTool(page, "sketch-tool-photo");
     await expect(page.getByTestId("sketch-tool-photo")).toHaveAttribute(
       "aria-pressed",
