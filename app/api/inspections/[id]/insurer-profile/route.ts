@@ -14,6 +14,7 @@ import {
 } from "@/lib/insurer-profiles";
 import type { InsurerId } from "@/lib/insurer-profiles";
 import type { JobType } from "@/lib/evidence/workflow-definitions";
+import type { EvidenceClass } from "@/lib/types/evidence";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 /**
@@ -214,7 +215,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       });
 
       const submittedEvidence = evidenceCounts.map((row) => ({
-        evidenceClass: row.evidenceClass,
+        // Prisma EvidenceClass includes AFFECTED_CONTENTS; the insurer-profile
+        // union in lib/types/evidence.ts does not. Narrow at the boundary.
+        evidenceClass: row.evidenceClass as EvidenceClass,
         count: row._count.id,
       }));
 
