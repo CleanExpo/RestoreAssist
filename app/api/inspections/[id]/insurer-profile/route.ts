@@ -205,16 +205,20 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       const evidenceReqs = getEvidenceRequirements(insurerId, jobType);
       const reportSections = getReportSections(insurerId, jobType);
 
-      // Run evidence gap analysis if evidence exists
-      const evidenceCounts = await (prisma as any).inspectionEvidence.groupBy({
+      // EvidenceItem is the schema owner of inspectionId + evidenceClass
+      // (composite index @@index([inspectionId, evidenceClass])). There is no
+      // InspectionEvidence model — querying it 500s every caller (RA-7508).
+      const evidenceCounts = await prisma.evidenceItem.groupBy({
         by: ["evidenceClass"],
         where: { inspectionId },
         _count: { id: true },
       });
 
-      const submittedEvidence = evidenceCounts.map((e: any) => ({
-        evidenceClass: e.evidenceClass as EvidenceClass,
-        count: e._count.id,
+      const submittedEvidence = evidenceCounts.map((row) => ({
+        // Prisma EvidenceClass includes AFFECTED_CONTENTS; the insurer-profile
+        // union in lib/types/evidence.ts does not. Narrow at the boundary.
+        evidenceClass: row.evidenceClass as EvidenceClass,
+        count: row._count.id,
       }));
 
       const missingEvidence = jobType
@@ -231,6 +235,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         insurerProfile: profile,
         evidenceRequirements: evidenceReqs,
         reportSections,
+        submittedEvidence,
         evidenceGapAnalysis: {
           totalMandatory: evidenceReqs.filter((r) => r.mandatory).length,
           totalSubmitted: submittedEvidence.length,
