@@ -41,7 +41,7 @@ test.describe("RA-7542 sketch chrome @ 1280×720", () => {
     page,
   }) => {
     const id = await createInspection(page, "RA-7542 chrome 1280");
-    if (!id) return;
+    expect(id, "createInspection must return an inspection id").toBeTruthy();
     await openSketch(page, id);
 
     const toolbar = page.getByTestId("sketch-dock-toolbar");
@@ -76,7 +76,7 @@ test.describe("RA-7542 sketch chrome @ 1280×720", () => {
     page,
   }) => {
     const id = await createInspection(page, "RA-7542 post-nav");
-    if (!id) return;
+    expect(id, "createInspection must return an inspection id").toBeTruthy();
     await openSketch(page, id);
     await expect(page.getByTestId("sketch-dock-toolbar")).toBeVisible({
       timeout: 10_000,
