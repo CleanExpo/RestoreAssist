@@ -43,6 +43,8 @@ const stripeMock = vi.hoisted(() => ({
   subscriptions: { list: vi.fn() },
   billingPortal: { sessions: { create: vi.fn() } },
   checkout: { sessions: { create: vi.fn() } },
+  prices: { retrieve: vi.fn() },
+  products: { update: vi.fn() },
 }));
 vi.mock("@/lib/stripe", () => ({ stripe: stripeMock }));
 
@@ -74,6 +76,8 @@ describe("POST /api/create-checkout-session — Stripe failure handling", () => 
     stripeMock.subscriptions.list.mockReset();
     stripeMock.billingPortal.sessions.create.mockReset();
     stripeMock.checkout.sessions.create.mockReset();
+    stripeMock.prices.retrieve.mockReset();
+    stripeMock.products.update.mockReset();
     vi.mocked(prisma.user.findUnique).mockReset();
     vi.mocked(prisma.user.update).mockReset();
     vi.mocked(getServerSession).mockReset();
@@ -84,6 +88,16 @@ describe("POST /api/create-checkout-session — Stripe failure handling", () => 
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       stripeCustomerId: "cus_1",
     } as never);
+    // Default: catalog-matching Price so failure tests reach the intended stage.
+    stripeMock.prices.retrieve.mockResolvedValue({
+      id: ALLOWED_PRICE,
+      currency: "aud",
+      unit_amount: 9900,
+      product: {
+        id: "prod_monthly",
+        statement_descriptor: "RESTOREASSIST",
+      },
+    });
     // Default: no existing subscription, so the double-sub guard lets us through.
     stripeMock.subscriptions.list.mockResolvedValue({ data: [] });
   });
@@ -101,6 +115,22 @@ describe("POST /api/create-checkout-session — Stripe failure handling", () => 
     expect(body.error.eventId).toEqual(expect.any(String));
     // The raw upstream message must never be echoed to the caller.
     expect(JSON.stringify(body)).not.toContain("Stripe is down");
+  });
+
+  it("returns VALIDATION 400 when prices.retrieve reports a live/test price mode mismatch", async () => {
+    stripeMock.prices.retrieve.mockRejectedValue(
+      new Error(
+        "No such price: 'price_live'; a similar object exists in live mode, but a test mode key was used to make this request.",
+      ),
+    );
+
+    const res = await POST(makeRequest({ plan: "monthly" }));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("VALIDATION");
+    expect(body.error.message).toMatch(/STRIPE_PRICE_MONTHLY/);
+    expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
   });
 
   it("returns VALIDATION 400 when Stripe rejects a live/test price mode mismatch", async () => {
