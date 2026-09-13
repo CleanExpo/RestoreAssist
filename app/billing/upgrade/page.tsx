@@ -61,7 +61,7 @@ export default async function UpgradePage({
               role="status"
               className="mb-6 rounded-xl border border-border bg-muted/60 px-4 py-3 text-sm text-foreground"
             >
-              Checkout cancelled — continue when you&apos;re ready.
+              No problem — continue when you&apos;re ready.
             </p>
           )}
           <UpgradeHeader reason={reason} feature={feature} />
