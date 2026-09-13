@@ -174,4 +174,36 @@ describe("canUsePlatformTrialCredential / hasReportGenerationCredential", () => 
 
     expect(await hasReportGenerationCredential("paid-byok")).toBe(true);
   });
+
+  it("fail-closed: missing or blank ANTHROPIC_API_KEY is not a credential", async () => {
+    getEffectiveSubscription.mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      creditsRemaining: 50,
+      trialEndsAt: future,
+    });
+    hasActiveOperatingProviderConnection.mockResolvedValue(false);
+
+    for (const value of [undefined, "", "   "]) {
+      if (value === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = value;
+
+      expect(await canUsePlatformTrialCredential("trial-user")).toBe(false);
+      expect(await hasReportGenerationCredential("trial-user")).toBe(false);
+      expect(await tryPlatformTrialApiKey("trial-user", "ANTHROPIC")).toBeNull();
+    }
+  });
+
+  it("fail-closed: a non-Anthropic env value does not green the trial path", async () => {
+    process.env.ANTHROPIC_API_KEY = "sk-openai-not-anthropic";
+    getEffectiveSubscription.mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      creditsRemaining: 50,
+      trialEndsAt: future,
+    });
+    hasActiveOperatingProviderConnection.mockResolvedValue(false);
+
+    expect(await canUsePlatformTrialCredential("trial-user")).toBe(false);
+    expect(await hasReportGenerationCredential("trial-user")).toBe(false);
+    expect(await tryPlatformTrialApiKey("trial-user", "ANTHROPIC")).toBeNull();
+  });
 });

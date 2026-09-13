@@ -16,6 +16,15 @@ describe("buildAiProviderOnboardingStep (RA-6801)", () => {
     expect(step.route).toBe(AI_PROVIDER_ROUTE);
   });
 
+  it("keeps the Settings → AI Providers upgrade path when trial credits cover generation", () => {
+    const step = buildAiProviderOnboardingStep({
+      hasByokKey: false,
+      canUsePlatformTrial: true,
+    });
+    expect(step.route).toBe(AI_PROVIDER_ROUTE);
+    expect(step.description).toMatch(/add your own/i);
+  });
+
   it("still hard-requires BYOK when there is no trial credential", () => {
     const step = buildAiProviderOnboardingStep({
       hasByokKey: false,

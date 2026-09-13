@@ -484,28 +484,21 @@ export default function NewReportPage() {
     router.push(route);
   };
 
-  const isTrialAccount = subscriptionStatus === "TRIAL";
   const setupSteps = [
-    // RA-6801: trial credits power report-gen — do not present BYOK as a
-    // required setup step. Paid accounts still see it first.
-    ...(!isTrialAccount
-      ? [
-          {
-            number: 1,
-            icon: Zap,
-            title: "Connect API Key",
-            description:
-              "Add your Anthropic API key to enable AI-powered report generation",
-            impact: "High Impact",
-            impactColor: "text-success",
-            impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
-            details:
-              "Personalizes report generation, enables advanced AI features, and improves report quality",
-            route: "/dashboard/integrations?onboarding=true",
-            timeEstimate: "2 min",
-          },
-        ]
-      : []),
+    {
+      number: 1,
+      icon: Zap,
+      title: "Connect API Key",
+      description:
+        "Add your Anthropic API key to enable AI-powered report generation",
+      impact: "High Impact",
+      impactColor: "text-success",
+      impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
+      details:
+        "Personalizes report generation, enables advanced AI features, and improves report quality",
+      route: "/dashboard/integrations?onboarding=true",
+      timeEstimate: "2 min",
+    },
     {
       number: 2,
       icon: DollarSign,

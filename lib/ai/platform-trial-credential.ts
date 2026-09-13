@@ -44,17 +44,24 @@ export function isPlatformTrialEligible(
   return true;
 }
 
+/**
+ * Fail-closed: missing, blank, or non-Anthropic env values are not a
+ * platform trial key. Prefix matches `providerForKey` in lib/ai-provider.ts
+ * (sk-ant-…) so a mis-set OPENAI/OpenRouter secret cannot green the gate.
+ */
 export function isPlatformTrialApiKeyConfigured(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return Boolean(env.ANTHROPIC_API_KEY?.trim());
+  return readPlatformTrialApiKey(env) !== null;
 }
 
 export function readPlatformTrialApiKey(
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
   const key = env.ANTHROPIC_API_KEY?.trim();
-  return key ? key : null;
+  if (!key) return null;
+  if (!key.startsWith("sk-ant-")) return null;
+  return key;
 }
 
 /**
