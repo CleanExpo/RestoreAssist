@@ -33,7 +33,9 @@ test("TRIAL user with 2 days left sees banner and reaches upgrade page", async (
     .last()
     .click({ timeout: 5_000 });
   await expect(page).toHaveURL(/\/billing\/upgrade\?reason=voluntary/);
-  // Single-catalogue upgrade page (RA-6929) — the retired Standard/Premium
-  // tier names are gone. Land on the voluntary hero, not a leftover label.
+  // The page is static HTML from PRICING_CONFIG / UpgradeHeader. It does
+  // not need STRIPE_SECRET_KEY to render. "Standard" was a retired tier
+  // name (RA-6929 single-catalogue collapse) and is not on this page.
   await expect(page.getByRole("heading", { name: /Choose a plan/i })).toBeVisible();
+  await expect(page.getByText("Monthly plan")).toBeVisible();
 });
