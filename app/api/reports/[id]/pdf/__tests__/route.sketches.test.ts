@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
+import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 
 // PR2 (RA-120) — the canonical IICRC report embeds each floor's sketch
 // (underlay + annotations) as its own page, sourced from ClaimSketch.renderedPngUrl.
@@ -143,28 +143,19 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
     expect(res.status).toBe(200);
     const buf = new Uint8Array(await res.arrayBuffer());
     expect((await PDFDocument.load(buf)).getPageCount()).toBe(3); // 1 base + 2 floors
-    let sawPng = false;
+    let sawImage = false;
     const loaded = await PDFDocument.load(buf);
     for (const [, obj] of loaded.context.enumerateIndirectObjects()) {
       if (!(obj instanceof PDFRawStream)) continue;
-      try {
-        const decoded = decodePDFRawStream(obj).decode();
-        if (
-          decoded[0] === 0x89 &&
-          decoded[1] === 0x50 &&
-          decoded[2] === 0x4e &&
-          decoded[3] === 0x47
-        ) {
-          sawPng = true;
-          break;
-        }
-      } catch {
-        /* not a decodable image stream */
+      if (String(obj.dict.get(PDFName.of("Subtype"))) === "/Image") {
+        sawImage = true;
+        break;
       }
     }
-    expect(sawPng, "report PDF must contain an embedded PNG, not a blank extra page").toBe(
-      true,
-    );
+    expect(
+      sawImage,
+      "report PDF must contain an embedded Image XObject, not a blank extra page",
+    ).toBe(true);
   });
 
   it("leaves the report unchanged when no sketch has been rendered", async () => {

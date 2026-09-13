@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
+import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import { appendSketchPages } from "../append-sketch-pages";
 
 // A valid 1x1 transparent PNG — pdf-lib's embedPng must be able to parse it.
@@ -10,33 +10,18 @@ const PNG_1x1 =
 const PNG_17x13 =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAANCAIAAADAGxJNAAAAFklEQVR42mO4srSEVMQwqmdUDx31AABidKmpPSOQawAAAABJRU5ErkJggg==";
 
-function pngIhdrSize(bytes: Uint8Array): { w: number; h: number } | null {
-  if (
-    bytes.length < 24 ||
-    bytes[0] !== 0x89 ||
-    bytes[1] !== 0x50 ||
-    bytes[2] !== 0x4e ||
-    bytes[3] !== 0x47
-  ) {
-    return null;
-  }
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return { w: view.getUint32(16), h: view.getUint32(20) };
-}
-
-async function embeddedPngSizes(
+async function embeddedImageSizes(
   pdfBytes: Uint8Array,
 ): Promise<Array<{ w: number; h: number }>> {
   const doc = await PDFDocument.load(pdfBytes);
   const sizes: Array<{ w: number; h: number }> = [];
   for (const [, obj] of doc.context.enumerateIndirectObjects()) {
     if (!(obj instanceof PDFRawStream)) continue;
-    try {
-      const size = pngIhdrSize(decodePDFRawStream(obj).decode());
-      if (size) sizes.push(size);
-    } catch {
-      /* non-PNG stream */
-    }
+    const dict = obj.dict;
+    if (String(dict.get(PDFName.of("Subtype"))) !== "/Image") continue;
+    const w = Number(dict.get(PDFName.of("Width")));
+    const h = Number(dict.get(PDFName.of("Height")));
+    if (Number.isFinite(w) && Number.isFinite(h)) sizes.push({ w, h });
   }
   return sizes;
 }
@@ -72,7 +57,7 @@ describe("appendSketchPages", () => {
     );
     const doc = await PDFDocument.load(out);
     expect(doc.getPageCount()).toBe(2);
-    expect(await embeddedPngSizes(out)).toContainEqual({ w: 17, h: 13 });
+    expect(await embeddedImageSizes(out)).toContainEqual({ w: 17, h: 13 });
   });
 
   it("returns the original bytes unchanged when there are no floors", async () => {
