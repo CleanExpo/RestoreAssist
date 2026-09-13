@@ -22,6 +22,10 @@ import {
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import {
+  SIGNUP_KEY_NOTE_BODY,
+  SIGNUP_KEY_NOTE_TITLE,
+} from "@/lib/signup-pricing-honesty";
 import { MarketingShell } from "@/components/landing/home";
 import { CONTAINER, FONT_DISPLAY } from "@/components/landing/home/motion";
 
@@ -187,28 +191,23 @@ export default function SignupPage() {
           <p className="text-slate-600">Create your account</p>
         </div>
 
-        {/* API Key requirement — always visible */}
+        {/* RA-7549 — Basic works without BYOK; provider charges are opt-in. */}
         <motion.div
           initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.08 }}
-          className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4"
+          className="mb-4 bg-cyan-50 border border-cyan-200 rounded-xl p-4"
           role="note"
-          aria-label="Anthropic API key required for AI features"
+          aria-label={SIGNUP_KEY_NOTE_TITLE}
         >
           <div className="flex items-start gap-3">
-            <Key className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <Key className="w-5 h-5 text-[#3B6D8C] mt-0.5 shrink-0" />
             <div>
-              <p className="text-amber-900 font-semibold text-sm">
-                An Anthropic or OpenAI API key is required to operate
-                RestoreAssist
+              <p className="text-[#0B1F3A] font-semibold text-sm">
+                {SIGNUP_KEY_NOTE_TITLE}
               </p>
-              <p className="text-amber-800/80 text-xs mt-1 leading-relaxed">
-                You pay providers directly, at cost. Add it in{" "}
-                <span className="font-medium text-amber-900">
-                  Settings → AI Providers
-                </span>
-                .
+              <p className="text-slate-600 text-xs mt-1 leading-relaxed">
+                {SIGNUP_KEY_NOTE_BODY}
               </p>
             </div>
           </div>
@@ -254,12 +253,9 @@ export default function SignupPage() {
                 <p className="text-slate-600">
                   Get started immediately with{" "}
                   {PRICING_CONFIG.free.trialReportCredits} free report credits,
-                  valid for {PRICING_CONFIG.free.trialDays} days.{" "}
-                  <span className="text-amber-700 font-medium">
-                    You will need an Anthropic or OpenAI API key to generate
-                    reports
-                  </span>{" "}
-                  — add it in Settings → AI Providers after signup.
+                  valid for {PRICING_CONFIG.free.trialDays} days. Basic reports
+                  work without pasting an API key. Provider charges apply only
+                  if you add your own Anthropic or OpenAI key later.
                 </p>
               </div>
 
@@ -314,17 +310,16 @@ export default function SignupPage() {
 
               <div>
                 <p className="font-semibold text-[#0B1F3A] mb-1">
-                  5. Add Your Anthropic or OpenAI API Key
+                  5. Optional: Add Your Own AI Key
                 </p>
                 <p className="text-slate-600">
-                  An Anthropic or OpenAI API key is required to operate
-                  RestoreAssist — you pay providers directly, at cost. Add it
-                  in{" "}
+                  Not required for Basic reports on the trial. Add your own
+                  Anthropic or OpenAI key in{" "}
                   <span className="font-medium text-[#0B1F3A]">
                     Settings → AI Providers
-                  </span>
-                  . Without a key configured, report generation will be
-                  unavailable.
+                  </span>{" "}
+                  when you want usage billed to your account — that provider
+                  charges you directly, at their rates.
                 </p>
               </div>
 

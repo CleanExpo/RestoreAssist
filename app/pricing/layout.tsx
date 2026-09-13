@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   // in this repo backs it. Metadata is a claim surface like any other, and it
   // is the one that ends up in search results.
   description:
-    "RestoreAssist pricing for Australian restoration contractors. 50 inspection reports a month on the $99 plan, per-report rates published, IICRC S500 alignment, and AI-assisted assessment on your own provider key.",
+    "RestoreAssist pricing for Australian restoration contractors. 50 inspection reports a month on the $99 plan, per-report rates published, IICRC S500 alignment. Basic reports on the free trial work without pasting an API key; provider charges apply only if you add your own key.",
   keywords: [
     "restoration software pricing",
     "restoration report software cost",

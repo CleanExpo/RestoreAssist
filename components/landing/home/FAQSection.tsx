@@ -31,7 +31,7 @@ const FAQS = [
   {
     cat: "Trial",
     q: "What's included in the free trial?",
-    a: `${trialDays}-day trial with ${trialReports} inspection report credits. Report generation runs on your own Anthropic or OpenAI key, which takes about two minutes to add in settings. After that, field capture, reporting, invoicing, and the client portal are ready from day one — so you can prove value on real work without rewriting your process.`,
+    a: `${trialDays}-day trial with ${trialReports} inspection report credits. Basic reports work without pasting an API key. Provider charges apply only if you add your own Anthropic or OpenAI key later. Field capture, reporting, invoicing, and the client portal are ready from day one — so you can prove value on real work without rewriting your process.`,
   },
   {
     cat: "Pricing",
@@ -51,7 +51,7 @@ const FAQS = [
   {
     cat: "Setup",
     q: "Do I need my own AI key?",
-    a: "Yes for drafting and Quick Fill. You add your Anthropic or OpenAI key once in workspace settings — RestoreAssist uses your key, not a shared platform meter. That keeps spend under your control. You still review and own every report before it leaves your company.",
+    a: "Not for Basic reports on the free trial — you can start without pasting a key. Add your own Anthropic or OpenAI key when you want usage billed to your account, or when you move to paid generation. That provider bills you directly and we take no share. You still review and own every report before it leaves your company.",
   },
   {
     cat: "Compliance",

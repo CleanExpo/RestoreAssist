@@ -61,7 +61,7 @@ export const HOME = {
       },
       {
         title: "Priced for Australian businesses",
-        body: "$99 a month, 50 inspection reports — $1.98 a report, in Australian dollars. Report generation runs on your own AI key: your provider bills you directly and we take no margin. Add-ons are $11/month each, field technician seats per seat, all itemised on the pricing page.",
+        body: "$99 a month, 50 inspection reports — $1.98 a report, in Australian dollars. Basic reports on the free trial work without pasting an API key. Provider charges apply only if you add your own key — they bill you directly and we take no margin. Add-ons are $11/month each, field technician seats per seat, all itemised on the pricing page.",
       },
     ] as const,
   },
@@ -113,7 +113,7 @@ export const HOME = {
     eyebrow: "Restoration CRM platform",
     title: "Everything the job needs — without the gaps",
     body: "Built for Australian restoration companies that need compliance depth and field speed in the same product. From moisture logs to insurer-ready paperwork, RestoreAssist keeps office and field on one system.",
-    byok: "Drafting runs on your workspace Anthropic or OpenAI key — your spend, your control.",
+    byok: "Basic reports work without an API key. Add your own Anthropic or OpenAI key later if you want usage billed to your account.",
     continuumLabel: "Where capability sits",
     continuumLeft: "Field",
     continuumRight: "Office",
@@ -268,7 +268,7 @@ export const HOME = {
     secondaryCta: "View pricing",
     reassurances: [
       `${trialDays}-day trial · ${trialReports} report credits`,
-      "Your own AI key — no margin on usage",
+      "Basic reports without an API key",
       "24/7 support",
     ] as const,
   },
@@ -286,7 +286,7 @@ export function getHomeFaqs() {
     {
       cat: "Trial",
       q: "What's included in the free trial?",
-      a: `${trialDays}-day trial with ${trialReports} inspection report credits. Report generation runs on your own Anthropic or OpenAI key, which takes about two minutes to add in settings. After that, field capture, reporting, invoicing, and the client portal are ready from day one — so you can prove value on real work without rewriting your process.`,
+      a: `${trialDays}-day trial with ${trialReports} inspection report credits. Basic reports work without pasting an API key. Provider charges apply only if you add your own Anthropic or OpenAI key later. Field capture, reporting, invoicing, and the client portal are ready from day one — so you can prove value on real work without rewriting your process.`,
     },
     {
       cat: "Pricing",
@@ -306,7 +306,7 @@ export function getHomeFaqs() {
     {
       cat: "Setup",
       q: "Do I need my own AI key?",
-      a: "Yes for drafting and Quick Fill. You add your Anthropic or OpenAI key once in workspace settings — RestoreAssist uses your key, not a shared platform meter. That keeps spend under your control. You still review and own every report before it leaves your company.",
+      a: "Not for Basic reports on the free trial — you can start without pasting a key. Add your own Anthropic or OpenAI key when you want usage billed to your account, or when you move to paid generation. That provider bills you directly and we take no share. You still review and own every report before it leaves your company.",
     },
     {
       cat: "Compliance",
