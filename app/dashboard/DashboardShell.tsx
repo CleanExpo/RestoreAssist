@@ -71,6 +71,7 @@ import {
   type ExperienceMode,
   type NavItem,
 } from "./nav-config";
+import { resolveReportCreationPayRoute } from "@/lib/billing/trial-expired-pay-route";
 
 /** Icons for the six Admin destinations — shared by Advanced + Simple mode. */
 const ADMIN_NAV_ICONS: Record<(typeof ADMIN_NAV_HREFS)[number]["label"], typeof Shield> = {
@@ -425,8 +426,10 @@ export default function DashboardShell({
                 }
                 if (!data.canCreate) {
                   // RA-1842: iOS billing happens on web; do not auto-redirect.
+                  // RA-7462: expired trial goes to the subscribe page, not the
+                  // generic credits / pricing wall.
                   if (!hideBillingNav) {
-                    router.push("/dashboard/pricing");
+                    router.push(resolveReportCreationPayRoute(data));
                   } else {
                     toast.error(
                       "Contact your workspace admin to manage your subscription.",

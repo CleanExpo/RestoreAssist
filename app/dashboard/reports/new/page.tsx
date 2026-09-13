@@ -21,6 +21,11 @@ import toast from "react-hot-toast";
 import ReportWorkflow from "@/components/ReportWorkflow";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import {
+  REPORT_CREATION_CREDITS_ROUTE,
+  isTrialExpiredPayRoute,
+  resolveReportCreationPayRoute,
+} from "@/lib/billing/trial-expired-pay-route";
 
 export default function NewReportPage() {
   const router = useRouter();
@@ -43,6 +48,9 @@ export default function NewReportPage() {
   );
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(
     null,
+  );
+  const [creationPayRoute, setCreationPayRoute] = useState(
+    REPORT_CREATION_CREDITS_ROUTE,
   );
 
   // Fetch subscription status on mount (always needed for feature gating)
@@ -77,6 +85,16 @@ export default function NewReportPage() {
             : !!canCreateData.canCreate;
 
         if (!allowed) {
+          const dest = resolveReportCreationPayRoute(canCreateData);
+          setCreationPayRoute(dest);
+          // RA-7462 — expired trial opens the subscribe page, not the
+          // generic "used all your credits" wall.
+          if (isTrialExpiredPayRoute(dest) && !isCapacitorIOS()) {
+            router.replace(dest);
+            setCanCreateReport(false);
+            setHasCheckedCredits(true);
+            return;
+          }
           // No credits available - show upgrade modal
           setShowUpgradeModal(true);
           setCanCreateReport(false);
@@ -815,7 +833,7 @@ export default function NewReportPage() {
               </p>
               <BillingGate fallback={null}>
                 <button
-                  onClick={() => router.push("/dashboard/pricing")}
+                  onClick={() => router.push(creationPayRoute)}
                   className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
                 >
                   <Crown className="w-4 h-4" />
@@ -1037,7 +1055,7 @@ export default function NewReportPage() {
                   onClick={() => {
                     setShowUpgradeModal(false);
                     if (!isCapacitorIOS()) {
-                      router.push("/dashboard/pricing");
+                      router.push(creationPayRoute);
                     }
                   }}
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group text-white"

@@ -58,6 +58,10 @@ import {
   canCreateReport,
   deductCreditsAndTrackUsage,
 } from "@/lib/report-limits";
+import {
+  TRIAL_EXPIRED_PAY_ROUTE,
+  TRIAL_EXPIRED_REFUSAL_CODE,
+} from "@/lib/billing/trial-expired-pay-route";
 
 const FUTURE = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
 
@@ -105,6 +109,37 @@ describe("canCreateReport — trial 50-report cap", () => {
     const res = await canCreateReport("user-1");
     expect(res.allowed).toBe(false);
     expect(res.reason).toMatch(/15-day free trial has expired/i);
+    expect(res.code).toBe(TRIAL_EXPIRED_REFUSAL_CODE);
+    expect(res.payRoute).toBe(TRIAL_EXPIRED_PAY_ROUTE);
+  });
+
+  it("BLOCKS an EXPIRED (post-sweep) account with the same subscribe route", async () => {
+    getEffectiveSubscription.mockResolvedValue({
+      id: "admin-1",
+      subscriptionStatus: "EXPIRED",
+      creditsRemaining: 0,
+      trialEndsAt: new Date(Date.now() - 1000),
+    });
+
+    const res = await canCreateReport("user-1");
+    expect(res.allowed).toBe(false);
+    expect(res.code).toBe(TRIAL_EXPIRED_REFUSAL_CODE);
+    expect(res.payRoute).toBe(TRIAL_EXPIRED_PAY_ROUTE);
+    expect(res.reason).toMatch(/15-day free trial has expired/i);
+  });
+
+  it("does NOT send an in-period exhausted trial to the trial-expired pay route", async () => {
+    getEffectiveSubscription.mockResolvedValue({
+      id: "admin-1",
+      subscriptionStatus: "TRIAL",
+      creditsRemaining: 0,
+      trialEndsAt: FUTURE,
+    });
+
+    const res = await canCreateReport("user-1");
+    expect(res.allowed).toBe(false);
+    expect(res.payRoute).toBeUndefined();
+    expect(res.code).toBeUndefined();
   });
 
   it("does NOT apply the trial cap to ACTIVE subscribers (uses monthly limits)", async () => {

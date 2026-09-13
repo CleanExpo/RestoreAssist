@@ -9,7 +9,7 @@ export interface TrialStatus {
   creditsRemaining: number;
   /** True when on TRIAL and 0 < daysRemaining <= T_MINUS_BANNER_DAYS. Drives <TrialCountdownBanner>. */
   showCountdownBanner: boolean;
-  /** True when trial has expired AND subscriptionStatus !== ACTIVE AND !lifetimeAccess. Drives middleware hard-paywall. */
+  /** Kept for callers; always false after RA-7439 (dashboard stays open). */
   showHardWall: boolean;
   /** Mirror of User.lifetimeAccess so callers can render lifetime-specific UI without a second query. */
   lifetimeAccess: boolean | null;
@@ -35,20 +35,21 @@ export async function getTrialStatus(
     return null;
   }
 
-  // Not on trial
+  // Not on trial. EXPIRED is the post-sweep state of an ended trial
+  // (checkAndUpdateTrialStatus / handleExpiredTrials) — treat it as
+  // the same ended-trial signal so the RA-7462 banner still shows.
   if (user.subscriptionStatus !== "TRIAL") {
-    const hasTrialExpired = false;
+    const hasTrialExpired = user.subscriptionStatus === "EXPIRED";
     return {
       isTrialActive: false,
       daysRemaining: 0,
-      trialEndsAt: null,
+      trialEndsAt: user.trialEndsAt ? new Date(user.trialEndsAt) : null,
       hasTrialExpired,
       creditsRemaining: user.creditsRemaining || 0,
       showCountdownBanner: false,
-      showHardWall:
-        hasTrialExpired &&
-        user.subscriptionStatus !== "ACTIVE" &&
-        !user.lifetimeAccess,
+      // RA-7439: expired trial is a soft gate. CANCELED / PAST_DUE lock
+      // out in proxy.ts, not via this flag.
+      showHardWall: false,
       lifetimeAccess: user.lifetimeAccess,
     };
   }
@@ -80,9 +81,9 @@ export async function getTrialStatus(
     !hasTrialExpired &&
     daysRemaining > 0 &&
     daysRemaining <= T_MINUS_BANNER_DAYS;
-  // In this branch subscriptionStatus === "TRIAL" (narrowed), so the
-  // !== "ACTIVE" guard from the spec is implicitly satisfied here.
-  const showHardWall = hasTrialExpired && !user.lifetimeAccess;
+  // RA-7439: an expired trial keeps the dashboard. The wall is at
+  // report creation (RA-7462), not a hard redirect.
+  const showHardWall = false;
 
   return {
     isTrialActive: !hasTrialExpired,
