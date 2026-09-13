@@ -35,7 +35,8 @@ vi.mock("@/lib/idempotency", () => ({
 const stripeMock = vi.hoisted(() => ({
   customers: { create: vi.fn() },
   checkout: { sessions: { create: vi.fn() } },
-  prices: { create: vi.fn() },
+  prices: { create: vi.fn(), retrieve: vi.fn() },
+  products: { update: vi.fn() },
   subscriptions: { list: vi.fn() },
   billingPortal: { sessions: { create: vi.fn() } },
 }));
@@ -69,6 +70,16 @@ describe("POST /api/create-checkout-session", () => {
       stripeCustomerId: "cus_123",
     } as never);
     stripeMock.subscriptions.list.mockResolvedValue({ data: [] });
+    stripeMock.prices.retrieve.mockResolvedValue({
+      id: MONTHLY,
+      currency: "aud",
+      unit_amount: 9900,
+      product: {
+        id: "prod_monthly",
+        statement_descriptor: "RESTOREASSIST",
+      },
+    });
+    stripeMock.products.update.mockResolvedValue({ id: "prod_monthly" });
     stripeMock.checkout.sessions.create.mockResolvedValue({
       id: "cs_test_123",
       url: "https://stripe.test/cs_123",
@@ -121,6 +132,101 @@ describe("POST /api/create-checkout-session", () => {
       expect.objectContaining({
         automatic_tax: { enabled: true },
         tax_id_collection: { enabled: true },
+      }),
+    );
+  });
+
+  it("RA-7541: AU session pins AUD, disables Adaptive Pricing, and brands RestoreAssist", async () => {
+    const res = await POST(makeRequest({ plan: "monthly" }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.prices.retrieve).toHaveBeenCalledWith(MONTHLY, {
+      expand: ["product"],
+    });
+    expect(stripeMock.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currency: "aud",
+        locale: "en",
+        adaptive_pricing: { enabled: false },
+        branding_settings: { display_name: "RestoreAssist" },
+        line_items: [{ price: MONTHLY, quantity: 1 }],
+        custom_text: {
+          submit: {
+            message: expect.stringMatching(/\$99 AUD/),
+          },
+        },
+        subscription_data: expect.objectContaining({
+          description: "RestoreAssist Monthly Plan",
+        }),
+      }),
+    );
+    const arg = stripeMock.checkout.sessions.create.mock.calls[0][0] as {
+      branding_settings: { display_name: string };
+    };
+    expect(arg.branding_settings.display_name).not.toMatch(/CARSI/i);
+  });
+
+  it("RA-7541: NZ org still charges the AUD catalog (en-NZ copy only)", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      stripeCustomerId: "cus_123",
+      organization: { country: "NZ" },
+    } as never);
+    const res = await POST(makeRequest({ plan: "monthly" }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currency: "aud",
+        locale: "en",
+        adaptive_pricing: { enabled: false },
+      }),
+    );
+  });
+
+  it("RA-7541: rejects a USD / $73.85 Price and creates no session", async () => {
+    stripeMock.prices.retrieve.mockResolvedValue({
+      id: MONTHLY,
+      currency: "usd",
+      unit_amount: 7385,
+      product: { id: "prod_monthly" },
+    });
+    const res = await POST(makeRequest({ plan: "monthly" }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("VALIDATION");
+    expect(body.error.message).toMatch(/usd/i);
+    expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
+    expect(stripeMock.products.update).not.toHaveBeenCalled();
+  });
+
+  it("RA-7541: patches a CARSI Product statement descriptor to RESTOREASSIST", async () => {
+    stripeMock.prices.retrieve.mockResolvedValue({
+      id: MONTHLY,
+      currency: "aud",
+      unit_amount: 9900,
+      product: {
+        id: "prod_monthly",
+        statement_descriptor: "CARSI PTY LTD",
+      },
+    });
+    const res = await POST(makeRequest({ plan: "monthly" }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.products.update).toHaveBeenCalledWith("prod_monthly", {
+      statement_descriptor: "RESTOREASSIST",
+    });
+  });
+
+  it("RA-7541: stamps AU locale + country on a newly created Stripe customer", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      stripeCustomerId: null,
+      organization: { country: "AU" },
+    } as never);
+    stripeMock.customers.create.mockResolvedValue({ id: "cus_new" });
+    vi.mocked(prisma.user.update).mockResolvedValue({} as never);
+    const res = await POST(makeRequest({ plan: "monthly" }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.customers.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preferred_locales: ["en-AU"],
+        address: { country: "AU" },
       }),
     );
   });
