@@ -6,7 +6,7 @@
  * Replaces SketchEditor.tsx with a composable, tablet-first editor.
  * Architecture:
  *   - SketchCanvas         → Fabric.js base (SSR-safe via dynamic import)
- *   - SketchDockToolbar    → draggable floating tool dock
+ *   - SketchDockToolbar    → in-flow tool dock (does not overlay the canvas)
  *   - SketchFloorTabs      → multi-floor switcher with safe-save
  *   - SketchSelectionPanel → context-sensitive property panel
  *   - SketchMoistureLayer  → React DOM moisture pin overlay
@@ -404,6 +404,8 @@ export function SketchEditorV2({
 
   // ── Load sketch data from API ──────────────────────────
   useEffect(() => {
+    // RA-7542 — job change must not keep the previous job's selection chrome.
+    setSelectedObj(null);
     if (!inspectionId || captureMode) {
       setSketchesHydrated(true);
       return;
@@ -2242,11 +2244,34 @@ export function SketchEditorV2({
         className="shrink-0"
       />
 
-      {/* ── Canvas area ────────────────────────────────────── */}
-      <div
-        ref={canvasHostRef}
-        className="relative flex-1 min-h-0 overflow-hidden"
-      >
+      {!readonly && !guided && (
+        <SketchPlanLifecycleBanner
+          phase={
+            planPhase === "empty" ||
+            (planPhase === "plan_ready" && planReadyBannerDismissed)
+              ? "empty"
+              : planPhase
+          }
+          onConfirmPlan={() => {
+            setPlanReadyAck(true);
+            setPlanReadyBannerDismissed(false);
+            toast.success("Plan marked ready — annotate in Quick edit");
+          }}
+          onDismissPlanReady={() => setPlanReadyBannerDismissed(true)}
+          onOpenAdvanced={() => {
+            setPlanReadyBannerDismissed(true);
+            handleEditorModeChange("advanced");
+          }}
+        />
+      )}
+
+      {/* ── Canvas + in-flow selection chrome (RA-7543) ────── */}
+      <div className="flex flex-1 min-h-0">
+        <div
+          ref={canvasHostRef}
+          className="relative flex-1 min-h-0 overflow-hidden"
+          data-testid="sketch-canvas-host"
+        >
         {!sketchesHydrated && (
           <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm gap-2">
             <Loader2 size={16} className="animate-spin" />
@@ -2477,51 +2502,9 @@ export function SketchEditorV2({
             onDismiss={() => setCreateCoachDismissed(true)}
           />
         )}
+      </div>
 
-        {!readonly && !guided && (
-          <SketchPlanLifecycleBanner
-            phase={
-              planPhase === "empty" ||
-              (planPhase === "plan_ready" && planReadyBannerDismissed)
-                ? "empty"
-                : planPhase
-            }
-            onConfirmPlan={() => {
-              setPlanReadyAck(true);
-              setPlanReadyBannerDismissed(false);
-              toast.success("Plan marked ready — annotate in Quick edit");
-            }}
-            onDismissPlanReady={() => setPlanReadyBannerDismissed(true)}
-            onOpenAdvanced={() => {
-              setPlanReadyBannerDismissed(true);
-              handleEditorModeChange("advanced");
-            }}
-          />
-        )}
-
-        {roomMoistureSession && !readonly && !guided && (
-          <div className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2 flex gap-2 pointer-events-auto">
-            <button
-              type="button"
-              onClick={handleExportRoomMoisturePng}
-              className="min-h-10 px-3 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-50 text-xs font-medium hover:bg-cyan-500/30"
-            >
-              Export room moisture PNG
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setToolMode("damage");
-                setDamageKind("water");
-              }}
-              className="min-h-10 px-3 rounded-lg bg-white/10 border border-white/20 text-white/85 text-xs font-medium hover:bg-white/15"
-            >
-              Freehand water
-            </button>
-          </div>
-        )}
-
-        {/* Selection panel */}
+        {/* Selection panel — sibling of the canvas, not stacked on it */}
         <SketchSelectionPanel
           selected={selectedObj}
           guided={guided}
@@ -3062,75 +3045,97 @@ export function SketchEditorV2({
             scheduleSave();
           }}
         />
-
-        {/* Floating dock toolbar */}
-        <SketchDockToolbar
-          toolMode={toolMode}
-          guided={guided}
-          editorMode={editorMode}
-          onEditorModeChange={handleEditorModeChange}
-          onToolChange={handleToolChange}
-          damageKind={damageKind}
-          onDamageKindChange={setDamageKind}
-          equipmentKind={equipmentKind}
-          onEquipmentKindChange={setEquipmentKind}
-          roomTemplateKind={roomTemplateKind}
-          onRoomTemplateKindChange={setRoomTemplateKind}
-          onRoomTemplateFlipH={() => {
-            setRoomTemplateFlipH((v) => {
-              const next = !v;
-              toast.success(
-                next
-                  ? "Next L/T room: flipped horizontally"
-                  : "Horizontal flip off",
-              );
-              return next;
-            });
-          }}
-          onRoomTemplateFlipV={() => {
-            setRoomTemplateFlipV((v) => {
-              const next = !v;
-              toast.success(
-                next
-                  ? "Next L/T room: flipped vertically"
-                  : "Vertical flip off",
-              );
-              return next;
-            });
-          }}
-          onRoomTemplateRotate={() => {
-            setRoomTemplateRotateQuarters((q) => {
-              const next = (q + 1) % 4;
-              toast.success(
-                next === 0
-                  ? "Next L/T room: rotation reset"
-                  : `Next L/T room: rotated ${next * 90}°`,
-              );
-              return next;
-            });
-          }}
-          canUndo={historyState.canUndo}
-          canRedo={historyState.canRedo}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onZoomIn={() => applyZoom(1.2)}
-          onZoomOut={() => applyZoom(0.8)}
-          onZoomReset={handleZoomReset}
-          onClear={() => {
-            activeFloor?.canvasRef.current?.clear();
-            scheduleSave();
-          }}
-          onImportSketch={
-            inspectionId && !readonly ? handleImportSketch : undefined
-          }
-          onScanRoom={
-            inspectionId && !readonly && !guided && hasNativeRoomPlan
-              ? handleScanRoom
-              : undefined
-          }
-          readonly={readonly}
-        />
       </div>
+
+      {roomMoistureSession && !readonly && !guided && (
+        <div className="relative shrink-0 flex justify-center gap-2 py-2 px-3">
+          <button
+            type="button"
+            onClick={handleExportRoomMoisturePng}
+            className="min-h-10 px-3 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-50 text-xs font-medium hover:bg-cyan-500/30"
+          >
+            Export room moisture PNG
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setToolMode("damage");
+              setDamageKind("water");
+            }}
+            className="min-h-10 px-3 rounded-lg bg-white/10 border border-white/20 text-white/85 text-xs font-medium hover:bg-white/15"
+          >
+            Freehand water
+          </button>
+        </div>
+      )}
+
+      {/* In-flow dock toolbar — sibling of the canvas, not stacked on it */}
+      <SketchDockToolbar
+        toolMode={toolMode}
+        guided={guided}
+        editorMode={editorMode}
+        onEditorModeChange={handleEditorModeChange}
+        onToolChange={handleToolChange}
+        damageKind={damageKind}
+        onDamageKindChange={setDamageKind}
+        equipmentKind={equipmentKind}
+        onEquipmentKindChange={setEquipmentKind}
+        roomTemplateKind={roomTemplateKind}
+        onRoomTemplateKindChange={setRoomTemplateKind}
+        onRoomTemplateFlipH={() => {
+          setRoomTemplateFlipH((v) => {
+            const next = !v;
+            toast.success(
+              next
+                ? "Next L/T room: flipped horizontally"
+                : "Horizontal flip off",
+            );
+            return next;
+          });
+        }}
+        onRoomTemplateFlipV={() => {
+          setRoomTemplateFlipV((v) => {
+            const next = !v;
+            toast.success(
+              next
+                ? "Next L/T room: flipped vertically"
+                : "Vertical flip off",
+            );
+            return next;
+          });
+        }}
+        onRoomTemplateRotate={() => {
+          setRoomTemplateRotateQuarters((q) => {
+            const next = (q + 1) % 4;
+            toast.success(
+              next === 0
+                ? "Next L/T room: rotation reset"
+                : `Next L/T room: rotated ${next * 90}°`,
+            );
+            return next;
+          });
+        }}
+        canUndo={historyState.canUndo}
+        canRedo={historyState.canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onZoomIn={() => applyZoom(1.2)}
+        onZoomOut={() => applyZoom(0.8)}
+        onZoomReset={handleZoomReset}
+        onClear={() => {
+          activeFloor?.canvasRef.current?.clear();
+          scheduleSave();
+        }}
+        onImportSketch={
+          inspectionId && !readonly ? handleImportSketch : undefined
+        }
+        onScanRoom={
+          inspectionId && !readonly && !guided && hasNativeRoomPlan
+            ? handleScanRoom
+            : undefined
+        }
+        readonly={readonly}
+      />
 
       {/* ── Floor plan underlay panel ───────────────────────── */}
       {/* RA-6922: the scrape API (requireAddon → 402) is the authoritative gate,

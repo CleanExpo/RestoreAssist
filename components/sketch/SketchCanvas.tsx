@@ -27,7 +27,10 @@ export type ToolMode =
   | "window" // Window — opening cut + glazing lines
   | "missing"; // Missing wall / pass-through — gap only
 
-import { fabricObjectToSelected } from "@/lib/sketch/selected-object";
+import {
+  fabricObjectToSelected,
+  shouldClearSelectionOnEmptyCanvasClick,
+} from "@/lib/sketch/selected-object";
 import { computeUnderlayTransform } from "@/lib/sketch/underlay-transform";
 import {
   describeToolObject,
@@ -2481,6 +2484,22 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           }
 
           // Overlay tools own their clicks (evidence + moisture layers).
+          // RA-7542: empty-canvas click in Select drops the selection chrome.
+          if (
+            shouldClearSelectionOnEmptyCanvasClick({
+              toolMode: tool,
+              fabricTarget: (opt as { target?: unknown }).target,
+            })
+          ) {
+            const c = canvas as {
+              discardActiveObject?: () => void;
+              renderAll: () => void;
+            };
+            c.discardActiveObject?.();
+            c.renderAll();
+            onSelect?.(null);
+            return;
+          }
           if (
             tool === "select" ||
             tool === "freehand" ||
