@@ -460,4 +460,39 @@ describe("generateSketchPdf — image insert + report embed (RA-7547)", () => {
     expect(text).toContain("Kitchen leak");
     expect(await embeddedImageSizes(bytes)).toContainEqual({ w: 17, h: 13 });
   });
+
+  it("draws IICRC damage markers on the same page as the sketch (not a blank crop)", async () => {
+    const bytes = await generateSketchPdf({
+      floors: [
+        {
+          label: "Ground",
+          pngDataUrl: PNG_17x13,
+          damageMarkers: [
+            {
+              id: "dm-1",
+              type: "water_cat3",
+              severity: "high",
+              nx: 0.35,
+              ny: 0.4,
+              label: "C3",
+              caption: "C3 Kitchen",
+              color: "#B91C1C",
+              room_label: "Kitchen",
+              notes: "Black water at kitchen sink",
+            },
+          ],
+        },
+      ],
+    });
+    const text = await pdfText(bytes);
+    expect(text).toContain("Floor Plan");
+    expect(text).toContain("Damage markers");
+    expect(text).toContain("Water Cat 3");
+    expect(text).toContain("C3 Kitchen");
+    expect(text).toContain("Black water at kitchen sink");
+    expect(await embeddedImageSizes(bytes)).toContainEqual({ w: 17, h: 13 });
+    expect((await embeddedImageSizes(bytes)).some((s) => s.w === 0 || s.h === 0)).toBe(
+      false,
+    );
+  });
 });
