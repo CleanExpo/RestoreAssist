@@ -148,6 +148,11 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
 
     const toolbar = page.getByTestId("sketch-dock-toolbar");
     await expect(toolbar).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("sketch-canvas-host")).toHaveAttribute(
+      "data-fabric-ready",
+      "true",
+      { timeout: 15_000 },
+    );
     const position = await toolbar.evaluate((el) => getComputedStyle(el).position);
     expect(["static", "relative"]).toContain(position);
 
@@ -193,10 +198,10 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
 
     await expect(pin, "photo marker must survive pan/zoom").toBeVisible();
     await expect(page.getByTestId("sketch-selection-panel")).toHaveCount(0);
-    await expect(layer).not.toHaveAttribute(
-      "data-overlay-pan-x",
-      String(panXBefore),
-    );
+    await expect(
+      layer,
+      "pan must push overlayVpt from the live Fabric vpt",
+    ).not.toHaveAttribute("data-overlay-pan-x", String(panXBefore));
   });
 
   test("dock Zoom In moves pin screen coords; Fit Canvas restores them", async ({

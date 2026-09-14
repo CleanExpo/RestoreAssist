@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
+  isPanGesture,
   overlayScenePoint,
   overlayScreenPoint,
   overlayViewportFromVpt,
@@ -28,6 +29,14 @@ describe("overlayViewportFromVpt", () => {
   it("round-trips through overlayViewportToVpt", () => {
     const v = overlayViewportFromVpt([1.2, 0, 0, 1.2, 1800, 400]);
     expect(overlayViewportToVpt(v)).toEqual([1.2, 0, 0, 1.2, 1800, 400]);
+  });
+});
+
+describe("isPanGesture", () => {
+  it("is true for the Pan tool even when alt is up (must use live toolModeRef)", () => {
+    expect(isPanGesture("pan", false)).toBe(true);
+    expect(isPanGesture("select", false)).toBe(false);
+    expect(isPanGesture("select", true)).toBe(true);
   });
 });
 

@@ -45,6 +45,11 @@ export function overlayScreenPoint(
   };
 }
 
+/** Fabric pan gesture — Alt-drag or the Pan tool (read via toolModeRef). */
+export function isPanGesture(toolMode: string, altKey: boolean): boolean {
+  return altKey || toolMode === "pan";
+}
+
 export function overlayScenePoint(
   clientX: number,
   clientY: number,

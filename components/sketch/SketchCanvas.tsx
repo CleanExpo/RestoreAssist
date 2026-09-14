@@ -120,11 +120,13 @@ import { findNearestDimLabel, type DimLabelHitCandidate } from "@/lib/sketch/dim
 import type { SelectedObject } from "./SketchSelectionPanel";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
+  isPanGesture,
   overlayViewportFromVpt,
   type OverlayViewport,
 } from "@/lib/sketch/overlay-viewport";
 import {
   applyDockZoom,
+  overlayFromDockCanvas,
   resetDockZoom,
   type DockZoomCanvas,
 } from "@/lib/sketch/dock-zoom";
@@ -496,6 +498,12 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         };
 
         // ── Zoom with mouse wheel ──
+        const notifyOverlay = () => {
+          onViewportChangeRef.current?.(
+            overlayFromDockCanvas(canvas as DockZoomCanvas),
+          );
+        };
+
         canvas.on("mouse:wheel", (opt: unknown) => {
           const e = (opt as { e: WheelEvent }).e;
           const delta = e.deltaY;
@@ -503,11 +511,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           zoom *= 0.999 ** delta;
           zoom = Math.max(0.3, Math.min(4, zoom));
           canvas.setZoom(zoom);
-          onViewportChangeRef.current?.(
-            overlayViewportFromVpt(
-              (canvas as { viewportTransform?: number[] }).viewportTransform,
-            ),
-          );
+          notifyOverlay();
           e.preventDefault();
           e.stopPropagation();
         });
@@ -518,7 +522,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
         canvas.on("mouse:down", (opt: unknown) => {
           const e = (opt as { e: MouseEvent }).e;
-          if (e.altKey || toolMode === "pan") {
+          // toolMode is closed over at Fabric init (always "select"). The
+          // live tool is toolModeRef — without it, Pan never starts and
+          // data-overlay-pan-x stays 0 (CI on 66de6109).
+          if (isPanGesture(toolModeRef.current, e.altKey)) {
             isPanning = true;
             lastPos = { x: e.clientX, y: e.clientY };
           }
@@ -530,14 +537,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             x: e.clientX - lastPos.x,
             y: e.clientY - lastPos.y,
           });
-          onViewportChangeRef.current?.(
-            overlayViewportFromVpt(
-              (canvas as { viewportTransform?: number[] }).viewportTransform,
-            ),
-          );
+          notifyOverlay();
           lastPos = { x: e.clientX, y: e.clientY };
         });
         canvas.on("mouse:up", () => {
+          if (isPanning) notifyOverlay();
           isPanning = false;
         });
 
