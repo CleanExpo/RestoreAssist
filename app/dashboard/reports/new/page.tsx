@@ -26,6 +26,12 @@ import {
   isTrialExpiredPayRoute,
   resolveReportCreationPayRoute,
 } from "@/lib/billing/trial-expired-pay-route";
+import AiOwnershipPreGenerateNotice from "@/components/AiOwnershipPreGenerateNotice";
+import {
+  UPLOAD_PDF_TRIAL_BODY,
+  UPLOAD_PDF_TRIAL_TITLE,
+  UPLOAD_PDF_TRIAL_TOAST,
+} from "@/lib/reports/upload-pdf-copy";
 
 export default function NewReportPage() {
   const router = useRouter();
@@ -414,9 +420,7 @@ export default function NewReportPage() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (subscriptionStatus === "TRIAL") {
-      toast.error(
-        "Upload PDF is available on paid plans. Upgrade to use this feature.",
-      );
+      toast.error(UPLOAD_PDF_TRIAL_TOAST);
       e.target.value = "";
       return;
     }
@@ -565,8 +569,8 @@ export default function NewReportPage() {
               Create New Report
             </h1>
             <p className={cn("text-neutral-600 dark:text-slate-400")}>
-              Complete the workflow to generate professional inspection reports,
-              scope of works, and cost estimations
+              Complete the workflow to generate an AI draft. Confirm ownership
+              before the report is signed or issued.
             </p>
           </div>
           {(reportId || uploadedData) && (
@@ -582,6 +586,10 @@ export default function NewReportPage() {
               Start Fresh
             </button>
           )}
+        </div>
+
+        <div className="mb-6">
+          <AiOwnershipPreGenerateNotice />
         </div>
 
         {/* Upload Option */}
@@ -604,11 +612,16 @@ export default function NewReportPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col items-end gap-2">
                 {!showUpload ? (
                   <button
                     disabled={subscriptionStatus === "TRIAL"}
                     onClick={() => setShowUpload(true)}
+                    aria-describedby={
+                      subscriptionStatus === "TRIAL"
+                        ? "upload-pdf-trial-explain"
+                        : undefined
+                    }
                     className={cn(
                       "px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors",
                       "disabled:bg-neutral-300 dark:disabled:bg-neutral-600 disabled:text-neutral-500 dark:disabled:text-neutral-400 disabled:cursor-not-allowed",
@@ -654,6 +667,19 @@ export default function NewReportPage() {
                 )}
               </div>
             </div>
+            {subscriptionStatus === "TRIAL" ? (
+              <p
+                id="upload-pdf-trial-explain"
+                data-testid="upload-pdf-trial-explain"
+                className={cn(
+                  "mt-4 text-sm",
+                  "text-neutral-700 dark:text-slate-300",
+                )}
+              >
+                <span className="font-semibold">{UPLOAD_PDF_TRIAL_TITLE}. </span>
+                {UPLOAD_PDF_TRIAL_BODY}
+              </p>
+            ) : null}
           </div>
         )}
 

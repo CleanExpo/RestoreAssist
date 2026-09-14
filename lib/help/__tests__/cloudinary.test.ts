@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cloudinaryUrl } from "../cloudinary";
+import { cloudinaryUrl, tryCloudinaryUrl } from "../cloudinary";
 
 describe("cloudinaryUrl", () => {
   it("builds a basic URL from public id + cloud name", () => {
@@ -22,5 +22,18 @@ describe("cloudinaryUrl", () => {
       format: "auto",
     });
     expect(url).toBe("https://res.cloudinary.com/c/image/upload/w_1200,q_auto,f_auto/ra-help/hero");
+  });
+});
+
+describe("tryCloudinaryUrl", () => {
+  it("returns null when no cloud name is configured", () => {
+    const previous = process.env.CLOUDINARY_URL;
+    delete process.env.CLOUDINARY_URL;
+    expect(tryCloudinaryUrl("ra-help/hero")).toBeNull();
+    if (previous === undefined) {
+      delete process.env.CLOUDINARY_URL;
+    } else {
+      process.env.CLOUDINARY_URL = previous;
+    }
   });
 });

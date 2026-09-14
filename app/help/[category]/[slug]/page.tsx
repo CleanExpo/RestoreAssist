@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { loadArticle } from "@/lib/help/load-article";
+import { loadArticle, resolveRelatedArticles } from "@/lib/help/load-article";
+import { HelpRelatedArticles } from "@/components/help/HelpRelatedArticles";
 import {
   HELP_CATEGORIES,
   HELP_CATEGORY_LABELS,
@@ -29,6 +30,7 @@ export default async function PublicArticlePage({
   if (!article) notFound();
 
   const { frontmatter, body } = article;
+  const related = await resolveRelatedArticles(frontmatter.relatedSlugs);
 
   // Articles with audience excluding "client" + "tradie"/"admin" only show on authed surface — 404 here
   if (
@@ -57,15 +59,19 @@ export default async function PublicArticlePage({
       </div>
 
       {frontmatter.heroImage && (
-        <Screenshot
-          src={frontmatter.heroImage}
-          alt={`Hero image for ${frontmatter.title}`}
-        />
+        <div data-testid="help-hero-figure">
+          <Screenshot
+            src={frontmatter.heroImage}
+            alt={`Hero image for ${frontmatter.title}`}
+          />
+        </div>
       )}
 
       <article className="prose prose-invert mt-8 max-w-none">
         <MDXRemote source={body} components={{ Screenshot, VideoExplainer }} />
       </article>
+
+      <HelpRelatedArticles articles={related} basePath="/help" tone="public" />
     </main>
   );
 }
