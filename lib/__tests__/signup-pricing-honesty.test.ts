@@ -14,8 +14,10 @@ import {
   BASIC_REPORT_PATH,
   BASIC_WITHOUT_KEY_BODY,
   BASIC_WITHOUT_KEY_HEADLINE,
+  PAID_AI_KEY_REQUIRED_BODY,
   PUBLIC_FREE_CTA_LABEL,
   PUBLIC_TRIAL_PATH,
+  SETUP_AI_KEY_OPTIONAL_HINT,
   SELLABLE_CHECKOUT_PLANS,
   afterTrialPlanNote,
   assertPublicPricingCta,
@@ -43,6 +45,10 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
     expect(BASIC_WITHOUT_KEY_BODY).toMatch(/Provider charges apply only when/i);
     expect(BASIC_REPORT_CTA_LABEL).toBe("Create Basic report without API key");
     expect(BASIC_REPORT_PATH).toBe("/dashboard/reports/new");
+    expect(SETUP_AI_KEY_OPTIONAL_HINT).toMatch(/optional upgrade/i);
+    expect(SETUP_AI_KEY_OPTIONAL_HINT).not.toMatch(/required to operate/i);
+    expect(PAID_AI_KEY_REQUIRED_BODY).toMatch(/after the trial/i);
+    expect(PAID_AI_KEY_REQUIRED_BODY).not.toMatch(/required to operate/i);
   });
 
   it("signup and pricing pages source the claim from the SSOT", () => {
@@ -55,6 +61,13 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
     expect(pricing).toContain("PRICING_KEY_ALERT_TITLE");
     expect(pricing).toContain("PRICING_KEY_ALERT_BODY");
     expect(pricing).toContain("@/lib/signup-pricing-honesty");
+
+    const aiKeyCard = readSrc("components/setup/AiKeyCard.tsx");
+    expect(aiKeyCard).toContain("SETUP_AI_KEY_OPTIONAL_HINT");
+    expect(aiKeyCard).toContain("@/lib/signup-pricing-honesty");
+
+    const onboardingStep = readSrc("lib/onboarding/ai-provider-step.ts");
+    expect(onboardingStep).toContain("PAID_AI_KEY_REQUIRED_BODY");
   });
 
   it("signup, pricing, and post-signup surfaces drop the BYOK-required lie", () => {
@@ -65,6 +78,10 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
       "lib/email.ts",
       "app/dashboard/onboarding/OnboardingClient.tsx",
       "app/dashboard/page.tsx",
+      "components/setup/AiKeyCard.tsx",
+      "components/setup/WelcomeOverview.tsx",
+      "lib/onboarding/ai-provider-step.ts",
+      "lib/setup/wizard-steps.ts",
     ]) {
       const src = readSrc(rel);
       for (const pattern of DISHONEST) {

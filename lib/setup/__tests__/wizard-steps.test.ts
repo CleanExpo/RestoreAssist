@@ -72,10 +72,11 @@ describe("firstIncompleteRequiredIndex", () => {
 });
 
 describe("WIZARD_STEPS canonical list", () => {
-  it("starts at welcome, ends at first_report, and gates ai_key + business", () => {
+  it("starts at welcome, ends at first_report, and gates business only (AI key is optional)", () => {
     expect(WIZARD_STEPS[0].key).toBe("welcome");
     expect(WIZARD_STEPS[WIZARD_STEPS.length - 1].key).toBe("first_report");
     const required = WIZARD_STEPS.filter((s) => s.required).map((s) => s.key);
-    expect(required).toEqual(["ai_key", "business"]);
+    expect(required).toEqual(["business"]);
+    expect(WIZARD_STEPS.find((s) => s.key === "ai_key")?.required).toBe(false);
   });
 });

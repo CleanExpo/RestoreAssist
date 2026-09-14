@@ -70,8 +70,10 @@ describe("SetupShell — one-step wizard wiring", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     expect(screen.getByText(/Step 2 of 7: Add your AI key/)).toBeInTheDocument();
     expect(screen.getByText("AIKEY_BODY")).toBeInTheDocument();
-    // AI-key is required + incomplete (status stub → completed:false) → locked.
-    expect(screen.getByRole("button", { name: /next/i })).toBeDisabled();
+    // Status stub omits required:false → paid/expired re-lock after fetch.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /next/i })).toBeDisabled();
+    });
     expect(
       screen.getByText(/complete this step to continue/i),
     ).toBeInTheDocument();

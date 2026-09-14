@@ -71,4 +71,21 @@ test.describe("@smoke RA-7549 signup/pricing honesty", () => {
     ).toBeVisible();
     await expect(page.getByText(/\bUSD\b/)).toHaveCount(0);
   });
+
+  test("/auth/signup permanently redirects to /signup (RA-7540)", async ({
+    page,
+    request,
+  }) => {
+    const raw = await request.get("/auth/signup", { maxRedirects: 0 });
+    expect(raw.status()).toBe(308);
+    const location = raw.headers().location ?? "";
+    expect(location).toMatch(/\/signup$/);
+
+    await page.setViewportSize(VIEWPORT);
+    await page.goto("/auth/signup");
+    await expect(page).toHaveURL(/\/signup/);
+    await expect(
+      page.getByText(/Basic reports work without an API key/i),
+    ).toBeVisible({ timeout: 15_000 });
+  });
 });

@@ -17,13 +17,13 @@ export interface WizardStepDef {
 
 /**
  * Canonical wizard order. `required` mirrors the hard gates the setup checks
- * enforce (`byok_keys` + `business_profile`); everything else is optional and
- * skippable so the user can always reach the finish line. Keep in sync with the
- * card order rendered by SetupShell.
+ * enforce (`business_profile`). The AI key is optional: a funded trial can
+ * generate a Basic report without BYOK (D-022 / RA-6801). Keep in sync with
+ * the card order rendered by SetupShell.
  */
 export const WIZARD_STEPS: WizardStepDef[] = [
   { key: "welcome", title: "Welcome", required: false },
-  { key: "ai_key", title: "Add your AI key", required: true },
+  { key: "ai_key", title: "Add your AI key (optional)", required: false },
   { key: "business", title: "Business details", required: true },
   { key: "branding", title: "Branding", required: false },
   { key: "pricing", title: "Pricing", required: false },
