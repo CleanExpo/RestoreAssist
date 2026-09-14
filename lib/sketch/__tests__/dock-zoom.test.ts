@@ -110,19 +110,48 @@ describe("resetDockZoom — Fit Canvas must restore the pre-zoom overlay", () =>
     );
   });
 
-  it("falls back to identity when no baseline was snapshotted", () => {
-    const fc = fakeFabric(2, 12, 9);
+  it("without baseline keeps the live matrix — does not invent identity", () => {
+    const fc = fakeFabric(1.2, 1800, 400);
     const vpt = resetDockZoom(fc);
-    expect(vpt).toEqual({ zoom: 1, panX: 0, panY: 0 });
+    expect(vpt).toEqual({ zoom: 1.2, panX: 1800, panY: 400 });
   });
 
-  it("falls back to setZoom(1) when setViewportTransform is missing", () => {
+  it("applyDockZoom then reset without baseline leaves pins at the zoomed spot", () => {
+    const start = { zoom: 1, panX: 1800, panY: 400 };
+    const fc = fakeFabric(1, 1800, 400);
+    const before = overlayScreenPoint(420, 328, start);
+    applyDockZoom(fc, 1.2);
+    const noBaseline = resetDockZoom(fc);
+    const drifted = overlayScreenPoint(420, 328, noBaseline);
+    expect(
+      Math.hypot(drifted.left - before.left, drifted.top - before.top),
+    ).toBeGreaterThan(12);
+  });
+
+  it("applyDockZoom then reset WITH baseline restores pin screen coords", () => {
+    const baseline = { zoom: 1, panX: 1800, panY: 400 };
+    const fc = fakeFabric(1, 1800, 400);
+    const before = overlayScreenPoint(420, 328, baseline);
+    applyDockZoom(fc, 1.2);
+    const vpt = resetDockZoom(fc, baseline);
+    const after = overlayScreenPoint(420, 328, vpt);
+    expect(vpt).toEqual(baseline);
+    expect(Math.hypot(after.left - before.left, after.top - before.top)).toBe(
+      0,
+    );
+  });
+
+  it("falls back to setZoom(target) when setViewportTransform is missing", () => {
     const fc = {
       setZoom(z: number) {
         this.viewportTransform = [z, 0, 0, z, 99, -4];
       },
       viewportTransform: [2, 0, 0, 2, 99, -4] as number[],
     };
-    expect(resetDockZoom(fc)).toEqual({ zoom: 1, panX: 99, panY: -4 });
+    expect(resetDockZoom(fc, { zoom: 1, panX: 99, panY: -4 })).toEqual({
+      zoom: 1,
+      panX: 99,
+      panY: -4,
+    });
   });
 });

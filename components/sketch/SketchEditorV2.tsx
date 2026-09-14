@@ -108,6 +108,7 @@ import {
   applyDockZoom,
   DOCK_ZOOM_MAX,
   DOCK_ZOOM_MIN,
+  overlayFromDockCanvas,
   resetDockZoom,
 } from "@/lib/sketch/dock-zoom";
 import type {
@@ -1134,6 +1135,16 @@ export function SketchEditorV2({
     (floorId: string, canvas: FabricCanvasRef) => {
       let pending: Record<string, unknown> | null | undefined;
       setFabricReady(true);
+      const readyFc = canvas.getFabricCanvas() as
+        | { viewportTransform?: ArrayLike<number> | null }
+        | null;
+      if (readyFc) {
+        const live = overlayFromDockCanvas(readyFc);
+        setOverlayVpt(live);
+        if (!dockZoomBaselineRef.current) {
+          dockZoomBaselineRef.current = live;
+        }
+      }
       setFloorsData((prev) =>
         prev.map((fd) => {
           if (fd.floor.id !== floorId) return fd;
@@ -1184,11 +1195,23 @@ export function SketchEditorV2({
   }, [activeFloor, scheduleSave]);
 
   // ── Zoom ────────────────────────────────────────────────
+  const snapshotDockBaselineFromLive = useCallback(() => {
+    if (dockZoomBaselineRef.current) return;
+    const raw = activeFloor?.canvasRef.current?.getFabricCanvas() as
+      | { viewportTransform?: ArrayLike<number> | null }
+      | null
+      | undefined;
+    if (raw?.viewportTransform && raw.viewportTransform.length >= 6) {
+      dockZoomBaselineRef.current = overlayFromDockCanvas(raw);
+      return;
+    }
+    dockZoomBaselineRef.current = { ...overlayVptRef.current };
+  }, [activeFloor]);
+
   const applyZoom = useCallback(
     (factor: number) => {
-      if (!dockZoomBaselineRef.current) {
-        dockZoomBaselineRef.current = { ...overlayVptRef.current };
-      }
+      // Snapshot the LIVE Fabric matrix (not a stale React identity overlay).
+      snapshotDockBaselineFromLive();
       const handle = activeFloor?.canvasRef.current;
       if (typeof handle?.zoomBy === "function" && handle.getFabricCanvas()) {
         setOverlayVpt(handle.zoomBy(factor));
@@ -1205,19 +1228,19 @@ export function SketchEditorV2({
         fc.renderAll();
         return;
       }
-      // Never silent-return — Zoom In must move data-overlay-zoom even if
-      // Fabric is still mounting (CI on 8f05728e stayed at "1").
       const cur = overlayVptRef.current;
       const z = Math.max(DOCK_ZOOM_MIN, Math.min(DOCK_ZOOM_MAX, cur.zoom * factor));
       setOverlayVpt({ ...cur, zoom: z });
     },
-    [activeFloor],
+    [activeFloor, snapshotDockBaselineFromLive],
   );
 
   const handleZoomReset = useCallback(() => {
+    snapshotDockBaselineFromLive();
     const baseline = dockZoomBaselineRef.current;
-    dockZoomBaselineRef.current = null;
     const handle = activeFloor?.canvasRef.current;
+    // Always pass the snapshotted pre-Zoom-In matrix — never resetDockZoom(fc)
+    // with no baseline (that used to write identity → 2232px).
     if (typeof handle?.resetViewport === "function") {
       setOverlayVpt(handle.resetViewport(baseline));
       return;
@@ -1233,8 +1256,15 @@ export function SketchEditorV2({
       fc.renderAll();
       return;
     }
-    setOverlayVpt(baseline ?? IDENTITY_OVERLAY_VIEWPORT);
-  }, [activeFloor]);
+    if (baseline) setOverlayVpt(baseline);
+  }, [activeFloor, snapshotDockBaselineFromLive]);
+
+  const handleViewportChange = useCallback((vpt: OverlayViewport) => {
+    setOverlayVpt(vpt);
+    if (!dockZoomBaselineRef.current) {
+      dockZoomBaselineRef.current = { ...vpt };
+    }
+  }, []);
 
   // ── Floor management ────────────────────────────────────
   const handleBeforeSwitch = useCallback(async () => {
@@ -2427,7 +2457,7 @@ export function SketchEditorV2({
                 }}
                 onSelect={setSelectedObj}
                 onViewportChange={
-                  idx === activeIdx ? setOverlayVpt : undefined
+                  idx === activeIdx ? handleViewportChange : undefined
                 }
                 className="w-full h-full"
               />

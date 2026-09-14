@@ -116,7 +116,24 @@ async function clickDockTool(
   await expect(btn, `${testId} must be in the dock`).toBeVisible({
     timeout: 15_000,
   });
-  await btn.click();
+  // Mouse click at the button's current box — locator.click() auto-scrolls
+  // the page and shifted pin boundingBox by ~2232px in CI.
+  const box = await btn.boundingBox();
+  expect(box, `${testId} bounding box`).toBeTruthy();
+  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+}
+
+/** Pin position on the canvas host — immune to document scroll. */
+async function pinOffsetOnHost(page: Page) {
+  const host = page.getByTestId("sketch-canvas-host");
+  const pin = host.getByTestId("sketch-evidence-pin").first();
+  const [p, h] = await Promise.all([pin.boundingBox(), host.boundingBox()]);
+  expect(p && h, "pin and canvas host must have layout boxes").toBeTruthy();
+  return {
+    x: p!.x - h!.x,
+    y: p!.y - h!.y,
+    pin,
+  };
 }
 
 test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
@@ -198,14 +215,14 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
       "true",
       { timeout: 15_000 },
     );
-    const pin = page.getByTestId("sketch-evidence-pin").first();
+    const host = page.getByTestId("sketch-canvas-host");
+    const pin = host.getByTestId("sketch-evidence-pin").first();
     await expect(pin, "seeded photo marker must render on the live canvas").toBeVisible({
       timeout: 15_000,
     });
     const layer = page.getByTestId("sketch-evidence-layer");
 
-    const beforeZoom = await pin.boundingBox();
-    expect(beforeZoom, "pin box before dock zoom").toBeTruthy();
+    const beforeZoom = await pinOffsetOnHost(page);
     const zoomBefore = await layer.getAttribute("data-overlay-zoom");
     const panXBefore = await layer.getAttribute("data-overlay-pan-x");
     const panYBefore = await layer.getAttribute("data-overlay-pan-y");
@@ -213,35 +230,32 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
     await clickDockTool(page, "sketch-tool-zoom-in");
     await expect(layer).not.toHaveAttribute("data-overlay-zoom", zoomBefore ?? "");
     await expect(pin).toBeVisible();
-    const afterZoom = await pin.boundingBox();
-    expect(afterZoom, "pin box after dock Zoom In").toBeTruthy();
+    const afterZoom = await pinOffsetOnHost(page);
     const moved = Math.hypot(
-      afterZoom!.x - beforeZoom!.x,
-      afterZoom!.y - beforeZoom!.y,
+      afterZoom.x - beforeZoom.x,
+      afterZoom.y - beforeZoom.y,
     );
     expect(
       moved,
       `dock Zoom In must move pin screen coords (moved ${moved.toFixed(1)}px)`,
     ).toBeGreaterThan(8);
 
-    // Fit Canvas restores the snapshotted Fabric vpt (not setZoom(1) leftover
-    // pan, not an invented identity). Overlay is read from the live matrix
-    // the same way Zoom In does. Critic measured resetDelta = 2232px when
-    // this path wrote the wrong transform.
+    // Fit Canvas writes back the snapshotted pre-Zoom-In Fabric matrix and
+    // pushes overlayVpt from the live canvas. Measure vs the host so a
+    // Playwright click-scroll cannot recreate the 2232px class.
     await clickDockTool(page, "sketch-tool-zoom-reset");
     await expect(layer).toHaveAttribute("data-overlay-zoom", zoomBefore ?? "1");
     await expect(layer).toHaveAttribute("data-overlay-pan-x", panXBefore ?? "0");
     await expect(layer).toHaveAttribute("data-overlay-pan-y", panYBefore ?? "0");
     await expect(pin).toBeVisible();
-    const afterReset = await pin.boundingBox();
-    expect(afterReset, "pin box after Fit Canvas").toBeTruthy();
+    const afterReset = await pinOffsetOnHost(page);
     const resetDelta = Math.hypot(
-      afterReset!.x - beforeZoom!.x,
-      afterReset!.y - beforeZoom!.y,
+      afterReset.x - beforeZoom.x,
+      afterReset.y - beforeZoom.y,
     );
     expect(
       resetDelta,
-      "Fit Canvas must return the pin near its pre-zoom screen position",
+      `Fit Canvas must return the pin near its pre-zoom host offset (resetDelta=${resetDelta.toFixed(1)}px)`,
     ).toBeLessThan(12);
   });
 

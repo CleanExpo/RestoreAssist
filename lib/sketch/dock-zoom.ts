@@ -56,11 +56,10 @@ export function applyDockZoom(
 }
 
 /**
- * Fit Canvas. Fabric `setZoom(1)` zooms around (0, 0) and leaves leftover
- * pan — pins can jump thousands of pixels from their pre-zoom screen
- * position (Critic measured 2232px). Restore the snapshot taken *before*
- * dock Zoom In/Out, then read the live `viewportTransform` the same way
- * `applyDockZoom` does. No snapshot → identity matrix on both surfaces.
+ * Fit Canvas. Never invent identity when `baseline` is missing — that is the
+ * 2232px class (overlay {1,0,0} while Fabric still has leftover pan).
+ * Restore the snapshotted pre-Zoom-In matrix, or the live matrix if none
+ * was captured, then read `viewportTransform` the same way applyDockZoom does.
  */
 export function resetDockZoom(
   fc: Pick<
@@ -69,9 +68,8 @@ export function resetDockZoom(
   >,
   baseline?: OverlayViewport | null,
 ): OverlayViewport {
-  const matrix = baseline
-    ? overlayViewportToVpt(baseline)
-    : [1, 0, 0, 1, 0, 0];
+  const target = baseline ?? overlayFromDockCanvas(fc);
+  const matrix = overlayViewportToVpt(target);
   if (typeof fc.setViewportTransform === "function") {
     fc.setViewportTransform(matrix);
   } else {
