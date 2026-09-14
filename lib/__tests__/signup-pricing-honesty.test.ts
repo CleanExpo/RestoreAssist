@@ -14,7 +14,15 @@ import {
   BASIC_REPORT_PATH,
   BASIC_WITHOUT_KEY_BODY,
   BASIC_WITHOUT_KEY_HEADLINE,
+  PUBLIC_FREE_CTA_LABEL,
+  PUBLIC_TRIAL_PATH,
+  SELLABLE_CHECKOUT_PLANS,
+  afterTrialPlanNote,
+  assertPublicPricingCta,
+  publicPackAfterSubscribeNote,
+  publicPaidPlanCtaLabel,
 } from "@/lib/signup-pricing-honesty";
+import { catalogMonthlyCurrency } from "@/lib/billing/checkout-presentation";
 
 const repoRoot = join(__dirname, "..", "..");
 const readSrc = (rel: string) => readFileSync(join(repoRoot, rel), "utf8");
@@ -69,5 +77,81 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
     expect(src).toContain("BASIC_REPORT_CTA_LABEL");
     expect(src).toContain("BASIC_REPORT_PATH");
     expect(src).toContain("href={BASIC_REPORT_PATH}");
+  });
+});
+
+describe("RA-7549 Stripe-path CTA honesty (RA-7541 class)", () => {
+  it("Checkout sells only the AUD monthly plan", () => {
+    expect(SELLABLE_CHECKOUT_PLANS).toEqual(["monthly"]);
+    expect(catalogMonthlyCurrency()).toBe("aud");
+    expect(publicPaidPlanCtaLabel()).toMatch(/\$99 AUD\/month/);
+    expect(afterTrialPlanNote()).toMatch(/\$99 AUD/);
+    expect(publicPackAfterSubscribeNote()).toMatch(/\$99 AUD monthly plan/);
+  });
+
+  it("accepts the live trial and monthly CTAs", () => {
+    expect(
+      assertPublicPricingCta({
+        kind: "trial",
+        href: PUBLIC_TRIAL_PATH,
+        label: PUBLIC_FREE_CTA_LABEL,
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      assertPublicPricingCta({
+        kind: "monthly",
+        href: PUBLIC_TRIAL_PATH,
+        label: publicPaidPlanCtaLabel(),
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      assertPublicPricingCta({
+        kind: "pack",
+        href: null,
+        label: publicPackAfterSubscribeNote(),
+      }),
+    ).toEqual({ ok: true });
+  });
+
+  it("rejects USD presentment, yearly, and pack-to-signup purchase CTAs", () => {
+    const usd = assertPublicPricingCta({
+      kind: "monthly",
+      href: PUBLIC_TRIAL_PATH,
+      label: "Subscribe — $73.85 USD",
+    });
+    expect(usd.ok).toBe(false);
+    if (usd.ok) throw new Error("expected rejection");
+    expect(usd.reason).toMatch(/USD/i);
+
+    const yearly = assertPublicPricingCta({
+      kind: "yearly",
+      href: PUBLIC_TRIAL_PATH,
+      label: "Start yearly plan",
+    });
+    expect(yearly.ok).toBe(false);
+
+    const pack = assertPublicPricingCta({
+      kind: "pack",
+      href: "/signup",
+      label: "Add to Plan",
+    });
+    expect(pack.ok).toBe(false);
+    if (pack.ok) throw new Error("expected rejection");
+    expect(pack.reason).toMatch(/monthly/i);
+  });
+
+  it("pricing page uses the sellable CTAs and drops pack-to-signup", () => {
+    const src = readSrc("app/pricing/page.tsx");
+    expect(src).toContain("publicPaidPlanCtaLabel");
+    expect(src).toContain("PUBLIC_FREE_CTA_LABEL");
+    expect(src).toContain("publicPackAfterSubscribeNote");
+    expect(src).not.toMatch(/Add to Plan/);
+    expect(src).not.toMatch(/\bUSD\b/);
+  });
+
+  it("signup names the AUD monthly plan that Stripe will sell after trial", () => {
+    const src = readSrc("app/signup/page.tsx");
+    expect(src).toContain("afterTrialPlanNote");
+    expect(src).not.toMatch(/\bUSD\b/);
   });
 });

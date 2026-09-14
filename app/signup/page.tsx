@@ -25,6 +25,7 @@ import { PRICING_CONFIG } from "@/lib/pricing";
 import {
   SIGNUP_KEY_NOTE_BODY,
   SIGNUP_KEY_NOTE_TITLE,
+  afterTrialPlanNote,
 } from "@/lib/signup-pricing-honesty";
 import { MarketingShell } from "@/components/landing/home";
 import { CONTAINER, FONT_DISPLAY } from "@/components/landing/home/motion";
@@ -207,7 +208,7 @@ export default function SignupPage() {
                 {SIGNUP_KEY_NOTE_TITLE}
               </p>
               <p className="text-slate-600 text-xs mt-1 leading-relaxed">
-                {SIGNUP_KEY_NOTE_BODY}
+                {SIGNUP_KEY_NOTE_BODY} {afterTrialPlanNote()}
               </p>
             </div>
           </div>

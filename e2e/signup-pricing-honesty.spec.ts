@@ -30,6 +30,9 @@ test.describe("@smoke RA-7549 signup/pricing honesty", () => {
     await expect(
       page.getByText(/Provider charges apply only when you add your own key/i),
     ).toBeVisible();
+    await expect(
+      page.getByText(/\$99 AUD per month/i),
+    ).toBeVisible();
 
     await expect(
       page.getByText(/API key is required to operate/i),
@@ -58,5 +61,14 @@ test.describe("@smoke RA-7549 signup/pricing honesty", () => {
         /Report generation on every plan[^.]*runs on your own/i,
       ),
     ).toHaveCount(0);
+
+    await expect(
+      page.getByRole("link", { name: /Start free trial — \$99 AUD\/month after/i }),
+    ).toBeVisible();
+    await expect(page.getByText(/Add to Plan/i)).toHaveCount(0);
+    await expect(
+      page.getByText(/Available after you subscribe to the \$99 AUD monthly plan/i).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/\bUSD\b/)).toHaveCount(0);
   });
 });

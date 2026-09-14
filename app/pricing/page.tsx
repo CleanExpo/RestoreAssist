@@ -7,6 +7,10 @@ import { PRICING_CONFIG } from "@/lib/pricing";
 import {
   PRICING_KEY_ALERT_BODY,
   PRICING_KEY_ALERT_TITLE,
+  PUBLIC_FREE_CTA_LABEL,
+  PUBLIC_TRIAL_PATH,
+  publicPackAfterSubscribeNote,
+  publicPaidPlanCtaLabel,
 } from "@/lib/signup-pricing-honesty";
 import { perReportRate, formatPerReport } from "@/lib/pricing/unit-rate";
 import { VolumePicker } from "@/components/pricing/VolumePicker";
@@ -361,10 +365,12 @@ function PricingPageContent() {
                 </ul>
 
                 <Link
-                  href="/signup"
+                  href={PUBLIC_TRIAL_PATH}
                   className={`${plan.popular || plan.isFree ? CTA_PRIMARY : CTA_SECONDARY} mt-8 w-full`}
                 >
-                  {plan.isFree ? "Get Started Free" : "Start Free Trial"}
+                  {plan.isFree
+                    ? PUBLIC_FREE_CTA_LABEL
+                    : publicPaidPlanCtaLabel()}
                 </Link>
               </motion.article>
             ))}
@@ -478,12 +484,12 @@ function PricingPageContent() {
                       </p>
                   </div>
                 </div>
-                <Link
-                  href="/signup"
-                    className={`${addon.popular ? CTA_PRIMARY : CTA_SECONDARY} mt-6 w-full`}
-                >
-                  Add to Plan
-                </Link>
+                {/* RA-7549 / RA-7541 — packs are not sold at signup.
+                    Stripe checkout only sells the $99 AUD monthly plan.
+                    A purchase-shaped CTA here is a silent wrong-plan path. */}
+                <p className="mt-6 text-center text-sm leading-relaxed text-slate-500">
+                  {publicPackAfterSubscribeNote()}
+                </p>
                 </motion.article>
               ))}
               </motion.div>
