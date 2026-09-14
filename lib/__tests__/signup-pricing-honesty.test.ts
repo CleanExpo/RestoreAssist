@@ -19,6 +19,7 @@ import {
   SELLABLE_CHECKOUT_PLANS,
   afterTrialPlanNote,
   assertPublicPricingCta,
+  pinPublicPricingCta,
   publicPackAfterSubscribeNote,
   publicPaidPlanCtaLabel,
 } from "@/lib/signup-pricing-honesty";
@@ -130,23 +131,41 @@ describe("RA-7549 Stripe-path CTA honesty (RA-7541 class)", () => {
     });
     expect(yearly.ok).toBe(false);
 
-    const pack = assertPublicPricingCta({
+    const packLinked = assertPublicPricingCta({
       kind: "pack",
       href: "/signup",
       label: "Add to Plan",
     });
-    expect(pack.ok).toBe(false);
-    if (pack.ok) throw new Error("expected rejection");
-    expect(pack.reason).toMatch(/monthly/i);
+    expect(packLinked.ok).toBe(false);
+    if (packLinked.ok) throw new Error("expected rejection");
+    expect(packLinked.reason).toMatch(/monthly/i);
+
+    const packSoft = assertPublicPricingCta({
+      kind: "pack",
+      href: null,
+      label: "Add to Plan",
+    });
+    expect(packSoft.ok).toBe(false);
+    if (packSoft.ok) throw new Error("expected rejection");
+    expect(packSoft.reason).toMatch(/purchase CTA/i);
+
+    expect(() =>
+      pinPublicPricingCta({
+        kind: "pack",
+        href: null,
+        label: "Add to Plan",
+      }),
+    ).toThrow(/RA-7549 public pricing CTA fail-closed/);
   });
 
-  it("pricing page uses the sellable CTAs and drops pack-to-signup", () => {
+  it("pricing page renders only through the runtime PublicPricingCta pin", () => {
     const src = readSrc("app/pricing/page.tsx");
-    expect(src).toContain("publicPaidPlanCtaLabel");
-    expect(src).toContain("PUBLIC_FREE_CTA_LABEL");
-    expect(src).toContain("publicPackAfterSubscribeNote");
+    expect(src).toContain("PublicPricingCta");
+    expect(src).toContain('kind={plan.isFree ? "trial" : "monthly"}');
+    expect(src).toContain('kind="pack"');
     expect(src).not.toMatch(/Add to Plan/);
     expect(src).not.toMatch(/\bUSD\b/);
+    expect(src).not.toMatch(/href=\{PUBLIC_TRIAL_PATH\}/);
   });
 
   it("signup names the AUD monthly plan that Stripe will sell after trial", () => {

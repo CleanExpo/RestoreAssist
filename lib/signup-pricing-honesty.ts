@@ -72,15 +72,27 @@ export type PublicPricingCtaCheck =
   | { ok: true }
   | { ok: false; reason: string };
 
+export type PublicPricingCta = {
+  kind: PublicPricingCtaKind;
+  href?: string | null;
+  label: string;
+};
+
+/**
+ * Purchase-shaped copy on a pack is a silent wrong-plan CTA even with no
+ * href (Critic: pack + null href + "Add to Plan" was ok:true).
+ * Do not match the informational "after you subscribe" note.
+ */
+const PACK_PURCHASE_SHAPED =
+  /add to plan|add to cart|buy now|^subscribe\b|^checkout\b/i;
+
 /**
  * Fail closed when a public CTA names a plan Stripe will not sell, or
  * a currency Checkout will not present (RA-7541 USD ~$73.85 walk).
  */
-export function assertPublicPricingCta(cta: {
-  kind: PublicPricingCtaKind;
-  href?: string | null;
-  label: string;
-}): PublicPricingCtaCheck {
+export function assertPublicPricingCta(
+  cta: PublicPricingCta,
+): PublicPricingCtaCheck {
   if (/\busd\b/i.test(cta.label) || /73\.85/.test(cta.label)) {
     return {
       ok: false,
@@ -99,6 +111,13 @@ export function assertPublicPricingCta(cta: {
         ok: false,
         reason:
           "Report packs are not sold at signup; Stripe checkout only sells monthly",
+      };
+    }
+    if (PACK_PURCHASE_SHAPED.test(cta.label)) {
+      return {
+        ok: false,
+        reason:
+          "Pack copy must not be a purchase CTA (Add to Plan / buy / checkout)",
       };
     }
     return { ok: true };
@@ -129,3 +148,34 @@ export function assertPublicPricingCta(cta: {
   }
   return { ok: false, reason: `Unknown CTA kind: ${cta.kind}` };
 }
+
+/**
+ * RA-7541-class runtime pin. Checkout 400s a USD Price; the public pricing
+ * page must throw before a pack / Add to Plan / USD CTA can paint.
+ */
+export function pinPublicPricingCta(cta: PublicPricingCta): PublicPricingCta {
+  const check = assertPublicPricingCta(cta);
+  if (!check.ok) {
+    throw new Error(`RA-7549 public pricing CTA fail-closed: ${check.reason}`);
+  }
+  return cta;
+}
+
+/** Import-time pins — a drifted SSOT label crashes the pricing module. */
+export const PINNED_PUBLIC_TRIAL_CTA = pinPublicPricingCta({
+  kind: "trial",
+  href: PUBLIC_TRIAL_PATH,
+  label: PUBLIC_FREE_CTA_LABEL,
+});
+
+export const PINNED_PUBLIC_MONTHLY_CTA = pinPublicPricingCta({
+  kind: "monthly",
+  href: PUBLIC_TRIAL_PATH,
+  label: publicPaidPlanCtaLabel(),
+});
+
+export const PINNED_PUBLIC_PACK_NOTE = pinPublicPricingCta({
+  kind: "pack",
+  href: null,
+  label: publicPackAfterSubscribeNote(),
+});
