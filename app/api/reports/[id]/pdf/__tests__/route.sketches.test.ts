@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 
 // PR2 (RA-120) — the canonical IICRC report embeds each floor's sketch
 // (underlay + annotations) as its own page, sourced from ClaimSketch.renderedPngUrl.
@@ -141,7 +141,21 @@ describe("GET /api/reports/[id]/pdf — floor plan embedding", () => {
 
     const res = await GET(req(), ctx);
     expect(res.status).toBe(200);
-    expect(await pageCountOf(res)).toBe(3); // 1 base + 2 floors
+    const buf = new Uint8Array(await res.arrayBuffer());
+    expect((await PDFDocument.load(buf)).getPageCount()).toBe(3); // 1 base + 2 floors
+    let sawImage = false;
+    const loaded = await PDFDocument.load(buf);
+    for (const [, obj] of loaded.context.enumerateIndirectObjects()) {
+      if (!(obj instanceof PDFRawStream)) continue;
+      if (String(obj.dict.get(PDFName.of("Subtype"))) === "/Image") {
+        sawImage = true;
+        break;
+      }
+    }
+    expect(
+      sawImage,
+      "report PDF must contain an embedded Image XObject, not a blank extra page",
+    ).toBe(true);
   });
 
   it("leaves the report unchanged when no sketch has been rendered", async () => {
