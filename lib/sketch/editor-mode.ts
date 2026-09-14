@@ -9,14 +9,16 @@ export type SketchEditorMode = "quick" | "advanced";
 
 export const EDITOR_MODE_STORAGE_KEY = "ra-sketch-editor-mode";
 
-/** Quick Edit tools: select, label (text), measure, photo, pan.
- * Photo stays here so image insert works after a plan arrives (RA-7547) —
- * Quick is the default dock for confirm/annotate. */
+/** Quick Edit tools: select, label (text), measure, photo, marker, pan.
+ * Photo stays here so image insert works after a plan arrives (RA-7547).
+ * Marker stays here so IICRC damage overlay is the on-site annotate step
+ * (RA-2953 / RA-2947) once a plan is on screen. */
 export const QUICK_EDIT_TOOLS: ReadonlySet<ToolMode> = new Set([
   "select",
   "text",
   "measure",
   "photo",
+  "marker",
   "pan",
 ]);
 

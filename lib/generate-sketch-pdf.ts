@@ -26,6 +26,11 @@ import {
   placeEvidencePins,
   type EvidenceMapPin,
 } from "@/lib/reports/evidence-map";
+import {
+  placeDamageMarkers,
+  type DamageMarkerMapPin,
+} from "@/lib/reports/damage-marker-map";
+import { extractDamageMarkerLegend } from "@/lib/sketch/damage-markers";
 import { fitSketchImageInBox } from "@/lib/sketch/export-content-bounds";
 import { extractDamageLegend } from "@/lib/sketch/damage-zone";
 import { extractEquipmentLegend } from "@/lib/sketch/equipment-symbols";
@@ -202,6 +207,7 @@ async function addSketchPage(
     fabricJson?: Record<string, unknown> | null;
     moisturePins?: MoistureMapPin[] | null;
     evidencePins?: EvidenceMapPin[] | null;
+    damageMarkers?: DamageMarkerMapPin[] | null;
   },
   shared: {
     helvetica: Awaited<ReturnType<PDFDocument["embedFont"]>>;
@@ -319,6 +325,18 @@ async function addSketchPage(
   // ── Room + damage + equipment legends ──
   const rooms = extractRooms(floor.fabricJson);
   const damageLegend = extractDamageLegend(floor.fabricJson ?? null);
+  const markerLegend = extractDamageMarkerLegend(
+    (floor.damageMarkers ?? []).map((m) => ({
+      id: m.id,
+      type: m.type,
+      severity: m.severity,
+      room_label: m.room_label,
+      x: 0,
+      y: 0,
+      nx: m.nx,
+      ny: m.ny,
+    })),
+  );
   const equipmentLegend = extractEquipmentLegend(floor.fabricJson ?? null);
 
   // ── Floor sub-header: total measured area + calibrated scale (RA-6846/6843) ──
@@ -347,23 +365,32 @@ async function addSketchPage(
   if (
     rooms.length > 0 ||
     damageLegend.length > 0 ||
+    markerLegend.length > 0 ||
     equipmentLegend.length > 0
   ) {
     legendW = 140;
     const legendX = PAGE_W - MARGIN - legendW;
     const legendTop = CONTENT_Y_TOP - 4;
+    const markerBlockH =
+      markerLegend.length > 0 ? markerLegend.length * 14 + 22 : 0;
     const damageBlockH =
       damageLegend.length > 0 ? damageLegend.length * 14 + 22 : 0;
     const equipBlockH =
       equipmentLegend.length > 0 ? equipmentLegend.length * 14 + 22 : 0;
     const roomBlockH = rooms.length > 0 ? rooms.length * 16 + 28 : 0;
     const gaps =
-      (rooms.length > 0 && damageLegend.length > 0 ? 8 : 0) +
-      ((rooms.length > 0 || damageLegend.length > 0) &&
+      (rooms.length > 0 && (damageLegend.length > 0 || markerLegend.length > 0)
+        ? 8
+        : 0) +
+      (damageLegend.length > 0 && markerLegend.length > 0 ? 8 : 0) +
+      ((rooms.length > 0 ||
+        damageLegend.length > 0 ||
+        markerLegend.length > 0) &&
       equipmentLegend.length > 0
         ? 8
         : 0);
-    const totalH = roomBlockH + damageBlockH + equipBlockH + gaps;
+    const totalH =
+      roomBlockH + damageBlockH + markerBlockH + equipBlockH + gaps;
 
     // Legend box
     page.drawRectangle({
@@ -464,8 +491,43 @@ async function addSketchPage(
       }
     }
 
-    if (equipmentLegend.length > 0) {
+    if (markerLegend.length > 0) {
       if (rooms.length > 0 || damageLegend.length > 0) ly -= 6;
+      page.drawText("Damage markers", {
+        x: legendX + 8,
+        y: ly,
+        size: 8,
+        font: bold,
+        color: TEXT_MAIN,
+      });
+      ly -= 14;
+      for (const entry of markerLegend) {
+        const hex = entry.swatch.replace("#", "");
+        const r = parseInt(hex.slice(0, 2), 16) / 255;
+        const g = parseInt(hex.slice(2, 4), 16) / 255;
+        const b = parseInt(hex.slice(4, 6), 16) / 255;
+        page.drawCircle({
+          x: legendX + 12,
+          y: ly + 5,
+          size: 4,
+          color: rgb(r, g, b),
+          borderColor: rgb(1, 1, 1),
+          borderWidth: 0.5,
+        });
+        page.drawText(safe(entry.label), {
+          x: legendX + 20,
+          y: ly + 2,
+          size: 7,
+          font: helvetica,
+          color: TEXT_MAIN,
+        });
+        ly -= 14;
+      }
+    }
+
+    if (equipmentLegend.length > 0) {
+      if (rooms.length > 0 || damageLegend.length > 0 || markerLegend.length > 0)
+        ly -= 6;
       page.drawText("Equipment", {
         x: legendX + 8,
         y: ly,
@@ -712,6 +774,65 @@ async function addSketchPage(
         size: 6.5,
         font: helvetica,
         color: TEXT_MAIN,
+      });
+    }
+  }
+
+  // IICRC damage markers (RA-2953) — React overlay, not baked into the PNG.
+  const damageMarkers = placeDamageMarkers(floor.damageMarkers ?? [], {
+    x: imgX,
+    y: imgY,
+    width: drawW,
+    height: drawH,
+  });
+  for (const pin of damageMarkers) {
+    const c = parseHexColor(pin.color);
+    const fill = c ? rgb(c.r, c.g, c.b) : BRAND_CYAN;
+    const radius = 8;
+    page.drawCircle({
+      x: pin.cx,
+      y: pin.cy,
+      size: radius,
+      color: fill,
+      borderColor: rgb(1, 1, 1),
+      borderWidth: 1,
+    });
+    const labelWidth = bold.widthOfTextAtSize(pin.label, 5.5);
+    page.drawText(pin.label, {
+      x: pin.cx - labelWidth / 2,
+      y: pin.cy - 2,
+      size: 5.5,
+      font: bold,
+      color: rgb(1, 1, 1),
+    });
+    const caption = safe(pin.caption).slice(0, 36);
+    if (caption) {
+      const captionWidth = helvetica.widthOfTextAtSize(caption, 6.5);
+      const captionX = pin.cx + radius + 3;
+      page.drawRectangle({
+        x: captionX - 2,
+        y: pin.cy - 4,
+        width: captionWidth + 4,
+        height: 10,
+        color: rgb(1, 1, 1),
+        opacity: 0.88,
+      });
+      page.drawText(caption, {
+        x: captionX,
+        y: pin.cy - 1.5,
+        size: 6.5,
+        font: helvetica,
+        color: TEXT_MAIN,
+      });
+    }
+    const notes = pin.notes ? safe(pin.notes).slice(0, 40) : "";
+    if (notes) {
+      page.drawText(notes, {
+        x: pin.cx + radius + 3,
+        y: pin.cy - 12,
+        size: 6,
+        font: helvetica,
+        color: TEXT_MUTED,
       });
     }
   }
@@ -1024,6 +1145,8 @@ export interface SketchFloor {
   moisturePins?: MoistureMapPin[] | null;
   /** Evidence photos linked to stable normalized positions on this floor. */
   evidencePins?: EvidenceMapPin[] | null;
+  /** IICRC damage markers (RA-2953) — overlay, not baked into the PNG. */
+  damageMarkers?: DamageMarkerMapPin[] | null;
   /** Room moisture crop meta — expands to an extra report page when set. */
   roomMoistureCrop?: import("@/lib/sketch/room-moisture-crop").RoomMoistureCropMeta | null;
   /** True when this page is the room-scoped moisture companion page. */

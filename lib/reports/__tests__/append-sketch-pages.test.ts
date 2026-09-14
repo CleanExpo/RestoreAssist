@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
+import { PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import { appendSketchPages } from "../append-sketch-pages";
 
 // A valid 1x1 transparent PNG — pdf-lib's embedPng must be able to parse it.
@@ -58,6 +58,53 @@ describe("appendSketchPages", () => {
     const doc = await PDFDocument.load(out);
     expect(doc.getPageCount()).toBe(2);
     expect(await embeddedImageSizes(out)).toContainEqual({ w: 17, h: 13 });
+  });
+
+  it("keeps damage-marker copy on the appended floor-plan page", async () => {
+    const base = await basePdf(1);
+    const out = await appendSketchPages(
+      base,
+      [
+        {
+          label: "Ground Floor",
+          pngDataUrl: PNG_17x13,
+          fabricJson: null,
+          damageMarkers: [
+            {
+              id: "dm-1",
+              type: "mould",
+              severity: "severe",
+              nx: 0.2,
+              ny: 0.3,
+              label: "Mo",
+              caption: "Mo Ensuite",
+              color: "#16A34A",
+              room_label: "Ensuite",
+              notes: "Visible growth on plaster",
+            },
+          ],
+        },
+      ],
+      { reportNumber: "RPT-1" },
+    );
+    const doc = await PDFDocument.load(out);
+    expect(doc.getPageCount()).toBe(2);
+    expect(await embeddedImageSizes(out)).toContainEqual({ w: 17, h: 13 });
+    let raw = "";
+    for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+      if (obj instanceof PDFRawStream) {
+        try {
+          raw += Buffer.from(decodePDFRawStream(obj).decode()).toString("latin1");
+        } catch {
+          /* image stream */
+        }
+      }
+    }
+    const text = Array.from(raw.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g))
+      .map((m) => Buffer.from(m[1], "hex").toString("latin1"))
+      .join("\n");
+    expect(text).toContain("Mo Ensuite");
+    expect(text).toContain("Visible growth on plaster");
   });
 
   it("returns the original bytes unchanged when there are no floors", async () => {

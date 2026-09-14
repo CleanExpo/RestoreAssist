@@ -21,6 +21,7 @@ export type ToolMode =
   | "measure" // Measurement tool
   | "photo" // Evidence pin placement (photos on plan)
   | "moisture" // Moisture pin overlay
+  | "marker" // IICRC damage-marker overlay (RA-2953)
   | "pan" // Pan/navigate
   // RA-6841 [A2]: architectural opening symbols
   | "door" // Door — opening cut + leaf line + swing arc

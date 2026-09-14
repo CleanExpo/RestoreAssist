@@ -2,6 +2,10 @@ import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 import { createHash } from "node:crypto";
 import { parseMoisturePins } from "./moisture-map";
 import { parseEvidencePins } from "./evidence-map";
+import {
+  damageMarkersFromSketchData,
+  parseDamageMarkerMap,
+} from "./damage-marker-map";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
   filterNormalizedPinsInRoom,
@@ -154,6 +158,7 @@ export function expandFloorsWithRoomMoisture(
       label: `Room moisture — ${label}`,
       moisturePins: roomPins,
       evidencePins: null,
+      damageMarkers: null,
       roomMoistureCrop: cropMeta,
       isRoomMoisturePage: true,
     });
@@ -201,6 +206,9 @@ export async function claimSketchesToFloors(
               : null,
           moisturePins: parseMoisturePins(s.moisturePoints),
           evidencePins: parseEvidencePins(s.evidencePins),
+          damageMarkers: parseDamageMarkerMap(
+            damageMarkersFromSketchData(s.sketchData),
+          ),
           roomMoistureCrop,
         };
       } catch {
