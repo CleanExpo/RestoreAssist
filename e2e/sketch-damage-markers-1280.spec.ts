@@ -3,8 +3,14 @@
  *
  * Markers are a React overlay (same overlayVpt class as RA-7547 #2202 evidence
  * pins). Hard-fail if job setup cannot create a job — no vacuous early returns.
+ *
+ * Bar 4: the production `/sketches/pdf` 409s without a verified storage
+ * render (blank-guard). Positive proof that markers land on the report page
+ * goes through `/api/test/sketch-pdf-embed` — same `appendSketchPages` +
+ * `parseDamageMarkerMap` path the IICRC report uses, with a distinctive PNG.
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import { AUTH_FILE } from "./auth-paths";
 
 test.use({
@@ -13,6 +19,10 @@ test.use({
 });
 
 test.describe.configure({ timeout: 60_000 });
+
+/** Distinctive 17×13 gold PNG — proves the embed is the sketch, not a blank page. */
+const PNG_17x13 =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAANCAIAAADAGxJNAAAAFklEQVR42mO4srSEVMQwqmdUDx31AABidKmpPSOQawAAAABJRU5ErkJggg==";
 
 const SEEDED_MARKER = {
   id: "dm-e2e-1",
@@ -278,5 +288,65 @@ test.describe("RA-2953 IICRC damage markers @ 1280×720", () => {
     const bodyText = await res.text();
     expect(res.status(), bodyText).toBe(409);
     expect(bodyText).toMatch(/verified floor-plan render/i);
+  });
+
+  test("report embed draws persisted damage markers on the floor-plan page", async ({
+    request,
+  }) => {
+    const inspectionId = await createInspection(request);
+    expect(inspectionId, "createInspection must return an inspection id").toBeTruthy();
+    await saveMeasuredRoomWithMarker(request, inspectionId);
+
+    const res = await request.post("/api/test/sketch-pdf-embed", {
+      data: { inspectionId, pngDataUrl: PNG_17x13 },
+    });
+    const headerType = res.headers()["content-type"] ?? "";
+    expect(
+      res.status(),
+      `report embed must return a PDF (got ${res.status()} ${headerType})`,
+    ).toBe(200);
+    expect(headerType).toMatch(/pdf/);
+
+    const bytes = new Uint8Array(await res.body());
+    expect(
+      Buffer.from(bytes.slice(0, 5)).toString("latin1"),
+      "response must be a PDF, not an empty/HTML body",
+    ).toBe("%PDF-");
+
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount(), "report + floor-plan page").toBeGreaterThan(1);
+
+    let raw = "";
+    const sizes: Array<{ w: number; h: number }> = [];
+    for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+      if (!(obj instanceof PDFRawStream)) continue;
+      if (String(obj.dict.get(PDFName.of("Subtype"))) === "/Image") {
+        sizes.push({
+          w: Number(obj.dict.get(PDFName.of("Width"))),
+          h: Number(obj.dict.get(PDFName.of("Height"))),
+        });
+      }
+      try {
+        raw += Buffer.from(decodePDFRawStream(obj).decode()).toString("latin1");
+      } catch {
+        /* image / non-text stream */
+      }
+    }
+    const text = Array.from(raw.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g))
+      .map((m) => Buffer.from(m[1], "hex").toString("latin1"))
+      .join("\n");
+
+    expect(text, "PDF must contain drawn text").not.toBe("");
+    expect(text, "Cat 3 caption missing from report embed").toContain("C3 Kitchen");
+    expect(text, "marker notes missing from report embed").toContain(
+      "Black water at kitchen sink",
+    );
+    expect(text, "library legend missing from report embed").toContain("Water Cat 3");
+    expect(text, "Damage markers legend heading missing").toContain("Damage markers");
+    expect(
+      sizes,
+      "floor-plan PNG must be the distinctive 17×13 embed, not a blank/crop",
+    ).toContainEqual({ w: 17, h: 13 });
+    expect(sizes.some((s) => s.w === 0 || s.h === 0)).toBe(false);
   });
 });

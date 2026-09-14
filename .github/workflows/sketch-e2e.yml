@@ -14,6 +14,7 @@ on:
     paths:
       - "e2e/**"
       - "components/sketch/**"
+      - "app/api/test/sketch-pdf-embed/**"
       - "app/api/inspections/**/sketches/**"
       - "lib/sketch/**"
       - "config/playwright.config.ts"

@@ -11,7 +11,7 @@
 import { useCallback, useState } from "react";
 import { ChromeX } from "@/components/brand/chrome-icons";
 import { cn } from "@/lib/utils";
-import { pinPixelPosition, toNormalized } from "@/lib/sketch/pin-coords";
+import { pinPixelPosition } from "@/lib/sketch/pin-coords";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
   overlayScenePoint,
