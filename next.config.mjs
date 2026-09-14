@@ -50,10 +50,13 @@ const nextConfig = {
     // browser autofill commonly point at /signin, /register, /onboarding;
     // canonical routes in the app router are /login, /signup, /setup.
     // 308 keeps method + body intact (matters for password-manager POSTs).
+    // RA-7540: /auth/signup 404'd while /signup works; same alias class as
+    // /register and /auth/signin.
     return [
       { source: "/signin", destination: "/login", permanent: true },
       { source: "/auth/signin", destination: "/login", permanent: true },
       { source: "/register", destination: "/signup", permanent: true },
+      { source: "/auth/signup", destination: "/signup", permanent: true },
       { source: "/onboarding", destination: "/setup", permanent: true },
       { source: "/faq", destination: "/help", permanent: true },
     ];

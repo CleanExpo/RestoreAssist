@@ -5,6 +5,7 @@
 
 import { formatDate } from "@/lib/locale/format";
 import type { OnboardingApiStep } from "@/lib/onboarding/steps";
+import { PAID_AI_KEY_REQUIRED_BODY } from "@/lib/signup-pricing-honesty";
 
 export const AI_PROVIDER_ROUTE = "/dashboard/settings/ai-providers";
 export const AI_PROVIDER_QUERY_PARAM = "provider";
@@ -96,8 +97,7 @@ export function buildAiProviderOnboardingStep(input: {
     completed: false,
     required: true,
     title: "Add your Anthropic or OpenAI API key",
-    description:
-      "An Anthropic or OpenAI API key is required to operate RestoreAssist. You pay providers directly, at cost. Add it in Settings → AI Providers.",
+    description: PAID_AI_KEY_REQUIRED_BODY,
     route: AI_PROVIDER_ROUTE,
   };
 }

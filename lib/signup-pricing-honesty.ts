@@ -38,6 +38,17 @@ export const SIGNUP_KEY_NOTE_TITLE = BASIC_WITHOUT_KEY_HEADLINE;
 
 export const SIGNUP_KEY_NOTE_BODY = BASIC_WITHOUT_KEY_BODY;
 
+/** Setup wizard AI-key card — optional, not a hard wall (RA-7416). */
+export const SETUP_AI_KEY_OPTIONAL_HINT =
+  "Basic reports on the trial work without a key. Add Anthropic, OpenAI or OpenRouter anytime as an optional upgrade — you pay that provider directly.";
+
+/**
+ * Paid / expired workspace copy. Do not say the product cannot operate —
+ * Basic on a funded trial still works without BYOK.
+ */
+export const PAID_AI_KEY_REQUIRED_BODY =
+  "After the trial, AI report generation uses your own Anthropic or OpenAI key. You pay the provider directly, at cost. Add it in Settings → AI Providers.";
+
 /** Only plan `POST /api/create-checkout-session` will sell. */
 export const SELLABLE_CHECKOUT_PLANS = ["monthly"] as const;
 

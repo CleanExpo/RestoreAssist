@@ -35,6 +35,8 @@ describe("buildAiProviderOnboardingStep (RA-6801)", () => {
     expect(step.required).toBe(true);
     expect(step.completed).toBe(false);
     expect(step.title).toMatch(/add your anthropic or openai/i);
+    expect(step.description).toMatch(/after the trial/i);
+    expect(step.description).not.toMatch(/required to operate/i);
   });
 
   it("marks a personal key as complete and not required", () => {
