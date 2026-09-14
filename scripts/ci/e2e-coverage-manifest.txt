@@ -51,7 +51,7 @@ health.spec.ts                           workflow:sketch-e2e.yml
 help/article-detail.spec.ts              workflow:sketch-e2e.yml
 help/dropdown-open.spec.ts               workflow:sketch-e2e.yml
 help/public-mirror.spec.ts               workflow:sketch-e2e.yml
-help/report-honesty.spec.ts              smoke
+help/report-honesty.spec.ts              workflow:sketch-e2e.yml
 help/redirects.spec.ts                   workflow:sketch-e2e.yml
 help/search-cmd-k.spec.ts                workflow:sketch-e2e.yml
 invite-tech-already-used.spec.ts         workflow:sketch-e2e.yml

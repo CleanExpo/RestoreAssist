@@ -225,6 +225,7 @@ jobs:
           e2e/help/dropdown-open.spec.ts
           e2e/help/public-mirror.spec.ts
           e2e/help/redirects.spec.ts
+          e2e/help/report-honesty.spec.ts
           e2e/help/search-cmd-k.spec.ts
           e2e/invite-tech-already-used.spec.ts
           e2e/invite-tech-expired.spec.ts
