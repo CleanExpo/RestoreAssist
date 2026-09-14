@@ -74,6 +74,7 @@ setup-skip-manual.spec.ts                workflow:sketch-e2e.yml
 setup-storage-google-drive.spec.ts       smoke
 setup-technician-gate.spec.ts            workflow:sketch-e2e.yml
 setup-website-failure.spec.ts            workflow:sketch-e2e.yml
+signup-pricing-honesty.spec.ts           smoke
 sketch-api.spec.ts                       workflow:sketch-e2e.yml
 storage-restore.spec.ts                  workflow:sketch-e2e.yml
 stripe-payment-intent-webhook.spec.ts    workflow:sketch-e2e.yml
