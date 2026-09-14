@@ -75,7 +75,7 @@ export default async function HelpArticlePage({
       </header>
 
       {frontmatter.heroImage ? (
-        <div className="max-w-4xl">
+        <div className="max-w-4xl" data-testid="help-hero-figure">
           <Screenshot
             src={frontmatter.heroImage}
             alt={`Hero image for ${frontmatter.title}`}

@@ -59,10 +59,12 @@ export default async function PublicArticlePage({
       </div>
 
       {frontmatter.heroImage && (
-        <Screenshot
-          src={frontmatter.heroImage}
-          alt={`Hero image for ${frontmatter.title}`}
-        />
+        <div data-testid="help-hero-figure">
+          <Screenshot
+            src={frontmatter.heroImage}
+            alt={`Hero image for ${frontmatter.title}`}
+          />
+        </div>
       )}
 
       <article className="prose prose-invert mt-8 max-w-none">

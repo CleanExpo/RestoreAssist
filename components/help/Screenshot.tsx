@@ -11,10 +11,7 @@ export type ScreenshotProps = {
 export default function Screenshot({ src, alt, caption, width = 1200 }: ScreenshotProps) {
   const url = tryCloudinaryUrl(src, { width, quality: "auto", format: "auto" });
   return (
-    <figure
-      data-testid="help-hero-figure"
-      className="my-8 overflow-hidden rounded-lg border border-neutral-200 dark:border-slate-700/60 bg-white dark:bg-slate-900/50"
-    >
+    <figure className="my-8 overflow-hidden rounded-lg border border-neutral-200 dark:border-slate-700/60 bg-white dark:bg-slate-900/50">
       {url ? (
         <Image
           src={url}
