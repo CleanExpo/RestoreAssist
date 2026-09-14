@@ -116,11 +116,10 @@ async function clickDockTool(
   await expect(btn, `${testId} must be in the dock`).toBeVisible({
     timeout: 15_000,
   });
-  // Mouse click at the button's current box — locator.click() auto-scrolls
-  // the page and shifted pin boundingBox by ~2232px in CI.
-  const box = await btn.boundingBox();
-  expect(box, `${testId} bounding box`).toBeTruthy();
-  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  // locator.click — a34163cc used page.mouse.click on the box centre and
+  // Pan/Zoom In never fired (aria-pressed stayed false, overlay zoom stayed 1).
+  // Pin restore is measured on the canvas host, so auto-scroll is fine.
+  await btn.click();
 }
 
 /** Pin position on the canvas host — immune to document scroll. */

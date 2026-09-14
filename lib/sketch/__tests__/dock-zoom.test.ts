@@ -30,6 +30,10 @@ function fakeFabric(initialZoom = 1, panX = 40, panY = -8) {
 }
 
 describe("applyDockZoom — overlay must track toolbar setZoom (RA-7547)", () => {
+  it("leaves overlay zoom 1 after Zoom In (data-overlay-zoom must not stay 1)", () => {
+    expect(applyDockZoom(fakeFabric(1, 0, 0), 1.2).zoom).toBe(1.2);
+  });
+
   it("reads viewportTransform after setZoom and moves pin screen coords", () => {
     const fc = fakeFabric(1, 40, -8);
     const before = overlayScreenPoint(
