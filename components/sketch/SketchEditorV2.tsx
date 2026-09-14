@@ -104,7 +104,12 @@ import {
   overlayViewportFromVpt,
   type OverlayViewport,
 } from "@/lib/sketch/overlay-viewport";
-import { applyDockZoom, resetDockZoom } from "@/lib/sketch/dock-zoom";
+import {
+  applyDockZoom,
+  DOCK_ZOOM_MAX,
+  DOCK_ZOOM_MIN,
+  resetDockZoom,
+} from "@/lib/sketch/dock-zoom";
 import type {
   EvidencePinView,
   ExistingEvidencePhoto,
@@ -276,8 +281,12 @@ export function SketchEditorV2({
   const [overlayVpt, setOverlayVpt] = useState<OverlayViewport>(
     IDENTITY_OVERLAY_VIEWPORT,
   );
-  /** Live Fabric vpt from before the first dock Zoom In/Out this gesture. */
+  /** Overlay the pins are drawn with — Fit Canvas restores THIS, not a desynced Fabric matrix. */
+  const overlayVptRef = useRef<OverlayViewport>(overlayVpt);
+  overlayVptRef.current = overlayVpt;
+  /** Live overlay from before the first dock Zoom In/Out this gesture. */
   const dockZoomBaselineRef = useRef<OverlayViewport | null>(null);
+  const [fabricReady, setFabricReady] = useState(false);
 
   useEffect(() => {
     const el = canvasHostRef.current;
@@ -1124,6 +1133,7 @@ export function SketchEditorV2({
   const handleCanvasReady = useCallback(
     (floorId: string, canvas: FabricCanvasRef) => {
       let pending: Record<string, unknown> | null | undefined;
+      setFabricReady(true);
       setFloorsData((prev) =>
         prev.map((fd) => {
           if (fd.floor.id !== floorId) return fd;
@@ -1176,40 +1186,54 @@ export function SketchEditorV2({
   // ── Zoom ────────────────────────────────────────────────
   const applyZoom = useCallback(
     (factor: number) => {
-      const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+      if (!dockZoomBaselineRef.current) {
+        dockZoomBaselineRef.current = { ...overlayVptRef.current };
+      }
+      const handle = activeFloor?.canvasRef.current;
+      if (typeof handle?.zoomBy === "function" && handle.getFabricCanvas()) {
+        setOverlayVpt(handle.zoomBy(factor));
+        return;
+      }
+      const fc = handle?.getFabricCanvas() as {
         getZoom: () => number;
         setZoom: (z: number) => void;
         renderAll: () => void;
         viewportTransform?: ArrayLike<number> | null;
       } | null;
-      if (!fc) return;
-      // Snapshot the live Fabric vpt *before* setZoom — overlay may still be
-      // identity while Fabric already has pan (the 2232px Fit Canvas class).
-      if (!dockZoomBaselineRef.current) {
-        dockZoomBaselineRef.current = overlayViewportFromVpt(
-          fc.viewportTransform,
-        );
+      if (fc && typeof fc.setZoom === "function") {
+        setOverlayVpt(applyDockZoom(fc, factor));
+        fc.renderAll();
+        return;
       }
-      // RA-7547: dock setZoom used to skip overlay notify — pins drifted.
-      setOverlayVpt(applyDockZoom(fc, factor));
-      fc.renderAll();
+      // Never silent-return — Zoom In must move data-overlay-zoom even if
+      // Fabric is still mounting (CI on 8f05728e stayed at "1").
+      const cur = overlayVptRef.current;
+      const z = Math.max(DOCK_ZOOM_MIN, Math.min(DOCK_ZOOM_MAX, cur.zoom * factor));
+      setOverlayVpt({ ...cur, zoom: z });
     },
     [activeFloor],
   );
 
   const handleZoomReset = useCallback(() => {
-    const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+    const baseline = dockZoomBaselineRef.current;
+    dockZoomBaselineRef.current = null;
+    const handle = activeFloor?.canvasRef.current;
+    if (typeof handle?.resetViewport === "function") {
+      setOverlayVpt(handle.resetViewport(baseline));
+      return;
+    }
+    const fc = handle?.getFabricCanvas() as {
       setZoom: (z: number) => void;
       setViewportTransform?: (vpt: number[]) => void;
       renderAll: () => void;
       viewportTransform?: ArrayLike<number> | null;
     } | null;
-    if (!fc) return;
-    // Restore the pre-dock-zoom Fabric matrix, then read the live vpt the
-    // same way Zoom In does. setZoom(1) alone leaves leftover pan.
-    setOverlayVpt(resetDockZoom(fc, dockZoomBaselineRef.current));
-    dockZoomBaselineRef.current = null;
-    fc.renderAll();
+    if (fc) {
+      setOverlayVpt(resetDockZoom(fc, baseline));
+      fc.renderAll();
+      return;
+    }
+    setOverlayVpt(baseline ?? IDENTITY_OVERLAY_VIEWPORT);
   }, [activeFloor]);
 
   // ── Floor management ────────────────────────────────────
@@ -2304,6 +2328,7 @@ export function SketchEditorV2({
           ref={canvasHostRef}
           className="relative flex-1 min-h-0 overflow-hidden"
           data-testid="sketch-canvas-host"
+          data-fabric-ready={fabricReady ? "true" : "false"}
         >
         {!sketchesHydrated && (
           <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm gap-2">

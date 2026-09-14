@@ -119,9 +119,38 @@ import {
 import { findNearestDimLabel, type DimLabelHitCandidate } from "@/lib/sketch/dim-label-hit";
 import type { SelectedObject } from "./SketchSelectionPanel";
 import {
+  IDENTITY_OVERLAY_VIEWPORT,
   overlayViewportFromVpt,
   type OverlayViewport,
 } from "@/lib/sketch/overlay-viewport";
+import {
+  applyDockZoom,
+  resetDockZoom,
+  type DockZoomCanvas,
+} from "@/lib/sketch/dock-zoom";
+
+function applyHandleZoom(raw: unknown, factor: number): OverlayViewport {
+  const fc = raw as (DockZoomCanvas & { renderAll?: () => void }) | null;
+  if (!fc || typeof fc.setZoom !== "function" || typeof fc.getZoom !== "function") {
+    return { ...IDENTITY_OVERLAY_VIEWPORT };
+  }
+  const vpt = applyDockZoom(fc, factor);
+  fc.renderAll?.();
+  return vpt;
+}
+
+function applyHandleReset(
+  raw: unknown,
+  baseline?: OverlayViewport | null,
+): OverlayViewport {
+  const fc = raw as (DockZoomCanvas & { renderAll?: () => void }) | null;
+  if (!fc || typeof fc.setZoom !== "function") {
+    return baseline ? { ...baseline } : { ...IDENTITY_OVERLAY_VIEWPORT };
+  }
+  const vpt = resetDockZoom(fc, baseline);
+  fc.renderAll?.();
+  return vpt;
+}
 
 export interface SketchCanvasProps {
   width?: number;
@@ -181,6 +210,10 @@ export interface FabricCanvasRef {
   clear: () => void;
   /** Get underlying Fabric.Canvas instance */
   getFabricCanvas: () => unknown;
+  /** Dock Zoom In/Out — mutates Fabric and returns the overlay vpt to push into React. */
+  zoomBy: (factor: number) => OverlayViewport;
+  /** Dock Fit Canvas — restore a snapshotted overlay vpt onto Fabric. */
+  resetViewport: (baseline?: OverlayViewport | null) => OverlayViewport;
   /** Push current state to undo stack */
   saveState: () => void;
   /** Undo last action */
@@ -367,6 +400,16 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           c?.renderAll();
         },
         getFabricCanvas: () => fabricRef.current,
+        zoomBy: (factor) => {
+          const vpt = applyHandleZoom(fabricRef.current, factor);
+          onViewportChangeRef.current?.(vpt);
+          return vpt;
+        },
+        resetViewport: (baseline) => {
+          const vpt = applyHandleReset(fabricRef.current, baseline);
+          onViewportChangeRef.current?.(vpt);
+          return vpt;
+        },
         saveState,
         undo,
         redo,
@@ -3006,6 +3049,16 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             canvas.renderAll();
           },
           getFabricCanvas: () => fabricCanvas,
+          zoomBy: (factor) => {
+            const vpt = applyHandleZoom(fabricCanvas, factor);
+            onViewportChangeRef.current?.(vpt);
+            return vpt;
+          },
+          resetViewport: (baseline) => {
+            const vpt = applyHandleReset(fabricCanvas, baseline);
+            onViewportChangeRef.current?.(vpt);
+            return vpt;
+          },
           saveState,
           undo,
           redo,

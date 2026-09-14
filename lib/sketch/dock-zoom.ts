@@ -18,11 +18,16 @@ export interface DockZoomCanvas {
 /**
  * Read the overlay vpt from the live canvas after a dock mutation.
  * Copy the matrix so a later Fabric write cannot alias the React snapshot.
+ * Accepts a Pick so resetDockZoom does not have to invent getZoom (TS2345).
  */
-export function overlayFromDockCanvas(fc: DockZoomCanvas): OverlayViewport {
+export function overlayFromDockCanvas(
+  fc: Pick<DockZoomCanvas, "viewportTransform">,
+): OverlayViewport {
   const raw = fc.viewportTransform;
   const copy =
-    raw && raw.length >= 6 ? [raw[0], raw[1], raw[2], raw[3], raw[4], raw[5]] : null;
+    raw && raw.length >= 6
+      ? [raw[0], raw[1], raw[2], raw[3], raw[4], raw[5]]
+      : null;
   return overlayViewportFromVpt(copy);
 }
 
@@ -40,7 +45,14 @@ export function applyDockZoom(
     Math.min(DOCK_ZOOM_MAX, fc.getZoom() * factor),
   );
   fc.setZoom(z);
-  return overlayFromDockCanvas(fc);
+  const live = overlayFromDockCanvas(fc);
+  const zoomFromGet =
+    typeof fc.getZoom === "function" ? fc.getZoom() : live.zoom;
+  // Prefer getZoom when it moved to the requested scale but the matrix did
+  // not (stale viewportTransform copy). Otherwise trust the Fabric matrix.
+  const zoom =
+    live.zoom !== zoomFromGet && zoomFromGet === z ? zoomFromGet : live.zoom;
+  return { zoom, panX: live.panX, panY: live.panY };
 }
 
 /**

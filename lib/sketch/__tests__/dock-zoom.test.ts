@@ -68,6 +68,20 @@ describe("applyDockZoom — overlay must track toolbar setZoom (RA-7547)", () =>
     expect(applyDockZoom(fc, 1.2).zoom).toBe(4);
     expect(applyDockZoom(fakeFabric(0.32), 0.8).zoom).toBe(0.3);
   });
+
+  it("uses getZoom after setZoom when viewportTransform is missing", () => {
+    const fc = {
+      z: 1,
+      getZoom() {
+        return this.z;
+      },
+      setZoom(z: number) {
+        this.z = z;
+      },
+      viewportTransform: undefined as number[] | undefined,
+    };
+    expect(applyDockZoom(fc, 1.2)).toEqual({ zoom: 1.2, panX: 0, panY: 0 });
+  });
 });
 
 describe("resetDockZoom — Fit Canvas must restore the pre-zoom overlay", () => {
