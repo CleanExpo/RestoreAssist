@@ -39,8 +39,8 @@ import { useLandingReduceMotion } from "@/components/landing/home/useLandingRedu
  *      and denied there was any per-seat fee. Both statements were false: the
  *      registry ships a per-seat Field Technician Seat charge.
  *
- *   3. The customer's AI provider — report generation runs on the customer's
- *      own Anthropic or OpenAI key, billed directly by that provider.
+ *   3. The customer's AI provider — billed only when they add their own
+ *      Anthropic or OpenAI key. Basic reports on a funded trial need no key.
  *
  * DELIBERATELY UNQUANTIFIED: the per-report AI cost. There is no authored
  * figure for it anywhere in this repository. The main report-generation route
@@ -403,10 +403,10 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                   3. Billed by your AI provider, not by us
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  Report generation on every plan, including the{" "}
-                  {free.trialDays}-day free trial, runs on your own Anthropic or
-                  OpenAI API key. That is a real out-of-pocket cost of using
-                  this product, so it belongs on this page.
+                  Basic reports on the {free.trialDays}-day free trial work
+                  without pasting an API key. Provider charges apply only when
+                  you add your own Anthropic or OpenAI key — that is a real
+                  out-of-pocket cost, so it belongs on this page.
                 </p>
               </div>
             </div>
@@ -468,9 +468,11 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                   What you control
                 </dt>
                 <dd className="mt-1 text-sm leading-relaxed text-slate-600 sm:mt-0">
-                  You choose the provider and model under Settings, then AI
-                  Providers, and you can revoke the key at any time. Usage stops
-                  when you stop generating reports.
+                  Optional on the trial. You choose the provider and model
+                  under Settings, then AI Providers, and you can revoke the key
+                  at any time. Usage on your key stops when you stop generating
+                  reports with it. Paid plans and Enhanced or Optimised
+                  generation use your key.
                 </dd>
               </div>
             </dl>

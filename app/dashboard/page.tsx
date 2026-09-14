@@ -31,6 +31,7 @@ import SessionMetadataCard, {
 } from "@/components/SessionMetadataCard";
 import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";
 import { AiKeySetupBanner } from "@/components/dashboard/AiKeySetupBanner";
+import { BasicReportWithoutKeyCta } from "@/components/onboarding/BasicReportWithoutKeyCta";
 import { InboundJobAlert } from "@/components/dashboard/InboundJobAlert";
 import type { ReportWithSessionData } from "@/lib/session-types";
 
@@ -296,6 +297,13 @@ export default function DashboardPage() {
       {/* The one REQUIRED onboarding step, shown on every visit rather than
           only behind ?welcome=1 — without a key, report generation 402s. */}
       <AiKeySetupBanner />
+      {/* RA-7549 — post-signup CTA. welcome=1 / firstRun=1 is the stranger
+          landing after register; funded trials skip /dashboard/onboarding
+          because required steps are already complete (D-022). */}
+      {(searchParams.get("welcome") === "1" ||
+        searchParams.get("firstRun") === "1") && (
+        <BasicReportWithoutKeyCta variant="dark" />
+      )}
       {dashboardData.loadFailed && !dashboardData.loading && (
         <div className="mx-6 mt-4 flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
           <span className="text-sm">
