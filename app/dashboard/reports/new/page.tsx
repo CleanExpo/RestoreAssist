@@ -337,7 +337,7 @@ export default function NewReportPage() {
           // RA-1842: iOS billing on web only.
           if (!isCapacitorIOS()) {
             toast.error("Please upgrade your package to create reports");
-            router.push("/dashboard/pricing");
+            router.push("/billing/upgrade");
           } else {
             toast.error(
               "Contact your workspace admin to manage your subscription.",
