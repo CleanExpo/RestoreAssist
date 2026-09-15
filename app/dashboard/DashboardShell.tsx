@@ -269,6 +269,11 @@ export default function DashboardShell({
     },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     {
+      icon: Building2,
+      label: "Contractor workspace",
+      href: "/dashboard/contractors",
+    },
+    {
       icon: DollarSign,
       label: "Pricing Configuration",
       href: "/dashboard/pricing-config",
