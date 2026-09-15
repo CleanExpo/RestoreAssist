@@ -390,7 +390,7 @@ export default function DashboardShell({
   const upgradeItem = {
     icon: Crown,
     label: "Upgrade Package",
-    href: "/dashboard/pricing",
+    href: "/billing/upgrade",
     highlight: true,
     special: true,
   };
@@ -424,11 +424,6 @@ export default function DashboardShell({
               const response = await fetch("/api/reports/check-credits");
               if (response.ok) {
                 const data = await response.json();
-                if (!data.hasApiKey) {
-                  toast.error("Please add your API key to create reports.");
-                  router.push("/dashboard/integrations");
-                  return;
-                }
                 if (!data.canCreate) {
                   // RA-1842: iOS billing happens on web; do not auto-redirect.
                   // RA-7462: expired trial goes to the subscribe page, not the
