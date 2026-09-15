@@ -37,7 +37,6 @@ export function PublicPricingCta({
   }
 
   if (kind === "pack") {
-    const pinned = pinPublicPricingCta(PINNED_PUBLIC_PACK_NOTE);
     return (
       <p
         data-testid="public-pricing-pack-note"
@@ -46,15 +45,13 @@ export function PublicPricingCta({
           "mt-6 text-center text-sm leading-relaxed text-slate-500"
         }
       >
-        {pinned.label}
+        {PINNED_PUBLIC_PACK_NOTE.label}
       </p>
     );
   }
 
   const pinned =
-    kind === "trial"
-      ? pinPublicPricingCta(PINNED_PUBLIC_TRIAL_CTA)
-      : pinPublicPricingCta(PINNED_PUBLIC_MONTHLY_CTA);
+    kind === "trial" ? PINNED_PUBLIC_TRIAL_CTA : PINNED_PUBLIC_MONTHLY_CTA;
 
   return (
     <Link
