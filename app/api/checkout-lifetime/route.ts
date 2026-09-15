@@ -13,6 +13,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getAppUrl } from "@/lib/app-url";
+import { CHECKOUT_CANCEL_PATH } from "@/lib/billing/checkout-presentation";
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — fail-closed for iOS Capacitor.
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
           },
         ],
         success_url: `${baseUrl}/dashboard/success?lifetime=1`,
-        cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
+        cancel_url: `${baseUrl}${CHECKOUT_CANCEL_PATH}`,
         metadata: {
           userId: userId,
           type: "lifetime",
