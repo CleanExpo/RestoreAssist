@@ -74,17 +74,17 @@ describe("SWMS jurisdiction reference table", () => {
     expect(wa.regulation).toMatch(/2022/);
   });
 
-  it("New Zealand runs its own Act and has no named regulation", () => {
+  it("New Zealand runs its own Act and is read from state-detection", () => {
+    const info = getStateInfo("NZ");
+    expect(info, 'getStateInfo("NZ") returned null').toBeTruthy();
+
     const nz = getSwmsJurisdiction("NZ")!;
+    expect(nz.act).toBe(info!.whsAct);
+    expect(nz.regulator).toBe(info!.workSafetyAuthority);
+    expect(nz.name).toBe(info!.name);
     expect(nz.act).toBe("Health and Safety at Work Act 2015 (NZ)");
-    expect(nz.regulator).toBe("WorkSafe New Zealand");
     expect(nz.regulation).toBeNull();
     expect(nz.harmonised).toBe(false);
-
-    // NZ has no getStateInfo entry, which is why this module carries it as a
-    // literal. Asserted so that adding one later fails here and prompts the
-    // same de-duplication the AU rows already have.
-    expect(getStateInfo("NZ")).toBeNull();
   });
 
   it("lookup is case-insensitive and rejects unknown codes", () => {

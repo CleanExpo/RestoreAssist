@@ -12,10 +12,8 @@
  * citation there corrects it in reports and in SWMS together, and a SWMS cannot
  * drift away from the report it accompanies.
  *
- * The Commonwealth and New Zealand rows ARE literals, because `getStateInfo`
- * has no entry for either. That gap is tracked separately: a New Zealand job
- * currently gets `null` from `getStateInfo`, which is why this module carries
- * NZ explicitly rather than pretending detection covers it.
+ * The Commonwealth row is a literal, because `getStateInfo` has no CTH entry.
+ * New Zealand is resolved from `getStateInfo` the same way as the states.
  */
 import { getStateInfo } from "@/lib/state-detection";
 
@@ -83,29 +81,43 @@ const REGULATION_BY_CODE: Record<string, { regulation: string | null; codes: str
     regulation: "Work Health and Safety (General) Regulations 2022 (WA)",
     codes: "WA Codes of Practice",
   },
+  NZ: {
+    regulation: null,
+    codes: "NZ Codes of Practice",
+  },
 };
 
-/** Jurisdictions with no `getStateInfo` entry, carried as literals. */
-const NON_STATE_JURISDICTIONS: readonly SwmsJurisdiction[] = [
-  {
-    code: "CTH",
-    name: "Commonwealth",
-    act: "Work Health and Safety Act 2011 (Cth)",
-    regulation: "Work Health and Safety Regulations 2011 (Cth)",
-    regulator: "Comcare",
-    codesOfPractice: "Safe Work Australia Codes of Practice",
-    harmonised: true,
-  },
-  {
-    code: "NZ",
-    name: "New Zealand",
-    act: "Health and Safety at Work Act 2015 (NZ)",
-    regulation: null,
-    regulator: "WorkSafe New Zealand",
-    codesOfPractice: "NZ Codes of Practice",
-    harmonised: false,
-  },
-];
+/** Commonwealth has no `getStateInfo` entry; carried as a literal. */
+const COMMONWEALTH: SwmsJurisdiction = {
+  code: "CTH",
+  name: "Commonwealth",
+  act: "Work Health and Safety Act 2011 (Cth)",
+  regulation: "Work Health and Safety Regulations 2011 (Cth)",
+  regulator: "Comcare",
+  codesOfPractice: "Safe Work Australia Codes of Practice",
+  harmonised: true,
+};
+
+function jurisdictionFromStateInfo(code: string): SwmsJurisdiction {
+  const info = getStateInfo(code);
+  if (!info) {
+    throw new Error(
+      `SWMS reference table: getStateInfo("${code}") returned null. ` +
+        "Jurisdictional law is resolved from lib/state-detection.ts and cannot be defaulted.",
+    );
+  }
+  const reg = REGULATION_BY_CODE[code];
+  return {
+    code,
+    name: info.name,
+    act: info.whsAct,
+    regulation: reg?.regulation ?? null,
+    regulator: info.workSafetyAuthority,
+    codesOfPractice: reg?.codes ?? "",
+    // Model WHS Acts only. Victoria (OHS) and New Zealand (HSWA) are not.
+    harmonised: info.whsAct.startsWith("Work Health and Safety"),
+  };
+}
 
 /**
  * Every jurisdiction row for the SWMS reference table.
@@ -114,29 +126,8 @@ const NON_STATE_JURISDICTIONS: readonly SwmsJurisdiction[] = [
  * than silently emitting a SWMS with a jurisdiction missing.
  */
 export function getSwmsJurisdictions(): SwmsJurisdiction[] {
-  const states = AU_CODES.map((code) => {
-    const info = getStateInfo(code);
-    if (!info) {
-      throw new Error(
-        `SWMS reference table: getStateInfo("${code}") returned null. ` +
-          "Jurisdictional law is resolved from lib/state-detection.ts and cannot be defaulted.",
-      );
-    }
-    const reg = REGULATION_BY_CODE[code];
-    return {
-      code,
-      name: info.name,
-      act: info.whsAct,
-      regulation: reg.regulation,
-      regulator: info.workSafetyAuthority,
-      codesOfPractice: reg.codes,
-      // Victoria never adopted the model WHS laws; every other state and
-      // territory did. Derived from the Act itself, not hardcoded per state.
-      harmonised: info.whsAct.startsWith("Work Health and Safety"),
-    } satisfies SwmsJurisdiction;
-  });
-
-  return [...states, ...NON_STATE_JURISDICTIONS];
+  const states = AU_CODES.map((code) => jurisdictionFromStateInfo(code));
+  return [...states, COMMONWEALTH, jurisdictionFromStateInfo("NZ")];
 }
 
 /**
