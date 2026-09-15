@@ -10,11 +10,12 @@ import {
 } from "@/lib/bulk-operations";
 import { format } from "date-fns";
 import { apiError, fromException } from "@/lib/api-errors";
+import { getAppUrl } from "@/lib/app-url";
 
 // Helper: Generate PDF for a report by calling the internal download endpoint
 async function generateReportPDF(reportId: string): Promise<Buffer | null> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = getAppUrl();
 
     // Call the existing PDF generation endpoint internally
     const response = await fetch(
