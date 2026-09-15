@@ -5,7 +5,7 @@
  *
  *     - Work Health and Safety Act ${stateInfo.whsAct.split(" ").pop()}
  *
- * `.split(" ").pop()` returns the LAST space-delimited token, which in all eight
+ * `.split(" ").pop()` returns the LAST space-delimited token, which in the
  * `getStateInfo` entries is the bracketed jurisdiction code, never the year. So
  * every jurisdiction lost its year, and Victoria — whose stored citation is the
  * Occupational Health and Safety Act 2004, because Victoria never adopted the
@@ -23,7 +23,17 @@ import { describe, expect, it } from "vitest";
 import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
 import { getStateInfo } from "@/lib/state-detection";
 
-const JURISDICTIONS = ["QLD", "NSW", "VIC", "SA", "WA", "TAS", "ACT", "NT"] as const;
+const JURISDICTIONS = [
+  "QLD",
+  "NSW",
+  "VIC",
+  "SA",
+  "WA",
+  "TAS",
+  "ACT",
+  "NT",
+  "NZ",
+] as const;
 
 /** "basic" delegates to buildVisualCentricReportPrompt; anything else does not. */
 const BUILDERS = [
