@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { ContractorsBackLink } from "./ContractorsBackLink";
 import {
   Dialog,
   DialogContent,
@@ -258,6 +259,7 @@ export default function ServiceAreasPage() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <confirm.Mount />
       {/* Header */}
+      <ContractorsBackLink />
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-white">Service Areas</h1>
