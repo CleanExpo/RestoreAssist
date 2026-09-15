@@ -157,6 +157,7 @@ describe("POST /api/create-checkout-session", () => {
         subscription_data: expect.objectContaining({
           description: "RestoreAssist Monthly Plan",
         }),
+        cancel_url: expect.stringContaining("/billing/upgrade?cancelled=1"),
       }),
     );
     const arg = stripeMock.checkout.sessions.create.mock.calls[0][0] as {
