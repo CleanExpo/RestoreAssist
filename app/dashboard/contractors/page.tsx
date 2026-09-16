@@ -64,8 +64,7 @@ function StarMark(props: MarkProps) {
 function WrenchMark(props: MarkProps) {
   return (
     <Mark {...props}>
-      <path d="M14.7 6.3a4 4 0 0 0 5 5l-9.4 9.4a2.1 2.1 0 0 1-3-3L16.7 8.3" />
-      <path d="M14.7 6.3 18 3l3 3-3.3 3.3" />
+      <path d="M19.2 3a5.6 5.6 0 0 0-7.4 7.2l-8 8a2.1 2.1 0 0 0 3 3l8-8a5.6 5.6 0 0 0 7.2-7.4l-3.3 3.3-2.8-.6-.6-2.8z" />
     </Mark>
   );
 }
