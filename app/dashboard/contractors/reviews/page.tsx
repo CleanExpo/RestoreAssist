@@ -13,7 +13,7 @@ import {
   Send,
 } from "lucide-react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
-import { ContractorsBackLink } from "./ContractorsBackLink";
+import { ContractorsBackLink } from "../ContractorsBackLink";
 
 interface Review {
   id: string;

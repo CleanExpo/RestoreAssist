@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ContractorsBackLink } from "./ContractorsBackLink";
+import { ContractorsBackLink } from "../ContractorsBackLink";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
