@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useAsyncAction } from "@/lib/client/use-async-action";
-import { ContractorsBackLink } from "./ContractorsBackLink";
+import { ContractorsBackLink } from "../ContractorsBackLink";
 
 interface ContractorProfile {
   id: string;
