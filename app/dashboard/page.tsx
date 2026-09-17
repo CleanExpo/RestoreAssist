@@ -1,54 +1,97 @@
 "use client";
 
-import { motion } from "framer-motion";
-import {
-  FileText,
-  Plus,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  Users,
-  DollarSign,
-  BarChart3,
-  Zap,
-  Shield,
-  Calendar,
-  ArrowRight,
-  Activity,
-  GitBranch,
-  MessageSquare,
-  Plug,
-} from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useFetch } from "@/lib/hooks/useFetch";
 import toast from "react-hot-toast";
-import Link from "next/link";
-import SessionMetadataCard, {
-  EvaluatorScoreBadge,
-} from "@/components/SessionMetadataCard";
 import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";
 import { AiKeySetupBanner } from "@/components/dashboard/AiKeySetupBanner";
 import { BasicReportWithoutKeyCta } from "@/components/onboarding/BasicReportWithoutKeyCta";
 import { InboundJobAlert } from "@/components/dashboard/InboundJobAlert";
+import { EvaluatorScoreBadge } from "@/components/SessionMetadataCard";
+import {
+  DashboardPanel,
+  DashboardPanelHeader,
+} from "@/app/dashboard/components/DashboardPanel";
 import type { ReportWithSessionData } from "@/lib/session-types";
+import {
+  isActiveInspectionStatus,
+  isOpenReportStatus,
+  isOutstandingInvoiceStatus,
+  resolveHomeFocus,
+} from "@/lib/dashboard/home-focus";
+import { cn } from "@/lib/utils";
+
+type InspectionRow = {
+  id: string;
+  inspectionNumber?: string | null;
+  propertyAddress?: string | null;
+  status: string;
+  createdAt: string;
+};
+
+type InvoiceRow = {
+  id: string;
+  invoiceNumber?: string | null;
+  status: string;
+  customerName?: string | null;
+  amountDue?: number | null;
+  total?: number | null;
+};
+
+function timeAgo(date: Date) {
+  const diffInMinutes = Math.floor((Date.now() - date.getTime()) / (1000 * 60));
+  if (diffInMinutes < 1) return "Just now";
+  if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+  if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+  return `${Math.floor(diffInMinutes / 1440)}d ago`;
+}
+
+function statusTone(status: string) {
+  const s = status.toUpperCase();
+  if (s === "COMPLETED" || s === "APPROVED" || s === "PAID") {
+    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
+  }
+  if (s === "OVERDUE" || s === "REJECTED") {
+    return "bg-red-500/15 text-red-700 dark:text-red-400";
+  }
+  if (s === "PENDING" || s === "SENT" || s === "SUBMITTED" || s === "SCOPED") {
+    return "bg-amber-500/15 text-amber-800 dark:text-amber-400";
+  }
+  return "bg-muted text-muted-foreground";
+}
+
+const PRIMARY_ACTIONS = [
+  {
+    href: "/dashboard/inspections/new",
+    title: "New inspection",
+    description: "Open a job on site",
+  },
+  {
+    href: "/dashboard/field",
+    title: "Field capture",
+    description: "Photos, moisture, voice",
+  },
+  {
+    href: "/dashboard/reports/new",
+    title: "New report",
+    description: "Write from what you captured",
+  },
+  {
+    href: "/dashboard/invoices/new",
+    title: "Get a bill out",
+    description: "Invoice the work",
+  },
+] as const;
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
-
-  // Only fetch once the session is confirmed authenticated
   const isAuthed = status === "authenticated";
 
-  // RA-1251 — first-time signup redirect.
-  // signup/google-signin send `?welcome=1` but the param was previously
-  // ignored. Now: on first render after signup, if onboarding isn't complete,
-  // push users to the dedicated /dashboard/onboarding checklist instead of
-  // dropping them on the main dashboard where the setup guide is only
-  // reachable via the sidebar.
   useEffect(() => {
     if (status !== "authenticated") return;
     const isWelcome = searchParams?.get("welcome") === "1";
@@ -64,11 +107,10 @@ export default function DashboardPage() {
         const data = await res.json();
         if (cancelled) return;
         if (data && data.isComplete === false) {
-          // Strip the welcome param so a refresh/back doesn't bounce again.
           router.replace("/dashboard/onboarding");
         }
       } catch {
-        // Silent — the welcome toast still fires from the other effect.
+        // Welcome toast still fires below.
       }
     })();
     return () => {
@@ -81,9 +123,9 @@ export default function DashboardPage() {
     loading: reportsLoading,
     error: reportsError,
     refetch: refetchReports,
-  } = useFetch<{
-    reports: ReportWithSessionData[];
-  }>(isAuthed ? "/api/reports" : null);
+  } = useFetch<{ reports: ReportWithSessionData[] }>(
+    isAuthed ? "/api/reports?limit=40" : null,
+  );
 
   const {
     data: clientsRaw,
@@ -94,7 +136,24 @@ export default function DashboardPage() {
     clients: Array<{ id: string; name: string; createdAt: string }>;
   }>(isAuthed ? "/api/clients" : null);
 
-  // Welcome toast — fire once when session first becomes authenticated
+  const {
+    data: inspectionsRaw,
+    loading: inspectionsLoading,
+    error: inspectionsError,
+    refetch: refetchInspections,
+  } = useFetch<{ inspections: InspectionRow[] }>(
+    isAuthed ? "/api/inspections?limit=20&sort=recent" : null,
+  );
+
+  const {
+    data: invoicesRaw,
+    loading: invoicesLoading,
+    error: invoicesError,
+    refetch: refetchInvoices,
+  } = useFetch<{ invoices: InvoiceRow[] }>(
+    isAuthed ? "/api/invoices?limit=20" : null,
+  );
+
   useEffect(() => {
     if (status === "authenticated" && session?.user?.name) {
       toast.success(`Welcome back, ${session.user.name.split(" ")[0]}!`);
@@ -102,707 +161,450 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  // Derive dashboard metrics from fetched data
-  const dashboardData = useMemo(() => {
-    const loadFailed = Boolean(reportsError || clientsError);
+  const model = useMemo(() => {
+    const loadFailed = Boolean(
+      reportsError || clientsError || inspectionsError || invoicesError,
+    );
     const reports = loadFailed ? [] : (reportsRaw?.reports ?? []);
     const clients = loadFailed ? [] : (clientsRaw?.clients ?? []);
+    const inspections = loadFailed ? [] : (inspectionsRaw?.inspections ?? []);
+    const invoices = loadFailed ? [] : (invoicesRaw?.invoices ?? []);
 
-    const totalRevenue = reports.reduce(
-      (sum: number, report: any) => sum + (report.totalCost || 0),
-      0,
+    const openReports = reports.filter((r) => isOpenReportStatus(r.status));
+    const activeInspections = inspections.filter((i) =>
+      isActiveInspectionStatus(i.status),
     );
-
+    const outstandingInvoices = invoices.filter((i) =>
+      isOutstandingInvoiceStatus(i.status),
+    );
     const recentReports = [...reports]
       .sort(
-        (a: any, b: any) =>
+        (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       )
-      .slice(0, 5);
+      .slice(0, 6);
 
-    const recentClients = [...clients]
-      .sort(
-        (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-      .slice(0, 5);
+    const hasAnyWork =
+      reports.length > 0 || inspections.length > 0 || invoices.length > 0;
 
     return {
-      totalReports: reports.length,
-      totalClients: clients.length,
-      totalRevenue,
+      reports,
+      clients,
+      inspections,
+      invoices,
+      openReports,
+      activeInspections,
+      outstandingInvoices,
       recentReports,
-      recentClients,
-      loading: reportsLoading || clientsLoading,
+      hasAnyWork,
+      focus: resolveHomeFocus({
+        openReports: openReports.length,
+        activeInspections: activeInspections.length,
+        outstandingInvoices: outstandingInvoices.length,
+        hasAnyWork,
+      }),
+      loading:
+        reportsLoading ||
+        clientsLoading ||
+        inspectionsLoading ||
+        invoicesLoading,
       loadFailed,
-      loadError: reportsError || clientsError,
+      loadError:
+        reportsError || clientsError || inspectionsError || invoicesError,
     };
   }, [
     reportsRaw,
     clientsRaw,
+    inspectionsRaw,
+    invoicesRaw,
     reportsLoading,
     clientsLoading,
+    inspectionsLoading,
+    invoicesLoading,
     reportsError,
     clientsError,
+    inspectionsError,
+    invoicesError,
   ]);
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-bronze/30 border-t-brand-cta" />
       </div>
     );
   }
 
-  const stats = [
-    {
-      label: "Reports Generated",
-      value: dashboardData.loading
-        ? "..."
-        : dashboardData.loadFailed
-          ? "—"
-          : dashboardData.totalReports.toString(),
-      icon: FileText,
-      color: "text-cyan-400",
-    },
-    {
-      label: "Total Clients",
-      value: dashboardData.loading
-        ? "..."
-        : dashboardData.loadFailed
-          ? "—"
-          : dashboardData.totalClients.toString(),
-      icon: Users,
-      color: "text-success",
-    },
-    {
-      label: "Total Revenue",
-      value: dashboardData.loading
-        ? "..."
-        : dashboardData.loadFailed
-          ? "—"
-          : `$${dashboardData.totalRevenue.toLocaleString()}`,
-      icon: DollarSign,
-      color: "text-blue-400",
-    },
-    {
-      label: "Active Reports",
-      value: dashboardData.loading
-        ? "..."
-        : dashboardData.loadFailed
-          ? "—"
-          : dashboardData.recentReports
-              .filter((r: any) => r.status !== "Draft")
-              .length.toString(),
-      icon: CheckCircle,
-      color: "text-orange-400",
-    },
-  ];
-
-  const getRecentActivity = () => {
-    const activities: Array<{
-      action: string;
-      time: string;
-      status: "success" | "pending";
-      type: "report" | "client";
-    }> = [];
-
-    // Add recent reports
-    dashboardData.recentReports.slice(0, 3).forEach((report: any) => {
-      const timeAgo = getTimeAgo(new Date(report.createdAt));
-      activities.push({
-        action: `Report "${report.title}" created`,
-        time: timeAgo,
-        status: report.status === "Draft" ? "pending" : "success",
-        type: "report",
-      });
-    });
-
-    // Add recent clients
-    dashboardData.recentClients.slice(0, 2).forEach((client: any) => {
-      const timeAgo = getTimeAgo(new Date(client.createdAt));
-      activities.push({
-        action: `Client "${client.name}" added`,
-        time: timeAgo,
-        status: "success",
-        type: "client",
-      });
-    });
-
-    return activities
-      .sort((a, b) => {
-        const timeA = a.time.includes("min") ? parseInt(a.time) : 0;
-        const timeB = b.time.includes("min") ? parseInt(b.time) : 0;
-        return timeA - timeB;
-      })
-      .slice(0, 5);
-  };
-
-  const getTimeAgo = (date: Date) => {
-    const now = new Date();
-    const diffInMinutes = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60),
-    );
-
-    if (diffInMinutes < 1) return "Just now";
-    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return `${Math.floor(diffInMinutes / 1440)}d ago`;
-  };
-
-  // RA-1262: quick actions aligned with the TRUE NORTH vision — get
-  // new users onto the core "AI-assisted tech does a job" loop ASAP.
-  // Settings moved to header dropdown (user can still reach via sidebar).
-  const quickActions = [
-    {
-      title: "Create New Report",
-      description: "Start a professional damage assessment",
-      icon: Plus,
-      color: "",
-      href: "/dashboard/reports/new",
-    },
-    {
-      title: "Start Guided Interview",
-      // "IICRC S500 compliant" -> structured on the sections. Same correction as
-      // /pricing, /features, the manifest and the SoftwareApplication schema:
-      // lib/iicrc-inclusion-check.ts forbids asserting "complies" / "certifies" /
-      // "meets [the standard]", enforced by a regression test.
-      description: "Let AI carry the Smart — structured on IICRC S500:2021 sections",
-      icon: MessageSquare,
-      color: "",
-      href: "/dashboard/interviews/new",
-    },
-    {
-      title: "Connect Xero",
-      description: "Sync invoices + payments automatically",
-      icon: Plug,
-      color: "",
-      href: "/dashboard/integrations",
-    },
-    {
-      title: "Add Client",
-      description: "Manage contacts and job history",
-      icon: Users,
-      color: "",
-      href: "/dashboard/clients",
-    },
-  ];
+  const firstName = session?.user?.name?.split(" ")[0] ?? "there";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="px-6 pt-6">
+    <div className="pb-24 md:pb-0">
+      <div className="space-y-3">
         <InboundJobAlert />
+        <TechLicenceBanner />
+        <AiKeySetupBanner />
+        {(searchParams.get("welcome") === "1" ||
+          searchParams.get("firstRun") === "1") && (
+          <BasicReportWithoutKeyCta variant="dark" />
+        )}
       </div>
-      <TechLicenceBanner />
-      {/* The one REQUIRED onboarding step, shown on every visit rather than
-          only behind ?welcome=1 — without a key, report generation 402s. */}
-      <AiKeySetupBanner />
-      {/* RA-7549 — post-signup CTA. welcome=1 / firstRun=1 is the stranger
-          landing after register; funded trials skip /dashboard/onboarding
-          because required steps are already complete (D-022). */}
-      {(searchParams.get("welcome") === "1" ||
-        searchParams.get("firstRun") === "1") && (
-        <BasicReportWithoutKeyCta variant="dark" />
-      )}
-      {dashboardData.loadFailed && !dashboardData.loading && (
-        <div className="mx-6 mt-4 flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
-          <span className="text-sm">
-            Failed to load dashboard data
-            {dashboardData.loadError ? ` — ${dashboardData.loadError}` : ""}
-          </span>
+
+      {model.loadFailed && !model.loading && (
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-800 dark:text-red-300 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm">
+            Could not load the workspace
+            {model.loadError ? ` — ${model.loadError}` : ""}.
+          </p>
           <button
             type="button"
             onClick={() => {
               void refetchReports();
               void refetchClients();
+              void refetchInspections();
+              void refetchInvoices();
             }}
-            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
+            className="min-h-11 shrink-0 rounded-md border border-red-500/40 px-4 text-sm font-medium"
           >
             Retry
           </button>
         </div>
       )}
-      {/* Header */}
-      <div className="border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-sm">
-        <div className="px-6 py-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h1
-              className="text-3xl font-medium text-white mb-2"
-              style={{ fontFamily: "Titillium Web, sans-serif" }}
-            >
-              Dashboard Overview
-            </h1>
-            <p className="text-slate-500 dark:text-slate-400">
-              Welcome back, {session?.user?.name?.split(" ")[0]}! Here's what's
-              happening with your restoration reports.
-            </p>
-          </motion.div>
+
+      <header className="mt-6 mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">Good to see you, {firstName}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            {model.loading ? "Loading the board…" : model.focus.title}
+          </h1>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+            {model.loading
+              ? "Checking jobs, reports and invoices."
+              : model.focus.why}
+          </p>
         </div>
+        <Link
+          href={model.focus.href}
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-cta px-4 text-sm font-medium text-white hover:bg-brand-cta-hover"
+        >
+          {model.focus.label}
+        </Link>
+      </header>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <FocusStat
+          label="Open jobs"
+          value={model.activeInspections.length}
+          href="/dashboard/inspections"
+          loading={model.loading}
+        />
+        <FocusStat
+          label="Reports in play"
+          value={model.openReports.length}
+          href="/dashboard/reports"
+          loading={model.loading}
+        />
+        <FocusStat
+          label="Unpaid invoices"
+          value={model.outstandingInvoices.length}
+          href="/dashboard/invoices"
+          loading={model.loading}
+        />
+        <FocusStat
+          label="Clients"
+          value={model.clients.length}
+          href="/dashboard/clients"
+          loading={model.loading}
+        />
       </div>
 
-      {/* Main Content */}
-      <main>
-        <div className=" mx-auto space-y-8">
-          {/* Stats Grid */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-          >
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 + index * 0.1 }}
-                className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 hover:border-slate-600/50 transition-all duration-300"
+      <section className="mt-6">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Do next
+        </h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {PRIMARY_ACTIONS.map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="flex min-h-16 items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left hover:border-brand-bronze/50"
+            >
+              <span>
+                <span className="block text-sm font-medium text-foreground">
+                  {action.title}
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  {action.description}
+                </span>
+              </span>
+              <span aria-hidden className="text-muted-foreground">
+                →
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-5">
+        <DashboardPanel className="lg:col-span-3">
+          <DashboardPanelHeader
+            title="Needs attention"
+            description="Jobs still open and reports not finished."
+            action={
+              <Link
+                href="/dashboard/inspections"
+                className="text-sm font-medium text-brand-cta hover:underline"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <stat.icon size={24} className={`${stat.color} opacity-80`} />
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                </div>
-                <div className="space-y-1">
-                  <p className={`text-3xl font-bold ${stat.color}`}>
-                    {stat.value}
-                  </p>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-                    {stat.label}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* Main Content Grid */}
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Quick Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="lg:col-span-2"
-            >
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-                <h2
-                  className="text-xl font-medium text-white mb-6"
-                  style={{ fontFamily: "Titillium Web, sans-serif" }}
-                >
-                  Quick Actions
-                </h2>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {quickActions.map((action, index) => (
-                    <motion.a
-                      key={action.title}
-                      href={action.href}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.6, delay: 0.3 + index * 0.1 }}
-                      className="group p-4 bg-slate-700/30 border border-slate-600/30 rounded-lg hover:border-slate-500/50 hover:bg-slate-700/50 transition-all duration-300"
+                All jobs
+              </Link>
+            }
+          />
+          {model.loading ? (
+            <p className="text-sm text-muted-foreground">Loading work…</p>
+          ) : model.activeInspections.length === 0 &&
+            model.openReports.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nothing waiting. Start an inspection when you arrive on site.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {model.activeInspections.slice(0, 4).map((job) => (
+                <li key={job.id}>
+                  <Link
+                    href={`/dashboard/inspections/${job.id}`}
+                    className="flex min-h-14 items-center justify-between gap-3 py-3"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {job.propertyAddress || job.inspectionNumber || "Inspection"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {job.inspectionNumber} · {timeAgo(new Date(job.createdAt))}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
+                        statusTone(job.status),
+                      )}
                     >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`w-10 h-10 rounded-lg bg-brand-navy flex items-center justify-center flex-shrink-0`}
-                        >
-                          <action.icon size={20} className="text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-white group-hover:text-cyan-400 transition-colors">
-                            {action.title}
-                          </h3>
-                          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                            {action.description}
-                          </p>
-                        </div>
-                        <ArrowRight
-                          size={16}
-                          className="text-slate-500 dark:text-slate-400 group-hover:text-cyan-400 transition-colors flex-shrink-0"
-                        />
-                      </div>
-                    </motion.a>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
+                      {job.status}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+              {model.openReports.slice(0, 3).map((report) => (
+                <li key={report.id}>
+                  <Link
+                    href={`/dashboard/reports/${report.id}`}
+                    className="flex min-h-14 items-center justify-between gap-3 py-3"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {report.title}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {report.clientName} · {timeAgo(new Date(report.createdAt))}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
+                        statusTone(report.status),
+                      )}
+                    >
+                      {report.status}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DashboardPanel>
 
-            {/* Recent Activity */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="space-y-6"
+        <DashboardPanel className="lg:col-span-2">
+          <DashboardPanelHeader
+            title="Unpaid invoices"
+            action={
+              <Link
+                href="/dashboard/invoices"
+                className="text-sm font-medium text-brand-cta hover:underline"
+              >
+                All invoices
+              </Link>
+            }
+          />
+          {model.loading ? (
+            <p className="text-sm text-muted-foreground">Loading invoices…</p>
+          ) : model.outstandingInvoices.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No invoices waiting on payment.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {model.outstandingInvoices.slice(0, 5).map((invoice) => (
+                <li key={invoice.id}>
+                  <Link
+                    href={`/dashboard/invoices/${invoice.id}`}
+                    className="flex min-h-12 items-center justify-between gap-3 py-2.5"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">
+                        {invoice.invoiceNumber || "Invoice"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {invoice.customerName || "Client"}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
+                        statusTone(invoice.status),
+                      )}
+                    >
+                      {invoice.status}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DashboardPanel>
+      </div>
+
+      <DashboardPanel className="mt-6">
+        <DashboardPanelHeader
+          title="Recent reports"
+          action={
+            <Link
+              href="/dashboard/reports"
+              className="text-sm font-medium text-brand-cta hover:underline"
             >
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-                <h3
-                  className="text-lg font-medium text-white mb-4"
-                  style={{ fontFamily: "Titillium Web, sans-serif" }}
+              View all
+            </Link>
+          }
+        />
+        {model.loading ? (
+          <div className="flex justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-bronze/30 border-t-brand-cta" />
+          </div>
+        ) : model.recentReports.length === 0 ? (
+          <div className="py-6 text-center">
+            <p className="text-sm text-muted-foreground">No reports yet.</p>
+            <Link
+              href="/dashboard/reports/new"
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-brand-cta"
+            >
+              Create the first report
+            </Link>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {model.recentReports.map((report) => {
+              const fanOutCount = report.fanOutSessions?.length ?? 0;
+              const retryCount = report.evaluatorScores?.retryCount ?? 0;
+              return (
+                <Link
+                  key={report.id}
+                  href={`/dashboard/reports/${report.id}`}
+                  className="block rounded-lg border border-border bg-background p-4 hover:border-brand-bronze/50"
                 >
-                  Recent Activity
-                </h3>
-                <div className="space-y-3">
-                  {dashboardData.loading ? (
-                    <div className="flex items-center justify-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400"></div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {report.title}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {report.clientName}
+                      </p>
                     </div>
-                  ) : getRecentActivity().length > 0 ? (
-                    getRecentActivity().map((activity, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.6, delay: 0.5 + index * 0.1 }}
-                        className="flex items-center gap-3"
-                      >
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            activity.status === "success"
-                              ? "bg-emerald-400"
-                              : "bg-orange-400"
-                          }`}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium">
-                            {activity.action}
-                          </p>
-                          <p className="text-slate-500 dark:text-slate-400 text-xs">
-                            {activity.time}
-                          </p>
-                        </div>
-                      </motion.div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-slate-500 dark:text-slate-400 text-sm">
-                        No recent activity
-                      </p>
-                      <p className="text-slate-500 text-xs mt-1">
-                        Create your first report to get started
-                      </p>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
+                        statusTone(report.status),
+                      )}
+                    >
+                      {report.status}
+                    </span>
+                  </div>
+                  {(fanOutCount > 0 ||
+                    retryCount > 0 ||
+                    report.evaluatorScores) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {fanOutCount > 0 && <span>{fanOutCount} sessions</span>}
+                      {retryCount > 0 && <span>{retryCount} retries</span>}
+                      {report.evaluatorScores != null && (
+                        <EvaluatorScoreBadge scores={report.evaluatorScores} />
+                      )}
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* Getting Started */}
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-                <h3
-                  className="text-lg font-medium text-white mb-4"
-                  style={{ fontFamily: "Titillium Web, sans-serif" }}
-                >
-                  Getting Started
-                </h3>
-                <div className="space-y-3">
-                  <div
-                    className={`flex items-center gap-3 p-3 rounded-lg ${
-                      dashboardData.totalReports > 0
-                        ? "bg-emerald-500/20 border border-emerald-500/30"
-                        : "bg-slate-700/30"
-                    }`}
-                  >
-                    <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        dashboardData.totalReports > 0
-                          ? "bg-emerald-500/20"
-                          : "bg-cyan-500/20"
-                      }`}
-                    >
-                      <span
-                        className={`text-xs font-bold ${
-                          dashboardData.totalReports > 0
-                            ? "text-success"
-                            : "text-cyan-400"
-                        }`}
-                      >
-                        1
-                      </span>
+                  {report.phases && report.phases.length > 0 && (
+                    <div className="mt-3 flex gap-0.5">
+                      {report.phases.map((p) => (
+                        <div
+                          key={p.phase}
+                          title={p.label}
+                          className={cn(
+                            "h-1.5 flex-1 rounded-sm",
+                            p.completed ? "bg-brand-cta" : "bg-muted",
+                          )}
+                        />
+                      ))}
                     </div>
-                    <p
-                      className={`text-sm ${
-                        dashboardData.totalReports > 0
-                          ? "text-success"
-                          : "text-slate-300"
-                      }`}
-                    >
-                      {dashboardData.totalReports > 0
-                        ? `Create your first report (${dashboardData.totalReports} created)`
-                        : "Create your first report"}
-                    </p>
-                  </div>
-
-                  <div
-                    className={`flex items-center gap-3 p-3 rounded-lg ${
-                      dashboardData.totalClients > 0
-                        ? "bg-emerald-500/20 border border-emerald-500/30"
-                        : "bg-slate-700/30"
-                    }`}
-                  >
-                    <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        dashboardData.totalClients > 0
-                          ? "bg-emerald-500/20"
-                          : "bg-slate-600/50"
-                      }`}
-                    >
-                      <span
-                        className={`text-xs font-bold ${
-                          dashboardData.totalClients > 0
-                            ? "text-success"
-                            : "text-slate-500 dark:text-slate-400"
-                        }`}
-                      >
-                        2
-                      </span>
-                    </div>
-                    <p
-                      className={`text-sm ${
-                        dashboardData.totalClients > 0
-                          ? "text-success"
-                          : "text-slate-500 dark:text-slate-400"
-                      }`}
-                    >
-                      {dashboardData.totalClients > 0
-                        ? `Add clients (${dashboardData.totalClients} added)`
-                        : "Add your first client"}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg">
-                    <div className="w-6 h-6 bg-slate-600/50 rounded-full flex items-center justify-center">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-bold">
-                        3
-                      </span>
-                    </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">
-                      Explore analytics & insights
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Performance Overview */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2
-                className="text-xl font-medium text-white"
-                style={{ fontFamily: "Titillium Web, sans-serif" }}
-              >
-                Performance Overview
-              </h2>
-              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                <Activity size={16} />
-                <span>Last 30 days</span>
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-brand-navy rounded-full flex items-center justify-center mx-auto mb-3">
-                  <TrendingUp size={24} className="text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-cyan-400 mb-1 tabular-nums">
-                  {dashboardData.loading
-                    ? "..."
-                    : `${Math.round((dashboardData.totalReports / Math.max(dashboardData.totalClients, 1)) * 100)}%`}
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
-                  Reports per Client
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="w-16 h-16 bg-brand-navy rounded-full flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle size={24} className="text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-success mb-1 tabular-nums">
-                  {dashboardData.loading
-                    ? "..."
-                    : `${dashboardData.recentReports.filter((r: any) => r.status !== "Draft").length}/${dashboardData.totalReports || 1}`}
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
-                  Completed Reports
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="w-16 h-16 bg-brand-navy rounded-full flex items-center justify-center mx-auto mb-3">
-                  <DollarSign size={24} className="text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-orange-400 mb-1 tabular-nums">
-                  {dashboardData.loading
-                    ? "..."
-                    : `$${dashboardData.totalRevenue.toLocaleString()}`}
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
-                  Total Revenue
-                </p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Recent Reports — with session metadata */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-            className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2
-                className="text-xl font-medium text-white"
-                style={{ fontFamily: "Titillium Web, sans-serif" }}
-              >
-                Recent Reports
-              </h2>
-              <Link
-                href="/dashboard/reports"
-                className="flex items-center gap-1.5 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
-              >
-                View all
-                <ArrowRight size={14} />
-              </Link>
-            </div>
-
-            {dashboardData.loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-6 h-6 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-              </div>
-            ) : dashboardData.recentReports.length === 0 ? (
-              <div className="text-center py-8">
-                <FileText size={32} className="text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
-                  No reports yet
-                </p>
-                <Link
-                  href="/dashboard/reports/new"
-                  className="inline-flex items-center gap-1.5 mt-3 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
-                >
-                  <Plus size={14} />
-                  Create your first report
+                  )}
                 </Link>
-              </div>
-            ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {dashboardData.recentReports.map((report) => {
-                  const hasSessionData =
-                    report.phases != null ||
-                    report.evaluatorScores != null ||
-                    (report.fanOutSessions?.length ?? 0) > 0;
-                  const fanOutCount = report.fanOutSessions?.length ?? 0;
-                  const retryCount = report.evaluatorScores?.retryCount ?? 0;
+              );
+            })}
+          </div>
+        )}
+      </DashboardPanel>
 
-                  return (
-                    <Link
-                      key={report.id}
-                      href={`/dashboard/reports/${report.id}`}
-                      className="group block p-4 bg-slate-700/30 border border-slate-600/30 rounded-lg hover:border-cyan-500/30 hover:bg-slate-700/50 transition-all duration-200"
-                    >
-                      {/* Report header */}
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium truncate group-hover:text-cyan-400 transition-colors">
-                            {report.title}
-                          </p>
-                          <p className="text-slate-500 dark:text-slate-400 text-xs truncate mt-0.5">
-                            {report.clientName}
-                          </p>
-                        </div>
-                        <span
-                          className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
-                            report.status === "COMPLETED" ||
-                            report.status === "APPROVED"
-                              ? "bg-emerald-500/20 text-emerald-400"
-                              : report.status === "PENDING"
-                                ? "bg-amber-500/20 text-amber-400"
-                                : "bg-slate-500/20 text-slate-500 dark:text-slate-400"
-                          }`}
-                        >
-                          {report.status}
-                        </span>
-                      </div>
-
-                      {/* Cost + category row */}
-                      <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mb-1">
-                        {report.waterCategory && (
-                          <span>{report.waterCategory}</span>
-                        )}
-                        {(report.estimatedCost ?? report.totalCost) != null && (
-                          <span className="text-slate-300 font-medium">
-                            $
-                            {(
-                              (report.estimatedCost ??
-                                report.totalCost) as number
-                            ).toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Fan-out + retry summary (compact, shows only when data present) */}
-                      {hasSessionData && (
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          {fanOutCount > 0 && (
-                            <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 bg-slate-700/50 px-1.5 py-0.5 rounded">
-                              <GitBranch size={10} />
-                              {fanOutCount} sessions
-                            </span>
-                          )}
-                          {retryCount > 0 && (
-                            <span className="flex items-center gap-1 text-xs text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded">
-                              ↺ {retryCount} retr
-                              {retryCount === 1 ? "y" : "ies"}
-                            </span>
-                          )}
-                          {report.evaluatorScores != null && (
-                            <EvaluatorScoreBadge
-                              scores={report.evaluatorScores}
-                            />
-                          )}
-                        </div>
-                      )}
-
-                      {/* Phase progress bar */}
-                      {report.phases && report.phases.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-slate-700/50">
-                          <div className="flex items-center justify-between text-xs mb-1">
-                            <span className="text-slate-500 dark:text-slate-400">
-                              Phases
-                            </span>
-                            <span className="text-slate-300">
-                              {report.phases.filter((p) => p.completed).length}/
-                              {report.phases.length}
-                            </span>
-                          </div>
-                          <div className="flex gap-0.5">
-                            {report.phases.map((p) => (
-                              <div
-                                key={p.phase}
-                                title={p.label}
-                                className={`flex-1 h-1.5 rounded-sm transition-colors ${
-                                  p.completed ? "bg-cyan-500" : "bg-slate-700"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </motion.div>
-        </div>
-      </main>
+      <nav
+        aria-label="Field shortcuts"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-border bg-background/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden"
+      >
+        <Link
+          href="/dashboard/inspections"
+          className="flex min-h-12 flex-col items-center justify-center text-xs font-medium text-foreground"
+        >
+          Jobs
+        </Link>
+        <Link
+          href="/dashboard/field"
+          className="flex min-h-12 flex-col items-center justify-center text-xs font-medium text-foreground"
+        >
+          Field
+        </Link>
+        <Link
+          href="/dashboard/reports/new"
+          className="flex min-h-12 flex-col items-center justify-center text-xs font-medium text-foreground"
+        >
+          Report
+        </Link>
+      </nav>
     </div>
+  );
+}
+
+function FocusStat({
+  label,
+  value,
+  href,
+  loading,
+}: {
+  label: string;
+  value: number;
+  href: string;
+  loading: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-lg border border-border bg-card px-3 py-3 sm:px-4 sm:py-4"
+    >
+      <p className="text-2xl font-semibold tabular-nums text-foreground sm:text-3xl">
+        {loading ? "—" : value}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{label}</p>
+    </Link>
   );
 }
