@@ -185,6 +185,21 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email },
+          // Do not `findUnique` the whole User row. Prisma then SELECTs
+          // every mapped column, including fields this database has not
+          // migrated yet (e.g. pendingInviteIdentity). Login only needs
+          // identity, password and 2FA material.
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            role: true,
+            password: true,
+            twoFactorEnabled: true,
+            twoFactorSecret: true,
+            twoFactorRecoveryCodes: true,
+          },
         });
 
         if (!user) {
@@ -636,10 +651,19 @@ export const authOptions: NextAuthOptions = {
             const revokedAt = Math.floor(
               revokeEvent.createdAt.getTime() / 1000,
             );
-            if (mintedAt === null || revokedAt >= mintedAt) {
-              // Return a token shape NextAuth will refuse to serialise
-              // into a session — the next session() callback sees no
-              // userId and middleware redirects to /login.
+            // A successful authorize() just reminted this token. That is
+            // a new session, not a leftover cookie, so do not strip sub
+            // on the same callback that stamped mintedAt.
+            if (user) {
+              (token as any).mintedAt = nowSeconds;
+            } else if (mintedAt === null) {
+              // Legacy JWTs predate mintedAt. Fail-open and stamp a clock
+              // so the next revoke event can still cut them off. Treating
+              // "unknown mint time" as revoked left users "signed in"
+              // (name/email still on the cookie) while every API 401'd
+              // because session.user.id was missing.
+              (token as any).mintedAt = nowSeconds;
+            } else if (revokedAt > mintedAt) {
               return { ...token, sub: undefined, revoked: true } as any;
             }
           }
@@ -668,8 +692,11 @@ export const authOptions: NextAuthOptions = {
       ) {
         return { ...session, user: undefined } as any;
       }
-      if (token && session.user) {
-        session.user.id = token.sub!;
+      if (!token?.sub || (token as any).revoked) {
+        return { ...session, user: undefined } as any;
+      }
+      if (session.user) {
+        session.user.id = token.sub;
         session.user.role = token.role as string;
         (session.user as any).needsOnboarding = Boolean(
           (token as any).needsOnboarding,
