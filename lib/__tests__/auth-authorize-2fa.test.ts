@@ -262,6 +262,12 @@ describe("RA-6966 — lib/auth.ts authorize() 2FA gate (real two-factor logic)",
     });
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
       where: { email: "tech@example.com" },
+      select: expect.objectContaining({
+        id: true,
+        email: true,
+        password: true,
+        twoFactorEnabled: true,
+      }),
     });
   });
 
@@ -287,6 +293,12 @@ describe("RA-6966 — lib/auth.ts authorize() 2FA gate (real two-factor logic)",
       expect(result).toMatchObject({ id: "u1" });
       expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
         where: { email: "tech@example.com" },
+        select: expect.objectContaining({
+          id: true,
+          email: true,
+          password: true,
+          twoFactorEnabled: true,
+        }),
       });
     } finally {
       if (originalSecret === undefined) delete process.env.NEXTAUTH_SECRET;
