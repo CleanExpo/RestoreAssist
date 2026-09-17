@@ -730,7 +730,7 @@ export default function DashboardShell({
             <button
               onClick={() => setMobileMenuOpen(true)}
               className={cn(
-                "p-2 rounded-lg md:hidden mr-2",
+                "min-h-11 min-w-11 p-2 rounded-lg md:hidden mr-1",
                 "hover:bg-neutral-100 dark:hover:bg-slate-800",
                 "text-neutral-700 dark:text-slate-300",
               )}
@@ -763,10 +763,13 @@ export default function DashboardShell({
               <NirSyncStatusBadge />
 
               {/* SP-8 T12 — How To dropdown (in-app Help Library entry point) */}
-              {!isTechnician && <HowToDropdown />}
+              <div className="hidden sm:block">
+                {!isTechnician && <HowToDropdown />}
+              </div>
 
-              {/* Theme Toggle */}
-              {!isTechnician && <ThemeToggle />}
+              <div className="hidden sm:block">
+                {!isTechnician && <ThemeToggle />}
+              </div>
 
               {/* Notifications */}
               <NotificationBell />
@@ -821,7 +824,7 @@ export default function DashboardShell({
           {/* Page Content */}
           <main
             className={cn(
-              "space-y-6 max-w-9xl mx-auto px-2 sm:px-4 lg:px-6 py-8",
+              "space-y-6 max-w-9xl mx-auto overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
               "bg-white dark:bg-slate-950",
             )}
           >
