@@ -289,7 +289,7 @@ export async function proxy(req: NextRequest) {
       req,
       secret: process.env.NEXTAUTH_SECRET,
     });
-    if (!token) {
+    if (!token?.sub) {
       const url = req.nextUrl.clone();
       url.pathname = "/login";
       url.search = `?callbackUrl=${encodeURIComponent(pathname + (req.nextUrl.search || ""))}`;
