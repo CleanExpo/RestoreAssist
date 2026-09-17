@@ -10,7 +10,7 @@ import type { JobRef } from "./job-resolution";
 export const THUMBS_UP = "\u{1F44D}";
 
 // U+FE0F variation selector and the five skin-tone modifiers.
-const EMOJI_MODIFIERS = /[\u{FE0F}\u{1F3FB}-\u{1F3FF}]/gu;
+const EMOJI_MODIFIERS = /\u{FE0F}|[\u{1F3FB}-\u{1F3FF}]/gu;
 
 export function isConfirmReply(text: string): boolean {
   const t = text.replace(EMOJI_MODIFIERS, "").trim().toLowerCase();
