@@ -12,8 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -32,7 +31,7 @@ export interface InboundJobSummary {
 const MAX_INBOUND_JOBS = 20;
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
   if (!session?.user?.id) {
     return apiError(request, {
       code: "UNAUTHORIZED",
