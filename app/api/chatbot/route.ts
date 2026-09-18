@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import Anthropic from "@anthropic-ai/sdk";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/auth/get-api-session";
 import { callAIProvider } from "@/lib/ai-provider";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
@@ -21,7 +20,7 @@ import { resolveSocialCommentChatGate } from "@/lib/margot/social-restoration-re
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
 
     if (!session?.user || !session.user.id) {
       return apiError(request, {
@@ -89,7 +88,7 @@ export async function GET(request: NextRequest) {
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
 
   if (!session?.user || !session.user.id) {
     return apiError(request, {
