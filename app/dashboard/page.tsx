@@ -10,20 +10,18 @@ import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";
 import { AiKeySetupBanner } from "@/components/dashboard/AiKeySetupBanner";
 import { BasicReportWithoutKeyCta } from "@/components/onboarding/BasicReportWithoutKeyCta";
 import { InboundJobAlert } from "@/components/dashboard/InboundJobAlert";
-import { EvaluatorScoreBadge } from "@/components/SessionMetadataCard";
-import {
-  DashboardPanel,
-  DashboardPanelHeader,
-} from "@/app/dashboard/components/DashboardPanel";
 import type { ReportWithSessionData } from "@/lib/session-types";
 import {
+  buildAttentionBoard,
   buildRecentActivity,
   isActiveInspectionStatus,
   isOpenReportStatus,
   isOutstandingInvoiceStatus,
   resolveHomeFocus,
+  type BoardStage,
 } from "@/lib/dashboard/home-focus";
 import { cn } from "@/lib/utils";
+import useTrialStatus from "@/lib/billing/use-trial-status";
 
 type InspectionRow = {
   id: string;
@@ -43,59 +41,28 @@ type InvoiceRow = {
   createdAt?: string | null;
 };
 
-function timeAgo(date: Date) {
-  const diffInMinutes = Math.floor((Date.now() - date.getTime()) / (1000 * 60));
-  if (diffInMinutes < 1) return "Just now";
-  if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
-  if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-  return `${Math.floor(diffInMinutes / 1440)}d ago`;
-}
-
-function statusTone(status: string) {
-  const s = status.toUpperCase();
-  if (s === "COMPLETED" || s === "APPROVED" || s === "PAID") {
-    return "bg-emerald-500/15 text-emerald-800 dark:text-emerald-400";
-  }
-  if (s === "OVERDUE" || s === "REJECTED") {
-    return "bg-red-500/15 text-red-800 dark:text-red-300";
-  }
-  if (s === "PENDING" || s === "SENT" || s === "SUBMITTED" || s === "SCOPED") {
-    return "bg-amber-500/15 text-amber-900 dark:text-amber-400";
-  }
-  return "bg-muted text-muted-foreground";
-}
-
-const PRIMARY_ACTIONS = [
-  {
-    href: "/dashboard/inspections/new",
-    title: "New inspection",
-    description: "Open a job on site",
-  },
-  {
-    href: "/dashboard/field",
-    title: "Field capture",
-    description: "Photos, moisture, voice",
-  },
-  {
-    href: "/dashboard/reports/new",
-    title: "New report",
-    description: "Write from what you captured",
-  },
-  {
-    href: "/dashboard/invoices/new",
-    title: "Get a bill out",
-    description: "Invoice the work",
-  },
-] as const;
-
-const KIND_LABEL: Record<"job" | "report" | "invoice", string> = {
-  job: "Job",
-  report: "Report",
-  invoice: "Invoice",
+const STAGE_LABEL: Record<BoardStage, string> = {
+  site: "On site",
+  report: "Write",
+  invoice: "Bill",
 };
+
+const STAGE_HREF: Record<BoardStage, string> = {
+  site: "/dashboard/inspections",
+  report: "/dashboard/reports",
+  invoice: "/dashboard/invoices",
+};
+
+const COMMANDS = [
+  { href: "/dashboard/inspections/new", label: "New inspection" },
+  { href: "/dashboard/field", label: "Field capture" },
+  { href: "/dashboard/reports/new", label: "New report" },
+  { href: "/dashboard/invoices/new", label: "New invoice" },
+] as const;
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const trial = useTrialStatus();
   const router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const isAuthed = status === "authenticated";
@@ -185,31 +152,38 @@ export default function DashboardPage() {
     const outstandingInvoices = invoices.filter((i) =>
       isOutstandingInvoiceStatus(i.status),
     );
-    const recentReports = [...reports]
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-      .slice(0, 6);
 
     const hasAnyWork =
       reports.length > 0 || inspections.length > 0 || invoices.length > 0;
 
     return {
-      reports,
       clients,
-      inspections,
-      invoices,
-      openReports,
-      activeInspections,
-      outstandingInvoices,
-      recentReports,
+      board: buildAttentionBoard({
+        inspections,
+        reports,
+        invoices,
+        limit: 12,
+      }),
       activity: buildRecentActivity({
         inspections,
         reports,
         invoices,
-        limit: 8,
+        limit: 5,
       }),
+      stages: [
+        {
+          stage: "site" as const,
+          value: activeInspections.length,
+        },
+        {
+          stage: "report" as const,
+          value: openReports.length,
+        },
+        {
+          stage: "invoice" as const,
+          value: outstandingInvoices.length,
+        },
+      ],
       hasAnyWork,
       focus: resolveHomeFocus({
         openReports: openReports.length,
@@ -250,6 +224,28 @@ export default function DashboardPage() {
   }
 
   const firstName = session?.user?.name?.split(" ")[0] ?? "there";
+  const ledger = [
+    {
+      label: "On site",
+      value: model.stages[0]?.value ?? 0,
+      href: "/dashboard/inspections",
+    },
+    {
+      label: "To write",
+      value: model.stages[1]?.value ?? 0,
+      href: "/dashboard/reports",
+    },
+    {
+      label: "To bill",
+      value: model.stages[2]?.value ?? 0,
+      href: "/dashboard/invoices",
+    },
+    {
+      label: "Clients",
+      value: model.clients.length,
+      href: "/dashboard/clients",
+    },
+  ];
   const retryAll = () => {
     void refetchReports();
     void refetchClients();
@@ -270,7 +266,7 @@ export default function DashboardPage() {
       </div>
 
       {model.loadFailed && !model.loading && (
-        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-800 dark:text-red-300 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col gap-3 border border-destructive/30 bg-destructive-subtle px-4 py-3 text-destructive-subtle-foreground sm:flex-row sm:items-center sm:justify-between">
           <p className="min-w-0 text-sm">
             Could not load the workspace
             {model.loadError ? ` — ${model.loadError}` : ""}.
@@ -278,316 +274,196 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={retryAll}
-            className="min-h-11 shrink-0 rounded-md border border-red-500/40 px-4 text-sm font-medium"
+            className="min-h-11 shrink-0 border border-destructive/40 px-4 text-sm font-medium"
           >
             Retry
           </button>
         </div>
       )}
 
-      <header className="mt-6 mb-6 flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm text-brand-slate">Good to see you, {firstName}</p>
-          <h1 className="mt-1 text-balance text-2xl font-semibold tracking-tight text-brand-navy dark:text-foreground sm:text-3xl">
-            {model.loading ? "Loading the board…" : model.focus.title}
-          </h1>
-          <p className="mt-1 max-w-xl text-pretty text-sm text-muted-foreground">
-            {model.loading
-              ? "Checking jobs, reports and invoices."
-              : model.focus.why}
-          </p>
-        </div>
-        <Link
-          href={model.focus.href}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand-cta px-4 text-sm font-medium text-white hover:bg-brand-cta-hover sm:w-auto"
-        >
-          {model.focus.label}
-        </Link>
-      </header>
-
-      <section aria-label="Work pipeline" className="min-w-0">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          One job, three stages
-        </h2>
-        <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
-          <PipelineStep
-            step="1"
-            label="On site"
-            href="/dashboard/inspections"
-            value={model.activeInspections.length}
-            hint="Open inspections"
-            loading={model.loading}
-          />
-          <PipelineStep
-            step="2"
-            label="Report"
-            href="/dashboard/reports"
-            value={model.openReports.length}
-            hint="Drafts and reviews"
-            loading={model.loading}
-          />
-          <PipelineStep
-            step="3"
-            label="Invoice"
-            href="/dashboard/invoices"
-            value={model.outstandingInvoices.length}
-            hint="Not yet paid"
-            loading={model.loading}
-          />
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          <Link href="/dashboard/clients" className="text-brand-cta hover:underline">
-            {model.loading ? "—" : model.clients.length} clients
-          </Link>{" "}
-          on file
+      <section
+        aria-label="Next action"
+        className="-mx-3 mt-4 bg-brand-navy px-4 py-8 text-white sm:-mx-4 sm:px-6 sm:py-10 lg:-mx-6 lg:px-8"
+      >
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand-gold">
+          {firstName} · now
         </p>
+        <div className="mt-3 flex min-w-0 flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 max-w-2xl">
+            <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-5xl">
+              {model.loading ? "Reading the book of work" : model.focus.title}
+            </h1>
+            <p className="mt-3 max-w-lg text-pretty text-sm text-white/70 sm:text-base">
+              {model.loading
+                ? "Jobs, reports and invoices from this workspace."
+                : model.focus.why}
+            </p>
+          </div>
+          <Link
+            href={model.focus.href}
+            className="inline-flex min-h-12 w-full shrink-0 items-center justify-center bg-white px-6 text-sm font-semibold text-brand-navy hover:bg-brand-cloud sm:w-auto"
+          >
+            {model.focus.label}
+          </Link>
+        </div>
+
+        <div className="mt-10 grid grid-cols-2 gap-px bg-white/20 sm:grid-cols-4">
+          {ledger.map((stat) => (
+            <Link
+              key={stat.label}
+              href={stat.href}
+              className="bg-brand-navy px-3 py-4 sm:px-4 sm:py-5"
+            >
+              <p className="text-4xl font-semibold tabular-nums tracking-tight sm:text-6xl">
+                {model.loading ? "—" : stat.value}
+              </p>
+              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-brand-gold">
+                {stat.label}
+              </p>
+            </Link>
+          ))}
+        </div>
+        {trial.data?.isTrialActive && (
+          <p className="mt-4 text-sm text-brand-gold">
+            {trial.data.daysRemaining} day
+            {trial.data.daysRemaining === 1 ? "" : "s"} left on trial
+            {typeof trial.data.creditsRemaining === "number"
+              ? ` · ${trial.data.creditsRemaining} credits`
+              : ""}
+          </p>
+        )}
       </section>
 
-      {!model.loading && !model.hasAnyWork && !model.loadFailed && (
-        <DashboardPanel className="mt-6">
-          <h2 className="text-lg font-semibold text-brand-navy dark:text-foreground">
-            First job on the board
-          </h2>
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            Capture the site, write the report from that record, then invoice
-            the same job. Nothing is copied between tools.
-          </p>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <section aria-label="Work still open" className="mt-8 min-w-0">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-brand-slate">
+          Still open
+        </p>
+        <div className="mt-3 flex min-h-20 min-w-0">
+          {model.stages.map((item, index) => (
             <Link
-              href="/dashboard/inspections/new"
-              className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-cta px-4 text-sm font-medium text-white hover:bg-brand-cta-hover"
+              key={item.stage}
+              href={STAGE_HREF[item.stage]}
+              className={cn(
+                "flex min-w-0 flex-col justify-end border-t-2 border-brand-navy px-3 py-3 sm:px-4",
+                index > 0 && "border-l border-border",
+              )}
+              style={{ flexGrow: model.loading ? 1 : Math.max(item.value, 1) }}
             >
-              New inspection
-            </Link>
-            <Link
-              href="/dashboard/field"
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-medium"
-            >
-              Open field capture
-            </Link>
-          </div>
-        </DashboardPanel>
-      )}
-
-      <section className="mt-6 min-w-0">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Start work
-        </h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {PRIMARY_ACTIONS.map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className="flex min-h-14 min-w-0 items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left hover:border-brand-bronze/50"
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-foreground">
-                  {action.title}
-                </span>
-                <span className="block text-sm text-muted-foreground">
-                  {action.description}
-                </span>
+              <span className="text-3xl font-semibold tabular-nums leading-none text-brand-navy dark:text-foreground">
+                {model.loading ? "—" : item.value}
               </span>
-              <span aria-hidden className="shrink-0 text-brand-slate">
-                →
+              <span className="mt-2 truncate text-xs uppercase tracking-wider text-brand-slate">
+                {STAGE_LABEL[item.stage]}
               </span>
             </Link>
           ))}
         </div>
       </section>
 
-      <div className="mt-6 grid min-w-0 gap-4 lg:grid-cols-5">
-        <DashboardPanel className="min-w-0 lg:col-span-3">
-          <DashboardPanelHeader
-            title="Needs attention"
-            description="Jobs still open and reports not finished."
-            action={
-              <Link
-                href="/dashboard/inspections"
-                className="text-sm font-medium text-brand-cta hover:underline"
-              >
-                All jobs
-              </Link>
-            }
-          />
-          {model.loading ? (
-            <ListSkeleton rows={4} />
-          ) : model.activeInspections.length === 0 &&
-            model.openReports.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nothing waiting. Start an inspection when you arrive on site.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {model.activeInspections.slice(0, 4).map((job) => (
-                <WorkRow
-                  key={job.id}
-                  href={`/dashboard/inspections/${job.id}`}
-                  title={
-                    job.propertyAddress || job.inspectionNumber || "Inspection"
-                  }
-                  meta={`${job.inspectionNumber ?? "Job"} · ${timeAgo(new Date(job.createdAt))}`}
-                  status={job.status}
-                />
-              ))}
-              {model.openReports.slice(0, 3).map((report) => (
-                <WorkRow
-                  key={report.id}
-                  href={`/dashboard/reports/${report.id}`}
-                  title={report.title}
-                  meta={`${report.clientName} · ${timeAgo(new Date(report.createdAt))}`}
-                  status={report.status}
-                />
-              ))}
-            </ul>
-          )}
-        </DashboardPanel>
+      <nav
+        aria-label="Start work"
+        className="mt-6 flex min-w-0 flex-wrap gap-x-5 gap-y-2 border-y border-border py-3 text-sm"
+      >
+        {COMMANDS.map((command) => (
+          <Link
+            key={command.href}
+            href={command.href}
+            className="min-h-11 font-medium text-brand-navy underline-offset-4 hover:underline dark:text-foreground"
+          >
+            {command.label}
+          </Link>
+        ))}
+        <Link
+          href="/dashboard/clients"
+          className="min-h-11 text-muted-foreground underline-offset-4 hover:underline"
+        >
+          {model.loading ? "Clients" : `${model.clients.length} clients`}
+        </Link>
+      </nav>
 
-        <DashboardPanel className="min-w-0 lg:col-span-2">
-          <DashboardPanelHeader
-            title="Unpaid invoices"
-            action={
-              <Link
-                href="/dashboard/invoices"
-                className="text-sm font-medium text-brand-cta hover:underline"
-              >
-                All invoices
-              </Link>
-            }
-          />
-          {model.loading ? (
-            <ListSkeleton rows={4} />
-          ) : model.outstandingInvoices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No invoices waiting on payment.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {model.outstandingInvoices.slice(0, 5).map((invoice) => (
-                <WorkRow
-                  key={invoice.id}
-                  href={`/dashboard/invoices/${invoice.id}`}
-                  title={invoice.invoiceNumber || "Invoice"}
-                  meta={invoice.customerName || "Client"}
-                  status={invoice.status}
-                />
-              ))}
-            </ul>
-          )}
-        </DashboardPanel>
-      </div>
+      <section aria-label="The board" className="mt-10 min-w-0">
+        <div className="flex items-end justify-between gap-3">
+          <h2 className="text-xs font-medium uppercase tracking-[0.18em] text-brand-slate">
+            The board
+          </h2>
+          <Link
+            href={model.focus.href}
+            className="text-xs font-medium text-brand-cta hover:underline"
+          >
+            Open the queue
+          </Link>
+        </div>
 
-      <div className="mt-6 grid min-w-0 gap-4 lg:grid-cols-5">
-        <DashboardPanel className="min-w-0 lg:col-span-3">
-          <DashboardPanelHeader
-            title="Recent reports"
-            action={
-              <Link
-                href="/dashboard/reports"
-                className="text-sm font-medium text-brand-cta hover:underline"
-              >
-                View all
-              </Link>
-            }
-          />
-          {model.loading ? (
-            <ListSkeleton rows={3} />
-          ) : model.recentReports.length === 0 ? (
-            <div className="py-2">
-              <p className="text-sm text-muted-foreground">No reports yet.</p>
-              <Link
-                href="/dashboard/reports/new"
-                className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-brand-cta"
-              >
-                Create the first report
-              </Link>
-            </div>
-          ) : (
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-              {model.recentReports.map((report) => {
-                const fanOutCount = report.fanOutSessions?.length ?? 0;
-                const retryCount = report.evaluatorScores?.retryCount ?? 0;
-                return (
-                  <Link
-                    key={report.id}
-                    href={`/dashboard/reports/${report.id}`}
-                    className="block min-w-0 rounded-lg border border-border bg-background p-4 hover:border-brand-bronze/50"
-                  >
-                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {report.title}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {report.clientName}
-                        </p>
-                      </div>
-                      <StatusBadge status={report.status} />
-                    </div>
-                    {(fanOutCount > 0 ||
-                      retryCount > 0 ||
-                      report.evaluatorScores) && (
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {fanOutCount > 0 && <span>{fanOutCount} sessions</span>}
-                        {retryCount > 0 && <span>{retryCount} retries</span>}
-                        {report.evaluatorScores != null && (
-                          <EvaluatorScoreBadge scores={report.evaluatorScores} />
-                        )}
-                      </div>
-                    )}
-                    {report.phases && report.phases.length > 0 && (
-                      <div className="mt-3 flex gap-0.5">
-                        {report.phases.map((p) => (
-                          <div
-                            key={p.phase}
-                            title={p.label}
-                            className={cn(
-                              "h-1.5 flex-1 rounded-sm",
-                              p.completed ? "bg-brand-cta" : "bg-muted",
-                            )}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </DashboardPanel>
-
-        <DashboardPanel className="min-w-0 lg:col-span-2">
-          <DashboardPanelHeader title="Recent activity" />
-          {model.loading ? (
-            <ListSkeleton rows={5} />
-          ) : model.activity.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Activity appears here once a job, report or invoice is created.
+        {model.loading ? (
+          <div className="mt-4 space-y-px" aria-hidden>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-16 animate-pulse bg-muted" />
+            ))}
+          </div>
+        ) : model.board.length === 0 ? (
+          <div className="mt-4 border-t border-border py-10">
+            <p className="max-w-md text-sm text-muted-foreground">
+              {model.hasAnyWork
+                ? "Nothing is waiting. The next site visit or report starts from the line above."
+                : "The first record is the job. Capture the site, write the report from that record, then bill the same job."}
             </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {model.activity.map((row) => (
-                <li key={row.id}>
-                  <Link
-                    href={row.href}
-                    className="flex min-h-12 min-w-0 items-start justify-between gap-3 py-2.5"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-foreground">
-                        {row.title}
-                      </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {KIND_LABEL[row.kind]} · {row.meta}
-                        {row.at > 0 ? ` · ${timeAgo(new Date(row.at))}` : ""}
-                      </span>
+          </div>
+        ) : (
+          <ul className="mt-4 border-t border-brand-navy">
+            {model.board.map((row) => (
+              <li key={row.id} className="border-b border-border">
+                <Link
+                  href={row.href}
+                  className="grid min-h-16 min-w-0 grid-cols-1 items-center gap-1 py-3 sm:grid-cols-[6.5rem_minmax(0,1fr)_auto] sm:gap-6"
+                >
+                  <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-brand-slate">
+                    <StageTicks stage={row.stage} />
+                    {STAGE_LABEL[row.stage]}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-base font-medium text-foreground">
+                      {row.title}
                     </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </DashboardPanel>
-      </div>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {row.meta}
+                    </span>
+                  </span>
+                  <span className="text-xs uppercase tracking-wide text-brand-slate">
+                    {row.status}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {model.activity.length > 0 && !model.loading && (
+        <section aria-label="Just happened" className="mt-12 min-w-0">
+          <h2 className="text-xs font-medium uppercase tracking-[0.18em] text-brand-slate">
+            Just happened
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {model.activity.map((row) => (
+              <li key={row.id}>
+                <Link
+                  href={row.href}
+                  className="block min-w-0 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <span className="text-foreground">{row.title}</span>
+                  <span className="text-brand-slate">
+                    {" "}
+                    · {STAGE_LABEL[row.kind === "job" ? "site" : row.kind]}
+                    {row.at > 0
+                      ? ` · ${timeAgo(new Date(row.at))}`
+                      : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <nav
         aria-label="Field shortcuts"
@@ -602,88 +478,28 @@ export default function DashboardPage() {
   );
 }
 
-function PipelineStep({
-  step,
-  label,
-  href,
-  value,
-  hint,
-  loading,
-}: {
-  step: string;
-  label: string;
-  href: string;
-  value: number;
-  hint: string;
-  loading: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className="min-w-0 rounded-lg border border-border bg-card px-4 py-3 hover:border-brand-bronze/50"
-    >
-      <p className="text-xs font-medium uppercase tracking-wider text-brand-slate">
-        {step} · {label}
-      </p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-brand-navy dark:text-foreground">
-        {loading ? "—" : value}
-      </p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
-    </Link>
-  );
+function timeAgo(date: Date) {
+  const diffInMinutes = Math.floor((Date.now() - date.getTime()) / (1000 * 60));
+  if (diffInMinutes < 1) return "Just now";
+  if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+  if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+  return `${Math.floor(diffInMinutes / 1440)}d ago`;
 }
 
-function WorkRow({
-  href,
-  title,
-  meta,
-  status,
-}: {
-  href: string;
-  title: string;
-  meta: string;
-  status: string;
-}) {
+function StageTicks({ stage }: { stage: BoardStage }) {
+  const filled = stage === "site" ? 1 : stage === "report" ? 2 : 3;
   return (
-    <li>
-      <Link
-        href={href}
-        className="flex min-h-14 min-w-0 flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-      >
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium text-foreground">
-            {title}
-          </span>
-          <span className="block truncate text-xs text-muted-foreground">
-            {meta}
-          </span>
-        </span>
-        <StatusBadge status={status} />
-      </Link>
-    </li>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span
-      className={cn(
-        "w-fit max-w-full truncate rounded px-2 py-0.5 text-xs font-medium",
-        statusTone(status),
-      )}
-    >
-      {status}
-    </span>
-  );
-}
-
-function ListSkeleton({ rows }: { rows: number }) {
-  return (
-    <div className="space-y-3" aria-hidden>
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />
+    <span aria-hidden className="flex gap-0.5">
+      {[1, 2, 3].map((n) => (
+        <span
+          key={n}
+          className={cn(
+            "h-1.5 w-1.5",
+            n <= filled ? "bg-brand-cta" : "bg-border",
+          )}
+        />
       ))}
-    </div>
+    </span>
   );
 }
 
