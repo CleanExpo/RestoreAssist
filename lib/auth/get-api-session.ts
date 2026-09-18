@@ -3,32 +3,37 @@ import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 
+type ApiSession = {
+  user?: {
+    id?: string;
+    email?: string | null;
+    name?: string | null;
+    image?: string | null;
+    role?: string;
+  };
+};
+
 /**
- * Route-handler session. NextAuth `getServerSession` reads `cookies()` from
- * `next/headers`. In some App Router turns that store is empty while the
- * request still carries `next-auth.session-token`, so /dashboard looks
- * signed-in and every API returns 401. Fall back to the request JWT.
+ * Session for App Router API handlers.
+ *
+ * `getServerSession(authOptions)` is the primary path (CLAUDE.md / RULES).
+ * In Next.js 16 route handlers the cookie store can come back without a
+ * usable `user.id` even when the request still carries
+ * `next-auth.session-token`. Fall back to `getToken({ req })` so dashboard
+ * GETs do not 401 a logged-in operator.
  */
-export async function getApiSession(request?: NextRequest) {
-  const session = await getServerSession(authOptions);
+export async function getApiSession(
+  req?: NextRequest,
+): Promise<ApiSession | null> {
+  const session = (await getServerSession(authOptions)) as ApiSession | null;
   if (session?.user?.id) return session;
-  if (!request) return session;
+  if (!req) return session;
 
   const token = await getToken({
-    req: request,
+    req,
     secret: process.env.NEXTAUTH_SECRET,
   });
-  if (!token?.sub || (token as { revoked?: boolean }).revoked) {
-    return session;
-  }
-
-  const customExp = (token as { customExp?: number }).customExp;
-  if (
-    typeof customExp === "number" &&
-    Math.floor(Date.now() / 1000) > customExp
-  ) {
-    return null;
-  }
+  if (!token?.sub) return session;
 
   return {
     ...session,
@@ -36,12 +41,11 @@ export async function getApiSession(request?: NextRequest) {
       ...(session?.user ?? {}),
       id: token.sub,
       email: token.email ?? session?.user?.email,
-      name: token.name ?? session?.user?.name,
-      image:
-        (token.picture as string | undefined) ??
-        (session?.user as { image?: string } | undefined)?.image,
-      role: (token as { role?: string }).role,
+      name: typeof token.name === "string" ? token.name : session?.user?.name,
+      role:
+        typeof (token as { role?: string }).role === "string"
+          ? (token as { role: string }).role
+          : session?.user?.role,
     },
-    expires: session?.expires ?? new Date(Date.now() + 60_000).toISOString(),
   };
 }
