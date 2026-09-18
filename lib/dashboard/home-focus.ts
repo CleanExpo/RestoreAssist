@@ -146,3 +146,72 @@ export function buildRecentActivity(input: {
     .sort((a, b) => b.at - a.at)
     .slice(0, limit);
 }
+
+export type BoardStage = "site" | "report" | "invoice";
+
+export type AttentionItem = {
+  id: string;
+  stage: BoardStage;
+  title: string;
+  meta: string;
+  href: string;
+  status: string;
+};
+
+/** Open work in operational order: site, then report, then invoice. */
+export function buildAttentionBoard(input: {
+  inspections: Array<{
+    id: string;
+    propertyAddress?: string | null;
+    inspectionNumber?: string | null;
+    status: string;
+    createdAt: string;
+  }>;
+  reports: Array<{
+    id: string;
+    title: string;
+    clientName?: string | null;
+    status: string;
+    createdAt: string;
+  }>;
+  invoices: Array<{
+    id: string;
+    invoiceNumber?: string | null;
+    customerName?: string | null;
+    status: string;
+  }>;
+  limit?: number;
+}): AttentionItem[] {
+  const limit = input.limit ?? 12;
+  const site: AttentionItem[] = input.inspections
+    .filter((job) => isActiveInspectionStatus(job.status))
+    .map((job) => ({
+      id: `site:${job.id}`,
+      stage: "site",
+      title: job.propertyAddress || job.inspectionNumber || "Inspection",
+      meta: job.inspectionNumber || "Job",
+      href: `/dashboard/inspections/${job.id}`,
+      status: job.status,
+    }));
+  const reports: AttentionItem[] = input.reports
+    .filter((report) => isOpenReportStatus(report.status))
+    .map((report) => ({
+      id: `report:${report.id}`,
+      stage: "report",
+      title: report.title,
+      meta: report.clientName || "Report",
+      href: `/dashboard/reports/${report.id}`,
+      status: report.status,
+    }));
+  const invoices: AttentionItem[] = input.invoices
+    .filter((invoice) => isOutstandingInvoiceStatus(invoice.status))
+    .map((invoice) => ({
+      id: `invoice:${invoice.id}`,
+      stage: "invoice",
+      title: invoice.invoiceNumber || "Invoice",
+      meta: invoice.customerName || "Client",
+      href: `/dashboard/invoices/${invoice.id}`,
+      status: invoice.status,
+    }));
+  return [...site, ...reports, ...invoices].slice(0, limit);
+}
