@@ -154,9 +154,14 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      className={`dark ${geistSans.variable} ${geistMono.variable}`}
     >
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `document.documentElement.classList.add("dark");`,
+          }}
+        />
         <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
         {/* Dev-only: unregister leftover NIR SWs early. Do not force-reload —
             that races the Next router. SW v2.1 also self-destructs on localhost. */}
@@ -174,7 +179,8 @@ export default function RootLayout({
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
-          enableSystem
+          forcedTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <AnnouncerProvider>
