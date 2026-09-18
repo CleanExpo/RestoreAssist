@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildRecentActivity,
   isActiveInspectionStatus,
   isOpenReportStatus,
   isOutstandingInvoiceStatus,
@@ -64,5 +65,48 @@ describe("status classifiers", () => {
   it("treats SENT and OVERDUE as outstanding invoices", () => {
     expect(isOutstandingInvoiceStatus("SENT")).toBe(true);
     expect(isOutstandingInvoiceStatus("PAID")).toBe(false);
+  });
+});
+
+describe("buildRecentActivity", () => {
+  it("merges jobs, reports and invoices by recency", () => {
+    const rows = buildRecentActivity({
+      inspections: [
+        {
+          id: "j1",
+          propertyAddress: "12 River St",
+          inspectionNumber: "INS-1",
+          createdAt: "2026-09-01T10:00:00.000Z",
+        },
+      ],
+      reports: [
+        {
+          id: "r1",
+          title: "Water loss",
+          clientName: "Acme",
+          createdAt: "2026-09-02T10:00:00.000Z",
+        },
+      ],
+      invoices: [
+        {
+          id: "i1",
+          invoiceNumber: "INV-9",
+          customerName: "Acme",
+          createdAt: "2026-08-01T10:00:00.000Z",
+        },
+      ],
+      limit: 3,
+    });
+    expect(rows.map((r) => r.kind)).toEqual(["report", "job", "invoice"]);
+    expect(rows[0].href).toBe("/dashboard/reports/r1");
+  });
+
+  it("skips invoices without a createdAt", () => {
+    const rows = buildRecentActivity({
+      inspections: [],
+      reports: [],
+      invoices: [{ id: "i1", invoiceNumber: "INV-9" }],
+    });
+    expect(rows).toHaveLength(0);
   });
 });
