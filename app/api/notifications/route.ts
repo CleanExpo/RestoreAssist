@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
 import { NotificationType } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
@@ -22,7 +21,7 @@ const REVERSE_TYPE_MAP: Record<string, string> = {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
 
     if (!session?.user?.id) {
       return apiError(request, {
@@ -67,7 +66,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getApiSession(request);
 
   if (!session?.user?.id) {
     return apiError(request, {
