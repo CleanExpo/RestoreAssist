@@ -721,7 +721,7 @@ export default function DashboardShell({
           {/* Top Bar */}
           <header
             className={cn(
-              "h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20",
+              "sticky top-0 z-20 flex h-16 min-w-0 items-center justify-between gap-2 overflow-hidden px-3 sm:px-4 md:px-6",
               "bg-white dark:bg-slate-900",
               "border-b border-neutral-200 dark:border-slate-800",
             )}
@@ -730,7 +730,7 @@ export default function DashboardShell({
             <button
               onClick={() => setMobileMenuOpen(true)}
               className={cn(
-                "min-h-11 min-w-11 p-2 rounded-lg md:hidden mr-1",
+                "min-h-11 min-w-11 shrink-0 rounded-lg p-2 md:hidden",
                 "hover:bg-neutral-100 dark:hover:bg-slate-800",
                 "text-neutral-700 dark:text-slate-300",
               )}
@@ -739,7 +739,7 @@ export default function DashboardShell({
               <Menu size={22} />
             </button>
 
-            <div className="flex-1 max-w-xs sm:max-w-md">
+            <div className="min-w-0 flex-1 max-w-xs sm:max-w-md">
               {isTechnician ? (
                 <Link
                   href="/dashboard/field"
@@ -753,7 +753,7 @@ export default function DashboardShell({
               )}
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4 ml-3 sm:ml-6">
+            <div className="ml-2 flex shrink-0 items-center gap-1.5 sm:ml-6 sm:gap-4">
               {/* RA-1124 MVP — persistent sync-status pill. The offline
                   infrastructure (service worker + IndexedDB queue +
                   reconnect listeners) already ships via NirOfflineProvider,
@@ -763,11 +763,11 @@ export default function DashboardShell({
               <NirSyncStatusBadge />
 
               {/* SP-8 T12 — How To dropdown (in-app Help Library entry point) */}
-              <div className="hidden sm:block">
+              <div className="hidden lg:block">
                 {!isTechnician && <HowToDropdown />}
               </div>
 
-              <div className="hidden sm:block">
+              <div className="hidden lg:block">
                 {!isTechnician && <ThemeToggle />}
               </div>
 
@@ -777,14 +777,13 @@ export default function DashboardShell({
               {/* User Avatar & Dropdown */}
               <div
                 className={cn(
-                  "flex items-center gap-3 pl-4",
-                  "border-l border-neutral-200 dark:border-slate-700",
+                  "flex items-center gap-3 sm:border-l sm:border-neutral-200 sm:pl-4 dark:sm:border-slate-700",
                 )}
               >
-                <div className="text-right hidden sm:block">
+                <div className="hidden min-w-0 text-right md:block">
                   <p
                     className={cn(
-                      "text-sm font-medium",
+                      "truncate text-sm font-medium",
                       "text-neutral-900 dark:text-slate-50",
                     )}
                   >
@@ -792,14 +791,18 @@ export default function DashboardShell({
                   </p>
                   <p
                     className={cn(
-                      "text-xs",
+                      "max-w-48 truncate text-xs",
                       "text-neutral-600 dark:text-slate-400",
                     )}
                   >
                     {session?.user?.email}
                   </p>
                 </div>
-                <button className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center font-semibold text-sm hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 active:scale-95 transition-all duration-200">
+                <button
+                  type="button"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white"
+                  aria-label="Account"
+                >
                   {session?.user?.name?.charAt(0) || "U"}
                 </button>
               </div>
@@ -824,7 +827,7 @@ export default function DashboardShell({
           {/* Page Content */}
           <main
             className={cn(
-              "space-y-6 max-w-9xl mx-auto overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
+              "mx-auto max-w-9xl min-w-0 space-y-6 overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
               "bg-white dark:bg-slate-950",
             )}
           >
