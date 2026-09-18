@@ -200,7 +200,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen flex items-center justify-center",
-          "bg-white dark:bg-slate-950",
+          "bg-slate-950",
         )}
       >
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
@@ -213,7 +213,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen flex items-center justify-center",
-          "bg-white dark:bg-slate-950",
+          "bg-slate-950",
         )}
       >
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
@@ -420,6 +420,7 @@ export default function DashboardShell({
         <button
           key={item.href}
           onClick={async () => {
+            setMobileMenuOpen(false);
             try {
               const response = await fetch("/api/reports/check-credits");
               if (response.ok) {
@@ -467,6 +468,7 @@ export default function DashboardShell({
       <Link
         key={item.href}
         href={item.href}
+        onClick={() => setMobileMenuOpen(false)}
         className={cn(
           "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
           item.adminOnly
@@ -501,7 +503,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen",
-          "bg-white dark:bg-slate-950",
+          "bg-slate-950",
           "text-neutral-900 dark:text-slate-50",
         )}
       >
@@ -517,7 +519,7 @@ export default function DashboardShell({
         <aside
           className={cn(
             "fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col",
-            "bg-white dark:bg-slate-900",
+            "bg-brand-deep",
             "border-r border-neutral-200 dark:border-slate-800",
             // Mobile: slide in/out, always w-64 when visible
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
@@ -561,13 +563,23 @@ export default function DashboardShell({
               </Link>
             )}
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => {
+                if (
+                  typeof window !== "undefined" &&
+                  window.matchMedia("(max-width: 767px)").matches
+                ) {
+                  setMobileMenuOpen(false);
+                  return;
+                }
+                setSidebarOpen(!sidebarOpen);
+              }}
               className={cn(
-                "p-1 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95",
+                "min-h-11 min-w-11 p-1 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95",
                 "hover:bg-neutral-100 dark:hover:bg-slate-800",
                 "text-neutral-700 dark:text-slate-300",
               )}
               title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              aria-label={sidebarOpen ? "Close menu" : "Open menu"}
             >
               {sidebarOpen ? (
                 <X size={20} className="transition-transform duration-200" />
@@ -703,26 +715,11 @@ export default function DashboardShell({
               expanded; mounting the banner above it left "Upgrade now"
               under the sidebar header, which swallowed pointer events at
               1280x720. */}
-          {!hideBillingNav && <TrialCountdownBanner />}
-          {/* RA-1583 — demo-mode banner. Makes it obvious the user is
-              exploring sample data (seeded via /api/admin/seed-demo) so
-              data they create during the demo session isn't mistaken
-              for their real tenant. */}
-          {isDemoAccount && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
-            >
-              DEMO MODE — you're signed in as the sample account. Data shown is
-              illustrative; changes are shared with other demo viewers.
-            </div>
-          )}
           {/* Top Bar */}
           <header
             className={cn(
-              "sticky top-0 z-20 flex h-16 min-w-0 items-center justify-between gap-2 overflow-hidden px-3 sm:px-4 md:px-6",
-              "bg-white dark:bg-slate-900",
+              "h-16 flex items-center justify-between gap-2 overflow-hidden px-3 sm:px-4 md:px-6 sticky top-0 z-20",
+              "bg-brand-deep",
               "border-b border-neutral-200 dark:border-slate-800",
             )}
           >
@@ -730,7 +727,7 @@ export default function DashboardShell({
             <button
               onClick={() => setMobileMenuOpen(true)}
               className={cn(
-                "min-h-11 min-w-11 shrink-0 rounded-lg p-2 md:hidden",
+                "min-h-11 min-w-11 p-2 rounded-lg md:hidden mr-1",
                 "hover:bg-neutral-100 dark:hover:bg-slate-800",
                 "text-neutral-700 dark:text-slate-300",
               )}
@@ -753,7 +750,7 @@ export default function DashboardShell({
               )}
             </div>
 
-            <div className="ml-2 flex shrink-0 items-center gap-1.5 sm:ml-6 sm:gap-4">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-4 ml-1 sm:ml-6">
               {/* RA-1124 MVP — persistent sync-status pill. The offline
                   infrastructure (service worker + IndexedDB queue +
                   reconnect listeners) already ships via NirOfflineProvider,
@@ -763,11 +760,11 @@ export default function DashboardShell({
               <NirSyncStatusBadge />
 
               {/* SP-8 T12 — How To dropdown (in-app Help Library entry point) */}
-              <div className="hidden lg:block">
+              <div className="hidden sm:block">
                 {!isTechnician && <HowToDropdown />}
               </div>
 
-              <div className="hidden lg:block">
+              <div className="hidden sm:block">
                 {!isTechnician && <ThemeToggle />}
               </div>
 
@@ -777,13 +774,14 @@ export default function DashboardShell({
               {/* User Avatar & Dropdown */}
               <div
                 className={cn(
-                  "flex items-center gap-3 sm:border-l sm:border-neutral-200 sm:pl-4 dark:sm:border-slate-700",
+                  "flex items-center gap-3 pl-2 sm:pl-4",
+                  "border-l border-neutral-200 dark:border-slate-700",
                 )}
               >
-                <div className="hidden min-w-0 text-right md:block">
+                <div className="text-right hidden sm:block">
                   <p
                     className={cn(
-                      "truncate text-sm font-medium",
+                      "text-sm font-medium",
                       "text-neutral-900 dark:text-slate-50",
                     )}
                   >
@@ -791,23 +789,34 @@ export default function DashboardShell({
                   </p>
                   <p
                     className={cn(
-                      "max-w-48 truncate text-xs",
+                      "text-xs",
                       "text-neutral-600 dark:text-slate-400",
                     )}
                   >
                     {session?.user?.email}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white"
-                  aria-label="Account"
-                >
+                <button className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center font-semibold text-sm hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 active:scale-95 transition-all duration-200">
                   {session?.user?.name?.charAt(0) || "U"}
                 </button>
               </div>
             </div>
           </header>
+
+          {/* Trial / demo sit under the search bar so a cream banner cannot
+              open a white gap above the header (RA-7465 still keeps them
+              in this offset column, not under the fixed sidebar). */}
+          {!hideBillingNav && <TrialCountdownBanner />}
+          {isDemoAccount && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
+            >
+              DEMO MODE — you're signed in as the sample account. Data shown is
+              illustrative; changes are shared with other demo viewers.
+            </div>
+          )}
 
           {/* RA-1241 — persistent trial-countdown banner. Silent unless
               subscriptionStatus === TRIAL + daysRemaining set. Dismissible
@@ -827,8 +836,8 @@ export default function DashboardShell({
           {/* Page Content */}
           <main
             className={cn(
-              "mx-auto max-w-9xl min-w-0 space-y-6 overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
-              "bg-white dark:bg-slate-950",
+              "space-y-6 max-w-9xl mx-auto overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
+              "bg-slate-950",
             )}
           >
             {/* RA-1569 adoption — auto-crumbs derived from the URL.
