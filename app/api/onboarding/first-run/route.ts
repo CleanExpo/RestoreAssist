@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -21,10 +20,10 @@ export interface FirstRunChecklistResponse {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
 ): Promise<NextResponse<FirstRunChecklistResponse>> {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
     if (!session?.user?.id) {
       return NextResponse.json(
         {
@@ -150,7 +149,7 @@ export async function GET(
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
     if (!session?.user?.id) {
       return apiError(request, {
         code: "UNAUTHORIZED",
