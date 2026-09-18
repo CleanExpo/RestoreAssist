@@ -81,3 +81,68 @@ export function resolveHomeFocus(input: {
     label: "New report",
   };
 }
+
+export type HomeActivityKind = "job" | "report" | "invoice";
+
+export type HomeActivity = {
+  id: string;
+  kind: HomeActivityKind;
+  title: string;
+  meta: string;
+  href: string;
+  at: number;
+};
+
+export function buildRecentActivity(input: {
+  inspections: Array<{
+    id: string;
+    propertyAddress?: string | null;
+    inspectionNumber?: string | null;
+    createdAt: string;
+  }>;
+  reports: Array<{
+    id: string;
+    title: string;
+    clientName?: string | null;
+    createdAt: string;
+  }>;
+  invoices: Array<{
+    id: string;
+    invoiceNumber?: string | null;
+    customerName?: string | null;
+    createdAt?: string | null;
+  }>;
+  limit?: number;
+}): HomeActivity[] {
+  const limit = input.limit ?? 8;
+  const jobs: HomeActivity[] = input.inspections.map((job) => ({
+    id: `job:${job.id}`,
+    kind: "job",
+    title: job.propertyAddress || job.inspectionNumber || "Inspection",
+    meta: job.inspectionNumber || "Job",
+    href: `/dashboard/inspections/${job.id}`,
+    at: Date.parse(job.createdAt) || 0,
+  }));
+  const reports: HomeActivity[] = input.reports.map((report) => ({
+    id: `report:${report.id}`,
+    kind: "report",
+    title: report.title,
+    meta: report.clientName || "Report",
+    href: `/dashboard/reports/${report.id}`,
+    at: Date.parse(report.createdAt) || 0,
+  }));
+  const invoices: HomeActivity[] = input.invoices
+    .filter((invoice) => Boolean(invoice.createdAt))
+    .map((invoice) => ({
+      id: `invoice:${invoice.id}`,
+      kind: "invoice",
+      title: invoice.invoiceNumber || "Invoice",
+      meta: invoice.customerName || "Invoice",
+      href: `/dashboard/invoices/${invoice.id}`,
+      at: Date.parse(invoice.createdAt as string) || 0,
+    }));
+
+  return [...jobs, ...reports, ...invoices]
+    .sort((a, b) => b.at - a.at)
+    .slice(0, limit);
+}
