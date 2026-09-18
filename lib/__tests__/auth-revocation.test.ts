@@ -224,17 +224,4 @@ describe("session callback requires JWT sub", () => {
 
     expect(result.user.id).toBe("user_1");
   });
-
-  it("stamps user.id when NextAuth omitted session.user", async () => {
-    const sessionCallback = authOptions.callbacks?.session;
-    if (!sessionCallback) throw new Error("session callback not found");
-
-    const result = await (sessionCallback as any)({
-      session: { expires: "2099-01-01T00:00:00.000Z" },
-      token: { sub: "user_1", role: "ADMIN", email: "pat@example.com" },
-    });
-
-    expect(result.user.id).toBe("user_1");
-    expect(result.user.email).toBe("pat@example.com");
-  });
 });

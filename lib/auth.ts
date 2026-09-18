@@ -695,16 +695,13 @@ export const authOptions: NextAuthOptions = {
       if (!token?.sub || (token as any).revoked) {
         return { ...session, user: undefined } as any;
       }
-      session.user = session.user ?? {
-        name: token.name,
-        email: token.email,
-        image: token.picture,
-      };
-      session.user.id = token.sub;
-      session.user.role = token.role as string;
-      (session.user as any).needsOnboarding = Boolean(
-        (token as any).needsOnboarding,
-      );
+      if (session.user) {
+        session.user.id = token.sub;
+        session.user.role = token.role as string;
+        (session.user as any).needsOnboarding = Boolean(
+          (token as any).needsOnboarding,
+        );
+      }
       return session;
     },
   },
