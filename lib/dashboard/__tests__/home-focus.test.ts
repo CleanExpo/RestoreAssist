@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildAttentionBoard,
   buildRecentActivity,
   isActiveInspectionStatus,
   isOpenReportStatus,
@@ -106,6 +107,56 @@ describe("buildRecentActivity", () => {
       inspections: [],
       reports: [],
       invoices: [{ id: "i1", invoiceNumber: "INV-9" }],
+    });
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("buildAttentionBoard", () => {
+  it("lists site work before reports and invoices", () => {
+    const rows = buildAttentionBoard({
+      inspections: [
+        {
+          id: "j1",
+          propertyAddress: "12 River St",
+          inspectionNumber: "INS-1",
+          status: "SCOPED",
+          createdAt: "2026-09-01T10:00:00.000Z",
+        },
+      ],
+      reports: [
+        {
+          id: "r1",
+          title: "Water loss",
+          clientName: "Acme",
+          status: "DRAFT",
+          createdAt: "2026-09-02T10:00:00.000Z",
+        },
+      ],
+      invoices: [
+        {
+          id: "i1",
+          invoiceNumber: "INV-9",
+          customerName: "Acme",
+          status: "SENT",
+        },
+      ],
+    });
+    expect(rows.map((r) => r.stage)).toEqual(["site", "report", "invoice"]);
+  });
+
+  it("drops closed jobs and paid invoices", () => {
+    const rows = buildAttentionBoard({
+      inspections: [
+        {
+          id: "j1",
+          inspectionNumber: "INS-1",
+          status: "COMPLETED",
+          createdAt: "2026-09-01T10:00:00.000Z",
+        },
+      ],
+      reports: [],
+      invoices: [{ id: "i1", invoiceNumber: "INV-9", status: "PAID" }],
     });
     expect(rows).toHaveLength(0);
   });
