@@ -11,6 +11,7 @@
  */
 import { test, expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
 import { applySessionCookieFromResponse } from "../helpers/session-cookie";
+import { findPrerequisiteClaims } from "../../lib/reports/__tests__/prerequisite-claims";
 
 const VIEWPORT = { width: 1280, height: 720 };
 
@@ -60,6 +61,7 @@ test.describe("RA-7550 report honesty", () => {
     await expect(page.getByText(/optional for Basic/i).first()).toBeVisible();
     await expect(page.getByText(/inspection in `?IN_PROGRESS`?/i)).toHaveCount(0);
     await expect(page.getByText(/at least 4 photos/i)).toHaveCount(0);
+    expect(findPrerequisiteClaims(await page.locator("main").innerText())).toEqual([]);
 
     await expect(page.locator('a[href^="/dashboard/help"]')).toHaveCount(0);
 
@@ -98,6 +100,8 @@ test.describe("RA-7550 report honesty", () => {
       page.getByText(/optional for a \*\*Basic\*\*|optional for a Basic/i).first(),
     ).toBeVisible();
     await expect(page.getByText(/at least 4 photos|≥4 photos/i)).toHaveCount(0);
+    // Rendered text: no photo or IN_PROGRESS prerequisite, backticks or not.
+    expect(findPrerequisiteClaims(await page.locator("main").innerText())).toEqual([]);
     await expect(page.locator('a[href^="/dashboard/help"]')).toHaveCount(0);
     await expect(
       page.getByRole("link", { name: /AI-drafted S500 report/i }),

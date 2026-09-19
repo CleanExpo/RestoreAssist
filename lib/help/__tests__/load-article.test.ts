@@ -5,6 +5,7 @@ import {
   loadCategoryIndex,
   resolveRelatedArticles,
 } from "../load-article";
+import { findPrerequisiteClaims } from "@/lib/reports/__tests__/prerequisite-claims";
 
 describe("loadArticle", () => {
   it("loads and parses a valid fixture", async () => {
@@ -56,6 +57,15 @@ describe("resolveRelatedArticles", () => {
 });
 
 describe("RA-7550 help honesty", () => {
+  it.each([
+    ["reports", "first-ai-report"],
+    ["getting-started", "first-inspection"],
+  ])("%s/%s makes no photo or IN_PROGRESS prerequisite claim", async (category, slug) => {
+    const article = await loadArticle(category, slug);
+    expect(article).not.toBeNull();
+    expect(findPrerequisiteClaims(article!.body)).toEqual([]);
+  });
+
   it("published bodies do not send anonymous readers to /dashboard/help", async () => {
     const articles = await loadAllArticles();
     for (const article of articles) {
