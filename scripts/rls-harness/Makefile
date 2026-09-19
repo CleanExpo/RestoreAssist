@@ -15,11 +15,22 @@ HERE         := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 .PHONY: rls-test rls-up rls-down
 
 rls-test: rls-up
-	@echo "Waiting for Postgres to accept connections…"
-	@for i in $$(seq 1 30); do \
-	  if docker exec $(PG_CONTAINER) pg_isready -U postgres >/dev/null 2>&1; then break; fi; \
+	@echo "Waiting for Postgres to accept TCP connections…"
+	@# Probe over TCP, not the unix socket. On first boot the postgres image runs a
+	@# temporary init server that answers on the socket only (listen_addresses=''),
+	@# then restarts; a socket probe reported ready before that restart and the
+	@# harness's first psql was dropped with "server closed the connection
+	@# unexpectedly". Never-ready is a failure, not a silent fall-through.
+	@ready=0; for i in $$(seq 1 60); do \
+	  if docker exec $(PG_CONTAINER) pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then ready=1; break; fi; \
 	  sleep 1; \
-	done
+	done; \
+	if [ $$ready -ne 1 ]; then \
+	  echo "Postgres did not accept TCP connections within 60s"; \
+	  docker logs $(PG_CONTAINER) 2>&1 | tail -20; \
+	  $(MAKE) -f "$(HERE)Makefile" rls-down; \
+	  exit 1; \
+	fi
 	@DATABASE_URL="$(DATABASE_URL)" bash "$(HERE)run.sh"; \
 	  status=$$?; \
 	  $(MAKE) -f "$(HERE)Makefile" rls-down; \
