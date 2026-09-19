@@ -13,6 +13,18 @@ function resolveCloudName(opts: CloudinaryUrlOpts): string {
   return fromUrl;
 }
 
+/** Returns null when CLOUDINARY_URL is missing so public help can still render. */
+export function tryCloudinaryUrl(
+  publicId: string,
+  opts: CloudinaryUrlOpts = {},
+): string | null {
+  try {
+    return cloudinaryUrl(publicId, opts);
+  } catch {
+    return null;
+  }
+}
+
 export function cloudinaryUrl(publicId: string, opts: CloudinaryUrlOpts = {}): string {
   const cloud = resolveCloudName(opts);
   const transforms: string[] = [];

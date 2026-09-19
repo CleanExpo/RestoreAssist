@@ -17,6 +17,13 @@ export const AI_OWNERSHIP_BANNER_TITLE = "AI-assisted draft — not your final r
 export const AI_OWNERSHIP_BANNER_BODY =
   "This report was drafted by AI as an assistant only. You (the application holder) must read it, rewrite it in your own words, then confirm ownership. RestoreAssist is not liable for the written content of issued reports — that responsibility sits with you.";
 
+/** Shown before Generate — AI draft is not a signed or issued report. */
+export const AI_OWNERSHIP_PRE_GENERATE_TITLE =
+  "AI draft is not a signed or issued report";
+
+export const AI_OWNERSHIP_PRE_GENERATE_BODY =
+  "Generate produces an AI draft only. You review it, rewrite it in your own words, then confirm ownership before the report is signed or issued. RestoreAssist is not liable for issued wording — that responsibility sits with you.";
+
 export const AI_OWNERSHIP_ACK_LABEL =
   "I confirm this is my report, written in my words. AI was only an assistant. I accept responsibility for this content.";
 

@@ -2,6 +2,8 @@
 
 import { cn } from "@/lib/utils";
 import { ArrowRight, CheckCircle, FileText, Sparkles } from "lucide-react";
+import AiOwnershipPreGenerateNotice from "@/components/AiOwnershipPreGenerateNotice";
+import { BASIC_REPORT_INPUTS_NOTE } from "@/lib/reports/basic-report-inputs";
 
 interface Props {
   isTrial: boolean;
@@ -30,6 +32,17 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
       <p className={cn("text-neutral-600 dark:text-neutral-400 mb-6")}>
         Choose the level of detail for your inspection report. Data has been
         saved successfully.
+      </p>
+
+      <AiOwnershipPreGenerateNotice />
+
+      <p
+        className={cn(
+          "text-sm",
+          "text-neutral-700 dark:text-neutral-300",
+        )}
+      >
+        {BASIC_REPORT_INPUTS_NOTE}
       </p>
 
       {isTrial && (
@@ -82,7 +95,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
             <ArrowRight className="w-5 h-5 text-neutral-600 dark:text-neutral-400 group-hover:text-blue-400 transition-colors" />
           </div>
           <p className="text-neutral-700 dark:text-neutral-300 mb-4 text-sm">
-            Generate report directly with saved data
+            Generate an AI draft from saved data. Photos are optional for Basic.
           </p>
           <div className="space-y-2">
             {[

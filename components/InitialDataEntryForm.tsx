@@ -2505,7 +2505,8 @@ export default function InitialDataEntryForm({
             </h2>
             <p className={cn("text-neutral-600 dark:text-neutral-400")}>
               Complete each step to build your report. All fields marked with *
-              are required.
+              are required. Quick Fill can populate a Basic draft — photos are
+              optional for Basic.
             </p>
           </div>
           <button
