@@ -56,6 +56,15 @@ function serialiseChildren(sf: ts.SourceFile, children: ts.NodeArray<ts.JsxChild
 
 function tsxBlocks(src: string): string[] {
   const sf = ts.createSourceFile("copy.tsx", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  return blocksUnder(sf, sf);
+}
+
+/**
+ * Every copy block under `root`, including JSX text and string literals
+ * inside conditional and logical expressions (`{busy ? "..." : "..."}`,
+ * `{x && <button>...</button>}`), with the same AST exclusions.
+ */
+function blocksUnder(sf: ts.SourceFile, root: ts.Node): string[] {
   const blocks: string[] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isJsxElement(node) || ts.isJsxFragment(node)) {
@@ -67,7 +76,7 @@ function tsxBlocks(src: string): string[] {
     }
     ts.forEachChild(node, visit);
   };
-  visit(sf);
+  visit(root);
   return blocks;
 }
 
@@ -99,7 +108,7 @@ function mdxBlocks(src: string): string[] {
 /**
  * The region around `anchor` in a TSX file: the parent of the innermost JSX
  * element whose text contains it, serialised with every sibling and nested
- * element. Throws when the anchor is gone, so a rewording cannot silently
+ * element, plus every copy block inside it (conditional labels included). Throws when the anchor is gone, so a rewording cannot silently
  * drop the region out of the contract.
  */
 function tsxRegion(src: string, anchor: string): string[] {
@@ -116,7 +125,9 @@ function tsxRegion(src: string, anchor: string): string[] {
   if (!holder || !parent || !ts.isJsxElement(parent)) {
     throw new Error(`anchor not found in a JSX element: ${anchor}`);
   }
-  return [flat(serialiseChildren(sf, parent.children))];
+  // The serialised region catches added siblings; blocksUnder also reads the
+  // copy inside its expressions, which the serialisation shows only as {expr}.
+  return [flat(serialiseChildren(sf, parent.children)), ...blocksUnder(sf, parent)];
 }
 
 type Surface =
@@ -198,9 +209,28 @@ const APPROVED: Record<string, string[]> = {
   ],
   "components/InspectionReportViewer.tsx": [
     "<div> <AlertCircle /> <h3> Report Not Generated </h3> </div> <div> <AiOwnershipPreGenerateNotice /> </div> <p> Generate produces an AI draft from the data already saved. Photos are optional for Basic. The draft is not a signed or issued report until you rewrite it and confirm ownership. </p> <div> {expr} {expr} {expr} {expr} </div>",
+    "Report Not Generated",
+    "Generate produces an AI draft from the data already saved. Photos are optional for Basic. The draft is not a signed or issued report until you rewrite it and confirm ownership.",
+    "Basic",
+    "basic",
+    "Generating...",
+    "Generate Basic Report",
+    "Enhanced",
+    "enhanced",
+    "Generating...",
+    "Generate Enhanced Report",
+    "Optimised",
+    "Optimized",
+    "enhanced",
+    "Generating...",
+    "Generate Optimised Report",
+    "<Loader2 /> Generating Excel...",
+    "<Table /> Generate Excel Report",
   ],
   "components/InitialDataEntryForm.tsx": [
     "<h2> Initial Data Entry </h2> <p> Complete each step to build your report. All fields marked with * are required. Quick Fill can populate a Basic draft — photos are optional for Basic. </p>",
+    "Initial Data Entry",
+    "Complete each step to build your report. All fields marked with * are required. Quick Fill can populate a Basic draft — photos are optional for Basic.",
   ],
   "data/content/help/reports/first-ai-report.mdx": [
     "--- title: \"Generate your first AI-drafted S500 report\" slug: \"first-ai-report\" category: \"reports\" order: 1 audience: [\"tradie\", \"admin\"] readTimeMin: 6 updatedAt: \"2026-09-14\" status: \"published\" heroImage: \"ra-help/reports/first-ai-report-hero\" relatedSlugs: [\"photo-cocoa\", \"first-inspection\"] aiSummary: \"Walks a user through generating an AI-drafted IICRC S500:2021 water-damage report — what Basic needs (name, address, postcode, field report; photos optional), how the draft differs from a signed or issued report, and how to rewrite then confirm ownership.\" userIntents: - \"how do I generate an AI report\" - \"first AI report\" - \"ai-drafted report\" - \"how does the AI report work\" - \"S500 report\" successCriteria: - \"AI draft generated for an inspection\" - \"Draft reviewed and at least one section edited\" - \"Ownership confirmed before the report is issued\" --- RestoreAssist drafts compliant S500 / S520 / S540 / S700 reports from the data you've captured. The model writes an **AI draft**. You review, rewrite, and confirm ownership before anything is signed or issued. > **A report usually starts from an inspection.** You can also start at `/dashboard/reports/new` and use **Quick Fill** or type the Basic fields. Create an [inspection](/help/getting-started/first-inspection) when you want photos, moisture readings, and scope items on the draft. Photos are optional for Basic. <VideoExplainer slug=\"help-reports\" />",
@@ -265,5 +295,12 @@ describe("Basic prerequisite copy contract (RA-7550)", () => {
       mdxBlocks(mdx),
     );
     expect(() => tsxRegion(card, "no such anchor")).toThrow(/anchor not found/);
+    // Round 7: a label inside a conditional expression in the region.
+    const cond = (label: string) =>
+      `<div><p>Generate an AI draft.</p>{basic && <button>{busy ? "Generating..." : "${label}"}</button>}</div>`;
+    const condRegion = (s: string) => tsxRegion(s, "Generate an AI draft.");
+    expect(condRegion(cond("Attach at least four pictures first."))).not.toEqual(
+      condRegion(cond("Generate Basic Report")),
+    );
   });
 });
