@@ -7,7 +7,8 @@ import {
   findPrerequisiteClaims,
 } from "./prerequisite-claims";
 
-// Every source that tells a user what Basic needs before Generate.
+// The RA-7550 sources that tell a user what Basic needs before Generate.
+// prerequisite-copy-contract.test.ts holds the closed-world check for them.
 const BASIC_COPY_SOURCES = [
   "lib/reports/basic-report-inputs.ts",
   "components/initial-data-entry/ReportTypeSelection.tsx",
