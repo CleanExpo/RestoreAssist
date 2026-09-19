@@ -51,15 +51,19 @@ describe("RA-7541 checkout presentation", () => {
       RESTOREASSIST_MERCHANT_NAME,
     );
     expect(params.branding_settings.display_name).not.toMatch(/CARSI/i);
-    expect(params.custom_text.submit.message).toBe(monthlyCheckoutSubmitCopy());
+    expect(params.custom_text.submit.message).toBe(
+      monthlyCheckoutSubmitCopy("AU"),
+    );
     expect(params.custom_text.submit.message).toMatch(/\$99 AUD/);
+    expect(params.custom_text.submit.message).toMatch(/10% GST/);
   });
 
-  it("NZ org still settles the single catalog in AUD", () => {
+  it("NZ org still settles the single catalog in AUD and names 15% GST", () => {
     const params = monthlyCheckoutPresentation({ country: "NZ" });
     expect(params.locale).toBe("en");
     expect(params.currency).toBe("aud");
     expect(params.adaptive_pricing.enabled).toBe(false);
+    expect(params.custom_text.submit.message).toMatch(/15% GST/);
   });
 
   it("accepts the catalog Price (AUD 9900)", () => {

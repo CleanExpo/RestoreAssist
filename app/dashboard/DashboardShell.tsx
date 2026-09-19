@@ -200,7 +200,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen flex items-center justify-center",
-          "bg-white dark:bg-slate-950",
+          "bg-slate-950",
         )}
       >
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
@@ -213,7 +213,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen flex items-center justify-center",
-          "bg-white dark:bg-slate-950",
+          "bg-slate-950",
         )}
       >
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
@@ -268,6 +268,11 @@ export default function DashboardShell({
       href: "/dashboard/restoration-documents",
     },
     { icon: Users, label: "Team", href: "/dashboard/team" },
+    {
+      icon: Building2,
+      label: "Contractor workspace",
+      href: "/dashboard/contractors",
+    },
     {
       icon: DollarSign,
       label: "Pricing Configuration",
@@ -385,7 +390,7 @@ export default function DashboardShell({
   const upgradeItem = {
     icon: Crown,
     label: "Upgrade Package",
-    href: "/dashboard/pricing",
+    href: "/billing/upgrade",
     highlight: true,
     special: true,
   };
@@ -415,15 +420,11 @@ export default function DashboardShell({
         <button
           key={item.href}
           onClick={async () => {
+            setMobileMenuOpen(false);
             try {
               const response = await fetch("/api/reports/check-credits");
               if (response.ok) {
                 const data = await response.json();
-                if (!data.hasApiKey) {
-                  toast.error("Please add your API key to create reports.");
-                  router.push("/dashboard/integrations");
-                  return;
-                }
                 if (!data.canCreate) {
                   // RA-1842: iOS billing happens on web; do not auto-redirect.
                   // RA-7462: expired trial goes to the subscribe page, not the
@@ -467,6 +468,7 @@ export default function DashboardShell({
       <Link
         key={item.href}
         href={item.href}
+        onClick={() => setMobileMenuOpen(false)}
         className={cn(
           "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
           item.adminOnly
@@ -501,7 +503,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen",
-          "bg-white dark:bg-slate-950",
+          "bg-slate-950",
           "text-neutral-900 dark:text-slate-50",
         )}
       >
@@ -517,7 +519,7 @@ export default function DashboardShell({
         <aside
           className={cn(
             "fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col",
-            "bg-white dark:bg-slate-900",
+            "bg-brand-deep",
             "border-r border-neutral-200 dark:border-slate-800",
             // Mobile: slide in/out, always w-64 when visible
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
@@ -561,13 +563,23 @@ export default function DashboardShell({
               </Link>
             )}
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => {
+                if (
+                  typeof window !== "undefined" &&
+                  window.matchMedia("(max-width: 767px)").matches
+                ) {
+                  setMobileMenuOpen(false);
+                  return;
+                }
+                setSidebarOpen(!sidebarOpen);
+              }}
               className={cn(
-                "p-1 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95",
+                "min-h-11 min-w-11 p-1 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95",
                 "hover:bg-neutral-100 dark:hover:bg-slate-800",
                 "text-neutral-700 dark:text-slate-300",
               )}
               title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              aria-label={sidebarOpen ? "Close menu" : "Open menu"}
             >
               {sidebarOpen ? (
                 <X size={20} className="transition-transform duration-200" />
@@ -703,26 +715,11 @@ export default function DashboardShell({
               expanded; mounting the banner above it left "Upgrade now"
               under the sidebar header, which swallowed pointer events at
               1280x720. */}
-          {!hideBillingNav && <TrialCountdownBanner />}
-          {/* RA-1583 — demo-mode banner. Makes it obvious the user is
-              exploring sample data (seeded via /api/admin/seed-demo) so
-              data they create during the demo session isn't mistaken
-              for their real tenant. */}
-          {isDemoAccount && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
-            >
-              DEMO MODE — you're signed in as the sample account. Data shown is
-              illustrative; changes are shared with other demo viewers.
-            </div>
-          )}
           {/* Top Bar */}
           <header
             className={cn(
-              "h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20",
-              "bg-white dark:bg-slate-900",
+              "h-16 flex items-center justify-between gap-2 overflow-hidden px-3 sm:px-4 md:px-6 sticky top-0 z-20",
+              "bg-brand-deep",
               "border-b border-neutral-200 dark:border-slate-800",
             )}
           >
@@ -730,7 +727,7 @@ export default function DashboardShell({
             <button
               onClick={() => setMobileMenuOpen(true)}
               className={cn(
-                "p-2 rounded-lg md:hidden mr-2",
+                "min-h-11 min-w-11 p-2 rounded-lg md:hidden mr-1",
                 "hover:bg-neutral-100 dark:hover:bg-slate-800",
                 "text-neutral-700 dark:text-slate-300",
               )}
@@ -739,7 +736,7 @@ export default function DashboardShell({
               <Menu size={22} />
             </button>
 
-            <div className="flex-1 max-w-xs sm:max-w-md">
+            <div className="min-w-0 flex-1 max-w-xs sm:max-w-md">
               {isTechnician ? (
                 <Link
                   href="/dashboard/field"
@@ -753,7 +750,7 @@ export default function DashboardShell({
               )}
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4 ml-3 sm:ml-6">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-4 ml-1 sm:ml-6">
               {/* RA-1124 MVP — persistent sync-status pill. The offline
                   infrastructure (service worker + IndexedDB queue +
                   reconnect listeners) already ships via NirOfflineProvider,
@@ -763,10 +760,13 @@ export default function DashboardShell({
               <NirSyncStatusBadge />
 
               {/* SP-8 T12 — How To dropdown (in-app Help Library entry point) */}
-              {!isTechnician && <HowToDropdown />}
+              <div className="hidden sm:block">
+                {!isTechnician && <HowToDropdown />}
+              </div>
 
-              {/* Theme Toggle */}
-              {!isTechnician && <ThemeToggle />}
+              <div className="hidden sm:block">
+                {!isTechnician && <ThemeToggle />}
+              </div>
 
               {/* Notifications */}
               <NotificationBell />
@@ -774,7 +774,7 @@ export default function DashboardShell({
               {/* User Avatar & Dropdown */}
               <div
                 className={cn(
-                  "flex items-center gap-3 pl-4",
+                  "flex items-center gap-3 pl-2 sm:pl-4",
                   "border-l border-neutral-200 dark:border-slate-700",
                 )}
               >
@@ -803,6 +803,21 @@ export default function DashboardShell({
             </div>
           </header>
 
+          {/* Trial / demo sit under the search bar so a cream banner cannot
+              open a white gap above the header (RA-7465 still keeps them
+              in this offset column, not under the fixed sidebar). */}
+          {!hideBillingNav && <TrialCountdownBanner />}
+          {isDemoAccount && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
+            >
+              DEMO MODE — you're signed in as the sample account. Data shown is
+              illustrative; changes are shared with other demo viewers.
+            </div>
+          )}
+
           {/* RA-1241 — persistent trial-countdown banner. Silent unless
               subscriptionStatus === TRIAL + daysRemaining set. Dismissible
               per-session. Escalates amber → orange → red at ≤3d and ≤1d. */}
@@ -821,8 +836,8 @@ export default function DashboardShell({
           {/* Page Content */}
           <main
             className={cn(
-              "space-y-6 max-w-9xl mx-auto px-2 sm:px-4 lg:px-6 py-8",
-              "bg-white dark:bg-slate-950",
+              "space-y-6 max-w-9xl mx-auto overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
+              "bg-slate-950",
             )}
           >
             {/* RA-1569 adoption — auto-crumbs derived from the URL.

@@ -13,6 +13,10 @@
  */
 
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { getGstTreatment } from "@/lib/gst-rules";
+
+/** Stripe cancel return — matches `CancelledCheckoutNotice` on the upgrade page. */
+export const CHECKOUT_CANCEL_PATH = "/billing/upgrade?cancelled=1";
 
 export const RESTOREASSIST_MERCHANT_NAME = "RestoreAssist";
 
@@ -69,12 +73,15 @@ export function billingCountryFromOrg(
   return country === "NZ" ? "NZ" : "AU";
 }
 
-export function monthlyCheckoutSubmitCopy(): string {
+export function monthlyCheckoutSubmitCopy(
+  country?: string | null,
+): string {
   const { displayName, amount, currency } = PRICING_CONFIG.pricing.monthly;
-  return `RestoreAssist ${displayName} — $${amount} ${currency} including GST.`;
+  const gst = getGstTreatment(billingCountryFromOrg(country));
+  return `RestoreAssist ${displayName} — $${amount} ${currency} including ${gst.percentLabel} GST.`;
 }
 
-export function monthlyCheckoutPresentation(_input?: {
+export function monthlyCheckoutPresentation(input?: {
   country?: string | null;
 }): CheckoutPresentationParams {
   return {
@@ -87,7 +94,7 @@ export function monthlyCheckoutPresentation(_input?: {
       display_name: RESTOREASSIST_MERCHANT_NAME,
     },
     custom_text: {
-      submit: { message: monthlyCheckoutSubmitCopy() },
+      submit: { message: monthlyCheckoutSubmitCopy(input?.country) },
     },
   };
 }

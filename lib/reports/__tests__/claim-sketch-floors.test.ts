@@ -257,6 +257,47 @@ describe("claimSketchesToFloors", () => {
     ]);
   });
 
+  it("carries IICRC damage markers from sketchData onto the report floor", async () => {
+    const sketches = [
+      {
+        floorNumber: 0,
+        floorLabel: "Ground Floor",
+        renderedPngUrl: canonicalRender(0),
+        sketchData: {
+          objects: [],
+          damageMarkers: [
+            {
+              id: "dm-1",
+              type: "water_cat3",
+              severity: "high",
+              room_label: "Kitchen",
+              notes: "Black water at kitchen sink",
+              x: 150,
+              y: 200,
+              nx: 0.35,
+              ny: 0.4,
+            },
+          ],
+        },
+      },
+    ];
+    const fetchImpl = fakeFetch({
+      [canonicalRender(0)]: pngBytes(0),
+    });
+
+    const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
+
+    expect(floors[0].damageMarkers).toEqual([
+      expect.objectContaining({
+        type: "water_cat3",
+        caption: "C3 Kitchen",
+        notes: "Black water at kitchen sink",
+        nx: 0.35,
+        ny: 0.4,
+      }),
+    ]);
+  });
+
   it("requires a verified underlay receipt bound to the exact immutable render", async () => {
     const renderSha256 = "c".repeat(64);
     const sketchSha256 =

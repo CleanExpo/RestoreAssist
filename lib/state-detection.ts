@@ -294,6 +294,19 @@ export function getStateInfo(stateCode: string | null): StateInfo | null {
         "Work Health and Safety (National Uniform Legislation) Act 2011 (NT)",
       epaAct: "Waste Management and Pollution Control Act 1998 (NT)",
     },
+    NZ: {
+      code: "NZ",
+      name: "New Zealand",
+      buildingAuthority:
+        "Ministry of Business, Innovation and Employment (MBIE)",
+      buildingCode: "New Zealand Building Code (Building Act 2004)",
+      workSafetyAuthority: "WorkSafe New Zealand",
+      workSafetyContact: "0800 030 040",
+      epaAuthority: "Ministry for the Environment",
+      epaContact: "0800 499 700",
+      whsAct: "Health and Safety at Work Act 2015 (NZ)",
+      epaAct: "Resource Management Act 1991 (NZ)",
+    },
   };
 
   return frameworks[stateCode] || null;

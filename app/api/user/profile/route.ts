@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/auth/get-api-session";
 import { validateCsrf } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -23,7 +22,7 @@ const TRIAL_DURATION_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
 
     if (!session?.user?.id) {
       return apiError(request, {
@@ -320,7 +319,7 @@ export async function PUT(request: NextRequest) {
     const csrfError = validateCsrf(request);
     if (csrfError) return csrfError;
 
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
 
     if (!session?.user?.id) {
       return apiError(request, {

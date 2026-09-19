@@ -24,6 +24,12 @@ import {
 } from "@/lib/sketch/iicrc-utils";
 import { pinDryingStatus } from "@/lib/sketch/pin-drying";
 import { toNormalized, pinPixelPosition } from "@/lib/sketch/pin-coords";
+import {
+  IDENTITY_OVERLAY_VIEWPORT,
+  overlayScenePoint,
+  overlayScreenPoint,
+  type OverlayViewport,
+} from "@/lib/sketch/overlay-viewport";
 import { isPointInRoomCrop } from "@/lib/sketch/room-moisture-crop";
 
 export interface MoisturePin {
@@ -49,6 +55,8 @@ export interface SketchMoistureLayerProps {
   active: boolean;
   /** Canvas scale factor (devicePixelRatio or zoom) for coordinate mapping */
   canvasZoom?: number;
+  /** Fabric zoom/pan — pins stay glued to the plan (RA-7547). */
+  overlayViewport?: OverlayViewport;
   width: number;
   height: number;
   /**
@@ -71,6 +79,7 @@ export function SketchMoistureLayer({
   onChange,
   active,
   canvasZoom = 1,
+  overlayViewport,
   width,
   height,
   clipRoomPoints = null,
@@ -78,6 +87,11 @@ export function SketchMoistureLayer({
   className,
 }: SketchMoistureLayerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const vpt =
+    overlayViewport ??
+    (canvasZoom === 1 || !canvasZoom
+      ? IDENTITY_OVERLAY_VIEWPORT
+      : { zoom: canvasZoom, panX: 0, panY: 0 });
 
   // ── Drop new pin ─────────────────────────────────────────
   const handleLayerClick = useCallback(
@@ -85,8 +99,7 @@ export function SketchMoistureLayer({
       if (!active) return;
       if ((e.target as HTMLElement).closest("[data-pin]")) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / canvasZoom;
-      const y = (e.clientY - rect.top) / canvasZoom;
+      const { x, y } = overlayScenePoint(e.clientX, e.clientY, rect, vpt);
       if (
         clipRoomPoints &&
         clipRoomPoints.length >= 3 &&
@@ -115,7 +128,9 @@ export function SketchMoistureLayer({
       active,
       pins,
       onChange,
-      canvasZoom,
+      vpt.zoom,
+      vpt.panX,
+      vpt.panY,
       width,
       height,
       clipRoomPoints,
@@ -158,12 +173,13 @@ export function SketchMoistureLayer({
       {pins.map((pin) => {
         const info = getClassInfo(pin.iicrClass);
         const { left, top } = pinPixelPosition(pin, width, height);
+        const screen = overlayScreenPoint(left, top, vpt);
         return (
           <PinMarker
             key={pin.id}
             pin={pin}
-            left={left}
-            top={top}
+            left={screen.left}
+            top={screen.top}
             info={info}
             isEditing={editingId === pin.id}
             onEdit={() => setEditingId(pin.id)}

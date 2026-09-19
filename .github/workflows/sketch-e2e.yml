@@ -14,6 +14,7 @@ on:
     paths:
       - "e2e/**"
       - "components/sketch/**"
+      - "app/api/test/sketch-pdf-embed/**"
       - "app/api/inspections/**/sketches/**"
       - "lib/sketch/**"
       - "config/playwright.config.ts"
@@ -162,7 +163,7 @@ jobs:
       # (v2-sketch-workflow.spec.ts) has stale selectors and is stabilised
       # separately before being added.
       - name: Run Sketch E2E
-        run: npx --no-install playwright test -c config/playwright.config.ts e2e/sketch-api.spec.ts e2e/sketch-chrome-1280.spec.ts --project=chromium --reporter=line
+        run: npx --no-install playwright test -c config/playwright.config.ts e2e/sketch-api.spec.ts e2e/sketch-chrome-1280.spec.ts e2e/sketch-image-report-1280.spec.ts e2e/sketch-damage-markers-1280.spec.ts --project=chromium --reporter=line
 
       # The billing suite had never been executed by any pipeline, so nothing
       # had established whether it passed. Run locally on 2026-09-07 it was

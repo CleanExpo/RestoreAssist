@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 type ExperienceMode = "APPRENTICE" | "EXPERIENCED";
 
 // GET — return the current user's experience mode
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
     if (!session?.user?.id) {
       return apiError(undefined, {
         code: "UNAUTHORIZED",
@@ -33,7 +32,7 @@ export async function GET() {
 // PATCH — update the current user's experience mode
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getApiSession(request);
     if (!session?.user?.id) {
       return apiError(request, {
         code: "UNAUTHORIZED",

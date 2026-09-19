@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "../route";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
+vi.mock("next-auth/jwt", () => ({ getToken: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/lib/trial-handling", () => ({ getTrialStatus: vi.fn() }));
 
 import { getServerSession } from "next-auth";

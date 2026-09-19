@@ -159,6 +159,7 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     // Setup — Team, Integrations, Pricing Configuration, Settings (+ Feedback,
     // Tutorials, Help)
     "/dashboard/team": "Setup",
+    "/dashboard/contractors": "Setup",
     "/dashboard/integrations": "Setup",
     "/dashboard/pricing-config": "Setup",
     "/dashboard/settings": "Setup",

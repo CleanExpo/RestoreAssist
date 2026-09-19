@@ -15,6 +15,7 @@ export type StoredSketchData = Record<string, unknown>;
 const EDITOR_ONLY_KEYS = [
   "scaleConfig",
   "roomMoistureCrop",
+  "damageMarkers",
   SKETCH_META_KEY,
 ] as const;
 
@@ -96,4 +97,13 @@ export function roomMoistureCropFromStoredSketchData(
       ? { canvasHeight: meta.canvasHeight }
       : {}),
   };
+}
+
+/** Restore IICRC damage markers saved alongside Fabric JSON (RA-2953). */
+export function damageMarkersFromStoredSketchData(
+  sketchData: unknown,
+): unknown {
+  if (!sketchData || typeof sketchData !== "object") return null;
+  const raw = (sketchData as StoredSketchData).damageMarkers;
+  return Array.isArray(raw) ? raw : null;
 }

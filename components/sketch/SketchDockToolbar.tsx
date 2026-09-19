@@ -38,10 +38,20 @@ import {
   Scan,
   Fan,
   PanelLeftOpen,
+  TriangleAlert,
 } from "lucide-react";
 import type { ToolMode } from "./SketchCanvas";
 import type { DamageKind } from "@/lib/sketch/damage-zone";
 import { DAMAGE_KINDS, DAMAGE_KIND_STYLES } from "@/lib/sketch/damage-zone";
+import type {
+  DamageMarkerSeverity,
+  DamageMarkerType,
+} from "@/lib/sketch/damage-markers";
+import {
+  DAMAGE_MARKER_LIBRARY,
+  DAMAGE_MARKER_SEVERITIES,
+  DAMAGE_MARKER_SEVERITY_STYLES,
+} from "@/lib/sketch/damage-markers";
 import type { EquipmentKind } from "@/lib/sketch/equipment-symbols";
 import {
   EQUIPMENT_KINDS,
@@ -58,6 +68,10 @@ export interface SketchDockToolbarProps {
   onToolChange: (mode: ToolMode) => void;
   damageKind?: DamageKind;
   onDamageKindChange?: (kind: DamageKind) => void;
+  markerType?: DamageMarkerType;
+  onMarkerTypeChange?: (type: DamageMarkerType) => void;
+  markerSeverity?: DamageMarkerSeverity;
+  onMarkerSeverityChange?: (severity: DamageMarkerSeverity) => void;
   equipmentKind?: EquipmentKind;
   onEquipmentKindChange?: (kind: EquipmentKind) => void;
   roomTemplateKind?: RoomTemplateKind;
@@ -124,6 +138,12 @@ const TOOLS: {
     label: "Affected area (tap room)",
     shortcut: "G",
   },
+  {
+    mode: "marker",
+    Icon: TriangleAlert,
+    label: "Damage marker",
+    shortcut: "N",
+  },
   { mode: "equipment", Icon: Fan, label: "Equipment", shortcut: "E" },
   { mode: "freehand", Icon: Pencil, label: "Markup", shortcut: "P" },
   { mode: "text", Icon: Type, label: "Label", shortcut: "T" },
@@ -146,6 +166,10 @@ export function SketchDockToolbar({
   onToolChange,
   damageKind = "water",
   onDamageKindChange,
+  markerType = "water_cat1",
+  onMarkerTypeChange,
+  markerSeverity = "moderate",
+  onMarkerSeverityChange,
   equipmentKind = "dehumidifier",
   onEquipmentKindChange,
   roomTemplateKind = "rect",
@@ -351,6 +375,7 @@ export function SketchDockToolbar({
             key={mode}
             active={toolMode === mode}
             onClick={() => onToolChange(mode)}
+            testId={`sketch-tool-${mode}`}
             label={`${
               mode === "room" && !onScanRoom && !guided
                 ? "Room — draw manually"
@@ -359,6 +384,71 @@ export function SketchDockToolbar({
             Icon={Icon}
           />
         ))}
+
+      {!readonly && toolMode === "marker" && onMarkerTypeChange && (
+        <>
+          <div className={dividerCls} />
+          <div
+            className={cn(
+              "flex gap-1",
+              isVertical ? "flex-col max-h-48 overflow-y-auto" : "flex-row",
+            )}
+            role="group"
+            aria-label="IICRC damage marker library"
+            data-testid="sketch-damage-marker-library"
+          >
+            {DAMAGE_MARKER_LIBRARY.map((entry) => (
+              <button
+                key={entry.type}
+                type="button"
+                title={`${entry.label} — ${entry.citation}`}
+                aria-label={entry.label}
+                aria-pressed={markerType === entry.type}
+                data-testid={`sketch-marker-type-${entry.type}`}
+                onClick={() => onMarkerTypeChange(entry.type)}
+                className={cn(
+                  "h-8 min-w-8 px-1 rounded-lg border text-[9px] font-semibold tracking-wide text-white",
+                  markerType === entry.type
+                    ? "border-brand-gold ring-1 ring-brand-gold"
+                    : "border-white/10 opacity-70 hover:opacity-100",
+                )}
+                style={{ background: entry.fill }}
+              >
+                {entry.short}
+              </button>
+            ))}
+          </div>
+          {onMarkerSeverityChange && (
+            <div
+              className={cn(
+                "flex gap-1",
+                isVertical ? "flex-col" : "flex-row",
+              )}
+              role="group"
+              aria-label="Marker severity"
+            >
+              {DAMAGE_MARKER_SEVERITIES.map((sev) => (
+                <button
+                  key={sev}
+                  type="button"
+                  title={DAMAGE_MARKER_SEVERITY_STYLES[sev].label}
+                  aria-label={DAMAGE_MARKER_SEVERITY_STYLES[sev].label}
+                  aria-pressed={markerSeverity === sev}
+                  onClick={() => onMarkerSeverityChange(sev)}
+                  className={cn(
+                    "h-8 min-w-8 px-1 rounded-lg border text-[9px] font-semibold tracking-wide",
+                    markerSeverity === sev
+                      ? "border-brand-gold ring-1 ring-brand-gold text-brand-gold bg-brand-gold/15"
+                      : "border-white/10 text-white/70 hover:text-white",
+                  )}
+                >
+                  {DAMAGE_MARKER_SEVERITY_STYLES[sev].label.slice(0, 1)}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       {!readonly && toolMode === "damage" && onDamageKindChange && (
         <>
@@ -507,6 +597,7 @@ export function SketchDockToolbar({
         <ToolBtn
           active={toolMode === "pan"}
           onClick={() => onToolChange("pan")}
+          testId="sketch-tool-pan"
           label="Pan (H)"
           Icon={Hand}
         />
@@ -537,18 +628,21 @@ export function SketchDockToolbar({
       <ToolBtn
         active={false}
         onClick={onZoomIn}
+        testId="sketch-tool-zoom-in"
         label="Zoom In"
         Icon={ZoomIn}
       />
       <ToolBtn
         active={false}
         onClick={onZoomOut}
+        testId="sketch-tool-zoom-out"
         label="Zoom Out"
         Icon={ZoomOut}
       />
       <ToolBtn
         active={false}
         onClick={onZoomReset}
+        testId="sketch-tool-zoom-reset"
         label="Fit Canvas"
         Icon={Maximize2}
       />
@@ -654,6 +748,7 @@ interface ToolBtnProps {
   label: string;
   Icon: React.ElementType;
   danger?: boolean;
+  testId?: string;
 }
 
 function ToolBtn({
@@ -663,12 +758,15 @@ function ToolBtn({
   label,
   Icon,
   danger,
+  testId,
 }: ToolBtnProps) {
   return (
     <button
       type="button"
       title={label}
       aria-label={label}
+      aria-pressed={active}
+      data-testid={testId}
       onClick={onClick}
       disabled={disabled}
       className={cn(

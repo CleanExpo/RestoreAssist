@@ -111,7 +111,11 @@ export function useFetch<T>(
     const maxRetries = opts?.retryCount ?? 0;
 
     const attemptFetch = (attempt: number): void => {
-      fetch(url, { signal: controller.signal, ...fetchInit })
+      fetch(url, {
+        credentials: "include",
+        signal: controller.signal,
+        ...fetchInit,
+      })
         .then((res) => {
           if (!res.ok) {
             throw new Error(`${res.status} ${res.statusText}`);

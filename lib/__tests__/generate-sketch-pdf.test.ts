@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
+import { PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import {
   safe,
   dataUrlToBytes,
@@ -313,6 +313,27 @@ async function pdfText(bytes: Uint8Array): Promise<string> {
     .join("\n");
 }
 
+/** Distinctive 17×13 gold PNG — not a 1×1 transparent pixel that would look blank. */
+const PNG_17x13 =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAANCAIAAADAGxJNAAAAFklEQVR42mO4srSEVMQwqmdUDx31AABidKmpPSOQawAAAABJRU5ErkJggg==";
+
+/** pdf-lib Flate-encodes embedded PNGs; read the Image XObject dict, not raw magic. */
+async function embeddedImageSizes(
+  pdfBytes: Uint8Array,
+): Promise<Array<{ w: number; h: number }>> {
+  const doc = await PDFDocument.load(pdfBytes);
+  const sizes: Array<{ w: number; h: number }> = [];
+  for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+    if (!(obj instanceof PDFRawStream)) continue;
+    const dict = obj.dict;
+    if (String(dict.get(PDFName.of("Subtype"))) !== "/Image") continue;
+    const w = Number(dict.get(PDFName.of("Width")));
+    const h = Number(dict.get(PDFName.of("Height")));
+    if (Number.isFinite(w) && Number.isFinite(h)) sizes.push({ w, h });
+  }
+  return sizes;
+}
+
 describe("generateSketchPdf — the annex's drying plan is mould-gated (RA-7005)", () => {
   const floors = [
     { label: "Ground", pngDataUrl: PNG_1PX, fabricJson: ANNEX_FABRIC },
@@ -400,5 +421,78 @@ describe("generateSketchPdf — the annex's drying plan is mould-gated (RA-7005)
     expect(text).toContain("Compliance Annex");
     expect(text).not.toContain("Drying equipment");
     expect(text).not.toMatch(/Dehumidifiers: \d/);
+  });
+});
+
+describe("generateSketchPdf — image insert + report embed (RA-7547)", () => {
+  it("embeds the floor PNG at its native size, not a blank/cropped substitute", async () => {
+    const bytes = await generateSketchPdf({
+      floors: [{ label: "Ground", pngDataUrl: PNG_17x13 }],
+    });
+    expect(Buffer.from(bytes.slice(0, 5)).toString("latin1")).toBe("%PDF-");
+    const sizes = await embeddedImageSizes(bytes);
+    expect(sizes.length, "the floor-plan page must carry an Image XObject").toBeGreaterThan(0);
+    expect(sizes).toContainEqual({ w: 17, h: 13 });
+    expect(sizes.some((s) => s.w === 0 || s.h === 0)).toBe(false);
+  });
+
+  it("draws evidence-pin labels and captions on the same page as the sketch", async () => {
+    const bytes = await generateSketchPdf({
+      floors: [
+        {
+          label: "Ground",
+          pngDataUrl: PNG_17x13,
+          evidencePins: [
+            {
+              label: "E1",
+              nx: 0.25,
+              ny: 0.75,
+              caption: "Kitchen leak",
+              inspectionPhotoId: "photo-1",
+            },
+          ],
+        },
+      ],
+    });
+    const text = await pdfText(bytes);
+    expect(text).toContain("Floor Plan");
+    expect(text).toContain("E1");
+    expect(text).toContain("Kitchen leak");
+    expect(await embeddedImageSizes(bytes)).toContainEqual({ w: 17, h: 13 });
+  });
+
+  it("draws IICRC damage markers on the same page as the sketch (not a blank crop)", async () => {
+    const bytes = await generateSketchPdf({
+      floors: [
+        {
+          label: "Ground",
+          pngDataUrl: PNG_17x13,
+          damageMarkers: [
+            {
+              id: "dm-1",
+              type: "water_cat3",
+              severity: "high",
+              nx: 0.35,
+              ny: 0.4,
+              label: "C3",
+              caption: "C3 Kitchen",
+              color: "#B91C1C",
+              room_label: "Kitchen",
+              notes: "Black water at kitchen sink",
+            },
+          ],
+        },
+      ],
+    });
+    const text = await pdfText(bytes);
+    expect(text).toContain("Floor Plan");
+    expect(text).toContain("Damage markers");
+    expect(text).toContain("Water Cat 3");
+    expect(text).toContain("C3 Kitchen");
+    expect(text).toContain("Black water at kitchen sink");
+    expect(await embeddedImageSizes(bytes)).toContainEqual({ w: 17, h: 13 });
+    expect((await embeddedImageSizes(bytes)).some((s) => s.w === 0 || s.h === 0)).toBe(
+      false,
+    );
   });
 });

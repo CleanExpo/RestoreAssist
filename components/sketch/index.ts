@@ -24,5 +24,6 @@ export { SketchMoistureLayer } from "./SketchMoistureLayer";
 export type { MoisturePin } from "./SketchMoistureLayer";
 export { SketchEvidenceLayer } from "./SketchEvidenceLayer";
 export type { EvidencePinView } from "./SketchEvidenceLayer";
+export { SketchDamageMarkerLayer } from "./SketchDamageMarkerLayer";
 export { SketchScaleModal } from "./SketchScaleModal";
 export type { ScaleConfig } from "./SketchScaleModal";

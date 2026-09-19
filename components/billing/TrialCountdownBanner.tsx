@@ -21,7 +21,7 @@ export default function TrialCountdownBanner() {
     return (
       <div
         data-testid="trial-expired-banner"
-        className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm"
+        className="border-b border-brand-bronze/40 bg-brand-deep px-4 py-2 text-sm text-slate-100"
       >
         <div className="container mx-auto flex items-center justify-between">
           <span>
@@ -43,7 +43,7 @@ export default function TrialCountdownBanner() {
 
   const days = data.daysRemaining;
   return (
-    <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm">
+    <div className="border-b border-brand-bronze/40 bg-brand-deep px-4 py-2 text-sm text-slate-100">
       <div className="container mx-auto flex items-center justify-between">
         <span>
           Your trial ends in <strong>{days} {days === 1 ? "day" : "days"} left</strong>.{" "}

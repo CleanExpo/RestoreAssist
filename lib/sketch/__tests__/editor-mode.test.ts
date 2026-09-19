@@ -9,10 +9,12 @@ import {
 } from "../editor-mode";
 
 describe("editor-mode", () => {
-  it("quick mode allows select, text, measure, pan only", () => {
+  it("quick mode allows select, text, measure, photo, marker, pan", () => {
     expect(isToolAllowedInMode("select", "quick")).toBe(true);
     expect(isToolAllowedInMode("text", "quick")).toBe(true);
     expect(isToolAllowedInMode("measure", "quick")).toBe(true);
+    expect(isToolAllowedInMode("photo", "quick")).toBe(true);
+    expect(isToolAllowedInMode("marker", "quick")).toBe(true);
     expect(isToolAllowedInMode("pan", "quick")).toBe(true);
     expect(isToolAllowedInMode("room", "quick")).toBe(false);
     expect(isToolAllowedInMode("door", "quick")).toBe(false);
@@ -33,6 +35,8 @@ describe("editor-mode", () => {
 
   it("QUICK_EDIT_TOOLS excludes CAD tools", () => {
     expect(QUICK_EDIT_TOOLS.has("select")).toBe(true);
+    expect(QUICK_EDIT_TOOLS.has("photo")).toBe(true);
+    expect(QUICK_EDIT_TOOLS.has("marker")).toBe(true);
     expect(QUICK_EDIT_TOOLS.has("room")).toBe(false);
   });
 

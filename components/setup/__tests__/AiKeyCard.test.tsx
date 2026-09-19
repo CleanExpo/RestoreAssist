@@ -29,9 +29,12 @@ function mockFetchSuccess() {
 }
 
 describe('AiKeyCard', () => {
-  it('renders the "any one of them is enough" hint', () => {
+  it('says the key is optional for Basic trial reports', () => {
     render(<AiKeyCard />);
-    expect(screen.getByText(/any one of them is enough/i)).toBeInTheDocument();
+    expect(screen.getByText(/work without a key/i)).toBeInTheDocument();
+    expect(screen.getByText(/optional upgrade/i)).toBeInTheDocument();
+    expect(screen.queryByText(/enough to operate/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/required to operate/i)).not.toBeInTheDocument();
   });
 
   it('renders a masked key input', () => {

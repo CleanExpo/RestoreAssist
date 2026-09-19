@@ -1,10 +1,30 @@
 import { describe, it, expect } from "vitest";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import { appendSketchPages } from "../append-sketch-pages";
 
 // A valid 1x1 transparent PNG — pdf-lib's embedPng must be able to parse it.
 const PNG_1x1 =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+/** Distinctive 17×13 gold PNG — proves the embed is the sketch, not a blank page. */
+const PNG_17x13 =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAANCAIAAADAGxJNAAAAFklEQVR42mO4srSEVMQwqmdUDx31AABidKmpPSOQawAAAABJRU5ErkJggg==";
+
+async function embeddedImageSizes(
+  pdfBytes: Uint8Array,
+): Promise<Array<{ w: number; h: number }>> {
+  const doc = await PDFDocument.load(pdfBytes);
+  const sizes: Array<{ w: number; h: number }> = [];
+  for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+    if (!(obj instanceof PDFRawStream)) continue;
+    const dict = obj.dict;
+    if (String(dict.get(PDFName.of("Subtype"))) !== "/Image") continue;
+    const w = Number(dict.get(PDFName.of("Width")));
+    const h = Number(dict.get(PDFName.of("Height")));
+    if (Number.isFinite(w) && Number.isFinite(h)) sizes.push({ w, h });
+  }
+  return sizes;
+}
 
 async function basePdf(pages = 1): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -26,6 +46,65 @@ describe("appendSketchPages", () => {
 
     const doc = await PDFDocument.load(out);
     expect(doc.getPageCount()).toBe(3);
+  });
+
+  it("embeds the floor-plan PNG on the appended page (not a blank/crop-empty page)", async () => {
+    const base = await basePdf(1);
+    const out = await appendSketchPages(
+      base,
+      [{ label: "Ground Floor", pngDataUrl: PNG_17x13, fabricJson: null }],
+      { reportNumber: "RPT-1" },
+    );
+    const doc = await PDFDocument.load(out);
+    expect(doc.getPageCount()).toBe(2);
+    expect(await embeddedImageSizes(out)).toContainEqual({ w: 17, h: 13 });
+  });
+
+  it("keeps damage-marker copy on the appended floor-plan page", async () => {
+    const base = await basePdf(1);
+    const out = await appendSketchPages(
+      base,
+      [
+        {
+          label: "Ground Floor",
+          pngDataUrl: PNG_17x13,
+          fabricJson: null,
+          damageMarkers: [
+            {
+              id: "dm-1",
+              type: "mould",
+              severity: "severe",
+              nx: 0.2,
+              ny: 0.3,
+              label: "Mo",
+              caption: "Mo Ensuite",
+              color: "#16A34A",
+              room_label: "Ensuite",
+              notes: "Visible growth on plaster",
+            },
+          ],
+        },
+      ],
+      { reportNumber: "RPT-1" },
+    );
+    const doc = await PDFDocument.load(out);
+    expect(doc.getPageCount()).toBe(2);
+    expect(await embeddedImageSizes(out)).toContainEqual({ w: 17, h: 13 });
+    let raw = "";
+    for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+      if (obj instanceof PDFRawStream) {
+        try {
+          raw += Buffer.from(decodePDFRawStream(obj).decode()).toString("latin1");
+        } catch {
+          /* image stream */
+        }
+      }
+    }
+    const text = Array.from(raw.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g))
+      .map((m) => Buffer.from(m[1], "hex").toString("latin1"))
+      .join("\n");
+    expect(text).toContain("Mo Ensuite");
+    expect(text).toContain("Visible growth on plaster");
   });
 
   it("returns the original bytes unchanged when there are no floors", async () => {

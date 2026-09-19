@@ -21,6 +21,7 @@ export type ToolMode =
   | "measure" // Measurement tool
   | "photo" // Evidence pin placement (photos on plan)
   | "moisture" // Moisture pin overlay
+  | "marker" // IICRC damage-marker overlay (RA-2953)
   | "pan" // Pan/navigate
   // RA-6841 [A2]: architectural opening symbols
   | "door" // Door — opening cut + leaf line + swing arc
@@ -118,6 +119,41 @@ import {
 } from "@/lib/sketch/short-dim-affordance";
 import { findNearestDimLabel, type DimLabelHitCandidate } from "@/lib/sketch/dim-label-hit";
 import type { SelectedObject } from "./SketchSelectionPanel";
+import {
+  IDENTITY_OVERLAY_VIEWPORT,
+  isPanGesture,
+  overlayViewportFromVpt,
+  type OverlayViewport,
+} from "@/lib/sketch/overlay-viewport";
+import {
+  applyDockZoom,
+  overlayFromDockCanvas,
+  resetDockZoom,
+  type DockZoomCanvas,
+} from "@/lib/sketch/dock-zoom";
+
+function applyHandleZoom(raw: unknown, factor: number): OverlayViewport {
+  const fc = raw as (DockZoomCanvas & { renderAll?: () => void }) | null;
+  if (!fc || typeof fc.setZoom !== "function" || typeof fc.getZoom !== "function") {
+    return { ...IDENTITY_OVERLAY_VIEWPORT };
+  }
+  const vpt = applyDockZoom(fc, factor);
+  fc.renderAll?.();
+  return vpt;
+}
+
+function applyHandleReset(
+  raw: unknown,
+  baseline?: OverlayViewport | null,
+): OverlayViewport {
+  const fc = raw as (DockZoomCanvas & { renderAll?: () => void }) | null;
+  if (!fc || typeof fc.setZoom !== "function") {
+    return baseline ? { ...baseline } : { ...IDENTITY_OVERLAY_VIEWPORT };
+  }
+  const vpt = resetDockZoom(fc, baseline);
+  fc.renderAll?.();
+  return vpt;
+}
 
 export interface SketchCanvasProps {
   width?: number;
@@ -139,6 +175,8 @@ export interface SketchCanvasProps {
   onReady?: (canvas: FabricCanvasRef) => void;
   onModified?: () => void;
   onSelect?: (obj: SelectedObject | null) => void;
+  /** Fired when Fabric zoom/pan changes so pin overlays can stay on the plan. */
+  onViewportChange?: (vpt: OverlayViewport) => void;
   readonly?: boolean;
   className?: string;
   /** When toolMode is "damage", tap/brush stamps this damage kind. */
@@ -175,6 +213,10 @@ export interface FabricCanvasRef {
   clear: () => void;
   /** Get underlying Fabric.Canvas instance */
   getFabricCanvas: () => unknown;
+  /** Dock Zoom In/Out — mutates Fabric and returns the overlay vpt to push into React. */
+  zoomBy: (factor: number) => OverlayViewport;
+  /** Dock Fit Canvas — restore a snapshotted overlay vpt onto Fabric. */
+  resetViewport: (baseline?: OverlayViewport | null) => OverlayViewport;
   /** Push current state to undo stack */
   saveState: () => void;
   /** Undo last action */
@@ -215,6 +257,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       backgroundImageOffsetY,
       backgroundImageLockAspect = true,
       onReady,
+      onViewportChange,
       onModified,
       readonly = false,
       className,
@@ -239,6 +282,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     const sizeRef = useRef({ width, height });
     sizeRef.current = { width, height };
     // ── Drawing state for the click/drag tools (read inside Fabric handlers) ──
+    const onViewportChangeRef = useRef(onViewportChange);
+    onViewportChangeRef.current = onViewportChange;
     const toolModeRef = useRef<ToolMode>(toolMode);
     const equipmentKindRef = useRef<EquipmentKind>(equipmentKind);
     const roomTemplateKindRef = useRef<RoomTemplateKind>(roomTemplateKind);
@@ -358,6 +403,16 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           c?.renderAll();
         },
         getFabricCanvas: () => fabricRef.current,
+        zoomBy: (factor) => {
+          const vpt = applyHandleZoom(fabricRef.current, factor);
+          onViewportChangeRef.current?.(vpt);
+          return vpt;
+        },
+        resetViewport: (baseline) => {
+          const vpt = applyHandleReset(fabricRef.current, baseline);
+          onViewportChangeRef.current?.(vpt);
+          return vpt;
+        },
         saveState,
         undo,
         redo,
@@ -444,6 +499,12 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         };
 
         // ── Zoom with mouse wheel ──
+        const notifyOverlay = () => {
+          onViewportChangeRef.current?.(
+            overlayFromDockCanvas(canvas as DockZoomCanvas),
+          );
+        };
+
         canvas.on("mouse:wheel", (opt: unknown) => {
           const e = (opt as { e: WheelEvent }).e;
           const delta = e.deltaY;
@@ -451,6 +512,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           zoom *= 0.999 ** delta;
           zoom = Math.max(0.3, Math.min(4, zoom));
           canvas.setZoom(zoom);
+          notifyOverlay();
           e.preventDefault();
           e.stopPropagation();
         });
@@ -461,7 +523,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
         canvas.on("mouse:down", (opt: unknown) => {
           const e = (opt as { e: MouseEvent }).e;
-          if (e.altKey || toolMode === "pan") {
+          // toolMode is closed over at Fabric init (always "select"). The
+          // live tool is toolModeRef — without it, Pan never starts and
+          // data-overlay-pan-x stays 0 (CI on 66de6109).
+          if (isPanGesture(toolModeRef.current, e.altKey)) {
             isPanning = true;
             lastPos = { x: e.clientX, y: e.clientY };
           }
@@ -473,9 +538,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             x: e.clientX - lastPos.x,
             y: e.clientY - lastPos.y,
           });
+          notifyOverlay();
           lastPos = { x: e.clientX, y: e.clientY };
         });
         canvas.on("mouse:up", () => {
+          if (isPanning) notifyOverlay();
           isPanning = false;
         });
 
@@ -2987,6 +3054,16 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             canvas.renderAll();
           },
           getFabricCanvas: () => fabricCanvas,
+          zoomBy: (factor) => {
+            const vpt = applyHandleZoom(fabricCanvas, factor);
+            onViewportChangeRef.current?.(vpt);
+            return vpt;
+          },
+          resetViewport: (baseline) => {
+            const vpt = applyHandleReset(fabricCanvas, baseline);
+            onViewportChangeRef.current?.(vpt);
+            return vpt;
+          },
           saveState,
           undo,
           redo,
@@ -2999,6 +3076,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // the current closure rather than the one captured at init.
           refreshWallBands: () => refreshWallBandsRef.current(),
         });
+        onViewportChangeRef.current?.(
+          overlayViewportFromVpt(
+            (canvas as { viewportTransform?: number[] }).viewportTransform,
+          ),
+        );
 
         // Cleanup
         return () => {

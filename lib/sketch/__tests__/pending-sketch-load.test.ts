@@ -3,6 +3,7 @@ import {
   fabricJsonFromStoredSketchData,
   scaleConfigFromStoredSketchData,
   roomMoistureCropFromStoredSketchData,
+  damageMarkersFromStoredSketchData,
 } from "../pending-sketch-load";
 
 describe("fabricJsonFromStoredSketchData", () => {
@@ -23,6 +24,7 @@ describe("fabricJsonFromStoredSketchData", () => {
         crop: { left: 0, top: 0, width: 10, height: 10, roomId: "r1" },
       },
       raSketchMeta: { fieldComplete: true },
+      damageMarkers: [{ type: "water_cat1", severity: "low", x: 1, y: 1 }],
     };
     const fabric = fabricJsonFromStoredSketchData(stored);
     expect(fabric).toEqual({
@@ -32,6 +34,7 @@ describe("fabricJsonFromStoredSketchData", () => {
     expect(fabric).not.toHaveProperty("scaleConfig");
     expect(fabric).not.toHaveProperty("roomMoistureCrop");
     expect(fabric).not.toHaveProperty("raSketchMeta");
+    expect(fabric).not.toHaveProperty("damageMarkers");
   });
 
   it("keeps background-only sketches restorable", () => {
@@ -74,6 +77,19 @@ describe("roomMoistureCropFromStoredSketchData", () => {
       roomMoistureCropFromStoredSketchData({
         roomMoistureCrop: { roomId: "r1", crop: { left: 0 } },
       }),
+    ).toBeNull();
+  });
+});
+
+describe("damageMarkersFromStoredSketchData", () => {
+  it("extracts the overlay array and rejects non-arrays", () => {
+    const markers = [{ type: "water_cat3", severity: "high", x: 1, y: 2 }];
+    expect(
+      damageMarkersFromStoredSketchData({ objects: [], damageMarkers: markers }),
+    ).toEqual(markers);
+    expect(damageMarkersFromStoredSketchData({ objects: [] })).toBeNull();
+    expect(
+      damageMarkersFromStoredSketchData({ damageMarkers: { type: "water_cat1" } }),
     ).toBeNull();
   });
 });

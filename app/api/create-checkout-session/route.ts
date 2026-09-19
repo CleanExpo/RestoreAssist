@@ -13,6 +13,7 @@ import {
   assertCatalogPrice,
   billingCountryFromOrg,
   customerPreferredLocaleForCountry,
+  CHECKOUT_CANCEL_PATH,
   monthlyCheckoutPresentation,
   productStatementDescriptorPatch,
 } from "@/lib/billing/checkout-presentation";
@@ -311,7 +312,7 @@ export async function POST(request: NextRequest) {
           },
         ],
         success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
+        cancel_url: `${baseUrl}${CHECKOUT_CANCEL_PATH}`,
         metadata: {
           userId: userId,
         },

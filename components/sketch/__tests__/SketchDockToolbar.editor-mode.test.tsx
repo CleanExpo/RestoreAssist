@@ -19,6 +19,9 @@ describe("SketchDockToolbar — Quick vs Advanced", () => {
       screen.getByRole("button", { name: /^Measure/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Label/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Photo/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Damage marker/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Pan/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Wall/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Door/ })).not.toBeInTheDocument();
     expect(
@@ -51,5 +54,26 @@ describe("SketchDockToolbar — Quick vs Advanced", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Advanced draw" }));
     expect(onMode).toHaveBeenCalledWith("advanced");
+  });
+
+  it("exposes the IICRC marker library when the marker tool is active", () => {
+    const onType = vi.fn();
+    render(
+      <SketchDockToolbar
+        toolMode="marker"
+        onToolChange={vi.fn()}
+        editorMode="quick"
+        markerType="water_cat1"
+        onMarkerTypeChange={onType}
+        markerSeverity="moderate"
+        onMarkerSeverityChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("sketch-damage-marker-library")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Water Cat 3" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mould" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Structural" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Fire" }));
+    expect(onType).toHaveBeenCalledWith("fire");
   });
 });

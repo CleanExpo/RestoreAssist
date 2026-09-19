@@ -12,6 +12,7 @@ import { getAppUrl } from "@/lib/app-url";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { getRecurringAddon } from "@/lib/billing/addon-registry";
 import { TECHNICIAN_SEATS_MAX_PER_CHECKOUT } from "@/lib/billing/technician-seats-addon";
+import { CHECKOUT_CANCEL_PATH } from "@/lib/billing/checkout-presentation";
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — fail-closed for iOS Capacitor.
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
               },
             ],
             success_url: `${baseUrl}/dashboard/success?addon=${addonKey}&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
+            cancel_url: `${baseUrl}${CHECKOUT_CANCEL_PATH}`,
             // Propagates onto the created Subscription so the webhook's
             // customer.subscription.* handlers can identify this add-on and
             // toggle the entitlement without touching the base-plan fields.
@@ -279,7 +280,7 @@ export async function POST(request: NextRequest) {
             },
           ],
           success_url: `${baseUrl}/dashboard/success?addon=${addonKey}&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
+          cancel_url: `${baseUrl}${CHECKOUT_CANCEL_PATH}`,
           metadata: {
             userId: userId,
             addonKey: addonKey,
