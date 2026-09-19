@@ -264,6 +264,10 @@ model User {
 
   // RA-VOI-001 — durable voice copilot sessions
   voiceCopilotSessions VoiceCopilotSession[] @relation("UserVoiceCopilotSessions")
+  // Text the Job In (S1): chat identities this user has linked, and the
+  // messages they have texted in.
+  messagingIdentities  MessagingIdentity[]
+  inboundJobMessages   InboundJobMessage[]
 
   // RA-2073 — short-lived handoff tokens for SFVC→WKWebView session ferrying
   oauthHandoffTokens OAuthHandoffToken[]
@@ -942,6 +946,8 @@ model Organization {
   owner   User         @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members User[]
   invites UserInvite[]
+  // Text the Job In (S1)
+  inboundJobMessages InboundJobMessage[]
 
   // RA-408: Pluggable storage abstraction (BYOE)
   storageProvider  StorageProviderType @default(SUPABASE)
@@ -2154,6 +2160,7 @@ model Inspection {
   // AI Assistant Tier (Phase 4 - Voice AI)
   voiceNotes           VoiceNote[]
   voiceCopilotSessions VoiceCopilotSession[] @relation("InspectionVoiceCopilotSessions")
+  inboundJobMessages   InboundJobMessage[]
 
   // AI Assistant Tier (Phase 5 - Property Data Integration)
   propertyYearBuilt        Int? // Exact year built
@@ -8905,4 +8912,54 @@ model PortalContent {
   @@index([audience, category, state])
   @@index([audience, state, requiresAddon])
   @@map("PortalContent")
+}
+
+// Text the Job In (S1). A chat account (Telegram first) that a RestoreAssist
+// user has proved they own by texting a one-time code from Settings. Only a row
+// with verifiedAt set may file anything. Server-only: RLS on, no policies.
+model MessagingIdentity {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "telegram" in S1.
+  channel    String
+  /// The channel's stable sender id (Telegram: from.id), never a display name.
+  address    String
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([channel, address])
+  @@index([userId])
+}
+
+// Text the Job In (S1). One row per message a linked technician texted in.
+// A note starts as "draft" (or "unmatched" when no job could be picked) and
+// only reaches the report once the technician confirms it, which writes a
+// confirmed VoiceCopilotObservation. "control" rows are the technician's own
+// replies (a confirm or a job pick), kept only so a redelivered reply is
+// recognised by externalId and never applied twice.
+// Server-only: RLS on, no policies.
+model InboundJobMessage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inspectionId   String?
+  inspection     Inspection?  @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  channel        String
+  /// "<channel>:<provider message id>". Unique so a redelivery cannot be filed twice.
+  externalId     String       @unique
+  body           String       @db.Text
+  /// Provider media references. Always empty in S1 (text only).
+  mediaRefs      Json         @default("[]")
+  parsed         Json?
+  /// draft | confirmed | rejected | unmatched | control
+  status         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, userId, status, createdAt])
+  @@index([inspectionId])
 }

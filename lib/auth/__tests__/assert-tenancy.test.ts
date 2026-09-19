@@ -13,6 +13,7 @@ import {
   assertInspectionTenancy,
   assertPortalReportTenancy,
   assertReportTenancy,
+  resolveInspectionReach,
   resolveInspectionWrite,
 } from "../assert-tenancy";
 
@@ -361,5 +362,33 @@ describe("resolveInspectionWrite", () => {
     if (!r.ok) throw new Error("unreachable");
     expect((r.data.inspectionWhere as { OR?: unknown }).OR).toBeTruthy();
     expect(inspFindFirst).toHaveBeenCalled();
+  });
+});
+
+// ─── resolveInspectionReach ──────────────────────────────────────────────────
+
+describe("resolveInspectionReach", () => {
+  it("401 when no session", async () => {
+    const r = await resolveInspectionReach(null);
+    expect(r.ok).toBe(false);
+  });
+
+  it("owner or active workspace member only, for a non-admin", async () => {
+    userFindUnique.mockResolvedValue({ role: "USER", organizationId: "org_1" });
+    const r = await resolveInspectionReach({ user: { id: "u_1" } });
+    if (!r.ok) throw new Error("unreachable");
+    expect(r.data).toEqual({
+      OR: [
+        { userId: "u_1" },
+        { workspace: { members: { some: { userId: "u_1", status: "ACTIVE" } } } },
+      ],
+    });
+  });
+
+  it("widens to the organisation for a tenant admin", async () => {
+    userFindUnique.mockResolvedValue({ role: "ADMIN", organizationId: "org_1" });
+    const r = await resolveInspectionReach({ user: { id: "u_1" } });
+    if (!r.ok) throw new Error("unreachable");
+    expect(r.data.OR).toContainEqual({ user: { organizationId: "org_1" } });
   });
 });

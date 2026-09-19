@@ -191,6 +191,11 @@ export const SERVICE_ONLY = new Set<string>([
   "OutboundEmailDelivery",
   "MediaCleanupTask",
   "NativeAuthNonce",
+  // Text the Job In (S1): chat-account links and texted-in job messages are
+  // written and read only by the messaging webhook and the link-code route.
+  // RLS enabled with zero client policies in 20260917090000.
+  "MessagingIdentity",
+  "InboundJobMessage",
   // These rows contain invite secrets, provider access/refresh tokens, delivery
   // audit details, or replay-prevention nonces. Even a user-scoped SELECT policy
   // would expose server credentials/security state, so they remain default-deny.
