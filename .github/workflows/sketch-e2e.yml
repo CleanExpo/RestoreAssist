@@ -213,8 +213,20 @@ jobs:
       #
       # Named individually, not globbed, because scripts/ci/check-e2e-coverage.mjs verifies
       # this workflow actually names each spec the manifest claims it runs.
-      - name: Run remaining E2E
+      #
+      # Split into three steps because each playwright invocation boots its own
+      # `next dev` (reuseExistingServer is off on CI), and dev mode keeps every route
+      # it has compiled in memory. As one step, memory climbed through all 36 specs
+      # until the runner was shut down mid-run ("The runner has received a shutdown
+      # signal"), three runs in a row at the same test, storage-restore.spec.ts, whose
+      # route pulls in googleapis. with-mem-log.sh prints free memory into the step
+      # log, the one record that survives a runner being killed.
+      #
+      # Groups B and C run even when an earlier group fails (!cancelled()), so one red
+      # spec does not hide the results of the rest. The job still fails.
+      - name: Run remaining E2E (1 of 3)
         run: >-
+          bash scripts/ci/with-mem-log.sh
           npx --no-install playwright test -c config/playwright.config.ts
           e2e/account-deletion.spec.ts
           e2e/billing.spec.ts
@@ -228,6 +240,13 @@ jobs:
           e2e/help/redirects.spec.ts
           e2e/help/search-cmd-k.spec.ts
           e2e/invite-tech-already-used.spec.ts
+          --project=chromium --reporter=line
+
+      - name: Run remaining E2E (2 of 3)
+        if: ${{ !cancelled() }}
+        run: >-
+          bash scripts/ci/with-mem-log.sh
+          npx --no-install playwright test -c config/playwright.config.ts
           e2e/invite-tech-expired.spec.ts
           e2e/invite-tech-google-oauth.spec.ts
           e2e/invite-tech-happy-path.spec.ts
@@ -244,6 +263,13 @@ jobs:
           e2e/setup-skip-manual.spec.ts
           e2e/setup-technician-gate.spec.ts
           e2e/setup-website-failure.spec.ts
+          --project=chromium --reporter=line
+
+      - name: Run remaining E2E (3 of 3)
+        if: ${{ !cancelled() }}
+        run: >-
+          bash scripts/ci/with-mem-log.sh
+          npx --no-install playwright test -c config/playwright.config.ts
           e2e/storage-restore.spec.ts
           e2e/stripe-payment-intent-webhook.spec.ts
           e2e/tech-banner-auto-dismiss.spec.ts
