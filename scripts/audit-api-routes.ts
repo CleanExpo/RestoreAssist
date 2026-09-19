@@ -117,7 +117,10 @@ function hasAuth(content: string): boolean {
     // resolves to getServerSession internally for next-auth / portal-jwt.
     // Recognising it here is behaviour-based (any route that actually calls the
     // gate passes) rather than path-exempt.
-    content.includes("requireClientAuth(")
+    content.includes("requireClientAuth(") ||
+    // getApiSession() (lib/auth/get-api-session.ts) resolves to getServerSession
+    // with a getToken fallback. Behaviour-based, same as the two above.
+    content.includes("getApiSession(")
   );
 }
 

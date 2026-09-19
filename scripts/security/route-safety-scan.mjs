@@ -107,7 +107,11 @@ function hasAuthGate(content) {
     // scanner report gated portal routes as ungated, which is a false positive
     // that can only be silenced by baselining them — and a baseline entry on a
     // file is permanent blindness to the next real regression in that file.
-    content.includes("requireClientAuth(")
+    content.includes("requireClientAuth(") ||
+    // getApiSession(request) (lib/auth/get-api-session.ts) calls
+    // getServerSession(authOptions) and falls back to getToken({ req }); routes
+    // migrated to it on 2026-09-18 are gated, not ungated.
+    content.includes("getApiSession(")
   );
 }
 
