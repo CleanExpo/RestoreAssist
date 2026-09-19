@@ -11,19 +11,43 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import ts from "typescript";
 
 const KEY = /photo|in[_ -]?progress/i;
 
 /**
- * User-visible copy in a TSX file: JSX text and string literals, not code.
- * JSX text runs end at `<` or `{`, so `Photos are {x} required` is still read.
+ * User-visible copy in a TS/TSX file, read from the compiler's AST so that
+ * punctuation in prose (a semicolon, an `=`) can never be mistaken for code:
+ * - each JSX element's children joined in order, with string-literal
+ *   expressions inlined (`{" "}`) and any other expression as a space;
+ * - every string and no-substitution template literal.
  */
 function tsxCopyRuns(src: string): string[] {
-  const jsxText = [...src.matchAll(/[>}]([^<>{}]+)(?=[<{])/g)]
-    .map((m) => m[1])
-    .filter((run) => !/[;=]|=>|\)\s*$/.test(run));
-  const strings = [...src.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)].map((m) => m[1]);
-  return [...jsxText, ...strings];
+  const sf = ts.createSourceFile("copy.tsx", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const runs: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxElement(node) || ts.isJsxFragment(node)) {
+      runs.push(
+        node.children
+          .map((child) => {
+            if (ts.isJsxText(child)) return child.text;
+            if (ts.isJsxExpression(child) && child.expression &&
+                (ts.isStringLiteral(child.expression) ||
+                 ts.isNoSubstitutionTemplateLiteral(child.expression))) {
+              return child.expression.text;
+            }
+            return " ";
+          })
+          .join(""),
+      );
+    }
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      runs.push(node.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return runs;
 }
 
 /** MDX: every line is its own block (headings, list items, paragraphs). */
@@ -106,9 +130,14 @@ describe("Basic prerequisite copy contract (RA-7550)", () => {
     expect(sentencesMentioningPrerequisites(tsxCopyRuns(tsx))).toContain(
       "Set the inspection status to IN_PROGRESS before generating.",
     );
-    const interpolated = '<p>Photos are {" "}needed for Basic.</p>';
+    const interpolated = '<p>Photos are {" "}needed for {tier}.</p>';
     expect(
       sentencesMentioningPrerequisites(tsxCopyRuns(interpolated)),
-    ).toContain("Photos are");
+    ).toContain("Photos are needed for .");
+    const semicolon =
+      "<p>Before generating Basic, attach photos; this is mandatory.</p>";
+    expect(sentencesMentioningPrerequisites(tsxCopyRuns(semicolon))).toContain(
+      "Before generating Basic, attach photos; this is mandatory.",
+    );
   });
 });
