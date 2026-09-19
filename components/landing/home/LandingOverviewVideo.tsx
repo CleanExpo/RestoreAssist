@@ -31,7 +31,9 @@ export function LandingOverviewVideo() {
             sandbox="allow-scripts allow-same-origin allow-presentation"
             referrerPolicy="strict-origin-when-cross-origin"
             loading="lazy"
-            {...{ credentialless: "" }}
+            // React 19.3 treats credentialless as a boolean attribute: "" now
+            // renders nothing (and warns); true renders credentialless="".
+            {...{ credentialless: true }}
             className="absolute inset-0 h-full w-full"
           />
         ) : poster ? (
