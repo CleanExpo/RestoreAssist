@@ -141,7 +141,7 @@ export async function GET(
       steps,
     });
   } catch (err) {
-    return fromException(_request, err, {
+    return fromException(request, err, {
       stage: "first-run:get",
     }) as NextResponse<FirstRunChecklistResponse>;
   }
