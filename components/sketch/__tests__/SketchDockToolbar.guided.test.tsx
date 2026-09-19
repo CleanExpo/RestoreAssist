@@ -11,6 +11,7 @@ const TECH_ONLY = [
   /^Door/,
   /^Window/,
   /^Affected area/,
+  /^Damage marker/,
   /^Equipment/,
   /^Markup/,
   /^Arrow/,

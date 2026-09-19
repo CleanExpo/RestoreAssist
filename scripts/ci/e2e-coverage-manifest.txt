@@ -77,6 +77,7 @@ setup-website-failure.spec.ts            workflow:sketch-e2e.yml
 signup-pricing-honesty.spec.ts           smoke
 sketch-api.spec.ts                       workflow:sketch-e2e.yml
 sketch-chrome-1280.spec.ts               workflow:sketch-e2e.yml
+sketch-damage-markers-1280.spec.ts       workflow:sketch-e2e.yml
 sketch-image-report-1280.spec.ts         workflow:sketch-e2e.yml
 storage-restore.spec.ts                  workflow:sketch-e2e.yml
 stripe-payment-intent-webhook.spec.ts    workflow:sketch-e2e.yml

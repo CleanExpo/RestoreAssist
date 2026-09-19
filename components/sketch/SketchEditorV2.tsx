@@ -10,6 +10,7 @@
  *   - SketchFloorTabs      → multi-floor switcher with safe-save
  *   - SketchSelectionPanel → context-sensitive property panel
  *   - SketchMoistureLayer  → React DOM moisture pin overlay
+ *   - SketchDamageMarkerLayer → IICRC S500/S520/S700 overlay markers (RA-2953)
  *   - SketchScaleModal     → 2-click scale calibration
  *   - FloorPlanUnderlayLoader → OTH floor plan fetcher
  *
@@ -64,6 +65,7 @@ import {
   fabricJsonFromStoredSketchData,
   scaleConfigFromStoredSketchData,
   roomMoistureCropFromStoredSketchData,
+  damageMarkersFromStoredSketchData,
 } from "@/lib/sketch/pending-sketch-load";
 import {
   isEmptySketchData,
@@ -99,11 +101,18 @@ import { ANZ_MATERIAL_OPTIONS } from "@/lib/anz/material-options";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
+import { SketchDamageMarkerLayer } from "./SketchDamageMarkerLayer";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
   overlayViewportFromVpt,
   type OverlayViewport,
 } from "@/lib/sketch/overlay-viewport";
+import {
+  parseDamageMarkers,
+  type DamageMarker,
+  type DamageMarkerSeverity,
+  type DamageMarkerType,
+} from "@/lib/sketch/damage-markers";
 import {
   applyDockZoom,
   DOCK_ZOOM_MAX,
@@ -116,7 +125,10 @@ import type {
   ExistingEvidencePhoto,
 } from "./SketchEvidenceLayer";
 import type { DamageKind } from "@/lib/sketch/damage-zone";
-import { roomsFromFabricObjects } from "@/lib/sketch/damage-zone";
+import {
+  findContainingRoom,
+  roomsFromFabricObjects,
+} from "@/lib/sketch/damage-zone";
 import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
@@ -180,6 +192,7 @@ interface FloorData {
   canvasRef: React.MutableRefObject<FabricCanvasRef | null>;
   moisturePins: MoisturePin[];
   evidencePins: EvidencePinView[];
+  damageMarkers: DamageMarker[];
   backgroundUrl: string | null;
   backgroundOpacity: number;
   // PR4b: underlay transform. null scale/offset = legacy fit-to-width baseline.
@@ -315,6 +328,7 @@ export function SketchEditorV2({
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
       evidencePins: [],
+      damageMarkers: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
       backgroundScale: null,
@@ -340,6 +354,10 @@ export function SketchEditorV2({
   const [editorMode, setEditorMode] = useState<SketchEditorMode>("advanced");
   const editorModeUserSetRef = useRef(false);
   const [damageKind, setDamageKind] = useState<DamageKind>("water");
+  const [markerType, setMarkerType] =
+    useState<DamageMarkerType>("water_cat1");
+  const [markerSeverity, setMarkerSeverity] =
+    useState<DamageMarkerSeverity>("moderate");
   const [equipmentKind, setEquipmentKind] =
     useState<import("@/lib/sketch/equipment-symbols").EquipmentKind>(
       "dehumidifier",
@@ -367,6 +385,7 @@ export function SketchEditorV2({
       !fd.backgroundUrl &&
       fd.moisturePins.length === 0 &&
       fd.evidencePins.length === 0 &&
+      fd.damageMarkers.length === 0 &&
       isEmptySketchData(fd.sketchSnapshot ?? fd.pendingSketchData);
     if (blank) {
       setStartOverlayDismissed(false);
@@ -482,6 +501,9 @@ export function SketchEditorV2({
               canvasRef,
               moisturePins: (s.moisturePoints as MoisturePin[] | null) ?? [],
               evidencePins: [],
+              damageMarkers: parseDamageMarkers(
+                damageMarkersFromStoredSketchData(s.sketchData),
+              ),
               backgroundUrl: s.backgroundImageUrl ?? null,
               backgroundOpacity:
                 typeof s.backgroundImageOpacity === "number"
@@ -520,7 +542,8 @@ export function SketchEditorV2({
               (fd) =>
                 !isEmptySketchData(fd.pendingSketchData) ||
                 fd.backgroundUrl ||
-                fd.moisturePins.length > 0,
+                fd.moisturePins.length > 0 ||
+                fd.damageMarkers.length > 0,
             )
           ) {
             setStartOverlayDismissed(true);
@@ -808,10 +831,11 @@ export function SketchEditorV2({
           }
         }
         const base = pickSketchDataForSave(liveJson, fd.sketchSnapshot);
-        if (!base) return;
+        if (!base && fd.damageMarkers.length === 0) return;
         const sketchData = {
-          ...withSketchFieldComplete(base, fd.fieldComplete === true),
+          ...withSketchFieldComplete(base ?? { objects: [] }, fd.fieldComplete === true),
           scaleConfig: fd.scaleConfig,
+          damageMarkers: fd.damageMarkers,
           ...(fd.roomMoistureCrop
             ? { roomMoistureCrop: fd.roomMoistureCrop }
             : {}),
@@ -1290,6 +1314,7 @@ export function SketchEditorV2({
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
       evidencePins: [],
+      damageMarkers: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
       backgroundScale: null,
@@ -1373,6 +1398,31 @@ export function SketchEditorV2({
       scheduleSave();
     },
     [activeIdx, scheduleSave],
+  );
+
+  const handleDamageMarkersChange = useCallback(
+    (markers: DamageMarker[]) => {
+      setFloorsData((prev) =>
+        prev.map((fd, i) =>
+          i === activeIdx ? { ...fd, damageMarkers: markers } : fd,
+        ),
+      );
+      scheduleSave();
+    },
+    [activeIdx, scheduleSave],
+  );
+
+  const resolveDamageMarkerRoom = useCallback(
+    (x: number, y: number) => {
+      const canvas = floorsDataRef.current[activeIdx]?.canvasRef.current;
+      const fc = canvas?.getFabricCanvas() as
+        | { getObjects?: () => unknown[] }
+        | null
+        | undefined;
+      const rooms = roomsFromFabricObjects(fc?.getObjects?.() ?? []);
+      return findContainingRoom(x, y, rooms)?.label ?? "";
+    },
+    [activeIdx],
   );
 
   const persistEvidencePin = useCallback(
@@ -1633,6 +1683,7 @@ export function SketchEditorV2({
             fabricJson: canvas.toJSON(),
             roomMoistureCrop: fd.roomMoistureCrop ?? null,
             moisturePins: fd.moisturePins,
+            damageMarkers: fd.damageMarkers,
           };
         })
         .filter(Boolean);
@@ -2482,6 +2533,22 @@ export function SketchEditorV2({
                 }
               />
 
+              {!guided && (
+                <SketchDamageMarkerLayer
+                  markers={fd.damageMarkers}
+                  onChange={handleDamageMarkersChange}
+                  overlayViewport={overlayVpt}
+                  active={
+                    toolMode === "marker" && idx === activeIdx && !readonly
+                  }
+                  selectedType={markerType}
+                  selectedSeverity={markerSeverity}
+                  resolveRoomLabel={resolveDamageMarkerRoom}
+                  width={viewport.width}
+                  height={viewport.height}
+                />
+              )}
+
               {/* Evidence pins on plan (P0) */}
               {!guided && (
                 <SketchEvidenceLayer
@@ -2521,6 +2588,7 @@ export function SketchEditorV2({
               !activeFloor?.backgroundUrl &&
               (activeFloor?.moisturePins.length ?? 0) === 0 &&
               (activeFloor?.evidencePins.length ?? 0) === 0 &&
+              (activeFloor?.damageMarkers.length ?? 0) === 0 &&
               isEmptySketchData(
                 activeFloor?.sketchSnapshot ?? activeFloor?.pendingSketchData,
               )
@@ -3171,6 +3239,10 @@ export function SketchEditorV2({
         onToolChange={handleToolChange}
         damageKind={damageKind}
         onDamageKindChange={setDamageKind}
+        markerType={markerType}
+        onMarkerTypeChange={setMarkerType}
+        markerSeverity={markerSeverity}
+        onMarkerSeverityChange={setMarkerSeverity}
         equipmentKind={equipmentKind}
         onEquipmentKindChange={setEquipmentKind}
         roomTemplateKind={roomTemplateKind}
