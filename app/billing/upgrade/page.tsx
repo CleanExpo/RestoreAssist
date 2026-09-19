@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import UpgradeHeader from "./UpgradeHeader";
 import TierGrid from "./TierGrid";
 import UpgradeFaq from "./UpgradeFaq";
+import CancelledCheckoutNotice from "./CancelledCheckoutNotice";
 import BillingGate from "@/components/capacitor/BillingGate";
 
 export const dynamic = "force-dynamic";
@@ -56,14 +57,7 @@ export default async function UpgradePage({
           aria-hidden
         />
         <main className="relative mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-12">
-          {cancelled && (
-            <p
-              role="status"
-              className="mb-6 rounded-xl border border-border bg-muted/60 px-4 py-3 text-sm text-foreground"
-            >
-              Checkout cancelled — continue when you&apos;re ready.
-            </p>
-          )}
+          {cancelled && <CancelledCheckoutNotice />}
           <UpgradeHeader reason={reason} feature={feature} />
           <TierGrid isCurrentPlan={isCurrentPlan} />
           <UpgradeFaq />

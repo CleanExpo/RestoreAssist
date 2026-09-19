@@ -1,11 +1,15 @@
 "use client";
 
 /**
- * Persistent guidance when the workspace has no operating AI key.
+ * Persistent guidance when the workspace has no operating AI key — or a
+ * stored key that failed validation (RA-7428).
  *
  * Report generation hard-402s without a workspace BYOK key. The onboarding
  * status API already marks `ai_provider` required; this banner is the
  * returning-user surface so that is not only visible behind `?welcome=1`.
+ *
+ * When `rejectedKey` is set, this is the only warning: AiKeySetupBanner
+ * hides so the user is not told to "add a key" they already have.
  *
  * Guidance, not a gate: never blocks navigation. Renders nothing until the
  * status call succeeds, and nothing if the call fails.
@@ -27,6 +31,10 @@ const HIDE_ON_PREFIXES = [
 function shouldShow(data: OnboardingStatusResponse): boolean {
   const step = data.steps?.ai_provider;
   return Boolean(step && step.required && !step.completed);
+}
+
+function isRejectedKey(data: OnboardingStatusResponse): boolean {
+  return Boolean(data.steps?.ai_provider?.rejectedKey);
 }
 
 export function AiProviderBanner() {
@@ -63,6 +71,9 @@ export function AiProviderBanner() {
     return null;
   }
 
+  const rejected = isRejectedKey(data);
+  const step = data.steps.ai_provider;
+
   return (
     <div
       role="status"
@@ -74,20 +85,22 @@ export function AiProviderBanner() {
           <RAIcon name="report" size={18} decorative className="mt-0.5" />
           <div className="min-w-0">
             <p className="text-sm font-medium">
-              Reports will not generate without an AI key
+              {rejected
+                ? step.title
+                : "Reports will not generate without an AI key"}
             </p>
             <p className="text-xs text-amber-800/80 dark:text-amber-200/80">
-              RestoreAssist runs report generation on your Anthropic or OpenAI
-              key. Until you add one, generating a report fails instead of
-              producing a document.
+              {rejected
+                ? step.description
+                : "RestoreAssist runs report generation on your Anthropic or OpenAI key. Until you add one, generating a report fails instead of producing a document."}
             </p>
           </div>
         </div>
         <Link
-          href={data.steps.ai_provider.route || DEFAULT_AI_PROVIDER_ROUTE}
+          href={step.route || DEFAULT_AI_PROVIDER_ROUTE}
           className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors min-h-[36px] inline-flex items-center bg-amber-500 hover:bg-amber-600 text-white flex-shrink-0"
         >
-          Add AI key
+          {rejected ? "Replace key" : "Add AI key"}
         </Link>
       </div>
     </div>

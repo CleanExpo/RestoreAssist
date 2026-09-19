@@ -21,7 +21,7 @@ export function DashboardPanel({
   return (
     <div
       className={cn(
-        "rounded-lg overflow-hidden",
+        "min-w-0 overflow-hidden rounded-lg",
         dashboardSurfaceClass,
         padded && "p-4 sm:p-6",
         className,

@@ -66,7 +66,8 @@ export function SketchPlanLifecycleBanner({
   return (
     <div
       className={cn(
-        "absolute top-3 left-1/2 z-20 -translate-x-1/2 max-w-lg w-[calc(100%-1.5rem)]",
+        // In-flow chrome — never sticky/fixed/absolute over the canvas (RA-7543).
+        "relative shrink-0 mx-auto max-w-lg w-[calc(100%-1.5rem)] my-2",
         "rounded-xl border border-white/15 bg-brand-navy/92 backdrop-blur-md shadow-lg",
         "px-3 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3",
         className,
@@ -74,6 +75,8 @@ export function SketchPlanLifecycleBanner({
       role="status"
       aria-live="polite"
       data-plan-phase={phase}
+      data-testid="sketch-plan-lifecycle-banner"
+      data-sketch-chrome="in-flow"
     >
       <div className="flex items-start gap-2.5 min-w-0 flex-1">
         <Icon

@@ -56,6 +56,12 @@ describe("OnboardingClient", () => {
 
     // Header reflects the server's step count (6), not 6 + fallback extras.
     expect(screen.getByText(/of 6 steps complete/i)).toBeInTheDocument();
+
+    // RA-7549 — post-signup CTA is on this surface and is not a BYOK wall.
+    const cta = screen.getByRole("link", {
+      name: /Create Basic report without API key/i,
+    });
+    expect(cta).toHaveAttribute("href", "/dashboard/reports/new");
   });
 
   it("falls back to the static list only when the status API is unreachable", async () => {

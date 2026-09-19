@@ -161,47 +161,47 @@ describe("free-trial honesty — grant matches advertised copy", () => {
     expect(src).not.toMatch(/3 complimentary/i);
   });
 
-  // The trial advertises report credits, but report generation requires a
-  // workspace Anthropic/OpenAI key — without one the API returns 402 and the
-  // trial cannot produce the thing it was sold on. That is why
-  // AiKeySetupBanner exists. Copy that promises the credits must not also
-  // promise that setup is instant, and the claim surfaces that end up in
-  // search results must carry the precondition. The pricing metadata already
-  // sets this standard ("on your own provider key"); these are the two places
-  // that did not meet it.
-  it("marketing copy never promises instant setup, since a BYOK key is required first", () => {
-    // Every rendered landing copy source, not just one file: FAQSection is
-    // live on /landing/dawn-split and carried the same claim.
+  // RA-7549 — D-022 lets a funded trial generate Basic reports without BYOK.
+  // Marketing that still says "an API key is required first" is the lie this
+  // ticket exists to stop. Instant-setup remains unpromised; the honest
+  // claim is that Basic works without a key, and provider charges apply
+  // only when the buyer adds their own.
+  it("marketing copy states Basic works without a key, not that BYOK is required first", () => {
     for (const rel of [
       "components/landing/home/homeContent.ts",
       "components/landing/home/FAQSection.tsx",
     ]) {
-      // "Instant setup" is false: the user must obtain a provider key and add
-      // it in workspace settings before a single report can be generated.
       expect(readSrc(rel), `${rel} should not promise instant setup`).not.toMatch(
         /instant setup/i,
       );
+      expect(
+        readSrc(rel),
+        `${rel} should not say a key is required to operate`,
+      ).not.toMatch(/API key is required to operate/i);
     }
     const src = readSrc("components/landing/home/homeContent.ts");
-    // The CTA reassurance block sits directly above the signup button, so if it
-    // states the credit grant it must also state the key requirement.
     expect(src).toMatch(/reassurances/);
     expect(
-      /your own [^.]{0,60}key/i.test(src),
-      "home copy should state the bring-your-own-key requirement",
+      /Basic reports without an API key/i.test(src),
+      "home copy should state Basic works without pasting an API key",
+    ).toBe(true);
+    expect(
+      /provider charges apply only if you add your own/i.test(src),
+      "home copy should say when provider charges apply",
     ).toBe(true);
   });
 
-  it("how-it-works metadata states the AI-key requirement alongside the trial claim", () => {
+  it("how-it-works metadata states Basic-without-key alongside the trial claim", () => {
     const src = readSrc("app/how-it-works/layout.tsx");
-    // Metadata is the claim surface that lands in search results and link
-    // previews, so a trial/credits promise there needs the precondition with
-    // it — the same rule app/pricing/layout.tsx already follows.
     const advertisesTrial = /trial|report credits/i.test(src);
     expect(advertisesTrial).toBe(true);
     expect(
-      /your own [^.]{0,60}key/i.test(src),
-      "how-it-works metadata advertises the trial, so it must state the key requirement",
+      /without pasting an API key/i.test(src),
+      "how-it-works metadata advertises the trial, so it must state Basic works without a key",
+    ).toBe(true);
+    expect(
+      /provider charges apply only if you add your own key/i.test(src),
+      "how-it-works metadata must say when provider charges apply",
     ).toBe(true);
   });
 

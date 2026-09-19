@@ -152,14 +152,13 @@ export function WelcomeOverview() {
 
         <div className="rounded-lg border border-brand-navy/10 p-4">
           <h3 className="mb-2 text-sm font-semibold text-neutral-900">
-            Next: your own AI key
+            Next: a Basic report — no API key needed
           </h3>
           <p className="text-sm leading-relaxed text-neutral-700">
-            The drafting runs on an AI provider key that you own and pay for
-            directly, rather than one of ours. That means your job data goes to
-            your account under your provider&rsquo;s terms, you can see exactly
-            what it costs, and you can revoke it at any time without asking us.
-            The next step walks you through adding one.
+            Basic reports on the trial work without pasting an Anthropic or
+            OpenAI key. Adding your own key later is optional: that provider
+            then bills you directly, at their rates, and you can revoke it at
+            any time. Start with a Basic report first.
           </p>
         </div>
       </CardContent>

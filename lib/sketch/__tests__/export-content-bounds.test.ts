@@ -20,6 +20,7 @@ describe("isExportCropObject", () => {
     expect(isExportCropObject({ data: { type: "dim-label" } })).toBe(true);
     expect(isExportCropObject({ data: { type: "damage" } })).toBe(true);
     expect(isExportCropObject({ data: { type: "wall" } })).toBe(true);
+    expect(isExportCropObject({ data: { type: "photo" } })).toBe(true);
   });
 
   it("excludes invisible objects", () => {

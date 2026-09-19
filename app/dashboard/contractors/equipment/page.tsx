@@ -74,7 +74,7 @@ export default function EquipmentPage() {
               variant="outline"
               className="border-slate-600 text-slate-300"
             >
-              <Link href="/dashboard/contractors">Contractor profile</Link>
+              <Link href="/dashboard/contractors">Contractor workspace</Link>
             </Button>
           </div>
         </CardContent>

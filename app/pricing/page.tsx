@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useState } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import {
+  PRICING_KEY_ALERT_BODY,
+  PRICING_KEY_ALERT_TITLE,
+} from "@/lib/signup-pricing-honesty";
+import { PublicPricingCta } from "@/components/pricing/PublicPricingCta";
 import { perReportRate, formatPerReport } from "@/lib/pricing/unit-rate";
 import { VolumePicker } from "@/components/pricing/VolumePicker";
 import { TierComparison, PAID_ONLY_CAPABILITIES } from "@/components/pricing/TierComparison";
@@ -163,13 +167,10 @@ function PricingPageContent() {
         <div className={CONTAINER}>
           <Alert className="mx-auto mb-12 max-w-3xl border-slate-200 bg-[#F3F5F7]">
             <AlertTitle className="text-[#0B1F3A]">
-              Bring your own AI key
+              {PRICING_KEY_ALERT_TITLE}
             </AlertTitle>
             <AlertDescription className="text-slate-600">
-              Report generation on every plan — including your free trial —
-              runs on your own Anthropic or OpenAI API key. You pay your
-              provider directly, at cost, so you stay in control of usage and
-              data. Add your key in Settings → AI Providers after signup.
+              {PRICING_KEY_ALERT_BODY}
             </AlertDescription>
           </Alert>
 
@@ -359,12 +360,10 @@ function PricingPageContent() {
                     : null}
                 </ul>
 
-                <Link
-                  href="/signup"
+                <PublicPricingCta
+                  kind={plan.isFree ? "trial" : "monthly"}
                   className={`${plan.popular || plan.isFree ? CTA_PRIMARY : CTA_SECONDARY} mt-8 w-full`}
-                >
-                  {plan.isFree ? "Get Started Free" : "Start Free Trial"}
-                </Link>
+                />
               </motion.article>
             ))}
           </motion.div>
@@ -378,11 +377,11 @@ function PricingPageContent() {
           <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-slate-500">
             Every per-report figure on this page covers the plan and report
             packs only. Two other things can add to your bill and are not in
-            those figures: any optional add-ons you switch on, and your own AI
-            provider — report generation runs on your key, that provider bills
-            you directly, we take no share of it, and we do not publish an
-            estimate we cannot stand behind. The full ledger of all three is set
-            out at the bottom of this page.
+            those figures: any optional add-ons you switch on, and — only if
+            you add your own AI key — your provider, who bills you directly.
+            Basic reports on the free trial do not need a key. We take no share
+            of provider charges and we do not publish an estimate we cannot
+            stand behind. The full ledger is set out at the bottom of this page.
           </p>
 
           {/* Work out what a given month actually costs, before signing up.
@@ -477,12 +476,7 @@ function PricingPageContent() {
                       </p>
                   </div>
                 </div>
-                <Link
-                  href="/signup"
-                    className={`${addon.popular ? CTA_PRIMARY : CTA_SECONDARY} mt-6 w-full`}
-                >
-                  Add to Plan
-                </Link>
+                <PublicPricingCta kind="pack" />
                 </motion.article>
               ))}
               </motion.div>

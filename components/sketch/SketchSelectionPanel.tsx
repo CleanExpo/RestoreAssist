@@ -2,7 +2,8 @@
 
 /**
  * SketchSelectionPanel — context-sensitive panel that appears when an object
- * is selected on the canvas.  Floats over the canvas (absolute position).
+ * is selected on the canvas. Lives in document flow beside the canvas
+ * (not sticky/fixed/absolute over the drawing surface).
  *
  * Exposes room type, label, colour, opacity, and stroke controls.
  */
@@ -195,11 +196,14 @@ export function SketchSelectionPanel({
   return (
     <div
       className={cn(
-        "absolute top-4 right-4 z-20 w-56",
+        // In-flow chrome — never sticky/fixed/absolute over the canvas (RA-7543).
+        "relative shrink-0 w-56 max-h-full overflow-y-auto",
         "bg-brand-navy/95 backdrop-blur-sm border border-white/10 rounded-xl shadow-2xl",
         "p-3 space-y-2.5 text-sm text-white",
         className,
       )}
+      data-testid="sketch-selection-panel"
+      data-sketch-chrome="in-flow"
       onPointerDown={(e) => e.stopPropagation()}
     >
       {/* Header */}

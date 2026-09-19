@@ -92,6 +92,41 @@ describe("AiProviderBanner", () => {
     expect(screen.queryByText(/Add your Anthropic or OpenAI API key/)).not.toBeInTheDocument();
   });
 
+  it("says the stored key was rejected and offers Replace key, not Add AI key (RA-7428)", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...missingKey,
+        steps: {
+          ai_provider: {
+            ...missingKey.steps.ai_provider,
+            title: "Your Anthropic key was rejected on 25 Aug 2026",
+            description:
+              "The stored key failed validation. Replace it to generate reports.",
+            route: "/dashboard/settings/ai-providers?provider=ANTHROPIC",
+            rejectedKey: {
+              provider: "ANTHROPIC",
+              rejectedAt: "2026-08-25T00:00:00.000Z",
+            },
+          },
+        },
+      }),
+    });
+    render(<AiProviderBanner />);
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Your Anthropic key was rejected on 25 Aug 2026/),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: "Replace key" })).toHaveAttribute(
+      "href",
+      "/dashboard/settings/ai-providers?provider=ANTHROPIC",
+    );
+    expect(screen.queryByText(/Reports will not generate without an AI key/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Add AI key" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/add your AI key/i)).not.toBeInTheDocument();
+  });
+
   it("stays hidden on the AI-providers settings page", async () => {
     pathname.mockReturnValue("/dashboard/settings/ai-providers");
     fetchMock.mockResolvedValueOnce({

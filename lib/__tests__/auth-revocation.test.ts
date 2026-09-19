@@ -112,6 +112,36 @@ describe("JWT session revocation rechecks", () => {
     expect((result as any).revoked).toBe(true);
   });
 
+  it("does not revoke a legacy token that has no mintedAt or iat", async () => {
+    mockPrisma.securityEvent.findFirst.mockResolvedValueOnce({
+      createdAt: new Date((NOW_SECONDS - 60) * 1000),
+    });
+
+    const result = await invokeJwt(
+      validToken({ mintedAt: undefined, iat: undefined }),
+    );
+
+    expect((result as any).sub).toBe("user_1");
+    expect((result as any).revoked).toBeUndefined();
+    expect((result as any).mintedAt).toBe(NOW_SECONDS);
+  });
+
+  it("does not revoke a token reminted on the same callback as authorize()", async () => {
+    mockPrisma.securityEvent.findFirst.mockResolvedValueOnce({
+      createdAt: new Date(NOW_SECONDS * 1000),
+    });
+    const jwtCallback = authOptions.callbacks?.jwt;
+    if (!jwtCallback) throw new Error("jwt callback not found");
+
+    const result = await (jwtCallback as any)({
+      token: validToken({ mintedAt: NOW_SECONDS }),
+      user: { id: "user_1", rememberMe: true },
+    });
+
+    expect((result as any).sub).toBe("user_1");
+    expect((result as any).revoked).toBeUndefined();
+  });
+
   it("keeps a token minted after the latest revocation event", async () => {
     mockPrisma.securityEvent.findFirst.mockResolvedValueOnce({
       createdAt: new Date((NOW_SECONDS - 2 * RECHECK_SECONDS) * 1000),
@@ -161,5 +191,37 @@ describe("JWT session revocation rechecks", () => {
     expect((retryResult as any).revocationCheckedAt).toBe(
       NOW_SECONDS + RETRY_SECONDS,
     );
+  });
+});
+
+describe("session callback requires JWT sub", () => {
+  it("drops the ghost user when sub was stripped", async () => {
+    const sessionCallback = authOptions.callbacks?.session;
+    if (!sessionCallback) throw new Error("session callback not found");
+
+    const result = await (sessionCallback as any)({
+      session: {
+        user: { name: "Pat", email: "pat@example.com" },
+        expires: "2099-01-01T00:00:00.000Z",
+      },
+      token: { sub: undefined, revoked: true },
+    });
+
+    expect(result.user).toBeUndefined();
+  });
+
+  it("copies token.sub onto session.user.id", async () => {
+    const sessionCallback = authOptions.callbacks?.session;
+    if (!sessionCallback) throw new Error("session callback not found");
+
+    const result = await (sessionCallback as any)({
+      session: {
+        user: { name: "Pat", email: "pat@example.com" },
+        expires: "2099-01-01T00:00:00.000Z",
+      },
+      token: { sub: "user_1", role: "ADMIN", needsOnboarding: false },
+    });
+
+    expect(result.user.id).toBe("user_1");
   });
 });

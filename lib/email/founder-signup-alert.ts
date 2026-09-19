@@ -87,9 +87,9 @@ export async function sendFounderSignupAlert(
             <tr><td><strong>User ID</strong></td><td>${escapeHtml(input.userId)}</td></tr>
           </table>
           <p style="color:#555;font-size:13px;">
-            They cannot generate a report until they add their own Anthropic or
-            OpenAI API key (Settings &rarr; AI Providers). That is the most
-            likely place a new trial stalls — worth a personal note.
+            They can create a Basic report without pasting an API key. Provider
+            charges apply only if they add their own Anthropic or OpenAI key
+            (Settings &rarr; AI Providers).
           </p>
         </div>
       `,
@@ -100,7 +100,8 @@ export async function sendFounderSignupAlert(
         `Trial ends: ${trialEnds}\n` +
         `Report credits: ${input.creditsRemaining}\n` +
         `User ID: ${input.userId}\n\n` +
-        `They cannot generate a report until they add their own Anthropic or ` +
+        `They can create a Basic report without pasting an API key. ` +
+        `Provider charges apply only if they add their own Anthropic or ` +
         `OpenAI API key (Settings -> AI Providers).\n`,
     });
 

@@ -3,11 +3,11 @@
 /**
  * SketchDockToolbar — RA2-V2
  *
- * Touch-first floating toolbar for the sketch editor.
- * - Defaults to bottom-centre dock.
- * - Draggable to any edge (top, left, right, bottom).
+ * Touch-first tool dock for the sketch editor.
+ * - Lives in document flow (not sticky/fixed/absolute over the canvas).
+ * - Orientation follows a persisted dock edge (top/bottom = row, left/right = column).
  * - 56px touch targets for all tools.
- * - Persists dock position in localStorage.
+ * - Persists dock orientation in localStorage.
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
@@ -261,15 +261,14 @@ export function SketchDockToolbar({
   const isVertical = dock === "left" || dock === "right";
 
   const containerCls = cn(
-    "absolute z-30 flex items-center gap-1 p-1.5",
+    // In-flow chrome — never sticky/fixed/absolute over the canvas (RA-7543).
+    "relative flex items-center gap-1 p-1.5 shrink-0",
     "bg-brand-navy/90 backdrop-blur-sm",
     "border border-white/10 shadow-2xl shadow-black/40",
     "select-none",
-    isVertical ? "flex-col rounded-2xl" : "flex-row rounded-2xl",
-    dock === "bottom" && "bottom-4 left-1/2 -translate-x-1/2",
-    dock === "top" && "top-4 left-1/2 -translate-x-1/2",
-    dock === "left" && "left-4 top-1/2 -translate-y-1/2",
-    dock === "right" && "right-4 top-1/2 -translate-y-1/2",
+    isVertical
+      ? "flex-col rounded-2xl self-center max-h-48 overflow-y-auto"
+      : "flex-row flex-wrap rounded-2xl justify-center w-full",
     isDragging && "opacity-70",
     className,
   );
@@ -279,7 +278,12 @@ export function SketchDockToolbar({
     : "h-full w-px bg-white/10 mx-0.5";
 
   return (
-    <div ref={barRef} className={containerCls}>
+    <div
+      ref={barRef}
+      className={containerCls}
+      data-testid="sketch-dock-toolbar"
+      data-sketch-chrome="in-flow"
+    >
       {/* Drag handle */}
       <button
         type="button"
@@ -347,6 +351,7 @@ export function SketchDockToolbar({
             key={mode}
             active={toolMode === mode}
             onClick={() => onToolChange(mode)}
+            testId={`sketch-tool-${mode}`}
             label={`${
               mode === "room" && !onScanRoom && !guided
                 ? "Room — draw manually"
@@ -503,6 +508,7 @@ export function SketchDockToolbar({
         <ToolBtn
           active={toolMode === "pan"}
           onClick={() => onToolChange("pan")}
+          testId="sketch-tool-pan"
           label="Pan (H)"
           Icon={Hand}
         />
@@ -533,18 +539,21 @@ export function SketchDockToolbar({
       <ToolBtn
         active={false}
         onClick={onZoomIn}
+        testId="sketch-tool-zoom-in"
         label="Zoom In"
         Icon={ZoomIn}
       />
       <ToolBtn
         active={false}
         onClick={onZoomOut}
+        testId="sketch-tool-zoom-out"
         label="Zoom Out"
         Icon={ZoomOut}
       />
       <ToolBtn
         active={false}
         onClick={onZoomReset}
+        testId="sketch-tool-zoom-reset"
         label="Fit Canvas"
         Icon={Maximize2}
       />
@@ -650,6 +659,7 @@ interface ToolBtnProps {
   label: string;
   Icon: React.ElementType;
   danger?: boolean;
+  testId?: string;
 }
 
 function ToolBtn({
@@ -659,12 +669,15 @@ function ToolBtn({
   label,
   Icon,
   danger,
+  testId,
 }: ToolBtnProps) {
   return (
     <button
       type="button"
       title={label}
       aria-label={label}
+      aria-pressed={active}
+      data-testid={testId}
       onClick={onClick}
       disabled={disabled}
       className={cn(

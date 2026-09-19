@@ -70,7 +70,9 @@ describe("SetupShell — Skip setup for now (RA-7427)", () => {
     await screen.findByText(/Step 1 of 7/);
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     expect(await screen.findByText(/Step 2 of 7/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^next$/i })).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^next$/i })).toBeDisabled();
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /skip setup for now/i }));
 

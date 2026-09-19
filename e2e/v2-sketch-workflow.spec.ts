@@ -171,6 +171,25 @@ test.describe("V2 Workflow — manual sketch (no scraper)", () => {
       .getByRole("button")
       .filter({ hasText: /select|room|line|text|pan/i });
     await expect(toolBtns.first()).toBeVisible({ timeout: 8_000 });
+
+    // RA-7543 — dock must not be sticky/fixed or cover the canvas mid-pan.
+    const toolbar = page.getByTestId("sketch-dock-toolbar");
+    if (await toolbar.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      const position = await toolbar.evaluate((el) => getComputedStyle(el).position);
+      expect(["static", "relative"]).toContain(position);
+
+      const canvasHost = page.getByTestId("sketch-canvas-host");
+      const [tb, cv] = await Promise.all([
+        toolbar.boundingBox(),
+        canvasHost.boundingBox(),
+      ]);
+      if (tb && cv) {
+        const canvasCenterY = cv.y + cv.height / 2;
+        const coversCanvasCentre =
+          tb.y < canvasCenterY && tb.y + tb.height > canvasCenterY;
+        expect(coversCanvasCentre).toBe(false);
+      }
+    }
   });
 
   test("can switch floor tabs in sketch editor", async ({ page }) => {

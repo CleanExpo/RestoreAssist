@@ -9,6 +9,14 @@ import { withIdempotency } from "@/lib/idempotency";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import {
+  assertCatalogPrice,
+  billingCountryFromOrg,
+  customerPreferredLocaleForCountry,
+  CHECKOUT_CANCEL_PATH,
+  monthlyCheckoutPresentation,
+  productStatementDescriptorPatch,
+} from "@/lib/billing/checkout-presentation";
 
 // Client bundles cannot read STRIPE_PRICE_* (non-NEXT_PUBLIC). pricing.ts
 // therefore falls back to this placeholder in the browser; never treat it as a
@@ -170,10 +178,54 @@ export async function POST(request: NextRequest) {
       }
       const { priceId } = resolved;
 
-      // Get user's Stripe customer ID
+      // RA-7541 — fail closed if the allowlisted Price is not the public
+      // $99 AUD catalog (a USD Price is how Checkout showed ~$73.85).
+      const stripePrice = await stripe.prices.retrieve(priceId, {
+        expand: ["product"],
+      });
+      const catalog = assertCatalogPrice(stripePrice);
+      if (!catalog.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: catalog.reason,
+          status: 400,
+          stage: "create-checkout-session",
+          context: { reason: "stripe_price_catalog_mismatch" },
+        });
+      }
+
+      const descriptorPatch = productStatementDescriptorPatch(
+        stripePrice.product,
+      );
+      if (descriptorPatch) {
+        try {
+          await stripe.products.update(descriptorPatch.id, {
+            statement_descriptor: descriptorPatch.statement_descriptor,
+          });
+        } catch (descriptorErr) {
+          console.error(
+            "[create-checkout-session] product statement_descriptor update failed (non-fatal):",
+            descriptorErr instanceof Error
+              ? descriptorErr.message
+              : descriptorErr,
+          );
+        }
+      }
+
+      // Get user's Stripe customer ID + org country for AU/NZ presentment.
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { stripeCustomerId: true },
+        select: {
+          stripeCustomerId: true,
+          organization: { select: { country: true } },
+        },
+      });
+      const billingCountry = billingCountryFromOrg(
+        user?.organization?.country,
+      );
+      const preferredLocale = customerPreferredLocaleForCountry(billingCountry);
+      const presentation = monthlyCheckoutPresentation({
+        country: billingCountry,
       });
 
       let customerId = user?.stripeCustomerId;
@@ -184,6 +236,8 @@ export async function POST(request: NextRequest) {
           const stripeCustomer = await stripe.customers.create({
             email: session.user.email!,
             name: session.user.name || undefined,
+            preferred_locales: [preferredLocale],
+            address: { country: billingCountry },
             metadata: {
               userId: userId,
             },
@@ -243,11 +297,14 @@ export async function POST(request: NextRequest) {
       }
 
       // Create Stripe checkout session. The price is a fixed allowlisted id —
-      // no dynamic price creation (R3).
+      // no dynamic price creation (R3). RA-7541 pins AUD presentment and
+      // RestoreAssist branding so Adaptive Pricing / the CARSI account name
+      // cannot disagree with the public $99 AUD catalog.
       const checkoutSession = await stripe.checkout.sessions.create({
         mode: "subscription",
         payment_method_types: ["card"],
         customer: customerId,
+        ...presentation,
         line_items: [
           {
             price: priceId,
@@ -255,9 +312,15 @@ export async function POST(request: NextRequest) {
           },
         ],
         success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
+        cancel_url: `${baseUrl}${CHECKOUT_CANCEL_PATH}`,
         metadata: {
           userId: userId,
+        },
+        subscription_data: {
+          description: "RestoreAssist Monthly Plan",
+          metadata: {
+            userId: userId,
+          },
         },
         // RA-1351 — AU GST compliance. Stripe Tax auto-applies 10 % GST
         // to AU customers / 15 % to NZ. Plan prices are GST-inclusive,

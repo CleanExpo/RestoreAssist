@@ -38,8 +38,8 @@ const JOURNEY = [
       number: "01",
     phase: "Setup",
     title: "Open the job in one workspace",
-    body: `Create your account and land in a ${trialDays}-day trial with ${trialReports} report credits. Add your Anthropic or OpenAI key once — RestoreAssist drafts with your workspace key, not a hidden platform meter. Then open an inspection for the property and claim type (water, fire, mould, storm, and more).`,
-    tags: ["Account", "AI key", "Business details", "First inspection"],
+    body: `Create your account and land in a ${trialDays}-day trial with ${trialReports} report credits. Basic reports work without pasting an API key. Add your own Anthropic or OpenAI key later if you want usage billed to your account. Then open an inspection for the property and claim type (water, fire, mould, storm, and more).`,
+    tags: ["Account", "Basic report", "Business details", "First inspection"],
     carries: "Inspection opened on the claim",
     },
     {

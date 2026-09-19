@@ -507,9 +507,9 @@ export function VolumePicker({
         ) : null}
 
         <p className="mt-2 text-sm leading-relaxed text-slate-500">
-          AUD, incl. GST. Cancel any time. Software only &mdash; generating a
-          report also runs on your own Anthropic or OpenAI key, and that
-          provider bills you for it directly.
+          AUD, incl. GST. Cancel any time. Software only. Basic reports on the
+          free trial need no API key. Provider charges apply only if you add
+          your own Anthropic or OpenAI key &mdash; they bill you directly.
         </p>
 
         {/* Line items */}

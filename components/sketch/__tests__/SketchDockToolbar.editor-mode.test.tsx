@@ -19,6 +19,8 @@ describe("SketchDockToolbar — Quick vs Advanced", () => {
       screen.getByRole("button", { name: /^Measure/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Label/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Photo/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Pan/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Wall/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Door/ })).not.toBeInTheDocument();
     expect(

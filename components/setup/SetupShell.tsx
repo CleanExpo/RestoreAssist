@@ -41,7 +41,9 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
   // AI-key completion is the one gate the store doesn't already carry, so read
   // it from the canonical onboarding status (same signal the setup gate uses).
   const [hasApiKey, setHasApiKey] = useState(false);
-  const [aiKeyRequired, setAiKeyRequired] = useState(true);
+  // Default optional so a funded trial is not locked before status returns.
+  // Paid / expired workspaces re-lock from the API (`required !== false`).
+  const [aiKeyRequired, setAiKeyRequired] = useState(false);
   useEffect(() => {
     let active = true;
     fetch('/api/onboarding/status')
@@ -118,10 +120,10 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     return () => es.close();
   }, [initial, setOrg, setSectionStatus]);
 
-  // Locked one-step-at-a-time flow (Phase 4). Completion for the two required
-  // steps (AI key + business details) gates progression; optional steps never
-  // block. The flow ends on a "first report" step whose CTA is enabled once the
-  // required steps are done.
+  // Locked one-step-at-a-time flow (Phase 4). Business details is the hard
+  // gate; the AI key is optional for funded trials (D-022). Optional steps
+  // never block. The flow ends on a "first report" step whose CTA is enabled
+  // once required steps are done.
   const businessIdentifier = org?.country === 'NZ' ? org.nzbn : org?.abn;
   const businessComplete = !!(org?.legalName && businessIdentifier && org.state && org.timezone);
   const brandingComplete = !!(org?.logoUrl || org?.primaryColor);

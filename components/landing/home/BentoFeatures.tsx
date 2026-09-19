@@ -104,8 +104,8 @@ export function BentoFeatures() {
               variants={fadeUp}
               className={`${FONT_DISPLAY} mt-5 max-w-[38rem] text-[14px] font-medium leading-snug tracking-[-0.01em] text-[#16345A] sm:text-[15px]`}
             >
-              Drafting runs on your workspace Anthropic or OpenAI key — your
-              spend, your control.
+              Basic reports work without an API key. Add your own Anthropic or
+              OpenAI key later if you want usage billed to your account.
             </motion.p>
           </motion.div>
 

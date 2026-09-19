@@ -15,6 +15,7 @@ import {
   type OnboardingStatusResponse,
   type OnboardingDisplayStep,
 } from "@/lib/onboarding/steps";
+import { BasicReportWithoutKeyCta } from "@/components/onboarding/BasicReportWithoutKeyCta";
 
 // Error-path fallback ONLY — shown when the status API is unreachable. On a
 // successful fetch the checklist is derived entirely from the server's
@@ -183,6 +184,8 @@ export default function OnboardingClient() {
           {completedCount} of {totalCount} steps complete
         </p>
       </div>
+
+      <BasicReportWithoutKeyCta variant="light" />
 
       {/* Progress ring card */}
       <div

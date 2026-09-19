@@ -8,6 +8,7 @@ import type {
   CatalogueModel,
   OpenRouterCatalogue,
 } from '@/lib/workspace/openrouter-catalogue';
+import { SETUP_AI_KEY_OPTIONAL_HINT } from '@/lib/signup-pricing-honesty';
 
 // Inline SVG marks (Phill Rule 1: no generic icon-library imports). Matches the
 // inline-<svg> pattern used by the sibling VideoExplainer card.
@@ -225,12 +226,11 @@ export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Step 1 — Add your AI key</CardTitle>
+        <CardTitle>Add your AI key (optional)</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Anthropic, OpenAI or OpenRouter — any one of them is enough to operate
-          RestoreAssist.
+          {SETUP_AI_KEY_OPTIONAL_HINT}
         </p>
 
         {/* Provider selector */}

@@ -358,11 +358,12 @@ export default function InspectionDetailPage({
   const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
-  // Deep-link from field evidence checklist: ?tab=areas (etc.)
+  // Deep-link from field evidence checklist: ?tab=areas (etc.).
+  // Re-read on job change so a previous inspection's Sketch tab does not
+  // stick onto the next job (RA-7542 post-nav chrome).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const tabParam = new URLSearchParams(window.location.search).get("tab");
-    if (!tabParam) return;
     const allowed: Tab[] = [
       "overview",
       "environmental",
@@ -378,10 +379,12 @@ export default function InspectionDetailPage({
       "insurer",
       "live-teacher",
     ];
-    if (allowed.includes(tabParam as Tab)) {
+    if (tabParam && allowed.includes(tabParam as Tab)) {
       setActiveTab(tabParam as Tab);
+      return;
     }
-  }, []);
+    setActiveTab("overview");
+  }, [id]);
 
   // Wave 3 — leave moisture tabs if claim type is not water.
   useEffect(() => {
@@ -2237,6 +2240,7 @@ export default function InspectionDetailPage({
           hidden={activeTab !== "sketch"}
         >
           <SketchEditor
+            key={inspection.id}
             inspectionId={inspection.id}
             propertyAddress={inspection.propertyAddress ?? undefined}
             propertyPostcode={inspection.propertyPostcode ?? undefined}

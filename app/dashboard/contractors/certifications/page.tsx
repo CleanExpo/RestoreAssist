@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContractorsBackLink } from "../ContractorsBackLink";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -402,6 +403,7 @@ export default function ContractorCertificationsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <ContractorsBackLink />
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-white">Certifications</h1>
         <button

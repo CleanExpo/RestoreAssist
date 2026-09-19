@@ -96,7 +96,7 @@ describe("buildActivitySwms", () => {
     ).toThrow(/No safety legislation is recorded/);
   });
 
-  it("accepts New Zealand, which has no getStateInfo entry", () => {
+  it("accepts New Zealand via getStateInfo", () => {
     const nz = buildActivitySwms(
       input({
         project: {
