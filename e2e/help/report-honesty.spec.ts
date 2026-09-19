@@ -55,10 +55,10 @@ test.describe("RA-7550 report honesty", () => {
     await expect(page.getByTestId("help-hero-figure")).toBeVisible();
 
     await expect(
-      page.getByText(/AI draft is not a signed or issued report|AI draft.*issued/i).first(),
+      page.getByText(/not a signed or issued report/i).first(),
     ).toBeVisible();
     await expect(page.getByText(/optional for Basic/i).first()).toBeVisible();
-    await expect(page.getByText(/inspection in `IN_PROGRESS`/i)).toHaveCount(0);
+    await expect(page.getByText(/inspection in `?IN_PROGRESS`?/i)).toHaveCount(0);
     await expect(page.getByText(/at least 4 photos/i)).toHaveCount(0);
 
     await expect(page.locator('a[href^="/dashboard/help"]')).toHaveCount(0);
@@ -132,7 +132,7 @@ test.describe("RA-7550 report honesty", () => {
     await expect(page.getByTestId("upload-pdf-trial-explain")).toBeVisible();
     await expect(page.getByText(/Upload PDF is on paid plans/i)).toBeVisible();
     await expect(
-      page.getByText(/paid subscription makes Upload PDF available/i),
+      page.getByText(/paid subscription and your own Anthropic key/i),
     ).toBeVisible();
 
     await page.screenshot({

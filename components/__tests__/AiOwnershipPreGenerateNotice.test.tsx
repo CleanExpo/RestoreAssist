@@ -22,5 +22,8 @@ describe("AiOwnershipPreGenerateNotice", () => {
     expect(
       screen.getByText(AI_OWNERSHIP_PRE_GENERATE_BODY),
     ).toBeInTheDocument();
+    // Independent literal: the constant above could be reworded to the
+    // opposite claim and still match itself.
+    expect(screen.getByText(/AI draft is not a signed or issued report/i)).toBeInTheDocument();
   });
 });

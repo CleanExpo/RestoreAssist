@@ -70,7 +70,7 @@ describe("RA-7550 help honesty", () => {
   it("first-ai-report does not demand photos or IN_PROGRESS for Basic", async () => {
     const article = await loadArticle("reports", "first-ai-report");
     expect(article).not.toBeNull();
-    expect(article!.body).not.toMatch(/inspection in `IN_PROGRESS`/i);
+    expect(article!.body).not.toMatch(/inspection in `?IN_PROGRESS`?/i);
     expect(article!.body).not.toMatch(/at least 4 photos/i);
     expect(article!.body).not.toMatch(/stays disabled until/i);
     expect(article!.body).toMatch(/optional for Basic/i);

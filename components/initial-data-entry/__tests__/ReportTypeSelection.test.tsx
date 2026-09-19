@@ -14,6 +14,7 @@ describe("ReportTypeSelection honesty", () => {
       <ReportTypeSelection isTrial loading={false} onChoose={vi.fn()} />,
     );
     expect(screen.getByText(AI_OWNERSHIP_PRE_GENERATE_TITLE)).toBeInTheDocument();
+    expect(screen.getByText(/AI draft is not a signed or issued report/i)).toBeInTheDocument();
     expect(screen.getByText(BASIC_REPORT_INPUTS_NOTE)).toBeInTheDocument();
     expect(
       screen.getByText(/Photos are optional for Basic/i),

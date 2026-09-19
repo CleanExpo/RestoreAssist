@@ -16,10 +16,15 @@ describe("ai-ownership copy", () => {
   });
 
   it("teaches AI draft is not a signed or issued report before generate", () => {
-    expect(AI_OWNERSHIP_PRE_GENERATE_TITLE).toMatch(/AI draft/i);
-    expect(AI_OWNERSHIP_PRE_GENERATE_TITLE).toMatch(/issued/i);
-    expect(AI_OWNERSHIP_PRE_GENERATE_BODY).toMatch(/AI draft/i);
-    expect(AI_OWNERSHIP_PRE_GENERATE_BODY).toMatch(/issued/i);
+    // Assert the whole negative claim, not word presence: "AI draft is a
+    // signed or issued report" contains every word and means the opposite.
+    expect(AI_OWNERSHIP_PRE_GENERATE_TITLE).toBe(
+      "AI draft is not a signed or issued report",
+    );
+    expect(AI_OWNERSHIP_PRE_GENERATE_BODY).toMatch(/produces an AI draft only/i);
+    expect(AI_OWNERSHIP_PRE_GENERATE_BODY).toMatch(
+      /confirm ownership before the report is signed or issued/i,
+    );
     expect(AI_OWNERSHIP_PRE_GENERATE_BODY).toMatch(/confirm ownership/i);
   });
 });
