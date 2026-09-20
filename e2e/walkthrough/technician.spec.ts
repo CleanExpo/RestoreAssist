@@ -170,8 +170,16 @@ function brief(r: ApiResult): string {
   return `${r.status}${msg ? ` "${msg.slice(0, 160)}"` : ""}`;
 }
 
+/**
+ * A step that could not be exercised at all. This is UNMEASURED, not FAIL: recording it
+ * as FAIL claimed the step had been run and found broken, which is a different and much
+ * stronger statement, and it let an unexercised run verify clean.
+ */
 function cannot(what: string, causes: [string, string, string]): StepResult {
-  return { outcome: "FAIL", note: `${what}. Likely causes: (1) ${causes[0]}; (2) ${causes[1]}; (3) ${causes[2]}.` };
+  return {
+    outcome: "UNMEASURED",
+    note: `${what}. Likely causes: (1) ${causes[0]}; (2) ${causes[1]}; (3) ${causes[2]}.`,
+  };
 }
 
 const noJob = (): StepResult =>

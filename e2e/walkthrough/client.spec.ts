@@ -28,11 +28,12 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
-import { localQuery, readState, step, watch, type StepResult } from "./recorder";
+import { BASE_URL, localQuery, readState, step, watch, type StepResult } from "./recorder";
 
 test.describe.configure({ mode: "serial" });
 
-const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+// Validated once in recorder.ts; deriving it from the env here skipped the locality check.
+const BASE = BASE_URL;
 
 // Verbatim from steps.json.
 const TITLES = {
