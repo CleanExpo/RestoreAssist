@@ -17,6 +17,7 @@ import {
   resolveClientReach,
   resolveInvoiceReach,
   resolveInspectionWrite,
+  resolveInspectionWriteReach,
 } from "../assert-tenancy";
 
 const reportFindUnique = (
@@ -444,6 +445,76 @@ describe("resolveInspectionReach", () => {
     if (!r.ok) throw new Error("unreachable");
     const clauses = (r.data as { AND: Array<{ OR: unknown[] }> }).AND[0].OR;
     expect(clauses).toContainEqual({ user: { organizationId: "org_1" } });
+  });
+});
+
+// ─── the write default itself ────────────────────────────────────────────────
+
+/**
+ * RA-7582 P0-WRITE-DEFAULT-INTENT-UNTESTED.
+ *
+ * `resolveTenantScope(session, intent = "write")` is the load-bearing guard for
+ * roughly forty mutating route handlers that gate on `assertInspectionTenancy`.
+ * If that default is ever flipped to `"read"`, every technician gains DELETE
+ * over their organisation's inspections, sketches and evidence.
+ *
+ * An independent reviewer planted exactly that mutant and the whole tenancy
+ * suite still passed 72/72. A guard whose inversion no test notices is not a
+ * guard. These assertions exist so that mutant goes red, and they were watched
+ * failing under it before being committed.
+ *
+ * The role matters: USER and MANAGER are what the invite flow actually assigns
+ * (`app/api/invites/[token]/route.ts:43`), so those are the accounts that would
+ * be handed write access.
+ */
+describe("the default scope intent is write, and stays write", () => {
+  for (const role of ["USER", "MANAGER"] as const) {
+    it(`assertInspectionTenancy keeps a ${role} with an organisation on self clauses`, async () => {
+      userFindUnique.mockResolvedValue({ role, organizationId: "org_1" });
+      inspFindFirst.mockResolvedValue({
+        id: "i_1",
+        userId: "u_1",
+        workspaceId: null,
+      });
+
+      await assertInspectionTenancy({ user: { id: "u_1" } }, "i_1");
+
+      const where = inspFindFirst.mock.calls[0][0].where;
+      expect(where.OR).toHaveLength(2);
+      expect(JSON.stringify(where)).not.toContain("organizationId");
+    });
+
+    it(`resolveInspectionWrite keeps a ${role} with an organisation on self clauses`, async () => {
+      userFindUnique.mockResolvedValue({ role, organizationId: "org_1" });
+      inspFindFirst.mockResolvedValue({ id: "i_1" });
+
+      const r = await resolveInspectionWrite({ user: { id: "u_1" } }, "i_1");
+      if (!r.ok) throw new Error("unreachable");
+
+      expect(JSON.stringify(r.data.inspectionWhere)).not.toContain(
+        "organizationId",
+      );
+      expect(JSON.stringify(r.data.inspectionManyWhere)).not.toContain(
+        "organizationId",
+      );
+      expect(JSON.stringify(r.data.childInspectionFilter)).not.toContain(
+        "organizationId",
+      );
+    });
+  }
+
+  // The two reaches must disagree for a USER. If they ever agree, either the
+  // read stopped widening (the RA-7582 defect returns) or the write started
+  // widening (technicians can file against a colleague's job).
+  it("read reach widens for a USER where write reach does not", async () => {
+    userFindUnique.mockResolvedValue({ role: "USER", organizationId: "org_1" });
+
+    const read = await resolveInspectionReach({ user: { id: "u_1" } });
+    const write = await resolveInspectionWriteReach({ user: { id: "u_1" } });
+    if (!read.ok || !write.ok) throw new Error("unreachable");
+
+    expect(JSON.stringify(read.data)).toContain("org_1");
+    expect(JSON.stringify(write.data)).not.toContain("organizationId");
   });
 });
 
