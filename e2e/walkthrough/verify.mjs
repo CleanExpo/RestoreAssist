@@ -214,8 +214,18 @@ export function verify(resultsPath, plan) {
 
     const shotProblem = screenshotProblem(r.screenshot, baseDir, r.step);
     // Evidence must be inspected, not merely present. Each of these was a bypass.
+    //
+    // A screenshot is deliberately NOT proof that a step ran. recorder.step takes one
+    // whether or not the callback did anything, so every prerequisite exit that returned
+    // immediately - no owner session, no portal token, no CRON_SECRET, no seeded tenant B -
+    // carried a screenshot and was accepted as a measured failure. Three review rounds found
+    // that same class at four different call sites, so the rule is here rather than in each
+    // spec: a step was exercised only if it reached the network.
     const exercised =
-      shotProblem === null || isHttpStatus(r.status) || usableResponses(r).length > 0 || usableRequests(r).length > 0;
+      isHttpStatus(r.status) ||
+      usableResponses(r).length > 0 ||
+      usableRequests(r).length > 0 ||
+      (Number.isInteger(r.observed) && r.observed > 0);
 
     if (SUCCESS.has(r.outcome)) {
       if (shotProblem) invalid.push(`${where}: ${r.outcome} - ${shotProblem}`);
@@ -373,6 +383,35 @@ function selfTest() {
         r.step === "O1" ? { ...r, badResponses: [{ status: 0, method: "POST", url: "https://example.invalid/write" }] } : r,
       ),
       false,
+    ),
+    // --- round 6 findings (report review-5a436a757.json) ---
+    // The recorder screenshots every step, exercised or not, so a prerequisite exit that
+    // returned immediately looked like a measured failure. The screenshot is no longer
+    // accepted as proof that a step ran.
+    run(
+      "fail-evidenced-only-by-the-screenshot-the-recorder-always-takes",
+      PLAN.steps.map((s) => ({
+        step: s.id,
+        runId: RUN,
+        outcome: "FAIL",
+        note: "prerequisite missing, nothing was attempted",
+        screenshot: join("shots", shotName(s.id)),
+      })),
+      false,
+    ),
+    // Specificity: the same run IS accepted once the steps actually reached the network,
+    // so the rule rejects unexercised steps rather than failures in general.
+    run(
+      "measured-failures-are-still-accepted",
+      PLAN.steps.map((s) => ({
+        step: s.id,
+        runId: RUN,
+        outcome: APPROVED_PURCHASE_STEPS.has(s.id) ? "SIMULATED" : "FAIL",
+        note: "measured: the route answered",
+        screenshot: join("shots", shotName(s.id)),
+        observed: 3,
+      })),
+      true,
     ),
     // --- round 5 findings (report review-b70bee9f1.json) ---
     // A non-array was read as "no entries", so the destination was never judged.

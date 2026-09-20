@@ -64,6 +64,13 @@ export interface StepResult {
 interface Watch {
   consoleErrors: string[];
   badResponses: { status: number; method: string; url: string }[];
+  /**
+   * Every response seen on this page, not only the failing ones. This is what says a step
+   * was actually exercised. A screenshot cannot say it: step() takes one whether or not
+   * the callback did anything, so a prerequisite exit that returned immediately still
+   * carried a screenshot and read as a measured failure.
+   */
+  responses: number;
 }
 
 const watches = new WeakMap<Page, Watch>();
@@ -152,13 +159,14 @@ export function recordedApi(ctx: APIRequestContext): APIRequestContext {
 
 /** Start collecting console errors, failing responses and mutations for a page. */
 export function watch(page: Page): void {
-  const w: Watch = { consoleErrors: [], badResponses: [] };
+  const w: Watch = { consoleErrors: [], badResponses: [], responses: 0 };
   watches.set(page, w);
   page.on("console", (msg) => {
     if (msg.type() === "error") w.consoleErrors.push(msg.text().slice(0, 300));
   });
   page.on("pageerror", (err) => w.consoleErrors.push(`pageerror: ${String(err.message).slice(0, 300)}`));
   page.on("response", (res) => {
+    w.responses += 1;
     if (res.status() >= 400) {
       w.badResponses.push({ status: res.status(), method: res.request().method(), url: res.url().slice(0, 300) });
     }
@@ -193,6 +201,9 @@ export async function step(
   ensureDirs();
   let result: StepResult;
   const started = Date.now();
+  const watchAtStart = page ? watches.get(page) : undefined;
+  const responsesBefore = watchAtStart?.responses ?? 0;
+  const mutationsBefore = mutations.length;
   try {
     result = await body();
   } catch (err) {
@@ -210,6 +221,9 @@ export async function step(
     }
   }
   const w = page ? watches.get(page) : undefined;
+  // Counted BEFORE the arrays below are drained: `requests: mutations.splice(0)` empties
+  // the sink, so reading its length afterwards would report zero for every step.
+  const observed = (w ? w.responses - responsesBefore : 0) + (mutations.length - mutationsBefore);
   const line = {
     step: id,
     runId: RUN_ID,
@@ -220,6 +234,10 @@ export async function step(
     consoleErrors: w?.consoleErrors.splice(0) ?? [],
     badResponses: w?.badResponses.splice(0) ?? [],
     requests: mutations.splice(0),
+    // What this step actually did. A step that reached no network at all did not exercise
+    // anything, whatever its screenshot suggests; verify.mjs reads this, not the screenshot,
+    // when deciding whether a FAIL was measured.
+    observed,
     ms: Date.now() - started,
     at: new Date().toISOString(),
   };
