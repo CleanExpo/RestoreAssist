@@ -94,7 +94,21 @@ const usableRequests = (r) =>
     (d) => d && typeof d === "object" && isUsableUrl(d.url) && isMethod(d.method),
   );
 
-/** Every destination this record proves the run reached, not just the summary pair. */
+/** Every recorded destination entry, usable as evidence or not. */
+const allEntries = (r) => [
+  ...(Array.isArray(r.badResponses) ? r.badResponses : []),
+  ...(Array.isArray(r.requests) ? r.requests : []),
+];
+
+/**
+ * Every destination this record proves the run reached, not just the summary pair.
+ *
+ * Deliberately iterates ALL entries, not the ones that qualify as exercise evidence.
+ * Reading only the usable ones meant a malformed entry - an external POST with its
+ * method removed, or with status 0 - was discarded before the locality check and so
+ * never judged at all. Qualifying as evidence and being checked for destination are two
+ * separate questions, and the second must not depend on the first.
+ */
 function destinationsOf(r) {
   const out = [];
   // A destination whose method is missing or unreadable is NOT assumed to be a GET.
@@ -102,10 +116,8 @@ function destinationsOf(r) {
   if (isUsableUrl(r.url)) {
     out.push({ url: r.url, method: isMethod(r.method) ? r.method.trim().toUpperCase() : "UNKNOWN" });
   }
-  for (const d of [...usableResponses(r), ...usableRequests(r)]) {
-    // Not `d.method.trim()`: this must not depend on the filter above having run. A
-    // verifier that throws on malformed input is one refactor away from throwing on
-    // input it should have rejected.
+  for (const d of allEntries(r)) {
+    if (!d || typeof d !== "object" || !isUsableUrl(d.url)) continue; // reported as malformed
     out.push({ url: d.url, method: isMethod(d.method) ? d.method.trim().toUpperCase() : "UNKNOWN" });
   }
   return out;
@@ -184,6 +196,13 @@ export function verify(resultsPath, plan) {
     }
     if (r.url !== undefined && r.url !== null && !isUsableUrl(r.url)) {
       invalid.push(`${where}: url ${JSON.stringify(r.url)} cannot be read as a destination`);
+    }
+    // A destination entry that cannot be read is rejected, never silently dropped.
+    // Dropping them is how an external POST with its method removed escaped the check.
+    for (const d of allEntries(r)) {
+      if (!d || typeof d !== "object" || !isUsableUrl(d.url)) {
+        invalid.push(`${where}: unreadable recorded destination ${JSON.stringify(d)}`.slice(0, 200));
+      }
     }
 
     const shotProblem = screenshotProblem(r.screenshot, baseDir, r.step);
@@ -331,6 +350,21 @@ function selfTest() {
     run(
       "external-destination-escapes-when-method-is-missing",
       valid.map((r) => (r.step === "O1" ? { ...r, url: "https://restoreassist.app/api/x", method: undefined } : r)),
+      false,
+    ),
+    // --- round 4 findings (report review-ddaf4467a.json) ---
+    // Malformed entries were dropped before the locality check, so an external write
+    // could hide in one by removing its method or zeroing its status.
+    run(
+      "external-write-hidden-by-removing-its-method",
+      valid.map((r) => (r.step === "O1" ? { ...r, requests: [{ url: "https://example.invalid/write" }] } : r)),
+      false,
+    ),
+    run(
+      "external-write-hidden-behind-a-zero-status",
+      valid.map((r) =>
+        r.step === "O1" ? { ...r, badResponses: [{ status: 0, method: "POST", url: "https://example.invalid/write" }] } : r,
+      ),
       false,
     ),
   ];

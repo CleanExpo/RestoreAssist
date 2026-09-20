@@ -78,6 +78,7 @@ const watches = new WeakMap<Page, Watch>();
 const mutations: { method: string; url: string }[] = [];
 const API_METHODS = ["fetch", "get", "post", "put", "patch", "delete", "head"];
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const MAX_REDIRECTS = 5;
 
 /** Refuse a non-local destination BEFORE it is dispatched, and record the mutation. */
 function checkedDestination(method: string, url: string): string {
@@ -112,8 +113,23 @@ export function recordedApi(ctx: APIRequestContext): APIRequestContext {
           // relative argument through let Playwright resolve it against the wrapped
           // context's own baseURL: a context created with a non-local baseURL reached
           // that host while the guard had approved, and recorded, a localhost address.
-          const validated = checkedDestination(verb, url);
-          return (value as (...a: unknown[]) => unknown).call(target, validated, options);
+          let target_url = checkedDestination(verb, url);
+          // Playwright follows redirects itself, and the hop it follows never reaches this
+          // wrapper: a local 307 re-dispatched a POST to an external host with the same
+          // body. So redirects are disabled and each hop is validated before it is taken.
+          for (let hop = 0; ; hop += 1) {
+            const res = (await (value as (...a: unknown[]) => unknown).call(target, target_url, {
+              ...(options ?? {}),
+              maxRedirects: 0,
+            })) as { status: () => number; headers: () => Record<string, string> };
+            const status = res.status();
+            const location = status >= 300 && status < 400 ? res.headers()["location"] : undefined;
+            if (!location) return res;
+            if (hop >= MAX_REDIRECTS) {
+              throw new Error(`walkthrough refuses more than ${MAX_REDIRECTS} redirects from ${url}`);
+            }
+            target_url = checkedDestination(verb, new URL(location, target_url).toString());
+          }
         };
       }
       return (value as (...a: unknown[]) => unknown).bind(target);
