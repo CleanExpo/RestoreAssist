@@ -1068,8 +1068,12 @@ test("owner journey: sign up, set up, buy, invite, add a job, load every page, s
       )
     )[0];
     if (!b) {
+      // UNMEASURED, not FAIL. This branch says in its own words that isolation cannot be
+      // tested, and it returns before planting the canary or reading any isolation surface.
+      // Recording it as FAIL let a database without the separately seeded tenant B produce
+      // a complete-looking walkthrough in which the most valuable check never ran.
       return {
-        outcome: "FAIL",
+        outcome: "UNMEASURED",
         gap: "G9",
         note: `${notes.join("; ")}; tenant B (${TENANT_B_EMAIL}) is not in the local database, so isolation cannot be tested` + causes("tenant B seed step from sketch-e2e.yml not run", "seed used a different email", "database reset after seeding"),
       };

@@ -822,7 +822,9 @@ test("client journey C1-C11 (phone, owner on desktop)", async ({ page, browser }
     "no job resolved for this client",
   ], async () => {
     if (!F.jobId) return needPortal("Pulse");
-    if (!process.env.CRON_SECRET) return fail("CRON_SECRET not in process.env", [
+    // Unmeasured, not failed: without the secret this step never reaches the cron route,
+    // so the product has not been shown to be broken - it has not been tried.
+    if (!process.env.CRON_SECRET) return unmeasured("CRON_SECRET not in process.env", [
       "runner did not export .env.local", "CRON_SECRET missing from .env.local", "spec launched outside the runner",
     ]);
     const auth = { authorization: `Bearer ${process.env.CRON_SECRET}` };
