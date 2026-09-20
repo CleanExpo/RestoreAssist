@@ -12,7 +12,7 @@
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext, Page, Route } from "@playwright/test";
 import { Client } from "pg";
 import { claimRunId, runDir } from "./run-identity";
 
@@ -175,26 +175,58 @@ export function recordedApi(ctx: APIRequestContext): APIRequestContext {
 export async function watch(page: Page): Promise<void> {
   const w: Watch = { consoleErrors: [], badResponses: [], observedResponses: 0, stepRequests: new Set() };
   watches.set(page, w);
+  const hostOf = (u: string): string => {
+    try {
+      return new URL(u).hostname;
+    } catch {
+      return "";
+    }
+  };
+  const refuse = async (route: Route, verb: string, url: string, host: string) => {
+    w.badResponses.push({ status: 0, method: verb, url: url.slice(0, 300) });
+    w.consoleErrors.push(`walkthrough blocked ${verb} to non-local host "${host}"`);
+    await route.abort("blockedbyclient");
+  };
   await page.route("**/*", async (route) => {
     const request = route.request();
     const verb = request.method().toUpperCase();
-    let host = "";
-    try {
-      host = new URL(request.url()).hostname;
-    } catch {
-      host = "";
-    }
     // Reads may leave the box (fonts, a CDN, a checkout page the product itself navigates
-    // to). Writes may not: production must not be mutated by a walkthrough, and a local
-    // redirect that forwards a browser POST off-box is exactly how that would happen.
-    if (MUTATING.has(verb) && !LOCAL_HOSTS.has(host)) {
-      w.badResponses.push({ status: 0, method: verb, url: request.url().slice(0, 300) });
-      w.consoleErrors.push(`walkthrough blocked ${verb} to non-local host "${host}"`);
-      await route.abort("blockedbyclient");
+    // to). Writes may not: production must not be mutated by a walkthrough.
+    if (!MUTATING.has(verb)) {
+      await route.continue();
       return;
     }
-    if (MUTATING.has(verb)) mutations.push({ method: verb, url: request.url().slice(0, 300) });
-    await route.continue();
+    const host = hostOf(request.url());
+    if (!LOCAL_HOSTS.has(host)) {
+      await refuse(route, verb, request.url(), host);
+      return;
+    }
+    mutations.push({ method: verb, url: request.url().slice(0, 300) });
+    // Playwright documents that a route handler runs only for the FIRST url in a redirect
+    // chain, so letting Chromium follow the chain itself meant a local 307 could forward
+    // this POST and its body off-box without the guard ever seeing that hop. The chain is
+    // therefore followed here, one validated hop at a time.
+    let url = request.url();
+    let method = verb;
+    let response = await route.fetch({ maxRedirects: 0 });
+    for (let hop = 0; response.status() >= 300 && response.status() < 400; hop += 1) {
+      const location = response.headers()["location"];
+      if (!location) break;
+      if (hop >= MAX_REDIRECTS) {
+        await refuse(route, method, url, "too many redirects");
+        return;
+      }
+      url = new URL(location, url).toString();
+      // 301, 302 and 303 become a GET without the body (RFC 9110).
+      method = [301, 302, 303].includes(response.status()) ? "GET" : method;
+      if (MUTATING.has(method) && !LOCAL_HOSTS.has(hostOf(url))) {
+        await refuse(route, method, url, hostOf(url));
+        return;
+      }
+      if (MUTATING.has(method)) mutations.push({ method, url: url.slice(0, 300) });
+      response = await route.fetch({ url, method, maxRedirects: 0 });
+    }
+    await route.fulfill({ response });
   });
   page.on("console", (msg) => {
     if (msg.type() === "error") w.consoleErrors.push(msg.text().slice(0, 300));
@@ -202,8 +234,13 @@ export async function watch(page: Page): Promise<void> {
   page.on("pageerror", (err) => w.consoleErrors.push(`pageerror: ${String(err.message).slice(0, 300)}`));
   page.on("request", (req) => w.stepRequests.add(req));
   page.on("response", (res) => {
-    // Only a response to a request THIS step issued proves this step did something.
-    if (w.stepRequests.has(res.request())) w.observedResponses += 1;
+    // Only a response to a request THIS step issued belongs to this step - for the tally
+    // AND for badResponses. Attributing just the tally left the same cross-step leak
+    // through the other field, because verify.mjs also reads a recorded response as proof
+    // the step was exercised: a previous step's 500 arriving during this step's screenshot
+    // made a callback that did nothing verify clean.
+    if (!w.stepRequests.has(res.request())) return;
+    w.observedResponses += 1;
     if (res.status() >= 400) {
       w.badResponses.push({ status: res.status(), method: res.request().method(), url: res.url().slice(0, 300) });
     }
