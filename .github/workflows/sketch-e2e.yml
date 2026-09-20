@@ -87,10 +87,18 @@ jobs:
       #
       # These are LITERAL CI values, not secrets. None of these five exists as a
       # repo secret, and none is needed: the app and the specs read the same
-      # variable inside this job, so a shared test value is sufficient. The
-      # encryption key is the 64-hex-character shape this repo's own tests use
-      # (app/api/oauth/google-drive/callback/__tests__/route.test.ts).
-      CREDENTIAL_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      # variable inside this job, so a shared test value is sufficient.
+      #
+      # The encryption key deliberately does NOT use the 64-hex shape. A 64-hex
+      # literal here is indistinguishable from a real 32-byte key, and the
+      # Quality Checks gitleaks scan correctly flagged it as generic-api-key
+      # (observed failing on this branch; origin/main scanned clean). The value
+      # below is the one this repo already uses for the same variable in
+      # build-production-image.yml, and it reads as fake to a human as well as
+      # to the scanner. lib/credential-vault.ts resolveKey() accepts an
+      # arbitrary string and derives 32 bytes from it via SHA-256, so this is a
+      # valid key without looking like one.
+      CREDENTIAL_ENCRYPTION_KEY: ci-not-a-real-key
       GOOGLE_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
       GOOGLE_CLIENT_SECRET: ci-placeholder-google-client-secret
       NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID: ci-placeholder-android.apps.googleusercontent.com
