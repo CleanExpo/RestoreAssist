@@ -355,6 +355,24 @@ async function resolveReach(
   };
 }
 
+/**
+ * The inspection filter for a caller who is about to WRITE through it, for a
+ * lookup that does not start from a known id.
+ *
+ * Same shape as `resolveInspectionReach`, narrower scope: the organisation
+ * widening still requires ADMIN. Used where a list-style filter decides what a
+ * caller may file against rather than merely see - notably the inbound
+ * messaging channel, where a technician texting a job number is creating a
+ * record, not reading one.
+ */
+export async function resolveInspectionWriteReach(
+  session: SessionLike | null,
+): Promise<TenancyResult<Prisma.InspectionWhereInput>> {
+  return resolveReach(session, "write") as Promise<
+    TenancyResult<Prisma.InspectionWhereInput>
+  >;
+}
+
 export async function resolveClientReach(
   session: SessionLike | null,
 ): Promise<TenancyResult<Prisma.ClientWhereInput>> {
