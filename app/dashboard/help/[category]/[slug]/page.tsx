@@ -2,7 +2,8 @@
 import { redirect, notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { loadArticle } from "@/lib/help/load-article";
+import { loadArticle, resolveRelatedArticles } from "@/lib/help/load-article";
+import { HelpRelatedArticles } from "@/components/help/HelpRelatedArticles";
 import {
   HELP_CATEGORIES,
   HELP_CATEGORY_LABELS,
@@ -41,6 +42,7 @@ export default async function HelpArticlePage({
   if (!article) notFound();
 
   const { frontmatter, body } = article;
+  const related = await resolveRelatedArticles(frontmatter.relatedSlugs);
 
   return (
     <div className="w-full space-y-6 px-4 sm:px-6 py-6 sm:py-8">
@@ -73,7 +75,7 @@ export default async function HelpArticlePage({
       </header>
 
       {frontmatter.heroImage ? (
-        <div className="max-w-4xl">
+        <div className="max-w-4xl" data-testid="help-hero-figure">
           <Screenshot
             src={frontmatter.heroImage}
             alt={`Hero image for ${frontmatter.title}`}
@@ -87,25 +89,11 @@ export default async function HelpArticlePage({
         </article>
       </DashboardPanel>
 
-      {frontmatter.relatedSlugs.length > 0 ? (
-        <section className="max-w-3xl space-y-3 border-t border-border pt-6">
-          <h2 className="text-lg font-semibold text-foreground">
-            Related articles
-          </h2>
-          <ul className="space-y-2">
-            {frontmatter.relatedSlugs.map((s) => (
-              <li key={s}>
-                <Link
-                  href={`/dashboard/help/${category}/${s}`}
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  {s.replace(/-/g, " ")}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <HelpRelatedArticles
+        articles={related}
+        basePath="/dashboard/help"
+        tone="dashboard"
+      />
 
       <DashboardPanel className="max-w-3xl text-center">
         <p className="text-sm text-muted-foreground">Still stuck?</p>

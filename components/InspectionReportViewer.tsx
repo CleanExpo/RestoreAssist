@@ -17,6 +17,7 @@ import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer";
 import RestorationInspectionReportViewer from "./RestorationInspectionReportViewer";
 import IicrcInclusionPanel from "./IicrcInclusionPanel";
 import AiOwnershipBanner from "./AiOwnershipBanner";
+import AiOwnershipPreGenerateNotice from "./AiOwnershipPreGenerateNotice";
 import {
   runInclusionCheck,
   deriveIicrcClaimTypeFromHazardType,
@@ -545,10 +546,13 @@ export default function InspectionReportViewer({
               Report Not Generated
             </h3>
           </div>
+          <div className="mb-4">
+            <AiOwnershipPreGenerateNotice />
+          </div>
           <p className="text-slate-300 mb-4">
-            Generate your professional inspection report with all 13 sections.
-            The report will include comprehensive analysis based on all
-            collected data.
+            Generate produces an AI draft from the data already saved. Photos
+            are optional for Basic. The draft is not a signed or issued report
+            until you rewrite it and confirm ownership.
           </p>
           <div className="flex gap-4 flex-wrap">
             {(!report?.reportDepthLevel ||

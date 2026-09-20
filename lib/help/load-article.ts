@@ -63,6 +63,18 @@ export async function loadCategoryIndex(
     .sort((a, b) => a.frontmatter.order - b.frontmatter.order);
 }
 
+/** Resolve relatedSlugs across categories so public and dashboard links do not 404. */
+export async function resolveRelatedArticles(
+  slugs: string[],
+): Promise<LoadedArticle[]> {
+  if (slugs.length === 0) return [];
+  const all = await loadAllArticles();
+  const bySlug = new Map(all.map((article) => [article.frontmatter.slug, article]));
+  return slugs
+    .map((slug) => bySlug.get(slug))
+    .filter((article): article is LoadedArticle => article != null);
+}
+
 export async function loadAllArticles(): Promise<LoadedArticle[]> {
   // The `_fixtures` category exists only for the loader unit tests. Its
   // frontmatter uses `category: "_fixtures"`, which is deliberately NOT in

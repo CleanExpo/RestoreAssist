@@ -5,11 +5,11 @@ category: "getting-started"
 order: 1
 audience: ["tradie", "admin"]
 readTimeMin: 8
-updatedAt: "2026-05-15"
+updatedAt: "2026-09-14"
 status: "published"
 heroImage: "ra-help/getting-started/first-inspection-hero"
 relatedSlugs: ["photo-cocoa"]
-aiSummary: "Walks a tradie from '+ New inspection' through claim-type pick, photo capture with chain-of-custody, scope items, AI report draft, sign-off, invoice, and handover. Average 8 minutes for a standard water-damage Cat-1 inspection."
+aiSummary: "Walks a tradie from '+ New inspection' through claim-type pick, optional photo capture with chain-of-custody, scope items, AI report draft, ownership confirm, invoice, and handover. Average 8 minutes for a standard water-damage Cat-1 inspection."
 userIntents:
   - "how do I create an inspection"
   - "first inspection walkthrough"
@@ -17,12 +17,12 @@ userIntents:
   - "how to start a job"
 successCriteria:
   - "Inspection in COMPLETED or CLOSED status"
-  - "All required photos uploaded with chain-of-custody hashes"
+  - "Photos uploaded with chain-of-custody hashes when captured (optional for Basic)"
   - "Scope items added"
   - "AI draft generated and reviewed"
 ---
 
-Your first inspection should take about 8 minutes from "+ New inspection" to a signed-off report.
+Your first inspection should take about 8 minutes from "+ New inspection" to an owned report draft and a closed job.
 
 ## 1. Start a new inspection
 
@@ -36,7 +36,7 @@ The picker shows four options: WATER (S500:2021), MOULD (S520:2024), TRAUMA (S54
 
 ## 3. Capture photos with chain-of-custody
 
-Tap the camera button at the bottom-right of the inspection screen. Every photo carries a SHA-256 hash, UTC timestamp, GPS coordinates, and your tagged user ID — see [Photo chain-of-custody](/dashboard/help/inspections/photo-cocoa).
+Photos are optional for a **Basic** AI draft. When you do capture them, tap the camera button at the bottom-right of the inspection screen. Every photo carries a SHA-256 hash, UTC timestamp, GPS coordinates, and your tagged user ID — see [Photo chain-of-custody](/help/inspections/photo-cocoa).
 
 ## 4. Add readings + scope items
 
@@ -44,18 +44,18 @@ Add moisture readings, affected-area measurements, and scope line items. Each be
 
 ## 5. Generate the AI report draft
 
-When you have ≥4 photos + measurements, tap **Generate report**. The draft takes 10-30 seconds. Review and edit before signing off.
+Tap **Generate report** when you are ready. Basic does not require photos or an `IN_PROGRESS` status. The draft takes 10-30 seconds. That draft is not a signed or issued report — review, rewrite, then confirm ownership.
 
 ### How an inspection becomes a report
 
-The report is not a separate thing you fill in from scratch — it is **generated from the inspection you just captured**. The photos, moisture readings, and scope items you logged in steps 3–4 are the inputs the AI reads to write the draft. That is why **Generate report** stays disabled until you have enough evidence attached.
+The report is generated from the inspection you captured, or from the Basic fields on `/dashboard/reports/new`. Photos, moisture readings, and scope items improve the draft. They are optional for Basic. **Quick Fill** can populate those Basic fields without photos.
 
 There are two ways to reach the report:
 
 1. **From the inspection (recommended for your first job)** — tap **Generate report** on the inspection detail page, as above. The new inspection is pre-linked, so every reading and photo flows straight in.
-2. **From `/dashboard/reports/new`** — start a report and pick the inspection to pull from. Use this when you want to regenerate or draft a second report for the same job.
+2. **From `/dashboard/reports/new`** — start a report and pick the inspection to pull from, or use Quick Fill for a Basic draft.
 
-Either way the bridge is the same: **inspection (evidence) → AI draft → review → sign-off**. See [Generate your first AI-drafted S500 report](/dashboard/help/reports/first-ai-report) for what the draft contains and how to edit it.
+Either way the bridge is the same: **inspection or Basic fields → AI draft → rewrite → confirm ownership**. See [Generate your first AI-drafted S500 report](/help/reports/first-ai-report) for what the draft contains and how to edit it.
 
 ## 6. Sign off → invoice → handover
 
