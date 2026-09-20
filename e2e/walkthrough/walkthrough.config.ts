@@ -8,9 +8,9 @@
  * need (invite links, job ids) through state.json in the results folder.
  */
 import { defineConfig, devices } from "@playwright/test";
-import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { claimRunId } from "./run-identity";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
@@ -18,14 +18,11 @@ if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/.test(baseURL)) {
   throw new Error(`walkthrough refuses non-local base URL ${baseURL}`);
 }
 
-// One run id per `playwright test` invocation, inherited by every worker, so the three
-// projects write to one runs/<runId>/ directory and a later invocation cannot append to
-// it. Claiming the id per results-directory instead let an interrupted rerun adopt an
-// earlier run's id and borrow its coverage. Assigned only if absent, so a worker that
-// re-evaluates this config keeps the id it inherited.
-process.env.WALKTHROUGH_RUN =
-  process.env.WALKTHROUGH_RUN ||
-  `run-${new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14)}-${randomBytes(3).toString("hex")}`;
+// One run directory per `playwright test` invocation, claimed exclusively here in the
+// coordinator and inherited by every worker. Honouring an inherited WALKTHROUGH_RUN
+// without claiming the directory let an exported variable merge two invocations into one
+// apparently complete run; the exclusive mkdir in claimRunId() is what prevents that.
+claimRunId();
 
 export default defineConfig({
   testDir: here,

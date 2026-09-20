@@ -11,13 +11,10 @@
  * (Stripe test mode), SIMULATED (signed webhook, no Stripe), BYPASS (seeded), UNMEASURED.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { randomBytes } from "node:crypto";
 import path from "node:path";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { Client } from "pg";
-
-const RESULTS_ROOT =
-  process.env.WALKTHROUGH_DIR || "/Volumes/Storage Unit/RestoreAssist/walkthrough-20260919";
+import { claimRunId, runDir } from "./run-identity";
 
 /**
  * The one destination every journey is allowed to reach. Each spec used to re-derive this
@@ -33,21 +30,13 @@ export const BASE_URL = ((): string => {
 })();
 
 /**
- * Identity of THIS invocation.
- *
- * An earlier version claimed the id once per RESULTS DIRECTORY (an O_EXCL write to
- * run.json) and appended every run to one results.jsonl. A later invocation then adopted
- * the previous invocation's id, so an interrupted rerun still borrowed a complete run's
- * coverage. The id now comes from WALKTHROUGH_RUN, which walkthrough.config.ts sets once
- * per `playwright test` invocation and the workers inherit. Running a spec without that
- * config produces a fresh per-process id instead of adopting a stale one: two workers then
- * disagree and verify.mjs rejects the mixed run rather than accepting a half-measured one.
+ * Identity of THIS invocation. See run-identity.ts: the directory is claimed exclusively,
+ * so a run can never append to another run's evidence, whatever its id.
  */
-export const RUN_ID =
-  process.env.WALKTHROUGH_RUN || `run-${new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14)}-${randomBytes(3).toString("hex")}`;
+export const RUN_ID = claimRunId();
 
 /** Each invocation owns a directory. Nothing from an older run is reachable from it. */
-export const RESULTS_DIR = path.join(RESULTS_ROOT, "runs", RUN_ID);
+export const RESULTS_DIR = runDir(RUN_ID);
 const RESULTS_FILE = path.join(RESULTS_DIR, "results.jsonl");
 const STATE_FILE = path.join(RESULTS_DIR, "state.json");
 const SHOTS_DIR = path.join(RESULTS_DIR, "shots");
@@ -119,8 +108,12 @@ export function recordedApi(ctx: APIRequestContext): APIRequestContext {
       if (typeof prop === "string" && API_METHODS.includes(prop)) {
         return async (url: string, options?: Record<string, unknown>) => {
           const verb = prop === "fetch" ? String(options?.method ?? "GET").toUpperCase() : prop.toUpperCase();
-          checkedDestination(verb, url);
-          return (value as (...a: unknown[]) => unknown).call(target, url, options);
+          // Dispatch the URL that was VALIDATED, not the original argument. Passing the
+          // relative argument through let Playwright resolve it against the wrapped
+          // context's own baseURL: a context created with a non-local baseURL reached
+          // that host while the guard had approved, and recorded, a localhost address.
+          const validated = checkedDestination(verb, url);
+          return (value as (...a: unknown[]) => unknown).call(target, validated, options);
         };
       }
       return (value as (...a: unknown[]) => unknown).bind(target);
