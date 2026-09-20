@@ -78,6 +78,44 @@ jobs:
       # Absent from every workflow in this repo until now, which is why the
       # billing specs could not have been wired in without this line.
       ALLOW_TEST_HELPERS: "true"
+      # RA-7562 — lib/env-check.ts lists 8 REQUIRED_VARS and this job supplied 3.
+      # The app logged "[env-check] Missing REQUIRED env vars: ..." on every
+      # recompile, and three stripe-webhook tests called test.skip() because
+      # STRIPE_WEBHOOK_SECRET was absent -- a skipped signature check reads
+      # exactly like a passing one in the run summary, which is the same reason
+      # CRON_SECRET and ALLOW_TEST_HELPERS are set above.
+      #
+      # These are LITERAL CI values, not secrets. None of these five exists as a
+      # repo secret, and none is needed: the app and the specs read the same
+      # variable inside this job, so a shared test value is sufficient.
+      #
+      # The encryption key deliberately does NOT use the 64-hex shape. A 64-hex
+      # literal here is indistinguishable from a real 32-byte key, and the
+      # Quality Checks gitleaks scan correctly flagged it as generic-api-key
+      # (observed failing on this branch; origin/main scanned clean). The value
+      # below is the one this repo already uses for the same variable in
+      # build-production-image.yml, and it reads as fake to a human as well as
+      # to the scanner. lib/credential-vault.ts resolveKey() accepts an
+      # arbitrary string and derives 32 bytes from it via SHA-256, so this is a
+      # valid key without looking like one.
+      CREDENTIAL_ENCRYPTION_KEY: ci-not-a-real-key
+      GOOGLE_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: ci-placeholder-google-client-secret
+      NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID: ci-placeholder-android.apps.googleusercontent.com
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      # Required as a direct consequence of the line above, and not obvious.
+      # lib/stripe.ts exports a Proxy whose every property access runs
+      # getInstance(), which throws "STRIPE_SECRET_KEY is not set" on a falsy
+      # key. app/api/webhooks/stripe/route.ts reaches the verifier through that
+      # Proxy (`stripe.webhooks.constructEvent`) INSIDE its try/catch, so with
+      # no key the throw is swallowed and every webhook answers 400 "Invalid
+      # signature" — including a correctly signed one. The valid-signature test
+      # would fail, and the invalid-signature test would pass without the
+      # signature check ever running. A vacuous pass on a signature gate is
+      # worse than the skip it replaces, so the key goes in with the secret.
+      # STRIPE_SECRET_KEY is RECOMMENDED, not REQUIRED, in lib/env-check.ts, so
+      # .claude/done/check-sketch-env.py does not cover this line.
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
 
     steps:
       - name: Checkout

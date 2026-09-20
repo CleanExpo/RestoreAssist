@@ -115,9 +115,10 @@ const isDeployedWithoutSecret =
 test.skip(
   !process.env.STRIPE_WEBHOOK_SECRET,
   "requires STRIPE_WEBHOOK_SECRET; without it the signature is signed with a " +
-    "fabricated key. SEPARATE DEFECT not covered by this skip: the endpoint " +
-    "answers 500, not 400, to an unsigned webhook — rejecting cleanly is its " +
-    "job even with no secret configured. See docs/e2e-36-spec-triage.md",
+    "fabricated key. The 'endpoint answers 500, not 400, to an unsigned " +
+    "webhook' defect once recorded here is FIXED: route.ts returns 400 'No " +
+    "signature' before it looks for a configured secret, verified against the " +
+    "handler on 20/09/2026. See docs/e2e-36-spec-triage.md",
 );
 
 // ---------------------------------------------------------------------------
@@ -177,7 +178,7 @@ test.describe("Stripe Webhook — payment_intent.succeeded (RA-1103)", () => {
   /**
    * Case 2: Signature generated with the WRONG secret.
    *
-   * Expected: 400 { error: "Invalid signature" }
+   * Expected: 400 { error: { code: "VALIDATION", message: "Invalid signature" } }
    */
   test("invalid signature → 400 Invalid signature", async ({ request }) => {
     const wrongSecret = "_";
@@ -194,13 +195,25 @@ test.describe("Stripe Webhook — payment_intent.succeeded (RA-1103)", () => {
     expect(response.status()).toBe(400);
 
     const body = await response.json();
-    expect(body).toMatchObject({ error: "Invalid signature" });
+    // RA-1548 replaced the ad-hoc `{ error: "..." }` body with the envelope
+    // `{ error: { code, message, eventId? } }`. This assertion still expected a
+    // string, so it could only have passed against the pre-RA-1548 handler —
+    // and it never ran here, because the file-level test.skip() above fires
+    // whenever STRIPE_WEBHOOK_SECRET is unset, which it was in every CI job.
+    // Supplying the secret is what exposed this.
+    expect(body).toMatchObject({
+      error: { code: "VALIDATION", message: "Invalid signature" },
+    });
   });
 
   /**
    * Case 3: No stripe-signature header at all.
    *
-   * Expected: 400 { error: "No signature" }
+   * Expected: 400 { error: { code: "VALIDATION", message: "No signature" } }
+   *
+   * The handler checks for the header BEFORE it checks for a configured
+   * secret, so this case is 400 either way. The "endpoint answers 500, not
+   * 400, to an unsigned webhook" note on the skip above is stale.
    */
   test("missing stripe-signature header → 400 No signature", async ({
     request,
@@ -216,6 +229,8 @@ test.describe("Stripe Webhook — payment_intent.succeeded (RA-1103)", () => {
     expect(response.status()).toBe(400);
 
     const body = await response.json();
-    expect(body).toMatchObject({ error: "No signature" });
+    expect(body).toMatchObject({
+      error: { code: "VALIDATION", message: "No signature" },
+    });
   });
 });
