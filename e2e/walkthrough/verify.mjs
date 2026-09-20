@@ -67,20 +67,46 @@ const isText = (v) => typeof v === "string" && v.trim() !== "";
 const isHttpStatus = (v) => Number.isInteger(v) && v >= 100 && v <= 599;
 const shotName = (stepId) => `${String(stepId).replace(/[^\w.-]/g, "_")}.png`;
 
-/** Recorded responses and requests only count when they carry a usable observation. */
+const isMethod = (v) => isText(v) && /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/i.test(v.trim());
+/** A URL a destination check can actually read. "not even a URL" counted as evidence. */
+const isUsableUrl = (v) => {
+  if (!isText(v)) return false;
+  try {
+    new URL(v);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Recorded responses and requests only count when they carry a usable observation: a
+ * status a server returned, a URL that parses, and the method that was used. Accepting a
+ * bare non-empty string as the URL, and no method at all, made `requests: [{url: "x"}]`
+ * proof that a step had run.
+ */
 const usableResponses = (r) =>
   (Array.isArray(r.badResponses) ? r.badResponses : []).filter(
-    (d) => d && typeof d === "object" && isHttpStatus(d.status) && isText(d.url),
+    (d) => d && typeof d === "object" && isHttpStatus(d.status) && isUsableUrl(d.url) && isMethod(d.method),
   );
 const usableRequests = (r) =>
-  (Array.isArray(r.requests) ? r.requests : []).filter((d) => d && typeof d === "object" && isText(d.url));
+  (Array.isArray(r.requests) ? r.requests : []).filter(
+    (d) => d && typeof d === "object" && isUsableUrl(d.url) && isMethod(d.method),
+  );
 
 /** Every destination this record proves the run reached, not just the summary pair. */
 function destinationsOf(r) {
   const out = [];
-  if (isText(r.url)) out.push({ url: r.url, method: isText(r.method) ? r.method : "GET" });
+  // A destination whose method is missing or unreadable is NOT assumed to be a GET.
+  // That assumption skipped the locality check for anything that omitted its method.
+  if (isUsableUrl(r.url)) {
+    out.push({ url: r.url, method: isMethod(r.method) ? r.method.trim().toUpperCase() : "UNKNOWN" });
+  }
   for (const d of [...usableResponses(r), ...usableRequests(r)]) {
-    out.push({ url: d.url, method: isText(d.method) ? d.method : "GET" });
+    // Not `d.method.trim()`: this must not depend on the filter above having run. A
+    // verifier that throws on malformed input is one refactor away from throwing on
+    // input it should have rejected.
+    out.push({ url: d.url, method: isMethod(d.method) ? d.method.trim().toUpperCase() : "UNKNOWN" });
   }
   return out;
 }
@@ -156,6 +182,9 @@ export function verify(resultsPath, plan) {
     if (r.status !== undefined && r.status !== null && !isHttpStatus(r.status)) {
       invalid.push(`${where}: status ${JSON.stringify(r.status)} is not an HTTP status the server returned`);
     }
+    if (r.url !== undefined && r.url !== null && !isUsableUrl(r.url)) {
+      invalid.push(`${where}: url ${JSON.stringify(r.url)} cannot be read as a destination`);
+    }
 
     const shotProblem = screenshotProblem(r.screenshot, baseDir, r.step);
     // Evidence must be inspected, not merely present. Each of these was a bypass.
@@ -182,7 +211,8 @@ export function verify(resultsPath, plan) {
     }
 
     for (const d of destinationsOf(r)) {
-      if (d.method.toUpperCase() === "GET") continue;
+      // UNKNOWN is deliberately not skipped: an unreadable method is checked, not waived.
+      if (d.method === "GET") continue;
       let host;
       try {
         host = new URL(d.url).hostname;
@@ -292,6 +322,17 @@ function selfTest() {
     run("screenshot-traversal-out-of-this-run", valid.map((r) => (r.step === "O1" ? { ...r, screenshot: `shots/../elsewhere/${shotName("O1")}` } : r)), false),
     // A screenshot from another step is not this step's evidence.
     run("screenshot-belongs-to-another-step", valid.map((r) => (r.step === "O1" ? { ...r, screenshot: join("shots", shotName("O2")) } : r)), false),
+    // --- round 3 findings (report review-18bc6cfe1.json) ---
+    // A destination entry needs a URL a check can read and the method that was used.
+    run("request-with-unparseable-url-counts-as-evidence", bare({ requests: [{ method: "POST", url: "not even a URL" }] }), false),
+    run("response-with-unparseable-url-counts-as-evidence", bare({ badResponses: [{ status: 500, method: "POST", url: "not even a URL" }] }), false),
+    run("request-without-method-counts-as-evidence", bare({ requests: [{ url: "http://localhost:3000/x" }] }), false),
+    // A missing method used to default to GET, which waived the locality check entirely.
+    run(
+      "external-destination-escapes-when-method-is-missing",
+      valid.map((r) => (r.step === "O1" ? { ...r, url: "https://restoreassist.app/api/x", method: undefined } : r)),
+      false,
+    ),
   ];
   rmSync(dir, { recursive: true, force: true });
   const allGood = results.every(Boolean);
