@@ -13,9 +13,13 @@ import type { Page } from "@playwright/test";
 
 type Role = "USER" | "ADMIN" | "MANAGER";
 
-export async function loginAs(page: Page, role: Role): Promise<void> {
+export async function loginAs(
+  page: Page,
+  role: Role,
+  opts: { email?: string } = {},
+): Promise<void> {
   const res = await page.request.post("/api/test/sign-in-as", {
-    data: { role },
+    data: { role, ...opts },
   });
   if (!res.ok()) {
     throw new Error(

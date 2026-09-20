@@ -211,6 +211,27 @@ export async function assertInspectionTenancy(
 }
 
 /**
+ * The inspection filter for everything the session user can reach, for a
+ * lookup that does not start from a known id (a list, or a search by
+ * inspection number). Same rules as `assertInspectionTenancy`. `{}` only for
+ * an allowlisted platform support operator; callers that must stay inside one
+ * tenant add their own organisation clause on top.
+ */
+export async function resolveInspectionReach(
+  session: SessionLike | null,
+): Promise<TenancyResult<Prisma.InspectionWhereInput>> {
+  if (!session?.user?.id) {
+    return { ok: false, status: 401, reason: "Unauthorized" };
+  }
+  const scope = await resolveTenantScope(session);
+  if (scope.kind === "platform") return { ok: true, data: {} };
+  return {
+    ok: true,
+    data: { OR: ownershipClauses(session.user.id, scope) },
+  };
+}
+
+/**
  * RA-6800: resolve ownership-scoped `where` fragments for WRITING to an
  * inspection or its child records. Verifies access using the same model as
  * `assertInspectionTenancy` (direct owner OR active workspace member, widened
