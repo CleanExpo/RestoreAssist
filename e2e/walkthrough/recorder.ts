@@ -65,12 +65,18 @@ interface Watch {
   consoleErrors: string[];
   badResponses: { status: number; method: string; url: string }[];
   /**
-   * Every response seen on this page, not only the failing ones. This is what says a step
-   * was actually exercised. A screenshot cannot say it: step() takes one whether or not
-   * the callback did anything, so a prerequisite exit that returned immediately still
-   * carried a screenshot and read as a measured failure.
+   * Responses to requests THIS step issued. This is what says a step was exercised.
+   *
+   * A screenshot cannot say it: step() takes one whether or not the callback did anything.
+   * Nor can a plain response count: responses arrive asynchronously, so a slow response to
+   * the PREVIOUS step's request - including one landing while this step's screenshot is
+   * being taken - made a callback that did nothing look measured. Counting only responses
+   * whose request this step issued removes both the cross-step leak and the screenshot
+   * window.
    */
-  responses: number;
+  observedResponses: number;
+  /** Requests issued during the current step, used to attribute responses to it. */
+  stepRequests: Set<unknown>;
 }
 
 const watches = new WeakMap<Page, Watch>();
@@ -86,6 +92,7 @@ const mutations: { method: string; url: string }[] = [];
 const API_METHODS = ["fetch", "get", "post", "put", "patch", "delete", "head"];
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const MAX_REDIRECTS = 5;
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
 /** Refuse a non-local destination BEFORE it is dispatched, and record the mutation. */
 function checkedDestination(method: string, url: string): string {
@@ -96,7 +103,7 @@ function checkedDestination(method: string, url: string): string {
     throw new Error(`walkthrough cannot resolve request URL "${url}"`);
   }
   const host = new URL(absolute).hostname;
-  if (host !== "localhost" && host !== "127.0.0.1") {
+  if (!LOCAL_HOSTS.has(host)) {
     throw new Error(`walkthrough refuses ${method} to non-local destination "${absolute}"`);
   }
   if (MUTATING.has(method)) mutations.push({ method, url: absolute.slice(0, 300) });
@@ -157,23 +164,49 @@ export function recordedApi(ctx: APIRequestContext): APIRequestContext {
   }) as APIRequestContext;
 }
 
-/** Start collecting console errors, failing responses and mutations for a page. */
-export function watch(page: Page): void {
-  const w: Watch = { consoleErrors: [], badResponses: [], responses: 0 };
+/**
+ * Start guarding and collecting a page.
+ *
+ * Async because it installs a route handler: `page.on("request")` only OBSERVES, and does
+ * so after dispatch, so browser traffic - a UI click that navigates to a returned URL, a
+ * fetch inside page.evaluate - reached the network with no locality check at all. Routing
+ * is the only point at which a browser request can be refused before it is sent.
+ */
+export async function watch(page: Page): Promise<void> {
+  const w: Watch = { consoleErrors: [], badResponses: [], observedResponses: 0, stepRequests: new Set() };
   watches.set(page, w);
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const verb = request.method().toUpperCase();
+    let host = "";
+    try {
+      host = new URL(request.url()).hostname;
+    } catch {
+      host = "";
+    }
+    // Reads may leave the box (fonts, a CDN, a checkout page the product itself navigates
+    // to). Writes may not: production must not be mutated by a walkthrough, and a local
+    // redirect that forwards a browser POST off-box is exactly how that would happen.
+    if (MUTATING.has(verb) && !LOCAL_HOSTS.has(host)) {
+      w.badResponses.push({ status: 0, method: verb, url: request.url().slice(0, 300) });
+      w.consoleErrors.push(`walkthrough blocked ${verb} to non-local host "${host}"`);
+      await route.abort("blockedbyclient");
+      return;
+    }
+    if (MUTATING.has(verb)) mutations.push({ method: verb, url: request.url().slice(0, 300) });
+    await route.continue();
+  });
   page.on("console", (msg) => {
     if (msg.type() === "error") w.consoleErrors.push(msg.text().slice(0, 300));
   });
   page.on("pageerror", (err) => w.consoleErrors.push(`pageerror: ${String(err.message).slice(0, 300)}`));
+  page.on("request", (req) => w.stepRequests.add(req));
   page.on("response", (res) => {
-    w.responses += 1;
+    // Only a response to a request THIS step issued proves this step did something.
+    if (w.stepRequests.has(res.request())) w.observedResponses += 1;
     if (res.status() >= 400) {
       w.badResponses.push({ status: res.status(), method: res.request().method(), url: res.url().slice(0, 300) });
     }
-  });
-  page.on("request", (req) => {
-    const verb = req.method().toUpperCase();
-    if (MUTATING.has(verb)) mutations.push({ method: verb, url: req.url().slice(0, 300) });
   });
   // page.request is an APIRequestContext whose traffic raises no page events. Shadowing it
   // here covers every `page.request.*` call site without each one having to remember.
@@ -201,14 +234,22 @@ export async function step(
   ensureDirs();
   let result: StepResult;
   const started = Date.now();
+  // This step's own tally, reset here so nothing from the previous step counts towards it.
   const watchAtStart = page ? watches.get(page) : undefined;
-  const responsesBefore = watchAtStart?.responses ?? 0;
+  if (watchAtStart) {
+    watchAtStart.observedResponses = 0;
+    watchAtStart.stepRequests.clear();
+  }
   const mutationsBefore = mutations.length;
   try {
     result = await body();
   } catch (err) {
     result = { outcome: "FAIL", note: `threw: ${String((err as Error)?.message ?? err).slice(0, 500)}` };
   }
+  // Tallied HERE, before the screenshot is awaited. Computing it afterwards let a response
+  // arriving during the screenshot count as this step's work, which made a callback that
+  // returned immediately look measured.
+  const observed = (watchAtStart?.observedResponses ?? 0) + (mutations.length - mutationsBefore);
   let screenshot: string | undefined;
   if (page && !page.isClosed()) {
     // The name is bound to the step so a screenshot cannot stand in for another step.
@@ -220,10 +261,7 @@ export async function step(
       screenshot = undefined;
     }
   }
-  const w = page ? watches.get(page) : undefined;
-  // Counted BEFORE the arrays below are drained: `requests: mutations.splice(0)` empties
-  // the sink, so reading its length afterwards would report zero for every step.
-  const observed = (w ? w.responses - responsesBefore : 0) + (mutations.length - mutationsBefore);
+  const w = watchAtStart;
   const line = {
     step: id,
     runId: RUN_ID,
@@ -277,7 +315,7 @@ export function localConnection(): { host: string; port: number; user?: string; 
     throw new Error(`DATABASE_URL carries connection overrides (${redirecting.join(", ")}); refused`);
   }
   const host = url.hostname;
-  if (host !== "localhost" && host !== "127.0.0.1") {
+  if (!LOCAL_HOSTS.has(host)) {
     throw new Error(`walkthrough refuses non-local DATABASE_URL host "${host}"`);
   }
   return {

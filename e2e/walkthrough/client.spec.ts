@@ -219,7 +219,7 @@ async function openOwner(browser: Browser, email: string): Promise<Owner> {
   let note = `sign-in-as ${res.status()}`;
   if (!res.ok() || !jwt) {
     const page = await ctx.newPage();
-    watch(page);
+    await watch(page);
     return { ctx, page, email, userId, ok: false, note: `${note}, no session cookie` };
   }
   const host = new URL(BASE).hostname;
@@ -247,7 +247,7 @@ async function openOwner(browser: Browser, email: string): Promise<Owner> {
     note += ", session ok";
   }
   const page = await ctx.newPage();
-  watch(page);
+  await watch(page);
   return { ctx, page, email, userId, ok, note };
 }
 
@@ -316,7 +316,7 @@ async function seedClientAndJob(owner: Owner, tag: string): Promise<{ clientId: 
 // ── the journey ─────────────────────────────────────────────────────────────
 
 test("client journey C1-C11 (phone, owner on desktop)", async ({ page, browser }) => {
-  watch(page);
+  await watch(page);
   const state = readState();
   const F: Facts = {};
   const ownerEmail = state.ownerEmail || "walkthrough-client-owner@test.local";
