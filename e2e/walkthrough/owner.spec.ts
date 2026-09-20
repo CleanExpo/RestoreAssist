@@ -33,9 +33,8 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Client } from "pg";
 import { generateValidAbn } from "../helpers/abn";
-import { RESULTS_DIR, localQuery, step, watch, writeState } from "./recorder";
+import { BASE_URL, RESULTS_DIR, localClient, localQuery, step, watch, writeState } from "./recorder";
 
 test.describe.configure({ mode: "serial" });
 
@@ -46,7 +45,9 @@ const TITLES: Record<string, string> = Object.fromEntries(
     (s) => [s.id, s.title],
   ),
 );
-const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
+// Validated once in recorder.ts. Deriving it here from the env again skipped the
+// locality check, and every mutating request in this spec is relative to it.
+const BASE = BASE_URL;
 const HOST = new URL(BASE).hostname;
 const RUN = `${Date.now().toString(36)}${randomBytes(2).toString("hex")}`;
 const SECURE_COOKIE = "__Secure-next-auth.session-token";
@@ -199,20 +200,17 @@ async function sendStripeEvent(type: string, object: Json): Promise<{ status: nu
 
 /**
  * BYPASS writer, the only write this spec makes outside the app's own HTTP routes. Mirrors
- * scripts/seed-full-access-account.ts (User -> ACTIVE, FeatureEntitlement rows), refuses any
- * non-local DATABASE_URL, and accepts exactly two statement shapes.
+ * scripts/seed-full-access-account.ts (User -> ACTIVE, FeatureEntitlement rows), and accepts
+ * exactly two statement shapes.
+ *
+ * The destination comes from localClient(), which builds the connection field by field.
+ * The previous guard here read only the URL's hostname, which a `?host=` parameter in
+ * DATABASE_URL overrode once pg parsed the same string: the check said localhost and the
+ * connection went elsewhere.
  */
 async function bypassWrite(sql: string, params: unknown[]): Promise<number> {
-  const url = process.env.DATABASE_URL || "";
-  let host = "";
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    host = "";
-  }
-  if (host !== "localhost" && host !== "127.0.0.1") throw new Error(`BYPASS refuses non-local DATABASE_URL host "${host}"`);
   if (!/^\s*(update "User" set|insert into "FeatureEntitlement")/i.test(sql)) throw new Error("BYPASS writer: statement not allowed");
-  const c = new Client({ connectionString: url });
+  const c = localClient();
   await c.connect();
   try {
     return (await c.query(sql, params)).rowCount ?? 0;
