@@ -34,7 +34,7 @@ import { mkdirSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateValidAbn } from "../helpers/abn";
-import { BASE_URL, RESULTS_DIR, localClient, localQuery, step, watch, writeState } from "./recorder";
+import { BASE_URL, RESULTS_DIR, localClient, localQuery, recordedApi, step, watch, writeState } from "./recorder";
 
 test.describe.configure({ mode: "serial" });
 
@@ -104,7 +104,7 @@ function errText(j: Json): string {
 // ---------------------------------------------------------------- sessions
 /** Mint a session JWT through the test helper, from a cookie-less context (the helper is not setup-gate exempt). */
 async function helperJwt(email: string, role: Role, setupDone: boolean): Promise<{ jwt?: string; status: number; note: string }> {
-  const api = await pwRequest.newContext({ baseURL: BASE });
+  const api = recordedApi(await pwRequest.newContext({ baseURL: BASE }));
   try {
     const res = await api.post("/api/test/sign-in-as", {
       data: setupDone ? { role, email } : { role, email, setupCompletedAt: null },
@@ -184,7 +184,7 @@ async function sendStripeEvent(type: string, object: Json): Promise<{ status: nu
     data: { object },
   });
   const sig = createHmac("sha256", secret).update(`${created}.${payload}`).digest("hex");
-  const api = await pwRequest.newContext({ baseURL: BASE });
+  const api = recordedApi(await pwRequest.newContext({ baseURL: BASE }));
   try {
     const r = await api.post("/api/webhooks/stripe", {
       data: payload,
@@ -1081,10 +1081,12 @@ test("owner journey: sign up, set up, buy, invite, add a job, load every page, s
     const bj = await helperJwt(TENANT_B_EMAIL, b.role as Role, true);
     let planted = `tenant B sign-in ${bj.status}`;
     if (bj.jwt) {
-      const api = await pwRequest.newContext({
-        baseURL: BASE,
-        extraHTTPHeaders: { cookie: `${SECURE_COOKIE}=${bj.jwt}; ${PLAIN_COOKIE}=${bj.jwt}`, origin: BASE },
-      });
+      const api = recordedApi(
+        await pwRequest.newContext({
+          baseURL: BASE,
+          extraHTTPHeaders: { cookie: `${SECURE_COOKIE}=${bj.jwt}; ${PLAIN_COOKIE}=${bj.jwt}`, origin: BASE },
+        }),
+      );
       try {
         const post = (url: string, data: Json) => api.post(url, { data, headers: mutation(), failOnStatusCode: false, timeout: 20_000 });
         const c = await post("/api/clients", { name: canaryClient, email: `${canary.toLowerCase()}@example.com` });

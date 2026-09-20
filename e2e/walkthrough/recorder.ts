@@ -1,30 +1,28 @@
 /**
  * Shared step recorder for the three-persona walkthrough (owner, technician, client).
  *
- * Every step appends exactly one JSON line to results.jsonl with a screenshot, the
- * console errors, the HTTP >= 400 responses and every non-GET request seen since the
+ * Every step appends exactly one JSON line to this run's results.jsonl with a screenshot,
+ * the console errors, the failing responses and every mutating request seen since the
  * previous step. A step never throws: a measured failure is recorded as FAIL and the
- * journey moves on, so one broken screen cannot hide the rest of the product. A step
- * that could NOT be exercised is UNMEASURED, never FAIL. verify.mjs checks the file.
+ * journey moves on, so one broken screen cannot hide the rest of the product. A step that
+ * could NOT be exercised is UNMEASURED, never FAIL. verify.mjs checks the file.
  *
  * Outcomes: PASS, FAIL, EXPECTED-BY-CODE (a gap the code already shows), PURCHASED
  * (Stripe test mode), SIMULATED (signed webhook, no Stripe), BYPASS (seeded), UNMEASURED.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import path from "node:path";
-import type { Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 import { Client } from "pg";
 
-export const RESULTS_DIR =
+const RESULTS_ROOT =
   process.env.WALKTHROUGH_DIR || "/Volumes/Storage Unit/RestoreAssist/walkthrough-20260919";
-const RESULTS_FILE = path.join(RESULTS_DIR, "results.jsonl");
-const STATE_FILE = path.join(RESULTS_DIR, "state.json");
-const RUN_FILE = path.join(RESULTS_DIR, "run.json");
 
 /**
- * The one destination every journey is allowed to reach. Each spec used to re-derive
- * this from PLAYWRIGHT_BASE_URL WITHOUT the locality check the Playwright config
- * applies, so the check existed in one place and the 26 mutating calls read another.
+ * The one destination every journey is allowed to reach. Each spec used to re-derive this
+ * from PLAYWRIGHT_BASE_URL WITHOUT the locality check the Playwright config applies, so the
+ * check lived in one place and the mutating calls read another.
  */
 export const BASE_URL = ((): string => {
   const raw = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
@@ -35,26 +33,24 @@ export const BASE_URL = ((): string => {
 })();
 
 /**
- * Identity of THIS run. Results used to append to a reused file with no run marker, so
- * a rerun interrupted before a required step borrowed that step's evidence from an
- * older, complete run. The first worker to create run.json wins (O_EXCL); the other two
- * Playwright projects read the id it wrote.
+ * Identity of THIS invocation.
+ *
+ * An earlier version claimed the id once per RESULTS DIRECTORY (an O_EXCL write to
+ * run.json) and appended every run to one results.jsonl. A later invocation then adopted
+ * the previous invocation's id, so an interrupted rerun still borrowed a complete run's
+ * coverage. The id now comes from WALKTHROUGH_RUN, which walkthrough.config.ts sets once
+ * per `playwright test` invocation and the workers inherit. Running a spec without that
+ * config produces a fresh per-process id instead of adopting a stale one: two workers then
+ * disagree and verify.mjs rejects the mixed run rather than accepting a half-measured one.
  */
-export const RUN_ID = ((): string => {
-  if (process.env.WALKTHROUGH_RUN) return process.env.WALKTHROUGH_RUN;
-  mkdirSync(RESULTS_DIR, { recursive: true });
-  const candidate = `run-${new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14)}`;
-  try {
-    writeFileSync(RUN_FILE, `${JSON.stringify({ runId: candidate, startedAt: new Date().toISOString() }, null, 2)}\n`, {
-      flag: "wx",
-    });
-    return candidate;
-  } catch {
-    return String(JSON.parse(readFileSync(RUN_FILE, "utf8")).runId);
-  }
-})();
+export const RUN_ID =
+  process.env.WALKTHROUGH_RUN || `run-${new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14)}-${randomBytes(3).toString("hex")}`;
 
-const SHOTS_DIR = path.join(RESULTS_DIR, "shots", RUN_ID);
+/** Each invocation owns a directory. Nothing from an older run is reachable from it. */
+export const RESULTS_DIR = path.join(RESULTS_ROOT, "runs", RUN_ID);
+const RESULTS_FILE = path.join(RESULTS_DIR, "results.jsonl");
+const STATE_FILE = path.join(RESULTS_DIR, "state.json");
+const SHOTS_DIR = path.join(RESULTS_DIR, "shots");
 
 export type Outcome =
   | "PASS"
@@ -79,14 +75,62 @@ export interface StepResult {
 interface Watch {
   consoleErrors: string[];
   badResponses: { status: number; method: string; url: string }[];
-  requests: { method: string; url: string }[];
 }
 
 const watches = new WeakMap<Page, Watch>();
 
-/** Start collecting console errors, failing responses and mutating requests for a page. */
+/**
+ * Mutating requests seen since the previous step, from every transport.
+ *
+ * Page events do not fire for APIRequestContext traffic (page.request, a context's
+ * request, pwRequest.newContext), and those carry most of this harness's writes. So the
+ * sink is module-level and every transport feeds it.
+ */
+const mutations: { method: string; url: string }[] = [];
+const API_METHODS = ["fetch", "get", "post", "put", "patch", "delete", "head"];
+const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/** Refuse a non-local destination BEFORE it is dispatched, and record the mutation. */
+function checkedDestination(method: string, url: string): string {
+  let absolute: string;
+  try {
+    absolute = new URL(url, `${BASE_URL}/`).toString();
+  } catch {
+    throw new Error(`walkthrough cannot resolve request URL "${url}"`);
+  }
+  const host = new URL(absolute).hostname;
+  if (host !== "localhost" && host !== "127.0.0.1") {
+    throw new Error(`walkthrough refuses ${method} to non-local destination "${absolute}"`);
+  }
+  if (MUTATING.has(method)) mutations.push({ method, url: absolute.slice(0, 300) });
+  return absolute;
+}
+
+/**
+ * An APIRequestContext that validates every destination before dispatch and records every
+ * mutation it makes. Wrapping the context covers each call made through it, so a new call
+ * site cannot forget to be recorded.
+ */
+export function recordedApi(ctx: APIRequestContext): APIRequestContext {
+  return new Proxy(ctx, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target);
+      if (typeof value !== "function") return value;
+      if (typeof prop === "string" && API_METHODS.includes(prop)) {
+        return async (url: string, options?: Record<string, unknown>) => {
+          const verb = prop === "fetch" ? String(options?.method ?? "GET").toUpperCase() : prop.toUpperCase();
+          checkedDestination(verb, url);
+          return (value as (...a: unknown[]) => unknown).call(target, url, options);
+        };
+      }
+      return (value as (...a: unknown[]) => unknown).bind(target);
+    },
+  }) as APIRequestContext;
+}
+
+/** Start collecting console errors, failing responses and mutations for a page. */
 export function watch(page: Page): void {
-  const w: Watch = { consoleErrors: [], badResponses: [], requests: [] };
+  const w: Watch = { consoleErrors: [], badResponses: [] };
   watches.set(page, w);
   page.on("console", (msg) => {
     if (msg.type() === "error") w.consoleErrors.push(msg.text().slice(0, 300));
@@ -97,12 +141,20 @@ export function watch(page: Page): void {
       w.badResponses.push({ status: res.status(), method: res.request().method(), url: res.url().slice(0, 300) });
     }
   });
-  // Every mutation, not only the ones that failed. The destination check reads these.
   page.on("request", (req) => {
-    if (req.method().toUpperCase() !== "GET") {
-      w.requests.push({ method: req.method(), url: req.url().slice(0, 300) });
-    }
+    const verb = req.method().toUpperCase();
+    if (MUTATING.has(verb)) mutations.push({ method: verb, url: req.url().slice(0, 300) });
   });
+  // page.request is an APIRequestContext whose traffic raises no page events. Shadowing it
+  // here covers every `page.request.*` call site without each one having to remember.
+  const proxied = recordedApi(page.request);
+  try {
+    Object.defineProperty(page, "request", { get: () => proxied, configurable: true });
+  } catch (err) {
+    throw new Error(
+      `walkthrough cannot guard page.request, so mutations through it would go unrecorded: ${String(err)}`,
+    );
+  }
 }
 
 function ensureDirs(): void {
@@ -126,7 +178,8 @@ export async function step(
   }
   let screenshot: string | undefined;
   if (page && !page.isClosed()) {
-    const rel = path.join("shots", RUN_ID, `${id.replace(/[^\w.-]/g, "_")}.png`);
+    // The name is bound to the step so a screenshot cannot stand in for another step.
+    const rel = path.join("shots", `${id.replace(/[^\w.-]/g, "_")}.png`);
     try {
       await page.screenshot({ path: path.join(RESULTS_DIR, rel), fullPage: false });
       screenshot = rel;
@@ -144,7 +197,7 @@ export async function step(
     pageUrl: page && !page.isClosed() ? page.url() : undefined,
     consoleErrors: w?.consoleErrors.splice(0) ?? [],
     badResponses: w?.badResponses.splice(0) ?? [],
-    requests: w?.requests.splice(0) ?? [],
+    requests: mutations.splice(0),
     ms: Date.now() - started,
     at: new Date().toISOString(),
   };
@@ -167,9 +220,9 @@ export function writeState(patch: Record<string, string>): void {
  *
  * Reading only `new URL(url).hostname` was not enough: pg copies the URL's query
  * parameters into its config, so `postgresql://u:p@localhost/db?host=example.invalid`
- * passed a localhost check and then connected to example.invalid. Nothing here is
- * handed a connection string, so a query parameter cannot redirect the connection, and
- * a parameter that tries to is refused out loud rather than ignored.
+ * passed a localhost check and then connected to example.invalid. Nothing here is handed a
+ * connection string, so a query parameter cannot redirect the connection, and one that
+ * tries to is refused rather than ignored.
  */
 export function localConnection(): { host: string; port: number; user?: string; password?: string; database?: string } {
   const raw = process.env.DATABASE_URL || "";
@@ -202,8 +255,8 @@ export function localClient(): Client {
 }
 
 /**
- * Read-only query against the LOCAL walkthrough database, so a misconfigured
- * environment can never touch production.
+ * Read-only query against the LOCAL walkthrough database, so a misconfigured environment
+ * can never touch production.
  */
 export async function localQuery<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
   if (!/^\s*select\b/i.test(sql)) throw new Error("localQuery is read-only: SELECT statements only");
