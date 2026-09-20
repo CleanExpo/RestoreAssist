@@ -109,6 +109,22 @@ function fail(note: string, causes: Causes, extra: Partial<StepResult> = {}): St
   };
 }
 
+/**
+ * A step that could not be exercised because a prerequisite was missing.
+ *
+ * UNMEASURED, not FAIL. Recording a prerequisite exit as FAIL claimed the step had run and
+ * the product was broken - a different and much stronger statement - and because the
+ * recorder attaches a screenshot even when the callback returns immediately, such a step
+ * looked exercised. A run that never reached these steps then verified clean.
+ */
+function unmeasured(note: string, causes: Causes, extra: Partial<StepResult> = {}): StepResult {
+  return {
+    outcome: "UNMEASURED",
+    note: `${note} || likely causes: (1) ${causes[0]} (2) ${causes[1]} (3) ${causes[2]}`,
+    ...extra,
+  };
+}
+
 async function visible(l: Locator, timeout = 10_000): Promise<boolean> {
   try {
     await expect(l).toBeVisible({ timeout });
@@ -186,8 +202,11 @@ const OWNER_CAUSES: Causes = [
 async function openOwner(browser: Browser, email: string): Promise<Owner> {
   const { defaultBrowserType: _unused, ...desktop } = devices["Desktop Chrome"];
   let ctx = await browser.newContext({ ...desktop, baseURL: BASE });
+  // recordedApi, not c.request: a BrowserContext's request object raises no page events and
+  // is not shadowed by watch(), so this sign-in ran before any guard existed. A local 307
+  // could have forwarded the POST and its body to a non-local host, unguarded and unrecorded.
   const signIn = async (c: BrowserContext, role: string) =>
-    c.request.post("/api/test/sign-in-as", { data: { role, email }, timeout: 20_000, failOnStatusCode: false });
+    recordedApi(c.request).post("/api/test/sign-in-as", { data: { role, email }, timeout: 20_000, failOnStatusCode: false });
 
   let res = await signIn(ctx, "ADMIN");
   if (res.status() === 409) {
@@ -304,9 +323,9 @@ test("client journey C1-C11 (phone, owner on desktop)", async ({ page, browser }
   const owner = await openOwner(browser, ownerEmail);
   const ownerNote = `owner=${state.ownerEmail ? "state.ownerEmail" : "seeded test ADMIN (no ownerEmail in state)"}; ${owner.note}`;
   const needOwner = (what: string) =>
-    fail(`${what} needs the owner session, which is unavailable (${owner.note})`, OWNER_CAUSES);
+    unmeasured(`${what} needs the owner session, which is unavailable (${owner.note})`, OWNER_CAUSES);
   const needPortal = (what: string) =>
-    fail(`${what}: no working portal token from C1`, [
+    unmeasured(`${what}: no working portal token from C1`, [
       "owner journey wrote no portalUrl/clientId/jobId and seeding failed",
       "ClientPortalAccount row revoked or expired",
       "local DB unreachable from the spec (DATABASE_URL not exported)",

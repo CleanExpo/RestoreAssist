@@ -197,6 +197,13 @@ export function verify(resultsPath, plan) {
     if (r.url !== undefined && r.url !== null && !isUsableUrl(r.url)) {
       invalid.push(`${where}: url ${JSON.stringify(r.url)} cannot be read as a destination`);
     }
+    // A non-array here was quietly treated as "no entries", so an external destination
+    // recorded as an object rather than a list disappeared before anything read it.
+    for (const key of ["badResponses", "requests"]) {
+      if (r[key] !== undefined && r[key] !== null && !Array.isArray(r[key])) {
+        invalid.push(`${where}: ${key} is not a list`);
+      }
+    }
     // A destination entry that cannot be read is rejected, never silently dropped.
     // Dropping them is how an external POST with its method removed escaped the check.
     for (const d of allEntries(r)) {
@@ -365,6 +372,13 @@ function selfTest() {
       valid.map((r) =>
         r.step === "O1" ? { ...r, badResponses: [{ status: 0, method: "POST", url: "https://example.invalid/write" }] } : r,
       ),
+      false,
+    ),
+    // --- round 5 findings (report review-b70bee9f1.json) ---
+    // A non-array was read as "no entries", so the destination was never judged.
+    run(
+      "external-write-recorded-as-an-object-not-a-list",
+      valid.map((r) => (r.step === "O1" ? { ...r, requests: { method: "POST", url: "https://example.invalid/write" } } : r)),
       false,
     ),
   ];
