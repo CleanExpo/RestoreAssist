@@ -307,7 +307,7 @@ function dashboardRoutes(fill: Record<string, string | undefined>): { routes: st
 // ================================================================ the journey
 test("owner journey: sign up, set up, buy, invite, add a job, load every page, stay isolated", async ({ page }) => {
   test.setTimeout(50 * 60_000);
-  watch(page);
+  await watch(page);
   const ctx = page.context();
   const ownerName = `Walkthrough Owner ${RUN}`;
   const ownerEmail = `walkthrough-owner-${RUN}@example.com`;

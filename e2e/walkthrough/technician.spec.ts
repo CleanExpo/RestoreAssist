@@ -237,7 +237,7 @@ const onLogin = (page: Page) => new URL(page.url()).pathname === "/login";
 test("technician journey: invite to report on a phone (T1-T14)", async ({ page, context, baseURL }) => {
   const base = baseURL ?? "http://localhost:3000";
   const abs = (p: string) => new URL(p, base).toString();
-  watch(page);
+  await watch(page);
   const state = readState();
   const run = Date.now().toString(36);
   const tech: { email?: string; userId?: string; jobId?: string; fallback: boolean } = { fallback: false };
