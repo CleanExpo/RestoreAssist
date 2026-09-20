@@ -113,22 +113,35 @@ export function recordedApi(ctx: APIRequestContext): APIRequestContext {
           // relative argument through let Playwright resolve it against the wrapped
           // context's own baseURL: a context created with a non-local baseURL reached
           // that host while the guard had approved, and recorded, a localhost address.
-          let target_url = checkedDestination(verb, url);
           // Playwright follows redirects itself, and the hop it follows never reaches this
           // wrapper: a local 307 re-dispatched a POST to an external host with the same
           // body. So redirects are disabled and each hop is validated before it is taken.
+          const caller = options ?? {};
+          const limit = typeof caller.maxRedirects === "number" ? caller.maxRedirects : MAX_REDIRECTS;
+          const rawFetch = Reflect.get(target, "fetch", target) as (...a: unknown[]) => unknown;
+          let next = checkedDestination(verb, url);
+          let method = verb;
+          let opts: Record<string, unknown> = { ...caller };
+          let first = true;
           for (let hop = 0; ; hop += 1) {
-            const res = (await (value as (...a: unknown[]) => unknown).call(target, target_url, {
-              ...(options ?? {}),
-              maxRedirects: 0,
-            })) as { status: () => number; headers: () => Record<string, string> };
+            const res = (await (first
+              ? (value as (...a: unknown[]) => unknown).call(target, next, { ...opts, maxRedirects: 0 })
+              : rawFetch.call(target, next, { ...opts, method, maxRedirects: 0 }))) as {
+              status: () => number;
+              headers: () => Record<string, string>;
+            };
+            first = false;
             const status = res.status();
             const location = status >= 300 && status < 400 ? res.headers()["location"] : undefined;
-            if (!location) return res;
-            if (hop >= MAX_REDIRECTS) {
-              throw new Error(`walkthrough refuses more than ${MAX_REDIRECTS} redirects from ${url}`);
+            if (!location || limit === 0) return res;
+            if (hop >= limit) throw new Error(`walkthrough refuses more than ${limit} redirects from ${url}`);
+            // 301, 302 and 303 become a GET without the original body (RFC 9110). Carrying
+            // the body forward would repeat a mutation the caller did not ask for.
+            if (status === 301 || status === 302 || status === 303) {
+              method = "GET";
+              opts = { ...opts, data: undefined, form: undefined, multipart: undefined };
             }
-            target_url = checkedDestination(verb, new URL(location, target_url).toString());
+            next = checkedDestination(method, new URL(location, next).toString());
           }
         };
       }
