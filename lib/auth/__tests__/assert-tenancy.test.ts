@@ -14,6 +14,8 @@ import {
   assertPortalReportTenancy,
   assertReportTenancy,
   resolveInspectionReach,
+  resolveClientReach,
+  resolveInvoiceReach,
   resolveInspectionWrite,
 } from "../assert-tenancy";
 
@@ -373,22 +375,111 @@ describe("resolveInspectionReach", () => {
     expect(r.ok).toBe(false);
   });
 
-  it("owner or active workspace member only, for a non-admin", async () => {
+  // RA-7582 / D-023. This assertion used to read "owner or active workspace
+  // member only, for a non-admin", and it was the thing holding the defect in
+  // place: a USER in an organisation got exactly two clauses, one of which
+  // (workspace membership) matches nothing because no create path writes
+  // `workspaceId`. The result was an empty dashboard for every invited
+  // technician. Reading a job is now a colleague's right.
+  it("widens to the organisation for a non-admin who has one", async () => {
     userFindUnique.mockResolvedValue({ role: "USER", organizationId: "org_1" });
     const r = await resolveInspectionReach({ user: { id: "u_1" } });
     if (!r.ok) throw new Error("unreachable");
     expect(r.data).toEqual({
-      OR: [
-        { userId: "u_1" },
-        { workspace: { members: { some: { userId: "u_1", status: "ACTIVE" } } } },
+      AND: [
+        {
+          OR: [
+            { userId: "u_1" },
+            {
+              workspace: {
+                members: { some: { userId: "u_1", status: "ACTIVE" } },
+              },
+            },
+            { user: { organizationId: "org_1" } },
+          ],
+        },
       ],
     });
+  });
+
+  // The guard that matters more than the widening. Asserted with toEqual, not
+  // toContainEqual: only an exact match can see an extra clause that would
+  // match the whole platform.
+  it("gives an org-less user exactly the two self clauses", async () => {
+    userFindUnique.mockResolvedValue({ role: "USER", organizationId: null });
+    const r = await resolveInspectionReach({ user: { id: "u_1" } });
+    if (!r.ok) throw new Error("unreachable");
+    expect(r.data).toEqual({
+      AND: [
+        {
+          OR: [
+            { userId: "u_1" },
+            {
+              workspace: {
+                members: { some: { userId: "u_1", status: "ACTIVE" } },
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  // An `undefined` organisationId is DROPPED by Prisma, turning
+  // `{ user: { organizationId } }` into `{ user: {} }` -- a filter that matches
+  // every row on the platform. A user row that came back without the field at
+  // all must therefore fall back to self, never to org.
+  it("falls back to self when the user row carries no organisation field", async () => {
+    userFindUnique.mockResolvedValue({ role: "ADMIN" });
+    const r = await resolveInspectionReach({ user: { id: "u_1" } });
+    if (!r.ok) throw new Error("unreachable");
+    const clauses = (r.data as { AND: Array<{ OR: unknown[] }> }).AND[0].OR;
+    expect(clauses).toHaveLength(2);
+    expect(JSON.stringify(clauses)).not.toContain("organizationId");
   });
 
   it("widens to the organisation for a tenant admin", async () => {
     userFindUnique.mockResolvedValue({ role: "ADMIN", organizationId: "org_1" });
     const r = await resolveInspectionReach({ user: { id: "u_1" } });
     if (!r.ok) throw new Error("unreachable");
-    expect(r.data.OR).toContainEqual({ user: { organizationId: "org_1" } });
+    const clauses = (r.data as { AND: Array<{ OR: unknown[] }> }).AND[0].OR;
+    expect(clauses).toContainEqual({ user: { organizationId: "org_1" } });
   });
+});
+
+// ─── resolveClientReach / resolveInvoiceReach ────────────────────────────────
+
+/**
+ * Money is gated one rung higher than jobs. `/api/invoices` returns the firm's
+ * receivables ledger, line-item pricing, `xeroAccountCode` and Stripe
+ * payment-intent identifiers; `/api/clients` returns per-client revenue next to
+ * customer contact details. RA-7582 reported neither, so the organisation
+ * widening for those two stops at MANAGER.
+ */
+describe("financial reach is MANAGER or above", () => {
+  for (const [name, fn] of [
+    ["clients", resolveClientReach],
+    ["invoices", resolveInvoiceReach],
+  ] as const) {
+    it(`${name}: a USER in an organisation stays on their own records`, async () => {
+      userFindUnique.mockResolvedValue({
+        role: "USER",
+        organizationId: "org_1",
+      });
+      const r = await fn({ user: { id: "u_1" } });
+      if (!r.ok) throw new Error("unreachable");
+      expect(JSON.stringify(r.data)).not.toContain("organizationId");
+    });
+
+    it(`${name}: a MANAGER reaches the organisation`, async () => {
+      userFindUnique.mockResolvedValue({
+        role: "MANAGER",
+        organizationId: "org_1",
+      });
+      const r = await fn({ user: { id: "u_1" } });
+      if (!r.ok) throw new Error("unreachable");
+      const clauses = (r.data as { AND: Array<{ OR: unknown[] }> }).AND[0].OR;
+      expect(clauses).toContainEqual({ user: { organizationId: "org_1" } });
+    });
+  }
 });

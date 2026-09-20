@@ -14,6 +14,11 @@ const inspectionFindMany = vi.fn();
 const inspectionCount = vi.fn();
 const inspectionCreate = vi.fn();
 const auditCreate = vi.fn();
+// RA-7582: the list handler resolves tenancy through
+// lib/auth/assert-tenancy.ts, which reads the caller's role and organisation
+// from the database rather than trusting the JWT. Without this stub the route
+// answers 500 instead of 200.
+const userFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
@@ -24,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     report: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn() },
     auditLog: { create: (...a: unknown[]) => auditCreate(...a) },
+    user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
   },
 }));
 
@@ -66,6 +72,10 @@ beforeEach(() => {
   inspectionCount.mockReset();
   inspectionCreate.mockReset();
   auditCreate.mockReset();
+  userFindUnique.mockReset();
+  // Default caller: a solo operator with no organisation, which is the
+  // narrowest reach the resolver can return.
+  userFindUnique.mockResolvedValue({ role: "USER", organizationId: null });
 });
 
 describe("GET /api/inspections", () => {
@@ -86,9 +96,50 @@ describe("GET /api/inspections", () => {
     expect(json.inspections).toEqual([]);
     expect(json.pagination).toMatchObject({ page: 1, limit: 20, total: 0 });
 
-    // Tenant scoping: the where clause must pin userId.
+    // Tenant scoping. This used to assert `whereArg.userId === "u_1"`, which
+    // was the defect written down as an expectation (RA-7582): pinning the
+    // list to the caller is exactly what showed an invited technician an empty
+    // product. A solo operator with no organisation still reaches only their
+    // own records, so that guarantee is asserted rather than dropped.
     const whereArg = inspectionFindMany.mock.calls[0][0].where;
-    expect(whereArg.userId).toBe("u_1");
+    expect(whereArg.AND[0].OR).toEqual([
+      { userId: "u_1" },
+      { workspace: { members: { some: { userId: "u_1", status: "ACTIVE" } } } },
+    ]);
+    expect(JSON.stringify(whereArg)).not.toContain("organizationId");
+  });
+
+  it("reaches the organisation when the caller belongs to one", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    userFindUnique.mockResolvedValue({ role: "USER", organizationId: "org_1" });
+    inspectionCount.mockResolvedValueOnce(0);
+    inspectionFindMany.mockResolvedValueOnce([]);
+
+    const res = await GET(getReq("?page=1&limit=20"));
+    expect(res.status).toBe(200);
+
+    const whereArg = inspectionFindMany.mock.calls[0][0].where;
+    expect(whereArg.AND[0].OR).toContainEqual({
+      user: { organizationId: "org_1" },
+    });
+  });
+
+  it("keeps the tenancy filter when a search term is supplied", async () => {
+    // The search filter assigns `where.OR = [...]`. The tenancy filter lives
+    // under `AND`, so the assignment cannot erase it. If this ever fails, the
+    // endpoint is returning other tenants' rows to anyone who types in the
+    // search box.
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    userFindUnique.mockResolvedValue({ role: "USER", organizationId: "org_1" });
+    inspectionCount.mockResolvedValueOnce(0);
+    inspectionFindMany.mockResolvedValueOnce([]);
+
+    const res = await GET(getReq("?search=smith"));
+    expect(res.status).toBe(200);
+
+    const whereArg = inspectionFindMany.mock.calls[0][0].where;
+    expect(whereArg.AND[0].OR).toContainEqual({ userId: "u_1" });
+    expect(whereArg.OR).toBeTruthy();
   });
 });
 

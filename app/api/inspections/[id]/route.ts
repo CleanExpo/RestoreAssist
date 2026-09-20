@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import {
-  assertInspectionTenancy,
+  assertInspectionReadable,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -285,7 +285,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // RA-1711 batch 5 — adopt shared tenancy helper for read.
-    const tenancy = await assertInspectionTenancy(session, id);
+    // RA-7582: read reach, so a colleague who can see this job in the list can
+    // also open it. PATCH below keeps resolveInspectionWrite and DELETE keeps
+    // its own userId scope -- widening a read must not widen a write.
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },

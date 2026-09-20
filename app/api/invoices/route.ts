@@ -8,6 +8,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
+import { resolveInvoiceReach } from "@/lib/auth/assert-tenancy";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +29,18 @@ export async function GET(request: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
-    const where: any = { userId: session.user.id };
+    // RA-7582 / D-023: reach is the caller's organisation, not the caller.
+    // Held in `AND` because the search below assigns `where.OR` outright, which
+    // would erase a tenancy clause written directly onto `OR`.
+    const reach = await resolveInvoiceReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+    const where: any = { ...reach.data };
 
     if (status) where.status = status;
 

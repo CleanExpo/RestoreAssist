@@ -8,6 +8,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { track, isFirstTime } from "@/lib/analytics/track";
 import { parseDate } from "@/lib/parse-date";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
@@ -45,9 +46,16 @@ export async function GET(request: NextRequest) {
     const waterCategory = searchParams.get("waterCategory");
     const waterClass = searchParams.get("waterClass");
 
-    const where: any = {
-      userId: session.user.id,
-    };
+    // RA-7582 / D-023: reach is the caller's organisation, not the caller.
+    const reach = await resolveReportReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+    const where: any = { ...reach.data };
 
     if (status && status !== "all") {
       where.status = status;

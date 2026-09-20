@@ -5,6 +5,7 @@ import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveClientReach } from "@/lib/auth/assert-tenancy";
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,9 +31,18 @@ export async function GET(request: NextRequest) {
     );
     const skip = (page - 1) * limit;
 
-    const where: any = {
-      userId: session.user.id,
-    };
+    // RA-7582 / D-023: reach is the caller's organisation, not the caller.
+    // Held in `AND` because the search below assigns `where.OR` outright, which
+    // would erase a tenancy clause written directly onto `OR`.
+    const reach = await resolveClientReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+    const where: any = { ...reach.data };
 
     if (search) {
       where.OR = [
