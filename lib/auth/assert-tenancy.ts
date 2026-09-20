@@ -72,12 +72,31 @@ function isPlatformSupportOperator(userId: string): boolean {
 }
 
 /**
+ * Whether the caller is about to read a record or change one.
+ *
+ * RA-7582 / D-023. These are deliberately not the same reach. Everyone in a
+ * business needs to SEE the business's jobs — that is what makes it a team
+ * product, and scoping reads to the creator is what left an invited technician
+ * staring at an empty dashboard. Changing another person's record is a
+ * different question, and it stays where it was: the owner, an active member
+ * of the record's workspace, or a tenant ADMIN within their own organisation.
+ *
+ * `write` is the default precisely so that adding an argument is the only way
+ * to widen anything. Around forty mutating routes gate on
+ * `assertInspectionTenancy`; a default of `read` would have handed every
+ * technician DELETE over their organisation's inspections, sketches and
+ * evidence as a side effect of fixing a list query.
+ */
+export type ScopeIntent = "read" | "read-financial" | "write";
+
+/**
  * Resolve the caller's reach from the DATABASE, never from the session claim
  * alone — the JWT carries a role for up to 90 days and a demotion does not
  * rewrite it.
  */
 async function resolveTenantScope(
   session: SessionLike | null | undefined,
+  intent: ScopeIntent = "write",
 ): Promise<TenantScope> {
   const sessionUserId = session?.user?.id;
   if (!sessionUserId) return { kind: "self" };
@@ -86,18 +105,46 @@ async function resolveTenantScope(
     where: { id: sessionUserId },
     select: { role: true, organizationId: true },
   });
+  if (!user) return { kind: "self" };
 
-  // Only a real, currently-ADMIN account can be raised any further. The
-  // allowlist widens an admin's scope; it is not a role of its own.
-  if (user?.role !== "ADMIN") return { kind: "self" };
+  // Cross-tenant support is an ADMIN-only allowlist, for reads and writes
+  // alike. The allowlist widens an admin's scope; it is not a role of its own.
+  if (user.role === "ADMIN" && isPlatformSupportOperator(sessionUserId)) {
+    return { kind: "platform" };
+  }
 
-  if (isPlatformSupportOperator(sessionUserId)) return { kind: "platform" };
+  // Writing beyond your own records remains an ADMIN privilege. Reading a JOB
+  // does not: a MANAGER or USER is a colleague, and the invite flow never
+  // assigns ADMIN (app/api/invites/[token]/route.ts:43).
+  if (intent === "write" && user.role !== "ADMIN") return { kind: "self" };
+
+  // Money is not a job. `/api/invoices` returns the firm's whole receivables
+  // ledger — line-item pricing, `xeroAccountCode`, and Stripe payment-intent
+  // and charge identifiers — and `/api/clients` returns per-client revenue
+  // alongside customer contact details. Neither is what RA-7582 reported, so
+  // the organisation widening for those two stops at MANAGER.
+  //
+  // Tested as a capability the role HAS, never as `role !== "USER"`: the
+  // negative form silently hands the ledger to whatever role is added next,
+  // and nobody reviews the day a role is added.
+  if (
+    intent === "read-financial" &&
+    user.role !== "MANAGER" &&
+    user.role !== "ADMIN"
+  ) {
+    return { kind: "self" };
+  }
 
   // A null organisation must never match another null organisation, or every
-  // solo operator would share one tenant.
-  return user.organizationId
-    ? { kind: "org", organizationId: user.organizationId }
-    : { kind: "self" };
+  // solo operator would share one tenant. Proved as a non-empty string rather
+  // than by truthiness, because an `undefined` that reaches a Prisma filter is
+  // DROPPED from the query -- turning `{ user: { organizationId } }` into
+  // `{ user: {} }`, which matches every row on the platform.
+  const organizationId = user.organizationId;
+  if (typeof organizationId !== "string" || organizationId.length === 0) {
+    return { kind: "self" };
+  }
+  return { kind: "org", organizationId };
 }
 
 /**
@@ -113,6 +160,18 @@ function ownershipClauses(
     { workspace: { members: { some: { userId, status: "ACTIVE" } } } },
   ];
   if (scope.kind === "org") {
+    // Belt and braces for the undefined-drop described in resolveTenantScope.
+    // A comment cannot fail CI; this can. If an org scope ever reaches here
+    // without a real id, refuse to build a filter at all rather than build one
+    // that matches the whole platform.
+    if (
+      typeof scope.organizationId !== "string" ||
+      scope.organizationId.length === 0
+    ) {
+      throw new Error(
+        "tenancy: org scope requires a non-empty organizationId",
+      );
+    }
     clauses.push({ user: { organizationId: scope.organizationId } });
   }
   return clauses;
@@ -211,6 +270,42 @@ export async function assertInspectionTenancy(
 }
 
 /**
+ * Read-only sibling of `assertInspectionTenancy`, for a GET that opens one
+ * inspection by id.
+ *
+ * RA-7582 / D-023. `assertInspectionTenancy` keeps the narrower WRITE scope on
+ * purpose: it is the authorisation gate on around forty mutating handlers, so
+ * widening it would have handed every technician DELETE over their
+ * organisation's inspections, sketches and evidence as a side effect of fixing
+ * a list query. This function exists so a genuinely read-only caller can opt
+ * in to the wider reach one call site at a time.
+ *
+ * Never call this from a handler that mutates.
+ */
+export async function assertInspectionReadable(
+  session: SessionLike | null,
+  inspectionId: string,
+): Promise<
+  TenancyResult<{ id: string; userId: string; workspaceId: string | null }>
+> {
+  if (!session?.user?.id) {
+    return { ok: false, status: 401, reason: "Unauthorized" };
+  }
+  const reach = await resolveReach(session, "read");
+  if (!reach.ok) return reach;
+
+  const insp = await prisma.inspection.findFirst({
+    where: { id: inspectionId, ...(reach.data as Prisma.InspectionWhereInput) },
+    select: { id: true, userId: true, workspaceId: true },
+  });
+  // 404 rather than 403, so a tenant cannot enumerate inspection ids.
+  if (!insp) {
+    return { ok: false, status: 404, reason: "Inspection not found" };
+  }
+  return { ok: true, data: insp };
+}
+
+/**
  * The inspection filter for everything the session user can reach, for a
  * lookup that does not start from a known id (a list, or a search by
  * inspection number). Same rules as `assertInspectionTenancy`. `{}` only for
@@ -220,15 +315,86 @@ export async function assertInspectionTenancy(
 export async function resolveInspectionReach(
   session: SessionLike | null,
 ): Promise<TenancyResult<Prisma.InspectionWhereInput>> {
+  return resolveReach(session, "read") as Promise<
+    TenancyResult<Prisma.InspectionWhereInput>
+  >;
+}
+
+/**
+ * The same reach, for `Client`, `Invoice` and `Report`.
+ *
+ * All four models carry the identical ownership surface — a `userId` scalar, a
+ * nullable `workspace` relation, and a `user` relation through which the
+ * owner's organisation is reachable — so one clause builder serves them all
+ * and there is exactly one place to change the rule.
+ *
+ * **Merge the returned filter with `AND`, never by assigning `OR`.** Every one
+ * of these list handlers builds its text search as `where.OR = [...]`, which
+ * overwrites rather than extends. A tenancy filter shaped as a bare `OR` is
+ * therefore erased the moment somebody types in the search box, and the
+ * endpoint answers with every tenant's matching rows. That is a worse defect
+ * than the one this function exists to fix, so the helpers below return the
+ * clause list and the callers wrap it.
+ */
+async function resolveReach(
+  session: SessionLike | null,
+  intent: ScopeIntent,
+): Promise<TenancyResult<object>> {
   if (!session?.user?.id) {
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
-  const scope = await resolveTenantScope(session);
+  const scope = await resolveTenantScope(session, intent);
   if (scope.kind === "platform") return { ok: true, data: {} };
+  // Returned pre-wrapped in `AND`. A caller who later writes
+  // `where.OR = [...]` for a search box then cannot erase the tenancy filter,
+  // because it does not live on `OR`. The merge rule stops being something a
+  // reviewer has to remember.
   return {
     ok: true,
-    data: { OR: ownershipClauses(session.user.id, scope) },
+    data: { AND: [{ OR: ownershipClauses(session.user.id, scope) }] },
   };
+}
+
+/**
+ * The inspection filter for a caller who is about to WRITE through it, for a
+ * lookup that does not start from a known id.
+ *
+ * Same shape as `resolveInspectionReach`, narrower scope: the organisation
+ * widening still requires ADMIN. Used where a list-style filter decides what a
+ * caller may file against rather than merely see - notably the inbound
+ * messaging channel, where a technician texting a job number is creating a
+ * record, not reading one.
+ */
+export async function resolveInspectionWriteReach(
+  session: SessionLike | null,
+): Promise<TenancyResult<Prisma.InspectionWhereInput>> {
+  return resolveReach(session, "write") as Promise<
+    TenancyResult<Prisma.InspectionWhereInput>
+  >;
+}
+
+export async function resolveClientReach(
+  session: SessionLike | null,
+): Promise<TenancyResult<Prisma.ClientWhereInput>> {
+  return resolveReach(session, "read-financial") as Promise<
+    TenancyResult<Prisma.ClientWhereInput>
+  >;
+}
+
+export async function resolveInvoiceReach(
+  session: SessionLike | null,
+): Promise<TenancyResult<Prisma.InvoiceWhereInput>> {
+  return resolveReach(session, "read-financial") as Promise<
+    TenancyResult<Prisma.InvoiceWhereInput>
+  >;
+}
+
+export async function resolveReportReach(
+  session: SessionLike | null,
+): Promise<TenancyResult<Prisma.ReportWhereInput>> {
+  return resolveReach(session, "read") as Promise<
+    TenancyResult<Prisma.ReportWhereInput>
+  >;
 }
 
 /**

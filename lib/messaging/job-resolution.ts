@@ -2,17 +2,24 @@
  * Text the Job In (S1) — pick the job a texted note belongs to.
  *
  * TENANCY: every inspection query here goes through `jobScope`, which is the
- * sender's organisation AND what the sender can already reach in the app
- * (`resolveInspectionReach`, the same rules as `assertInspectionTenancy`).
+ * sender's organisation AND what the sender may WRITE through in the app
+ * (`resolveInspectionWriteReach`, the same rules as `assertInspectionTenancy`).
  * The sender comes from their verified MessagingIdentity, never from the
  * message text, so a technician can never reach another organisation's
  * inspection: not by typing its number, and not when that job names them as
  * technician.
+ *
+ * RA-7582 widened READ reach to the whole organisation at any role, so that an
+ * invited technician is not shown an empty product. This feature deliberately
+ * did NOT follow. Texting a job number files a note against that job, which is
+ * a write, and the guarantee that a technician cannot file against a colleague's
+ * job is asserted in this route's own tests. Widening here would have deleted
+ * that guarantee as a side effect of fixing a list query.
  */
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { resolveInspectionReach } from "@/lib/auth/assert-tenancy";
+import { resolveInspectionWriteReach } from "@/lib/auth/assert-tenancy";
 
 export const TOP_JOBS_LIMIT = 3;
 
@@ -32,7 +39,7 @@ export async function jobScope(
   userId: string,
   organizationId: string,
 ): Promise<Prisma.InspectionWhereInput | null> {
-  const reach = await resolveInspectionReach({ user: { id: userId } });
+  const reach = await resolveInspectionWriteReach({ user: { id: userId } });
   if (!reach.ok) return null;
   return { AND: [orgScope(organizationId), reach.data] };
 }

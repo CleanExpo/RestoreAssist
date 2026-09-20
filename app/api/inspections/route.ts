@@ -8,6 +8,7 @@ import { sanitizeString } from "@/lib/sanitize";
 import { randomBytes } from "crypto";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveInspectionReach } from "@/lib/auth/assert-tenancy";
 
 // GET - Get inspections (optionally filtered by reportId, with pagination and search)
 export async function GET(request: NextRequest) {
@@ -147,8 +148,25 @@ export async function GET(request: NextRequest) {
       sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
     }
 
-    // Build where clause
-    const where: Prisma.InspectionWhereInput = { userId: session.user.id };
+    // Build where clause.
+    //
+    // RA-7582 / D-023: reach is the caller's organisation, not the caller.
+    // This was `{ userId: session.user.id }`, which showed an invited
+    // technician an empty product and hid their work from the owner.
+    //
+    // It is held in `AND` deliberately. The search filter below assigns
+    // `where.OR = [...]`, so a tenancy clause placed directly on `OR` would be
+    // erased by any search and this endpoint would answer with other tenants'
+    // rows.
+    const reach = await resolveInspectionReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+    const where: Prisma.InspectionWhereInput = { ...reach.data };
 
     // Status filter — support "active" alias (not COMPLETED/REJECTED)
     if (status) {
