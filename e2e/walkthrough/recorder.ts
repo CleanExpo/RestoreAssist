@@ -12,7 +12,7 @@
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { APIRequestContext, Page, Route } from "@playwright/test";
+import type { APIRequestContext, BrowserContext, Page, Route } from "@playwright/test";
 import { Client } from "pg";
 import { claimRunId, runDir } from "./run-identity";
 
@@ -93,6 +93,26 @@ const API_METHODS = ["fetch", "get", "post", "put", "patch", "delete", "head"];
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const MAX_REDIRECTS = 5;
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
+
+/**
+ * Whether the walkthrough has put the browser offline.
+ *
+ * The route guard serves local mutations with route.fetch so it can validate each redirect
+ * hop, and Playwright implements Route.fetch through the context's request object, which
+ * does NOT carry the context's offline flag. A POST therefore succeeded while the browser
+ * was supposed to be offline, which silently invalidated T12: the offline save appeared to
+ * work, so the queue-and-replay behaviour it exists to test was never exercised.
+ *
+ * Specs must use setOffline() below rather than context.setOffline() directly, so the guard
+ * knows to refuse like a disconnected network would.
+ */
+let offline = false;
+
+/** Put the browser offline (or back online) so that the route guard honours it too. */
+export async function setOffline(context: BrowserContext, value: boolean): Promise<void> {
+  offline = value;
+  await context.setOffline(value);
+}
 
 /** Refuse a non-local destination BEFORE it is dispatched, and record the mutation. */
 function checkedDestination(method: string, url: string): string {
@@ -201,6 +221,12 @@ export async function watch(page: Page): Promise<void> {
       await refuse(route, verb, request.url(), host);
       return;
     }
+    // route.fetch does not carry the context's offline flag, so without this an offline
+    // POST would succeed and the offline behaviour under test would never be exercised.
+    if (offline) {
+      await route.abort("internetdisconnected");
+      return;
+    }
     mutations.push({ method: verb, url: request.url().slice(0, 300) });
     // Playwright documents that a route handler runs only for the FIRST url in a redirect
     // chain, so letting Chromium follow the chain itself meant a local 307 could forward
@@ -217,14 +243,29 @@ export async function watch(page: Page): Promise<void> {
         return;
       }
       url = new URL(location, url).toString();
-      // 301, 302 and 303 become a GET without the body (RFC 9110).
-      method = [301, 302, 303].includes(response.status()) ? "GET" : method;
+      // 301, 302 and 303 become a GET without the body (RFC 9110). Route.fetch falls back
+      // to the original Request for anything not passed, so the body and its content
+      // headers are cleared explicitly rather than merely left unset.
+      const drops = [301, 302, 303].includes(response.status());
+      method = drops ? "GET" : method;
       if (MUTATING.has(method) && !LOCAL_HOSTS.has(hostOf(url))) {
         await refuse(route, method, url, hostOf(url));
         return;
       }
       if (MUTATING.has(method)) mutations.push({ method, url: url.slice(0, 300) });
-      response = await route.fetch({ url, method, maxRedirects: 0 });
+      const headers = { ...request.headers() };
+      if (drops) {
+        for (const h of Object.keys(headers)) {
+          if (/^content-(type|length|encoding)$/i.test(h)) delete headers[h];
+        }
+      }
+      response = await route.fetch({
+        url,
+        method,
+        headers,
+        maxRedirects: 0,
+        ...(drops ? { postData: "" } : {}),
+      });
     }
     await route.fulfill({ response });
   });

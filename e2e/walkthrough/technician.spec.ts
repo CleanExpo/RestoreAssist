@@ -32,6 +32,7 @@ import { TEST_HEADSHOT_JPEG } from "../fixtures/headshot-jpeg";
 import {
   localQuery,
   readState,
+  setOffline,
   step,
   watch,
   writeState,
@@ -608,14 +609,14 @@ test("technician journey: invite to report on a phone (T1-T14)", async ({ page, 
         "the Moisture tab was not the default tab",
       ]);
     let uiMessage = "";
-    await context.setOffline(true);
+    await setOffline(context, true);
     try {
       await chip.click({ timeout: 10_000 });
       for (const k of ["3", "7", ".", "4"]) await page.getByRole("button", { name: k, exact: true }).first().click({ timeout: 10_000 });
       await page.getByRole("button", { name: "Save Reading" }).click({ timeout: 10_000 });
       uiMessage = (await page.getByText(/Save failed|Saved|queued/).first().textContent({ timeout: 8_000 }).catch(() => null)) ?? "no message shown";
     } finally {
-      await context.setOffline(false);
+      await setOffline(context, false);
     }
     const syncs: number[] = [];
     const onResp = (r: PwResponse) => {
