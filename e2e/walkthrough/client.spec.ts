@@ -28,7 +28,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
-import { BASE_URL, localQuery, readState, step, watch, type StepResult } from "./recorder";
+import { BASE_URL, localQuery, readState, recordedApi, step, watch, type StepResult } from "./recorder";
 
 test.describe.configure({ mode: "serial" });
 
@@ -70,7 +70,10 @@ async function hit(
   headers?: Record<string, string>,
   timeout = 30_000,
 ): Promise<Hit> {
-  const res = await req.fetch(url, { method, data, headers, timeout, failOnStatusCode: false });
+  // recordedApi refuses a non-local destination before dispatch and records the mutation.
+  // A browser context's request object raises no page events, so without this wrapper the
+  // writes made here reached no evidence file at all.
+  const res = await recordedApi(req).fetch(url, { method, data, headers, timeout, failOnStatusCode: false });
   const text = await res.text().catch(() => "");
   let json: any = null;
   try {

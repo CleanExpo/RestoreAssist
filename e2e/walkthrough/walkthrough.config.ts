@@ -8,6 +8,7 @@
  * need (invite links, job ids) through state.json in the results folder.
  */
 import { defineConfig, devices } from "@playwright/test";
+import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,6 +17,15 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
 if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/.test(baseURL)) {
   throw new Error(`walkthrough refuses non-local base URL ${baseURL}`);
 }
+
+// One run id per `playwright test` invocation, inherited by every worker, so the three
+// projects write to one runs/<runId>/ directory and a later invocation cannot append to
+// it. Claiming the id per results-directory instead let an interrupted rerun adopt an
+// earlier run's id and borrow its coverage. Assigned only if absent, so a worker that
+// re-evaluates this config keeps the id it inherited.
+process.env.WALKTHROUGH_RUN =
+  process.env.WALKTHROUGH_RUN ||
+  `run-${new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14)}-${randomBytes(3).toString("hex")}`;
 
 export default defineConfig({
   testDir: here,

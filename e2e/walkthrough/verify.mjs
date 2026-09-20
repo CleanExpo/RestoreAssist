@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Verifier for the three-persona walkthrough results (results.jsonl).
+// Verifier for one walkthrough run's results (runs/<runId>/results.jsonl).
 //
 //   node e2e/walkthrough/verify.mjs <results.jsonl>   check a real run
 //   node e2e/walkthrough/verify.mjs --self-test       prove the checks can fail
@@ -7,29 +7,31 @@
 // Exit 0 only when every approved step has a result from ONE run, nothing is
 // UNMEASURED and no line is INVALID.
 //
-// WHAT THIS FILE TRUSTS, and what it deliberately does not. An independent review
-// (report review-9cb5d882a.json) showed ten ways a fabricated or incomplete run
-// still exited 0. Every one of them came from trusting something a run can edit:
+// WHAT THIS FILE TRUSTS, and what it deliberately does not. Two independent review
+// rounds (reports review-9cb5d882a.json and review-cd837da9f.json) found inputs that
+// produced exit 0 from a fabricated or incomplete run. Every one came from trusting
+// something a run can edit, or from accepting a claim of evidence without inspecting it:
 //
 //   - the plan file. steps.json defined both the required coverage AND the purchase
-//     classification, so deleting a step or clearing purchaseSteps silently weakened
-//     the contract. The approved step ids and purchase subset are now CONSTANTS in
-//     this file, and steps.json is digest-checked against PLAN_SHA256. Editing the
-//     plan is therefore a reviewable change to this file, in the same commit.
-//   - the step id. Prefix matching let any child id ("O6.only-one-addon") satisfy its
-//     whole parent. Ids must now match the approved contract exactly.
-//   - evidence. Only PASS/PURCHASED needed any, so 39 bare EXPECTED-BY-CODE records
-//     passed. Every outcome now carries outcome-specific evidence, and a step that
-//     could not be exercised is UNMEASURED, never FAIL.
-//   - the results file. It was appended to across runs with no run identity, so an
-//     incomplete rerun borrowed coverage from an older one. Every record carries a
-//     runId and all records must share it.
-//   - one optional request pair. The production-write check read only r.url/r.method,
-//     so an external POST recorded in badResponses escaped. EVERY recorded
-//     destination is now checked.
+//     classification, so deleting a step or clearing purchaseSteps weakened the
+//     contract. The approved ids and purchase subset are CONSTANTS here, and steps.json
+//     is digest-checked. Editing the plan is a reviewable change to this file.
+//   - the step id. Prefix matching let any child id satisfy its whole parent.
+//   - the claim of evidence. Any numeric status counted as proof the step ran, so the
+//     no-response sentinel 0 passed, and `badResponses: [{}]` or `[null]` passed. An
+//     HTTP observation must now be a real status in 100-599, and a recorded response or
+//     request must carry a usable status, method and URL.
+//   - the screenshot path. It was string-matched, so `shots/current/../old/old.png`
+//     satisfied the prefix while resolving elsewhere. The RESOLVED path must sit inside
+//     this run's shots directory, and its name must be the step's own.
+//   - the results file. It was shared across runs, so an interrupted rerun borrowed an
+//     older complete run's coverage. Each invocation now owns runs/<runId>/, and every
+//     record in a file must carry the same runId.
+//   - one optional request pair. An external POST recorded in badResponses escaped the
+//     production-write check. EVERY recorded destination is checked.
 import { createHash } from "node:crypto";
 import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
-import { dirname, join, resolve, isAbsolute, sep } from "node:path";
+import { basename, dirname, join, resolve, isAbsolute, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -61,31 +63,40 @@ const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const GAP_ID = /^G\d+$/;
 
 const isText = (v) => typeof v === "string" && v.trim() !== "";
+/** A status a server actually returned. 0 is the harness's "no response" sentinel. */
+const isHttpStatus = (v) => Number.isInteger(v) && v >= 100 && v <= 599;
+const shotName = (stepId) => `${String(stepId).replace(/[^\w.-]/g, "_")}.png`;
+
+/** Recorded responses and requests only count when they carry a usable observation. */
+const usableResponses = (r) =>
+  (Array.isArray(r.badResponses) ? r.badResponses : []).filter(
+    (d) => d && typeof d === "object" && isHttpStatus(d.status) && isText(d.url),
+  );
+const usableRequests = (r) =>
+  (Array.isArray(r.requests) ? r.requests : []).filter((d) => d && typeof d === "object" && isText(d.url));
 
 /** Every destination this record proves the run reached, not just the summary pair. */
 function destinationsOf(r) {
   const out = [];
   if (isText(r.url)) out.push({ url: r.url, method: isText(r.method) ? r.method : "GET" });
-  for (const key of ["badResponses", "requests"]) {
-    const list = Array.isArray(r[key]) ? r[key] : [];
-    for (const d of list) {
-      if (d && isText(d.url)) out.push({ url: d.url, method: isText(d.method) ? d.method : "GET" });
-    }
+  for (const d of [...usableResponses(r), ...usableRequests(r)]) {
+    out.push({ url: d.url, method: isText(d.method) ? d.method : "GET" });
   }
   return out;
 }
 
-/** null when the screenshot is real evidence belonging to this run, else the reason it is not. */
-function screenshotProblem(rel, baseDir, runId) {
+/**
+ * null when the screenshot is this step's own evidence inside this run, else the reason
+ * it is not. The path is RESOLVED before it is judged: a string prefix check passed
+ * `shots/current/../old/old.png`, which resolves into a different run's directory.
+ */
+function screenshotProblem(rel, baseDir, stepId) {
   if (!isText(rel)) return "no screenshot";
   if (isAbsolute(rel)) return "screenshot must be relative to the results file";
+  const shotsDir = resolve(baseDir, "shots");
   const abs = resolve(baseDir, rel);
-  if (abs !== resolve(baseDir) && !abs.startsWith(resolve(baseDir) + sep)) {
-    return "screenshot escapes the run directory";
-  }
-  if (!rel.split(sep).join("/").startsWith(`shots/${runId}/`)) {
-    return `screenshot is not under shots/${runId}/`;
-  }
+  if (!abs.startsWith(shotsDir + sep)) return "screenshot is not inside this run's shots directory";
+  if (basename(abs) !== shotName(stepId)) return `screenshot is ${basename(abs)}, not this step's ${shotName(stepId)}`;
   if (!existsSync(abs)) return "screenshot does not exist";
   let head;
   try {
@@ -142,18 +153,18 @@ export function verify(resultsPath, plan) {
     }
     // Every record says what was observed. Without this, 39 bare records passed.
     if (!isText(r.note)) invalid.push(`${where}: ${r.outcome} without a note saying what was observed`);
-    if (r.status !== undefined && r.status !== null && typeof r.status !== "number") {
-      invalid.push(`${where}: status ${JSON.stringify(r.status)} is not a number`);
+    if (r.status !== undefined && r.status !== null && !isHttpStatus(r.status)) {
+      invalid.push(`${where}: status ${JSON.stringify(r.status)} is not an HTTP status the server returned`);
     }
 
-    const shotProblem = screenshotProblem(r.screenshot, baseDir, isText(r.runId) ? r.runId : "");
-    const hasStatus = typeof r.status === "number";
-    const hasResponses = Array.isArray(r.badResponses) && r.badResponses.length > 0;
-    const exercised = shotProblem === null || hasStatus || hasResponses;
+    const shotProblem = screenshotProblem(r.screenshot, baseDir, r.step);
+    // Evidence must be inspected, not merely present. Each of these was a bypass.
+    const exercised =
+      shotProblem === null || isHttpStatus(r.status) || usableResponses(r).length > 0 || usableRequests(r).length > 0;
 
     if (SUCCESS.has(r.outcome)) {
       if (shotProblem) invalid.push(`${where}: ${r.outcome} - ${shotProblem}`);
-      if (hasStatus && r.status >= 400) invalid.push(`${where}: ${r.outcome} with HTTP ${r.status}`);
+      if (isHttpStatus(r.status) && r.status >= 400) invalid.push(`${where}: ${r.outcome} with HTTP ${r.status}`);
     } else if (r.outcome === "EXPECTED-BY-CODE") {
       if (!isText(r.gap) || !GAP_ID.test(r.gap)) {
         invalid.push(`${where}: EXPECTED-BY-CODE must name the gap it confirms (G<n>)`);
@@ -203,13 +214,16 @@ export function verify(resultsPath, plan) {
 function selfTest() {
   const dir = mkdtempSync(join(tmpdir(), "walkthrough-verify-"));
   const RUN = "run-selftest";
-  mkdirSync(join(dir, "shots", RUN), { recursive: true });
+  mkdirSync(join(dir, "shots"), { recursive: true });
+  // A PNG that belongs to a DIFFERENT run, reachable only by traversal.
+  mkdirSync(join(dir, "elsewhere"), { recursive: true });
+  writeFileSync(join(dir, "elsewhere", shotName("O1")), PNG_MAGIC);
   const shotFor = (id) => {
-    const rel = join("shots", RUN, `${id}.png`);
+    const rel = join("shots", shotName(id));
     writeFileSync(join(dir, rel), PNG_MAGIC);
     return rel;
   };
-  writeFileSync(join(dir, "not-an-image.txt"), "this is not a png");
+  writeFileSync(join(dir, "shots", "not-an-image.png"), "this is not a png");
   const PLAN = JSON.parse(readFileSync(PLAN_PATH, "utf8"));
   const valid = PLAN.steps.map((s) => ({
     step: s.id,
@@ -221,6 +235,7 @@ function selfTest() {
     url: "http://localhost:3000/",
     method: "GET",
   }));
+  const bare = (extra) => PLAN.steps.map((s) => ({ step: s.id, runId: RUN, outcome: "FAIL", note: "claimed", ...extra }));
   const planPath = join(dir, "plan.json");
   const withPlan = (mutate) => {
     const copy = JSON.parse(JSON.stringify(PLAN));
@@ -238,34 +253,16 @@ function selfTest() {
   };
   const results = [
     run("complete-valid-run", valid, true),
-    run("planted-pass-with-missing-screenshot", [...valid.slice(1), { ...valid[0], screenshot: "does-not-exist.png" }], false),
+    run("planted-pass-with-missing-screenshot", [...valid.slice(1), { ...valid[0], screenshot: "shots/does-not-exist.png" }], false),
     run("one-step-missing", valid.slice(1), false),
     run("purchase-recorded-as-plain-pass", valid.map((r) => (r.step === "O6" ? { ...r, outcome: "PASS" } : r)), false),
     run("write-to-production", [...valid, { step: "O1", runId: RUN, outcome: "FAIL", note: "planted", url: "https://restoreassist.app/api/x", method: "POST" }], false),
     run("unmeasured-step", valid.map((r) => (r.step === "T12" ? { ...r, outcome: "UNMEASURED" } : r)), false),
-    // --- cases added for review findings 1-6 (report review-9cb5d882a.json) ---
-    // F2: evidence was optional for every outcome except PASS/PURCHASED.
-    run(
-      "bare-expected-by-code-for-every-step",
-      PLAN.steps.map((s) => ({ step: s.id, runId: RUN, outcome: "EXPECTED-BY-CODE" })),
-      false,
-    ),
-    run(
-      "unmeasured-disguised-as-fail",
-      valid.map((r) => (r.step === "T12" ? { step: "T12", runId: RUN, outcome: "FAIL" } : r)),
-      false,
-    ),
-    run(
-      "success-status-as-string",
-      valid.map((r) => (r.step === "O1" ? { ...r, status: "500" } : r)),
-      false,
-    ),
-    run(
-      "screenshot-is-not-an-image",
-      valid.map((r) => (r.step === "O1" ? { ...r, screenshot: "not-an-image.txt" } : r)),
-      false,
-    ),
-    // F3: the destination check read only the optional summary request.
+    // --- round 1 findings (report review-9cb5d882a.json) ---
+    run("bare-expected-by-code-for-every-step", PLAN.steps.map((s) => ({ step: s.id, runId: RUN, outcome: "EXPECTED-BY-CODE" })), false),
+    run("unmeasured-disguised-as-fail", valid.map((r) => (r.step === "T12" ? { step: "T12", runId: RUN, outcome: "FAIL" } : r)), false),
+    run("success-status-as-string", valid.map((r) => (r.step === "O1" ? { ...r, status: "500" } : r)), false),
+    run("screenshot-is-not-an-image", valid.map((r) => (r.step === "O1" ? { ...r, screenshot: "shots/not-an-image.png" } : r)), false),
     run(
       "external-write-hidden-in-badresponses",
       valid.map((r) =>
@@ -275,30 +272,26 @@ function selfTest() {
       ),
       false,
     ),
-    // F4: results carried no run identity, so an older run supplied missing coverage.
-    run(
-      "stale-run-supplies-missing-coverage",
-      [{ ...valid[0], runId: "run-previous" }, ...valid.slice(1).map((r) => ({ ...r, runId: "run-current" }))],
-      false,
-    ),
-    // F5: any child id satisfied its whole parent step.
-    run(
-      "arbitrary-child-id-replaces-parent",
-      valid.map((r) => (r.step === "O6" ? { ...r, step: "O6.only-one-addon" } : r)),
-      false,
-    ),
-    // F6: steps.json was trusted, so editing it weakened the contract.
+    run("stale-run-supplies-missing-coverage", [{ ...valid[0], runId: "run-previous" }, ...valid.slice(1).map((r) => ({ ...r, runId: "run-current" }))], false),
+    run("arbitrary-child-id-replaces-parent", valid.map((r) => (r.step === "O6" ? { ...r, step: "O6.only-one-addon" } : r)), false),
     run("tampered-plan-drops-a-step", valid.slice(1), false, withPlan((p) => {
       p.steps = p.steps.filter((s) => s.id !== APPROVED_STEP_IDS[0]);
     })),
-    run(
-      "tampered-plan-clears-purchase-steps",
-      valid.map((r) => (r.step === "O6" ? { ...r, outcome: "PASS" } : r)),
-      false,
-      withPlan((p) => {
-        p.purchaseSteps = [];
-      }),
-    ),
+    run("tampered-plan-clears-purchase-steps", valid.map((r) => (r.step === "O6" ? { ...r, outcome: "PASS" } : r)), false, withPlan((p) => {
+      p.purchaseSteps = [];
+    })),
+    // --- round 2 findings (report review-cd837da9f.json) ---
+    // The no-response sentinel and malformed evidence entries each counted as proof.
+    run("no-response-sentinel-counts-as-evidence", bare({ status: 0 }), false),
+    run("empty-object-badresponse-counts-as-evidence", bare({ badResponses: [{}] }), false),
+    run("null-badresponse-counts-as-evidence", bare({ badResponses: [null] }), false),
+    run("request-without-url-counts-as-evidence", bare({ requests: [{ method: "POST" }] }), false),
+    // Screenshot confinement was a string prefix, so traversal left the run. The path is
+    // written literally: path.join() would normalise "shots/.." away and the case would
+    // then prove nothing (caught by the mutation control, which stayed silent on it).
+    run("screenshot-traversal-out-of-this-run", valid.map((r) => (r.step === "O1" ? { ...r, screenshot: `shots/../elsewhere/${shotName("O1")}` } : r)), false),
+    // A screenshot from another step is not this step's evidence.
+    run("screenshot-belongs-to-another-step", valid.map((r) => (r.step === "O1" ? { ...r, screenshot: join("shots", shotName("O2")) } : r)), false),
   ];
   rmSync(dir, { recursive: true, force: true });
   const allGood = results.every(Boolean);
