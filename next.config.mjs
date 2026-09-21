@@ -59,6 +59,50 @@ const nextConfig = {
       { source: "/auth/signup", destination: "/signup", permanent: true },
       { source: "/onboarding", destination: "/setup", permanent: true },
       { source: "/faq", destination: "/help", permanent: true },
+      // RA-7552 — client-portal muscle-memory aliases. Bare paths land on
+      // the homeowner login (`/portal/login`), not contractor `/login` and
+      // not `/dashboard/help`. Token-bearing aliases keep the token so the
+      // client opens `/portal/<token>` (the real job view). `/invite/[token]`
+      // stays the technician accept page — only the bare `/invite` aliases.
+      { source: "/client", destination: "/portal/login", permanent: true },
+      { source: "/share", destination: "/portal/login", permanent: true },
+      { source: "/invite", destination: "/portal/login", permanent: true },
+      {
+        source: "/client-portal",
+        destination: "/portal/login",
+        permanent: true,
+      },
+      {
+        source: "/clientportal",
+        destination: "/portal/login",
+        permanent: true,
+      },
+      { source: "/shared", destination: "/portal/login", permanent: true },
+      {
+        source: "/client/:token",
+        destination: "/portal/:token",
+        permanent: true,
+      },
+      {
+        source: "/share/:token",
+        destination: "/portal/:token",
+        permanent: true,
+      },
+      {
+        source: "/client-portal/:token",
+        destination: "/portal/:token",
+        permanent: true,
+      },
+      {
+        source: "/clientportal/:token",
+        destination: "/portal/:token",
+        permanent: true,
+      },
+      {
+        source: "/shared/:token",
+        destination: "/portal/:token",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

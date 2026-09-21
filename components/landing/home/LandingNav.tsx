@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { BRAND } from "@/lib/brand";
+import { CLIENT_PORTAL_PUBLIC_CTA } from "@/lib/portal/canonical-entry";
 import { CTA_PRIMARY, CTA_SECONDARY, FONT_DISPLAY, CONTAINER } from "./motion";
 
 const NAV_LINKS = [
@@ -106,6 +107,12 @@ export function LandingNav() {
 
           <div className="hidden items-center gap-2 lg:flex">
             <Link
+              href={CLIENT_PORTAL_PUBLIC_CTA.href}
+              className={`rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-slate-600 transition-colors hover:text-[#0B1F3A] ${FOCUS}`}
+            >
+              {CLIENT_PORTAL_PUBLIC_CTA.label}
+            </Link>
+            <Link
               href="/login"
               className={`rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-slate-600 transition-colors hover:text-[#0B1F3A] ${FOCUS}`}
             >
@@ -188,6 +195,14 @@ export function LandingNav() {
             className={`${CTA_SECONDARY} w-full`}
           >
             Log in
+          </Link>
+          <Link
+            href={CLIENT_PORTAL_PUBLIC_CTA.href}
+            onClick={close}
+            className="block w-full py-2 text-center text-[13.5px] font-medium text-slate-600 transition-colors hover:text-[#0B1F3A]"
+          >
+            {CLIENT_PORTAL_PUBLIC_CTA.invitedLabel}{" "}
+            {CLIENT_PORTAL_PUBLIC_CTA.label}
           </Link>
         </div>
       </div>
