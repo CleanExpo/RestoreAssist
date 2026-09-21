@@ -82,6 +82,12 @@ export async function GET(
         labelledBy: true,
         technicianNotes: true,
         moistureReadingLink: true,
+        // RA-7613 — photo AI accept/reject + WHS latch live on these fields.
+        aiLabels: true,
+        aiConfidence: true,
+        aiModel: true,
+        aiRunAt: true,
+        metadata: true,
       },
       take: 500,
     });

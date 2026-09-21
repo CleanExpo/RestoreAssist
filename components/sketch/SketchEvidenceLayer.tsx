@@ -52,6 +52,8 @@ export interface ExistingEvidencePhoto {
   description?: string | null;
   location?: string | null;
   mimeType?: string | null;
+  /** RA-7613 — photo AI review + WHS latch (InspectionPhoto.metadata). */
+  metadata?: unknown;
 }
 
 export interface SketchEvidenceLayerProps {

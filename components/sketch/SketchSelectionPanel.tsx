@@ -98,6 +98,11 @@ export interface SketchSelectionPanelProps {
   materials?: MaterialOption[];
   /** Property build year — drives the WHS asbestos gate (pre-2004 = at risk). */
   propertyYearBuilt?: number;
+  /**
+   * Photo-AI WHS latch (RA-7613). When true, strip-out is gated even if the
+   * selected material is not itself ACM — AI can raise this and cannot clear it.
+   */
+  aiRaisedAcm?: boolean;
   /** Jurisdiction — AU (NCC) or NZ (NHCover). Default AU. */
   country?: "AU" | "NZ";
   /** Guided (homeowner) mode — hide technician-only compliance controls. */
@@ -142,6 +147,7 @@ export function SketchSelectionPanel({
   selected,
   materials,
   propertyYearBuilt,
+  aiRaisedAcm = false,
   country = "AU",
   guided = false,
   onLabelChange,
@@ -185,8 +191,11 @@ export function SketchSelectionPanel({
     (m) => m.slug === selected.materialSlug,
   );
   // WHS asbestos gate (spec §5.3): suspected ACM blocks strip-out scope until a
-  // pathway is recorded. Reuses the shared, tested gate logic.
-  const whs = selectedMaterial?.isPotentialAcm
+  // pathway is recorded. Photo-AI (RA-7613) can raise the same gate; it cannot
+  // clear it — only a recorded WHS pathway does.
+  const suspectedAcm =
+    selectedMaterial?.isPotentialAcm === true || aiRaisedAcm === true;
+  const whs = suspectedAcm
     ? evaluateWhsGate({
         isPotentialAcm: true,
         propertyYearBuilt,

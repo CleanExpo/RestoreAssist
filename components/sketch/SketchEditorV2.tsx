@@ -102,6 +102,7 @@ import type { SketchFloor } from "./SketchFloorTabs";
 import { SketchSelectionPanel } from "./SketchSelectionPanel";
 import type { SelectedObject, MaterialOption } from "./SketchSelectionPanel";
 import { ANZ_MATERIAL_OPTIONS } from "@/lib/anz/material-options";
+import { jobHasAiRaisedAcm } from "@/lib/anz/photo-ai-whs";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
@@ -2693,6 +2694,7 @@ export function SketchEditorV2({
           guided={guided}
           materials={materials}
           country={country}
+          aiRaisedAcm={jobHasAiRaisedAcm(existingEvidencePhotos)}
           onCountryChange={(c) => {
             setCountry(c);
             scheduleSave();
