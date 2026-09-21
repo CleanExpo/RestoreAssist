@@ -222,6 +222,27 @@ describe("byokKeysCheck — operating key gate", () => {
     expect(result.note).toMatch(/Anthropic, OpenAI, or OpenRouter/i);
   });
 
+  it("treats undefined trial coverage as paid BYOK-required (no throw)", async () => {
+    mockListProviderConnections.mockResolvedValue([]);
+    mockDescribeCoverage.mockResolvedValue(undefined);
+
+    const result = await byokKeysCheck(FAKE_ORG_ID);
+
+    expect(result.status).toBe("red");
+    expect(result.note).toMatch(/Anthropic, OpenAI, or OpenRouter/i);
+    expect(mockValidateProviderKey).not.toHaveBeenCalled();
+  });
+
+  it("treats null trial coverage as paid BYOK-required (no throw)", async () => {
+    mockListProviderConnections.mockResolvedValue([]);
+    mockDescribeCoverage.mockResolvedValue(null);
+
+    const result = await byokKeysCheck(FAKE_ORG_ID);
+
+    expect(result.status).toBe("red");
+    expect(result.note).toMatch(/Anthropic, OpenAI, or OpenRouter/i);
+  });
+
   it("returns RED when org is not found", async () => {
     mockOrgFindUnique.mockResolvedValue(null);
 

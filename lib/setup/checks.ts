@@ -479,9 +479,11 @@ const TRIAL_CREDITS_NOTE =
   "Platform trial credits will power report generation. Add your own key anytime as an optional upgrade.";
 
 function trialByokResult(
-  coverage: PlatformTrialCoverage,
+  coverage: PlatformTrialCoverage | null | undefined,
 ): CheckResult | null {
-  if (!coverage.fundedTrial) return null;
+  // Missing / undefined coverage is the paid path: hard-require BYOK.
+  // Live-probe mocks and a failed describe() must not throw here.
+  if (!coverage?.fundedTrial) return null;
   return {
     capability: "byok_keys",
     label: "BYOK AI keys",
