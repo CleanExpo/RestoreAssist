@@ -48,7 +48,6 @@ export interface RoomGraphNodeInput {
   name: string;
   areaM2: number | null;
   perimeterM: number | null;
-  heightM: number | null;
   materialSlug: string | null;
   waterCategory: string | null;
   provenance: string;
@@ -202,13 +201,6 @@ export function extractRoomGraphNodes(
       (typeof obj.data.material === "string" && obj.data.material) ||
       null;
 
-    const heightM =
-      typeof obj.data.ceilingHeightM === "number"
-        ? obj.data.ceilingHeightM
-        : typeof obj.data.heightM === "number"
-          ? obj.data.heightM
-          : null;
-
     const confirmedAtRaw = obj.data.confirmedAt;
     const confirmedAt =
       typeof confirmedAtRaw === "string" && confirmedAtRaw.length > 0
@@ -222,7 +214,6 @@ export function extractRoomGraphNodes(
       name,
       areaM2,
       perimeterM,
-      heightM,
       materialSlug,
       waterCategory:
         typeof obj.data.waterCategory === "string"

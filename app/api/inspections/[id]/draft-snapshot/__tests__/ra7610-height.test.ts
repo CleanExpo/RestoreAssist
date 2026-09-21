@@ -106,4 +106,53 @@ describe("PUT inspection draft snapshot — RA-7610 room height", () => {
     ).data[0];
     expect(created.height).toBe(2.7);
   });
+
+  it("stores an out-of-range height as null instead of rejecting the whole draft", async () => {
+    const tooTall = {
+      ...payload,
+      affectedAreas: [{ ...payload.affectedAreas[0], height: 27 }],
+    };
+    const tooShort = {
+      ...payload,
+      affectedAreas: [{ ...payload.affectedAreas[0], height: -1 }],
+    };
+
+    for (const body of [tooTall, tooShort]) {
+      vi.clearAllMocks();
+      mockSession.mockResolvedValue({ user: { id: "user_1" } } as never);
+      resolveInspectionWrite.mockResolvedValue({
+        ok: true,
+        data: {
+          inspectionWhere: { id: "insp_1" },
+          inspectionManyWhere: { id: "insp_1" },
+          childInspectionFilter: undefined,
+        },
+      });
+      inspectionFindUnique.mockResolvedValue({ id: "insp_1", status: "DRAFT" });
+      transaction.mockImplementation(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      );
+
+      const response = await PUT(
+        new NextRequest(
+          "http://localhost/api/inspections/insp_1/draft-snapshot",
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        ),
+        { params: Promise.resolve({ id: "insp_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      const created = (
+        tx.affectedArea.createMany.mock.calls[0][0] as {
+          data: Array<{ height?: number | null; roomZoneId: string }>;
+        }
+      ).data[0];
+      expect(created.height).toBeNull();
+      expect(created.roomZoneId).toBe("Living room");
+    }
+  });
 });

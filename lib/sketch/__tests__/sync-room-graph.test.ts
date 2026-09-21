@@ -42,6 +42,35 @@ describe("sync-room-graph", () => {
     expect(nodes[0].captureAdapter).toBeNull();
   });
 
+  it("does not copy fabric ceiling height onto the room-graph node (billing)", () => {
+    const nodes = extractRoomGraphNodes({
+      scaleConfig: { pxPerMetre: 100 },
+      objects: [
+        {
+          type: "polygon",
+          points: [
+            { x: 0, y: 0 },
+            { x: 400, y: 0 },
+            { x: 400, y: 300 },
+            { x: 0, y: 300 },
+          ],
+          data: {
+            type: "room",
+            id: "room-kitchen",
+            label: "Kitchen",
+            areaM2: 12,
+            ceilingHeightM: 2.7,
+            heightM: 2.7,
+            provenance: "operator_measured",
+          },
+        },
+      ],
+    });
+
+    expect(nodes).toHaveLength(1);
+    expect("heightM" in nodes[0]).toBe(false);
+  });
+
   it("extracts RoomPlan captureAdapter and stable roomplan fabric ids", () => {
     const nodes = extractRoomGraphNodes({
       objects: [

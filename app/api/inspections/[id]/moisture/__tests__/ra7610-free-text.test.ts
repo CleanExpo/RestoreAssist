@@ -79,4 +79,53 @@ describe("POST /api/inspections/[id]/moisture — RA-7610 free-text fallback", (
     expect(written.location).toBe("Subfloor — not on the plan");
     expect(written.sketchRoomId ?? null).toBeNull();
   });
+
+  it("rejects a sketchRoomId from another inspection with 422 and writes nothing", async () => {
+    sketchRoomFindFirst.mockResolvedValue(null);
+
+    const response = await POST(
+      postRequest({
+        location: "Living room",
+        surfaceType: "timber",
+        moistureLevel: 28,
+        depth: "Surface",
+        sketchRoomId: "sr-other-job",
+      }),
+      { params },
+    );
+
+    expect(response.status).toBe(422);
+    expect(sketchRoomFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "sr-other-job",
+          detachedAt: null,
+          sketch: { inspectionId: "insp_1" },
+        },
+      }),
+    );
+    expect(moistureCreate).not.toHaveBeenCalled();
+  });
+
+  it("saves a reading linked to a room on this job", async () => {
+    sketchRoomFindFirst.mockResolvedValue({ id: "sr-living" });
+
+    const response = await POST(
+      postRequest({
+        location: "Living room",
+        surfaceType: "timber",
+        moistureLevel: 28,
+        depth: "Surface",
+        sketchRoomId: "sr-living",
+      }),
+      { params },
+    );
+
+    expect(response.status).toBe(201);
+    expect(moistureCreate).toHaveBeenCalledTimes(1);
+    const written = moistureCreate.mock.calls[0][0].data as {
+      sketchRoomId?: string | null;
+    };
+    expect(written.sketchRoomId).toBe("sr-living");
+  });
 });

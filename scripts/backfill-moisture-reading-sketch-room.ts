@@ -18,7 +18,33 @@
 import { fileURLToPath } from "node:url";
 import { prisma } from "@/lib/prisma";
 
-const PAGE = 5_000;
+export const BACKFILL_ROOM_PAGE = 5_000;
+const PAGE = BACKFILL_ROOM_PAGE;
+
+export class BackfillRoomCapError extends Error {
+  constructor() {
+    super(
+      `[ra-7610-backfill] SketchRoom fetch hit the ${BACKFILL_ROOM_PAGE} row cap. Refusing to continue — paginate or raise the limit. No rows written.`,
+    );
+    this.name = "BackfillRoomCapError";
+  }
+}
+
+export function redactedDatabaseTarget(
+  connectionString = process.env.DATABASE_URL,
+): { host: string; database: string } {
+  if (!connectionString) {
+    return { host: "(unset)", database: "(unset)" };
+  }
+  try {
+    const parsed = new URL(connectionString);
+    const database =
+      decodeURIComponent(parsed.pathname.replace(/^\//, "")) || "(none)";
+    return { host: parsed.hostname || "(unknown)", database };
+  } catch {
+    return { host: "(unparseable)", database: "(unparseable)" };
+  }
+}
 
 export type BackfillReading = {
   id: string;
@@ -126,6 +152,7 @@ export async function planMoistureReadingSketchRoomBackfill(): Promise<BackfillP
   };
 
   const rooms = await prisma.sketchRoom.findMany({
+    where: { detachedAt: null },
     select: {
       id: true,
       name: true,
@@ -134,9 +161,7 @@ export async function planMoistureReadingSketchRoomBackfill(): Promise<BackfillP
     take: PAGE,
   });
   if (rooms.length === PAGE) {
-    console.warn(
-      `[ra-7610-backfill] WARNING: fetched ${PAGE} SketchRoom rows (the limit). Paginate if the fleet is larger.`,
-    );
+    throw new BackfillRoomCapError();
   }
 
   const roomsByInspection = new Map<string, BackfillRoom[]>();
@@ -238,6 +263,10 @@ function printPlan(plan: BackfillPlan, written: number | null): void {
 export async function runMoistureReadingSketchRoomBackfill(
   argv: string[] = process.argv.slice(2),
 ): Promise<BackfillPlan> {
+  const target = redactedDatabaseTarget();
+  console.log(
+    `[ra-7610-backfill] database host=${target.host} database=${target.database}`,
+  );
   const apply = argv.includes("--apply");
   const plan = await planMoistureReadingSketchRoomBackfill();
   const written = apply

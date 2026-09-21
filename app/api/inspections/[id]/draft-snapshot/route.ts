@@ -26,13 +26,20 @@ const moistureSchema = z.object({
   sketchRoomId: z.string().trim().min(1).max(200).nullable().optional(),
 });
 
+/** Metres. Out-of-range / non-numeric values store nothing (do not fail the save). */
+function coerceRoomHeightMetres(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value < 0 || value > 20) return null;
+  return value;
+}
+
 const affectedAreaSchema = z.object({
   roomZoneId: z.string().trim().min(1).max(200),
   affectedAreaSqm: z.number().finite().min(0).max(9_290),
   waterSource: z.string().trim().min(1).max(100),
   timeSinceLoss: z.number().finite().min(0).nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
-  height: z.number().finite().min(0).max(20).nullable().optional(),
+  height: z.preprocess(coerceRoomHeightMetres, z.number().nullable()),
 });
 
 const scopeItemSchema = z.object({
@@ -140,6 +147,33 @@ export async function PUT(
     }
 
     const data = parsed.data;
+
+    const requestedRoomIds = [
+      ...new Set(
+        data.moistureReadings
+          .map((reading) => reading.sketchRoomId)
+          .filter((roomId): roomId is string => Boolean(roomId)),
+      ),
+    ];
+    if (requestedRoomIds.length > 0) {
+      const rooms = await prisma.sketchRoom.findMany({
+        where: {
+          id: { in: requestedRoomIds },
+          detachedAt: null,
+          sketch: { inspectionId: id },
+        },
+        select: { id: true },
+        take: requestedRoomIds.length,
+      });
+      if (rooms.length !== requestedRoomIds.length) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "The selected room does not belong to this job.",
+          status: 422,
+        });
+      }
+    }
+
     const affectedAreas = data.affectedAreas.map((area) => {
       const columns = deriveAreaColumns({
         affectedAreaSqm: area.affectedAreaSqm,
