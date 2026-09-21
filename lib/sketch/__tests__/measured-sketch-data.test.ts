@@ -35,12 +35,17 @@ describe("measuredSketchData", () => {
           type: "polygon",
           data: { type: "room", provenance: "ai_suggested" },
         },
-        { type: "polygon", data: { type: "room" } }, // untagged — not billed
+        {
+          type: "polygon",
+          data: { type: "room" },
+        }, // untagged — still billed (legacy editor / pre-RA-6760)
       ],
     };
     const out = measuredSketchData(blob);
-    expect(out.objects).toHaveLength(1);
-    expect(out.objects[0].data?.provenance).toBe("operator_measured");
+    expect(out.objects).toHaveLength(2);
+    expect(
+      out.objects.map((o) => o.data?.provenance ?? "(untagged)"),
+    ).toEqual(["operator_measured", "(untagged)"]);
   });
 
   it("is null/shape safe", () => {
@@ -225,5 +230,34 @@ describe("serverAuthoritativeFloors — server-authoritative exports (RA-6761)",
       [],
     );
     expect(f).toEqual({ label: "X", pngDataUrl: "p" });
+  });
+
+  it("keeps untagged rooms on a mixed floor and still drops ai_suggested", () => {
+    const untagged = {
+      type: "polygon",
+      points: rect(300, 400),
+      data: { type: "room", label: "Legacy" },
+    };
+    const noData = {
+      type: "polygon",
+      points: rect(200, 200),
+    };
+    const tagged = room("Tech", 300, 300);
+    const ai = room("AI", 1000, 1000, "ai_suggested");
+    const [f] = serverAuthoritativeFloors(
+      [{ label: "GF", fabricJson: { objects: [] } }],
+      [
+        {
+          floorLabel: "GF",
+          sketchData: { objects: [untagged, noData, tagged, ai] },
+        },
+      ],
+    );
+    const rooms = extractRooms(f.fabricJson);
+    expect(rooms.map((r) => r.label).sort()).toEqual(
+      ["Legacy", "Room", "Tech"].sort(),
+    );
+    expect(rooms).toHaveLength(3);
+    expect(rooms.some((r) => r.label === "AI")).toBe(false);
   });
 });

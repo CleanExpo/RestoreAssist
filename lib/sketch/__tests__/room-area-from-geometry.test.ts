@@ -50,14 +50,23 @@ describe("room-area-from-geometry", () => {
     expect(resolvePxPerMetre(null)).toBe(100);
   });
 
-  it("identifies operator_measured rooms and rejects every other provenance", () => {
+  it("identifies measured rooms and skips underlay_reference / ai_suggested", () => {
     expect(
       isMeasuredRoom({
         data: { type: "room", provenance: "operator_measured" },
       }),
     ).toBe(true);
-    expect(isMeasuredRoom({ data: { type: "room" } })).toBe(false);
-    expect(isMeasuredRoom({ type: "polygon" })).toBe(false);
+    // Legacy editor / pre-RA-6760 V2 import: missing provenance bills as measured.
+    expect(isMeasuredRoom({ data: { type: "room" } })).toBe(true);
+    expect(isMeasuredRoom({ type: "polygon" })).toBe(true);
+    expect(
+      isMeasuredRoom({
+        data: { type: "room", provenance: null as unknown as string },
+      }),
+    ).toBe(true);
+    expect(
+      isMeasuredRoom({ data: { type: "room", provenance: "" } }),
+    ).toBe(true);
     expect(
       isMeasuredRoom({
         type: "polygon",

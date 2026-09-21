@@ -17,6 +17,7 @@ import {
   evaluateUnderlayVerification,
 } from "@/lib/sketch/underlay-verification";
 import { stableStringify } from "@/lib/sketch/roomplan-custody-queue";
+import { resolveSketchRoomConfirmAttribution } from "@/lib/sketch/ai-suggested-confirm";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -383,6 +384,8 @@ export async function POST(
           geometryJson: true,
           originalAreaM2: true,
           originalGeometryJson: true,
+          confirmedAt: true,
+          confirmedBy: true,
           // Dependent counts decide delete vs detach below — a room holding
           // evidence must never be deleted, because the FKs are SetNull.
           _count: {
@@ -402,6 +405,8 @@ export async function POST(
             fabricObjectId: string;
             originalAreaM2: number | null;
             originalGeometryJson: unknown;
+            confirmedAt: Date | null;
+            confirmedBy: string | null;
           }) => [r.fabricObjectId, r],
         ),
       );
@@ -413,8 +418,19 @@ export async function POST(
               id: string;
               originalAreaM2: number | null;
               originalGeometryJson: unknown;
+              confirmedAt: Date | null;
+              confirmedBy: string | null;
             }
           | undefined;
+        // RA-7611 P1: confirmedBy/confirmedAt are server-stamped on the
+        // unconfirmed → confirmed transition. Client values are ignored.
+        const confirmStamp = resolveSketchRoomConfirmAttribution({
+          existingConfirmedAt: existing?.confirmedAt ?? null,
+          existingConfirmedBy: existing?.confirmedBy ?? null,
+          incomingConfirmedAt: node.confirmedAt,
+          incomingConfirmedBy: node.confirmedBy,
+          sessionUserId: session.user.id,
+        });
         if (existing) {
           await (prisma as any).sketchRoom.update({
             where: { id: existing.id },
@@ -431,8 +447,8 @@ export async function POST(
               // deleted and recreated on every save). original* is sticky —
               // once captured, later canvas edits must not overwrite the
               // first-suggested snapshot.
-              confirmedAt: node.confirmedAt,
-              confirmedBy: node.confirmedBy,
+              confirmedAt: confirmStamp.confirmedAt,
+              confirmedBy: confirmStamp.confirmedBy,
               correctionHistory: node.correctionHistory ?? undefined,
               originalAreaM2: existing.originalAreaM2 ?? node.originalAreaM2,
               originalGeometryJson:
@@ -457,8 +473,8 @@ export async function POST(
               provenance: node.provenance,
               geometryJson: node.geometryJson,
               floorNumber,
-              confirmedAt: node.confirmedAt,
-              confirmedBy: node.confirmedBy,
+              confirmedAt: confirmStamp.confirmedAt,
+              confirmedBy: confirmStamp.confirmedBy,
               correctionHistory: node.correctionHistory ?? undefined,
               originalAreaM2: node.originalAreaM2,
               originalGeometryJson: node.originalGeometryJson ?? undefined,

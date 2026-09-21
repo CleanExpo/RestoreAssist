@@ -53,6 +53,30 @@ describe("sketch-provenance-summary", () => {
     });
   });
 
+  it("counts untagged and empty-string provenance as hand-drawn measured (same as billing)", () => {
+    const summary = summarizeSketchProvenance({
+      objects: [
+        { type: "polygon", data: { type: "room" } },
+        { type: "polygon" },
+        { type: "polygon", data: { type: "room", provenance: "" } },
+        {
+          type: "polygon",
+          data: { type: "room", provenance: "ai_suggested" },
+        },
+        {
+          type: "polygon",
+          data: { type: "room", provenance: "operator_measured" },
+        },
+      ],
+    });
+    expect(summary).toEqual({
+      lidarMeasured: 0,
+      handDrawnMeasured: 4,
+      lidarPending: 0,
+      referenceOther: 1,
+    });
+  });
+
   it("formats a compact provenance legend and returns null when empty", () => {
     expect(formatProvenanceLegend({
       lidarMeasured: 0,

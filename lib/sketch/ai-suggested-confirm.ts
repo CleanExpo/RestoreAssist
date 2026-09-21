@@ -7,6 +7,10 @@
  *
  * Confirmation state is persisted on SketchRoom (see confirmSketchRoomMeasurement),
  * not SketchElement — those rows are deleted and recreated on every save.
+ *
+ * `confirmedBy` / `confirmedAt` on the SketchRoom row are server-stamped in
+ * the sketch save route (session user id + server clock). Client-supplied
+ * values are ignored on the unconfirmed → confirmed transition.
  */
 
 import {
@@ -26,6 +30,21 @@ export function isAiSuggestedPendingConfirm(data: {
   return data.provenance === AI_SUGGESTED_PROVENANCE;
 }
 
+function isPositiveFiniteNumber(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n > 0;
+}
+
+function samePoints(
+  a: { x: number; y: number }[] | undefined,
+  b: { x: number; y: number }[] | undefined,
+): boolean {
+  if (a == null && b == null) return true;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+    return false;
+  }
+  return a.every((p, i) => p.x === b[i]?.x && p.y === b[i]?.y);
+}
+
 export interface ConfirmAiSuggestedOpts {
   by?: string;
   at?: string;
@@ -39,26 +58,40 @@ export interface ConfirmAiSuggestedOpts {
 
 /**
  * Promote pending AI-suggested fabric `data` to operator_measured.
- * Optional metre fields are recorded as a geometry correction first.
+ * Optional metre fields are recorded as a geometry correction first —
+ * rejected when not finite and > 0, and skipped when nothing changed.
  */
 export function confirmAiSuggestedMeasurement(
   data: Record<string, unknown>,
   opts?: ConfirmAiSuggestedOpts,
 ): Record<string, unknown> {
   const at = opts?.at ?? new Date().toISOString();
-  let next: Record<string, unknown> = { ...data };
+  const next: Record<string, unknown> = { ...data };
 
-  const hasDimCorrection =
-    opts?.areaM2 != null ||
-    opts?.lengthM != null ||
-    opts?.widthM != null ||
-    Array.isArray(opts?.points);
+  const nextArea = isPositiveFiniteNumber(opts?.areaM2) ? opts.areaM2 : undefined;
+  const nextLength = isPositiveFiniteNumber(opts?.lengthM)
+    ? opts.lengthM
+    : undefined;
+  const nextWidth = isPositiveFiniteNumber(opts?.widthM) ? opts.widthM : undefined;
+  const nextPoints = Array.isArray(opts?.points) ? opts.points : undefined;
 
-  if (hasDimCorrection) {
+  const areaChanged = nextArea !== undefined && nextArea !== next.areaM2;
+  const lengthChanged = nextLength !== undefined && nextLength !== next.lengthM;
+  const widthChanged = nextWidth !== undefined && nextWidth !== next.widthM;
+  const pointsChanged =
+    nextPoints !== undefined &&
+    !samePoints(
+      nextPoints,
+      Array.isArray(next.points)
+        ? (next.points as { x: number; y: number }[])
+        : undefined,
+    );
+
+  if (areaChanged || lengthChanged || widthChanged || pointsChanged) {
     const beforeArea = next.areaM2;
-    if (typeof opts?.areaM2 === "number") next.areaM2 = opts.areaM2;
-    if (typeof opts?.lengthM === "number") next.lengthM = opts.lengthM;
-    if (typeof opts?.widthM === "number") next.widthM = opts.widthM;
+    if (areaChanged) next.areaM2 = nextArea;
+    if (lengthChanged) next.lengthM = nextLength;
+    if (widthChanged) next.widthM = nextWidth;
     next.correctionHistory = appendRoomPlanCorrection(
       next.correctionHistory as AiSuggestedCorrectionEntry[] | undefined,
       {
@@ -70,7 +103,7 @@ export function confirmAiSuggestedMeasurement(
           areaM2: next.areaM2,
           lengthM: next.lengthM,
           widthM: next.widthM,
-          points: opts?.points,
+          points: nextPoints,
         },
         note: opts?.note,
       },
@@ -99,7 +132,8 @@ export function confirmAiSuggestedMeasurement(
 
 /**
  * Record a geometry correction on an AI-suggested room without promoting it.
- * Provenance stays `ai_suggested` until Confirm.
+ * Provenance stays `ai_suggested` until Confirm. Invalid or unchanged
+ * dimensions are not recorded.
  */
 export function recordAiSuggestedGeometryCorrection(
   data: Record<string, unknown>,
@@ -111,32 +145,63 @@ export function recordAiSuggestedGeometryCorrection(
   },
   opts?: { by?: string; at?: string },
 ): Record<string, unknown> {
-  if (data.provenance !== AI_SUGGESTED_PROVENANCE) {
-    return {
-      ...data,
-      areaM2: next.areaM2,
-      ...(typeof next.lengthM === "number" ? { lengthM: next.lengthM } : {}),
-      ...(typeof next.widthM === "number" ? { widthM: next.widthM } : {}),
-    };
+  const nextArea = isPositiveFiniteNumber(next.areaM2) ? next.areaM2 : undefined;
+  const nextLength = isPositiveFiniteNumber(next.lengthM)
+    ? next.lengthM
+    : undefined;
+  const nextWidth = isPositiveFiniteNumber(next.widthM) ? next.widthM : undefined;
+  const nextPoints = Array.isArray(next.points) ? next.points : undefined;
+
+  if (
+    nextArea === undefined &&
+    nextLength === undefined &&
+    nextWidth === undefined &&
+    nextPoints === undefined
+  ) {
+    return { ...data };
   }
-  const beforeArea = data.areaM2;
-  return {
+
+  const areaChanged = nextArea !== undefined && nextArea !== data.areaM2;
+  const lengthChanged = nextLength !== undefined && nextLength !== data.lengthM;
+  const widthChanged = nextWidth !== undefined && nextWidth !== data.widthM;
+  const pointsChanged =
+    nextPoints !== undefined &&
+    !samePoints(
+      nextPoints,
+      Array.isArray(data.points)
+        ? (data.points as { x: number; y: number }[])
+        : undefined,
+    );
+
+  if (!areaChanged && !lengthChanged && !widthChanged && !pointsChanged) {
+    return { ...data };
+  }
+
+  const applied = {
     ...data,
-    areaM2: next.areaM2,
-    ...(typeof next.lengthM === "number" ? { lengthM: next.lengthM } : {}),
-    ...(typeof next.widthM === "number" ? { widthM: next.widthM } : {}),
+    ...(areaChanged ? { areaM2: nextArea } : {}),
+    ...(lengthChanged ? { lengthM: nextLength } : {}),
+    ...(widthChanged ? { widthM: nextWidth } : {}),
+  };
+
+  if (data.provenance !== AI_SUGGESTED_PROVENANCE) {
+    return applied;
+  }
+
+  return {
+    ...applied,
     correctionHistory: appendRoomPlanCorrection(
       data.correctionHistory as AiSuggestedCorrectionEntry[] | undefined,
       {
         at: opts?.at,
         by: opts?.by,
         field: "geometry",
-        before: { areaM2: beforeArea },
+        before: { areaM2: data.areaM2 },
         after: {
-          areaM2: next.areaM2,
-          points: next.points,
-          lengthM: next.lengthM,
-          widthM: next.widthM,
+          areaM2: applied.areaM2,
+          points: nextPoints,
+          lengthM: applied.lengthM,
+          widthM: applied.widthM,
         },
       },
     ),
@@ -173,7 +238,7 @@ export function confirmSketchRoomMeasurement(
   let history = [...(room.correctionHistory ?? [])];
   let areaM2 = room.areaM2 ?? null;
 
-  if (typeof opts?.areaM2 === "number" && opts.areaM2 !== room.areaM2) {
+  if (isPositiveFiniteNumber(opts?.areaM2) && opts.areaM2 !== room.areaM2) {
     history = appendRoomPlanCorrection(history, {
       at,
       by: opts.by,
@@ -202,5 +267,57 @@ export function confirmSketchRoomMeasurement(
     confirmedBy: opts?.by ?? null,
     originalAreaM2: room.originalAreaM2 ?? room.areaM2 ?? null,
     correctionHistory: history,
+  };
+}
+
+function isPresentConfirmStamp(
+  value: Date | string | null | undefined,
+): boolean {
+  if (value instanceof Date) return !Number.isNaN(value.getTime());
+  if (typeof value === "string") return value.length > 0;
+  return false;
+}
+
+/**
+ * Server-side confirm attribution for SketchRoom upsert.
+ *
+ * On the unconfirmed → confirmed transition, `confirmedBy` is the session
+ * user id and `confirmedAt` is server time. Client-supplied values for both
+ * are ignored. An already-confirmed row keeps its original stamp.
+ */
+export function resolveSketchRoomConfirmAttribution(input: {
+  existingConfirmedAt?: Date | string | null;
+  existingConfirmedBy?: string | null;
+  incomingConfirmedAt?: Date | string | null;
+  incomingConfirmedBy?: string | null;
+  sessionUserId: string;
+  now?: Date;
+}): { confirmedAt: Date | null; confirmedBy: string | null } {
+  if (isPresentConfirmStamp(input.existingConfirmedAt)) {
+    const existingAt = input.existingConfirmedAt;
+    const at =
+      existingAt instanceof Date
+        ? existingAt
+        : typeof existingAt === "string"
+          ? new Date(existingAt)
+          : null;
+    return {
+      confirmedAt: at && !Number.isNaN(at.getTime()) ? at : null,
+      confirmedBy: input.existingConfirmedBy ?? null,
+    };
+  }
+
+  const incomingConfirmed =
+    isPresentConfirmStamp(input.incomingConfirmedAt) ||
+    (typeof input.incomingConfirmedBy === "string" &&
+      input.incomingConfirmedBy.length > 0);
+
+  if (!incomingConfirmed) {
+    return { confirmedAt: null, confirmedBy: null };
+  }
+
+  return {
+    confirmedAt: input.now ?? new Date(),
+    confirmedBy: input.sessionUserId,
   };
 }

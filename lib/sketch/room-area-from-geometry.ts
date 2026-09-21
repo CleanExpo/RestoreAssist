@@ -102,7 +102,8 @@ function perimeterPx(pts: { x: number; y: number }[]): number {
 
 /** Operator-measured room that may contribute billed floor/wall area. */
 export function isMeasuredRoom(obj: RoomGeometryObject): boolean {
-  // RA-7611: allow-list. ai_suggested / underlay_reference / untagged never bill.
+  // RA-7611: allow-list with missing-tag fallback. ai_suggested /
+  // underlay_reference / unknown tags never bill; untagged still does.
   if (!isOperatorMeasuredProvenance(obj.data?.provenance)) return false;
   const dataType = obj.data?.type;
   if (

@@ -2,11 +2,12 @@
  * RA-6761 / RA-7611 — provenance guard at the Fabric-blob boundary.
  *
  * The estimate/scope quantity paths parse the raw Fabric `sketchData` blob.
- * Only `operator_measured` objects may contribute billed/scoped quantities.
+ * `operator_measured` objects and untagged objects (legacy editor /
+ * pre-RA-6760 V2 import) may contribute billed/scoped quantities.
  * `underlay_reference` (imported plan / pending LiDAR) and `ai_suggested`
  * (Vision / cloud AI) stay out until a technician confirms them.
  *
- * This is an allow-list. Untagged objects are no longer kept here; changing
+ * This is an allow-list with a missing-tag fallback. Changing
  * decompose-elements.ts to stop defaulting missing tags to operator_measured
  * is a separate decision (see RA-7611 PR body).
  */
@@ -63,7 +64,7 @@ export function measuredFloors<
  * from client-supplied `fabricJson` — a client can't inflate or fabricate areas.
  * Falls back to the provenance-sanitised client blob only when there is no saved
  * floor for that label (e.g. a brand-new unsaved floor). Either source is run
- * through `measuredSketchData`, so only operator_measured geometry counts.
+ * through `measuredSketchData`, so only measured (tagged or untagged) geometry counts.
  * Non-geometry fields (label, pngDataUrl, …) pass through untouched.
  */
 export function serverAuthoritativeFloors<

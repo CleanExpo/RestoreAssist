@@ -318,8 +318,9 @@ function roomsFromSavedGraph(
   const lines: EstimateLineItem[] = [];
   let idx = 0;
   for (const room of saved) {
-    // RA-7611: allow-list — saved SketchRoom rows bill only when confirmed
-    // as operator_measured. ai_suggested and underlay_reference yield nothing.
+    // RA-7611: allow-list with missing-tag fallback — saved SketchRoom rows
+    // bill when operator_measured or untagged. ai_suggested / underlay_reference
+    // / unknown tags yield nothing.
     if (!isOperatorMeasuredProvenance(room.provenance)) continue;
     const areaM2 = room.areaM2;
     if (typeof areaM2 !== "number" || !Number.isFinite(areaM2) || areaM2 < MIN_BILLED_AREA_M2) {
