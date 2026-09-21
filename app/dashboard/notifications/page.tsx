@@ -330,15 +330,27 @@ export default function NotificationsPage() {
 
   // ── Mark all as read ─────────────────────────────────────────────────────────
   const handleMarkAllRead = useCallback(async () => {
+    // Revert only what this click changed, against the current list, so a
+    // notification that arrives while the request is in flight survives a
+    // failure (RA-7448 review).
+    const unreadAtClick = new Set(
+      notifications.filter((n) => !n.read).map((n) => n.id),
+    );
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
 
     try {
-      await fetch("/api/notifications/read-all", { method: "POST" });
+      const response = await fetch("/api/notifications/read-all", {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to mark all as read");
       toast.success("All notifications marked as read");
     } catch {
+      setNotifications((prev) =>
+        prev.map((n) => (unreadAtClick.has(n.id) ? { ...n, read: false } : n)),
+      );
       toast.error("Failed to mark all as read");
     }
-  }, []);
+  }, [notifications]);
 
   // ── Update preferences ───────────────────────────────────────────────────────
   const handlePrefToggle = useCallback(

@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
         purchases,
       });
     } catch (error: any) {
-      // If AddonPurchase table doesn't exist, return empty array
+      // If AddonPurchase table doesn't exist, return empty array. The marker
+      // keeps "table absent" distinguishable from "bought nothing" (RA-7448).
       if (
         error.message?.includes("Unknown model") ||
         error.message?.includes("does not exist")
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           success: true,
           purchases: [],
+          source: "table-absent",
         });
       }
       throw error;
