@@ -12,6 +12,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
@@ -102,6 +103,34 @@ export async function requireAdminPage(): Promise<{
   }
 
   return auth.user;
+}
+
+/**
+ * Platform-owned admin data (revenue, platform totals, impersonation) is
+ * RestoreAssist staff work. `role: "ADMIN"` is granted to every firm that
+ * self-registers, so it is not sufficient. Operators must be on
+ * `PLATFORM_SUPPORT_USER_IDS` — the same fail-closed allowlist
+ * `isPlatformSupportOperator` already owns. Missing or empty configuration
+ * refuses everyone, including tenant ADMIN.
+ *
+ * The allowlist widens an ADMIN; it is not a role of its own and must not
+ * promote a listed USER. Call after `verifyAdminFromDb`. This is the HTTP
+ * wrapper RA-7592 / RA-7594 / RA-7595 reuse.
+ */
+export function verifyPlatformSupportOperator(
+  auth: AdminAuthResult,
+): AdminAuthResult {
+  if (
+    !auth.user ||
+    auth.user.role !== "ADMIN" ||
+    !isPlatformSupportOperator(auth.user.id)
+  ) {
+    return {
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  return auth;
 }
 
 /**

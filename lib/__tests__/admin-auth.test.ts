@@ -11,6 +11,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   verifyAdminFromDb,
+  verifyPlatformSupportOperator,
   verifyStorePublishingOperator,
   requireAdminPage,
 } from "@/lib/admin-auth";
@@ -76,6 +77,52 @@ describe("requireAdminPage", () => {
       role: "ADMIN",
       organizationId: "org_1",
     });
+  });
+});
+
+describe("verifyPlatformSupportOperator", () => {
+  it("fails closed when no platform-support allowlist is configured", async () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+
+    const adminAuth = await verifyAdminFromDb(ADMIN_SESSION);
+    const result = verifyPlatformSupportOperator(adminAuth);
+
+    expect(result.response?.status).toBe(403);
+  });
+
+  it("rejects a tenant admin who is not explicitly allowlisted", async () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "different_user");
+
+    const adminAuth = await verifyAdminFromDb(ADMIN_SESSION);
+    const result = verifyPlatformSupportOperator(adminAuth);
+
+    expect(result.response?.status).toBe(403);
+  });
+
+  it("does not promote a listed USER — the allowlist is not a role", () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "u_tech");
+
+    const result = verifyPlatformSupportOperator({
+      user: { id: "u_tech", role: "USER", organizationId: "org_1" },
+    });
+
+    expect(result.response?.status).toBe(403);
+    expect(result.user).toBeUndefined();
+  });
+
+  it("accepts an explicitly allowlisted admin after DB role revalidation", async () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", " other_user, operator_1 ");
+
+    const adminAuth = await verifyAdminFromDb(ADMIN_SESSION);
+    const result = verifyPlatformSupportOperator(adminAuth);
+
+    expect(result.response).toBeUndefined();
+    expect(result.user).toEqual({
+      id: "operator_1",
+      role: "ADMIN",
+      organizationId: "org_1",
+    });
+    expect(userFindUnique).toHaveBeenCalledTimes(1);
   });
 });
 
