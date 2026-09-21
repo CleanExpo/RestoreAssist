@@ -66,8 +66,9 @@ export const PLATFORM_KEY_MISSING_BODY =
   "Basic reports on the trial should work without your own key. The platform AI key that should power them is not configured, so report generation will fail until that is fixed. You can continue setup. After the trial, AI report generation uses your own Anthropic or OpenAI key.";
 
 /**
- * RA-7600 — report-gen 402 when the platform should have supplied the key.
- * Do not say "add your key": that rewrite is the residual #2229 called out.
+ * RA-7600 / RA-7601 — report-gen 402, and inspection-report 400 when the
+ * miss is not a NoWorkspaceKeyError. Do not say "add your key": that
+ * rewrite is the residual #2229 / #2232 called out. Shared copy path.
  */
 export const REPORT_GEN_PLATFORM_NOT_READY_BODY =
   "Trial report generation is not ready. Basic reports on the trial should work without your own key. The platform AI key that should power them is not configured. This is a platform issue. Report generation cannot run until that is fixed.";

@@ -99,6 +99,15 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
     expect(resolver).toContain("REPORT_GEN_PLATFORM_NOT_READY_BODY");
     expect(resolver).toContain("reportGenByokRequiredBody");
     expect(resolver).toContain("describePlatformTrialCoverage");
+    expect(resolver).toContain("reportGenUnexpectedKeyFailureCopy");
+
+    const inspectionRoute = readSrc(
+      "app/api/reports/generate-inspection-report/route.ts",
+    );
+    expect(inspectionRoute).toContain("reportGenUnexpectedKeyFailureCopy");
+    expect(inspectionRoute).not.toMatch(
+      /Add an Anthropic or OpenAI key in Settings/,
+    );
   });
 
   it("signup, pricing, and post-signup surfaces drop the BYOK-required lie", () => {

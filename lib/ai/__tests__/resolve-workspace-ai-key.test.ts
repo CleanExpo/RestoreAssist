@@ -23,6 +23,7 @@ vi.mock("../platform-trial-credential", () => ({
 import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
+  reportGenUnexpectedKeyFailureCopy,
 } from "../resolve-workspace-ai-key";
 
 const PAID_COVERAGE = {
@@ -151,5 +152,38 @@ describe("resolveWorkspaceAiKey (RA-6921 P0)", () => {
       message: REPORT_GEN_PLATFORM_NOT_READY_BODY,
     });
     expect(getProviderApiKey).not.toHaveBeenCalled();
+  });
+});
+
+describe("reportGenUnexpectedKeyFailureCopy (RA-7601)", () => {
+  it("paid / expired / zero-credit still tells the owner to add their key", async () => {
+    const copy = await reportGenUnexpectedKeyFailureCopy("paid_user", "ANTHROPIC");
+    expect(copy).toBe(reportGenByokRequiredBody("ANTHROPIC"));
+    expect(copy).toMatch(/add your own key/i);
+  });
+
+  it("funded trial with a missing platform key is platform-not-ready, not add-a-key", async () => {
+    describePlatformTrialCoverage.mockResolvedValue(FUNDED_MISSING_PLATFORM);
+    const copy = await reportGenUnexpectedKeyFailureCopy(
+      "trial_user",
+      "ANTHROPIC",
+    );
+    expect(copy).toBe(REPORT_GEN_PLATFORM_NOT_READY_BODY);
+    expect(copy).not.toMatch(/add your/i);
+    expect(copy).not.toMatch(/add an anthropic or openai key/i);
+  });
+
+  it("funded trial still is not told to add a key when the platform key is present", async () => {
+    describePlatformTrialCoverage.mockResolvedValue({
+      fundedTrial: true,
+      platformKeyPresent: true,
+      canUsePlatformTrial: true,
+    });
+    const copy = await reportGenUnexpectedKeyFailureCopy(
+      "trial_user",
+      "ANTHROPIC",
+    );
+    expect(copy).toBe(REPORT_GEN_PLATFORM_NOT_READY_BODY);
+    expect(copy).not.toMatch(/add your/i);
   });
 });

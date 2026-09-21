@@ -76,6 +76,24 @@ export async function noWorkspaceKeyErrorForUser(
 }
 
 /**
+ * RA-7601 — client copy when report-gen cannot obtain a working key for a
+ * reason other than `NoWorkspaceKeyError` (decrypt / store failure). Uses
+ * the same two SSOT bodies as the 402 path. A funded trial is the D-022
+ * audience: the platform should cover, so never rewrite as "add a key"
+ * even if we never reached `tryPlatformTrialApiKey`.
+ */
+export async function reportGenUnexpectedKeyFailureCopy(
+  userId: string,
+  provider: AiProvider,
+): Promise<string> {
+  const coverage = await describePlatformTrialCoverage(userId);
+  if (coverage.fundedTrial) {
+    return REPORT_GEN_PLATFORM_NOT_READY_BODY;
+  }
+  return reportGenByokRequiredBody(provider);
+}
+
+/**
  * Resolve the calling user's workspace-owned BYOK key for the given provider.
  * Funded trials may receive the platform Anthropic key (RA-6801). Everyone
  * else throws `NoWorkspaceKeyError` — callers must not add a second fallback.
