@@ -141,6 +141,61 @@ describe("GET /api/inspections", () => {
     expect(whereArg.AND[0].OR).toContainEqual({ userId: "u_1" });
     expect(whereArg.OR).toBeTruthy();
   });
+
+  // RA-7567 — Field Mode sends one query value with several statuses
+  // (`?status=DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED`). Passing that
+  // string through to Prisma as a single InspectionStatus 500s. These cases
+  // lock the parse: one value stays equality, a comma list becomes `{ in }`,
+  // and an unknown token is 400 before Prisma is called. The comma-list
+  // assertion is written to fail on unfixed main.
+  it("filters a single status as an equality", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    inspectionCount.mockResolvedValueOnce(0);
+    inspectionFindMany.mockResolvedValueOnce([]);
+
+    const res = await GET(getReq("?status=DRAFT"));
+    expect(res.status).toBe(200);
+
+    const whereArg = inspectionFindMany.mock.calls[0][0].where;
+    expect(whereArg.status).toBe("DRAFT");
+  });
+
+  it("parses a comma-joined status list as { in: [...] }", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    inspectionCount.mockResolvedValueOnce(0);
+    inspectionFindMany.mockResolvedValueOnce([]);
+
+    const res = await GET(
+      getReq("?status=DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED&take=10"),
+    );
+    expect(res.status).toBe(200);
+
+    const whereArg = inspectionFindMany.mock.calls[0][0].where;
+    expect(whereArg.status).toEqual({
+      in: ["DRAFT", "SUBMITTED", "PROCESSING", "CLASSIFIED", "SCOPED"],
+    });
+  });
+
+  it("returns 400 for an unknown inspection status instead of querying Prisma", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+
+    const res = await GET(getReq("?status=NOT_A_STATUS"));
+    expect(res.status).toBe(400);
+    expect(inspectionFindMany).not.toHaveBeenCalled();
+    expect(inspectionCount).not.toHaveBeenCalled();
+  });
+
+  it("keeps the active alias as notIn COMPLETED/REJECTED", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    inspectionCount.mockResolvedValueOnce(0);
+    inspectionFindMany.mockResolvedValueOnce([]);
+
+    const res = await GET(getReq("?status=active"));
+    expect(res.status).toBe(200);
+
+    const whereArg = inspectionFindMany.mock.calls[0][0].where;
+    expect(whereArg.status).toEqual({ notIn: ["COMPLETED", "REJECTED"] });
+  });
 });
 
 describe("POST /api/inspections", () => {

@@ -9,6 +9,11 @@ import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
 import { resolveInvoiceReach } from "@/lib/auth/assert-tenancy";
+import { InvoiceStatus } from "@prisma/client";
+import {
+  enumEqualityOrIn,
+  parseEnumList,
+} from "@/lib/validation/parse-enum-list";
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,7 +47,20 @@ export async function GET(request: NextRequest) {
     }
     const where: any = { ...reach.data };
 
-    if (status) where.status = status;
+    // RA-7567: the credit-note picker sends `SENT,PAID` in one query
+    // value. Split and validate so Prisma never sees the joined string
+    // as a single InvoiceStatus (that was a 500).
+    if (status) {
+      const parsed = parseEnumList(status, Object.values(InvoiceStatus));
+      if (!parsed.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Invalid status: ${parsed.invalid}`,
+          status: 400,
+        });
+      }
+      where.status = enumEqualityOrIn(parsed.values);
+    }
 
     if (search) {
       where.OR = [
