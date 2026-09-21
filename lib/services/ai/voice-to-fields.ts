@@ -17,8 +17,11 @@
  * look, style, or effect ("vinyl-look") is not an asbestos cue. Spoken
  * "vinyl look" (a space, as speech-to-text often writes it), "whether or
  * not", "not sure if", a question mark, and a hedged negation ("probably
- * not", "maybe not", "not ... I think", "hopefully no", "I don't think")
- * are doubt, not negation. Every cue word is scanned across the whole note.
+ * not", "maybe not", "likely not", "possibly not", "hopefully no",
+ * "I don't think", and a trailing "I think", "I reckon", or "I don't think"
+ * (with or without a comma) are doubt, not negation. "free of" and "free
+ * from" do not mean "asbestos-free". Every cue word is scanned across the
+ * whole note.
  * If any occurrence survives, the result is an asbestos-possible material
  * or a confirmation that names it. When more than one material remains,
  * ask instead of keeping the longest phrase.
@@ -174,15 +177,19 @@ const ACM_CUE_WORDS: Array<{ word: string; materialId: string }> = [
 
 /** "not vinyl", "no asbestos", "non-asbestos", "asbestos-free". */
 const CUE_NEGATION_BEFORE = /(?:^|[^a-z0-9])(?:not|no|non)[\s-]*$/i;
-const CUE_FREE_AFTER = /^[\s-]*free\b/i;
+/** "asbestos-free" / "asbestos free". "free of" and "free from" describe a condition, not the absence of the cue. */
+const CUE_FREE_AFTER = /^[\s-]*free\b(?!\s+(?:of|from)\b)/i;
 /** "vinyl-look" describes appearance. A space ("vinyl look") is doubt, not a drop. */
 const CUE_HYPHEN_APPEARANCE_AFTER = /^-(?:look|style|effect)\b/i;
 const CUE_SPACED_APPEARANCE_AFTER = /^\s+(?:look|style|effect)\b/i;
 const CUE_DOUBT_BEFORE =
   /\bwhether\s+or\s+not[\s-]*$|\bnot\s+sure\s+if\b/i;
-/** "probably not", "maybe not", "hopefully no", "I don't think" — doubt, not a cancellation. */
+/** "probably not", "maybe not", "likely not", "possibly not", "hopefully no", "I don't think". */
 const CUE_HEDGE_BEFORE =
-  /\b(?:probably|maybe)\s+not[\s-]*$|\bhopefully\s+no[\s-]*$|\bi\s+(?:don'?t|do\s+not)\s+think\b/i;
+  /\b(?:probably|maybe|likely|possibly)\s+not[\s-]*$|\bhopefully\s+no[\s-]*$|\bi\s+(?:don'?t|do\s+not)\s+think\b/i;
+/** Trailing "I think" / "I reckon" / "I don't think", with or without a comma. */
+const CUE_TRAILING_HEDGE =
+  /^\s*,?\s*i\s+(?:think|reckon|(?:don'?t|do\s+not)\s+think)\b/i;
 
 type AcmCueKind = "clear" | "doubt" | "ignore";
 
@@ -221,9 +228,9 @@ function clauseContaining(
 
 function isHedgedNegation(before: string, after: string): boolean {
   if (CUE_HEDGE_BEFORE.test(before)) return true;
-  // "not vinyl I think" — the hedge sits in the same clause, after the cue.
+  // "not vinyl I reckon" and "not vinyl, I think" — the hedge follows the cue.
   return (
-    /(?:^|[^a-z0-9])not[\s-]*$/i.test(before) && /\bi\s+think\b/i.test(after)
+    /(?:^|[^a-z0-9])not[\s-]*$/i.test(before) && CUE_TRAILING_HEDGE.test(after)
   );
 }
 
@@ -381,9 +388,10 @@ function scanTranscriptAcmCues(transcript: string): TranscriptCue[] {
       const end = start + match[0].length;
       const clause = clauseContaining(transcript, start, end);
       const localStart = start - clause.start;
+      // Rest of the note, not only this clause, so "not vinyl, I think" stays doubt.
       const kind = classifyAcmCue(
         clause.text.slice(0, localStart),
-        clause.text.slice(end - clause.start),
+        transcript.slice(end),
         /^\s*\?/.test(transcript.slice(clause.end)),
       );
       if (kind !== "ignore") {

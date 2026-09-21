@@ -158,6 +158,7 @@ describe("RA-7638 — explicit ceramic is not silently remapped by an ACM cue", 
     "non-asbestos ceramic tiles",
     "no asbestos in the ceramic tiles",
     "asbestos-free ceramic tiles",
+    "asbestos free ceramic tiles",
     "vinyl-look ceramic tiles",
     "vinyl-style ceramic tiles",
     "vinyl-effect ceramic tiles",
@@ -217,7 +218,18 @@ const CUE_NEGATION_FORMS: Array<{
   { id: "free", hedge: false, apply: (cue) => `${cue}-free` },
   { id: "probably-not", hedge: true, apply: (cue) => `probably not ${cue}` },
   { id: "maybe-not", hedge: true, apply: (cue) => `maybe not ${cue}` },
+  { id: "likely-not", hedge: true, apply: (cue) => `likely not ${cue}` },
+  { id: "possibly-not", hedge: true, apply: (cue) => `possibly not ${cue}` },
   { id: "not-i-think", hedge: true, apply: (cue) => `not ${cue} I think` },
+  { id: "not-i-reckon", hedge: true, apply: (cue) => `not ${cue} I reckon` },
+  { id: "not-comma-i-think", hedge: true, apply: (cue) => `not ${cue}, I think` },
+  { id: "not-comma-i-reckon", hedge: true, apply: (cue) => `not ${cue}, I reckon` },
+  { id: "not-i-dont-think", hedge: true, apply: (cue) => `not ${cue} I don't think` },
+  {
+    id: "not-comma-i-dont-think",
+    hedge: true,
+    apply: (cue) => `not ${cue}, I don't think`,
+  },
   { id: "hopefully-no", hedge: true, apply: (cue) => `hopefully no ${cue}` },
   { id: "dont-think", hedge: true, apply: (cue) => `I don't think ${cue}` },
 ];
@@ -296,12 +308,25 @@ describe("RA-7638 — a bare cue anywhere in the note still counts", () => {
     ["vinyl-look ceramic tiles, vinyl in laundry", "vinyl"],
     ["tiles probably not vinyl", "vinyl"],
     ["tiles maybe not vinyl", "vinyl"],
+    ["tiles likely not vinyl", "vinyl"],
+    ["tiles possibly not vinyl", "vinyl"],
+    ["tiles not vinyl, I think", "vinyl"],
+    ["tiles not vinyl I reckon", "vinyl"],
+    ["tiles vinyl free from water damage", "vinyl"],
+    ["ceramic tiles, vinyl free from cracks in laundry", "vinyl"],
   ] as const)(
     "named case '%s' honours surviving '%s'",
     (phrase, word) => {
       const result = mapVoiceTranscriptToFields(phrase);
       expect(honoursSurvivingCue(result, word)).toBe(true);
-      if (phrase === "tiles probably not vinyl" || phrase === "tiles maybe not vinyl") {
+      const mustAsk =
+        phrase === "tiles probably not vinyl" ||
+        phrase === "tiles maybe not vinyl" ||
+        phrase === "tiles likely not vinyl" ||
+        phrase === "tiles possibly not vinyl" ||
+        phrase === "tiles not vinyl, I think" ||
+        phrase === "tiles not vinyl I reckon";
+      if (mustAsk) {
         const named = result.needsConfirmation.some(
           (item) =>
             item.kind === "material" && confirmationNames(item.term, word),
