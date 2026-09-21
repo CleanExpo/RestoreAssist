@@ -155,11 +155,14 @@ export async function PUT(
           .filter((roomId): roomId is string => Boolean(roomId)),
       ),
     ];
+    // Existing links to a detached room on THIS job must still save: sketch
+    // save detaches rather than deletes rooms that hold moisture readings.
+    // New room picks go through POST /moisture, which still requires
+    // detachedAt: null. Tenancy is sketch.inspectionId === this job.
     if (requestedRoomIds.length > 0) {
       const rooms = await prisma.sketchRoom.findMany({
         where: {
           id: { in: requestedRoomIds },
-          detachedAt: null,
           sketch: { inspectionId: id },
         },
         select: { id: true },
