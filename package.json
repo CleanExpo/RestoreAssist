@@ -91,7 +91,6 @@
     "check:encoding": "node scripts/check-encoding.mjs",
     "check:spec-docs": "node scripts/ci/check-spec-docs.mjs",
     "check:ssot": "node scripts/ci/check-data-source-ssot.mjs --strict",
-    "check:corpus": "node scripts/ci/check-corpus-hygiene.mjs",
     "check:release-bootstrap": "node scripts/ci/check-release-bootstrap.mjs",
     "test:unit": "vitest run --config config/vitest.config.js",
     "test:parity": "node scripts/ci/check-test-parity.mjs",

@@ -30,14 +30,23 @@ retriever has no tenancy/tier filter, it surfaces into the wrong reply.**
 ## Front-foot detector (run it BEFORE any ingest)
 
 ```bash
-node scripts/ci/check-corpus-hygiene.mjs --dir <staging-dir>
+node scripts/ci/check-corpus-hygiene.mjs --dir <staging-dir> [--strict]
 ```
+
+There is **no** `npm run check:corpus` / `pnpm check:corpus` alias (RA-7474).
+That alias passed no `--dir`, so it was a silent no-op on Windows (exit 0,
+`main()` never ran) and a usage-error on Linux (exit 2). Overnight reports
+quoted the Windows zero as a gate. Do not re-add it. The detector is gated
+by ingest (`scanText` in `scripts/ingest-standards-remote.ts`) and by
+`scripts/__tests__/check-corpus-hygiene.test.ts` in the CI vitest suite.
 
 It scans every `.txt`/`.md` staged for ingest and flags **charge-out dollar patterns**
 (`$440/hr`, `120 per day`, `ex-GST` rate lines). A hit means a price is about to enter the
 shared corpus — stop and move it to a live injection instead. Job-value *medians* as
 aggregate context are lower-risk; charge-out *rates* are the hard deny. Run with
-`--strict` to fail the ingest.
+`--strict` to fail the ingest. The staging dir is the operator's ingest tree
+(default `~/iicrc-source/.staging`); there is no committed corpus sample in
+the repo, so this CLI is not a PR gate.
 
 ## The pre-ingest gate — before you POST to /api/cron/ingest-standards
 

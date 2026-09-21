@@ -135,15 +135,15 @@ omitted deliberately: it needs live production credentials
 (`.github/workflows/supabase-advisor-gate.yml:5`), so it is owner-gated rather
 than a parity gap this command can close.
 
-**Do not run `npm run check:corpus`.** An earlier revision of this file listed it
-alongside `test:parity` as an unwired gate. It is not a gate.
-`scripts/ci/check-corpus-hygiene.mjs` is a scanner whose CLI requires
-`--dir <staging-dir>` — a directory that exists only during a standards ingest —
-and the npm alias passes no `--dir`, so it exits 2 with a usage error every time.
-That is not a broken script to be repaired; its real caller is
-`scripts/ingest-standards-remote.ts:163`, which imports `scanText` to abort an
-ingest carrying charge-out rates. There is no staging directory during a `/done`
-run, so this check is **not applicable here** rather than failing or skipping.
+**Do not quote `check:corpus` as a gate.** RA-7474 deleted the npm alias.
+On Windows it exited 0 without calling `main()`; on Linux it exited 2 with a
+usage error because `--dir` was missing. Overnight reports recorded that
+exit 0 as evidence. The detector itself is alive: ingest imports `scanText`
+(`scripts/ingest-standards-remote.ts`), and vitest covers it in
+`scripts/__tests__/check-corpus-hygiene.test.ts`. Operators still run
+`node scripts/ci/check-corpus-hygiene.mjs --dir <staging-dir> [--strict]`
+before ingest. There is no committed staging directory during a `/done`
+run, so this check is **not applicable here**.
 
 The secrets scan needs care. CI runs `gitleaks detect --no-git`, and
 `--no-git` **ignores `.gitignore`** — so a working-directory scan is not a scan
