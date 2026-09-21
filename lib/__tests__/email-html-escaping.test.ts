@@ -11,6 +11,7 @@ import {
   sendInviteEmail,
   sendPaymentFailedEmail,
   sendReportCompletedEmail,
+  sendSignedFormEmail,
   sendSubscriptionActivatedEmail,
   sendSubscriptionCancelledEmail,
 } from "../email";
@@ -103,6 +104,31 @@ describe("email HTML injection (rule 10 — escapeHtml on user-controlled fields
     const html = lastHtml();
     expect(html).not.toContain(XSS);
     expect(html).toContain(ESCAPED);
+  });
+
+  it("escapes user fields in sendSignedFormEmail signatory copy", async () => {
+    await sendSignedFormEmail({
+      recipientEmail: "homeowner@example.com",
+      recipientName: XSS,
+      formName: XSS,
+      clientName: XSS,
+      clientAddress: XSS,
+      companyName: XSS,
+      signatories: [
+        { name: XSS, role: "CLIENT", signedAt: "2026-09-21T00:00:00.000Z" },
+      ],
+      pdfBase64: "AA==",
+      pdfFilename: "form.pdf",
+      copyKind: "signatory",
+    });
+
+    const html = lastHtml();
+    expect(html).not.toContain(XSS);
+    expect(html).toContain(ESCAPED);
+    expect(html).toContain(
+      "Your signature on the following authority form has been recorded",
+    );
+    expect(html).not.toContain("fully signed");
   });
 
   it("escapes recipientName, subscriptionPlan and expiresAt in sendSubscriptionCancelledEmail", async () => {

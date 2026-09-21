@@ -4,6 +4,8 @@ import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError } from "@/lib/api-errors";
 import { verifyBotId } from "@/lib/auth/botid";
 import { validateCsrf } from "@/lib/csrf";
+import { notifySignatoryOfSignedCopy } from "@/lib/authority-forms/notify-signatory-copy";
+import { reportError } from "@/lib/observability";
 
 const SIGNATURE_TOKEN_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -175,6 +177,7 @@ export async function POST(
         id: true,
         instanceId: true,
         signatoryName: true,
+        signatoryEmail: true,
       },
     });
 
@@ -256,6 +259,22 @@ export async function POST(
           data: { status: "PARTIALLY_SIGNED" },
         });
       }
+    }
+
+    // Copy to the signatory only on this unsigned → signed transition.
+    // Email failure must not undo or fail the already-recorded signature.
+    try {
+      await notifySignatoryOfSignedCopy({
+        instanceId: signature.instanceId,
+        signatoryEmail: signature.signatoryEmail,
+        signatoryName: signatoryName || signature.signatoryName,
+      });
+    } catch (emailError) {
+      console.error(
+        "[Sign Token POST] Signatory copy email failed:",
+        emailError,
+      );
+      reportError(emailError, { stage: "authority-form-signatory-copy" });
     }
 
     return NextResponse.json({

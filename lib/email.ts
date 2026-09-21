@@ -132,6 +132,8 @@ export async function sendPulseUpdateEmail(
 
 // ── Signed Authority Form Email ──
 
+export type SignedFormEmailCopyKind = "completed" | "signatory";
+
 export interface SignedFormEmailData {
   recipientEmail: string;
   recipientName: string;
@@ -143,6 +145,11 @@ export interface SignedFormEmailData {
   pdfBase64: string; // Base64 encoded PDF
   pdfFilename: string;
   idempotencyKey?: string;
+  /**
+   * "signatory" is the copy emailed to the person who just signed.
+   * Default "completed" is the contractor-triggered fully-signed pack.
+   */
+  copyKind?: SignedFormEmailCopyKind;
 }
 
 /** Strip CR/LF characters that could be used for email header injection. */
@@ -164,6 +171,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
   }
 
   const fromEmail = getFromEmail();
+  const isSignatoryCopy = data.copyKind === "signatory";
 
   const sigList = data.signatories
     .map(
@@ -172,17 +180,21 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
     )
     .join("");
 
+  const intro = isSignatoryCopy
+    ? `<p>Your signature on the following authority form has been recorded. A copy of the form as you signed it is attached for your records.</p>`
+    : `<p>The following authority form has been <strong style="color:#10b981;">fully signed</strong> by all parties:</p>`;
+
   const html = `
     <!DOCTYPE html>
     <html>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
       <div style="background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
         <h1 style="color: white; margin: 0; font-size: 24px;">${escapeHtml(data.companyName)}</h1>
-        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">Signed Authority Form</p>
+        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">${isSignatoryCopy ? "Copy of your signed authority form" : "Signed Authority Form"}</p>
       </div>
       <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
         <p>Hello ${escapeHtml(data.recipientName)},</p>
-        <p>The following authority form has been <strong style="color:#10b981;">fully signed</strong> by all parties:</p>
+        ${intro}
         <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 16px 0;">
           <p style="margin: 0 0 8px;"><strong>Form:</strong> ${escapeHtml(data.formName)}</p>
           <p style="margin: 0 0 8px;"><strong>Client:</strong> ${escapeHtml(data.clientName)}</p>
@@ -208,7 +220,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
     sendTransactionalEmail({
       from: fromEmail,
       to: data.recipientEmail,
-      subject: `Signed: ${sanitiseEmailField(data.formName)} — ${sanitiseEmailField(data.clientName)}`,
+      subject: `${isSignatoryCopy ? "Copy of signed form" : "Signed"}: ${sanitiseEmailField(data.formName)} — ${sanitiseEmailField(data.clientName)}`,
       html,
       attachments: [
         {
