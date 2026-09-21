@@ -251,6 +251,7 @@ export default function EditReportPage({
         scopeData={scope}
         reportData={report}
         initialEstimateData={estimate}
+        inspectionId={report?.inspection?.id ?? null}
         onEstimateComplete={handleEstimateComplete}
         onCancel={() => setStage("scoping")}
       />
