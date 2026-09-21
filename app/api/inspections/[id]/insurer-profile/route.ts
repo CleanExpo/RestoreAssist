@@ -13,18 +13,62 @@ import {
   INSURER_LABELS,
 } from "@/lib/insurer-profiles";
 import type { InsurerId } from "@/lib/insurer-profiles";
+import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import type { JobType } from "@/lib/evidence/workflow-definitions";
 import type { EvidenceClass } from "@/lib/types/evidence";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+
 /**
  * [RA-406] Insurer Profile API
  * GET  — Retrieve insurer profile for an inspection (or list all profiles)
- * POST — Set/update insurer profile for an inspection and get evidence gap analysis
+ * POST — Compute insurer evidence gap analysis for an inspection
+ *
+ * RA-7570: `Inspection` has no `jobType` or `metadata` columns. Job type is
+ * `InspectionWorkflow.jobType`, with `Inspection.claimType` as the fallback
+ * equivalent via `normalizeClaimType`. Per-inspection insurer assignment has
+ * no canonical column yet (spec P3-3: `Inspection.insurerProfileId` +
+ * `claimNumber`) — do not write a phantom JSON blob. GET reports unassigned;
+ * POST returns the computed profile for the current request.
  */
 
 interface RouteContext {
   params: Promise<{ id: string }>;
+}
+
+const inspectionSelect = {
+  id: true,
+  claimType: true,
+  inspectionWorkflow: {
+    select: { jobType: true },
+  },
+} as const;
+
+type LoadedInspection = {
+  id: string;
+  claimType: string | null;
+  inspectionWorkflow: { jobType: string } | null;
+};
+
+function resolveJobType(inspection: LoadedInspection): JobType | null {
+  return (
+    normalizeClaimType(inspection.inspectionWorkflow?.jobType) ??
+    normalizeClaimType(inspection.claimType)
+  );
+}
+
+function availableProfiles() {
+  return Object.entries(INSURER_LABELS).map(([id, label]) => ({
+    id,
+    label,
+  }));
+}
+
+async function loadOwnedInspection(inspectionId: string, userId: string) {
+  return prisma.inspection.findFirst({
+    where: { id: inspectionId, userId },
+    select: inspectionSelect,
+  });
 }
 
 // ━━━ GET: Retrieve insurer profile or list all ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -55,20 +99,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ profiles });
     }
 
-    // Verify the inspection exists and belongs to user's org
-    const inspection = await prisma.inspection.findFirst({
-      where: {
-        id: inspectionId,
-        ...(session.user.organizationId
-          ? { userId: session.user.id }
-          : { userId: session.user.id }),
-      } as any,
-      select: {
-        id: true,
-        jobType: true,
-        metadata: true,
-      } as any,
-    });
+    const inspection = await loadOwnedInspection(
+      inspectionId,
+      session.user.id,
+    );
 
     if (!inspection) {
       return apiError(request, {
@@ -78,37 +112,12 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       });
     }
 
-    // Extract insurer ID from metadata
-    const metadata =
-      ((inspection as any).metadata as Record<string, unknown>) ?? {};
-    const insurerId = metadata.insurerProfileId as string | undefined;
-
-    if (!insurerId || !isValidInsurerId(insurerId)) {
-      return NextResponse.json({
-        insurerProfile: null,
-        message: "No insurer profile assigned to this inspection.",
-        availableProfiles: Object.entries(INSURER_LABELS).map(
-          ([id, label]) => ({
-            id,
-            label,
-          }),
-        ),
-      });
-    }
-
-    const profile = getInsurerProfile(insurerId as InsurerId);
-    const jobType = ((inspection as any).jobType as JobType) ?? undefined;
-    const evidenceReqs = getEvidenceRequirements(
-      insurerId as InsurerId,
-      jobType,
-    );
-    const reportSections = getReportSections(insurerId as InsurerId, jobType);
-
+    // Assignment is not persisted (no Inspection.insurerProfileId yet).
     return NextResponse.json({
-      insurerProfile: profile,
-      evidenceRequirements: evidenceReqs,
-      reportSections,
-      inspectionJobType: jobType,
+      insurerProfile: null,
+      message: "No insurer profile assigned to this inspection.",
+      availableProfiles: availableProfiles(),
+      inspectionJobType: resolveJobType(inspection),
     });
   } catch (error) {
     return fromException(request, error, {
@@ -162,18 +171,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
       const insurerId = body.insurerId as InsurerId;
 
-      // Verify inspection ownership
-      const inspection = await prisma.inspection.findFirst({
-        where: {
-          id: inspectionId,
-          userId,
-        },
-        select: {
-          id: true,
-          jobType: true,
-          metadata: true,
-        } as any,
-      });
+      const inspection = await loadOwnedInspection(inspectionId, userId);
 
       if (!inspection) {
         return apiError(request, {
@@ -183,24 +181,16 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         });
       }
 
-      const jobType = ((inspection as any).jobType as JobType) ?? undefined;
+      const jobType = resolveJobType(inspection);
+      if (!jobType) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "This inspection has no job type. Initialise a workflow or set a claim type before applying an insurer profile.",
+          status: 422,
+        });
+      }
 
-      // Update inspection metadata with insurer profile
-      const existingMetadata =
-        ((inspection as any).metadata as Record<string, unknown>) ?? {};
-      const updatedMetadata = {
-        ...existingMetadata,
-        insurerProfileId: insurerId,
-        insurerClaimRef: body.claimRef ?? existingMetadata.insurerClaimRef,
-        insurerProfileSetAt: new Date().toISOString(),
-      };
-
-      await prisma.inspection.update({
-        where: { id: inspectionId, userId },
-        data: { metadata: updatedMetadata } as any,
-      });
-
-      // Get profile data for response
       const profile = getInsurerProfile(insurerId);
       const evidenceReqs = getEvidenceRequirements(insurerId, jobType);
       const reportSections = getReportSections(insurerId, jobType);
@@ -221,11 +211,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         count: row._count.id,
       }));
 
-      const missingEvidence = jobType
-        ? getMissingMandatoryEvidence(insurerId, jobType, submittedEvidence)
-        : [];
+      const missingEvidence = getMissingMandatoryEvidence(
+        insurerId,
+        jobType,
+        submittedEvidence,
+      );
 
-      // Format claim reference if provided
       const formattedClaimRef = body.claimRef
         ? formatClaimReference(insurerId, body.claimRef, new Date(), "REPORT")
         : undefined;
