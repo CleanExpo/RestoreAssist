@@ -5,6 +5,13 @@
  * Called when the admin explicitly ends the session. A cron (future)
  * sweeps expired-but-unended rows so endedAt is never null on rows
  * past their expiresAt.
+ *
+ * Platform-staff only. Same helper and order as start after RA-7592 /
+ * #2221: verifyPlatformSupportOperator *before*
+ * ENABLE_ADMIN_IMPERSONATION. Tenant ADMIN is every self-registered
+ * owner and must not poke the half-built surface once the flag is on
+ * (RA-7598). The originating-admin owner check still applies after
+ * the staff gate.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,7 +21,10 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { apiError, fromException } from "@/lib/api-errors";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
   // RA-1545 — same CSRF + rate-limit posture as the start endpoint.
@@ -31,6 +41,8 @@ export async function POST(request: NextRequest) {
   }
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   // RA-1592 — pair with /start: refuse while feature-flag is off.
   if (process.env.ENABLE_ADMIN_IMPERSONATION !== "true") {
