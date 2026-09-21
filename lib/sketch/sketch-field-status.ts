@@ -14,6 +14,13 @@ export interface SketchFieldMeta {
   fieldComplete?: boolean;
   /** ISO timestamp when marked complete (cleared when unmarked). */
   fieldCompletedAt?: string | null;
+  /**
+   * RA-7617 — server-authored. Fabric object ids Vision produced on this
+   * inspection. A first save cannot claim `operator_measured` for these ids
+   * unless the POST lists them in `confirmedFabricObjectIds`. Written by
+   * import-from-image; looked up across every floor of the inspection.
+   */
+  aiSuggestedRoomIds?: string[];
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -33,6 +40,45 @@ export function readSketchFieldMeta(sketchData: unknown): SketchFieldMeta {
 
 export function isSketchFieldComplete(sketchData: unknown): boolean {
   return readSketchFieldMeta(sketchData).fieldComplete === true;
+}
+
+function uniqueRoomIds(ids: unknown): string[] {
+  if (!Array.isArray(ids)) return [];
+  return [
+    ...new Set(
+      ids.filter(
+        (id): id is string => typeof id === "string" && id.length > 0,
+      ),
+    ),
+  ];
+}
+
+/** Server-remembered Vision room ids stored on the floor's sketch blob. */
+export function readAiSuggestedRoomIds(sketchData: unknown): string[] {
+  const root = asRecord(sketchData);
+  const meta = asRecord(root?.[SKETCH_META_KEY]);
+  return uniqueRoomIds(meta?.aiSuggestedRoomIds);
+}
+
+/**
+ * Union `ids` into `raSketchMeta.aiSuggestedRoomIds`. Never drops ids the
+ * server already recorded — a client cannot un-remember an AI room.
+ */
+export function withAiSuggestedRoomIds(
+  sketchData: Record<string, unknown> | null | undefined,
+  ids: string[],
+): Record<string, unknown> {
+  const base: Record<string, unknown> = sketchData ? { ...sketchData } : {};
+  const prev = asRecord(base[SKETCH_META_KEY]) ?? {};
+  const merged = uniqueRoomIds([
+    ...readAiSuggestedRoomIds(base),
+    ...ids,
+  ]);
+  base[SKETCH_META_KEY] = {
+    ...prev,
+    aiSuggestedRoomIds: merged,
+  };
+  return base;
 }
 
 /**

@@ -453,6 +453,7 @@ export function SketchEditorV2({
   );
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmedFabricObjectIdsRef = useRef<Set<string>>(new Set());
   /** RA-7091 — run pending RoomPlan custody recovery once per inspection. */
   const roomPlanRecoveryKeyRef = useRef<string | null>(null);
 
@@ -865,6 +866,9 @@ export function SketchEditorV2({
           country,
           captureAdapter,
           confirmUnderlayVerification: fd.fieldComplete === true,
+          confirmedFabricObjectIds: [
+            ...confirmedFabricObjectIdsRef.current,
+          ],
         };
 
         const saveUrl = captureToken
@@ -1760,6 +1764,10 @@ export function SketchEditorV2({
       if (!inspectionId) return;
       const formData = new FormData();
       formData.append("file", file);
+      formData.append(
+        "floorNumber",
+        String(activeFloor?.floor.floorNumber ?? 0),
+      );
       const res = await fetch(
         `/api/inspections/${inspectionId}/sketches/import-from-image`,
         { method: "POST", body: formData },
@@ -1771,7 +1779,11 @@ export function SketchEditorV2({
         throw new Error(error ?? `Import failed (${res.status})`);
       }
       const { rooms } = (await res.json()) as {
-        rooms: { label: string; vertices: { x: number; y: number }[] }[];
+        rooms: {
+          id?: string;
+          label: string;
+          vertices: { x: number; y: number }[];
+        }[];
       };
       if (!rooms?.length) return;
 
@@ -1814,7 +1826,7 @@ export function SketchEditorV2({
           selectable: true,
           evented: true,
           data: {
-            id: `imported-${Date.now()}-${i}`,
+            id: room.id ?? `imported-${Date.now()}-${i}`,
             label: room.label,
             type: "room",
             // RA-7611: Vision-imported geometry is an AI suggestion until a
@@ -1848,9 +1860,12 @@ export function SketchEditorV2({
       });
 
       fc.renderAll();
-      scheduleSave();
+      // Flush immediately so the ai_suggested SketchRoom row exists before
+      // Confirm. A debounced save here coalesces with Confirm within 1.5 s
+      // into one POST that already carries operator_measured.
+      await flushSaveNow();
     },
-    [inspectionId, activeFloor, width, height, scheduleSave],
+    [inspectionId, activeFloor, width, height, flushSaveNow],
   );
 
   // ── RA-7091: apply CapturedRoom JSON onto a floor canvas ─
@@ -2825,6 +2840,7 @@ export function SketchEditorV2({
                 lengthM,
                 widthM,
               });
+              confirmedFabricObjectIdsRef.current.add(id);
               fc.renderAll();
               const hist = (obj.data as { correctionHistory?: unknown[] })
                 .correctionHistory;

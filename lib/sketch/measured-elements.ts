@@ -1,14 +1,17 @@
 /**
  * Provenance guard (spec §6.4, T1.3).
  *
- * Only `operator_measured` geometry may feed S500 drying/scope calcs and exports.
- * `underlay_reference` rows (from an imported plan) are orientation-only and must
- * never contribute measured quantities — that is both an accuracy and an IP
- * requirement (spec §8.1).
+ * Technician-measured geometry may feed S500 drying/scope calcs and exports.
+ * Same allow-list as `isOperatorMeasuredProvenance`: `operator_measured` and
+ * the legacy untagged case (undefined / null / empty string). Explicit tags
+ * other than `operator_measured` never contribute — that is both an accuracy
+ * and an IP requirement (spec §8.1).
  */
 
+import { isOperatorMeasuredProvenance } from "./measured-provenance";
+
 export interface MeasurableElement {
-  provenance: string;
+  provenance?: string | null;
   type?: string;
   dimensionsM?: { areaM2?: number } | null;
 }
@@ -16,7 +19,7 @@ export interface MeasurableElement {
 export function measuredElements<T extends MeasurableElement>(
   elements: T[],
 ): T[] {
-  return elements.filter((e) => e.provenance === "operator_measured");
+  return elements.filter((e) => isOperatorMeasuredProvenance(e.provenance));
 }
 
 /** Total floor area (m²) from operator-measured rooms only. */

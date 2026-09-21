@@ -170,4 +170,35 @@ describe("sketch POST → renderedPngUrl persistence", () => {
       `storage://sketch-media/inspections/i1/exports/verified/floor-0-${"b".repeat(64)}.png`,
     );
   });
+
+  it("RA-7617: requests a canonical render for an untagged room", async () => {
+    p.claimSketch.findFirst.mockResolvedValueOnce(null);
+    p.claimSketch.create.mockResolvedValueOnce({ id: "s_untagged" });
+    const sketchData = {
+      scaleConfig: { pxPerMetre: 100 },
+      objects: [
+        {
+          type: "polygon",
+          points: [
+            { x: 0, y: 0 },
+            { x: 400, y: 0 },
+            { x: 400, y: 300 },
+          ],
+          data: { type: "room", label: "Legacy" },
+        },
+      ],
+    };
+
+    const response = await POST(
+      makePost({
+        floorNumber: 0,
+        sketchData,
+        requestCanonicalRender: true,
+      }),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(storeVerifiedCleanRender).toHaveBeenCalledWith("i1", 0, sketchData);
+  });
 });
