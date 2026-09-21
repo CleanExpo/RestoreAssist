@@ -24,6 +24,11 @@ vi.mock("@/lib/email-retry", async (importOriginal) => {
   };
 });
 
+const deliverEmailOnce = vi.fn();
+vi.mock("@/lib/email-delivery-ledger", () => ({
+  deliverEmailOnce: (...args: unknown[]) => deliverEmailOnce(...args),
+}));
+
 import { sendTrialReminders } from "../trial-reminders";
 
 describe("sendTrialReminders delivery receipts", () => {
@@ -44,11 +49,25 @@ describe("sendTrialReminders delivery receipts", () => {
   });
 
   it("does not count or stamp a null email result", async () => {
+    deliverEmailOnce.mockRejectedValueOnce(new Error("no receipt"));
     sendTrialExpiringEmail.mockResolvedValueOnce(null);
 
     const result = await sendTrialReminders();
 
     expect(result.itemsProcessed).toBe(0);
+    expect(userUpdate).not.toHaveBeenCalled();
+  });
+
+  it("dry-run counts candidates without sending or stamping", async () => {
+    const result = await sendTrialReminders({ dryRun: true });
+
+    expect(result.itemsProcessed).toBe(0);
+    expect(result.metadata).toMatchObject({
+      dryRun: true,
+      windows: { "3-day": 1 },
+    });
+    expect(deliverEmailOnce).not.toHaveBeenCalled();
+    expect(sendTrialExpiringEmail).not.toHaveBeenCalled();
     expect(userUpdate).not.toHaveBeenCalled();
   });
 });

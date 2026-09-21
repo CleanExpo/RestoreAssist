@@ -802,10 +802,11 @@ test("semantic workflow inspection covers the current workflow population", () =
     .filter((name) => /\.ya?ml$/i.test(name));
   // A deliberate review tripwire: adding a workflow must force someone to
   // re-confirm the inspection below still holds over the new population.
-  // Reviewed 2026-09-06 at 20 -> 24: findReleaseBootstrapViolations returned
-  // 0 over all 24 workflows. The tripwire had been firing unseen because no
-  // pipeline ran this file; that is fixed by scripts/ci/run-mjs-tests.mjs.
-  assert.equal(workflowPopulation.length, 24);
+  // Reviewed 2026-09-21 at 24 -> 25: cron-production-trial-reminders.yml
+  // (RA-7597). findReleaseBootstrapViolations returned 0 over all 25
+  // workflows (SHA-pinned checkout, no unapproved actions, no jobs group
+  // on DO). Prior review 2026-09-06 at 20 -> 24.
+  assert.equal(workflowPopulation.length, 25);
   assert.deepEqual(findReleaseBootstrapViolations(process.cwd()), []);
 });
 

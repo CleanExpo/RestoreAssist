@@ -1,0 +1,63 @@
+name: Cron — Production trial reminders
+
+# RA-7597 / D-024. Vercel cron hits the sandbox DB only. DigitalOcean App
+# Platform has no scheduler, and the production release contract forbids
+# adding `jobs` to .do/app.yaml. GitHub Actions is the live-host scheduler:
+# it GETs https://restoreassist.app/api/cron/trial-reminders (the DO web
+# service) with CRON_SECRET. Welcome emails and the founder sign-up alert
+# stay on the sign-up path and are not triggered here.
+
+on:
+  schedule:
+    # Same cadence as vercel.json /api/cron/trial-reminders (22:00 UTC).
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Do not send mail (print the request; see probe_production)"
+        type: boolean
+        default: true
+      probe_production:
+        description: "Hit restoreassist.app with ?dryRun=1. Only safe after this SHA is live — current production ignores the query and sends."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cron-production-trial-reminders
+  cancel-in-progress: false
+
+jobs:
+  reject-non-main:
+    name: Reject non-main trigger
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: |
+          echo "Production trial-reminder cron may only run from refs/heads/main." >&2
+          exit 1
+
+  trigger:
+    name: Fire trial-reminders against restoreassist.app
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout proven revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Trigger /api/cron/trial-reminders
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # schedule events have no inputs — they send. Manual dispatch
+          # defaults to dry-run so an operator cannot accidentally mail
+          # every in-window trial user.
+          # github.event.inputs is empty on schedule (so this sends).
+          # Do not use the `inputs` context — it is undefined on schedule
+          # and fails the run with "Unrecognized named-value: inputs".
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          PROBE_PRODUCTION: ${{ github.event.inputs.probe_production }}
+        run: node scripts/ci/trigger-production-trial-reminders.mjs
