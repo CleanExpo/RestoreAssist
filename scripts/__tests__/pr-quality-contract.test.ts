@@ -33,19 +33,27 @@ describe("PR quality contract", () => {
     const workflow = parse(
       readFileSync(join(ROOT, ".github/workflows/pr-checks.yml"), "utf8"),
     ) as {
-      jobs: { quality: { steps: Array<{ name?: string; run?: string }> } };
+      jobs: {
+        quality: { steps: Array<{ name?: string; run?: string }> };
+        "unit-tests": { steps: Array<{ name?: string; run?: string }> };
+      };
     };
-    const unitStep = workflow.jobs.quality.steps.find(
+    const unitStep = workflow.jobs["unit-tests"].steps.find(
       (step) => step.name === "Unit tests",
     );
     expect(unitStep?.run).toBe("npm run test:unit:full");
+    expect(
+      workflow.jobs.quality.steps.some((step) => step.name === "Unit tests"),
+    ).toBe(false);
   });
 
   it("runs the review-scope gate before the full suite", () => {
     const workflow = parse(
       readFileSync(join(ROOT, ".github/workflows/pr-checks.yml"), "utf8"),
-    ) as { jobs: { quality: { steps: Array<{ name?: string }> } } };
-    const names = workflow.jobs.quality.steps.map((step) => step.name);
+    ) as {
+      jobs: { "unit-tests": { steps: Array<{ name?: string }> } };
+    };
+    const names = workflow.jobs["unit-tests"].steps.map((step) => step.name);
     expect(names.indexOf("PR review scope")).toBeGreaterThan(-1);
     expect(names.indexOf("PR review scope")).toBeLessThan(
       names.indexOf("Unit tests"),
@@ -127,5 +135,45 @@ describe("PR quality contract", () => {
         /prisma migrate deploy[\s\S]{0,500}apply-and-verify-job-file-audit-replay-index\.sh/,
       );
     }
+  });
+
+  it("gives the unit suite its own job and timeout with documented headroom (RA-7443)", () => {
+    const yaml = readFileSync(
+      join(ROOT, ".github/workflows/pr-checks.yml"),
+      "utf8",
+    );
+    const workflow = parse(yaml) as {
+      jobs: {
+        quality: { "timeout-minutes"?: number; needs?: unknown };
+        "unit-tests": {
+          name?: string;
+          "timeout-minutes"?: number;
+          needs?: unknown;
+        };
+      };
+    };
+
+    expect(workflow.jobs.quality["timeout-minutes"]).toBe(20);
+    expect(workflow.jobs.quality.needs).toBeUndefined();
+
+    expect(workflow.jobs["unit-tests"]).toBeDefined();
+    expect(workflow.jobs["unit-tests"].name).toBe("Unit Tests");
+    expect(workflow.jobs["unit-tests"]["timeout-minutes"]).toBe(25);
+    expect(workflow.jobs["unit-tests"].needs).toBeUndefined();
+
+    // 50% headroom on the worst measured 11.20 min suite is 16.81 min.
+    // 25 min is 123% headroom; the comment must keep that arithmetic visible.
+    expect(yaml).toContain("123% headroom");
+    expect(yaml).toContain("50% headroom floor: 16.81 min");
+    expect(yaml).toContain("timeout-minutes: 25");
+  });
+
+  it("does not raise vitest maxWorkers without the three-run evidence RA-7443 requires", () => {
+    const vitestConfig = readFileSync(
+      join(ROOT, "config/vitest.config.js"),
+      "utf8",
+    );
+    expect(vitestConfig).toMatch(/maxWorkers:\s*1/);
+    expect(vitestConfig).toMatch(/minWorkers:\s*1/);
   });
 });

@@ -18,6 +18,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # RA-7443 — guards/build and the unit suite are sibling jobs with
+  # independent timeout-minutes. Neither `needs` the other, so they run
+  # concurrently. Do not fold the suite back into `quality`: an 11-minute
+  # vitest run inside the 20-minute Quality Checks job left no margin for
+  # install, ~15 guards, and build, and a timeout kill reads as a hang.
   quality:
     name: Quality Checks
     runs-on: ubuntu-latest
@@ -111,12 +116,20 @@ jobs:
       # Marking them `--applied` here keeps Prisma deploy outside the
       # transaction-incompatible DDL. Performance-only indexes remain skipped
       # in ephemeral CI. The paid-audit replay index is different: after the
-      # column migration runs, a later step executes and mutation-tests that
-      # security-critical index directly.
+      # column migration runs, the sibling `unit-tests` job executes and
+      # mutation-tests that security-critical index directly.
       #
       # If a NEW migration file uses `CREATE INDEX CONCURRENTLY` and
-      # this gate goes red again, append the migration name to the list
-      # below.
+      # this gate goes red again, append the migration name to EVERY copy
+      # of this list. After RA-7443 there are five:
+      #   .github/workflows/pr-checks.yml          (this `quality` job)
+      #   .github/workflows/pr-checks.yml          (`unit-tests` job)
+      #   .github/workflows/release-gate.yml
+      #   .github/workflows/sketch-e2e.yml
+      #   scripts/ci/test-with-db.sh
+      # Find them with: grep -rn 20260407_n1_performance_indexes --include='*.yml' --include='*.sh'
+      # A composite action would collapse the copies; that is out of scope
+      # here. Updating two of five leaves a red gate that looks unrelated.
       - name: Pre-resolve CONCURRENTLY migrations (Supabase-only syntax)
         run: |
           npx --no-install prisma migrate resolve --applied 20260407_n1_performance_indexes
@@ -334,42 +347,20 @@ jobs:
       - name: Workflow claim verification
         run: bash scripts/ci/verify-workflow-claims.sh
 
-      # RA-6685 — apply migrations BEFORE the unit tests so the DB-gated suites
-      # (described with `describe.skipIf(!process.env.DATABASE_URL)`:
-      # trial-handling, setup checks, subscription-event, google-drive oauth,
-      # setup routes, …) run against a real schema instead of silently
-      # skipping. Idempotent: the later "Prisma migration drift check" step
-      # re-runs `migrate deploy` (a no-op once applied) plus `migrate status`,
-      # so the drift gate is unchanged.
-      - name: Apply migrations for DB-gated tests
-        run: npx --no-install prisma migrate deploy
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
-
-      - name: Apply and verify paid-audit replay index
-        run: scripts/ci/apply-and-verify-job-file-audit-replay-index.sh
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
-
-      - name: Unit tests
-        # This package command is also the only valid local full-suite receipt.
-        # Feature-selected test totals must never be reported as PR parity.
-        run: npm run test:unit:full
-        # RA-6685 — without DATABASE_URL the `skipIf(!process.env.DATABASE_URL)`
-        # suites evaluate `skipIf(true)` and report green WITHOUT running.
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      # RA-7443 — unit suite, RA-6685 migrate-before-tests, and the paid-audit
+      # replay-index probe now live in the sibling `unit-tests` job. This job
+      # does not need that migrate: Build runs with no DATABASE_URL (so
+      # scripts/build.sh does not migrate), the dependency audit does not
+      # touch Postgres, and the drift check below runs its own
+      # `prisma migrate deploy` before reading status.
 
       # Build flipped to enforcing 2026-05-06 (Wave 1 PR-B production-readiness push).
       # Vercel previews already pass `npm run build` against both `restoreassist` and
       # `restoreassist-sandbox` projects on every PR, so flipping this from
       # `continue-on-error: true` to enforcing closes the gap where a CI build
       # break could merge silently while Vercel happened to succeed for an
-      # unrelated reason. Phase 0 now also enforces type-check, lint, and unit
-      # tests before this build step.
+      # unrelated reason. Phase 0 still enforces type-check and lint in this
+      # job before Build; the unit suite runs in the sibling `unit-tests` job.
       - name: Build
         run: npm run build
         env:
@@ -426,5 +417,116 @@ jobs:
           # Schema declares both DATABASE_URL (pooled) and DIRECT_URL
           # (direct) per Supabase's standard pattern. CI's ephemeral
           # Postgres has no pooler, so point both at the same connection.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
+  # RA-7443 Option B — dedicated job so the unit suite no longer shares the
+  # 20-minute Quality Checks budget with install, ~15 guards, and build.
+  # Measured wall-clock for `vitest run --config config/vitest.config.js`
+  # (maxWorkers: 1, unchanged — do not raise without three consecutive green
+  # runs; that is RA-7443 option A and is out of scope here):
+  #
+  #   RA-7435  commit 172f93e2  672.20s (11m12s)  exit 1
+  #   RA-7436  commit 1cbaa1e0  626.34s (10m26s)  exit 0
+  #   RA-7443  local 2026-09-06 601.11s (10m01s)  exit 0
+  #
+  # Worst measured duration: 11.20 min. 50% headroom floor: 16.81 min.
+  # timeout-minutes: 25 → 25 / 11.20 - 1 = 123% headroom against the suite.
+  # The extra ~8 min also covers checkout / npm ci / prisma generate /
+  # migrate deploy before vitest starts. Local durations are a floor: CI
+  # runs the DATABASE_URL-gated files that skip without a DB.
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        # Identical to the `quality` job service. Digest-pinned pgvector
+        # 0.8.6-pg16 — see that job for why alpine postgres is not enough.
+        image: pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b # 0.8.6-pg16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: PR review scope
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-pr-scope.mjs
+        env:
+          PR_CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+      - name: Bootstrap Supabase auth.uid() stub for CI
+        run: |
+          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
+            CREATE SCHEMA IF NOT EXISTS auth;
+            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
+          "
+
+      # Keep this list in step with every copy named in the `quality` job
+      # comment above `Pre-resolve CONCURRENTLY migrations`.
+      - name: Pre-resolve CONCURRENTLY migrations (Supabase-only syntax)
+        run: |
+          npx --no-install prisma migrate resolve --applied 20260407_n1_performance_indexes
+          npx --no-install prisma migrate resolve --applied 20260407_perf_composite_indexes
+          npx --no-install prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
+          npx --no-install prisma migrate resolve --applied 20260828213100_job_file_audit_intake_replay_guard_index
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
+      # RA-6685 — apply migrations BEFORE the unit tests so the DB-gated suites
+      # (described with `describe.skipIf(!process.env.DATABASE_URL)`:
+      # trial-handling, setup checks, subscription-event, google-drive oauth,
+      # setup routes, …) run against a real schema instead of silently
+      # skipping.
+      - name: Apply migrations for DB-gated tests
+        run: npx --no-install prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
+      - name: Apply and verify paid-audit replay index
+        run: scripts/ci/apply-and-verify-job-file-audit-replay-index.sh
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
+      - name: Unit tests
+        # This package command is also the only valid local full-suite receipt.
+        # Feature-selected test totals must never be reported as PR parity.
+        run: npm run test:unit:full
+        # RA-6685 — without DATABASE_URL the `skipIf(!process.env.DATABASE_URL)`
+        # suites evaluate `skipIf(true)` and report green WITHOUT running.
+        env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci

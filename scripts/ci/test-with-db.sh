@@ -8,7 +8,7 @@
 # image CI uses (pgvector 0.8.6-pg16, pinned by digest), applies migrations, exports DATABASE_URL,
 # and runs vitest - so "green here" means "green in CI".
 #
-# Mirrors .github/workflows/pr-checks.yml (Quality Checks > Unit tests).
+# Mirrors .github/workflows/pr-checks.yml (`unit-tests` job / Unit Tests).
 #
 # Usage:
 #   npm run test:db --                 # full suite against an ephemeral DB
