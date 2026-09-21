@@ -6,6 +6,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import {
   generateEnhancedReport,
+  resolveEnhancedReportStateInfo,
   type GenerateEnhancedInput,
 } from "@/lib/services/ai/generate-enhanced-report";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: true,
           creditsRemaining: true,
           totalCreditsUsed: true,
+          organization: { select: { country: true } },
         },
       });
 
@@ -176,34 +178,71 @@ export async function POST(request: NextRequest) {
         throw error;
       }
 
+      // RA-7599: a New Zealand job must not inherit the Australia-locked
+      // prompt. Load recorded country/postcode when we have a report id.
+      let storedPostcode: string | null = null;
+      let storedAddress: string | null = null;
+      let inspectionCountry: string | null = null;
+      let inspectionPostcode: string | null = null;
+      if (typeof reportId === "string" && reportId.trim()) {
+        const existingReport = await prisma.report.findUnique({
+          where: { id: reportId, userId },
+          select: {
+            propertyPostcode: true,
+            propertyAddress: true,
+            inspection: {
+              select: { propertyCountry: true, propertyPostcode: true },
+            },
+          },
+        });
+        storedPostcode = existingReport?.propertyPostcode ?? null;
+        storedAddress = existingReport?.propertyAddress ?? null;
+        inspectionCountry =
+          existingReport?.inspection?.propertyCountry ?? null;
+        inspectionPostcode =
+          existingReport?.inspection?.propertyPostcode ?? null;
+      }
+
+      const stateInfo = resolveEnhancedReportStateInfo({
+        propertyAddress: propertyAddress || storedAddress,
+        propertyPostcode: storedPostcode,
+        inspectionCountry,
+        inspectionPostcode,
+        organisationCountry: user.organization?.country ?? null,
+      });
+
       // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
+      // Drive retrieval is AU-weighted. Skip it for NZ / unknown so the model
+      // is not fed NCC / QDC / WHS Act 2011 after the prompt itself was cleaned.
       let standardsContext = "";
-      try {
-        const { retrieveRelevantStandards, buildStandardsContextPrompt } =
-          await import("@/lib/standards-retrieval");
+      if (stateInfo && stateInfo.code !== "NZ") {
+        try {
+          const { retrieveRelevantStandards, buildStandardsContextPrompt } =
+            await import("@/lib/standards-retrieval");
 
-        // Determine report type from technician notes
-        const reportType = determineReportType(technicianNotes);
+          // Determine report type from technician notes
+          const reportType = determineReportType(technicianNotes);
 
-        const retrievalQuery = {
-          reportType,
-          keywords: extractKeywords(technicianNotes),
-          materials: extractMaterials(technicianNotes),
-          technicianNotes: technicianNotes.substring(0, 1000),
-        };
+          const retrievalQuery = {
+            reportType,
+            keywords: extractKeywords(technicianNotes),
+            materials: extractMaterials(technicianNotes),
+            technicianNotes: technicianNotes.substring(0, 1000),
+          };
 
-        // Use the appropriate Anthropic API key to retrieve and analyze standards
-        const retrievedStandards = await retrieveRelevantStandards(
-          retrievalQuery as any,
-          anthropicApiKey,
-        );
-        standardsContext = buildStandardsContextPrompt(retrievedStandards);
-      } catch (error: any) {
-        console.error(
-          "[Generate Enhanced Report] Error retrieving standards from Google Drive:",
-          error.message,
-        );
-        // Error retrieving standards from Google Drive (continuing without)
+          // Use the appropriate Anthropic API key to retrieve and analyze standards
+          const retrievedStandards = await retrieveRelevantStandards(
+            retrievalQuery as any,
+            anthropicApiKey,
+          );
+          standardsContext = buildStandardsContextPrompt(retrievedStandards);
+        } catch (error: any) {
+          console.error(
+            "[Generate Enhanced Report] Error retrieving standards from Google Drive:",
+            error.message,
+          );
+          // Error retrieving standards from Google Drive (continuing without)
+        }
       }
 
       // Get technician name
@@ -221,6 +260,7 @@ export async function POST(request: NextRequest) {
         photos: photos || [],
         conversationHistory: conversationHistory || [],
         standardsContext,
+        stateInfo,
       };
 
       const result = await generateEnhancedReport({

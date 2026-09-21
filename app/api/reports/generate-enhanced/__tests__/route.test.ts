@@ -9,6 +9,7 @@ const generateEnhancedReport = vi.fn();
 const userFindUnique = vi.fn();
 const reportCreate = vi.fn();
 const reportUpdate = vi.fn();
+const reportFindUnique = vi.fn();
 const canCreateReport = vi.fn();
 const deductCreditsAndTrackUsage = vi.fn();
 const refundCreditsAndTrackUsage = vi.fn();
@@ -36,16 +37,23 @@ vi.mock("@/lib/ai/resolve-workspace-ai-key", async () => {
     resolveWorkspaceAiKey: (...args: unknown[]) => resolveWorkspaceAiKey(...args),
   };
 });
-vi.mock("@/lib/services/ai/generate-enhanced-report", () => ({
-  generateEnhancedReport: (...args: unknown[]) =>
-    generateEnhancedReport(...args),
-}));
+vi.mock("@/lib/services/ai/generate-enhanced-report", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/services/ai/generate-enhanced-report")
+  >("@/lib/services/ai/generate-enhanced-report");
+  return {
+    ...actual,
+    generateEnhancedReport: (...args: unknown[]) =>
+      generateEnhancedReport(...args),
+  };
+});
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: (...args: unknown[]) => userFindUnique(...args) },
     report: {
       create: (...args: unknown[]) => reportCreate(...args),
       update: (...args: unknown[]) => reportUpdate(...args),
+      findUnique: (...args: unknown[]) => reportFindUnique(...args),
     },
   },
 }));
@@ -81,10 +89,12 @@ beforeEach(() => {
   userFindUnique.mockReset();
   reportCreate.mockReset();
   reportUpdate.mockReset();
+  reportFindUnique.mockReset();
   canCreateReport.mockReset();
   deductCreditsAndTrackUsage.mockReset();
   refundCreditsAndTrackUsage.mockReset();
 
+  reportFindUnique.mockResolvedValue(null);
   canCreateReport.mockResolvedValue({ allowed: true });
   deductCreditsAndTrackUsage.mockResolvedValue(undefined);
   refundCreditsAndTrackUsage.mockResolvedValue({ refunded: true });
@@ -310,5 +320,100 @@ describe("POST /api/reports/generate-enhanced — RA-6982 charge-before-create",
     expect(deductCreditsAndTrackUsage).toHaveBeenCalledTimes(1);
     expect(refundCreditsAndTrackUsage).toHaveBeenCalledTimes(1);
     expect(refundCreditsAndTrackUsage).toHaveBeenCalledWith("user-1");
+  });
+});
+
+describe("POST /api/reports/generate-enhanced — RA-7599 jurisdiction", () => {
+  it("passes New Zealand stateInfo when the inspection recorded NZ", async () => {
+    reportFindUnique.mockResolvedValueOnce({
+      propertyPostcode: "1010",
+      propertyAddress: "12 Queen Street, Auckland 1010",
+      inspection: {
+        propertyCountry: "NZ",
+        propertyPostcode: "1010",
+      },
+    });
+    generateEnhancedReport.mockResolvedValueOnce({
+      ok: true,
+      data: { enhancedReport: "NZ draft" },
+    });
+    reportUpdate.mockResolvedValueOnce({ id: "report-nz" });
+
+    await POST(
+      makeRequest({
+        reportId: "report-nz",
+        technicianNotes: "Kitchen flooded from burst pipe.",
+      }),
+    );
+
+    expect(generateEnhancedReport).toHaveBeenCalledTimes(1);
+    const arg = generateEnhancedReport.mock.calls[0][0] as {
+      input: { stateInfo: { code: string; whsAct: string } | null };
+    };
+    expect(arg.input.stateInfo?.code).toBe("NZ");
+    expect(arg.input.stateInfo?.whsAct).toBe(
+      "Health and Safety at Work Act 2015 (NZ)",
+    );
+  });
+
+  it("passes NZ stateInfo when the organisation is NZ even if inspection defaults to AU", async () => {
+    userFindUnique.mockResolvedValueOnce({
+      id: "user-1",
+      name: "Taylor",
+      email: "taylor@example.com",
+      subscriptionStatus: "ACTIVE",
+      creditsRemaining: 10,
+      totalCreditsUsed: 0,
+      organization: { country: "NZ" },
+    });
+    reportFindUnique.mockResolvedValueOnce({
+      propertyPostcode: "4000",
+      propertyAddress: "12 Smith St, 4000",
+      inspection: {
+        propertyCountry: "AU",
+        propertyPostcode: "4000",
+      },
+    });
+    generateEnhancedReport.mockResolvedValueOnce({
+      ok: true,
+      data: { enhancedReport: "NZ draft" },
+    });
+    reportUpdate.mockResolvedValueOnce({ id: "report-nz-org" });
+
+    await POST(
+      makeRequest({
+        reportId: "report-nz-org",
+        technicianNotes: "Kitchen flooded from burst pipe.",
+      }),
+    );
+
+    expect(generateEnhancedReport).toHaveBeenCalledTimes(1);
+    const arg = generateEnhancedReport.mock.calls[0][0] as {
+      input: { stateInfo: { code: string; whsAct: string } | null };
+    };
+    expect(arg.input.stateInfo?.code).toBe("NZ");
+    expect(arg.input.stateInfo?.whsAct).toBe(
+      "Health and Safety at Work Act 2015 (NZ)",
+    );
+  });
+
+  it("passes Queensland stateInfo for an AU QLD address so AU behaviour is unchanged", async () => {
+    generateEnhancedReport.mockResolvedValueOnce({
+      ok: true,
+      data: { enhancedReport: "QLD draft" },
+    });
+    reportCreate.mockResolvedValueOnce({ id: "new-qld" });
+
+    await POST(
+      makeRequest({
+        technicianNotes: "Kitchen flooded from burst pipe.",
+        propertyAddress: "12 Smith St, Brisbane QLD 4000",
+      }),
+    );
+
+    const arg = generateEnhancedReport.mock.calls[0][0] as {
+      input: { stateInfo: { code: string } | null };
+    };
+    expect(arg.input.stateInfo?.code).toBe("QLD");
   });
 });
