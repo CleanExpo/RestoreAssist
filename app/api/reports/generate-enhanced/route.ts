@@ -15,6 +15,7 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { aiDraftResetOnGenerate } from "@/lib/reports/ai-ownership";
+import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 
 // Helper functions for standards retrieval query building
 function determineReportType(notes: string): string {
@@ -382,6 +383,10 @@ export async function POST(request: NextRequest) {
           await refundCreditsAndTrackUsage(userId);
           throw createError;
         }
+
+        // RA-7622 — first_report_saved (first-time only, AFTER persist). Only
+        // on create: regenerating an existing report is not a new report.
+        await recordFirstReportSaved(userId, { reportId: savedReport.id });
       }
 
       return NextResponse.json({

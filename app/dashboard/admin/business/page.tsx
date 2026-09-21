@@ -196,8 +196,10 @@ export default function BusinessMetricsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Saved their first report. Counts reports saved from the main
-              report form; other ways of creating a report are not counted yet.
+              Saved their first real report, whether written in a report form,
+              submitted as an inspection or imported from a connected job
+              system. Sample reports, demo data, copies and unsubmitted
+              inspections are not counted.
             </CardContent>
           </Card>
 

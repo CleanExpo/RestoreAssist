@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 
 // POST - Create initial report entry (Phase 2 Step 2)
 export async function POST(request: NextRequest) {
@@ -391,6 +392,9 @@ export async function POST(request: NextRequest) {
       const report = await prisma.report.create({
         data: reportData,
       });
+
+      // RA-7622 — first_report_saved (first-time only, AFTER persist)
+      await recordFirstReportSaved(userId, { reportId: report.id });
 
       // After saving, trigger intelligent standards analysis in background
       // This prepares standards context for when user generates the report.

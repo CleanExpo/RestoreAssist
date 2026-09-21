@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { generateDetailedReport } from "@/lib/anthropic";
 import { withIdempotency } from "@/lib/idempotency";
 import { track, isFirstTime } from "@/lib/analytics/track";
+import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 import { parseDate } from "@/lib/parse-date";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportReach } from "@/lib/auth/assert-tenancy";
@@ -452,11 +453,7 @@ export async function POST(request: NextRequest) {
       reportPersisted = true;
 
       // RA-1246 — first_report_saved (first-time only, AFTER persist)
-      if (await isFirstTime(userId, "first_report_saved")) {
-        track(userId, "first_report_saved", { reportId: report.id }).catch(
-          () => {},
-        );
-      }
+      await recordFirstReportSaved(userId, { reportId: report.id });
 
       return NextResponse.json(
         {
