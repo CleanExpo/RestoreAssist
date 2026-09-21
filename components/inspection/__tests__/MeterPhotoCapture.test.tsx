@@ -178,14 +178,14 @@ describe("MeterPhotoCapture — moisture photo to logged reading", () => {
     ).toBeInTheDocument();
   });
 
-  it("says so plainly for modes that have no extraction endpoint", async () => {
+  it("does not fire vision OCR for environmental mode — presents the confirm form for manual entry", async () => {
     render(<MeterPhotoCapture inspectionId="insp_1" mode="environmental" />);
     await attachMeterPhoto();
     clickRead();
 
     await waitFor(() => {
       expect(
-        screen.getByText(/available for moisture meters only/i),
+        screen.getByText(/Confirm Environmental Reading/i),
       ).toBeInTheDocument();
     });
     // Critically: it must not fire a request at a route that does not exist.

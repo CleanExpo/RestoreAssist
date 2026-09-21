@@ -446,7 +446,7 @@ function EnvironmentalConfirm({
   extraction: Extract<OcrExtraction, { type: "environmental" }>;
   inspectionId: string;
   file: File | null;
-  onSaved: () => void;
+  onSaved: (opts?: { queuedLocally?: boolean }) => void;
   onCancel: () => void;
 }) {
   const [temp, setTemp] = useState(
@@ -465,6 +465,7 @@ function EnvironmentalConfirm({
       : "",
   );
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
     const tempNum = temp ? parseFloat(temp) : undefined;
@@ -476,20 +477,67 @@ function EnvironmentalConfirm({
     }
 
     setSaving(true);
+    setError(null);
+
+    const payload = {
+      ambientTemperature: tempNum,
+      humidityLevel: rhNum,
+      dewPoint: dew ? parseFloat(dew) : undefined,
+      notes: `Captured via meter photo OCR. Meter display read: "${extraction.rawText}"`,
+    };
+    const endpoint = `/api/inspections/${inspectionId}/environmental`;
+    const mutationId =
+      globalThis.crypto?.randomUUID?.() ??
+      `nir-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+    // RA-7605 — same fallback as MoistureConfirm / RA-7604: the RA-1124
+    // IndexedDB queue drains on reconnect. mutationId is the
+    // Idempotency-Key on both the live POST and the queued replay so a
+    // lost response cannot double-insert (environmental route wraps
+    // withIdempotency, RA-1266).
+    const queueForLater = async () => {
+      await queueWrite({
+        id: mutationId,
+        type: "environmental-data",
+        endpoint,
+        method: "POST",
+        payload,
+        inspectionId,
+      });
+      void fireHaptic("success");
+      toast.success("Saved on this device — will sync");
+      onSaved({ queuedLocally: true });
+    };
+
     try {
-      const res = await fetch(
-        `/api/inspections/${inspectionId}/environmental`,
-        {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await queueForLater();
+        return;
+      }
+
+      let res: Response;
+      try {
+        res = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ambientTemperature: tempNum,
-            humidityLevel: rhNum,
-            dewPoint: dew ? parseFloat(dew) : undefined,
-            notes: `Captured via meter photo OCR. Meter display read: "${extraction.rawText}"`,
-          }),
-        },
-      );
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": mutationId,
+            "X-RestoreAssist-Mutation-Id": mutationId,
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        if (err instanceof TypeError) {
+          await queueForLater();
+          return;
+        }
+        throw err;
+      }
+
+      if (res.status >= 500) {
+        await queueForLater();
+        return;
+      }
 
       if (res.ok) {
         await uploadMeterPhoto(
@@ -503,9 +551,21 @@ function EnvironmentalConfirm({
         onSaved();
       } else {
         void fireHaptic("warning");
-        const data = await res.json();
-        toast.error(data.error ?? "Failed to save environmental data");
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        const message = data.error ?? "Failed to save environmental data";
+        setError(message);
+        toast.error(message);
       }
+    } catch (err) {
+      void fireHaptic("warning");
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to save environmental data";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -552,6 +612,12 @@ function EnvironmentalConfirm({
           step="0.1"
         />
       </div>
+
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button
@@ -779,15 +845,27 @@ export function MeterPhotoCapture({
    * Send the photo to the BYOK vision route and turn the result into the
    * extraction the confirm form renders.
    *
-   * Only `moisture` is wired: POST /api/vision/extract-reading is a
-   * moisture-meter extractor. The thermo-hygrometer and laser-measure modes
-   * have no extraction endpoint, so they say so plainly instead of firing at a
-   * route that does not exist — which is what this component did previously
-   * (it posted to /api/inspections/[id]/analyze-photo, which has never
-   * existed, so every "Read Meter Display" press 404'd).
+   * Moisture is wired to POST /api/vision/extract-reading. Thermo-hygrometer
+   * OCR is not — RA-7605 still needs EnvironmentalConfirm reachable so the
+   * tech can enter values (and the write can queue offline). Laser-measure
+   * stays a plain notice. Neither mode fires at a route that does not exist
+   * (the previous /api/inspections/[id]/analyze-photo 404).
    */
   const analyse = async () => {
     if (!file) return;
+
+    if (mode === "environmental") {
+      setError(null);
+      setExtraction({
+        type: "environmental",
+        temperatureCelsius: null,
+        relativeHumidityPercent: null,
+        dewPointCelsius: null,
+        rawText: null,
+        confidence: "medium",
+      });
+      return;
+    }
 
     if (mode !== "moisture") {
       setError(
