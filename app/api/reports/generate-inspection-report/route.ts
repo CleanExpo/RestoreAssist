@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
+import { resolveStateInfo } from "@/lib/state-detection";
 import { getLatestAIIntegration, callAIProvider } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { resolveReportProvider } from "./provider";
@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
         },
         inspection: {
           select: {
+            propertyCountry: true,
             contentsManifestDraft: true,
             powerCircuits: true,
             powerCircuitRatingA: true,
@@ -216,9 +217,12 @@ export async function POST(request: NextRequest) {
       ? JSON.parse(report.equipmentSelection)
       : null;
 
-    // Detect state from postcode
-    const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
-    const stateInfo = getStateInfo(stateCode);
+    // Positive NZ country wins over postcode: AU/NZ postcodes overlap, so a
+    // New Zealand job must not resolve to an Australian state (RA-7361).
+    const stateInfo = resolveStateInfo({
+      postcode: report.propertyPostcode,
+      country: report.inspection?.propertyCountry,
+    });
 
     // Resolve AI provider — new ProviderConnection store (BYOK) takes priority
     // over the legacy Integration store, so clients who installed a key via

@@ -344,6 +344,38 @@ describe("buildStructuredBasicReport — compliance & stabilisation terminology"
     expect(result.compliance.standards).toContain("QDC");
   });
 
+  it("does not invent Australian or Queensland law when stateInfo is missing", () => {
+    const standards = build().compliance.standards as string[];
+    expect(standards).not.toContain("Work Health and Safety Act 2011");
+    expect(standards).not.toContain("Environmental Protection Act 1994");
+    expect(standards).not.toContain("National Construction Code (NCC)");
+    expect(standards).not.toContain("Queensland Development Code");
+  });
+
+  it("NZ jobs cite HSWA 2015 only — no Australian or Queensland fallback", () => {
+    const result = buildStructuredBasicReport({
+      report: baseReport(),
+      analysis: null,
+      stateInfo: {
+        code: "NZ",
+        name: "New Zealand",
+        whsAct: "Health and Safety at Work Act 2015 (NZ)",
+        workSafetyAuthority: "WorkSafe New Zealand",
+        buildingCode: null,
+        epaAct: null,
+      },
+    } as Parameters<typeof buildStructuredBasicReport>[0]);
+
+    const standards = result.compliance.standards as string[];
+    expect(standards).toContain("Health and Safety at Work Act 2015 (NZ)");
+    expect(standards).not.toContain("Work Health and Safety Act 2011");
+    expect(standards).not.toContain("Environmental Protection Act 1994");
+    expect(standards).not.toContain("National Construction Code (NCC)");
+    expect(standards).not.toContain("Queensland Development Code");
+    expect(result.compliance.state).toBe("New Zealand");
+    expect(result.compliance.workSafetyAuthority).toBe("WorkSafe New Zealand");
+  });
+
   it("labels phase 1 timeline using ANSI/IICRC S500 'Stabilisation' terminology", () => {
     expect(build().timeline.phase1.description).toBe("Stabilisation (Make-Safe)");
   });

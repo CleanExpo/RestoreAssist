@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateForensicReportPDF } from "@/lib/generate-forensic-report-pdf";
-import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
+import { resolveStateInfo } from "@/lib/state-detection";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
@@ -114,6 +114,9 @@ export async function GET(
     // Get the report
     const report = await prisma.report.findUnique({
       where: { id: reportId, userId: user.id },
+      include: {
+        inspection: { select: { propertyCountry: true } },
+      },
     });
 
     if (!report) {
@@ -145,9 +148,10 @@ export async function GET(
       ? JSON.parse(report.equipmentSelection)
       : null;
 
-    // Detect state from postcode
-    const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
-    const stateInfo = getStateInfo(stateCode);
+    const stateInfo = resolveStateInfo({
+      postcode: report.propertyPostcode,
+      country: report.inspection?.propertyCountry,
+    });
 
     // RA-6932 (P0) — resolve the workspace's own BYOK Anthropic key. Never
     // falls through to the platform ANTHROPIC_API_KEY. A keyless workspace
@@ -213,10 +217,13 @@ export async function GET(
       // Continue without standards context - not critical for PDF generation
     }
 
+    const { inspection, ...reportFields } = report;
+    void inspection;
+
     // Prepare report data with all assessment report fields
     const reportData = {
       report: {
-        ...report,
+        ...reportFields,
         pricingConfig: user.pricingConfig,
         // Include all new assessment report fields
         buildingAge: report.buildingAge,

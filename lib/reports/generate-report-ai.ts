@@ -3,6 +3,101 @@ import {
   extractWaterCategory,
   extractAverageMoisture,
 } from "@/lib/reports/extract-report-data";
+import {
+  recordedStateCitations,
+  type StateInfo,
+} from "@/lib/state-detection";
+
+const AU_LAW_INVENTION_GUARD =
+  "Jurisdiction was not recorded. Do not invent a safety Act, building code, or Australian instrument.";
+
+const NZ_LAW_GUARD =
+  "This is a New Zealand property. Cite only the New Zealand instruments named above. Do not cite Australian state or territory law.";
+
+function stateComplianceLines(stateInfo: StateInfo | null | undefined): string {
+  const citations = recordedStateCitations(stateInfo);
+  const lines =
+    citations.length > 0
+      ? citations.map((citation) => `- ${citation}`)
+      : [`- ${AU_LAW_INVENTION_GUARD}`];
+  if (stateInfo?.code === "NZ") {
+    lines.push(`- ${NZ_LAW_GUARD}`);
+  }
+  lines.push("- Standards Applied", "- ANSI/IICRC S500:2021");
+  return lines.join("\n");
+}
+
+function inspectionRegulatoryText(
+  stateInfo: StateInfo | null | undefined,
+): string {
+  if (!stateInfo) {
+    return AU_LAW_INVENTION_GUARD;
+  }
+
+  const lines = [`Jurisdiction: ${stateInfo.name} (${stateInfo.code})`];
+  if (stateInfo.buildingAuthority) {
+    lines.push(`Building Authority: ${stateInfo.buildingAuthority}`);
+  }
+  if (stateInfo.buildingCode) {
+    lines.push(`Building Code: ${stateInfo.buildingCode}`);
+  }
+  if (stateInfo.workSafetyAuthority) {
+    const contact = stateInfo.workSafetyContact
+      ? ` (Contact: ${stateInfo.workSafetyContact})`
+      : "";
+    lines.push(
+      `Work Safety Authority: ${stateInfo.workSafetyAuthority}${contact}`,
+    );
+  }
+  if (stateInfo.epaAuthority) {
+    const contact = stateInfo.epaContact
+      ? ` (Contact: ${stateInfo.epaContact})`
+      : "";
+    lines.push(`EPA Authority: ${stateInfo.epaAuthority}${contact}`);
+  }
+  if (stateInfo.whsAct) {
+    lines.push(`Safety Act: ${stateInfo.whsAct}`);
+  }
+  if (stateInfo.epaAct) {
+    lines.push(`EPA Act: ${stateInfo.epaAct}`);
+  }
+  if (stateInfo.code === "NZ") {
+    lines.push(NZ_LAW_GUARD);
+  }
+  return lines.join("\n");
+}
+
+function authorityChecklist(
+  stateInfo: StateInfo | null | undefined,
+): string {
+  if (!stateInfo) {
+    return AU_LAW_INVENTION_GUARD;
+  }
+  const lines: string[] = ["Use only the authorities recorded for this jurisdiction:"];
+  if (stateInfo.workSafetyAuthority) {
+    const contact = stateInfo.workSafetyContact
+      ? ` - Contact: ${stateInfo.workSafetyContact}`
+      : "";
+    lines.push(`- ${stateInfo.workSafetyAuthority}${contact}`);
+  }
+  if (stateInfo.epaAuthority) {
+    const contact = stateInfo.epaContact
+      ? ` - Contact: ${stateInfo.epaContact}`
+      : "";
+    lines.push(`- ${stateInfo.epaAuthority}${contact}`);
+  }
+  lines.push("- Local Council Building Certifier");
+  lines.push("- Insurance Company");
+  if (stateInfo.buildingAuthority) {
+    lines.push(
+      `- ${stateInfo.buildingAuthority} (if structural repairs required)`,
+    );
+  }
+  if (stateInfo.code === "NZ") {
+    lines.push(`- ${NZ_LAW_GUARD}`);
+  }
+  return lines.join("\n");
+}
 
 export function buildVisualCentricReportPrompt(data: {
   report: any;
@@ -193,23 +288,7 @@ Create visual summary cards in a grid layout:
 
 ## STATE COMPLIANCE & STANDARDS
 
-${
-  stateInfo
-    ? `
-- ${stateInfo.whsAct || "Work Health and Safety Act 2011"}
-- ${stateInfo.epaAct || "Environmental Protection Act 1994"}
-- ${stateInfo.buildingCode || "Queensland Development Code"}
-- Standards Applied
-- ANSI/IICRC S500:2021
-`
-    : `
-- Work Health and Safety Act 2011
-- Environmental Protection Act 1994
-- Queensland Development Code
-- Standards Applied
-- ANSI/IICRC S500:2021
-`
-}
+${stateComplianceLines(stateInfo)}
 
 ---
 
@@ -553,16 +632,9 @@ export function buildInspectionReportPrompt(data: {
   // Extract class 4 drying assessment (only if exists)
   const class4Drying = tier3?.T3_Q5_class4DryingAssessment || null;
 
-  // Build state-specific regulatory text
-  const stateRegulatoryText = stateInfo
-    ? `State: ${stateInfo.name} (${stateInfo.code})
-Building Authority: ${stateInfo.buildingAuthority}
-Building Code: ${stateInfo.buildingCode}
-Work Safety Authority: ${stateInfo.workSafetyAuthority} (Contact: ${stateInfo.workSafetyContact})
-EPA Authority: ${stateInfo.epaAuthority} (Contact: ${stateInfo.epaContact})
-WHS Act: ${stateInfo.whsAct}
-EPA Act: ${stateInfo.epaAct}`
-    : "State information not available (postcode required)";
+  // Build state-specific regulatory text. Missing fields stay hidden —
+  // do not invent an Australian Act or Queensland building code.
+  const stateRegulatoryText = inspectionRegulatoryText(stateInfo);
 
   // Calculate total amps from equipment selection (only if equipment exists)
   const totalAmps =
@@ -1074,16 +1146,7 @@ ${
 - Contents Replacement
 
 ## SECTION 13: AUTHORITY NOTIFICATION CHECKLIST
-${
-  stateInfo
-    ? `Use state-specific authorities:
-- ${stateInfo.workSafetyAuthority} - Contact: ${stateInfo.workSafetyContact}
-- ${stateInfo.epaAuthority} - Contact: ${stateInfo.epaContact}
-- Local Council Building Certifier
-- Insurance Company
-- ${stateInfo.buildingAuthority} (if structural repairs required)`
-    : "Use generic Australian authorities"
-}
+${authorityChecklist(stateInfo)}
 
 ## SECTION 14: RECOMMENDATIONS AND NEXT STEPS
 - Immediate (Day 0–1)
@@ -1114,10 +1177,10 @@ CRITICAL: Do NOT use HTML tags like <p>, <br>, or style attributes. Use plain te
    - Use triple hash (###) followed by space for all subsection headers like "### KEY PERFORMANCE METRICS"
    - Do NOT use plain text for section titles - they must have markdown heading syntax
    - **CRITICAL: NEVER use HTML tags like <p>, <br>, <div>, or style attributes anywhere in the report. Use plain text and markdown only.**
-2. Use state-specific regulatory information provided (${stateInfo ? stateInfo.name : "generic Australian"})
+2. Use only the regulatory information provided (${stateInfo ? stateInfo.name : "jurisdiction not recorded"}). If none is provided, do not invent an Act, building code, or Australian authority.
 3. Reference IICRC S500:2021 and S520 standards explicitly
-4. Reference ${stateInfo ? stateInfo.buildingCode : "NCC"} explicitly
-5. Reference ${stateInfo ? stateInfo.whsAct : "Work Health and Safety Act 2011"} explicitly
+4. ${stateInfo?.buildingCode ? `Reference ${stateInfo.buildingCode} explicitly` : "Do not name a building code — none was recorded for this jurisdiction"}
+5. ${stateInfo?.whsAct ? `Reference ${stateInfo.whsAct} explicitly` : "Do not name a Work Health and Safety Act — none was recorded for this jurisdiction"}
 6. Use ONLY the actual data provided in the REPORT DATA section - do not make up information
 7. Do NOT include any placeholder text like "Not provided", "Not specified", "N/A", or "Unknown"
 8. Only include sections and fields for which actual data was provided

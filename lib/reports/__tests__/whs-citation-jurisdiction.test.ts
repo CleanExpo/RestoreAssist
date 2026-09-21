@@ -105,5 +105,37 @@ describe("WHS citation reaches the prompt verbatim (UNI-2619)", () => {
       expect(prompt).not.toMatch(/Work Health and Safety Act \(Vic\)/);
       expect(prompt).not.toMatch(/Work Health and Safety Act \d{4} \(Vic\)/);
     });
+
+    it("NEW ZEALAND cites HSWA 2015 and never Australian or Queensland law", () => {
+      const prompt = promptFor("NZ", reportType);
+
+      expect(prompt).toContain("Health and Safety at Work Act 2015 (NZ)");
+      expect(prompt).toContain("WorkSafe New Zealand");
+
+      expect(prompt).not.toContain("Queensland Development Code");
+      expect(prompt).not.toContain("QDC 4.5");
+      expect(prompt).not.toContain("Work Health and Safety Act 2011");
+      expect(prompt).not.toContain("Environmental Protection Act 1994");
+      expect(prompt).not.toContain("National Construction Code");
+    });
+
+    it("unknown jurisdiction does not invent Queensland or Australian law", () => {
+      const prompt = buildInspectionReportPrompt({
+        report: { propertyAddress: "1 Test St", reportNumber: "TEST-1" },
+        analysis: {},
+        tier1: {},
+        tier2: {},
+        tier3: {},
+        stateInfo: null,
+        reportType,
+      });
+
+      expect(prompt).toContain(marker);
+      expect(prompt).not.toContain("Queensland Development Code");
+      expect(prompt).not.toContain("QDC 4.5");
+      expect(prompt).not.toContain("Work Health and Safety Act 2011");
+      expect(prompt).not.toContain("Environmental Protection Act 1994");
+      expect(prompt).not.toContain("National Construction Code");
+    });
   });
 });

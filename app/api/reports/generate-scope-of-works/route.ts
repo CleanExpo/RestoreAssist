@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
+import { resolveStateInfo } from "@/lib/state-detection";
 import {
   getEquipmentGroupById,
   getEquipmentDailyRate,
@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
                 },
                 take: 200,
               },
+              propertyCountry: true,
               // RA-7006: captured site power assessment for the safety
               // reconciliation (else it assumes 2×20A).
               powerCircuits: true,
@@ -168,8 +169,10 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
-      const stateInfo = getStateInfo(stateCode);
+      const stateInfo = resolveStateInfo({
+        postcode: report.propertyPostcode,
+        country: report.inspection?.propertyCountry,
+      });
 
       // RA-6932 — this route builds the scope deterministically and makes NO
       // AI call, so it resolves no API key. The prior platform-key affordance
