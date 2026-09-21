@@ -26,38 +26,12 @@ import {
 } from "@/lib/billing-completeness-check";
 import { recordMutationAudit } from "@/lib/audit-log";
 import { apiError, fromException } from "@/lib/api-errors";
-
-const ALLOWED_STATUSES = [
-  "DRAFT",
-  "INTERNAL_REVIEW",
-  "SENT",
-  "CLIENT_REVIEW",
-  "APPROVED",
-  "LOCKED",
-  "REJECTED",
-  "EXPIRED",
-  "WITHDRAWN",
-] as const;
-
-type EstimateStatus = (typeof ALLOWED_STATUSES)[number];
-
-const LEGAL_TRANSITIONS: Record<EstimateStatus, readonly EstimateStatus[]> = {
-  DRAFT: ["INTERNAL_REVIEW", "WITHDRAWN"],
-  INTERNAL_REVIEW: ["DRAFT", "SENT", "WITHDRAWN"],
-  SENT: ["CLIENT_REVIEW", "EXPIRED", "WITHDRAWN"],
-  CLIENT_REVIEW: ["APPROVED", "REJECTED", "EXPIRED", "WITHDRAWN"],
-  APPROVED: ["LOCKED"],
-  LOCKED: [],
-  REJECTED: [],
-  EXPIRED: [],
-  WITHDRAWN: [],
-};
-
-function isEstimateStatus(v: unknown): v is EstimateStatus {
-  return (
-    typeof v === "string" && (ALLOWED_STATUSES as readonly string[]).includes(v)
-  );
-}
+import {
+  ALLOWED_STATUSES,
+  LEGAL_TRANSITIONS,
+  isEstimateStatus,
+  type EstimateStatus,
+} from "@/lib/estimate-status";
 
 export async function PATCH(
   request: NextRequest,
