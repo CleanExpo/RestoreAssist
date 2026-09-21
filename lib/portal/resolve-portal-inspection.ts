@@ -19,9 +19,10 @@ import { prisma } from "@/lib/prisma";
  *      to a 7-day TTL.
  *   3. Neither resolves: null, and the caller decides (404 or a friendly card).
  *
- * RA-7575: PDF (and any other caller that must not call a valid unfinished
- * link "expired") should use `resolvePortalAccess` instead. A live
- * ClientPortalAccount with no inspection yet is `unready`, not `invalid`.
+ * RA-7575 / RA-7606: PDF and portal HTML must use `resolvePortalAccess`.
+ * A live ClientPortalAccount with no inspection yet is `unready`, not
+ * `invalid`. `resolvePortalInspectionId` still collapses both to null —
+ * do not use it to decide between LinkExpired and not-ready.
  */
 export type PortalAccessResolution =
   | { kind: "inspection"; inspectionId: string }

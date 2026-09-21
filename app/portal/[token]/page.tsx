@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { resolvePortalInspectionId } from "@/lib/portal/resolve-portal-inspection";
+import { resolvePortalAccess } from "@/lib/portal/resolve-portal-inspection";
 import { PortalLinkExpired } from "@/components/portal/PortalLinkExpired";
+import { PortalTokenAccessFallback } from "@/components/portal/PortalTokenAccessFallback";
 import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 import { prisma } from "@/lib/prisma";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
@@ -36,15 +37,15 @@ export default async function ClientPortalPage({ params }: PageProps) {
   const { token } = await params;
 
   // Token -> inspection. The lookup order (ClientPortalAccount first, legacy
-  // HMAC tokens second) lives in resolvePortalInspectionId so the /learn kiosk
+  // HMAC tokens second) lives in resolvePortalAccess so the /learn kiosk
   // resolves identically — see that file for why it is shared rather than
-  // copied. If neither path resolves, show recovery — never a blank 404 and
-  // never a contractor login bounce.
-  const inspectionId = await resolvePortalInspectionId(token);
-
-  if (!inspectionId) {
-    return <PortalLinkExpired />;
+  // copied. A live account with no inspection yet is not-ready, not expired
+  // (RA-7606). Only a genuinely expired or unrecognised token is LinkExpired.
+  const resolved = await resolvePortalAccess(token);
+  if (resolved.kind !== "inspection") {
+    return <PortalTokenAccessFallback resolved={resolved} />;
   }
+  const inspectionId = resolved.inspectionId;
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },

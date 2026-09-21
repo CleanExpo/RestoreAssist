@@ -82,6 +82,8 @@ describe("client portal recovery/help sources stay on /portal/*", () => {
         "components/portal/PortalRecoveryCard.tsx",
         "components/portal/PortalEmptyProject.tsx",
         "components/portal/PortalLinkExpired.tsx",
+        "components/portal/PortalNotReady.tsx",
+        "components/portal/PortalTokenAccessFallback.tsx",
         "lib/portal/client-help.ts",
       ]),
     );
