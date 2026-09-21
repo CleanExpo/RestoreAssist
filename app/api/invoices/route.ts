@@ -9,7 +9,7 @@ import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
 import { resolveInvoiceReach } from "@/lib/auth/assert-tenancy";
-import { INVOICE_STATUSES } from "@/lib/invoice-status";
+import { InvoiceStatus } from "@prisma/client";
 import {
   enumEqualityOrIn,
   parseEnumList,
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     // value. Split and validate so Prisma never sees the joined string
     // as a single InvoiceStatus (that was a 500).
     if (status) {
-      const parsed = parseEnumList(status, INVOICE_STATUSES);
+      const parsed = parseEnumList(status, Object.values(InvoiceStatus));
       if (!parsed.ok) {
         return apiError(request, {
           code: "VALIDATION",
