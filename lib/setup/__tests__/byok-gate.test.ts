@@ -48,7 +48,7 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
 }));
 
 vi.mock("@/lib/ai/platform-trial-credential", () => ({
-  canUsePlatformTrialCredential: vi.fn(),
+  describePlatformTrialCoverage: vi.fn(),
 }));
 
 import {
@@ -56,7 +56,7 @@ import {
   listProviderConnections,
   validateProviderKey,
 } from "@/lib/workspace/provider-connections";
-import { canUsePlatformTrialCredential } from "@/lib/ai/platform-trial-credential";
+import { describePlatformTrialCoverage } from "@/lib/ai/platform-trial-credential";
 import { prisma } from "@/lib/prisma";
 
 // Import AFTER mocks are set up
@@ -65,7 +65,7 @@ import { byokKeysCheck } from "../checks";
 const mockGetWorkspaceForUser = getWorkspaceForUser as ReturnType<typeof vi.fn>;
 const mockListProviderConnections = listProviderConnections as ReturnType<typeof vi.fn>;
 const mockValidateProviderKey = validateProviderKey as ReturnType<typeof vi.fn>;
-const mockCanUsePlatformTrial = canUsePlatformTrialCredential as ReturnType<
+const mockDescribeCoverage = describePlatformTrialCoverage as ReturnType<
   typeof vi.fn
 >;
 const mockOrgFindUnique = (prisma.organization.findUnique as ReturnType<typeof vi.fn>);
@@ -80,7 +80,11 @@ beforeEach(() => {
   // Default: workspace exists
   mockGetWorkspaceForUser.mockResolvedValue(FAKE_WORKSPACE);
   // Paid / no-credits default — existing red assertions stay red.
-  mockCanUsePlatformTrial.mockResolvedValue(false);
+  mockDescribeCoverage.mockResolvedValue({
+    fundedTrial: false,
+    platformKeyPresent: false,
+    canUsePlatformTrial: false,
+  });
 });
 
 describe("byokKeysCheck — operating key gate", () => {
@@ -229,12 +233,32 @@ describe("byokKeysCheck — operating key gate", () => {
 
   it("RA-6801: returns YELLOW (not red) when a funded trial has no BYOK key", async () => {
     mockListProviderConnections.mockResolvedValue([]);
-    mockCanUsePlatformTrial.mockResolvedValue(true);
+    mockDescribeCoverage.mockResolvedValue({
+      fundedTrial: true,
+      platformKeyPresent: true,
+      canUsePlatformTrial: true,
+    });
 
     const result = await byokKeysCheck(FAKE_ORG_ID);
 
     expect(result.status).toBe("yellow");
     expect(result.note).toMatch(/trial credits/i);
+    expect(mockValidateProviderKey).not.toHaveBeenCalled();
+  });
+
+  it("RA-7569: funded trial with no platform key is still YELLOW, not a BYOK red-block", async () => {
+    mockListProviderConnections.mockResolvedValue([]);
+    mockDescribeCoverage.mockResolvedValue({
+      fundedTrial: true,
+      platformKeyPresent: false,
+      canUsePlatformTrial: false,
+    });
+
+    const result = await byokKeysCheck(FAKE_ORG_ID);
+
+    expect(result.status).toBe("yellow");
+    expect(result.note).toMatch(/platform AI key/i);
+    expect(result.note).not.toMatch(/Add your Anthropic/i);
     expect(mockValidateProviderKey).not.toHaveBeenCalled();
   });
 });

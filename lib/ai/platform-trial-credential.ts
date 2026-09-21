@@ -14,22 +14,31 @@ import { getEffectiveSubscription } from "@/lib/organization-credits";
 import { hasActiveOperatingProviderConnection } from "@/lib/workspace/provider-connections";
 import type { AiProvider } from "@/lib/workspace/provider-connections";
 
-export interface PlatformTrialEligibilityInput {
+export interface FundedTrialAccountInput {
   subscriptionStatus: string | null | undefined;
   creditsRemaining: number | null | undefined;
   trialEndsAt: Date | string | null | undefined;
-  platformKeyPresent: boolean;
   now?: Date;
 }
 
+export interface PlatformTrialEligibilityInput extends FundedTrialAccountInput {
+  platformKeyPresent: boolean;
+}
+
+export interface PlatformTrialCoverage {
+  /** In-date TRIAL with at least one report credit — platform should supply. */
+  fundedTrial: boolean;
+  platformKeyPresent: boolean;
+  /** Funded trial AND a configured platform Anthropic key. */
+  canUsePlatformTrial: boolean;
+}
+
 /**
- * Pure eligibility check — no I/O. Used by the async wrappers and by unit
- * tests that must prove both the pass and the fail-closed cases.
+ * Account shape only — no credential. A funded trial is the D-022 audience:
+ * platform should power Basic reports. Missing env must not be rewritten as
+ * "this owner must paste a key" (RA-7569).
  */
-export function isPlatformTrialEligible(
-  input: PlatformTrialEligibilityInput,
-): boolean {
-  if (!input.platformKeyPresent) return false;
+export function isFundedTrialAccount(input: FundedTrialAccountInput): boolean {
   if (input.subscriptionStatus !== "TRIAL") return false;
   if ((input.creditsRemaining ?? 0) < 1) return false;
 
@@ -42,6 +51,17 @@ export function isPlatformTrialEligible(
   }
 
   return true;
+}
+
+/**
+ * Pure eligibility check — no I/O. Used by the async wrappers and by unit
+ * tests that must prove both the pass and the fail-closed cases.
+ */
+export function isPlatformTrialEligible(
+  input: PlatformTrialEligibilityInput,
+): boolean {
+  if (!input.platformKeyPresent) return false;
+  return isFundedTrialAccount(input);
 }
 
 /**
@@ -65,21 +85,44 @@ export function readPlatformTrialApiKey(
 }
 
 /**
+ * Split "this account is a funded trial" from "the platform key is present".
+ * Wizard / onboarding copy must use this — `canUsePlatformTrialCredential`
+ * is fail-closed on a missing env key and must not decide the BYOK hard gate.
+ */
+export async function describePlatformTrialCoverage(
+  userId: string,
+): Promise<PlatformTrialCoverage> {
+  const platformKeyPresent = isPlatformTrialApiKeyConfigured();
+  const sub = await getEffectiveSubscription(userId);
+  if (!sub) {
+    return {
+      fundedTrial: false,
+      platformKeyPresent,
+      canUsePlatformTrial: false,
+    };
+  }
+
+  const fundedTrial = isFundedTrialAccount({
+    subscriptionStatus: sub.subscriptionStatus,
+    creditsRemaining: sub.creditsRemaining,
+    trialEndsAt: sub.trialEndsAt,
+  });
+
+  return {
+    fundedTrial,
+    platformKeyPresent,
+    canUsePlatformTrial: fundedTrial && platformKeyPresent,
+  };
+}
+
+/**
  * True when this user (or their org owner) is on an in-date TRIAL with at
  * least one report credit AND the platform Anthropic key is configured.
  */
 export async function canUsePlatformTrialCredential(
   userId: string,
 ): Promise<boolean> {
-  const sub = await getEffectiveSubscription(userId);
-  if (!sub) return false;
-
-  return isPlatformTrialEligible({
-    subscriptionStatus: sub.subscriptionStatus,
-    creditsRemaining: sub.creditsRemaining,
-    trialEndsAt: sub.trialEndsAt,
-    platformKeyPresent: isPlatformTrialApiKeyConfigured(),
-  });
+  return (await describePlatformTrialCoverage(userId)).canUsePlatformTrial;
 }
 
 /**

@@ -101,7 +101,13 @@ function friendlySaveError(status: number, code?: string): string {
   return DEFAULT_KEY_ERROR;
 }
 
-export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
+export function AiKeyCard({
+  onSaved,
+  hint,
+}: {
+  onSaved?: () => void;
+  hint?: string;
+} = {}) {
   const [provider, setProvider] = useState<Provider>('ANTHROPIC');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
@@ -230,7 +236,7 @@ export function AiKeyCard({ onSaved }: { onSaved?: () => void } = {}) {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          {SETUP_AI_KEY_OPTIONAL_HINT}
+          {hint ?? SETUP_AI_KEY_OPTIONAL_HINT}
         </p>
 
         {/* Provider selector */}

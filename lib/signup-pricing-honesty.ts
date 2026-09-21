@@ -49,6 +49,17 @@ export const SETUP_AI_KEY_OPTIONAL_HINT =
 export const PAID_AI_KEY_REQUIRED_BODY =
   "After the trial, AI report generation uses your own Anthropic or OpenAI key. You pay the provider directly, at cost. Add it in Settings → AI Providers.";
 
+/**
+ * RA-7569 — funded trial whose platform key is missing. Do not ask the
+ * owner to add a key: the platform should supply it. Say that plainly,
+ * and let setup continue (Skip is not the escape hatch).
+ */
+export const PLATFORM_KEY_MISSING_TITLE =
+  "Trial report generation is not ready";
+
+export const PLATFORM_KEY_MISSING_BODY =
+  "Basic reports on the trial should work without your own key. The platform AI key that should power them is not configured, so report generation will fail until that is fixed. You can continue setup. After the trial, AI report generation uses your own Anthropic or OpenAI key.";
+
 /** Only plan `POST /api/create-checkout-session` will sell. */
 export const SELLABLE_CHECKOUT_PLANS = ["monthly"] as const;
 

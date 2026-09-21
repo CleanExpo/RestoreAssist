@@ -18,6 +18,8 @@ import {
   PUBLIC_FREE_CTA_LABEL,
   PUBLIC_TRIAL_PATH,
   SETUP_AI_KEY_OPTIONAL_HINT,
+  PLATFORM_KEY_MISSING_BODY,
+  PLATFORM_KEY_MISSING_TITLE,
   SELLABLE_CHECKOUT_PLANS,
   afterTrialPlanNote,
   assertPublicPricingCta,
@@ -49,6 +51,11 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
     expect(SETUP_AI_KEY_OPTIONAL_HINT).not.toMatch(/required to operate/i);
     expect(PAID_AI_KEY_REQUIRED_BODY).toMatch(/after the trial/i);
     expect(PAID_AI_KEY_REQUIRED_BODY).not.toMatch(/required to operate/i);
+    expect(PLATFORM_KEY_MISSING_TITLE).toMatch(/not ready/i);
+    expect(PLATFORM_KEY_MISSING_TITLE).not.toMatch(/add your/i);
+    expect(PLATFORM_KEY_MISSING_BODY).toMatch(/platform AI key/i);
+    expect(PLATFORM_KEY_MISSING_BODY).toMatch(/continue setup/i);
+    expect(PLATFORM_KEY_MISSING_BODY).not.toMatch(/add your/i);
   });
 
   it("signup and pricing pages source the claim from the SSOT", () => {
@@ -68,6 +75,8 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
 
     const onboardingStep = readSrc("lib/onboarding/ai-provider-step.ts");
     expect(onboardingStep).toContain("PAID_AI_KEY_REQUIRED_BODY");
+    expect(onboardingStep).toContain("PLATFORM_KEY_MISSING_TITLE");
+    expect(onboardingStep).toContain("PLATFORM_KEY_MISSING_BODY");
   });
 
   it("signup, pricing, and post-signup surfaces drop the BYOK-required lie", () => {

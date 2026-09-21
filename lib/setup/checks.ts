@@ -14,7 +14,11 @@ import {
 } from "@/lib/workspace/provider-connections";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { validateOrganizationLocaleProfile } from "@/lib/locale/validate-organization-profile";
-import { canUsePlatformTrialCredential } from "@/lib/ai/platform-trial-credential";
+import {
+  describePlatformTrialCoverage,
+  type PlatformTrialCoverage,
+} from "@/lib/ai/platform-trial-credential";
+import { PLATFORM_KEY_MISSING_BODY } from "@/lib/signup-pricing-honesty";
 
 /**
  * New-client startup readiness checks.
@@ -471,6 +475,25 @@ export const accountingCheck: Check = async (orgId) => {
 //
 // GOOGLE and GEMMA connections are ignored here — Google is for Drive storage,
 // Gemma is the platform's own inference service checked by ai_generation.
+const TRIAL_CREDITS_NOTE =
+  "Platform trial credits will power report generation. Add your own key anytime as an optional upgrade.";
+
+function trialByokResult(
+  coverage: PlatformTrialCoverage,
+): CheckResult | null {
+  if (!coverage.fundedTrial) return null;
+  return {
+    capability: "byok_keys",
+    label: "BYOK AI keys",
+    status: "yellow",
+    // RA-7569: missing platform key is still yellow — activation must not
+    // hard-block a funded trial. Report gen stays fail-closed on the key.
+    note: coverage.canUsePlatformTrial
+      ? TRIAL_CREDITS_NOTE
+      : PLATFORM_KEY_MISSING_BODY,
+  };
+}
+
 export const byokKeysCheck: Check = async (orgId) => {
   const capability = "byok_keys";
   const label = "BYOK AI keys";
@@ -490,16 +513,12 @@ export const byokKeysCheck: Check = async (orgId) => {
     };
   }
 
+  const trialCoverage = await describePlatformTrialCoverage(org.ownerId);
+  const trialResult = trialByokResult(trialCoverage);
+
   const workspace = await getWorkspaceForUser(org.ownerId);
   if (!workspace) {
-    if (await canUsePlatformTrialCredential(org.ownerId)) {
-      return {
-        capability,
-        label,
-        status: "yellow",
-        note: "Platform trial credits will power report generation. Add your own key anytime as an optional upgrade.",
-      };
-    }
+    if (trialResult) return trialResult;
     return {
       capability,
       label,
@@ -523,14 +542,9 @@ export const byokKeysCheck: Check = async (orgId) => {
     // RA-6801: a funded trial does not need BYOK to activate — platform
     // credits power the first report. Paid / expired / zero-credit orgs
     // still red-block here.
-    if (await canUsePlatformTrialCredential(org.ownerId)) {
-      return {
-        capability,
-        label,
-        status: "yellow",
-        note: "Platform trial credits will power report generation. Add your own key anytime as an optional upgrade.",
-      };
-    }
+    // RA-7569: a funded trial with no platform key is still yellow so
+    // Skip is not the only way out of the wizard.
+    if (trialResult) return trialResult;
     return {
       capability,
       label,

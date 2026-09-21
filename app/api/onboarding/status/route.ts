@@ -10,7 +10,7 @@ import {
   getFailedOperatingProviderConnection,
   hasActiveOperatingProviderConnection,
 } from "@/lib/workspace/provider-connections";
-import { canUsePlatformTrialCredential } from "@/lib/ai/platform-trial-credential";
+import { describePlatformTrialCoverage } from "@/lib/ai/platform-trial-credential";
 import {
   AI_PROVIDER_ROUTE,
   buildAiProviderOnboardingStep,
@@ -214,13 +214,14 @@ export async function GET(request: NextRequest) {
     // Paid users still see them as required.
     // RA-6801: funded trials generate on the platform key — BYOK is optional.
     // Paid / expired / zero-credit accounts still hard-require a workspace key.
-    const canUsePlatformTrial = await canUsePlatformTrialCredential(
-      session.user.id,
-    );
+    // RA-7569: a funded trial whose platform key is missing is still not a
+    // BYOK hard gate — that is a platform-key fail, not "add your key".
+    const trialCoverage = await describePlatformTrialCoverage(session.user.id);
     const steps = {
       ai_provider: buildAiProviderOnboardingStep({
         hasByokKey: hasApiKey,
-        canUsePlatformTrial,
+        canUsePlatformTrial: trialCoverage.canUsePlatformTrial,
+        fundedTrial: trialCoverage.fundedTrial,
         rejectedKey,
       }),
       first_inspection: {
