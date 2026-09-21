@@ -84,6 +84,7 @@ function inspectionRow(input: {
     userId: input.userId,
     organizationId: input.organizationId,
     user: { organizationId: input.organizationId },
+    workspace: { members: [] as Array<{ userId: string }> },
     inspectionNumber: input.inspectionNumber,
     propertyAddress: input.propertyAddress,
     technicianName: "Pat Technician",
@@ -255,6 +256,25 @@ describe("GET /api/admin/evidence-review (RA-7566)", () => {
     expect(body.summary).toBeUndefined();
     expect(body.error).toBe("Forbidden");
     await assertNoForeignLeak(res, body);
+  });
+
+  it("does not 403 the list when a workspace-reachable job is in another organisation", async () => {
+    signInAsOrgAAdmin();
+    const workspaceSharedB = {
+      ...planted[1],
+      workspace: { members: [{ userId: ADMIN_A }] },
+    };
+    inspectionFindMany.mockImplementation(() =>
+      Promise.resolve([planted[0], workspaceSharedB]),
+    );
+
+    const res = await GET(request());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    const ids = (body.inspections as Array<{ id: string }>).map((row) => row.id);
+    expect(ids).toContain("insp-a");
+    expect(ids).toContain("insp-b");
   });
 
   it("does not show organisation B's job to an org-less admin", async () => {

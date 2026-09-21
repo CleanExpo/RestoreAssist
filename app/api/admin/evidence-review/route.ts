@@ -23,15 +23,24 @@ function forbidden() {
  */
 function isForeignTenantInspection(
   caller: { id: string; organizationId: string | null },
-  row: { userId: string; user: { organizationId: string | null } | null },
+  row: {
+    userId: string;
+    user: { organizationId: string | null } | null;
+    workspace: { members: Array<{ userId: string }> } | null;
+  },
 ): boolean {
   if (isPlatformSupportOperator(caller.id)) return false;
+  // Same clauses as resolveInspectionReach / ownershipClauses — owner,
+  // active workspace member, or same organisation. A workspace-reachable
+  // job must not 403 the whole evidence-review list.
+  if (row.userId === caller.id) return false;
+  if ((row.workspace?.members.length ?? 0) > 0) return false;
   const callerOrg = caller.organizationId;
   const rowOrg = row.user?.organizationId ?? null;
   if (typeof callerOrg === "string" && callerOrg.length > 0) {
     return rowOrg !== callerOrg;
   }
-  return row.userId !== caller.id;
+  return true;
 }
 
 /**
@@ -128,6 +137,15 @@ export async function GET(request: NextRequest) {
         submittedAt: true,
         updatedAt: true,
         user: { select: { organizationId: true } },
+        workspace: {
+          select: {
+            members: {
+              where: { userId: adminUser.id, status: "ACTIVE" },
+              select: { userId: true },
+              take: 1,
+            },
+          },
+        },
         inspectionWorkflow: {
           select: {
             id: true,
