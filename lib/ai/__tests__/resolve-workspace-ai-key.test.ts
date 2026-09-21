@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  REPORT_GEN_PLATFORM_NOT_READY_BODY,
+  reportGenByokRequiredBody,
+} from "@/lib/signup-pricing-honesty";
 
 const getWorkspaceForUser = vi.fn();
 const getProviderApiKey = vi.fn();
 const tryPlatformTrialApiKey = vi.fn();
+const describePlatformTrialCoverage = vi.fn();
 
 vi.mock("../../workspace/provider-connections", () => ({
   getWorkspaceForUser: (...args: unknown[]) => getWorkspaceForUser(...args),
@@ -11,6 +16,8 @@ vi.mock("../../workspace/provider-connections", () => ({
 
 vi.mock("../platform-trial-credential", () => ({
   tryPlatformTrialApiKey: (...args: unknown[]) => tryPlatformTrialApiKey(...args),
+  describePlatformTrialCoverage: (...args: unknown[]) =>
+    describePlatformTrialCoverage(...args),
 }));
 
 import {
@@ -18,11 +25,25 @@ import {
   NoWorkspaceKeyError,
 } from "../resolve-workspace-ai-key";
 
+const PAID_COVERAGE = {
+  fundedTrial: false,
+  platformKeyPresent: true,
+  canUsePlatformTrial: false,
+};
+
+const FUNDED_MISSING_PLATFORM = {
+  fundedTrial: true,
+  platformKeyPresent: false,
+  canUsePlatformTrial: false,
+};
+
 beforeEach(() => {
   getWorkspaceForUser.mockReset();
   getProviderApiKey.mockReset();
   tryPlatformTrialApiKey.mockReset();
+  describePlatformTrialCoverage.mockReset();
   tryPlatformTrialApiKey.mockResolvedValue(null);
+  describePlatformTrialCoverage.mockResolvedValue(PAID_COVERAGE);
 });
 
 describe("resolveWorkspaceAiKey (RA-6921 P0)", () => {
@@ -91,5 +112,44 @@ describe("resolveWorkspaceAiKey (RA-6921 P0)", () => {
     ).rejects.toBeInstanceOf(NoWorkspaceKeyError);
 
     delete process.env.ANTHROPIC_API_KEY;
+  });
+
+  it("RA-7600: paid / expired / zero-credit 402 still tells the owner to add their key", async () => {
+    getWorkspaceForUser.mockResolvedValue({ id: "ws_1", name: "Paid Co" });
+    getProviderApiKey.mockResolvedValue(null);
+
+    await expect(resolveWorkspaceAiKey("paid_user", "ANTHROPIC")).rejects.toMatchObject({
+      name: "NoWorkspaceKeyError",
+      reason: "BYOK_REQUIRED",
+      message: reportGenByokRequiredBody("ANTHROPIC"),
+    });
+  });
+
+  it("RA-7600: funded trial with a missing platform key is platform-not-ready, not add-your-key", async () => {
+    getWorkspaceForUser.mockResolvedValue({ id: "ws_1", name: "Trial Co" });
+    getProviderApiKey.mockResolvedValue(null);
+    describePlatformTrialCoverage.mockResolvedValue(FUNDED_MISSING_PLATFORM);
+
+    try {
+      await resolveWorkspaceAiKey("trial_user", "ANTHROPIC");
+      throw new Error("expected NoWorkspaceKeyError");
+    } catch (err) {
+      expect(err).toBeInstanceOf(NoWorkspaceKeyError);
+      const miss = err as NoWorkspaceKeyError;
+      expect(miss.reason).toBe("PLATFORM_NOT_READY");
+      expect(miss.message).toBe(REPORT_GEN_PLATFORM_NOT_READY_BODY);
+      expect(miss.message).not.toMatch(/add your/i);
+    }
+  });
+
+  it("RA-7600: same platform-not-ready copy when the funded trial has no workspace yet", async () => {
+    getWorkspaceForUser.mockResolvedValue(null);
+    describePlatformTrialCoverage.mockResolvedValue(FUNDED_MISSING_PLATFORM);
+
+    await expect(resolveWorkspaceAiKey("trial_user", "ANTHROPIC")).rejects.toMatchObject({
+      reason: "PLATFORM_NOT_READY",
+      message: REPORT_GEN_PLATFORM_NOT_READY_BODY,
+    });
+    expect(getProviderApiKey).not.toHaveBeenCalled();
   });
 });

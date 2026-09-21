@@ -124,12 +124,28 @@ describe("POST /api/reports/[id]/weakness-check", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.llmReviewApplied).toBe(false);
-    expect(body.data.note).toContain("No workspace AI key");
+    expect(body.data.note).toMatch(/Add your own key/);
     expect(review).not.toHaveBeenCalled();
     expect(body.data.findings.length).toBeGreaterThan(0);
     expect(
       body.data.findings.every((f: { detectionMethod: string }) => f.detectionMethod === "deterministic"),
     ).toBe(true);
+  });
+
+  it("RA-7600: funded-trial platform miss does not tell the owner to add a key", async () => {
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC", "PLATFORM_NOT_READY"),
+    );
+
+    const response = await invoke();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.llmReviewApplied).toBe(false);
+    expect(body.data.note).toMatch(/not ready/i);
+    expect(body.data.note).toMatch(/platform AI key/i);
+    expect(body.data.note).not.toMatch(/add your/i);
+    expect(review).not.toHaveBeenCalled();
   });
 
   it("returns 200 with deterministic + llm findings merged when a key resolves", async () => {

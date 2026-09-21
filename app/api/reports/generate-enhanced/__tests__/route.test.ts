@@ -27,10 +27,15 @@ vi.mock("@/lib/idempotency", () => ({
     fn: (rawBody: string) => Promise<Response>,
   ) => withIdempotency(req, userId, fn),
 }));
-vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
-  resolveWorkspaceAiKey: (...args: unknown[]) => resolveWorkspaceAiKey(...args),
-  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
-}));
+vi.mock("@/lib/ai/resolve-workspace-ai-key", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/ai/resolve-workspace-ai-key")
+  >("@/lib/ai/resolve-workspace-ai-key");
+  return {
+    ...actual,
+    resolveWorkspaceAiKey: (...args: unknown[]) => resolveWorkspaceAiKey(...args),
+  };
+});
 vi.mock("@/lib/services/ai/generate-enhanced-report", () => ({
   generateEnhancedReport: (...args: unknown[]) =>
     generateEnhancedReport(...args),
@@ -53,6 +58,11 @@ vi.mock("@/lib/report-limits", () => ({
 }));
 
 import { POST } from "../route";
+import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
+import {
+  REPORT_GEN_PLATFORM_NOT_READY_BODY,
+  reportGenByokRequiredBody,
+} from "@/lib/signup-pricing-honesty";
 
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest("http://localhost/api/reports/generate-enhanced", {
@@ -246,6 +256,45 @@ describe("POST /api/reports/generate-enhanced — RA-6982 charge-before-create",
     expect(generateEnhancedReport).not.toHaveBeenCalled();
     expect(deductCreditsAndTrackUsage).not.toHaveBeenCalled();
     expect(reportCreate).not.toHaveBeenCalled();
+  });
+
+  it("RA-7600: paid workspace 402 still says add-your-key", async () => {
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC", "BYOK_REQUIRED"),
+    );
+
+    const res = await POST(
+      makeRequest({
+        reportId: "report-1",
+        technicianNotes: "Water damage to bedroom wall.",
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.error.code).toBe("PAYMENT_REQUIRED");
+    expect(body.error.message).toBe(reportGenByokRequiredBody("ANTHROPIC"));
+    expect(generateEnhancedReport).not.toHaveBeenCalled();
+  });
+
+  it("RA-7600: funded-trial platform miss 402 does not say add-your-key", async () => {
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC", "PLATFORM_NOT_READY"),
+    );
+
+    const res = await POST(
+      makeRequest({
+        reportId: "report-1",
+        technicianNotes: "Water damage to bedroom wall.",
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.error.code).toBe("PAYMENT_REQUIRED");
+    expect(body.error.message).toBe(REPORT_GEN_PLATFORM_NOT_READY_BODY);
+    expect(body.error.message).not.toMatch(/add your/i);
+    expect(generateEnhancedReport).not.toHaveBeenCalled();
   });
 
   it("post-charge create failure triggers exactly one refund, then surfaces the error", async () => {

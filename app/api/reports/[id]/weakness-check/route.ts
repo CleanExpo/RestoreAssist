@@ -131,10 +131,13 @@ export async function POST(
     // LLM pass only when the workspace's own key resolves. No key is NOT a
     // failure — deterministic findings still have value without any spend.
     let apiKey: string | null = null;
+    let missingKeyNote =
+      "No workspace AI key configured — returning deterministic findings only.";
     try {
       apiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
     } catch (err) {
       if (!(err instanceof NoWorkspaceKeyError)) throw err;
+      missingKeyNote = `${err.message} Returning deterministic findings only.`;
     }
 
     if (!apiKey) {
@@ -143,7 +146,7 @@ export async function POST(
           findings: deterministic.findings,
           pendingLlmReview: deterministic.pendingLlmReview,
           llmReviewApplied: false,
-          note: "No workspace AI key configured — returning deterministic findings only. Add your own key in Workspace Settings -> AI Providers to enable the LLM contradiction pass.",
+          note: missingKeyNote,
         },
       });
     }
