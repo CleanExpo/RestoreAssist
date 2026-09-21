@@ -18,12 +18,27 @@ npx --no-install playwright test e2e/auth.spec.ts
 # E2E tests (headed — see browser)
 npx --no-install playwright test --headed
 
-# Unit tests (interview engine)
-npx --no-install vitest run lib/interview/__tests__/
+# Unit suite (canonical local receipt — RA-7435)
+npm run test:unit
+
+# Interview-engine slice only
+npx --no-install vitest run --config config/vitest.config.js lib/interview/__tests__/
 
 # Build check (full production build)
 npm run build
 ```
+
+`npm run test:unit` is `vitest run --config config/vitest.config.js`. Files run
+one at a time (`maxWorkers: 1`) so DB-touching fixtures cannot race. Expect
+several minutes of wall clock — most of it is per-file startup, not assertion
+time. CI runs `npm run test:unit:full` (same Vitest suite plus the pilot
+harness) with `DATABASE_URL` set; without that env some files skip locally.
+
+Do not wrap `test:unit` in a timeout below about ten minutes. A 480-second
+wrapper kills a healthy run with exit 124, and the failure count is then
+unknown (RA-7435). A completed run exits 0 (all green) or 1 (known failures).
+Each test already has a 20-second `testTimeout` (RA-7444), so a stuck case
+fails rather than hanging the file.
 
 ## Before You Say You're Done
 
