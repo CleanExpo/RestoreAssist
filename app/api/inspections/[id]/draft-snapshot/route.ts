@@ -23,6 +23,7 @@ const moistureSchema = z.object({
   depth: z.string().trim().min(1).max(50),
   mapX: z.number().finite().min(0).max(1).nullable().optional(),
   mapY: z.number().finite().min(0).max(1).nullable().optional(),
+  sketchRoomId: z.string().trim().min(1).max(200).nullable().optional(),
 });
 
 const affectedAreaSchema = z.object({
@@ -31,6 +32,7 @@ const affectedAreaSchema = z.object({
   waterSource: z.string().trim().min(1).max(100),
   timeSinceLoss: z.number().finite().min(0).nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
+  height: z.number().finite().min(0).max(20).nullable().optional(),
 });
 
 const scopeItemSchema = z.object({
@@ -153,6 +155,7 @@ export async function PUT(
         description: area.description
           ? sanitizeString(area.description, 2000)
           : null,
+        height: area.height ?? null,
       };
     });
 
@@ -194,6 +197,7 @@ export async function PUT(
             depth: sanitizeString(reading.depth, 50),
             mapX: reading.mapX ?? null,
             mapY: reading.mapY ?? null,
+            sketchRoomId: reading.sketchRoomId ?? null,
             source: "manual",
           })),
         });

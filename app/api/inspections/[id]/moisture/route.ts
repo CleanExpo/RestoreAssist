@@ -132,6 +132,27 @@ export async function POST(
             ? body.source
             : "manual",
         };
+
+        const rawSketchRoomId =
+          typeof body.sketchRoomId === "string" ? body.sketchRoomId.trim() : "";
+        if (rawSketchRoomId) {
+          const room = await prisma.sketchRoom.findFirst({
+            where: {
+              id: rawSketchRoomId,
+              detachedAt: null,
+              sketch: { inspectionId: id },
+            },
+            select: { id: true },
+          });
+          if (!room) {
+            return apiError(request, {
+              code: "VALIDATION",
+              message: "The selected room does not belong to this job.",
+              status: 422,
+            });
+          }
+          createData.sketchRoomId = room.id;
+        }
         // Include mapX/mapY only if provided — clamp to [0, 1] normalised range; reject non-finite
         if (body.mapX !== undefined && body.mapX !== null) {
           const mx = parseFloat(body.mapX);

@@ -27,14 +27,7 @@ import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
-
-/** Same normalised room match used when classifying an area's moisture readings. */
-function readingMatchesArea(location: string, roomZoneId: string): boolean {
-  return (
-    location === roomZoneId ||
-    location.toLowerCase().includes(roomZoneId.toLowerCase())
-  );
-}
+import { readingMatchesArea } from "@/lib/moisture/reading-room-join";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -84,6 +77,8 @@ export async function POST(
             select: {
               id: true,
               location: true,
+              sketchRoomId: true,
+              sketchRoom: { select: { id: true, name: true } },
               surfaceType: true,
               moistureLevel: true,
               depth: true,
@@ -461,7 +456,7 @@ async function processInspectionComplete(
   for (const area of inspection.affectedAreas) {
     // Get relevant moisture readings for this area
     const relevantReadings = inspection.moistureReadings.filter((r: any) =>
-      readingMatchesArea(r.location, area.roomZoneId),
+      readingMatchesArea(r, area),
     );
 
     // Determine classification
@@ -565,7 +560,7 @@ async function processInspectionComplete(
     waterSource: inspection.affectedAreas[0]?.waterSource || "Clean Water",
     affectedAreas: inspection.affectedAreas.map((area: any) => {
       const matchedReading = inspection.moistureReadings.find((r: any) =>
-        readingMatchesArea(r.location, area.roomZoneId),
+        readingMatchesArea(r, area),
       );
       return {
         roomZoneId: area.roomZoneId,

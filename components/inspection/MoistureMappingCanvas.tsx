@@ -20,6 +20,7 @@ import {
   STATUS_COLORS,
   getDryStandard,
 } from "@/lib/iicrc-dry-standards";
+import { dryingLocationForReading } from "@/lib/moisture/reading-room-join";
 
 interface MoistureReading {
   id: string;
@@ -28,6 +29,8 @@ interface MoistureReading {
   moistureLevel: number;
   depth: string;
   notes: string | null;
+  sketchRoomId?: string | null;
+  sketchRoom?: { id: string; name: string } | null;
 }
 
 interface MoisturePoint {
@@ -103,6 +106,10 @@ function getEquipmentConfig(type: string) {
 function getMoistureColor(level: number, material = "other"): string {
   const status = getMoistureStatus(level, material);
   return STATUS_COLORS[status].dot;
+}
+
+function readingLabel(reading: MoistureReading): string {
+  return dryingLocationForReading(reading) ?? reading.location;
 }
 
 function getMoistureLabel(level: number, material = "other"): string {
@@ -628,7 +635,7 @@ export default function MoistureMappingCanvas({
                       fontSize="10"
                       opacity="0.7"
                     >
-                      {point.reading.location}
+                      {readingLabel(point.reading)}
                     </text>
                   </g>
                 );
@@ -708,7 +715,7 @@ export default function MoistureMappingCanvas({
                 fontSize="12"
                 opacity="0.6"
               >
-                Click to place: {placingReading.location} (
+                Click to place: {readingLabel(placingReading)} (
                 {placingReading.moistureLevel}%)
               </text>
             )}
@@ -759,7 +766,7 @@ export default function MoistureMappingCanvas({
                     Selected Reading
                   </div>
                   <div className="text-sm font-medium">
-                    {selectedPoint.reading.location}
+                    {readingLabel(selectedPoint.reading)}
                   </div>
                   <div className="flex items-center gap-2">
                     <span
@@ -813,7 +820,7 @@ export default function MoistureMappingCanvas({
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-medium truncate">
-                            {reading.location}
+                            {readingLabel(reading)}
                           </span>
                           <span
                             className="px-1.5 py-0.5 rounded text-xs font-bold text-white flex-shrink-0"

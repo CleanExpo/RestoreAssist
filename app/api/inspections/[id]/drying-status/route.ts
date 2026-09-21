@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { assessDryingReadiness } from "@/lib/inspections/drying-readiness";
+import { dryingLocationForReading } from "@/lib/moisture/reading-room-join";
 import { apiError, fromException } from "@/lib/api-errors";
 
 // GET /api/inspections/[id]/drying-status — read-only S500 drying readiness:
@@ -33,6 +34,8 @@ export async function GET(
       where: { inspectionId: id },
       select: {
         location: true,
+        sketchRoomId: true,
+        sketchRoom: { select: { name: true } },
         surfaceType: true,
         moistureLevel: true,
         unit: true,
@@ -44,7 +47,7 @@ export async function GET(
 
     const readiness = assessDryingReadiness(
       readings.map((r) => ({
-        location: r.location ?? null,
+        location: dryingLocationForReading(r),
         surfaceType: r.surfaceType ?? null,
         moistureLevel: r.moistureLevel,
         unit: r.unit ?? null,

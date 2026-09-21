@@ -36,6 +36,12 @@ type MoistureReadingSuccess = {
   notes: string | null;
   photoUrl: string | null;
   recordedAt: string;
+  sketchRoomId?: string | null;
+};
+
+export type MoistureFormSketchRoom = {
+  id: string;
+  name: string;
 };
 
 interface MoistureReadingEntryFormProps {
@@ -43,17 +49,22 @@ interface MoistureReadingEntryFormProps {
   onSuccess: (reading: MoistureReadingSuccess) => void;
   onCancel?: () => void;
   className?: string;
+  /** Drawn rooms on this job. Empty / omitted keeps free-text location. */
+  sketchRooms?: MoistureFormSketchRoom[];
 }
 
 const DEPTH_OPTIONS = ["Surface", "Subsurface"];
+const NOT_ON_PLAN = "__not_on_plan__";
 
 export function MoistureReadingEntryForm({
   inspectionId,
   onSuccess,
   onCancel,
   className,
+  sketchRooms = [],
 }: MoistureReadingEntryFormProps) {
   const [location, setLocation] = useState("");
+  const [roomChoice, setRoomChoice] = useState("");
   const [material, setMaterial] = useState("timber");
   const [meterType, setMeterType] = useState("pin");
   const [depth, setDepth] = useState("Surface");
@@ -77,10 +88,6 @@ export function MoistureReadingEntryForm({
     setError(null);
     setQueuedLocally(false);
 
-    if (!location.trim()) {
-      setError("Location is required");
-      return;
-    }
     if (!hasLevel) {
       setError("Moisture level is required");
       return;
@@ -90,10 +97,23 @@ export function MoistureReadingEntryForm({
       return;
     }
 
+    const chosenRoom =
+      roomChoice && roomChoice !== NOT_ON_PLAN
+        ? sketchRooms.find((room) => room.id === roomChoice)
+        : undefined;
+    const resolvedLocation = chosenRoom ? chosenRoom.name : location.trim();
+    const sketchRoomId = chosenRoom?.id ?? null;
+
+    if (!resolvedLocation) {
+      setError("Location is required");
+      return;
+    }
+
     setSubmitting(true);
 
     const payload = {
-      location: location.trim(),
+      location: resolvedLocation,
+      sketchRoomId,
       surfaceType: material,
       moistureLevel: level,
       depth,
@@ -108,6 +128,7 @@ export function MoistureReadingEntryForm({
     const finishSuccess = (reading: MoistureReadingSuccess) => {
       onSuccess(reading);
       setLocation("");
+      setRoomChoice("");
       setMoistureLevel("");
       setNotes("");
       setSource("manual");
@@ -228,14 +249,53 @@ export function MoistureReadingEntryForm({
         >
           Location <span className="text-destructive">*</span>
         </label>
-        <input
-          id="moisture-location"
-          type="text"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="e.g. Living Room North Wall"
-          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
-        />
+        {sketchRooms.length > 0 ? (
+          <>
+            <select
+              id="moisture-location"
+              value={roomChoice}
+              onChange={(e) => {
+                const next = e.target.value;
+                setRoomChoice(next);
+                if (next === NOT_ON_PLAN) {
+                  setLocation("");
+                } else {
+                  const room = sketchRooms.find((r) => r.id === next);
+                  setLocation(room?.name ?? "");
+                }
+              }}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+            >
+              <option value="">Select a room</option>
+              {sketchRooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
+                </option>
+              ))}
+              <option value={NOT_ON_PLAN}>Room not on the plan</option>
+            </select>
+            {roomChoice === NOT_ON_PLAN && (
+              <input
+                id="moisture-location-free-text"
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Describe the location"
+                aria-label="Room not on the plan"
+                className="mt-2 w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+              />
+            )}
+          </>
+        ) : (
+          <input
+            id="moisture-location"
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="e.g. Living Room North Wall"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+          />
+        )}
       </div>
 
       {/* Material + Depth row */}

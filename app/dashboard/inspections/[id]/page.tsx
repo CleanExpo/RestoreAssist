@@ -202,6 +202,8 @@ interface Inspection {
     depth: string;
     notes: string | null;
     photoUrl: string | null;
+    sketchRoomId?: string | null;
+    sketchRoom?: { id: string; name: string } | null;
   }[];
   affectedAreas: {
     id: string;
@@ -437,17 +439,22 @@ export default function InspectionDetailPage({
   const [showAddMoisture, setShowAddMoisture] = useState(false);
   const [moistureForm, setMoistureForm] = useState<{
     location: string;
+    sketchRoomId: string | null;
     surfaceType: string;
     moistureLevel: number | null;
     depth: string;
     notes: string;
   }>({
     location: "",
+    sketchRoomId: null,
     surfaceType: "",
     moistureLevel: null,
     depth: "Surface",
     notes: "",
   });
+  const [sketchRooms, setSketchRooms] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [addingMoisture, setAddingMoisture] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [generatingDisputePack, setGeneratingDisputePack] = useState(false);
@@ -497,6 +504,33 @@ export default function InspectionDetailPage({
 
   useEffect(() => {
     fetchInspection();
+  }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/inspections/${id}/sketches`);
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          sketches?: Array<{
+            rooms?: Array<{ id: string; name: string }>;
+          }>;
+        };
+        const rooms = (json.sketches ?? []).flatMap((sketch) =>
+          (sketch.rooms ?? []).map((room) => ({
+            id: room.id,
+            name: room.name,
+          })),
+        );
+        if (!cancelled) setSketchRooms(rooms);
+      } catch {
+        if (!cancelled) setSketchRooms([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -922,16 +956,22 @@ export default function InspectionDetailPage({
     }
     setAddingMoisture(true);
     try {
+      const sketchRoomId =
+        moistureForm.sketchRoomId &&
+        moistureForm.sketchRoomId !== "__not_on_plan__"
+          ? moistureForm.sketchRoomId
+          : null;
       const res = await fetch(`/api/inspections/${inspection!.id}/moisture`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(moistureForm),
+        body: JSON.stringify({ ...moistureForm, sketchRoomId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMoistureReadings((prev) => [...prev, data.moistureReading]);
       setMoistureForm({
         location: "",
+        sketchRoomId: null,
         surfaceType: "",
         moistureLevel: null,
         depth: "Surface",
@@ -2039,18 +2079,79 @@ export default function InspectionDetailPage({
                     <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
                       Location
                     </label>
-                    <input
-                      type="text"
-                      value={moistureForm.location}
-                      onChange={(e) =>
-                        setMoistureForm((f) => ({
-                          ...f,
-                          location: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-                      placeholder="e.g. Living Room Wall"
-                    />
+                    {sketchRooms.length > 0 ? (
+                      <>
+                        <select
+                          value={moistureForm.sketchRoomId ?? ""}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            if (!next) {
+                              setMoistureForm((f) => ({
+                                ...f,
+                                sketchRoomId: null,
+                                location: "",
+                              }));
+                              return;
+                            }
+                            if (next === "__not_on_plan__") {
+                              setMoistureForm((f) => ({
+                                ...f,
+                                sketchRoomId: "__not_on_plan__",
+                                location: f.sketchRoomId === "__not_on_plan__"
+                                  ? f.location
+                                  : "",
+                              }));
+                              return;
+                            }
+                            const room = sketchRooms.find((r) => r.id === next);
+                            setMoistureForm((f) => ({
+                              ...f,
+                              sketchRoomId: room?.id ?? null,
+                              location: room?.name ?? "",
+                            }));
+                          }}
+                          className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                        >
+                          <option value="">Select a room</option>
+                          {sketchRooms.map((room) => (
+                            <option key={room.id} value={room.id}>
+                              {room.name}
+                            </option>
+                          ))}
+                          <option value="__not_on_plan__">
+                            Room not on the plan
+                          </option>
+                        </select>
+                        {moistureForm.sketchRoomId === "__not_on_plan__" && (
+                          <input
+                            type="text"
+                            value={moistureForm.location}
+                            onChange={(e) =>
+                              setMoistureForm((f) => ({
+                                ...f,
+                                location: e.target.value,
+                              }))
+                            }
+                            className="mt-2 w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            placeholder="Describe the location"
+                            aria-label="Room not on the plan"
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <input
+                        type="text"
+                        value={moistureForm.location}
+                        onChange={(e) =>
+                          setMoistureForm((f) => ({
+                            ...f,
+                            location: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                        placeholder="e.g. Living Room Wall"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
@@ -2172,7 +2273,7 @@ export default function InspectionDetailPage({
                         className="hover:bg-neutral-50 dark:hover:bg-slate-800/30"
                       >
                         <td className="px-4 py-3 font-medium text-sm">
-                          {reading.location}
+                          {reading.sketchRoom?.name ?? reading.location}
                         </td>
                         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-slate-300 capitalize">
                           {reading.surfaceType}
