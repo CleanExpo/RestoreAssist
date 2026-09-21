@@ -3,6 +3,15 @@ import { sendTrialExpiringEmail } from "@/lib/email";
 import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 import type { CronJobResult } from "./runner";
 
+export type SendTrialRemindersOptions = {
+  /**
+   * Count in-window TRIAL users without sending mail or writing
+   * trialReminderSentAt. Used by the production dry-run scheduler
+   * (RA-7597) so an operator can prove the job reads the live DB.
+   */
+  dryRun?: boolean;
+};
+
 /**
  * Trial expiry reminder cron handler.
  *
@@ -31,13 +40,39 @@ import type { CronJobResult } from "./runner";
 //   1-day:  [now,         now + 24h]
 //   3-day:  [now + 2d,    now + 3d]
 // Any TZ / DST drift is absorbed by the aligned 24h window.
+//
+// WS3 / RA-7597 names these "day-3 / day-10 / day-14" trial emails. This
+// handler is the single daily job that owns that cadence. 3-day and 1-day
+// remaining are the shipped windows (1-day is the last-chance mail near
+// day 14 of a 15-day trial).
 type Window = { daysStart: number; daysEnd: number; label: "3-day" | "1-day" };
 const WINDOWS: Window[] = [
   { daysStart: 2, daysEnd: 3, label: "3-day" },
   { daysStart: 0, daysEnd: 1, label: "1-day" },
 ];
 
-export async function sendTrialReminders(): Promise<CronJobResult> {
+// RA-1363 — any cron fire within this many ms of a previously-recorded
+// send for the same (user, window) is treated as a duplicate and skipped.
+// 20h covers both retry-after-timeout (minutes) and overlapping daily
+// invocations; shorter than 24h so we don't swallow the NEXT day's fire
+// if the cron is late.
+const IDEMPOTENCY_WINDOW_MS = 20 * 60 * 60 * 1000;
+
+function alreadySentRecently(
+  stored: Record<string, string> | null,
+  label: Window["label"],
+  now: Date,
+): boolean {
+  const lastIso = stored?.[label];
+  if (!lastIso) return false;
+  const last = Date.parse(lastIso);
+  return Number.isFinite(last) && now.getTime() - last < IDEMPOTENCY_WINDOW_MS;
+}
+
+export async function sendTrialReminders(
+  options: SendTrialRemindersOptions = {},
+): Promise<CronJobResult> {
+  const dryRun = options.dryRun === true;
   const now = new Date();
   const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
   const subscribeUrl = `${baseUrl}/dashboard/pricing?utm_source=trial-reminder`;
@@ -66,13 +101,6 @@ export async function sendTrialReminders(): Promise<CronJobResult> {
       take: 1000, // CLAUDE.md rule 4
     });
 
-    // RA-1363 — any cron fire within this many ms of a previously-recorded
-    // send for the same (user, window) is treated as a duplicate and skipped.
-    // 20h covers both retry-after-timeout (minutes) and overlapping daily
-    // invocations; shorter than 24h so we don't swallow the NEXT day's fire
-    // if the cron is late.
-    const IDEMPOTENCY_WINDOW_MS = 20 * 60 * 60 * 1000;
-
     let sentInWindow = 0;
     let skippedDuplicate = 0;
 
@@ -82,16 +110,14 @@ export async function sendTrialReminders(): Promise<CronJobResult> {
       // RA-1363: short-circuit if we already sent this window's reminder recently.
       const stored =
         (user.trialReminderSentAt as Record<string, string> | null) ?? null;
-      const lastIso = stored?.[win.label];
-      if (lastIso) {
-        const last = Date.parse(lastIso);
-        if (
-          Number.isFinite(last) &&
-          now.getTime() - last < IDEMPOTENCY_WINDOW_MS
-        ) {
-          skippedDuplicate++;
-          continue;
-        }
+      if (alreadySentRecently(stored, win.label, now)) {
+        skippedDuplicate++;
+        continue;
+      }
+
+      if (dryRun) {
+        sentInWindow++;
+        continue;
       }
 
       const msLeft = user.trialEndsAt.getTime() - now.getTime();
@@ -144,7 +170,10 @@ export async function sendTrialReminders(): Promise<CronJobResult> {
   }
 
   return {
-    itemsProcessed: totalSent,
-    metadata: { windows: perWindow },
+    itemsProcessed: dryRun ? 0 : totalSent,
+    metadata: {
+      ...(dryRun ? { dryRun: true } : {}),
+      windows: perWindow,
+    },
   };
 }

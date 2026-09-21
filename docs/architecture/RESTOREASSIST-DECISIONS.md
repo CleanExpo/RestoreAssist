@@ -182,4 +182,14 @@ Append-only record of resolved product and architecture decisions. New decisions
 
 ---
 
+### D-024 — Live trial-reminder cron is GitHub Actions against restoreassist.app (RA-7597)
+
+- **Decision:** Production day-3 / last-chance trial-reminder emails are scheduled by `.github/workflows/cron-production-trial-reminders.yml`, which GETs `https://restoreassist.app/api/cron/trial-reminders` with `CRON_SECRET`. They are not scheduled as DigitalOcean App Platform `jobs`.
+- **Reason:** `vercel.json` crons run only on the Vercel project (sandbox database). The reviewed `.do/app.yaml` is a single `web` service; `digitalocean-production-release.py` `validate_app_identity` refuses any `jobs` / `workers` group, so adding a DO scheduler would break the release contract and is not a $0 change. GitHub Actions already reaches the live host (`smoke-prod.yml`, `trigger-ascora-sync.yml`).
+- **Alternatives:** DO scheduled job in `.do/app.yaml` (rejected — release contract + extra App Platform component); in-process timer on the web service (rejected — restarts duplicate work, no durable audit); leave Vercel-only (rejected — production never emails).
+- **Consequences:** Welcome emails and the founder sign-up alert stay on the sign-up request path and are unchanged. Manual dispatch defaults to a local dry-run that does not hit production — the current live route ignores `?dryRun=1` and would send. After this SHA is serving restoreassist.app, `probe_production=true` queries candidates without sending or writing `CronJobRun`. The production `CRON_SECRET` must exist as a repo Actions secret, the same requirement as `trigger-ascora-sync.yml`.
+- **Evidence:** RA-7597; `scripts/ci/digitalocean-production-release.py` `validate_app_identity`. **Date:** 2026-09-21. **Owner:** Phill McGurk.
+
+---
+
 _Non-blocking owner inputs still open (do not block V1 start): authorised drying-goal methodology source; the full per-stage water-damage completeness rule list (baseline minimum is specified; engine scaffolds now); per-organisation completeness baseline content; the approved retention matrix (D-017 — legal/privacy review before any automated destruction); pilot-partner selection. Tracked here, not escalated._
