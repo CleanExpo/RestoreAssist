@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { COMPLETENESS_INSPECTION_INCLUDE } from "@/lib/reports/completeness-inspection-include";
 import {
   computeReportCompletenessSections,
   overallScoreFromSections,
@@ -40,43 +41,7 @@ export async function POST(request: NextRequest) {
           },
         },
         inspection: {
-          include: {
-            // Only `.length` is read for each list relation below; selecting
-            // just `id` keeps payload minimal while preserving array length.
-            moistureReadings: { select: { id: true } },
-            affectedAreas: { select: { id: true } },
-            classifications: { select: { id: true } },
-            scopeItems: { select: { id: true } },
-            costEstimates: { select: { id: true } },
-            photos: { select: { id: true } },
-            // RA-7003: floor-plan presence (sketches only count when rendered).
-            claimSketches: {
-              select: {
-                id: true,
-                floorNumber: true,
-                renderedPngUrl: true,
-                sketchData: true,
-                underlayReferences: {
-                  select: { verifiedAt: true, verificationJson: true },
-                  orderBy: { createdAt: "desc" },
-                  take: 1,
-                },
-                inspection: {
-                  select: {
-                    sketchUnderlayReferences: {
-                      select: {
-                        floorNumber: true,
-                        verifiedAt: true,
-                        verificationJson: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            // RA-7006 Gap 5: contents manifest presence.
-            contentsManifestDraft: true,
-          },
+          include: COMPLETENESS_INSPECTION_INCLUDE,
         },
         // RA-7003: signed client authorisations.
         authorityForms: {
