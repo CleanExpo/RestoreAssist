@@ -15,6 +15,7 @@ import { getAppUrl } from "@/lib/app-url";
 // Helper: Generate PDF for a report by calling the internal download endpoint
 async function generateReportPDF(reportId: string): Promise<Buffer | null> {
   try {
+    // RA-7451 — production origin when NEXT_PUBLIC_APP_URL is unset.
     const baseUrl = getAppUrl();
 
     // Call the existing PDF generation endpoint internally
