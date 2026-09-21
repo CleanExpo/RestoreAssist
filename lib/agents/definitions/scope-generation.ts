@@ -12,6 +12,7 @@ import type {
   TaskOutput,
 } from "../types";
 import { determineScopeItems } from "@/lib/nir-scope-determination";
+import { resolveAreaSqm } from "@/lib/units";
 import { registerAgent } from "../registry";
 
 export const scopeGenerationConfig: AgentConfig = {
@@ -80,7 +81,7 @@ export const scopeGenerationHandler: AgentHandler = async (
     reportAnalysisOutput?.data?.waterSource ||
     "Unknown";
 
-  const affectedAreas = (data.affectedAreas as any[]) || [
+  const rawAreas = (data.affectedAreas as any[]) || [
     {
       roomZoneId: "default",
       affectedSquareFootage: 100,
@@ -88,6 +89,15 @@ export const scopeGenerationHandler: AgentHandler = async (
       moistureLevel: 50,
     },
   ];
+
+  // determineScopeItems treats affectedSquareFootage as m². Callers (the
+  // quick-assessment workflow's sharedState, Prisma AffectedArea rows) carry
+  // that column in sq ft — resolveAreaSqm prefers affectedAreaSqm and converts
+  // the legacy column, matching the inspection submit route (RA-7607 / RA-7614).
+  const affectedAreas = rawAreas.map((area) => ({
+    ...area,
+    affectedSquareFootage: resolveAreaSqm(area),
+  }));
 
   const scopeItems = determineScopeItems({
     category,
