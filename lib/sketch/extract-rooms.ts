@@ -6,24 +6,22 @@
  * and the machine-readable export can never drift.
  */
 
-/** Canvas scale: 100 pixels = 1 metre. */
-export const PX_PER_METRE = 100;
+import {
+  DEFAULT_PX_PER_METRE,
+  isMeasuredRoom,
+  resolvePxPerMetre,
+  resolveRoomAreaM2,
+  roomLabel,
+  type RoomGeometryObject,
+} from "./room-area-from-geometry";
 
-interface FabricObject {
-  type?: string;
-  points?: { x: number; y: number }[];
-  width?: number;
-  height?: number;
-  scaleX?: number;
-  scaleY?: number;
-  fill?: string;
+/** Canvas scale: 100 pixels = 1 metre. */
+export const PX_PER_METRE = DEFAULT_PX_PER_METRE;
+
+interface FabricObject extends RoomGeometryObject {
   stroke?: string;
-  data?: {
-    label?: string;
-    roomType?: string;
-    provenance?: string;
+  data?: RoomGeometryObject["data"] & {
     captureAdapter?: string;
-    type?: string;
   };
 }
 
@@ -51,27 +49,18 @@ export function extractRooms(
 ): RoomInfo[] {
   if (!fabricJson) return [];
   const objects = (fabricJson.objects as FabricObject[] | undefined) ?? [];
+  const pxPerMetre = resolvePxPerMetre(fabricJson);
   const rooms: RoomInfo[] = [];
 
   for (const obj of objects) {
-    if (obj.type?.toLowerCase() !== "polygon") continue;
-    if (!obj.points?.length) continue;
-    // RA-6839 (A0): provenance firewall — underlay_reference geometry
-    // (AI/imported) is reference-only and must never contribute to billed/
-    // scoped quantities. Filter here (the last point provenance is visible)
-    // so no caller can leak it, regardless of upstream sanitisation.
-    if (obj.data?.provenance === "underlay_reference") continue;
-
-    const scaleX = obj.scaleX ?? 1;
-    const scaleY = obj.scaleY ?? 1;
-    const scaledPts = obj.points.map((p) => ({
-      x: p.x * scaleX,
-      y: p.y * scaleY,
-    }));
-    const areaM2 = shoelaceArea(scaledPts) / (PX_PER_METRE * PX_PER_METRE);
+    // RA-6839 (A0) + RA-7572: billed rooms are `data.type === "room"` or a
+    // measured polygon. Metres-first area so a typed 3×3 room cannot become 0.
+    if (!isMeasuredRoom(obj)) continue;
+    const areaM2 = resolveRoomAreaM2(obj, pxPerMetre);
+    if (areaM2 == null || areaM2 < 0.1) continue;
 
     rooms.push({
-      label: obj.data?.label ?? obj.data?.roomType ?? "Room",
+      label: roomLabel(obj),
       areaM2,
       stroke: obj.stroke ?? "#3b82f6",
       captureAdapter:

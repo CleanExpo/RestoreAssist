@@ -56,6 +56,17 @@ export async function GET(
         sketchData: true,
         equipmentPoints: true,
         moisturePoints: true,
+        rooms: {
+          where: { detachedAt: null },
+          select: {
+            name: true,
+            areaM2: true,
+            perimeterM: true,
+            heightM: true,
+            provenance: true,
+          },
+          take: 500,
+        },
       },
       take: 50,
     });
@@ -73,6 +84,9 @@ export async function GET(
         ),
         equipmentPoints: s.equipmentPoints as unknown[] | null,
         moisturePoints: s.moisturePoints as unknown[] | null,
+        // RA-7572: SketchRoom.areaM2 is already metres — fallback when Fabric
+        // parse yields no room lines.
+        savedRooms: s.rooms ?? [],
       }));
 
     const estimate = extractSketchEstimate(floors);
