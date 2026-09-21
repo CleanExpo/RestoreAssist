@@ -60,3 +60,36 @@ describe("RA-7613 — voice transcript fixtures map to exact enum values", () =>
     ).toBe(true);
   });
 });
+
+describe("RA-7620 — vinyl-tiles plural and water-category confirmation", () => {
+  it("maps 'vinyl tiles' to vinyl-tiles (ACM) or surfaces confirmation, never ceramic-tile", () => {
+    const result = mapVoiceTranscriptToFields("vinyl tiles");
+    const confirmedMaterial = result.needsConfirmation.some(
+      (item) => item.kind === "material",
+    );
+    expect(result.material?.id).not.toBe("ceramic-tile");
+    expect(
+      result.material?.id === "vinyl-tiles" || confirmedMaterial,
+    ).toBe(true);
+    if (result.material?.id === "vinyl-tiles") {
+      expect(result.material.isPotentialAcm).toBe(true);
+    }
+  });
+
+  it("never yields cat1 from a negated category 1 corrected to category 3", () => {
+    const result = mapVoiceTranscriptToFields(
+      "not category 1, this is category 3",
+    );
+    expect(result.waterCategory).not.toBe("cat1");
+  });
+
+  it("does not auto-pick a category when two categories are named, and surfaces confirmation", () => {
+    const result = mapVoiceTranscriptToFields(
+      "could be category 2 or category 3",
+    );
+    expect(result.waterCategory).toBeUndefined();
+    expect(
+      result.needsConfirmation.some((item) => item.kind === "waterCategory"),
+    ).toBe(true);
+  });
+});
