@@ -1,0 +1,129 @@
+name: P0-1 private buckets acceptance
+
+# RA-7466 — scripts/e2e/p0-1-private-buckets-acceptance.mjs existed and
+# `npm run e2e:p0-1` was in package.json, but nothing invoked it. PR #1969
+# merged without this read-path proof: an anonymous request to a raw object
+# URL in evidence-optimised / sketch-media must be refused, while an
+# authorised signed URL still loads the bytes.
+#
+# Live-credential shape follows supabase-advisor-gate.yml (schedule +
+# workflow_dispatch; path-filtered pull_request only when the gate itself
+# changes). Presence preflight follows the RA-7008 / pilot-canary.yml
+# secrets-gate: secrets arrive as env bindings, the shell tests `-n` only,
+# missing names are printed, values never are.
+#
+# One deliberate deviation from the canary, flagged rather than hidden:
+# an unprovisioned canary is advisory (exit 0) because failing it blocked
+# the release gate. This workflow IS the gate. When the two secrets are
+# absent the acceptance job skips, and secrets-gate exits 2 so the run
+# cannot report green for a check that did not run.
+#
+# Invoke `npm run e2e:p0-1`, never pnpm. The release-bootstrap guard
+# rejects pnpm runtime invocations in workflows.
+
+on:
+  schedule:
+    # 14:00 UTC daily — after the advisor gate's Monday slot, before the
+    # 15:30 UTC quality reconcile. The gate is live only once this file
+    # exists on the default branch.
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+  pull_request:
+    branches: [main, sandbox]
+    paths:
+      - ".github/workflows/p0-1-private-buckets.yml"
+      - "scripts/e2e/p0-1-private-buckets-acceptance.mjs"
+      - "scripts/__tests__/p0-1-private-buckets-workflow.test.ts"
+      - "supabase/migrations/20260717000000_p0_1_private_evidence_sketch_buckets.sql"
+      - "lib/storage/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-1-private-buckets-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets-gate:
+    name: Secrets presence (skip is not a pass)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      provisioned: ${{ steps.check.outputs.provisioned }}
+    steps:
+      - name: Check private-buckets secrets presence
+        id: check
+        env:
+          # Names only in the log. Values stay in the runner env; the shell
+          # tests presence and never echoes either variable.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # Names only, never values -- this string is printed to a public log.
+          MISSING=""
+          [ -n "${SUPABASE_URL:-}" ]                || MISSING="$MISSING SUPABASE_URL"
+          [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]   || MISSING="$MISSING SUPABASE_SERVICE_ROLE_KEY"
+
+          if [ -z "$MISSING" ]; then
+            echo "provisioned=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=P0-1 private-buckets secrets present::Acceptance job will run against the live project."
+          else
+            echo "provisioned=false" >> "$GITHUB_OUTPUT"
+            echo "::error title=P0-1 private-buckets gate SKIPPED — NOT a pass::The gate did not run. Repository secrets not set:${MISSING}."
+            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+              {
+                echo "## P0-1 private-buckets gate SKIPPED — NOT a pass"
+                echo ""
+                echo "The acceptance job did not run. Repository secrets not set:${MISSING}."
+                echo "This run is red because an unrun gate is not green."
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 2
+          fi
+
+  acceptance:
+    name: Private-buckets acceptance
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.provisioned == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+        env:
+          HUSKY: "0"
+          PUPPETEER_SKIP_DOWNLOAD: "1"
+
+      - name: Run P0-1 private-buckets acceptance
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set +e
+          npm run e2e:p0-1
+          code=$?
+          set -e
+          case "$code" in
+            0)
+              echo "::notice title=P0-1 private-buckets PASSED::Anonymous raw object URLs refused; authorised signed URLs still load the bytes."
+              exit 0
+              ;;
+            1)
+              echo "::error title=P0-1 private-buckets FAILED::An assertion failed. The buckets are not proven private, or signed URLs do not load."
+              exit 1
+              ;;
+            *)
+              echo "::error title=P0-1 private-buckets could NOT RUN::Script exited $code. Not a pass."
+              exit "$code"
+              ;;
+          esac
