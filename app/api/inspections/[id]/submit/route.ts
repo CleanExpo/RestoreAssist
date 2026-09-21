@@ -25,7 +25,20 @@ import { validateSubmissionPayload } from "@/lib/services/inspection/validate-su
 import { apiError, fromException } from "@/lib/api-errors";
 import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
+import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
+
+/** Same normalised room match used when classifying an area's moisture readings. */
+function moistureReadingsForArea<T extends { location: string }>(
+  readings: T[],
+  roomZoneId: string,
+): T[] {
+  const zone = roomZoneId.toLowerCase();
+  return readings.filter(
+    (r) =>
+      r.location === roomZoneId || r.location.toLowerCase().includes(zone),
+  );
+}
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -84,6 +97,7 @@ export async function POST(
             select: {
               id: true,
               roomZoneId: true,
+              affectedAreaSqm: true,
               affectedSquareFootage: true,
               waterSource: true,
               timeSinceLoss: true,
@@ -450,10 +464,9 @@ async function processInspectionComplete(
 
   for (const area of inspection.affectedAreas) {
     // Get relevant moisture readings for this area
-    const relevantReadings = inspection.moistureReadings.filter(
-      (r: any) =>
-        r.location === area.roomZoneId ||
-        r.location.toLowerCase().includes(area.roomZoneId.toLowerCase()),
+    const relevantReadings = moistureReadingsForArea(
+      inspection.moistureReadings,
+      area.roomZoneId,
     );
 
     // Determine classification
@@ -555,16 +568,19 @@ async function processInspectionComplete(
     category: primaryCategory,
     class: primaryClass,
     waterSource: inspection.affectedAreas[0]?.waterSource || "Clean Water",
-    affectedAreas: inspection.affectedAreas.map((area: any) => ({
-      roomZoneId: area.roomZoneId,
-      affectedSquareFootage: area.affectedSquareFootage,
-      surfaceType: inspection.moistureReadings.find(
-        (r: any) => r.location === area.roomZoneId,
-      )?.surfaceType,
-      moistureLevel: inspection.moistureReadings.find(
-        (r: any) => r.location === area.roomZoneId,
-      )?.moistureLevel,
-    })),
+    affectedAreas: inspection.affectedAreas.map((area: any) => {
+      const matchedReading = moistureReadingsForArea(
+        inspection.moistureReadings,
+        area.roomZoneId,
+      )[0];
+      return {
+        roomZoneId: area.roomZoneId,
+        // determineScopeItems treats this field as m² (Australian metric).
+        affectedSquareFootage: resolveAreaSqm(area),
+        surfaceType: matchedReading?.surfaceType,
+        moistureLevel: matchedReading?.moistureLevel,
+      };
+    }),
     buildingCodeRequirements: buildingCodeRequirements || undefined,
     buildingCodeTriggers: buildingCodeTriggers || undefined,
     environmentalData: inspection.environmentalData,
