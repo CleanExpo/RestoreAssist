@@ -30,6 +30,9 @@ describe("client portal help pages", () => {
     const video = document.querySelector("video");
     expect(video).not.toBeNull();
     expect(video?.getAttribute("src")).toBe(CLIENT_PORTAL_VIDEOS[0].url);
+    expect(video?.getAttribute("aria-label")).toMatch(/captions unavailable/i);
+    const captionTrack = video?.querySelector('track[kind="captions"]');
+    expect(captionTrack).not.toBeNull();
     expect(hrefs().some((href) => href.startsWith("/dashboard"))).toBe(false);
     expect(hrefs()).toEqual(
       expect.arrayContaining([

@@ -21,8 +21,14 @@ export function PortalHelpMedia({
               controls
               preload="metadata"
               src={video.url}
+              title={video.title}
+              aria-label={`${video.title} — captions unavailable`}
               className="w-full rounded-lg border border-brand-slate/20 bg-black"
             >
+              <track kind="captions" srcLang="en-AU" label="Captions unavailable" />
+              <p className="sr-only">
+                Video: {video.title}. A captioned version is not available.
+              </p>
               <a href={video.url} rel="noopener noreferrer">
                 Open {video.title}
               </a>
