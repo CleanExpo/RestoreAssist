@@ -9,12 +9,20 @@
  *
  * Prefer the longest / most specific alias. When two different materials
  * still match the same words, surface confirmation instead of guessing.
+ * When a generic term like "tiles" matches and a distinctive word of an
+ * asbestos-possible material (vinyl, lino, linoleum, asbestos, fibro) is
+ * in the same clause, resolve to that material or surface both — never
+ * silently choose ceramic-tile.
  * When more than one water category is mentioned, return no category and
  * surface confirmation — a negated or corrected category must never yield
- * a lower category.
+ * a lower category. Spoken-word categories ("category three") count.
  */
 
-import { ANZ_MATERIALS, type AnzMaterial } from "@/lib/anz/materials";
+import {
+  ANZ_MATERIALS,
+  getMaterial,
+  type AnzMaterial,
+} from "@/lib/anz/materials";
 import { type WaterCategory } from "@/lib/anz/water-category";
 
 export type VoiceConfirmationKind = "material" | "waterCategory" | "dimension";
@@ -147,6 +155,83 @@ function isContainedIn(inner: PhraseMatch, outer: PhraseMatch): boolean {
   );
 }
 
+const ACM_CUE_MATERIAL_IDS: Array<{ pattern: RegExp; materialId: string }> = [
+  { pattern: /\bvinyl\b/i, materialId: "vinyl-tiles" },
+  { pattern: /\blino\b/i, materialId: "vinyl-tiles" },
+  { pattern: /\blinoleum\b/i, materialId: "vinyl-tiles" },
+  { pattern: /\basbestos\b/i, materialId: "fibro" },
+  { pattern: /\bfibro\b/i, materialId: "fibro" },
+];
+
+const CLAUSE_BOUNDARY = /[,.;:!?]/;
+
+function clauseContaining(
+  text: string,
+  start: number,
+  end: number,
+): { text: string; start: number; end: number } {
+  let from = 0;
+  for (let i = start - 1; i >= 0; i--) {
+    if (CLAUSE_BOUNDARY.test(text[i] ?? "")) {
+      from = i + 1;
+      break;
+    }
+  }
+  let to = text.length;
+  for (let i = end; i < text.length; i++) {
+    if (CLAUSE_BOUNDARY.test(text[i] ?? "")) {
+      to = i;
+      break;
+    }
+  }
+  while (from < to && /\s/.test(text[from] ?? "")) from += 1;
+  while (to > from && /\s/.test(text[to - 1] ?? "")) to -= 1;
+  return { text: text.slice(from, to), start: from, end: to };
+}
+
+function acmMaterialsInClause(clause: string): AnzMaterial[] {
+  const ids = new Set<string>();
+  for (const cue of ACM_CUE_MATERIAL_IDS) {
+    if (cue.pattern.test(clause)) ids.add(cue.materialId);
+  }
+  return [...ids]
+    .map((id) => getMaterial(id))
+    .filter((material): material is AnzMaterial => material != null);
+}
+
+/**
+ * Generic "tile(s)" must not win uncontested when the same clause names a
+ * distinctive word of an asbestos-possible material.
+ */
+function applyAcmCuesToCeramicMatches(
+  transcript: string,
+  primary: PhraseMatch[],
+): { matches: PhraseMatch[]; ambiguousTerm?: string } {
+  const adjusted: PhraseMatch[] = [];
+  for (const match of primary) {
+    if (match.material.id !== "ceramic-tile") {
+      adjusted.push(match);
+      continue;
+    }
+    const clause = clauseContaining(transcript, match.start, match.end);
+    const cued = acmMaterialsInClause(clause.text);
+    if (cued.length === 0) {
+      adjusted.push(match);
+      continue;
+    }
+    if (cued.length > 1) {
+      return { matches: [], ambiguousTerm: clause.text };
+    }
+    const acm = cued[0];
+    if (!acm) {
+      adjusted.push(match);
+      continue;
+    }
+    adjusted.push({ ...match, material: acm });
+  }
+  return { matches: adjusted };
+}
+
 interface MaterialResolution {
   material?: AnzMaterial;
   ambiguousTerm?: string;
@@ -164,15 +249,21 @@ function resolveMaterial(transcript: string): MaterialResolution {
     primary.push(match);
   }
 
-  const conflict = primary.find((a) =>
-    primary.some(
+  const withCues = applyAcmCuesToCeramicMatches(transcript, primary);
+  if (withCues.ambiguousTerm) {
+    return { ambiguousTerm: withCues.ambiguousTerm };
+  }
+  const resolvedMatches = withCues.matches;
+
+  const conflict = resolvedMatches.find((a) =>
+    resolvedMatches.some(
       (b) =>
         a !== b && a.material.id !== b.material.id && spansOverlap(a, b),
     ),
   );
   if (conflict) {
-    const conflicting = primary.filter((a) =>
-      primary.some(
+    const conflicting = resolvedMatches.filter((a) =>
+      resolvedMatches.some(
         (b) =>
           a !== b && a.material.id !== b.material.id && spansOverlap(a, b),
       ),
@@ -182,10 +273,19 @@ function resolveMaterial(transcript: string): MaterialResolution {
     return { ambiguousTerm: transcript.slice(start, end) };
   }
 
-  return { material: primary[0]?.material };
+  return { material: resolvedMatches[0]?.material };
 }
 
-const CATEGORY_MENTION_RE = /\b(?:category|cat)\s*_?\s*(\d+)\b/gi;
+const CATEGORY_MENTION_RE =
+  /\b(?:category|cat)\s*_?\s*(\d+|one|two|three)\b/gi;
+
+function tokenToWaterCategory(token: string): WaterCategory | undefined {
+  const t = token.toLowerCase();
+  if (t === "1" || t === "one") return "cat1";
+  if (t === "2" || t === "two") return "cat2";
+  if (t === "3" || t === "three") return "cat3";
+  return undefined;
+}
 
 const NEGATION_BEFORE =
   /(?:\b(?:not|never|no)\b|\b(?:is|was|are|were)n'?t\b)(?:\s+\w+){0,3}\s*$/i;
@@ -205,11 +305,10 @@ function findWaterCategory(
   }> = [];
 
   for (const match of transcript.matchAll(CATEGORY_MENTION_RE)) {
-    const digit = match[1] ?? "";
+    const token = match[1] ?? "";
     const raw = match[0] ?? "";
     const start = match.index ?? 0;
-    const category: WaterCategory | undefined =
-      digit === "1" ? "cat1" : digit === "2" ? "cat2" : digit === "3" ? "cat3" : undefined;
+    const category = tokenToWaterCategory(token);
     mentions.push({
       raw,
       category,
@@ -298,6 +397,12 @@ function mentionMatchesCatalog(mention: string): boolean {
   return CATALOG_TERMS.some((term) => term.phrase.toLowerCase() === lower);
 }
 
+function isWaterCategoryMention(mention: string): boolean {
+  return /^(?:category|cat)\s*_?\s*(?:\d+|one|two|three)\b/i.test(
+    mention.trim(),
+  );
+}
+
 /**
  * Phrases the speaker offered as a material ("walls are Wonderboard") that
  * are not in the ANZ catalog. Surfaced for confirmation; never mapped.
@@ -310,6 +415,7 @@ function unmatchedMaterialMentions(transcript: string): string[] {
   while ((match = re.exec(transcript)) !== null) {
     const mention = normaliseMention(match[1] ?? "");
     if (!mention) continue;
+    if (isWaterCategoryMention(mention)) continue;
     if (mentionMatchesCatalog(mention)) continue;
     if (resolveMaterial(mention).material) continue;
     mentions.push(mention);
