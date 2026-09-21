@@ -183,10 +183,10 @@ jobs:
       - name: Spec-docs layout guard
         run: npm run check:spec-docs
 
-      # UTF-8 encoding guard (RA-6938). Fails if CLAUDE.md, AGENTS.md, or any
-      # .claude/rules/*.md is committed as invalid-UTF-8 "data" (mojibake). The
-      # primary agent brief was silently corrupted from the Commands section
-      # onward on main; this cheap check stops that trust-damage class before merge.
+      # UTF-8 encoding guard (RA-6938 / RA-7459). Fails if CLAUDE.md, AGENTS.md,
+      # or any .claude/rules/*.md is invalid UTF-8, carries a leading BOM, or
+      # contains CP1252-through-UTF-8 mojibake (valid UTF-8 such as â€”). Scope
+      # stays instruction files only — do not widen here.
       - name: Encoding guard
         run: npm run check:encoding
 
