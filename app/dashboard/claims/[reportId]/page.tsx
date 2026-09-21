@@ -12,6 +12,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertReportTenancy } from "@/lib/auth/assert-tenancy";
 import {
   legalKeysFrom,
   type TransitionKey,
@@ -88,6 +89,13 @@ export default async function ClaimDetailPage({ params }: Props) {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
+  // Tenancy (RA-7628), checked BEFORE the claim is read: the report owner, an
+  // ADMIN — per the database — of the owner's organisation, or an allowlisted
+  // platform-support operator. The session's `role: "ADMIN"` is not enough on
+  // its own: every firm that self-registers is ADMIN of its own account.
+  const tenancy = await assertReportTenancy(session, reportId);
+  if (!tenancy.ok) redirect("/dashboard/claims");
+
   const cp = await prisma.claimProgress.findUnique({
     where: { reportId },
     select: {
@@ -118,12 +126,6 @@ export default async function ClaimDetailPage({ params }: Props) {
   if (!cp) notFound();
 
   const role = (session.user as { role?: string }).role ?? "USER";
-  const isAdmin = role === "ADMIN";
-
-  // Tenancy: report owner OR admin can view.
-  if (cp.report.userId !== userId && !isAdmin) {
-    redirect("/dashboard/claims");
-  }
 
   // Resolve effective progress role for this user. Reads
   // isJuniorTechnician fresh from the DB (RA-1443 ring-fence).
