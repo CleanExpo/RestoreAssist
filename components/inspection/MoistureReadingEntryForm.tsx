@@ -25,19 +25,22 @@ import {
   isEnvironmentalReading,
   isMoistureReading,
 } from "@/hooks/use-bluetooth-meter";
+import { queueWrite } from "@/lib/nir-sync-queue";
+
+type MoistureReadingSuccess = {
+  id: string;
+  location: string;
+  surfaceType: string;
+  moistureLevel: number;
+  depth: string;
+  notes: string | null;
+  photoUrl: string | null;
+  recordedAt: string;
+};
 
 interface MoistureReadingEntryFormProps {
   inspectionId: string;
-  onSuccess: (reading: {
-    id: string;
-    location: string;
-    surfaceType: string;
-    moistureLevel: number;
-    depth: string;
-    notes: string | null;
-    photoUrl: string | null;
-    recordedAt: string;
-  }) => void;
+  onSuccess: (reading: MoistureReadingSuccess) => void;
   onCancel?: () => void;
   className?: string;
 }
@@ -57,6 +60,7 @@ export function MoistureReadingEntryForm({
   const [moistureLevel, setMoistureLevel] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [queuedLocally, setQueuedLocally] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // RA-1611: BLE meter integration — "ble" when value was pre-filled from a paired meter
   const [source, setSource] = useState<"manual" | "ble">("manual");
@@ -71,6 +75,7 @@ export function MoistureReadingEntryForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setQueuedLocally(false);
 
     if (!location.trim()) {
       setError("Location is required");
@@ -86,33 +91,107 @@ export function MoistureReadingEntryForm({
     }
 
     setSubmitting(true);
-    try {
-      const res = await fetch(`/api/inspections/${inspectionId}/moisture`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: location.trim(),
-          surfaceType: material,
-          moistureLevel: level,
-          depth,
-          notes: notes.trim() || null,
-          source,
-        }),
-      });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to save reading");
-      }
+    const payload = {
+      location: location.trim(),
+      surfaceType: material,
+      moistureLevel: level,
+      depth,
+      notes: notes.trim() || null,
+      source,
+    };
+    const endpoint = `/api/inspections/${inspectionId}/moisture`;
+    const mutationId =
+      globalThis.crypto?.randomUUID?.() ??
+      `nir-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-      const reading = await res.json();
+    const finishSuccess = (reading: MoistureReadingSuccess) => {
       onSuccess(reading);
-
-      // Reset form
       setLocation("");
       setMoistureLevel("");
       setNotes("");
       setSource("manual");
+    };
+
+    const localReading = (id: string) => ({
+      id,
+      location: payload.location,
+      surfaceType: payload.surfaceType,
+      moistureLevel: payload.moistureLevel,
+      depth: payload.depth,
+      notes: payload.notes,
+      photoUrl: null as string | null,
+      recordedAt: new Date().toISOString(),
+    });
+
+    // RA-7602 — same fallback as QuickMoistureEntry / RA-7568: the RA-1124
+    // IndexedDB queue drains on reconnect. mutationId is the Idempotency-Key
+    // on both the live POST and the queued replay so a lost response cannot
+    // double-insert (moisture route wraps withIdempotency, RA-1266).
+    const queueForLater = async () => {
+      await queueWrite({
+        id: mutationId,
+        type: "moisture-reading",
+        endpoint,
+        method: "POST",
+        payload,
+        inspectionId,
+      });
+      setQueuedLocally(true);
+      finishSuccess(localReading(mutationId));
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await queueForLater();
+        return;
+      }
+
+      let res: Response;
+      try {
+        res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": mutationId,
+            "X-RestoreAssist-Mutation-Id": mutationId,
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        if (err instanceof TypeError) {
+          await queueForLater();
+          return;
+        }
+        throw err;
+      }
+
+      if (res.status >= 500) {
+        await queueForLater();
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(
+          (data as { error?: string }).error || "Failed to save reading",
+        );
+      }
+
+      const data = (await res.json().catch(() => ({}))) as {
+        moistureReading?: Partial<MoistureReadingSuccess>;
+      } & Partial<MoistureReadingSuccess>;
+      const record = data.moistureReading ?? data;
+      finishSuccess({
+        ...localReading(record.id ?? mutationId),
+        location: record.location ?? payload.location,
+        surfaceType: record.surfaceType ?? payload.surfaceType,
+        moistureLevel: record.moistureLevel ?? payload.moistureLevel,
+        depth: record.depth ?? payload.depth,
+        notes: record.notes ?? payload.notes,
+        photoUrl: record.photoUrl ?? null,
+        recordedAt: record.recordedAt ?? new Date().toISOString(),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save reading");
     } finally {
@@ -374,6 +453,15 @@ export function MoistureReadingEntryForm({
         />
       </div>
 
+      {queuedLocally && (
+        <p
+          role="status"
+          className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1"
+        >
+          <CheckCircle2 size={12} />
+          Saved on this device — will sync
+        </p>
+      )}
       {/* Error — role="alert" ensures screen readers announce on insertion without focus change */}
       {error && (
         <p
