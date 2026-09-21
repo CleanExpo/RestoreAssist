@@ -29,14 +29,10 @@ import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
 
 /** Same normalised room match used when classifying an area's moisture readings. */
-function moistureReadingsForArea<T extends { location: string }>(
-  readings: T[],
-  roomZoneId: string,
-): T[] {
-  const zone = roomZoneId.toLowerCase();
-  return readings.filter(
-    (r) =>
-      r.location === roomZoneId || r.location.toLowerCase().includes(zone),
+function readingMatchesArea(location: string, roomZoneId: string): boolean {
+  return (
+    location === roomZoneId ||
+    location.toLowerCase().includes(roomZoneId.toLowerCase())
   );
 }
 
@@ -464,9 +460,8 @@ async function processInspectionComplete(
 
   for (const area of inspection.affectedAreas) {
     // Get relevant moisture readings for this area
-    const relevantReadings = moistureReadingsForArea(
-      inspection.moistureReadings,
-      area.roomZoneId,
+    const relevantReadings = inspection.moistureReadings.filter((r: any) =>
+      readingMatchesArea(r.location, area.roomZoneId),
     );
 
     // Determine classification
@@ -569,10 +564,9 @@ async function processInspectionComplete(
     class: primaryClass,
     waterSource: inspection.affectedAreas[0]?.waterSource || "Clean Water",
     affectedAreas: inspection.affectedAreas.map((area: any) => {
-      const matchedReading = moistureReadingsForArea(
-        inspection.moistureReadings,
-        area.roomZoneId,
-      )[0];
+      const matchedReading = inspection.moistureReadings.find((r: any) =>
+        readingMatchesArea(r.location, area.roomZoneId),
+      );
       return {
         roomZoneId: area.roomZoneId,
         // determineScopeItems treats this field as m² (Australian metric).
