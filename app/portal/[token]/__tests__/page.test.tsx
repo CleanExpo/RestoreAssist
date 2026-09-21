@@ -43,7 +43,9 @@ vi.mock("@/components/portal/PortalContentHub", () => ({
 import { verifyPortalToken } from "@/lib/portal-token";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
+import { MAX_PORTAL_AFFECTED_AREAS } from "@/lib/portal/portal-affected-areas";
 import ClientPortalPage from "../page";
+import * as portalPageModule from "../page";
 
 const mVerify = verifyPortalToken as unknown as ReturnType<typeof vi.fn>;
 const mLookup = lookupPortalAccount as unknown as ReturnType<typeof vi.fn>;
@@ -144,5 +146,108 @@ describe("ClientPortalPage — no raw moisture exposure (RA-6995)", () => {
     expect(document.body.textContent).not.toMatch(/\bCat(?:egory)?\s*2\b/i);
     expect(document.body.textContent).not.toMatch(/\bClass\s*2\b/i);
     expect(document.body.textContent).not.toMatch(/\bm²\b/i);
+  });
+});
+
+describe("ClientPortalPage — affected areas from the job (RA-7573)", () => {
+  // Walkthrough C2: a job with N AffectedArea rows must show N areas, and the
+  // section must stay hidden when the job has none. Status is a client fetch
+  // (force-dynamic updates route); this page is the one that renders the list.
+  it("opts the token page out of the Full Route Cache", () => {
+    expect(
+      (portalPageModule as { dynamic?: string }).dynamic,
+    ).toBe("force-dynamic");
+  });
+
+  it("loads affected areas with the same bounded query the public portal API uses", async () => {
+    await ClientPortalPage({ params });
+    expect(p.inspection.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          affectedAreas: expect.objectContaining({
+            select: { id: true, roomZoneId: true },
+            orderBy: { createdAt: "asc" },
+            take: MAX_PORTAL_AFFECTED_AREAS,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("renders one list item per affected area the query returned", async () => {
+    p.inspection.findUnique.mockResolvedValueOnce({
+      id: "insp_1",
+      inspectionNumber: "INSP-001",
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+      propertyAddress: "12 Test St, Brisbane",
+      technicianName: "Alex Tech",
+      user: { organization: null },
+      affectedAreas: [
+        { id: "area_1", roomZoneId: "Kitchen" },
+        { id: "area_2", roomZoneId: "Hallway" },
+      ],
+      scopeItems: [{ id: "scope_1" }],
+      report: { status: "DRAFT", id: "r_1" },
+    });
+
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(
+      screen.getByRole("heading", { name: /Affected Areas/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Kitchen")).toBeInTheDocument();
+    expect(screen.getByText("Hallway")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Included in the restoration plan"),
+    ).toHaveLength(2);
+  });
+
+  it("hides the Affected Areas section when the job has none", async () => {
+    p.inspection.findUnique.mockResolvedValueOnce({
+      id: "insp_1",
+      inspectionNumber: "INSP-001",
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+      propertyAddress: "12 Test St, Brisbane",
+      technicianName: "Alex Tech",
+      user: { organization: null },
+      affectedAreas: [],
+      scopeItems: [{ id: "scope_1" }],
+      report: { status: "DRAFT", id: "r_1" },
+    });
+
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
+    expect(screen.getByText("Scope of Works")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /Affected Areas/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not invent a room name when roomZoneId is blank", async () => {
+    p.inspection.findUnique.mockResolvedValueOnce({
+      id: "insp_1",
+      inspectionNumber: "INSP-001",
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+      propertyAddress: "12 Test St, Brisbane",
+      technicianName: "Alex Tech",
+      user: { organization: null },
+      affectedAreas: [
+        { id: "area_blank", roomZoneId: "   " },
+        { id: "area_named", roomZoneId: "Laundry" },
+      ],
+      scopeItems: [{ id: "scope_1" }],
+      report: { status: "DRAFT", id: "r_1" },
+    });
+
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(screen.getByText("Laundry")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Included in the restoration plan"),
+    ).toHaveLength(1);
   });
 });

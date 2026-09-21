@@ -3,8 +3,11 @@ import { verifyPortalToken } from "@/lib/portal-token";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  MAX_PORTAL_AFFECTED_AREAS,
+  PORTAL_AFFECTED_AREAS_INCLUDE,
+} from "@/lib/portal/portal-affected-areas";
 
-const MAX_PORTAL_AFFECTED_AREAS = 100;
 const MAX_PORTAL_SCOPE_ITEMS = 200;
 
 export async function GET(
@@ -42,14 +45,7 @@ export async function GET(
       prisma.inspection.findUnique({
         where: { id: inspectionId },
         include: {
-          affectedAreas: {
-            select: {
-              id: true,
-              roomZoneId: true,
-            },
-            orderBy: { createdAt: "asc" },
-            take: MAX_PORTAL_AFFECTED_AREAS,
-          },
+          affectedAreas: PORTAL_AFFECTED_AREAS_INCLUDE,
           scopeItems: {
             where: { isSelected: true },
             select: {
