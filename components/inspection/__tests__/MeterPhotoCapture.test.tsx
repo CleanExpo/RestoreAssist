@@ -19,6 +19,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   MeterPhotoCapture,
+  environmentalReadingNotes,
   meterReadingToExtraction,
   visionErrorMessage,
 } from "../MeterPhotoCapture";
@@ -178,14 +179,14 @@ describe("MeterPhotoCapture — moisture photo to logged reading", () => {
     ).toBeInTheDocument();
   });
 
-  it("says so plainly for modes that have no extraction endpoint", async () => {
+  it("does not fire vision OCR for environmental mode — presents the confirm form for manual entry", async () => {
     render(<MeterPhotoCapture inspectionId="insp_1" mode="environmental" />);
     await attachMeterPhoto();
     clickRead();
 
     await waitFor(() => {
       expect(
-        screen.getByText(/available for moisture meters only/i),
+        screen.getByText(/Confirm Environmental Reading/i),
       ).toBeInTheDocument();
     });
     // Critically: it must not fire a request at a route that does not exist.
@@ -223,6 +224,23 @@ describe("meterReadingToExtraction", () => {
       expect(extraction.value).toBeNull();
       expect(Object.values(extraction)).not.toContain(0);
     }
+  });
+});
+
+describe("environmentalReadingNotes", () => {
+  it("does not claim OCR or interpolate null on the manual path", () => {
+    for (const raw of [null, undefined, "", "   "]) {
+      const notes = environmentalReadingNotes(raw);
+      expect(notes).toBe("Entered manually from thermo-hygrometer photo");
+      expect(notes).not.toMatch(/OCR/i);
+      expect(notes).not.toContain("null");
+    }
+  });
+
+  it("keeps OCR provenance when the meter display was read", () => {
+    expect(environmentalReadingNotes("22.4°C 55% RH")).toBe(
+      'Captured via meter photo OCR. Meter display read: "22.4°C 55% RH"',
+    );
   });
 });
 

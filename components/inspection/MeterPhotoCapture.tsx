@@ -82,6 +82,27 @@ export function meterReadingToExtraction(
   };
 }
 
+/**
+ * Provenance on the environmental POST. Manual entry (current path —
+ * thermo-hygrometer OCR is not wired) must not claim a meter-photo OCR
+ * read or interpolate a literal `null`.
+ */
+export function environmentalReadingNotes(
+  rawText: string | null | undefined,
+): string {
+  const ocrText = rawText?.trim();
+  if (ocrText) {
+    return `Captured via meter photo OCR. Meter display read: "${ocrText}"`;
+  }
+  return "Entered manually from thermo-hygrometer photo";
+}
+
+function parseOptionalNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 /** Turn the route's bare error codes into something a tech on site can act on. */
 export function visionErrorMessage(status: number, code: string | null) {
   switch (code) {
@@ -446,7 +467,7 @@ function EnvironmentalConfirm({
   extraction: Extract<OcrExtraction, { type: "environmental" }>;
   inspectionId: string;
   file: File | null;
-  onSaved: () => void;
+  onSaved: (opts?: { queuedLocally?: boolean }) => void;
   onCancel: () => void;
 }) {
   const [temp, setTemp] = useState(
@@ -465,47 +486,126 @@ function EnvironmentalConfirm({
       : "",
   );
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
-    const tempNum = temp ? parseFloat(temp) : undefined;
-    const rhNum = rh ? parseFloat(rh) : undefined;
+    const tempNum = parseOptionalNumber(temp);
+    const rhNum = parseOptionalNumber(rh);
+    const dewNum = parseOptionalNumber(dew);
 
-    if (tempNum === undefined && rhNum === undefined) {
-      toast.error("At least temperature or humidity must be entered");
+    // EnvironmentalData requires both ambientTemperature and humidityLevel.
+    // Queueing a partial or out-of-range payload toasts local-sync then 400s
+    // forever on drain (Bugbot RA-7605). Match the inspection-page form.
+    if (tempNum === undefined || rhNum === undefined) {
+      const message = "Enter temperature and humidity before saving";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+    if (tempNum < -20 || tempNum > 55) {
+      const message = "Temperature must be between -20°C and 55°C";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+    if (rhNum < 0 || rhNum > 100) {
+      const message = "Humidity must be between 0% and 100%";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     setSaving(true);
+    setError(null);
+
+    const payload = {
+      ambientTemperature: tempNum,
+      humidityLevel: rhNum,
+      dewPoint: dewNum,
+      notes: environmentalReadingNotes(extraction.rawText),
+    };
+    const endpoint = `/api/inspections/${inspectionId}/environmental`;
+    const mutationId =
+      globalThis.crypto?.randomUUID?.() ??
+      `nir-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+    // RA-7605 — same fallback as MoistureConfirm / RA-7604: the RA-1124
+    // IndexedDB queue drains on reconnect. mutationId is the
+    // Idempotency-Key on both the live POST and the queued replay so a
+    // lost response cannot double-insert (environmental route wraps
+    // withIdempotency, RA-1266).
+    const queueForLater = async () => {
+      await queueWrite({
+        id: mutationId,
+        type: "environmental-data",
+        endpoint,
+        method: "POST",
+        payload,
+        inspectionId,
+      });
+      void fireHaptic("success");
+      toast.success("Saved on this device — will sync");
+      onSaved({ queuedLocally: true });
+    };
+
     try {
-      const res = await fetch(
-        `/api/inspections/${inspectionId}/environmental`,
-        {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await queueForLater();
+        return;
+      }
+
+      let res: Response;
+      try {
+        res = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ambientTemperature: tempNum,
-            humidityLevel: rhNum,
-            dewPoint: dew ? parseFloat(dew) : undefined,
-            notes: `Captured via meter photo OCR. Meter display read: "${extraction.rawText}"`,
-          }),
-        },
-      );
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": mutationId,
+            "X-RestoreAssist-Mutation-Id": mutationId,
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        if (err instanceof TypeError) {
+          await queueForLater();
+          return;
+        }
+        throw err;
+      }
+
+      if (res.status >= 500) {
+        await queueForLater();
+        return;
+      }
 
       if (res.ok) {
         await uploadMeterPhoto(
           inspectionId,
           file,
           "Ambient conditions",
-          `Thermo-hygrometer OCR — ${temp || "?"}°C / ${rh || "?"}% RH`,
+          extraction.rawText?.trim()
+            ? `Thermo-hygrometer OCR — ${temp}°C / ${rh}% RH`
+            : `Thermo-hygrometer — ${temp}°C / ${rh}% RH`,
         );
         void fireHaptic("success");
         toast.success("Environmental data applied to inspection");
         onSaved();
       } else {
         void fireHaptic("warning");
-        const data = await res.json();
-        toast.error(data.error ?? "Failed to save environmental data");
+        const data = await res.json().catch(() => ({}));
+        const message =
+          apiErrorMessage(data) ?? "Failed to save environmental data";
+        setError(message);
+        toast.error(message);
       }
+    } catch (err) {
+      void fireHaptic("warning");
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to save environmental data";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -520,12 +620,18 @@ function EnvironmentalConfirm({
         <ConfidenceBadge confidence={extraction.confidence ?? "medium"} />
       </div>
 
-      <p className="text-xs text-neutral-400">
-        Meter display:{" "}
-        <code className="bg-neutral-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-neutral-600 dark:text-slate-300">
-          {extraction.rawText || "(unable to read)"}
-        </code>
-      </p>
+      {extraction.rawText?.trim() ? (
+        <p className="text-xs text-neutral-400">
+          Meter display:{" "}
+          <code className="bg-neutral-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-neutral-600 dark:text-slate-300">
+            {extraction.rawText}
+          </code>
+        </p>
+      ) : (
+        <p className="text-xs text-neutral-400">
+          Enter the temperature and humidity from the meter display.
+        </p>
+      )}
 
       <div className="grid grid-cols-3 gap-3">
         <Field
@@ -534,6 +640,7 @@ function EnvironmentalConfirm({
           onChange={setTemp}
           type="number"
           step="0.1"
+          required
         />
         <Field
           label="RH (%)"
@@ -543,6 +650,7 @@ function EnvironmentalConfirm({
           step="0.1"
           min="0"
           max="100"
+          required
         />
         <Field
           label="Dew Point (°C)"
@@ -552,6 +660,12 @@ function EnvironmentalConfirm({
           step="0.1"
         />
       </div>
+
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button
@@ -779,15 +893,27 @@ export function MeterPhotoCapture({
    * Send the photo to the BYOK vision route and turn the result into the
    * extraction the confirm form renders.
    *
-   * Only `moisture` is wired: POST /api/vision/extract-reading is a
-   * moisture-meter extractor. The thermo-hygrometer and laser-measure modes
-   * have no extraction endpoint, so they say so plainly instead of firing at a
-   * route that does not exist — which is what this component did previously
-   * (it posted to /api/inspections/[id]/analyze-photo, which has never
-   * existed, so every "Read Meter Display" press 404'd).
+   * Moisture is wired to POST /api/vision/extract-reading. Thermo-hygrometer
+   * OCR is not — RA-7605 still needs EnvironmentalConfirm reachable so the
+   * tech can enter values (and the write can queue offline). Laser-measure
+   * stays a plain notice. Neither mode fires at a route that does not exist
+   * (the previous /api/inspections/[id]/analyze-photo 404).
    */
   const analyse = async () => {
     if (!file) return;
+
+    if (mode === "environmental") {
+      setError(null);
+      setExtraction({
+        type: "environmental",
+        temperatureCelsius: null,
+        relativeHumidityPercent: null,
+        dewPointCelsius: null,
+        rawText: null,
+        confidence: "medium",
+      });
+      return;
+    }
 
     if (mode !== "moisture") {
       setError(

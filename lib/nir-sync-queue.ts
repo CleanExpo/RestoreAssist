@@ -521,9 +521,13 @@ async function drainQueueImpl(): Promise<number> {
           .catch(() => null);
         if (serverPayload?.stale === true) {
           await removeEntry(db, entry.id);
-        } else if (entry.type === "moisture-reading") {
-          // RA-7568 — moisture 409 is withIdempotency in-flight / key
-          // reuse, not a sketch conflict. Retry; do not drop the reading.
+        } else if (
+          entry.type === "moisture-reading" ||
+          entry.type === "environmental-data"
+        ) {
+          // RA-7568 / RA-7605 — moisture and environmental 409 are
+          // withIdempotency in-flight / key reuse, not a sketch conflict.
+          // Retry; do not drop the reading.
           await incrementRetry(db, entry);
         } else {
           await storeConflict(db, entry, serverPayload);
