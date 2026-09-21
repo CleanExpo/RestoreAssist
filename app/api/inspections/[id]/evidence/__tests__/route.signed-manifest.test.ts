@@ -9,7 +9,7 @@
  * persists manifest + signature + keyId with signedManifestVerified=true,
  * and an unsigned submission can never present as signed.
  */
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import crypto, { createHash } from "crypto";
 
@@ -130,19 +130,11 @@ const UPLOAD_RESULT = {
   sizeBytes: FIXTURE_BYTES.length,
 };
 
-// Keep the verifier's clock deterministic while making the normal fixture
-// current-relative. This prevents a valid capture fixture from aging past the
-// production 30-day freshness bound as the calendar advances.
-const TEST_NOW = new Date("2026-08-25T12:00:00.000Z");
-const RECENT_CAPTURE_OFFSET_MS = 24 * 60 * 60 * 1000;
-
-beforeAll(() => {
-  vi.useFakeTimers({ now: TEST_NOW });
-});
-
-afterAll(() => {
-  vi.useRealTimers();
-});
+// RA-7436: pin the suite clock. The fixture capturedAt is 2026-07-25; the
+// product backdate window stays 30 days. Without a pin the calendar eventually
+// ages the fixture past that bound and the API correctly refuses a VERIFIED
+// stamp. Do not "fix" that by widening MAX_CAPTURE_BACKDATE_MS.
+const PINNED_NOW = new Date("2026-07-26T00:00:00.000Z");
 
 function manifestFixture(
   overrides: Partial<SignedEvidenceManifest> = {},
@@ -151,7 +143,7 @@ function manifestFixture(
     inspectionId: "i1",
     workflowStepId: "step1",
     evidenceClass: "PHOTO_DAMAGE",
-    capturedAt: new Date(Date.now() - RECENT_CAPTURE_OFFSET_MS).toISOString(),
+    capturedAt: "2026-07-25T00:00:00.000Z",
     gps: { lat: -33.8688, lng: 151.2093, accuracy: 5.2 },
     userId: "u1",
     deviceKeyId: KEY_ID,
@@ -205,6 +197,8 @@ function multipartRequest(form: FormData) {
 const params = { params: Promise.resolve({ id: "i1" }) };
 
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(PINNED_NOW);
   vi.clearAllMocks();
   idemStore.clear();
   mSession.mockResolvedValue({ user: { id: "u1", name: "Tech One" } });
@@ -220,6 +214,10 @@ beforeEach(() => {
   // is not a downgrade.
   mKeyFindFirst.mockResolvedValue(null);
   delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
