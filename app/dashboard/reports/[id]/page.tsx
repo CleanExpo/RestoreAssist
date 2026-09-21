@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   Share2,
   Check,
   Loader2,
+  Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import InspectionReportViewer from "@/components/InspectionReportViewer";
@@ -39,6 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { StartClaimProgressButton } from "@/components/claims/StartClaimProgressButton";
 
 export default function ReportDetailPage({
@@ -56,6 +58,10 @@ export default function ReportDetailPage({
   >("inspection");
   const [sharingInsurer, setSharingInsurer] = useState(false);
   const [insurerLinkCopied, setInsurerLinkCopied] = useState(false);
+  const [emailingClient, setEmailingClient] = useState(false);
+  // RA-7632: kept only while an attempt got no response at all, so a retry
+  // replays that attempt instead of emailing the client twice.
+  const emailClientIdempotencyKey = useRef<string | null>(null);
 
   // RA-5041 (UI follow-up): the weakness-check route is advisory-only —
   // this page is what turns an unresolved P0 finding into a hard stop.
@@ -182,6 +188,50 @@ export default function ReportDetailPage({
     }
   };
 
+  // RA-7632: emailing the finished report is the delivery record Close Job
+  // needs. The server enforces both conditions; this only explains the state.
+  const clientEmail: string = report.client?.email?.trim() ?? "";
+  const canEmailClient =
+    report.status === "COMPLETED" && clientEmail.length > 0;
+  const emailClientTitle =
+    report.status !== "COMPLETED"
+      ? "Complete the report before emailing it to the client"
+      : clientEmail
+        ? `Email this report to ${clientEmail}`
+        : "Add an email address to this report's client first";
+
+  const handleEmailClient = async () => {
+    if (!reportId) return;
+    const idempotencyKey =
+      emailClientIdempotencyKey.current ?? globalThis.crypto.randomUUID();
+    emailClientIdempotencyKey.current = idempotencyKey;
+    setEmailingClient(true);
+    try {
+      const res = await fetch(`/api/reports/${reportId}/send`, {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+      });
+      // A response arrived, so the outcome is known: the next click is a new
+      // request, not a retry of this one.
+      emailClientIdempotencyKey.current = null;
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(
+          apiErrorMessage(data) ?? "Could not email the report to the client",
+          { duration: 6000 },
+        );
+        return;
+      }
+      toast.success(data?.message ?? "Report emailed to the client", {
+        duration: 6000,
+      });
+    } catch {
+      toast.error("Could not reach the server. Please try again.");
+    } finally {
+      setEmailingClient(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -242,6 +292,21 @@ export default function ReportDetailPage({
             <Share2 size={16} />
           )}
           {insurerLinkCopied ? "Link Copied" : "Generate Insurer Link"}
+        </button>
+
+        {/* RA-7632: email the finished report to the client */}
+        <button
+          onClick={() => requestExport(handleEmailClient)}
+          disabled={!canEmailClient || emailingClient}
+          title={emailClientTitle}
+          className="flex items-center gap-2 px-3 py-2 bg-cyan-600 text-white rounded-lg font-medium hover:bg-cyan-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm"
+        >
+          {emailingClient ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Mail size={16} />
+          )}
+          Email report to client
         </button>
 
         <StartClaimProgressButton
