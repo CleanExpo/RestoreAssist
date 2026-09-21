@@ -53,7 +53,9 @@ export async function POST(
   if (csrf) return csrf;
 
   const account = await lookupPortalAccount(token);
-  if (!account) {
+  // RA-7634: uploads only through an INTERACTIVE (expiring) link. A no-expiry
+  // link is view-only and answers exactly like a dead one.
+  if (!account || account.accessMode !== "INTERACTIVE") {
     return apiError(request, {
       code: "NOT_FOUND",
       message: "invalid_or_expired_link",

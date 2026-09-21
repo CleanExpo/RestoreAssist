@@ -6,6 +6,11 @@
  * new token ONCE. Old token immediately stops working (replaced in the
  * same row).
  *
+ * RA-7634: rotation also clears the client's UNSIGNED signing tokens, in
+ * the same transaction. The old portal link disclosed them, so a leaked link
+ * must not keep signing power through them; signed rows are untouched. Staff
+ * re-send any signing request the client still needs.
+ *
  * Refuses to rotate a revoked account (409) — revoke is terminal.
  */
 
@@ -16,6 +21,7 @@ import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { clearClientSigningLinks } from "@/lib/portal/clear-client-signing-links";
 
 function mintToken(): string {
   return randomBytes(32).toString("base64url");
@@ -57,18 +63,22 @@ export async function POST(
   }
 
   try {
-    const updated = await prisma.clientPortalAccount.update({
-      where: ownershipWhere!,
-      data: {
-        token: mintToken(),
-        tokenRotatedAt: new Date(),
-      },
-      select: {
-        id: true,
-        clientId: true,
-        token: true,
-        tokenRotatedAt: true,
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const rotated = await tx.clientPortalAccount.update({
+        where: ownershipWhere!,
+        data: {
+          token: mintToken(),
+          tokenRotatedAt: new Date(),
+        },
+        select: {
+          id: true,
+          clientId: true,
+          token: true,
+          tokenRotatedAt: true,
+        },
+      });
+      await clearClientSigningLinks(tx, rotated.clientId);
+      return rotated;
     });
 
     return Response.json({ data: updated });

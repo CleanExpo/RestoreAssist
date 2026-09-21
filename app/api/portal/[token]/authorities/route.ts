@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
+import { PORTAL_SIGNATORY_ROLES } from "@/lib/portal/clear-client-signing-links";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { fromException } from "@/lib/api-errors";
 
@@ -17,7 +18,9 @@ import { fromException } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
 
-const CLIENT_ROLES = ["CLIENT", "PROPERTY_OWNER"] as const;
+// Shared with revoke/rotate (RA-7634): every role whose token this route
+// discloses is a role whose token dies with the portal link.
+const CLIENT_ROLES = PORTAL_SIGNATORY_ROLES;
 const OPEN_STATUSES = [
   "DRAFT",
   "PENDING_SIGNATURES",
@@ -41,7 +44,9 @@ export async function GET(
     if (limited) return limited;
 
     const account = await lookupPortalAccount(token);
-    if (!account) {
+    // RA-7634: signing tokens go only to an INTERACTIVE (expiring) link. A
+    // no-expiry link is view-only and answers exactly like a dead one.
+    if (!account || account.accessMode !== "INTERACTIVE") {
       return NextResponse.json(
         { error: "invalid_or_expired_link" },
         { status: 404 },

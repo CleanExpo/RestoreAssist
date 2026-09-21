@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { sendEmail } from "@/lib/email-send";
+import { getAppUrl } from "@/lib/app-url";
+import { escapeHtml } from "@/lib/email";
 
 /**
  * The "single button" (Client portal Phase 1).
@@ -88,20 +90,28 @@ export async function POST(
       ).token;
     }
 
-    const origin = request.headers.get("origin") ?? "";
-    const url = `${origin}/portal/${token}`;
+    // RA-7634: build the emailed link from the configured app URL, never from
+    // the request's Origin header — a forged Origin must not steer where the
+    // client's link points.
+    const url = `${getAppUrl()}/portal/${token}`;
+    const safeUrl = escapeHtml(url);
 
     const messageId = await sendEmail({
       to: client.email,
       subject: "Your RestoreAssist claim — view and respond",
       html: `<p>Your assessor has shared your claim with you.</p>
 <p>Use this secure link to view your claim, add photos, and approve the authorities required:</p>
-<p><a href="${url}">${url}</a></p>
+<p><a href="${safeUrl}">${safeUrl}</a></p>
 <p>If you didn’t expect this, you can ignore this email.</p>`,
     });
 
     return NextResponse.json({
-      data: { url, emailed: Boolean(messageId), messageId },
+      data: {
+        url,
+        emailed: Boolean(messageId),
+        messageId,
+        expiresAt: expiresAt.toISOString(),
+      },
     });
   } catch (e) {
     return fromException(request, e);
