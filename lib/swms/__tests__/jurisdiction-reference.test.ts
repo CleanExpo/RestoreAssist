@@ -15,6 +15,7 @@ import {
   SWMS_AUS_NZ_STANDARDS,
 } from "../jurisdiction-reference";
 import { getStateInfo } from "@/lib/state-detection";
+import { auQldLinkHits, auQldStatuteHits } from "@/lib/__tests__/au-qld-law-scan";
 
 const AU_CODES = ["NSW", "ACT", "QLD", "NT", "SA", "TAS", "VIC", "WA"] as const;
 
@@ -85,6 +86,14 @@ describe("SWMS jurisdiction reference table", () => {
     expect(nz.act).toBe("Health and Safety at Work Act 2015 (NZ)");
     expect(nz.regulation).toBeNull();
     expect(nz.harmonised).toBe(false);
+
+    const qld = getSwmsJurisdiction("QLD")!;
+    expect(
+      auQldStatuteHits(qld),
+      "AU control: the QLD SWMS row must still carry Australian/Queensland statutes so the NZ scan can fail",
+    ).not.toEqual([]);
+    expect(auQldStatuteHits(nz)).toEqual([]);
+    expect(auQldLinkHits(nz)).toEqual([]);
   });
 
   it("lookup is case-insensitive and rejects unknown codes", () => {

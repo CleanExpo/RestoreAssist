@@ -1064,9 +1064,9 @@ Detailed room-by-room breakdown with:
 
 ## SECTION 5: STANDARDS COMPLIANCE FRAMEWORK
 ### Subsection A: IICRC Water Damage Standards
-### Subsection B: Building Code Compliance (use state-specific building code)
-### Subsection C: Work Health and Safety (cite the Act named in the State Regulatory Framework above verbatim — do NOT assume it is a "Work Health and Safety Act"; Victoria's is the Occupational Health and Safety Act 2004)
-### Subsection D: Environmental Protection (use state-specific EPA Act)
+### Subsection B: Building Code Compliance (${stateInfo?.buildingCode ? `cite ${stateInfo.buildingCode} verbatim` : "none recorded — do not invent a building code"})
+### Subsection C: Safety legislation (${stateInfo?.whsAct ? `cite ${stateInfo.whsAct} verbatim` : "none recorded — do not invent a safety Act"}${stateInfo?.code === "VIC" ? "; Victoria's is the Occupational Health and Safety Act 2004" : ""})
+### Subsection D: Environmental Protection (${stateInfo?.epaAct ? `cite ${stateInfo.epaAct} verbatim` : "none recorded — do not invent an environmental Act"})
 ### Subsection E: Local Council Requirements (if postcode available)
 
 ## SECTION 6: HAZARD ASSESSMENT FLAGS

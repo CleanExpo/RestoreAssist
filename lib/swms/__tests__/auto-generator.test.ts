@@ -7,6 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { generateSwmsDraft } from "../auto-generator";
+import { auQldLinkHits, auQldStatuteHits } from "@/lib/__tests__/au-qld-law-scan";
 
 // ── Prisma mock ────────────────────────────────────────────────────────────
 
@@ -116,22 +117,42 @@ describe("generateSwmsDraft", () => {
   });
 
   describe("NZ happy path — recorded propertyCountry, overlapping postcode", () => {
-    it("cites HSWA 2015 and never Australian or Queensland law", async () => {
+    it("cites HSWA 2015 and never Australian or Queensland statute text or links", async () => {
+      // AU control: a Queensland draft with a pre-ban building must surface
+      // AU statute text AND a .gov.au source URL. If that control goes quiet,
+      // the NZ assertion below has not been tested.
+      mockFindUnique.mockResolvedValue(
+        makeInspection({ propertyYearBuilt: 1975 }) as never,
+      );
+      const auDraft = await generateSwmsDraft("insp-001");
+      expect(
+        auQldStatuteHits(auDraft),
+        "AU control: QLD SWMS draft must still carry Australian/Queensland statutes",
+      ).not.toEqual([]);
+      expect(
+        auQldLinkHits(auDraft),
+        "AU control: QLD SWMS draft must still carry an Australian regulator URL",
+      ).not.toEqual([]);
+
       // 1010 is Auckland and also a valid NSW range. Country, not postcode.
+      // 1975 so the asbestos hazard is live — that is the path that embeds
+      // instrument text and a source URL, not just the state code.
       mockFindUnique.mockResolvedValue(
         makeInspection({
           propertyPostcode: "1010",
           propertyCountry: "NZ",
-          propertyYearBuilt: 2005,
+          propertyYearBuilt: 1975,
         }) as never,
       );
       const draft = await generateSwmsDraft("insp-001");
       expect(draft.stateWhsRefs).toEqual([
         "Health and Safety at Work Act 2015 (NZ)",
       ]);
-      expect(draft.stateWhsRefs.join(" ")).not.toMatch(
-        /Work Health and Safety Act 2011|Queensland|Qld|NSW/,
+      expect(draft.hazards.some((h) => h.category === "asbestos_risk")).toBe(
+        true,
       );
+      expect(auQldStatuteHits(draft)).toEqual([]);
+      expect(auQldLinkHits(draft)).toEqual([]);
       expect(draft.inspectionId).toBe("insp-001");
     });
   });

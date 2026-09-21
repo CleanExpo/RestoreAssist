@@ -22,6 +22,7 @@
 import { describe, expect, it } from "vitest";
 import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
 import { getStateInfo } from "@/lib/state-detection";
+import { auQldLinkHits, auQldStatuteHits } from "@/lib/__tests__/au-qld-law-scan";
 
 const JURISDICTIONS = [
   "QLD",
@@ -107,16 +108,19 @@ describe("WHS citation reaches the prompt verbatim (UNI-2619)", () => {
     });
 
     it("NEW ZEALAND cites HSWA 2015 and never Australian or Queensland law", () => {
+      const qldPrompt = promptFor("QLD", reportType);
+      expect(
+        auQldStatuteHits(qldPrompt),
+        "AU control: the QLD prompt must still carry Australian/Queensland statutes so the NZ scan can fail",
+      ).not.toEqual([]);
+
       const prompt = promptFor("NZ", reportType);
 
       expect(prompt).toContain("Health and Safety at Work Act 2015 (NZ)");
       expect(prompt).toContain("WorkSafe New Zealand");
 
-      expect(prompt).not.toContain("Queensland Development Code");
-      expect(prompt).not.toContain("QDC 4.5");
-      expect(prompt).not.toContain("Work Health and Safety Act 2011");
-      expect(prompt).not.toContain("Environmental Protection Act 1994");
-      expect(prompt).not.toContain("National Construction Code");
+      expect(auQldStatuteHits(prompt)).toEqual([]);
+      expect(auQldLinkHits(prompt)).toEqual([]);
     });
 
     it("unknown jurisdiction does not invent Queensland or Australian law", () => {
@@ -131,11 +135,8 @@ describe("WHS citation reaches the prompt verbatim (UNI-2619)", () => {
       });
 
       expect(prompt).toContain(marker);
-      expect(prompt).not.toContain("Queensland Development Code");
-      expect(prompt).not.toContain("QDC 4.5");
-      expect(prompt).not.toContain("Work Health and Safety Act 2011");
-      expect(prompt).not.toContain("Environmental Protection Act 1994");
-      expect(prompt).not.toContain("National Construction Code");
+      expect(auQldStatuteHits(prompt)).toEqual([]);
+      expect(auQldLinkHits(prompt)).toEqual([]);
     });
   });
 });

@@ -12,6 +12,12 @@ import {
   recordedStateCitations,
   resolveStateInfo,
 } from "@/lib/state-detection";
+import {
+  AU_QLD_LINK_PATTERNS,
+  AU_QLD_STATUTE_PATTERNS,
+  auQldLinkHits,
+  auQldStatuteHits,
+} from "./au-qld-law-scan";
 
 const AU_CODES = ["QLD", "NSW", "VIC", "SA", "WA", "TAS", "ACT", "NT"] as const;
 
@@ -34,6 +40,35 @@ describe("getStateInfo — New Zealand (RA-7361)", () => {
     expect(nz.epaAuthority).toBeNull();
     expect(nz.workSafetyContact).toBeNull();
     expect(nz.epaContact).toBeNull();
+  });
+
+  it("returns no Australian or Queensland law on any NZ field — AU control can go red", () => {
+    // Control: the scanner must be capable of finding AU/QLD law. An empty
+    // pattern list, or a QLD row that no longer carries those statutes, would
+    // make the NZ assertion pass for a reason unrelated to New Zealand.
+    expect(AU_QLD_STATUTE_PATTERNS.length).toBeGreaterThan(0);
+    expect(AU_QLD_LINK_PATTERNS.length).toBeGreaterThan(0);
+
+    const qld = getStateInfo("QLD");
+    const qldStatuteHits = auQldStatuteHits(qld);
+    expect(
+      qldStatuteHits,
+      "AU control: QLD getStateInfo must still carry Australian/Queensland statutes so the NZ scan can fail",
+    ).not.toEqual([]);
+
+    // getStateInfo rows carry no URLs. The link scanner is proven against a
+    // known Australian host so a pattern list that never matches cannot hide
+    // a leak on the NZ path.
+    expect(
+      auQldLinkHits("https://www.safeworkaustralia.gov.au/safety-topic/hazards/asbestos"),
+    ).not.toEqual([]);
+    expect(auQldLinkHits("https://www.worksafe.govt.nz/topic-and-industry/asbestos/")).toEqual(
+      [],
+    );
+
+    const nz = getStateInfo("NZ");
+    expect(auQldStatuteHits(nz)).toEqual([]);
+    expect(auQldLinkHits(nz)).toEqual([]);
   });
 
   it("leaves the eight Australian rows complete", () => {
