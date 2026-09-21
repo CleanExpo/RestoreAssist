@@ -4,8 +4,9 @@
  * and a usage-error on Linux (no `--dir`, exit 2). That alias is deleted;
  * these cases gate the detector in vitest instead of inventing a staging dir.
  *
- * Watch the rate-bearing case fail if `scanText` is neutered (returns `[]`),
- * then restore. A test that has only ever been seen green is not a gate.
+ * Mutant (watched 2026-09-21): `scanText` temporarily returned `[]`.
+ * Rate-bearing case failed: `AssertionError: expected 0 to be greater than 0`
+ * (1 failed | 2 passed, exit 1). Restored, 3 passed, exit 0.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
