@@ -84,7 +84,8 @@ describe("lookupPortalAccount", () => {
     };
     findFirst.mockResolvedValueOnce(row);
     const r = await lookupPortalAccount("good-tok");
-    expect(r).toEqual(row);
+    // No expiry on this row, so it is view-only (RA-7634).
+    expect(r).toEqual({ ...row, accessMode: "READ_ONLY" });
     expect(update).toHaveBeenCalledTimes(1);
     expect(update.mock.calls[0][0].where).toEqual({ id: "cpa_1" });
     expect(update.mock.calls[0][0].data.lastAccessedAt).toBeInstanceOf(Date);

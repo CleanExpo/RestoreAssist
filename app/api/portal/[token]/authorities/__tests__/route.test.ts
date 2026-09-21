@@ -23,7 +23,8 @@ const p = prisma as unknown as {
 beforeEach(() => {
   vi.clearAllMocks();
   mRate.mockResolvedValue(null);
-  mLookup.mockResolvedValue({ clientId: "c_1" });
+  // An expiring link; a no-expiry link is view-only (RA-7634, access-mode.test.ts).
+  mLookup.mockResolvedValue({ clientId: "c_1", accessMode: "INTERACTIVE" });
 });
 
 const req = () =>

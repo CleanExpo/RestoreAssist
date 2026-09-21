@@ -46,6 +46,9 @@ export default async function ClientPortalPage({ params }: PageProps) {
     return <PortalTokenAccessFallback resolved={resolved} />;
   }
   const inspectionId = resolved.inspectionId;
+  // RA-7634: approvals and uploads only on an expiring (INTERACTIVE) link. A
+  // no-expiry or legacy link still shows the claim, read-only.
+  const showInteractiveActions = resolved.accessMode === "INTERACTIVE";
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
@@ -198,8 +201,21 @@ export default async function ClientPortalPage({ params }: PageProps) {
         {/* Live claim status — polls the client-safe updates feed */}
         <ClientPortalStatus token={token} />
 
+        {!showInteractiveActions && (
+          <div
+            role="status"
+            className="rounded-xl border border-slate-200 bg-white p-4"
+          >
+            <p className="text-sm font-semibold text-slate-700">Viewing only</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Uploads and approvals are unavailable from this link. Please
+              contact your technician for a new link.
+            </p>
+          </div>
+        )}
+
         {/* Approvals the client still needs to sign (hides itself when none) */}
-        <ClientPortalAuthorities token={token} />
+        {showInteractiveActions && <ClientPortalAuthorities token={token} />}
 
         <PortalAffectedAreas
           areas={toPortalAffectedAreaItems(inspection.affectedAreas)}
@@ -261,7 +277,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
         )}
 
         {/* Client evidence upload — photos + a note (quarantined for staff review) */}
-        <ClientPortalUpload token={token} />
+        {showInteractiveActions && <ClientPortalUpload token={token} />}
 
         {/* Who is in your home. Falls back to the bare name above when the
             technician is not linked to a profile, or has opted out of being

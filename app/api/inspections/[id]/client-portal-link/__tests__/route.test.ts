@@ -7,6 +7,9 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("@/lib/email-send", () => ({ sendEmail: vi.fn(async () => "msg_portal_1") }));
+vi.mock("@/lib/app-url", () => ({
+  getAppUrl: vi.fn(() => "https://restoreassist.app"),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: vi.fn() },
@@ -51,7 +54,9 @@ beforeEach(() => {
 const req = () =>
   new NextRequest("http://localhost/api/inspections/i1/client-portal-link", {
     method: "POST",
-    headers: { origin: "https://restoreassist.app" },
+    // RA-7634: a forged Origin must not steer the emailed link; the URL comes
+    // from the configured app URL.
+    headers: { origin: "https://attacker.example" },
   });
 const params = { params: Promise.resolve({ id: "i1" }) };
 
@@ -81,6 +86,7 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
     const body = await res.json();
     expect(body.data.url).toBe("https://restoreassist.app/portal/NEWTOK");
     expect(body.data.emailed).toBe(true);
+    expect(body.data.expiresAt).toEqual(expect.any(String));
     expect(mEmail).toHaveBeenCalledWith(
       expect.objectContaining({ to: "client@x.com" }),
     );

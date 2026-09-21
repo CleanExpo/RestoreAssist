@@ -487,6 +487,7 @@ export default function InspectionDetailPage({
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareExpiry, setShareExpiry] = useState<string | null>(null);
+  const [shareEmailed, setShareEmailed] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   // RA-6949 — per-job Restoration Pulse notification toggle.
@@ -796,27 +797,31 @@ export default function InspectionDetailPage({
     setShareLoading(true);
     setShareDialogOpen(true);
     try {
-      const res = await fetch("/api/portal/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inspectionId: inspection.id }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setShareUrl(data.portalUrl);
+      // RA-7634: revocable, expiring ClientPortalAccount link (emailed to the
+      // client), not the retired non-revocable HMAC link maker.
+      const res = await fetch(
+        `/api/inspections/${inspection.id}/client-portal-link`,
+        { method: "POST" },
+      );
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.data?.url) {
+        setShareUrl(data.data.url);
+        setShareEmailed(data.data.emailed === true);
         setShareExpiry(
-          new Date(data.expiresAt).toLocaleDateString("en-AU", {
+          new Date(data.data.expiresAt).toLocaleDateString("en-AU", {
             day: "2-digit",
             month: "short",
             year: "numeric",
           }),
         );
       } else {
-        toast.error("Failed to generate portal link");
+        toast.error(
+          data?.error?.message ?? "Failed to send the client portal link",
+        );
         setShareDialogOpen(false);
       }
     } catch {
-      toast.error("Failed to generate portal link");
+      toast.error("Failed to send the client portal link");
       setShareDialogOpen(false);
     } finally {
       setShareLoading(false);
@@ -1316,6 +1321,7 @@ export default function InspectionDetailPage({
               variant="outline"
               size="sm"
               onClick={handleShareWithClient}
+              disabled={shareLoading}
               className="text-xs gap-1.5"
             >
               <svg
@@ -1331,7 +1337,7 @@ export default function InspectionDetailPage({
                   d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
                 />
               </svg>
-              Share with Client
+              Send to Client
             </Button>
             <Link
               href={`/dashboard/inspections/${inspection.id}/voice`}
@@ -1362,7 +1368,7 @@ export default function InspectionDetailPage({
           <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Share with Client</DialogTitle>
+                <DialogTitle>Send to Client</DialogTitle>
               </DialogHeader>
               <div className="py-2" aria-live="polite" aria-atomic="true">
                 {shareLoading ? (
@@ -1383,7 +1389,10 @@ export default function InspectionDetailPage({
                 ) : shareUrl ? (
                   <div className="space-y-3">
                     <p className="text-sm text-neutral-600 dark:text-slate-300">
-                      Portal link valid until {shareExpiry}
+                      {shareEmailed
+                        ? "Portal link emailed to the client"
+                        : "The email did not go out — copy the link below and send it to the client yourself"}
+                      {`. Valid until ${shareExpiry}.`}
                     </p>
                     <div className="flex items-center gap-2">
                       <input

@@ -1,7 +1,9 @@
 /**
  * RA-4861 — tests for POST /api/admin/portal-accounts/[id]/revoke.
- * Idempotent: re-revoking a revoked row is a no-op (returns 200 with
- * `alreadyRevoked: true` and does NOT call update again).
+ * Idempotent: re-revoking a revoked row returns 200 with
+ * `alreadyRevoked: true` and does NOT call update or audit again. It does
+ * still clear the client's unsigned signing tokens (RA-7634; the store-level
+ * proof lives in ../../__tests__/revoke-rotate-signing-tokens.test.ts).
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
@@ -12,6 +14,7 @@ const accountFindUnique = vi.fn();
 const accountUpdate = vi.fn();
 const inspectionFindFirst = vi.fn();
 const auditLogCreate = vi.fn();
+const signatureUpdateMany = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -26,6 +29,20 @@ vi.mock("@/lib/prisma", () => ({
     },
     inspection: { findFirst: (...a: unknown[]) => inspectionFindFirst(...a) },
     auditLog: { create: (...a: unknown[]) => auditLogCreate(...a) },
+    // RA-7634: the revoke now runs in one interactive transaction.
+    $transaction: (callback: (tx: unknown) => unknown) =>
+      callback({
+        clientPortalAccount: {
+          update: (...a: unknown[]) => accountUpdate(...a),
+        },
+        inspection: {
+          findFirst: (...a: unknown[]) => inspectionFindFirst(...a),
+        },
+        auditLog: { create: (...a: unknown[]) => auditLogCreate(...a) },
+        authorityFormSignature: {
+          updateMany: (...a: unknown[]) => signatureUpdateMany(...a),
+        },
+      }),
   },
 }));
 
@@ -41,8 +58,10 @@ beforeEach(() => {
   accountUpdate.mockReset();
   inspectionFindFirst.mockReset();
   auditLogCreate.mockReset();
+  signatureUpdateMany.mockReset();
   auditLogCreate.mockResolvedValue({});
   inspectionFindFirst.mockResolvedValue(null);
+  signatureUpdateMany.mockResolvedValue({ count: 0 });
 });
 
 function adminAuthOk() {
@@ -126,7 +145,7 @@ describe("POST /api/admin/portal-accounts/[id]/revoke", () => {
     expect(auditLogCreate).not.toHaveBeenCalled();
   });
 
-  it("is idempotent on already-revoked accounts (returns alreadyRevoked: true, no second write)", async () => {
+  it("is idempotent on already-revoked accounts (returns alreadyRevoked: true, no second account write or audit)", async () => {
     adminAuthOk();
     const revokedAt = new Date("2026-05-14T00:00:00Z");
     accountFindUnique.mockResolvedValueOnce({
@@ -146,6 +165,8 @@ describe("POST /api/admin/portal-accounts/[id]/revoke", () => {
     expect(body.data.alreadyRevoked).toBe(true);
     expect(accountUpdate).not.toHaveBeenCalled();
     expect(auditLogCreate).not.toHaveBeenCalled();
+    // RA-7634: a pre-fix revoke is contained by revoking again.
+    expect(signatureUpdateMany).toHaveBeenCalledTimes(1);
   });
 
   it("revokes a live account, stamps revokedAt, and writes an AuditLog row when an inspection exists", async () => {

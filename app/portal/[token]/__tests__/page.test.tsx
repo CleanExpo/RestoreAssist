@@ -24,10 +24,10 @@ vi.mock("@/components/portal/ClientPortalStatus", () => ({
   ClientPortalStatus: () => null,
 }));
 vi.mock("@/components/portal/ClientPortalAuthorities", () => ({
-  ClientPortalAuthorities: () => null,
+  ClientPortalAuthorities: () => <div data-testid="portal-authorities" />,
 }));
 vi.mock("@/components/portal/ClientPortalUpload", () => ({
-  ClientPortalUpload: () => null,
+  ClientPortalUpload: () => <div data-testid="portal-upload" />,
 }));
 vi.mock("@/lib/portal/fetch-portal-content", () => ({
   fetchPublishedPortalContent: vi.fn().mockResolvedValue([]),
@@ -132,6 +132,42 @@ describe("ClientPortalPage — account token with no inspection (RA-7606)", () =
     expect(screen.queryByText(/job link has expired/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/expired or invalid/i)).not.toBeInTheDocument();
     expect(screen.queryByText("12 Test St, Brisbane")).not.toBeInTheDocument();
+  });
+});
+
+describe("ClientPortalPage — view-only links (RA-7634)", () => {
+  it("a no-expiry account link shows the claim but hides approvals and uploads", async () => {
+    mLookup.mockResolvedValue({ clientId: "c_1", accessMode: "READ_ONLY" });
+    mVerify.mockReturnValue(null);
+    p.inspection.findFirst.mockResolvedValue({ id: "insp_1" });
+
+    render(await ClientPortalPage({ params }));
+
+    expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
+    expect(screen.getByText("Viewing only")).toBeInTheDocument();
+    expect(screen.queryByTestId("portal-authorities")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("portal-upload")).not.toBeInTheDocument();
+  });
+
+  it("a legacy HMAC link is view-only too", async () => {
+    render(await ClientPortalPage({ params }));
+
+    expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
+    expect(screen.getByText("Viewing only")).toBeInTheDocument();
+    expect(screen.queryByTestId("portal-authorities")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("portal-upload")).not.toBeInTheDocument();
+  });
+
+  it("an expiring account link keeps approvals and uploads", async () => {
+    mLookup.mockResolvedValue({ clientId: "c_1", accessMode: "INTERACTIVE" });
+    mVerify.mockReturnValue(null);
+    p.inspection.findFirst.mockResolvedValue({ id: "insp_1" });
+
+    render(await ClientPortalPage({ params }));
+
+    expect(screen.queryByText("Viewing only")).not.toBeInTheDocument();
+    expect(screen.getByTestId("portal-authorities")).toBeInTheDocument();
+    expect(screen.getByTestId("portal-upload")).toBeInTheDocument();
   });
 });
 
