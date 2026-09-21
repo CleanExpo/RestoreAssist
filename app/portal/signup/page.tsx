@@ -8,6 +8,11 @@ import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { storeClientToken } from "@/lib/portal/client-session";
+import {
+  parseInviteFailureStatus,
+  PortalRecoveryCard,
+  type InviteFailureStatus,
+} from "@/components/portal/PortalRecoveryCard";
 
 function SignupForm() {
   const router = useRouter();
@@ -20,6 +25,8 @@ function SignupForm() {
   const [invitationValid, setInvitationValid] = useState(false);
   const [invitationData, setInvitationData] = useState<any>(null);
   const [error, setError] = useState("");
+  const [inviteStatus, setInviteStatus] =
+    useState<InviteFailureStatus>("INVALID");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -59,6 +66,7 @@ function SignupForm() {
         }
       } else {
         setError(apiErrorMessage(data) ?? "Invalid invitation");
+        setInviteStatus(parseInviteFailureStatus(data.status));
       }
     } catch (err) {
       setError("Failed to verify invitation");
@@ -139,31 +147,12 @@ function SignupForm() {
 
   if (!invitationValid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-cloud px-4">
+      <div className="min-h-screen flex items-center justify-center bg-brand-cloud px-4 py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center"
         >
-          <div className="mb-6">
-            <Image
-              src="/logo.png"
-              alt="RestoreAssist"
-              width={80}
-              height={80}
-              className="mx-auto"
-            />
-          </div>
-          <h1 className="text-2xl font-bold text-brand-navy mb-4">
-            Invalid Invitation
-          </h1>
-          <p className="text-brand-slate mb-6">{error}</p>
-          <Link
-            href="/"
-            className="inline-block px-6 py-3 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze/90 transition-colors"
-          >
-            Return to Home
-          </Link>
+          <PortalRecoveryCard status={inviteStatus} message={error} />
         </motion.div>
       </div>
     );

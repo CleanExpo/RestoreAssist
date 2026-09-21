@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { PortalEmptyProject } from "@/components/portal/PortalEmptyProject";
 
 interface Report {
   id: string;
@@ -122,16 +123,7 @@ export default function PortalDashboard() {
         </div>
 
         {reports.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <FileText className="mx-auto mb-4 text-brand-slate" size={48} />
-            <h2 className="text-xl font-semibold text-brand-navy mb-2">
-              No Reports Yet
-            </h2>
-            <p className="text-brand-slate">
-              Your restoration contractor will create reports for your projects.
-              They will appear here.
-            </p>
-          </div>
+          <PortalEmptyProject />
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {reports.map((report) => (

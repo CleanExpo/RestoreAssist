@@ -47,6 +47,12 @@ export default function PortalNav() {
               <FileText size={18} />
               <span className="hidden sm:inline">My Reports</span>
             </Link>
+            <Link
+              href="/portal/help"
+              className="px-3 py-3 min-h-[44px] text-sm text-brand-slate hover:text-brand-navy transition-colors"
+            >
+              Help
+            </Link>
             <button
               onClick={handleSignOut}
               className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm text-brand-slate hover:text-brand-navy transition-colors"
