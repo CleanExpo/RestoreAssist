@@ -287,8 +287,11 @@ describe("POST /api/invites/[token] (extended)", () => {
     });
 
     const res = await POST(makeReq(baseBody), await ctx());
+    const json = await res.json();
 
     expect(res.status).toBe(200);
+    expect(json.headshotSaved).toBe(true);
+    expect(json.warning).toBeUndefined();
     expect(userCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -309,6 +312,109 @@ describe("POST /api/invites/[token] (extended)", () => {
         acceptancePayloadHash: expect.any(String),
       }),
     });
+  });
+
+  it("RA-7574: still creates the account when headshot upload fails", async () => {
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv_1",
+      token: INVITE_TOKEN,
+      email: "jamie@example.com",
+      role: "USER",
+      organizationId: "org_1",
+      expiresAt: new Date(Date.now() + 86400000),
+      usedAt: null,
+    });
+    cloudinaryUploadDataUrl.mockRejectedValueOnce(
+      new Error("Cloudinary credentials are not configured"),
+    );
+
+    const res = await POST(makeReq(baseBody), await ctx());
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.headshotSaved).toBe(false);
+    expect(json.warning).toMatch(/did not save/i);
+    expect(json.warning).toMatch(/later/i);
+    expect(userCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          email: "jamie@example.com",
+          organizationId: "org_1",
+          role: "USER",
+          image: null,
+        }),
+      }),
+    );
+    expect(inviteUpdateMany).toHaveBeenCalled();
+    expect(inviteUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          acceptedUserId: "u_new",
+          acceptanceProvider: "credentials",
+        }),
+      }),
+    );
+  });
+
+  it("RA-7574: google path still attaches membership when headshot upload fails", async () => {
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv_1",
+      token: INVITE_TOKEN,
+      email: "jamie@example.com",
+      role: "USER",
+      organizationId: "org_1",
+      expiresAt: new Date(Date.now() + 86400000),
+      usedAt: null,
+    });
+    userFindUnique.mockResolvedValueOnce({
+      email: "jamie@example.com",
+      organizationId: null,
+      ownedOrganizations: [],
+    });
+    cloudinaryUploadDataUrl.mockRejectedValueOnce(
+      new Error("Cloudinary credentials are not configured"),
+    );
+
+    const res = await POST(
+      makeReq({
+        provider: "google",
+        name: "Jamie Tradie",
+        phone: "0412 345 678",
+        headshotDataUrl: VALID_JPEG_DATA_URL,
+        acceptedTerms: true,
+        acceptedChainOfCustody: true,
+      }),
+      await ctx(),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.headshotSaved).toBe(false);
+    expect(json.warning).toMatch(/did not save/i);
+    expect(userUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "u_existing_google",
+          organizationId: null,
+          pendingInviteIdentity: true,
+        },
+        data: expect.objectContaining({
+          organizationId: "org_1",
+          pendingInviteIdentity: false,
+        }),
+      }),
+    );
+    expect(userUpdateMany.mock.calls[0][0].data.image).toBeUndefined();
+    expect(inviteUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          acceptedUserId: "u_existing_google",
+          acceptanceProvider: "google",
+        }),
+      }),
+    );
   });
 
   it("rejects a password confirmed by the breach check", async () => {
@@ -423,6 +529,9 @@ describe("POST /api/invites/[token] (extended)", () => {
     );
 
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(
+      expect.objectContaining({ ok: true, headshotSaved: true }),
+    );
     expect(userUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
