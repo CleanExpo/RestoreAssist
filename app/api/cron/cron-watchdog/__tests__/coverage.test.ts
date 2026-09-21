@@ -88,7 +88,7 @@ describe("cron watchdog coverage", () => {
   });
 });
 
-describe("cron route schedule coverage (RA-7454 / RA-7455)", () => {
+describe("cron route schedule coverage (RA-7453 / RA-7454 / RA-7455)", () => {
   it("every cron route is scheduled in vercel.json or deliberately unscheduled", () => {
     const scheduled = new Set(scheduledCronPaths());
     const declared = new Set(DELIBERATELY_UNSCHEDULED.map((c) => c.path));
@@ -170,6 +170,38 @@ describe("cron route schedule coverage (RA-7454 / RA-7455)", () => {
     expect(routeSrc).toMatch(/runCronJob\(\s*["']sync-invoices["']/);
   });
 
+  it("schedules and monitors cleanup-expired-files (RA-7453)", () => {
+    expect(scheduledCronPaths()).toContain("cleanup-expired-files");
+    expect(MONITORED_CRONS).toContainEqual(
+      expect.objectContaining({
+        path: "cleanup-expired-files",
+        jobName: "cleanup-expired-files",
+        maxStalenessMinutes: 28 * 60,
+      }),
+    );
+    expect(KNOWN_UNMONITORED).not.toContain("cleanup-expired-files");
+    expect(DELIBERATELY_UNSCHEDULED.map((c) => c.path)).not.toContain(
+      "cleanup-expired-files",
+    );
+
+    const vercelJson = JSON.parse(
+      fs.readFileSync(path.join(repoRoot, "vercel.json"), "utf8"),
+    ) as { crons?: Array<{ path: string; schedule: string }> };
+    const entry = vercelJson.crons?.find(
+      (c) => c.path === "/api/cron/cleanup-expired-files",
+    );
+    // 16:00 UTC = 02:00 AEST — the cadence the lib comment always claimed.
+    expect(entry?.schedule).toBe("0 16 * * *");
+
+    // A MONITORED_CRONS entry without runCronJob would page every night as
+    // never_succeeded. The wrap is what makes the watchdog entry honest.
+    const routeSrc = fs.readFileSync(
+      path.join(repoRoot, "app/api/cron/cleanup-expired-files/route.ts"),
+      "utf8",
+    );
+    expect(routeSrc).toMatch(/runCronJob\(\s*["']cleanup-expired-files["']/);
+  });
+
   it("keeps the four still-pruned agent crons plus ingest-standards unscheduled (RA-7455)", () => {
     const scheduled = new Set(scheduledCronPaths());
     const declared = new Map(
@@ -193,6 +225,8 @@ describe("cron route schedule coverage (RA-7454 / RA-7455)", () => {
     expect(declared.get("ingest-standards")).toMatch(/operator-invoked/);
     expect(scheduled.has("override-governance")).toBe(true);
     expect(declared.has("override-governance")).toBe(false);
+    expect(scheduled.has("cleanup-expired-files")).toBe(true);
+    expect(declared.has("cleanup-expired-files")).toBe(false);
   });
 });
 

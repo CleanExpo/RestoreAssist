@@ -64,6 +64,7 @@ export const MONITORED_CRONS: readonly CronExpectation[] = [
   { path: "reconcile-stripe", jobName: "reconcile-stripe", label: "Stripe reconciliation", maxStalenessMinutes: 28 * HOUR },
   { path: "pulse-digest", jobName: "pulse-digest", label: "Pulse digest", maxStalenessMinutes: 28 * HOUR },
   { path: "sync-ascora-historical", jobName: "sync-ascora-historical", label: "Ascora historical sync", maxStalenessMinutes: 28 * HOUR },
+  { path: "cleanup-expired-files", jobName: "cleanup-expired-files", label: "Expired Cloudinary file cleanup", maxStalenessMinutes: 28 * HOUR },
   // Monthly on the first. Two full calendar months plus buffer catches a
   // missed execution without paging simply because month lengths vary.
   { path: "override-governance", jobName: "override-governance", label: "Override governance snapshot", maxStalenessMinutes: 64 * DAY },
@@ -108,8 +109,8 @@ export interface DeliberatelyUnscheduledCron {
  * re-registered in 3782aba7 (monthly, 1st 01:00 UTC) and is in
  * MONITORED_CRONS. Do not list it here.
  *
- * cleanup-expired-files stays here as RA-7453 (Margot) — do not schedule it
- * in this change.
+ * cleanup-expired-files was scheduled in RA-7453 / #2249 (daily 16:00 UTC)
+ * and is in MONITORED_CRONS. Do not list it here.
  */
 export const DELIBERATELY_UNSCHEDULED: readonly DeliberatelyUnscheduledCron[] =
   [
@@ -132,10 +133,6 @@ export const DELIBERATELY_UNSCHEDULED: readonly DeliberatelyUnscheduledCron[] =
     {
       path: "ingest-standards",
       reason: "operator-invoked, not scheduled (dedicated STANDARDS_INGEST_TOKEN)",
-    },
-    {
-      path: "cleanup-expired-files",
-      reason: "never scheduled — tracked as RA-7453, not this change",
     },
   ];
 
