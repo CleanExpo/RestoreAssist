@@ -339,6 +339,12 @@ export interface ResolveSketchRoomProvenanceInput {
   incomingProvenance: string;
   fabricObjectId: string;
   rememberedAiRoomIds: ReadonlySet<string>;
+  /**
+   * Fabric object ids the authenticated user confirmed in this POST.
+   * Required for a remembered AI room whose SketchRoom row does not
+   * exist yet (import then Confirm before the first save lands).
+   */
+  explicitlyConfirmedIds?: ReadonlySet<string>;
 }
 
 export interface ResolveSketchRoomProvenanceResult {
@@ -354,7 +360,8 @@ export interface ResolveSketchRoomProvenanceResult {
  *   ignored; the row stays `ai_suggested`.
  * - An existing `operator_measured` row is never downgraded.
  * - A first save whose fabric id the server recorded as AI-produced cannot
- *   claim `operator_measured`.
+ *   claim `operator_measured`, unless this POST lists that id in
+ *   `confirmedFabricObjectIds` (a genuine Confirm that raced the first save).
  * - Otherwise the incoming tag is kept (hand-drawn, LiDAR, untagged default).
  */
 export function resolveSketchRoomProvenance(
@@ -367,6 +374,9 @@ export function resolveSketchRoomProvenance(
       : null;
   const incoming = input.incomingProvenance;
   const remembered = input.rememberedAiRoomIds.has(input.fabricObjectId);
+  const explicitlyConfirmed =
+    incoming === OPERATOR_MEASURED_PROVENANCE &&
+    (input.explicitlyConfirmedIds?.has(input.fabricObjectId) ?? false);
 
   if (existing === OPERATOR_MEASURED_PROVENANCE) {
     return {
@@ -389,6 +399,12 @@ export function resolveSketchRoomProvenance(
   }
 
   if (!existing && remembered) {
+    if (explicitlyConfirmed) {
+      return {
+        provenance: OPERATOR_MEASURED_PROVENANCE,
+        isExplicitConfirm: true,
+      };
+    }
     return {
       provenance: AI_SUGGESTED_PROVENANCE,
       isExplicitConfirm: false,
@@ -396,4 +412,12 @@ export function resolveSketchRoomProvenance(
   }
 
   return { provenance: incoming, isExplicitConfirm: false };
+}
+
+/** Ids the client listed as technician-confirmed in this POST body. */
+export function parseConfirmedFabricObjectIds(raw: unknown): Set<string> {
+  if (!Array.isArray(raw)) return new Set();
+  return new Set(
+    raw.filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
 }

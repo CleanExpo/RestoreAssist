@@ -280,8 +280,8 @@ export async function POST(
     }));
 
     // RA-7617: remember these ids on the floor's sketch blob so a first
-    // save cannot claim operator_measured. Uses existing ClaimSketch JSON
-    // (no schema change).
+    // save cannot claim operator_measured. Looked up inspection-wide on
+    // save (no schema change).
     const floorRaw = formData.get("floorNumber");
     const floorNumber =
       typeof floorRaw === "string" && Number.isFinite(Number(floorRaw))

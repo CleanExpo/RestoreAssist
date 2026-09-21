@@ -698,4 +698,16 @@ describe("RA-7617 — server-derived provenance", () => {
       }),
     ).toEqual({ provenance: "ai_suggested", isExplicitConfirm: false });
   });
+
+  it("a genuine Confirm on a remembered AI id bills even when no SketchRoom row exists yet", () => {
+    expect(
+      resolveSketchRoomProvenance({
+        existingProvenance: null,
+        incomingProvenance: "operator_measured",
+        fabricObjectId: "ai-room-1",
+        rememberedAiRoomIds: remembered,
+        explicitlyConfirmedIds: new Set(["ai-room-1"]),
+      }),
+    ).toEqual({ provenance: "operator_measured", isExplicitConfirm: true });
+  });
 });

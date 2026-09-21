@@ -21,6 +21,7 @@ import { stableStringify } from "@/lib/sketch/roomplan-custody-queue";
 import {
   resolveSketchRoomConfirmAttribution,
   resolveSketchRoomProvenance,
+  parseConfirmedFabricObjectIds,
 } from "@/lib/sketch/ai-suggested-confirm";
 import {
   readAiSuggestedRoomIds,
@@ -136,7 +137,12 @@ export async function POST(
       captureAdapter: captureAdapterRaw,
       confirmUnderlayVerification,
       requestCanonicalRender,
+      confirmedFabricObjectIds: confirmedFabricObjectIdsRaw,
     } = body;
+
+    const confirmedFabricObjectIds = parseConfirmedFabricObjectIds(
+      confirmedFabricObjectIdsRaw,
+    );
 
     // RA-120 (PR4): underlay opacity is a 0..1 slider value; clamp defensively
     // so a malformed client can't store an out-of-range opacity.
@@ -273,11 +279,29 @@ export async function POST(
       !securedSketchData?.background;
 
     // RA-7617: provenance is derived from the existing SketchRoom row and
-    // from room ids the Vision import path recorded on this floor. The
-    // client tag is not authoritative.
+    // from room ids the Vision import path recorded on this inspection.
+    // Lookup is inspection-wide so an import on floor 2 cannot be re-posted
+    // to floor 0 as operator_measured. The client tag is not authoritative.
     const rememberedAiRoomIds = new Set(
       readAiSuggestedRoomIds(existing?.sketchData),
     );
+    try {
+      const inspectionSketches = await (prisma as any).claimSketch.findMany({
+        where: { inspectionId: id },
+        select: { sketchData: true },
+        take: 50,
+      });
+      for (const sketch of inspectionSketches ?? []) {
+        for (const roomId of readAiSuggestedRoomIds(sketch.sketchData)) {
+          rememberedAiRoomIds.add(roomId);
+        }
+      }
+    } catch (e) {
+      console.error(
+        "[sketches] inspection-wide AI room id load failed (non-fatal):",
+        e,
+      );
+    }
     let existingRooms: Array<{
       id: string;
       fabricObjectId: string;
@@ -363,6 +387,7 @@ export async function POST(
             incomingProvenance: node.provenance,
             fabricObjectId: node.fabricObjectId,
             rememberedAiRoomIds,
+            explicitlyConfirmedIds: confirmedFabricObjectIds,
           }),
         );
       }

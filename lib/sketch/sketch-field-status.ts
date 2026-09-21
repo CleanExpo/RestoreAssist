@@ -16,9 +16,9 @@ export interface SketchFieldMeta {
   fieldCompletedAt?: string | null;
   /**
    * RA-7617 — server-authored. Fabric object ids Vision produced on this
-   * floor. A first save cannot claim `operator_measured` for these ids.
-   * Written by import-from-image; re-applied on sketch save so a client
-   * cannot drop the list by omitting `raSketchMeta`.
+   * inspection. A first save cannot claim `operator_measured` for these ids
+   * unless the POST lists them in `confirmedFabricObjectIds`. Written by
+   * import-from-image; looked up across every floor of the inspection.
    */
   aiSuggestedRoomIds?: string[];
 }

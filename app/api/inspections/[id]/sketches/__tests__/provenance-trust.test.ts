@@ -16,7 +16,12 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    claimSketch: { findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
+    claimSketch: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(async () => []),
+      update: vi.fn(),
+      create: vi.fn(),
+    },
     sketchUnderlayReference: {
       findFirst: vi.fn(async () => null),
       update: vi.fn(),
@@ -42,11 +47,13 @@ vi.mock("@/lib/prisma", () => ({
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
+import { isOperatorMeasuredProvenance } from "@/lib/sketch/measured-provenance";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
   claimSketch: {
     findFirst: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
@@ -123,6 +130,7 @@ async function postRooms(
   objects: object[],
   sketch = existingSketch(),
   rooms: object[] = [existingRoom()],
+  extraBody: Record<string, unknown> = {},
 ) {
   p.claimSketch.findFirst.mockResolvedValueOnce(sketch);
   p.claimSketch.update.mockResolvedValueOnce({ id: sketch.id });
@@ -133,6 +141,7 @@ async function postRooms(
     makePost({
       floorNumber: 0,
       sketchData: { scaleConfig: { pxPerMetre: 100 }, objects },
+      ...extraBody,
     }),
     { params: Promise.resolve({ id: "i1" }) },
   );
@@ -207,6 +216,56 @@ describe("RA-7617 — server does not trust the client provenance tag", () => {
     expect(data.provenance).toBe("ai_suggested");
     expect(data.confirmedAt).toBeNull();
     expect(data.confirmedBy).toBeNull();
+  });
+
+  it("import then confirm before any save lands still bills the room", async () => {
+    const before = Date.now();
+    const res = await postRooms(
+      [roomObject("ai-room-1", "operator_measured")],
+      existingSketch({
+        sketchData: {
+          raSketchMeta: { aiSuggestedRoomIds: ["ai-room-1"] },
+          objects: [],
+        },
+      }),
+      [],
+      { confirmedFabricObjectIds: ["ai-room-1"] },
+    );
+    const after = Date.now();
+
+    expect(res.status).toBe(201);
+    expect(p.sketchRoom.create).toHaveBeenCalledTimes(1);
+    const data = p.sketchRoom.create.mock.calls[0][0].data;
+    expect(data.provenance).toBe("operator_measured");
+    expect(isOperatorMeasuredProvenance(data.provenance)).toBe(true);
+    expect(data.confirmedBy).toBe("u_1");
+    expect(data.confirmedAt).toBeInstanceOf(Date);
+    expect(data.confirmedAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(data.confirmedAt.getTime()).toBeLessThanOrEqual(after);
+  });
+
+  it("remembers AI room ids across the whole inspection, not only the posted floor", async () => {
+    p.claimSketch.findMany.mockResolvedValueOnce([
+      {
+        sketchData: {
+          raSketchMeta: { aiSuggestedRoomIds: ["ai-room-1"] },
+        },
+      },
+    ]);
+    const res = await postRooms(
+      [roomObject("ai-room-1", "operator_measured")],
+      existingSketch({
+        sketchData: { objects: [] },
+      }),
+      [],
+    );
+
+    expect(res.status).toBe(201);
+    expect(p.sketchRoom.create).toHaveBeenCalledTimes(1);
+    const data = p.sketchRoom.create.mock.calls[0][0].data;
+    expect(data.provenance).toBe("ai_suggested");
+    expect(isOperatorMeasuredProvenance(data.provenance)).toBe(false);
+    expect(data.confirmedAt).toBeNull();
   });
 });
 
