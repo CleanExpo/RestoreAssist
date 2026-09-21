@@ -54,8 +54,9 @@ export interface EstimateLineItem {
   notes?: string;
   /**
    * Geometry provenance from the Fabric object / SketchRoom.
-   * Seeded onto estimate lines so the UI action can keep operator_measured
-   * rooms only without changing the extractor skip filters (RA-7611).
+   * Seeded onto estimate lines for the RA-7608 UI action. RA-7611 also
+   * allow-lists operator_measured in the extractor skip filters, so an
+   * ai_suggested room never becomes a line in the first place.
    */
   provenance?: string | null;
 }

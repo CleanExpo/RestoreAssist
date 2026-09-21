@@ -6,10 +6,10 @@
  * This module only filters to operator-measured room lines and reshapes them
  * for the estimate POST body.
  *
- * Provenance *skip filters* in `sketch-estimate-extractor.ts:311`,
- * `isMeasuredRoom`, and `measuredSketchData()` stay untouched — tightening
- * those is RA-7611. This path still drops a non-measured room so it cannot
- * become an estimate line.
+ * Provenance skip filters in `sketch-estimate-extractor.ts`,
+ * `isMeasuredRoom`, and `measuredSketchData()` are RA-7611 allow-lists
+ * (operator_measured only). This path still drops a non-measured room so a
+ * stale GET payload cannot become an estimate line.
  */
 
 import type {
