@@ -18,6 +18,16 @@ import {
   Wrench,
 } from "lucide-react";
 import { useState } from "react";
+import {
+  viewerAsbestosComplianceProse,
+  viewerClosingCompliance,
+  viewerComplianceStandards,
+  viewerCostStandardsPhrase,
+  viewerHazardPanelCompliance,
+  viewerJurisdiction,
+  viewerLeadComplianceProse,
+  viewerOpeningStatement,
+} from "@/lib/reports/viewer-compliance-prose";
 
 interface RestorationInspectionReportData {
   type: string;
@@ -308,6 +318,11 @@ export default function RestorationInspectionReportViewer({
 }: RestorationInspectionReportViewerProps) {
   const [detailedAnalysis, setDetailedAnalysis] = useState<any>(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const jurisdiction = viewerJurisdiction({
+    state: data.compliance?.state ?? data.property?.state,
+    workSafetyAuthority: data.compliance?.workSafetyAuthority,
+    standards: data.compliance?.standards,
+  });
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Not provided";
@@ -418,19 +433,12 @@ export default function RestorationInspectionReportViewer({
     return observations.join(". ") + ".";
   };
 
-  const getComplianceStandards = () => {
-    const standards = data.compliance?.standards || [];
-    if (standards.length === 0) {
-      return [
-        "IICRC S500 (Water Damage Restoration)",
-        "IICRC S520 (Mould Remediation)",
-        "Work Health and Safety Act 2011",
-        "National Construction Code (NCC)",
-        "AS/NZS 3000 (Electrical wiring rules)",
-      ];
-    }
-    return standards;
-  };
+  const getComplianceStandards = () =>
+    viewerComplianceStandards({
+      state: data.compliance?.state ?? data.property?.state,
+      workSafetyAuthority: data.compliance?.workSafetyAuthority,
+      standards: data.compliance?.standards,
+    });
 
   // Generate professional narrative summary using standards-based language
   /**
@@ -443,10 +451,7 @@ export default function RestorationInspectionReportViewer({
   const generateProfessionalSummary = () => {
     const summaryParts: string[] = [];
 
-    // Opening statement
-    summaryParts.push(
-      `This professional restoration inspection report has been prepared in accordance with IICRC S500 (Water Damage Restoration) standards and relevant Australian regulations including the National Construction Code (NCC) and Work Health and Safety Act 2011.`,
-    );
+    summaryParts.push(viewerOpeningStatement(jurisdiction));
 
     // Incident overview
     if (data.incident.dateOfLoss) {
@@ -509,13 +514,13 @@ export default function RestorationInspectionReportViewer({
 
     if (data.hazards.asbestosRisk) {
       summaryParts.push(
-        `Given the building's age (pre-${hazardEraYear(data.hazards.asbestosRisk)}), potential asbestos-containing materials may be present, requiring assessment in accordance with Work Health and Safety Regulations 2011 before any demolition or structural work.`,
+        viewerAsbestosComplianceProse(data.hazards.asbestosRisk, jurisdiction),
       );
     }
 
     if (isPresumedHazard(data.hazards.leadRisk)) {
       summaryParts.push(
-        `Lead-based materials may be present in this pre-${hazardEraYear(data.hazards.leadRisk!)} structure (${LEAD_ERA_QUALIFIER}), necessitating appropriate safety measures per Work Health and Safety Regulations 2011.`,
+        viewerLeadComplianceProse(data.hazards.leadRisk!, jurisdiction),
       );
     } else if (data.hazards.leadRisk) {
       summaryParts.push(
@@ -543,14 +548,12 @@ export default function RestorationInspectionReportViewer({
 
     if (data.summary.totalCost > 0) {
       summaryParts.push(
-        `The preliminary cost estimate for remediation works is ${formatCurrency(data.summary.totalCost)}, inclusive of equipment, labour, and materials required for compliance with Australian restoration standards.`,
+        `The preliminary cost estimate for remediation works is ${formatCurrency(data.summary.totalCost)}, inclusive of equipment, labour, and materials required for ${viewerCostStandardsPhrase(jurisdiction)}.`,
       );
     }
 
     // Compliance statement
-    summaryParts.push(
-      `All remediation procedures will be conducted in strict compliance with IICRC S500 standards, National Construction Code requirements, Work Health and Safety Act 2011, and AS/NZS 3000 electrical safety standards where applicable.`,
-    );
+    summaryParts.push(viewerClosingCompliance(jurisdiction));
 
     // Closing
     summaryParts.push(
@@ -1982,11 +1985,14 @@ export default function RestorationInspectionReportViewer({
                           Potential Asbestos Risk
                         </p>
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
-                          <strong>Compliance:</strong> Work Health and Safety
-                          Regulations 2011 (WHS) require asbestos assessment
-                          for pre-{hazardEraYear(data.hazards.asbestosRisk)}{" "}
-                          buildings. Licensed asbestos assessor consultation
-                          recommended before any demolition or structural work.
+                          <strong>Compliance:</strong>{" "}
+                          {viewerHazardPanelCompliance(
+                            "asbestos",
+                            data.hazards.asbestosRisk,
+                            jurisdiction,
+                          )}{" "}
+                          Licensed asbestos assessor consultation recommended
+                          before any demolition or structural work.
                         </p>
                       </div>
                     </div>
@@ -1999,11 +2005,16 @@ export default function RestorationInspectionReportViewer({
                           Potential Lead Risk
                         </p>
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
-                          <strong>Compliance:</strong> Work Health and Safety
-                          Regulations 2011 (WHS) require lead assessment for
-                          pre-{hazardEraYear(data.hazards.leadRisk!)} buildings.
-                          This is {LEAD_ERA_QUALIFIER}. Appropriate PPE and
-                          containment measures required.
+                          <strong>Compliance:</strong>{" "}
+                          {viewerHazardPanelCompliance(
+                            "lead",
+                            data.hazards.leadRisk!,
+                            jurisdiction,
+                          )}
+                          {jurisdiction === "AU"
+                            ? ` This is ${LEAD_ERA_QUALIFIER}.`
+                            : ""}{" "}
+                          Appropriate PPE and containment measures required.
                         </p>
                       </div>
                     </div>
