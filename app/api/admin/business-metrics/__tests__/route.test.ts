@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
@@ -36,7 +36,31 @@ beforeEach(() => {
   userGroupBy.mockReset();
   userCount.mockReset();
   stripeWebhookCount.mockReset();
+  vi.unstubAllEnvs();
 });
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+function signInTenantAdmin() {
+  getServerSession.mockResolvedValue({
+    user: { id: "admin-1", role: "ADMIN" },
+  });
+  userFindUnique.mockResolvedValue({
+    id: "admin-1",
+    role: "ADMIN",
+    organizationId: "org-tenant",
+  });
+}
+
+function mockMetricsQueries() {
+  userGroupBy.mockResolvedValue([
+    { subscriptionPlan: "Monthly Plan", _count: { id: 2 } },
+  ]);
+  userCount.mockResolvedValue(1);
+  stripeWebhookCount.mockResolvedValue(0);
+}
 
 describe("GET /api/admin/business-metrics", () => {
   it("rejects stale ADMIN JWTs when the database role has been demoted", async () => {
@@ -59,20 +83,21 @@ describe("GET /api/admin/business-metrics", () => {
     expect(userGroupBy).not.toHaveBeenCalled();
   });
 
-  it("returns metrics only after DB admin revalidation succeeds", async () => {
-    getServerSession.mockResolvedValue({
-      user: { id: "admin-1", role: "ADMIN" },
-    });
-    userFindUnique.mockResolvedValue({
-      id: "admin-1",
-      role: "ADMIN",
-      organizationId: null,
-    });
-    userGroupBy.mockResolvedValue([
-      { subscriptionPlan: "Monthly Plan", _count: { id: 2 } },
-    ]);
-    userCount.mockResolvedValue(1);
-    stripeWebhookCount.mockResolvedValue(0);
+  it("refuses a tenant ADMIN — platform MRR is not a tenant privilege (RA-7592)", async () => {
+    signInTenantAdmin();
+    mockMetricsQueries();
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(403);
+    expect(userGroupBy).not.toHaveBeenCalled();
+  });
+
+  it("returns metrics only for an allowlisted platform-support operator", async () => {
+    signInTenantAdmin();
+    mockMetricsQueries();
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", " other_user, admin-1 ");
 
     const res = await GET(makeRequest());
     const body = await res.json();

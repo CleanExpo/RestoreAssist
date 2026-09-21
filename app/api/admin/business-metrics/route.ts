@@ -9,9 +9,13 @@
  *   - New trials (this month)
  *   - Paying customer count
  *
- * Admin-only. Prices are read from user.subscriptionPlan (matches the
- * Stripe plan name set by the webhook). A simple plan → price lookup
- * lives below — update when pricing changes.
+ * Platform-staff only. These are RestoreAssist's own revenue figures,
+ * not a tenant's. `role: "ADMIN"` is every self-registered owner;
+ * `PLATFORM_SUPPORT_USER_IDS` is the staff allowlist (RA-7592).
+ *
+ * Prices are read from user.subscriptionPlan (matches the Stripe plan
+ * name set by the webhook). A simple plan → price lookup lives below —
+ * update when pricing changes.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,7 +23,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 
 // Plan-name → monthly price (AUD). Update when pricing changes.
 // Values are best-effort: if a plan name doesn't match, MRR for that
@@ -42,6 +49,8 @@ export async function GET(request: NextRequest) {
   }
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   try {
     const now = new Date();

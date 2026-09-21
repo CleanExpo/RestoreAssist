@@ -3,16 +3,22 @@ import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    // Re-validates role from DB to prevent stale JWT role from granting admin access
+    // Re-validates role from DB, then requires platform-support staff.
+    // Tenant ADMIN is every self-registered owner (RA-7592).
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     // Get current date for this month's reports
     const startOfMonth = new Date();

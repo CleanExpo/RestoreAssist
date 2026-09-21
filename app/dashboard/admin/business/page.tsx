@@ -44,6 +44,7 @@ export default function BusinessMetricsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hidden, setHidden] = useState(false);
 
   const fetchMetrics = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -51,6 +52,14 @@ export default function BusinessMetricsPage() {
     setError(null);
     try {
       const res = await fetch("/api/admin/business-metrics");
+      if (res.status === 403) {
+        // Platform MRR is staff-only. Hide the feed; do not toast Forbidden.
+        setHidden(true);
+        setData(null);
+        setError(null);
+        return;
+      }
+      setHidden(false);
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error || `HTTP ${res.status}`);
@@ -77,6 +86,10 @@ export default function BusinessMetricsPage() {
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  if (hidden) {
+    return null;
   }
 
   if (error || !data) {
