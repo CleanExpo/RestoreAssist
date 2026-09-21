@@ -24,6 +24,7 @@ import {
   isAiSuggestedPendingConfirm,
   recordAiSuggestedGeometryCorrection,
   resolveSketchRoomConfirmAttribution,
+  resolveSketchRoomProvenance,
 } from "../ai-suggested-confirm";
 import { confirmRoomPlanMeasurement } from "../roomplan-correction";
 import { extractRoomGraphNodes } from "../sync-room-graph";
@@ -634,5 +635,67 @@ describe("RA-7611 — server confirm attribution ignores client values", () => {
     });
     expect(stamp.confirmedAt).toBeNull();
     expect(stamp.confirmedBy).toBeNull();
+  });
+
+  it("RA-7617: explicit confirm stamps the session even when the client omits confirmedAt", () => {
+    const stamp = resolveSketchRoomConfirmAttribution({
+      existingConfirmedAt: null,
+      existingConfirmedBy: null,
+      incomingConfirmedAt: null,
+      incomingConfirmedBy: null,
+      sessionUserId: "session-tech",
+      now,
+      isExplicitConfirm: true,
+    });
+    expect(stamp.confirmedBy).toBe("session-tech");
+    expect(stamp.confirmedAt?.toISOString()).toBe(now.toISOString());
+  });
+});
+
+describe("RA-7617 — server-derived provenance", () => {
+  const remembered = new Set(["ai-room-1"]);
+
+  it("promotes an existing ai_suggested row only on operator_measured", () => {
+    expect(
+      resolveSketchRoomProvenance({
+        existingProvenance: "ai_suggested",
+        incomingProvenance: "operator_measured",
+        fabricObjectId: "ai-room-1",
+        rememberedAiRoomIds: remembered,
+      }),
+    ).toEqual({ provenance: "operator_measured", isExplicitConfirm: true });
+  });
+
+  it("keeps ai_suggested when the client sends any other tag", () => {
+    expect(
+      resolveSketchRoomProvenance({
+        existingProvenance: "ai_suggested",
+        incomingProvenance: "underlay_reference",
+        fabricObjectId: "ai-room-1",
+        rememberedAiRoomIds: remembered,
+      }),
+    ).toEqual({ provenance: "ai_suggested", isExplicitConfirm: false });
+  });
+
+  it("never downgrades operator_measured", () => {
+    expect(
+      resolveSketchRoomProvenance({
+        existingProvenance: "operator_measured",
+        incomingProvenance: "ai_suggested",
+        fabricObjectId: "hand-1",
+        rememberedAiRoomIds: remembered,
+      }),
+    ).toEqual({ provenance: "operator_measured", isExplicitConfirm: false });
+  });
+
+  it("first save of a remembered AI id cannot claim operator_measured", () => {
+    expect(
+      resolveSketchRoomProvenance({
+        existingProvenance: null,
+        incomingProvenance: "operator_measured",
+        fabricObjectId: "ai-room-1",
+        rememberedAiRoomIds: remembered,
+      }),
+    ).toEqual({ provenance: "ai_suggested", isExplicitConfirm: false });
   });
 });

@@ -2,17 +2,21 @@
  * POST /api/inspections/[id]/sketches/import-from-image
  * RA-1607 — Claude Vision: convert a hand-drawn sketch photo to polygon data.
  *
- * Request: multipart/form-data with a single `file` field (JPEG/PNG, max 10 MB).
- * Response: { rooms: [{ label: string, vertices: [{ x: number, y: number }, ...] }] }
+ * Request: multipart/form-data with a `file` field (JPEG/PNG, max 10 MB)
+ *   and optional `floorNumber` (defaults to 0).
+ * Response: { rooms: [{ id, label, vertices: [{ x, y }, ...] }] }
  *   Vertices are in normalized coordinates [0, 1] relative to the image dimensions.
+ *   `id` is server-issued so a first sketch save cannot claim operator_measured.
  *
  * Rate limit: 5 calls per 15 minutes per user to cap Vision API spend.
  */
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
@@ -25,6 +29,7 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { withAiSuggestedRoomIds } from "@/lib/sketch/sketch-field-status";
 
 // RA-1707 / P0-2 — Vision call costs roughly $0.005-0.012 per image at
 // claude-sonnet-4-x pricing (depends on image dimensions). We assume the
@@ -37,9 +42,13 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png"] as const;
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
-interface Room {
+interface ImportedRoom {
   label: string;
   vertices: { x: number; y: number }[];
+}
+
+interface Room extends ImportedRoom {
+  id: string;
 }
 
 export async function POST(
@@ -249,7 +258,7 @@ export async function POST(
     }
 
     const rooms = result.data.rooms.filter(
-      (r): r is Room =>
+      (r): r is ImportedRoom =>
         typeof r.label === "string" &&
         Array.isArray(r.vertices) &&
         r.vertices.length >= 3 &&
@@ -264,7 +273,53 @@ export async function POST(
         ),
     );
 
-    return NextResponse.json({ rooms });
+    const roomsWithIds: Room[] = rooms.map((room) => ({
+      id: `ai-suggested-${randomUUID()}`,
+      label: room.label,
+      vertices: room.vertices,
+    }));
+
+    // RA-7617: remember these ids on the floor's sketch blob so a first
+    // save cannot claim operator_measured. Uses existing ClaimSketch JSON
+    // (no schema change).
+    const floorRaw = formData.get("floorNumber");
+    const floorNumber =
+      typeof floorRaw === "string" && Number.isFinite(Number(floorRaw))
+        ? Math.max(0, Math.floor(Number(floorRaw)))
+        : 0;
+    const rememberedIds = roomsWithIds.map((r) => r.id);
+    if (rememberedIds.length > 0) {
+      const sketch = await prisma.claimSketch.findFirst({
+        where: { inspectionId, floorNumber },
+        select: { id: true, sketchData: true },
+      });
+      if (sketch) {
+        await prisma.claimSketch.update({
+          where: { id: sketch.id },
+          data: {
+            sketchData: withAiSuggestedRoomIds(
+              (sketch.sketchData as Record<string, unknown> | null) ?? {},
+              rememberedIds,
+            ) as Prisma.InputJsonValue,
+          },
+        });
+      } else {
+        await prisma.claimSketch.create({
+          data: {
+            inspectionId,
+            floorNumber,
+            floorLabel: floorNumber === 0 ? "Ground Floor" : `Floor ${floorNumber}`,
+            sketchData: withAiSuggestedRoomIds(
+              {},
+              rememberedIds,
+            ) as Prisma.InputJsonValue,
+            captureAdapter: "cloud_ai",
+          },
+        });
+      }
+    }
+
+    return NextResponse.json({ rooms: roomsWithIds });
   } catch (err) {
     return fromException(request, err, { stage: "sketch:import-from-image" });
   }

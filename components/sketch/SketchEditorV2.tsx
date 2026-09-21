@@ -1760,6 +1760,10 @@ export function SketchEditorV2({
       if (!inspectionId) return;
       const formData = new FormData();
       formData.append("file", file);
+      formData.append(
+        "floorNumber",
+        String(activeFloor?.floor.floorNumber ?? 0),
+      );
       const res = await fetch(
         `/api/inspections/${inspectionId}/sketches/import-from-image`,
         { method: "POST", body: formData },
@@ -1771,7 +1775,11 @@ export function SketchEditorV2({
         throw new Error(error ?? `Import failed (${res.status})`);
       }
       const { rooms } = (await res.json()) as {
-        rooms: { label: string; vertices: { x: number; y: number }[] }[];
+        rooms: {
+          id?: string;
+          label: string;
+          vertices: { x: number; y: number }[];
+        }[];
       };
       if (!rooms?.length) return;
 
@@ -1814,7 +1822,7 @@ export function SketchEditorV2({
           selectable: true,
           evented: true,
           data: {
-            id: `imported-${Date.now()}-${i}`,
+            id: room.id ?? `imported-${Date.now()}-${i}`,
             label: room.label,
             type: "room",
             // RA-7611: Vision-imported geometry is an AI suggestion until a

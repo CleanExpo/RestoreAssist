@@ -91,6 +91,37 @@ describe("POST scope-narrative", () => {
     expect(md).toMatch(/suspected asbestos|ACM/i);
   });
 
+  it("RA-7617: bills an untagged legacy room the same as a tagged one", async () => {
+    const untagged = [
+      {
+        label: "Ground",
+        fabricJson: {
+          objects: [
+            {
+              type: "polygon",
+              points: [
+                { x: 0, y: 0 },
+                { x: 300, y: 0 },
+                { x: 300, y: 400 },
+                { x: 0, y: 400 },
+              ],
+              data: {
+                type: "room",
+                material: "fibro",
+                label: "Legacy Bathroom",
+              },
+            },
+          ],
+        },
+      },
+    ];
+    const res = await POST(post({ floors: untagged }), params);
+    expect(res.status).toBe(200);
+    const md = await res.text();
+    expect(md).toContain("Legacy Bathroom");
+    expect(md).toMatch(/suspected asbestos|ACM/i);
+  });
+
   it("422 when floors[] is missing", async () => {
     const res = await POST(post({}), params);
     expect(res.status).toBe(422);

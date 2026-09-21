@@ -3,6 +3,8 @@ import {
   isSketchFieldComplete,
   readSketchFieldMeta,
   withSketchFieldComplete,
+  readAiSuggestedRoomIds,
+  withAiSuggestedRoomIds,
   SKETCH_META_KEY,
 } from "../sketch-field-status";
 
@@ -33,5 +35,18 @@ describe("sketch field-complete status", () => {
     expect((unmarked[SKETCH_META_KEY] as { fieldComplete: boolean }).fieldComplete).toBe(
       false,
     );
+  });
+});
+
+describe("RA-7617 — remembered AI room ids on raSketchMeta", () => {
+  it("unions ids onto raSketchMeta without wiping Fabric objects", () => {
+    const first = withAiSuggestedRoomIds({ objects: [{ type: "rect" }] }, [
+      "ai-a",
+    ]);
+    expect(readAiSuggestedRoomIds(first)).toEqual(["ai-a"]);
+    expect(first.objects).toEqual([{ type: "rect" }]);
+
+    const second = withAiSuggestedRoomIds(first, ["ai-b"]);
+    expect(readAiSuggestedRoomIds(second).sort()).toEqual(["ai-a", "ai-b"].sort());
   });
 });

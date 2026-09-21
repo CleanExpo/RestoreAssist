@@ -111,6 +111,25 @@ describe("provenance guard (measured-elements)", () => {
     // underlay room (99) must be excluded; only the 12 m² measured room counts
     expect(totalMeasuredFloorAreaM2(mixed)).toBeCloseTo(12, 5);
   });
+
+  it("RA-7617: empty-string provenance is measured, matching measured-provenance.ts", () => {
+    const rows = [
+      { provenance: "", type: "room" as const, dimensionsM: { areaM2: 12 } },
+      {
+        provenance: "operator_measured",
+        type: "room" as const,
+        dimensionsM: { areaM2: 3 },
+      },
+      {
+        provenance: "ai_suggested",
+        type: "room" as const,
+        dimensionsM: { areaM2: 99 },
+      },
+    ];
+    const measured = measuredElements(rows);
+    expect(measured).toHaveLength(2);
+    expect(totalMeasuredFloorAreaM2(rows)).toBeCloseTo(15, 5);
+  });
 });
 
 describe("RA-6760 — imported geometry provenance flows decompose → measured", () => {
