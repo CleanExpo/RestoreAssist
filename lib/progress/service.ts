@@ -38,6 +38,7 @@ import {
   recordTransitionSuccess,
 } from "@/lib/telemetry/progress";
 import { classifyGaps } from "./gate-policy";
+import { assertReportTenancy } from "@/lib/auth/assert-tenancy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,9 +88,16 @@ export interface TransitionArgs {
  * is keyed purely on the URL-supplied `reportId`, any authenticated user could
  * read or transition another tenant's claim by guessing/leaking a reportId.
  *
- * This function adds the missing WHICH-report dimension: the caller must own
- * the Report behind `reportId` (Report.userId === actorUserId), with an ADMIN
- * bypass that mirrors the rest of the Progress layer (init/documents routes).
+ * This function adds the missing WHICH-report dimension. The rule is exactly
+ * `assertReportTenancy`'s, and is delegated to it so there is one place to
+ * change it: the report owner; an ADMIN — per the database — of the owner's
+ * own organisation; or an allowlisted platform-support ADMIN
+ * (`PLATFORM_SUPPORT_USER_IDS`, fails closed when unset).
+ *
+ * RA-7628: `actorRole` is deliberately NOT consulted. It was a global ADMIN
+ * bypass, and every firm that self-registers is ADMIN of its own account, so
+ * any business's admin could reach any other business's claim. The role also
+ * arrives from the JWT, which survives a demotion.
  *
  * Denial returns NOT_FOUND (mapped to HTTP 404 by callers) rather than
  * FORBIDDEN so we don't leak the existence of another tenant's report — this
@@ -100,18 +108,18 @@ export interface TransitionArgs {
 export async function assertReportOwnership(
   reportId: string,
   actorUserId: string,
-  actorRole: ProgressRole,
+  _actorRole: ProgressRole,
 ): Promise<ServiceResult<{ reportId: string }>> {
-  const report = await prisma.report.findUnique({
-    where: { id: reportId },
-    select: { id: true, userId: true },
-  });
+  const tenancy = await assertReportTenancy(
+    { user: { id: actorUserId } },
+    reportId,
+  );
   // Collapse "report does not exist" and "report belongs to another tenant"
   // into the same NOT_FOUND result — no existence leak across tenants.
-  if (!report || (report.userId !== actorUserId && actorRole !== "ADMIN")) {
+  if (!tenancy.ok) {
     return { ok: false, code: "NOT_FOUND", message: "Report not found" };
   }
-  return { ok: true, data: { reportId: report.id } };
+  return { ok: true, data: { reportId: tenancy.data.id } };
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────

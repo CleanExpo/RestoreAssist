@@ -26,8 +26,7 @@ import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { withIdempotency } from "@/lib/idempotency";
 import { prisma } from "@/lib/prisma";
-import { canAttest, resolveProgressRole } from "@/lib/progress/permissions";
-import { assertReportOwnership } from "@/lib/progress/service";
+import { canAttest } from "@/lib/progress/permissions";
 import {
   computeAttestationIntegrityHash,
   validateSignatureDataUrl,
@@ -37,6 +36,7 @@ import {
   type NormalisedLabourHire,
 } from "@/lib/progress/labour-hire";
 import { recordAttestationCaptured } from "@/lib/telemetry/progress";
+import { resolveProgressAuthority } from "../_authority";
 
 const ALLOWED_TYPES = new Set([
   "TECHNICIAN_SIGN_OFF",
@@ -148,6 +148,15 @@ export async function POST(
       normalisedLabourHire = result.normalised;
     }
 
+    const authority = await resolveProgressAuthority(session, reportId);
+    if (!authority.ok) {
+      return apiError(request, {
+        code: authority.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+        message: authority.reason,
+        status: authority.status,
+      });
+    }
+
     const cp = await prisma.claimProgress.findUnique({
       where: { reportId },
       select: { id: true, currentState: true },
@@ -159,38 +168,10 @@ export async function POST(
       );
     }
 
-    const userRow = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, name: true, isJuniorTechnician: true },
-    });
-    if (!userRow) {
-      return NextResponse.json(
-        { error: "Acting user not found" },
-        { status: 404 },
-      );
-    }
-
-    const role = resolveProgressRole({
-      userRole: session.user.role ?? "USER",
-      isJuniorTechnician: userRow.isJuniorTechnician ?? false,
-    });
-
-    // RA-1828 IDOR fix: bind the attestor to THIS report. Without it any
-    // authenticated user could write a signed attestation against another
-    // tenant's claim by supplying their reportId. 404 (not 403) to avoid
-    // leaking the existence of another tenant's report.
-    const access = await assertReportOwnership(reportId, userId, role);
-    if (!access.ok) {
-      return NextResponse.json(
-        { error: "Report not found" },
-        { status: 404 },
-      );
-    }
-
-    if (!canAttest(role, cp.currentState)) {
+    if (!canAttest(authority.role, cp.currentState)) {
       return NextResponse.json(
         {
-          error: `Role ${role} cannot attest in state ${cp.currentState}`,
+          error: `Role ${authority.role} cannot attest in state ${cp.currentState}`,
         },
         { status: 403 },
       );
@@ -292,9 +273,9 @@ export async function POST(
             claimProgressId: cp.id,
             transitionId: body.transitionId ?? null,
             attestorUserId: userId,
-            attestorRole: role,
-            attestorName: userRow.name ?? session.user.name ?? "unknown",
-            attestorEmail: userRow.email ?? session.user.email ?? "",
+            attestorRole: authority.role,
+            attestorName: authority.user.name ?? session.user.name ?? "unknown",
+            attestorEmail: authority.user.email ?? session.user.email ?? "",
             attestationType: body.attestationType as string,
             attestationNote: body.attestationNote ?? null,
             signatureDataUrl: body.signatureDataUrl as string,
