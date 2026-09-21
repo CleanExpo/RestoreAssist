@@ -76,7 +76,7 @@ jobs:
                 echo "## P0-1 private-buckets gate SKIPPED — NOT a pass"
                 echo ""
                 echo "The acceptance job did not run. Repository secrets not set:${MISSING}."
-                echo "This is not a pass. The live proof still needs both secrets."
+                echo "This is not a pass. The live proof still needs both values set."
               } >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
