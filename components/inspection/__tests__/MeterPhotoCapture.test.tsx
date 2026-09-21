@@ -19,6 +19,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   MeterPhotoCapture,
+  environmentalReadingNotes,
   meterReadingToExtraction,
   visionErrorMessage,
 } from "../MeterPhotoCapture";
@@ -223,6 +224,23 @@ describe("meterReadingToExtraction", () => {
       expect(extraction.value).toBeNull();
       expect(Object.values(extraction)).not.toContain(0);
     }
+  });
+});
+
+describe("environmentalReadingNotes", () => {
+  it("does not claim OCR or interpolate null on the manual path", () => {
+    for (const raw of [null, undefined, "", "   "]) {
+      const notes = environmentalReadingNotes(raw);
+      expect(notes).toBe("Entered manually from thermo-hygrometer photo");
+      expect(notes).not.toMatch(/OCR/i);
+      expect(notes).not.toContain("null");
+    }
+  });
+
+  it("keeps OCR provenance when the meter display was read", () => {
+    expect(environmentalReadingNotes("22.4°C 55% RH")).toBe(
+      'Captured via meter photo OCR. Meter display read: "22.4°C 55% RH"',
+    );
   });
 });
 

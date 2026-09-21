@@ -82,6 +82,27 @@ export function meterReadingToExtraction(
   };
 }
 
+/**
+ * Provenance on the environmental POST. Manual entry (current path —
+ * thermo-hygrometer OCR is not wired) must not claim a meter-photo OCR
+ * read or interpolate a literal `null`.
+ */
+export function environmentalReadingNotes(
+  rawText: string | null | undefined,
+): string {
+  const ocrText = rawText?.trim();
+  if (ocrText) {
+    return `Captured via meter photo OCR. Meter display read: "${ocrText}"`;
+  }
+  return "Entered manually from thermo-hygrometer photo";
+}
+
+function parseOptionalNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 /** Turn the route's bare error codes into something a tech on site can act on. */
 export function visionErrorMessage(status: number, code: string | null) {
   switch (code) {
@@ -468,11 +489,29 @@ function EnvironmentalConfirm({
   const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
-    const tempNum = temp ? parseFloat(temp) : undefined;
-    const rhNum = rh ? parseFloat(rh) : undefined;
+    const tempNum = parseOptionalNumber(temp);
+    const rhNum = parseOptionalNumber(rh);
+    const dewNum = parseOptionalNumber(dew);
 
-    if (tempNum === undefined && rhNum === undefined) {
-      toast.error("At least temperature or humidity must be entered");
+    // EnvironmentalData requires both ambientTemperature and humidityLevel.
+    // Queueing a partial or out-of-range payload toasts local-sync then 400s
+    // forever on drain (Bugbot RA-7605). Match the inspection-page form.
+    if (tempNum === undefined || rhNum === undefined) {
+      const message = "Enter temperature and humidity before saving";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+    if (tempNum < -20 || tempNum > 55) {
+      const message = "Temperature must be between -20°C and 55°C";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+    if (rhNum < 0 || rhNum > 100) {
+      const message = "Humidity must be between 0% and 100%";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -482,8 +521,8 @@ function EnvironmentalConfirm({
     const payload = {
       ambientTemperature: tempNum,
       humidityLevel: rhNum,
-      dewPoint: dew ? parseFloat(dew) : undefined,
-      notes: `Captured via meter photo OCR. Meter display read: "${extraction.rawText}"`,
+      dewPoint: dewNum,
+      notes: environmentalReadingNotes(extraction.rawText),
     };
     const endpoint = `/api/inspections/${inspectionId}/environmental`;
     const mutationId =
@@ -544,17 +583,18 @@ function EnvironmentalConfirm({
           inspectionId,
           file,
           "Ambient conditions",
-          `Thermo-hygrometer OCR — ${temp || "?"}°C / ${rh || "?"}% RH`,
+          extraction.rawText?.trim()
+            ? `Thermo-hygrometer OCR — ${temp}°C / ${rh}% RH`
+            : `Thermo-hygrometer — ${temp}°C / ${rh}% RH`,
         );
         void fireHaptic("success");
         toast.success("Environmental data applied to inspection");
         onSaved();
       } else {
         void fireHaptic("warning");
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        const message = data.error ?? "Failed to save environmental data";
+        const data = await res.json().catch(() => ({}));
+        const message =
+          apiErrorMessage(data) ?? "Failed to save environmental data";
         setError(message);
         toast.error(message);
       }
@@ -580,12 +620,18 @@ function EnvironmentalConfirm({
         <ConfidenceBadge confidence={extraction.confidence ?? "medium"} />
       </div>
 
-      <p className="text-xs text-neutral-400">
-        Meter display:{" "}
-        <code className="bg-neutral-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-neutral-600 dark:text-slate-300">
-          {extraction.rawText || "(unable to read)"}
-        </code>
-      </p>
+      {extraction.rawText?.trim() ? (
+        <p className="text-xs text-neutral-400">
+          Meter display:{" "}
+          <code className="bg-neutral-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-neutral-600 dark:text-slate-300">
+            {extraction.rawText}
+          </code>
+        </p>
+      ) : (
+        <p className="text-xs text-neutral-400">
+          Enter the temperature and humidity from the meter display.
+        </p>
+      )}
 
       <div className="grid grid-cols-3 gap-3">
         <Field
@@ -594,6 +640,7 @@ function EnvironmentalConfirm({
           onChange={setTemp}
           type="number"
           step="0.1"
+          required
         />
         <Field
           label="RH (%)"
@@ -603,6 +650,7 @@ function EnvironmentalConfirm({
           step="0.1"
           min="0"
           max="100"
+          required
         />
         <Field
           label="Dew Point (°C)"

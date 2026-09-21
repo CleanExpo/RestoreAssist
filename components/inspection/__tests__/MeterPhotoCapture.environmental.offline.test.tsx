@@ -147,7 +147,14 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
       ambientTemperature: 22.4,
       humidityLevel: 55,
       dewPoint: 12.1,
+      notes: "Entered manually from thermo-hygrometer photo",
     });
+    expect(String((pending[0].payload as { notes?: string }).notes)).not.toMatch(
+      /OCR/i,
+    );
+    expect(String((pending[0].payload as { notes?: string }).notes)).not.toContain(
+      "null",
+    );
 
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse(201, { environmentalData: { id: "env-1" } }),
@@ -170,6 +177,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
       ambientTemperature: 22.4,
       humidityLevel: 55,
       dewPoint: 12.1,
+      notes: "Entered manually from thermo-hygrometer photo",
     });
 
     const afterDrain = await drainQueue();
@@ -350,9 +358,71 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
     await reachConfirmForm();
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
       jsonResponse(400, {
-        error: "Temperature must be between -20°C and 55°C",
+        error: {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+        },
       }),
     );
+    confirmAndSave();
+
+    await waitFor(() =>
+      expect(screen.getByText(/Inspection not found/i)).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(/Saved on this device — will sync/i),
+    ).not.toBeInTheDocument();
+    await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
+  });
+
+  it("renders the apiError envelope as a string — an error object must not crash the form", async () => {
+    const toast = (await import("react-hot-toast")).default;
+    await reachConfirmForm();
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      jsonResponse(400, {
+        error: {
+          code: "VALIDATION",
+          message: "Humidity must be between 0% and 100%",
+          eventId: "evt-ra-7605",
+        },
+      }),
+    );
+    confirmAndSave();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("alert"),
+      ).toHaveTextContent("Humidity must be between 0% and 100%"),
+    );
+    expect(toast.error).toHaveBeenCalledWith(
+      "Humidity must be between 0% and 100%",
+    );
+    expect(
+      screen.queryByText(/\[object Object\]/i),
+    ).not.toBeInTheDocument();
+    await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
+  });
+
+  it("does not queue a partial reading that would 400/500 on drain", async () => {
+    await reachConfirmForm();
+    setOnline(false);
+    confirmAndSave({ rh: "" });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Enter temperature and humidity before saving/i),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(/Saved on this device — will sync/i),
+    ).not.toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
+  });
+
+  it("does not queue an out-of-range temperature that the route would reject", async () => {
+    await reachConfirmForm();
+    setOnline(false);
     confirmAndSave({ temp: "99" });
 
     await waitFor(() =>
@@ -363,6 +433,21 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
     expect(
       screen.queryByText(/Saved on this device — will sync/i),
     ).not.toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
+  });
+
+  it("does not queue an out-of-range humidity that the route would reject", async () => {
+    await reachConfirmForm();
+    setOnline(false);
+    confirmAndSave({ rh: "140" });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Humidity must be between 0% and 100%/i),
+      ).toBeInTheDocument(),
+    );
+    expect(fetch).not.toHaveBeenCalled();
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
 });
