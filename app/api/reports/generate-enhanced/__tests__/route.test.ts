@@ -356,6 +356,47 @@ describe("POST /api/reports/generate-enhanced — RA-7599 jurisdiction", () => {
     );
   });
 
+  it("passes NZ stateInfo when the organisation is NZ even if inspection defaults to AU", async () => {
+    userFindUnique.mockResolvedValueOnce({
+      id: "user-1",
+      name: "Taylor",
+      email: "taylor@example.com",
+      subscriptionStatus: "ACTIVE",
+      creditsRemaining: 10,
+      totalCreditsUsed: 0,
+      organization: { country: "NZ" },
+    });
+    reportFindUnique.mockResolvedValueOnce({
+      propertyPostcode: "4000",
+      propertyAddress: "12 Smith St, 4000",
+      inspection: {
+        propertyCountry: "AU",
+        propertyPostcode: "4000",
+      },
+    });
+    generateEnhancedReport.mockResolvedValueOnce({
+      ok: true,
+      data: { enhancedReport: "NZ draft" },
+    });
+    reportUpdate.mockResolvedValueOnce({ id: "report-nz-org" });
+
+    await POST(
+      makeRequest({
+        reportId: "report-nz-org",
+        technicianNotes: "Kitchen flooded from burst pipe.",
+      }),
+    );
+
+    expect(generateEnhancedReport).toHaveBeenCalledTimes(1);
+    const arg = generateEnhancedReport.mock.calls[0][0] as {
+      input: { stateInfo: { code: string; whsAct: string } | null };
+    };
+    expect(arg.input.stateInfo?.code).toBe("NZ");
+    expect(arg.input.stateInfo?.whsAct).toBe(
+      "Health and Safety at Work Act 2015 (NZ)",
+    );
+  });
+
   it("passes Queensland stateInfo for an AU QLD address so AU behaviour is unchanged", async () => {
     generateEnhancedReport.mockResolvedValueOnce({
       ok: true,

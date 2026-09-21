@@ -241,11 +241,55 @@ describe("resolveEnhancedReportStateInfo (RA-7599)", () => {
     expect(nz?.code).toBe("NZ");
   });
 
+  it("schema-default AU inspection does not suppress a recorded NZ organisation (overlapping postcode)", () => {
+    // Inspection.propertyCountry @default("AU") is indistinguishable from a
+    // recorded AU. A stored NZ organisation is a positive signal and must win,
+    // or 4000 (Queensland and Gisborne) still gets NCC / QDC / WHS Act 2011.
+    const stateInfo = resolveEnhancedReportStateInfo({
+      propertyPostcode: "4000",
+      inspectionCountry: "AU",
+      organisationCountry: "NZ",
+    });
+    expect(stateInfo?.code).toBe("NZ");
+    expect(stateInfo?.whsAct).toBe("Health and Safety at Work Act 2015 (NZ)");
+
+    const blob = collectEnhancedReportPromptBlob({
+      ...INPUT,
+      // Address must not name New Zealand — this pin is the org-country path.
+      propertyAddress: "12 Smith St, 4000",
+      stateInfo,
+    });
+    expect(blob).toContain("Health and Safety at Work Act 2015 (NZ)");
+    expect(blob).toContain("WorkSafe New Zealand");
+    expect(auQldStatuteHits(blob)).toEqual([]);
+    expect(auQldLinkHits(blob)).toEqual([]);
+    expect(blob).not.toMatch(/\.gov\.au/);
+  });
+
   it("without an NZ country, 4000 still resolves to Queensland", () => {
     const qld = resolveEnhancedReportStateInfo({
       propertyAddress: "12 Smith St, Brisbane QLD 4000",
     });
     expect(qld?.code).toBe("QLD");
+  });
+
+  it("schema-default AU inspection with no NZ signal still resolves 4000 to Queensland", () => {
+    const qld = resolveEnhancedReportStateInfo({
+      propertyPostcode: "4000",
+      inspectionCountry: "AU",
+    });
+    expect(qld?.code).toBe("QLD");
+
+    const blob = collectEnhancedReportPromptBlob({
+      ...INPUT,
+      propertyAddress: "12 Smith St, Brisbane QLD 4000",
+      stateInfo: qld,
+    });
+    expect(blob).toContain("Work Health and Safety Act 2011");
+    expect(
+      auQldStatuteHits(blob),
+      "AU control: schema-default AU + 4000 must still carry Australian/Queensland statutes so the NZ-org scan can fail",
+    ).not.toEqual([]);
   });
 
   it("returns null when neither country nor postcode identifies a jurisdiction", () => {

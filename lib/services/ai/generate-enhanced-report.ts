@@ -82,10 +82,25 @@ export function enhancedReportJurisdiction(
 }
 
 /**
+ * True only for a recorded New Zealand country. A stored "AU" is not
+ * positive — Inspection.propertyCountry and Organization.country both
+ * `@default("AU")`, so "AU" is indistinguishable from the schema default.
+ */
+function isPositiveNzCountry(value?: string | null): boolean {
+  const country = value?.trim().toUpperCase();
+  return country === "NZ" || country === "NEW ZEALAND";
+}
+
+/**
  * Resolve the enhanced-report jurisdiction the same way inspection-report
  * generation does: a positive New Zealand country (inspection, organisation,
  * or address) wins over a four-digit postcode, because AU and NZ postcodes
  * overlap.
+ *
+ * A schema-default `"AU"` on the inspection must not suppress a recorded NZ
+ * organisation (RA-7599 Bugbot). Empty/unknown still fails closed — we do
+ * not invent an Australian statute when no country or postcode identifies
+ * one. QLD/AU postcode resolution is unchanged when there is no NZ signal.
  */
 export function resolveEnhancedReportStateInfo(input: {
   propertyAddress?: string | null;
@@ -98,9 +113,15 @@ export function resolveEnhancedReportStateInfo(input: {
   const addressIsNz =
     /\bNew Zealand\b/i.test(address) ||
     /,\s*NZ\s*(?:\d{4})?\s*$/i.test(address.trim());
-  const country = addressIsNz
-    ? "NZ"
-    : input.inspectionCountry || input.organisationCountry || null;
+  // Any positive NZ signal wins. `inspectionCountry || organisationCountry`
+  // treated schema-default "AU" as a real country and hid a recorded NZ org,
+  // so overlapping postcodes (4000) resolved to Queensland.
+  const country =
+    addressIsNz ||
+    isPositiveNzCountry(input.inspectionCountry) ||
+    isPositiveNzCountry(input.organisationCountry)
+      ? "NZ"
+      : input.inspectionCountry || input.organisationCountry || null;
   const postcode =
     input.propertyPostcode ||
     input.inspectionPostcode ||
