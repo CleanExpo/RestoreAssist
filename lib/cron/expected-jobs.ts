@@ -64,6 +64,7 @@ export const MONITORED_CRONS: readonly CronExpectation[] = [
   { path: "reconcile-stripe", jobName: "reconcile-stripe", label: "Stripe reconciliation", maxStalenessMinutes: 28 * HOUR },
   { path: "pulse-digest", jobName: "pulse-digest", label: "Pulse digest", maxStalenessMinutes: 28 * HOUR },
   { path: "sync-ascora-historical", jobName: "sync-ascora-historical", label: "Ascora historical sync", maxStalenessMinutes: 28 * HOUR },
+  { path: "cleanup-expired-files", jobName: "cleanup-expired-files", label: "Expired Cloudinary file cleanup", maxStalenessMinutes: 28 * HOUR },
   // Monthly on the first. Two full calendar months plus buffer catches a
   // missed execution without paging simply because month lengths vary.
   { path: "override-governance", jobName: "override-governance", label: "Override governance snapshot", maxStalenessMinutes: 64 * DAY },
@@ -125,10 +126,6 @@ export const DELIBERATELY_UNSCHEDULED: readonly DeliberatelyUnscheduledCron[] =
     {
       path: "ingest-standards",
       reason: "operator-invoked, not scheduled (dedicated STANDARDS_INGEST_TOKEN)",
-    },
-    {
-      path: "cleanup-expired-files",
-      reason: "never scheduled — tracked as RA-7453, not this change",
     },
   ];
 
