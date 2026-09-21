@@ -34,6 +34,7 @@ import type { OcrExtraction, ExtractionType } from "@/lib/nir-vision-ocr";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { fireHaptic } from "@/lib/capacitor";
 import type { MeterReadingResult } from "@/lib/vision/meter-prompts";
+import { queueWrite } from "@/lib/nir-sync-queue";
 
 // ── Vision extraction plumbing ────────────────────────────────────────────────
 
@@ -237,7 +238,7 @@ function MoistureConfirm({
   extraction: Extract<OcrExtraction, { type: "moisture" }>;
   inspectionId: string;
   file: File | null;
-  onSaved: () => void;
+  onSaved: (opts?: { queuedLocally?: boolean }) => void;
   onCancel: () => void;
 }) {
   const [moisture, setMoisture] = useState(
@@ -248,6 +249,7 @@ function MoistureConfirm({
   const [surfaceType, setSurfaceType] = useState(extraction.materialType ?? "");
   const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
     if (!location.trim()) {
@@ -261,21 +263,71 @@ function MoistureConfirm({
     }
 
     setSaving(true);
-    try {
-      const res = await fetch(`/api/inspections/${inspectionId}/moisture`, {
+    setError(null);
+
+    const payload = {
+      location,
+      surfaceType: surfaceType || "unknown",
+      moistureLevel: val,
+      // RA-1611: tag the provenance so a vision-extracted reading is
+      // distinguishable from a hand-typed one in the drying log and the
+      // audit trail. Without this the route defaults it to "manual".
+      source: "ocr",
+      notes: `Captured via meter photo OCR. Meter display read: "${extraction.rawText}"`,
+    };
+    const endpoint = `/api/inspections/${inspectionId}/moisture`;
+    const mutationId =
+      globalThis.crypto?.randomUUID?.() ??
+      `nir-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+    // RA-7604 — same fallback as MoistureReadingEntryForm / RA-7602: the
+    // RA-1124 IndexedDB queue drains on reconnect. mutationId is the
+    // Idempotency-Key on both the live POST and the queued replay so a
+    // lost response cannot double-insert (moisture route wraps
+    // withIdempotency, RA-1266).
+    const queueForLater = async () => {
+      await queueWrite({
+        id: mutationId,
+        type: "moisture-reading",
+        endpoint,
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location,
-          surfaceType: surfaceType || "unknown",
-          moistureLevel: val,
-          // RA-1611: tag the provenance so a vision-extracted reading is
-          // distinguishable from a hand-typed one in the drying log and the
-          // audit trail. Without this the route defaults it to "manual".
-          source: "ocr",
-          notes: `Captured via meter photo OCR. Meter display read: "${extraction.rawText}"`,
-        }),
+        payload,
+        inspectionId,
       });
+      void fireHaptic("success");
+      toast.success("Saved on this device — will sync");
+      onSaved({ queuedLocally: true });
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await queueForLater();
+        return;
+      }
+
+      let res: Response;
+      try {
+        res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": mutationId,
+            "X-RestoreAssist-Mutation-Id": mutationId,
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        if (err instanceof TypeError) {
+          await queueForLater();
+          return;
+        }
+        throw err;
+      }
+
+      if (res.status >= 500) {
+        await queueForLater();
+        return;
+      }
 
       if (res.ok) {
         await uploadMeterPhoto(
@@ -289,9 +341,19 @@ function MoistureConfirm({
         onSaved();
       } else {
         void fireHaptic("warning");
-        const data = await res.json();
-        toast.error(data.error ?? "Failed to save reading");
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        const message = data.error ?? "Failed to save reading";
+        setError(message);
+        toast.error(message);
       }
+    } catch (err) {
+      void fireHaptic("warning");
+      const message =
+        err instanceof Error ? err.message : "Failed to save reading";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -340,6 +402,12 @@ function MoistureConfirm({
           />
         </div>
       </div>
+
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button
@@ -627,6 +695,7 @@ export function MeterPhotoCapture({
   const [analysing, setAnalysing] = useState(false);
   const [extraction, setExtraction] = useState<OcrExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [queuedLocally, setQueuedLocally] = useState(false);
 
   // Detect if we're running in a Capacitor native shell with camera plugin
   const { hasNativeCamera } = useCapacitor();
@@ -768,9 +837,17 @@ export function MeterPhotoCapture({
     setError(null);
   };
 
-  const handleSaved = () => {
+  const handleSaved = (opts?: { queuedLocally?: boolean }) => {
+    setQueuedLocally(Boolean(opts?.queuedLocally));
     reset();
-    onReadingAccepted?.();
+    // RA-7604 / Bugbot: the inspection page's onReadingAccepted always
+    // fetchInspection()s. That setLoading(true) unmounts this card (banner
+    // gone) and, offline, toasts a load failure even though the reading
+    // is queued — techs recapture and later sync duplicates. Skip the
+    // parent refresh when the save is only on-device; drain persists it.
+    if (!opts?.queuedLocally) {
+      onReadingAccepted?.();
+    }
   };
 
   return (
@@ -799,6 +876,16 @@ export function MeterPhotoCapture({
           </button>
         )}
       </div>
+
+      {queuedLocally && (
+        <p
+          role="status"
+          className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1"
+        >
+          <CheckCircle2 size={12} />
+          Saved on this device — will sync
+        </p>
+      )}
 
       {/* ── State: No photo yet — capture / gallery buttons ── */}
       {!preview && (
