@@ -63,7 +63,7 @@ export type TenantScope =
  * User.id in server configuration. Missing or empty configuration deliberately
  * fails closed."
  */
-function isPlatformSupportOperator(userId: string): boolean {
+export function isPlatformSupportOperator(userId: string): boolean {
   const allowlist = (process.env.PLATFORM_SUPPORT_USER_IDS ?? "")
     .split(",")
     .map((value) => value.trim())

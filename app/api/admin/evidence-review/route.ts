@@ -3,9 +3,36 @@ import { getServerSession } from "next-auth";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
-import { resolveInspectionReach } from "@/lib/auth/assert-tenancy";
+import {
+  isPlatformSupportOperator,
+  resolveInspectionReach,
+} from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { fromException } from "@/lib/api-errors";
+
+function forbidden() {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
+
+/**
+ * RA-7566 CLEAR bar: a tenant admin must never receive another organisation's
+ * inspection. If a foreign row still reaches this handler (Prisma where
+ * missed, search OR overwrite, take-window race), fail closed with 403 and
+ * no row payload. Platform-support operators are the only cross-tenant
+ * exception, and that allowlist fails closed when unset.
+ */
+function isForeignTenantInspection(
+  caller: { id: string; organizationId: string | null },
+  row: { userId: string; user: { organizationId: string | null } | null },
+): boolean {
+  if (isPlatformSupportOperator(caller.id)) return false;
+  const callerOrg = caller.organizationId;
+  const rowOrg = row.user?.organizationId ?? null;
+  if (typeof callerOrg === "string" && callerOrg.length > 0) {
+    return rowOrg !== callerOrg;
+  }
+  return row.userId !== caller.id;
+}
 
 /**
  * [RA-402] Admin Evidence Review API
@@ -29,11 +56,14 @@ export async function GET(request: NextRequest) {
 
     const reach = await resolveInspectionReach(session);
     if (!reach.ok) {
-      return NextResponse.json(
-        { error: reach.reason },
-        { status: reach.status },
-      );
+      // Generic copy only — never echo reach.reason, which could name a
+      // record. Unauthenticated stays 401; every other tenancy miss is 403.
+      if (reach.status === 401) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      return forbidden();
     }
+    const adminUser = auth.user!;
 
     const { searchParams } = new URL(request.url);
     const technicianFilter = searchParams.get("technician")?.trim() ?? "";
@@ -89,6 +119,7 @@ export async function GET(request: NextRequest) {
       where: inspectionWhere,
       select: {
         id: true,
+        userId: true,
         inspectionNumber: true,
         propertyAddress: true,
         technicianName: true,
@@ -96,6 +127,7 @@ export async function GET(request: NextRequest) {
         inspectionDate: true,
         submittedAt: true,
         updatedAt: true,
+        user: { select: { organizationId: true } },
         inspectionWorkflow: {
           select: {
             id: true,
@@ -134,6 +166,12 @@ export async function GET(request: NextRequest) {
       orderBy: [{ updatedAt: "desc" }],
       take: 200,
     });
+
+    if (
+      inspections.some((row) => isForeignTenantInspection(adminUser, row))
+    ) {
+      return forbidden();
+    }
 
     // Compute summary stats
     let totalWithWorkflow = 0;

@@ -13,6 +13,10 @@
  * suite fail on current main: the unfixed query has no organisation
  * predicate, so both rows come back. A where-shape assertion alone cannot
  * prove the HTTP body excludes tenant B.
+ *
+ * CLEAR bar: foreign identifiers must be absent from the response body,
+ * headers, and error text. If a foreign row still reaches the handler the
+ * only allowed answers are 403 or 404 — never a 200 that contains it.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
@@ -43,6 +47,14 @@ const ORG_B = "org-b-ra7566";
 const ADMIN_A = "admin-a-ra7566";
 const ADMIN_B = "admin-b-ra7566";
 
+const FOREIGN_MARKERS = [
+  "insp-b",
+  "NIR-2026-09-BBBB",
+  "Tenant B Street, Brisbane",
+  ORG_B,
+  ADMIN_B,
+];
+
 const planted = [
   inspectionRow({
     id: "insp-a",
@@ -71,6 +83,7 @@ function inspectionRow(input: {
     id: input.id,
     userId: input.userId,
     organizationId: input.organizationId,
+    user: { organizationId: input.organizationId },
     inspectionNumber: input.inspectionNumber,
     propertyAddress: input.propertyAddress,
     technicianName: "Pat Technician",
@@ -141,6 +154,15 @@ function signInAsOrgAAdmin() {
   });
 }
 
+async function assertNoForeignLeak(res: Response, body: unknown) {
+  const serialized = JSON.stringify(body);
+  const headerBlob = [...res.headers.entries()].flat().join("\n");
+  for (const marker of FOREIGN_MARKERS) {
+    expect(serialized).not.toContain(marker);
+    expect(headerBlob).not.toContain(marker);
+  }
+}
+
 beforeEach(() => {
   getServerSession.mockReset();
   userFindUnique.mockReset();
@@ -148,6 +170,7 @@ beforeEach(() => {
   inspectionFindMany.mockImplementation((args: { where?: unknown }) =>
     Promise.resolve(applyWhere(args?.where)),
   );
+  vi.unstubAllEnvs();
 });
 
 describe("GET /api/admin/evidence-review (RA-7566)", () => {
@@ -155,9 +178,11 @@ describe("GET /api/admin/evidence-review (RA-7566)", () => {
     getServerSession.mockResolvedValue(null);
 
     const res = await GET(request());
+    const body = await res.json();
 
     expect(res.status).toBe(401);
     expect(inspectionFindMany).not.toHaveBeenCalled();
+    await assertNoForeignLeak(res, body);
   });
 
   it("returns 403 for a non-admin session", async () => {
@@ -166,9 +191,11 @@ describe("GET /api/admin/evidence-review (RA-7566)", () => {
     });
 
     const res = await GET(request());
+    const body = await res.json();
 
     expect(res.status).toBe(403);
     expect(inspectionFindMany).not.toHaveBeenCalled();
+    await assertNoForeignLeak(res, body);
   });
 
   it("hides a second-tenant inspection from a business-owner admin", async () => {
@@ -189,11 +216,11 @@ describe("GET /api/admin/evidence-review (RA-7566)", () => {
     // list would also make tenant B "absent" and would not prove isolation.
     expect(ids).toContain("insp-a");
     expect(addresses).toContain("Tenant A Street");
+    expect(body.summary.totalWithWorkflow).toBe(1);
 
-    // The defect: current main returns tenant B. After the fix this is
-    // absent even though it has an inspectionWorkflow and matches status=all.
     expect(ids).not.toContain("insp-b");
     expect(addresses).not.toContain("Tenant B Street, Brisbane");
+    await assertNoForeignLeak(res, body);
   });
 
   it("keeps the other tenant absent when search would match its address", async () => {
@@ -213,5 +240,40 @@ describe("GET /api/admin/evidence-review (RA-7566)", () => {
     const ids = (body.inspections as Array<{ id: string }>).map((row) => row.id);
     expect(ids).not.toContain("insp-b");
     expect(ids).toContain("insp-a");
+    await assertNoForeignLeak(res, body);
+  });
+
+  it("fails closed with 403 and no foreign markers if the query still returns tenant B", async () => {
+    signInAsOrgAAdmin();
+    inspectionFindMany.mockImplementation(() => Promise.resolve(planted));
+
+    const res = await GET(request());
+    const body = await res.json();
+
+    expect([403, 404]).toContain(res.status);
+    expect(body.inspections).toBeUndefined();
+    expect(body.summary).toBeUndefined();
+    expect(body.error).toBe("Forbidden");
+    await assertNoForeignLeak(res, body);
+  });
+
+  it("does not show organisation B's job to an org-less admin", async () => {
+    getServerSession.mockResolvedValue({
+      user: { id: ADMIN_A, role: "ADMIN" },
+    });
+    userFindUnique.mockResolvedValue({
+      id: ADMIN_A,
+      role: "ADMIN",
+      organizationId: null,
+    });
+
+    const res = await GET(request());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    const ids = (body.inspections as Array<{ id: string }>).map((row) => row.id);
+    expect(ids).toContain("insp-a");
+    expect(ids).not.toContain("insp-b");
+    await assertNoForeignLeak(res, body);
   });
 });
