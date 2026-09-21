@@ -2,8 +2,10 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import crypto from "crypto";
 import { POST } from "../route";
+import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
 
 const getServerSession = vi.fn();
+const getWorkspaceForUser = vi.fn();
 const inspectionFindFirst = vi.fn();
 const userFindUnique = vi.fn();
 const photoCreate = vi.fn();
@@ -88,6 +90,9 @@ vi.mock("@/lib/media/exif-extract", () => ({
   extractAndSaveMediaAsset: vi.fn(),
 }));
 vi.mock("@/lib/media/catalog", () => ({ scheduleCatalog: vi.fn() }));
+vi.mock("@/lib/workspace/provider-connections", () => ({
+  getWorkspaceForUser: (...a: unknown[]) => getWorkspaceForUser(...a),
+}));
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: (...a: unknown[]) => rateLimit(...a),
 }));
@@ -141,7 +146,10 @@ beforeEach(() => {
   getServerSession.mockResolvedValue({
     user: { id: "u_1", image: "https://example.com/me.jpg" },
   });
-  inspectionFindFirst.mockResolvedValue({ id: "i_1", workspaceId: "ws_1" });
+  // Production reality: no create path writes Inspection.workspaceId (RA-7586).
+  inspectionFindFirst.mockResolvedValue({ id: "i_1", workspaceId: null });
+  getWorkspaceForUser.mockReset().mockResolvedValue({ id: "ws_1", name: "Crew" });
+  vi.mocked(extractAndSaveMediaAsset).mockClear();
   userFindUnique.mockResolvedValue({ organizationId: "org_1" });
   storageUpload.mockResolvedValue({
     compressedUrl: "https://stor/test.jpg",
@@ -213,6 +221,28 @@ describe("POST /api/inspections/[id]/photos (cocoa extension)", () => {
         }),
       }),
     );
+  });
+
+  it("runs EXIF extraction under the signed-in user's workspace when the inspection has none (RA-7586)", async () => {
+    const file = new Uint8Array(100);
+    file.set(JPEG_MAGIC, 0);
+    const res = await POST(makeRequest(file), ctx());
+
+    expect(res.status).toBe(201);
+    expect(getWorkspaceForUser).toHaveBeenCalledWith("u_1");
+    expect(extractAndSaveMediaAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ inspectionId: "i_1", workspaceId: "ws_1" }),
+    );
+  });
+
+  it("still uploads, with no EXIF record, when the user has no workspace (RA-7586)", async () => {
+    getWorkspaceForUser.mockResolvedValue(null);
+    const file = new Uint8Array(100);
+    file.set(JPEG_MAGIC, 0);
+    const res = await POST(makeRequest(file), ctx());
+
+    expect(res.status).toBe(201);
+    expect(extractAndSaveMediaAsset).not.toHaveBeenCalled();
   });
 
   it("accepts PNG magic bytes (returns 201)", async () => {

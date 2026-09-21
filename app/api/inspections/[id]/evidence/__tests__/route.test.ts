@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => {
   const getServerSession = vi.fn();
   const assertInspectionTenancy = vi.fn();
+  const getWorkspaceForUser = vi.fn();
   const evidenceCreate = vi.fn();
   const clientMutationCreate = vi.fn();
   const clientMutationUpdateMany = vi.fn();
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => {
   return {
     getServerSession,
     assertInspectionTenancy,
+    getWorkspaceForUser,
     evidenceCreate,
     clientMutationCreate,
     clientMutationUpdateMany,
@@ -67,6 +69,7 @@ const mocks = vi.hoisted(() => {
       idempotencyRecords.clear();
       getServerSession.mockReset();
       assertInspectionTenancy.mockReset();
+      getWorkspaceForUser.mockReset();
       evidenceCreate.mockReset();
       clientMutationCreate.mockReset();
       clientMutationUpdateMany.mockReset();
@@ -80,6 +83,11 @@ vi.mock("next-auth", () => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+
+vi.mock("@/lib/workspace/provider-connections", () => ({
+  getWorkspaceForUser: (...args: unknown[]) =>
+    mocks.getWorkspaceForUser(...args),
+}));
 
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: (...args: unknown[]) =>
@@ -128,8 +136,11 @@ describe("POST /api/inspections/[id]/evidence", () => {
     });
     mocks.assertInspectionTenancy.mockResolvedValue({
       ok: true,
-      data: { id: "ins_1", userId: "u_1", workspaceId: "ws_1" },
+      // Production reality: no create path writes Inspection.workspaceId, so
+      // the ledger's workspace comes from the signed-in user (RA-7586).
+      data: { id: "ins_1", userId: "u_1", workspaceId: null },
     });
+    mocks.getWorkspaceForUser.mockResolvedValue({ id: "ws_1", name: "Crew" });
     mocks.evidenceCreate.mockResolvedValue({ id: "ev_1" });
     mocks.clientMutationCreate.mockResolvedValue({ id: "cm_1" });
     mocks.clientMutationUpdateMany.mockResolvedValue({ count: 1 });
@@ -141,6 +152,22 @@ describe("POST /api/inspections/[id]/evidence", () => {
 
   afterEach(() => {
     delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
+  });
+
+  it("still creates the evidence, with no ledger row, when the user has no workspace (RA-7586, policy OFF)", async () => {
+    mocks.getWorkspaceForUser.mockResolvedValue(null);
+
+    const response = await POST(
+      makeRequest({
+        "idempotency-key": "idem-evidence-2",
+        "x-restoreassist-mutation-id": "ra-evidence-2",
+      }),
+      { params: Promise.resolve({ id: "ins_1" }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.clientMutationCreate).not.toHaveBeenCalled();
+    expect(mocks.clientMutationUpdateMany).not.toHaveBeenCalled();
   });
 
   it("records the mobile mutation ledger before completing evidence creation (policy OFF)", async () => {

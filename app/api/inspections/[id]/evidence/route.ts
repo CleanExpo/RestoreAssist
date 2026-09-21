@@ -24,6 +24,7 @@ import {
   assertInspectionTenancy,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import {
   checkManifestBinding,
   parseSignedManifest,
@@ -111,6 +112,10 @@ export async function POST(
   if (contentType.toLowerCase().includes("multipart/form-data")) {
     return handleMultipartEvidencePost(request, session, inspectionId);
   }
+
+  // RA-7586: the sync ledger is keyed to the caller's workspace, not
+  // Inspection.workspaceId, which no create path writes.
+  const workspace = await getWorkspaceForUser(userId);
 
   // RA-1266: evidence items are append-only with chain-of-custody —
   // retry creates duplicate C2PA-manifest records, which breaks the
@@ -246,10 +251,10 @@ export async function POST(
         return fromException(request, error, { stage: "evidence-post" });
       }
     },
-    tenancy.data.workspaceId
+    workspace
       ? {
           clientMutation: {
-            workspaceId: tenancy.data.workspaceId,
+            workspaceId: workspace.id,
             userId,
             inspectionId,
             mutationType: "evidence-item",

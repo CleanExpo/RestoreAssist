@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { deriveAreaColumns } from "@/lib/units";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 
 // POST - Add affected area
 export async function POST(
@@ -26,7 +27,7 @@ export async function POST(
   try {
     const inspection = await prisma.inspection.findFirst({
       where: { id, userId },
-      select: { id: true, workspaceId: true },
+      select: { id: true },
     });
 
     if (!inspection) {
@@ -36,6 +37,10 @@ export async function POST(
         status: 404,
       });
     }
+
+    // RA-7586: the sync ledger is keyed to the caller's workspace, not
+    // Inspection.workspaceId, which no create path writes.
+    const workspace = await getWorkspaceForUser(userId);
 
     // RA-1266: prevents duplicate affected-area rows on retry.
     return withIdempotency(
@@ -140,10 +145,10 @@ export async function POST(
           });
         }
       },
-      inspection.workspaceId
+      workspace
         ? {
             clientMutation: {
-              workspaceId: inspection.workspaceId,
+              workspaceId: workspace.id,
               userId,
               inspectionId: id,
               mutationType: "affected-area",
