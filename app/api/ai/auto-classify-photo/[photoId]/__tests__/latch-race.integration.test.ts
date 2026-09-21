@@ -15,6 +15,13 @@
  *     it snapshots `false`, the later UPDATE waits for T0, then overwrites
  *     the committed `true` with that stale `false`.
  *
+ * The waiter is `pg_stat_activity`, not a sleep. A fixed 800 ms pause can
+ * let the mutant pass vacuously: the route's three real round-trips
+ * (subscription, rate-limit, ownership findFirst) may exceed 800 ms on a
+ * slow CI runner, T0 commits first, and the mutant then reads the
+ * committed `true`. Both arms block on T0's row lock — FOR UPDATE with
+ * the fix, UPDATE without it — so the same poll is the barrier.
+ *
  * Runs only when DATABASE_URL is set (CI Quality Checks against a migrated
  * pgvector pg16). Skipped locally without one, in line with
  * `app/api/inspections/__tests__/route.org-reach.integration.test.ts`.
@@ -64,6 +71,41 @@ const ids = {
   inspectionId: "",
   photoId: "",
 };
+
+const LOCK_WAIT_POLL_MS = 25;
+const LOCK_WAIT_DEADLINE_MS = 4_000;
+
+/**
+ * Poll from a pool connection that is not T0 until another backend is
+ * waiting on a lock whose current query names InspectionPhoto.
+ *
+ * Returns elapsed milliseconds so the evidence log can show the wait
+ * was observed rather than assumed.
+ */
+async function waitForInspectionPhotoLockWaiter(t0Pid: number): Promise<number> {
+  const started = Date.now();
+  while (true) {
+    const waiters = await prisma.$queryRaw<Array<{ pid: number | bigint }>>(
+      Prisma.sql`
+        SELECT pid
+        FROM pg_stat_activity
+        WHERE pid <> ${t0Pid}
+          AND wait_event_type = 'Lock'
+          AND query ILIKE '%InspectionPhoto%'
+        LIMIT 1
+      `,
+    );
+    if (waiters.length > 0) {
+      return Date.now() - started;
+    }
+    if (Date.now() - started >= LOCK_WAIT_DEADLINE_MS) {
+      throw new Error(
+        `RA-7618: no pg_stat_activity Lock waiter on InspectionPhoto within ${LOCK_WAIT_DEADLINE_MS}ms (T0 pid ${t0Pid})`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, LOCK_WAIT_POLL_MS));
+  }
+}
 
 describe.skipIf(!process.env.DATABASE_URL)(
   "POST /api/ai/auto-classify-photo/[photoId] ACM latch race (RA-7618)",
@@ -137,32 +179,43 @@ describe.skipIf(!process.env.DATABASE_URL)(
 
       let pending: Promise<Response> | undefined;
 
-      await prisma.$transaction(async (tx) => {
-        await tx.$queryRaw(
-          Prisma.sql`SELECT "id" FROM "InspectionPhoto" WHERE "id" = ${ids.photoId} FOR UPDATE`,
-        );
+      // timeout > 4 s poll + write. The route's own interactive transaction
+      // stays on Prisma's 5 s default; we commit as soon as the waiter appears.
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT "id" FROM "InspectionPhoto" WHERE "id" = ${ids.photoId} FOR UPDATE`,
+          );
+          const pidRows = await tx.$queryRaw<Array<{ pid: number | bigint }>>(
+            Prisma.sql`SELECT pg_backend_pid() AS pid`,
+          );
+          const t0Pid = Number(pidRows[0]?.pid);
+          expect(t0Pid).toBeGreaterThan(0);
 
-        pending = POST(
-          new NextRequest(
-            `http://localhost/api/ai/auto-classify-photo/${ids.photoId}`,
-            { method: "POST" },
-          ),
-          { params: Promise.resolve({ photoId: ids.photoId }) },
-        );
+          pending = POST(
+            new NextRequest(
+              `http://localhost/api/ai/auto-classify-photo/${ids.photoId}`,
+              { method: "POST" },
+            ),
+            { params: Promise.resolve({ photoId: ids.photoId }) },
+          );
 
-        // Hold the row long enough for the route to reach its write
-        // transaction, but well under Prisma's 5 s interactive timeout.
-        await new Promise((resolve) => setTimeout(resolve, 800));
+          const lockWaitMs = await waitForInspectionPhotoLockWaiter(t0Pid);
+          console.log(
+            `[RA-7618] InspectionPhoto lock waiter observed after ${lockWaitMs}ms (T0 pid ${t0Pid})`,
+          );
 
-        await tx.inspectionPhoto.update({
-          where: { id: ids.photoId },
-          data: {
-            metadata: {
-              photoAi: { whsLatch: { aiRaisedAcm: true } },
-            } as Prisma.InputJsonValue,
-          },
-        });
-      });
+          await tx.inspectionPhoto.update({
+            where: { id: ids.photoId },
+            data: {
+              metadata: {
+                photoAi: { whsLatch: { aiRaisedAcm: true } },
+              } as Prisma.InputJsonValue,
+            },
+          });
+        },
+        { timeout: 15_000 },
+      );
 
       const res = await pending!;
       const body = await res.json();
