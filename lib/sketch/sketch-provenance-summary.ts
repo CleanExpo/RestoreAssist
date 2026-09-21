@@ -1,9 +1,14 @@
 /**
  * Summarise floor-plan provenance for PDF / portal legends.
  *
- * Measured rooms (operator_measured) may bill; underlay_reference never does.
+ * Measured rooms (operator_measured, or untagged legacy rooms) may bill;
+ * underlay_reference, ai_suggested, and any other explicit tag never do
+ * until a technician confirms them. Counts must agree with
+ * `isOperatorMeasuredProvenance`.
  * RoomPlan captureAdapter distinguishes LiDAR from hand-drawn measured rooms.
  */
+
+import { isOperatorMeasuredProvenance } from "./measured-provenance";
 
 export interface SketchProvenanceSummary {
   /** Confirmed / measured rooms from RoomPlan. */
@@ -42,10 +47,10 @@ export function summarizeSketchProvenance(
     // Match extractRooms: room polygons. Explicit non-room tags are skipped.
     if (obj.data?.type && obj.data.type !== "room") continue;
 
-    const provenance = obj.data?.provenance ?? "operator_measured";
+    const provenance = obj.data?.provenance;
     const isLidar = obj.data?.captureAdapter === "roomplan";
 
-    if (provenance === "underlay_reference") {
+    if (!isOperatorMeasuredProvenance(provenance)) {
       if (isLidar) summary.lidarPending += 1;
       else summary.referenceOther += 1;
       continue;

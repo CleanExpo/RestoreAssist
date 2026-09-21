@@ -20,7 +20,7 @@ const rect = (w: number, h: number) => [
 ];
 
 describe("measuredSketchData", () => {
-  it("drops underlay_reference objects, keeps operator_measured + untagged", () => {
+  it("drops non-measured objects, keeps only operator_measured", () => {
     const blob = {
       objects: [
         {
@@ -31,14 +31,21 @@ describe("measuredSketchData", () => {
           type: "polygon",
           data: { type: "room", provenance: "underlay_reference" },
         },
-        { type: "polygon", data: { type: "room" } }, // untagged → technician-drawn
+        {
+          type: "polygon",
+          data: { type: "room", provenance: "ai_suggested" },
+        },
+        {
+          type: "polygon",
+          data: { type: "room" },
+        }, // untagged — still billed (legacy editor / pre-RA-6760)
       ],
     };
     const out = measuredSketchData(blob);
     expect(out.objects).toHaveLength(2);
     expect(
-      out.objects.some((o) => o.data?.provenance === "underlay_reference"),
-    ).toBe(false);
+      out.objects.map((o) => o.data?.provenance ?? "(untagged)"),
+    ).toEqual(["operator_measured", "(untagged)"]);
   });
 
   it("is null/shape safe", () => {
@@ -75,7 +82,7 @@ describe("estimate extractor honours the provenance guard", () => {
       {
         type: "polygon",
         points: rect(300, 400),
-        data: { type: "room", label: "Living" },
+        data: { type: "room", label: "Living", provenance: "operator_measured" },
       },
       // AI-imported room: 1000×1000 px = 100 m² — must NOT count
       {
@@ -112,7 +119,7 @@ describe("estimate extractor honours the provenance guard", () => {
 describe("measuredFloors — PDF/scope export guard (RA-6761 pt 2)", () => {
   const objects = [
     // technician room 300×400 px = 12 m²
-    { type: "polygon", points: rect(300, 400), data: { label: "Living" } },
+    { type: "polygon", points: rect(300, 400), data: { label: "Living", provenance: "operator_measured" } },
     // AI-imported room 1000×1000 px = 100 m² — must NOT count
     {
       type: "polygon",
@@ -155,10 +162,10 @@ describe("measuredFloors — PDF/scope export guard (RA-6761 pt 2)", () => {
 });
 
 describe("serverAuthoritativeFloors — server-authoritative exports (RA-6761)", () => {
-  const room = (label: string, w: number, h: number, prov?: string) => ({
+  const room = (label: string, w: number, h: number, prov = "operator_measured") => ({
     type: "polygon",
     points: rect(w, h),
-    data: { label, ...(prov ? { provenance: prov } : {}) },
+    data: { label, provenance: prov },
   });
 
   it("uses saved server geometry over client fabricJson (client can't inflate areas)", () => {
@@ -223,5 +230,34 @@ describe("serverAuthoritativeFloors — server-authoritative exports (RA-6761)",
       [],
     );
     expect(f).toEqual({ label: "X", pngDataUrl: "p" });
+  });
+
+  it("keeps untagged rooms on a mixed floor and still drops ai_suggested", () => {
+    const untagged = {
+      type: "polygon",
+      points: rect(300, 400),
+      data: { type: "room", label: "Legacy" },
+    };
+    const noData = {
+      type: "polygon",
+      points: rect(200, 200),
+    };
+    const tagged = room("Tech", 300, 300);
+    const ai = room("AI", 1000, 1000, "ai_suggested");
+    const [f] = serverAuthoritativeFloors(
+      [{ label: "GF", fabricJson: { objects: [] } }],
+      [
+        {
+          floorLabel: "GF",
+          sketchData: { objects: [untagged, noData, tagged, ai] },
+        },
+      ],
+    );
+    const rooms = extractRooms(f.fabricJson);
+    expect(rooms.map((r) => r.label).sort()).toEqual(
+      ["Legacy", "Room", "Tech"].sort(),
+    );
+    expect(rooms).toHaveLength(3);
+    expect(rooms.some((r) => r.label === "AI")).toBe(false);
   });
 });

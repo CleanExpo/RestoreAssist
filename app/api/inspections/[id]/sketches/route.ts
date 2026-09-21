@@ -17,6 +17,7 @@ import {
   evaluateUnderlayVerification,
 } from "@/lib/sketch/underlay-verification";
 import { stableStringify } from "@/lib/sketch/roomplan-custody-queue";
+import { resolveSketchRoomConfirmAttribution } from "@/lib/sketch/ai-suggested-confirm";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -381,6 +382,10 @@ export async function POST(
           fabricObjectId: true,
           name: true,
           geometryJson: true,
+          originalAreaM2: true,
+          originalGeometryJson: true,
+          confirmedAt: true,
+          confirmedBy: true,
           // Dependent counts decide delete vs detach below — a room holding
           // evidence must never be deleted, because the FKs are SetNull.
           _count: {
@@ -394,18 +399,41 @@ export async function POST(
         take: 500,
       });
       const byFabric = new Map(
-        existingRooms.map((r: { id: string; fabricObjectId: string }) => [
-          r.fabricObjectId,
-          r.id,
-        ]),
+        existingRooms.map(
+          (r: {
+            id: string;
+            fabricObjectId: string;
+            originalAreaM2: number | null;
+            originalGeometryJson: unknown;
+            confirmedAt: Date | null;
+            confirmedBy: string | null;
+          }) => [r.fabricObjectId, r],
+        ),
       );
       const seenFabric = new Set<string>();
       for (const node of roomNodes) {
         seenFabric.add(node.fabricObjectId);
-        const existingId = byFabric.get(node.fabricObjectId);
-        if (existingId) {
+        const existing = byFabric.get(node.fabricObjectId) as
+          | {
+              id: string;
+              originalAreaM2: number | null;
+              originalGeometryJson: unknown;
+              confirmedAt: Date | null;
+              confirmedBy: string | null;
+            }
+          | undefined;
+        // RA-7611 P1: confirmedBy/confirmedAt are server-stamped on the
+        // unconfirmed → confirmed transition. Client values are ignored.
+        const confirmStamp = resolveSketchRoomConfirmAttribution({
+          existingConfirmedAt: existing?.confirmedAt ?? null,
+          existingConfirmedBy: existing?.confirmedBy ?? null,
+          incomingConfirmedAt: node.confirmedAt,
+          incomingConfirmedBy: node.confirmedBy,
+          sessionUserId: session.user.id,
+        });
+        if (existing) {
           await (prisma as any).sketchRoom.update({
-            where: { id: existingId },
+            where: { id: existing.id },
             data: {
               name: node.name,
               areaM2: node.areaM2,
@@ -415,6 +443,18 @@ export async function POST(
               provenance: node.provenance,
               geometryJson: node.geometryJson,
               floorNumber,
+              // RA-7611: confirmation state on SketchRoom (SketchElement is
+              // deleted and recreated on every save). original* is sticky —
+              // once captured, later canvas edits must not overwrite the
+              // first-suggested snapshot.
+              confirmedAt: confirmStamp.confirmedAt,
+              confirmedBy: confirmStamp.confirmedBy,
+              correctionHistory: node.correctionHistory ?? undefined,
+              originalAreaM2: existing.originalAreaM2 ?? node.originalAreaM2,
+              originalGeometryJson:
+                existing.originalGeometryJson ??
+                node.originalGeometryJson ??
+                undefined,
               // Back on the canvas — clear any previous detachment so the room
               // is a placement target again.
               detachedAt: null,
@@ -433,6 +473,11 @@ export async function POST(
               provenance: node.provenance,
               geometryJson: node.geometryJson,
               floorNumber,
+              confirmedAt: confirmStamp.confirmedAt,
+              confirmedBy: confirmStamp.confirmedBy,
+              correctionHistory: node.correctionHistory ?? undefined,
+              originalAreaM2: node.originalAreaM2,
+              originalGeometryJson: node.originalGeometryJson ?? undefined,
             },
           });
         }

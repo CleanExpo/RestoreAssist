@@ -19,6 +19,7 @@ import {
   roomLabel,
   type RoomGeometryObject,
 } from "@/lib/sketch/room-area-from-geometry";
+import { isOperatorMeasuredProvenance } from "@/lib/sketch/measured-provenance";
 
 // ── Scale ─────────────────────────────────────────────────
 /** Default: 100 canvas pixels = 1 metre */
@@ -53,8 +54,9 @@ export interface EstimateLineItem {
   notes?: string;
   /**
    * Geometry provenance from the Fabric object / SketchRoom.
-   * Seeded onto estimate lines so the UI action can keep operator_measured
-   * rooms only without changing the extractor skip filters (RA-7611).
+   * Seeded onto estimate lines for the RA-7608 UI action. RA-7611 also
+   * allow-lists operator_measured in the extractor skip filters, so an
+   * ai_suggested room never becomes a line in the first place.
    */
   provenance?: string | null;
 }
@@ -127,9 +129,9 @@ function extractRoomsFromFabricJson(
   let damageIdx = 0;
 
   for (const obj of objects) {
-    // RA-6839 (A0): provenance firewall — underlay_reference geometry is
-    // reference-only and must never become a billed room or damage line item.
-    if (obj.data?.provenance === "underlay_reference") continue;
+    // RA-6839 / RA-7611: only operator_measured geometry may become a billed
+    // room or damage line item. Defence in depth with isMeasuredRoom below.
+    if (!isOperatorMeasuredProvenance(obj.data?.provenance)) continue;
 
     if (isFabricDamageZone(obj)) {
       const areaM2 =
@@ -316,7 +318,10 @@ function roomsFromSavedGraph(
   const lines: EstimateLineItem[] = [];
   let idx = 0;
   for (const room of saved) {
-    if (room.provenance === "underlay_reference") continue;
+    // RA-7611: allow-list with missing-tag fallback — saved SketchRoom rows
+    // bill when operator_measured or untagged. ai_suggested / underlay_reference
+    // / unknown tags yield nothing.
+    if (!isOperatorMeasuredProvenance(room.provenance)) continue;
     const areaM2 = room.areaM2;
     if (typeof areaM2 !== "number" || !Number.isFinite(areaM2) || areaM2 < MIN_BILLED_AREA_M2) {
       continue;

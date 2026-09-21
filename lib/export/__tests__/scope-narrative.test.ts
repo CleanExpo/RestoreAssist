@@ -28,6 +28,7 @@ const FLOOR = {
           material: "fibro",
           label: "Bathroom",
           waterCategory: "cat3",
+          provenance: "operator_measured",
         },
       },
     ],

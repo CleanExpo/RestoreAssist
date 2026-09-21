@@ -29,7 +29,12 @@ const FLOOR = {
           { x: 300, y: 400 },
           { x: 0, y: 400 },
         ],
-        data: { type: "room", material: "fibro", label: "Bathroom" },
+        data: {
+          type: "room",
+          material: "fibro",
+          label: "Bathroom",
+          provenance: "operator_measured",
+        },
       },
     ],
   },
@@ -208,7 +213,12 @@ function floorOfArea(m2: number) {
           { x: px, y: px },
           { x: 0, y: px },
         ],
-        data: { type: "room", material: "fibro", label: "Hall" },
+        data: {
+          type: "room",
+          material: "fibro",
+          label: "Hall",
+          provenance: "operator_measured",
+        },
       },
     ],
   };

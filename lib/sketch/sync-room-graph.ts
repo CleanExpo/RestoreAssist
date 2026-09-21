@@ -54,6 +54,12 @@ export interface RoomGraphNodeInput {
   /** Present when the room came from RoomPlan / underlay / etc. */
   captureAdapter: string | null;
   geometryJson: FabricObject;
+  /** RA-7611 — confirmation lives on SketchRoom, not SketchElement. */
+  confirmedAt: Date | null;
+  confirmedBy: string | null;
+  correctionHistory: unknown;
+  originalAreaM2: number | null;
+  originalGeometryJson: unknown;
 }
 
 export interface EvidenceRoomLink {
@@ -193,6 +199,14 @@ export function extractRoomGraphNodes(
       (typeof obj.data.material === "string" && obj.data.material) ||
       null;
 
+    const confirmedAtRaw = obj.data.confirmedAt;
+    const confirmedAt =
+      typeof confirmedAtRaw === "string" && confirmedAtRaw.length > 0
+        ? new Date(confirmedAtRaw)
+        : confirmedAtRaw instanceof Date
+          ? confirmedAtRaw
+          : null;
+
     rooms.push({
       fabricObjectId,
       name,
@@ -212,6 +226,26 @@ export function extractRoomGraphNodes(
           ? obj.data.captureAdapter
           : null,
       geometryJson: obj,
+      confirmedAt:
+        confirmedAt && !Number.isNaN(confirmedAt.getTime())
+          ? confirmedAt
+          : null,
+      confirmedBy:
+        typeof obj.data.confirmedBy === "string" ? obj.data.confirmedBy : null,
+      correctionHistory: Array.isArray(obj.data.correctionHistory)
+        ? obj.data.correctionHistory
+        : null,
+      originalAreaM2:
+        typeof obj.data.originalAreaM2 === "number"
+          ? obj.data.originalAreaM2
+          : null,
+      originalGeometryJson:
+        obj.data.originalPoints != null
+          ? {
+              points: obj.data.originalPoints,
+              label: obj.data.originalLabel ?? null,
+            }
+          : null,
     });
   }
 
