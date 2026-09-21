@@ -2,13 +2,27 @@
  * RA-7613 — map a Whisper (or queued) voice-note transcript onto existing
  * enumerated job fields only.
  *
- * Allowed targets: ANZ material slugs (plus documented aliases),
- * `cat1|cat2|cat3`, and numeric dimensions in metres. A term that does not
- * exact-match is returned in `needsConfirmation` — never guessed into a
- * neighbouring slug via substring.
+ * Allowed targets: ANZ material slugs (plus documented aliases, including
+ * singular/plural forms of the last word), `cat1|cat2|cat3`, and numeric
+ * dimensions in metres. A term that does not exact-match is returned in
+ * `needsConfirmation` — never guessed into a neighbouring slug via substring.
+ *
+ * Prefer the longest / most specific alias. When two different materials
+ * still match the same words, surface confirmation instead of guessing.
+ * When a generic term like "tiles" matches and a distinctive word of an
+ * asbestos-possible material (vinyl, lino, linoleum, asbestos, fibro) is
+ * in the same clause, resolve to that material or surface both — never
+ * silently choose ceramic-tile.
+ * When more than one water category is mentioned, return no category and
+ * surface confirmation — a negated or corrected category must never yield
+ * a lower category. Spoken-word categories ("category three") count.
  */
 
-import { ANZ_MATERIALS, type AnzMaterial } from "@/lib/anz/materials";
+import {
+  ANZ_MATERIALS,
+  getMaterial,
+  type AnzMaterial,
+} from "@/lib/anz/materials";
 import { type WaterCategory } from "@/lib/anz/water-category";
 
 export type VoiceConfirmationKind = "material" | "waterCategory" | "dimension";
@@ -29,14 +43,27 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function hasWholePhrase(haystack: string, needle: string): boolean {
-  const trimmed = needle.trim();
-  if (!trimmed) return false;
-  const re = new RegExp(
-    `(^|[^a-z0-9])${escapeRegExp(trimmed)}($|[^a-z0-9])`,
-    "i",
-  );
-  return re.test(haystack);
+/** Singular and plural of the last word so "vinyl tile" also matches "vinyl tiles". */
+function inflectLastWord(phrase: string): string[] {
+  const trimmed = phrase.trim();
+  if (!trimmed) return [];
+  const words = trimmed.split(/\s+/);
+  const last = words.at(-1);
+  if (!last) return [trimmed];
+  const head = words.slice(0, -1);
+  const join = (word: string) =>
+    head.length > 0 ? [...head, word].join(" ") : word;
+  const out = new Set<string>([trimmed]);
+  if (/ies$/i.test(last) && last.length > 3) {
+    out.add(join(`${last.slice(0, -3)}y`));
+  } else if (/s$/i.test(last) && !/ss$/i.test(last) && last.length > 1) {
+    out.add(join(last.slice(0, -1)));
+  } else if (/y$/i.test(last) && last.length > 1 && !/[aeiou]y$/i.test(last)) {
+    out.add(join(`${last.slice(0, -1)}ies`));
+  } else {
+    out.add(join(`${last}s`));
+  }
+  return [...out];
 }
 
 interface CatalogTerm {
@@ -54,7 +81,11 @@ function catalogTerms(): CatalogTerm[] {
     if (stem) phrases.add(stem);
     for (const alias of material.aliases ?? []) phrases.add(alias);
     for (const phrase of phrases) {
-      if (phrase.trim()) terms.push({ phrase: phrase.trim(), material });
+      const trimmed = phrase.trim();
+      if (!trimmed) continue;
+      for (const inflected of inflectLastWord(trimmed)) {
+        terms.push({ phrase: inflected, material });
+      }
     }
   }
   terms.sort((a, b) => b.phrase.length - a.phrase.length);
@@ -63,36 +94,266 @@ function catalogTerms(): CatalogTerm[] {
 
 const CATALOG_TERMS = catalogTerms();
 
-function findMaterial(transcript: string): AnzMaterial | undefined {
-  for (const term of CATALOG_TERMS) {
-    if (hasWholePhrase(transcript, term.phrase)) return term.material;
+interface PhraseMatch {
+  phrase: string;
+  material: AnzMaterial;
+  start: number;
+  end: number;
+}
+
+function findPhraseSpans(
+  haystack: string,
+  needle: string,
+): Array<{ start: number; end: number }> {
+  const trimmed = needle.trim();
+  if (!trimmed) return [];
+  const re = new RegExp(
+    `(^|[^a-z0-9])(${escapeRegExp(trimmed)})(?=$|[^a-z0-9])`,
+    "gi",
+  );
+  const spans: Array<{ start: number; end: number }> = [];
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(haystack)) !== null) {
+    const prefixLen = match[1]?.length ?? 0;
+    const start = match.index + prefixLen;
+    const end = start + (match[2]?.length ?? 0);
+    if (end > start) spans.push({ start, end });
+    if (re.lastIndex === match.index) re.lastIndex += 1;
   }
+  return spans;
+}
+
+function collectMaterialMatches(transcript: string): PhraseMatch[] {
+  const matches: PhraseMatch[] = [];
+  for (const term of CATALOG_TERMS) {
+    for (const span of findPhraseSpans(transcript, term.phrase)) {
+      matches.push({
+        phrase: term.phrase,
+        material: term.material,
+        start: span.start,
+        end: span.end,
+      });
+    }
+  }
+  matches.sort((a, b) => {
+    const lenDiff = b.phrase.length - a.phrase.length;
+    if (lenDiff !== 0) return lenDiff;
+    return a.start - b.start;
+  });
+  return matches;
+}
+
+function spansOverlap(a: PhraseMatch, b: PhraseMatch): boolean {
+  return a.start < b.end && b.start < a.end;
+}
+
+function isContainedIn(inner: PhraseMatch, outer: PhraseMatch): boolean {
+  return (
+    inner.start >= outer.start &&
+    inner.end <= outer.end &&
+    inner.phrase.length < outer.phrase.length
+  );
+}
+
+const ACM_CUE_MATERIAL_IDS: Array<{ pattern: RegExp; materialId: string }> = [
+  { pattern: /\bvinyl\b/i, materialId: "vinyl-tiles" },
+  { pattern: /\blino\b/i, materialId: "vinyl-tiles" },
+  { pattern: /\blinoleum\b/i, materialId: "vinyl-tiles" },
+  { pattern: /\basbestos\b/i, materialId: "fibro" },
+  { pattern: /\bfibro\b/i, materialId: "fibro" },
+];
+
+const CLAUSE_BOUNDARY = /[,.;:!?]/;
+
+function clauseContaining(
+  text: string,
+  start: number,
+  end: number,
+): { text: string; start: number; end: number } {
+  let from = 0;
+  for (let i = start - 1; i >= 0; i--) {
+    if (CLAUSE_BOUNDARY.test(text[i] ?? "")) {
+      from = i + 1;
+      break;
+    }
+  }
+  let to = text.length;
+  for (let i = end; i < text.length; i++) {
+    if (CLAUSE_BOUNDARY.test(text[i] ?? "")) {
+      to = i;
+      break;
+    }
+  }
+  while (from < to && /\s/.test(text[from] ?? "")) from += 1;
+  while (to > from && /\s/.test(text[to - 1] ?? "")) to -= 1;
+  return { text: text.slice(from, to), start: from, end: to };
+}
+
+function acmMaterialsInClause(clause: string): AnzMaterial[] {
+  const ids = new Set<string>();
+  for (const cue of ACM_CUE_MATERIAL_IDS) {
+    if (cue.pattern.test(clause)) ids.add(cue.materialId);
+  }
+  return [...ids]
+    .map((id) => getMaterial(id))
+    .filter((material): material is AnzMaterial => material != null);
+}
+
+/**
+ * Generic "tile(s)" must not win uncontested when the same clause names a
+ * distinctive word of an asbestos-possible material.
+ */
+function applyAcmCuesToCeramicMatches(
+  transcript: string,
+  primary: PhraseMatch[],
+): { matches: PhraseMatch[]; ambiguousTerm?: string } {
+  const adjusted: PhraseMatch[] = [];
+  for (const match of primary) {
+    if (match.material.id !== "ceramic-tile") {
+      adjusted.push(match);
+      continue;
+    }
+    const clause = clauseContaining(transcript, match.start, match.end);
+    const cued = acmMaterialsInClause(clause.text);
+    if (cued.length === 0) {
+      adjusted.push(match);
+      continue;
+    }
+    if (cued.length > 1) {
+      return { matches: [], ambiguousTerm: clause.text };
+    }
+    const acm = cued[0];
+    if (!acm) {
+      adjusted.push(match);
+      continue;
+    }
+    adjusted.push({ ...match, material: acm });
+  }
+  return { matches: adjusted };
+}
+
+interface MaterialResolution {
+  material?: AnzMaterial;
+  ambiguousTerm?: string;
+}
+
+function resolveMaterial(transcript: string): MaterialResolution {
+  const matches = collectMaterialMatches(transcript);
+  if (matches.length === 0) return {};
+
+  // Longest / most specific first. Drop a generic alias fully contained in a
+  // longer match (ceramic "tiles" inside vinyl "vinyl tiles").
+  const primary: PhraseMatch[] = [];
+  for (const match of matches) {
+    if (primary.some((kept) => isContainedIn(match, kept))) continue;
+    primary.push(match);
+  }
+
+  const withCues = applyAcmCuesToCeramicMatches(transcript, primary);
+  if (withCues.ambiguousTerm) {
+    return { ambiguousTerm: withCues.ambiguousTerm };
+  }
+  const resolvedMatches = withCues.matches;
+
+  const conflict = resolvedMatches.find((a) =>
+    resolvedMatches.some(
+      (b) =>
+        a !== b && a.material.id !== b.material.id && spansOverlap(a, b),
+    ),
+  );
+  if (conflict) {
+    const conflicting = resolvedMatches.filter((a) =>
+      resolvedMatches.some(
+        (b) =>
+          a !== b && a.material.id !== b.material.id && spansOverlap(a, b),
+      ),
+    );
+    const start = Math.min(...conflicting.map((m) => m.start));
+    const end = Math.max(...conflicting.map((m) => m.end));
+    return { ambiguousTerm: transcript.slice(start, end) };
+  }
+
+  return { material: resolvedMatches[0]?.material };
+}
+
+const CATEGORY_MENTION_RE =
+  /\b(?:category|cat)\s*_?\s*(\d+|one|two|three)\b/gi;
+
+function tokenToWaterCategory(token: string): WaterCategory | undefined {
+  const t = token.toLowerCase();
+  if (t === "1" || t === "one") return "cat1";
+  if (t === "2" || t === "two") return "cat2";
+  if (t === "3" || t === "three") return "cat3";
   return undefined;
 }
 
-const WATER_PATTERNS: Array<{ re: RegExp; category: WaterCategory }> = [
-  { re: /\b(?:category|cat)\s*_?\s*1\b/i, category: "cat1" },
-  { re: /\b(?:category|cat)\s*_?\s*2\b/i, category: "cat2" },
-  { re: /\b(?:category|cat)\s*_?\s*3\b/i, category: "cat3" },
-  { re: /\bcat1\b/i, category: "cat1" },
-  { re: /\bcat2\b/i, category: "cat2" },
-  { re: /\bcat3\b/i, category: "cat3" },
-];
+const NEGATION_BEFORE =
+  /(?:\b(?:not|never|no)\b|\b(?:is|was|are|were)n'?t\b)(?:\s+\w+){0,3}\s*$/i;
+
+function mentionIsNegated(transcript: string, start: number): boolean {
+  return NEGATION_BEFORE.test(transcript.slice(0, start));
+}
 
 function findWaterCategory(
   transcript: string,
   needsConfirmation: VoiceConfirmationItem[],
 ): WaterCategory | undefined {
-  const unknown = transcript.match(/\b(?:category|cat)\s*_?\s*(\d+)\b/i);
-  if (unknown) {
-    const n = unknown[1];
-    if (n !== "1" && n !== "2" && n !== "3") {
-      needsConfirmation.push({ kind: "waterCategory", term: unknown[0] });
+  const mentions: Array<{
+    raw: string;
+    category?: WaterCategory;
+    negated: boolean;
+  }> = [];
+
+  for (const match of transcript.matchAll(CATEGORY_MENTION_RE)) {
+    const token = match[1] ?? "";
+    const raw = match[0] ?? "";
+    const start = match.index ?? 0;
+    const category = tokenToWaterCategory(token);
+    mentions.push({
+      raw,
+      category,
+      negated: mentionIsNegated(transcript, start),
+    });
+  }
+
+  if (mentions.length === 0) return undefined;
+
+  const unknown = mentions.filter((m) => m.category == null);
+  for (const item of unknown) {
+    needsConfirmation.push({ kind: "waterCategory", term: item.raw });
+  }
+
+  const known = mentions.filter(
+    (m): m is { raw: string; category: WaterCategory; negated: boolean } =>
+      m.category != null,
+  );
+  const uniqueKnown = [...new Set(known.map((m) => m.category))];
+
+  // Two different categories (or a known plus an unknown) — never guess, and
+  // never lower a corrected / negated category to the first match in the string.
+  if (uniqueKnown.length > 1 || (uniqueKnown.length >= 1 && unknown.length >= 1)) {
+    if (!needsConfirmation.some((item) => item.kind === "waterCategory")) {
+      needsConfirmation.push({
+        kind: "waterCategory",
+        term: mentions.map((m) => m.raw).join(", "),
+      });
     }
+    return undefined;
   }
-  for (const pattern of WATER_PATTERNS) {
-    if (pattern.re.test(transcript)) return pattern.category;
+
+  if (uniqueKnown.length === 1) {
+    const category = uniqueKnown[0];
+    const ofThat = known.filter((m) => m.category === category);
+    if (ofThat.some((m) => m.negated)) {
+      needsConfirmation.push({
+        kind: "waterCategory",
+        term: ofThat[0]?.raw ?? category,
+      });
+      return undefined;
+    }
+    return category;
   }
+
   return undefined;
 }
 
@@ -136,6 +397,12 @@ function mentionMatchesCatalog(mention: string): boolean {
   return CATALOG_TERMS.some((term) => term.phrase.toLowerCase() === lower);
 }
 
+function isWaterCategoryMention(mention: string): boolean {
+  return /^(?:category|cat)\s*_?\s*(?:\d+|one|two|three)\b/i.test(
+    mention.trim(),
+  );
+}
+
 /**
  * Phrases the speaker offered as a material ("walls are Wonderboard") that
  * are not in the ANZ catalog. Surfaced for confirmation; never mapped.
@@ -148,8 +415,9 @@ function unmatchedMaterialMentions(transcript: string): string[] {
   while ((match = re.exec(transcript)) !== null) {
     const mention = normaliseMention(match[1] ?? "");
     if (!mention) continue;
+    if (isWaterCategoryMention(mention)) continue;
     if (mentionMatchesCatalog(mention)) continue;
-    if (findMaterial(mention)) continue;
+    if (resolveMaterial(mention).material) continue;
     mentions.push(mention);
   }
   return mentions;
@@ -162,7 +430,11 @@ export function mapVoiceTranscriptToFields(
   const needsConfirmation: VoiceConfirmationItem[] = [];
   if (!text) return { needsConfirmation };
 
-  const material = findMaterial(text);
+  const resolved = resolveMaterial(text);
+  if (resolved.ambiguousTerm) {
+    needsConfirmation.push({ kind: "material", term: resolved.ambiguousTerm });
+  }
+  const material = resolved.material;
   const waterCategory = findWaterCategory(text, needsConfirmation);
   const dimensions = findDimensions(text);
 
