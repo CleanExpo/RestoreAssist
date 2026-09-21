@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { resolvePortalInspectionId } from "@/lib/portal/resolve-portal-inspection";
+import { resolvePortalAccess } from "@/lib/portal/resolve-portal-inspection";
 import { PortalLinkExpired } from "@/components/portal/PortalLinkExpired";
+import { PortalTokenAccessFallback } from "@/components/portal/PortalTokenAccessFallback";
 import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
 import { fetchTechnicianIdentity } from "@/lib/portal/fetch-technician-identity";
@@ -43,8 +44,11 @@ interface PageProps {
 export default async function ClientLearnKioskPage({ params }: PageProps) {
   const { token } = await params;
 
-  const inspectionId = await resolvePortalInspectionId(token);
-  if (!inspectionId) return <PortalLinkExpired />;
+  const resolved = await resolvePortalAccess(token);
+  if (resolved.kind !== "inspection") {
+    return <PortalTokenAccessFallback resolved={resolved} />;
+  }
+  const inspectionId = resolved.inspectionId;
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
