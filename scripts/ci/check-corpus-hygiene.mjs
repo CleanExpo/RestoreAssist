@@ -11,6 +11,9 @@
  * Importable: `scanText`, `scanDir`, `RATE_PATTERNS` (used by the ingest driver
  * scripts/ingest-standards-remote.ts to abort an ingest that carries rates).
  * CLI:  node scripts/ci/check-corpus-hygiene.mjs --dir <staging-dir> [--strict]
+ * There is no npm `check:corpus` alias (RA-7474). That invocation passed no
+ * `--dir`, so it was a silent no-op on Windows and a usage-error on Linux.
+ * Detector coverage in CI is `scripts/__tests__/check-corpus-hygiene.test.ts`.
  *
  * See .claude/skills/rag-corpus-hygiene/SKILL.md.
  */
