@@ -90,5 +90,8 @@ tech-signoff-modal-fresh.spec.ts         a1
 tech-visual-baselines.spec.ts            unrun:visual baselines need committed reference images and a stable renderer; no pipeline provides either
 trial-no-paywall.spec.ts                 smoke
 v2-sketch-workflow.spec.ts               a1
+walkthrough/client.spec.ts               unrun:three-persona walkthrough; runs only against an already-running localhost server via walkthrough.config.ts, which refuses non-local URLs and starts no server; no pipeline boots one
+walkthrough/owner.spec.ts                unrun:three-persona walkthrough; runs only against an already-running localhost server via walkthrough.config.ts, which refuses non-local URLs and starts no server; no pipeline boots one
+walkthrough/technician.spec.ts           unrun:three-persona walkthrough; runs only against an already-running localhost server via walkthrough.config.ts, which refuses non-local URLs and starts no server; no pipeline boots one
 warehouse.spec.ts                        workflow:sketch-e2e.yml
 workshop.spec.ts                         workflow:sketch-e2e.yml
