@@ -17,7 +17,7 @@ import {
   presumeAsbestosFromEra,
   type AsbestosJurisdiction,
 } from "@/lib/compliance/asbestos-era";
-import { getStateInfo } from "@/lib/state-detection";
+import { resolveStateInfo } from "@/lib/state-detection";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -157,22 +157,6 @@ function asbestosRiskHazard(
   };
 }
 
-// ── State detection (mirrors safework-notification-gate.ts pattern) ────────
-
-function detectStateCode(postcode: string): string {
-  const pc = parseInt(postcode, 10);
-  if (isNaN(pc)) return "NSW";
-  if (pc >= 1000 && pc <= 2999) return "NSW";
-  if (pc >= 3000 && pc <= 3999) return "VIC";
-  if (pc >= 4000 && pc <= 4999) return "QLD";
-  if (pc >= 5000 && pc <= 5999) return "SA";
-  if (pc >= 6000 && pc <= 6999) return "WA";
-  if (pc >= 7000 && pc <= 7999) return "TAS";
-  if (pc >= 200 && pc <= 299) return "ACT";
-  if (pc >= 800 && pc <= 899) return "NT";
-  return "NSW";
-}
-
 // ── Main generator ─────────────────────────────────────────────────────────
 
 /**
@@ -188,6 +172,7 @@ export async function generateSwmsDraft(
     select: {
       id: true,
       propertyPostcode: true,
+      propertyCountry: true,
       propertyYearBuilt: true,
       makeSafeActions: {
         select: { action: true, applicable: true, completed: true },
@@ -264,24 +249,18 @@ export async function generateSwmsDraft(
   // flat pre-1990 -- Queensland's asbestos-REGISTER exemption, applied to every
   // job in the country -- so a 1995 building anywhere produced a SWMS with no
   // asbestos hazard on it at all. See lib/compliance/asbestos-era.ts.
-  const stateCode = detectStateCode(inspection.propertyPostcode);
-  const stateInfo = getStateInfo(stateCode);
+  const country = inspection.propertyCountry?.trim().toUpperCase();
+  const stateInfo = resolveStateInfo({
+    postcode: inspection.propertyPostcode,
+    country: inspection.propertyCountry,
+  });
 
-  // AUSTRALIA ONLY, and stated rather than implied.
-  //
-  // An earlier revision of this line read `stateInfo ? "AU" : "NZ"`, which reads
-  // as jurisdiction-aware and is not: `detectStateCode` falls back to "NSW" for
-  // any unparseable or out-of-range postcode and never returns a non-Australian
-  // code, so `stateInfo` is always defined and the ternary always yielded "AU".
-  // A New Zealand job would have received Australia's 2004 threshold while the
-  // code looked as though it had checked.
-  //
-  // `Inspection` carries no country field (see the RA-1120 note in
-  // safework-notification-gate.ts), and this generator selects only
-  // propertyPostcode and propertyYearBuilt, so NZ genuinely cannot be resolved
-  // here yet. Pinning it honestly is better than a ternary that cannot fire:
-  // when the country field lands, this is the one line to change.
-  const jurisdiction: AsbestosJurisdiction = "AU";
+  // Positive NZ only. A stored "AU" may be the schema default, so we do not
+  // treat it as a confirmed country — resolveStateInfo already falls through
+  // to the AU postcode map in that case. Asbestos era is NZ only when the
+  // inspection actually recorded New Zealand (RA-7361).
+  const jurisdiction: AsbestosJurisdiction =
+    country === "NZ" || country === "NEW ZEALAND" ? "NZ" : "AU";
 
   if (presumeAsbestosFromEra(inspection.propertyYearBuilt, jurisdiction)) {
     hazards.push(asbestosRiskHazard(jurisdiction));
@@ -290,9 +269,6 @@ export async function generateSwmsDraft(
   const whsRefs: string[] = [];
   if (stateInfo) {
     whsRefs.push(stateInfo.whsAct);
-  } else {
-    // NZ fallback
-    whsRefs.push("Health and Safety at Work Act 2015 (NZ)");
   }
 
   // Deduplicate clause refs across all hazards

@@ -20,6 +20,9 @@ function stateComplianceLines(stateInfo: StateInfo | null | undefined): string {
     citations.length > 0
       ? citations.map((citation) => `- ${citation}`)
       : [`- ${AU_LAW_INVENTION_GUARD}`];
+  if (stateInfo?.workSafetyAuthority) {
+    lines.push(`- Regulator: ${stateInfo.workSafetyAuthority}`);
+  }
   if (stateInfo?.code === "NZ") {
     lines.push(`- ${NZ_LAW_GUARD}`);
   }
@@ -512,7 +515,7 @@ ${report.technicianName ? `**Technician:** ${report.technicianName}` : ""}
 1. **EXACT STRUCTURE:** Follow the structure above EXACTLY - Header, Overview Cards, State Compliance, Room Details, Status Panel, Cost & Forecast, Incident Details, Footer
 2. **Visual Cards Layout:** Present overview metrics as visual cards with icons (🏠, 💧, 📊, 💰, etc.)
 3. **Room Panels:** Each room should have its own section with Materials, Moisture (current and target), Status, Scope of work, and Equipment listed
-4. **State Compliance Section:** List compliance standards as bullet points, citing the WHS/OHS Act, EPA Act and Building Code exactly as named above (they differ by jurisdiction), plus IICRC Standards
+4. **State Compliance Section:** List compliance standards as bullet points, citing only the instruments named above (they differ by jurisdiction; omit any that were not named), plus IICRC Standards
 5. **Status Gauge:** Show drying status as a gauge value (e.g., "33.6 - FAIR") with clear status label
 6. **Cost Table:** Use a simple 3-column table (QTY | RATE/DAY | TOTAL) grouping equipment by type (LGR Dehumidifiers, Air Movers)
 7. **Warning Boxes:** Use amber warning boxes for occupied properties with children/vulnerable persons
