@@ -2,8 +2,8 @@
  * Shared step recorder for the three-persona walkthrough (owner, technician, client).
  *
  * Every step appends exactly one JSON line to this run's results.jsonl with a screenshot,
- * the console errors, the failing responses and every mutating request seen since the
- * previous step. A step never throws: a measured failure is recorded as FAIL and the
+ * the console errors, the failing responses and every mutating request made while the
+ * step ran. A step never throws: a measured failure is recorded as FAIL and the
  * journey moves on, so one broken screen cannot hide the rest of the product. A step that
  * could NOT be exercised is UNMEASURED, never FAIL. verify.mjs checks the file.
  *
@@ -318,7 +318,11 @@ export async function step(
     watchAtStart.observedResponses = 0;
     watchAtStart.stepRequests.clear();
   }
-  const mutationsBefore = mutations.length;
+  // Writes recorded before this step began (set-up between steps, a previous step's late
+  // traffic) belong to no step. They used to reach this step's `requests`, and verify.mjs
+  // reads any recorded request as proof the step ran, so a step that did nothing looked
+  // measured. They stay on the line as `unattributed`, never as this step's evidence.
+  const unattributed = mutations.splice(0);
   try {
     result = await body();
   } catch (err) {
@@ -327,7 +331,8 @@ export async function step(
   // Tallied HERE, before the screenshot is awaited. Computing it afterwards let a response
   // arriving during the screenshot count as this step's work, which made a callback that
   // returned immediately look measured.
-  const observed = (watchAtStart?.observedResponses ?? 0) + (mutations.length - mutationsBefore);
+  const own = mutations.splice(0);
+  const observed = (watchAtStart?.observedResponses ?? 0) + own.length;
   let screenshot: string | undefined;
   if (page && !page.isClosed()) {
     // The name is bound to the step so a screenshot cannot stand in for another step.
@@ -349,7 +354,8 @@ export async function step(
     pageUrl: page && !page.isClosed() ? page.url() : undefined,
     consoleErrors: w?.consoleErrors.splice(0) ?? [],
     badResponses: w?.badResponses.splice(0) ?? [],
-    requests: mutations.splice(0),
+    requests: own,
+    unattributed,
     // What this step actually did. A step that reached no network at all did not exercise
     // anything, whatever its screenshot suggests; verify.mjs reads this, not the screenshot,
     // when deciding whether a FAIL was measured.
