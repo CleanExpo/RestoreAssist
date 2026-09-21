@@ -3,8 +3,9 @@
  *
  * jsdom (this repo's `@vitest-environment jsdom`) does not implement
  * IndexedDB, and the repo has no fake-indexeddb dependency (CLAUDE.md:
- * no new deps). lib/voice-note-queue.ts only needs a single keyPath-based
- * object store with add/put/get/getAll/count/delete, each firing
+ * no new deps). Queue modules need a keyPath-based object store with
+ * add/put/get/getAll/count/delete plus named indexes (by-status,
+ * by-inspection, by-type on the NIR sync queue), each firing
  * onsuccess/onerror asynchronously like the real API — that subset is
  * implemented here rather than pulling in a full IndexedDB polyfill.
  */
@@ -33,11 +34,51 @@ class FakeOpenRequest extends FakeRequest<FakeDatabase> {
     null;
 }
 
+class FakeIndex {
+  constructor(
+    private readonly rows: Map<string, Row>,
+    private readonly field: string,
+  ) {}
+
+  getAll(query?: unknown) {
+    const req = new FakeRequest<Row[]>();
+    const all = Array.from(this.rows.values());
+    req.succeed(
+      query === undefined ? all : all.filter((row) => row[this.field] === query),
+    );
+    return req;
+  }
+
+  count(query?: unknown) {
+    const req = new FakeRequest<number>();
+    const all = Array.from(this.rows.values());
+    req.succeed(
+      query === undefined
+        ? all.length
+        : all.filter((row) => row[this.field] === query).length,
+    );
+    return req;
+  }
+}
+
 class FakeObjectStore {
   constructor(
     private readonly rows: Map<string, Row>,
     private readonly keyPath: string,
+    private readonly indexDefs: Map<string, string>,
   ) {}
+
+  createIndex(name: string, keyPath: string, _options?: { unique?: boolean }) {
+    this.indexDefs.set(name, keyPath);
+  }
+
+  index(name: string) {
+    const field = this.indexDefs.get(name);
+    if (!field) {
+      throw new Error(`Index ${name} not found`);
+    }
+    return new FakeIndex(this.rows, field);
+  }
 
   add(value: Row) {
     const req = new FakeRequest<undefined>();
@@ -85,19 +126,24 @@ class FakeObjectStore {
 }
 
 class FakeTransaction {
+  error: Error | null = null;
+  onerror: (() => void) | null = null;
+
   constructor(
     private readonly rows: Map<string, Row>,
     private readonly keyPath: string,
+    private readonly indexDefs: Map<string, string>,
   ) {}
 
   objectStore(_name: string) {
-    return new FakeObjectStore(this.rows, this.keyPath);
+    return new FakeObjectStore(this.rows, this.keyPath, this.indexDefs);
   }
 }
 
 class FakeDatabase {
   private readonly stores = new Map<string, Map<string, Row>>();
   private readonly keyPaths = new Map<string, string>();
+  private readonly indexes = new Map<string, Map<string, string>>();
 
   objectStoreNames = {
     contains: (name: string) => this.stores.has(name),
@@ -106,14 +152,23 @@ class FakeDatabase {
   createObjectStore(name: string, options: { keyPath: string }) {
     this.stores.set(name, new Map());
     this.keyPaths.set(name, options.keyPath);
+    this.indexes.set(name, new Map());
+    return new FakeObjectStore(
+      this.stores.get(name)!,
+      options.keyPath,
+      this.indexes.get(name)!,
+    );
   }
 
   transaction(name: string, _mode: string) {
     if (!this.stores.has(name)) this.stores.set(name, new Map());
-    return new FakeTransaction(
+    if (!this.indexes.has(name)) this.indexes.set(name, new Map());
+    const tx = new FakeTransaction(
       this.stores.get(name)!,
       this.keyPaths.get(name) ?? "id",
+      this.indexes.get(name)!,
     );
+    return tx;
   }
 }
 
