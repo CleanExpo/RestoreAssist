@@ -92,4 +92,44 @@ describe("RA-7620 — vinyl-tiles plural and water-category confirmation", () =>
       result.needsConfirmation.some((item) => item.kind === "waterCategory"),
     ).toBe(true);
   });
+
+  it.each([
+    "vinyl floor tiles",
+    "vinyl lino tiles",
+    "old vinyl kitchen floor tiles",
+  ])(
+    "maps '%s' to vinyl-tiles or confirmation, never ceramic-tile",
+    (transcript) => {
+      const result = mapVoiceTranscriptToFields(transcript);
+      const confirmedMaterial = result.needsConfirmation.some(
+        (item) => item.kind === "material",
+      );
+      expect(result.material?.id).not.toBe("ceramic-tile");
+      expect(
+        result.material?.id === "vinyl-tiles" || confirmedMaterial,
+      ).toBe(true);
+      if (result.material?.id === "vinyl-tiles") {
+        expect(result.material.isPotentialAcm).toBe(true);
+      }
+    },
+  );
+
+  it("maps 'ceramic tiles' to ceramic-tile", () => {
+    const result = mapVoiceTranscriptToFields("ceramic tiles");
+    expect(result.material?.id).toBe("ceramic-tile");
+    expect(result.material?.isPotentialAcm).toBe(false);
+  });
+
+  it("maps spoken-word 'category three' to cat3", () => {
+    const result = mapVoiceTranscriptToFields("category three black water");
+    expect(result.waterCategory).toBe("cat3");
+  });
+
+  it("does not flag a water category phrase as an unknown material", () => {
+    const result = mapVoiceTranscriptToFields("this is category 3");
+    expect(result.waterCategory).toBe("cat3");
+    expect(
+      result.needsConfirmation.some((item) => item.kind === "material"),
+    ).toBe(false);
+  });
 });
