@@ -18,6 +18,8 @@ import {
   PUBLIC_FREE_CTA_LABEL,
   PUBLIC_TRIAL_PATH,
   SETUP_AI_KEY_OPTIONAL_HINT,
+  SETUP_AI_KEY_OPTIONAL_TITLE,
+  SETUP_AI_KEY_REQUIRED_TITLE,
   PLATFORM_KEY_MISSING_BODY,
   PLATFORM_KEY_MISSING_TITLE,
   SELLABLE_CHECKOUT_PLANS,
@@ -47,6 +49,9 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
     expect(BASIC_WITHOUT_KEY_BODY).toMatch(/Provider charges apply only when/i);
     expect(BASIC_REPORT_CTA_LABEL).toBe("Create Basic report without API key");
     expect(BASIC_REPORT_PATH).toBe("/dashboard/reports/new");
+    expect(SETUP_AI_KEY_OPTIONAL_TITLE).toMatch(/optional/i);
+    expect(SETUP_AI_KEY_OPTIONAL_TITLE).not.toMatch(/add your/i);
+    expect(SETUP_AI_KEY_REQUIRED_TITLE).toMatch(/add your/i);
     expect(SETUP_AI_KEY_OPTIONAL_HINT).toMatch(/optional upgrade/i);
     expect(SETUP_AI_KEY_OPTIONAL_HINT).not.toMatch(/required to operate/i);
     expect(PAID_AI_KEY_REQUIRED_BODY).toMatch(/after the trial/i);
@@ -71,7 +76,12 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
 
     const aiKeyCard = readSrc("components/setup/AiKeyCard.tsx");
     expect(aiKeyCard).toContain("SETUP_AI_KEY_OPTIONAL_HINT");
+    expect(aiKeyCard).toContain("SETUP_AI_KEY_OPTIONAL_TITLE");
     expect(aiKeyCard).toContain("@/lib/signup-pricing-honesty");
+
+    const setupShell = readSrc("components/setup/SetupShell.tsx");
+    expect(setupShell).toContain("SETUP_AI_KEY_OPTIONAL_TITLE");
+    expect(setupShell).toContain("SETUP_AI_KEY_REQUIRED_TITLE");
 
     const onboardingStep = readSrc("lib/onboarding/ai-provider-step.ts");
     expect(onboardingStep).toContain("PAID_AI_KEY_REQUIRED_BODY");

@@ -79,7 +79,7 @@ describe("SetupShell — one-step wizard wiring", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     expect(screen.getByText(/Step 2 of 7: Add your AI key/)).toBeInTheDocument();
     expect(screen.getByText("AIKEY_BODY")).toBeInTheDocument();
-    // Paid / expired: server says required:true → Next locks.
+    // Paid / expired: server says required:true → Next locks. title stays required.
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /next/i })).toBeDisabled();
     });
@@ -92,7 +92,9 @@ describe("SetupShell — one-step wizard wiring", () => {
     render(<SetupShell initial={initial} />);
     await screen.findByText(/Step 1 of 7: Welcome/);
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
-    expect(screen.getByText(/Step 2 of 7: Add your AI key/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Step 2 of 7: Your own AI key \(optional\)/),
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
     });
@@ -150,7 +152,7 @@ describe("SetupShell — one-step wizard wiring", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     await waitFor(() => {
       expect(
-        screen.getByText(/Step 2 of 7: Add your AI key \(optional\)/),
+        screen.getByText(/Step 2 of 7: Your own AI key \(optional\)/),
       ).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();

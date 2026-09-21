@@ -8,7 +8,10 @@ import type {
   CatalogueModel,
   OpenRouterCatalogue,
 } from '@/lib/workspace/openrouter-catalogue';
-import { SETUP_AI_KEY_OPTIONAL_HINT } from '@/lib/signup-pricing-honesty';
+import {
+  SETUP_AI_KEY_OPTIONAL_HINT,
+  SETUP_AI_KEY_OPTIONAL_TITLE,
+} from '@/lib/signup-pricing-honesty';
 
 // Inline SVG marks (Phill Rule 1: no generic icon-library imports). Matches the
 // inline-<svg> pattern used by the sibling VideoExplainer card.
@@ -104,9 +107,14 @@ function friendlySaveError(status: number, code?: string): string {
 export function AiKeyCard({
   onSaved,
   hint,
+  title,
+  showKeyHelp = false,
 }: {
   onSaved?: () => void;
   hint?: string;
+  title?: string;
+  /** Paid path only — do not offer "get a key" when the platform should supply. */
+  showKeyHelp?: boolean;
 } = {}) {
   const [provider, setProvider] = useState<Provider>('ANTHROPIC');
   const [apiKey, setApiKey] = useState('');
@@ -232,7 +240,7 @@ export function AiKeyCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Add your AI key (optional)</CardTitle>
+        <CardTitle>{title ?? SETUP_AI_KEY_OPTIONAL_TITLE}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
@@ -404,16 +412,17 @@ export function AiKeyCard({
               )}
             </Button>
 
-            {/* How-to affordance */}
-            <p className="text-xs text-muted-foreground text-center">
-              Need a key?{' '}
-              <a
-                href="/dashboard/settings/ai-providers"
-                className="text-blue-600 hover:underline"
-              >
-                Here&apos;s how to get one
-              </a>
-            </p>
+            {showKeyHelp && (
+              <p className="text-xs text-muted-foreground text-center">
+                Need a key?{' '}
+                <a
+                  href="/dashboard/settings/ai-providers"
+                  className="text-blue-600 hover:underline"
+                >
+                  Here&apos;s how to get one
+                </a>
+              </p>
+            )}
           </div>
         )}
       </CardContent>

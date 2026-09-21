@@ -43,6 +43,9 @@ describe('AiKeyCard', () => {
     );
     expect(screen.getByText(/platform AI key/i)).toBeInTheDocument();
     expect(screen.getByText(/continue setup/i)).toBeInTheDocument();
+    expect(screen.getByText(/your own AI key \(optional\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Add your AI key/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Need a key/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/optional upgrade/i)).not.toBeInTheDocument();
   });
 
@@ -153,8 +156,8 @@ describe('AiKeyCard', () => {
     });
   });
 
-  it('renders a link to the ai-providers settings page', () => {
-    render(<AiKeyCard />);
+  it('renders a link to the ai-providers settings page when BYOK is required', () => {
+    render(<AiKeyCard showKeyHelp />);
     const link = screen.getByRole('link', { name: /here'?s how/i });
     expect(link).toHaveAttribute('href', '/dashboard/settings/ai-providers');
   });

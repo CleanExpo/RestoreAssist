@@ -13,6 +13,11 @@ import { VideoExplainer } from './VideoExplainer';
 import { WelcomeOverview } from './WelcomeOverview';
 import { AiKeyCard } from './AiKeyCard';
 import { SetupStepper, type SetupStepperItem } from './SetupStepper';
+import {
+  SETUP_AI_KEY_OPTIONAL_HINT,
+  SETUP_AI_KEY_OPTIONAL_TITLE,
+  SETUP_AI_KEY_REQUIRED_TITLE,
+} from '@/lib/signup-pricing-honesty';
 
 type SectionKey = 'businessDetails' | 'branding' | 'pricing' | 'storage' | 'integrations';
 
@@ -44,10 +49,11 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
   // Default optional so a funded trial is not locked before status returns.
   // Paid / expired workspaces re-lock only when the API says required: true.
   const [aiKeyRequired, setAiKeyRequired] = useState(false);
-  const [aiKeyTitle, setAiKeyTitle] = useState('Add your AI key (optional)');
-  const [aiKeyDescription, setAiKeyDescription] = useState(
-    'Trial credits power report generation. Add your own Anthropic or OpenAI key anytime as an optional upgrade.',
-  );
+  const [aiKeyTitleFromApi, setAiKeyTitleFromApi] = useState<string | null>(null);
+  const [aiKeyDescription, setAiKeyDescription] = useState(SETUP_AI_KEY_OPTIONAL_HINT);
+  const aiKeyTitle =
+    aiKeyTitleFromApi ??
+    (aiKeyRequired ? SETUP_AI_KEY_REQUIRED_TITLE : SETUP_AI_KEY_OPTIONAL_TITLE);
   useEffect(() => {
     let active = true;
     fetch('/api/onboarding/status')
@@ -60,7 +66,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
           // A missing `required` field must not re-lock a funded trial.
           setAiKeyRequired(step.required === true);
           if (typeof step.title === 'string' && step.title.trim()) {
-            setAiKeyTitle(step.title);
+            setAiKeyTitleFromApi(step.title);
           }
           if (typeof step.description === 'string' && step.description.trim()) {
             setAiKeyDescription(step.description);
@@ -165,7 +171,16 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       complete: hasApiKey || !aiKeyRequired,
       description: aiKeyDescription,
       content: (
-        <AiKeyCard onSaved={() => setHasApiKey(true)} hint={aiKeyDescription} />
+        <AiKeyCard
+          onSaved={() => setHasApiKey(true)}
+          hint={aiKeyDescription}
+          title={
+            aiKeyRequired
+              ? SETUP_AI_KEY_REQUIRED_TITLE
+              : SETUP_AI_KEY_OPTIONAL_TITLE
+          }
+          showKeyHelp={aiKeyRequired}
+        />
       ),
     },
     {

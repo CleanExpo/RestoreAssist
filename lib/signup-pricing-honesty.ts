@@ -39,8 +39,13 @@ export const SIGNUP_KEY_NOTE_TITLE = BASIC_WITHOUT_KEY_HEADLINE;
 export const SIGNUP_KEY_NOTE_BODY = BASIC_WITHOUT_KEY_BODY;
 
 /** Setup wizard AI-key card — optional, not a hard wall (RA-7416). */
+export const SETUP_AI_KEY_OPTIONAL_TITLE = "Your own AI key (optional)";
+
 export const SETUP_AI_KEY_OPTIONAL_HINT =
   "Basic reports on the trial work without a key. Add Anthropic, OpenAI or OpenRouter anytime as an optional upgrade — you pay that provider directly.";
+
+/** Paid / expired — BYOK is the required action. */
+export const SETUP_AI_KEY_REQUIRED_TITLE = "Add your AI key";
 
 /**
  * Paid / expired workspace copy. Do not say the product cannot operate —
