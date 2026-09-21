@@ -10,6 +10,10 @@
  *
  * Route handlers must call `resolveWorkspaceAiKey` and catch
  * `NoWorkspaceKeyError` to return a 402 PAYMENT_REQUIRED.
+ *
+ * RA-7600: the 402 copy must distinguish a platform-key miss (ops fail;
+ * the funded trial should have been covered) from a BYOK-required miss
+ * (paid / expired / zero-credit). Same fail-closed throw; different message.
  */
 
 import {
@@ -18,7 +22,14 @@ import {
   getProviderCredentials,
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
-import { tryPlatformTrialApiKey } from "@/lib/ai/platform-trial-credential";
+import {
+  describePlatformTrialCoverage,
+  tryPlatformTrialApiKey,
+} from "@/lib/ai/platform-trial-credential";
+import {
+  REPORT_GEN_PLATFORM_NOT_READY_BODY,
+  reportGenByokRequiredBody,
+} from "@/lib/signup-pricing-honesty";
 
 export interface ResolvedWorkspaceAiKey {
   workspaceId: string;
@@ -32,13 +43,36 @@ export interface ResolvedWorkspaceElevenLabsKey {
   voiceId?: string;
 }
 
+/** Why resolveWorkspaceAiKey failed — copy, not a second fallback. */
+export type NoWorkspaceKeyReason = "BYOK_REQUIRED" | "PLATFORM_NOT_READY";
+
 export class NoWorkspaceKeyError extends Error {
-  constructor(public readonly provider: AiProvider) {
+  constructor(
+    public readonly provider: AiProvider,
+    public readonly reason: NoWorkspaceKeyReason = "BYOK_REQUIRED",
+  ) {
     super(
-      `No active ${provider} API key configured for this workspace. Add your own key in Workspace Settings -> AI Providers.`,
+      reason === "PLATFORM_NOT_READY"
+        ? REPORT_GEN_PLATFORM_NOT_READY_BODY
+        : reportGenByokRequiredBody(provider),
     );
     this.name = "NoWorkspaceKeyError";
   }
+}
+
+/**
+ * Fail-closed credential miss. A funded trial whose platform key is absent
+ * is an ops fail — never rewrite that as "add your own key" (RA-7600).
+ */
+export async function noWorkspaceKeyErrorForUser(
+  userId: string,
+  provider: AiProvider,
+): Promise<NoWorkspaceKeyError> {
+  const coverage = await describePlatformTrialCoverage(userId);
+  if (coverage.fundedTrial && !coverage.platformKeyPresent) {
+    return new NoWorkspaceKeyError(provider, "PLATFORM_NOT_READY");
+  }
+  return new NoWorkspaceKeyError(provider, "BYOK_REQUIRED");
 }
 
 /**
@@ -56,7 +90,7 @@ export async function resolveWorkspaceAiKey(
     if (trialKey) {
       return { workspaceId: "platform-trial", apiKey: trialKey };
     }
-    throw new NoWorkspaceKeyError(provider);
+    throw await noWorkspaceKeyErrorForUser(userId, provider);
   }
 
   const apiKey = await getProviderApiKey(workspace.id, provider);
@@ -69,7 +103,7 @@ export async function resolveWorkspaceAiKey(
     return { workspaceId: workspace.id, apiKey: trialKey };
   }
 
-  throw new NoWorkspaceKeyError(provider);
+  throw await noWorkspaceKeyErrorForUser(userId, provider);
 }
 
 /**

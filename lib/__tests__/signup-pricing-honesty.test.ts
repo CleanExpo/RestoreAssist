@@ -22,6 +22,8 @@ import {
   SETUP_AI_KEY_REQUIRED_TITLE,
   PLATFORM_KEY_MISSING_BODY,
   PLATFORM_KEY_MISSING_TITLE,
+  REPORT_GEN_PLATFORM_NOT_READY_BODY,
+  reportGenByokRequiredBody,
   SELLABLE_CHECKOUT_PLANS,
   afterTrialPlanNote,
   assertPublicPricingCta,
@@ -61,6 +63,11 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
     expect(PLATFORM_KEY_MISSING_BODY).toMatch(/platform AI key/i);
     expect(PLATFORM_KEY_MISSING_BODY).toMatch(/continue setup/i);
     expect(PLATFORM_KEY_MISSING_BODY).not.toMatch(/add your/i);
+    expect(REPORT_GEN_PLATFORM_NOT_READY_BODY).toMatch(/not ready/i);
+    expect(REPORT_GEN_PLATFORM_NOT_READY_BODY).toMatch(/platform AI key/i);
+    expect(REPORT_GEN_PLATFORM_NOT_READY_BODY).not.toMatch(/add your/i);
+    expect(reportGenByokRequiredBody("ANTHROPIC")).toMatch(/add your own key/i);
+    expect(reportGenByokRequiredBody("ANTHROPIC")).toMatch(/ANTHROPIC/);
   });
 
   it("signup and pricing pages source the claim from the SSOT", () => {
@@ -87,6 +94,11 @@ describe("RA-7549 signup/pricing honesty SSOT", () => {
     expect(onboardingStep).toContain("PAID_AI_KEY_REQUIRED_BODY");
     expect(onboardingStep).toContain("PLATFORM_KEY_MISSING_TITLE");
     expect(onboardingStep).toContain("PLATFORM_KEY_MISSING_BODY");
+
+    const resolver = readSrc("lib/ai/resolve-workspace-ai-key.ts");
+    expect(resolver).toContain("REPORT_GEN_PLATFORM_NOT_READY_BODY");
+    expect(resolver).toContain("reportGenByokRequiredBody");
+    expect(resolver).toContain("describePlatformTrialCoverage");
   });
 
   it("signup, pricing, and post-signup surfaces drop the BYOK-required lie", () => {
