@@ -12,6 +12,7 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { MarketingShell } from "@/components/landing/home";
 import { CONTAINER, FONT_DISPLAY } from "@/components/landing/home/motion";
+import { CLIENT_PORTAL_PUBLIC_CTA } from "@/lib/portal/canonical-entry";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -470,6 +471,17 @@ function LoginForm() {
                   className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors font-medium"
                 >
                   Sign up for free
+                </Link>
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-600">
+                {CLIENT_PORTAL_PUBLIC_CTA.invitedLabel}{" "}
+                <Link
+                  href={CLIENT_PORTAL_PUBLIC_CTA.href}
+                  className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors font-medium"
+                >
+                  {CLIENT_PORTAL_PUBLIC_CTA.label}
                 </Link>
               </p>
             </div>

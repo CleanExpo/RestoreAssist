@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
+import { CLIENT_PORTAL_PUBLIC_CTA } from "@/lib/portal/canonical-entry";
 import { CONTAINER } from "./motion";
 
 const DISPLAY = "font-[family-name:var(--font-landing-display)]";
@@ -20,6 +21,10 @@ const COLUMNS = [
     links: [
       { href: "/resources", label: "Resources" },
       { href: "/login", label: "Log in" },
+      {
+        href: CLIENT_PORTAL_PUBLIC_CTA.href,
+        label: CLIENT_PORTAL_PUBLIC_CTA.label,
+      },
       { href: "/privacy", label: "Privacy" },
       { href: "/terms", label: "Terms" },
     ],

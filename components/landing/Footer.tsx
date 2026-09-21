@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { BRAND } from "@/lib/brand";
+import { CLIENT_PORTAL_PUBLIC_CTA } from "@/lib/portal/canonical-entry";
 
 interface FooterProps {
   darkMode: boolean;
@@ -221,6 +222,14 @@ export default function Footer({ darkMode }: FooterProps) {
                     className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Help Centre
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href={CLIENT_PORTAL_PUBLIC_CTA.href}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
+                  >
+                    {CLIENT_PORTAL_PUBLIC_CTA.label}
                   </Link>
                 </li>
                 <li>
