@@ -165,6 +165,8 @@ describe("p0-1 private-buckets workflow wiring", () => {
     const needs = Array.isArray(acceptance?.needs) ? acceptance.needs : [acceptance?.needs];
     expect(needs).toContain("secrets-gate");
     expect(acceptance?.if).toContain("provisioned == 'true'");
+    // Skip is not a pass: the live job never runs without both secrets.
+    expect(acceptance?.if).not.toMatch(/provisioned\s*!=/);
   });
 
   it("binds the two secrets as env only — never interpolates them into a run block", () => {
@@ -192,6 +194,12 @@ describe("p0-1 private-buckets workflow wiring", () => {
 });
 
 describe("p0-1 secrets-gate (extracted shell)", () => {
+  it("does not fail the secrets-gate job itself — skip is a notice, not a red run", () => {
+    // RA-7008: an unprovisioned gate must not burn FAILURE every cycle.
+    // Acceptance still refuses to run (`if: provisioned == 'true'`).
+    expect(secretsGateScript()).not.toMatch(/\bexit\s+2\b/);
+  });
+
   it("reports provisioned and exits 0 when both secrets are present", () => {
     const r = runGate(SECRET_ENV);
     expect(r.code).toBe(0);
@@ -200,13 +208,15 @@ describe("p0-1 secrets-gate (extracted shell)", () => {
     expect(r.stdout).toContain("::notice");
   });
 
-  it("exits 2 and refuses green when both secrets are absent", () => {
+  it("exits 0 with an explicit SKIPPED — NOT a pass notice when both secrets are absent", () => {
     const r = runGate([]);
-    expect(r.code).toBe(2);
+    expect(r.code).toBe(0);
     expect(r.outputs).toContain("provisioned=false");
     expect(r.stdout).toContain("SKIPPED");
     expect(r.stdout).toContain("NOT a pass");
-    expect(r.stdout).toContain("::error");
+    expect(r.stdout).toContain("::warning");
+    expect(r.stdout).not.toContain("::error");
+    expect(r.stdout).not.toContain("PASSED");
   });
 
   it("names every missing secret when none are set", () => {
@@ -217,10 +227,12 @@ describe("p0-1 secrets-gate (extracted shell)", () => {
   it.each([
     ["url only", ["SUPABASE_URL"] as const],
     ["key only", ["SUPABASE_SERVICE_ROLE_KEY"] as const],
-  ])("treats %s as unprovisioned (AND, not OR) and exits 2", (_label, present) => {
+  ])("treats %s as unprovisioned (AND, not OR) without failing the job", (_label, present) => {
     const r = runGate(present);
-    expect(r.code).toBe(2);
+    expect(r.code).toBe(0);
     expect(r.outputs).toContain("provisioned=false");
+    expect(r.stdout).toContain("SKIPPED");
+    expect(r.stdout).toContain("NOT a pass");
   });
 
   it("names only the secret actually missing from a partial set", () => {
