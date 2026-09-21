@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { MONITORED_CRONS, KNOWN_UNMONITORED } from "@/lib/cron/expected-jobs";
+import {
+  MONITORED_CRONS,
+  KNOWN_UNMONITORED,
+  DELIBERATELY_UNSCHEDULED,
+} from "@/lib/cron/expected-jobs";
 
 /**
  * RA-7026 follow-up: the anti-regression guard for cron observability.
@@ -21,6 +25,19 @@ function scheduledCronPaths(): string[] {
   return (vercelJson.crons ?? []).map((c) =>
     c.path.replace(/^\/api\/cron\//, "").replace(/\/$/, ""),
   );
+}
+
+function cronRoutesOnDisk(): string[] {
+  const cronRoot = path.join(repoRoot, "app/api/cron");
+  return fs
+    .readdirSync(cronRoot, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        fs.existsSync(path.join(cronRoot, entry.name, "route.ts")),
+    )
+    .map((entry) => entry.name)
+    .sort();
 }
 
 describe("cron watchdog coverage", () => {
@@ -68,5 +85,88 @@ describe("cron watchdog coverage", () => {
     const paths = MONITORED_CRONS.map((c) => c.path);
     expect(new Set(jobNames).size).toBe(jobNames.length);
     expect(new Set(paths).size).toBe(paths.length);
+  });
+});
+
+describe("cron route schedule coverage (RA-7454 / RA-7455)", () => {
+  it("every cron route is scheduled in vercel.json or deliberately unscheduled", () => {
+    const scheduled = new Set(scheduledCronPaths());
+    const declared = new Set(DELIBERATELY_UNSCHEDULED.map((c) => c.path));
+
+    const orphans = cronRoutesOnDisk().filter(
+      (p) => !scheduled.has(p) && !declared.has(p),
+    );
+
+    expect(
+      orphans,
+      `These cron routes exist on disk but are neither scheduled in vercel.json ` +
+        `nor declared in DELIBERATELY_UNSCHEDULED (lib/cron/expected-jobs.ts). ` +
+        `A route that is in neither place never runs and nothing reports it: ${orphans.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("declared-unscheduled paths are not also in vercel.json", () => {
+    const scheduled = new Set(scheduledCronPaths());
+    const contradictions = DELIBERATELY_UNSCHEDULED.map((c) => c.path).filter(
+      (p) => scheduled.has(p),
+    );
+
+    expect(
+      contradictions,
+      `Declared unscheduled but present in vercel.json — one of the two is a lie: ${contradictions.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("every deliberately-unscheduled entry has a real route and a reason", () => {
+    const missing = DELIBERATELY_UNSCHEDULED.filter(
+      (c) =>
+        !fs.existsSync(path.join(repoRoot, "app/api/cron", c.path, "route.ts")),
+    ).map((c) => c.path);
+    expect(
+      missing,
+      `DELIBERATELY_UNSCHEDULED references routes that don't exist: ${missing.join(", ")}`,
+    ).toEqual([]);
+
+    const blank = DELIBERATELY_UNSCHEDULED.filter(
+      (c) => !c.reason || c.reason.trim().length === 0,
+    ).map((c) => c.path);
+    expect(
+      blank,
+      `DELIBERATELY_UNSCHEDULED entries need a one-line reason: ${blank.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("vercel.json does not schedule paths with no route.ts", () => {
+    const missing = scheduledCronPaths().filter(
+      (p) =>
+        !fs.existsSync(path.join(repoRoot, "app/api/cron", p, "route.ts")),
+    );
+    expect(
+      missing,
+      `vercel.json schedules paths with no route.ts — these 404 on every fire: ${missing.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("schedules and monitors the invoice-sync backstop (RA-7454)", () => {
+    expect(scheduledCronPaths()).toContain("sync-invoices");
+    expect(MONITORED_CRONS).toContainEqual(
+      expect.objectContaining({
+        path: "sync-invoices",
+        jobName: "sync-invoices",
+        maxStalenessMinutes: 140,
+      }),
+    );
+    expect(KNOWN_UNMONITORED).not.toContain("sync-invoices");
+    expect(DELIBERATELY_UNSCHEDULED.map((c) => c.path)).not.toContain(
+      "sync-invoices",
+    );
+
+    // A MONITORED_CRONS entry without runCronJob would page every night as
+    // never_succeeded. The wrap is what makes the watchdog entry honest.
+    const routeSrc = fs.readFileSync(
+      path.join(repoRoot, "app/api/cron/sync-invoices/route.ts"),
+      "utf8",
+    );
+    expect(routeSrc).toMatch(/runCronJob\(\s*["']sync-invoices["']/);
   });
 });

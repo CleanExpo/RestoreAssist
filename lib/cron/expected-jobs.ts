@@ -51,6 +51,7 @@ export const MONITORED_CRONS: readonly CronExpectation[] = [
   { path: "retry-failed-webhooks", jobName: "retry-failed-webhooks", label: "Webhook retry", maxStalenessMinutes: 70 * MIN },
   // ── hourly ────────────────────────────────────────────────────────────
   { path: "sync-ascora-labour", jobName: "sync-ascora-labour", label: "Ascora labour importer", maxStalenessMinutes: 140 * MIN },
+  { path: "sync-invoices", jobName: "sync-invoices", label: "Invoice sync backstop", maxStalenessMinutes: 140 * MIN },
   // ── daily ─────────────────────────────────────────────────────────────
   { path: "cleanup", jobName: "cleanup", label: "Daily cleanup", maxStalenessMinutes: 28 * HOUR },
   { path: "trial-reminders", jobName: "trial-reminders", label: "Trial reminders", maxStalenessMinutes: 28 * HOUR },
@@ -86,6 +87,50 @@ export const KNOWN_UNMONITORED: readonly string[] = [
   "storage-restore",
   "cron-watchdog",
 ];
+
+export interface DeliberatelyUnscheduledCron {
+  /** Route segment under app/api/cron/, e.g. "ingest-standards". */
+  path: string;
+  /** One-line reason this route must not appear in vercel.json. */
+  reason: string;
+}
+
+/**
+ * Routes under app/api/cron/ that exist on disk but must NOT be scheduled.
+ *
+ * The coverage test requires every cron route to be either in vercel.json or
+ * listed here with a reason. A comment claiming a schedule is not a schedule.
+ *
+ * Do not list a path that is also in vercel.json — that contradiction is a
+ * test failure, not a documented state.
+ */
+export const DELIBERATELY_UNSCHEDULED: readonly DeliberatelyUnscheduledCron[] =
+  [
+    {
+      path: "board-meeting",
+      reason: "internal agent cron, pruned in 37221517",
+    },
+    {
+      path: "brand-ambassador",
+      reason: "internal agent cron, pruned in 37221517",
+    },
+    {
+      path: "design-system-onboarding",
+      reason: "internal agent cron, pruned in 37221517",
+    },
+    {
+      path: "scout",
+      reason: "internal agent cron, pruned in 37221517",
+    },
+    {
+      path: "ingest-standards",
+      reason: "operator-invoked, not scheduled (dedicated STANDARDS_INGEST_TOKEN)",
+    },
+    {
+      path: "cleanup-expired-files",
+      reason: "never scheduled — tracked as RA-7453, not this change",
+    },
+  ];
 
 export type CronProblemKind = "never_succeeded" | "stale" | "failing";
 
