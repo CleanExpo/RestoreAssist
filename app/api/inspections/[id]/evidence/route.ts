@@ -24,6 +24,7 @@ import {
   assertInspectionTenancy,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import {
   checkManifestBinding,
   parseSignedManifest,
@@ -110,6 +111,15 @@ export async function POST(
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.toLowerCase().includes("multipart/form-data")) {
     return handleMultipartEvidencePost(request, session, inspectionId);
+  }
+
+  // RA-7586: the sync ledger is keyed to the caller's workspace, not
+  // Inspection.workspaceId, which no create path writes.
+  let workspace;
+  try {
+    workspace = await getWorkspaceForUser(userId);
+  } catch (error) {
+    return fromException(request, error, { stage: "evidence-post" });
   }
 
   // RA-1266: evidence items are append-only with chain-of-custody —
@@ -246,10 +256,10 @@ export async function POST(
         return fromException(request, error, { stage: "evidence-post" });
       }
     },
-    tenancy.data.workspaceId
+    workspace
       ? {
           clientMutation: {
-            workspaceId: tenancy.data.workspaceId,
+            workspaceId: workspace.id,
             userId,
             inspectionId,
             mutationType: "evidence-item",
