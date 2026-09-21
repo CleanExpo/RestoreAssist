@@ -94,11 +94,17 @@ async function attachMeterPhoto() {
   });
 }
 
-async function reachConfirmForm() {
+async function reachConfirmForm(props?: { onReadingAccepted?: () => void }) {
   (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
     jsonResponse(200, { reading: READING }),
   );
-  render(<MeterPhotoCapture inspectionId={INSPECTION_ID} mode="moisture" />);
+  render(
+    <MeterPhotoCapture
+      inspectionId={INSPECTION_ID}
+      mode="moisture"
+      onReadingAccepted={props?.onReadingAccepted}
+    />,
+  );
   await attachMeterPhoto();
   fireEvent.click(
     screen.getByRole("button", { name: /Analyse meter photo with AI/i }),
@@ -246,7 +252,8 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
   });
 
   it("posts directly when online and the route succeeds (regression guard)", async () => {
-    await reachConfirmForm();
+    const onReadingAccepted = vi.fn();
+    await reachConfirmForm({ onReadingAccepted });
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
       jsonResponse(201, { moistureReading: { id: "mr-online" } }),
     );
@@ -275,6 +282,7 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
     expect(
       screen.queryByText(/Saved on this device — will sync/i),
     ).not.toBeInTheDocument();
+    await waitFor(() => expect(onReadingAccepted).toHaveBeenCalledTimes(1));
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
 
@@ -291,6 +299,59 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
       ).toBeInTheDocument(),
     );
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(1);
+  });
+
+  it("does not ask the parent to refetch after a queued save — banner stays, no load-failure toast", async () => {
+    // Mirrors /dashboard/inspections/[id]: onReadingAccepted always
+    // fetchInspection()s. That setLoading(true) unmounts this card and,
+    // offline, toasts "Failed to load inspection" even though the reading
+    // is queued — the Bugbot medium on #2239.
+    const toastError = vi.fn();
+    const onReadingAccepted = vi.fn(() => {
+      void fetch(`/api/inspections/${INSPECTION_ID}`)
+        .then((res) => {
+          if (!res.ok) toastError("Failed to load inspection");
+        })
+        .catch(() => {
+          toastError("Failed to load inspection");
+        });
+    });
+
+    await reachConfirmForm({ onReadingAccepted });
+    setOnline(false);
+    confirmAndSave();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Saved on this device — will sync/i),
+      ).toBeInTheDocument(),
+    );
+
+    expect(onReadingAccepted).not.toHaveBeenCalled();
+    expect(toastError).not.toHaveBeenCalled();
+    expect(
+      (fetch as ReturnType<typeof vi.fn>).mock.calls.some(
+        (call) => call[0] === `/api/inspections/${INSPECTION_ID}`,
+      ),
+    ).toBe(false);
+    expect(screen.getByText(/Moisture Meter — Photo OCR/i)).toBeInTheDocument();
+
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(201, { moistureReading: { id: "mr-1" } }),
+    );
+    setOnline(true);
+    expect(await drainQueue()).toBe(1);
+    const moisturePosts = (fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (call) => call[0] === MOISTURE_ENDPOINT,
+    );
+    expect(moisturePosts).toHaveLength(1);
+    const headers = new Headers(moisturePosts[0][1].headers);
+    expect(headers.get("Idempotency-Key")).toBeTruthy();
+    expect(await drainQueue()).toBe(0);
+    await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
+    expect(
+      screen.getByText(/Saved on this device — will sync/i),
+    ).toBeInTheDocument();
   });
 
   it("does not queue a 4xx — the technician must retry or fix the input", async () => {

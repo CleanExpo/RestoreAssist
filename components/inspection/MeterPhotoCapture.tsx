@@ -840,7 +840,14 @@ export function MeterPhotoCapture({
   const handleSaved = (opts?: { queuedLocally?: boolean }) => {
     setQueuedLocally(Boolean(opts?.queuedLocally));
     reset();
-    onReadingAccepted?.();
+    // RA-7604 / Bugbot: the inspection page's onReadingAccepted always
+    // fetchInspection()s. That setLoading(true) unmounts this card (banner
+    // gone) and, offline, toasts a load failure even though the reading
+    // is queued — techs recapture and later sync duplicates. Skip the
+    // parent refresh when the save is only on-device; drain persists it.
+    if (!opts?.queuedLocally) {
+      onReadingAccepted?.();
+    }
   };
 
   return (
