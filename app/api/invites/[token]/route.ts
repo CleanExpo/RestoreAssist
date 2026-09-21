@@ -12,6 +12,7 @@
  *   - 400 on weak password (<12 chars) or missing name
  *   - 410 on expired
  *   - 409 if email already has an account (shouldn't happen — team/invites POST guards against this)
+ *   - RA-7574: headshot upload failure is a warning, not a 502 — account still joins
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -26,6 +27,7 @@ import { isUserInviteToken } from "@/lib/public-token-shape";
 import { apiError } from "@/lib/api-errors";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { canonicalEmail } from "@/lib/email-identity";
+import { reportError } from "@/lib/observability";
 import crypto from "node:crypto";
 
 interface RouteContext {
@@ -46,19 +48,31 @@ function isAssignableInviteRole(role: string): role is "MANAGER" | "USER" {
 
 type AcceptanceProvider = "credentials" | "google";
 
+const HEADSHOT_SAVE_WARNING =
+  "Your photo did not save. You can add it later from your profile.";
+
 function acceptanceResponse(
   provider: AcceptanceProvider,
   email: string,
   replayed = false,
+  headshotSaved = true,
 ) {
+  const warning = headshotSaved ? undefined : HEADSHOT_SAVE_WARNING;
   if (provider === "google") {
-    return NextResponse.json({ ok: true, replayed });
+    return NextResponse.json({
+      ok: true,
+      replayed,
+      headshotSaved,
+      ...(warning ? { warning } : {}),
+    });
   }
   return NextResponse.json({
     success: true,
     message: "Account created. You can now sign in.",
     email: canonicalEmail(email),
     replayed,
+    headshotSaved,
+    ...(warning ? { warning } : {}),
   });
 }
 
@@ -95,7 +109,7 @@ async function replayAcceptance(
       organizationId: invite.organizationId,
       email: { equals: invite.email, mode: "insensitive" },
     },
-    select: { id: true },
+    select: { id: true, image: true },
   });
   if (!acceptedUser) {
     return apiError(req, {
@@ -105,7 +119,12 @@ async function replayAcceptance(
     });
   }
 
-  return acceptanceResponse(provider, invite.email, true);
+  return acceptanceResponse(
+    provider,
+    invite.email,
+    true,
+    Boolean(acceptedUser.image),
+  );
 }
 
 function acceptancePayloadHash(input: {
@@ -137,6 +156,25 @@ function acceptancePayloadHash(input: {
       ]),
     )
     .digest("hex");
+}
+
+/** RA-7574 — photo storage must not gate joining. Log and continue. */
+async function tryUploadInviteHeadshot(
+  headshotDataUrl: string,
+): Promise<{ url: string; publicId: string } | null> {
+  const { uploadDataUrlWithReceipt } = await import("@/lib/cloudinary");
+  try {
+    return await uploadDataUrlWithReceipt(headshotDataUrl, {
+      folder: "headshots",
+      tags: ["headshot", "invite"],
+    });
+  } catch (err) {
+    reportError(err, {
+      route: "/api/invites/[token]",
+      stage: "invite-accept:headshot-upload",
+    });
+    return null;
+  }
 }
 
 async function deleteLosingHeadshot(publicId: string) {
@@ -517,26 +555,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         status: 409,
       });
     }
-    const { uploadDataUrlWithReceipt } = await import("@/lib/cloudinary");
-    let headshotUpload: { url: string; publicId: string };
-    try {
-      headshotUpload = await uploadDataUrlWithReceipt(headshotDataUrl, {
-        folder: "headshots",
-        tags: ["headshot", "invite"],
-      });
-    } catch (err) {
-      console.error(
-        "[POST /api/invites/[token]] Cloudinary upload failed",
-        err,
-      );
-      return apiError(req, {
-        code: "UPSTREAM_FAILED",
-        message: "Failed to upload headshot",
-        status: 502,
-        err,
-        stage: "invite-accept:headshot-upload",
-      });
-    }
+    const headshotUpload = await tryUploadInviteHeadshot(headshotDataUrl);
     try {
       await prisma.$transaction(async (tx) => {
         const now = new Date();
@@ -573,7 +592,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
           },
           data: {
             phone,
-            image: headshotUpload.url,
+            ...(headshotUpload ? { image: headshotUpload.url } : {}),
             name: sanitizeString(googleUser.name, 200) || name,
             role: invite.role,
             organizationId: invite.organizationId,
@@ -605,7 +624,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         });
       });
     } catch (error) {
-      await deleteLosingHeadshot(headshotUpload.publicId);
+      if (headshotUpload) {
+        await deleteLosingHeadshot(headshotUpload.publicId);
+      }
       if (error instanceof InviteClaimConflict) {
         const committed = await prisma.userInvite.findUnique({
           where: { token },
@@ -631,7 +652,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       }
       throw error;
     }
-    return acceptanceResponse("google", invite.email);
+    return acceptanceResponse(
+      "google",
+      invite.email,
+      false,
+      Boolean(headshotUpload),
+    );
   }
 
   // Guard against a race with a separate registration on the same email —
@@ -686,21 +712,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const hashedPassword = await bcrypt.hash(password, 12);
 
   // Upload the headshot before the DB transaction — network I/O does not
-  // belong inside a Prisma transaction.
-  const { uploadDataUrlWithReceipt } = await import("@/lib/cloudinary");
-  let headshotUpload: { url: string; publicId: string };
-  try {
-    headshotUpload = await uploadDataUrlWithReceipt(headshotDataUrl, {
-      folder: "headshots",
-      tags: ["headshot", "invite"],
-    });
-  } catch (err) {
-    console.error("[POST /api/invites/[token]] Cloudinary upload failed", err);
-    return NextResponse.json(
-      { error: "Failed to upload headshot" },
-      { status: 502 },
-    );
-  }
+  // belong inside a Prisma transaction. RA-7574: a storage failure must not
+  // abort acceptance; the photo is retryable from the profile.
+  const headshotUpload = await tryUploadInviteHeadshot(headshotDataUrl);
 
   // Create the user and mark the invite used atomically.
   try {
@@ -737,7 +751,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
           organizationId: invite.organizationId,
           managedById: invite.managedById,
           phone,
-          image: headshotUpload.url,
+          image: headshotUpload?.url ?? null,
           // Invited members don't have their own trial credits —
           // they share the Admin org's credits.
           subscriptionStatus: null,
@@ -763,7 +777,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       });
     });
   } catch (error) {
-    await deleteLosingHeadshot(headshotUpload.publicId);
+    if (headshotUpload) {
+      await deleteLosingHeadshot(headshotUpload.publicId);
+    }
     if (error instanceof InviteClaimConflict) {
       const committed = await prisma.userInvite.findUnique({
         where: { token },
@@ -817,5 +833,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     throw error;
   }
 
-  return acceptanceResponse("credentials", invite.email);
+  return acceptanceResponse(
+    "credentials",
+    invite.email,
+    false,
+    Boolean(headshotUpload),
+  );
 }

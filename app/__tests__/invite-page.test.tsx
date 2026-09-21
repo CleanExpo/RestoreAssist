@@ -133,6 +133,47 @@ describe("InviteAcceptPage session claims", () => {
     expect(screen.queryByText("[object Object]")).not.toBeInTheDocument();
   });
 
+  it("joins the technician and warns when the headshot did not save", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            email: "technician@example.com",
+            role: "USER",
+            roleLabel: "Field Technician",
+            organizationName: "Example Restoration",
+            inviterName: "Admin",
+            expiresAt: "2026-09-01T00:00:00.000Z",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            success: true,
+            headshotSaved: false,
+            warning:
+              "Your photo did not save. You can add it later from your profile.",
+          }),
+        }),
+    );
+
+    render(<InviteAcceptPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Continue identity" }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept invitation" }));
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/dashboard?firstRun=tech"),
+    );
+    expect(toastError).toHaveBeenCalledWith(
+      "Your photo did not save. You can add it later from your profile.",
+      expect.objectContaining({ duration: 8000 }),
+    );
+    expect(signIn).toHaveBeenCalled();
+  });
+
   it("toasts a structured acceptance error message instead of an object", async () => {
     vi.stubGlobal(
       "fetch",

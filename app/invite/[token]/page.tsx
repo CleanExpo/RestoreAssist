@@ -202,6 +202,15 @@ export default function InviteAcceptPage() {
         return;
       }
 
+      if (data.headshotSaved === false) {
+        toast.error(
+          typeof data.warning === "string" && data.warning.trim()
+            ? data.warning
+            : "Your photo did not save. You can add it later from your profile.",
+          { duration: 8000 },
+        );
+      }
+
       if (identity) {
         const signInResult = await signIn("credentials", {
           email: preview.email,
