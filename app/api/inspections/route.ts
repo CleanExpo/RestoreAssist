@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { Prisma } from "@prisma/client";
+import { InspectionStatus, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +9,10 @@ import { randomBytes } from "crypto";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveInspectionReach } from "@/lib/auth/assert-tenancy";
+import {
+  enumEqualityOrIn,
+  parseEnumList,
+} from "@/lib/validation/parse-enum-list";
 
 // GET - Get inspections (optionally filtered by reportId, with pagination and search)
 export async function GET(request: NextRequest) {
@@ -168,13 +172,23 @@ export async function GET(request: NextRequest) {
     }
     const where: Prisma.InspectionWhereInput = { ...reach.data };
 
-    // Status filter — support "active" alias (not COMPLETED/REJECTED)
+    // Status filter — support "active" alias (not COMPLETED/REJECTED).
+    // RA-7567: Field Mode sends several statuses in one query value
+    // (`DRAFT,SUBMITTED,…`). Split and validate so Prisma never sees the
+    // joined string as a single InspectionStatus (that was a 500).
     if (status) {
       if (status === "active") {
         where.status = { notIn: ["COMPLETED", "REJECTED"] };
       } else {
-        where.status =
-          status.toUpperCase() as Prisma.InspectionWhereInput["status"];
+        const parsed = parseEnumList(status, Object.values(InspectionStatus));
+        if (!parsed.ok) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Invalid status: ${parsed.invalid}`,
+            status: 400,
+          });
+        }
+        where.status = enumEqualityOrIn(parsed.values);
       }
     }
 
