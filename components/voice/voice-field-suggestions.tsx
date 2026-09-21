@@ -6,7 +6,29 @@
  */
 
 import type { VoiceSuggestion } from "@/lib/services/ai/voice-field-suggestions";
-import { categoryRequirements } from "@/lib/anz/water-category";
+import {
+  categoryRequirements,
+  type WaterCategory,
+} from "@/lib/anz/water-category";
+
+const CATEGORY_RANK: Record<WaterCategory, number> = {
+  cat1: 1,
+  cat2: 2,
+  cat3: 3,
+};
+
+function waterCategoryCopy(
+  suggested: WaterCategory,
+  current?: WaterCategory,
+): string {
+  if (!current) {
+    const label = categoryRequirements(suggested).label;
+    return `Water category: ${label} (${suggested})`;
+  }
+  const lower =
+    CATEGORY_RANK[suggested] < CATEGORY_RANK[current] ? " (lower)" : "";
+  return `current ${current}, suggested ${suggested}${lower}`;
+}
 
 export type ListedVoiceSuggestion = VoiceSuggestion & { key: string };
 
@@ -71,10 +93,13 @@ export function VoiceFieldSuggestionList({
   suggestions,
   onAccept,
   onReject,
+  currentWaterCategory,
 }: {
   suggestions: ListedVoiceSuggestion[];
   onAccept: (suggestion: ListedVoiceSuggestion) => void;
   onReject: (suggestion: ListedVoiceSuggestion) => void;
+  /** Category already saved on this room, so a lower suggestion is labelled. */
+  currentWaterCategory?: WaterCategory;
 }) {
   if (suggestions.length === 0) return null;
   return (
@@ -95,7 +120,6 @@ export function VoiceFieldSuggestionList({
           );
         }
         if (suggestion.kind === "waterCategory") {
-          const label = categoryRequirements(suggestion.waterCategory).label;
           return (
             <Card
               key={suggestion.key}
@@ -105,7 +129,10 @@ export function VoiceFieldSuggestionList({
               onAccept={() => onAccept(suggestion)}
               onReject={() => onReject(suggestion)}
             >
-              {`Water category: ${label} (${suggestion.waterCategory})`}
+              {waterCategoryCopy(
+                suggestion.waterCategory,
+                currentWaterCategory,
+              )}
             </Card>
           );
         }

@@ -51,8 +51,17 @@ interface Props {
   inspectionId?: string;
   /** Which field the note is for — tags the queue entry (RA-1609). */
   fieldLabel?: string;
+  /**
+   * Room this control is showing. Captured when recording starts so a later
+   * room switch cannot move the note. A drained note for another room stays
+   * queued until that room is open.
+   */
+  roomId?: string;
   /** RA-7613 — structured mapping of the transcript onto enumerated fields. */
-  onMappedFields?: (mapping: VoiceFieldMapping) => void;
+  onMappedFields?: (
+    mapping: VoiceFieldMapping,
+    context?: { roomId?: string },
+  ) => void;
 }
 
 export function VoiceNoteButton({
@@ -64,6 +73,7 @@ export function VoiceNoteButton({
   compact = false,
   inspectionId = "unassigned",
   fieldLabel = "voice-note",
+  roomId,
   onMappedFields,
 }: Props) {
   const [status, setStatus] = useState<Status>("idle");
@@ -77,6 +87,8 @@ export function VoiceNoteButton({
   onTranscriptRef.current = onTranscript;
   onMappedFieldsRef.current = onMappedFields;
   const recorderRef = useRef<MediaRecorder | null>(null);
+  /** Room id at the moment recording started. Not the room open at upload time. */
+  const recordedRoomIdRef = useRef<string | undefined>(roomId);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,6 +133,10 @@ export function VoiceNoteButton({
         ) {
           continue;
         }
+        // A note recorded in another room stays queued until that room is open.
+        if (item.roomId && roomId && item.roomId !== roomId) {
+          continue;
+        }
         if (consumedIdsRef.current.has(item.id)) continue;
         consumedIdsRef.current.add(item.id);
 
@@ -143,8 +159,9 @@ export function VoiceNoteButton({
           );
         } else {
           const mapped = mapVoiceTranscriptToFields(transcript);
+          const noteRoomId = item.roomId ?? roomId;
           setMapping(mapped);
-          handler(mapped);
+          handler(mapped, noteRoomId ? { roomId: noteRoomId } : undefined);
           onTranscriptRef.current(transcript);
           setQueued(false);
           setMappingNote(null);
@@ -178,7 +195,7 @@ export function VoiceNoteButton({
       cancelled = true;
       window.removeEventListener(drainedEvent, onDrained);
     };
-  }, [inspectionId, fieldLabel]);
+  }, [inspectionId, fieldLabel, roomId]);
 
   // Cleanup on unmount
   useEffect(
@@ -190,6 +207,7 @@ export function VoiceNoteButton({
   );
 
   async function start() {
+    recordedRoomIdRef.current = roomId;
     setError(null);
     setQueued(false);
     setMapping(null);
@@ -241,13 +259,14 @@ export function VoiceNoteButton({
   }
 
   async function upload() {
+    const recordedRoomId = recordedRoomIdRef.current;
     setStatus("uploading");
     const blob = new Blob(chunksRef.current, { type: "audio/webm" });
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
 
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      await queueForLater(blob);
+      await queueForLater(blob, recordedRoomId);
       return;
     }
 
@@ -261,7 +280,7 @@ export function VoiceNoteButton({
 
       if (res.status === 503) {
         // Transient upstream unavailability — queue and retry on reconnect.
-        await queueForLater(blob);
+        await queueForLater(blob, recordedRoomId);
         return;
       }
 
@@ -299,14 +318,17 @@ export function VoiceNoteButton({
       const transcript = data.transcript.trim();
       const mapped = mapVoiceTranscriptToFields(transcript);
       setMapping(mapped);
-      onMappedFields?.(mapped);
+      onMappedFieldsRef.current?.(
+        mapped,
+        recordedRoomId ? { roomId: recordedRoomId } : undefined,
+      );
       onTranscript(transcript);
       setStatus("idle");
     } catch (err) {
       if (err instanceof TypeError) {
         // fetch() throws TypeError on network failure (offline mid-flight,
         // DNS/connection drop) — queue instead of hard-failing.
-        await queueForLater(blob);
+        await queueForLater(blob, recordedRoomId);
         return;
       }
       const msg = err instanceof Error ? err.message : "Transcription failed";
@@ -316,9 +338,13 @@ export function VoiceNoteButton({
   }
 
   /** RA-1609: queue the recorded blob for transcription on reconnect. */
-  async function queueForLater(blob: Blob) {
+  async function queueForLater(blob: Blob, recordedRoomId?: string) {
     try {
-      await queueVoiceNote(blob, { inspectionId, fieldLabel });
+      await queueVoiceNote(blob, {
+        inspectionId,
+        fieldLabel,
+        ...(recordedRoomId ? { roomId: recordedRoomId } : {}),
+      });
       setQueued(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to queue voice note";

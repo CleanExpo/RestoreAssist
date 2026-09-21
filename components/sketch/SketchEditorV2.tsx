@@ -2795,6 +2795,7 @@ export function SketchEditorV2({
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
               getObjects: () => unknown[];
               renderAll: () => void;
+              fire?: (ev: string, opt: object) => void;
             } | null;
             if (!fc) return;
             const obj = fc
@@ -2810,7 +2811,12 @@ export function SketchEditorV2({
             if (obj?.data) {
               const data = obj.data as Record<string, unknown>;
               // Raise-only. A later voice accept must not write this false.
-              if (data.voiceRaisedAcm !== true) data.voiceRaisedAcm = true;
+              // object:modified records the raise in undo history, the same
+              // way any other object edit is snapshotted.
+              if (data.voiceRaisedAcm !== true) {
+                data.voiceRaisedAcm = true;
+                fc.fire?.("object:modified", { target: obj });
+              }
             }
             fc.renderAll();
             setSelectedObj((prev) =>

@@ -28,6 +28,8 @@ import toast from "react-hot-toast";
 /** Queue tag for voice notes recorded against the selected room. */
 export const SKETCH_ROOM_VOICE_FIELD = "sketch-room";
 
+type RoomVoiceSuggestion = ListedVoiceSuggestion & { roomId: string };
+
 const NZ_CAUSES: { id: DamageCause; label: string }[] = [
   { id: "earthquake", label: "Earthquake" },
   { id: "landslip", label: "Landslip" },
@@ -196,15 +198,18 @@ export function SketchSelectionPanel({
   className,
 }: SketchSelectionPanelProps) {
   const [pathwayDraft, setPathwayDraft] = useState("");
-  const [suggestions, setSuggestions] = useState<ListedVoiceSuggestion[]>([]);
-  const [mappingSkipped, setMappingSkipped] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<RoomVoiceSuggestion[]>([]);
+  const [skippedByRoom, setSkippedByRoom] = useState<Record<string, string>>(
+    {},
+  );
   const [voiceLatch, setVoiceLatch] = useState(false);
   const suggestionSeq = useRef(0);
   const selectedId = selected?.id;
 
   useEffect(() => {
-    setSuggestions([]);
-    setMappingSkipped(null);
+    // The persisted latch lives on the room. Drop only the local raise so a
+    // different room does not inherit it. Keep suggestions: each card names
+    // the room it was recorded in and is shown only while that room is open.
     setVoiceLatch(false);
   }, [selectedId]);
 
@@ -236,22 +241,39 @@ export function SketchSelectionPanel({
     aiRaisedAcm === true ||
     voiceRaisedAcm;
 
-  function handleMappedFields(mapping: VoiceFieldMapping) {
+  function handleMappedFields(
+    mapping: VoiceFieldMapping,
+    context?: { roomId?: string },
+  ) {
+    const roomId = context?.roomId ?? selectedId;
+    if (!roomId) return;
     const next = suggestionsFromMapping(mapping).map((suggestion) => ({
       ...suggestion,
       key: `voice-${suggestionSeq.current++}`,
+      roomId,
     }));
     if (next.length === 0) {
-      setMappingSkipped(
-        "This voice note was transcribed. Mapping onto the room was skipped.",
-      );
+      setSkippedByRoom((prev) => ({
+        ...prev,
+        [roomId]:
+          "This voice note was transcribed. Mapping onto the room was skipped.",
+      }));
       return;
     }
-    setMappingSkipped(null);
+    setSkippedByRoom((prev) => {
+      if (!prev[roomId]) return prev;
+      const rest = { ...prev };
+      delete rest[roomId];
+      return rest;
+    });
     setSuggestions((prev) => [...prev, ...next]);
   }
 
-  function acceptSuggestion(suggestion: ListedVoiceSuggestion) {
+  function acceptSuggestion(
+    suggestion: ListedVoiceSuggestion & { roomId?: string },
+  ) {
+    const roomId = suggestion.roomId;
+    if (!roomId) return;
     const snapshot = {
       materialSlug: selected?.materialSlug,
       waterCategory: selected?.waterCategory,
@@ -265,20 +287,19 @@ export function SketchSelectionPanel({
       suggestion,
       propertyYearBuilt,
     );
-    if (!selected) return;
     if (suggestion.kind === "material" && job.materialSlug) {
-      onMaterialChange?.(selected.id, job.materialSlug);
+      onMaterialChange?.(roomId, job.materialSlug);
     } else if (suggestion.kind === "waterCategory" && job.waterCategory) {
-      onWaterCategoryChange?.(selected.id, job.waterCategory);
+      onWaterCategoryChange?.(roomId, job.waterCategory);
     } else if (suggestion.kind === "dimensions") {
-      onDimensionsChange?.(selected.id, {
+      onDimensionsChange?.(roomId, {
         ...(job.lengthM != null ? { lengthM: job.lengthM } : {}),
         ...(job.widthM != null ? { widthM: job.widthM } : {}),
       });
     }
     if (job.voiceRaisedAcm === true && snapshot.voiceRaisedAcm !== true) {
       setVoiceLatch(true);
-      onVoiceAcmRaised?.(selected.id);
+      onVoiceAcmRaised?.(roomId);
     }
     setSuggestions((prev) => prev.filter((item) => item.key !== suggestion.key));
   }
@@ -725,12 +746,16 @@ export function SketchSelectionPanel({
             compact
             inspectionId={inspectionId}
             fieldLabel={SKETCH_ROOM_VOICE_FIELD}
+            roomId={selected.id}
           />
-          {mappingSkipped && (
-            <p className="text-xs text-amber-200">{mappingSkipped}</p>
+          {skippedByRoom[selected.id] && (
+            <p className="text-xs text-amber-200">{skippedByRoom[selected.id]}</p>
           )}
           <VoiceFieldSuggestionList
-            suggestions={suggestions}
+            suggestions={suggestions.filter(
+              (item) => item.roomId === selected.id,
+            )}
+            currentWaterCategory={selected.waterCategory}
             onAccept={acceptSuggestion}
             onReject={rejectSuggestion}
           />
