@@ -77,15 +77,7 @@ export async function POST(
 
     const photo = await prisma.inspectionPhoto.findFirst({
       where: { id: photoId, inspectionId },
-      select: {
-        id: true,
-        aiLabels: true,
-        metadata: true,
-        labelledBy: true,
-        damageCategory: true,
-        affectedMaterial: true,
-        secondaryDamageIndicators: true,
-      },
+      select: { id: true },
     });
     if (!photo) {
       return apiError(request, {
@@ -119,76 +111,127 @@ export async function POST(
       });
     }
 
-    const labels = asLabelRecord(photo.aiLabels);
-    if (
-      (decision === "accept" || decision === "reject") &&
-      Object.keys(labels).length === 0
-    ) {
+    const typedDecision = decision as PhotoClassificationDecision;
+
+    type ReviewTxResult =
+      | {
+          ok: true;
+          updated: Record<string, unknown>;
+          result: PhotoClassificationResult;
+          metadata: Record<string, unknown>;
+        }
+        | { ok: false; status: number; code: "NOT_FOUND" | "VALIDATION"; message: string };
+
+    const outcome = await prisma.$transaction(async (tx): Promise<ReviewTxResult> => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "InspectionPhoto" WHERE "id" = ${photo.id} FOR UPDATE`,
+      );
+      const current = await tx.inspectionPhoto.findUnique({
+        where: { id: photo.id },
+        select: {
+          id: true,
+          aiLabels: true,
+          metadata: true,
+          labelledBy: true,
+          damageCategory: true,
+          affectedMaterial: true,
+          secondaryDamageIndicators: true,
+        },
+      });
+      if (!current) {
+        return {
+          ok: false,
+          status: 404,
+          code: "NOT_FOUND",
+          message: "Photo not found",
+        };
+      }
+
+      const labels = asLabelRecord(current.aiLabels);
+      if (
+        (typedDecision === "accept" || typedDecision === "reject") &&
+        Object.keys(labels).length === 0
+      ) {
+        return {
+          ok: false,
+          status: 400,
+          code: "VALIDATION",
+          message: "No photo AI classification to review",
+        };
+      }
+
+      const previous = previousResultFromMetadata(current.metadata);
+      let result: PhotoClassificationResult;
+      if (typedDecision === "accept") {
+        result = acceptPhotoClassification(labels);
+      } else if (typedDecision === "reject") {
+        result = rejectPhotoClassification(labels, current.labelledBy);
+      } else {
+        if (previous?.status !== "accepted" || previous.fields == null) {
+          return {
+            ok: false,
+            status: 409,
+            code: "VALIDATION",
+            message: "Confirm requires an accepted photo AI result",
+          };
+        }
+        result = confirmPhotoClassification(previous);
+      }
+
+      const metadata = mergePhotoAiMetadata(current.metadata, result, labels);
+      const updateData: Record<string, unknown> = {
+        metadata: metadata as Prisma.InputJsonValue,
+      };
+      if (
+        current.labelledBy !== "HUMAN_TECH" ||
+        result.labelledBy !== "AI_AUTO"
+      ) {
+        updateData.labelledBy = result.labelledBy;
+      }
+      if (result.status === "accepted" && result.fields) {
+        Object.assign(
+          updateData,
+          photoAiLabelsToColumnPatch(result.fields, {
+            damageCategory: current.damageCategory,
+            affectedMaterial: current.affectedMaterial,
+            secondaryDamageIndicators: current.secondaryDamageIndicators,
+          }),
+        );
+      }
+
+      const updated = await tx.inspectionPhoto.update({
+        where: { id: current.id, inspection: { userId: session.user.id } },
+        data: updateData,
+        select: {
+          id: true,
+          labelledBy: true,
+          damageCategory: true,
+          damageClass: true,
+          roomType: true,
+          moistureSource: true,
+          affectedMaterial: true,
+          surfaceOrientation: true,
+          damageExtentEstimate: true,
+          equipmentVisible: true,
+          secondaryDamageIndicators: true,
+          photoStage: true,
+          captureAngle: true,
+          aiLabels: true,
+          metadata: true,
+        },
+      });
+      return { ok: true, updated, result, metadata };
+    });
+
+    if (!outcome.ok) {
       return apiError(request, {
-        code: "VALIDATION",
-        message: "No photo AI classification to review",
-        status: 400,
+        code: outcome.code,
+        message: outcome.message,
+        status: outcome.status,
       });
     }
 
-    const previous = previousResultFromMetadata(photo.metadata);
-    let result: PhotoClassificationResult;
-    const typedDecision = decision as PhotoClassificationDecision;
-    if (typedDecision === "accept") {
-      result = acceptPhotoClassification(labels);
-    } else if (typedDecision === "reject") {
-      result = rejectPhotoClassification(labels, photo.labelledBy);
-    } else {
-      if (previous?.status !== "accepted" || previous.fields == null) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "Confirm requires an accepted photo AI result",
-          status: 409,
-        });
-      }
-      result = confirmPhotoClassification(previous);
-    }
-
-    const metadata = mergePhotoAiMetadata(photo.metadata, result, labels);
-
-    const updateData: Record<string, unknown> = {
-      metadata: metadata as Prisma.InputJsonValue,
-    };
-    if (photo.labelledBy !== "HUMAN_TECH" || result.labelledBy !== "AI_AUTO") {
-      updateData.labelledBy = result.labelledBy;
-    }
-    if (result.status === "accepted" && result.fields) {
-      Object.assign(
-        updateData,
-        photoAiLabelsToColumnPatch(result.fields, {
-          damageCategory: photo.damageCategory,
-          affectedMaterial: photo.affectedMaterial,
-          secondaryDamageIndicators: photo.secondaryDamageIndicators,
-        }),
-      );
-    }
-
-    const updated = await prisma.inspectionPhoto.update({
-      where: { id: photo.id, inspection: { userId: session.user.id } },
-      data: updateData,
-      select: {
-        id: true,
-        labelledBy: true,
-        damageCategory: true,
-        damageClass: true,
-        roomType: true,
-        moistureSource: true,
-        affectedMaterial: true,
-        surfaceOrientation: true,
-        damageExtentEstimate: true,
-        equipmentVisible: true,
-        secondaryDamageIndicators: true,
-        photoStage: true,
-        captureAngle: true,
-        aiLabels: true,
-        metadata: true,
-      },
-    });
+    const { updated, result, metadata } = outcome;
 
     await prisma.auditLog.create({
       data: {

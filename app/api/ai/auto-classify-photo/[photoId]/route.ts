@@ -138,11 +138,14 @@ export async function POST(
     const { labels, confidence, model } = result.data;
 
     const runAt = new Date();
-    // RA-7618: Vision can overlap. Re-read metadata inside the write
-    // transaction so a no-ACM run that captured a stale snapshot cannot
-    // reset aiRaisedAcm after an ACM-positive run has already committed.
-    // stampClassifierRunOnMetadata is raise-only against that fresh row.
+    // RA-7618: Vision can overlap. Lock the row, then re-read metadata
+    // inside the write transaction so a no-ACM run cannot reset
+    // aiRaisedAcm after an ACM-positive run has already committed.
+    // stampClassifierRunOnMetadata is raise-only against that locked row.
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "InspectionPhoto" WHERE "id" = ${photo.id} FOR UPDATE`,
+      );
       const current = await tx.inspectionPhoto.findUnique({
         where: { id: photo.id },
         select: { metadata: true },

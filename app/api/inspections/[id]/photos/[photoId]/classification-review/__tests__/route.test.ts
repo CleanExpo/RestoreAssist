@@ -4,8 +4,10 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.fn();
 const inspectionFindFirst = vi.fn();
 const photoFindFirst = vi.fn();
+const photoFindUnique = vi.fn();
 const photoUpdate = vi.fn();
 const auditLogCreate = vi.fn();
+const prismaTransaction = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -18,9 +20,11 @@ vi.mock("@/lib/prisma", () => ({
     },
     inspectionPhoto: {
       findFirst: (...args: unknown[]) => photoFindFirst(...args),
+      findUnique: (...args: unknown[]) => photoFindUnique(...args),
       update: (...args: unknown[]) => photoUpdate(...args),
     },
     auditLog: { create: (...args: unknown[]) => auditLogCreate(...args) },
+    $transaction: (...args: unknown[]) => prismaTransaction(...args),
   },
 }));
 
@@ -64,8 +68,10 @@ beforeEach(() => {
   getServerSession.mockReset();
   inspectionFindFirst.mockReset();
   photoFindFirst.mockReset();
+  photoFindUnique.mockReset();
   photoUpdate.mockReset();
   auditLogCreate.mockReset();
+  prismaTransaction.mockReset();
   getServerSession.mockResolvedValue({ user: { id: "u_1" } });
   inspectionFindFirst.mockResolvedValue({ id: "i_1" });
   currentPhoto = {
@@ -78,6 +84,7 @@ beforeEach(() => {
     damageCategory: null,
   };
   photoFindFirst.mockImplementation(async () => ({ ...currentPhoto }));
+  photoFindUnique.mockImplementation(async () => ({ ...currentPhoto }));
   photoUpdate.mockImplementation(
     async ({ data }: { data: Record<string, unknown> }) => {
       currentPhoto = {
@@ -103,6 +110,24 @@ beforeEach(() => {
       };
       return { ...currentPhoto };
     },
+  );
+  prismaTransaction.mockImplementation(
+    async (
+      fn: (tx: {
+        $queryRaw: (query: unknown) => Promise<unknown>;
+        inspectionPhoto: {
+          findUnique: typeof photoFindUnique;
+          update: typeof photoUpdate;
+        };
+      }) => Promise<unknown>,
+    ) =>
+      fn({
+        $queryRaw: async () => [{ id: currentPhoto.id }],
+        inspectionPhoto: {
+          findUnique: (...args: unknown[]) => photoFindUnique(...args),
+          update: (...args: unknown[]) => photoUpdate(...args),
+        },
+      }),
   );
   auditLogCreate.mockResolvedValue({ id: "a_1" });
 });
@@ -134,14 +159,17 @@ describe("POST photo classification-review (RA-7613)", () => {
   });
 
   it("reject does not copy fields and does not clear a prior ACM latch", async () => {
-    photoFindFirst.mockResolvedValueOnce({
+    currentPhoto = {
       id: "p_1",
       aiLabels: { secondaryDamageIndicators: ["STAINING"] },
       metadata: {
         photoAi: { whsLatch: { aiRaisedAcm: true }, reviewStatus: "accepted" },
       },
       labelledBy: "AI_ASSISTED",
-    });
+      secondaryDamageIndicators: [],
+      affectedMaterial: [],
+      damageCategory: null,
+    };
     const res = await post("reject");
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -151,7 +179,7 @@ describe("POST photo classification-review (RA-7613)", () => {
   });
 
   it("confirm after accept promotes provenance and may bill the suggested area", async () => {
-    photoFindFirst.mockResolvedValueOnce({
+    currentPhoto = {
       id: "p_1",
       aiLabels: ACM_LABELS,
       metadata: {
@@ -165,7 +193,10 @@ describe("POST photo classification-review (RA-7613)", () => {
         },
       },
       labelledBy: "AI_ASSISTED",
-    });
+      secondaryDamageIndicators: [],
+      affectedMaterial: [],
+      damageCategory: null,
+    };
     const res = await post("confirm");
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -223,4 +254,59 @@ describe("POST photo classification-review (RA-7613)", () => {
     expect(written).not.toBe("AI_AUTO");
     expect(body.photo.labelledBy).toBe("HUMAN_TECH");
   });
+
+  it("RA-7618: FOR UPDATE lock runs before the metadata read inside the write transaction", async () => {
+    const txOrder: string[] = [];
+    const lockQueries: unknown[] = [];
+    prismaTransaction.mockImplementation(
+      async (
+        fn: (tx: {
+          $queryRaw: (query: unknown) => Promise<unknown>;
+          inspectionPhoto: {
+            findUnique: typeof photoFindUnique;
+            update: typeof photoUpdate;
+          };
+        }) => Promise<unknown>,
+      ) =>
+        fn({
+          $queryRaw: async (query: unknown) => {
+            txOrder.push("lock");
+            lockQueries.push(query);
+            return [{ id: currentPhoto.id }];
+          },
+          inspectionPhoto: {
+            findUnique: async (...args: unknown[]) => {
+              txOrder.push("read");
+              return photoFindUnique(...args);
+            },
+            update: async (...args: unknown[]) => {
+              txOrder.push("write");
+              return photoUpdate(...args);
+            },
+          },
+        }),
+    );
+
+    const res = await post("accept");
+    expect(res.status).toBe(200);
+    expect(txOrder).toEqual(["lock", "read", "write"]);
+    const lockSql = prismaSqlText(lockQueries[0]);
+    expect(lockSql).toContain('SELECT "id" FROM "InspectionPhoto"');
+    expect(lockSql).toContain("FOR UPDATE");
+    expect(prismaSqlValues(lockQueries[0])).toContain("p_1");
+  });
 });
+
+function prismaSqlText(query: unknown): string {
+  if (!query || typeof query !== "object") return String(query);
+  const q = query as { sql?: string; strings?: readonly string[] };
+  if (typeof q.sql === "string") return q.sql;
+  if (Array.isArray(q.strings)) return q.strings.join(" ");
+  return String(query);
+}
+
+function prismaSqlValues(query: unknown): unknown[] {
+  if (!query || typeof query !== "object") return [];
+  const q = query as { values?: unknown[] };
+  return Array.isArray(q.values) ? q.values : [];
+}

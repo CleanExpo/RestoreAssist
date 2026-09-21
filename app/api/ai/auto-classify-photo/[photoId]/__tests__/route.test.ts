@@ -174,8 +174,16 @@ describe("POST /api/ai/auto-classify-photo/[photoId]", () => {
       async (args: { data: Record<string, unknown> }) => applyUpdate(args),
     );
     prismaTransaction.mockImplementation(
-      async (fn: (tx: { inspectionPhoto: typeof txPhoto }) => Promise<unknown>) =>
-        fn({ inspectionPhoto: txPhoto }),
+      async (
+        fn: (tx: {
+          $queryRaw: (query: unknown) => Promise<unknown>;
+          inspectionPhoto: typeof txPhoto;
+        }) => Promise<unknown>,
+      ) =>
+        fn({
+          $queryRaw: async () => [{ id: photoRow.id }],
+          inspectionPhoto: txPhoto,
+        }),
     );
 
     function deferred() {
@@ -230,4 +238,77 @@ describe("POST /api/ai/auto-classify-photo/[photoId]", () => {
     expect(noAcmRes.status).toBe(200);
     expect(readPhotoAiLatch(photoRow.metadata).aiRaisedAcm).toBe(true);
   });
+
+  it("RA-7618: FOR UPDATE lock runs before the metadata read inside the write transaction", async () => {
+    autoClassifyPhoto.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        labels: { secondaryDamageIndicators: ["MOULD_VISIBLE"] },
+        confidence: 0.8,
+        model: "claude-sonnet-4.5",
+      },
+    });
+
+    const txOrder: string[] = [];
+    const lockQueries: unknown[] = [];
+
+    prismaTransaction.mockImplementation(
+      async (
+        fn: (tx: {
+          $queryRaw: (query: unknown) => Promise<unknown>;
+          inspectionPhoto: {
+            findUnique: (args: unknown) => Promise<unknown>;
+            update: (args: { data: Record<string, unknown> }) => Promise<unknown>;
+          };
+        }) => Promise<unknown>,
+      ) =>
+        fn({
+          $queryRaw: async (query: unknown) => {
+            txOrder.push("lock");
+            lockQueries.push(query);
+            return [{ id: "photo_1" }];
+          },
+          inspectionPhoto: {
+            findUnique: async () => {
+              txOrder.push("read");
+              return {
+                metadata: {
+                  photoAi: { whsLatch: { aiRaisedAcm: true } },
+                },
+              };
+            },
+            update: async ({ data }) => {
+              txOrder.push("write");
+              return { id: "photo_1", ...data };
+            },
+          },
+        }),
+    );
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ photoId: "photo_1" }),
+    });
+    expect(response.status).toBe(200);
+    expect(prismaTransaction).toHaveBeenCalledTimes(1);
+    expect(txOrder).toEqual(["lock", "read", "write"]);
+
+    const lockSql = prismaSqlText(lockQueries[0]);
+    expect(lockSql).toContain('SELECT "id" FROM "InspectionPhoto"');
+    expect(lockSql).toContain("FOR UPDATE");
+    expect(prismaSqlValues(lockQueries[0])).toContain("photo_1");
+  });
 });
+
+function prismaSqlText(query: unknown): string {
+  if (!query || typeof query !== "object") return String(query);
+  const q = query as { sql?: string; strings?: readonly string[] };
+  if (typeof q.sql === "string") return q.sql;
+  if (Array.isArray(q.strings)) return q.strings.join(" ");
+  return String(query);
+}
+
+function prismaSqlValues(query: unknown): unknown[] {
+  if (!query || typeof query !== "object") return [];
+  const q = query as { values?: unknown[] };
+  return Array.isArray(q.values) ? q.values : [];
+}
