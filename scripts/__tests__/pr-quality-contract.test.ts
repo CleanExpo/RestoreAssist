@@ -176,4 +176,38 @@ describe("PR quality contract", () => {
     expect(vitestConfig).toMatch(/maxWorkers:\s*1/);
     expect(vitestConfig).toMatch(/minWorkers:\s*1/);
   });
+
+  it("runs the test-parity guard immediately before unit tests (RA-7467)", () => {
+    const workflow = parse(
+      readFileSync(join(ROOT, ".github/workflows/pr-checks.yml"), "utf8"),
+    ) as {
+      jobs: {
+        "unit-tests": {
+          steps: Array<{
+            name?: string;
+            run?: string;
+            env?: Record<string, string>;
+          }>;
+        };
+      };
+    };
+    const steps = workflow.jobs["unit-tests"].steps;
+    const guardIdx = steps.findIndex(
+      (step) =>
+        step.name === "Test-parity guard (env-gated suites must not skip)",
+    );
+    const unitIdx = steps.findIndex((step) => step.name === "Unit tests");
+
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(unitIdx).toBe(guardIdx + 1);
+    expect(steps[guardIdx]?.run).toBe(
+      "node scripts/ci/check-test-parity.mjs --strict",
+    );
+    expect(steps[unitIdx]?.run).toBe("npm run test:unit:full");
+    expect(steps[guardIdx]?.env).toEqual(steps[unitIdx]?.env);
+    expect(steps[unitIdx]?.env).toEqual({
+      DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci",
+      DIRECT_URL: "postgresql://ci:ci@localhost:5432/ci",
+    });
+  });
 });

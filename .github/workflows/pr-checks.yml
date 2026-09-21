@@ -521,6 +521,17 @@ jobs:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
 
+      # RA-7467 — fail if any env-gated suite would skip. The RA-6685
+      # DATABASE_URL on Unit tests is necessary but not sufficient: a
+      # future skipIf on a different var would still report green.
+      # Previously this ran only in scripts/ci/test-with-db.sh, which
+      # no workflow invokes (comment-only mention in this file).
+      - name: Test-parity guard (env-gated suites must not skip)
+        run: node scripts/ci/check-test-parity.mjs --strict
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
       - name: Unit tests
         # This package command is also the only valid local full-suite receipt.
         # Feature-selected test totals must never be reported as PR parity.
