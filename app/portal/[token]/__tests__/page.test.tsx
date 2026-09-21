@@ -92,9 +92,13 @@ describe("ClientPortalPage — expired token recovery (RA-7551)", () => {
 
     expect(screen.getByTestId("portal-link-expired")).toBeInTheDocument();
     expect(screen.getByText(/job link has expired/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /request a new invite/i }),
-    ).toHaveAttribute("href", "/portal/recovery");
+    const inviteLinks = screen.getAllByRole("link", {
+      name: /request a new invite/i,
+    });
+    expect(inviteLinks.length).toBeGreaterThan(0);
+    for (const link of inviteLinks) {
+      expect(link).toHaveAttribute("href", "/portal/recovery");
+    }
     expect(screen.queryByText("12 Test St, Brisbane")).not.toBeInTheDocument();
   });
 

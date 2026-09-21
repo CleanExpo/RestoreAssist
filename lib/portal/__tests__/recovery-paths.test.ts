@@ -57,12 +57,12 @@ describe("findForbiddenClientPortalHrefs", () => {
   });
 
   it("proves the control file still contains /dashboard/help", () => {
-    const shell = readFileSync(
-      join(process.cwd(), "app", "dashboard", "DashboardShell.tsx"),
+    const howTo = readFileSync(
+      join(process.cwd(), "components", "help", "HowToDropdown.tsx"),
       "utf8",
     );
-    expect(shell).toMatch(/\/dashboard\/help/);
-    expect(findForbiddenClientPortalHrefs(shell)).toContain("dashboard-help");
+    expect(howTo).toMatch(/href="\/dashboard\/help"/);
+    expect(findForbiddenClientPortalHrefs(howTo)).toContain("dashboard-help");
   });
 });
 

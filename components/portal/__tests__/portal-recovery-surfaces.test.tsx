@@ -51,9 +51,13 @@ describe("PortalEmptyProject", () => {
   it("is not a blank dead end — recovery and help CTAs stay on /portal", () => {
     render(<PortalEmptyProject />);
     expect(screen.getByTestId("portal-empty-project")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /request a new invite/i }),
-    ).toHaveAttribute("href", PORTAL_PATHS.recovery);
+    const inviteLinks = screen.getAllByRole("link", {
+      name: /request a new invite/i,
+    });
+    expect(inviteLinks.length).toBeGreaterThan(0);
+    for (const link of inviteLinks) {
+      expect(link).toHaveAttribute("href", PORTAL_PATHS.recovery);
+    }
     expect(screen.getByRole("link", { name: /^client help$/i })).toHaveAttribute(
       "href",
       PORTAL_PATHS.help,
@@ -69,9 +73,13 @@ describe("PortalLinkExpired", () => {
     render(<PortalLinkExpired />);
     expect(screen.getByTestId("portal-link-expired")).toBeInTheDocument();
     expect(screen.getByText(/job link has expired/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /request a new invite/i }),
-    ).toHaveAttribute("href", PORTAL_PATHS.recovery);
+    const inviteLinks = screen.getAllByRole("link", {
+      name: /request a new invite/i,
+    });
+    expect(inviteLinks.length).toBeGreaterThan(0);
+    for (const link of inviteLinks) {
+      expect(link).toHaveAttribute("href", PORTAL_PATHS.recovery);
+    }
     expect(
       screen.getByRole("link", { name: /sign in with a portal account/i }),
     ).toHaveAttribute("href", PORTAL_PATHS.login);

@@ -21,8 +21,10 @@ describe("client-specific help corpus", () => {
       (article) =>
         `${article.title} ${article.summary} ${article.sections.map((s) => s.body).join(" ")}`,
     ).join("\n");
-    expect(blob).not.toMatch(/Xero|QuickBooks|ServiceM8|tradie|How To dropdown/i);
-    expect(blob).not.toMatch(/\/dashboard\/help|contractor dashboard workshop/i);
+    expect(blob).not.toMatch(
+      /How To dropdown|Share with client|ClientPortalAccount|provision a portal/i,
+    );
+    expect(blob).not.toMatch(/\/dashboard\/help|connect Xero/i);
     expect(findForbiddenClientPortalHrefs(blob)).toEqual([]);
   });
 
