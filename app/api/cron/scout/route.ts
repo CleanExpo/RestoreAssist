@@ -1,7 +1,8 @@
 /**
  * GET /api/cron/scout
  *
- * Weekly Scout Agent cron — fires Monday 23:00 UTC (Monday 9am AEST).
+ * Weekly Scout Agent runner. Not scheduled — see DELIBERATELY_UNSCHEDULED
+ * (internal agent cron, pruned in 37221517). Manual invoke only.
  * Gathers external intelligence from GitHub, ArXiv, and Hacker News,
  * scores each finding against ZTE dimensions, and files relevant
  * findings as Linear issues with the `scout` label for board review.
