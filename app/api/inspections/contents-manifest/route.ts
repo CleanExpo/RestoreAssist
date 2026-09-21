@@ -12,6 +12,7 @@ import type {
   VisionMediaType,
 } from "@/lib/ai/byok-client";
 import { resolveWorkspaceRouterConfig } from "@/lib/ai/workspace-byok-dispatch";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { BYOK_ALLOWED_MODELS } from "@/lib/ai/byok-client";
 import { visionManifestToDraft } from "@/lib/ai/contents-manifest-draft-bridge";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -108,7 +109,6 @@ export async function POST(request: NextRequest) {
       },
       select: {
         id: true,
-        workspaceId: true,
         inspectionNumber: true,
         propertyAddress: true,
         inspectionWorkflow: {
@@ -149,19 +149,23 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // BYOK key is resolved SERVER-SIDE from the inspection's workspace — never
+    // BYOK key is resolved SERVER-SIDE from the caller's workspace — never
     // trusted from the request body (which any caller could forge).
-    if (!inspection.workspaceId) {
+    // RA-7585: not from Inspection.workspaceId, which no create path writes,
+    // so it is null on every production inspection. Same resolution as
+    // report generation (resolveWorkspaceAiKey).
+    const workspace = await getWorkspaceForUser(session.user.id);
+    if (!workspace) {
       return apiError(request, {
         code: "VALIDATION",
         message:
-          "This inspection is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest.",
+          "Your account is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest.",
         status: 422,
       });
     }
 
     const routerConfig = await resolveWorkspaceRouterConfig(
-      inspection.workspaceId,
+      workspace.id,
       body.model as AllowedModel,
     );
     if (!routerConfig) {

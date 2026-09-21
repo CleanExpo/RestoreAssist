@@ -19,6 +19,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { workspaceRouteAiRequest } from "@/lib/ai/workspace-byok-dispatch";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -301,11 +302,15 @@ export async function POST(
         });
       }
 
-      if (!inspection.workspaceId) {
+      // RA-7585: the BYOK key comes from the caller's workspace, not from
+      // Inspection.workspaceId, which no create path writes (always null in
+      // production). Same resolution as report generation.
+      const workspace = await getWorkspaceForUser(userId);
+      if (!workspace) {
         return apiError(request, {
           code: "VALIDATION",
           message:
-            "This inspection is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest feature.",
+            "Your account is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest feature.",
           status: 422,
         });
       }
@@ -400,7 +405,7 @@ Rules:
       const detailed = body?.detailed === true;
 
       const result = await workspaceRouteAiRequest(
-        inspection.workspaceId,
+        workspace.id,
         {
           taskType: "contents_manifest",
           systemPrompt,
