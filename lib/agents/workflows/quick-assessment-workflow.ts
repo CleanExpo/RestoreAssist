@@ -69,6 +69,8 @@ export const quickAssessmentWorkflow: WorkflowDefinition = {
         userId: ctx.userId,
         reportId: ctx.reportId,
         data: {
+          // Prisma-shaped rows: affectedSquareFootage is sq ft. Conversion
+          // to m² happens in scopeGenerationHandler via resolveAreaSqm (RA-7614).
           affectedAreas: ctx.sharedState.affectedAreas ?? [],
         },
       }),
