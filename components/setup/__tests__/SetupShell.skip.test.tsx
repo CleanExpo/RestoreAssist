@@ -31,14 +31,32 @@ const initial = { id: "o1", hydrationJobs: [] } as never;
 const ORIGINAL_LOCATION = window.location;
 let assign: ReturnType<typeof vi.fn>;
 
-function stubFetch(activate: () => Promise<unknown> | unknown) {
+/** Default: funded trial, platform key missing — Next must stay enabled (RA-7569). */
+const PLATFORM_KEY_MISSING_STEP = {
+  completed: false,
+  required: false,
+  title: "Trial report generation is not ready",
+  description:
+    "Basic reports on the trial should work without your own key. The platform AI key that should power them is not configured.",
+};
+
+const PAID_BYOK_REQUIRED_STEP = {
+  completed: false,
+  required: true,
+  title: "Add your AI key",
+};
+
+function stubFetch(
+  activate: () => Promise<unknown> | unknown,
+  aiProvider: Record<string, unknown> = PLATFORM_KEY_MISSING_STEP,
+) {
   const calls: { url: string; init?: RequestInit }[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url: String(url), init });
       if (String(url).includes("/api/setup/activate")) return activate();
-      return { ok: true, json: async () => ({ steps: { ai_provider: { completed: false } } }) };
+      return { ok: true, json: async () => ({ steps: { ai_provider: aiProvider } }) };
     }),
   );
   return calls;
@@ -57,7 +75,7 @@ afterEach(() => {
 });
 
 describe("SetupShell — Skip setup for now (RA-7427)", () => {
-  it("from the locked AI-key step: posts skip, refreshes the session, then loads /dashboard", async () => {
+  it("RA-7569: funded trial with no platform key keeps Next enabled; Skip is available, not the only path", async () => {
     const order: string[] = [];
     const calls = stubFetch(() => {
       order.push("activate");
@@ -69,10 +87,15 @@ describe("SetupShell — Skip setup for now (RA-7427)", () => {
     render(<SetupShell initial={initial} />);
     await screen.findByText(/Step 1 of 7/);
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
-    expect(await screen.findByText(/Step 2 of 7/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Step 2 of 7: Trial report generation is not ready/),
+    ).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /^next$/i })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /^next$/i })).not.toBeDisabled();
     });
+    expect(screen.getByRole("button", { name: /skip setup for now/i })).toBeEnabled();
+    expect(screen.queryByText(/complete this step to continue/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Add your AI key$/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /skip setup for now/i }));
 
@@ -81,6 +104,31 @@ describe("SetupShell — Skip setup for now (RA-7427)", () => {
     expect(activate?.init?.method).toBe("POST");
     expect(JSON.parse(String(activate?.init?.body))).toEqual({ skip: true });
     expect(order).toEqual(["activate", "refresh", "navigate"]);
+  });
+
+  it("RA-7427: paid / BYOK-required still locks Next; Skip remains the leave path", async () => {
+    const calls = stubFetch(
+      () => ({
+        ok: true,
+        json: async () => ({ data: { organizationId: "o1", redirectTo: "/dashboard" } }),
+      }),
+      PAID_BYOK_REQUIRED_STEP,
+    );
+
+    render(<SetupShell initial={initial} />);
+    await screen.findByText(/Step 1 of 7/);
+    fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^next$/i })).toBeDisabled();
+    });
+    expect(screen.getByText(/Step 2 of 7: Add your AI key/)).toBeInTheDocument();
+    expect(screen.getByText(/complete this step to continue/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /skip setup for now/i }));
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/dashboard"));
+    const activate = calls.find((c) => c.url.includes("/api/setup/activate"));
+    expect(JSON.parse(String(activate?.init?.body))).toEqual({ skip: true });
   });
 
   it("treats 409 'already activated' as success", async () => {
