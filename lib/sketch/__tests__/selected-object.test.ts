@@ -86,6 +86,17 @@ describe("fabricObjectToSelected", () => {
     expect(door?.dimLocked).toBe(true);
   });
 
+  it("reads a raise-only voice ACM latch and omits it when unset", () => {
+    const raised = fabricObjectToSelected({
+      data: { id: "r-acm", type: "room", voiceRaisedAcm: true },
+    });
+    expect(raised?.voiceRaisedAcm).toBe(true);
+    const plain = fabricObjectToSelected({
+      data: { id: "r-plain", type: "room" },
+    });
+    expect(plain).not.toHaveProperty("voiceRaisedAcm");
+  });
+
   it("maps missing openings, wall thickness, and ceiling height", () => {
     const missing = fabricObjectToSelected({
       type: "group",

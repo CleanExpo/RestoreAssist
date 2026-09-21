@@ -34,6 +34,9 @@ const STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
+/** Fired after a drain attempt so open voice-note controls can read transcripts. */
+export const VOICE_NOTES_DRAINED_EVENT = "ra-voice-notes-drained";
+
 export type VoiceNoteQueueStatus = "pending" | "done" | "error" | "consumed";
 
 export interface VoiceNoteQueueEntry {
@@ -321,6 +324,7 @@ export async function drainVoiceNoteQueue(): Promise<number> {
     }
   }
 
+  window.dispatchEvent(new CustomEvent(VOICE_NOTES_DRAINED_EVENT));
   return transcribed;
 }
 

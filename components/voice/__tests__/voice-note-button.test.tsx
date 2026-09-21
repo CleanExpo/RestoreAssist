@@ -14,8 +14,13 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const queueVoiceNote = vi.fn();
+const getPendingTranscripts = vi.fn();
+const markTranscriptConsumed = vi.fn();
 vi.mock("@/lib/voice-note-queue", () => ({
   queueVoiceNote: (...args: unknown[]) => queueVoiceNote(...args),
+  getPendingTranscripts: (...args: unknown[]) => getPendingTranscripts(...args),
+  markTranscriptConsumed: (...args: unknown[]) => markTranscriptConsumed(...args),
+  VOICE_NOTES_DRAINED_EVENT: "ra-voice-notes-drained",
 }));
 
 import { VoiceNoteButton } from "@/components/voice/voice-note-button";
@@ -59,6 +64,10 @@ async function startThenStopRecording() {
 
 beforeEach(() => {
   queueVoiceNote.mockReset();
+  getPendingTranscripts.mockReset();
+  markTranscriptConsumed.mockReset();
+  getPendingTranscripts.mockResolvedValue([]);
+  markTranscriptConsumed.mockResolvedValue(undefined);
   mockGetUserMedia();
   (global as unknown as { MediaRecorder: unknown }).MediaRecorder =
     FakeMediaRecorder;
@@ -247,5 +256,35 @@ describe("VoiceNoteButton — offline queueing (RA-1609)", () => {
       expect(onTranscript).toHaveBeenCalledWith("Category 2 water damage"),
     );
     expect(queueVoiceNote).not.toHaveBeenCalled();
+  });
+
+  it("says mapping was skipped when a drained transcript has no onMappedFields handler", async () => {
+    const onTranscript = vi.fn();
+    getPendingTranscripts.mockResolvedValue([
+      {
+        id: "vn-drained",
+        inspectionId: "insp-42",
+        fieldLabel: "kitchen-notes",
+        status: "done",
+        transcript: "Living room 4 x 3.2 metres, vinyl tiles, category 2",
+        queuedAt: new Date().toISOString(),
+      },
+    ]);
+
+    render(
+      <VoiceNoteButton
+        onTranscript={onTranscript}
+        inspectionId="insp-42"
+        fieldLabel="kitchen-notes"
+      />,
+    );
+
+    expect(
+      await screen.findByText(/mapping onto job fields was skipped/i),
+    ).toBeInTheDocument();
+    expect(onTranscript).toHaveBeenCalledWith(
+      "Living room 4 x 3.2 metres, vinyl tiles, category 2",
+    );
+    expect(markTranscriptConsumed).toHaveBeenCalledWith("vn-drained");
   });
 });

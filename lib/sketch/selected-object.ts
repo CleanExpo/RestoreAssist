@@ -49,6 +49,7 @@ export function fabricObjectToSelected(
       typeof data.wallThicknessM === "number" ? data.wallThicknessM : undefined,
     ceilingHeightM:
       typeof data.ceilingHeightM === "number" ? data.ceilingHeightM : undefined,
+    ...(data.voiceRaisedAcm === true ? { voiceRaisedAcm: true as const } : {}),
   };
 }
 
