@@ -4,7 +4,7 @@
  * Removes files that have exceeded their TTL (time to live).
  * Checks the context metadata for expiry dates and deletes expired files.
  *
- * Schedule: Runs daily at 2:00 AM
+ * Scheduled in vercel.json as `0 16 * * *` (02:00 AEST / 16:00 UTC).
  */
 
 import { getFilesByTag, deleteFile } from "@/lib/cloudinary";
