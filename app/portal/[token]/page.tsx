@@ -17,6 +17,16 @@ import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { CLIENT_EDUCATION_SKU } from "@/lib/billing/client-education-addon";
 import { fetchTechnicianIdentity } from "@/lib/portal/fetch-technician-identity";
 import { TechnicianIdentityCard } from "@/components/portal/TechnicianIdentityCard";
+import { PortalAffectedAreas } from "@/components/portal/PortalAffectedAreas";
+import {
+  PORTAL_AFFECTED_AREAS_INCLUDE,
+  toPortalAffectedAreaItems,
+} from "@/lib/portal/portal-affected-areas";
+
+// Token pages must re-read the job on every request. Status/approvals already
+// poll force-dynamic routes; without this, a first visit before areas exist
+// can cache an empty list (walkthrough C2 / RA-7573).
+export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -39,12 +49,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
     include: {
-      affectedAreas: {
-        select: {
-          id: true,
-          roomZoneId: true,
-        },
-      },
+      affectedAreas: PORTAL_AFFECTED_AREAS_INCLUDE,
       scopeItems: {
         where: { isSelected: true },
         select: {
@@ -195,32 +200,9 @@ export default async function ClientPortalPage({ params }: PageProps) {
         {/* Approvals the client still needs to sign (hides itself when none) */}
         <ClientPortalAuthorities token={token} />
 
-        {/* Affected areas */}
-        {inspection.affectedAreas.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">
-              Affected Areas
-              <span className="ml-2 text-xs font-normal text-slate-400">
-                ({inspection.affectedAreas.length})
-              </span>
-            </h2>
-            <ul className="space-y-2">
-              {inspection.affectedAreas.map((area) => (
-                <li
-                  key={area.id}
-                  className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0"
-                >
-                  <span className="text-sm text-slate-700">
-                    {area.roomZoneId}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    Included in the restoration plan
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <PortalAffectedAreas
+          areas={toPortalAffectedAreaItems(inspection.affectedAreas)}
+        />
 
         {/* Scope summary */}
         {inspection.scopeItems.length > 0 && (
