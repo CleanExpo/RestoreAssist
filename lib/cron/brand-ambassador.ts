@@ -6,7 +6,8 @@
  *
  * Idempotent: one delivery per (projectKey, isoWeek, year). Retries are safe.
  *
- * Called by: /api/cron/brand-ambassador (weekly: 0 8 * * 1)
+ * Called by: /api/cron/brand-ambassador (not scheduled — see
+ * DELIBERATELY_UNSCHEDULED; pruned in 37221517).
  *
  * Env vars:
  *   ANTHROPIC_API_KEY                        — Claude Haiku for draft generation (default provider)

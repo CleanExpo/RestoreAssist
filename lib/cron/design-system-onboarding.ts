@@ -10,7 +10,8 @@
  *   TELEGRAM_BOT_TOKEN      — notification channel
  *   TELEGRAM_CHAT_ID        — Phill's chat
  *
- * Schedule: daily at 09:00 AEST
+ * Not scheduled — see DELIBERATELY_UNSCHEDULED (internal agent cron,
+ * pruned in 37221517).
  */
 
 import type { CronJobResult } from "./runner";

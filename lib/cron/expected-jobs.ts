@@ -104,6 +104,13 @@ export interface DeliberatelyUnscheduledCron {
  *
  * Do not list a path that is also in vercel.json — that contradiction is a
  * test failure, not a documented state.
+ *
+ * override-governance was one of the five pruned in 37221517, then
+ * re-registered in 3782aba7 (monthly, 1st 01:00 UTC) and is in
+ * MONITORED_CRONS. Do not list it here.
+ *
+ * cleanup-expired-files was scheduled in RA-7453 / #2249 (daily 16:00 UTC)
+ * and is in MONITORED_CRONS. Do not list it here.
  */
 export const DELIBERATELY_UNSCHEDULED: readonly DeliberatelyUnscheduledCron[] =
   [

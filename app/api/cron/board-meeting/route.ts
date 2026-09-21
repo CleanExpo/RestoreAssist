@@ -1,11 +1,11 @@
 /**
  * GET /api/cron/board-meeting
  *
- * Weekly automated CEO Board meeting cron.
- * Fires Tuesday 00:00 UTC — one hour after Scout Agent (Mon 23:00 UTC),
- * so scout findings are available for Phase 1 intelligence gathering.
+ * Weekly automated CEO Board meeting runner.
+ * Not scheduled — see DELIBERATELY_UNSCHEDULED (internal agent cron,
+ * pruned in 37221517). Manual invoke only.
  *
- * Authentication: CRON_SECRET bearer token (Vercel cron)
+ * Authentication: CRON_SECRET bearer token
  *
  * Env vars required:
  *   CRON_SECRET        — Vercel cron auth

@@ -6,7 +6,8 @@
  * one OverrideGovernanceReport per gate.
  *
  * Schedule: 0 1 1 * *  (01:00 UTC on the 1st of each month) — registered
- * in vercel.json. Manual backfill: ?month=YYYY-MM.
+ * in vercel.json (re-added in 3782aba7 after the 37221517 prune).
+ * Manual backfill: ?month=YYYY-MM.
  */
 
 import { NextRequest, NextResponse } from "next/server";

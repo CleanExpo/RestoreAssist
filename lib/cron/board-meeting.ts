@@ -2,7 +2,8 @@
  * Automated CEO Board Meeting (RA-686)
  *
  * Runs the 9-persona CEO Board deliberation automatically.
- * Orchestrated as a weekly cron (Tuesdays 00:00 UTC — after Scout fires Monday).
+ * Intended as a weekly runner after Scout. Not scheduled — see
+ * DELIBERATELY_UNSCHEDULED (internal agent cron, pruned in 37221517).
  *
  * Pipeline:
  *   Phase 1 — Gather intelligence (Linear backlog, scout findings, project health)

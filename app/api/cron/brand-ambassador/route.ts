@@ -6,7 +6,8 @@ import { runBrandAmbassador } from "@/lib/cron/brand-ambassador";
 /**
  * GET /api/cron/brand-ambassador — Weekly LinkedIn draft generator
  *
- * Called by Vercel Cron (Monday 08:00 AEST):  0 22 * * 0
+ * Not scheduled — see DELIBERATELY_UNSCHEDULED (internal agent cron,
+ * pruned in 37221517). Manual invoke only.
  * Generates LinkedIn post drafts for each active project via Claude Haiku
  * and delivers them to Telegram for CEO review before posting.
  *
