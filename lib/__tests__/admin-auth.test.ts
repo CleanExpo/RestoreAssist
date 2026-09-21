@@ -99,6 +99,17 @@ describe("verifyPlatformSupportOperator", () => {
     expect(result.response?.status).toBe(403);
   });
 
+  it("does not promote a listed USER — the allowlist is not a role", () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "u_tech");
+
+    const result = verifyPlatformSupportOperator({
+      user: { id: "u_tech", role: "USER", organizationId: "org_1" },
+    });
+
+    expect(result.response?.status).toBe(403);
+    expect(result.user).toBeUndefined();
+  });
+
   it("accepts an explicitly allowlisted admin after DB role revalidation", async () => {
     vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", " other_user, operator_1 ");
 

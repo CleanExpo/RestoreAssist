@@ -106,12 +106,6 @@ export async function requireAdminPage(): Promise<{
 }
 
 /**
- * Store publishing mutates RestoreAssist's platform-owned App Store and Google
- * Play listings, so tenant ADMIN is not sufficient authority. Operators must
- * be explicitly allowlisted by stable User.id in server configuration.
- * Missing or empty configuration deliberately fails closed.
- */
-/**
  * Platform-owned admin data (revenue, platform totals, impersonation) is
  * RestoreAssist staff work. `role: "ADMIN"` is granted to every firm that
  * self-registers, so it is not sufficient. Operators must be on
@@ -119,12 +113,18 @@ export async function requireAdminPage(): Promise<{
  * `isPlatformSupportOperator` already owns. Missing or empty configuration
  * refuses everyone, including tenant ADMIN.
  *
- * This is the HTTP wrapper RA-7594 / RA-7595 can reuse. It is not a new role.
+ * The allowlist widens an ADMIN; it is not a role of its own and must not
+ * promote a listed USER. Call after `verifyAdminFromDb`. This is the HTTP
+ * wrapper RA-7594 / RA-7595 can reuse.
  */
 export function verifyPlatformSupportOperator(
   auth: AdminAuthResult,
 ): AdminAuthResult {
-  if (!auth.user || !isPlatformSupportOperator(auth.user.id)) {
+  if (
+    !auth.user ||
+    auth.user.role !== "ADMIN" ||
+    !isPlatformSupportOperator(auth.user.id)
+  ) {
     return {
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };
@@ -133,6 +133,12 @@ export function verifyPlatformSupportOperator(
   return auth;
 }
 
+/**
+ * Store publishing mutates RestoreAssist's platform-owned App Store and Google
+ * Play listings, so tenant ADMIN is not sufficient authority. Operators must
+ * be explicitly allowlisted by stable User.id in server configuration.
+ * Missing or empty configuration deliberately fails closed.
+ */
 export function verifyStorePublishingOperator(
   auth: AdminAuthResult,
 ): AdminAuthResult {
