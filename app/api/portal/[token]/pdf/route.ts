@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPortalToken } from "@/lib/portal-token";
+import { resolvePortalAccess } from "@/lib/portal/resolve-portal-inspection";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { generateConsumerReportPdf } from "@/lib/portal/consumer-report";
@@ -18,16 +18,24 @@ export async function GET(
   if (rateLimited) return rateLimited;
 
   const { token } = await params;
-  const verified = verifyPortalToken(token);
-  if (!verified) {
+  // Account tokens first, HMAC second (RA-4861). A valid ClientPortalAccount
+  // on a DRAFT / missing report is unfinished — not expired (RA-7575).
+  const resolved = await resolvePortalAccess(token);
+  if (resolved.kind === "invalid") {
     return NextResponse.json(
       { error: "Link has expired or is invalid" },
       { status: 401 },
     );
   }
+  if (resolved.kind === "unready") {
+    return NextResponse.json(
+      { error: "Report is not yet ready for download" },
+      { status: 400 },
+    );
+  }
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: verified.inspectionId },
+    where: { id: resolved.inspectionId },
     select: {
       inspectionNumber: true,
       propertyAddress: true,

@@ -18,10 +18,19 @@ import { prisma } from "@/lib/prisma";
  *      Existing links in the wild MUST keep working — they are emailed with up
  *      to a 7-day TTL.
  *   3. Neither resolves: null, and the caller decides (404 or a friendly card).
+ *
+ * RA-7575: PDF (and any other caller that must not call a valid unfinished
+ * link "expired") should use `resolvePortalAccess` instead. A live
+ * ClientPortalAccount with no inspection yet is `unready`, not `invalid`.
  */
-export async function resolvePortalInspectionId(
+export type PortalAccessResolution =
+  | { kind: "inspection"; inspectionId: string }
+  | { kind: "unready" }
+  | { kind: "invalid" };
+
+export async function resolvePortalAccess(
   token: string,
-): Promise<string | null> {
+): Promise<PortalAccessResolution> {
   const portalAccount = await lookupPortalAccount(token);
   if (portalAccount) {
     const latest = await prisma.inspection.findFirst({
@@ -29,9 +38,20 @@ export async function resolvePortalInspectionId(
       orderBy: { createdAt: "desc" },
       select: { id: true },
     });
-    if (latest?.id) return latest.id;
+    if (latest?.id) return { kind: "inspection", inspectionId: latest.id };
+    return { kind: "unready" };
   }
 
   const verified = verifyPortalToken(token);
-  return verified?.inspectionId ?? null;
+  if (verified?.inspectionId) {
+    return { kind: "inspection", inspectionId: verified.inspectionId };
+  }
+  return { kind: "invalid" };
+}
+
+export async function resolvePortalInspectionId(
+  token: string,
+): Promise<string | null> {
+  const resolved = await resolvePortalAccess(token);
+  return resolved.kind === "inspection" ? resolved.inspectionId : null;
 }
