@@ -330,7 +330,12 @@ export default function NotificationsPage() {
 
   // ── Mark all as read ─────────────────────────────────────────────────────────
   const handleMarkAllRead = useCallback(async () => {
-    const previousNotifications = notifications;
+    // Revert only what this click changed, against the current list, so a
+    // notification that arrives while the request is in flight survives a
+    // failure (RA-7448 review).
+    const unreadAtClick = new Set(
+      notifications.filter((n) => !n.read).map((n) => n.id),
+    );
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
 
     try {
@@ -340,7 +345,9 @@ export default function NotificationsPage() {
       if (!response.ok) throw new Error("Failed to mark all as read");
       toast.success("All notifications marked as read");
     } catch {
-      setNotifications(previousNotifications);
+      setNotifications((prev) =>
+        prev.map((n) => (unreadAtClick.has(n.id) ? { ...n, read: false } : n)),
+      );
       toast.error("Failed to mark all as read");
     }
   }, [notifications]);
