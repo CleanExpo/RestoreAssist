@@ -7,6 +7,8 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { storeClientToken } from "@/lib/portal/client-session";
+import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
+import { PortalAccessExplainer } from "@/components/portal/PortalAccessExplainer";
 
 export default function PortalLoginPage() {
   const router = useRouter();
@@ -48,7 +50,7 @@ export default function PortalLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-cloud px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-brand-cloud px-4 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -118,10 +120,10 @@ export default function PortalLoginPage() {
             />
             <div className="mt-1 text-right">
               <Link
-                href="/portal/reset-password"
-                className="text-xs text-brand-bronze hover:underline"
+                href={PORTAL_PATHS.recovery}
+                className="text-xs text-brand-cta hover:underline"
               >
-                Forgot password?
+                Cannot sign in? Request a new invite
               </Link>
             </div>
           </div>
@@ -135,21 +137,29 @@ export default function PortalLoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 text-center space-y-2">
+        <div className="mt-6 text-center space-y-3">
           <p className="text-sm text-brand-slate">
-            Don't have an account?{" "}
-            <span className="text-brand-slate">
-              Contact your restoration contractor for an invitation.
-            </span>
+            No portal account yet? Ask the restoration contractor for an
+            invitation, or{" "}
+            <Link
+              href={PORTAL_PATHS.recovery}
+              className="text-brand-cta hover:underline"
+            >
+              request a new invite
+            </Link>
+            .
           </p>
           <Link
-            href="/"
-            className="block text-sm text-brand-bronze hover:underline"
+            href={PORTAL_PATHS.help}
+            className="block text-sm text-brand-cta hover:underline"
           >
-            Return to Home
+            Client help — reports, approvals, invoices
           </Link>
         </div>
       </motion.div>
+      <div className="max-w-md w-full mt-6">
+        <PortalAccessExplainer compact />
+      </div>
     </div>
   );
 }

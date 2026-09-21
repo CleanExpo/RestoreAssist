@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { resolvePortalInspectionId } from "@/lib/portal/resolve-portal-inspection";
+import { PortalLinkExpired } from "@/components/portal/PortalLinkExpired";
+import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
 import { fetchTechnicianIdentity } from "@/lib/portal/fetch-technician-identity";
 import { requireAddonForWorkspace } from "@/lib/entitlements";
@@ -43,7 +44,7 @@ export default async function ClientLearnKioskPage({ params }: PageProps) {
   const { token } = await params;
 
   const inspectionId = await resolvePortalInspectionId(token);
-  if (!inspectionId) notFound();
+  if (!inspectionId) return <PortalLinkExpired />;
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
@@ -58,7 +59,7 @@ export default async function ClientLearnKioskPage({ params }: PageProps) {
       },
     },
   });
-  if (!inspection) notFound();
+  if (!inspection) return <PortalLinkExpired />;
 
   const educationEntitled = await (async () => {
     try {
@@ -136,8 +137,12 @@ export default async function ClientLearnKioskPage({ params }: PageProps) {
       <footer className="max-w-3xl mx-auto px-5 py-6 text-center border-t border-slate-100 mt-4">
         <p className="text-xs text-slate-400">
           General information about the restoration process. For questions about
-          your job or your insurance claim, speak to your technician or your
-          insurer.
+          the job or the insurance claim, speak to the technician or the insurer.
+        </p>
+        <p className="text-xs text-slate-400 mt-2">
+          <Link href={PORTAL_PATHS.help} className="text-cyan-600 hover:underline">
+            Client help
+          </Link>
         </p>
       </footer>
     </main>

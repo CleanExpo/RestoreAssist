@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import Link from "next/link";
 import { resolvePortalInspectionId } from "@/lib/portal/resolve-portal-inspection";
+import { PortalLinkExpired } from "@/components/portal/PortalLinkExpired";
+import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 import { prisma } from "@/lib/prisma";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
@@ -26,12 +28,12 @@ export default async function ClientPortalPage({ params }: PageProps) {
   // Token -> inspection. The lookup order (ClientPortalAccount first, legacy
   // HMAC tokens second) lives in resolvePortalInspectionId so the /learn kiosk
   // resolves identically — see that file for why it is shared rather than
-  // copied. If neither path resolves, the framework 404 renders; the friendly
-  // "Link Expired" card below still covers the legacy hit-but-deleted case.
+  // copied. If neither path resolves, show recovery — never a blank 404 and
+  // never a contractor login bounce.
   const inspectionId = await resolvePortalInspectionId(token);
 
   if (!inspectionId) {
-    notFound();
+    return <PortalLinkExpired />;
   }
 
   const inspection = await prisma.inspection.findUnique({
@@ -67,19 +69,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
   });
 
   if (!inspection) {
-    return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
-          <h1 className="text-xl font-semibold text-slate-900 mb-2">
-            Link Expired
-          </h1>
-          <p className="text-slate-500 text-sm">
-            This link has expired. Please contact your technician for a fresh
-            link.
-          </p>
-        </div>
-      </main>
-    );
+    return <PortalLinkExpired />;
   }
 
   const reportReady = inspection.report?.status === "COMPLETED";
@@ -314,7 +304,16 @@ export default async function ClientPortalPage({ params }: PageProps) {
           <span className="font-semibold text-cyan-600">RestoreAssist</span>
         </p>
         <p className="text-xs text-slate-400 mt-1">
-          For queries about your job, please contact your technician directly.
+          For queries about the job, contact the technician directly.
+        </p>
+        <p className="text-xs text-slate-400 mt-2">
+          <Link href={PORTAL_PATHS.help} className="text-cyan-600 hover:underline">
+            Client help
+          </Link>
+          <span className="px-2">·</span>
+          <Link href={PORTAL_PATHS.login} className="text-cyan-600 hover:underline">
+            Portal account sign-in
+          </Link>
         </p>
       </footer>
     </main>

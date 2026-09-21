@@ -82,6 +82,36 @@ beforeEach(() => {
 
 const params = Promise.resolve({ token: "tok" });
 
+describe("ClientPortalPage — expired token recovery (RA-7551)", () => {
+  it("renders a recovery card instead of a blank 404 when the token does not resolve", async () => {
+    mLookup.mockResolvedValue(null);
+    mVerify.mockReturnValue(null);
+
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(screen.getByTestId("portal-link-expired")).toBeInTheDocument();
+    expect(screen.getByText(/job link has expired/i)).toBeInTheDocument();
+    const inviteLinks = screen.getAllByRole("link", {
+      name: /request a new invite/i,
+    });
+    expect(inviteLinks.length).toBeGreaterThan(0);
+    for (const link of inviteLinks) {
+      expect(link).toHaveAttribute("href", "/portal/recovery");
+    }
+    expect(screen.queryByText("12 Test St, Brisbane")).not.toBeInTheDocument();
+  });
+
+  it("uses the same recovery card when the inspection record is gone", async () => {
+    p.inspection.findUnique.mockResolvedValueOnce(null);
+
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(screen.getByTestId("portal-link-expired")).toBeInTheDocument();
+  });
+});
+
 describe("ClientPortalPage — no raw moisture exposure (RA-6995)", () => {
   it("never renders a raw NN%-style moisture value anywhere on the page", async () => {
     const jsx = await ClientPortalPage({ params });
