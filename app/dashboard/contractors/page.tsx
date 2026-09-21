@@ -75,35 +75,30 @@ const SECTIONS = [
     title: "Profile",
     description: "Business identity shown on reports and the client portal.",
     icon: UserMark,
-    live: true,
   },
   {
     href: "/dashboard/contractors/certifications",
     title: "Certifications",
     description: "IICRC and licence records for the workspace.",
     icon: AwardMark,
-    live: true,
   },
   {
-    href: "/dashboard/contractors/service-areas",
-    title: "Service areas",
-    description: "States and territories you cover.",
-    icon: ChromeMapPin,
-    live: true,
+    href: "/dashboard/contractors/equipment",
+    title: "Equipment",
+    description: "Moisture meters and drying kit for this workspace.",
+    icon: WrenchMark,
   },
   {
     href: "/dashboard/contractors/reviews",
     title: "Reviews",
     description: "Client feedback attached to this workspace.",
     icon: StarMark,
-    live: true,
   },
   {
-    href: "/dashboard/contractors/equipment",
-    title: "Equipment",
-    description: "Drying kit register is not live in this release.",
-    icon: WrenchMark,
-    live: false,
+    href: "/dashboard/contractors/service-areas",
+    title: "Service areas",
+    description: "States and territories you cover.",
+    icon: ChromeMapPin,
   },
 ] as const;
 
@@ -133,11 +128,6 @@ export default async function ContractorsHubPage() {
                   <CardTitle className="flex items-center gap-2 text-base text-foreground">
                     <Icon className="h-5 w-5 text-brand-gold" />
                     {section.title}
-                    {!section.live && (
-                      <span className="rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted-foreground">
-                        Coming later
-                      </span>
-                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
