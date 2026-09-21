@@ -20,6 +20,10 @@ import { Loader2, Mic, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { queueVoiceNote } from "@/lib/voice-note-queue";
+import {
+  mapVoiceTranscriptToFields,
+  type VoiceFieldMapping,
+} from "@/lib/services/ai/voice-to-fields";
 
 type Status = "idle" | "recording" | "uploading";
 
@@ -42,6 +46,8 @@ interface Props {
   inspectionId?: string;
   /** Which field the note is for — tags the queue entry (RA-1609). */
   fieldLabel?: string;
+  /** RA-7613 — structured mapping of the transcript onto enumerated fields. */
+  onMappedFields?: (mapping: VoiceFieldMapping) => void;
 }
 
 export function VoiceNoteButton({
@@ -53,10 +59,12 @@ export function VoiceNoteButton({
   compact = false,
   inspectionId = "unassigned",
   fieldLabel = "voice-note",
+  onMappedFields,
 }: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [queued, setQueued] = useState(false);
+  const [mapping, setMapping] = useState<VoiceFieldMapping | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -79,6 +87,7 @@ export function VoiceNoteButton({
   async function start() {
     setError(null);
     setQueued(false);
+    setMapping(null);
     try {
       if (
         typeof navigator === "undefined" ||
@@ -182,7 +191,11 @@ export function VoiceNoteButton({
 
       const data = (await res.json()) as { transcript?: string };
       if (!data.transcript) throw new Error("Empty transcript");
-      onTranscript(data.transcript.trim());
+      const transcript = data.transcript.trim();
+      const mapped = mapVoiceTranscriptToFields(transcript);
+      setMapping(mapped);
+      onMappedFields?.(mapped);
+      onTranscript(transcript);
       setStatus("idle");
     } catch (err) {
       if (err instanceof TypeError) {
@@ -243,6 +256,30 @@ export function VoiceNoteButton({
         <span className="text-xs text-muted-foreground max-w-[200px]">
           Queued — will transcribe when back online.
         </span>
+      )}
+      {mapping && (mapping.material || mapping.waterCategory || mapping.dimensions || mapping.needsConfirmation.length > 0) && (
+        <div className="text-xs text-muted-foreground max-w-[280px] space-y-1">
+          {mapping.material && (
+            <p>Material: {mapping.material.name}</p>
+          )}
+          {mapping.waterCategory && (
+            <p>Water category: {mapping.waterCategory}</p>
+          )}
+          {mapping.dimensions && (
+            <p>
+              Dimensions: {mapping.dimensions.lengthM}
+              {mapping.dimensions.widthM != null
+                ? ` × ${mapping.dimensions.widthM}`
+                : ""}{" "}
+              m
+            </p>
+          )}
+          {mapping.needsConfirmation.map((item) => (
+            <p key={`${item.kind}-${item.term}`} className="text-amber-700">
+              Confirm {item.kind}: "{item.term}" does not match a known value.
+            </p>
+          ))}
+        </div>
       )}
     </div>
   );

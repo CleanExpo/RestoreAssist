@@ -59,6 +59,11 @@ const DB_PHOTO: Record<string, unknown> = {
   labelledBy: "HUMAN_TECH",
   technicianNotes: null,
   moistureReadingLink: null,
+  aiLabels: { damageCategory: "CAT_2" },
+  aiConfidence: 0.8,
+  aiModel: "claude-sonnet-4-6",
+  aiRunAt: new Date("2026-09-21T00:00:00Z"),
+  metadata: { photoAi: { reviewStatus: "pending" } },
 };
 
 /** RA-446 label fields the photos page dereferences (page.tsx Photo type) */
@@ -78,6 +83,14 @@ const LABEL_FIELDS = [
   "labelledBy",
   "technicianNotes",
   "moistureReadingLink",
+] as const;
+
+const PHOTO_AI_FIELDS = [
+  "aiLabels",
+  "aiConfidence",
+  "aiModel",
+  "aiRunAt",
+  "metadata",
 ] as const;
 
 function makeRequest(): NextRequest {
@@ -120,6 +133,15 @@ describe("GET /api/inspections/[id]/photos (RA-7054 label payload)", () => {
     const { photos } = await res.json();
     expect(photos).toHaveLength(1);
     for (const field of LABEL_FIELDS) {
+      expect(photos[0], `payload missing "${field}"`).toHaveProperty(field);
+    }
+  });
+
+  it("returns photo AI fields so accept/reject and the WHS latch can render (RA-7613)", async () => {
+    const res = await GET(makeRequest(), ctx());
+    expect(res.status).toBe(200);
+    const { photos } = await res.json();
+    for (const field of PHOTO_AI_FIELDS) {
       expect(photos[0], `payload missing "${field}"`).toHaveProperty(field);
     }
   });

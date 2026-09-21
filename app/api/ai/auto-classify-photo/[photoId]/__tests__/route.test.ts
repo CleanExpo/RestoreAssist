@@ -65,6 +65,7 @@ beforeEach(() => {
     id: "photo_1",
     url: "https://example.com/photo.jpg",
     mimeType: "image/jpeg",
+    metadata: {},
   });
 });
 

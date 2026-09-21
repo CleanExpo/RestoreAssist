@@ -7,18 +7,15 @@
  * Fetches the photo's Cloudinary URL, sends it to Claude Vision with a
  * prompt tuned for AU water-damage vernacular + IICRC S500 label
  * schema (RA-446), parses the JSON response, and writes to
- * InspectionPhoto.aiLabels + aiConfidence + aiModel + aiRunAt.
+ * InspectionPhoto.aiLabels + aiConfidence + aiModel + aiRunAt, and stamps
+ * InspectionPhoto.metadata.photoAi (pending review + raise-only WHS latch).
  *
- * The technician UI then shows the suggestion next to each field —
- * accepting copies values into the label columns and flips labelledBy
- * to "AI_ACCEPTED". This PR ships the backend + DB fields; the UI
- * accept/reject surface is a follow-up (needs coordination with the
- * existing photo-labels form).
+ * The photos page shows the suggestion for accept / reject (RA-7613).
+ * Accepting copies valid values into the label columns as `ai_suggested`
+ * (labelledBy AI_ASSISTED). Confirm promotes to operator_measured.
  *
- * Auth: user must own the inspection. Rate-limited per user. When
- * ANTHROPIC_API_KEY is missing the endpoint returns 503 with a clear
- * message so the inspection-photo POST handler can no-op gracefully
- * on the fire-and-forget call.
+ * Auth: user must own the inspection. Rate-limited per user. Workspace
+ * Anthropic key required (BYOK); missing key returns 402 KEY_MISSING.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -29,6 +26,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { Prisma } from "@prisma/client";
 import { autoClassifyPhoto } from "@/lib/services/ai/auto-classify-photo";
+import { stampClassifierRunOnMetadata } from "@/lib/services/ai/photo-classification-review";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   resolveWorkspaceAiKey,
@@ -94,7 +92,7 @@ export async function POST(
   // Ownership check — photo must belong to an inspection the caller owns
   const photo = await prisma.inspectionPhoto.findFirst({
     where: { id: photoId, inspection: { userId } },
-    select: { id: true, url: true, mimeType: true },
+    select: { id: true, url: true, mimeType: true, metadata: true },
   });
   if (!photo) {
     return apiError(request, {
@@ -140,6 +138,9 @@ export async function POST(
     const { labels, confidence, model } = result.data;
 
     const runAt = new Date();
+    // RA-7613: new labels go pending for accept/reject. Suspected ACM raises
+    // the WHS latch and a later no-ACM run cannot clear it.
+    const metadata = stampClassifierRunOnMetadata(photo.metadata, labels);
     await prisma.inspectionPhoto.update({
       where: { id: photo.id },
       data: {
@@ -148,6 +149,7 @@ export async function POST(
         aiConfidence: confidence,
         aiModel: model,
         aiRunAt: runAt,
+        metadata: metadata as Prisma.InputJsonValue,
       },
     });
 
