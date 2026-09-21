@@ -50,13 +50,24 @@ describe("room-area-from-geometry", () => {
     expect(resolvePxPerMetre(null)).toBe(100);
   });
 
-  it("identifies rooms by data.type even without a polygon type", () => {
-    expect(isMeasuredRoom({ data: { type: "room" } })).toBe(true);
-    expect(isMeasuredRoom({ type: "polygon" })).toBe(true);
+  it("identifies operator_measured rooms and rejects every other provenance", () => {
+    expect(
+      isMeasuredRoom({
+        data: { type: "room", provenance: "operator_measured" },
+      }),
+    ).toBe(true);
+    expect(isMeasuredRoom({ data: { type: "room" } })).toBe(false);
+    expect(isMeasuredRoom({ type: "polygon" })).toBe(false);
     expect(
       isMeasuredRoom({
         type: "polygon",
         data: { type: "room", provenance: "underlay_reference" },
+      }),
+    ).toBe(false);
+    expect(
+      isMeasuredRoom({
+        type: "polygon",
+        data: { type: "room", provenance: "ai_suggested" },
       }),
     ).toBe(false);
     expect(isMeasuredRoom({ data: { type: "opening" } })).toBe(false);

@@ -19,6 +19,7 @@ import {
   roomLabel,
   type RoomGeometryObject,
 } from "@/lib/sketch/room-area-from-geometry";
+import { isOperatorMeasuredProvenance } from "@/lib/sketch/measured-provenance";
 
 // ── Scale ─────────────────────────────────────────────────
 /** Default: 100 canvas pixels = 1 metre */
@@ -127,9 +128,9 @@ function extractRoomsFromFabricJson(
   let damageIdx = 0;
 
   for (const obj of objects) {
-    // RA-6839 (A0): provenance firewall — underlay_reference geometry is
-    // reference-only and must never become a billed room or damage line item.
-    if (obj.data?.provenance === "underlay_reference") continue;
+    // RA-6839 / RA-7611: only operator_measured geometry may become a billed
+    // room or damage line item. Defence in depth with isMeasuredRoom below.
+    if (!isOperatorMeasuredProvenance(obj.data?.provenance)) continue;
 
     if (isFabricDamageZone(obj)) {
       const areaM2 =
@@ -316,7 +317,9 @@ function roomsFromSavedGraph(
   const lines: EstimateLineItem[] = [];
   let idx = 0;
   for (const room of saved) {
-    if (room.provenance === "underlay_reference") continue;
+    // RA-7611: allow-list — saved SketchRoom rows bill only when confirmed
+    // as operator_measured. ai_suggested and underlay_reference yield nothing.
+    if (!isOperatorMeasuredProvenance(room.provenance)) continue;
     const areaM2 = room.areaM2;
     if (typeof areaM2 !== "number" || !Number.isFinite(areaM2) || areaM2 < MIN_BILLED_AREA_M2) {
       continue;

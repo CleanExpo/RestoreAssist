@@ -7014,7 +7014,15 @@ model SketchRoom {
   // operator hid a room that still exists.
   detachedAt       DateTime?
   geometryJson     Json?
+  // operator_measured | underlay_reference | ai_suggested
   provenance       String                  @default("operator_measured")
+  // RA-7611: confirmation lives on SketchRoom, not SketchElement (those
+  // rows are deleted and recreated on every save). Null until Confirm.
+  confirmedAt      DateTime?
+  confirmedBy      String?
+  correctionHistory Json?
+  originalAreaM2   Float?
+  originalGeometryJson Json?
   evidencePins     EvidencePin[]
   moistureReadings SketchMoistureReading[]
   hazards          Hazard[]
@@ -7115,7 +7123,7 @@ model SketchElement {
   dimensionsM      Json? // { widthM, heightM, lengthM, areaM2 } in metres
   materialId       String?
   material         Material?               @relation(fields: [materialId], references: [id])
-  provenance       String                  @default("operator_measured") // operator_measured | underlay_reference
+  provenance       String                  @default("operator_measured") // operator_measured | underlay_reference | ai_suggested
   hazards          Hazard[]
   moistureReadings SketchMoistureReading[]
   createdAt        DateTime                @default(now())

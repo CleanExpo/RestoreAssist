@@ -59,6 +59,10 @@ import {
   recordRoomPlanGeometryCorrection,
   recordRoomPlanLabelCorrection,
 } from "@/lib/sketch/roomplan-correction";
+import {
+  confirmAiSuggestedMeasurement,
+  recordAiSuggestedGeometryCorrection,
+} from "@/lib/sketch/ai-suggested-confirm";
 import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
 import { polygonAbsolutePoints } from "@/lib/sketch/fabric-absolute";
 import {
@@ -1797,6 +1801,10 @@ export function SketchEditorV2({
           x: v.x * width,
           y: v.y * height,
         }));
+        const areaM2 =
+          Math.round(
+            (shoelaceArea(pts) / (PX_PER_METRE * PX_PER_METRE)) * 100,
+          ) / 100;
 
         const polygon = new FabricPolygon(pts, {
           fill: color.fill,
@@ -1808,10 +1816,16 @@ export function SketchEditorV2({
             id: `imported-${Date.now()}-${i}`,
             label: room.label,
             type: "room",
-            // RA-6760: AI/Vision-imported geometry is reference-only until a
-            // technician reviews + confirms it. Without this it would default
-            // to operator_measured and inflate billed/scoped quantities.
-            provenance: "underlay_reference",
+            // RA-7611: Vision-imported geometry is an AI suggestion until a
+            // technician confirms it. Distinct from underlay_reference (plans /
+            // pending LiDAR) so Confirm can keep correction history on SketchRoom.
+            provenance: "ai_suggested",
+            captureAdapter: "cloud_ai",
+            areaM2,
+            originalAreaM2: areaM2,
+            originalPoints: pts,
+            originalLabel: room.label,
+            correctionHistory: [],
           },
         });
 
@@ -2478,8 +2492,7 @@ export function SketchEditorV2({
                         points?: { x: number; y: number }[];
                       }
                     | undefined;
-                  if (!obj?.data || obj.data.captureAdapter !== "roomplan")
-                    return;
+                  if (!obj?.data) return;
                   const pts =
                     polygonAbsolutePoints(obj) ??
                     (Array.isArray(obj.points) ? obj.points : null);
@@ -2488,10 +2501,19 @@ export function SketchEditorV2({
                   const areaM2 =
                     Math.round((shoelaceArea(pts) / (pxPerM * pxPerM)) * 100) /
                     100;
-                  obj.data = recordRoomPlanGeometryCorrection(obj.data, {
-                    points: pts,
-                    areaM2,
-                  });
+                  if (obj.data.captureAdapter === "roomplan") {
+                    obj.data = recordRoomPlanGeometryCorrection(obj.data, {
+                      points: pts,
+                      areaM2,
+                    });
+                  } else if (obj.data.provenance === "ai_suggested") {
+                    obj.data = recordAiSuggestedGeometryCorrection(obj.data, {
+                      points: pts,
+                      areaM2,
+                    });
+                  } else {
+                    return;
+                  }
                   const hist = obj.data.correctionHistory as
                     | unknown[]
                     | undefined;
@@ -2780,6 +2802,39 @@ export function SketchEditorV2({
                       ...prev,
                       provenance: "operator_measured",
                       captureAdapter: "roomplan",
+                      correctionCount: Array.isArray(hist)
+                        ? hist.length
+                        : prev.correctionCount,
+                    }
+                  : prev,
+              );
+              scheduleSave();
+              return;
+            }
+            if (data.provenance === "ai_suggested") {
+              const lengthM =
+                typeof data.lengthM === "number" ? data.lengthM : undefined;
+              const widthM =
+                typeof data.widthM === "number" ? data.widthM : undefined;
+              const areaM2 =
+                typeof data.areaM2 === "number" ? data.areaM2 : undefined;
+              obj.data = confirmAiSuggestedMeasurement(data, {
+                areaM2,
+                lengthM,
+                widthM,
+              });
+              fc.renderAll();
+              const hist = (obj.data as { correctionHistory?: unknown[] })
+                .correctionHistory;
+              setSelectedObj((prev) =>
+                prev && prev.id === id
+                  ? {
+                      ...prev,
+                      provenance: "operator_measured",
+                      captureAdapter:
+                        prev.captureAdapter === "cloud_ai"
+                          ? "cloud_ai"
+                          : prev.captureAdapter,
                       correctionCount: Array.isArray(hist)
                         ? hist.length
                         : prev.correctionCount,

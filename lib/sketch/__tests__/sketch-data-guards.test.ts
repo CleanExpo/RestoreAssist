@@ -23,12 +23,21 @@ describe("sketch-data-guards", () => {
     expect(pickSketchDataForSave(snapshot, emptyLive)).toEqual(snapshot);
   });
 
-  it("detects unconfirmed underlay_reference rooms", () => {
+  it("detects unconfirmed underlay_reference and ai_suggested rooms", () => {
     expect(
       sketchHasUnconfirmedRooms({
         objects: [
           {
             data: { type: "room", id: "r1", provenance: "underlay_reference" },
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      sketchHasUnconfirmedRooms({
+        objects: [
+          {
+            data: { type: "room", id: "r1", provenance: "ai_suggested" },
           },
         ],
       }),

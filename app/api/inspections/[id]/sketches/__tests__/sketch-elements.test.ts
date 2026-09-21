@@ -19,7 +19,11 @@ vi.mock("@/lib/prisma", () => ({
     },
     material: { findMany: vi.fn() },
     sketchElement: { deleteMany: vi.fn(), createMany: vi.fn() },
-    sketchRoom: { findMany: vi.fn(async () => []) },
+    sketchRoom: {
+      findMany: vi.fn(async () => []),
+      create: vi.fn(async () => ({ id: "sr_1" })),
+      update: vi.fn(),
+    },
     sketchMoistureReading: { deleteMany: vi.fn(), createMany: vi.fn() },
     $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
   },

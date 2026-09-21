@@ -1,14 +1,17 @@
 /**
- * RA-6761 — provenance guard at the Fabric-blob boundary.
+ * RA-6761 / RA-7611 — provenance guard at the Fabric-blob boundary.
  *
  * The estimate/scope quantity paths parse the raw Fabric `sketchData` blob.
- * AI/underlay-imported geometry carries `data.provenance = "underlay_reference"`
- * (RA-6760) and must NOT contribute to billed/scoped quantities until a
- * technician confirms it. This returns a shallow copy of the blob with those
- * objects removed, so any consumer that parses the blob only ever sees
- * technician-measured geometry. Untagged objects are technician-drawn and
- * default to operator_measured (mirrors decompose-elements), so they are kept.
+ * Only `operator_measured` objects may contribute billed/scoped quantities.
+ * `underlay_reference` (imported plan / pending LiDAR) and `ai_suggested`
+ * (Vision / cloud AI) stay out until a technician confirms them.
+ *
+ * This is an allow-list. Untagged objects are no longer kept here; changing
+ * decompose-elements.ts to stop defaulting missing tags to operator_measured
+ * is a separate decision (see RA-7611 PR body).
  */
+
+import { isOperatorMeasuredProvenance } from "./measured-provenance";
 
 interface SketchObject {
   data?: { provenance?: string; [k: string]: unknown };
@@ -26,8 +29,8 @@ export function measuredSketchData<T extends SketchBlob | null | undefined>(
   if (!sketchData || !Array.isArray(sketchData.objects)) return sketchData;
   return {
     ...sketchData,
-    objects: sketchData.objects.filter(
-      (o) => o?.data?.provenance !== "underlay_reference",
+    objects: sketchData.objects.filter((o) =>
+      isOperatorMeasuredProvenance(o?.data?.provenance),
     ),
   };
 }
@@ -60,7 +63,7 @@ export function measuredFloors<
  * from client-supplied `fabricJson` — a client can't inflate or fabricate areas.
  * Falls back to the provenance-sanitised client blob only when there is no saved
  * floor for that label (e.g. a brand-new unsaved floor). Either source is run
- * through `measuredSketchData`, so underlay_reference geometry never counts.
+ * through `measuredSketchData`, so only operator_measured geometry counts.
  * Non-geometry fields (label, pngDataUrl, …) pass through untouched.
  */
 export function serverAuthoritativeFloors<

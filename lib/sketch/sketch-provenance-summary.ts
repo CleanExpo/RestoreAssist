@@ -1,7 +1,8 @@
 /**
  * Summarise floor-plan provenance for PDF / portal legends.
  *
- * Measured rooms (operator_measured) may bill; underlay_reference never does.
+ * Measured rooms (operator_measured) may bill; underlay_reference and
+ * ai_suggested never do until a technician confirms them.
  * RoomPlan captureAdapter distinguishes LiDAR from hand-drawn measured rooms.
  */
 
@@ -45,7 +46,7 @@ export function summarizeSketchProvenance(
     const provenance = obj.data?.provenance ?? "operator_measured";
     const isLidar = obj.data?.captureAdapter === "roomplan";
 
-    if (provenance === "underlay_reference") {
+    if (provenance !== "operator_measured") {
       if (isLidar) summary.lidarPending += 1;
       else summary.referenceOther += 1;
       continue;

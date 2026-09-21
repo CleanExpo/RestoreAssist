@@ -20,7 +20,7 @@ const rect = (w: number, h: number) => [
 ];
 
 describe("measuredSketchData", () => {
-  it("drops underlay_reference objects, keeps operator_measured + untagged", () => {
+  it("drops non-measured objects, keeps only operator_measured", () => {
     const blob = {
       objects: [
         {
@@ -31,14 +31,16 @@ describe("measuredSketchData", () => {
           type: "polygon",
           data: { type: "room", provenance: "underlay_reference" },
         },
-        { type: "polygon", data: { type: "room" } }, // untagged → technician-drawn
+        {
+          type: "polygon",
+          data: { type: "room", provenance: "ai_suggested" },
+        },
+        { type: "polygon", data: { type: "room" } }, // untagged — not billed
       ],
     };
     const out = measuredSketchData(blob);
-    expect(out.objects).toHaveLength(2);
-    expect(
-      out.objects.some((o) => o.data?.provenance === "underlay_reference"),
-    ).toBe(false);
+    expect(out.objects).toHaveLength(1);
+    expect(out.objects[0].data?.provenance).toBe("operator_measured");
   });
 
   it("is null/shape safe", () => {
@@ -75,7 +77,7 @@ describe("estimate extractor honours the provenance guard", () => {
       {
         type: "polygon",
         points: rect(300, 400),
-        data: { type: "room", label: "Living" },
+        data: { type: "room", label: "Living", provenance: "operator_measured" },
       },
       // AI-imported room: 1000×1000 px = 100 m² — must NOT count
       {
@@ -112,7 +114,7 @@ describe("estimate extractor honours the provenance guard", () => {
 describe("measuredFloors — PDF/scope export guard (RA-6761 pt 2)", () => {
   const objects = [
     // technician room 300×400 px = 12 m²
-    { type: "polygon", points: rect(300, 400), data: { label: "Living" } },
+    { type: "polygon", points: rect(300, 400), data: { label: "Living", provenance: "operator_measured" } },
     // AI-imported room 1000×1000 px = 100 m² — must NOT count
     {
       type: "polygon",
@@ -155,10 +157,10 @@ describe("measuredFloors — PDF/scope export guard (RA-6761 pt 2)", () => {
 });
 
 describe("serverAuthoritativeFloors — server-authoritative exports (RA-6761)", () => {
-  const room = (label: string, w: number, h: number, prov?: string) => ({
+  const room = (label: string, w: number, h: number, prov = "operator_measured") => ({
     type: "polygon",
     points: rect(w, h),
-    data: { label, ...(prov ? { provenance: prov } : {}) },
+    data: { label, provenance: prov },
   });
 
   it("uses saved server geometry over client fabricJson (client can't inflate areas)", () => {

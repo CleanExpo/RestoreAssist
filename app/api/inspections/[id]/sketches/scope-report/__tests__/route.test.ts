@@ -55,7 +55,12 @@ const FLOORS = [
             { x: 300, y: 400 },
             { x: 0, y: 400 },
           ],
-          data: { type: "room", material: "fibro", label: "Bathroom" },
+          data: {
+            type: "room",
+            material: "fibro",
+            label: "Bathroom",
+            provenance: "operator_measured",
+          },
         },
       ],
     },

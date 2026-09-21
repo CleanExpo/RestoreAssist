@@ -76,9 +76,8 @@ export async function GET(
       .filter((s: any) => s.sketchType === "structural" || !s.sketchType)
       .map((s: any) => ({
         floorLabel: s.floorLabel,
-        // RA-6761: strip underlay_reference (AI/imported) geometry before the
-        // extractor parses it, so unconfirmed geometry never inflates billed
-        // quantities. Untagged/technician geometry is measured and kept.
+        // RA-6761: strip non-measured geometry before the extractor parses
+        // it. Only operator_measured rooms bill (RA-7611 allow-list).
         sketchData: measuredSketchData(
           s.sketchData as Record<string, unknown> | null,
         ),

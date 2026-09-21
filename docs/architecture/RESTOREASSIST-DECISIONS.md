@@ -192,4 +192,14 @@ Append-only record of resolved product and architecture decisions. New decisions
 
 ---
 
+### D-025 — Billing filters allow-list `operator_measured` only; decompose default stays (RA-7611)
+
+- **Decision:** `measuredSketchData()`, `roomsFromSavedGraph` (`lib/sketch-estimate-extractor.ts`) and `isMeasuredRoom` accept only `provenance === "operator_measured"`. A new `ai_suggested` tier lands Vision/cloud-AI rooms; Confirm (optional dimension correction) promotes them to `operator_measured` and stores confirmation on `SketchRoom`, not `SketchElement`. `lib/sketch/decompose-elements.ts` still defaults a missing provenance tag to `operator_measured` — that default is **not** changed in RA-7611.
+- **Reason:** Founder decision 2026-09-21 on RA-7611. The three filters were deny-lists that excluded only `underlay_reference`, so AI geometry could bill. Changing the decompose default would silently re-tag every existing sketch that has no provenance on its Fabric objects; that needs a fixture of production data before it is safe.
+- **Alternatives:** keep the deny-list and add `ai_suggested` to it (rejected — any future tag would bill); change the decompose default in the same PR (rejected — existing untagged sketches would flip meaning without a data survey).
+- **Consequences:** Untagged Fabric objects no longer pass the three billing filters. Saved `SketchRoom.provenance` still defaults to `operator_measured` when Fabric has no tag, so the saved-graph fallback can still bill a previously saved technician-drawn room. Vision import writes `ai_suggested` + `captureAdapter: "cloud_ai"`. RoomPlan stays `underlay_reference` until Confirm.
+- **Evidence:** RA-7611; founder comment 2026-09-21. **Date:** 2026-09-21. **Owner:** Phill McGurk.
+
+---
+
 _Non-blocking owner inputs still open (do not block V1 start): authorised drying-goal methodology source; the full per-stage water-damage completeness rule list (baseline minimum is specified; engine scaffolds now); per-organisation completeness baseline content; the approved retention matrix (D-017 — legal/privacy review before any automated destruction); pilot-partner selection. Tracked here, not escalated._

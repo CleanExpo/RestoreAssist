@@ -12,6 +12,8 @@
  * using the sketch's own `scaleConfig.pxPerMetre`.
  */
 
+import { isOperatorMeasuredProvenance } from "./measured-provenance";
+
 export const DEFAULT_PX_PER_METRE = 100;
 
 export type PointLike = { x: number; y: number } | [number, number];
@@ -100,7 +102,8 @@ function perimeterPx(pts: { x: number; y: number }[]): number {
 
 /** Operator-measured room that may contribute billed floor/wall area. */
 export function isMeasuredRoom(obj: RoomGeometryObject): boolean {
-  if (obj.data?.provenance === "underlay_reference") return false;
+  // RA-7611: allow-list. ai_suggested / underlay_reference / untagged never bill.
+  if (!isOperatorMeasuredProvenance(obj.data?.provenance)) return false;
   const dataType = obj.data?.type;
   if (
     dataType === "opening" ||

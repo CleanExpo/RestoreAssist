@@ -381,6 +381,8 @@ export async function POST(
           fabricObjectId: true,
           name: true,
           geometryJson: true,
+          originalAreaM2: true,
+          originalGeometryJson: true,
           // Dependent counts decide delete vs detach below — a room holding
           // evidence must never be deleted, because the FKs are SetNull.
           _count: {
@@ -394,18 +396,28 @@ export async function POST(
         take: 500,
       });
       const byFabric = new Map(
-        existingRooms.map((r: { id: string; fabricObjectId: string }) => [
-          r.fabricObjectId,
-          r.id,
-        ]),
+        existingRooms.map(
+          (r: {
+            id: string;
+            fabricObjectId: string;
+            originalAreaM2: number | null;
+            originalGeometryJson: unknown;
+          }) => [r.fabricObjectId, r],
+        ),
       );
       const seenFabric = new Set<string>();
       for (const node of roomNodes) {
         seenFabric.add(node.fabricObjectId);
-        const existingId = byFabric.get(node.fabricObjectId);
-        if (existingId) {
+        const existing = byFabric.get(node.fabricObjectId) as
+          | {
+              id: string;
+              originalAreaM2: number | null;
+              originalGeometryJson: unknown;
+            }
+          | undefined;
+        if (existing) {
           await (prisma as any).sketchRoom.update({
-            where: { id: existingId },
+            where: { id: existing.id },
             data: {
               name: node.name,
               areaM2: node.areaM2,
@@ -415,6 +427,18 @@ export async function POST(
               provenance: node.provenance,
               geometryJson: node.geometryJson,
               floorNumber,
+              // RA-7611: confirmation state on SketchRoom (SketchElement is
+              // deleted and recreated on every save). original* is sticky —
+              // once captured, later canvas edits must not overwrite the
+              // first-suggested snapshot.
+              confirmedAt: node.confirmedAt,
+              confirmedBy: node.confirmedBy,
+              correctionHistory: node.correctionHistory ?? undefined,
+              originalAreaM2: existing.originalAreaM2 ?? node.originalAreaM2,
+              originalGeometryJson:
+                existing.originalGeometryJson ??
+                node.originalGeometryJson ??
+                undefined,
               // Back on the canvas — clear any previous detachment so the room
               // is a placement target again.
               detachedAt: null,
@@ -433,6 +457,11 @@ export async function POST(
               provenance: node.provenance,
               geometryJson: node.geometryJson,
               floorNumber,
+              confirmedAt: node.confirmedAt,
+              confirmedBy: node.confirmedBy,
+              correctionHistory: node.correctionHistory ?? undefined,
+              originalAreaM2: node.originalAreaM2,
+              originalGeometryJson: node.originalGeometryJson ?? undefined,
             },
           });
         }

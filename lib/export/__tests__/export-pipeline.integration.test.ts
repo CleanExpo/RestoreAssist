@@ -42,6 +42,7 @@ const room = (
     type: "room",
     material,
     label,
+    provenance: "operator_measured",
     ...(waterCategory ? { waterCategory } : {}),
   },
 });

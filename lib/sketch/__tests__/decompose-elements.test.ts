@@ -50,7 +50,7 @@ describe("decomposeElements", () => {
     expect(wall.dimensionsM?.heightM).toBeCloseTo(0.2, 5);
   });
 
-  it("tags Phase 1 elements operator_measured by default", () => {
+  it("tags Phase 1 elements operator_measured by default (RA-7611: left unchanged)", () => {
     expect(
       decomposeElements(SKETCH_DATA).every(
         (e) => e.provenance === "operator_measured",

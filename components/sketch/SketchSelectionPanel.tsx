@@ -61,11 +61,13 @@ export interface SelectedObject {
   /** S500 water category assigned to the area (spec §5.2). */
   waterCategory?: "cat1" | "cat2" | "cat3";
   /**
-   * Geometry provenance (RA-6760). `underlay_reference` = AI/imported/LiDAR
-   * pending confirm, excluded from measured quantities until a technician
-   * confirms it; `operator_measured` = technician-drawn/confirmed.
+   * Geometry provenance (RA-6760 / RA-7611).
+   * `underlay_reference` = imported plan / pending LiDAR.
+   * `ai_suggested` = Vision / cloud AI rooms pending confirm.
+   * Both are excluded from measured quantities until a technician confirms
+   * them; `operator_measured` = technician-drawn or confirmed.
    */
-  provenance?: "operator_measured" | "underlay_reference";
+  provenance?: "operator_measured" | "underlay_reference" | "ai_suggested";
   /** RA-7091 — present when geometry came from RoomPlan LiDAR. */
   captureAdapter?: "manual" | "roomplan" | "cloud_ai" | "underlay_import";
   /** Number of recorded RoomPlan corrections (label/confirm/geometry). */
@@ -233,10 +235,11 @@ export function SketchSelectionPanel({
         </button>
       </div>
 
-      {/* Provenance — reference (AI/import/LiDAR-pending) geometry is excluded
-          from measured quantities until a technician confirms it (RA-6760 /
-          RA-7091 correction workflow). */}
-      {selected.provenance === "underlay_reference" && (
+      {/* Provenance — AI-suggested / imported / LiDAR-pending geometry is
+          excluded from measured quantities until a technician confirms it
+          (RA-6760 / RA-7091 / RA-7611). */}
+      {(selected.provenance === "underlay_reference" ||
+        selected.provenance === "ai_suggested") && (
         <div
           role="alert"
           className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 space-y-2"
@@ -246,10 +249,13 @@ export function SketchSelectionPanel({
             <span>
               {selected.captureAdapter === "roomplan"
                 ? "LiDAR scan — correct the room on the canvas if needed, then confirm before it counts toward measured quantities."
-                : "Reference geometry (AI / imported) — excluded from measured quantities until confirmed."}
+                : selected.provenance === "ai_suggested"
+                  ? "AI-suggested geometry — excluded from measured quantities until confirmed."
+                  : "Reference geometry (imported) — excluded from measured quantities until confirmed."}
             </span>
           </div>
-          {selected.captureAdapter === "roomplan" &&
+          {(selected.captureAdapter === "roomplan" ||
+            selected.provenance === "ai_suggested") &&
             (selected.correctionCount ?? 0) > 0 && (
               <p className="text-[10px] text-amber-200/80 pl-5">
                 {selected.correctionCount} correction
@@ -263,7 +269,9 @@ export function SketchSelectionPanel({
           >
             {selected.captureAdapter === "roomplan"
               ? "Confirm LiDAR measurement"
-              : "Confirm measurement"}
+              : selected.provenance === "ai_suggested"
+                ? "Confirm AI-suggested measurement"
+                : "Confirm measurement"}
           </button>
           {selected.captureAdapter === "roomplan" && onExcludeRoomPlan && (
             <button
@@ -295,6 +303,16 @@ export function SketchSelectionPanel({
                 Exclude from measured area
               </button>
             )}
+          </div>
+        )}
+
+      {selected.provenance === "operator_measured" &&
+        selected.captureAdapter === "cloud_ai" && (
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] text-emerald-100/90">
+            AI-suggested measurement confirmed
+            {(selected.correctionCount ?? 0) > 0
+              ? ` · ${selected.correctionCount} correction${selected.correctionCount === 1 ? "" : "s"}`
+              : ""}
           </div>
         )}
 
