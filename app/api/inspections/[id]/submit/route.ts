@@ -587,6 +587,9 @@ async function processInspectionComplete(
       itemType: scopeItem.itemType,
       description: scopeItem.description,
       justification: scopeItem.justification,
+      // RA-7609: persist the reference determineScopeItems already computed.
+      // Do not compose a new citation here (check:standards).
+      clauseRef: scopeItem.clauseRefs?.[0] ?? null,
       quantity: scopeItem.quantity || null,
       unit: scopeItem.unit || null,
       specification: scopeItem.specification || null,

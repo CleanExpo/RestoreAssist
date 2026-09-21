@@ -43,6 +43,23 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { determineScopeItems } from "@/lib/nir-scope-determination";
+
+function clauseRefForGeneratedTitle(
+  title: string,
+  determined: ReturnType<typeof determineScopeItems>,
+): string | null {
+  const itemType = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .slice(0, 50);
+  const match =
+    determined.find((item) => item.itemType === itemType) ??
+    determined.find(
+      (item) => item.description.toLowerCase() === title.toLowerCase(),
+    );
+  return match?.clauseRefs?.[0] ?? null;
+}
 
 export async function POST(
   request: NextRequest,
@@ -445,6 +462,30 @@ export async function POST(
             if (sectionTitles.length > 0) {
               // Build replacement payloads in memory first (no side-effects yet)
               const iicrcPattern = /IICRC S\d+:\d{4} §[\d.]+/;
+              // RA-7609: stamp clauseRef from determineScopeItems, not from the
+              // AI narrative. Justification stays the existing workaround text
+              // until every reader of that field has been checked.
+              const determinedScopeItems = determineScopeItems({
+                category: classification.category,
+                class: classification.class,
+                waterSource: lossSourceDescription || "Clean Water",
+                affectedAreas: [
+                  {
+                    roomZoneId: affectedRooms?.[0] ?? "default",
+                    affectedSquareFootage: affectedAreaM2,
+                    surfaceType: inspection.moistureReadings[0]?.surfaceType,
+                    moistureLevel: inspection.moistureReadings[0]?.moistureLevel,
+                  },
+                ],
+                environmentalData: inspection.environmentalData[0]
+                  ? {
+                      ambientTemperature:
+                        inspection.environmentalData[0].ambientTemperature,
+                      humidityLevel:
+                        inspection.environmentalData[0].humidityLevel,
+                    }
+                  : undefined,
+              });
               const newItems = sectionTitles.map((title) => {
                 // Use a static pattern to avoid RegExp-from-variable ReDoS risk
                 const titleFragment = title.slice(0, 20);
@@ -463,6 +504,10 @@ export async function POST(
                   description: title,
                   autoDetermined: false,
                   justification: iicrcRef ?? "AI-generated per IICRC S500:2021",
+                  clauseRef: clauseRefForGeneratedTitle(
+                    title,
+                    determinedScopeItems,
+                  ),
                   isRequired: true,
                   isSelected: true,
                 };
