@@ -3,14 +3,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { fromException } from "@/lib/api-errors";
+
+function forbidden() {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
 
 /**
  * GET /api/admin/stripe-diagnostics
  *
- * Admin-only. Returns recent Stripe webhook events and environment-shape
- * signals so a real human can verify the subscription pipe is healthy
- * without having to tail Vercel logs.
+ * Platform-staff only. These are RestoreAssist's own Stripe webhook
+ * events and secret-shape flags, not a tenant's. `role: "ADMIN"` is
+ * every self-registered owner; `PLATFORM_SUPPORT_USER_IDS` is the staff
+ * allowlist (`isPlatformSupportOperator`, RA-7595 / RA-7592 / RA-7566).
  *
  * Shape:
  *   {
@@ -27,6 +33,11 @@ export async function GET(_request: NextRequest) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // Tenant ADMIN is not RestoreAssist staff. Fail closed before any
+    // platform Stripe read or env-shape flag is materialised.
+    if (!auth.user || !isPlatformSupportOperator(auth.user.id)) {
+      return forbidden();
+    }
 
     const [recentEvents, counts] = await Promise.all([
       prisma.stripeWebhookEvent.findMany({

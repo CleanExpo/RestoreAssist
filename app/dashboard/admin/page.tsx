@@ -96,6 +96,11 @@ export default function AdminDashboardPage() {
         const data = await response.json();
         setStats(data);
         setLoadError(null);
+      } else if (response.status === 403) {
+        // Platform totals are staff-only. Hide the numbers; do not invent
+        // an access-denied banner on a page tenant ADMIN may still open.
+        setStats(null);
+        setLoadError(null);
       } else {
         setStats(null);
         setLoadError("Failed to load admin stats");
@@ -252,8 +257,10 @@ export default function AdminDashboardPage() {
         </a>
       </div>
 
-      {/* System Health */}
-      <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
+      {stats && (
+        <>
+          {/* System Health */}
+          <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
             <Activity className="h-5 w-5 text-cyan-500" />
@@ -365,6 +372,8 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
 
       {/* Quick Actions */}
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">

@@ -115,7 +115,7 @@ export async function requireAdminPage(): Promise<{
  *
  * The allowlist widens an ADMIN; it is not a role of its own and must not
  * promote a listed USER. Call after `verifyAdminFromDb`. This is the HTTP
- * wrapper RA-7592 / RA-7594 / RA-7595 reuse.
+ * wrapper RA-7594 / RA-7595 can reuse.
  */
 export function verifyPlatformSupportOperator(
   auth: AdminAuthResult,

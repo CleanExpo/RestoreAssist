@@ -4,10 +4,15 @@
  * POST { targetUserId, reason } →
  *   { token, expiresAt, audit: { id, startedAt } }
  *
- * ADMIN-only. Writes an AdminImpersonation audit row + returns a signed,
- * short-lived (30 min) token. Integrating the token into the runtime
- * session (so DB queries act as the target user) is a follow-up ticket
- * gated on security review — this PR ships the audit + token surface.
+ * Platform-staff only. The lookup is by user id with no organisation
+ * predicate, so a tenant ADMIN must never reach it. The staff allowlist
+ * (`PLATFORM_SUPPORT_USER_IDS`) is checked before the feature flag —
+ * the flag must not be the only thing standing between a customer and
+ * any-user-by-id (RA-7592).
+ *
+ * Writes an AdminImpersonation audit row + returns a signed, short-lived
+ * (30 min) token. Integrating the token into the runtime session is a
+ * follow-up gated on security review.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -22,7 +27,10 @@ import {
   serializeToken,
 } from "@/lib/admin-impersonation";
 import { apiError } from "@/lib/api-errors";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
   // RA-1545 — defence-in-depth. Session cookies are SameSite=Lax by
@@ -43,6 +51,8 @@ export async function POST(request: NextRequest) {
   }
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   // RA-1592 — feature flag gate. Impersonation mints a token but the
   // runtime session-swap is still pending security review. Until the
