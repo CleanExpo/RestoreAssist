@@ -12,6 +12,7 @@ import {
   acceptPhotoClassification,
   billableQuantityForPhotoResult,
   confirmPhotoClassification,
+  photoAiLabelsToColumnPatch,
   rejectPhotoClassification,
 } from "../photo-classification-review";
 
@@ -50,6 +51,14 @@ describe("RA-7613 — accepted photo results are ai_suggested until confirmed", 
     expect(billableQuantityForPhotoResult(rejected)).toBe(0);
   });
 
+  it("reject does not overwrite a HUMAN_TECH labelledBy with AI_AUTO", () => {
+    const rejected = rejectPhotoClassification(SAMPLE_LABELS, "HUMAN_TECH");
+    expect(rejected.status).toBe("rejected");
+    expect(rejected.fields).toBeNull();
+    expect(rejected.labelledBy).toBe("HUMAN_TECH");
+    expect(rejected.labelledBy).not.toBe("AI_AUTO");
+  });
+
   it("a person confirming the suggestion promotes provenance and may bill the quantity", () => {
     const accepted = acceptPhotoClassification(SAMPLE_LABELS);
     expect(billableQuantityForPhotoResult(accepted)).toBe(0);
@@ -70,5 +79,35 @@ describe("RA-7613 — accepted photo results are ai_suggested until confirmed", 
     expect(accepted.suspectedAcm).toBe(true);
     expect(accepted.provenance).toBe("ai_suggested");
     expect(billableQuantityForPhotoResult(accepted)).toBe(0);
+  });
+});
+
+describe("RA-7613 hold — accepting AI must not erase technician ACM or human fields", () => {
+  it("merges AI indicators with existing ones and never drops ASBESTOS_SUSPECT", () => {
+    const patch = photoAiLabelsToColumnPatch(
+      { secondaryDamageIndicators: ["MOULD_VISIBLE"] },
+      { secondaryDamageIndicators: ["ASBESTOS_SUSPECT"] },
+    );
+    expect(patch.secondaryDamageIndicators).toEqual(
+      expect.arrayContaining(["ASBESTOS_SUSPECT", "MOULD_VISIBLE"]),
+    );
+  });
+
+  it("does not silently replace a human damageCategory or affectedMaterial", () => {
+    const patch = photoAiLabelsToColumnPatch(
+      {
+        damageCategory: "CAT_1",
+        affectedMaterial: ["PLASTERBOARD"],
+      },
+      {
+        damageCategory: "CAT_3",
+        affectedMaterial: ["CARPET"],
+      },
+    );
+    expect(patch.damageCategory).toBeUndefined();
+    expect(patch.affectedMaterial).toEqual(
+      expect.arrayContaining(["CARPET"]),
+    );
+    expect(patch.affectedMaterial).not.toEqual(["PLASTERBOARD"]);
   });
 });

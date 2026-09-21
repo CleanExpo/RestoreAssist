@@ -82,11 +82,12 @@ export function acceptPhotoClassification(
 
 export function rejectPhotoClassification(
   labels: Record<string, unknown>,
+  currentLabelledBy?: string | null,
 ): PhotoClassificationResult {
   return {
     status: "rejected",
     provenance: AI_SUGGESTED_PROVENANCE,
-    labelledBy: "AI_AUTO",
+    labelledBy: currentLabelledBy === "HUMAN_TECH" ? "HUMAN_TECH" : "AI_AUTO",
     fields: null,
     suggestedAreaM2: readSuggestedArea(labels),
     suspectedAcm: classificationHasSuspectedAcm(labels),
@@ -111,9 +112,12 @@ export function reviewPhotoClassification(
   labels: Record<string, unknown>,
   decision: PhotoClassificationDecision,
   previous?: PhotoClassificationResult | null,
+  currentLabelledBy?: string | null,
 ): PhotoClassificationResult {
   if (decision === "accept") return acceptPhotoClassification(labels);
-  if (decision === "reject") return rejectPhotoClassification(labels);
+  if (decision === "reject") {
+    return rejectPhotoClassification(labels, currentLabelledBy);
+  }
   return confirmPhotoClassification(
     previous ?? acceptPhotoClassification(labels),
   );
@@ -253,27 +257,60 @@ function pickEnumList(value: unknown, allowed: Set<string>): string[] {
   );
 }
 
+function uniquePreserve(items: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of items) {
+    if (seen.has(item)) continue;
+    seen.add(item);
+    out.push(item);
+  }
+  return out;
+}
+
+export interface PhotoLabelColumnSnapshot {
+  damageCategory?: string | null;
+  affectedMaterial?: string[] | null;
+  secondaryDamageIndicators?: string[] | null;
+}
+
 /**
  * Copy classifier JSON onto InspectionPhoto label columns, keeping only
  * values the RA-446 schema already stores. Unknown tokens are dropped
  * rather than guessed into a neighbouring enum.
+ *
+ * Existing technician columns are merged, never replaced: AI accept must
+ * not drop `ASBESTOS_SUSPECT`, and must not silently overwrite a human
+ * `damageCategory` or `affectedMaterial`.
  */
 export function photoAiLabelsToColumnPatch(
   labels: Record<string, unknown>,
+  existing?: PhotoLabelColumnSnapshot | null,
 ): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
+  const existingCategory = pickEnum(
+    existing?.damageCategory,
+    DAMAGE_CATEGORIES,
+  );
   const damageCategory = pickEnum(labels.damageCategory, DAMAGE_CATEGORIES);
-  if (damageCategory) patch.damageCategory = damageCategory;
+  if (!existingCategory && damageCategory) {
+    patch.damageCategory = damageCategory;
+  }
   const damageClass = pickEnum(labels.damageClass, DAMAGE_CLASSES);
   if (damageClass) patch.damageClass = damageClass;
   const roomType = pickEnum(labels.roomType, ROOM_TYPES);
   if (roomType) patch.roomType = roomType;
   const moistureSource = pickEnum(labels.moistureSource, MOISTURE_SOURCES);
   if (moistureSource) patch.moistureSource = moistureSource;
-  const affectedMaterial = pickEnumList(
-    labels.affectedMaterial,
+  const existingMaterials = pickEnumList(
+    existing?.affectedMaterial,
     AFFECTED_MATERIALS,
   );
+  const aiMaterials = pickEnumList(labels.affectedMaterial, AFFECTED_MATERIALS);
+  const affectedMaterial = uniquePreserve([
+    ...existingMaterials,
+    ...aiMaterials,
+  ]);
   if (affectedMaterial.length > 0) patch.affectedMaterial = affectedMaterial;
   const surfaceOrientation = pickEnum(
     labels.surfaceOrientation,
@@ -285,10 +322,28 @@ export function photoAiLabelsToColumnPatch(
     DAMAGE_EXTENTS,
   );
   if (damageExtentEstimate) patch.damageExtentEstimate = damageExtentEstimate;
-  const secondaryDamageIndicators = pickEnumList(
+  const existingIndicators = pickEnumList(
+    existing?.secondaryDamageIndicators,
+    SECONDARY_INDICATORS,
+  );
+  const aiIndicators = pickEnumList(
     labels.secondaryDamageIndicators,
     SECONDARY_INDICATORS,
   );
+  const secondaryDamageIndicators = uniquePreserve([
+    ...existingIndicators,
+    ...aiIndicators,
+  ]);
+  const existingIndicatorsRaw = existing?.secondaryDamageIndicators;
+  const existingHadAsbestos =
+    Array.isArray(existingIndicatorsRaw) &&
+    existingIndicatorsRaw.includes("ASBESTOS_SUSPECT");
+  if (
+    existingHadAsbestos &&
+    !secondaryDamageIndicators.includes("ASBESTOS_SUSPECT")
+  ) {
+    secondaryDamageIndicators.unshift("ASBESTOS_SUSPECT");
+  }
   if (secondaryDamageIndicators.length > 0) {
     patch.secondaryDamageIndicators = secondaryDamageIndicators;
   }

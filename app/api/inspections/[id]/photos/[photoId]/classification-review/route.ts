@@ -82,6 +82,9 @@ export async function POST(
         aiLabels: true,
         metadata: true,
         labelledBy: true,
+        damageCategory: true,
+        affectedMaterial: true,
+        secondaryDamageIndicators: true,
       },
     });
     if (!photo) {
@@ -134,7 +137,7 @@ export async function POST(
     if (typedDecision === "accept") {
       result = acceptPhotoClassification(labels);
     } else if (typedDecision === "reject") {
-      result = rejectPhotoClassification(labels);
+      result = rejectPhotoClassification(labels, photo.labelledBy);
     } else {
       if (previous?.status !== "accepted" || previous.fields == null) {
         return apiError(request, {
@@ -150,10 +153,19 @@ export async function POST(
 
     const updateData: Record<string, unknown> = {
       metadata: metadata as Prisma.InputJsonValue,
-      labelledBy: result.labelledBy,
     };
+    if (photo.labelledBy !== "HUMAN_TECH" || result.labelledBy !== "AI_AUTO") {
+      updateData.labelledBy = result.labelledBy;
+    }
     if (result.status === "accepted" && result.fields) {
-      Object.assign(updateData, photoAiLabelsToColumnPatch(result.fields));
+      Object.assign(
+        updateData,
+        photoAiLabelsToColumnPatch(result.fields, {
+          damageCategory: photo.damageCategory,
+          affectedMaterial: photo.affectedMaterial,
+          secondaryDamageIndicators: photo.secondaryDamageIndicators,
+        }),
+      );
     }
 
     const updated = await prisma.inspectionPhoto.update({

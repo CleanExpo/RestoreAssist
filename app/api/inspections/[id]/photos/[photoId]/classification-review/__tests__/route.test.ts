@@ -25,6 +25,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { POST } from "../route";
+import { readPhotoAiMetadata } from "@/lib/services/ai/photo-classification-review";
 
 const ACM_LABELS = {
   damageCategory: "CAT_2",
@@ -32,6 +33,32 @@ const ACM_LABELS = {
   affectedMaterial: ["CARPET"],
   suggestedAreaM2: 12.5,
 };
+
+type PhotoRow = {
+  id: string;
+  aiLabels: Record<string, unknown>;
+  metadata: unknown;
+  labelledBy: string;
+  secondaryDamageIndicators: string[];
+  affectedMaterial: string[];
+  damageCategory: string | null;
+};
+
+let currentPhoto: PhotoRow;
+
+/** Same predicate as the photos page STOP WORK banner (`asbestosCount`). */
+function asbestosStopWorkCount(
+  photos: Array<{
+    secondaryDamageIndicators: string[];
+    metadata: unknown;
+  }>,
+): number {
+  return photos.filter(
+    (p) =>
+      p.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT") ||
+      readPhotoAiMetadata(p.metadata).whsLatch.aiRaisedAcm,
+  ).length;
+}
 
 beforeEach(() => {
   getServerSession.mockReset();
@@ -41,21 +68,42 @@ beforeEach(() => {
   auditLogCreate.mockReset();
   getServerSession.mockResolvedValue({ user: { id: "u_1" } });
   inspectionFindFirst.mockResolvedValue({ id: "i_1" });
-  photoFindFirst.mockResolvedValue({
+  currentPhoto = {
     id: "p_1",
     aiLabels: ACM_LABELS,
     metadata: {},
     labelledBy: "HUMAN_TECH",
-  });
-  photoUpdate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
-    id: "p_1",
-    labelledBy: data.labelledBy,
-    metadata: data.metadata,
-    secondaryDamageIndicators: data.secondaryDamageIndicators ?? [],
-    affectedMaterial: data.affectedMaterial ?? [],
-    damageCategory: data.damageCategory ?? null,
-    aiLabels: ACM_LABELS,
-  }));
+    secondaryDamageIndicators: [],
+    affectedMaterial: [],
+    damageCategory: null,
+  };
+  photoFindFirst.mockImplementation(async () => ({ ...currentPhoto }));
+  photoUpdate.mockImplementation(
+    async ({ data }: { data: Record<string, unknown> }) => {
+      currentPhoto = {
+        ...currentPhoto,
+        labelledBy:
+          data.labelledBy === undefined
+            ? currentPhoto.labelledBy
+            : (data.labelledBy as string),
+        metadata:
+          data.metadata === undefined ? currentPhoto.metadata : data.metadata,
+        secondaryDamageIndicators:
+          data.secondaryDamageIndicators === undefined
+            ? currentPhoto.secondaryDamageIndicators
+            : (data.secondaryDamageIndicators as string[]),
+        affectedMaterial:
+          data.affectedMaterial === undefined
+            ? currentPhoto.affectedMaterial
+            : (data.affectedMaterial as string[]),
+        damageCategory:
+          data.damageCategory === undefined
+            ? currentPhoto.damageCategory
+            : (data.damageCategory as string | null),
+      };
+      return { ...currentPhoto };
+    },
+  );
   auditLogCreate.mockResolvedValue({ id: "a_1" });
 });
 
@@ -130,5 +178,49 @@ describe("POST photo classification-review (RA-7613)", () => {
     getServerSession.mockResolvedValueOnce(null);
     const res = await post("accept");
     expect(res.status).toBe(401);
+  });
+
+  it("accepting AI MOULD_VISIBLE never drops a technician ASBESTOS_SUSPECT or the STOP WORK banner", async () => {
+    currentPhoto = {
+      id: "p_1",
+      aiLabels: { secondaryDamageIndicators: ["MOULD_VISIBLE"] },
+      metadata: {},
+      labelledBy: "HUMAN_TECH",
+      secondaryDamageIndicators: ["ASBESTOS_SUSPECT"],
+      affectedMaterial: ["CARPET"],
+      damageCategory: "CAT_3",
+    };
+    const beforeCount = asbestosStopWorkCount([currentPhoto]);
+    expect(beforeCount).toBe(1);
+
+    const res = await post("accept");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.photo.secondaryDamageIndicators).toContain("ASBESTOS_SUSPECT");
+    expect(body.photo.secondaryDamageIndicators).toContain("MOULD_VISIBLE");
+    expect(body.photo.damageCategory).toBe("CAT_3");
+    expect(body.photo.affectedMaterial).toContain("CARPET");
+    expect(asbestosStopWorkCount([body.photo])).toBe(1);
+    expect(asbestosStopWorkCount([body.photo])).toBe(beforeCount);
+  });
+
+  it("reject does not overwrite a HUMAN_TECH labelledBy with AI_AUTO", async () => {
+    currentPhoto = {
+      id: "p_1",
+      aiLabels: { secondaryDamageIndicators: ["MOULD_VISIBLE"] },
+      metadata: {},
+      labelledBy: "HUMAN_TECH",
+      secondaryDamageIndicators: ["ASBESTOS_SUSPECT"],
+      affectedMaterial: ["CARPET"],
+      damageCategory: "CAT_3",
+    };
+
+    const res = await post("reject");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const written = photoUpdate.mock.calls[0][0].data.labelledBy;
+    expect(written).not.toBe("AI_AUTO");
+    expect(body.photo.labelledBy).toBe("HUMAN_TECH");
   });
 });

@@ -138,19 +138,27 @@ export async function POST(
     const { labels, confidence, model } = result.data;
 
     const runAt = new Date();
-    // RA-7613: new labels go pending for accept/reject. Suspected ACM raises
-    // the WHS latch and a later no-ACM run cannot clear it.
-    const metadata = stampClassifierRunOnMetadata(photo.metadata, labels);
-    await prisma.inspectionPhoto.update({
-      where: { id: photo.id },
-      data: {
-        // Prisma's JSON input type requires a cast from a generic object.
-        aiLabels: labels as Prisma.InputJsonValue,
-        aiConfidence: confidence,
-        aiModel: model,
-        aiRunAt: runAt,
-        metadata: metadata as Prisma.InputJsonValue,
-      },
+    // RA-7618: Vision can overlap. Re-read metadata inside the write
+    // transaction so a no-ACM run that captured a stale snapshot cannot
+    // reset aiRaisedAcm after an ACM-positive run has already committed.
+    // stampClassifierRunOnMetadata is raise-only against that fresh row.
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.inspectionPhoto.findUnique({
+        where: { id: photo.id },
+        select: { metadata: true },
+      });
+      const metadata = stampClassifierRunOnMetadata(current?.metadata, labels);
+      await tx.inspectionPhoto.update({
+        where: { id: photo.id },
+        data: {
+          // Prisma's JSON input type requires a cast from a generic object.
+          aiLabels: labels as Prisma.InputJsonValue,
+          aiConfidence: confidence,
+          aiModel: model,
+          aiRunAt: runAt,
+          metadata: metadata as Prisma.InputJsonValue,
+        },
+      });
     });
 
     const response: ClassifyResponse = {
