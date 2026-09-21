@@ -51,6 +51,7 @@ import {
   LineItemLibraryPicker,
   type LibraryPickItem,
 } from "@/components/estimation/LineItemLibraryPicker";
+import { ImportRoomsFromFloorPlanButton } from "@/components/estimation/ImportRoomsFromFloorPlanButton";
 
 interface EstimationEngineProps {
   reportId: string;
@@ -58,6 +59,7 @@ interface EstimationEngineProps {
   scopeData?: any;
   reportData?: any;
   initialEstimateData?: any;
+  inspectionId?: string | null;
   onEstimateComplete: (estimateData: any) => void;
   onCancel: () => void;
 }
@@ -80,6 +82,7 @@ export default function EstimationEngine({
   scopeData,
   reportData,
   initialEstimateData,
+  inspectionId,
   onEstimateComplete,
   onCancel,
 }: EstimationEngineProps) {
@@ -160,6 +163,11 @@ export default function EstimationEngine({
   });
   const estimateIsImmutable =
     estimateData.status === "APPROVED" || estimateData.status === "LOCKED";
+  const linkedInspectionId =
+    inspectionId ||
+    reportData?.inspection?.id ||
+    reportData?.inspectionId ||
+    null;
 
   // Refs to track previous values and prevent infinite loops
   const prevLineItemsRef = useRef<string>("");
@@ -947,6 +955,45 @@ export default function EstimationEngine({
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-white">Line Items</h3>
         <div className="flex gap-2">
+          <ImportRoomsFromFloorPlanButton
+            inspectionId={linkedInspectionId}
+            reportId={reportId}
+            scopeId={scopeId}
+            existingLineItems={estimateData.lineItems}
+            estimateFields={{
+              rateTables: estimateData.rateTables,
+              commercialParams: estimateData.commercialParams,
+              assumptions: estimateData.assumptions,
+              inclusions: estimateData.inclusions,
+              exclusions: estimateData.exclusions,
+              allowances: estimateData.allowances,
+              complianceStatement: estimateData.complianceStatement,
+              disclaimer: estimateData.disclaimer,
+              labourSubtotal: estimateData.labourSubtotal,
+              equipmentSubtotal: estimateData.equipmentSubtotal,
+              chemicalsSubtotal: estimateData.chemicalsSubtotal,
+              subcontractorSubtotal: estimateData.subcontractorSubtotal,
+              travelSubtotal: estimateData.travelSubtotal,
+              wasteSubtotal: estimateData.wasteSubtotal,
+              overheads: estimateData.overheads,
+              profit: estimateData.profit,
+              contingency: estimateData.contingency,
+              escalation: estimateData.escalation,
+              subtotalExGST: estimateData.subtotalExGST,
+              gst: estimateData.gst,
+              totalIncGST: estimateData.totalIncGST,
+            }}
+            disabled={estimateIsImmutable}
+            onImported={(saved) => {
+              const imported = saved.lineItems;
+              if (Array.isArray(imported)) {
+                setEstimateData((prev) => ({
+                  ...prev,
+                  lineItems: imported,
+                }));
+              }
+            }}
+          />
           <LineItemLibraryPicker
             onPick={(picked: LibraryPickItem) => {
               const newItem = {

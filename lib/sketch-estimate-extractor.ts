@@ -51,6 +51,12 @@ export interface EstimateLineItem {
   /** Source floor label (e.g. "Ground Floor") */
   floor?: string;
   notes?: string;
+  /**
+   * Geometry provenance from the Fabric object / SketchRoom.
+   * Seeded onto estimate lines so the UI action can keep operator_measured
+   * rooms only without changing the extractor skip filters (RA-7611).
+   */
+  provenance?: string | null;
 }
 
 export interface SketchEstimate {
@@ -164,6 +170,7 @@ function extractRoomsFromFabricJson(
       areaM2,
       floor: floorLabel,
       notes: "Floor area",
+      provenance: obj.data?.provenance ?? null,
     });
 
     const wallM2 = resolveWallAreaM2(obj, pxPerMetre);
@@ -177,6 +184,7 @@ function extractRoomsFromFabricJson(
         areaM2: wallM2,
         floor: floorLabel,
         notes: "Wall area (perimeter × ceiling height)",
+        provenance: obj.data?.provenance ?? null,
       });
     }
   }
@@ -324,6 +332,7 @@ function roomsFromSavedGraph(
       areaM2,
       floor: floorLabel,
       notes: "Floor area",
+      provenance: room.provenance ?? null,
     });
     const height = room.heightM;
     const peri = room.perimeterM;
@@ -344,6 +353,7 @@ function roomsFromSavedGraph(
           areaM2: wallM2,
           floor: floorLabel,
           notes: "Wall area (perimeter × ceiling height)",
+          provenance: room.provenance ?? null,
         });
       }
     }

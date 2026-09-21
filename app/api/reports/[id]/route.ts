@@ -43,6 +43,9 @@ export async function GET(
             company: true,
           },
         },
+        inspection: {
+          select: { id: true },
+        },
       },
     });
 
