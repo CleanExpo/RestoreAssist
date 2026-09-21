@@ -83,6 +83,8 @@ describe("RA-7572 — saved 3×3 room reaches the estimate", () => {
 
     expect(walls, "walls in scope when ceiling height is saved").toBeDefined();
     expect(walls!.areaM2).toBeCloseTo(WALL_M2, 5);
+    // totalRoomAreaM2 is measured floor only — walls must not inflate it.
+    expect(estimate.totalRoomAreaM2).toBeCloseTo(FLOOR_M2, 5);
   });
 
   it("metres-as-pixels points still bill 9 m² via data.areaM2 (not 0.0009)", () => {
@@ -173,6 +175,7 @@ describe("RA-7572 — saved 3×3 room reaches the estimate", () => {
     expect(
       lines.find((li) => li.notes?.startsWith("Wall area"))?.areaM2,
     ).toBeCloseTo(WALL_M2, 5);
+    expect(estimate.totalRoomAreaM2).toBeCloseTo(FLOOR_M2, 5);
   });
 
   it("does not bill underlay_reference rooms from either source", () => {

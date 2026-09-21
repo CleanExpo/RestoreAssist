@@ -293,6 +293,13 @@ export interface SketchFloorData {
   savedRooms?: SavedSketchRoom[] | null;
 }
 
+function isFloorAreaLine(item: EstimateLineItem): boolean {
+  if (item.category !== "room") return false;
+  if (item.id.endsWith("-walls")) return false;
+  if (item.notes?.startsWith("Wall area")) return false;
+  return true;
+}
+
 function roomsFromSavedGraph(
   saved: SavedSketchRoom[] | null | undefined,
   floorLabel: string,
@@ -370,7 +377,11 @@ export function extractSketchEstimate(
 
     allLineItems.push(...roomLines, ...damage);
 
-    const floorRoomArea = roomLines.reduce((s, r) => s + (r.areaM2 ?? 0), 0);
+    // Floor only — wall lines stay on the estimate but must not inflate
+    // totalRoomAreaM2 (callers treat that as measured floor area).
+    const floorRoomArea = roomLines
+      .filter(isFloorAreaLine)
+      .reduce((s, r) => s + (r.areaM2 ?? 0), 0);
     const floorDamageArea = damage.reduce((s, d) => s + (d.areaM2 ?? 0), 0);
 
     totalRoomAreaM2 += floorRoomArea;
