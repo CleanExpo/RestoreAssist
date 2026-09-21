@@ -2,8 +2,9 @@
  * Client-portal affected-area projection (RA-7573).
  *
  * The public JSON route already loads AffectedArea rows. The token page must
- * use the same bounded query and render those rows — hide the section when
- * none exist, and never invent a room name when roomZoneId is blank.
+ * render one item per row — empty only when the job has none. Blank
+ * `roomZoneId` is not a licence to drop the row (Critic/Scout bar: no silent
+ * omit) and is not a licence to invent a room name.
  */
 
 export const MAX_PORTAL_AFFECTED_AREAS = 100;
@@ -30,11 +31,8 @@ export type PortalAffectedAreaItem = {
 export function toPortalAffectedAreaItems(
   areas: readonly PortalAffectedAreaRow[],
 ): PortalAffectedAreaItem[] {
-  const items: PortalAffectedAreaItem[] = [];
-  for (const area of areas) {
-    const label = area.roomZoneId?.trim() ?? "";
-    if (!label) continue;
-    items.push({ id: area.id, label });
-  }
-  return items;
+  return areas.map((area) => ({
+    id: area.id,
+    label: area.roomZoneId?.trim() ?? "",
+  }));
 }

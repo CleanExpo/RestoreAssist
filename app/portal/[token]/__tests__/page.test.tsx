@@ -44,6 +44,7 @@ import { verifyPortalToken } from "@/lib/portal-token";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
 import { MAX_PORTAL_AFFECTED_AREAS } from "@/lib/portal/portal-affected-areas";
+import { portalMustShowEveryAffectedArea } from "@/lib/portal/__tests__/portal-affected-areas-bar";
 import ClientPortalPage from "../page";
 import * as portalPageModule from "../page";
 
@@ -201,6 +202,11 @@ describe("ClientPortalPage — affected areas from the job (RA-7573)", () => {
     expect(
       screen.getAllByText("Included in the restoration plan"),
     ).toHaveLength(2);
+    portalMustShowEveryAffectedArea({
+      dbCount: 2,
+      renderedCount: screen.getAllByTestId("portal-affected-area").length,
+      headingShown: true,
+    });
   });
 
   it("hides the Affected Areas section when the job has none", async () => {
@@ -224,9 +230,14 @@ describe("ClientPortalPage — affected areas from the job (RA-7573)", () => {
     expect(
       screen.queryByRole("heading", { name: /Affected Areas/ }),
     ).not.toBeInTheDocument();
+    portalMustShowEveryAffectedArea({
+      dbCount: 0,
+      renderedCount: screen.queryAllByTestId("portal-affected-area").length,
+      headingShown: false,
+    });
   });
 
-  it("does not invent a room name when roomZoneId is blank", async () => {
+  it("does not invent a room name, and does not drop a blank roomZoneId row", async () => {
     p.inspection.findUnique.mockResolvedValueOnce({
       id: "insp_1",
       inspectionNumber: "INSP-001",
@@ -245,9 +256,46 @@ describe("ClientPortalPage — affected areas from the job (RA-7573)", () => {
     const jsx = await ClientPortalPage({ params });
     render(jsx);
 
+    expect(
+      screen.getByRole("heading", { name: /Affected Areas/ }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Laundry")).toBeInTheDocument();
+    expect(screen.getAllByTestId("portal-affected-area")).toHaveLength(2);
     expect(
       screen.getAllByText("Included in the restoration plan"),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
+    expect(screen.queryByText(/Area 1/i)).not.toBeInTheDocument();
+    portalMustShowEveryAffectedArea({
+      dbCount: 2,
+      renderedCount: screen.getAllByTestId("portal-affected-area").length,
+      headingShown: true,
+    });
+  });
+
+  it("shows the Affected Areas heading when the only DB row has a blank name", async () => {
+    p.inspection.findUnique.mockResolvedValueOnce({
+      id: "insp_1",
+      inspectionNumber: "INSP-001",
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+      propertyAddress: "12 Test St, Brisbane",
+      technicianName: "Alex Tech",
+      user: { organization: null },
+      affectedAreas: [{ id: "area_blank", roomZoneId: "" }],
+      scopeItems: [{ id: "scope_1" }],
+      report: { status: "DRAFT", id: "r_1" },
+    });
+
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(
+      screen.getByRole("heading", { name: /Affected Areas/ }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByTestId("portal-affected-area")).toHaveLength(1);
+    portalMustShowEveryAffectedArea({
+      dbCount: 1,
+      renderedCount: 1,
+      headingShown: true,
+    });
   });
 });
