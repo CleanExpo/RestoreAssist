@@ -46,9 +46,10 @@ function shouldSkipApiRateLimit(pathname: string): boolean {
 // triggers the unauth → /login redirect with a `?callbackUrl=` carrying the
 // originally-requested path (RA-1376 / Punch-list P1 #16).
 //
-// `/invite/*` is intentionally NOT here — those URLs are token-protected
-// (the token in the path is the credential), so an unauthenticated visitor
-// is the expected case.
+// `/invite/*` and `/sign/*` are intentionally NOT here — those URLs are
+// token-protected (the token in the path is the credential), so an
+// unauthenticated visitor is the expected case. Homeowners who receive a
+// signing link have no RestoreAssist account (RA-7583).
 const LOGIN_GATE_PREFIXES = [
   "/dashboard/",
   "/dashboard",
@@ -56,8 +57,6 @@ const LOGIN_GATE_PREFIXES = [
   "/reports",
   "/compliance/",
   "/compliance",
-  "/sign/",
-  "/sign",
 ];
 
 function requiresLogin(pathname: string): boolean {

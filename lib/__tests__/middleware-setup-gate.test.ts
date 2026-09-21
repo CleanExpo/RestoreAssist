@@ -337,9 +337,9 @@ describe("middleware login redirect (P1 #16)", () => {
     );
   });
 
-  it("redirects /reports/* and /compliance/* and /sign/* similarly", async () => {
+  it("redirects /reports/* and /compliance/* similarly", async () => {
     (getToken as any).mockResolvedValue(null);
-    for (const path of ["/reports/42", "/compliance", "/sign/abc"]) {
+    for (const path of ["/reports/42", "/compliance"]) {
       const res = await proxy(mkReq(path));
       expect((res as any).status).toBe(307);
       const location = (res as any).headers.get("location");
@@ -353,6 +353,17 @@ describe("middleware login redirect (P1 #16)", () => {
     const res = await proxy(mkReq("/invite/abc123"));
     // Should fall through (NextResponse.next) — no redirect.
     expect((res as any).status).not.toBe(307);
+  });
+
+  // RA-7583 — homeowners sign via an unguessable URL token and have no
+  // account. The previous assertion here required a 307 to /login and
+  // pinned the production defect. Same contract as /invite/[token].
+  it("does NOT redirect /sign/[token] — uses its own token-based auth", async () => {
+    (getToken as any).mockResolvedValue(null);
+    const token = "11111111-2222-4333-8444-555555555555";
+    const res = await proxy(mkReq(`/sign/${token}`));
+    expect((res as any).status).toBe(200);
+    expect((res as any).headers.get("location")).toBeNull();
   });
 
   it("does NOT redirect authenticated users", async () => {

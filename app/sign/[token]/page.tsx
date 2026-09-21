@@ -11,7 +11,6 @@ import {
   Mail,
   Calendar,
   AlertTriangle,
-  Download,
   Shield,
 } from "lucide-react";
 import { SignatureCanvas } from "@/components/authority-forms/SignatureCanvas";
@@ -200,15 +199,6 @@ export default function PublicSigningPage() {
             Your signature has been securely saved with a timestamp and
             verification data.
           </div>
-          {form && (
-            <a
-              href={`/api/authority-forms/${form.id}/pdf`}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-cyan-600 hover:text-cyan-700 transition-colors"
-            >
-              <Download className="h-4 w-4" />
-              Download Signed PDF
-            </a>
-          )}
         </div>
       </div>
     );
