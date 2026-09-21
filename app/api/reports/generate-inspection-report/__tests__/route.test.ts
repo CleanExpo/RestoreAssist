@@ -81,7 +81,7 @@ function makeRequest(body: Record<string, unknown>) {
   );
 }
 
-function trialUser() {
+function sessionUser(subscriptionStatus: "TRIAL" | "ACTIVE") {
   return {
     id: "user-1",
     name: "Taylor",
@@ -92,7 +92,7 @@ function trialUser() {
     businessABN: null,
     businessPhone: null,
     businessEmail: null,
-    subscriptionStatus: "TRIAL",
+    subscriptionStatus,
     pricingConfig: null,
   };
 }
@@ -129,7 +129,7 @@ beforeEach(() => {
 
   getServerSession.mockResolvedValue({ user: { id: "user-1" } });
   applyRateLimit.mockResolvedValue(null);
-  userFindUnique.mockResolvedValue(trialUser());
+  userFindUnique.mockResolvedValue(sessionUser("TRIAL"));
   reportFindUnique.mockResolvedValue(minimalReport());
   resolveReportProvider.mockResolvedValue(null);
   getLatestAIIntegration.mockResolvedValue(null);
@@ -139,6 +139,7 @@ beforeEach(() => {
 
 describe("POST /api/reports/generate-inspection-report — RA-7601 400 copy", () => {
   it("paid workspace 400 still says add-your-key", async () => {
+    userFindUnique.mockResolvedValue(sessionUser("ACTIVE"));
     resolveWorkspaceAiKey.mockRejectedValueOnce(
       new Error("decrypt failed — do not leak"),
     );
