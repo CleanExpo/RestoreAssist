@@ -149,8 +149,14 @@ describe("p0-1 private-buckets workflow wiring", () => {
       "node scripts/e2e/p0-1-private-buckets-acceptance.mjs",
     );
     const source = readFileSync(WORKFLOW, "utf8");
-    expect(source).toContain("npm run e2e:p0-1");
-    expect(source).not.toMatch(/\bpnpm\b/);
+    // Same cut as check-release-bootstrap: comments may name the rejected
+    // manager; an executable line must not invoke it.
+    const executable = source
+      .split("\n")
+      .map((line) => line.split("#", 1)[0])
+      .join("\n");
+    expect(executable).toContain("npm run e2e:p0-1");
+    expect(executable).not.toMatch(/\bpnpm\b/);
   });
 
   it("acceptance depends on secrets-gate and refuses to run unprovisioned", () => {

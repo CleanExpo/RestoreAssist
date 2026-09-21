@@ -18,8 +18,8 @@ name: P0-1 private buckets acceptance
 # absent the acceptance job skips, and secrets-gate exits 2 so the run
 # cannot report green for a check that did not run.
 #
-# Invoke `npm run e2e:p0-1`, never pnpm. The release-bootstrap guard
-# rejects pnpm runtime invocations in workflows.
+# Invoke `npm run e2e:p0-1`. The release-bootstrap guard rejects a second
+# package manager in workflows.
 
 on:
   schedule:
