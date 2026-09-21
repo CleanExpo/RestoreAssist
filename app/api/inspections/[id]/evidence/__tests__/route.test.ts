@@ -170,6 +170,24 @@ describe("POST /api/inspections/[id]/evidence", () => {
     expect(mocks.clientMutationUpdateMany).not.toHaveBeenCalled();
   });
 
+  it("returns the standard error response when the workspace lookup fails (RA-7586)", async () => {
+    mocks.getWorkspaceForUser.mockRejectedValue(new Error("db down"));
+
+    const response = await POST(
+      makeRequest({
+        "idempotency-key": "idem-evidence-3",
+        "x-restoreassist-mutation-id": "ra-evidence-3",
+      }),
+      { params: Promise.resolve({ id: "ins_1" }) },
+    );
+
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(JSON.stringify(body)).not.toContain("db down");
+    expect(mocks.evidenceCreate).not.toHaveBeenCalled();
+    expect(mocks.clientMutationCreate).not.toHaveBeenCalled();
+  });
+
   it("records the mobile mutation ledger before completing evidence creation (policy OFF)", async () => {
     const response = await POST(
       makeRequest({

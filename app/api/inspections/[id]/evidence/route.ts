@@ -115,7 +115,12 @@ export async function POST(
 
   // RA-7586: the sync ledger is keyed to the caller's workspace, not
   // Inspection.workspaceId, which no create path writes.
-  const workspace = await getWorkspaceForUser(userId);
+  let workspace;
+  try {
+    workspace = await getWorkspaceForUser(userId);
+  } catch (error) {
+    return fromException(request, error, { stage: "evidence-post" });
+  }
 
   // RA-1266: evidence items are append-only with chain-of-custody —
   // retry creates duplicate C2PA-manifest records, which breaks the
