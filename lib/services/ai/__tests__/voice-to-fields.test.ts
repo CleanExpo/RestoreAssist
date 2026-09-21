@@ -202,3 +202,112 @@ describe("RA-7638 — a cancelled cue must not hide another asbestos word", () =
     },
   );
 });
+
+const ACM_CUE_WORDS = ["vinyl", "lino", "linoleum", "asbestos", "fibro"] as const;
+
+/** Firm forms cancel one occurrence. Hedged forms are doubt and must be asked. */
+const CUE_NEGATION_FORMS: Array<{
+  id: string;
+  hedge: boolean;
+  apply: (cue: string) => string;
+}> = [
+  { id: "not", hedge: false, apply: (cue) => `not ${cue}` },
+  { id: "no", hedge: false, apply: (cue) => `no ${cue}` },
+  { id: "non", hedge: false, apply: (cue) => `non-${cue}` },
+  { id: "free", hedge: false, apply: (cue) => `${cue}-free` },
+  { id: "probably-not", hedge: true, apply: (cue) => `probably not ${cue}` },
+  { id: "maybe-not", hedge: true, apply: (cue) => `maybe not ${cue}` },
+  { id: "not-i-think", hedge: true, apply: (cue) => `not ${cue} I think` },
+  { id: "hopefully-no", hedge: true, apply: (cue) => `hopefully no ${cue}` },
+  { id: "dont-think", hedge: true, apply: (cue) => `I don't think ${cue}` },
+];
+
+function confirmationNames(term: string, word: string): boolean {
+  return new RegExp(`\\b${word}\\b`, "i").test(term);
+}
+
+/**
+ * A surviving cue must surface as an asbestos-possible material, or as a
+ * confirmation that names that word. A non-ACM material with nothing to
+ * confirm is a silent miss.
+ */
+function honoursSurvivingCue(
+  result: ReturnType<typeof mapVoiceTranscriptToFields>,
+  word: string,
+): boolean {
+  const named = result.needsConfirmation.some(
+    (item) => item.kind === "material" && confirmationNames(item.term, word),
+  );
+  const acm = result.material?.isPotentialAcm === true;
+  const silentNonAcm =
+    result.material != null &&
+    result.material.isPotentialAcm === false &&
+    result.needsConfirmation.length === 0;
+  return !silentNonAcm && (acm || named);
+}
+
+describe("RA-7638 — a bare cue anywhere in the note still counts", () => {
+  const generated = ACM_CUE_WORDS.flatMap((negated) =>
+    CUE_NEGATION_FORMS.flatMap((form) =>
+      ACM_CUE_WORDS.map((bare) => ({
+        phrase: `ceramic tiles ${form.apply(negated)}, ${bare} in the laundry`,
+        bare,
+        form: form.id,
+      })),
+    ),
+  );
+
+  it.each(generated)(
+    "$phrase does not hide bare '$bare'",
+    ({ phrase, bare }) => {
+      const result = mapVoiceTranscriptToFields(phrase);
+      expect(honoursSurvivingCue(result, bare)).toBe(true);
+    },
+  );
+
+  const hedged = CUE_NEGATION_FORMS.filter((form) => form.hedge).flatMap(
+    (form) =>
+      ACM_CUE_WORDS.map((cue) => ({
+        phrase: `tiles ${form.apply(cue)}`,
+        cue,
+        form: form.id,
+      })),
+  );
+
+  it.each(hedged)(
+    "$phrase asks because '$form' is doubt",
+    ({ phrase, cue }) => {
+      const result = mapVoiceTranscriptToFields(phrase);
+      const named = result.needsConfirmation.some(
+        (item) =>
+          item.kind === "material" && confirmationNames(item.term, cue),
+      );
+      expect(named).toBe(true);
+      expect(result.material?.isPotentialAcm === false).toBe(false);
+    },
+  );
+
+  it.each([
+    ["non-asbestos ceramic tiles, vinyl underneath", "vinyl"],
+    ["tiles no asbestos, vinyl underneath", "vinyl"],
+    ["ceramic tiles not vinyl, old vinyl in the laundry", "vinyl"],
+    ["ceramic tiles not vinyl, asbestos in the eaves", "asbestos"],
+    ["ceramic tiles not vinyl. Vinyl sheet in laundry.", "vinyl"],
+    ["vinyl-look ceramic tiles, vinyl in laundry", "vinyl"],
+    ["tiles probably not vinyl", "vinyl"],
+    ["tiles maybe not vinyl", "vinyl"],
+  ] as const)(
+    "named case '%s' honours surviving '%s'",
+    (phrase, word) => {
+      const result = mapVoiceTranscriptToFields(phrase);
+      expect(honoursSurvivingCue(result, word)).toBe(true);
+      if (phrase === "tiles probably not vinyl" || phrase === "tiles maybe not vinyl") {
+        const named = result.needsConfirmation.some(
+          (item) =>
+            item.kind === "material" && confirmationNames(item.term, word),
+        );
+        expect(named).toBe(true);
+      }
+    },
+  );
+});

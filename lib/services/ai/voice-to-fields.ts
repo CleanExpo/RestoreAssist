@@ -16,10 +16,12 @@
  * "non-asbestos", "asbestos-free") cancels only that cue. A hyphenated
  * look, style, or effect ("vinyl-look") is not an asbestos cue. Spoken
  * "vinyl look" (a space, as speech-to-text often writes it), "whether or
- * not", "not sure if", and a question mark are doubt, not negation: ask,
- * and do not pick a material. When more than one material is still a
- * candidate and any of them may contain asbestos, ask instead of keeping
- * the longest phrase.
+ * not", "not sure if", a question mark, and a hedged negation ("probably
+ * not", "maybe not", "not ... I think", "hopefully no", "I don't think")
+ * are doubt, not negation. Every cue word is scanned across the whole note.
+ * If any occurrence survives, the result is an asbestos-possible material
+ * or a confirmation that names it. When more than one material remains,
+ * ask instead of keeping the longest phrase.
  * When more than one water category is mentioned, return no category and
  * surface confirmation — a negated or corrected category must never yield
  * a lower category. Spoken-word categories ("category three") count.
@@ -178,6 +180,9 @@ const CUE_HYPHEN_APPEARANCE_AFTER = /^-(?:look|style|effect)\b/i;
 const CUE_SPACED_APPEARANCE_AFTER = /^\s+(?:look|style|effect)\b/i;
 const CUE_DOUBT_BEFORE =
   /\bwhether\s+or\s+not[\s-]*$|\bnot\s+sure\s+if\b/i;
+/** "probably not", "maybe not", "hopefully no", "I don't think" — doubt, not a cancellation. */
+const CUE_HEDGE_BEFORE =
+  /\b(?:probably|maybe)\s+not[\s-]*$|\bhopefully\s+no[\s-]*$|\bi\s+(?:don'?t|do\s+not)\s+think\b/i;
 
 type AcmCueKind = "clear" | "doubt" | "ignore";
 
@@ -214,13 +219,23 @@ function clauseContaining(
   return { text: text.slice(from, to), start: from, end: to };
 }
 
+function isHedgedNegation(before: string, after: string): boolean {
+  if (CUE_HEDGE_BEFORE.test(before)) return true;
+  // "not vinyl I think" — the hedge sits in the same clause, after the cue.
+  return (
+    /(?:^|[^a-z0-9])not[\s-]*$/i.test(before) && /\bi\s+think\b/i.test(after)
+  );
+}
+
 function classifyAcmCue(
   before: string,
   after: string,
   question: boolean,
 ): AcmCueKind {
   if (CUE_SPACED_APPEARANCE_AFTER.test(after)) return "doubt";
-  if (question || CUE_DOUBT_BEFORE.test(before)) return "doubt";
+  if (question || CUE_DOUBT_BEFORE.test(before) || isHedgedNegation(before, after)) {
+    return "doubt";
+  }
   if (CUE_HYPHEN_APPEARANCE_AFTER.test(after)) return "ignore";
   if (CUE_FREE_AFTER.test(after) || CUE_NEGATION_BEFORE.test(before)) {
     return "ignore";
@@ -348,7 +363,125 @@ interface MaterialResolution {
   ambiguousTerm?: string;
 }
 
-function resolveMaterial(transcript: string): MaterialResolution {
+interface TranscriptCue {
+  word: string;
+  materialId: string;
+  kind: Exclude<AcmCueKind, "ignore">;
+  start: number;
+}
+
+/** Every ACM cue in the note. Cancellation applies only to that occurrence's clause. */
+function scanTranscriptAcmCues(transcript: string): TranscriptCue[] {
+  const found: TranscriptCue[] = [];
+  for (const cue of ACM_CUE_WORDS) {
+    const re = new RegExp(`\\b${escapeRegExp(cue.word)}\\b`, "gi");
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(transcript)) !== null) {
+      const start = match.index;
+      const end = start + match[0].length;
+      const clause = clauseContaining(transcript, start, end);
+      const localStart = start - clause.start;
+      const kind = classifyAcmCue(
+        clause.text.slice(0, localStart),
+        clause.text.slice(end - clause.start),
+        /^\s*\?/.test(transcript.slice(clause.end)),
+      );
+      if (kind !== "ignore") {
+        found.push({
+          word: match[0],
+          materialId: cue.materialId,
+          kind,
+          start,
+        });
+      }
+      if (re.lastIndex === match.index) re.lastIndex += 1;
+    }
+  }
+  found.sort((a, b) => a.start - b.start);
+  return found;
+}
+
+function termNamesWord(term: string, word: string): boolean {
+  return new RegExp(`\\b${escapeRegExp(word)}\\b`, "i").test(term);
+}
+
+function spokenMatch(
+  transcript: string,
+  materialId: string,
+): string | undefined {
+  const matches = collectMaterialMatches(transcript).filter(
+    (match) => match.material.id === materialId,
+  );
+  matches.sort(
+    (a, b) => b.phrase.length - a.phrase.length || a.start - b.start,
+  );
+  const best = matches[0];
+  if (!best) return undefined;
+  return transcript.slice(best.start, best.end);
+}
+
+/**
+ * One rule for the whole note: a cue that survives anywhere must show up as
+ * an asbestos-possible material, or in a confirmation that names the word.
+ * A non-ACM material with an empty confirmation is never the result.
+ */
+function applyWholeNoteCueInvariant(
+  transcript: string,
+  resolution: MaterialResolution,
+): MaterialResolution {
+  const surviving = scanTranscriptAcmCues(transcript);
+  if (surviving.length === 0) return resolution;
+
+  const namedBy = resolution.ambiguousTerm ?? "";
+  const allNamed =
+    namedBy.length > 0 &&
+    surviving.every((cue) => termNamesWord(namedBy, cue.word));
+  if (resolution.ambiguousTerm && !resolution.material && allNamed) {
+    return resolution;
+  }
+
+  const hasDoubt = surviving.some((cue) => cue.kind === "doubt");
+  const materialIds = [...new Set(surviving.map((cue) => cue.materialId))];
+  if (
+    !hasDoubt &&
+    !resolution.ambiguousTerm &&
+    resolution.material?.isPotentialAcm &&
+    materialIds.length === 1 &&
+    materialIds[0] === resolution.material.id
+  ) {
+    return resolution;
+  }
+
+  if (
+    !hasDoubt &&
+    !resolution.material &&
+    !resolution.ambiguousTerm &&
+    materialIds.length === 1
+  ) {
+    const material = getMaterial(materialIds[0] ?? "");
+    if (material?.isPotentialAcm) return { material };
+  }
+
+  const parts: string[] = [];
+  const push = (text: string | undefined) => {
+    const trimmed = text?.trim();
+    if (!trimmed) return;
+    if (parts.some((part) => part.toLowerCase() === trimmed.toLowerCase())) {
+      return;
+    }
+    parts.push(trimmed);
+  };
+  push(resolution.ambiguousTerm);
+  if (resolution.material && !resolution.material.isPotentialAcm) {
+    push(spokenMatch(transcript, resolution.material.id) ?? resolution.material.name);
+  }
+  for (const cue of surviving) {
+    if (!parts.some((part) => termNamesWord(part, cue.word))) push(cue.word);
+  }
+  return { ambiguousTerm: parts.join(", ") };
+}
+
+function resolveMatchedMaterial(transcript: string): MaterialResolution {
   const matches = collectMaterialMatches(transcript);
   if (matches.length === 0) return {};
 
@@ -406,6 +539,13 @@ function resolveMaterial(transcript: string): MaterialResolution {
   }
 
   return { material: resolvedMatches[0]?.material };
+}
+
+function resolveMaterial(transcript: string): MaterialResolution {
+  return applyWholeNoteCueInvariant(
+    transcript,
+    resolveMatchedMaterial(transcript),
+  );
 }
 
 const CATEGORY_MENTION_RE =
