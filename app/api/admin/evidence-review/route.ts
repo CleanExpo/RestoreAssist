@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { resolveInspectionReach } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { fromException } from "@/lib/api-errors";
 
@@ -9,7 +11,11 @@ import { fromException } from "@/lib/api-errors";
  * [RA-402] Admin Evidence Review API
  * Returns inspections with workflow evidence completeness data.
  * Filters: technician, jobType, status (incomplete/stale/all), search.
- * Admin-only endpoint.
+ *
+ * RA-7566 / D-023: `role: "ADMIN"` means owner of this organisation, not
+ * RestoreAssist staff. Reach is the caller's organisation (or an allowlisted
+ * platform-support operator). The tenancy clause is merged with AND so the
+ * search box cannot erase it.
  */
 
 // Stale threshold: inspections with workflows older than 48 hours without submission
@@ -21,14 +27,25 @@ export async function GET(request: NextRequest) {
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
 
+    const reach = await resolveInspectionReach(session);
+    if (!reach.ok) {
+      return NextResponse.json(
+        { error: reach.reason },
+        { status: reach.status },
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const technicianFilter = searchParams.get("technician")?.trim() ?? "";
     const jobTypeFilter = searchParams.get("jobType")?.trim() ?? "";
     const statusFilter = searchParams.get("status")?.trim() ?? ""; // incomplete | stale | all
     const search = searchParams.get("search")?.trim() ?? "";
 
-    // Build where clause for inspections that have workflows
-    const inspectionWhere: Record<string, unknown> = {
+    // Build where clause for inspections that have workflows.
+    // `reach.data` is already wrapped in AND (D-023). Assigning search
+    // to `OR` below therefore cannot overwrite the organisation filter.
+    const inspectionWhere: Prisma.InspectionWhereInput = {
+      ...reach.data,
       inspectionWorkflow: { isNot: null },
     };
 
@@ -48,20 +65,23 @@ export async function GET(request: NextRequest) {
     }
 
     if (jobTypeFilter) {
+      // `is` implies the 1-1 workflow exists, so this keeps the
+      // inspectionWorkflow-isNot-null gate and adds the job-type match.
       inspectionWhere.inspectionWorkflow = {
-        isNot: null,
-        jobType: jobTypeFilter,
+        is: { jobType: jobTypeFilter },
       };
     }
 
-    // Filter by status
+    // InspectionStatus has no IN_PROGRESS (see RA-7550). Incomplete / stale
+    // therefore means DRAFT — the previous IN_PROGRESS literal was not a
+    // valid enum member and could not match a row.
     if (statusFilter === "incomplete") {
-      inspectionWhere.status = { in: ["DRAFT", "IN_PROGRESS"] };
+      inspectionWhere.status = { in: ["DRAFT"] };
     } else if (statusFilter === "stale") {
       const staleThreshold = new Date(
         Date.now() - STALE_HOURS * 60 * 60 * 1000,
       );
-      inspectionWhere.status = { in: ["DRAFT", "IN_PROGRESS"] };
+      inspectionWhere.status = { in: ["DRAFT"] };
       inspectionWhere.updatedAt = { lt: staleThreshold };
     }
 
