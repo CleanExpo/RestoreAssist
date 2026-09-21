@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
+import { resolveStateInfo } from "@/lib/state-detection";
 import {
   getEquipmentGroupById,
   calculateTotalDailyCost,
@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
         include: {
           inspection: {
             select: {
+              propertyCountry: true,
               powerCircuits: true,
               powerCircuitRatingA: true,
               powerDeratePct: true,
@@ -184,9 +185,10 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Detect state
-      const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
-      const stateInfo = getStateInfo(stateCode);
+      const stateInfo = resolveStateInfo({
+        postcode: report.propertyPostcode,
+        country: report.inspection?.propertyCountry,
+      });
 
       // RA-6932 — this route computes the cost estimation deterministically and
       // makes NO AI call, so it resolves no API key. The prior platform-key
@@ -980,7 +982,7 @@ ${formatCategories(costData.categories)}
 # SECTION 3: COST COMPARISON AND JUSTIFICATION
 
 ## Industry Average for Similar Claim
-- ${costData.stateInfo?.name || "Australian"} Water Damage, ${costData.affectedAreaSqm} sqm, ${costData.dryingDuration}-day drying
+- ${costData.stateInfo?.name || "Comparable"} Water Damage, ${costData.affectedAreaSqm} sqm, ${costData.dryingDuration}-day drying
 - Range: $${costData.industryComparison.average.min.toLocaleString()}–$${costData.industryComparison.average.max.toLocaleString()}
 - Note: Based on IICRC S500 standard remediation; regional variation applies
 

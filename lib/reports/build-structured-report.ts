@@ -18,6 +18,7 @@ import {
   claimRecommendations,
   type ClaimHazardInputs,
 } from "@/lib/restoration/claim-recommendations";
+import { recordedStateCitations } from "@/lib/state-detection";
 
 /**
  * Derive a hazard profile from report + tier-1 fields for PPE, equipment
@@ -938,9 +939,10 @@ export function buildStructuredBasicReport(data: {
       standards: [
         "IICRC S500 (Water Damage Restoration)",
         "IICRC S520 (Mould Remediation)",
-        stateInfo?.whsAct || "Work Health and Safety Act 2011",
-        stateInfo?.epaAct || "Environmental Protection Act 1994",
-        stateInfo?.buildingCode || "National Construction Code (NCC)",
+        // Only recorded jurisdictional citations. A missing stateInfo or a
+        // New Zealand row with no building/EPA instrument must not inherit
+        // Australian or Queensland defaults (RA-7361).
+        ...recordedStateCitations(stateInfo),
         "AS/NZS 3000 (Electrical wiring rules)",
       ],
       state: stateInfo?.name || null,

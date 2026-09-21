@@ -35,14 +35,19 @@ export type NZRegion =
 export interface StateInfo {
   code: string;
   name: string;
-  buildingAuthority: string;
+  /**
+   * Australian building / EPA fields are nullable so a jurisdiction that does
+   * not have an equivalent (New Zealand) can omit them. Callers must hide a
+   * missing field — never substitute Queensland or Commonwealth text.
+   */
+  buildingAuthority: string | null;
   workSafetyAuthority: string;
-  epaAuthority: string;
-  buildingCode: string;
+  epaAuthority: string | null;
+  buildingCode: string | null;
   whsAct: string;
-  epaAct: string;
-  workSafetyContact: string;
-  epaContact: string;
+  epaAct: string | null;
+  workSafetyContact: string | null;
+  epaContact: string | null;
 }
 
 // Postcode ranges for Australian states/territories (simplified - actual ranges are more complex)
@@ -191,6 +196,7 @@ export function detectNZRegion(postcode: string): NZRegion | null {
 
 export function getStateInfo(stateCode: string | null): StateInfo | null {
   if (!stateCode) return null;
+  const code = stateCode.trim().toUpperCase();
 
   const frameworks: { [key: string]: StateInfo } = {
     QLD: {
@@ -297,17 +303,56 @@ export function getStateInfo(stateCode: string | null): StateInfo | null {
     NZ: {
       code: "NZ",
       name: "New Zealand",
-      buildingAuthority:
-        "Ministry of Business, Innovation and Employment (MBIE)",
-      buildingCode: "New Zealand Building Code (Building Act 2004)",
+      // Only the Act and regulator are recorded. Building-code and
+      // environmental-instrument equivalents have not been verified for this
+      // table — hide them rather than invent a New Zealand analogue of QDC/EPA.
+      buildingAuthority: null,
+      buildingCode: null,
       workSafetyAuthority: "WorkSafe New Zealand",
-      workSafetyContact: "0800 030 040",
-      epaAuthority: "Ministry for the Environment",
-      epaContact: "0800 499 700",
+      workSafetyContact: null,
+      epaAuthority: null,
+      epaContact: null,
       whsAct: "Health and Safety at Work Act 2015 (NZ)",
-      epaAct: "Resource Management Act 1991 (NZ)",
+      epaAct: null,
     },
   };
 
-  return frameworks[stateCode] || null;
+  return frameworks[code] || null;
+}
+
+/**
+ * Resolve jurisdictional law for a job.
+ *
+ * A positive New Zealand country wins over postcode: AU and NZ postcodes are
+ * both four digits and overlap (4000 is Queensland and Gisborne), so deriving
+ * country from the postcode alone would label an NZ job Australian.
+ *
+ * A stored "AU" (or a missing country) falls through to the AU postcode map.
+ * Unknown postcode + no NZ country returns null — callers must hide citations,
+ * not invent Queensland or Commonwealth law.
+ */
+export function resolveStateInfo(input: {
+  postcode?: string | null;
+  country?: string | null;
+}): StateInfo | null {
+  const country = input.country?.trim().toUpperCase();
+  if (country === "NZ" || country === "NEW ZEALAND") {
+    return getStateInfo("NZ");
+  }
+  return getStateInfo(detectStateFromPostcode(input.postcode ?? ""));
+}
+
+/**
+ * Citations that are actually recorded on the jurisdiction row.
+ *
+ * Empty when `stateInfo` is null or a field was deliberately left unset.
+ * Callers must not fill the gap with an Australian or Queensland default.
+ */
+export function recordedStateCitations(
+  stateInfo: StateInfo | null | undefined,
+): string[] {
+  if (!stateInfo) return [];
+  return [stateInfo.whsAct, stateInfo.epaAct, stateInfo.buildingCode].filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
 }

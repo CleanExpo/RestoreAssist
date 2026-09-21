@@ -7,6 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { generateSwmsDraft } from "../auto-generator";
+import { auQldLinkHits, auQldStatuteHits } from "@/lib/__tests__/au-qld-law-scan";
 
 // ── Prisma mock ────────────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ function makeInspection(
   overrides: Partial<{
     id: string;
     propertyPostcode: string;
+    propertyCountry?: string | null;
     propertyYearBuilt: number | null;
     makeSafeActions: {
       action: string;
@@ -41,6 +43,7 @@ function makeInspection(
   return {
     id: "insp-001",
     propertyPostcode: "4000", // QLD default
+    propertyCountry: "AU",
     propertyYearBuilt: 2000,
     makeSafeActions: [
       { action: "power_isolated", applicable: true, completed: true },
@@ -113,25 +116,43 @@ describe("generateSwmsDraft", () => {
     });
   });
 
-  describe("NZ happy path — NZ postcode, post-2000 building", () => {
-    it("falls back to NZ WHS Act when postcode is not an AU state", async () => {
-      // NZ postcodes like "1010" (Auckland) are not in any AU range
-      // detectStateCode returns NSW for unknown postcodes, but NZ postcodes
-      // in the 1010-9999 range overlap with NSW (1000-2999).
-      // Use a postcode outside all AU ranges to force NZ fallback.
-      // Postcode 9999 — outside all AU state ranges → returns NSW fallback.
-      // The NZ path is exercised via a postcode not in state detection ranges.
-      // Per state-detection.ts: any pc 1000-2999 → NSW; so NZ postcode 1010
-      // resolves to NSW (conservative fallback per lib/state-detection.ts design).
-      // We verify the function returns a WHS ref without throwing.
+  describe("NZ happy path — recorded propertyCountry, overlapping postcode", () => {
+    it("cites HSWA 2015 and never Australian or Queensland statute text or links", async () => {
+      // AU control: a Queensland draft with a pre-ban building must surface
+      // AU statute text AND a .gov.au source URL. If that control goes quiet,
+      // the NZ assertion below has not been tested.
+      mockFindUnique.mockResolvedValue(
+        makeInspection({ propertyYearBuilt: 1975 }) as never,
+      );
+      const auDraft = await generateSwmsDraft("insp-001");
+      expect(
+        auQldStatuteHits(auDraft),
+        "AU control: QLD SWMS draft must still carry Australian/Queensland statutes",
+      ).not.toEqual([]);
+      expect(
+        auQldLinkHits(auDraft),
+        "AU control: QLD SWMS draft must still carry an Australian regulator URL",
+      ).not.toEqual([]);
+
+      // 1010 is Auckland and also a valid NSW range. Country, not postcode.
+      // 1975 so the asbestos hazard is live — that is the path that embeds
+      // instrument text and a source URL, not just the state code.
       mockFindUnique.mockResolvedValue(
         makeInspection({
           propertyPostcode: "1010",
-          propertyYearBuilt: 2005,
+          propertyCountry: "NZ",
+          propertyYearBuilt: 1975,
         }) as never,
       );
       const draft = await generateSwmsDraft("insp-001");
-      expect(draft.stateWhsRefs.length).toBeGreaterThan(0);
+      expect(draft.stateWhsRefs).toEqual([
+        "Health and Safety at Work Act 2015 (NZ)",
+      ]);
+      expect(draft.hazards.some((h) => h.category === "asbestos_risk")).toBe(
+        true,
+      );
+      expect(auQldStatuteHits(draft)).toEqual([]);
+      expect(auQldLinkHits(draft)).toEqual([]);
       expect(draft.inspectionId).toBe("insp-001");
     });
   });

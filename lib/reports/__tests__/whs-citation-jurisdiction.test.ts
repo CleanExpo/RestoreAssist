@@ -22,6 +22,7 @@
 import { describe, expect, it } from "vitest";
 import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
 import { getStateInfo } from "@/lib/state-detection";
+import { auQldLinkHits, auQldStatuteHits } from "@/lib/__tests__/au-qld-law-scan";
 
 const JURISDICTIONS = [
   "QLD",
@@ -104,6 +105,38 @@ describe("WHS citation reaches the prompt verbatim (UNI-2619)", () => {
       // form nor a plausible-looking dated one may appear.
       expect(prompt).not.toMatch(/Work Health and Safety Act \(Vic\)/);
       expect(prompt).not.toMatch(/Work Health and Safety Act \d{4} \(Vic\)/);
+    });
+
+    it("NEW ZEALAND cites HSWA 2015 and never Australian or Queensland law", () => {
+      const qldPrompt = promptFor("QLD", reportType);
+      expect(
+        auQldStatuteHits(qldPrompt),
+        "AU control: the QLD prompt must still carry Australian/Queensland statutes so the NZ scan can fail",
+      ).not.toEqual([]);
+
+      const prompt = promptFor("NZ", reportType);
+
+      expect(prompt).toContain("Health and Safety at Work Act 2015 (NZ)");
+      expect(prompt).toContain("WorkSafe New Zealand");
+
+      expect(auQldStatuteHits(prompt)).toEqual([]);
+      expect(auQldLinkHits(prompt)).toEqual([]);
+    });
+
+    it("unknown jurisdiction does not invent Queensland or Australian law", () => {
+      const prompt = buildInspectionReportPrompt({
+        report: { propertyAddress: "1 Test St", reportNumber: "TEST-1" },
+        analysis: {},
+        tier1: {},
+        tier2: {},
+        tier3: {},
+        stateInfo: null,
+        reportType,
+      });
+
+      expect(prompt).toContain(marker);
+      expect(auQldStatuteHits(prompt)).toEqual([]);
+      expect(auQldLinkHits(prompt)).toEqual([]);
     });
   });
 });
