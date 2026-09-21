@@ -9,6 +9,7 @@ import { resolveReportProvider } from "./provider";
 import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
+  reportGenUnexpectedKeyFailureCopy,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import {
   hasValue,
@@ -262,14 +263,18 @@ export async function POST(request: NextRequest) {
           });
         }
         // RA-786: do not leak error.message to clients
+        // RA-7601: unexpected miss still uses the RA-7600 copy split —
+        // funded trial / platform-should-cover is never "add a key".
         console.error(
           "Generate-inspection-report: no working AI provider key:",
           error,
         );
         return apiError(request, {
           code: "VALIDATION",
-          message:
-            "No working AI provider key. Add an Anthropic or OpenAI key in Settings → AI Providers.",
+          message: await reportGenUnexpectedKeyFailureCopy(
+            user.id,
+            "ANTHROPIC",
+          ),
           status: 400,
         });
       }
