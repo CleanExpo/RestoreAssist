@@ -10,10 +10,21 @@
  *  - Affected material quantities (from damage zone polygons)
  */
 
+import {
+  isMeasuredRoom,
+  objectPoints,
+  resolvePxPerMetre,
+  resolveRoomAreaM2,
+  resolveWallAreaM2,
+  roomLabel,
+  type RoomGeometryObject,
+} from "@/lib/sketch/room-area-from-geometry";
+
 // ── Scale ─────────────────────────────────────────────────
 /** Default: 100 canvas pixels = 1 metre */
 const PX_PER_METRE = 100;
 const PX2_PER_M2 = PX_PER_METRE * PX_PER_METRE;
+const MIN_BILLED_AREA_M2 = 0.1;
 
 // ── IICRC S500 Equipment Ratios ───────────────────────────
 const IICRC_RATIOS = {
@@ -74,17 +85,10 @@ function pxAreaToM2(
 
 // ── Fabric.js polygon extraction ──────────────────────────
 
-interface FabricObject {
-  type?: string;
-  points?: { x: number; y: number }[];
-  scaleX?: number;
-  scaleY?: number;
+interface FabricObject extends RoomGeometryObject {
   fill?: string;
   stroke?: string;
-  /** Custom data attached to the Fabric object via .data */
-  data?: {
-    label?: string;
-    roomType?: string;
+  data?: RoomGeometryObject["data"] & {
     isDamageZone?: boolean;
     provenance?: string;
   };
@@ -112,26 +116,24 @@ function extractRoomsFromFabricJson(
   }
 
   const objects = fabricJson.objects as FabricObject[];
+  const pxPerMetre = resolvePxPerMetre(fabricJson);
   let roomIdx = 0;
   let damageIdx = 0;
 
   for (const obj of objects) {
-    if (obj.type?.toLowerCase() !== "polygon") continue;
-    if (!obj.points?.length) continue;
     // RA-6839 (A0): provenance firewall — underlay_reference geometry is
     // reference-only and must never become a billed room or damage line item.
     if (obj.data?.provenance === "underlay_reference") continue;
 
-    const areaM2 = pxAreaToM2(obj.points, obj.scaleX, obj.scaleY);
-    if (areaM2 < 0.1) continue; // Skip tiny objects (< 0.1 m²)
-
-    const label =
-      obj.data?.label ??
-      obj.data?.roomType ??
-      (isFabricDamageZone(obj) ? "Damage Zone" : "Room");
-
     if (isFabricDamageZone(obj)) {
+      const areaM2 =
+        resolveRoomAreaM2(obj, pxPerMetre) ??
+        (obj.points?.length
+          ? pxAreaToM2(objectPoints(obj), obj.scaleX, obj.scaleY)
+          : 0);
+      if (areaM2 < MIN_BILLED_AREA_M2) continue;
       damageIdx++;
+      const label = roomLabel(obj);
       damage.push({
         id: `dmg-${floorLabel}-${damageIdx}`,
         category: "damage",
@@ -140,18 +142,41 @@ function extractRoomsFromFabricJson(
         unit: "m²",
         areaM2,
         floor: floorLabel,
-        notes: label !== "Damage Zone" ? label : undefined,
+        notes: label !== "Room" && label !== "Damage Zone" ? label : undefined,
       });
-    } else {
-      roomIdx++;
+      continue;
+    }
+
+    // RA-7572: rooms are `data.type === "room"` (or a measured polygon).
+    // Area is metres-first so a saved 3×3 room cannot yield 0 silently.
+    if (!isMeasuredRoom(obj)) continue;
+    const areaM2 = resolveRoomAreaM2(obj, pxPerMetre);
+    if (areaM2 == null || areaM2 < MIN_BILLED_AREA_M2) continue;
+
+    roomIdx++;
+    const label = roomLabel(obj);
+    rooms.push({
+      id: `room-${floorLabel}-${roomIdx}`,
+      category: "room",
+      description: `${label} — ${floorLabel}`,
+      quantity: areaM2,
+      unit: "m²",
+      areaM2,
+      floor: floorLabel,
+      notes: "Floor area",
+    });
+
+    const wallM2 = resolveWallAreaM2(obj, pxPerMetre);
+    if (wallM2 != null && wallM2 >= MIN_BILLED_AREA_M2) {
       rooms.push({
-        id: `room-${floorLabel}-${roomIdx}`,
+        id: `room-${floorLabel}-${roomIdx}-walls`,
         category: "room",
-        description: `${label} — ${floorLabel}`,
-        quantity: areaM2,
+        description: `${label} walls — ${floorLabel}`,
+        quantity: wallM2,
         unit: "m²",
-        areaM2,
+        areaM2: wallM2,
         floor: floorLabel,
+        notes: "Wall area (perimeter × ceiling height)",
       });
     }
   }
@@ -251,11 +276,79 @@ export function recommendEquipment(affectedAreaM2: number): {
 
 // ── Main export ───────────────────────────────────────────
 
+/** RoomGraph row already stored in metres — used when Fabric parse yields none. */
+export interface SavedSketchRoom {
+  name?: string | null;
+  areaM2?: number | null;
+  perimeterM?: number | null;
+  heightM?: number | null;
+  provenance?: string | null;
+}
+
 export interface SketchFloorData {
   floorLabel: string;
   sketchData?: Record<string, unknown> | null;
   equipmentPoints?: unknown[] | null;
   moisturePoints?: unknown[] | null;
+  savedRooms?: SavedSketchRoom[] | null;
+}
+
+function isFloorAreaLine(item: EstimateLineItem): boolean {
+  if (item.category !== "room") return false;
+  if (item.id.endsWith("-walls")) return false;
+  if (item.notes?.startsWith("Wall area")) return false;
+  return true;
+}
+
+function roomsFromSavedGraph(
+  saved: SavedSketchRoom[] | null | undefined,
+  floorLabel: string,
+): EstimateLineItem[] {
+  if (!Array.isArray(saved) || saved.length === 0) return [];
+  const lines: EstimateLineItem[] = [];
+  let idx = 0;
+  for (const room of saved) {
+    if (room.provenance === "underlay_reference") continue;
+    const areaM2 = room.areaM2;
+    if (typeof areaM2 !== "number" || !Number.isFinite(areaM2) || areaM2 < MIN_BILLED_AREA_M2) {
+      continue;
+    }
+    idx++;
+    const label = (room.name ?? "").trim() || "Room";
+    lines.push({
+      id: `room-${floorLabel}-${idx}`,
+      category: "room",
+      description: `${label} — ${floorLabel}`,
+      quantity: areaM2,
+      unit: "m²",
+      areaM2,
+      floor: floorLabel,
+      notes: "Floor area",
+    });
+    const height = room.heightM;
+    const peri = room.perimeterM;
+    if (
+      typeof height === "number" &&
+      height > 0 &&
+      typeof peri === "number" &&
+      peri > 0
+    ) {
+      const wallM2 = peri * height;
+      if (wallM2 >= MIN_BILLED_AREA_M2) {
+        lines.push({
+          id: `room-${floorLabel}-${idx}-walls`,
+          category: "room",
+          description: `${label} walls — ${floorLabel}`,
+          quantity: wallM2,
+          unit: "m²",
+          areaM2: wallM2,
+          floor: floorLabel,
+          notes: "Wall area (perimeter × ceiling height)",
+        });
+      }
+    }
+  }
+  return lines;
 }
 
 /**
@@ -275,10 +368,20 @@ export function extractSketchEstimate(
       floor.sketchData,
       floor.floorLabel,
     );
+    // RA-7572: SketchRoom.areaM2 is already metres. If the Fabric blob did
+    // not yield room lines, the saved room graph still must reach the estimate.
+    const roomLines =
+      rooms.length > 0
+        ? rooms
+        : roomsFromSavedGraph(floor.savedRooms, floor.floorLabel);
 
-    allLineItems.push(...rooms, ...damage);
+    allLineItems.push(...roomLines, ...damage);
 
-    const floorRoomArea = rooms.reduce((s, r) => s + (r.areaM2 ?? 0), 0);
+    // Floor only — wall lines stay on the estimate but must not inflate
+    // totalRoomAreaM2 (callers treat that as measured floor area).
+    const floorRoomArea = roomLines
+      .filter(isFloorAreaLine)
+      .reduce((s, r) => s + (r.areaM2 ?? 0), 0);
     const floorDamageArea = damage.reduce((s, d) => s + (d.areaM2 ?? 0), 0);
 
     totalRoomAreaM2 += floorRoomArea;

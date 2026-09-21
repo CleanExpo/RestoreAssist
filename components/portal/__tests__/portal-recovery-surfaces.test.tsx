@@ -4,6 +4,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { PortalEmptyProject } from "../PortalEmptyProject";
 import { PortalLinkExpired } from "../PortalLinkExpired";
+import { PortalNotReady } from "../PortalNotReady";
+import { PortalTokenAccessFallback } from "../PortalTokenAccessFallback";
 import {
   parseInviteFailureStatus,
   PortalRecoveryCard,
@@ -84,5 +86,36 @@ describe("PortalLinkExpired", () => {
       screen.getByRole("link", { name: /sign in with a portal account/i }),
     ).toHaveAttribute("href", PORTAL_PATHS.login);
     expect(hrefs().some((href) => href.startsWith("/dashboard"))).toBe(false);
+  });
+});
+
+describe("PortalNotReady", () => {
+  it("is honest that the link is still valid — never expired language", () => {
+    render(<PortalNotReady />);
+    expect(screen.getByTestId("portal-not-ready")).toBeInTheDocument();
+    expect(
+      screen.getByText(/your report is not ready yet/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/job link is still valid/i)).toBeInTheDocument();
+    expect(screen.queryByText(/job link has expired/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/expired or invalid/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /sign in with a portal account/i }),
+    ).toHaveAttribute("href", PORTAL_PATHS.login);
+    expect(hrefs().some((href) => href.startsWith("/dashboard"))).toBe(false);
+  });
+});
+
+describe("PortalTokenAccessFallback (RA-7606)", () => {
+  it("maps a live account with no inspection to not-ready, not expired", () => {
+    render(<PortalTokenAccessFallback resolved={{ kind: "unready" }} />);
+    expect(screen.getByTestId("portal-not-ready")).toBeInTheDocument();
+    expect(screen.queryByTestId("portal-link-expired")).not.toBeInTheDocument();
+  });
+
+  it("maps a genuinely bad token to LinkExpired", () => {
+    render(<PortalTokenAccessFallback resolved={{ kind: "invalid" }} />);
+    expect(screen.getByTestId("portal-link-expired")).toBeInTheDocument();
+    expect(screen.queryByTestId("portal-not-ready")).not.toBeInTheDocument();
   });
 });

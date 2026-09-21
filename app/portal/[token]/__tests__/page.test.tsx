@@ -115,6 +115,26 @@ describe("ClientPortalPage — expired token recovery (RA-7551)", () => {
   });
 });
 
+describe("ClientPortalPage — account token with no inspection (RA-7606)", () => {
+  it("shows not-ready, never LinkExpired, for a live account with no inspection", async () => {
+    mLookup.mockResolvedValue({ clientId: "c_empty" });
+    mVerify.mockReturnValue(null);
+    p.inspection.findFirst.mockResolvedValue(null);
+
+    const jsx = await ClientPortalPage({ params });
+    render(jsx);
+
+    expect(screen.getByTestId("portal-not-ready")).toBeInTheDocument();
+    expect(
+      screen.getByText(/your report is not ready yet/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("portal-link-expired")).not.toBeInTheDocument();
+    expect(screen.queryByText(/job link has expired/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/expired or invalid/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("12 Test St, Brisbane")).not.toBeInTheDocument();
+  });
+});
+
 describe("ClientPortalPage — no raw moisture exposure (RA-6995)", () => {
   it("never renders a raw NN%-style moisture value anywhere on the page", async () => {
     const jsx = await ClientPortalPage({ params });
