@@ -170,10 +170,12 @@ function generateId(): string {
  * when the app detects it is offline before making the request.
  */
 export async function queueWrite(
-  entry: Omit<SyncQueueEntry, "id" | "queuedAt" | "retryCount" | "status">,
+  entry: Omit<SyncQueueEntry, "id" | "queuedAt" | "retryCount" | "status"> & {
+    id?: string;
+  },
 ): Promise<string> {
   const db = await openDatabase();
-  const id = generateId();
+  const id = entry.id ?? generateId();
 
   const queueEntry: SyncQueueEntry = {
     ...entry,
@@ -478,11 +480,16 @@ async function drainQueueImpl(): Promise<number> {
 
     try {
       // RA-1762 — sketch-save entries piggyback the staleness check on
-      // the `x-client-updated-at` header. Other types pass through with
-      // the original Content-Type-only headers so unrelated routes
-      // aren't suddenly required to read the new header.
+      // the `x-client-updated-at` header. Idempotency-Key is sent for every
+      // type (RA-7568 moisture replay; evidence/mobile already did this).
+      // Unrelated routes ignore the extra headers.
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
+        // Same contract as lib/evidence-upload-queue.ts and the mobile
+        // sync engine: the queue entry id is the Idempotency-Key, so a
+        // lost response + reconnect cannot double-insert (RA-1266 / RA-7568).
+        "Idempotency-Key": entry.id,
+        "X-RestoreAssist-Mutation-Id": entry.id,
       };
       if (entry.type === "sketch-save") {
         const sketchPayload = entry.payload as SketchSavePayload | null;
@@ -514,6 +521,10 @@ async function drainQueueImpl(): Promise<number> {
           .catch(() => null);
         if (serverPayload?.stale === true) {
           await removeEntry(db, entry.id);
+        } else if (entry.type === "moisture-reading") {
+          // RA-7568 — moisture 409 is withIdempotency in-flight / key
+          // reuse, not a sketch conflict. Retry; do not drop the reading.
+          await incrementRetry(db, entry);
         } else {
           await storeConflict(db, entry, serverPayload);
           await removeEntry(db, entry.id);

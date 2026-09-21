@@ -14,6 +14,7 @@ import {
   STATUS_COLORS,
   getDryStandard,
 } from "@/lib/iicrc-dry-standards";
+import { queueWrite } from "@/lib/nir-sync-queue";
 
 interface QuickMoistureEntryProps {
   inspectionId: string;
@@ -55,6 +56,7 @@ export function QuickMoistureEntry({
   const [material, setMaterial] = useState("plasterboard");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [queuedLocally, setQueuedLocally] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const numericValue = parseFloat(value);
@@ -91,29 +93,81 @@ export function QuickMoistureEntry({
       return;
     }
     setError(null);
+    setQueuedLocally(false);
     setSaving(true);
-    try {
-      const res = await fetch(`/api/inspections/${inspectionId}/moisture`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location,
-          surfaceType: material,
-          moistureLevel: numericValue,
-          depth: "Surface",
-          meterType: "pin",
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to save");
-      const data = await res.json();
+
+    const payload = {
+      location,
+      surfaceType: material,
+      moistureLevel: numericValue,
+      depth: "Surface",
+      meterType: "pin",
+    };
+    const endpoint = `/api/inspections/${inspectionId}/moisture`;
+    const mutationId =
+      globalThis.crypto?.randomUUID?.() ??
+      `nir-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+    const flashSuccess = () => {
       setSaved(true);
       onSaved?.({ location, moistureLevel: numericValue, material });
-      // Reset after brief success flash
       setTimeout(() => {
         setValue("");
         setSaved(false);
         setLocation("");
       }, 1200);
+    };
+
+    // RA-7568 — same fallback as CapturePhotoFab / RA-6997: the RA-1124
+    // IndexedDB queue drains on reconnect. mutationId is the Idempotency-Key
+    // on both the live POST and the queued replay so a lost response cannot
+    // double-insert (moisture route wraps withIdempotency, RA-1266).
+    const queueForLater = async () => {
+      await queueWrite({
+        id: mutationId,
+        type: "moisture-reading",
+        endpoint,
+        method: "POST",
+        payload,
+        inspectionId,
+      });
+      setQueuedLocally(true);
+      flashSuccess();
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await queueForLater();
+        return;
+      }
+
+      let res: Response;
+      try {
+        res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": mutationId,
+            "X-RestoreAssist-Mutation-Id": mutationId,
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        if (err instanceof TypeError) {
+          await queueForLater();
+          return;
+        }
+        throw err;
+      }
+
+      if (res.status >= 500) {
+        await queueForLater();
+        return;
+      }
+
+      if (!res.ok) throw new Error("Failed to save");
+      await res.json().catch(() => ({}));
+      flashSuccess();
     } catch {
       setError("Save failed — tap to retry");
     } finally {
@@ -212,7 +266,11 @@ export function QuickMoistureEntry({
         ))}
       </div>
 
-      {/* Error */}
+      {queuedLocally && (
+        <p className="text-green-400 text-sm text-center">
+          Saved on this device — will sync
+        </p>
+      )}
       {error && <p className="text-destructive text-sm text-center">{error}</p>}
 
       {/* Save button */}
