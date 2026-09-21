@@ -176,3 +176,29 @@ describe("RA-7638 — explicit ceramic is not silently remapped by an ACM cue", 
     ]);
   });
 });
+
+describe("RA-7638 — a cancelled cue must not hide another asbestos word", () => {
+  it.each([
+    ["non-asbestos ceramic tiles, fibro eaves", /ceramic/i, /fibro/i],
+    ["tiles not vinyl, lino", /tiles/i, /lino/i],
+    ["tiles not vinyl, fibro", /tiles/i, /fibro/i],
+    ["ceramic tiles not vinyl. Laundry is lino.", /ceramic/i, /lino/i],
+    ["floor tiles vinyl look old", /tiles/i, /vinyl/i],
+    ["vinyl look ceramic tiles", /ceramic/i, /vinyl/i],
+    ["tiles whether or not vinyl", /tiles/i, /vinyl/i],
+    ["tiles not sure if vinyl", /tiles/i, /vinyl/i],
+    ["ceramic tiles not vinyl?", /ceramic/i, /vinyl/i],
+  ])(
+    "asks, and does not guess, for '%s'",
+    (transcript, left, right) => {
+      const result = mapVoiceTranscriptToFields(transcript);
+      expect(result.material).toBeUndefined();
+      const term = result.needsConfirmation
+        .filter((item) => item.kind === "material")
+        .map((item) => item.term)
+        .join(" ");
+      expect(term).toMatch(left);
+      expect(term).toMatch(right);
+    },
+  );
+});

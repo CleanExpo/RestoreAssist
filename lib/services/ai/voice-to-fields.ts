@@ -13,10 +13,13 @@
  * asbestos-possible material (vinyl, lino, linoleum, asbestos, fibro) is
  * in the same clause, resolve to that material or surface both — never
  * silently choose ceramic-tile. A negated cue ("not vinyl", "no asbestos",
- * "non-asbestos", "asbestos-free") and a look, style, or effect cue
- * ("vinyl-look") are not asbestos cues. When the clause names ceramic
- * explicitly and still carries a real asbestos cue, surface both for
- * confirmation and do not pick a material.
+ * "non-asbestos", "asbestos-free") cancels only that cue. A hyphenated
+ * look, style, or effect ("vinyl-look") is not an asbestos cue. Spoken
+ * "vinyl look" (a space, as speech-to-text often writes it), "whether or
+ * not", "not sure if", and a question mark are doubt, not negation: ask,
+ * and do not pick a material. When more than one material is still a
+ * candidate and any of them may contain asbestos, ask instead of keeping
+ * the longest phrase.
  * When more than one water category is mentioned, return no category and
  * surface confirmation — a negated or corrected category must never yield
  * a lower category. Spoken-word categories ("category three") count.
@@ -170,11 +173,19 @@ const ACM_CUE_WORDS: Array<{ word: string; materialId: string }> = [
 /** "not vinyl", "no asbestos", "non-asbestos", "asbestos-free". */
 const CUE_NEGATION_BEFORE = /(?:^|[^a-z0-9])(?:not|no|non)[\s-]*$/i;
 const CUE_FREE_AFTER = /^[\s-]*free\b/i;
-/** "vinyl-look", "vinyl-style", "vinyl-effect" describe appearance, not the material. */
-const CUE_APPEARANCE_AFTER = /^[\s-]*(?:look|style|effect)\b/i;
+/** "vinyl-look" describes appearance. A space ("vinyl look") is doubt, not a drop. */
+const CUE_HYPHEN_APPEARANCE_AFTER = /^-(?:look|style|effect)\b/i;
+const CUE_SPACED_APPEARANCE_AFTER = /^\s+(?:look|style|effect)\b/i;
+const CUE_DOUBT_BEFORE =
+  /\bwhether\s+or\s+not[\s-]*$|\bnot\s+sure\s+if\b/i;
 
-interface AcmCueHit {
+type AcmCueKind = "clear" | "doubt" | "ignore";
+
+interface ClassifiedCue {
+  kind: AcmCueKind;
   materialId: string;
+  word: string;
+  start: number;
 }
 
 const CLAUSE_BOUNDARY = /[,.;:!?]/;
@@ -203,64 +214,133 @@ function clauseContaining(
   return { text: text.slice(from, to), start: from, end: to };
 }
 
-function actionableAcmCues(clause: string): AcmCueHit[] {
-  const hits: AcmCueHit[] = [];
+function classifyAcmCue(
+  before: string,
+  after: string,
+  question: boolean,
+): AcmCueKind {
+  if (CUE_SPACED_APPEARANCE_AFTER.test(after)) return "doubt";
+  if (question || CUE_DOUBT_BEFORE.test(before)) return "doubt";
+  if (CUE_HYPHEN_APPEARANCE_AFTER.test(after)) return "ignore";
+  if (CUE_FREE_AFTER.test(after) || CUE_NEGATION_BEFORE.test(before)) {
+    return "ignore";
+  }
+  return "clear";
+}
+
+function classifiedAcmCues(clause: string, question: boolean): ClassifiedCue[] {
+  const cues: ClassifiedCue[] = [];
   for (const cue of ACM_CUE_WORDS) {
     const re = new RegExp(`\\b${cue.word}\\b`, "gi");
     let match: RegExpExecArray | null;
     while ((match = re.exec(clause)) !== null) {
       const start = match.index;
       const end = start + match[0].length;
-      const before = clause.slice(0, start);
-      const after = clause.slice(end);
-      const negated =
-        CUE_NEGATION_BEFORE.test(before) || CUE_FREE_AFTER.test(after);
-      const appearance = CUE_APPEARANCE_AFTER.test(after);
-      if (!negated && !appearance) hits.push({ materialId: cue.materialId });
+      const kind = classifyAcmCue(
+        clause.slice(0, start),
+        clause.slice(end),
+        question,
+      );
+      if (kind !== "ignore") {
+        cues.push({
+          kind,
+          materialId: cue.materialId,
+          word: match[0],
+          start,
+        });
+      }
       if (re.lastIndex === match.index) re.lastIndex += 1;
     }
   }
-  return hits;
+  return cues;
 }
 
-function materialsForCues(hits: AcmCueHit[]): AnzMaterial[] {
-  return [...new Set(hits.map((hit) => hit.materialId))]
+function materialsForIds(ids: string[]): AnzMaterial[] {
+  return [...new Set(ids)]
     .map((id) => getMaterial(id))
     .filter((material): material is AnzMaterial => material != null);
 }
 
+function cueAsMatch(
+  transcript: string,
+  clauseStart: number,
+  cue: ClassifiedCue,
+): PhraseMatch | undefined {
+  const material = getMaterial(cue.materialId);
+  if (!material) return undefined;
+  const start = clauseStart + cue.start;
+  const end = start + cue.word.length;
+  return {
+    phrase: transcript.slice(start, end),
+    material,
+    start,
+    end,
+  };
+}
+
 /**
  * Generic "tile(s)" must not win uncontested when the same clause names a
- * distinctive word of an asbestos-possible material. An explicit "ceramic"
- * beside a real cue is a two-material collision: surface it, never guess.
+ * distinctive word of an asbestos-possible material. Negation and a hyphenated
+ * appearance word cancel only the cue they govern. Doubt, and an explicit
+ * "ceramic" beside a real cue, are surfaced — never guessed.
  */
 function applyAcmCuesToCeramicMatches(
   transcript: string,
   primary: PhraseMatch[],
-): { matches: PhraseMatch[]; ambiguousTerm?: string } {
+): { matches: PhraseMatch[]; ambiguousTerm?: string; doubts: PhraseMatch[] } {
   const adjusted: PhraseMatch[] = [];
+  const doubts: PhraseMatch[] = [];
   for (const match of primary) {
     if (match.material.id !== "ceramic-tile") {
       adjusted.push(match);
       continue;
     }
     const clause = clauseContaining(transcript, match.start, match.end);
-    const cued = materialsForCues(actionableAcmCues(clause.text));
-    if (cued.length === 0) {
+    const question = /^\s*\?/.test(transcript.slice(clause.end));
+    const cues = classifiedAcmCues(clause.text, question);
+    const clear = cues.filter((cue) => cue.kind === "clear");
+    const doubt = cues.filter((cue) => cue.kind === "doubt");
+    const clearMaterials = materialsForIds(clear.map((cue) => cue.materialId));
+
+    if (doubt.length > 0) {
+      adjusted.push(match);
+      for (const cue of [...doubt, ...clear]) {
+        const hinted = cueAsMatch(transcript, clause.start, cue);
+        if (hinted) doubts.push(hinted);
+      }
+      continue;
+    }
+
+    if (clearMaterials.length === 0) {
       adjusted.push(match);
       continue;
     }
-    if (/\bceramic\b/i.test(clause.text) || cued.length > 1) {
-      return { matches: [], ambiguousTerm: clause.text };
+    const namesCeramic = /\bceramic\b/i.test(clause.text);
+    if (namesCeramic || clearMaterials.length > 1) {
+      const outsideAcm = primary.some(
+        (other) =>
+          other !== match &&
+          other.material.isPotentialAcm &&
+          (other.end <= clause.start || other.start >= clause.end),
+      );
+      if (!outsideAcm && doubts.length === 0) {
+        return { matches: [], ambiguousTerm: clause.text, doubts: [] };
+      }
+      adjusted.push(match);
+      for (const cue of clear) {
+        const hinted = cueAsMatch(transcript, clause.start, cue);
+        if (hinted) doubts.push(hinted);
+      }
+      continue;
     }
-    const acm = cued[0];
+    const acm = clearMaterials[0];
     if (!acm) {
       adjusted.push(match);
       continue;
     }
     adjusted.push({ ...match, material: acm });
   }
-  return { matches: adjusted };
+  return { matches: adjusted, doubts };
 }
 
 interface MaterialResolution {
@@ -302,6 +382,27 @@ function resolveMaterial(transcript: string): MaterialResolution {
     const start = Math.min(...conflicting.map((m) => m.start));
     const end = Math.max(...conflicting.map((m) => m.end));
     return { ambiguousTerm: transcript.slice(start, end) };
+  }
+
+  // A negated cue cancels only itself. If another material is still in play
+  // and any candidate may contain asbestos, ask — never keep the longest phrase.
+  const byId = new Map<string, PhraseMatch>();
+  for (const candidate of [...resolvedMatches, ...withCues.doubts]) {
+    const existing = byId.get(candidate.material.id);
+    if (!existing || candidate.start < existing.start) {
+      byId.set(candidate.material.id, candidate);
+    }
+  }
+  const candidates = [...byId.values()];
+  if (
+    candidates.length > 1 &&
+    candidates.some((candidate) => candidate.material.isPotentialAcm)
+  ) {
+    const ordered = [...candidates].sort((a, b) => a.start - b.start);
+    const term = ordered
+      .map((candidate) => transcript.slice(candidate.start, candidate.end))
+      .join(", ");
+    return { ambiguousTerm: term };
   }
 
   return { material: resolvedMatches[0]?.material };
