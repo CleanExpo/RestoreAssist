@@ -12,7 +12,11 @@
  * When a generic term like "tiles" matches and a distinctive word of an
  * asbestos-possible material (vinyl, lino, linoleum, asbestos, fibro) is
  * in the same clause, resolve to that material or surface both — never
- * silently choose ceramic-tile.
+ * silently choose ceramic-tile. A negated cue ("not vinyl", "no asbestos",
+ * "non-asbestos", "asbestos-free") and a look, style, or effect cue
+ * ("vinyl-look") are not asbestos cues. When the clause names ceramic
+ * explicitly and still carries a real asbestos cue, surface both for
+ * confirmation and do not pick a material.
  * When more than one water category is mentioned, return no category and
  * surface confirmation — a negated or corrected category must never yield
  * a lower category. Spoken-word categories ("category three") count.
@@ -155,13 +159,23 @@ function isContainedIn(inner: PhraseMatch, outer: PhraseMatch): boolean {
   );
 }
 
-const ACM_CUE_MATERIAL_IDS: Array<{ pattern: RegExp; materialId: string }> = [
-  { pattern: /\bvinyl\b/i, materialId: "vinyl-tiles" },
-  { pattern: /\blino\b/i, materialId: "vinyl-tiles" },
-  { pattern: /\blinoleum\b/i, materialId: "vinyl-tiles" },
-  { pattern: /\basbestos\b/i, materialId: "fibro" },
-  { pattern: /\bfibro\b/i, materialId: "fibro" },
+const ACM_CUE_WORDS: Array<{ word: string; materialId: string }> = [
+  { word: "vinyl", materialId: "vinyl-tiles" },
+  { word: "lino", materialId: "vinyl-tiles" },
+  { word: "linoleum", materialId: "vinyl-tiles" },
+  { word: "asbestos", materialId: "fibro" },
+  { word: "fibro", materialId: "fibro" },
 ];
+
+/** "not vinyl", "no asbestos", "non-asbestos", "asbestos-free". */
+const CUE_NEGATION_BEFORE = /(?:^|[^a-z0-9])(?:not|no|non)[\s-]*$/i;
+const CUE_FREE_AFTER = /^[\s-]*free\b/i;
+/** "vinyl-look", "vinyl-style", "vinyl-effect" describe appearance, not the material. */
+const CUE_APPEARANCE_AFTER = /^[\s-]*(?:look|style|effect)\b/i;
+
+interface AcmCueHit {
+  materialId: string;
+}
 
 const CLAUSE_BOUNDARY = /[,.;:!?]/;
 
@@ -189,19 +203,36 @@ function clauseContaining(
   return { text: text.slice(from, to), start: from, end: to };
 }
 
-function acmMaterialsInClause(clause: string): AnzMaterial[] {
-  const ids = new Set<string>();
-  for (const cue of ACM_CUE_MATERIAL_IDS) {
-    if (cue.pattern.test(clause)) ids.add(cue.materialId);
+function actionableAcmCues(clause: string): AcmCueHit[] {
+  const hits: AcmCueHit[] = [];
+  for (const cue of ACM_CUE_WORDS) {
+    const re = new RegExp(`\\b${cue.word}\\b`, "gi");
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(clause)) !== null) {
+      const start = match.index;
+      const end = start + match[0].length;
+      const before = clause.slice(0, start);
+      const after = clause.slice(end);
+      const negated =
+        CUE_NEGATION_BEFORE.test(before) || CUE_FREE_AFTER.test(after);
+      const appearance = CUE_APPEARANCE_AFTER.test(after);
+      if (!negated && !appearance) hits.push({ materialId: cue.materialId });
+      if (re.lastIndex === match.index) re.lastIndex += 1;
+    }
   }
-  return [...ids]
+  return hits;
+}
+
+function materialsForCues(hits: AcmCueHit[]): AnzMaterial[] {
+  return [...new Set(hits.map((hit) => hit.materialId))]
     .map((id) => getMaterial(id))
     .filter((material): material is AnzMaterial => material != null);
 }
 
 /**
  * Generic "tile(s)" must not win uncontested when the same clause names a
- * distinctive word of an asbestos-possible material.
+ * distinctive word of an asbestos-possible material. An explicit "ceramic"
+ * beside a real cue is a two-material collision: surface it, never guess.
  */
 function applyAcmCuesToCeramicMatches(
   transcript: string,
@@ -214,12 +245,12 @@ function applyAcmCuesToCeramicMatches(
       continue;
     }
     const clause = clauseContaining(transcript, match.start, match.end);
-    const cued = acmMaterialsInClause(clause.text);
+    const cued = materialsForCues(actionableAcmCues(clause.text));
     if (cued.length === 0) {
       adjusted.push(match);
       continue;
     }
-    if (cued.length > 1) {
+    if (/\bceramic\b/i.test(clause.text) || cued.length > 1) {
       return { matches: [], ambiguousTerm: clause.text };
     }
     const acm = cued[0];

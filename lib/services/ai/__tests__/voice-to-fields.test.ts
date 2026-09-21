@@ -133,3 +133,46 @@ describe("RA-7620 — vinyl-tiles plural and water-category confirmation", () =>
     ).toBe(false);
   });
 });
+
+describe("RA-7638 — explicit ceramic is not silently remapped by an ACM cue", () => {
+  it("maps bare 'tiles' to ceramic-tile", () => {
+    const result = mapVoiceTranscriptToFields("tiles");
+    expect(result.material?.id).toBe("ceramic-tile");
+    expect(result.material?.isPotentialAcm).toBe(false);
+    expect(result.needsConfirmation).toEqual([]);
+  });
+
+  it("maps a vinyl-tiles clause with category and dimensions", () => {
+    const result = mapVoiceTranscriptToFields(
+      "Living room 4 x 3.2 metres, vinyl tiles, category 2",
+    );
+    expect(result.material?.id).toBe("vinyl-tiles");
+    expect(result.material?.isPotentialAcm).toBe(true);
+    expect(result.waterCategory).toBe("cat2");
+    expect(result.dimensions).toEqual({ lengthM: 4, widthM: 3.2 });
+    expect(result.needsConfirmation).toEqual([]);
+  });
+
+  it.each([
+    "ceramic tiles not vinyl",
+    "non-asbestos ceramic tiles",
+    "no asbestos in the ceramic tiles",
+    "asbestos-free ceramic tiles",
+    "vinyl-look ceramic tiles",
+    "vinyl-style ceramic tiles",
+    "vinyl-effect ceramic tiles",
+  ])("keeps ceramic-tile for '%s'", (transcript) => {
+    const result = mapVoiceTranscriptToFields(transcript);
+    expect(result.material?.id).toBe("ceramic-tile");
+    expect(result.material?.isPotentialAcm).toBe(false);
+    expect(result.needsConfirmation).toEqual([]);
+  });
+
+  it("asks for confirmation naming both when ceramic sits beside an ACM cue", () => {
+    const result = mapVoiceTranscriptToFields("ceramic tiles over old lino");
+    expect(result.material).toBeUndefined();
+    expect(result.needsConfirmation).toEqual([
+      { kind: "material", term: "ceramic tiles over old lino" },
+    ]);
+  });
+});
