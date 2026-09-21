@@ -13,15 +13,19 @@
  * asbestos-possible material (vinyl, lino, linoleum, asbestos, fibro) is
  * in the same clause, resolve to that material or surface both — never
  * silently choose ceramic-tile. A negated cue ("not vinyl", "no asbestos",
- * "non-asbestos", "asbestos-free") cancels only that cue. A hyphenated
- * look, style, or effect ("vinyl-look") is not an asbestos cue. Spoken
- * "vinyl look" (a space, as speech-to-text often writes it), "whether or
- * not", "not sure if", a question mark, and a hedged negation ("probably
- * not", "maybe not", "likely not", "possibly not", "hopefully no",
- * "I don't think", and a trailing "I think", "I reckon", or "I don't think"
- * (with or without a comma) are doubt, not negation. "free of" and "free
- * from" do not mean "asbestos-free". Every cue word is scanned across the
- * whole note.
+ * "non-asbestos", "asbestos-free") cancels only that cue. "free" cancels
+ * only as "<cue>-free", or as "<cue> free" followed by a material or tile
+ * word or by the end of the clause ("asbestos free ceramic tiles").
+ * free-floating, free floating, free-lay, free-standing, "free of", and
+ * "free from" do not cancel. A hyphenated look, style, or effect
+ * ("vinyl-look") is not an asbestos cue. Spoken "vinyl look" (a space, as
+ * speech-to-text often writes it), "whether or not", "not sure if", a
+ * question mark, and a hedged negation ("probably not", "maybe not",
+ * "likely not", "possibly not", "hopefully no", "I don't think") are doubt,
+ * not negation. A trailing hedge anywhere in the clause ("I think",
+ * "I reckon", "I don't think", "I'm not sure", with or without a comma)
+ * turns any negation there (not, no, non-, without) into doubt. Every cue
+ * word is scanned across the whole note.
  * If any occurrence survives, the result is an asbestos-possible material
  * or a confirmation that names it. When more than one material remains,
  * ask instead of keeping the longest phrase.
@@ -175,10 +179,11 @@ const ACM_CUE_WORDS: Array<{ word: string; materialId: string }> = [
   { word: "fibro", materialId: "fibro" },
 ];
 
-/** "not vinyl", "no asbestos", "non-asbestos", "asbestos-free". */
-const CUE_NEGATION_BEFORE = /(?:^|[^a-z0-9])(?:not|no|non)[\s-]*$/i;
-/** "asbestos-free" / "asbestos free". "free of" and "free from" describe a condition, not the absence of the cue. */
-const CUE_FREE_AFTER = /^[\s-]*free\b(?!\s+(?:of|from)\b)/i;
+/** Firm "not vinyl" / "no asbestos" / "non-asbestos" glued to the cue. */
+const CUE_FIRM_NEGATION_BEFORE = /(?:^|[^a-z0-9])(?:not|no|non)[\s-]*$/i;
+/** Same forms, plus "without", when a trailing hedge turns them into doubt. */
+const CUE_ANY_NEGATION_BEFORE =
+  /(?:^|[^a-z0-9])(?:not|no|non|without)[\s-]*$/i;
 /** "vinyl-look" describes appearance. A space ("vinyl look") is doubt, not a drop. */
 const CUE_HYPHEN_APPEARANCE_AFTER = /^-(?:look|style|effect)\b/i;
 const CUE_SPACED_APPEARANCE_AFTER = /^\s+(?:look|style|effect)\b/i;
@@ -187,9 +192,32 @@ const CUE_DOUBT_BEFORE =
 /** "probably not", "maybe not", "likely not", "possibly not", "hopefully no", "I don't think". */
 const CUE_HEDGE_BEFORE =
   /\b(?:probably|maybe|likely|possibly)\s+not[\s-]*$|\bhopefully\s+no[\s-]*$|\bi\s+(?:don'?t|do\s+not)\s+think\b/i;
-/** Trailing "I think" / "I reckon" / "I don't think", with or without a comma. */
+/**
+ * "I think" / "I reckon" / "I don't think" / "I'm not sure" anywhere in the
+ * clause. A comma does not end the clause for this check.
+ */
 const CUE_TRAILING_HEDGE =
-  /^\s*,?\s*i\s+(?:think|reckon|(?:don'?t|do\s+not)\s+think)\b/i;
+  /\bi\s+(?:think|reckon|(?:don'?t|do\s+not)\s+think)\b|\bi(?:'m|\s+am)\s+not\s+sure\b/i;
+/** Sentence punctuation. A comma still belongs to the same hedged clause. */
+const STRONG_CLAUSE_BOUNDARY = /[.;:!?]/;
+
+const MATERIAL_OR_TILE_WORDS: ReadonlySet<string> = (() => {
+  const words = new Set<string>();
+  const addPhrase = (phrase: string) => {
+    for (const raw of phrase.toLowerCase().split(/[^a-z0-9]+/)) {
+      if (raw.length >= 3) words.add(raw);
+    }
+  };
+  for (const material of ANZ_MATERIALS) {
+    addPhrase(material.id);
+    addPhrase(material.name);
+    for (const alias of material.aliases ?? []) addPhrase(alias);
+  }
+  words.add("ceramic");
+  words.add("tile");
+  words.add("tiles");
+  return words;
+})();
 
 type AcmCueKind = "clear" | "doubt" | "ignore";
 
@@ -226,11 +254,56 @@ function clauseContaining(
   return { text: text.slice(from, to), start: from, end: to };
 }
 
-function isHedgedNegation(before: string, after: string): boolean {
+function isMaterialOrTileWord(word: string): boolean {
+  const lower = word.toLowerCase();
+  if (MATERIAL_OR_TILE_WORDS.has(lower)) return true;
+  return lower
+    .split("-")
+    .some((part) => part.length >= 3 && MATERIAL_OR_TILE_WORDS.has(part));
+}
+
+/**
+ * "free" cancels only "<cue>-free", or "<cue> free" when the next word is a
+ * material or tile word, or when "free" ends the clause. free-floating,
+ * free floating, free-lay, free-standing, "free of", and "free from" do not.
+ */
+function freeCancelsCue(after: string): boolean {
+  if (/^-free\b/i.test(after)) return true;
+  const spaced = /^\s+free\b/i.exec(after);
+  if (!spaced) return false;
+  const rest = after.slice(spaced[0].length);
+  if (/^\s*(?:$|[,.;:!?])/.test(rest)) return true;
+  const next = /^\s+([A-Za-z][A-Za-z0-9-]*)/.exec(rest);
+  const word = next?.[1];
+  if (!word) return false;
+  return isMaterialOrTileWord(word);
+}
+
+function strongClauseAround(text: string, start: number, end: number): string {
+  let from = 0;
+  for (let i = start - 1; i >= 0; i--) {
+    if (STRONG_CLAUSE_BOUNDARY.test(text[i] ?? "")) {
+      from = i + 1;
+      break;
+    }
+  }
+  let to = text.length;
+  for (let i = end; i < text.length; i++) {
+    if (STRONG_CLAUSE_BOUNDARY.test(text[i] ?? "")) {
+      to = i;
+      break;
+    }
+  }
+  return text.slice(from, to);
+}
+
+function isHedgedNegation(before: string, strongClause: string): boolean {
   if (CUE_HEDGE_BEFORE.test(before)) return true;
-  // "not vinyl I reckon" and "not vinyl, I think" — the hedge follows the cue.
+  // A trailing hedge anywhere in the clause (comma allowed) turns not, no,
+  // non-, and without on this cue into doubt.
   return (
-    /(?:^|[^a-z0-9])not[\s-]*$/i.test(before) && CUE_TRAILING_HEDGE.test(after)
+    CUE_ANY_NEGATION_BEFORE.test(before) &&
+    CUE_TRAILING_HEDGE.test(strongClause)
   );
 }
 
@@ -238,13 +311,18 @@ function classifyAcmCue(
   before: string,
   after: string,
   question: boolean,
+  strongClause: string,
 ): AcmCueKind {
   if (CUE_SPACED_APPEARANCE_AFTER.test(after)) return "doubt";
-  if (question || CUE_DOUBT_BEFORE.test(before) || isHedgedNegation(before, after)) {
+  if (
+    question ||
+    CUE_DOUBT_BEFORE.test(before) ||
+    isHedgedNegation(before, strongClause)
+  ) {
     return "doubt";
   }
   if (CUE_HYPHEN_APPEARANCE_AFTER.test(after)) return "ignore";
-  if (CUE_FREE_AFTER.test(after) || CUE_NEGATION_BEFORE.test(before)) {
+  if (freeCancelsCue(after) || CUE_FIRM_NEGATION_BEFORE.test(before)) {
     return "ignore";
   }
   return "clear";
@@ -262,6 +340,7 @@ function classifiedAcmCues(clause: string, question: boolean): ClassifiedCue[] {
         clause.slice(0, start),
         clause.slice(end),
         question,
+        strongClauseAround(clause, start, end),
       );
       if (kind !== "ignore") {
         cues.push({
@@ -393,6 +472,7 @@ function scanTranscriptAcmCues(transcript: string): TranscriptCue[] {
         clause.text.slice(0, localStart),
         transcript.slice(end),
         /^\s*\?/.test(transcript.slice(clause.end)),
+        strongClauseAround(transcript, start, end),
       );
       if (kind !== "ignore") {
         found.push({

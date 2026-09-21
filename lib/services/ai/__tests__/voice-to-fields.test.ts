@@ -314,6 +314,12 @@ describe("RA-7638 — a bare cue anywhere in the note still counts", () => {
     ["tiles not vinyl I reckon", "vinyl"],
     ["tiles vinyl free from water damage", "vinyl"],
     ["ceramic tiles, vinyl free from cracks in laundry", "vinyl"],
+    ["tiles vinyl free-floating", "vinyl"],
+    ["tiles non-vinyl I think", "vinyl"],
+    ["tiles no vinyl, I reckon", "vinyl"],
+    ["no asbestos I think", "asbestos"],
+    ["ceramic tiles, vinyl free-lay sheet in laundry", "vinyl"],
+    ["ceramic tiles in kitchen, vinyl free floating floor in laundry", "vinyl"],
   ] as const)(
     "named case '%s' honours surviving '%s'",
     (phrase, word) => {
@@ -325,7 +331,13 @@ describe("RA-7638 — a bare cue anywhere in the note still counts", () => {
         phrase === "tiles likely not vinyl" ||
         phrase === "tiles possibly not vinyl" ||
         phrase === "tiles not vinyl, I think" ||
-        phrase === "tiles not vinyl I reckon";
+        phrase === "tiles not vinyl I reckon" ||
+        phrase === "tiles non-vinyl I think" ||
+        phrase === "tiles no vinyl, I reckon" ||
+        phrase === "no asbestos I think" ||
+        phrase === "ceramic tiles, vinyl free-lay sheet in laundry" ||
+        phrase ===
+          "ceramic tiles in kitchen, vinyl free floating floor in laundry";
       if (mustAsk) {
         const named = result.needsConfirmation.some(
           (item) =>
@@ -333,6 +345,95 @@ describe("RA-7638 — a bare cue anywhere in the note still counts", () => {
         );
         expect(named).toBe(true);
       }
+    },
+  );
+});
+
+/**
+ * "free" cancels only as "<cue>-free" or "<cue> free" plus a material or tile
+ * word, or the end of the clause. free-floating, free floating, free-lay,
+ * free-standing, free of, and free from leave the cue in play.
+ */
+const CUE_FREE_FORMS = [
+  "free-floating",
+  "free floating",
+  "free-lay",
+  "free-standing",
+  "free of",
+  "free from",
+] as const;
+
+const CUE_CLAUSE_NEGATIONS: Array<{
+  id: string;
+  apply: (cue: string) => string;
+}> = [
+  { id: "not", apply: (cue) => `not ${cue}` },
+  { id: "no", apply: (cue) => `no ${cue}` },
+  { id: "non", apply: (cue) => `non-${cue}` },
+  { id: "without", apply: (cue) => `without ${cue}` },
+];
+
+/** Trailing hedges, with and without a comma, and later in the same clause. */
+const CUE_TRAILING_HEDGES = [
+  "I think",
+  "I reckon",
+  "I don't think",
+  "I'm not sure",
+] as const;
+
+const CUE_HEDGE_PLACEMENTS: Array<{
+  id: string;
+  apply: (negated: string, hedge: string) => string;
+}> = [
+  { id: "adjacent", apply: (negated, hedge) => `${negated} ${hedge}` },
+  { id: "comma", apply: (negated, hedge) => `${negated}, ${hedge}` },
+  {
+    id: "later",
+    apply: (negated, hedge) => `${negated} in the laundry, ${hedge}`,
+  },
+];
+
+describe("RA-7638 — free and a trailing hedge do not cancel a cue", () => {
+  const freeDimension = ACM_CUE_WORDS.flatMap((cue) =>
+    CUE_FREE_FORMS.map((form) => ({
+      phrase: `tiles ${cue} ${form}`,
+      cue,
+      form,
+    })),
+  );
+
+  it.each(freeDimension)(
+    "$phrase keeps '$cue' ($form does not cancel)",
+    ({ phrase, cue }) => {
+      const result = mapVoiceTranscriptToFields(phrase);
+      expect(honoursSurvivingCue(result, cue)).toBe(true);
+    },
+  );
+
+  const hedgedNegation = ACM_CUE_WORDS.flatMap((cue) =>
+    CUE_CLAUSE_NEGATIONS.flatMap((negation) =>
+      CUE_TRAILING_HEDGES.flatMap((hedge) =>
+        CUE_HEDGE_PLACEMENTS.map((placement) => ({
+          phrase: `tiles ${placement.apply(negation.apply(cue), hedge)}`,
+          cue,
+          negation: negation.id,
+          hedge,
+          placement: placement.id,
+        })),
+      ),
+    ),
+  );
+
+  it.each(hedgedNegation)(
+    "$phrase asks ($negation + $hedge, $placement)",
+    ({ phrase, cue }) => {
+      const result = mapVoiceTranscriptToFields(phrase);
+      const named = result.needsConfirmation.some(
+        (item) =>
+          item.kind === "material" && confirmationNames(item.term, cue),
+      );
+      expect(named).toBe(true);
+      expect(result.material?.isPotentialAcm === false).toBe(false);
     },
   );
 });
