@@ -5,7 +5,11 @@
 
 import { formatDate } from "@/lib/locale/format";
 import type { OnboardingApiStep } from "@/lib/onboarding/steps";
-import { PAID_AI_KEY_REQUIRED_BODY } from "@/lib/signup-pricing-honesty";
+import {
+  PAID_AI_KEY_REQUIRED_BODY,
+  PLATFORM_KEY_MISSING_BODY,
+  PLATFORM_KEY_MISSING_TITLE,
+} from "@/lib/signup-pricing-honesty";
 
 export const AI_PROVIDER_ROUTE = "/dashboard/settings/ai-providers";
 export const AI_PROVIDER_QUERY_PARAM = "provider";
@@ -47,9 +51,11 @@ export function parseAiProviderQueryParam(
 export function buildAiProviderOnboardingStep(input: {
   hasByokKey: boolean;
   canUsePlatformTrial: boolean;
+  /** In-date TRIAL with credits — platform should supply even if env key is missing. */
+  fundedTrial?: boolean;
   rejectedKey?: { provider: string; rejectedAt: Date } | null;
 }): OnboardingApiStep {
-  const { hasByokKey, canUsePlatformTrial, rejectedKey } = input;
+  const { hasByokKey, canUsePlatformTrial, fundedTrial, rejectedKey } = input;
 
   if (hasByokKey) {
     return {
@@ -70,6 +76,18 @@ export function buildAiProviderOnboardingStep(input: {
       title: "Trial credits ready — add your own key anytime",
       description:
         "Platform trial credits power report generation. Add your own Anthropic or OpenAI key anytime as an optional upgrade — you pay the provider directly.",
+      route: AI_PROVIDER_ROUTE,
+    };
+  }
+
+  // RA-7569: the owner is on a funded trial, so the platform should supply
+  // the key. A missing env key is a platform fail — never "add your key".
+  if (fundedTrial) {
+    return {
+      completed: false,
+      required: false,
+      title: PLATFORM_KEY_MISSING_TITLE,
+      description: PLATFORM_KEY_MISSING_BODY,
       route: AI_PROVIDER_ROUTE,
     };
   }

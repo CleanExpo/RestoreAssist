@@ -15,7 +15,9 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
 
 import {
   canUsePlatformTrialCredential,
+  describePlatformTrialCoverage,
   hasReportGenerationCredential,
+  isFundedTrialAccount,
   isPlatformTrialEligible,
   tryPlatformTrialApiKey,
 } from "../platform-trial-credential";
@@ -23,6 +25,46 @@ import {
 const future = new Date("2026-12-01T00:00:00.000Z");
 const past = new Date("2026-01-01T00:00:00.000Z");
 const now = new Date("2026-09-13T00:00:00.000Z");
+
+describe("isFundedTrialAccount (RA-7569)", () => {
+  it("passes for an in-date TRIAL with remaining credits, even with no platform key", () => {
+    expect(
+      isFundedTrialAccount({
+        subscriptionStatus: "TRIAL",
+        creditsRemaining: 50,
+        trialEndsAt: future,
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it("fails for ACTIVE / expired / zero-credit the same way eligibility does", () => {
+    expect(
+      isFundedTrialAccount({
+        subscriptionStatus: "ACTIVE",
+        creditsRemaining: 50,
+        trialEndsAt: future,
+        now,
+      }),
+    ).toBe(false);
+    expect(
+      isFundedTrialAccount({
+        subscriptionStatus: "TRIAL",
+        creditsRemaining: 0,
+        trialEndsAt: future,
+        now,
+      }),
+    ).toBe(false);
+    expect(
+      isFundedTrialAccount({
+        subscriptionStatus: "TRIAL",
+        creditsRemaining: 50,
+        trialEndsAt: past,
+        now,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("isPlatformTrialEligible (RA-6801)", () => {
   it("passes for an in-date TRIAL with remaining credits and a platform key", () => {
@@ -173,6 +215,21 @@ describe("canUsePlatformTrialCredential / hasReportGenerationCredential", () => 
     hasActiveOperatingProviderConnection.mockResolvedValue(true);
 
     expect(await hasReportGenerationCredential("paid-byok")).toBe(true);
+  });
+
+  it("RA-7569: describePlatformTrialCoverage splits funded trial from a missing platform key", async () => {
+    getEffectiveSubscription.mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      creditsRemaining: 50,
+      trialEndsAt: future,
+    });
+    delete process.env.ANTHROPIC_API_KEY;
+
+    const coverage = await describePlatformTrialCoverage("trial-user");
+    expect(coverage.fundedTrial).toBe(true);
+    expect(coverage.platformKeyPresent).toBe(false);
+    expect(coverage.canUsePlatformTrial).toBe(false);
+    expect(await canUsePlatformTrialCredential("trial-user")).toBe(false);
   });
 
   it("fail-closed: missing or blank ANTHROPIC_API_KEY is not a credential", async () => {

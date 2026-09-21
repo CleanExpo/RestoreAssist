@@ -37,6 +37,11 @@ vi.mock("@/lib/ai/model-router", () => ({
 
 vi.mock("@/lib/ai/platform-trial-credential", () => ({
   canUsePlatformTrialCredential: vi.fn().mockResolvedValue(false),
+  describePlatformTrialCoverage: vi.fn().mockResolvedValue({
+    fundedTrial: false,
+    platformKeyPresent: false,
+    canUsePlatformTrial: false,
+  }),
 }));
 
 vi.mock("@/lib/credential-vault", () => ({

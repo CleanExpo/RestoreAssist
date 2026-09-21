@@ -23,7 +23,7 @@ export interface WizardStepDef {
  */
 export const WIZARD_STEPS: WizardStepDef[] = [
   { key: "welcome", title: "Welcome", required: false },
-  { key: "ai_key", title: "Add your AI key (optional)", required: false },
+  { key: "ai_key", title: "Your own AI key (optional)", required: false },
   { key: "business", title: "Business details", required: true },
   { key: "branding", title: "Branding", required: false },
   { key: "pricing", title: "Pricing", required: false },

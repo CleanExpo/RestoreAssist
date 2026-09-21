@@ -37,6 +37,18 @@ describe('AiKeyCard', () => {
     expect(screen.queryByText(/required to operate/i)).not.toBeInTheDocument();
   });
 
+  it('RA-7569: shows the platform-key fail hint instead of asking to add a key', () => {
+    render(
+      <AiKeyCard hint="The platform AI key that should power them is not configured. You can continue setup." />,
+    );
+    expect(screen.getByText(/platform AI key/i)).toBeInTheDocument();
+    expect(screen.getByText(/continue setup/i)).toBeInTheDocument();
+    expect(screen.getByText(/your own AI key \(optional\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Add your AI key/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Need a key/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/optional upgrade/i)).not.toBeInTheDocument();
+  });
+
   it('renders a masked key input', () => {
     render(<AiKeyCard />);
     // Use selector to target only the <input> matched by its label
@@ -144,8 +156,8 @@ describe('AiKeyCard', () => {
     });
   });
 
-  it('renders a link to the ai-providers settings page', () => {
-    render(<AiKeyCard />);
+  it('renders a link to the ai-providers settings page when BYOK is required', () => {
+    render(<AiKeyCard showKeyHelp />);
     const link = screen.getByRole('link', { name: /here'?s how/i });
     expect(link).toHaveAttribute('href', '/dashboard/settings/ai-providers');
   });

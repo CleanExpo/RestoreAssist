@@ -65,18 +65,76 @@ describe("SetupShell — one-step wizard wiring", () => {
   });
 
   it("advances from the optional Welcome step to the AI-key step", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          steps: { ai_provider: { completed: false, required: true } },
+        }),
+      }),
+    );
     render(<SetupShell initial={initial} />);
     await screen.findByText(/Step 1 of 7: Welcome/);
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     expect(screen.getByText(/Step 2 of 7: Add your AI key/)).toBeInTheDocument();
     expect(screen.getByText("AIKEY_BODY")).toBeInTheDocument();
-    // Status stub omits required:false → paid/expired re-lock after fetch.
+    // Paid / expired: server says required:true → Next locks. title stays required.
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /next/i })).toBeDisabled();
     });
     expect(
       screen.getByText(/complete this step to continue/i),
     ).toBeInTheDocument();
+  });
+
+  it("RA-7569: does not lock Next when status omits required (do not re-lock a trial)", async () => {
+    render(<SetupShell initial={initial} />);
+    await screen.findByText(/Step 1 of 7: Welcome/);
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    expect(
+      screen.getByText(/Step 2 of 7: Your own AI key \(optional\)/),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
+    });
+    expect(
+      screen.queryByText(/complete this step to continue/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("RA-7569: funded trial with no platform key proceeds and names the platform fail", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          steps: {
+            ai_provider: {
+              completed: false,
+              required: false,
+              title: "Trial report generation is not ready",
+              description:
+                "Basic reports on the trial should work without your own key. The platform AI key that should power them is not configured.",
+            },
+          },
+        }),
+      }),
+    );
+    render(<SetupShell initial={initial} />);
+    await screen.findByText(/Step 1 of 7: Welcome/);
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Step 2 of 7: Trial report generation is not ready/),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
+    expect(
+      screen.getByText(/platform AI key that should power them is not configured/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/complete this step to continue/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Add your AI key$/)).not.toBeInTheDocument();
   });
 
   it("RA-6801: does not lock the AI-key step when onboarding marks it optional (trial)", async () => {
@@ -94,7 +152,7 @@ describe("SetupShell — one-step wizard wiring", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     await waitFor(() => {
       expect(
-        screen.getByText(/Step 2 of 7: Add your AI key \(optional\)/),
+        screen.getByText(/Step 2 of 7: Your own AI key \(optional\)/),
       ).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();

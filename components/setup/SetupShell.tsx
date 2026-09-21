@@ -13,6 +13,11 @@ import { VideoExplainer } from './VideoExplainer';
 import { WelcomeOverview } from './WelcomeOverview';
 import { AiKeyCard } from './AiKeyCard';
 import { SetupStepper, type SetupStepperItem } from './SetupStepper';
+import {
+  SETUP_AI_KEY_OPTIONAL_HINT,
+  SETUP_AI_KEY_OPTIONAL_TITLE,
+  SETUP_AI_KEY_REQUIRED_TITLE,
+} from '@/lib/signup-pricing-honesty';
 
 type SectionKey = 'businessDetails' | 'branding' | 'pricing' | 'storage' | 'integrations';
 
@@ -42,21 +47,34 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
   // it from the canonical onboarding status (same signal the setup gate uses).
   const [hasApiKey, setHasApiKey] = useState(false);
   // Default optional so a funded trial is not locked before status returns.
-  // Paid / expired workspaces re-lock from the API (`required !== false`).
+  // Paid / expired workspaces re-lock only when the API says required: true.
   const [aiKeyRequired, setAiKeyRequired] = useState(false);
+  const [aiKeyTitleFromApi, setAiKeyTitleFromApi] = useState<string | null>(null);
+  const [aiKeyDescription, setAiKeyDescription] = useState(SETUP_AI_KEY_OPTIONAL_HINT);
+  const aiKeyTitle =
+    aiKeyTitleFromApi ??
+    (aiKeyRequired ? SETUP_AI_KEY_REQUIRED_TITLE : SETUP_AI_KEY_OPTIONAL_TITLE);
   useEffect(() => {
     let active = true;
     fetch('/api/onboarding/status')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (active && d?.steps?.ai_provider) {
-          setHasApiKey(!!d.steps.ai_provider.completed);
-          // RA-6801: funded trials mark the AI-key step optional.
-          setAiKeyRequired(d.steps.ai_provider.required !== false);
+          const step = d.steps.ai_provider;
+          setHasApiKey(!!step.completed);
+          // RA-6801 / RA-7569: lock only when BYOK is actually required.
+          // A missing `required` field must not re-lock a funded trial.
+          setAiKeyRequired(step.required === true);
+          if (typeof step.title === 'string' && step.title.trim()) {
+            setAiKeyTitleFromApi(step.title);
+          }
+          if (typeof step.description === 'string' && step.description.trim()) {
+            setAiKeyDescription(step.description);
+          }
         }
       })
       .catch(() => {
-        /* offline / not ready — leave the AI-key step locked */
+        /* offline / not ready — stay optional so Skip is not the only way through */
       });
     return () => {
       active = false;
@@ -148,13 +166,22 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     },
     {
       key: 'ai_key',
-      title: aiKeyRequired ? 'Add your AI key' : 'Add your AI key (optional)',
+      title: aiKeyTitle,
       required: aiKeyRequired,
       complete: hasApiKey || !aiKeyRequired,
-      description: aiKeyRequired
-        ? 'Connect your own AI provider key — it powers report drafting and stays in your workspace.'
-        : 'Trial credits power report generation. Add your own Anthropic or OpenAI key anytime as an optional upgrade.',
-      content: <AiKeyCard onSaved={() => setHasApiKey(true)} />,
+      description: aiKeyDescription,
+      content: (
+        <AiKeyCard
+          onSaved={() => setHasApiKey(true)}
+          hint={aiKeyDescription}
+          title={
+            aiKeyRequired
+              ? SETUP_AI_KEY_REQUIRED_TITLE
+              : SETUP_AI_KEY_OPTIONAL_TITLE
+          }
+          showKeyHelp={aiKeyRequired}
+        />
+      ),
     },
     {
       key: 'business',
@@ -212,7 +239,13 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
           </div>
           <ul className="divide-y divide-brand-navy/5 px-6 py-2 sm:px-10">
             {[
-              { label: aiKeyRequired ? 'AI key connected' : 'Report generation ready', done: hasApiKey || !aiKeyRequired },
+              {
+                label:
+                  hasApiKey && aiKeyRequired
+                    ? 'AI key connected'
+                    : 'Report generation ready',
+                done: hasApiKey,
+              },
               { label: 'Business details saved', done: businessComplete },
               { label: 'Branding applied', done: brandingComplete },
               { label: 'Pricing configured', done: pricingComplete },

@@ -39,6 +39,21 @@ describe("buildAiProviderOnboardingStep (RA-6801)", () => {
     expect(step.description).not.toMatch(/required to operate/i);
   });
 
+  it("RA-7569: funded trial without a platform key is optional and names the platform fail", () => {
+    const step = buildAiProviderOnboardingStep({
+      hasByokKey: false,
+      canUsePlatformTrial: false,
+      fundedTrial: true,
+    });
+    expect(step.required).toBe(false);
+    expect(step.completed).toBe(false);
+    expect(step.title).toMatch(/not ready/i);
+    expect(step.title).not.toMatch(/add your/i);
+    expect(step.description).toMatch(/platform AI key/i);
+    expect(step.description).toMatch(/continue setup/i);
+    expect(step.description).not.toMatch(/add your/i);
+  });
+
   it("marks a personal key as complete and not required", () => {
     const step = buildAiProviderOnboardingStep({
       hasByokKey: true,
@@ -87,6 +102,22 @@ describe("buildAiProviderOnboardingStep (RA-6801)", () => {
     expect(step.completed).toBe(true);
     expect(step.rejectedKey).toBeUndefined();
     expect(step.title).toMatch(/configured/i);
+  });
+
+  it("RA-7569: funded trial without a platform key is not a rejected-key hard gate", () => {
+    const step = buildAiProviderOnboardingStep({
+      hasByokKey: false,
+      canUsePlatformTrial: false,
+      fundedTrial: true,
+      rejectedKey: {
+        provider: "ANTHROPIC",
+        rejectedAt: new Date("2026-08-25T00:00:00Z"),
+      },
+    });
+    expect(step.required).toBe(false);
+    expect(step.title).toMatch(/not ready/i);
+    expect(step.title).not.toMatch(/add your/i);
+    expect(step.rejectedKey).toBeUndefined();
   });
 
   it("keeps trial-credits copy when platform credits cover generation", () => {
