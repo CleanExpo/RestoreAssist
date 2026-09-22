@@ -66,6 +66,32 @@ function requiresLogin(pathname: string): boolean {
   );
 }
 
+// `/reports/<id>/view?token=<t>` — the homeowner's share link (RA-7635).
+//
+// `/reports` stays gated as a whole; this is the single exempt URL shape. The
+// owner mints the link from POST /api/reports/[id]/share-link, which signs an
+// HMAC insurer token scoped to one report. A homeowner has no RestoreAssist
+// account, so the login gate turned their link into a /login redirect.
+//
+// The token in the query is the credential, exactly as the path token is for
+// /sign and /invite. Middleware deliberately does NOT verify it — authority
+// for that lives in app/reports/[id]/view/page.tsx, which checks the HMAC
+// resolves to THIS report id and renders a generic notFound() otherwise, so a
+// token for one report cannot open another. That page also sends robots
+// noindex, and public/robots.txt does not Disallow /reports, so the crawler
+// can still read the directive.
+//
+// Anchored to exactly three segments: no token means still gated, and no other
+// path under /reports is matched.
+const PUBLIC_TOKENED_REPORT_VIEW = /^\/reports\/[^/]+\/view\/?$/;
+
+function isPublicTokenedReportView(req: NextRequest): boolean {
+  return (
+    PUBLIC_TOKENED_REPORT_VIEW.test(req.nextUrl.pathname) &&
+    (req.nextUrl.searchParams.get("token") ?? "") !== ""
+  );
+}
+
 // Paths that bypass the setup gate even when the flag is on.
 const SETUP_GATE_BYPASS = [
   "/setup",
@@ -283,7 +309,12 @@ export async function proxy(req: NextRequest) {
   // Preserves the originally-requested path via `?callbackUrl=`. The login
   // page validates the value against a same-origin allowlist before honouring
   // it post-sign-in (see lib/auth/safe-callback-url.ts).
-  if (requiresLogin(pathname)) {
+  // The tokened report view is checked at each gate rather than inside
+  // requiresLogin() on purpose: a future caller that forgets the exemption
+  // over-gates the homeowner, which breaks a feature. Folding it into
+  // requiresLogin() would instead hand the exemption to whatever that new
+  // caller guards. Fail closed.
+  if (requiresLogin(pathname) && !isPublicTokenedReportView(req)) {
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
@@ -317,7 +348,11 @@ export async function proxy(req: NextRequest) {
   // API-route subscription gate (CLAUDE.md rule #5). Edge-runtime safe:
   // reads subscriptionStatus / trialEndsAt / lifetimeAccess directly
   // from the JWT stamped in lib/auth.ts jwt(); no Prisma call.
-  if (requiresLogin(pathname) && !isHardPaywallWhitelisted(pathname)) {
+  if (
+    requiresLogin(pathname) &&
+    !isPublicTokenedReportView(req) &&
+    !isHardPaywallWhitelisted(pathname)
+  ) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (token && shouldHardPaywall(token as any)) {
       const url = req.nextUrl.clone();
