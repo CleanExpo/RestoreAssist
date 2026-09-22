@@ -122,10 +122,12 @@ import {
   layoutCanvasPlanChrome,
   PLAN_CHROME_TYPE,
 } from "@/lib/sketch/canvas-plan-chrome";
+import { SHORT_DIM_CTA_TYPE } from "@/lib/sketch/short-dim-affordance";
 import {
-  SHORT_DIM_CTA_TYPE,
-  shortEdgeMeasureAffordances,
-} from "@/lib/sketch/short-dim-affordance";
+  placeRoomEdgeDimLabels,
+  rebuildRoomEdgeDimLabels,
+  type RoomEdgeLabelTextFactory,
+} from "@/lib/sketch/rebuild-room-edge-dim-labels";
 import { findNearestDimLabel, type DimLabelHitCandidate } from "@/lib/sketch/dim-label-hit";
 import type { SelectedObject } from "./SketchSelectionPanel";
 import {
@@ -651,6 +653,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         let refreshWallBands: () => void = () => {};
         let clearAdjacencyJoin: () => void = () => {};
         let showAdjacencyJoin: (join: { a: Point; b: Point }) => void = () => {};
+        let refreshRoomEdgeDimLabels: (room: unknown) => void = () => {};
 
         canvas.on("object:modified", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
@@ -669,10 +672,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // Dimension lock: prevent scale/stretch from changing locked geometry.
           enforceDimLock(target);
           // Keep damage fills clipped to room walls after geometry edits.
+          // Edge dimension labels follow the same geometry: typed size, voice
+          // Accept, move and scale. Footprint labels have no dimFor.
           if (
             (target as { data?: { type?: string } } | undefined)?.data?.type ===
             "room"
           ) {
+            refreshRoomEdgeDimLabels(target);
             refreshDamageRoomClips();
           }
           if (!isLoadingRef.current && !isDecoration(target)) {
@@ -2011,57 +2017,39 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           return t;
         };
 
-        /**
-         * Add per-edge dimension strings for a completed room polygon.
-         * Each edge gets one Text label placed perpendicular to the midpoint,
-         * outside the room. Labels are non-selectable/non-measured decoration.
-         * Short edges (&lt; 0.45 m) get a Measure CTA instead.
-         */
+        const makeRoomEdgeText: RoomEdgeLabelTextFactory = (
+          text,
+          x,
+          y,
+          role,
+        ) => {
+          if (role === SHORT_DIM_CTA_TYPE) {
+            return makeShortDimCta(text, x, y, {});
+          }
+          return makeDimText(text, x, y);
+        };
+
+        /** Per-edge dimension strings for a completed room. Short edges get a Measure CTA. */
         const addRoomEdgeDimLabels = (
           points: Point[],
           roomId: string,
         ) => {
-          const c = canvas as unknown as {
-            add: (...o: unknown[]) => void;
-            bringObjectToFront?: (o: unknown) => void;
-          };
-          const scale = pxPerMetreRef.current;
-          for (let i = 0; i < points.length; i++) {
-            const a = points[i];
-            const b = points[(i + 1) % points.length];
-            const px = Math.hypot(b.x - a.x, b.y - a.y);
-            if (shouldShowEdgeDimension(px, scale)) {
-              const text = formatDimension(px, scale);
-              const { labelPos } = segmentLabelPosition(a, b, 18);
-              const lbl = makeDimText(text, labelPos.x, labelPos.y);
-              (lbl as { data?: unknown }).data = {
-                type: "dim-label",
-                dimFor: roomId,
-                edgeIndex: i,
-                metres: px / scale,
-              };
-              c.add(lbl);
-              c.bringObjectToFront?.(lbl);
-            }
-          }
-          for (const cta of shortEdgeMeasureAffordances(points, scale)) {
-            const lbl = makeShortDimCta(
-              cta.label,
-              cta.labelPos.x,
-              cta.labelPos.y,
-              {
-                roomId,
-                edgeIndex: cta.edgeIndex,
-                ax: cta.a.x,
-                ay: cta.a.y,
-                bx: cta.b.x,
-                by: cta.b.y,
-                metres: cta.metres,
-              },
-            );
-            c.add(lbl);
-            c.bringObjectToFront?.(lbl);
-          }
+          placeRoomEdgeDimLabels(
+            canvas,
+            points,
+            roomId,
+            pxPerMetreRef.current,
+            makeRoomEdgeText,
+          );
+        };
+
+        refreshRoomEdgeDimLabels = (room: unknown) => {
+          rebuildRoomEdgeDimLabels(
+            canvas,
+            room,
+            pxPerMetreRef.current,
+            makeRoomEdgeText,
+          );
         };
 
         /**
@@ -2522,20 +2510,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
                       lengthM: horizontal ? metres : dims.lengthM,
                       widthM: horizontal ? dims.widthM : metres,
                     };
-                    // Refresh room edge dims
-                    const stale = c
-                      .getObjects()
-                      .filter((o) => {
-                        const d = (o as { data?: { type?: string; dimFor?: string; roomId?: string } })
-                          .data;
-                        if (!d) return false;
-                        if (d.type === "dim-label" && d.dimFor === dimFor) return true;
-                        if (d.type === SHORT_DIM_CTA_TYPE && d.roomId === dimFor)
-                          return true;
-                        return false;
-                      });
-                    if (stale.length) c.remove(...stale);
-                    addRoomEdgeDimLabels(next, dimFor);
+                    refreshRoomEdgeDimLabels(room);
                     syncRoomLabel(room);
                     reanchorOpeningsForRoom(room);
                     refreshWallBands();
