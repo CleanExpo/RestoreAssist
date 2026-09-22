@@ -185,7 +185,7 @@ const GROUPS: readonly FeatureGroup[] = [
       {
         label: "GST at 10 percent in Australia, 15 percent in New Zealand",
         detail:
-          "The correct Xero, MYOB and QuickBooks tax code is resolved per jurisdiction rather than left to the operator.",
+          "The correct accounting tax code is resolved per jurisdiction rather than left to the operator.",
       },
       {
         label: "ABNs checked on the 11-digit modulus-89 checksum",
@@ -354,7 +354,7 @@ const PAID_ADDS: readonly string[] = [
   `${monthlyCfg.reportLimit} inspection reports a month, plus ${monthlyCfg.signupBonus} in your first`,
   "A monthly allowance that resets, in place of a one-off trial credit grant",
   "Your own labour, equipment and chemical rates, in place of the state defaults",
-  "Xero and Ascora connections (MYOB, QuickBooks and ServiceM8 are in beta)",
+  "Xero and Ascora connections",
   "Report packs when a month runs long, from $20 for 8",
 ];
 
@@ -439,8 +439,8 @@ export default function FeaturesPage() {
             </motion.div>
 
           <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-[1.7] text-slate-500">
-            {monthlyCfg.currency}, incl. GST. Bookkeeping connections to Xero,
-            MYOB and QuickBooks also require the Bookkeeping add-on. Report
+            {monthlyCfg.currency}, incl. GST. Bookkeeping connections to Xero
+            also require the Bookkeeping add-on. Report
             generation on both plans runs on your own AI provider key, billed to
             you by that provider.
           </p>

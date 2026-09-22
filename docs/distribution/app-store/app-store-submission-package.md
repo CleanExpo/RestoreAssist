@@ -98,7 +98,7 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "App Store Connect — Privacy 
 | Version                              | `1.0`                                                                                                                                                                        | matches Xcode `MARKETING_VERSION` |
 | Build                                | `1`                                                                                                                                                                          | from `ios-release.yml` autobump   |
 | What's New in This Version           | (paste from `distribution/whatsnew/whatsnew-en-AU`, see §G below)                                                                                                            | first release                     |
-| Promotional Text (170 chars)         | "Now available for Australian restoration professionals. Inspection workflows built to AS-IICRC S500:2025, AI photo analysis, and Xero/MYOB/Ascora integration." | `store-listings.md`               |
+| Promotional Text (170 chars)         | "Now available for Australian restoration professionals. Inspection workflows built to AS-IICRC S500:2025, AI photo analysis, and Xero and Ascora integration." | `store-listings.md`               |
 | Description (4000 chars)             | (paste full description below)                                                                                                                                               | `store-listings.md`               |
 | Keywords (100 chars)                 | `water damage,restoration,IICRC,moisture,mould,flood,insurance,scope,report,compliance,contractor`                                                                           | `store-listings.md`               |
 | Screenshot — 6.7" iPhone (1290×2796) | `distribution/screenshots/app-store/6.7-iphone/*.png` (run capture script first)                                                                                             | `capture-screenshots.mjs`         |
@@ -127,7 +127,7 @@ PROFESSIONAL REPORTING
 Generate PDF inspection reports, scope of works, and visual cost estimates in seconds. Reports are formatted to meet insurer and building authority requirements across all Australian states and territories.
 
 SEAMLESS INTEGRATIONS
-Push jobs and invoices directly to Xero, MYOB, QuickBooks, Ascora, and ServiceM8. Eliminate double entry and keep your back-office in sync with every site visit.
+Push jobs and invoices directly to Xero and Ascora. Eliminate double entry and keep your back-office in sync with every site visit.
 
 BUILT FOR AUSTRALIAN COMPLIANCE
 • AS-IICRC S500:2025 water damage inspection workflows (Australia's adoption of ANSI/IICRC S500:2021, 5th edition)
@@ -164,7 +164,7 @@ First release of RestoreAssist — the property restoration reporting platform f
 • Room-by-room moisture readings, photos, and scope of works
 • AI-powered photo analysis for meter readings
 • Offline-first — field data syncs when connection is restored
-• Direct invoicing to Xero, MYOB, QuickBooks, Ascora, and ServiceM8
+• Direct invoicing to Xero and Ascora
 ```
 
 ---

@@ -27,7 +27,7 @@ Work in basements, rural properties, and areas without mobile signal. All data i
 Generate PDF inspection reports, scope of works, and visual cost estimates in seconds. Reports are formatted to meet insurer and building authority requirements across all Australian states and territories.
 
 **Seamless Integrations**
-Push jobs and invoices directly to Xero, MYOB, QuickBooks, Ascora, and ServiceM8. Eliminate double entry and keep your back-office in sync with every site visit.
+Push jobs and invoices directly to Xero and Ascora. Eliminate double entry and keep your back-office in sync with every site visit.
 
 **Built for Australian Compliance**
 • AS-IICRC S500:2025 water damage inspection workflows (Australia's adoption of ANSI/IICRC S500:2021, 5th edition)
@@ -86,7 +86,7 @@ PROFESSIONAL REPORTING
 Generate PDF inspection reports, scope of works, and visual cost estimates in seconds. Reports are formatted to meet insurer and building authority requirements across all Australian states and territories.
 
 SEAMLESS INTEGRATIONS
-Push jobs and invoices directly to Xero, MYOB, QuickBooks, Ascora, and ServiceM8. Eliminate double entry and keep your back-office in sync with every site visit.
+Push jobs and invoices directly to Xero and Ascora. Eliminate double entry and keep your back-office in sync with every site visit.
 
 BUILT FOR AUSTRALIAN COMPLIANCE
 • AS-IICRC S500:2025 water damage inspection workflows (Australia's adoption of ANSI/IICRC S500:2021, 5th edition)
@@ -119,7 +119,7 @@ water damage,restoration,IICRC,moisture,mould,flood,insurance,scope,report,compl
 
 ### Promotional Text (170 chars max)
 
-Now available for Australian restoration professionals. Inspection workflows built to AS-IICRC S500:2025, AI photo analysis, and Xero/MYOB/Ascora integration.
+Now available for Australian restoration professionals. Inspection workflows built to AS-IICRC S500:2025, AI photo analysis, and Xero and Ascora integration.
 
 ### Support URL
 

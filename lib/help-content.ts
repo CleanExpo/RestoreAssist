@@ -77,7 +77,7 @@ export const helpContent: Record<string, HelpContent> = {
       "Connect RestoreAssist to your accounting software and job management systems for seamless data synchronization.",
     steps: [
       "Navigate to Integrations in the sidebar",
-      "Click Connect on your preferred provider (Xero, QuickBooks, MYOB, ServiceM8, Ascora)",
+      "Click Connect on your preferred provider (Xero or Ascora)",
       "Authorize the connection through the provider's login",
       "Configure sync settings (clients, invoices, jobs)",
       "Use the Sync button to manually sync or enable auto-sync",
