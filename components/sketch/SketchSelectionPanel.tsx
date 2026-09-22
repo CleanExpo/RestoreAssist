@@ -22,11 +22,38 @@ import {
   rejectVoiceSuggestion,
   suggestionsFromMapping,
 } from "@/lib/services/ai/voice-field-suggestions";
-import type { VoiceFieldMapping } from "@/lib/services/ai/voice-to-fields";
+import {
+  mapVoiceTranscriptToFields,
+  type VoiceFieldMapping,
+} from "@/lib/services/ai/voice-to-fields";
 import toast from "react-hot-toast";
 
 /** Queue tag for voice notes recorded against the selected room. */
 export const SKETCH_ROOM_VOICE_FIELD = "sketch-room";
+
+/** Browser Web Speech handle. Present on Chrome, Edge and Safari. */
+interface RoomSpeechRecognition {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult:
+    | ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void)
+    | null;
+  onend: (() => void) | null;
+  onerror: ((event?: { error?: string }) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+}
+
+function getRecognitionCtor(): (new () => RoomSpeechRecognition) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: new () => RoomSpeechRecognition;
+    webkitSpeechRecognition?: new () => RoomSpeechRecognition;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
 
 type RoomVoiceSuggestion = ListedVoiceSuggestion & { roomId: string };
 
@@ -205,6 +232,14 @@ export function SketchSelectionPanel({
   const [voiceLatch, setVoiceLatch] = useState(false);
   const suggestionSeq = useRef(0);
   const selectedId = selected?.id;
+  // All of these stay above the early return so the rules of hooks hold when
+  // nothing is selected.
+  const [whisperUnavailable, setWhisperUnavailable] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [micSupported, setMicSupported] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recognitionRef = useRef<RoomSpeechRecognition | null>(null);
+  const roomAtStartRef = useRef<string | null>(null);
 
   useEffect(() => {
     // The persisted latch lives on the room. Drop only the local raise so a
@@ -212,6 +247,23 @@ export function SketchSelectionPanel({
     // the room it was recorded in and is shown only while that room is open.
     setVoiceLatch(false);
   }, [selectedId]);
+
+  useEffect(() => {
+    setMicSupported(getRecognitionCtor() !== null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const rec = recognitionRef.current;
+      recognitionRef.current = null;
+      if (!rec) return;
+      rec.onresult = null;
+      rec.onend = null;
+      rec.onerror = null;
+      if (typeof rec.abort === "function") rec.abort();
+      else rec.stop();
+    };
+  }, []);
 
   if (!selected) return null;
 
@@ -314,6 +366,39 @@ export function SketchSelectionPanel({
       whsPathwayNote: selected?.whsPathwayNote,
     });
     setSuggestions((prev) => prev.filter((item) => item.key !== suggestion.key));
+  }
+
+  function toggleRoomSpeech() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const Ctor = getRecognitionCtor();
+    if (!Ctor || !selected) return;
+    const roomAtStart = selected.id;
+    roomAtStartRef.current = roomAtStart;
+    const rec = new Ctor();
+    rec.lang = "en-AU";
+    rec.interimResults = false;
+    rec.continuous = false;
+    rec.onresult = (e) => {
+      const transcript = e.results[0]?.[0]?.transcript ?? "";
+      const roomId = roomAtStartRef.current ?? roomAtStart;
+      if (!transcript.trim() || !roomId) return;
+      handleMappedFields(mapVoiceTranscriptToFields(transcript), { roomId });
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = (event) => {
+      setListening(false);
+      // stop() ends cleanly. abort() reports "aborted" and is not a failure
+      // the technician needs to read.
+      if (event?.error === "aborted") return;
+      setSpeechError("Microphone blocked or no speech heard.");
+    };
+    recognitionRef.current = rec;
+    setSpeechError(null);
+    setListening(true);
+    rec.start();
   }
   const whs = suspectedAcm
     ? evaluateWhsGate({
@@ -738,16 +823,50 @@ export function SketchSelectionPanel({
       {/* Voice note — suggestions for this room. Nothing is written until Accept. */}
       {!guided && isRoom && (
         <div className="space-y-1.5">
-          <VoiceNoteButton
-            onTranscript={() => {
-              /* The transcript is not a job field. Suggestions arrive via onMappedFields. */
-            }}
-            onMappedFields={handleMappedFields}
-            compact
-            inspectionId={inspectionId}
-            fieldLabel={SKETCH_ROOM_VOICE_FIELD}
-            roomId={selected.id}
-          />
+          {!whisperUnavailable ? (
+            <VoiceNoteButton
+              onTranscript={() => {
+                /* The transcript is not a job field. Suggestions arrive via onMappedFields. */
+              }}
+              onMappedFields={handleMappedFields}
+              onUnavailable={() => setWhisperUnavailable(true)}
+              compact
+              inspectionId={inspectionId}
+              fieldLabel={SKETCH_ROOM_VOICE_FIELD}
+              roomId={selected.id}
+            />
+          ) : micSupported ? (
+            <div className="space-y-1">
+              <button
+                type="button"
+                aria-pressed={listening}
+                onClick={toggleRoomSpeech}
+                className={cn(
+                  "w-full min-h-11 rounded-lg border px-2 text-xs font-medium transition-colors",
+                  listening
+                    ? "border-rose-500/40 bg-rose-500/20 text-rose-100"
+                    : "border-white/15 bg-white/10 text-white hover:bg-white/15",
+                )}
+              >
+                {listening ? "Stop" : "Speak"}
+              </button>
+              {speechError && (
+                <p role="alert" className="text-xs text-rose-200">
+                  {speechError}
+                </p>
+              )}
+              <p className="text-[11px] leading-snug text-white/60">
+                The browser&apos;s own speech service turns speech into text
+                (Chrome sends the audio to Google).
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs leading-snug text-amber-200">
+              Voice notes are not available in this browser. Add an OpenAI key
+              in Workspace Settings, AI Providers, or use Chrome, Edge or
+              Safari.
+            </p>
+          )}
           {skippedByRoom[selected.id] && (
             <p className="text-xs text-amber-200">{skippedByRoom[selected.id]}</p>
           )}

@@ -140,6 +140,9 @@ beforeEach(() => {
   (global as unknown as { MediaRecorder: unknown }).MediaRecorder =
     FakeMediaRecorder;
   vi.stubGlobal("fetch", vi.fn());
+  delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition;
+  delete (window as unknown as { webkitSpeechRecognition?: unknown })
+    .webkitSpeechRecognition;
 });
 
 describe("SketchSelectionPanel — voice note suggestions (RA-7623)", () => {
@@ -491,6 +494,271 @@ describe("SketchSelectionPanel — voice note stays on the room it was recorded 
     await waitFor(() => {
       expect(markTranscriptConsumed).toHaveBeenCalledWith("vn-a");
     });
+  });
+});
+
+const NO_KEY_MESSAGE =
+  "Voice transcription requires your own OpenAI API key — add one in Workspace Settings -> AI Providers.";
+
+interface FakeSpeechRecognition {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult:
+    | ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void)
+    | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+  abort: ReturnType<typeof vi.fn>;
+}
+
+/** Pattern from the Live Teacher Web Speech fake. Deleted after each test. */
+function installSpeechRecognition(): FakeSpeechRecognition[] {
+  const instances: FakeSpeechRecognition[] = [];
+  class FakeRecognition implements FakeSpeechRecognition {
+    lang = "";
+    interimResults = false;
+    continuous = false;
+    onresult: FakeSpeechRecognition["onresult"] = null;
+    onend: FakeSpeechRecognition["onend"] = null;
+    onerror: FakeSpeechRecognition["onerror"] = null;
+    start = vi.fn();
+    stop = vi.fn();
+    abort = vi.fn();
+    constructor() {
+      instances.push(this);
+    }
+  }
+  (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition =
+    FakeRecognition;
+  return instances;
+}
+
+function mockNoWorkspaceKey() {
+  (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    status: 402,
+    ok: false,
+    json: async () => ({
+      error: { code: "PAYMENT_REQUIRED", message: NO_KEY_MESSAGE },
+    }),
+  });
+}
+
+function fireSpeechResult(
+  rec: FakeSpeechRecognition,
+  transcript: string,
+) {
+  rec.onresult?.({ results: [[{ transcript }]] });
+}
+
+describe("SketchSelectionPanel — Web Speech fallback when the workspace has no OpenAI key", () => {
+  it("shows Speak and no key error when transcribe returns 402 PAYMENT_REQUIRED", async () => {
+    installSpeechRecognition();
+    mockNoWorkspaceKey();
+    render(<JobHarness />);
+
+    await recordTranscript();
+
+    expect(
+      await screen.findByRole("button", { name: "Speak" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(NO_KEY_MESSAGE)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Voice transcription requires your own OpenAI API key/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/browser's own speech service turns speech into text/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Chrome sends the audio to Google/i)).toBeInTheDocument();
+  });
+
+  it("maps a spoken note into the same suggestions and leaves the job unchanged until Accept", async () => {
+    const instances = installSpeechRecognition();
+    mockNoWorkspaceKey();
+    render(<JobHarness />);
+
+    await recordTranscript();
+    fireEvent.click(await screen.findByRole("button", { name: "Speak" }));
+
+    const rec = instances[0];
+    expect(rec.lang).toBe("en-AU");
+    expect(rec.interimResults).toBe(false);
+    expect(rec.continuous).toBe(false);
+    expect(rec.start).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      fireSpeechResult(rec, FIXTURE);
+    });
+
+    const roomSize = await screen.findByRole("article", {
+      name: "Suggested room size",
+    });
+    expect(roomSize).toHaveTextContent("4 × 3.2 m");
+    expect(
+      screen.getByRole("article", { name: "Suggested material" }),
+    ).toHaveTextContent("Vinyl / lino tiles");
+    expect(
+      screen.getByRole("article", { name: "Suggested water category" }),
+    ).toHaveTextContent("cat2");
+
+    const before = jobRecord();
+    expect(before.materialSlug).toBeUndefined();
+    expect(before.waterCategory).toBeUndefined();
+    expect(before.lengthM).toBeUndefined();
+    expect(before.widthM).toBeUndefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept material" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Accept water category" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Accept room size" }));
+
+    await waitFor(() => {
+      const after = jobRecord();
+      expect(after.materialSlug).toBe("vinyl-tiles");
+      expect(after.waterCategory).toBe("cat2");
+      expect(after.lengthM).toBe(4);
+      expect(after.widthM).toBe(3.2);
+    });
+  });
+
+  it("keeps the spoken suggestions on the room that was open when Speak started", async () => {
+    const instances = installSpeechRecognition();
+    mockNoWorkspaceKey();
+    render(<TwoRoomHarness />);
+
+    await recordTranscript();
+    fireEvent.click(await screen.findByRole("button", { name: "Speak" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select room B" }));
+
+    await act(async () => {
+      fireSpeechResult(instances[0], FIXTURE);
+    });
+
+    expect(
+      screen.queryByRole("article", { name: "Suggested material" }),
+    ).not.toBeInTheDocument();
+    expect(roomsRecord()["room-a"].materialSlug).toBeUndefined();
+    expect(roomsRecord()["room-b"].materialSlug).toBeUndefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Select room A" }));
+    expect(
+      await screen.findByRole("article", { name: "Suggested material" }),
+    ).toHaveTextContent("Vinyl / lino tiles");
+    expect(
+      screen.getByRole("article", { name: "Suggested room size" }),
+    ).toHaveTextContent("4 × 3.2 m");
+    expect(
+      screen.getByRole("article", { name: "Suggested water category" }),
+    ).toHaveTextContent("cat2");
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept material" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Accept water category" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Accept room size" }));
+
+    await waitFor(() => {
+      expect(roomsRecord()["room-a"].materialSlug).toBe("vinyl-tiles");
+      expect(roomsRecord()["room-a"].waterCategory).toBe("cat2");
+      expect(roomsRecord()["room-a"].lengthM).toBe(4);
+      expect(roomsRecord()["room-a"].widthM).toBe(3.2);
+    });
+    expect(roomsRecord()["room-b"].materialSlug).toBeUndefined();
+    expect(roomsRecord()["room-b"].waterCategory).toBeUndefined();
+    expect(roomsRecord()["room-b"].lengthM).toBeUndefined();
+    expect(roomsRecord()["room-b"].widthM).toBeUndefined();
+  });
+
+  it("says voice notes are unavailable in this browser when SpeechRecognition is missing", async () => {
+    mockNoWorkspaceKey();
+    render(<JobHarness />);
+
+    await recordTranscript();
+
+    expect(
+      await screen.findByText(/voice notes are not available in this browser/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Workspace Settings, AI Providers/i)).toBeInTheDocument();
+    expect(screen.getByText(/Chrome, Edge or Safari/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Speak" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(NO_KEY_MESSAGE)).not.toBeInTheDocument();
+  });
+
+  it("shows a microphone error and stops listening when recognition errors", async () => {
+    const instances = installSpeechRecognition();
+    mockNoWorkspaceKey();
+    render(<JobHarness />);
+
+    await recordTranscript();
+    fireEvent.click(await screen.findByRole("button", { name: "Speak" }));
+    expect(screen.getByRole("button", { name: "Stop" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await act(async () => {
+      instances[0].onerror?.();
+    });
+
+    expect(
+      screen.getByText(/microphone blocked or no speech heard/i),
+    ).toBeInTheDocument();
+    const speak = screen.getByRole("button", { name: "Speak" });
+    expect(speak).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.queryByRole("button", { name: "Stop" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses webkitSpeechRecognition when the unprefixed API is missing", async () => {
+    const instances: FakeSpeechRecognition[] = [];
+    class FakeRecognition implements FakeSpeechRecognition {
+      lang = "";
+      interimResults = false;
+      continuous = false;
+      onresult: FakeSpeechRecognition["onresult"] = null;
+      onend: FakeSpeechRecognition["onend"] = null;
+      onerror: FakeSpeechRecognition["onerror"] = null;
+      start = vi.fn();
+      stop = vi.fn();
+      abort = vi.fn();
+      constructor() {
+        instances.push(this);
+      }
+    }
+    (
+      window as unknown as { webkitSpeechRecognition: unknown }
+    ).webkitSpeechRecognition = FakeRecognition;
+    mockNoWorkspaceKey();
+    render(<JobHarness />);
+
+    await recordTranscript();
+
+    expect(
+      await screen.findByRole("button", { name: "Speak" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/voice notes are not available in this browser/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("stops recognition when the panel unmounts", async () => {
+    const instances = installSpeechRecognition();
+    mockNoWorkspaceKey();
+    const view = render(<JobHarness />);
+
+    await recordTranscript();
+    fireEvent.click(await screen.findByRole("button", { name: "Speak" }));
+    expect(instances[0].start).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+
+    expect(instances[0].abort).toHaveBeenCalled();
   });
 });
 
