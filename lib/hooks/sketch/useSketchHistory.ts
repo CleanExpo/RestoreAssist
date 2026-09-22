@@ -1,17 +1,23 @@
 "use client";
 
 import { useRef, useState, useCallback } from "react";
+import {
+  serialiseSketchCanvas,
+  type SketchSerialisableCanvas,
+} from "@/lib/sketch/serialise-canvas";
 
 const MAX_HISTORY = 50;
 
 type FabricHistoryCanvas = {
-  toJSON: (extras?: string[]) => object;
+  toObject: (extras?: string[]) => object;
   loadFromJSON: (d: object) => Promise<unknown>;
   renderAll: () => void;
 };
 
 export interface SketchHistoryHandle {
-  saveState: (canvas: { toJSON: (extras?: string[]) => object }) => void;
+  saveState: (canvas: {
+    toObject: (extras?: string[]) => object;
+  }) => void;
   undo: (canvas: FabricHistoryCanvas) => Promise<void>;
   redo: (canvas: FabricHistoryCanvas) => Promise<void>;
   canUndo: boolean;
@@ -32,9 +38,11 @@ export function useSketchHistory(): SketchHistoryHandle {
   const [state, setState] = useState({ canUndo: false, canRedo: false });
 
   const saveState = useCallback(
-    (canvas: { toJSON: (extras?: string[]) => object }) => {
+    (canvas: { toObject: (extras?: string[]) => object }) => {
       if (isLoadingRef.current) return;
-      const json = JSON.stringify(canvas.toJSON(["data"]));
+      const json = JSON.stringify(
+        serialiseSketchCanvas(canvas as unknown as SketchSerialisableCanvas),
+      );
       // Truncate forward history on new action
       stackRef.current = stackRef.current.slice(0, idxRef.current + 1);
       stackRef.current.push(json);

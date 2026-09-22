@@ -37,6 +37,10 @@ import {
   rememberVoiceAcmLatch,
   type LatchObject,
 } from "@/lib/sketch/voice-acm-latch";
+import {
+  serialiseSketchCanvas,
+  type SerialisedSketchCanvas,
+} from "@/lib/sketch/serialise-canvas";
 import { computeUnderlayTransform } from "@/lib/sketch/underlay-transform";
 import {
   describeToolObject,
@@ -238,6 +242,24 @@ export interface FabricCanvasRef {
 
 const MAX_HISTORY = 50;
 
+type LatchCanvas = {
+  toObject: (propertiesToInclude?: string[]) => SerialisedSketchCanvas;
+  getObjects?: () => LatchObject[];
+};
+
+/** Undo snapshots and the save handle share one serialiser and the latch. */
+function snapshotSketchCanvas(
+  canvas: LatchCanvas,
+  raised: ReadonlySet<string>,
+): { snapshot: SerialisedSketchCanvas; raised: Set<string> } {
+  reapplyVoiceAcmLatch(canvas.getObjects?.() ?? [], raised);
+  const snapshot = serialiseSketchCanvas(canvas);
+  return {
+    snapshot,
+    raised: rememberVoiceAcmLatch(snapshot.objects ?? [], raised),
+  };
+}
+
 /**
  * SketchCanvas — Fabric.js base component for the RestoreAssist V2 sketch tool.
  * Provides touch + mouse input, pinch-to-zoom, pan, tool mode management,
@@ -312,15 +334,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
     // ── Undo/Redo helpers ─────────────────────────────────────
     const saveState = useCallback(() => {
-      const canvas = fabricRef.current as {
-        toJSON: (extras?: string[]) => object;
-      } | null;
+      const canvas = fabricRef.current as LatchCanvas | null;
       if (!canvas) return;
-      const snapshot = canvas.toJSON(["data"]) as { objects?: LatchObject[] };
-      raisedVoiceAcmRef.current = rememberVoiceAcmLatch(
-        snapshot.objects ?? [],
-        raisedVoiceAcmRef.current,
-      );
+      const shot = snapshotSketchCanvas(canvas, raisedVoiceAcmRef.current);
+      raisedVoiceAcmRef.current = shot.raised;
+      const snapshot = shot.snapshot;
       const json = JSON.stringify(snapshot);
       const stack = historyRef.current;
       const idx = historyIdxRef.current;
@@ -391,23 +409,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       ref,
       () => ({
         toJSON: () => {
-          const c = fabricRef.current as {
-            toJSON: (extras?: string[]) => { objects?: LatchObject[] };
-            getObjects?: () => LatchObject[];
-          } | null;
+          const c = fabricRef.current as LatchCanvas | null;
           if (!c) return {};
           // A history reload can restore a snapshot from before the latch.
           // Put it back before this JSON is what gets saved.
-          reapplyVoiceAcmLatch(
-            c.getObjects?.() ?? [],
-            raisedVoiceAcmRef.current,
-          );
-          const snapshot = c.toJSON(["data"]);
-          raisedVoiceAcmRef.current = rememberVoiceAcmLatch(
-            snapshot.objects ?? [],
-            raisedVoiceAcmRef.current,
-          );
-          return snapshot;
+          const shot = snapshotSketchCanvas(c, raisedVoiceAcmRef.current);
+          raisedVoiceAcmRef.current = shot.raised;
+          return shot.snapshot;
         },
         loadFromJSON: async (data: object) => {
           const c = fabricRef.current as {
@@ -619,7 +627,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         // (dim-label, room-label, or transient alignment guide) that must NOT
         // enter the undo stack. Guides are added/removed on every mouse:move
         // while dragging — without this exclusion each add/remove would push a
-        // full canvas.toJSON() snapshot onto the undo history.
+        // full canvas snapshot onto the undo history.
         const isDecoration = (obj: unknown): boolean => {
           const t = (obj as { data?: { type?: string } } | undefined)?.data?.type;
           return (
@@ -3069,10 +3077,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
         // Notify parent
         onReady?.({
-          toJSON: () =>
-            (canvas as unknown as { toJSON: (e?: string[]) => object }).toJSON([
-              "data",
-            ]),
+          toJSON: () => {
+            const shot = snapshotSketchCanvas(
+              canvas as unknown as LatchCanvas,
+              raisedVoiceAcmRef.current,
+            );
+            raisedVoiceAcmRef.current = shot.raised;
+            return shot.snapshot;
+          },
           loadFromJSON: async (data) => {
             isLoadingRef.current = true;
             try {

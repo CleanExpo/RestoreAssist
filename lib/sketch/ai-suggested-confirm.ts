@@ -19,6 +19,8 @@ import {
 } from "./measured-provenance";
 import {
   appendRoomPlanCorrection,
+  currentRecordedPoints,
+  geometryPointsMatch,
   type RoomPlanCorrectionEntry,
 } from "./roomplan-correction";
 
@@ -166,12 +168,7 @@ export function recordAiSuggestedGeometryCorrection(
   const widthChanged = nextWidth !== undefined && nextWidth !== data.widthM;
   const pointsChanged =
     nextPoints !== undefined &&
-    !samePoints(
-      nextPoints,
-      Array.isArray(data.points)
-        ? (data.points as { x: number; y: number }[])
-        : undefined,
-    );
+    !geometryPointsMatch(currentRecordedPoints(data), nextPoints);
 
   if (!areaChanged && !lengthChanged && !widthChanged && !pointsChanged) {
     return { ...data };
