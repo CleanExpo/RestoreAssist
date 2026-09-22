@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { apiError, fromException } from "@/lib/api-errors";
 
 interface RouteContext {
@@ -14,6 +17,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // RA-7647: every self-signup is ADMIN; this is RestoreAssist staff work.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     const { id } = await context.params;
     const body = await request.json().catch(() => null);
@@ -72,6 +78,9 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // RA-7647: every self-signup is ADMIN; this is RestoreAssist staff work.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     const { id } = await context.params;
     await prisma.portalContent.delete({ where: { id } });

@@ -13,7 +13,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -57,6 +60,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     // Admin gate (coding guideline): re-validate role from the DB.
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // RA-7647: every self-signup is ADMIN; this is RestoreAssist staff work.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     const { id } = await params;
     let rawBody: unknown;
@@ -123,6 +129,9 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     // Admin gate (coding guideline): re-validate role from the DB.
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // RA-7647: every self-signup is ADMIN; this is RestoreAssist staff work.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     const { id } = await params;
 

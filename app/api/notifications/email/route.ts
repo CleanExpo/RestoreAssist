@@ -13,7 +13,10 @@ import {
   reengagementEmail,
 } from "@/lib/email-templates";
 import { BRAND } from "@/lib/brand";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -112,6 +115,10 @@ export async function POST(req: NextRequest) {
       if (event === "customer_reengagement") {
         const auth = await verifyAdminFromDb(session);
         if (auth.response) return auth.response;
+        // RA-7647: every self-signup is ADMIN, so the role alone let any
+        // trial business mail anyone from RestoreAssist's verified sender.
+        const operator = verifyPlatformSupportOperator(auth);
+        if (operator.response) return operator.response;
 
         const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
         const replyTo =

@@ -134,6 +134,26 @@ export function verifyPlatformSupportOperator(
 }
 
 /**
+ * The users a tenant ADMIN may list or manage, as a Prisma `User` filter.
+ *
+ * A null organisation must never match another null organisation (the rule in
+ * `lib/auth/assert-tenancy.ts`): `organizationId: null` matches every org-less
+ * signup on the platform, and an `undefined` is dropped from the query and
+ * matches everyone. So the organisation is proved as a non-empty string, and
+ * an ADMIN without one reaches only their own row (RA-7647).
+ */
+export function adminUserScope(user: {
+  id: string;
+  organizationId: string | null;
+}): { organizationId: string } | { id: string } {
+  const { organizationId } = user;
+  if (typeof organizationId === "string" && organizationId.length > 0) {
+    return { organizationId };
+  }
+  return { id: user.id };
+}
+
+/**
  * Store publishing mutates RestoreAssist's platform-owned App Store and Google
  * Play listings, so tenant ADMIN is not sufficient authority. Operators must
  * be explicitly allowlisted by stable User.id in server configuration.
