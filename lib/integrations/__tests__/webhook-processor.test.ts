@@ -271,6 +271,51 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
     );
   });
 
+  it("marks a part-paid invoice PARTIALLY_PAID, the only partial status the enum has (RA-7645)", async () => {
+    mockFindUniqueEvent.mockResolvedValue({
+      id: "evt-qbo-partial",
+      provider: "QUICKBOOKS",
+      integrationId: "integ-q",
+      eventType: "payment.created",
+      payload: { name: "Payment", id: "qbo-pay-partial", operation: "Create" },
+      status: "PENDING",
+      retryCount: 0,
+      integration: { id: "integ-q" },
+    });
+    qboGetPayment.mockResolvedValue({
+      Id: "qbo-pay-partial",
+      TotalAmt: 200,
+      TxnDate: "2026-07-01",
+      Line: [
+        {
+          Amount: 200,
+          LinkedTxn: [{ TxnId: "qbo-inv-partial", TxnType: "Invoice" }],
+        },
+      ],
+    });
+    mockFindFirstInvoice.mockResolvedValue({
+      id: "local-partial",
+      currency: "AUD",
+      userId: "user-q",
+    });
+    txInvoicePaymentCreate.mockResolvedValue({ id: "pay-partial" });
+    // $200 of a $500 invoice: $300 still owing after the increment.
+    txInvoiceUpdate.mockResolvedValueOnce({
+      amountPaid: 20000,
+      amountDue: 30000,
+      totalIncGST: 50000,
+    });
+    txInvoiceUpdate.mockResolvedValue({});
+    txInvoiceAuditLogCreate.mockResolvedValue({});
+
+    await processWebhookEvent("evt-qbo-partial");
+
+    expect(txInvoiceUpdate).toHaveBeenLastCalledWith({
+      where: { id: "local-partial" },
+      data: { status: "PARTIALLY_PAID" },
+    });
+  });
+
   it("skips without recording when the resolved payment has no invoice LinkedTxn", async () => {
     mockFindUniqueEvent.mockResolvedValue({
       id: "evt-qbo-3",

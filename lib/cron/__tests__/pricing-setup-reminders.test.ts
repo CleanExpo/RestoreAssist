@@ -162,6 +162,34 @@ describe("sendPricingSetupReminders", () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
+  it("skips a TRIAL owner whose trial has already ended (RA-7645 backlog guard)", async () => {
+    // Production never ran this job, and a lapsed trial keeps status TRIAL
+    // until the user signs in again. Without this guard the first live run
+    // would email every abandoned trial since launch.
+    org.organization.findMany.mockResolvedValueOnce([
+      ownerOrg({ trialEndsAt: new Date(Date.now() - 24 * 60 * 60 * 1000) }),
+    ]);
+    const res = await sendPricingSetupReminders();
+    expect(configured).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(res.metadata).toMatchObject({ skippedIneligible: 1 });
+  });
+
+  it("still emails a TRIAL owner whose trial is running", async () => {
+    org.organization.findMany.mockResolvedValueOnce([
+      ownerOrg({ trialEndsAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) }),
+    ]);
+    await sendPricingSetupReminders();
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads trialEndsAt so the lapsed-trial guard can see it", async () => {
+    org.organization.findMany.mockResolvedValueOnce([]);
+    await sendPricingSetupReminders();
+    const arg = org.organization.findMany.mock.calls[0][0];
+    expect(arg.select.owner.select.trialEndsAt).toBe(true);
+  });
+
   it("skips a brand-new owner still inside the grace window", async () => {
     org.organization.findMany.mockResolvedValueOnce([
       ownerOrg({ createdAt: new Date() }),

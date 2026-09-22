@@ -50,6 +50,22 @@ export function isRealContactEmail(email: string | null | undefined): boolean {
   );
 }
 
+/**
+ * RA-7645 backlog guard. A trial that has ended keeps status TRIAL until the
+ * user next signs in (checkAndUpdateTrialStatus), so without this the first
+ * live run would nudge every abandoned trial since launch.
+ */
+function isLapsedTrial(
+  owner: { subscriptionStatus: unknown; trialEndsAt?: Date | null },
+  now: Date,
+): boolean {
+  return (
+    String(owner.subscriptionStatus) === "TRIAL" &&
+    owner.trialEndsAt != null &&
+    owner.trialEndsAt.getTime() < now.getTime()
+  );
+}
+
 export async function sendPricingSetupReminders(): Promise<CronJobResult> {
   const enabled = process.env.PRICING_REMINDER_ENABLED === "true";
   if (!enabled) {
@@ -76,6 +92,7 @@ export async function sendPricingSetupReminders(): Promise<CronJobResult> {
           name: true,
           subscriptionStatus: true,
           createdAt: true,
+          trialEndsAt: true,
           pricingReminderSentAt: true,
         },
       },
@@ -96,6 +113,7 @@ export async function sendPricingSetupReminders(): Promise<CronJobResult> {
       owner.pricingReminderSentAt !== null ||
       !isRealContactEmail(owner.email) ||
       !ENGAGED_STATUSES.has(String(owner.subscriptionStatus)) ||
+      isLapsedTrial(owner, now) ||
       owner.createdAt > graceCutoff
     ) {
       skippedIneligible++;
