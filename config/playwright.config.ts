@@ -24,24 +24,29 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
+  // RA-7648: e2e/walkthrough/ has its own config (walkthrough.config.ts) and its
+  // recorder throws at import for any non-local base URL. Playwright loads every
+  // file before --grep filters, so one walkthrough import stopped the production
+  // smoke with zero tests run. A project-level testIgnore replaces any top-level
+  // one, so each project below carries both patterns.
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "chromium",
-      testIgnore: /auth\.setup\.ts/,
+      testIgnore: [/auth\.setup\.ts/, /walkthrough\//],
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
     },
     {
       name: "mobile-chrome",
-      testIgnore: /auth\.setup\.ts/,
+      testIgnore: [/auth\.setup\.ts/, /walkthrough\//],
       grep: /@smoke/,
       use: { ...devices["Pixel 5"] },
       dependencies: ["setup"],
     },
     {
       name: "tablet-chrome",
-      testIgnore: /auth\.setup\.ts/,
+      testIgnore: [/auth\.setup\.ts/, /walkthrough\//],
       grep: /@smoke/,
       use: {
         ...devices["Desktop Chrome"],

@@ -46,6 +46,11 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    # issues: write is for the last step only, which opens the outage issue.
+    # Scoped to this job so the provenance and reject jobs stay read-only.
+    permissions:
+      contents: read
+      issues: write
     environment:
       name: production
       url: https://restoreassist.app
@@ -143,6 +148,7 @@ jobs:
       # what an outage watch needs, and what the old abort-on-stale behaviour
       # threw away.
       - name: Run origin-bound production smoke
+        id: flows
         env:
           PLAYWRIGHT_BASE_URL: https://restoreassist.app
           EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
@@ -163,3 +169,42 @@ jobs:
           name: smoke-report-${{ github.run_id }}
           path: playwright-report/
           retention-days: 14
+
+      # RA-7648 — a red production smoke has to reach a person. GitHub's
+      # failure email alone was ignored because the daily run is red on
+      # purpose. This opens ONE issue labelled smoke-prod-red per outage: while
+      # one is open, later red runs add nothing, so an outage does not open 96
+      # issues a day. Close the issue once production is green again; the next
+      # outage opens a fresh one.
+      #
+      # The daily 22:23 UTC run (and a manual run) fails on purpose when
+      # production is stale or cannot say which build it is: exit 3 or 4 from
+      # the freshness step, which records stale=true or stale=unverifiable
+      # before exiting. That is a release problem, not an outage, so it does
+      # not open the issue. Otherwise that one deliberate red would hold the
+      # issue open and every real outage after it would open nothing. Anything
+      # else that fails -- the flows, a preflight error that records no stale
+      # value, or a setup step before the preflight ran -- does open it.
+      - name: Open one issue while production smoke is red
+        if: >-
+          failure()
+          && (steps.flows.outcome == 'failure'
+          || steps.freshness.outputs.stale == '')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create smoke-prod-red --force --color B60205 \
+            --description "Production smoke is failing. One open issue per outage."
+          open=$(gh issue list --label smoke-prod-red --state open --limit 1 --json number --jq length)
+          if [ "$open" != "0" ]; then
+            echo "An open smoke-prod-red issue already exists; not opening another."
+            exit 0
+          fi
+          gh issue create \
+            --title "[smoke-prod] Production smoke is red $(date -u +%Y-%m-%d)" \
+            --label smoke-prod-red \
+            --body "The production smoke check against https://restoreassist.app failed. Run: $RUN_URL
+
+          While this issue is open, later red runs will not open another one. Close it once production smoke is green again, so the next outage opens a fresh issue."

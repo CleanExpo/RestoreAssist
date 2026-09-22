@@ -77,6 +77,30 @@ jobs:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
 
+      # RA-7648 — the live-site smoke (smoke-prod.yml) loads every spec under
+      # e2e/ before --grep picks the @smoke tests, so one spec that throws at
+      # import stops the whole run with zero tests executed. PR #2264 did that
+      # on 21/09 and the fifteen-minute production watch tested nothing for a
+      # day. This lists the same suite against the same production URL on every
+      # PR. Listing launches no browser and makes no network call, and takes
+      # seconds, so it costs this job's tight time budget almost nothing.
+      # Fails on a collection error (non-zero exit) or on 0 tests listed.
+      - name: Production smoke suite collects
+        run: |
+          set +e
+          out=$(PLAYWRIGHT_BASE_URL=https://restoreassist.app CI=true npx --no-install playwright test -c config/playwright.config.ts --grep @smoke --project=chromium --no-deps --list 2>&1)
+          rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::The @smoke suite could not be collected (exit $rc). The production smoke would run zero tests."
+            exit 1
+          fi
+          if ! printf '%s\n' "$out" | grep -Eq '^Total: [1-9][0-9]* tests? in'; then
+            echo "::error::The @smoke suite lists 0 tests. The production smoke would test nothing."
+            exit 1
+          fi
+
       - name: Release bootstrap guard
         run: node scripts/ci/check-release-bootstrap.mjs
 
