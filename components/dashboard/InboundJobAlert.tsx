@@ -75,14 +75,15 @@ export function InboundJobAlert() {
       data-testid="inbound-job-alert"
       className="border border-brand-bronze/40 bg-brand-bronze/8 dark:bg-brand-bronze/15 rounded-lg p-4 mb-6"
       role="region"
-      aria-label="Inbound DR/NRPG jobs"
+      aria-label="Inbound referral jobs"
     >
       <div className="flex items-center gap-2 mb-3">
         <AlertCircle className="w-5 h-5 text-brand-gold" aria-hidden="true" />
+        {/* RA-7660: NRPG is not named to customers until it is ready. */}
         <h2 className="font-semibold text-sm">
           {jobs.length === 1
-            ? "1 new job from DR/NRPG"
-            : `${jobs.length} new jobs from DR/NRPG`}
+            ? "1 new job from a referral network"
+            : `${jobs.length} new jobs from a referral network`}
         </h2>
       </div>
       {error && (

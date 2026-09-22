@@ -138,7 +138,7 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
   "setup-wizard-integrations": {
     cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555747/restoreassist/videos/remotion/wizard-integrations.mp4",
     localPath: "/videos/remotion/wizard-integrations.mp4",
-    title: "Connect Xero, MYOB, QuickBooks, ServiceM8 or Ascora",
+    title: "Connect Xero or Ascora",
     durationSec: 90,
   },
   "setup-wizard-health": {

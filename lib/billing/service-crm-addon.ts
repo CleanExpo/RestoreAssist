@@ -31,7 +31,9 @@ export const SERVICE_CRM_ADDON_SUBSCRIPTION_TYPE = "service_crm_addon" as const;
 export const SERVICE_CRM_ADDON = {
   sku: SERVICE_CRM_SKU,
   name: "Service CRM Connection",
-  description: "Connect Ascora or DR-NRPG to sync jobs and pricing data.",
+  // RA-7660: DR-NRPG removed from the buyer-facing copy (NRPG is not ready to
+  // sell). The entitlement still gates the dormant DR-NRPG connect route.
+  description: "Connect Ascora to sync jobs and pricing data.",
   /** Dollars, AUD, GST-inclusive. */
   amount: 11.0,
   currency: "AUD",

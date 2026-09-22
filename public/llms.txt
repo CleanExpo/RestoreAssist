@@ -31,7 +31,7 @@ Built for restoration contractors who want to eliminate the gap between what the
 - **WHS automation** — SWMS draft generation, WHS incident recording, corrective action tracking
 - **Authority forms** — work authorisation, payment authority, scope variation tracking with digital signatures
 - **Estimating** — scope items, cost library + estimates, EstimateVariation tracking, claim analysis batches
-- **Integrations** — Xero (accounting), Ascora (existing CRM bridge), DR-NRPG (claims distribution network)
+- **Integrations** — Xero (accounting), Ascora (existing CRM bridge)
 - **AI assist** — administration agents + field technician assistants; decisions stay with human operators
 
 ## Who It's For

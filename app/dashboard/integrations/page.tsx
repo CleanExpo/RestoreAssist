@@ -27,6 +27,13 @@ import ImportModal from "@/components/integrations/ImportModal";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { uiAiKeyTypeToProvider } from "@/lib/workspace/ai-key-type";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  isImportDataEnabled,
+  isMyobEnabled,
+  isNrpgEnabled,
+  isQuickBooksEnabled,
+  isServiceM8Enabled,
+} from "@/lib/flags/one-crm-flags";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -146,6 +153,25 @@ const EXTERNAL_INTEGRATIONS: {
 ];
 
 /**
+ * RA-7660 — ServiceM8, MYOB and QuickBooks have never passed a real sync test,
+ * so each is listed only when its NEXT_PUBLIC_* switch is on (default off). The
+ * caller also keeps a provider the account has ALREADY connected, so an
+ * existing connection can still be synced or disconnected with its switch off.
+ */
+function isProviderListed(slug: ProviderSlug): boolean {
+  switch (slug) {
+    case "servicem8":
+      return isServiceM8Enabled();
+    case "myob":
+      return isMyobEnabled();
+    case "quickbooks":
+      return isQuickBooksEnabled();
+    default:
+      return true;
+  }
+}
+
+/**
  * The legacy Integration table is shared bookkeeping: AI keys live there, and
  * so do external job/accounting providers. Its `provider` column cannot
  * discriminate them — an AI row can carry XERO — so categorise POSITIVELY by
@@ -256,6 +282,16 @@ export default function IntegrationsPage() {
   const [drNrpgCopied, setDrNrpgCopied] = useState<"url" | "secret" | null>(
     null,
   );
+
+  // RA-7660 listing switches, read at render so each follows its
+  // NEXT_PUBLIC_* variable. An account's existing connection stays listed.
+  const listedExternalIntegrations = EXTERNAL_INTEGRATIONS.filter(
+    (integration) =>
+      isProviderListed(integration.slug) ||
+      Boolean(externalIntegrations[integration.slug]?.connected),
+  );
+  const showReferralNetworks = isNrpgEnabled() || drNrpg.connected;
+  const showImportData = isImportDataEnabled();
 
   // Show success/error messages from OAuth callback
   useEffect(() => {
@@ -389,11 +425,19 @@ export default function IntegrationsPage() {
 
       // The banner reports which providers went dark; it never gates the cards
       // that answered. Per-card actionability comes from that card's own status.
-      const unavailable = EXTERNAL_INTEGRATIONS.filter(
-        (integration) => results[integration.slug].status === "UNAVAILABLE",
-      ).map((integration) => integration.name);
+      // It names only providers the page lists (RA-7660).
+      const listed = EXTERNAL_INTEGRATIONS.filter(
+        (integration) =>
+          isProviderListed(integration.slug) ||
+          results[integration.slug].connected,
+      );
+      const unavailable = listed
+        .filter(
+          (integration) => results[integration.slug].status === "UNAVAILABLE",
+        )
+        .map((integration) => integration.name);
 
-      if (unavailable.length === EXTERNAL_INTEGRATIONS.length) {
+      if (unavailable.length === listed.length) {
         setExternalIntegrationsError(
           "Integration status is unavailable. Retry before connecting or disconnecting.",
         );
@@ -1003,14 +1047,18 @@ export default function IntegrationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowImportModal(true)}
-          >
-            <Download />
-            Import Data
-          </Button>
+          {/* RA-7660: hidden until the re-pull path stops reporting a failed
+              import as a success (RA-7663). */}
+          {showImportData && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowImportModal(true)}
+            >
+              <Download />
+              Import Data
+            </Button>
+          )}
           <Button
             size="sm"
             className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
@@ -1197,7 +1245,7 @@ export default function IntegrationsPage() {
             </div>
             <Separator className="mt-4 mb-5" />
             <div className="grid md:grid-cols-3 gap-4">
-              {EXTERNAL_INTEGRATIONS.filter(
+              {listedExternalIntegrations.filter(
                 (i) => i.category === "bookkeeping",
               ).map((integration) => {
                 const status = externalIntegrations[integration.slug];
@@ -1391,7 +1439,7 @@ export default function IntegrationsPage() {
             </div>
             <Separator className="mt-4 mb-5" />
             <div className="grid md:grid-cols-3 gap-4">
-              {EXTERNAL_INTEGRATIONS.filter(
+              {listedExternalIntegrations.filter(
                 (i) => i.category === "jobmanagement",
               ).map((integration) => {
                 const status = externalIntegrations[integration.slug];
@@ -1600,6 +1648,10 @@ export default function IntegrationsPage() {
             </div>
           </div>
           {/* ── Referral Networks ───────────────────── */}
+          {/* RA-7660: DR-NRPG is not ready to sell. Listed only with
+              NEXT_PUBLIC_NRPG_ENABLED on, or when this account already has it
+              connected, so an existing connection can still be disconnected. */}
+          {showReferralNetworks && (
           <div>
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-teal-500/10 dark:bg-teal-500/15 border border-teal-500/20">
@@ -1689,6 +1741,7 @@ export default function IntegrationsPage() {
               </Card>
             </div>
           </div>
+          )}
         </>
       )}
 
@@ -2060,13 +2113,15 @@ export default function IntegrationsPage() {
       </Dialog>
 
       {/* Import Modal */}
-      <ImportModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onImportComplete={() => {
-          fetchExternalIntegrations();
-        }}
-      />
+      {showImportData && (
+        <ImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImportComplete={() => {
+            fetchExternalIntegrations();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -943,7 +943,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
             <ol style="margin: 0; padding-left: 20px; color: #166534;">
               <li style="margin-bottom: 8px;">Create your first water damage report</li>
               <li style="margin-bottom: 8px;">Invite your team members (Managers &amp; Technicians)</li>
-              <li>Connect your accounting software (Xero, MYOB, QuickBooks)</li>
+              <li>Connect your accounting software (Xero)</li>
             </ol>
           </div>
 
@@ -980,7 +980,7 @@ Thanks for signing up! Your account is ready with a ${data.trialDays}-day free t
 Get started:
 1. Create your first water damage report
 2. Invite your team members (Managers & Technicians)
-3. Connect your accounting software (Xero, MYOB, QuickBooks)
+3. Connect your accounting software (Xero)
 
 Log in here: ${data.loginUrl}
 

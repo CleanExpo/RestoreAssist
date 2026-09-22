@@ -264,7 +264,7 @@ export const ARTICLES: Article[] = [
     author: AUTHOR,
     authorCredential: AUTHOR_CREDENTIAL,
     description:
-      "How transparent, evidence-based restoration reports build trust with insurers: standard-cited findings, timestamped photo documentation, NRPG-aware pricing and a claims-honest evidence register.",
+      "How transparent, evidence-based restoration reports build trust with insurers: standard-cited findings, timestamped photo documentation, range-checked pricing and a claims-honest evidence register.",
     keywords: [
       "restoration report",
       "insurance claim documentation",
@@ -392,7 +392,7 @@ export const ARTICLES: Article[] = [
       {
         heading: "Export and hand off in the format each party expects",
         paragraphs: [
-          "A finished report is only useful once it reaches the people who need it. RestoreAssist generates the report as a PDF and connects with the systems a restoration business already runs — accounting platforms including Xero, QuickBooks and MYOB, and insurer claim workflows through its Guidewire integration. The estimate that came out of the assessment can move to billing, and the report can move to the insurer, without being rebuilt by hand at each step.",
+          "A finished report is only useful once it reaches the people who need it. RestoreAssist generates the report as a PDF and connects with the systems a restoration business already runs — accounting through Xero, and insurer claim workflows through its Guidewire integration. The estimate that came out of the assessment can move to billing, and the report can move to the insurer, without being rebuilt by hand at each step.",
           "Handing off cleanly is where a lot of value quietly leaks away in restoration. A report that has to be re-typed into the insurer's system, or an estimate re-entered into the accounts, is one that can be transcribed wrong or left waiting while someone finds the time. Because the estimate and the report are built from the same structured inspection, the version that reaches the insurer and the version that reaches the accounts are the version the technician captured — not a re-keyed approximation of it.",
         ],
       },
@@ -409,7 +409,7 @@ export const ARTICLES: Article[] = [
       "Capturing standards-mapped data once, on site, lets scope, report and billing draw from the same record.",
       "Field capture is offline-first — queued on the device, auto-synced on reconnect, with sketch work retried hardest and every record's sync status visible.",
       "One report structure spans water (S500:2021), mould (S520:2024), biohazard (S540:2023) and fire (S700:2025).",
-      "PDF reporting plus accounting (Xero, QuickBooks, MYOB) and insurer (Guidewire) integrations remove re-keying at the hand-offs.",
+      "PDF reporting plus accounting (Xero) and insurer (Guidewire) integrations remove re-keying at the hand-offs.",
     ],
     references: [
       {
@@ -425,7 +425,7 @@ export const ARTICLES: Article[] = [
       {
         label: "Reporting and integrations",
         detail:
-          "PDF report generation (lib/nir-report-generation.ts); accounting integrations for Xero, QuickBooks and MYOB, and insurer integration via Guidewire (lib/progress/integrations, lib/nir-guidewire-integration.ts).",
+          "PDF report generation (lib/nir-report-generation.ts); accounting integration for Xero, and insurer integration via Guidewire (lib/progress/integrations, lib/nir-guidewire-integration.ts).",
       },
     ],
     published: true,
@@ -530,7 +530,6 @@ export const ARTICLES: Article[] = [
       "restoration pricing Australia",
       "regional restoration costs",
       "restoration estimate",
-      "NRPG rates",
       "restoration cost guidelines",
     ],
     intro: [

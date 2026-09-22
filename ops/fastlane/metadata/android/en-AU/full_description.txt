@@ -12,7 +12,7 @@ What you get:
 
 • Australian-specific compliance — 10% GST, 11-digit ABN validation, state-specific building codes (QLD QBCC, NSW Fair Trading, VIC VBA, etc.).
 
-• Bring-your-own-keys — connect your existing Xero, MYOB, QuickBooks, ServiceM8, or Ascora account. We sync; we don't replace.
+• Bring-your-own-keys — connect your existing Xero or Ascora account. We sync; we don't replace.
 
 • Cloud storage your way — Google Drive (live), OneDrive (coming), or keep everything local. Your client data stays where you choose.
 
@@ -28,6 +28,6 @@ Who's it for?
 ✓ Building consultants doing moisture inspections
 ✓ Loss adjusters who need defensible evidence
 
-Built in Brisbane by Unite Group Pty Ltd. The same team that runs Disaster Recovery / NRPG and certifies through CARSI.
+Built in Brisbane by Unite Group Pty Ltd. The same team that runs Disaster Recovery and certifies through CARSI.
 
 This is a thin native shell — the full RestoreAssist web app loads inside. You'll need an active subscription (TRIAL, ACTIVE, or LIFETIME) to use AI features. Sign up at restoreassist.app.

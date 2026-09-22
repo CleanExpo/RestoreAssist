@@ -3211,8 +3211,8 @@ export default function InspectionDetailPage({
                   Cost estimates
                 </h3>
                 <p className="text-sm text-neutral-500">
-                  Generated from selected scope items using company NRPG rates
-                  (or midpoints).
+                  Generated from selected scope items using your company rates
+                  (or typical industry midpoints).
                 </p>
               </div>
               <button
@@ -3304,7 +3304,7 @@ export default function InspectionDetailPage({
               <div className="text-center py-12 space-y-3 text-neutral-400">
                 <p>
                   No cost estimates yet. Select scope items, then generate from
-                  the NRPG pricing engine.
+                  the pricing engine.
                 </p>
                 {scopeItems.filter((s) => s.isSelected).length === 0 ? (
                   <button

@@ -15,6 +15,8 @@
  * so the SKU key, price and the subscription-metadata marker never drift.
  */
 
+import { isMyobEnabled, isQuickBooksEnabled } from "@/lib/flags/one-crm-flags";
+
 /** The Prisma `AddonSku` value for this add-on (mirrors ADDON_SKUS). */
 export const BOOKKEEPING_SKU = "BOOKKEEPING" as const;
 
@@ -43,13 +45,36 @@ export function isBookkeepingProvider(
 export const BOOKKEEPING_ADDON_SUBSCRIPTION_TYPE = "bookkeeping_addon" as const;
 
 /**
+ * RA-7660: buyer-facing copy names only the providers that are listed. Xero is
+ * always listed; QuickBooks and MYOB have not passed a real sync test, so each
+ * is named only once its NEXT_PUBLIC_* switch is on. Copy only: which
+ * providers the entitlement gates (BOOKKEEPING_PROVIDERS) does not change.
+ */
+export function bookkeepingAddonDescription(listed: {
+  quickbooks: boolean;
+  myob: boolean;
+}): string {
+  const names = ["Xero"];
+  if (listed.quickbooks) names.push("QuickBooks");
+  if (listed.myob) names.push("MYOB");
+  const list =
+    names.length === 1
+      ? names[0]
+      : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+  return `Connect and sync ${list}.`;
+}
+
+/**
  * Recurring price for the add-on. GST-inclusive (AU convention) so Stripe Tax
  * breaks out the 10% GST component rather than adding it on top of $11.
  */
 export const BOOKKEEPING_ADDON = {
   sku: BOOKKEEPING_SKU,
   name: "Online Bookkeeping Connection",
-  description: "Connect and sync Xero, QuickBooks or MYOB.",
+  description: bookkeepingAddonDescription({
+    quickbooks: isQuickBooksEnabled(),
+    myob: isMyobEnabled(),
+  }),
   /** Dollars, AUD, GST-inclusive. */
   amount: 11.0,
   currency: "AUD",

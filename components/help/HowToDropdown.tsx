@@ -33,7 +33,7 @@ const CATEGORY_DESCRIPTIONS: Record<HelpCategory, string> = {
   "clients-and-portal": "Share reports, manage clients",
   billing: "Plans, upgrades, invoices",
   team: "Invite technicians, licences",
-  integrations: "Xero, MYOB, QB, Drive",
+  integrations: "Xero, Ascora, Drive",
   compliance: "IICRC standards, WHS",
 };
 

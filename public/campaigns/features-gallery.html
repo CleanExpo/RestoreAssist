@@ -9,7 +9,7 @@
   RestoreAssist — Features Video Gallery (embed-ready, self-contained)
   ==========================================================================
   WHAT THIS IS
-    A single-file, responsive gallery of all 30 attribute videos. No build
+    A single-file, responsive gallery of the attribute videos. No build
     step, no external CSS/JS. Privacy-friendly "click-to-load" YouTube embeds:
     a static thumbnail is shown until the user clicks, then a
     youtube-nocookie.com iframe is injected (no tracking cookies on page load,
@@ -222,7 +222,9 @@
   </footer>
 
   <script>
-    // 30 attribute videos, grouped into the five canonical sections.
+    // The attribute videos, grouped into the five canonical sections. The
+    // QuickBooks and ServiceM8 videos are withheld (RA-7660): neither
+    // connection has passed a real sync test.
     var SECTIONS = [
       {
         title: "AI-Assisted",
@@ -239,8 +241,6 @@
         title: "Integrations",
         items: [
           { id: "K1RuRDblr3Y", name: "Xero Integration", headline: "Invoices auto-sync to Xero — no double-entry" },
-          { id: "zDI9z3oYCzU", name: "QuickBooks Integration", headline: "Native QuickBooks sync, no re-keying" },
-          { id: "eNDjbHMwtVE", name: "ServiceM8 Integration", headline: "Field scheduling + restoration workflow on one platform" },
           { id: "6VZrAgt52L8", name: "Ascora Pricing", headline: "Quotes always match current market rates" }
         ]
       },

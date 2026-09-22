@@ -105,7 +105,7 @@ export default function AvianInfluenzaDocumentationPage() {
         <article className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-xl font-black">Backlink structure</h2>
           <p className="mt-3 text-sm leading-7 text-slate-300">
-            Link this page from CARSI, DisasterRecovery.com.au and NRPG using the anchor <strong>RestoreAssist bird flu readiness documentation</strong>. Link back to the CARSI hub using <strong>Australian H5 bird flu readiness training</strong>.
+            Link this page from CARSI and DisasterRecovery.com.au using the anchor <strong>RestoreAssist bird flu readiness documentation</strong>. Link back to the CARSI hub using <strong>Australian H5 bird flu readiness training</strong>.
           </p>
         </article>
       </section>
