@@ -9,6 +9,8 @@
  * include pattern for lib tests.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 // Must mock before importing middleware so the module-level import of
@@ -416,11 +418,43 @@ describe("middleware login redirect (P1 #16)", () => {
     ["a deeper multi-segment id", "/reports/a/b/c/view", `?token=${"a".repeat(64)}`],
     ["a path that merely ENDS with the view route", "/reports/x/reports/y/view", `?token=${"a".repeat(64)}`],
     ["an uppercase VIEW segment", "/reports/rep_123/VIEW", `?token=${"a".repeat(64)}`],
+    ["an empty id segment", "/reports//view", `?token=${"a".repeat(64)}`],
+    ["a views (plural) segment", "/reports/rep_123/views", `?token=${"a".repeat(64)}`],
   ])("still gates %s", async (_case, pathname, search) => {
     (getToken as any).mockResolvedValue(null);
     const res = await proxy(mkReq(pathname, search));
     expect((res as any).status).toBe(307);
     expect((res as any).headers.get("location")).toContain("/login");
+  });
+
+  // THE PATTERN ITSELF, not one more example of it.
+  //
+  // Three independent review rounds each found a different claim this regex makes
+  // that no behavioural row asserted: the id segment count (`[^/]+` -> `.+`), the
+  // start anchor (dropping `^`), the case (`/i`), the non-empty id (`+` -> `*`),
+  // and the literal segment (`view` -> `views?`). Every round the fix was one more
+  // negative row, and every round the next mutation walked through the gap the
+  // rows did not happen to cover.
+  //
+  // That cannot converge. A regex's claim space is larger than any list of
+  // examples, so example-based negatives are a denylist of widenings someone
+  // thought of -- the same "the rule is universal, the guard is a list" defect
+  // this repo keeps paying for. `lib/__tests__/stripe-api-version.test.ts` solves
+  // the same shape by asserting the literal rather than enumerating its uses, and
+  // this is that idiom.
+  //
+  // The rows above prove the pattern is WIRED correctly. This proves it has not
+  // been CHANGED. Any edit to that one line fails here, including mutations nobody
+  // has thought of yet -- which is the only property that ends the loop.
+  //
+  // If you are here because this test failed and your change to the pattern was
+  // deliberate: update the literal below, and add a behavioural row proving the new
+  // shape gates what it should. Do not delete this assertion.
+  it("pins the exemption pattern itself, so any edit to it fails here", () => {
+    const source = readFileSync(join(process.cwd(), "proxy.ts"), "utf8");
+    expect(source).toContain(
+      "const PUBLIC_TOKENED_REPORT_VIEW = /^\\/reports\\/[^/]+\\/view\\/?$/;",
+    );
   });
 
   // requiresLogin() guards two gates — the login redirect above and the hard
