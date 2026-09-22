@@ -264,7 +264,7 @@ export const ARTICLES: Article[] = [
     author: AUTHOR,
     authorCredential: AUTHOR_CREDENTIAL,
     description:
-      "How transparent, evidence-based restoration reports build trust with insurers: standard-cited findings, timestamped photo documentation, NRPG-aware pricing and a claims-honest evidence register.",
+      "How transparent, evidence-based restoration reports build trust with insurers: standard-cited findings, timestamped photo documentation, range-checked pricing and a claims-honest evidence register.",
     keywords: [
       "restoration report",
       "insurance claim documentation",
@@ -530,7 +530,6 @@ export const ARTICLES: Article[] = [
       "restoration pricing Australia",
       "regional restoration costs",
       "restoration estimate",
-      "NRPG rates",
       "restoration cost guidelines",
     ],
     intro: [

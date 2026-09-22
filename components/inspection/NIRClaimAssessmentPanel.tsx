@@ -36,6 +36,7 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isNrpgEnabled } from "@/lib/flags/one-crm-flags";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1321,7 +1322,7 @@ function AustralianComplianceForm({
             Australian Compliance
           </span>
           <span className="text-xs text-neutral-400 dark:text-slate-500">
-            DR-NRPG · Insurer · Technician credentials
+            Insurer · Technician credentials
           </span>
         </div>
         {open ? (
@@ -1371,18 +1372,21 @@ function AustralianComplianceForm({
               placeholder="e.g. LAJ-2026-0042"
             />
           </FieldRow>
-          <FieldRow label="DR-NRPG Category">
-            <Select
-              value={(data.nrpgCategory as string) || ""}
-              onChange={(v) => onChange("nrpgCategory", v || null)}
-              options={[
-                { value: "SMALL", label: "Small — <$10k" },
-                { value: "MEDIUM", label: "Medium — $10k–$50k" },
-                { value: "LARGE", label: "Large — $50k–$250k" },
-                { value: "CATASTROPHIC", label: "Catastrophic — >$250k" },
-              ]}
-            />
-          </FieldRow>
+          {/* RA-7660: dormant until NRPG is ready; saved values are untouched. */}
+          {isNrpgEnabled() && (
+            <FieldRow label="DR-NRPG Category">
+              <Select
+                value={(data.nrpgCategory as string) || ""}
+                onChange={(v) => onChange("nrpgCategory", v || null)}
+                options={[
+                  { value: "SMALL", label: "Small — <$10k" },
+                  { value: "MEDIUM", label: "Medium — $10k–$50k" },
+                  { value: "LARGE", label: "Large — $50k–$250k" },
+                  { value: "CATASTROPHIC", label: "Catastrophic — >$250k" },
+                ]}
+              />
+            </FieldRow>
+          )}
           <FieldRow label="State">
             <Select
               value={(data.state as string) || ""}

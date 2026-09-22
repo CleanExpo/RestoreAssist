@@ -315,7 +315,7 @@ export default function QuotePage() {
             Quote Generator
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Generate NRPG-rated quotes using your Company Pricing rates (not Cost
+            Generate quotes using your Company Pricing rates (not Cost
             Libraries). Save as a Restoration Estimate or AR Invoice draft when ready.
           </p>
         </div>
@@ -890,9 +890,7 @@ export default function QuotePage() {
             {/* Footer */}
             <div className="border-t border-slate-200 dark:border-slate-700 pt-4 text-xs text-slate-400 space-y-1">
               <p>
-                This quote is valid for 30 days from the date of issue. Rates
-                are based on the National Restoration Pricing Guide (NRPG)
-                framework.
+                This quote is valid for 30 days from the date of issue.
               </p>
               <p>
                 All work performed in accordance with{" "}
