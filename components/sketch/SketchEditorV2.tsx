@@ -56,14 +56,11 @@ import { startRoomPlanCapture } from "@/lib/capacitor-roomplan-bridge";
 import {
   confirmRoomPlanMeasurement,
   recordRoomPlanExclude,
-  recordRoomPlanGeometryCorrection,
   recordRoomPlanLabelCorrection,
 } from "@/lib/sketch/roomplan-correction";
 import { commitRoomPanelEdit } from "@/lib/sketch/room-panel-commit";
-import {
-  confirmAiSuggestedMeasurement,
-  recordAiSuggestedGeometryCorrection,
-} from "@/lib/sketch/ai-suggested-confirm";
+import { applyRoomModifiedGeometry } from "@/lib/sketch/room-modified-geometry";
+import { confirmAiSuggestedMeasurement } from "@/lib/sketch/ai-suggested-confirm";
 import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
 import { polygonAbsolutePoints } from "@/lib/sketch/fabric-absolute";
 import {
@@ -2518,19 +2515,12 @@ export function SketchEditorV2({
                   const areaM2 =
                     Math.round((shoelaceArea(pts) / (pxPerM * pxPerM)) * 100) /
                     100;
-                  if (obj.data.captureAdapter === "roomplan") {
-                    obj.data = recordRoomPlanGeometryCorrection(obj.data, {
-                      points: pts,
-                      areaM2,
-                    });
-                  } else if (obj.data.provenance === "ai_suggested") {
-                    obj.data = recordAiSuggestedGeometryCorrection(obj.data, {
-                      points: pts,
-                      areaM2,
-                    });
-                  } else {
-                    return;
-                  }
+                  const audited = applyRoomModifiedGeometry(obj.data, {
+                    points: pts,
+                    areaM2,
+                  });
+                  if (!audited) return;
+                  obj.data = audited;
                   const hist = obj.data.correctionHistory as
                     | unknown[]
                     | undefined;

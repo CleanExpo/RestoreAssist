@@ -113,36 +113,123 @@ export function recordRoomPlanLabelCorrection(
   };
 }
 
+type GeometryPoint = { x: number; y: number };
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function asPoints(value: unknown): GeometryPoint[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  const points: GeometryPoint[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") return undefined;
+    const { x, y } = item as { x?: unknown; y?: unknown };
+    if (typeof x !== "number" || typeof y !== "number") return undefined;
+    points.push({ x, y });
+  }
+  return points;
+}
+
+function samePoints(
+  a: GeometryPoint[] | undefined,
+  b: GeometryPoint[] | undefined,
+): boolean {
+  if (a == null && b == null) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every(
+    (point, index) => point.x === b[index]?.x && point.y === b[index]?.y,
+  );
+}
+
 /**
- * Record a geometry correction after the tech moves/scales a RoomPlan room.
- * Updates areaM2; does not change provenance (still needs Confirm if pending).
+ * Geometry already recorded on the room: the last geometry correction's
+ * points when one exists, otherwise the capture (`originalPoints`).
+ * A later label edit must be compared here, not against the original scan.
+ */
+function currentRecordedPoints(
+  data: Record<string, unknown>,
+): GeometryPoint[] | undefined {
+  const stored = asPoints(data.points);
+  if (stored) return stored;
+  const history = data.correctionHistory;
+  if (Array.isArray(history)) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const entry = history[i] as RoomPlanCorrectionEntry | undefined;
+      if (!entry || entry.field !== "geometry") continue;
+      const after = entry.after;
+      if (!after || typeof after !== "object") continue;
+      const recorded = asPoints((after as { points?: unknown }).points);
+      if (recorded) return recorded;
+    }
+  }
+  return asPoints(data.originalPoints);
+}
+
+/**
+ * Record a geometry correction after the tech moves or resizes a RoomPlan
+ * room. Updates areaM2; does not change provenance (still needs Confirm
+ * if pending).
+ *
+ * An object:modified with no real change — same current area, points and
+ * length/width — appends nothing. The comparison is the room's current
+ * recorded geometry, not only `originalPoints`, so a room already
+ * corrected once does not gain another entry when its label, material
+ * or water category is edited.
  */
 export function recordRoomPlanGeometryCorrection(
   data: Record<string, unknown>,
   next: {
     points: { x: number; y: number }[];
     areaM2: number;
+    lengthM?: number;
+    widthM?: number;
   },
   opts?: { by?: string; at?: string },
 ): Record<string, unknown> {
   if (data.captureAdapter !== "roomplan") {
     return { ...data, areaM2: next.areaM2 };
   }
-  const beforeArea = data.areaM2;
-  const beforePoints = Array.isArray(data.originalPoints)
-    ? data.originalPoints
-    : undefined;
+
+  const beforePoints = currentRecordedPoints(data);
+  const beforeLength = finiteNumber(data.lengthM);
+  const beforeWidth = finiteNumber(data.widthM);
+  const nextLength = finiteNumber(next.lengthM);
+  const nextWidth = finiteNumber(next.widthM);
+
+  const areaChanged = next.areaM2 !== data.areaM2;
+  const pointsChanged = !samePoints(beforePoints, next.points);
+  const lengthChanged =
+    nextLength !== undefined && nextLength !== beforeLength;
+  const widthChanged = nextWidth !== undefined && nextWidth !== beforeWidth;
+
+  if (!areaChanged && !pointsChanged && !lengthChanged && !widthChanged) {
+    return { ...data };
+  }
+
   return {
     ...data,
     areaM2: next.areaM2,
+    ...(lengthChanged ? { lengthM: nextLength } : {}),
+    ...(widthChanged ? { widthM: nextWidth } : {}),
     correctionHistory: appendRoomPlanCorrection(
       data.correctionHistory as RoomPlanCorrectionEntry[] | undefined,
       {
         at: opts?.at,
         by: opts?.by,
         field: "geometry",
-        before: { areaM2: beforeArea, points: beforePoints },
-        after: { areaM2: next.areaM2, points: next.points },
+        before: {
+          areaM2: data.areaM2,
+          points: beforePoints,
+          ...(beforeLength !== undefined ? { lengthM: beforeLength } : {}),
+          ...(beforeWidth !== undefined ? { widthM: beforeWidth } : {}),
+        },
+        after: {
+          areaM2: next.areaM2,
+          points: next.points,
+          ...(lengthChanged ? { lengthM: nextLength } : {}),
+          ...(widthChanged ? { widthM: nextWidth } : {}),
+        },
       },
     ),
   };
