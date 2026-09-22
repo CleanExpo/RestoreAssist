@@ -389,6 +389,12 @@ describe("middleware login redirect (P1 #16)", () => {
   // a way into the contractor's report surface without a session, so each must
   // still be gated. These are the assertions that make the exemption safe
   // rather than merely convenient.
+  //
+  // The last two rows pin the `[^/]+` in PUBLIC_TOKENED_REPORT_VIEW — the id is
+  // ONE path segment. Without them, widening it to `.+` passes the whole suite:
+  // the six rows above vary the token and the tail of the path but never the
+  // number of segments in the id, so none of them notices. Found by the
+  // independent reviewer on bf147fdee, which is the only reason they exist.
   it.each([
     ["the view route with no token at all", "/reports/rep_123/view", ""],
     ["the view route with an empty token", "/reports/rep_123/view", "?token="],
@@ -396,6 +402,8 @@ describe("middleware login redirect (P1 #16)", () => {
     ["a nested route under the id", "/reports/rep_123/edit", `?token=${"a".repeat(64)}`],
     ["the reports index", "/reports", `?token=${"a".repeat(64)}`],
     ["a deeper path below /view", "/reports/rep_123/view/raw", `?token=${"a".repeat(64)}`],
+    ["a multi-segment id", "/reports/a/b/view", `?token=${"a".repeat(64)}`],
+    ["a deeper multi-segment id", "/reports/a/b/c/view", `?token=${"a".repeat(64)}`],
   ])("still gates %s", async (_case, pathname, search) => {
     (getToken as any).mockResolvedValue(null);
     const res = await proxy(mkReq(pathname, search));
