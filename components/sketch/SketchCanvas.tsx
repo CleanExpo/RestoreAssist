@@ -32,6 +32,11 @@ import {
   fabricObjectToSelected,
   shouldClearSelectionOnEmptyCanvasClick,
 } from "@/lib/sketch/selected-object";
+import {
+  reapplyVoiceAcmLatch,
+  rememberVoiceAcmLatch,
+  type LatchObject,
+} from "@/lib/sketch/voice-acm-latch";
 import { computeUnderlayTransform } from "@/lib/sketch/underlay-transform";
 import {
   describeToolObject,
@@ -301,6 +306,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       canUndo: false,
       canRedo: false,
     });
+    // Rooms that have ever had voiceRaisedAcm. Undo/redo reload an older
+    // snapshot; this set puts the latch back so a save cannot clear it.
+    const raisedVoiceAcmRef = useRef(new Set<string>());
 
     // ── Undo/Redo helpers ─────────────────────────────────────
     const saveState = useCallback(() => {
@@ -308,7 +316,12 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         toJSON: (extras?: string[]) => object;
       } | null;
       if (!canvas) return;
-      const json = JSON.stringify(canvas.toJSON(["data"]));
+      const snapshot = canvas.toJSON(["data"]) as { objects?: LatchObject[] };
+      raisedVoiceAcmRef.current = rememberVoiceAcmLatch(
+        snapshot.objects ?? [],
+        raisedVoiceAcmRef.current,
+      );
+      const json = JSON.stringify(snapshot);
       const stack = historyRef.current;
       const idx = historyIdxRef.current;
 
@@ -330,12 +343,17 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         // Fabric v6/v7: loadFromJSON returns a Promise; 2nd arg is a reviver, NOT a done cb.
         loadFromJSON: (d: object) => Promise<unknown>;
         renderAll: () => void;
+        getObjects?: () => LatchObject[];
       } | null;
       if (!canvas || historyIdxRef.current <= 0) return;
       historyIdxRef.current -= 1;
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
       await canvas.loadFromJSON(json);
+      reapplyVoiceAcmLatch(
+        canvas.getObjects?.() ?? [],
+        raisedVoiceAcmRef.current,
+      );
       canvas.renderAll();
       isLoadingRef.current = false;
       setHistoryState({
@@ -348,6 +366,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       const canvas = fabricRef.current as {
         loadFromJSON: (d: object) => Promise<unknown>;
         renderAll: () => void;
+        getObjects?: () => LatchObject[];
       } | null;
       if (!canvas || historyIdxRef.current >= historyRef.current.length - 1)
         return;
@@ -355,6 +374,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
       await canvas.loadFromJSON(json);
+      reapplyVoiceAcmLatch(
+        canvas.getObjects?.() ?? [],
+        raisedVoiceAcmRef.current,
+      );
       canvas.renderAll();
       isLoadingRef.current = false;
       setHistoryState({
@@ -369,19 +392,37 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       () => ({
         toJSON: () => {
           const c = fabricRef.current as {
-            toJSON: (extras?: string[]) => object;
+            toJSON: (extras?: string[]) => { objects?: LatchObject[] };
+            getObjects?: () => LatchObject[];
           } | null;
-          return c?.toJSON(["data"]) ?? {};
+          if (!c) return {};
+          // A history reload can restore a snapshot from before the latch.
+          // Put it back before this JSON is what gets saved.
+          reapplyVoiceAcmLatch(
+            c.getObjects?.() ?? [],
+            raisedVoiceAcmRef.current,
+          );
+          const snapshot = c.toJSON(["data"]);
+          raisedVoiceAcmRef.current = rememberVoiceAcmLatch(
+            snapshot.objects ?? [],
+            raisedVoiceAcmRef.current,
+          );
+          return snapshot;
         },
         loadFromJSON: async (data: object) => {
           const c = fabricRef.current as {
             loadFromJSON: (d: object) => Promise<unknown>;
             renderAll: () => void;
+            getObjects?: () => LatchObject[];
           } | null;
           if (!c) return;
           // Fabric v7: must await the returned Promise. Passing a "done"
           // callback as arg 2 treats it as a reviver and never restores objects.
           await c.loadFromJSON(data);
+          reapplyVoiceAcmLatch(
+            c.getObjects?.() ?? [],
+            raisedVoiceAcmRef.current,
+          );
           c.renderAll();
         },
         toDataURL: (opts) => {

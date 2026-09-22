@@ -2709,6 +2709,7 @@ export function SketchEditorV2({
           guided={guided}
           materials={materials}
           country={country}
+          inspectionId={inspectionId}
           aiRaisedAcm={jobHasAiRaisedAcm(existingEvidencePhotos)}
           onCountryChange={(c) => {
             setCountry(c);
@@ -2787,6 +2788,41 @@ export function SketchEditorV2({
             fc.renderAll();
             setSelectedObj((prev) =>
               prev && prev.id === id ? { ...prev, materialSlug: slug } : prev,
+            );
+            scheduleSave();
+          }}
+          onVoiceAcmRaised={(id) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+              fire?: (ev: string, opt: object) => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
+            if (obj?.data) {
+              const data = obj.data as Record<string, unknown>;
+              // Raise-only. A later voice accept must not write this false.
+              // object:modified records the raise in undo history, the same
+              // way any other object edit is snapshotted.
+              if (data.voiceRaisedAcm !== true) {
+                data.voiceRaisedAcm = true;
+                fc.fire?.("object:modified", { target: obj });
+              }
+            }
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id
+                ? { ...prev, voiceRaisedAcm: true }
+                : prev,
             );
             scheduleSave();
           }}

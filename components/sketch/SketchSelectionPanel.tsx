@@ -8,13 +8,27 @@
  * Exposes room type, label, colour, opacity, and stroke controls.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Trash2, X, AlertTriangle, Lock, Unlock } from "lucide-react";
 import { evaluateWhsGate } from "@/lib/anz/whs-gate";
 import { classifyCover, type DamageCause } from "@/lib/nz/nhcover";
 import { parseMetresInput } from "@/lib/sketch/room-defaults";
+import { VoiceNoteButton } from "@/components/voice/voice-note-button";
+import { VoiceFieldSuggestionList } from "@/components/voice/voice-field-suggestions";
+import type { ListedVoiceSuggestion } from "@/components/voice/voice-field-suggestions";
+import {
+  acceptVoiceSuggestion,
+  rejectVoiceSuggestion,
+  suggestionsFromMapping,
+} from "@/lib/services/ai/voice-field-suggestions";
+import type { VoiceFieldMapping } from "@/lib/services/ai/voice-to-fields";
 import toast from "react-hot-toast";
+
+/** Queue tag for voice notes recorded against the selected room. */
+export const SKETCH_ROOM_VOICE_FIELD = "sketch-room";
+
+type RoomVoiceSuggestion = ListedVoiceSuggestion & { roomId: string };
 
 const NZ_CAUSES: { id: DamageCause; label: string }[] = [
   { id: "earthquake", label: "Earthquake" },
@@ -84,6 +98,11 @@ export interface SelectedObject {
   wallThicknessM?: number;
   /** Room ceiling height in metres. */
   ceilingHeightM?: number;
+  /**
+   * Voice-note ACM latch (raise-only). Set when an accepted voice material
+   * has isPotentialAcm. A later non-ACM accept must not clear it.
+   */
+  voiceRaisedAcm?: boolean;
 }
 
 export interface MaterialOption {
@@ -138,6 +157,13 @@ export interface SketchSelectionPanelProps {
   onCeilingHeightChange?: (id: string, metres: number) => void;
   /** Enter room-scoped moisture map (crop guides + pins). */
   onMapRoomMoisture?: (id: string) => void;
+  /** Inspection this room belongs to — tags a queued voice note. */
+  inspectionId?: string;
+  /**
+   * Persist the raise-only voice ACM latch on the room. Callers must set it
+   * true and must not clear it from a later voice accept.
+   */
+  onVoiceAcmRaised?: (id: string) => void;
   onDelete?: (id: string) => void;
   onDeselect?: () => void;
   className?: string;
@@ -167,9 +193,25 @@ export function SketchSelectionPanel({
   onMapRoomMoisture,
   onDelete,
   onDeselect,
+  inspectionId = "unassigned",
+  onVoiceAcmRaised,
   className,
 }: SketchSelectionPanelProps) {
   const [pathwayDraft, setPathwayDraft] = useState("");
+  const [suggestions, setSuggestions] = useState<RoomVoiceSuggestion[]>([]);
+  const [skippedByRoom, setSkippedByRoom] = useState<Record<string, string>>(
+    {},
+  );
+  const [voiceLatch, setVoiceLatch] = useState(false);
+  const suggestionSeq = useRef(0);
+  const selectedId = selected?.id;
+
+  useEffect(() => {
+    // The persisted latch lives on the room. Drop only the local raise so a
+    // different room does not inherit it. Keep suggestions: each card names
+    // the room it was recorded in and is shown only while that room is open.
+    setVoiceLatch(false);
+  }, [selectedId]);
 
   if (!selected) return null;
 
@@ -191,10 +233,88 @@ export function SketchSelectionPanel({
     (m) => m.slug === selected.materialSlug,
   );
   // WHS asbestos gate (spec §5.3): suspected ACM blocks strip-out scope until a
-  // pathway is recorded. Photo-AI (RA-7613) can raise the same gate; it cannot
-  // clear it — only a recorded WHS pathway does.
+  // pathway is recorded. Photo AI and an accepted voice material can raise the
+  // same gate; neither can clear it — only a recorded WHS pathway does.
+  const voiceRaisedAcm = selected.voiceRaisedAcm === true || voiceLatch;
   const suspectedAcm =
-    selectedMaterial?.isPotentialAcm === true || aiRaisedAcm === true;
+    selectedMaterial?.isPotentialAcm === true ||
+    aiRaisedAcm === true ||
+    voiceRaisedAcm;
+
+  function handleMappedFields(
+    mapping: VoiceFieldMapping,
+    context?: { roomId?: string },
+  ) {
+    const roomId = context?.roomId ?? selectedId;
+    if (!roomId) return;
+    const next = suggestionsFromMapping(mapping).map((suggestion) => ({
+      ...suggestion,
+      key: `voice-${suggestionSeq.current++}`,
+      roomId,
+    }));
+    if (next.length === 0) {
+      setSkippedByRoom((prev) => ({
+        ...prev,
+        [roomId]:
+          "This voice note was transcribed. Mapping onto the room was skipped.",
+      }));
+      return;
+    }
+    setSkippedByRoom((prev) => {
+      if (!prev[roomId]) return prev;
+      const rest = { ...prev };
+      delete rest[roomId];
+      return rest;
+    });
+    setSuggestions((prev) => [...prev, ...next]);
+  }
+
+  function acceptSuggestion(
+    suggestion: ListedVoiceSuggestion & { roomId?: string },
+  ) {
+    const roomId = suggestion.roomId;
+    if (!roomId) return;
+    const snapshot = {
+      materialSlug: selected?.materialSlug,
+      waterCategory: selected?.waterCategory,
+      lengthM: selected?.lengthM,
+      widthM: selected?.widthM,
+      voiceRaisedAcm,
+      whsPathwayNote: selected?.whsPathwayNote,
+    };
+    const { job } = acceptVoiceSuggestion(
+      snapshot,
+      suggestion,
+      propertyYearBuilt,
+    );
+    if (suggestion.kind === "material" && job.materialSlug) {
+      onMaterialChange?.(roomId, job.materialSlug);
+    } else if (suggestion.kind === "waterCategory" && job.waterCategory) {
+      onWaterCategoryChange?.(roomId, job.waterCategory);
+    } else if (suggestion.kind === "dimensions") {
+      onDimensionsChange?.(roomId, {
+        ...(job.lengthM != null ? { lengthM: job.lengthM } : {}),
+        ...(job.widthM != null ? { widthM: job.widthM } : {}),
+      });
+    }
+    if (job.voiceRaisedAcm === true && snapshot.voiceRaisedAcm !== true) {
+      setVoiceLatch(true);
+      onVoiceAcmRaised?.(roomId);
+    }
+    setSuggestions((prev) => prev.filter((item) => item.key !== suggestion.key));
+  }
+
+  function rejectSuggestion(suggestion: ListedVoiceSuggestion) {
+    rejectVoiceSuggestion({
+      materialSlug: selected?.materialSlug,
+      waterCategory: selected?.waterCategory,
+      lengthM: selected?.lengthM,
+      widthM: selected?.widthM,
+      voiceRaisedAcm,
+      whsPathwayNote: selected?.whsPathwayNote,
+    });
+    setSuggestions((prev) => prev.filter((item) => item.key !== suggestion.key));
+  }
   const whs = suspectedAcm
     ? evaluateWhsGate({
         isPotentialAcm: true,
@@ -611,6 +731,33 @@ export function SketchSelectionPanel({
               )
             }
             className="w-full accent-cyan-400"
+          />
+        </div>
+      )}
+
+      {/* Voice note — suggestions for this room. Nothing is written until Accept. */}
+      {!guided && isRoom && (
+        <div className="space-y-1.5">
+          <VoiceNoteButton
+            onTranscript={() => {
+              /* The transcript is not a job field. Suggestions arrive via onMappedFields. */
+            }}
+            onMappedFields={handleMappedFields}
+            compact
+            inspectionId={inspectionId}
+            fieldLabel={SKETCH_ROOM_VOICE_FIELD}
+            roomId={selected.id}
+          />
+          {skippedByRoom[selected.id] && (
+            <p className="text-xs text-amber-200">{skippedByRoom[selected.id]}</p>
+          )}
+          <VoiceFieldSuggestionList
+            suggestions={suggestions.filter(
+              (item) => item.roomId === selected.id,
+            )}
+            currentWaterCategory={selected.waterCategory}
+            onAccept={acceptSuggestion}
+            onReject={rejectSuggestion}
           />
         </div>
       )}

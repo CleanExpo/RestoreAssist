@@ -19,7 +19,12 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { queueVoiceNote } from "@/lib/voice-note-queue";
+import {
+  getPendingTranscripts,
+  markTranscriptConsumed,
+  queueVoiceNote,
+  VOICE_NOTES_DRAINED_EVENT,
+} from "@/lib/voice-note-queue";
 import {
   mapVoiceTranscriptToFields,
   type VoiceFieldMapping,
@@ -46,8 +51,17 @@ interface Props {
   inspectionId?: string;
   /** Which field the note is for — tags the queue entry (RA-1609). */
   fieldLabel?: string;
+  /**
+   * Room this control is showing. Captured when recording starts so a later
+   * room switch cannot move the note. A drained note for another room stays
+   * queued until that room is open.
+   */
+  roomId?: string;
   /** RA-7613 — structured mapping of the transcript onto enumerated fields. */
-  onMappedFields?: (mapping: VoiceFieldMapping) => void;
+  onMappedFields?: (
+    mapping: VoiceFieldMapping,
+    context?: { roomId?: string },
+  ) => void;
 }
 
 export function VoiceNoteButton({
@@ -59,13 +73,22 @@ export function VoiceNoteButton({
   compact = false,
   inspectionId = "unassigned",
   fieldLabel = "voice-note",
+  roomId,
   onMappedFields,
 }: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [queued, setQueued] = useState(false);
   const [mapping, setMapping] = useState<VoiceFieldMapping | null>(null);
+  const [mappingNote, setMappingNote] = useState<string | null>(null);
+  const onTranscriptRef = useRef(onTranscript);
+  const onMappedFieldsRef = useRef(onMappedFields);
+  const consumedIdsRef = useRef(new Set<string>());
+  onTranscriptRef.current = onTranscript;
+  onMappedFieldsRef.current = onMappedFields;
   const recorderRef = useRef<MediaRecorder | null>(null);
+  /** Room id at the moment recording started. Not the room open at upload time. */
+  const recordedRoomIdRef = useRef<string | undefined>(roomId);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,6 +97,105 @@ export function VoiceNoteButton({
   useEffect(() => {
     onStatusChange?.(status);
   }, [status, onStatusChange]);
+
+  // Queued notes are transcribed on reconnect. Deliver that transcript to the
+  // same mapping callback, or say plainly that mapping was skipped.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function consumeDrained() {
+      // A partial test mock of the queue module throws on a missing export.
+      // Treat that the same as "nothing queued" so the mic still works.
+      let readPending: typeof getPendingTranscripts;
+      try {
+        readPending = getPendingTranscripts;
+      } catch {
+        return;
+      }
+      if (typeof readPending !== "function") return;
+      let pending: Awaited<ReturnType<typeof getPendingTranscripts>> = [];
+      try {
+        pending = await readPending();
+      } catch {
+        if (!cancelled) {
+          setMappingNote(
+            "Queued voice note could not be read. Mapping was skipped.",
+          );
+        }
+        return;
+      }
+      if (cancelled) return;
+
+      for (const item of pending) {
+        if (
+          item.inspectionId !== inspectionId ||
+          item.fieldLabel !== fieldLabel
+        ) {
+          continue;
+        }
+        // A note recorded in another room stays queued until that room is open.
+        if (item.roomId && roomId && item.roomId !== roomId) {
+          continue;
+        }
+        if (consumedIdsRef.current.has(item.id)) continue;
+        consumedIdsRef.current.add(item.id);
+
+        if (item.status === "error" || !item.transcript?.trim()) {
+          setMappingNote(
+            item.error
+              ? `Queued voice note failed: ${item.error}. Mapping was skipped.`
+              : "Queued voice note had no words. Mapping was skipped.",
+          );
+          await markConsumed(item.id);
+          continue;
+        }
+
+        const transcript = item.transcript.trim();
+        const handler = onMappedFieldsRef.current;
+        if (!handler) {
+          onTranscriptRef.current(transcript);
+          setMappingNote(
+            "Voice note transcribed. Mapping onto job fields was skipped.",
+          );
+        } else {
+          const mapped = mapVoiceTranscriptToFields(transcript);
+          const noteRoomId = item.roomId ?? roomId;
+          setMapping(mapped);
+          handler(mapped, noteRoomId ? { roomId: noteRoomId } : undefined);
+          onTranscriptRef.current(transcript);
+          setQueued(false);
+          setMappingNote(null);
+        }
+        await markConsumed(item.id);
+      }
+    }
+
+    async function markConsumed(id: string) {
+      try {
+        if (typeof markTranscriptConsumed === "function") {
+          await markTranscriptConsumed(id);
+        }
+      } catch {
+        // Partial queue mock, or the row was already gone.
+      }
+    }
+
+    void consumeDrained();
+    let drainedEvent = "ra-voice-notes-drained";
+    try {
+      if (VOICE_NOTES_DRAINED_EVENT) drainedEvent = VOICE_NOTES_DRAINED_EVENT;
+    } catch {
+      // Partial queue mock — keep the stable event name.
+    }
+    const onDrained = () => {
+      void consumeDrained();
+    };
+    window.addEventListener(drainedEvent, onDrained);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(drainedEvent, onDrained);
+    };
+  }, [inspectionId, fieldLabel, roomId]);
 
   // Cleanup on unmount
   useEffect(
@@ -85,6 +207,7 @@ export function VoiceNoteButton({
   );
 
   async function start() {
+    recordedRoomIdRef.current = roomId;
     setError(null);
     setQueued(false);
     setMapping(null);
@@ -136,13 +259,14 @@ export function VoiceNoteButton({
   }
 
   async function upload() {
+    const recordedRoomId = recordedRoomIdRef.current;
     setStatus("uploading");
     const blob = new Blob(chunksRef.current, { type: "audio/webm" });
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
 
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      await queueForLater(blob);
+      await queueForLater(blob, recordedRoomId);
       return;
     }
 
@@ -156,7 +280,7 @@ export function VoiceNoteButton({
 
       if (res.status === 503) {
         // Transient upstream unavailability — queue and retry on reconnect.
-        await queueForLater(blob);
+        await queueForLater(blob, recordedRoomId);
         return;
       }
 
@@ -194,14 +318,17 @@ export function VoiceNoteButton({
       const transcript = data.transcript.trim();
       const mapped = mapVoiceTranscriptToFields(transcript);
       setMapping(mapped);
-      onMappedFields?.(mapped);
+      onMappedFieldsRef.current?.(
+        mapped,
+        recordedRoomId ? { roomId: recordedRoomId } : undefined,
+      );
       onTranscript(transcript);
       setStatus("idle");
     } catch (err) {
       if (err instanceof TypeError) {
         // fetch() throws TypeError on network failure (offline mid-flight,
         // DNS/connection drop) — queue instead of hard-failing.
-        await queueForLater(blob);
+        await queueForLater(blob, recordedRoomId);
         return;
       }
       const msg = err instanceof Error ? err.message : "Transcription failed";
@@ -211,9 +338,13 @@ export function VoiceNoteButton({
   }
 
   /** RA-1609: queue the recorded blob for transcription on reconnect. */
-  async function queueForLater(blob: Blob) {
+  async function queueForLater(blob: Blob, recordedRoomId?: string) {
     try {
-      await queueVoiceNote(blob, { inspectionId, fieldLabel });
+      await queueVoiceNote(blob, {
+        inspectionId,
+        fieldLabel,
+        ...(recordedRoomId ? { roomId: recordedRoomId } : {}),
+      });
       setQueued(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to queue voice note";
@@ -257,7 +388,12 @@ export function VoiceNoteButton({
           Queued — will transcribe when back online.
         </span>
       )}
-      {mapping && (mapping.material || mapping.waterCategory || mapping.dimensions || mapping.needsConfirmation.length > 0) && (
+      {mappingNote && (
+        <span className="text-xs text-muted-foreground max-w-[220px]">
+          {mappingNote}
+        </span>
+      )}
+      {!onMappedFields && mapping && (mapping.material || mapping.waterCategory || mapping.dimensions || mapping.needsConfirmation.length > 0) && (
         <div className="text-xs text-muted-foreground max-w-[280px] space-y-1">
           {mapping.material && (
             <p>Material: {mapping.material.name}</p>
