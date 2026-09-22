@@ -1819,62 +1819,12 @@ async function renderPage4(
 
   yPosition -= 25;
 
-  const terms = [
-    {
-      title: "Access:",
-      text: "Remediation discert, and all others conside maintalirse heve aeeess the prevbas soprees of comonaner eskies aesess the caxninental ascess berdr hnedletierencede.",
-    },
-    {
-      title: "Payment:",
-      text: "Payment or paytritents or low stanlove izdict cosio ersin, dersch to or casscogret scsoare inthonahing oft onverdemerot noth access that nstions thet cen oot by vapekeh jraousis, and nakading robetual pacment.",
-    },
-    {
-      title: "Variations:",
-      text: "Rensdialen redcarisic in mers, dlrping, scceevihmmsication, enirluloons, comerintcahont, plieforscled to ecedatts erainnstioncions, vedatiea and scope sooteressen smetestsıw and ts snunta the troede, and vertations tollokatoses aoc renitsnes of spechinsomen.",
-    },
-    {
-      title: "Scope Limitations:",
-      text: "Scope nsirinare obert Rationists reduirs magnssis of ceamlcione with socooltumiete in chibidkens Is ooniseling apeterrr coounheecks aisecali tied artied ontier precesss etne precesss ementeed for cinetemceshcbble rinsesure or peyismernel scepe.",
-    },
-    {
-      title: "Liability:",
-      text: "The fisethig thet dine icarestarttexo eipsit be clouess edihnias in an coratstosdioas with tou soinyinao tilene, reguitef benucer prareses for includes the csinat sor soles fairdrek csrt/-raplinscr-wtth fiability or senecsneority ropnements.",
-    },
-  ];
-
-  terms.forEach((term) => {
-    if (yPosition < 100) return;
-
-    page.drawText(term.title, {
-      x: margin,
-      y: yPosition,
-      size: 11,
-      font: helveticaBold,
-      color: colors.darkBlue,
-    });
-
-    yPosition -= 15;
-
-    const termLines = wrapText(
-      term.text,
-      width - 2 * margin - 20,
-      helvetica,
-      9,
-    );
-    termLines.forEach((line: string) => {
-      if (yPosition < 100) return;
-      page.drawText(sanitizeTextForPDF(line), {
-        x: margin + 10,
-        y: yPosition,
-        size: 9,
-        font: helvetica,
-        color: colors.black,
-        maxWidth: width - 2 * margin - 20,
-      });
-      yPosition -= 11;
-    });
-
-    yPosition -= 10;
+  page.drawText("Terms of engagement are supplied separately.", {
+    x: margin,
+    y: yPosition,
+    size: 10,
+    font: helvetica,
+    color: colors.black,
   });
 }
 
