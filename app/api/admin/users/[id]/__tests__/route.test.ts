@@ -13,9 +13,15 @@ vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminFromDb: (...a: unknown[]) => verifyAdminFromDb(...a),
-}));
+vi.mock("@/lib/admin-auth", async () => {
+  // RA-7647: the real tenancy rule, so this file exercises it too.
+  const actual =
+    await vi.importActual<typeof import("@/lib/admin-auth")>("@/lib/admin-auth");
+  return {
+    verifyAdminFromDb: (...a: unknown[]) => verifyAdminFromDb(...a),
+    adminUserScope: actual.adminUserScope,
+  };
+});
 vi.mock("@/lib/audit-log", () => ({ recordMutationAudit: vi.fn() }));
 vi.mock("@/lib/api-errors", () => ({
   apiError: (_r: unknown, o: { message: string; status: number }) =>

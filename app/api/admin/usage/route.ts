@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { adminUserScope, verifyAdminFromDb } from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
@@ -22,10 +22,17 @@ export async function GET(request: NextRequest) {
   const to = new Date(year, monthNum, 0, 23, 59, 59);
 
   try {
+    // RA-7647: an org-less admin's scope is their own usage. Two null
+    // organisations are not the same organisation.
+    const scope = adminUserScope(adminUser!);
+    const scopeSql =
+      "organizationId" in scope
+        ? Prisma.sql`u."organizationId" = ${scope.organizationId}`
+        : Prisma.sql`u."id" = ${scope.id}`;
     const usageWhere = {
       where: {
         timestamp: { gte: from, lte: to },
-        user: { organizationId: adminUser!.organizationId },
+        user: scope,
       },
     } satisfies Prisma.UsageEventFindManyArgs;
 
@@ -79,11 +86,7 @@ export async function GET(request: NextRequest) {
         INNER JOIN "User" u ON u."id" = ue."userId"
         WHERE ue."timestamp" >= ${from}
           AND ue."timestamp" <= ${to}
-          AND u."organizationId" ${
-            adminUser!.organizationId === null
-              ? Prisma.sql`IS NULL`
-              : Prisma.sql`= ${adminUser!.organizationId}`
-          }
+          AND ${scopeSql}
         GROUP BY DATE(ue."timestamp"), ue."eventType"
         ORDER BY date ASC
       `,

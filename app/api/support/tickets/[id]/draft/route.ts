@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { withIdempotency } from "@/lib/idempotency";
 import { draftSupportTicketReply } from "@/lib/services/ai/draft-support-ticket";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -20,6 +23,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // RA-7647: every self-signup is ADMIN; this is RestoreAssist staff work.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
   const userId = session!.user!.id;
   const { id } = await context.params;
 

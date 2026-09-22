@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { adminUserScope, verifyAdminFromDb } from "@/lib/admin-auth";
 import { apiError, fromException } from "@/lib/api-errors";
 import { recordMutationAudit } from "@/lib/audit-log";
 
@@ -52,10 +52,14 @@ export async function PATCH(
       status: 404,
     });
   }
-  if (
-    adminUser!.organizationId &&
-    target.organizationId !== adminUser!.organizationId
-  ) {
+  // RA-7647: an org-less admin's scope is their own row. Two null
+  // organisations are not the same organisation.
+  const scope = adminUserScope(adminUser!);
+  const inScope =
+    "organizationId" in scope
+      ? target.organizationId === scope.organizationId
+      : target.id === scope.id;
+  if (!inScope) {
     return apiError(request, {
       code: "FORBIDDEN",
       message: "Cannot edit users outside your organisation",
@@ -80,14 +84,10 @@ export async function PATCH(
 
   try {
     const updated = await prisma.user.update({
-      // RA-6800: re-assert the same-org boundary atomically (mirrors the guard
-      // above). Org-less super-admins (no organizationId) keep id-only scope.
-      where: {
-        id: target.id,
-        ...(adminUser!.organizationId
-          ? { organizationId: adminUser!.organizationId }
-          : {}),
-      },
+      // RA-6800: re-assert the boundary atomically (mirrors the guard above).
+      // RA-7647: there is no id-only branch; an org-less admin's scope is
+      // `{ id: <themselves> }`, so the write can only ever reach their own row.
+      where: { id: target.id, ...scope },
       data: { isJuniorTechnician: body.isJuniorTechnician },
       select: { id: true, email: true, isJuniorTechnician: true },
     });
