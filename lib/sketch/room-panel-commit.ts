@@ -6,6 +6,10 @@
  * The voice asbestos latch fires object:modified, then schedules the
  * debounced save. Label, material, water category and size use the same
  * sequence.
+ *
+ * Call fire on the canvas so `this` stays bound. Fabric reads
+ * this.__eventListeners; a detached call throws and the save never
+ * starts. scheduleSave still runs when a listener throws.
  */
 
 export function commitRoomPanelEdit(
@@ -13,11 +17,13 @@ export function commitRoomPanelEdit(
   target: unknown,
   scheduleSave: () => void,
 ): void {
-  const fire = (
-    canvas as {
-      fire?: (event: string, payload: { target: unknown }) => void;
-    }
-  ).fire;
-  fire?.("object:modified", { target });
-  scheduleSave();
+  try {
+    (
+      canvas as {
+        fire?: (event: string, payload: { target: unknown }) => void;
+      } | null
+    )?.fire?.("object:modified", { target });
+  } finally {
+    scheduleSave();
+  }
 }
