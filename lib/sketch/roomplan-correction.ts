@@ -131,27 +131,38 @@ function asPoints(value: unknown): GeometryPoint[] | undefined {
   return points;
 }
 
-function samePoints(
+/**
+ * Fabric's polygon transform drifts a fractional scan point by about 1e-14.
+ * 0.01 px is far below a real move and absorbs that drift.
+ */
+export const GEOMETRY_POINT_TOLERANCE_PX = 0.01;
+
+/** Shared by RoomPlan and AI-suggested geometry corrections. */
+export function geometryPointsMatch(
   a: GeometryPoint[] | undefined,
   b: GeometryPoint[] | undefined,
+  tolerancePx = GEOMETRY_POINT_TOLERANCE_PX,
 ): boolean {
   if (a == null && b == null) return true;
   if (!a || !b || a.length !== b.length) return false;
-  return a.every(
-    (point, index) => point.x === b[index]?.x && point.y === b[index]?.y,
-  );
+  return a.every((point, index) => {
+    const other = b[index];
+    if (!other) return false;
+    return (
+      Math.abs(point.x - other.x) <= tolerancePx &&
+      Math.abs(point.y - other.y) <= tolerancePx
+    );
+  });
 }
 
 /**
  * Geometry already recorded on the room: the last geometry correction's
- * points when one exists, otherwise the capture (`originalPoints`).
- * A later label edit must be compared here, not against the original scan.
+ * `after.points` when one exists, otherwise the capture (`originalPoints`).
+ * Applied objects do not store `data.points`.
  */
-function currentRecordedPoints(
+export function currentRecordedPoints(
   data: Record<string, unknown>,
 ): GeometryPoint[] | undefined {
-  const stored = asPoints(data.points);
-  if (stored) return stored;
   const history = data.correctionHistory;
   if (Array.isArray(history)) {
     for (let i = history.length - 1; i >= 0; i--) {
@@ -198,7 +209,7 @@ export function recordRoomPlanGeometryCorrection(
   const nextWidth = finiteNumber(next.widthM);
 
   const areaChanged = next.areaM2 !== data.areaM2;
-  const pointsChanged = !samePoints(beforePoints, next.points);
+  const pointsChanged = !geometryPointsMatch(beforePoints, next.points);
   const lengthChanged =
     nextLength !== undefined && nextLength !== beforeLength;
   const widthChanged = nextWidth !== undefined && nextWidth !== beforeWidth;
