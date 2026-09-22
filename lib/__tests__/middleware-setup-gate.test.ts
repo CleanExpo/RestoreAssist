@@ -390,11 +390,21 @@ describe("middleware login redirect (P1 #16)", () => {
   // still be gated. These are the assertions that make the exemption safe
   // rather than merely convenient.
   //
-  // The last two rows pin the `[^/]+` in PUBLIC_TOKENED_REPORT_VIEW — the id is
-  // ONE path segment. Without them, widening it to `.+` passes the whole suite:
-  // the six rows above vary the token and the tail of the path but never the
-  // number of segments in the id, so none of them notices. Found by the
-  // independent reviewer on bf147fdee, which is the only reason they exist.
+  // Rows 7-8 pin the `[^/]+` in PUBLIC_TOKENED_REPORT_VIEW — the id is ONE path
+  // segment. Without them, widening it to `.+` passes the whole suite: the six
+  // rows above vary the token and the tail of the path but never the number of
+  // segments in the id, so none of them notices.
+  //
+  // Rows 9-10 pin the two things the regex claims and nothing asserted: that it
+  // is anchored at the START, and that it is case-SENSITIVE. Round two of the
+  // independent review dropped the `^` and all 68 tests still passed, while
+  // /reports/x/reports/y/view?token=… flipped from 307 to 200 — a gated path
+  // made public by a one-character edit no test could see. The `/i` mutant does
+  // the same for /reports/<id>/VIEW.
+  //
+  // Every one of these four rows exists because a reviewer mutated the regex and
+  // the suite stayed green. That is the whole lesson: an anchor written in a
+  // pattern is a claim, and a claim with no control behind it is decoration.
   it.each([
     ["the view route with no token at all", "/reports/rep_123/view", ""],
     ["the view route with an empty token", "/reports/rep_123/view", "?token="],
@@ -404,6 +414,8 @@ describe("middleware login redirect (P1 #16)", () => {
     ["a deeper path below /view", "/reports/rep_123/view/raw", `?token=${"a".repeat(64)}`],
     ["a multi-segment id", "/reports/a/b/view", `?token=${"a".repeat(64)}`],
     ["a deeper multi-segment id", "/reports/a/b/c/view", `?token=${"a".repeat(64)}`],
+    ["a path that merely ENDS with the view route", "/reports/x/reports/y/view", `?token=${"a".repeat(64)}`],
+    ["an uppercase VIEW segment", "/reports/rep_123/VIEW", `?token=${"a".repeat(64)}`],
   ])("still gates %s", async (_case, pathname, search) => {
     (getToken as any).mockResolvedValue(null);
     const res = await proxy(mkReq(pathname, search));
