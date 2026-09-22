@@ -3,7 +3,7 @@ import { verifyCronAuth, runCronJob } from "@/lib/cron";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email-send";
 import {
-  MONITORED_CRONS,
+  PRODUCTION_MONITORED_CRONS,
   analyzeCronHealth,
   renderCronAlertHtml,
   type CronJobSummary,
@@ -59,11 +59,13 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const windowStart = new Date(now.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
 
+    // RA-7645: only the jobs the live schedule runs. Excluded routes never
+    // run in production by decision and would page as never-succeeded daily.
     const summaries = await Promise.all(
-      MONITORED_CRONS.map((c) => buildSummary(c.jobName, windowStart)),
+      PRODUCTION_MONITORED_CRONS.map((c) => buildSummary(c.jobName, windowStart)),
     );
 
-    const report = analyzeCronHealth(MONITORED_CRONS, summaries, now);
+    const report = analyzeCronHealth(PRODUCTION_MONITORED_CRONS, summaries, now);
 
     let alerted = false;
     if (!report.healthy) {

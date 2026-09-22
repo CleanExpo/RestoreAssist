@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { IntegrationProvider, WebhookEventStatus } from "@prisma/client";
+import {
+  IntegrationProvider,
+  InvoiceStatus,
+  WebhookEventStatus,
+} from "@prisma/client";
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
 import { createQuickBooksClient } from "@/lib/integrations/quickbooks/client";
 import { createMYOBClient } from "@/lib/integrations/myob/client";
@@ -494,7 +498,7 @@ async function recordInvoiceAllocation(
       } else {
         await tx.invoice.update({
           where: { id: invoice.id },
-          data: { status: "PARTIAL" as any },
+          data: { status: InvoiceStatus.PARTIALLY_PAID },
         });
       }
 
