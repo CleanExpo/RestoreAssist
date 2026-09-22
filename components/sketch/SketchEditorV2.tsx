@@ -192,6 +192,12 @@ const ROOM_COLORS = [
 // ─── Floor data ────────────────────────────────────────────
 interface FloorData {
   floor: SketchFloor;
+  /**
+   * React key for this floor's canvas. The floor id is swapped from a local
+   * temp id to the server sketch id on first save; keying the canvas on that
+   * id remounts Fabric and drops the drawing in progress.
+   */
+  clientKey: string;
   canvasRef: React.MutableRefObject<FabricCanvasRef | null>;
   moisturePins: MoisturePin[];
   evidencePins: EvidencePinView[];
@@ -325,9 +331,18 @@ export function SketchEditorV2({
   }, []);
 
   // ── Floor state ────────────────────────────────────────
+  // Stable canvas key. Not derived from floorNumber: removing a floor does
+  // not renumber the rest, so those numbers can repeat. A counter also
+  // matches on the server and client render of the initial floor.
+  const floorClientKeySeq = useRef(0);
+  const allocFloorClientKey = useCallback(() => {
+    floorClientKeySeq.current += 1;
+    return `ck-${floorClientKeySeq.current}`;
+  }, []);
   const [floorsData, setFloorsData] = useState<FloorData[]>(() => [
     {
       floor: { id: `${uid}-f0`, floorNumber: 0, floorLabel: "Ground Floor" },
+      clientKey: allocFloorClientKey(),
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
       evidencePins: [],
@@ -502,6 +517,7 @@ export function SketchEditorV2({
                 floorNumber: s.floorNumber,
                 floorLabel: s.floorLabel,
               },
+              clientKey: s.id,
               canvasRef,
               moisturePins: (s.moisturePoints as MoisturePin[] | null) ?? [],
               evidencePins: [],
@@ -1318,6 +1334,7 @@ export function SketchEditorV2({
               ? "Second Floor"
               : `Floor ${newFloorNum}`,
       },
+      clientKey: allocFloorClientKey(),
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
       evidencePins: [],
@@ -1332,7 +1349,7 @@ export function SketchEditorV2({
     };
     setFloorsData((prev) => [...prev, newFloor]);
     setActiveIdx(floorsData.length);
-  }, [floorsData, uid]);
+  }, [floorsData, uid, allocFloorClientKey]);
 
   const handleRemoveFloor = useCallback(
     (idx: number) => {
@@ -2448,7 +2465,8 @@ export function SketchEditorV2({
         {sketchesHydrated &&
           floorsData.map((fd, idx) => (
             <div
-              key={fd.floor.id}
+              key={fd.clientKey}
+              data-floor-id={fd.floor.id}
               className={cn(
                 "absolute inset-0",
                 idx === activeIdx ? "block" : "hidden",
