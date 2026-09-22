@@ -59,6 +59,7 @@ import {
   recordRoomPlanGeometryCorrection,
   recordRoomPlanLabelCorrection,
 } from "@/lib/sketch/roomplan-correction";
+import { commitRoomPanelEdit } from "@/lib/sketch/room-panel-commit";
 import {
   confirmAiSuggestedMeasurement,
   recordAiSuggestedGeometryCorrection,
@@ -2765,7 +2766,7 @@ export function SketchEditorV2({
                 ? { ...prev, waterCategory: category }
                 : prev,
             );
-            scheduleSave();
+            commitRoomPanelEdit(fc, obj, scheduleSave);
           }}
           onMaterialChange={(id, slug) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
@@ -2789,7 +2790,7 @@ export function SketchEditorV2({
             setSelectedObj((prev) =>
               prev && prev.id === id ? { ...prev, materialSlug: slug } : prev,
             );
-            scheduleSave();
+            commitRoomPanelEdit(fc, obj, scheduleSave);
           }}
           onVoiceAcmRaised={(id) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
@@ -3052,7 +3053,7 @@ export function SketchEditorV2({
                   }
                 : prev,
             );
-            scheduleSave();
+            commitRoomPanelEdit(fc, obj, scheduleSave);
           }}
           onDimLockChange={(id, locked) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
@@ -3220,7 +3221,7 @@ export function SketchEditorV2({
               setSelectedObj((prev) =>
                 prev && prev.id === id ? { ...prev, lengthM, widthM } : prev,
               );
-              scheduleSave();
+              commitRoomPanelEdit(fc, obj, scheduleSave);
               return;
             }
 
@@ -3242,7 +3243,7 @@ export function SketchEditorV2({
                   ? { ...prev, lengthM: dims.lengthM }
                   : prev,
               );
-              scheduleSave();
+              commitRoomPanelEdit(fc, obj, scheduleSave);
               return;
             }
 
@@ -3287,7 +3288,7 @@ export function SketchEditorV2({
                   ? { ...prev, widthM: dims.widthM }
                   : prev,
               );
-              scheduleSave();
+              commitRoomPanelEdit(fc, obj, scheduleSave);
               toast.success("Opening width updated");
             }
           }}
