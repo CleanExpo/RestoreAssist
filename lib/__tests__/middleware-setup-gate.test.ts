@@ -366,6 +366,72 @@ describe("middleware login redirect (P1 #16)", () => {
     expect((res as any).headers.get("location")).toBeNull();
   });
 
+  // RA-7635 — the owner shares a finished report with the homeowner via
+  // /api/reports/[id]/share-link, which mints an HMAC insurer token and builds
+  // /reports/<id>/view?token=<t>. Every /reports path sits behind the login
+  // gate, so the homeowner was sent to /login and never saw the report.
+  //
+  // app/reports/[id]/view/page.tsx already verifies that token against THAT
+  // report id and 404s otherwise, and already sends robots noindex. The token
+  // in the query is the credential, exactly as the path token is for /sign and
+  // /invite. Only this one URL shape is exempt.
+  it("does NOT redirect /reports/[id]/view?token=... — the token is the credential", async () => {
+    (getToken as any).mockResolvedValue(null);
+    const token = "a".repeat(64);
+    const res = await proxy(
+      mkReq("/reports/rep_123/view", `?token=${token}`),
+    );
+    expect((res as any).status).toBe(200);
+    expect((res as any).headers.get("location")).toBeNull();
+  });
+
+  // The exemption is the narrowest shape that works. Each case below would be
+  // a way into the contractor's report surface without a session, so each must
+  // still be gated. These are the assertions that make the exemption safe
+  // rather than merely convenient.
+  it.each([
+    ["the view route with no token at all", "/reports/rep_123/view", ""],
+    ["the view route with an empty token", "/reports/rep_123/view", "?token="],
+    ["a report page that is not /view", "/reports/rep_123", `?token=${"a".repeat(64)}`],
+    ["a nested route under the id", "/reports/rep_123/edit", `?token=${"a".repeat(64)}`],
+    ["the reports index", "/reports", `?token=${"a".repeat(64)}`],
+    ["a deeper path below /view", "/reports/rep_123/view/raw", `?token=${"a".repeat(64)}`],
+  ])("still gates %s", async (_case, pathname, search) => {
+    (getToken as any).mockResolvedValue(null);
+    const res = await proxy(mkReq(pathname, search));
+    expect((res as any).status).toBe(307);
+    expect((res as any).headers.get("location")).toContain("/login");
+  });
+
+  // requiresLogin() guards two gates — the login redirect above and the hard
+  // paywall below it. The exemption has to be applied at both, or a homeowner
+  // opening a share link belonging to a lapsed contractor gets bounced to a
+  // payment page for somebody else's subscription. The pair below is what
+  // makes the second call site load-bearing: remove the exemption from the
+  // paywall gate and the first case fails, while the second proves the paywall
+  // really does fire on this token.
+  it("does NOT send a tokened report view to the paywall when the owner's subscription lapsed", async () => {
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      setupCompletedAt: "2026-01-01T00:00:00Z",
+      subscriptionStatus: "CANCELED",
+    });
+    const res = await proxy(
+      mkReq("/reports/rep_123/view", `?token=${"a".repeat(64)}`),
+    );
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("still paywalls an ordinary /reports path for that same lapsed token", async () => {
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      setupCompletedAt: "2026-01-01T00:00:00Z",
+      subscriptionStatus: "CANCELED",
+    });
+    const res = await proxy(mkReq("/reports/rep_123"));
+    expect((res as any).status).toBe(307);
+  });
+
   it("does NOT redirect authenticated users", async () => {
     (getToken as any).mockResolvedValue({
       sub: "u1",
