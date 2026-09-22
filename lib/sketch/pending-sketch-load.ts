@@ -7,6 +7,7 @@
  */
 
 import type { RoomMoistureCropMeta } from "./room-moisture-crop";
+import { isRoomAllowlistFill } from "./room-colors";
 import { SKETCH_META_KEY } from "./sketch-field-status";
 
 export type StoredSketchData = Record<string, unknown>;
@@ -19,6 +20,43 @@ const EDITOR_ONLY_KEYS = [
   SKETCH_META_KEY,
 ] as const;
 
+function objectHasCustomData(obj: unknown): boolean {
+  if (!obj || typeof obj !== "object") return false;
+  const data = (obj as { data?: unknown }).data;
+  return data != null && typeof data === "object";
+}
+
+function newLostRoomId(): string {
+  return `room-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * A data-less Polygon with a room-tool / ROOM_COLORS fill is a room whose
+ * custom `data` was dropped by Fabric 7 toJSON() (RA-7655). Damage tints
+ * and the north arrow are also polygons but use other fills.
+ */
+function isDataLessRoomPolygon(obj: unknown): boolean {
+  if (!obj || typeof obj !== "object" || objectHasCustomData(obj)) return false;
+  const o = obj as { type?: unknown; points?: unknown; fill?: unknown };
+  const type = typeof o.type === "string" ? o.type.toLowerCase() : "";
+  if (type !== "polygon") return false;
+  if (!Array.isArray(o.points) || o.points.length < 3) return false;
+  return isRoomAllowlistFill(o.fill);
+}
+
+function restoreLostRoomData(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...obj,
+    data: {
+      id: newLostRoomId(),
+      type: "room",
+      detailsLost: true,
+    },
+  };
+}
+
 /** Strip editor-only keys (e.g. scaleConfig) before Fabric loadFromJSON. */
 export function fabricJsonFromStoredSketchData(
   sketchData: unknown,
@@ -29,6 +67,13 @@ export function fabricJsonFromStoredSketchData(
   const fabricJson = { ...(sketchData as StoredSketchData) };
   for (const key of EDITOR_ONLY_KEYS) {
     delete fabricJson[key];
+  }
+  if (Array.isArray(fabricJson.objects)) {
+    fabricJson.objects = fabricJson.objects.map((obj) =>
+      isDataLessRoomPolygon(obj)
+        ? restoreLostRoomData(obj as Record<string, unknown>)
+        : obj,
+    );
   }
   // Empty blob — nothing to restore.
   const objects = fabricJson.objects;

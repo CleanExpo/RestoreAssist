@@ -59,6 +59,8 @@ import {
   recordRoomPlanLabelCorrection,
 } from "@/lib/sketch/roomplan-correction";
 import { commitRoomPanelEdit } from "@/lib/sketch/room-panel-commit";
+import { ROOM_COLORS } from "@/lib/sketch/room-colors";
+import { clearDetailsLostFromRoomData } from "@/lib/sketch/selected-object";
 import { applyRoomModifiedGeometry } from "@/lib/sketch/room-modified-geometry";
 import { confirmAiSuggestedMeasurement } from "@/lib/sketch/ai-suggested-confirm";
 import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
@@ -170,24 +172,6 @@ const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
     </div>
   ),
 });
-
-// ─── Room colours ──────────────────────────────────────────
-const ROOM_COLORS = [
-  {
-    fill: "rgba(59,130,246,0.10)",
-    stroke: "#3b82f6",
-    label: "Living / Common",
-  },
-  { fill: "rgba(16,185,129,0.10)", stroke: "#10b981", label: "Bedroom" },
-  { fill: "rgba(245,158,11,0.10)", stroke: "#f59e0b", label: "Kitchen" },
-  { fill: "rgba(236,72,153,0.10)", stroke: "#ec4899", label: "Bathroom / WC" },
-  {
-    fill: "rgba(139,92,246,0.10)",
-    stroke: "#8b5cf6",
-    label: "Garage / Utility",
-  },
-  { fill: "rgba(239,68,68,0.10)", stroke: "#ef4444", label: "Damage Zone" },
-];
 
 // ─── Floor data ────────────────────────────────────────────
 interface FloorData {
@@ -2766,12 +2750,15 @@ export function SketchEditorV2({
                       | undefined
                   )?.id === id,
               ) as Record<string, unknown> | undefined;
-            if (obj?.data)
-              (obj.data as Record<string, unknown>).waterCategory = category;
+            if (obj?.data) {
+              const data = obj.data as Record<string, unknown>;
+              data.waterCategory = category;
+              clearDetailsLostFromRoomData(data);
+            }
             fc.renderAll();
             setSelectedObj((prev) =>
               prev && prev.id === id
-                ? { ...prev, waterCategory: category }
+                ? { ...prev, waterCategory: category, detailsLost: undefined }
                 : prev,
             );
             commitRoomPanelEdit(fc, obj, scheduleSave);
@@ -2792,11 +2779,16 @@ export function SketchEditorV2({
                       | undefined
                   )?.id === id,
               ) as Record<string, unknown> | undefined;
-            if (obj?.data)
-              (obj.data as Record<string, unknown>).material = slug;
+            if (obj?.data) {
+              const data = obj.data as Record<string, unknown>;
+              data.material = slug;
+              clearDetailsLostFromRoomData(data);
+            }
             fc.renderAll();
             setSelectedObj((prev) =>
-              prev && prev.id === id ? { ...prev, materialSlug: slug } : prev,
+              prev && prev.id === id
+                ? { ...prev, materialSlug: slug, detailsLost: undefined }
+                : prev,
             );
             commitRoomPanelEdit(fc, obj, scheduleSave);
           }}
@@ -3025,6 +3017,7 @@ export function SketchEditorV2({
             } else {
               raw.label = label;
             }
+            clearDetailsLostFromRoomData(obj.data as Record<string, unknown>);
             // RA-6843 [A4]: a measured room owns a linked "room-label" caption —
             // rebuild it as "Name · 14.1 m²" so the rename reaches the canvas.
             const objData = obj.data as Record<string, unknown>;
@@ -3055,6 +3048,7 @@ export function SketchEditorV2({
                 ? {
                     ...prev,
                     label,
+                    detailsLost: undefined,
                     correctionCount: Array.isArray(hist)
                       ? hist.length
                       : prev.correctionCount,

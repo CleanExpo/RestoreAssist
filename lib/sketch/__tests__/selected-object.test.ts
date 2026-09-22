@@ -86,6 +86,18 @@ describe("fabricObjectToSelected", () => {
     expect(door?.dimLocked).toBe(true);
   });
 
+  it("carries detailsLost onto the selected room and omits it when unset", () => {
+    const lost = fabricObjectToSelected({
+      data: { id: "r-lost", type: "room", detailsLost: true },
+    });
+    expect(lost?.detailsLost).toBe(true);
+    expect(lost?.type).toBe("room");
+    const plain = fabricObjectToSelected({
+      data: { id: "r-plain", type: "room" },
+    });
+    expect(plain).not.toHaveProperty("detailsLost");
+  });
+
   it("reads a raise-only voice ACM latch and omits it when unset", () => {
     const raised = fabricObjectToSelected({
       data: { id: "r-acm", type: "room", voiceRaisedAcm: true },
