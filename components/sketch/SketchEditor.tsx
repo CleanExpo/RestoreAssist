@@ -10,6 +10,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
+import { ROOM_COLORS } from "@/lib/sketch/room-colors";
 import { SketchToolbar } from "./SketchToolbar";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
@@ -34,24 +35,6 @@ const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
     </div>
   ),
 });
-
-// ─── Room colours ────────────────────────────────────────
-const ROOM_COLORS = [
-  {
-    fill: "rgba(59,130,246,0.10)",
-    stroke: "#3b82f6",
-    label: "Living / Common",
-  },
-  { fill: "rgba(16,185,129,0.10)", stroke: "#10b981", label: "Bedroom" },
-  { fill: "rgba(245,158,11,0.10)", stroke: "#f59e0b", label: "Kitchen" },
-  { fill: "rgba(236,72,153,0.10)", stroke: "#ec4899", label: "Bathroom / WC" },
-  {
-    fill: "rgba(139,92,246,0.10)",
-    stroke: "#8b5cf6",
-    label: "Garage / Utility",
-  },
-  { fill: "rgba(239,68,68,0.10)", stroke: "#ef4444", label: "Damage Zone" },
-];
 
 // ─── Damage type colours (freehand overlay) ──────────────
 const DAMAGE_TYPES = [

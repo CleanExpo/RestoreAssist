@@ -14,6 +14,7 @@ import { Trash2, X, AlertTriangle, Lock, Unlock } from "lucide-react";
 import { evaluateWhsGate } from "@/lib/anz/whs-gate";
 import { classifyCover, type DamageCause } from "@/lib/nz/nhcover";
 import { parseMetresInput } from "@/lib/sketch/room-defaults";
+import { ROOM_COLORS } from "@/lib/sketch/room-colors";
 import { VoiceNoteButton } from "@/components/voice/voice-note-button";
 import { VoiceFieldSuggestionList } from "@/components/voice/voice-field-suggestions";
 import type { ListedVoiceSuggestion } from "@/components/voice/voice-field-suggestions";
@@ -69,23 +70,6 @@ const NZ_CAUSES: { id: DamageCause; label: string }[] = [
   { id: "other", label: "Other / accidental" },
 ];
 
-const ROOM_COLORS = [
-  {
-    fill: "rgba(59,130,246,0.10)",
-    stroke: "#3b82f6",
-    label: "Living / Common",
-  },
-  { fill: "rgba(16,185,129,0.10)", stroke: "#10b981", label: "Bedroom" },
-  { fill: "rgba(245,158,11,0.10)", stroke: "#f59e0b", label: "Kitchen" },
-  { fill: "rgba(236,72,153,0.10)", stroke: "#ec4899", label: "Bathroom / WC" },
-  {
-    fill: "rgba(139,92,246,0.10)",
-    stroke: "#8b5cf6",
-    label: "Garage / Utility",
-  },
-  { fill: "rgba(239,68,68,0.10)", stroke: "#ef4444", label: "Damage Zone" },
-];
-
 export interface SelectedObject {
   id: string;
   type: string;
@@ -130,6 +114,11 @@ export interface SelectedObject {
    * has isPotentialAcm. A later non-ACM accept must not clear it.
    */
   voiceRaisedAcm?: boolean;
+  /**
+   * RA-7655 — room polygon rehydrated after Fabric 7 dropped its `data`.
+   * Technician must re-enter name, material and water category.
+   */
+  detailsLost?: boolean;
 }
 
 export interface MaterialOption {
@@ -240,12 +229,14 @@ export function SketchSelectionPanel({
   const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<RoomSpeechRecognition | null>(null);
   const roomAtStartRef = useRef<string | null>(null);
+  const [detailsLostDismissed, setDetailsLostDismissed] = useState(false);
 
   useEffect(() => {
     // The persisted latch lives on the room. Drop only the local raise so a
     // different room does not inherit it. Keep suggestions: each card names
     // the room it was recorded in and is shown only while that room is open.
     setVoiceLatch(false);
+    setDetailsLostDismissed(false);
   }, [selectedId]);
 
   useEffect(() => {
@@ -266,6 +257,11 @@ export function SketchSelectionPanel({
   }, []);
 
   if (!selected) return null;
+
+  const showDetailsLost = selected.detailsLost === true && !detailsLostDismissed;
+  const noteRoomDetailsEdited = () => {
+    if (selected.detailsLost) setDetailsLostDismissed(true);
+  };
 
   const isRoom = selected.type === "room" || selected.type === "polygon";
   const isText = selected.type === "text_label" || selected.type === "i-text";
@@ -340,8 +336,10 @@ export function SketchSelectionPanel({
       propertyYearBuilt,
     );
     if (suggestion.kind === "material" && job.materialSlug) {
+      noteRoomDetailsEdited();
       onMaterialChange?.(roomId, job.materialSlug);
     } else if (suggestion.kind === "waterCategory" && job.waterCategory) {
+      noteRoomDetailsEdited();
       onWaterCategoryChange?.(roomId, job.waterCategory);
     } else if (suggestion.kind === "dimensions") {
       onDimensionsChange?.(roomId, {
@@ -452,6 +450,21 @@ export function SketchSelectionPanel({
       {/* Provenance — AI-suggested / imported / LiDAR-pending geometry is
           excluded from measured quantities until a technician confirms it
           (RA-6760 / RA-7091 / RA-7611). */}
+      {showDetailsLost && (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2"
+        >
+          <div className="flex items-start gap-1.5 text-xs text-amber-200">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              This room lost its details on an earlier save. Re-enter its name,
+              material and water category.
+            </span>
+          </div>
+        </div>
+      )}
+
       {(selected.provenance === "underlay_reference" ||
         selected.provenance === "ai_suggested") && (
         <div
@@ -547,9 +560,13 @@ export function SketchSelectionPanel({
           <input
             type="text"
             defaultValue={selected.label ?? ""}
-            onBlur={(e) => onLabelChange?.(selected.id, e.target.value)}
+            onBlur={(e) => {
+              noteRoomDetailsEdited();
+              onLabelChange?.(selected.id, e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
+                noteRoomDetailsEdited();
                 onLabelChange?.(
                   selected.id,
                   (e.target as HTMLInputElement).value,
@@ -893,7 +910,10 @@ export function SketchSelectionPanel({
           <select
             id="sketch-material"
             value={selected.materialSlug ?? ""}
-            onChange={(e) => onMaterialChange?.(selected.id, e.target.value)}
+            onChange={(e) => {
+              noteRoomDetailsEdited();
+              onMaterialChange?.(selected.id, e.target.value);
+            }}
             className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
           >
             <option value="" className="text-black">
@@ -920,12 +940,13 @@ export function SketchSelectionPanel({
           <select
             id="sketch-water-category"
             value={selected.waterCategory ?? ""}
-            onChange={(e) =>
+            onChange={(e) => {
+              noteRoomDetailsEdited();
               onWaterCategoryChange?.(
                 selected.id,
                 e.target.value as "cat1" | "cat2" | "cat3",
-              )
-            }
+              );
+            }}
             className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
           >
             <option value="" className="text-black">
