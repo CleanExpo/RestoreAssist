@@ -44,8 +44,23 @@ const STATUS_COLOR: Record<string, string> = {
   PROCESSING: "text-blue-400",
   CLASSIFIED: "text-purple-400",
   SCOPED: "text-cyan-400",
+  ESTIMATED: "text-emerald-400",
+  IN_BILLING: "text-brand-gold",
   COMPLETED: "text-success",
 };
+
+// RA-7711: every status a job is still being worked in. ESTIMATED and
+// IN_BILLING were missing, so estimated jobs vanished from Field Mode.
+// Values are the InspectionStatus enum in prisma/schema.prisma.
+const ACTIVE_STATUSES = [
+  "DRAFT",
+  "SUBMITTED",
+  "PROCESSING",
+  "CLASSIFIED",
+  "SCOPED",
+  "ESTIMATED",
+  "IN_BILLING",
+];
 
 function formatInspectionDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -96,7 +111,7 @@ export default function FieldDashboardPage() {
     setLoadError(null);
     try {
       const res = await fetch(
-        "/api/inspections?status=DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED&take=10",
+        `/api/inspections?status=${ACTIVE_STATUSES.join(",")}&assignee=me&take=10`,
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -174,6 +189,10 @@ export default function FieldDashboardPage() {
       } else {
         // Network failure — fall back to IndexedDB cache
         const { jobs, fetchedAt } = await getCachedJobs();
+        if (jobs.length === 0) {
+          // RA-7711: nothing to show is a failed load, not "0 active jobs".
+          setLoadError("check your connection and try again");
+        }
         if (jobs.length > 0) {
           setInspections(jobs);
           setFromCache(true);
@@ -196,9 +215,7 @@ export default function FieldDashboardPage() {
   }, []);
 
   const activeJobs = inspections.filter((i) =>
-    ["DRAFT", "SUBMITTED", "PROCESSING", "CLASSIFIED", "SCOPED"].includes(
-      i.status,
-    ),
+    ACTIVE_STATUSES.includes(i.status),
   );
   const nextJob = activeJobs[0];
 
@@ -230,17 +247,20 @@ export default function FieldDashboardPage() {
         </div>
       )}
 
-      {loadError && !isOffline && (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-red-500/15 border-b border-red-500/20 text-red-300 text-xs">
+      {loadError && (
+        <div
+          role="alert"
+          className="flex items-center gap-2 px-4 py-2.5 bg-red-500/15 border-b border-red-500/20 text-red-300 text-xs"
+        >
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1">Could not load jobs — {loadError}</span>
           <button
             type="button"
             onClick={() => void loadInspections()}
-            className="text-red-300/80 hover:text-red-200"
-            aria-label="Retry loading jobs"
+            className="flex items-center gap-1 text-red-300/80 hover:text-red-200"
           >
             <RefreshCw className="h-3.5 w-3.5" />
+            Retry
           </button>
         </div>
       )}
@@ -252,7 +272,9 @@ export default function FieldDashboardPage() {
         <p className="text-white/40 text-sm mt-0.5">
           {loading
             ? "Loading…"
-            : `${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
+            : loadError
+              ? "Jobs not loaded"
+              : `${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
         </p>
       </div>
 
@@ -276,7 +298,9 @@ export default function FieldDashboardPage() {
             </Link>
           ) : (
             <div className="rounded-2xl bg-white/5 px-4 py-4 text-sm text-white/50">
-              No active jobs ready yet.
+              {loadError
+                ? "Jobs not loaded. Use Retry above."
+                : "No active jobs ready yet."}
             </div>
           )}
           <Link
@@ -322,7 +346,7 @@ export default function FieldDashboardPage() {
           <div className="flex justify-center py-12">
             <RefreshCw className="h-5 w-5 text-white/30 animate-spin" />
           </div>
-        ) : activeJobs.length === 0 ? (
+        ) : loadError && activeJobs.length === 0 ? null : activeJobs.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-white/30 text-sm mb-4">
               {isOffline ? "Go online to load your jobs" : "No active jobs"}

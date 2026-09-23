@@ -172,6 +172,23 @@ export async function GET(request: NextRequest) {
     }
     const where: Prisma.InspectionWhereInput = { ...reach.data };
 
+    // RA-7711: Field Mode asks for the signed-in technician's jobs plus the
+    // unassigned ones. Appended to AND, alongside tenancy, so the search
+    // filter's `where.OR` assignment below cannot erase it.
+    if (searchParams.get("assignee") === "me") {
+      const existingAnd = where.AND
+        ? Array.isArray(where.AND)
+          ? where.AND
+          : [where.AND]
+        : [];
+      where.AND = [
+        ...existingAnd,
+        {
+          OR: [{ technicianId: session.user.id }, { technicianId: null }],
+        },
+      ];
+    }
+
     // Status filter — support "active" alias (not COMPLETED/REJECTED).
     // RA-7567: Field Mode sends several statuses in one query value
     // (`DRAFT,SUBMITTED,…`). Split and validate so Prisma never sees the
