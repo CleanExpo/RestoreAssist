@@ -193,6 +193,74 @@ describe("grep proof — removed strings appear nowhere user-facing", () => {
   });
 });
 
+// ── RA-7714 review: no "unlimited reports" in ANY letter case ──────────────
+//
+// The exact-string needle above ("Unlimited reports") missed lowercase
+// sentences in two upgrade modals and the trial-expiring email. The plan is a
+// monthly allowance (PRICING_CONFIG.pricing.monthly.reportLimit), so no
+// buyer-facing copy may call reports unlimited. Comment lines are removed
+// first: comments that explain the old false claim are not copy.
+
+const UNLIMITED_REPORTS =
+  /\bunlimited\s+(?:clients,\s+)?reports?\b(?:\s+generation)?/i;
+
+// The only permitted match: the credits-page banner that renders ONLY when
+// reportLimits.hasUnlimited (or an unlimited trial) is true, so it is true
+// whenever it is shown.
+const UNLIMITED_REPORTS_ALLOWED = new Set(["app/dashboard/credits/page.tsx"]);
+
+function withoutCommentLines(raw: string): string {
+  return raw
+    .split("\n")
+    .filter((line) => !/^\s*(?:\/\/|\/\*|\*|\{\/\*)/.test(line))
+    .join(" ")
+    .replace(/\s+/g, " ");
+}
+
+function unlimitedReportsHits(): string[] {
+  return corpus
+    .filter((c) => !UNLIMITED_REPORTS_ALLOWED.has(c.file))
+    .filter((c) => UNLIMITED_REPORTS.test(withoutCommentLines(c.raw)))
+    .map((c) => c.file);
+}
+
+describe("grep proof — no copy calls reports unlimited, any case", () => {
+  it.each([
+    "unlock all features — unlimited reports, priority support",
+    "Upgrade now to unlock unlimited reports, client management",
+    "<li>Unlimited report generation</li>",
+    "all features including unlimited clients,\n reports, API integrations",
+  ])("the matcher flags %j", (sentence) => {
+    expect(UNLIMITED_REPORTS.test(withoutCommentLines(sentence))).toBe(true);
+  });
+
+  it("the matcher ignores a comment line and a bounded allowance", () => {
+    expect(
+      UNLIMITED_REPORTS.test(
+        withoutCommentLines('  // "unlimited reports" was FALSE'),
+      ),
+    ).toBe(false);
+    expect(
+      UNLIMITED_REPORTS.test("50 inspection reports per month, unlimited Quick Fill"),
+    ).toBe(false);
+  });
+
+  it("the allow-listed file really contains the gated banner", () => {
+    const credits = corpus.find(
+      (c) => c.file === "app/dashboard/credits/page.tsx",
+    );
+    expect(credits).toBeDefined();
+    expect(UNLIMITED_REPORTS.test(withoutCommentLines(credits!.raw))).toBe(
+      true,
+    );
+    expect(credits!.raw).toContain("reportLimits?.hasUnlimited");
+  });
+
+  it("no other scanned file says it", () => {
+    expect(unlimitedReportsHits()).toEqual([]);
+  });
+});
+
 // ── Round 2: no public claim of ServiceM8 / MYOB / QuickBooks support ──────
 
 const PROVIDER = String.raw`\b(?:ServiceM8|MYOB|QuickBooks|QBO)\b`;
