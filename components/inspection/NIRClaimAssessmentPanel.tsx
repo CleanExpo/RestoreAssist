@@ -15,7 +15,7 @@
  *   3. Australian Compliance → GET/POST /api/inspections/[id]/australian-compliance
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
 import {
   Droplets,
@@ -58,6 +58,25 @@ interface NIRClaimAssessmentPanelProps {
   /** When set, claim type is fixed (e.g. from ClaimTypePicker) — chip row hidden. */
   lockedClaimType?: NIRClaimType | null;
   onClaimTypeChange?: (claimType: NIRClaimType) => void;
+  /**
+   * RA-7709: called when a save changes the water Category / Class pick —
+   * `{ category, class }` when both are set, `null` when the pick is cleared.
+   * The form feeds this into the Review & Submit preview and the draft save.
+   */
+  onWaterClassificationSaved?: (
+    choice: { category: string; class: string } | null,
+  ) => void;
+}
+
+/** "CAT_2" / "CLASS_3" on a water record → { category: "2", class: "3" }. */
+function waterChoice(
+  record: Record<string, unknown> | null | undefined,
+): { category: string; class: string } | null {
+  const cat = record?.waterCategory;
+  const cls = record?.damageClass;
+  return typeof cat === "string" && cat && typeof cls === "string" && cls
+    ? { category: cat.replace("CAT_", ""), class: cls.replace("CLASS_", "") }
+    : null;
 }
 
 // ─── Claim type metadata ──────────────────────────────────────────────────────
@@ -1451,7 +1470,10 @@ export default function NIRClaimAssessmentPanel({
   initialClaimType,
   lockedClaimType,
   onClaimTypeChange,
+  onWaterClassificationSaved,
 }: NIRClaimAssessmentPanelProps) {
+  // Last water Category / Class pick the server holds, as "cat/class" or null.
+  const lastWaterChoice = useRef<string | null>(null);
   const [selectedType, setSelectedType] = useState<NIRClaimType | null>(
     lockedClaimType ?? initialClaimType ?? null,
   );
@@ -1483,6 +1505,10 @@ export default function NIRClaimAssessmentPanel({
           const record = await res.json();
           if (record && type !== "CONTENTS") {
             setFormData(record);
+            if (type === "WATER") {
+              const c = waterChoice(record);
+              lastWaterChoice.current = c ? `${c.category}/${c.class}` : null;
+            }
             // Extract gate fields from record
             const g: Record<string, boolean> = {};
             for (const [k, v] of Object.entries(record)) {
@@ -1570,6 +1596,14 @@ export default function NIRClaimAssessmentPanel({
         }
         setGates(g);
         if (record.asbestosWarning) setAsbestosWarning(record.asbestosWarning);
+        if (selectedType === "WATER") {
+          const c = waterChoice(record);
+          const key = c ? `${c.category}/${c.class}` : null;
+          if (key !== lastWaterChoice.current) {
+            lastWaterChoice.current = key;
+            onWaterClassificationSaved?.(c);
+          }
+        }
         toast.success("Assessment saved");
       } else {
         const err = await res.json().catch(() => ({}));

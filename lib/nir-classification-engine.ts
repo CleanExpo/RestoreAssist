@@ -22,6 +22,7 @@ import {
   S500_FIELD_MAP,
   STANDARDS_VERSIONS,
 } from "@/lib/nir-standards-mapping";
+import { sqmToSqft } from "@/lib/units";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -48,8 +49,8 @@ export interface ClassificationInput {
   environmentalData: {
     ambientTemperature: number;
     humidityLevel: number;
-    dewPoint: number;
-  };
+    dewPoint?: number | null;
+  } | null;
   timeSinceLoss?: number | null;
 }
 
@@ -143,6 +144,13 @@ function assessMoistureReading(reading: {
 export async function classifyIICRC(
   input: ClassificationInput,
 ): Promise<ClassificationResult> {
+  return classifyWaterDamage(input);
+}
+
+/** Synchronous core of classifyIICRC — pure, safe to call from the browser. */
+export function classifyWaterDamage(
+  input: ClassificationInput,
+): ClassificationResult {
   const clauseRefs: string[] = [];
   const { waterCategory, waterClass, moistureContent, dryingEquipment } =
     S500_FIELD_MAP;
@@ -288,5 +296,151 @@ export async function classifyIICRC(
     moistureAssessments,
     timeEscalationApplied,
     iicrcEdition: STANDARDS_VERSIONS.S500.edition,
+  };
+}
+
+// ─── WHOLE-INSPECTION CLASSIFICATION (RA-7709) ────────────────────────────────
+//
+// The one function both the Review & Submit preview and the submit route call,
+// so what the technician is shown is what gets saved.
+
+/** Same normalised room match used when classifying an area's moisture readings. */
+export function readingMatchesArea(
+  location: string,
+  roomZoneId: string,
+): boolean {
+  return (
+    location === roomZoneId ||
+    location.toLowerCase().includes(roomZoneId.toLowerCase())
+  );
+}
+
+export interface InspectionClassificationInput {
+  affectedAreas: Array<{
+    roomZoneId: string;
+    /** Area in m². Converted to sq ft for the sq-ft-native engine above. */
+    areaSqm: number;
+    waterSource: string;
+    timeSinceLoss?: number | null;
+  }>;
+  moistureReadings: Array<{
+    location: string;
+    surfaceType: string;
+    moistureLevel: number;
+    depth: string;
+  }>;
+  environmentalData: ClassificationInput["environmentalData"];
+  /** The technician's own choice. Applied only when both fields are set. */
+  manual?: { category?: string | null; class?: string | null } | null;
+}
+
+export interface InspectionClassification {
+  category: string;
+  class: string;
+  justification: string;
+  standardReference: string;
+  confidence: number;
+  manualOverride: boolean;
+  areas: Array<{
+    roomZoneId: string;
+    category: string;
+    class: string;
+    /** Exactly what the engine was given for this area. */
+    input: ClassificationInput;
+  }>;
+}
+
+export const MANUAL_OVERRIDE_JUSTIFICATION =
+  "Technician manual classification override recorded during inspection review.";
+export const MANUAL_OVERRIDE_REFERENCE = "IICRC S500:2021 §7.1";
+
+/**
+ * Classify every affected area, then take the worst category and the worst
+ * class across the job. A technician choice (both fields) replaces the result
+ * for every area.
+ */
+export function classifyInspection(
+  input: InspectionClassificationInput,
+): InspectionClassification {
+  const manual =
+    input.manual?.category && input.manual?.class
+      ? { category: input.manual.category, class: input.manual.class }
+      : null;
+
+  const perArea = input.affectedAreas.map((area) => {
+    const areaInput: ClassificationInput = {
+      waterSource: area.waterSource,
+      affectedSquareFootage: sqmToSqft(area.areaSqm),
+      moistureReadings: input.moistureReadings
+        .filter((r) => readingMatchesArea(r.location, area.roomZoneId))
+        .map((r) => ({
+          surfaceType: r.surfaceType,
+          moistureLevel: r.moistureLevel,
+          depth: r.depth,
+        })),
+      environmentalData: input.environmentalData,
+      timeSinceLoss: area.timeSinceLoss,
+    };
+    return {
+      roomZoneId: area.roomZoneId,
+      input: areaInput,
+      result: classifyWaterDamage(areaInput),
+    };
+  });
+
+  let category = "1";
+  let classValue = "1";
+  for (const { result } of perArea) {
+    if (parseInt(result.category) > parseInt(category)) {
+      category = result.category;
+    }
+    if (parseInt(result.class) > parseInt(classValue)) {
+      classValue = result.class;
+    }
+  }
+
+  if (manual) {
+    return {
+      category: manual.category,
+      class: manual.class,
+      justification: MANUAL_OVERRIDE_JUSTIFICATION,
+      standardReference: MANUAL_OVERRIDE_REFERENCE,
+      confidence: 100,
+      manualOverride: true,
+      areas: perArea.map(({ roomZoneId, input: areaInput }) => ({
+        roomZoneId,
+        category: manual.category,
+        class: manual.class,
+        input: areaInput,
+      })),
+    };
+  }
+
+  const single = perArea.length === 1 ? perArea[0].result : null;
+  return {
+    category,
+    class: classValue,
+    justification: single
+      ? single.justification
+      : perArea
+          .map(
+            ({ roomZoneId, result }) => `${roomZoneId}: ${result.justification}`,
+          )
+          .join(" | "),
+    standardReference: single
+      ? single.standardReference
+      : [...new Set(perArea.flatMap(({ result }) => result.clauseRefs))].join(
+          "; ",
+        ),
+    confidence: single
+      ? single.confidence
+      : Math.min(100, ...perArea.map(({ result }) => result.confidence)),
+    manualOverride: false,
+    areas: perArea.map(({ roomZoneId, input: areaInput, result }) => ({
+      roomZoneId,
+      category: result.category,
+      class: result.class,
+      input: areaInput,
+    })),
   };
 }

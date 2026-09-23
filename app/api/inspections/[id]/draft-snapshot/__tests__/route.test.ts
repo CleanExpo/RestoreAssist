@@ -14,6 +14,12 @@ const { resolveInspectionWrite, inspectionFindUnique, transaction, tx } =
       scopeItem: { deleteMany: vi.fn(), createMany: vi.fn() },
       waterDamageClassification: { upsert: vi.fn() },
       auditLog: { create: vi.fn() },
+      classification: {
+        findFirst: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        deleteMany: vi.fn(),
+      },
     };
     return {
       resolveInspectionWrite: vi.fn(),
