@@ -9,6 +9,7 @@ import {
 } from "@/lib/nir-building-codes";
 import { determineScopeItems } from "@/lib/nir-scope-determination";
 import { estimateCosts } from "@/lib/nir-cost-estimation";
+import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
 import { ensureMakeSafeSeeded } from "@/lib/compliance/seed-make-safe";
@@ -628,26 +629,12 @@ async function processInspectionComplete(
     inspectionOwnerId,
   );
 
-  // Save cost estimates
-  // Distribute contingency evenly across items, computed once.
-  const contingencyPerItem =
-    costEstimate.items.length > 0
-      ? costEstimate.contingency / costEstimate.items.length
-      : 0;
+  // Save cost estimates — rows built by the shared line helper (RA-7708).
   // One batched write instead of N sequential creates.
   await prisma.costEstimate.createMany({
-    data: costEstimate.items.map((costItem) => ({
+    data: buildEstimateLines(costEstimate).map((line) => ({
       inspectionId,
-      category: costItem.category,
-      description: costItem.description,
-      quantity: costItem.quantity,
-      unit: costItem.unit,
-      rate: costItem.rate,
-      subtotal: costItem.subtotal,
-      costDatabaseId: costItem.costDatabaseId || null,
-      isEstimated: costItem.isEstimated,
-      contingency: contingencyPerItem,
-      total: costItem.subtotal + contingencyPerItem,
+      ...line,
     })),
   });
 
