@@ -127,14 +127,6 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate
 
-      - name: Bootstrap Supabase auth.uid() stub for release tests
-        run: |
-          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
-            CREATE SCHEMA IF NOT EXISTS auth;
-            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
-          "
-
       - name: Pre-resolve CONCURRENTLY migrations for release Postgres
         run: |
           npx --no-install prisma migrate resolve --applied 20260407_n1_performance_indexes

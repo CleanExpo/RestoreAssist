@@ -17,7 +17,8 @@
 # not HEAD~1, so a branch with several commits is judged as a whole.
 #
 # Mirrors scripts/ci/test-with-db.sh for the environment (same digest-pinned
-# pgvector image, same auth.uid() stub, same pre-resolved CONCURRENTLY list).
+# pgvector image, same pre-resolved CONCURRENTLY list). auth.uid() comes from
+# 20260401000000_ra_7716_auth_uid_shim, like any other migration.
 # It uses its own container and port so it can run alongside `npm run test:db`.
 #
 # Usage: bash scripts/ci/migration-roundtrip.sh {apply|rollback|additive-only}
@@ -96,8 +97,6 @@ start_db() {
     sleep 1
     [ "$i" = "40" ] && { echo "Postgres did not become ready" >&2; exit 1; }
   done
-  docker exec "$CONTAINER" psql -U ci -d ci -q -c \
-    "CREATE SCHEMA IF NOT EXISTS auth; CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS 'SELECT NULL::uuid';" >/dev/null
 }
 
 psql_q() { docker exec "$CONTAINER" psql -U ci -d ci -tAq -c "$1"; }
