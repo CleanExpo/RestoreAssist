@@ -101,6 +101,24 @@ describe("Field Mode active jobs (RA-7711)", () => {
     expect(url.searchParams.get("assignee")).toBe("me");
   });
 
+  it("asks for the route's largest page, so owners see more than one default page", async () => {
+    // GET /api/inspections reads `limit` (default 20, capped at 100) and
+    // ignores `take`, so take=10 returned 20 jobs at most.
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.startsWith("/api/inspections?")) {
+        return jsonResponse({ inspections: [ESTIMATED_JOB] });
+      }
+      return jsonResponse({ criticalMissing: [], readyToLeave: false });
+    });
+
+    render(<FieldDashboardPage />);
+    expect(await screen.findByText("NIR-2026-09-F1C142")).toBeInTheDocument();
+
+    const url = new URL(listUrl(), "http://localhost");
+    expect(url.searchParams.get("limit")).toBe("100");
+    expect(url.searchParams.has("take")).toBe(false);
+  });
+
   it("shows an alert with Retry, not '0 active jobs', when the server refuses", async () => {
     fetchMock.mockImplementation(async () =>
       jsonResponse({ error: "Internal server error" }, 500),
