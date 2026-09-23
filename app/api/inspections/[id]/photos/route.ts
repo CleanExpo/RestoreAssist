@@ -25,6 +25,7 @@ import {
 } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 
 // GET - List photos for inspection
 export async function GET(
@@ -82,6 +83,12 @@ export async function GET(
         labelledBy: true,
         technicianNotes: true,
         moistureReadingLink: true,
+        // RA-7613 — photo AI accept/reject + WHS latch live on these fields.
+        aiLabels: true,
+        aiConfidence: true,
+        aiModel: true,
+        aiRunAt: true,
+        metadata: true,
       },
       take: 500,
     });
@@ -144,7 +151,7 @@ export async function POST(
         id,
         userId: session.user.id,
       },
-      select: { id: true, workspaceId: true },
+      select: { id: true },
     });
 
     if (!inspection) {
@@ -154,6 +161,10 @@ export async function POST(
         status: 404,
       });
     }
+
+    // RA-7586: EXIF records are keyed to the caller's workspace, not
+    // Inspection.workspaceId, which no create path writes.
+    const workspace = await getWorkspaceForUser(session.user.id);
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -428,7 +439,7 @@ export async function POST(
         }
 
         // RA-416: Extract EXIF metadata — fire-and-forget, never blocks upload response
-        if (inspection.workspaceId) {
+        if (workspace) {
           extractAndSaveMediaAsset({
             buffer,
             originalFilename: file.name,
@@ -436,7 +447,7 @@ export async function POST(
             fileSize: file.size,
             storagePath: uploadResult.storagePath,
             inspectionId: id,
-            workspaceId: inspection.workspaceId,
+            workspaceId: workspace.id,
           });
         }
 

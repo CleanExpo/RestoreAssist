@@ -49,7 +49,17 @@ export function fabricObjectToSelected(
       typeof data.wallThicknessM === "number" ? data.wallThicknessM : undefined,
     ceilingHeightM:
       typeof data.ceilingHeightM === "number" ? data.ceilingHeightM : undefined,
+    ...(data.voiceRaisedAcm === true ? { voiceRaisedAcm: true as const } : {}),
+    ...(data.detailsLost === true ? { detailsLost: true as const } : {}),
   };
+}
+
+/** Drop the RA-7655 re-entry flag after the technician edits the room. */
+export function clearDetailsLostFromRoomData(
+  data: Record<string, unknown> | null | undefined,
+): void {
+  if (!data || data.detailsLost !== true) return;
+  delete data.detailsLost;
 }
 
 /**

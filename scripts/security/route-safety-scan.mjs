@@ -48,6 +48,16 @@
  *   - it does NOT match a legit-exception pattern.
  *   Flagged class: "mutation-no-auth".
  *
+ * RAW-ADMIN-GATE detection (RA-7647) — a route is flagged when its text calls
+ *   verifyAdminFromDb(  and calls none of
+ *     verifyPlatformOperator( | verifyPlatformSupportOperator( |
+ *     verifyStorePublishingOperator( | verifyTenantAdmin(
+ *   Every self-signup is role ADMIN (app/api/auth/register/route.ts), so
+ *   verifyAdminFromDb alone means "owner of ANY business", never "RestoreAssist
+ *   staff". The route IS gated, so this class ignores the legit-exception
+ *   patterns: it is about the gate being insufficient, not absent. The check is
+ *   per file, like the other classes. Flagged class: "raw-admin-gate".
+ *
  * ── Legit auth-exception patterns (NOT false-flagged) ────────────────────────
  *   1. Auth entry routes:        app/api/auth/**       (these ESTABLISH auth)
  *   2. Token-param routes:       any segment is a [token]/[...token] param —
@@ -76,9 +86,18 @@
  *       Scan, then exit NON-ZERO only on findings NOT present in the baseline.
  *       Baselined findings are reported as "known (baselined)" and do not fail.
  *
+ * raw-admin-gate has its OWN baseline, raw-admin-gate-baseline.json, which can
+ * only shrink. `--baseline` never writes it and never records the class in
+ * route-safety-baseline.json. CI fails on an offender missing from it AND on
+ * an entry that no longer offends (fixed or deleted route): remove the entry
+ * in the same change that fixes the route. Adding an entry is a hand edit
+ * that review must refuse unless the route is genuinely waiting on the
+ * verifyTenantAdmin / verifyPlatformOperator split.
+ *
  * Exit codes:
  *   0  No new findings (clean, or all findings are baselined)
- *   1  One or more NEW findings not in the baseline
+ *   1  One or more NEW findings not in the baseline, or a raw-admin-gate
+ *      baseline entry that no longer offends
  *   2  Internal error (could not read tree / baseline parse error)
  *
  * Usage:
@@ -94,6 +113,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const API_ROOT = path.join(REPO_ROOT, "app", "api");
 const BASELINE_PATH = path.join(__dirname, "route-safety-baseline.json");
+const RAW_ADMIN_BASELINE_PATH = path.join(
+  __dirname,
+  "raw-admin-gate-baseline.json",
+);
+const RAW_ADMIN_CLASS = "raw-admin-gate";
 
 // ── Auth-gate detection (mirrors scripts/audit-api-routes.ts) ───────────────
 function hasAuthGate(content) {
@@ -112,6 +136,24 @@ function hasAuthGate(content) {
     // getServerSession(authOptions) and falls back to getToken({ req }); routes
     // migrated to it on 2026-09-18 are gated, not ungated.
     content.includes("getApiSession(")
+  );
+}
+
+// ── Raw admin gate detection (RA-7647) ──────────────────────────────────────
+// The helpers that make an ADMIN gate mean something narrower than "owns some
+// business". verifyTenantAdmin / verifyPlatformOperator do not exist yet; they
+// are the planned split and count the moment a route adopts them.
+const SUFFICIENT_ADMIN_GATES = [
+  "verifyPlatformOperator(",
+  "verifyPlatformSupportOperator(",
+  "verifyStorePublishingOperator(",
+  "verifyTenantAdmin(",
+];
+
+function hasRawAdminGate(content) {
+  return (
+    content.includes("verifyAdminFromDb(") &&
+    !SUFFICIENT_ADMIN_GATES.some((gate) => content.includes(gate))
   );
 }
 
@@ -283,7 +325,37 @@ export function auditRouteSafety(relPath, content) {
     });
   }
 
+  // (c) admin gate that admits every self-registered business (RA-7647).
+  if (hasRawAdminGate(content)) {
+    findings.push({
+      file: relPath,
+      class: RAW_ADMIN_CLASS,
+      reason:
+        "Route's only admin gate is verifyAdminFromDb(, which every self-signup passes " +
+        "(role ADMIN). Add verifyPlatformSupportOperator( for RestoreAssist staff work, or " +
+        "scope the route to the caller's own organisation (verifyTenantAdmin().",
+    });
+  }
+
   return findings;
+}
+
+/**
+ * Compare raw-admin-gate findings with the shrink-only baseline.
+ *   known  offenders already listed (tolerated until fixed)
+ *   fresh  offenders NOT listed — a new route with the pattern; fails CI
+ *   stale  listed files that no longer offend — fixed or deleted; fails CI
+ *          until the entry is removed, so the list can only shrink
+ */
+export function compareRawAdminBaseline(findings, baselineFiles) {
+  const listed = new Set(baselineFiles);
+  const raw = findings.filter((f) => f.class === RAW_ADMIN_CLASS);
+  const offending = new Set(raw.map((f) => f.file));
+  return {
+    known: raw.filter((f) => listed.has(f.file)),
+    fresh: raw.filter((f) => !listed.has(f.file)),
+    stale: [...listed].filter((file) => !offending.has(file)).sort(),
+  };
 }
 
 function scan() {
@@ -316,7 +388,31 @@ function loadBaseline() {
   }
 }
 
+function loadRawAdminBaseline() {
+  // Missing file = empty list: every raw-admin-gate offender is then new, so
+  // deleting the baseline fails closed instead of disarming the class.
+  if (!existsSync(RAW_ADMIN_BASELINE_PATH)) return [];
+  try {
+    const parsed = JSON.parse(readFileSync(RAW_ADMIN_BASELINE_PATH, "utf8"));
+    if (
+      !Array.isArray(parsed.files) ||
+      !parsed.files.every((f) => typeof f === "string")
+    ) {
+      throw new Error('expected a "files" array of repo-relative paths');
+    }
+    return parsed.files;
+  } catch (err) {
+    console.error(
+      `[route-safety] could not parse raw-admin-gate baseline: ${err.message}`,
+    );
+    process.exit(2);
+  }
+}
+
 function writeBaseline(result) {
+  // raw-admin-gate is never written here: its own baseline can only shrink,
+  // and regenerating this file must not be a way to grow it.
+  const findings = result.findings.filter((f) => f.class !== RAW_ADMIN_CLASS);
   const payload = {
     description:
       "Route-safety baseline. Pre-existing heuristic candidates for the route-safety guard. " +
@@ -324,8 +420,8 @@ function writeBaseline(result) {
       "docs/security/route-safety-backlog.md. Regenerate with: node scripts/security/route-safety-scan.mjs --baseline",
     generatedAt: new Date().toISOString(),
     routeCount: result.routeCount,
-    findingCount: result.findings.length,
-    findings: result.findings,
+    findingCount: findings.length,
+    findings,
   };
   writeFileSync(BASELINE_PATH, JSON.stringify(payload, null, 2) + "\n");
   return payload;
@@ -350,6 +446,9 @@ function main() {
     console.log(
       `[route-safety] baseline written: ${payload.findingCount} finding(s) across ${payload.routeCount} routes -> ${toRel(BASELINE_PATH)}`,
     );
+    console.log(
+      `[route-safety] ${RAW_ADMIN_CLASS} is not regenerated; edit ${toRel(RAW_ADMIN_BASELINE_PATH)} by hand (removals only).`,
+    );
     process.exit(0);
   }
 
@@ -357,25 +456,42 @@ function main() {
   const known = [];
   const fresh = [];
   for (const f of result.findings) {
+    if (f.class === RAW_ADMIN_CLASS) continue;
     if (baseline && baseline.has(findingKey(f))) known.push(f);
     else fresh.push(f);
   }
+  const rawAdmin = compareRawAdminBaseline(
+    result.findings,
+    loadRawAdminBaseline(),
+  );
+  fresh.push(...rawAdmin.fresh);
+  const stale = rawAdmin.stale;
+  const failed = fresh.length > 0 || stale.length > 0;
 
   if (wantJson) {
     console.log(
       JSON.stringify(
-        { routeCount: result.routeCount, known, new: fresh },
+        {
+          routeCount: result.routeCount,
+          known: [...known, ...rawAdmin.known],
+          new: fresh,
+          staleRawAdminBaseline: stale,
+        },
         null,
         2,
       ),
     );
-    process.exit(fresh.length > 0 ? 1 : 0);
+    process.exit(failed ? 1 : 0);
   }
 
   console.log(`# Route-safety scan`);
   console.log(`Routes scanned: ${result.routeCount}`);
   console.log(
     `Baselined (known): ${known.length}   New (must fix): ${fresh.length}`,
+  );
+  console.log(
+    `${RAW_ADMIN_CLASS} (shrink-only baseline ${toRel(RAW_ADMIN_BASELINE_PATH)}): ` +
+      `${rawAdmin.known.length} known, ${rawAdmin.fresh.length} new, ${stale.length} stale`,
   );
   console.log("");
 
@@ -385,20 +501,32 @@ function main() {
     console.log("");
   }
 
-  if (fresh.length === 0) {
+  if (!failed) {
     console.log("[route-safety] PASS — no new route-safety findings.");
     process.exit(0);
   }
 
-  console.error("[route-safety] FAIL — new route-safety finding(s) not in baseline:");
-  for (const f of fresh) {
-    console.error(`  - [${f.class}] ${f.file}`);
-    console.error(`    ${f.reason}`);
+  if (fresh.length > 0) {
+    console.error("[route-safety] FAIL — new route-safety finding(s) not in baseline:");
+    for (const f of fresh) {
+      console.error(`  - [${f.class}] ${f.file}`);
+      console.error(`    ${f.reason}`);
+    }
+    console.error("");
+    console.error("If this is an intentional, reviewed exception, gate the route with");
+    console.error("getServerSession(authOptions) — or, only with team sign-off, regenerate");
+    console.error("the baseline: node scripts/security/route-safety-scan.mjs --baseline");
+    console.error(
+      `${RAW_ADMIN_CLASS} findings are never baselined by --baseline: add the staff or tenant gate.`,
+    );
   }
-  console.error("");
-  console.error("If this is an intentional, reviewed exception, gate the route with");
-  console.error("getServerSession(authOptions) — or, only with team sign-off, regenerate");
-  console.error("the baseline: node scripts/security/route-safety-scan.mjs --baseline");
+  if (stale.length > 0) {
+    console.error(
+      `[route-safety] FAIL — ${toRel(RAW_ADMIN_BASELINE_PATH)} lists route(s) that no longer ` +
+        "offend. Remove them so the baseline only shrinks:",
+    );
+    for (const file of stale) console.error(`  - ${file}`);
+  }
   process.exit(1);
 }
 

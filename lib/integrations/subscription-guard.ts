@@ -103,6 +103,6 @@ export function createSubscriptionRequiredResponse(
     upgradeRequired: true,
     currentStatus: checkResult.subscriptionStatus,
     message:
-      "External integrations are available for paid subscribers. Please upgrade your plan to connect to Xero, QuickBooks, MYOB, ServiceM8, or Ascora.",
+      "External integrations are available for paid subscribers. Please upgrade your plan to connect to Xero or Ascora.",
   };
 }

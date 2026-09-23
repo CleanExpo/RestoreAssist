@@ -19,10 +19,9 @@ import { validateCsrf } from "@/lib/csrf";
 import { getClientIp } from "@/lib/rate-limiter";
 import { transition, TRANSITION_KEYS } from "@/lib/progress/service";
 import type { TransitionKey } from "@/lib/progress/service";
-import { resolveProgressRole } from "@/lib/progress/permissions";
 import { withIdempotency } from "@/lib/idempotency";
-import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveProgressAuthority } from "../_authority";
 
 export async function POST(
   request: NextRequest,
@@ -91,26 +90,20 @@ export async function POST(
         });
       }
 
-      // RA-1443 / M-16: the Junior Technician ring-fence only fires if
-      // we read the per-user flag here and pass it through. Previously
-      // `resolveProgressRole` got only `userRole`, so a User.role="USER"
-      // with `isJuniorTechnician=true` resolved as TECHNICIAN rather
-      // than TECHNICIAN_JUNIOR, silently bypassing `canPerformTransition`.
-      const userRow = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { isJuniorTechnician: true },
-      });
-
-      const role = resolveProgressRole({
-        userRole: session.user.role ?? "USER",
-        isJuniorTechnician: userRow?.isJuniorTechnician ?? false,
-      });
+      const authority = await resolveProgressAuthority(session, reportId);
+      if (!authority.ok) {
+        return apiError(request, {
+          code: authority.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+          message: authority.reason,
+          status: authority.status,
+        });
+      }
 
       const result = await transition({
         reportId,
         key: body.key as TransitionKey,
         actorUserId: userId,
-        actorRole: role,
+        actorRole: authority.role,
         actorName: session.user.name ?? session.user.email ?? "unknown",
         actorIp: getClientIp(request),
         note: body.note ?? null,

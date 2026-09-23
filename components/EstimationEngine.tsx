@@ -48,6 +48,10 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
+  EstimateStatusWorkflow,
+  estimateForParent,
+} from "@/components/EstimateStatusWorkflow";
+import {
   LineItemLibraryPicker,
   type LibraryPickItem,
 } from "@/components/estimation/LineItemLibraryPicker";
@@ -88,6 +92,12 @@ export default function EstimationEngine({
 }: EstimationEngineProps) {
   const [activeTab, setActiveTab] = useState("inputs");
   const [loading, setLoading] = useState(false);
+  // The estimate as last returned by a save in this session. "Save & Continue"
+  // does not hand the saved estimate back to the page until the last tab, so
+  // initialEstimateData alone has no id for a brand-new estimate.
+  const [lastSavedEstimate, setLastSavedEstimate] = useState<
+    (Record<string, unknown> & { id: string }) | null
+  >(null);
   const [estimateData, setEstimateData] = useState({
     // Rate Tables
     rateTables: {
@@ -578,6 +588,7 @@ export default function EstimationEngine({
 
       if (response.ok) {
         const savedEstimate = await response.json();
+        if (savedEstimate?.id) setLastSavedEstimate(savedEstimate);
         toast.success("Estimate saved successfully!");
         onEstimateComplete(savedEstimate);
       } else {
@@ -628,6 +639,7 @@ export default function EstimationEngine({
 
       if (response.ok) {
         const savedEstimate = await response.json();
+        if (savedEstimate?.id) setLastSavedEstimate(savedEstimate);
         toast.success("Progress saved!");
 
         if (nextTab) {
@@ -1508,13 +1520,20 @@ export default function EstimationEngine({
         <h3 className="text-lg font-semibold text-white mb-4">
           Workflow Status
         </h3>
-        <div className="w-fit rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-medium text-white">
-          {estimateData.status.replace(/_/g, " ")}
-        </div>
-        <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Workflow status is controlled by the review process. Client approval
-          cannot be recorded from the contractor estimator.
-        </p>
+        <EstimateStatusWorkflow
+          estimateId={lastSavedEstimate?.id ?? initialEstimateData?.id}
+          status={estimateData.status}
+          onStatusChange={(status) => {
+            setEstimateData((prev) => ({ ...prev, status }));
+            // Keep the page's copy in step, for new estimates too.
+            const forPage = estimateForParent(
+              initialEstimateData,
+              lastSavedEstimate,
+              status,
+            );
+            if (forPage) onEstimateComplete(forPage);
+          }}
+        />
       </div>
 
       <div className="bg-slate-800/50 p-4 rounded-lg">

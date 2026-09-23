@@ -9,9 +9,14 @@
  * tenant's claim by supplying that tenant's reportId.
  *
  * The fix: `assertReportOwnership` binds the caller to the Report behind the
- * reportId (Report.userId === actorUserId, ADMIN bypass) before any read or
- * write, returning NOT_FOUND (HTTP 404, no existence leak) on a tenant
- * mismatch.
+ * reportId before any read or write, returning NOT_FOUND (HTTP 404, no
+ * existence leak) on a tenant mismatch.
+ *
+ * RA-7628: the ADMIN bypass is no longer global. Every self-registered firm is
+ * ADMIN of its own account, so an ADMIN — per the DATABASE, not the caller's
+ * claimed role — reaches only reports owned inside its own organisation. Only
+ * an allowlisted platform-support ADMIN (`PLATFORM_SUPPORT_USER_IDS`) crosses
+ * organisations, and an unset allowlist fails closed.
  *
  * These tests prove cross-tenant denial AND that the legitimate owner path
  * still works. They mock @/lib/prisma so no DB is touched.
@@ -58,24 +63,38 @@ const cpFindUnique = (
 const txFindMany = (
   prisma as unknown as { progressTransition: { findMany: Mock } }
 ).progressTransition.findMany;
+const userFindUnique = (prisma as unknown as { user: { findUnique: Mock } })
+  .user.findUnique;
 
 const OWNER = "user_owner_A";
 const ATTACKER = "user_attacker_B";
 const REPORT_ID = "report_owned_by_A";
 const TECH: ProgressRole = "TECHNICIAN";
 const ADMIN: ProgressRole = "ADMIN";
+const OWNER_ORG = "org_of_owner_A";
+const OTHER_ORG = "org_of_attacker_B";
 
-/** Report belongs to OWNER. */
-function reportOwnedByA() {
-  return { id: REPORT_ID, userId: OWNER };
+/** Report belongs to OWNER, inside OWNER's organisation. */
+function reportOwnedByA(organizationId: string | null = OWNER_ORG) {
+  return { id: REPORT_ID, userId: OWNER, user: { organizationId } };
+}
+
+/** What the DATABASE says about the caller (the role argument is a claim). */
+function callerInDb(role: string, organizationId: string | null) {
+  userFindUnique.mockResolvedValue({ role, organizationId });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // clearAllMocks keeps implementations; a caller set up by one test must
+  // never leak into the next.
+  userFindUnique.mockReset();
+  vi.unstubAllEnvs();
 });
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("assertReportOwnership (RA-1828 tenancy gate)", () => {
@@ -99,10 +118,52 @@ describe("assertReportOwnership (RA-1828 tenancy gate)", () => {
     if (!res.ok) expect(res.code).toBe("NOT_FOUND");
   });
 
-  it("allows ADMIN to bypass ownership (cross-claim oversight)", async () => {
+  it("RA-7628: refuses an ADMIN of ANOTHER organisation with NOT_FOUND", async () => {
     reportFindUnique.mockResolvedValue(reportOwnedByA());
+    callerInDb("ADMIN", OTHER_ORG);
+    const res = await assertReportOwnership(REPORT_ID, ATTACKER, ADMIN);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe("NOT_FOUND");
+  });
+
+  it("RA-7628: allows an ADMIN of the SAME organisation as the owner", async () => {
+    reportFindUnique.mockResolvedValue(reportOwnedByA());
+    callerInDb("ADMIN", OWNER_ORG);
     const res = await assertReportOwnership(REPORT_ID, ATTACKER, ADMIN);
     expect(res.ok).toBe(true);
+  });
+
+  it("RA-7628: refuses a claimed ADMIN whom the database says is a USER", async () => {
+    reportFindUnique.mockResolvedValue(reportOwnedByA());
+    callerInDb("USER", OWNER_ORG);
+    const res = await assertReportOwnership(REPORT_ID, ATTACKER, ADMIN);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe("NOT_FOUND");
+  });
+
+  it("RA-7628: never matches two organisation-less accounts", async () => {
+    reportFindUnique.mockResolvedValue(reportOwnedByA(null));
+    callerInDb("ADMIN", null);
+    const res = await assertReportOwnership(REPORT_ID, ATTACKER, ADMIN);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe("NOT_FOUND");
+  });
+
+  it("RA-7628: allows an allowlisted platform-support ADMIN across organisations", async () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "someone_else," + ATTACKER);
+    reportFindUnique.mockResolvedValue(reportOwnedByA());
+    callerInDb("ADMIN", OTHER_ORG);
+    const res = await assertReportOwnership(REPORT_ID, ATTACKER, ADMIN);
+    expect(res.ok).toBe(true);
+  });
+
+  it("RA-7628: refuses that operator when PLATFORM_SUPPORT_USER_IDS is unset", async () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", undefined);
+    reportFindUnique.mockResolvedValue(reportOwnedByA());
+    callerInDb("ADMIN", OTHER_ORG);
+    const res = await assertReportOwnership(REPORT_ID, ATTACKER, ADMIN);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe("NOT_FOUND");
   });
 });
 

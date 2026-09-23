@@ -15,6 +15,8 @@
  * scheduled+audited cron in vercel.json is monitored here.
  */
 
+import { PRODUCTION_ENABLED } from "./production-schedule";
+
 export interface CronExpectation {
   /** vercel.json route segment, e.g. "sync-ascora-historical". */
   path: string;
@@ -71,6 +73,17 @@ export const MONITORED_CRONS: readonly CronExpectation[] = [
   // ── weekly (Sun 05:00) ────────────────────────────────────────────────
   { path: "google-token-refresh", jobName: "google-token-refresh", label: "Google token refresh", maxStalenessMinutes: 8 * DAY },
 ];
+
+/**
+ * RA-7645: the subset the live watchdog alarms on — only jobs the production
+ * schedule actually runs (lib/cron/production-schedule.ts). The excluded
+ * routes never run on the live site by decision, so reporting them as
+ * "never succeeded" every day would bury a real failure in known noise.
+ */
+export const PRODUCTION_MONITORED_CRONS: readonly CronExpectation[] =
+  MONITORED_CRONS.filter((c) =>
+    PRODUCTION_ENABLED.some((enabled) => enabled.path === c.path),
+  );
 
 /**
  * Scheduled crons that are deliberately NOT watched via CronJobRun, so the

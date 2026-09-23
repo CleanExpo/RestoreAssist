@@ -21,7 +21,6 @@ import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 // descendant hook call lands in the polite / assertive aria-live
 // regions rendered inside the provider.
 import { AnnouncerProvider } from "@/components/LiveRegion";
-import { Analytics } from "@vercel/analytics/next";
 import { ConvaiWidget } from "@/components/support/ConvaiWidget";
 import { PublicAssistantOrb } from "@/components/avatar";
 import { BotIdClient } from "botid/client";
@@ -191,8 +190,6 @@ export default function RootLayout({
               <PwaInstallPrompt />
             </NirOfflineProvider>
           </AnnouncerProvider>
-          {/* RA-1349 — Vercel Analytics (Web Vitals + client route events). */}
-          <Analytics />
           {/* ElevenLabs convai support voice widget — dark by default; renders
               nothing until NEXT_PUBLIC_ELEVENLABS_AGENT_ID is set. */}
           <ConvaiWidget />

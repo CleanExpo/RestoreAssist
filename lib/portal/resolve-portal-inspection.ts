@@ -1,5 +1,8 @@
 import { verifyPortalToken } from "@/lib/portal-token";
-import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
+import {
+  lookupPortalAccount,
+  type PortalAccessMode,
+} from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -23,9 +26,15 @@ import { prisma } from "@/lib/prisma";
  * A live ClientPortalAccount with no inspection yet is `unready`, not
  * `invalid`. `resolvePortalInspectionId` still collapses both to null —
  * do not use it to decide between LinkExpired and not-ready.
+ *
+ * RA-7634: `accessMode` tells the page whether to offer signing and uploads.
+ * It comes from the account (an expiring link is INTERACTIVE, a no-expiry link
+ * READ_ONLY). A legacy HMAC link is always READ_ONLY: nobody can revoke it, and
+ * the sign/upload routes do not accept it anyway. Those links are no longer
+ * issued and die at their 7-day expiry.
  */
 export type PortalAccessResolution =
-  | { kind: "inspection"; inspectionId: string }
+  | { kind: "inspection"; inspectionId: string; accessMode: PortalAccessMode }
   | { kind: "unready" }
   | { kind: "invalid" };
 
@@ -39,13 +48,23 @@ export async function resolvePortalAccess(
       orderBy: { createdAt: "desc" },
       select: { id: true },
     });
-    if (latest?.id) return { kind: "inspection", inspectionId: latest.id };
+    if (latest?.id) {
+      return {
+        kind: "inspection",
+        inspectionId: latest.id,
+        accessMode: portalAccount.accessMode,
+      };
+    }
     return { kind: "unready" };
   }
 
   const verified = verifyPortalToken(token);
   if (verified?.inspectionId) {
-    return { kind: "inspection", inspectionId: verified.inspectionId };
+    return {
+      kind: "inspection",
+      inspectionId: verified.inspectionId,
+      accessMode: "READ_ONLY",
+    };
   }
   return { kind: "invalid" };
 }

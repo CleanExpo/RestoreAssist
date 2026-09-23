@@ -10,6 +10,10 @@ const checkWorkspaceBudget = vi.fn();
 const importSketchFromImage = vi.fn();
 const logAiUsage = vi.fn();
 const applyRateLimit = vi.fn();
+const claimSketchFindFirst = vi.fn();
+const claimSketchUpdate = vi.fn();
+const claimSketchCreate = vi.fn();
+const resolveWorkspaceAiKey = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -21,7 +25,17 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
     inspection: { findFirst: (...a: unknown[]) => inspectionFindFirst(...a) },
+    claimSketch: {
+      findFirst: (...a: unknown[]) => claimSketchFindFirst(...a),
+      update: (...a: unknown[]) => claimSketchUpdate(...a),
+      create: (...a: unknown[]) => claimSketchCreate(...a),
+    },
   },
+}));
+
+vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
+  resolveWorkspaceAiKey: (...a: unknown[]) => resolveWorkspaceAiKey(...a),
+  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
 }));
 
 vi.mock("@/lib/workspace/provider-connections", () => ({
@@ -73,6 +87,10 @@ beforeEach(() => {
   importSketchFromImage.mockReset();
   logAiUsage.mockReset();
   applyRateLimit.mockReset().mockResolvedValue(null);
+  claimSketchFindFirst.mockReset().mockResolvedValue(null);
+  claimSketchUpdate.mockReset();
+  claimSketchCreate.mockReset().mockResolvedValue({ id: "s_new" });
+  resolveWorkspaceAiKey.mockReset().mockResolvedValue({ apiKey: "sk-test" });
 });
 
 describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
@@ -126,4 +144,49 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
       expect(importSketchFromImage).not.toHaveBeenCalled();
     },
   );
+
+  it("RA-7617: returns server-issued room ids and remembers them on the floor sketch", async () => {
+    importSketchFromImage.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        rooms: [
+          {
+            label: "Lounge",
+            vertices: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 1, y: 1 },
+              { x: 0, y: 1 },
+            ],
+          },
+        ],
+        usage: { inputTokens: 1, outputTokens: 1 },
+      },
+    });
+    claimSketchFindFirst.mockResolvedValueOnce({
+      id: "s_1",
+      sketchData: { objects: [] },
+    });
+    claimSketchUpdate.mockResolvedValueOnce({ id: "s_1" });
+
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+    const form = new FormData();
+    form.append("file", new File([bytes], "sketch.jpg", { type: "image/jpeg" }));
+    form.append("floorNumber", "2");
+    const req = new NextRequest(
+      "http://localhost/api/inspections/inspection_1/sketches/import-from-image",
+      { method: "POST", body: form },
+    );
+
+    const res = await POST(req, ctx());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.rooms).toHaveLength(1);
+    expect(body.rooms[0].id).toMatch(/^ai-suggested-/);
+    expect(body.rooms[0].label).toBe("Lounge");
+    expect(claimSketchUpdate).toHaveBeenCalledTimes(1);
+    const saved = claimSketchUpdate.mock.calls[0][0].data.sketchData;
+    expect(saved.raSketchMeta.aiSuggestedRoomIds).toEqual([body.rooms[0].id]);
+    expect(claimSketchFindFirst.mock.calls[0][0].where.floorNumber).toBe(2);
+  });
 });

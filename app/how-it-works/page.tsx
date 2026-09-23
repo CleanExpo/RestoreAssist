@@ -62,7 +62,7 @@ const JOURNEY = [
       number: "04",
     phase: "Office",
     title: "Invoice with GST confidence",
-    body: "Raise GST-ready invoices from the desk — or seed lines from the report — with Australian 10% or New Zealand 15% rules built in. Connect Xero, QuickBooks, MYOB, ServiceM8, or Ascora when your office already runs those systems.",
+    body: "Raise GST-ready invoices from the desk — or seed lines from the report — with Australian 10% or New Zealand 15% rules built in. Connect Xero or Ascora when your office already runs those systems.",
     tags: ["AU & NZ GST", "Accounting sync", "Credit notes"],
     carries: "Invoice linked to the report",
     },

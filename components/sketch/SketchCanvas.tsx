@@ -32,6 +32,15 @@ import {
   fabricObjectToSelected,
   shouldClearSelectionOnEmptyCanvasClick,
 } from "@/lib/sketch/selected-object";
+import {
+  reapplyVoiceAcmLatch,
+  rememberVoiceAcmLatch,
+  type LatchObject,
+} from "@/lib/sketch/voice-acm-latch";
+import {
+  serialiseSketchCanvas,
+  type SerialisedSketchCanvas,
+} from "@/lib/sketch/serialise-canvas";
 import { computeUnderlayTransform } from "@/lib/sketch/underlay-transform";
 import {
   describeToolObject,
@@ -113,10 +122,12 @@ import {
   layoutCanvasPlanChrome,
   PLAN_CHROME_TYPE,
 } from "@/lib/sketch/canvas-plan-chrome";
+import { SHORT_DIM_CTA_TYPE } from "@/lib/sketch/short-dim-affordance";
 import {
-  SHORT_DIM_CTA_TYPE,
-  shortEdgeMeasureAffordances,
-} from "@/lib/sketch/short-dim-affordance";
+  placeRoomEdgeDimLabels,
+  rebuildRoomEdgeDimLabels,
+  type RoomEdgeLabelTextFactory,
+} from "@/lib/sketch/rebuild-room-edge-dim-labels";
 import { findNearestDimLabel, type DimLabelHitCandidate } from "@/lib/sketch/dim-label-hit";
 import type { SelectedObject } from "./SketchSelectionPanel";
 import {
@@ -233,6 +244,24 @@ export interface FabricCanvasRef {
 
 const MAX_HISTORY = 50;
 
+type LatchCanvas = {
+  toObject: (propertiesToInclude?: string[]) => SerialisedSketchCanvas;
+  getObjects?: () => LatchObject[];
+};
+
+/** Undo snapshots and the save handle share one serialiser and the latch. */
+function snapshotSketchCanvas(
+  canvas: LatchCanvas,
+  raised: ReadonlySet<string>,
+): { snapshot: SerialisedSketchCanvas; raised: Set<string> } {
+  reapplyVoiceAcmLatch(canvas.getObjects?.() ?? [], raised);
+  const snapshot = serialiseSketchCanvas(canvas);
+  return {
+    snapshot,
+    raised: rememberVoiceAcmLatch(snapshot.objects ?? [], raised),
+  };
+}
+
 /**
  * SketchCanvas — Fabric.js base component for the RestoreAssist V2 sketch tool.
  * Provides touch + mouse input, pinch-to-zoom, pan, tool mode management,
@@ -301,14 +330,18 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       canUndo: false,
       canRedo: false,
     });
+    // Rooms that have ever had voiceRaisedAcm. Undo/redo reload an older
+    // snapshot; this set puts the latch back so a save cannot clear it.
+    const raisedVoiceAcmRef = useRef(new Set<string>());
 
     // ── Undo/Redo helpers ─────────────────────────────────────
     const saveState = useCallback(() => {
-      const canvas = fabricRef.current as {
-        toJSON: (extras?: string[]) => object;
-      } | null;
+      const canvas = fabricRef.current as LatchCanvas | null;
       if (!canvas) return;
-      const json = JSON.stringify(canvas.toJSON(["data"]));
+      const shot = snapshotSketchCanvas(canvas, raisedVoiceAcmRef.current);
+      raisedVoiceAcmRef.current = shot.raised;
+      const snapshot = shot.snapshot;
+      const json = JSON.stringify(snapshot);
       const stack = historyRef.current;
       const idx = historyIdxRef.current;
 
@@ -330,12 +363,17 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         // Fabric v6/v7: loadFromJSON returns a Promise; 2nd arg is a reviver, NOT a done cb.
         loadFromJSON: (d: object) => Promise<unknown>;
         renderAll: () => void;
+        getObjects?: () => LatchObject[];
       } | null;
       if (!canvas || historyIdxRef.current <= 0) return;
       historyIdxRef.current -= 1;
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
       await canvas.loadFromJSON(json);
+      reapplyVoiceAcmLatch(
+        canvas.getObjects?.() ?? [],
+        raisedVoiceAcmRef.current,
+      );
       canvas.renderAll();
       isLoadingRef.current = false;
       setHistoryState({
@@ -348,6 +386,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       const canvas = fabricRef.current as {
         loadFromJSON: (d: object) => Promise<unknown>;
         renderAll: () => void;
+        getObjects?: () => LatchObject[];
       } | null;
       if (!canvas || historyIdxRef.current >= historyRef.current.length - 1)
         return;
@@ -355,6 +394,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
       await canvas.loadFromJSON(json);
+      reapplyVoiceAcmLatch(
+        canvas.getObjects?.() ?? [],
+        raisedVoiceAcmRef.current,
+      );
       canvas.renderAll();
       isLoadingRef.current = false;
       setHistoryState({
@@ -368,20 +411,28 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       ref,
       () => ({
         toJSON: () => {
-          const c = fabricRef.current as {
-            toJSON: (extras?: string[]) => object;
-          } | null;
-          return c?.toJSON(["data"]) ?? {};
+          const c = fabricRef.current as LatchCanvas | null;
+          if (!c) return {};
+          // A history reload can restore a snapshot from before the latch.
+          // Put it back before this JSON is what gets saved.
+          const shot = snapshotSketchCanvas(c, raisedVoiceAcmRef.current);
+          raisedVoiceAcmRef.current = shot.raised;
+          return shot.snapshot;
         },
         loadFromJSON: async (data: object) => {
           const c = fabricRef.current as {
             loadFromJSON: (d: object) => Promise<unknown>;
             renderAll: () => void;
+            getObjects?: () => LatchObject[];
           } | null;
           if (!c) return;
           // Fabric v7: must await the returned Promise. Passing a "done"
           // callback as arg 2 treats it as a reviver and never restores objects.
           await c.loadFromJSON(data);
+          reapplyVoiceAcmLatch(
+            c.getObjects?.() ?? [],
+            raisedVoiceAcmRef.current,
+          );
           c.renderAll();
         },
         toDataURL: (opts) => {
@@ -578,7 +629,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         // (dim-label, room-label, or transient alignment guide) that must NOT
         // enter the undo stack. Guides are added/removed on every mouse:move
         // while dragging — without this exclusion each add/remove would push a
-        // full canvas.toJSON() snapshot onto the undo history.
+        // full canvas snapshot onto the undo history.
         const isDecoration = (obj: unknown): boolean => {
           const t = (obj as { data?: { type?: string } } | undefined)?.data?.type;
           return (
@@ -602,6 +653,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         let refreshWallBands: () => void = () => {};
         let clearAdjacencyJoin: () => void = () => {};
         let showAdjacencyJoin: (join: { a: Point; b: Point }) => void = () => {};
+        let refreshRoomEdgeDimLabels: (room: unknown) => void = () => {};
 
         canvas.on("object:modified", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
@@ -620,10 +672,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // Dimension lock: prevent scale/stretch from changing locked geometry.
           enforceDimLock(target);
           // Keep damage fills clipped to room walls after geometry edits.
+          // Edge dimension labels follow the same geometry: typed size, voice
+          // Accept, move and scale. Footprint labels have no dimFor.
           if (
             (target as { data?: { type?: string } } | undefined)?.data?.type ===
             "room"
           ) {
+            refreshRoomEdgeDimLabels(target);
             refreshDamageRoomClips();
           }
           if (!isLoadingRef.current && !isDecoration(target)) {
@@ -1962,57 +2017,39 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           return t;
         };
 
-        /**
-         * Add per-edge dimension strings for a completed room polygon.
-         * Each edge gets one Text label placed perpendicular to the midpoint,
-         * outside the room. Labels are non-selectable/non-measured decoration.
-         * Short edges (&lt; 0.45 m) get a Measure CTA instead.
-         */
+        const makeRoomEdgeText: RoomEdgeLabelTextFactory = (
+          text,
+          x,
+          y,
+          role,
+        ) => {
+          if (role === SHORT_DIM_CTA_TYPE) {
+            return makeShortDimCta(text, x, y, {});
+          }
+          return makeDimText(text, x, y);
+        };
+
+        /** Per-edge dimension strings for a completed room. Short edges get a Measure CTA. */
         const addRoomEdgeDimLabels = (
           points: Point[],
           roomId: string,
         ) => {
-          const c = canvas as unknown as {
-            add: (...o: unknown[]) => void;
-            bringObjectToFront?: (o: unknown) => void;
-          };
-          const scale = pxPerMetreRef.current;
-          for (let i = 0; i < points.length; i++) {
-            const a = points[i];
-            const b = points[(i + 1) % points.length];
-            const px = Math.hypot(b.x - a.x, b.y - a.y);
-            if (shouldShowEdgeDimension(px, scale)) {
-              const text = formatDimension(px, scale);
-              const { labelPos } = segmentLabelPosition(a, b, 18);
-              const lbl = makeDimText(text, labelPos.x, labelPos.y);
-              (lbl as { data?: unknown }).data = {
-                type: "dim-label",
-                dimFor: roomId,
-                edgeIndex: i,
-                metres: px / scale,
-              };
-              c.add(lbl);
-              c.bringObjectToFront?.(lbl);
-            }
-          }
-          for (const cta of shortEdgeMeasureAffordances(points, scale)) {
-            const lbl = makeShortDimCta(
-              cta.label,
-              cta.labelPos.x,
-              cta.labelPos.y,
-              {
-                roomId,
-                edgeIndex: cta.edgeIndex,
-                ax: cta.a.x,
-                ay: cta.a.y,
-                bx: cta.b.x,
-                by: cta.b.y,
-                metres: cta.metres,
-              },
-            );
-            c.add(lbl);
-            c.bringObjectToFront?.(lbl);
-          }
+          placeRoomEdgeDimLabels(
+            canvas,
+            points,
+            roomId,
+            pxPerMetreRef.current,
+            makeRoomEdgeText,
+          );
+        };
+
+        refreshRoomEdgeDimLabels = (room: unknown) => {
+          rebuildRoomEdgeDimLabels(
+            canvas,
+            room,
+            pxPerMetreRef.current,
+            makeRoomEdgeText,
+          );
         };
 
         /**
@@ -2473,20 +2510,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
                       lengthM: horizontal ? metres : dims.lengthM,
                       widthM: horizontal ? dims.widthM : metres,
                     };
-                    // Refresh room edge dims
-                    const stale = c
-                      .getObjects()
-                      .filter((o) => {
-                        const d = (o as { data?: { type?: string; dimFor?: string; roomId?: string } })
-                          .data;
-                        if (!d) return false;
-                        if (d.type === "dim-label" && d.dimFor === dimFor) return true;
-                        if (d.type === SHORT_DIM_CTA_TYPE && d.roomId === dimFor)
-                          return true;
-                        return false;
-                      });
-                    if (stale.length) c.remove(...stale);
-                    addRoomEdgeDimLabels(next, dimFor);
+                    refreshRoomEdgeDimLabels(room);
                     syncRoomLabel(room);
                     reanchorOpeningsForRoom(room);
                     refreshWallBands();
@@ -3028,10 +3052,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
         // Notify parent
         onReady?.({
-          toJSON: () =>
-            (canvas as unknown as { toJSON: (e?: string[]) => object }).toJSON([
-              "data",
-            ]),
+          toJSON: () => {
+            const shot = snapshotSketchCanvas(
+              canvas as unknown as LatchCanvas,
+              raisedVoiceAcmRef.current,
+            );
+            raisedVoiceAcmRef.current = shot.raised;
+            return shot.snapshot;
+          },
           loadFromJSON: async (data) => {
             isLoadingRef.current = true;
             try {

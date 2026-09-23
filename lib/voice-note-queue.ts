@@ -6,7 +6,8 @@
  * Scope: when a technician records a voice note while offline (or the
  * transcribe call fails with a network error / 503), the audio blob is
  * stored locally together with the field context (inspectionId +
- * fieldLabel). When connectivity returns (online event or SW Background
+ * fieldLabel, and the room id when the note was recorded on a room).
+ * When connectivity returns (online event or SW Background
  * Sync with tag "voice-note-sync"), the queue drains against the existing
  * POST /api/ai/voice-note-transcribe endpoint and keeps the resulting
  * transcript (or a terminal error) for the caller to consume.
@@ -34,6 +35,9 @@ const STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
+/** Fired after a drain attempt so open voice-note controls can read transcripts. */
+export const VOICE_NOTES_DRAINED_EVENT = "ra-voice-notes-drained";
+
 export type VoiceNoteQueueStatus = "pending" | "done" | "error" | "consumed";
 
 export interface VoiceNoteQueueEntry {
@@ -41,6 +45,8 @@ export interface VoiceNoteQueueEntry {
   id: string;
   inspectionId: string;
   fieldLabel: string;
+  /** Room the note was recorded against. Absent on older queue rows. */
+  roomId?: string;
   blob: Blob;
   mimeType: string;
   /** ISO timestamp when queued */
@@ -57,6 +63,8 @@ export interface PendingTranscript {
   id: string;
   inspectionId: string;
   fieldLabel: string;
+  /** Room the note was recorded against, when the queue row has one. */
+  roomId?: string;
   status: "done" | "error";
   transcript?: string;
   error?: string;
@@ -120,7 +128,7 @@ function extractErrorMessage(body: unknown, fallback: string): string {
  */
 export async function queueVoiceNote(
   blob: Blob,
-  context: { inspectionId: string; fieldLabel: string },
+  context: { inspectionId: string; fieldLabel: string; roomId?: string },
 ): Promise<string> {
   const db = await openDatabase();
 
@@ -135,6 +143,7 @@ export async function queueVoiceNote(
     id: generateId(),
     inspectionId: context.inspectionId,
     fieldLabel: context.fieldLabel,
+    ...(context.roomId ? { roomId: context.roomId } : {}),
     blob,
     mimeType: blob.type || "audio/webm",
     queuedAt: new Date().toISOString(),
@@ -198,6 +207,7 @@ export async function getPendingTranscripts(): Promise<PendingTranscript[]> {
         id: e.id,
         inspectionId: e.inspectionId,
         fieldLabel: e.fieldLabel,
+        ...(e.roomId ? { roomId: e.roomId } : {}),
         status: e.status,
         transcript: e.transcript,
         error: e.error,
@@ -321,6 +331,7 @@ export async function drainVoiceNoteQueue(): Promise<number> {
     }
   }
 
+  window.dispatchEvent(new CustomEvent(VOICE_NOTES_DRAINED_EVENT));
   return transcribed;
 }
 

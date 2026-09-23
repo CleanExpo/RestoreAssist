@@ -202,4 +202,24 @@ Append-only record of resolved product and architecture decisions. New decisions
 
 ---
 
+### D-026 — Photo AI accept/reject is `ai_suggested`; ACM may raise the WHS gate and may never clear it (RA-7613)
+
+- **Decision:** `auto-classify-photo` results stay suggestions until a technician accepts them. Accepted labels persist as `ai_suggested` on `InspectionPhoto.metadata.photoAi` (existing JSON column — no schema change) and produce zero billable quantities until Confirm promotes provenance to `operator_measured` (RA-7611 allow-list). A classification that includes `ASBESTOS_SUSPECT` raises the existing WHS strip-out gate (`evaluateWhsGate`). AI output can raise that latch and cannot clear it, including a later no-ACM classification; only a person recording a WHS pathway clears the block. Voice transcripts map onto ANZ material slugs, `cat1|cat2|cat3`, and numeric dimensions by exact catalog match; unmatched terms are shown for confirmation and never guessed.
+- **Reason:** Photo AI and voice notes currently never become job data (zero UI callers for auto-classify; no voice-to-fields mapper). Letting AI write measured quantities or clear a suspected-ACM flag would bill unconfirmed geometry and silently drop a safety gate.
+- **Alternatives:** copy classifier JSON straight into labelled columns as measured (rejected — RA-7611); let a later no-ACM vision run clear the gate (rejected — AI must not undo a safety raise); fuzzy-match voice materials (rejected — guessed slugs become job data).
+- **Consequences:** Classify is propose; accept writes `ai_suggested` job fields; Confirm is the person. Accept merges AI labels into existing technician columns and must never drop `ASBESTOS_SUSPECT`. Classify (and classification-review) lock the `InspectionPhoto` row with `SELECT … FOR UPDATE` then re-read `metadata` so an overlapping no-ACM run cannot reset `aiRaisedAcm`. Reject does not overwrite a `HUMAN_TECH` `labelledBy`. Evidence submission is never blocked (RA-7076). Strip-out stays blocked until a recorded WHS pathway.
+- **Evidence:** RA-7613; RA-7611 D-025; RA-7035 propose→confirm; RA-7076 flags-never-block. **Date:** 2026-09-21. **Owner:** Phill McGurk.
+
+---
+
+### D-027 — One manifest decides which cron jobs run on the live site (RA-7645; supersedes D-024's single workflow)
+
+- **Decision:** `lib/cron/production-schedule.ts` lists every `app/api/cron` route as either `PRODUCTION_ENABLED` (with a cadence) or `PRODUCTION_EXCLUDED` (with a reason). `.github/workflows/cron-production.yml` runs `scripts/ci/trigger-production-crons.mjs`, which GETs the due routes on `https://restoreassist.app` with `CRON_SECRET`. A quarter-hour tick carries the 15-minute, 30-minute and hourly jobs; each daily job has its own schedule line, so a late GitHub start can neither skip nor repeat it. Wave 1: sync-xero-payments, retry-failed-webhooks, sync-invoices, storage-mirror, storage-mirror-recovery, cron-watchdog, trial-reminders, winback, pricing-setup-reminders. `cron-production-trial-reminders.yml` is retired, so trial reminders fire from one place only. The watchdog alarms only on enabled jobs.
+- **Reason:** D-024 moved one job to the live host; the other 26 in `vercel.json` still ran only on the sandbox, and the coverage test read `vercel.json`, so it passed while production ran nothing but trial reminders. The DigitalOcean release contract still forbids a `jobs` component.
+- **Alternatives:** one workflow per job (rejected — 27 files, no single place to see what production runs); fire every enabled route every 15 minutes and rely on each job's idempotency (rejected — the watchdog alert and daily emails are not safe at that rate); read `vercel.json` directly (rejected — the coverage test would become a tautology).
+- **Consequences:** Adding a cron route fails CI until it is placed in one of the two lists. Enabling a wave-2 job is a one-line manifest change plus a schedule line for a new daily hour; the coverage test checks the workflow and manifest agree. The workflow fails loudly until `CRON_SECRET` is a repository Actions secret (founder step). Manual dispatch defaults to a dry run that calls nothing; `probe_production` calls only routes that honour `?dryRun=1`.
+- **Evidence:** RA-7645; `app/api/cron/cron-watchdog/__tests__/coverage.test.ts`; `scripts/__tests__/production-cron-scheduler.test.ts`. **Date:** 2026-09-22. **Owner:** Phill McGurk.
+
+---
+
 _Non-blocking owner inputs still open (do not block V1 start): authorised drying-goal methodology source; the full per-stage water-damage completeness rule list (baseline minimum is specified; engine scaffolds now); per-organisation completeness baseline content; the approved retention matrix (D-017 — legal/privacy review before any automated destruction); pilot-partner selection. Tracked here, not escalated._

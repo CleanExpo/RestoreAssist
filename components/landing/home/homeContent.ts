@@ -16,9 +16,12 @@ export const HOME = {
 
   hero: {
     eyebrow: BRAND.tagline,
-    headline: "Restoration software that works for you. Not the insurer.",
+    // RA-7660 (One CRM): founder's headline and sub-line, verbatim.
+    headline:
+      "The CRM built for Australian and New Zealand restoration professionals. One product, not three.",
     brand: BRAND.name,
-    valueLine: "From site to signed report. One system.",
+    valueLine:
+      "Inspections, reports, quotes, invoices, clients, team and compliance in one system — with optional add-ons you switch on only when they earn their keep.",
     support:
       "The platforms that dominate this industry were built to serve the carrier. RestoreAssist was built for the contractor doing the work — and the homeowner living through it. Australian-built. Australian-priced.",
     primaryCta: `Start free — ${trialDays}-day trial`,

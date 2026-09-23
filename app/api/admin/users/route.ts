@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { adminUserScope, verifyAdminFromDb } from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
 
 // GET — list users with optional search and role filter
@@ -19,10 +19,9 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")?.trim() ?? "";
     const role = searchParams.get("role")?.toUpperCase() ?? "";
 
-    // Scope to the admin's own organization — prevents cross-tenant user enumeration
-    const where: any = {
-      organizationId: adminUser!.organizationId,
-    };
+    // Scope to the admin's own organisation — prevents cross-tenant user
+    // enumeration. An org-less admin sees only themselves (RA-7647).
+    const where: any = adminUserScope(adminUser!);
 
     if (search) {
       where.OR = [

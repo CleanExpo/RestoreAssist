@@ -71,3 +71,28 @@ describe("sendTrialReminders delivery receipts", () => {
     expect(userUpdate).not.toHaveBeenCalled();
   });
 });
+
+describe("sendTrialReminders backlog guard (RA-7645)", () => {
+  // Production never ran this job. The first live run must not reach back to
+  // trials that have already ended: every window starts at "now" or later.
+  it("only selects trials ending between now and three days from now", async () => {
+    vi.clearAllMocks();
+    userFindMany.mockReset();
+    userFindMany.mockResolvedValue([]);
+    const before = Date.now();
+
+    await sendTrialReminders();
+
+    const after = Date.now();
+    expect(userFindMany).toHaveBeenCalledTimes(2);
+    for (const [arg] of userFindMany.mock.calls as Array<
+      [{ where: { subscriptionStatus: string; trialEndsAt: { gte: Date; lte: Date } } }]
+    >) {
+      expect(arg.where.subscriptionStatus).toBe("TRIAL");
+      expect(arg.where.trialEndsAt.gte.getTime()).toBeGreaterThanOrEqual(before);
+      expect(arg.where.trialEndsAt.lte.getTime()).toBeLessThanOrEqual(
+        after + 3 * 24 * 60 * 60 * 1000,
+      );
+    }
+  });
+});

@@ -9,6 +9,8 @@
  * include pattern for lib tests.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 // Must mock before importing middleware so the module-level import of
@@ -364,6 +366,124 @@ describe("middleware login redirect (P1 #16)", () => {
     const res = await proxy(mkReq(`/sign/${token}`));
     expect((res as any).status).toBe(200);
     expect((res as any).headers.get("location")).toBeNull();
+  });
+
+  // RA-7635 — the owner shares a finished report with the homeowner via
+  // /api/reports/[id]/share-link, which mints an HMAC insurer token and builds
+  // /reports/<id>/view?token=<t>. Every /reports path sits behind the login
+  // gate, so the homeowner was sent to /login and never saw the report.
+  //
+  // app/reports/[id]/view/page.tsx already verifies that token against THAT
+  // report id and 404s otherwise, and already sends robots noindex. The token
+  // in the query is the credential, exactly as the path token is for /sign and
+  // /invite. Only this one URL shape is exempt.
+  it("does NOT redirect /reports/[id]/view?token=... — the token is the credential", async () => {
+    (getToken as any).mockResolvedValue(null);
+    const token = "a".repeat(64);
+    const res = await proxy(
+      mkReq("/reports/rep_123/view", `?token=${token}`),
+    );
+    expect((res as any).status).toBe(200);
+    expect((res as any).headers.get("location")).toBeNull();
+  });
+
+  // The exemption is the narrowest shape that works. Each case below would be
+  // a way into the contractor's report surface without a session, so each must
+  // still be gated. These are the assertions that make the exemption safe
+  // rather than merely convenient.
+  //
+  // Rows 7-8 pin the `[^/]+` in PUBLIC_TOKENED_REPORT_VIEW — the id is ONE path
+  // segment. Without them, widening it to `.+` passes the whole suite: the six
+  // rows above vary the token and the tail of the path but never the number of
+  // segments in the id, so none of them notices.
+  //
+  // Rows 9-10 pin the two things the regex claims and nothing asserted: that it
+  // is anchored at the START, and that it is case-SENSITIVE. Round two of the
+  // independent review dropped the `^` and all 68 tests still passed, while
+  // /reports/x/reports/y/view?token=… flipped from 307 to 200 — a gated path
+  // made public by a one-character edit no test could see. The `/i` mutant does
+  // the same for /reports/<id>/VIEW.
+  //
+  // Every one of these four rows exists because a reviewer mutated the regex and
+  // the suite stayed green. That is the whole lesson: an anchor written in a
+  // pattern is a claim, and a claim with no control behind it is decoration.
+  it.each([
+    ["the view route with no token at all", "/reports/rep_123/view", ""],
+    ["the view route with an empty token", "/reports/rep_123/view", "?token="],
+    ["a report page that is not /view", "/reports/rep_123", `?token=${"a".repeat(64)}`],
+    ["a nested route under the id", "/reports/rep_123/edit", `?token=${"a".repeat(64)}`],
+    ["the reports index", "/reports", `?token=${"a".repeat(64)}`],
+    ["a deeper path below /view", "/reports/rep_123/view/raw", `?token=${"a".repeat(64)}`],
+    ["a multi-segment id", "/reports/a/b/view", `?token=${"a".repeat(64)}`],
+    ["a deeper multi-segment id", "/reports/a/b/c/view", `?token=${"a".repeat(64)}`],
+    ["a path that merely ENDS with the view route", "/reports/x/reports/y/view", `?token=${"a".repeat(64)}`],
+    ["an uppercase VIEW segment", "/reports/rep_123/VIEW", `?token=${"a".repeat(64)}`],
+    ["an empty id segment", "/reports//view", `?token=${"a".repeat(64)}`],
+    ["a views (plural) segment", "/reports/rep_123/views", `?token=${"a".repeat(64)}`],
+  ])("still gates %s", async (_case, pathname, search) => {
+    (getToken as any).mockResolvedValue(null);
+    const res = await proxy(mkReq(pathname, search));
+    expect((res as any).status).toBe(307);
+    expect((res as any).headers.get("location")).toContain("/login");
+  });
+
+  // THE PATTERN ITSELF, not one more example of it.
+  //
+  // Three independent review rounds each found a different claim this regex makes
+  // that no behavioural row asserted: the id segment count (`[^/]+` -> `.+`), the
+  // start anchor (dropping `^`), the case (`/i`), the non-empty id (`+` -> `*`),
+  // and the literal segment (`view` -> `views?`). Every round the fix was one more
+  // negative row, and every round the next mutation walked through the gap the
+  // rows did not happen to cover.
+  //
+  // That cannot converge. A regex's claim space is larger than any list of
+  // examples, so example-based negatives are a denylist of widenings someone
+  // thought of -- the same "the rule is universal, the guard is a list" defect
+  // this repo keeps paying for. `lib/__tests__/stripe-api-version.test.ts` solves
+  // the same shape by asserting the literal rather than enumerating its uses, and
+  // this is that idiom.
+  //
+  // The rows above prove the pattern is WIRED correctly. This proves it has not
+  // been CHANGED. Any edit to that one line fails here, including mutations nobody
+  // has thought of yet -- which is the only property that ends the loop.
+  //
+  // If you are here because this test failed and your change to the pattern was
+  // deliberate: update the literal below, and add a behavioural row proving the new
+  // shape gates what it should. Do not delete this assertion.
+  it("pins the exemption pattern itself, so any edit to it fails here", () => {
+    const source = readFileSync(join(process.cwd(), "proxy.ts"), "utf8");
+    expect(source).toContain(
+      "const PUBLIC_TOKENED_REPORT_VIEW = /^\\/reports\\/[^/]+\\/view\\/?$/;",
+    );
+  });
+
+  // requiresLogin() guards two gates — the login redirect above and the hard
+  // paywall below it. The exemption has to be applied at both, or a homeowner
+  // opening a share link belonging to a lapsed contractor gets bounced to a
+  // payment page for somebody else's subscription. The pair below is what
+  // makes the second call site load-bearing: remove the exemption from the
+  // paywall gate and the first case fails, while the second proves the paywall
+  // really does fire on this token.
+  it("does NOT send a tokened report view to the paywall when the owner's subscription lapsed", async () => {
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      setupCompletedAt: "2026-01-01T00:00:00Z",
+      subscriptionStatus: "CANCELED",
+    });
+    const res = await proxy(
+      mkReq("/reports/rep_123/view", `?token=${"a".repeat(64)}`),
+    );
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("still paywalls an ordinary /reports path for that same lapsed token", async () => {
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      setupCompletedAt: "2026-01-01T00:00:00Z",
+      subscriptionStatus: "CANCELED",
+    });
+    const res = await proxy(mkReq("/reports/rep_123"));
+    expect((res as any).status).toBe(307);
   });
 
   it("does NOT redirect authenticated users", async () => {

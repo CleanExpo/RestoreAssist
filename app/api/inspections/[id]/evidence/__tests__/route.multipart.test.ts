@@ -16,6 +16,10 @@ import { createHash } from "crypto";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// The sync-ledger workspace lookup (RA-7586) is covered in route.test.ts.
+vi.mock("@/lib/workspace/provider-connections", () => ({
+  getWorkspaceForUser: async () => null,
+}));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(async () => ({
     ok: true,

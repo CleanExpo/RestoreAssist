@@ -7,18 +7,15 @@
  * Fetches the photo's Cloudinary URL, sends it to Claude Vision with a
  * prompt tuned for AU water-damage vernacular + IICRC S500 label
  * schema (RA-446), parses the JSON response, and writes to
- * InspectionPhoto.aiLabels + aiConfidence + aiModel + aiRunAt.
+ * InspectionPhoto.aiLabels + aiConfidence + aiModel + aiRunAt, and stamps
+ * InspectionPhoto.metadata.photoAi (pending review + raise-only WHS latch).
  *
- * The technician UI then shows the suggestion next to each field —
- * accepting copies values into the label columns and flips labelledBy
- * to "AI_ACCEPTED". This PR ships the backend + DB fields; the UI
- * accept/reject surface is a follow-up (needs coordination with the
- * existing photo-labels form).
+ * The photos page shows the suggestion for accept / reject (RA-7613).
+ * Accepting copies valid values into the label columns as `ai_suggested`
+ * (labelledBy AI_ASSISTED). Confirm promotes to operator_measured.
  *
- * Auth: user must own the inspection. Rate-limited per user. When
- * ANTHROPIC_API_KEY is missing the endpoint returns 503 with a clear
- * message so the inspection-photo POST handler can no-op gracefully
- * on the fire-and-forget call.
+ * Auth: user must own the inspection. Rate-limited per user. Workspace
+ * Anthropic key required (BYOK); missing key returns 402 KEY_MISSING.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -29,6 +26,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { Prisma } from "@prisma/client";
 import { autoClassifyPhoto } from "@/lib/services/ai/auto-classify-photo";
+import { stampClassifierRunOnMetadata } from "@/lib/services/ai/photo-classification-review";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   resolveWorkspaceAiKey,
@@ -94,7 +92,7 @@ export async function POST(
   // Ownership check — photo must belong to an inspection the caller owns
   const photo = await prisma.inspectionPhoto.findFirst({
     where: { id: photoId, inspection: { userId } },
-    select: { id: true, url: true, mimeType: true },
+    select: { id: true, url: true, mimeType: true, metadata: true },
   });
   if (!photo) {
     return apiError(request, {
@@ -140,15 +138,30 @@ export async function POST(
     const { labels, confidence, model } = result.data;
 
     const runAt = new Date();
-    await prisma.inspectionPhoto.update({
-      where: { id: photo.id },
-      data: {
-        // Prisma's JSON input type requires a cast from a generic object.
-        aiLabels: labels as Prisma.InputJsonValue,
-        aiConfidence: confidence,
-        aiModel: model,
-        aiRunAt: runAt,
-      },
+    // RA-7618: Vision can overlap. Lock the row, then re-read metadata
+    // inside the write transaction so a no-ACM run cannot reset
+    // aiRaisedAcm after an ACM-positive run has already committed.
+    // stampClassifierRunOnMetadata is raise-only against that locked row.
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "InspectionPhoto" WHERE "id" = ${photo.id} FOR UPDATE`,
+      );
+      const current = await tx.inspectionPhoto.findUnique({
+        where: { id: photo.id },
+        select: { metadata: true },
+      });
+      const metadata = stampClassifierRunOnMetadata(current?.metadata, labels);
+      await tx.inspectionPhoto.update({
+        where: { id: photo.id },
+        data: {
+          // Prisma's JSON input type requires a cast from a generic object.
+          aiLabels: labels as Prisma.InputJsonValue,
+          aiConfidence: confidence,
+          aiModel: model,
+          aiRunAt: runAt,
+          metadata: metadata as Prisma.InputJsonValue,
+        },
+      });
     });
 
     const response: ClassifyResponse = {

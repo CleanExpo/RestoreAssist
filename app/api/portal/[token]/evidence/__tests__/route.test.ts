@@ -43,7 +43,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mRate.mockResolvedValue(null);
   mBot.mockResolvedValue({ ok: true });
-  mLookup.mockResolvedValue({ clientId: "c_1" });
+  // An expiring link; a no-expiry link is view-only (RA-7634, access-mode.test.ts).
+  mLookup.mockResolvedValue({ clientId: "c_1", accessMode: "INTERACTIVE" });
   p.inspection.findFirst.mockResolvedValue({
     id: "insp_1",
     workspaceId: "ws_1",

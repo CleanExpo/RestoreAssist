@@ -29,6 +29,7 @@ export default {
       "app/portal/**/__tests__/**/*.test.tsx",
       "app/__tests__/**/*.test.tsx",
       "data/content/videos/__tests__/**/*.test.ts",
+      "tests/unit/**/*.test.ts",
     ],
     exclude: [
       "e2e/**",

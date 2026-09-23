@@ -13,8 +13,9 @@ vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("@/lib/csrf", () => ({ validateCsrf: vi.fn().mockReturnValue(null) }));
-vi.mock("@/lib/progress/permissions", () => ({
-  resolveProgressRole: vi.fn().mockReturnValue("CONTRACTOR"),
+const resolveProgressAuthority = vi.fn();
+vi.mock("../_authority", () => ({
+  resolveProgressAuthority: (...a: unknown[]) => resolveProgressAuthority(...a),
 }));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (
@@ -25,7 +26,9 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 
 const init = vi.fn();
-vi.mock("@/lib/progress/service", () => ({ init: (...a: unknown[]) => init(...a) }));
+vi.mock("@/lib/progress/service", () => ({
+  init: (...a: unknown[]) => init(...a),
+}));
 
 import { POST } from "../init/route";
 
@@ -41,6 +44,12 @@ const ctx = { params: Promise.resolve({ reportId: "r_1" }) };
 beforeEach(() => {
   getServerSession.mockReset();
   init.mockReset();
+  resolveProgressAuthority.mockReset();
+  resolveProgressAuthority.mockResolvedValue({
+    ok: true,
+    role: "MANAGER",
+    user: { email: "u@test.com", name: "Test User" },
+  });
 });
 
 describe("POST /api/progress/[reportId]/init", () => {
@@ -51,7 +60,9 @@ describe("POST /api/progress/[reportId]/init", () => {
   });
 
   it("bootstraps ClaimProgress and returns 201", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", role: "MANAGER" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", role: "MANAGER" },
+    });
     init.mockResolvedValueOnce({ ok: true, data: { id: "cp_1" } });
 
     const res = await POST(postReq({ inspectionId: "i_1" }), ctx);
@@ -66,16 +77,28 @@ describe("POST /api/progress/[reportId]/init", () => {
   });
 
   it("returns 409 when progress already exists (idempotent re-init)", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", role: "MANAGER" } });
-    init.mockResolvedValueOnce({ ok: false, code: "ALREADY_EXISTS", message: "exists" });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", role: "MANAGER" },
+    });
+    init.mockResolvedValueOnce({
+      ok: false,
+      code: "ALREADY_EXISTS",
+      message: "exists",
+    });
 
     const res = await POST(postReq(), ctx);
     expect(res.status).toBe(409);
   });
 
   it("returns 404 when the report is not found", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", role: "MANAGER" } });
-    init.mockResolvedValueOnce({ ok: false, code: "NOT_FOUND", message: "no report" });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", role: "MANAGER" },
+    });
+    init.mockResolvedValueOnce({
+      ok: false,
+      code: "NOT_FOUND",
+      message: "no report",
+    });
 
     const res = await POST(postReq(), ctx);
     expect(res.status).toBe(404);

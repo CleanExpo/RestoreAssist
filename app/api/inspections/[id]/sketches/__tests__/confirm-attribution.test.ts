@@ -205,3 +205,39 @@ describe("sketch POST — server confirm attribution", () => {
     expect(data.confirmedAt.getTime()).toBeLessThanOrEqual(after);
   });
 });
+
+describe("RA-7617 — untagged rooms on POST /sketches", () => {
+  it("saves a room with no provenance tag without inventing a confirm stamp", async () => {
+    p.claimSketch.findFirst.mockResolvedValueOnce(null);
+    p.claimSketch.create.mockResolvedValueOnce({ id: "s_new" });
+
+    const res = await POST(
+      makePost({
+        floorNumber: 0,
+        sketchData: {
+          scaleConfig: { pxPerMetre: 100 },
+          objects: [
+            {
+              type: "polygon",
+              points: [
+                { x: 0, y: 0 },
+                { x: 300, y: 0 },
+                { x: 300, y: 400 },
+                { x: 0, y: 400 },
+              ],
+              data: { type: "room", id: "legacy-1", label: "Legacy Lounge" },
+            },
+          ],
+        },
+      }),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+
+    expect(res.status).toBe(201);
+    expect(p.sketchRoom.create).toHaveBeenCalledTimes(1);
+    const data = p.sketchRoom.create.mock.calls[0][0].data;
+    expect(data.confirmedAt).toBeNull();
+    expect(data.confirmedBy).toBeNull();
+    expect(data.name).toBe("Legacy Lounge");
+  });
+});

@@ -8,6 +8,7 @@ const getServerSession = vi.fn();
 const userFindUnique = vi.fn();
 const accountFindUnique = vi.fn();
 const accountUpdate = vi.fn();
+const signatureUpdateMany = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -20,6 +21,16 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: (...a: unknown[]) => accountFindUnique(...a),
       update: (...a: unknown[]) => accountUpdate(...a),
     },
+    // RA-7634: rotation now runs in one interactive transaction.
+    $transaction: (callback: (tx: unknown) => unknown) =>
+      callback({
+        clientPortalAccount: {
+          update: (...a: unknown[]) => accountUpdate(...a),
+        },
+        authorityFormSignature: {
+          updateMany: (...a: unknown[]) => signatureUpdateMany(...a),
+        },
+      }),
   },
 }));
 
@@ -33,6 +44,8 @@ beforeEach(() => {
   userFindUnique.mockReset();
   accountFindUnique.mockReset();
   accountUpdate.mockReset();
+  signatureUpdateMany.mockReset();
+  signatureUpdateMany.mockResolvedValue({ count: 0 });
 });
 
 function adminAuthOk() {

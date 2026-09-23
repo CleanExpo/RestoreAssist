@@ -7,6 +7,13 @@ import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-process
 
 const MAX_XERO_INTEGRATIONS_PER_CRON_RUN = 100;
 
+/** Xero amounts are decimal dollars; Invoice amounts are integer cents. */
+function xeroDollarsToCents(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.round(value * 100)
+    : null;
+}
+
 /**
  * GET /api/cron/sync-xero-payments — Fallback payment reconciliation for Xero
  *
@@ -149,6 +156,10 @@ async function syncXeroPaymentsOnce() {
 
           // Xero status PAID or AmountDue === 0 means fully settled
           if (xeroInvoice.Status === "PAID" || xeroInvoice.AmountDue === 0) {
+            // RA-7645: carry Xero's own figures (dollars) as cents. Not
+            // totalIncGST: a credit note can settle part of an invoice, so
+            // the amount actually paid may be less than the total.
+            const amountPaid = xeroDollarsToCents(xeroInvoice.AmountPaid);
             await prisma.invoice.update({
               where: { id: invoice.id },
               data: {
@@ -156,6 +167,8 @@ async function syncXeroPaymentsOnce() {
                 paidDate: xeroInvoice.FullyPaidOnDate
                   ? new Date(xeroInvoice.FullyPaidOnDate)
                   : new Date(),
+                ...(amountPaid === null ? {} : { amountPaid }),
+                amountDue: xeroDollarsToCents(xeroInvoice.AmountDue) ?? 0,
               },
             });
             stats.invoicesMarkedPaid++;

@@ -56,13 +56,13 @@ import { startRoomPlanCapture } from "@/lib/capacitor-roomplan-bridge";
 import {
   confirmRoomPlanMeasurement,
   recordRoomPlanExclude,
-  recordRoomPlanGeometryCorrection,
   recordRoomPlanLabelCorrection,
 } from "@/lib/sketch/roomplan-correction";
-import {
-  confirmAiSuggestedMeasurement,
-  recordAiSuggestedGeometryCorrection,
-} from "@/lib/sketch/ai-suggested-confirm";
+import { commitRoomPanelEdit } from "@/lib/sketch/room-panel-commit";
+import { ROOM_COLORS } from "@/lib/sketch/room-colors";
+import { clearDetailsLostFromRoomData } from "@/lib/sketch/selected-object";
+import { applyRoomModifiedGeometry } from "@/lib/sketch/room-modified-geometry";
+import { confirmAiSuggestedMeasurement } from "@/lib/sketch/ai-suggested-confirm";
 import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
 import { polygonAbsolutePoints } from "@/lib/sketch/fabric-absolute";
 import {
@@ -102,6 +102,7 @@ import type { SketchFloor } from "./SketchFloorTabs";
 import { SketchSelectionPanel } from "./SketchSelectionPanel";
 import type { SelectedObject, MaterialOption } from "./SketchSelectionPanel";
 import { ANZ_MATERIAL_OPTIONS } from "@/lib/anz/material-options";
+import { jobHasAiRaisedAcm } from "@/lib/anz/photo-ai-whs";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
@@ -172,27 +173,15 @@ const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ),
 });
 
-// ─── Room colours ──────────────────────────────────────────
-const ROOM_COLORS = [
-  {
-    fill: "rgba(59,130,246,0.10)",
-    stroke: "#3b82f6",
-    label: "Living / Common",
-  },
-  { fill: "rgba(16,185,129,0.10)", stroke: "#10b981", label: "Bedroom" },
-  { fill: "rgba(245,158,11,0.10)", stroke: "#f59e0b", label: "Kitchen" },
-  { fill: "rgba(236,72,153,0.10)", stroke: "#ec4899", label: "Bathroom / WC" },
-  {
-    fill: "rgba(139,92,246,0.10)",
-    stroke: "#8b5cf6",
-    label: "Garage / Utility",
-  },
-  { fill: "rgba(239,68,68,0.10)", stroke: "#ef4444", label: "Damage Zone" },
-];
-
 // ─── Floor data ────────────────────────────────────────────
 interface FloorData {
   floor: SketchFloor;
+  /**
+   * React key for this floor's canvas. The floor id is swapped from a local
+   * temp id to the server sketch id on first save; keying the canvas on that
+   * id remounts Fabric and drops the drawing in progress.
+   */
+  clientKey: string;
   canvasRef: React.MutableRefObject<FabricCanvasRef | null>;
   moisturePins: MoisturePin[];
   evidencePins: EvidencePinView[];
@@ -326,9 +315,18 @@ export function SketchEditorV2({
   }, []);
 
   // ── Floor state ────────────────────────────────────────
+  // Stable canvas key. Not derived from floorNumber: removing a floor does
+  // not renumber the rest, so those numbers can repeat. A counter also
+  // matches on the server and client render of the initial floor.
+  const floorClientKeySeq = useRef(0);
+  const allocFloorClientKey = useCallback(() => {
+    floorClientKeySeq.current += 1;
+    return `ck-${floorClientKeySeq.current}`;
+  }, []);
   const [floorsData, setFloorsData] = useState<FloorData[]>(() => [
     {
       floor: { id: `${uid}-f0`, floorNumber: 0, floorLabel: "Ground Floor" },
+      clientKey: allocFloorClientKey(),
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
       evidencePins: [],
@@ -452,6 +450,7 @@ export function SketchEditorV2({
   );
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmedFabricObjectIdsRef = useRef<Set<string>>(new Set());
   /** RA-7091 — run pending RoomPlan custody recovery once per inspection. */
   const roomPlanRecoveryKeyRef = useRef<string | null>(null);
 
@@ -502,6 +501,7 @@ export function SketchEditorV2({
                 floorNumber: s.floorNumber,
                 floorLabel: s.floorLabel,
               },
+              clientKey: s.id,
               canvasRef,
               moisturePins: (s.moisturePoints as MoisturePin[] | null) ?? [],
               evidencePins: [],
@@ -864,6 +864,9 @@ export function SketchEditorV2({
           country,
           captureAdapter,
           confirmUnderlayVerification: fd.fieldComplete === true,
+          confirmedFabricObjectIds: [
+            ...confirmedFabricObjectIdsRef.current,
+          ],
         };
 
         const saveUrl = captureToken
@@ -1315,6 +1318,7 @@ export function SketchEditorV2({
               ? "Second Floor"
               : `Floor ${newFloorNum}`,
       },
+      clientKey: allocFloorClientKey(),
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
       evidencePins: [],
@@ -1329,7 +1333,7 @@ export function SketchEditorV2({
     };
     setFloorsData((prev) => [...prev, newFloor]);
     setActiveIdx(floorsData.length);
-  }, [floorsData, uid]);
+  }, [floorsData, uid, allocFloorClientKey]);
 
   const handleRemoveFloor = useCallback(
     (idx: number) => {
@@ -1759,6 +1763,10 @@ export function SketchEditorV2({
       if (!inspectionId) return;
       const formData = new FormData();
       formData.append("file", file);
+      formData.append(
+        "floorNumber",
+        String(activeFloor?.floor.floorNumber ?? 0),
+      );
       const res = await fetch(
         `/api/inspections/${inspectionId}/sketches/import-from-image`,
         { method: "POST", body: formData },
@@ -1770,7 +1778,11 @@ export function SketchEditorV2({
         throw new Error(error ?? `Import failed (${res.status})`);
       }
       const { rooms } = (await res.json()) as {
-        rooms: { label: string; vertices: { x: number; y: number }[] }[];
+        rooms: {
+          id?: string;
+          label: string;
+          vertices: { x: number; y: number }[];
+        }[];
       };
       if (!rooms?.length) return;
 
@@ -1813,7 +1825,7 @@ export function SketchEditorV2({
           selectable: true,
           evented: true,
           data: {
-            id: `imported-${Date.now()}-${i}`,
+            id: room.id ?? `imported-${Date.now()}-${i}`,
             label: room.label,
             type: "room",
             // RA-7611: Vision-imported geometry is an AI suggestion until a
@@ -1847,9 +1859,12 @@ export function SketchEditorV2({
       });
 
       fc.renderAll();
-      scheduleSave();
+      // Flush immediately so the ai_suggested SketchRoom row exists before
+      // Confirm. A debounced save here coalesces with Confirm within 1.5 s
+      // into one POST that already carries operator_measured.
+      await flushSaveNow();
     },
-    [inspectionId, activeFloor, width, height, scheduleSave],
+    [inspectionId, activeFloor, width, height, flushSaveNow],
   );
 
   // ── RA-7091: apply CapturedRoom JSON onto a floor canvas ─
@@ -2434,7 +2449,8 @@ export function SketchEditorV2({
         {sketchesHydrated &&
           floorsData.map((fd, idx) => (
             <div
-              key={fd.floor.id}
+              key={fd.clientKey}
+              data-floor-id={fd.floor.id}
               className={cn(
                 "absolute inset-0",
                 idx === activeIdx ? "block" : "hidden",
@@ -2501,19 +2517,12 @@ export function SketchEditorV2({
                   const areaM2 =
                     Math.round((shoelaceArea(pts) / (pxPerM * pxPerM)) * 100) /
                     100;
-                  if (obj.data.captureAdapter === "roomplan") {
-                    obj.data = recordRoomPlanGeometryCorrection(obj.data, {
-                      points: pts,
-                      areaM2,
-                    });
-                  } else if (obj.data.provenance === "ai_suggested") {
-                    obj.data = recordAiSuggestedGeometryCorrection(obj.data, {
-                      points: pts,
-                      areaM2,
-                    });
-                  } else {
-                    return;
-                  }
+                  const audited = applyRoomModifiedGeometry(obj.data, {
+                    points: pts,
+                    areaM2,
+                  });
+                  if (!audited) return;
+                  obj.data = audited;
                   const hist = obj.data.correctionHistory as
                     | unknown[]
                     | undefined;
@@ -2693,6 +2702,8 @@ export function SketchEditorV2({
           guided={guided}
           materials={materials}
           country={country}
+          inspectionId={inspectionId}
+          aiRaisedAcm={jobHasAiRaisedAcm(existingEvidencePhotos)}
           onCountryChange={(c) => {
             setCountry(c);
             scheduleSave();
@@ -2739,15 +2750,18 @@ export function SketchEditorV2({
                       | undefined
                   )?.id === id,
               ) as Record<string, unknown> | undefined;
-            if (obj?.data)
-              (obj.data as Record<string, unknown>).waterCategory = category;
+            if (obj?.data) {
+              const data = obj.data as Record<string, unknown>;
+              data.waterCategory = category;
+              clearDetailsLostFromRoomData(data);
+            }
             fc.renderAll();
             setSelectedObj((prev) =>
               prev && prev.id === id
-                ? { ...prev, waterCategory: category }
+                ? { ...prev, waterCategory: category, detailsLost: undefined }
                 : prev,
             );
-            scheduleSave();
+            commitRoomPanelEdit(fc, obj, scheduleSave);
           }}
           onMaterialChange={(id, slug) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
@@ -2765,11 +2779,51 @@ export function SketchEditorV2({
                       | undefined
                   )?.id === id,
               ) as Record<string, unknown> | undefined;
-            if (obj?.data)
-              (obj.data as Record<string, unknown>).material = slug;
+            if (obj?.data) {
+              const data = obj.data as Record<string, unknown>;
+              data.material = slug;
+              clearDetailsLostFromRoomData(data);
+            }
             fc.renderAll();
             setSelectedObj((prev) =>
-              prev && prev.id === id ? { ...prev, materialSlug: slug } : prev,
+              prev && prev.id === id
+                ? { ...prev, materialSlug: slug, detailsLost: undefined }
+                : prev,
+            );
+            commitRoomPanelEdit(fc, obj, scheduleSave);
+          }}
+          onVoiceAcmRaised={(id) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+              fire?: (ev: string, opt: object) => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
+            if (obj?.data) {
+              const data = obj.data as Record<string, unknown>;
+              // Raise-only. A later voice accept must not write this false.
+              // object:modified records the raise in undo history, the same
+              // way any other object edit is snapshotted.
+              if (data.voiceRaisedAcm !== true) {
+                data.voiceRaisedAcm = true;
+                fc.fire?.("object:modified", { target: obj });
+              }
+            }
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id
+                ? { ...prev, voiceRaisedAcm: true }
+                : prev,
             );
             scheduleSave();
           }}
@@ -2823,6 +2877,7 @@ export function SketchEditorV2({
                 lengthM,
                 widthM,
               });
+              confirmedFabricObjectIdsRef.current.add(id);
               fc.renderAll();
               const hist = (obj.data as { correctionHistory?: unknown[] })
                 .correctionHistory;
@@ -2962,6 +3017,7 @@ export function SketchEditorV2({
             } else {
               raw.label = label;
             }
+            clearDetailsLostFromRoomData(obj.data as Record<string, unknown>);
             // RA-6843 [A4]: a measured room owns a linked "room-label" caption —
             // rebuild it as "Name · 14.1 m²" so the rename reaches the canvas.
             const objData = obj.data as Record<string, unknown>;
@@ -2992,13 +3048,14 @@ export function SketchEditorV2({
                 ? {
                     ...prev,
                     label,
+                    detailsLost: undefined,
                     correctionCount: Array.isArray(hist)
                       ? hist.length
                       : prev.correctionCount,
                   }
                 : prev,
             );
-            scheduleSave();
+            commitRoomPanelEdit(fc, obj, scheduleSave);
           }}
           onDimLockChange={(id, locked) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
@@ -3166,7 +3223,7 @@ export function SketchEditorV2({
               setSelectedObj((prev) =>
                 prev && prev.id === id ? { ...prev, lengthM, widthM } : prev,
               );
-              scheduleSave();
+              commitRoomPanelEdit(fc, obj, scheduleSave);
               return;
             }
 
@@ -3188,7 +3245,7 @@ export function SketchEditorV2({
                   ? { ...prev, lengthM: dims.lengthM }
                   : prev,
               );
-              scheduleSave();
+              commitRoomPanelEdit(fc, obj, scheduleSave);
               return;
             }
 
@@ -3233,7 +3290,7 @@ export function SketchEditorV2({
                   ? { ...prev, widthM: dims.widthM }
                   : prev,
               );
-              scheduleSave();
+              commitRoomPanelEdit(fc, obj, scheduleSave);
               toast.success("Opening width updated");
             }
           }}

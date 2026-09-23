@@ -108,6 +108,39 @@ describe("sketch POST → SketchElement dual-write", () => {
     });
   });
 
+  it("RA-7617: an untagged room still dual-writes as a room element", async () => {
+    p.claimSketch.findFirst.mockResolvedValueOnce(null);
+    p.claimSketch.create.mockResolvedValueOnce({ id: "s_untagged" });
+    p.material.findMany.mockResolvedValueOnce([]);
+    p.sketchElement.deleteMany.mockResolvedValueOnce({ count: 0 });
+    p.sketchElement.createMany.mockResolvedValueOnce({ count: 1 });
+
+    const untagged = {
+      scaleConfig: { pxPerMetre: 100 },
+      objects: [
+        {
+          type: "polygon",
+          points: [
+            { x: 0, y: 0 },
+            { x: 300, y: 0 },
+            { x: 300, y: 400 },
+            { x: 0, y: 400 },
+          ],
+          data: { type: "room", label: "Legacy Lounge" },
+        },
+      ],
+    };
+
+    const res = await POST(makePost({ floorNumber: 0, sketchData: untagged }), {
+      params: Promise.resolve({ id: "i1" }),
+    });
+
+    expect(res.status).toBe(201);
+    const created = p.sketchElement.createMany.mock.calls[0][0].data;
+    expect(created).toHaveLength(1);
+    expect(created[0].type).toBe("room");
+  });
+
   it("still saves the sketch (201) even if element decomposition throws", async () => {
     p.claimSketch.findFirst.mockResolvedValueOnce(null);
     p.claimSketch.create.mockResolvedValueOnce({ id: "s_2" });

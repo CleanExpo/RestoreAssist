@@ -64,6 +64,8 @@ describe("resolvePortalAccess (RA-7575 / RA-4861)", () => {
     await expect(resolvePortalAccess("hmac-tok")).resolves.toEqual({
       kind: "inspection",
       inspectionId: "hmac_insp",
+      // A legacy HMAC link cannot be revoked, so it is view-only (RA-7634).
+      accessMode: "READ_ONLY",
     });
   });
 

@@ -14,8 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { assertReportTenancy } from "@/lib/auth/assert-tenancy";
 import {
   generateCarrierPacketPdf,
   generateCloseoutPack,
@@ -79,25 +78,18 @@ export async function GET(
   }
   const docType = type as DocType;
 
-  // Tenancy: report owner OR admin only.
-  const report = await prisma.report.findUnique({
-    where: { id: reportId },
-    select: { id: true, userId: true },
-  });
-  if (!report) {
+  // Tenancy gate (RA-7628): the report owner, an ADMIN — per the database —
+  // of the owner's own organisation, or an allowlisted platform-support
+  // operator. Being ADMIN is not enough on its own: every firm that
+  // self-registers is ADMIN of its own account. 404 for "not yours" and
+  // "doesn't exist" alike, so another tenant's report ids cannot be probed.
+  const tenancy = await assertReportTenancy(session, reportId);
+  if (!tenancy.ok) {
     return apiError(request, {
-      code: "NOT_FOUND",
-      message: "Report not found",
-      status: 404,
+      code: tenancy.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+      message: tenancy.reason,
+      status: tenancy.status,
     });
-  }
-  // Tenancy gate (CLAUDE.md rule 3): the report owner always has access.
-  // For non-owners, the admin override must be re-validated against the DB
-  // because the JWT `session.user.role` claim can be stale (e.g. a demoted
-  // admin keeps `role: "ADMIN"` in their token until it expires).
-  if (report.userId !== userId) {
-    const auth = await verifyAdminFromDb(session);
-    if (auth.response) return auth.response;
   }
 
   const loaded = await loadClaimDataGraph(reportId);

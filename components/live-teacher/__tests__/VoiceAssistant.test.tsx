@@ -17,6 +17,9 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 const queueVoiceNote = vi.fn();
 vi.mock("@/lib/voice-note-queue", () => ({
   queueVoiceNote: (...args: unknown[]) => queueVoiceNote(...args),
+  getPendingTranscripts: async () => [],
+  markTranscriptConsumed: async () => {},
+  VOICE_NOTES_DRAINED_EVENT: "ra-voice-notes-drained",
 }));
 
 import { VoiceAssistant } from "../VoiceAssistant";

@@ -48,6 +48,8 @@ import {
   LabelledBy,
   InspectionPhotoLabelPatch,
 } from "@/types/inspection-photo-labels";
+import { readPhotoAiMetadata } from "@/lib/services/ai/photo-classification-review";
+import { classificationHasSuspectedAcm } from "@/lib/anz/photo-ai-whs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,6 +80,11 @@ interface Photo {
   labelledBy: LabelledBy;
   technicianNotes: string | null;
   moistureReadingLink: string | null;
+  aiLabels: Record<string, unknown> | null;
+  aiConfidence: number | null;
+  aiModel: string | null;
+  aiRunAt: string | null;
+  metadata: unknown;
 }
 
 interface Inspection {
@@ -165,7 +172,33 @@ function LabelChip({
   );
 }
 
-/** Filter bar for the photo grid */
+function summarizeAiLabels(labels: Record<string, unknown>): string[] {
+  const chips: string[] = [];
+  for (const key of [
+    "damageCategory",
+    "damageClass",
+    "roomType",
+    "moistureSource",
+    "surfaceOrientation",
+    "photoStage",
+  ]) {
+    const value = labels[key];
+    if (typeof value === "string" && value.trim()) {
+      chips.push(value.replace(/_/g, " "));
+    }
+  }
+  if (Array.isArray(labels.affectedMaterial)) {
+    for (const item of labels.affectedMaterial) {
+      if (typeof item === "string") chips.push(item.replace(/_/g, " "));
+    }
+  }
+  if (Array.isArray(labels.secondaryDamageIndicators)) {
+    for (const item of labels.secondaryDamageIndicators) {
+      if (typeof item === "string") chips.push(item.replace(/_/g, " "));
+    }
+  }
+  return chips;
+}
 function FilterBar({
   damageCategory,
   setDamageCategory,
@@ -262,7 +295,8 @@ function FilterBar({
 /** Photo card in the grid */
 function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
   const hasAsbestos =
-    photo.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT");
+    photo.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT") ||
+    readPhotoAiMetadata(photo.metadata).whsLatch.aiRaisedAcm;
   return (
     <button
       onClick={onClick}
@@ -329,9 +363,18 @@ function PhotoPanel({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [patch, setPatch] = useState<InspectionPhotoLabelPatch>({});
   const [asbestosWarning, setAsbestosWarning] = useState(false);
+  const [classifying, setClassifying] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
+  const review = readPhotoAiMetadata(photo.metadata);
+  const aiLabels =
+    photo.aiLabels && typeof photo.aiLabels === "object" ? photo.aiLabels : null;
+  const pendingAcm = classificationHasSuspectedAcm(aiLabels);
   const hasAsbestos =
-    photo.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT");
+    photo.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT") ||
+    review.whsLatch.aiRaisedAcm ||
+    pendingAcm;
 
   function startEdit() {
     setPatch({
@@ -377,6 +420,83 @@ function PhotoPanel({
       setSaveError("Network error — please try again");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function runPhotoAi() {
+    setClassifying(true);
+    setAiError(null);
+    try {
+      const res = await fetch(`/api/ai/auto-classify-photo/${photo.id}`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 402) {
+          setAiError(
+            "Photo AI needs your workspace Anthropic key — add one in Workspace Settings → AI Providers.",
+          );
+          return;
+        }
+        setAiError(
+          typeof data.error === "string"
+            ? data.error
+            : typeof (data.error as { message?: unknown } | undefined)?.message ===
+                "string"
+              ? (data.error as { message: string }).message
+              : "Could not classify this photo",
+        );
+        return;
+      }
+      onUpdate({
+        ...photo,
+        aiLabels: (data.labels as Record<string, unknown>) ?? photo.aiLabels,
+        aiConfidence:
+          typeof data.confidence === "number"
+            ? data.confidence
+            : photo.aiConfidence,
+        aiModel: typeof data.model === "string" ? data.model : photo.aiModel,
+        aiRunAt: typeof data.runAt === "string" ? data.runAt : photo.aiRunAt,
+      });
+    } catch {
+      setAiError("Network error — please try again");
+    } finally {
+      setClassifying(false);
+    }
+  }
+
+  async function reviewClassification(decision: "accept" | "reject" | "confirm") {
+    setReviewing(true);
+    setAiError(null);
+    try {
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/photos/${photo.id}/classification-review`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ decision }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAiError(
+          typeof data.error === "string"
+            ? data.error
+            : typeof (data.error as { message?: unknown } | undefined)?.message ===
+                "string"
+              ? (data.error as { message: string }).message
+              : typeof data.message === "string"
+                ? data.message
+                : "Could not save the review",
+        );
+        return;
+      }
+      if (data.review?.whsLatch?.aiRaisedAcm) setAsbestosWarning(true);
+      onUpdate({ ...photo, ...data.photo });
+    } catch {
+      setAiError("Network error — please try again");
+    } finally {
+      setReviewing(false);
     }
   }
 
@@ -429,6 +549,121 @@ function PhotoPanel({
           className="w-full object-contain"
           style={{ maxHeight: 320 }}
         />
+
+        {!editing && (
+          <div className="border-b border-neutral-800 p-4 space-y-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Photo AI suggestion
+            </p>
+            {aiLabels ? (
+              <>
+                <div className="flex flex-wrap gap-1">
+                  {summarizeAiLabels(aiLabels).map((chip) => (
+                    <LabelChip key={chip} label={chip} />
+                  ))}
+                  {typeof photo.aiConfidence === "number" && (
+                    <LabelChip
+                      label={`${Math.round(photo.aiConfidence * 100)}% confidence`}
+                    />
+                  )}
+                </div>
+                {review.reviewStatus === "accepted" && (
+                  <p className="text-xs text-amber-200">
+                    Accepted as AI suggested — produces no billable quantities
+                    until you confirm.
+                  </p>
+                )}
+                {review.reviewStatus === "confirmed" && (
+                  <p className="text-xs text-emerald-200">
+                    Confirmed by a technician — these fields are job data.
+                  </p>
+                )}
+                {review.reviewStatus === "rejected" && (
+                  <p className="text-xs text-neutral-400">
+                    Suggestion rejected. It was not copied into job fields.
+                  </p>
+                )}
+                {review.whsLatch.aiRaisedAcm && (
+                  <p className="text-xs text-destructive">
+                    Suspected ACM has raised the WHS gate. Strip-out stays
+                    blocked until a person records a WHS pathway. A later
+                    no-ACM classification cannot clear it.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {(review.reviewStatus === "pending" ||
+                    review.reviewStatus === "rejected") && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => reviewClassification("accept")}
+                        disabled={reviewing}
+                        className="bg-blue-700 text-white hover:bg-blue-600"
+                      >
+                        {reviewing ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : null}
+                        Accept suggestion
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => reviewClassification("reject")}
+                        disabled={reviewing}
+                        className="border-neutral-700 bg-neutral-900 text-xs hover:bg-neutral-800"
+                      >
+                        Reject
+                      </Button>
+                    </>
+                  )}
+                  {review.reviewStatus === "accepted" && (
+                    <Button
+                      size="sm"
+                      onClick={() => reviewClassification("confirm")}
+                      disabled={reviewing}
+                      className="bg-blue-700 text-white hover:bg-blue-600"
+                    >
+                      {reviewing ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : null}
+                      Confirm as measured
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={runPhotoAi}
+                    disabled={classifying}
+                    className="border-neutral-700 bg-neutral-900 text-xs hover:bg-neutral-800"
+                  >
+                    {classifying ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : null}
+                    Re-run photo AI
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={runPhotoAi}
+                disabled={classifying}
+                className="border-neutral-700 bg-neutral-900 text-xs hover:bg-neutral-800"
+              >
+                {classifying ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : null}
+                Run photo AI
+              </Button>
+            )}
+            {aiError && (
+              <div className="rounded-md border border-red-800 bg-red-950 px-3 py-2 text-xs text-red-300">
+                {aiError}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Header */}
         <div className="border-b border-neutral-800 p-4">
@@ -1075,6 +1310,11 @@ export default function InspectionPhotosPage({ params }: PageProps) {
             ...p,
             affectedMaterial: p.affectedMaterial ?? [],
             secondaryDamageIndicators: p.secondaryDamageIndicators ?? [],
+            aiLabels: p.aiLabels ?? null,
+            aiConfidence: p.aiConfidence ?? null,
+            aiModel: p.aiModel ?? null,
+            aiRunAt: p.aiRunAt ?? null,
+            metadata: p.metadata ?? {},
           })),
         );
       }
@@ -1127,8 +1367,10 @@ export default function InspectionPhotosPage({ params }: PageProps) {
   });
 
   // Asbestos count across ALL photos (not just filtered)
-  const asbestosCount = photos.filter((p) =>
-    p.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT"),
+  const asbestosCount = photos.filter(
+    (p) =>
+      p.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT") ||
+      readPhotoAiMetadata(p.metadata).whsLatch.aiRaisedAcm,
   ).length;
 
   return (

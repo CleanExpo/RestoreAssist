@@ -8,7 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import toast from "react-hot-toast";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -55,6 +55,26 @@ vi.mock("next-auth/react", () => ({
 }));
 
 import IntegrationsPage from "../page";
+
+// RA-7660: ServiceM8, MYOB, QuickBooks, DR-NRPG and Import Data are listed
+// only when their NEXT_PUBLIC_* switch is on. These tests are about status
+// isolation across ALL five external providers, so they run with every switch
+// on; the switched-off listing is pinned in one-crm-visibility.test.tsx.
+beforeEach(() => {
+  for (const name of [
+    "NEXT_PUBLIC_NRPG_ENABLED",
+    "NEXT_PUBLIC_SERVICEM8_ENABLED",
+    "NEXT_PUBLIC_MYOB_ENABLED",
+    "NEXT_PUBLIC_QUICKBOOKS_ENABLED",
+    "NEXT_PUBLIC_IMPORT_DATA_ENABLED",
+  ]) {
+    vi.stubEnv(name, "true");
+  }
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("IntegrationsPage", () => {
   beforeEach(() => {

@@ -10,6 +10,7 @@ import { pinsToMoistureReadingInputs } from "@/lib/sketch/moisture-readings-sync
 import {
   extractRoomGraphNodes,
   partitionStaleRooms,
+  applyRoomProvenanceToSketchData,
 } from "@/lib/sketch/sync-room-graph";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
@@ -17,7 +18,15 @@ import {
   evaluateUnderlayVerification,
 } from "@/lib/sketch/underlay-verification";
 import { stableStringify } from "@/lib/sketch/roomplan-custody-queue";
-import { resolveSketchRoomConfirmAttribution } from "@/lib/sketch/ai-suggested-confirm";
+import {
+  resolveSketchRoomConfirmAttribution,
+  resolveSketchRoomProvenance,
+  parseConfirmedFabricObjectIds,
+} from "@/lib/sketch/ai-suggested-confirm";
+import {
+  readAiSuggestedRoomIds,
+  withAiSuggestedRoomIds,
+} from "@/lib/sketch/sketch-field-status";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -139,7 +148,12 @@ export async function POST(
       captureAdapter: captureAdapterRaw,
       confirmUnderlayVerification,
       requestCanonicalRender,
+      confirmedFabricObjectIds: confirmedFabricObjectIdsRaw,
     } = body;
+
+    const confirmedFabricObjectIds = parseConfirmedFabricObjectIds(
+      confirmedFabricObjectIdsRaw,
+    );
 
     // RA-120 (PR4): underlay opacity is a 0..1 slider value; clamp defensively
     // so a malformed client can't store an out-of-range opacity.
@@ -275,9 +289,140 @@ export async function POST(
       !securedSketchData?.backgroundImage &&
       !securedSketchData?.background;
 
+    // RA-7617: provenance is derived from the existing SketchRoom row and
+    // from room ids the Vision import path recorded on this inspection.
+    // Lookup is inspection-wide so an import on floor 2 cannot be re-posted
+    // to floor 0 as operator_measured. The client tag is not authoritative.
+    const rememberedAiRoomIds = new Set(
+      readAiSuggestedRoomIds(existing?.sketchData),
+    );
+    try {
+      const inspectionSketches = await (prisma as any).claimSketch.findMany({
+        where: { inspectionId: id },
+        select: { sketchData: true },
+        take: 50,
+      });
+      for (const sketch of inspectionSketches ?? []) {
+        for (const roomId of readAiSuggestedRoomIds(sketch.sketchData)) {
+          rememberedAiRoomIds.add(roomId);
+        }
+      }
+    } catch (e) {
+      console.error(
+        "[sketches] inspection-wide AI room id load failed (non-fatal):",
+        e,
+      );
+    }
+    let existingRooms: Array<{
+      id: string;
+      fabricObjectId: string;
+      name: string;
+      geometryJson: unknown;
+      originalAreaM2: number | null;
+      originalGeometryJson: unknown;
+      confirmedAt: Date | null;
+      confirmedBy: string | null;
+      provenance: string | null;
+      _count: {
+        evidencePins: number;
+        moistureReadings: number;
+        hazards: number;
+        jobMoistureReadings: number;
+      };
+    }> = [];
+    if (existing?.id) {
+      try {
+        existingRooms = await (prisma as any).sketchRoom.findMany({
+          where: { sketchId: existing.id },
+          select: {
+            id: true,
+            fabricObjectId: true,
+            name: true,
+            geometryJson: true,
+            originalAreaM2: true,
+            originalGeometryJson: true,
+            confirmedAt: true,
+            confirmedBy: true,
+            provenance: true,
+            _count: {
+              select: {
+                evidencePins: true,
+                moistureReadings: true,
+                hazards: true,
+                jobMoistureReadings: true,
+              },
+            },
+          },
+          take: 500,
+        });
+      } catch (e) {
+        console.error(
+          "[sketches] SketchRoom load for provenance resolution failed (non-fatal):",
+          e,
+        );
+      }
+    }
+    const byFabric = new Map(
+      existingRooms.map(
+        (r: {
+          id: string;
+          fabricObjectId: string;
+          originalAreaM2: number | null;
+          originalGeometryJson: unknown;
+          confirmedAt: Date | null;
+          confirmedBy: string | null;
+          provenance: string | null;
+        }) => [r.fabricObjectId, r],
+      ),
+    );
+    const resolvedByFabricId = new Map<
+      string,
+      { provenance: string; isExplicitConfirm: boolean }
+    >();
+
+    let authoritativeSketchData = securedSketchData;
+    if (
+      !skipEmptyOverwrite &&
+      securedSketchData &&
+      typeof securedSketchData === "object"
+    ) {
+      const previewNodes = extractRoomGraphNodes(
+        securedSketchData as Record<string, unknown>,
+      );
+      for (const node of previewNodes) {
+        const existingRoom = byFabric.get(node.fabricObjectId) as
+          | { provenance: string | null }
+          | undefined;
+        resolvedByFabricId.set(
+          node.fabricObjectId,
+          resolveSketchRoomProvenance({
+            existingProvenance: existingRoom?.provenance ?? null,
+            incomingProvenance: node.provenance,
+            fabricObjectId: node.fabricObjectId,
+            rememberedAiRoomIds,
+            explicitlyConfirmedIds: confirmedFabricObjectIds,
+          }),
+        );
+      }
+      const provenanceById = new Map<string, string>();
+      for (const [fabricId, resolved] of resolvedByFabricId) {
+        provenanceById.set(fabricId, resolved.provenance);
+      }
+      let nextData: Record<string, unknown> = applyRoomProvenanceToSketchData(
+        securedSketchData as Record<string, unknown>,
+        provenanceById,
+      );
+      if (rememberedAiRoomIds.size > 0) {
+        nextData = withAiSuggestedRoomIds(nextData, [
+          ...rememberedAiRoomIds,
+        ]);
+      }
+      authoritativeSketchData = nextData;
+    }
+
     const sketchDataToPersist = skipEmptyOverwrite
       ? undefined
-      : (securedSketchData ?? undefined);
+      : (authoritativeSketchData ?? undefined);
 
     // Verification belongs to the complete save + normalized room graph, not
     // merely to a floor number. Revoke any previous verification before the
@@ -318,7 +463,7 @@ export async function POST(
             floorNumber,
             floorLabel,
             sketchType,
-            sketchData: securedSketchData ?? undefined,
+            sketchData: sketchDataToPersist,
             renderedPngUrl: renderLocator,
             backgroundImageOpacity: opacity,
             backgroundImageScale: bgScale,
@@ -336,8 +481,8 @@ export async function POST(
     // so a decomposition failure must never reject the sketch save.
     try {
       const decomposed =
-        securedSketchData && typeof securedSketchData === "object"
-          ? decomposeElements(securedSketchData as Record<string, unknown>)
+        authoritativeSketchData && typeof authoritativeSketchData === "object"
+          ? decomposeElements(authoritativeSketchData as Record<string, unknown>)
           : [];
       const slugs = [
         ...new Set(
@@ -384,75 +529,45 @@ export async function POST(
       // RoomGraph V1 — upsert rooms BEFORE moisture pin sync so pins can bind
       // to SketchRoom ids (EvidencePin / moisture / hazards join target).
       const roomNodes = extractRoomGraphNodes(
-        securedSketchData as Record<string, unknown>,
-      );
-      const existingRooms = await (prisma as any).sketchRoom.findMany({
-        where: { sketchId: sketch.id },
-        select: {
-          id: true,
-          fabricObjectId: true,
-          name: true,
-          geometryJson: true,
-          originalAreaM2: true,
-          originalGeometryJson: true,
-          confirmedAt: true,
-          confirmedBy: true,
-          // Dependent counts decide delete vs detach below — a room holding
-          // evidence must never be deleted, because the FKs are SetNull.
-          _count: {
-            select: {
-              evidencePins: true,
-              moistureReadings: true,
-              hazards: true,
-              jobMoistureReadings: true,
-            },
-          },
-        },
-        take: 500,
-      });
-      const byFabric = new Map(
-        existingRooms.map(
-          (r: {
-            id: string;
-            fabricObjectId: string;
-            originalAreaM2: number | null;
-            originalGeometryJson: unknown;
-            confirmedAt: Date | null;
-            confirmedBy: string | null;
-          }) => [r.fabricObjectId, r],
-        ),
+        (authoritativeSketchData ?? {}) as Record<string, unknown>,
       );
       const seenFabric = new Set<string>();
       for (const node of roomNodes) {
         seenFabric.add(node.fabricObjectId);
-        const existing = byFabric.get(node.fabricObjectId) as
+        const existingRoom = byFabric.get(node.fabricObjectId) as
           | {
               id: string;
               originalAreaM2: number | null;
               originalGeometryJson: unknown;
               confirmedAt: Date | null;
               confirmedBy: string | null;
+              provenance: string | null;
             }
           | undefined;
-        // RA-7611 P1: confirmedBy/confirmedAt are server-stamped on the
-        // unconfirmed → confirmed transition. Client values are ignored.
+        const resolved = resolvedByFabricId.get(node.fabricObjectId) ?? {
+          provenance: node.provenance,
+          isExplicitConfirm: false,
+        };
+        // RA-7611 P1 / RA-7617: confirmedBy/confirmedAt are server-stamped.
+        // Client values are ignored. An already-confirmed row keeps its stamp.
         const confirmStamp = resolveSketchRoomConfirmAttribution({
-          existingConfirmedAt: existing?.confirmedAt ?? null,
-          existingConfirmedBy: existing?.confirmedBy ?? null,
+          existingConfirmedAt: existingRoom?.confirmedAt ?? null,
+          existingConfirmedBy: existingRoom?.confirmedBy ?? null,
           incomingConfirmedAt: node.confirmedAt,
           incomingConfirmedBy: node.confirmedBy,
           sessionUserId: session.user.id,
+          isExplicitConfirm: resolved.isExplicitConfirm,
         });
-        if (existing) {
+        if (existingRoom) {
           await (prisma as any).sketchRoom.update({
-            where: { id: existing.id },
+            where: { id: existingRoom.id },
             data: {
               name: node.name,
               areaM2: node.areaM2,
               perimeterM: node.perimeterM,
               materialSlug: node.materialSlug,
               waterCategory: node.waterCategory,
-              provenance: node.provenance,
+              provenance: resolved.provenance,
               geometryJson: node.geometryJson,
               floorNumber,
               // RA-7611: confirmation state on SketchRoom (SketchElement is
@@ -462,9 +577,9 @@ export async function POST(
               confirmedAt: confirmStamp.confirmedAt,
               confirmedBy: confirmStamp.confirmedBy,
               correctionHistory: node.correctionHistory ?? undefined,
-              originalAreaM2: existing.originalAreaM2 ?? node.originalAreaM2,
+              originalAreaM2: existingRoom.originalAreaM2 ?? node.originalAreaM2,
               originalGeometryJson:
-                existing.originalGeometryJson ??
+                existingRoom.originalGeometryJson ??
                 node.originalGeometryJson ??
                 undefined,
               // Back on the canvas — clear any previous detachment so the room
@@ -482,7 +597,7 @@ export async function POST(
               perimeterM: node.perimeterM,
               materialSlug: node.materialSlug,
               waterCategory: node.waterCategory,
-              provenance: node.provenance,
+              provenance: resolved.provenance,
               geometryJson: node.geometryJson,
               floorNumber,
               confirmedAt: confirmStamp.confirmedAt,

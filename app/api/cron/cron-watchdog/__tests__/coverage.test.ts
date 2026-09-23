@@ -1,11 +1,18 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { parse } from "yaml";
 import {
   MONITORED_CRONS,
   KNOWN_UNMONITORED,
   DELIBERATELY_UNSCHEDULED,
+  PRODUCTION_MONITORED_CRONS,
 } from "@/lib/cron/expected-jobs";
+import {
+  PRODUCTION_ENABLED,
+  PRODUCTION_EXCLUDED,
+  productionWorkflowSchedules,
+} from "@/lib/cron/production-schedule";
 
 /**
  * RA-7026 follow-up: the anti-regression guard for cron observability.
@@ -88,7 +95,147 @@ describe("cron watchdog coverage", () => {
   });
 });
 
-describe("cron route schedule coverage (RA-7453 / RA-7454 / RA-7455)", () => {
+/**
+ * RA-7645: the live site's schedule.
+ *
+ * vercel.json is read only by the Vercel sandbox project (D-024), so the
+ * blocks further down prove nothing about production. Until RA-7645 every
+ * one of these tests passed while exactly one job (trial-reminders) was
+ * fired against restoreassist.app. This block reads the production manifest
+ * and the workflow that fires it, so a route that production never runs has
+ * to say so, with a reason.
+ */
+const PRODUCTION_WORKFLOW = path.join(
+  repoRoot,
+  ".github/workflows/cron-production.yml",
+);
+
+type WorkflowStep = { run?: string; env?: Record<string, string> };
+type Workflow = {
+  on?: { schedule?: Array<{ cron: string }> };
+  jobs?: Record<string, { steps?: WorkflowStep[] }>;
+};
+
+function readWorkflow(file: string): Workflow {
+  return parse(fs.readFileSync(file, "utf8")) as Workflow;
+}
+
+describe("production cron schedule (RA-7645)", () => {
+  const enabled = PRODUCTION_ENABLED.map((c) => c.path);
+  const excluded = PRODUCTION_EXCLUDED.map((c) => c.path);
+
+  it("every cron route is enabled in production or excluded with a reason, never both", () => {
+    const onDisk = cronRoutesOnDisk();
+    const listed = [...enabled, ...excluded];
+
+    const unlisted = onDisk.filter((p) => !listed.includes(p));
+    expect(
+      unlisted,
+      `These cron routes are neither in PRODUCTION_ENABLED nor PRODUCTION_EXCLUDED ` +
+        `(lib/cron/production-schedule.ts), so nobody has decided whether the live ` +
+        `site runs them: ${unlisted.join(", ")}`,
+    ).toEqual([]);
+
+    const duplicated = listed.filter((p, i) => listed.indexOf(p) !== i);
+    expect(duplicated, `Listed more than once: ${duplicated.join(", ")}`).toEqual(
+      [],
+    );
+
+    const missing = listed.filter((p) => !onDisk.includes(p));
+    expect(
+      missing,
+      `The production manifest names routes with no route.ts: ${missing.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("every excluded route says why", () => {
+    const blank = PRODUCTION_EXCLUDED.filter(
+      (c) => !c.reason || c.reason.trim().length < 10,
+    ).map((c) => c.path);
+    expect(blank, `Excluded without a real reason: ${blank.join(", ")}`).toEqual([]);
+  });
+
+  it("enables exactly the approved wave-1 jobs", () => {
+    expect([...enabled].sort()).toEqual(
+      [
+        "cron-watchdog",
+        "pricing-setup-reminders",
+        "retry-failed-webhooks",
+        "storage-mirror",
+        "storage-mirror-recovery",
+        "sync-invoices",
+        "sync-xero-payments",
+        "trial-reminders",
+        "winback",
+      ].sort(),
+    );
+  });
+
+  it("the workflow is scheduled, fires the manifest and passes the production secret", () => {
+    const workflow = readWorkflow(PRODUCTION_WORKFLOW);
+    const schedules = (workflow.on?.schedule ?? []).map((s) => s.cron);
+    expect(schedules.length).toBeGreaterThan(0);
+    // Every cadence the manifest relies on has a schedule entry, and there
+    // is no schedule entry the trigger does not know how to handle.
+    expect([...schedules].sort()).toEqual(
+      [...productionWorkflowSchedules()].sort(),
+    );
+
+    const steps = Object.values(workflow.jobs ?? {}).flatMap((j) => j.steps ?? []);
+    const trigger = steps.find((s) =>
+      (s.run ?? "").includes("scripts/ci/trigger-production-crons.mjs"),
+    );
+    expect(trigger, "no step runs scripts/ci/trigger-production-crons.mjs").toBeDefined();
+    expect(trigger?.env?.CRON_SECRET).toBe("${{ secrets.CRON_SECRET }}");
+    expect(trigger?.env?.CRON_EVENT_SCHEDULE).toBe("${{ github.event.schedule }}");
+  });
+
+  it("no other scheduled workflow calls a cron route, so no job is fired twice", () => {
+    const dir = path.join(repoRoot, ".github/workflows");
+    const offenders = fs
+      .readdirSync(dir)
+      .filter((f) => /\.ya?ml$/.test(f) && f !== "cron-production.yml")
+      .filter((f) => {
+        const file = path.join(dir, f);
+        const scheduled = (readWorkflow(file).on?.schedule ?? []).length > 0;
+        const src = fs.readFileSync(file, "utf8");
+        return (
+          scheduled &&
+          (/\/api\/cron\//.test(src) || /trigger-production-/.test(src))
+        );
+      });
+    expect(
+      offenders,
+      `These scheduled workflows also fire cron routes; production would run ` +
+        `those jobs twice: ${offenders.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("the watchdog only alarms on jobs production actually runs", () => {
+    const expected = MONITORED_CRONS.filter((c) => enabled.includes(c.path)).map(
+      (c) => c.jobName,
+    );
+    expect(PRODUCTION_MONITORED_CRONS.map((c) => c.jobName)).toEqual(expected);
+
+    // An enabled job that writes CronJobRun rows must be watched, or be one
+    // of the declared unmonitored routes.
+    const unwatched = enabled.filter(
+      (p) =>
+        !PRODUCTION_MONITORED_CRONS.some((c) => c.path === p) &&
+        !KNOWN_UNMONITORED.includes(p),
+    );
+    expect(unwatched, `Enabled but never watched: ${unwatched.join(", ")}`).toEqual([]);
+
+    const routeSrc = fs.readFileSync(
+      path.join(repoRoot, "app/api/cron/cron-watchdog/route.ts"),
+      "utf8",
+    );
+    expect(routeSrc).toMatch(/PRODUCTION_MONITORED_CRONS/);
+    expect(routeSrc).not.toMatch(/\bMONITORED_CRONS\.map\(/);
+  });
+});
+
+describe("Vercel sandbox schedule coverage (RA-7453 / RA-7454 / RA-7455)", () => {
   it("every cron route is scheduled in vercel.json or deliberately unscheduled", () => {
     const scheduled = new Set(scheduledCronPaths());
     const declared = new Set(DELIBERATELY_UNSCHEDULED.map((c) => c.path));

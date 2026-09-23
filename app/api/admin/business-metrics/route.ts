@@ -8,14 +8,15 @@
  *   - Failed charges (last 30 days, Stripe webhook events)
  *   - New trials (this month)
  *   - Paying customer count
+ *   - RA-7419: trials started, activated (first report saved) and paid,
+ *     over the last 30 days
  *
  * Platform-staff only. These are RestoreAssist's own revenue figures,
  * not a tenant's. `role: "ADMIN"` is every self-registered owner;
  * `PLATFORM_SUPPORT_USER_IDS` is the staff allowlist (RA-7592).
  *
  * Prices are read from user.subscriptionPlan (matches the Stripe plan
- * name set by the webhook). A simple plan → price lookup lives below —
- * update when pricing changes.
+ * name set by the webhook). A simple plan → price lookup lives below.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -23,19 +24,25 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { PRICING_CONFIG } from "@/lib/pricing";
 import {
   verifyAdminFromDb,
   verifyPlatformSupportOperator,
 } from "@/lib/admin-auth";
 
-// Plan-name → monthly price (AUD). Update when pricing changes.
-// Values are best-effort: if a plan name doesn't match, MRR for that
-// user is 0 — the API response surfaces the count of unmatched rows
-// so the dashboard can flag pricing-table drift.
+// Plan-name → list price (AUD). If a plan name doesn't match, MRR for that
+// user is 0 — the API response surfaces the count of unmatched rows so the
+// dashboard can flag pricing-table drift.
+// RA-7419: monthly comes from the catalog. Yearly is the live Stripe price
+// ("Yearly Plan - 70 Reports/Month", $1,188 a year), read 21/09/2026; the
+// catalog has no yearly plan.
+const MONTHLY_PRICE_AUD = PRICING_CONFIG.pricing.monthly.amount;
+const YEARLY_PRICE_AUD = 1188;
 const PLAN_PRICE_AUD: Record<string, number> = {
-  "Monthly Plan": 79,
-  "Monthly Plan - 50 Reports": 79,
-  "Yearly Plan": 790, // /12 handled below
+  "Monthly Plan": MONTHLY_PRICE_AUD,
+  "Monthly Plan - 50 Reports": MONTHLY_PRICE_AUD,
+  "Yearly Plan": YEARLY_PRICE_AUD, // /12 handled below
+  "Yearly Plan - 70 Reports/Month": YEARLY_PRICE_AUD,
 };
 
 export async function GET(request: NextRequest) {
@@ -142,6 +149,32 @@ export async function GET(request: NextRequest) {
         .catch(() => -1),
     ]);
 
+    // RA-7419. The founder's four numbers, over one 30-day window, using the
+    // definitions in RESTOREASSIST_FIRST_REVENUE_DIRECTIVE.md:
+    //   trial started = an account created in the window that was given a
+    //                   trial (invited team members get no trial);
+    //   activated     = first report saved (the first_report_saved event);
+    //   paid          = a checkout that activated or reactivated a subscription.
+    const [trialsStarted, activatedUsers, paidUsers] = await Promise.all([
+      prisma.user.count({
+        where: { createdAt: { gte: thirtyDaysAgo }, trialEndsAt: { not: null } },
+      }),
+      prisma.activationEvent.groupBy({
+        by: ["userId"],
+        where: {
+          eventName: "first_report_saved",
+          createdAt: { gte: thirtyDaysAgo },
+        },
+      }),
+      prisma.subscriptionEvent.groupBy({
+        by: ["userId"],
+        where: {
+          eventType: { in: ["SUBSCRIPTION_ACTIVATED", "SUBSCRIPTION_REACTIVATED"] },
+          createdAt: { gte: thirtyDaysAgo },
+        },
+      }),
+    ]);
+
     return NextResponse.json({
       generatedAt: now.toISOString(),
       currency: "AUD",
@@ -154,6 +187,12 @@ export async function GET(request: NextRequest) {
       failedCharges30d,
       subscriptionsDeleted30d,
       blockedCustomers,
+      last30Days: {
+        since: thirtyDaysAgo.toISOString(),
+        trialsStarted,
+        activated: activatedUsers.length,
+        paid: paidUsers.length,
+      },
     });
   } catch (err) {
     return fromException(request, err, { stage: "load" });

@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { adminUserScope, verifyAdminFromDb } from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
 
 // SubscriptionStatus values that mean the customer is blocked / not paying.
@@ -41,9 +41,10 @@ export async function GET(request: NextRequest) {
       ? [statusParam as (typeof BLOCKED_STATUSES)[number]]
       : [...BLOCKED_STATUSES];
 
-    // Scope to the admin's own organization — prevents cross-tenant enumeration
+    // Scope to the admin's own organisation — prevents cross-tenant
+    // enumeration. An org-less admin sees only themselves (RA-7647).
     const where = {
-      organizationId: adminUser!.organizationId,
+      ...adminUserScope(adminUser!),
       subscriptionStatus: { in: statusFilter },
     };
 

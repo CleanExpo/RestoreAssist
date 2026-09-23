@@ -6,6 +6,7 @@ import { sanitizeString } from "@/lib/sanitize";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 
 // POST - Add moisture reading
 export async function POST(
@@ -34,11 +35,15 @@ export async function POST(
   const { id } = await params;
 
   let inspection;
+  let workspace;
   try {
     inspection = await prisma.inspection.findFirst({
       where: { id, userId },
-      select: { id: true, workspaceId: true },
+      select: { id: true },
     });
+    // RA-7586: the sync ledger is keyed to the caller's workspace, not
+    // Inspection.workspaceId, which no create path writes.
+    workspace = inspection ? await getWorkspaceForUser(userId) : null;
   } catch (error) {
     return fromException(request, error, { stage: "moisture-lookup" });
   }
@@ -201,10 +206,10 @@ export async function POST(
         return fromException(request, error, { stage: "moisture-create" });
       }
     },
-    inspection.workspaceId
+    workspace
       ? {
           clientMutation: {
-            workspaceId: inspection.workspaceId,
+            workspaceId: workspace.id,
             userId,
             inspectionId: id,
             mutationType: "moisture-reading",

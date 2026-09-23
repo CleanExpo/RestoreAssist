@@ -9,6 +9,7 @@ import {
 } from "@/lib/nir-building-codes";
 import { determineScopeItems } from "@/lib/nir-scope-determination";
 import { estimateCosts } from "@/lib/nir-cost-estimation";
+import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
 import { ensureMakeSafeSeeded } from "@/lib/compliance/seed-make-safe";
@@ -23,6 +24,7 @@ import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
 import { apiError, fromException } from "@/lib/api-errors";
+import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
 import { resolveAreaSqm } from "@/lib/units";
@@ -291,6 +293,15 @@ export async function POST(
           status: 409,
         });
       }
+
+      // RA-7622 — a submitted inspection is the inspection flow's saved
+      // report: first_report_saved (first-time only, AFTER the CAS lands).
+      // Not on POST /api/inspections, which auto-creates a draft as the
+      // address is typed.
+      await recordFirstReportSaved(userId, {
+        inspectionId: id,
+        reportId: inspection.reportId ?? null,
+      });
 
       // RA-7052: "after" completeness snapshot for this inspection. Genuinely
       // fire-and-forget (mirrors the onNextAction nudge above) so it never
@@ -613,26 +624,12 @@ async function processInspectionComplete(
     inspectionOwnerId,
   );
 
-  // Save cost estimates
-  // Distribute contingency evenly across items, computed once.
-  const contingencyPerItem =
-    costEstimate.items.length > 0
-      ? costEstimate.contingency / costEstimate.items.length
-      : 0;
+  // Save cost estimates — rows built by the shared line helper (RA-7708).
   // One batched write instead of N sequential creates.
   await prisma.costEstimate.createMany({
-    data: costEstimate.items.map((costItem) => ({
+    data: buildEstimateLines(costEstimate).map((line) => ({
       inspectionId,
-      category: costItem.category,
-      description: costItem.description,
-      quantity: costItem.quantity,
-      unit: costItem.unit,
-      rate: costItem.rate,
-      subtotal: costItem.subtotal,
-      costDatabaseId: costItem.costDatabaseId || null,
-      isEstimated: costItem.isEstimated,
-      contingency: contingencyPerItem,
-      total: costItem.subtotal + contingencyPerItem,
+      ...line,
     })),
   });
 

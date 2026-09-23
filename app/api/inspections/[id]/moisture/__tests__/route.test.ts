@@ -32,6 +32,11 @@ vi.mock("@/lib/prisma", () => ({
     auditLog: { create: (...a: unknown[]) => auditCreate(...a) },
   },
 }));
+// The sync-ledger workspace lookup (RA-7586) is covered in
+// ../../__tests__/client-mutation-ledger.test.ts; these tests pin persistence.
+vi.mock("@/lib/workspace/provider-connections", () => ({
+  getWorkspaceForUser: async () => null,
+}));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (
     request: NextRequest,

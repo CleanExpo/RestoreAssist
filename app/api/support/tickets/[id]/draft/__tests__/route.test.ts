@@ -13,6 +13,9 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
+  // RA-7647: the staff gate is proven in ../../../__tests__/platform-operator.test.ts;
+  // here the caller is taken as allowlisted staff so the draft flow is tested.
+  verifyPlatformSupportOperator: (auth: unknown) => auth,
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {

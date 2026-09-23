@@ -255,6 +255,35 @@ export function extractRoomGraphNodes(
 }
 
 /**
+ * Rewrite room `data.provenance` on a Fabric blob from a server-resolved map.
+ * Other objects are left untouched. Used so SketchElement dual-write and the
+ * persisted blob cannot keep a client lie after RA-7617 resolution.
+ */
+export function applyRoomProvenanceToSketchData(
+  sketchData: SketchData | Record<string, unknown>,
+  provenanceByFabricId: ReadonlyMap<string, string>,
+): Record<string, unknown> {
+  const objects = Array.isArray(
+    (sketchData as SketchData).objects,
+  )
+    ? ((sketchData as SketchData).objects as FabricObject[])
+    : [];
+  return {
+    ...sketchData,
+    objects: objects.map((obj, index) => {
+      if (obj.data?.type !== "room") return obj;
+      const fabricObjectId = resolveFabricObjectId(obj, index);
+      const provenance = provenanceByFabricId.get(fabricObjectId);
+      if (!provenance) return obj;
+      return {
+        ...obj,
+        data: { ...obj.data, provenance },
+      };
+    }),
+  };
+}
+
+/**
  * Point-in-polygon for assigning evidence pins to a room.
  * Uses Fabric absolute polygon points (pathOffset-aware) so RoomPlan and
  * hand-drawn rooms both hit-test correctly after canvas transforms.

@@ -5,7 +5,12 @@ vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/email-send", () => ({ sendEmail: vi.fn().mockResolvedValue("msg_reengagement_1") }));
-vi.mock("@/lib/admin-auth", () => ({ verifyAdminFromDb: vi.fn() }));
+// RA-7647: the staff gate is proven in ./platform-operator.test.ts; here the
+// caller is taken as allowlisted staff so the send flow is tested.
+vi.mock("@/lib/admin-auth", () => ({
+  verifyAdminFromDb: vi.fn(),
+  verifyPlatformSupportOperator: (auth: unknown) => auth,
+}));
 // Pass-through idempotency: hand the callback the request's raw JSON body.
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: vi.fn(async (req: Request, _uid: string, fn: (raw: string) => unknown) =>

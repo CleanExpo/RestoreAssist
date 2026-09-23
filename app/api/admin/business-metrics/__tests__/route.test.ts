@@ -6,6 +6,8 @@ const userFindUnique = vi.fn();
 const userGroupBy = vi.fn();
 const userCount = vi.fn();
 const stripeWebhookCount = vi.fn();
+const activationEventGroupBy = vi.fn();
+const subscriptionEventGroupBy = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -20,6 +22,12 @@ vi.mock("@/lib/prisma", () => ({
     },
     stripeWebhookEvent: {
       count: (...args: unknown[]) => stripeWebhookCount(...args),
+    },
+    activationEvent: {
+      groupBy: (...args: unknown[]) => activationEventGroupBy(...args),
+    },
+    subscriptionEvent: {
+      groupBy: (...args: unknown[]) => subscriptionEventGroupBy(...args),
     },
   },
 }));
@@ -36,6 +44,8 @@ beforeEach(() => {
   userGroupBy.mockReset();
   userCount.mockReset();
   stripeWebhookCount.mockReset();
+  activationEventGroupBy.mockReset();
+  subscriptionEventGroupBy.mockReset();
   vi.unstubAllEnvs();
 });
 
@@ -60,6 +70,22 @@ function mockMetricsQueries() {
   ]);
   userCount.mockResolvedValue(1);
   stripeWebhookCount.mockResolvedValue(0);
+  activationEventGroupBy.mockResolvedValue([]);
+  subscriptionEventGroupBy.mockResolvedValue([]);
+}
+
+function signInOperator() {
+  signInTenantAdmin();
+  mockMetricsQueries();
+  vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "admin-1");
+}
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function expectAboutThirtyDaysAgo(value: unknown) {
+  expect(value).toBeInstanceOf(Date);
+  const age = Date.now() - (value as Date).getTime();
+  expect(Math.abs(age - THIRTY_DAYS_MS)).toBeLessThan(60_000);
 }
 
 describe("GET /api/admin/business-metrics", () => {
@@ -103,7 +129,59 @@ describe("GET /api/admin/business-metrics", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.mrr).toBe(158);
+    // RA-7419: the catalog Monthly Plan is $99 (lib/pricing.ts), not $79.
+    expect(body.mrr).toBe(198);
     expect(body.payingCustomers).toBe(2);
+  });
+
+  it("prices yearly plans at the live $1,188 a year, as $99 a month (RA-7419)", async () => {
+    signInOperator();
+    userGroupBy.mockResolvedValue([
+      { subscriptionPlan: "Yearly Plan - 70 Reports/Month", _count: { id: 1 } },
+      { subscriptionPlan: "Yearly Plan", _count: { id: 1 } },
+      { subscriptionPlan: "Monthly Plan - 50 Reports", _count: { id: 1 } },
+    ]);
+
+    const body = await (await GET(makeRequest())).json();
+
+    expect(body.mrr).toBe(297);
+    expect(body.planUnmatched).toBe(0);
+  });
+
+  it("reports trials started, activated and paid for the last 30 days (RA-7419)", async () => {
+    signInOperator();
+    userCount.mockImplementation(async (args: { where: Record<string, unknown> }) =>
+      "trialEndsAt" in args.where && !("subscriptionStatus" in args.where) ? 7 : 1,
+    );
+    activationEventGroupBy.mockResolvedValue([
+      { userId: "u1" },
+      { userId: "u2" },
+      { userId: "u3" },
+    ]);
+    subscriptionEventGroupBy.mockResolvedValue([{ userId: "u1" }]);
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.last30Days).toMatchObject({ trialsStarted: 7, activated: 3, paid: 1 });
+
+    const trialsCall = userCount.mock.calls
+      .map((call) => call[0] as { where: Record<string, unknown> })
+      .find((args) => "trialEndsAt" in args.where && !("subscriptionStatus" in args.where));
+    expect(trialsCall?.where.trialEndsAt).toEqual({ not: null });
+    expectAboutThirtyDaysAgo((trialsCall?.where.createdAt as { gte: unknown }).gte);
+
+    const activation = activationEventGroupBy.mock.calls[0][0];
+    expect(activation.by).toEqual(["userId"]);
+    expect(activation.where.eventName).toBe("first_report_saved");
+    expectAboutThirtyDaysAgo(activation.where.createdAt.gte);
+
+    const paid = subscriptionEventGroupBy.mock.calls[0][0];
+    expect(paid.by).toEqual(["userId"]);
+    expect(paid.where.eventType).toEqual({
+      in: ["SUBSCRIPTION_ACTIVATED", "SUBSCRIPTION_REACTIVATED"],
+    });
+    expectAboutThirtyDaysAgo(paid.where.createdAt.gte);
   });
 });

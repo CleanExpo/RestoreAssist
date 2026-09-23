@@ -77,6 +77,30 @@ jobs:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
 
+      # RA-7648 — the live-site smoke (smoke-prod.yml) loads every spec under
+      # e2e/ before --grep picks the @smoke tests, so one spec that throws at
+      # import stops the whole run with zero tests executed. PR #2264 did that
+      # on 21/09 and the fifteen-minute production watch tested nothing for a
+      # day. This lists the same suite against the same production URL on every
+      # PR. Listing launches no browser and makes no network call, and takes
+      # seconds, so it costs this job's tight time budget almost nothing.
+      # Fails on a collection error (non-zero exit) or on 0 tests listed.
+      - name: Production smoke suite collects
+        run: |
+          set +e
+          out=$(PLAYWRIGHT_BASE_URL=https://restoreassist.app CI=true npx --no-install playwright test -c config/playwright.config.ts --grep @smoke --project=chromium --no-deps --list 2>&1)
+          rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::The @smoke suite could not be collected (exit $rc). The production smoke would run zero tests."
+            exit 1
+          fi
+          if ! printf '%s\n' "$out" | grep -Eq '^Total: [1-9][0-9]* tests? in'; then
+            echo "::error::The @smoke suite lists 0 tests. The production smoke would test nothing."
+            exit 1
+          fi
+
       - name: Release bootstrap guard
         run: node scripts/ci/check-release-bootstrap.mjs
 
@@ -84,26 +108,6 @@ jobs:
         run: npm run prisma:generate
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-
-      # Must run BEFORE Build — `npm run build` invokes `prisma migrate deploy`
-      # via scripts/build.sh whenever DATABASE_URL is set (and VERCEL_ENV
-      # isn't preview/development). On vanilla postgres:16-alpine the
-      # 20260403010000_add_evidence_schema migration fails with
-      # `schema "auth" does not exist`, which writes a failed row into
-      # `_prisma_migrations`. Build is enforcing, and a failed migration row
-      # also poisons the database for the later
-      # `Prisma migration drift check` step (P3009). Stubbing the auth
-      # schema HERE — before any step touches Postgres — keeps the DB
-      # clean. Production unaffected: Supabase ships `auth.uid()` and
-      # the CREATE OR REPLACE never runs there because the workflow only
-      # runs in CI.
-      - name: Bootstrap Supabase auth.uid() stub for CI
-        run: |
-          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
-            CREATE SCHEMA IF NOT EXISTS auth;
-            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
-          "
 
       # RA-1548 follow-up — pre-resolve migrations that use
       # `CREATE INDEX CONCURRENTLY`. Prisma wraps each migration in a
@@ -484,14 +488,6 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
-      - name: Bootstrap Supabase auth.uid() stub for CI
-        run: |
-          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
-            CREATE SCHEMA IF NOT EXISTS auth;
-            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
-          "
-
       # Keep this list in step with every copy named in the `quality` job
       # comment above `Pre-resolve CONCURRENTLY migrations`.
       - name: Pre-resolve CONCURRENTLY migrations (Supabase-only syntax)
@@ -541,3 +537,30 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
+  # RA-7708 — money oracle. Property tests pinning every persisted estimate
+  # line to qty × rate (Decimal, ROUND_HALF_UP, 2dp), contingency as one
+  # separate line, and no silently dropped scope items. Runs parallel to
+  # `unit-tests` so a pricing regression is named on its own check.
+  money-oracle:
+    name: money-oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Money oracle property tests
+        run: node_modules/.bin/vitest run --config config/vitest.config.js tests/unit/estimate-engine.property.test.ts

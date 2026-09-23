@@ -8,13 +8,55 @@
  * Exposes room type, label, colour, opacity, and stroke controls.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Trash2, X, AlertTriangle, Lock, Unlock } from "lucide-react";
 import { evaluateWhsGate } from "@/lib/anz/whs-gate";
 import { classifyCover, type DamageCause } from "@/lib/nz/nhcover";
 import { parseMetresInput } from "@/lib/sketch/room-defaults";
+import { ROOM_COLORS } from "@/lib/sketch/room-colors";
+import { VoiceNoteButton } from "@/components/voice/voice-note-button";
+import { VoiceFieldSuggestionList } from "@/components/voice/voice-field-suggestions";
+import type { ListedVoiceSuggestion } from "@/components/voice/voice-field-suggestions";
+import {
+  acceptVoiceSuggestion,
+  rejectVoiceSuggestion,
+  suggestionsFromMapping,
+} from "@/lib/services/ai/voice-field-suggestions";
+import {
+  mapVoiceTranscriptToFields,
+  type VoiceFieldMapping,
+} from "@/lib/services/ai/voice-to-fields";
 import toast from "react-hot-toast";
+
+/** Queue tag for voice notes recorded against the selected room. */
+export const SKETCH_ROOM_VOICE_FIELD = "sketch-room";
+
+/** Browser Web Speech handle. Present on Chrome, Edge and Safari. */
+interface RoomSpeechRecognition {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult:
+    | ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void)
+    | null;
+  onend: (() => void) | null;
+  onerror: ((event?: { error?: string }) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+}
+
+function getRecognitionCtor(): (new () => RoomSpeechRecognition) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: new () => RoomSpeechRecognition;
+    webkitSpeechRecognition?: new () => RoomSpeechRecognition;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
+type RoomVoiceSuggestion = ListedVoiceSuggestion & { roomId: string };
 
 const NZ_CAUSES: { id: DamageCause; label: string }[] = [
   { id: "earthquake", label: "Earthquake" },
@@ -26,23 +68,6 @@ const NZ_CAUSES: { id: DamageCause; label: string }[] = [
   { id: "storm", label: "Storm" },
   { id: "flood", label: "Flood" },
   { id: "other", label: "Other / accidental" },
-];
-
-const ROOM_COLORS = [
-  {
-    fill: "rgba(59,130,246,0.10)",
-    stroke: "#3b82f6",
-    label: "Living / Common",
-  },
-  { fill: "rgba(16,185,129,0.10)", stroke: "#10b981", label: "Bedroom" },
-  { fill: "rgba(245,158,11,0.10)", stroke: "#f59e0b", label: "Kitchen" },
-  { fill: "rgba(236,72,153,0.10)", stroke: "#ec4899", label: "Bathroom / WC" },
-  {
-    fill: "rgba(139,92,246,0.10)",
-    stroke: "#8b5cf6",
-    label: "Garage / Utility",
-  },
-  { fill: "rgba(239,68,68,0.10)", stroke: "#ef4444", label: "Damage Zone" },
 ];
 
 export interface SelectedObject {
@@ -84,6 +109,16 @@ export interface SelectedObject {
   wallThicknessM?: number;
   /** Room ceiling height in metres. */
   ceilingHeightM?: number;
+  /**
+   * Voice-note ACM latch (raise-only). Set when an accepted voice material
+   * has isPotentialAcm. A later non-ACM accept must not clear it.
+   */
+  voiceRaisedAcm?: boolean;
+  /**
+   * RA-7655 — room polygon rehydrated after Fabric 7 dropped its `data`.
+   * Technician must re-enter name, material and water category.
+   */
+  detailsLost?: boolean;
 }
 
 export interface MaterialOption {
@@ -98,6 +133,11 @@ export interface SketchSelectionPanelProps {
   materials?: MaterialOption[];
   /** Property build year — drives the WHS asbestos gate (pre-2004 = at risk). */
   propertyYearBuilt?: number;
+  /**
+   * Photo-AI WHS latch (RA-7613). When true, strip-out is gated even if the
+   * selected material is not itself ACM — AI can raise this and cannot clear it.
+   */
+  aiRaisedAcm?: boolean;
   /** Jurisdiction — AU (NCC) or NZ (NHCover). Default AU. */
   country?: "AU" | "NZ";
   /** Guided (homeowner) mode — hide technician-only compliance controls. */
@@ -133,6 +173,13 @@ export interface SketchSelectionPanelProps {
   onCeilingHeightChange?: (id: string, metres: number) => void;
   /** Enter room-scoped moisture map (crop guides + pins). */
   onMapRoomMoisture?: (id: string) => void;
+  /** Inspection this room belongs to — tags a queued voice note. */
+  inspectionId?: string;
+  /**
+   * Persist the raise-only voice ACM latch on the room. Callers must set it
+   * true and must not clear it from a later voice accept.
+   */
+  onVoiceAcmRaised?: (id: string) => void;
   onDelete?: (id: string) => void;
   onDeselect?: () => void;
   className?: string;
@@ -142,6 +189,7 @@ export function SketchSelectionPanel({
   selected,
   materials,
   propertyYearBuilt,
+  aiRaisedAcm = false,
   country = "AU",
   guided = false,
   onLabelChange,
@@ -161,11 +209,59 @@ export function SketchSelectionPanel({
   onMapRoomMoisture,
   onDelete,
   onDeselect,
+  inspectionId = "unassigned",
+  onVoiceAcmRaised,
   className,
 }: SketchSelectionPanelProps) {
   const [pathwayDraft, setPathwayDraft] = useState("");
+  const [suggestions, setSuggestions] = useState<RoomVoiceSuggestion[]>([]);
+  const [skippedByRoom, setSkippedByRoom] = useState<Record<string, string>>(
+    {},
+  );
+  const [voiceLatch, setVoiceLatch] = useState(false);
+  const suggestionSeq = useRef(0);
+  const selectedId = selected?.id;
+  // All of these stay above the early return so the rules of hooks hold when
+  // nothing is selected.
+  const [whisperUnavailable, setWhisperUnavailable] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [micSupported, setMicSupported] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recognitionRef = useRef<RoomSpeechRecognition | null>(null);
+  const roomAtStartRef = useRef<string | null>(null);
+  const [detailsLostDismissed, setDetailsLostDismissed] = useState(false);
+
+  useEffect(() => {
+    // The persisted latch lives on the room. Drop only the local raise so a
+    // different room does not inherit it. Keep suggestions: each card names
+    // the room it was recorded in and is shown only while that room is open.
+    setVoiceLatch(false);
+    setDetailsLostDismissed(false);
+  }, [selectedId]);
+
+  useEffect(() => {
+    setMicSupported(getRecognitionCtor() !== null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const rec = recognitionRef.current;
+      recognitionRef.current = null;
+      if (!rec) return;
+      rec.onresult = null;
+      rec.onend = null;
+      rec.onerror = null;
+      if (typeof rec.abort === "function") rec.abort();
+      else rec.stop();
+    };
+  }, []);
 
   if (!selected) return null;
+
+  const showDetailsLost = selected.detailsLost === true && !detailsLostDismissed;
+  const noteRoomDetailsEdited = () => {
+    if (selected.detailsLost) setDetailsLostDismissed(true);
+  };
 
   const isRoom = selected.type === "room" || selected.type === "polygon";
   const isText = selected.type === "text_label" || selected.type === "i-text";
@@ -185,8 +281,124 @@ export function SketchSelectionPanel({
     (m) => m.slug === selected.materialSlug,
   );
   // WHS asbestos gate (spec §5.3): suspected ACM blocks strip-out scope until a
-  // pathway is recorded. Reuses the shared, tested gate logic.
-  const whs = selectedMaterial?.isPotentialAcm
+  // pathway is recorded. Photo AI and an accepted voice material can raise the
+  // same gate; neither can clear it — only a recorded WHS pathway does.
+  const voiceRaisedAcm = selected.voiceRaisedAcm === true || voiceLatch;
+  const suspectedAcm =
+    selectedMaterial?.isPotentialAcm === true ||
+    aiRaisedAcm === true ||
+    voiceRaisedAcm;
+
+  function handleMappedFields(
+    mapping: VoiceFieldMapping,
+    context?: { roomId?: string },
+  ) {
+    const roomId = context?.roomId ?? selectedId;
+    if (!roomId) return;
+    const next = suggestionsFromMapping(mapping).map((suggestion) => ({
+      ...suggestion,
+      key: `voice-${suggestionSeq.current++}`,
+      roomId,
+    }));
+    if (next.length === 0) {
+      setSkippedByRoom((prev) => ({
+        ...prev,
+        [roomId]:
+          "This voice note was transcribed. Mapping onto the room was skipped.",
+      }));
+      return;
+    }
+    setSkippedByRoom((prev) => {
+      if (!prev[roomId]) return prev;
+      const rest = { ...prev };
+      delete rest[roomId];
+      return rest;
+    });
+    setSuggestions((prev) => [...prev, ...next]);
+  }
+
+  function acceptSuggestion(
+    suggestion: ListedVoiceSuggestion & { roomId?: string },
+  ) {
+    const roomId = suggestion.roomId;
+    if (!roomId) return;
+    const snapshot = {
+      materialSlug: selected?.materialSlug,
+      waterCategory: selected?.waterCategory,
+      lengthM: selected?.lengthM,
+      widthM: selected?.widthM,
+      voiceRaisedAcm,
+      whsPathwayNote: selected?.whsPathwayNote,
+    };
+    const { job } = acceptVoiceSuggestion(
+      snapshot,
+      suggestion,
+      propertyYearBuilt,
+    );
+    if (suggestion.kind === "material" && job.materialSlug) {
+      noteRoomDetailsEdited();
+      onMaterialChange?.(roomId, job.materialSlug);
+    } else if (suggestion.kind === "waterCategory" && job.waterCategory) {
+      noteRoomDetailsEdited();
+      onWaterCategoryChange?.(roomId, job.waterCategory);
+    } else if (suggestion.kind === "dimensions") {
+      onDimensionsChange?.(roomId, {
+        ...(job.lengthM != null ? { lengthM: job.lengthM } : {}),
+        ...(job.widthM != null ? { widthM: job.widthM } : {}),
+      });
+    }
+    if (job.voiceRaisedAcm === true && snapshot.voiceRaisedAcm !== true) {
+      setVoiceLatch(true);
+      onVoiceAcmRaised?.(roomId);
+    }
+    setSuggestions((prev) => prev.filter((item) => item.key !== suggestion.key));
+  }
+
+  function rejectSuggestion(suggestion: ListedVoiceSuggestion) {
+    rejectVoiceSuggestion({
+      materialSlug: selected?.materialSlug,
+      waterCategory: selected?.waterCategory,
+      lengthM: selected?.lengthM,
+      widthM: selected?.widthM,
+      voiceRaisedAcm,
+      whsPathwayNote: selected?.whsPathwayNote,
+    });
+    setSuggestions((prev) => prev.filter((item) => item.key !== suggestion.key));
+  }
+
+  function toggleRoomSpeech() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const Ctor = getRecognitionCtor();
+    if (!Ctor || !selected) return;
+    const roomAtStart = selected.id;
+    roomAtStartRef.current = roomAtStart;
+    const rec = new Ctor();
+    rec.lang = "en-AU";
+    rec.interimResults = false;
+    rec.continuous = false;
+    rec.onresult = (e) => {
+      const transcript = e.results[0]?.[0]?.transcript ?? "";
+      const roomId = roomAtStartRef.current ?? roomAtStart;
+      if (!transcript.trim() || !roomId) return;
+      handleMappedFields(mapVoiceTranscriptToFields(transcript), { roomId });
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = (event) => {
+      setListening(false);
+      // stop() ends cleanly. abort() reports "aborted" and is not a failure
+      // the technician needs to read.
+      if (event?.error === "aborted") return;
+      setSpeechError("Microphone blocked or no speech heard.");
+    };
+    recognitionRef.current = rec;
+    setSpeechError(null);
+    setListening(true);
+    rec.start();
+  }
+  const whs = suspectedAcm
     ? evaluateWhsGate({
         isPotentialAcm: true,
         propertyYearBuilt,
@@ -238,6 +450,21 @@ export function SketchSelectionPanel({
       {/* Provenance — AI-suggested / imported / LiDAR-pending geometry is
           excluded from measured quantities until a technician confirms it
           (RA-6760 / RA-7091 / RA-7611). */}
+      {showDetailsLost && (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2"
+        >
+          <div className="flex items-start gap-1.5 text-xs text-amber-200">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              This room lost its details on an earlier save. Re-enter its name,
+              material and water category.
+            </span>
+          </div>
+        </div>
+      )}
+
       {(selected.provenance === "underlay_reference" ||
         selected.provenance === "ai_suggested") && (
         <div
@@ -333,9 +560,13 @@ export function SketchSelectionPanel({
           <input
             type="text"
             defaultValue={selected.label ?? ""}
-            onBlur={(e) => onLabelChange?.(selected.id, e.target.value)}
+            onBlur={(e) => {
+              noteRoomDetailsEdited();
+              onLabelChange?.(selected.id, e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
+                noteRoomDetailsEdited();
                 onLabelChange?.(
                   selected.id,
                   (e.target as HTMLInputElement).value,
@@ -606,6 +837,67 @@ export function SketchSelectionPanel({
         </div>
       )}
 
+      {/* Voice note — suggestions for this room. Nothing is written until Accept. */}
+      {!guided && isRoom && (
+        <div className="space-y-1.5">
+          {!whisperUnavailable ? (
+            <VoiceNoteButton
+              onTranscript={() => {
+                /* The transcript is not a job field. Suggestions arrive via onMappedFields. */
+              }}
+              onMappedFields={handleMappedFields}
+              onUnavailable={() => setWhisperUnavailable(true)}
+              compact
+              inspectionId={inspectionId}
+              fieldLabel={SKETCH_ROOM_VOICE_FIELD}
+              roomId={selected.id}
+            />
+          ) : micSupported ? (
+            <div className="space-y-1">
+              <button
+                type="button"
+                aria-pressed={listening}
+                onClick={toggleRoomSpeech}
+                className={cn(
+                  "w-full min-h-11 rounded-lg border px-2 text-xs font-medium transition-colors",
+                  listening
+                    ? "border-rose-500/40 bg-rose-500/20 text-rose-100"
+                    : "border-white/15 bg-white/10 text-white hover:bg-white/15",
+                )}
+              >
+                {listening ? "Stop" : "Speak"}
+              </button>
+              {speechError && (
+                <p role="alert" className="text-xs text-rose-200">
+                  {speechError}
+                </p>
+              )}
+              <p className="text-[11px] leading-snug text-white/60">
+                The browser&apos;s own speech service turns speech into text
+                (Chrome sends the audio to Google).
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs leading-snug text-amber-200">
+              Voice notes are not available in this browser. Add an OpenAI key
+              in Workspace Settings, AI Providers, or use Chrome, Edge or
+              Safari.
+            </p>
+          )}
+          {skippedByRoom[selected.id] && (
+            <p className="text-xs text-amber-200">{skippedByRoom[selected.id]}</p>
+          )}
+          <VoiceFieldSuggestionList
+            suggestions={suggestions.filter(
+              (item) => item.roomId === selected.id,
+            )}
+            currentWaterCategory={selected.waterCategory}
+            onAccept={acceptSuggestion}
+            onReject={rejectSuggestion}
+          />
+        </div>
+      )}
+
       {/* ANZ material picker (rooms + walls) */}
       {!guided && (isRoom || isLine) && materials && materials.length > 0 && (
         <div>
@@ -618,7 +910,10 @@ export function SketchSelectionPanel({
           <select
             id="sketch-material"
             value={selected.materialSlug ?? ""}
-            onChange={(e) => onMaterialChange?.(selected.id, e.target.value)}
+            onChange={(e) => {
+              noteRoomDetailsEdited();
+              onMaterialChange?.(selected.id, e.target.value);
+            }}
             className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
           >
             <option value="" className="text-black">
@@ -645,12 +940,13 @@ export function SketchSelectionPanel({
           <select
             id="sketch-water-category"
             value={selected.waterCategory ?? ""}
-            onChange={(e) =>
+            onChange={(e) => {
+              noteRoomDetailsEdited();
               onWaterCategoryChange?.(
                 selected.id,
                 e.target.value as "cat1" | "cat2" | "cat3",
-              )
-            }
+              );
+            }}
             className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
           >
             <option value="" className="text-black">

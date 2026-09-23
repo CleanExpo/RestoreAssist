@@ -196,8 +196,11 @@ export async function POST(
     // Atomic check-and-sign: updateMany with WHERE signedAt IS NULL prevents the
     // double-tap race where two simultaneous submissions both read signedAt=null,
     // both pass the guard, and both record the signature (firing completion emails twice).
+    // The token is re-checked here too (RA-7634): if staff revoke or rotate the
+    // client's portal link between the lookup above and this write, the cleared
+    // token must not still sign.
     const result = await prisma.authorityFormSignature.updateMany({
-      where: { id: signature.id, signedAt: null },
+      where: { id: signature.id, signatureRequestToken: token, signedAt: null },
       data: {
         signatureData,
         signatoryName: signatoryName || signature.signatoryName,

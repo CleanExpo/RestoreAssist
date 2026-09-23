@@ -1,7 +1,5 @@
 "use client";
 
-import { PropertyDataDisplay } from "@/components/property-data-display";
-import { PropertyLookupButton } from "@/components/property-lookup-button";
 import {
   AustralianAddressSearch,
   type ParsedAddress,
@@ -150,26 +148,6 @@ export default function InitialDataEntryForm({
   );
   const [pricingConfig, setPricingConfig] = useState<any>(null);
   const hasAutoSelectedEquipment = useRef(false);
-
-  // Property Lookup State (Phase 5)
-  const [propertyData, setPropertyData] = useState<{
-    yearBuilt?: number | null;
-    wallMaterial?: string | null;
-    wallConstruction?: string | null;
-    roofMaterial?: string | null;
-    floorType?: string | null;
-    floorArea?: number | null;
-    bedrooms?: number | null;
-    bathrooms?: number | null;
-    landArea?: number | null;
-    stories?: number | null;
-  } | null>(null);
-  const [propertyDataFetchedAt, setPropertyDataFetchedAt] = useState<
-    string | null
-  >(null);
-  const [propertyLookupExpiresAt, setPropertyLookupExpiresAt] = useState<
-    string | null
-  >(null);
 
   // Update reportId when initialReportId prop changes
   useEffect(() => {
@@ -2916,51 +2894,6 @@ export default function InitialDataEntryForm({
                   Required for state detection and regulatory compliance
                 </p>
               </div>
-
-              {/* Phase 5: Property Lookup Button */}
-              {reportId && (
-                <div className="pt-2">
-                  <PropertyLookupButton
-                    inspectionId={reportId}
-                    address={formData.propertyAddress}
-                    postcode={formData.propertyPostcode}
-                    label="Lookup Property Data ($2.30)"
-                    onSuccess={(data) => {
-                      setPropertyData(data.data || null);
-                      setPropertyDataFetchedAt(new Date().toISOString());
-                      setPropertyLookupExpiresAt(data.expiresAt);
-
-                      // Update form with fetched data
-                      if (data.data) {
-                        handleInputChange(
-                          "buildingAge",
-                          data.data.yearBuilt?.toString() || "",
-                        );
-                      }
-                    }}
-                    onError={(error) => {
-                      // Property lookup error
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Phase 5: Property Data Display */}
-              {propertyData && (
-                <div
-                  className={cn(
-                    "pt-4 border-t",
-                    "border-neutral-300 dark:border-neutral-700",
-                  )}
-                >
-                  <PropertyDataDisplay
-                    data={propertyData}
-                    fetchedAt={propertyDataFetchedAt}
-                    source="CORELOGIC"
-                    expiresAt={propertyLookupExpiresAt}
-                  />
-                </div>
-              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

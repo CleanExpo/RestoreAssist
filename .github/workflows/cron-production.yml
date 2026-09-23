@@ -1,0 +1,90 @@
+name: Cron — Production scheduled jobs
+
+# RA-7645 / D-027 (supersedes the trial-only workflow from RA-7597 / D-024).
+# Vercel cron hits the sandbox DB only. DigitalOcean App Platform has no
+# scheduler, and the production release contract forbids adding `jobs` to
+# .do/app.yaml. GitHub Actions is the live-host scheduler: every run GETs the
+# due routes on https://restoreassist.app/api/cron/<path> with CRON_SECRET.
+#
+# What runs, and how often, lives in lib/cron/production-schedule.ts. The
+# quarter-hour tick carries the 15-minute, 30-minute and hourly jobs; each
+# daily job has its own schedule line below, so a late tick can neither skip
+# nor repeat it. app/api/cron/cron-watchdog/__tests__/coverage.test.ts fails
+# if these lines and the manifest disagree.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+    # daily@19 pricing-setup-reminders
+    - cron: "0 19 * * *"
+    # daily@20 cron-watchdog
+    - cron: "0 20 * * *"
+    # daily@22 trial-reminders
+    - cron: "0 22 * * *"
+    # daily@23 winback
+    - cron: "0 23 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print what would run and call nothing (see probe_production)"
+        type: boolean
+        default: true
+      probe_production:
+        description: "With dry_run: call only the routes that honour ?dryRun=1 (trial-reminders), to prove the secret reaches the live host"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One queue per schedule line. With a single shared group, GitHub keeps only
+# one pending run and cancels the other, so a tick that collides with a daily
+# line could silently drop the daily job.
+concurrency:
+  group: cron-production-${{ github.event.schedule || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  reject-non-main:
+    name: Reject non-main trigger
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: |
+          echo "Production cron jobs may only run from refs/heads/main." >&2
+          exit 1
+
+  trigger:
+    name: Fire the due cron jobs against restoreassist.app
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Jobs run one after another; each request may take up to 330 s.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout proven revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The trigger imports lib/cron/production-schedule.ts directly; the
+      # repo's pinned Node 22 strips the types. The runner's default Node
+      # cannot, so do not drop this step.
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Trigger the due /api/cron routes
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Which schedule line fired; empty on a manual run, which is
+          # treated as a quarter-hour tick.
+          CRON_EVENT_SCHEDULE: ${{ github.event.schedule }}
+          # schedule events have no inputs — they run for real. Manual
+          # dispatch defaults to dry-run so an operator cannot accidentally
+          # fire every due job.
+          # github.event.inputs is empty on schedule (so this runs).
+          # Do not use the `inputs` context — it is undefined on schedule
+          # and fails the run with "Unrecognized named-value: inputs".
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          PROBE_PRODUCTION: ${{ github.event.inputs.probe_production }}
+        run: node scripts/ci/trigger-production-crons.mjs

@@ -20,6 +20,7 @@ import {
 } from "@/lib/integrations/subscription-guard";
 import { INTEGRATION_IMPORT_FAILURE_MESSAGE } from "@/lib/integrations/sync-error";
 import { apiError, fromException } from "@/lib/api-errors";
+import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 
 export async function GET(
   request: NextRequest,
@@ -201,6 +202,7 @@ export async function POST(
     // Import to reports/claims
     const imported: string[] = [];
     const errors: Array<{ id: string; error: string }> = [];
+    let firstCreatedReportId: string | null = null;
 
     for (const externalJob of externalJobs) {
       try {
@@ -243,6 +245,7 @@ export async function POST(
             jobType: "WATER_DAMAGE", // Default - can be updated
           } as any,
         });
+        firstCreatedReportId ??= report.id;
 
         // Link external job to the report
         await prisma.externalJob.update({
@@ -261,6 +264,16 @@ export async function POST(
           error: INTEGRATION_IMPORT_FAILURE_MESSAGE,
         });
       }
+    }
+
+    // RA-7622 — first_report_saved (first-time only, AFTER persist). Once per
+    // request, and only if a report was actually created: re-linked jobs
+    // create nothing, and a per-job emit could double-fire because `track`
+    // is fire-and-forget.
+    if (firstCreatedReportId) {
+      await recordFirstReportSaved(session.user.id, {
+        reportId: firstCreatedReportId,
+      });
     }
 
     return NextResponse.json({

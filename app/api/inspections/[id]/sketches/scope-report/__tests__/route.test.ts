@@ -87,6 +87,37 @@ describe("POST scope-report", () => {
     expect(body.narrative).toContain("ANSI/IICRC S500:2021");
   });
 
+  it("RA-7617: bills an untagged legacy room the same as a tagged one", async () => {
+    const untagged = [
+      {
+        label: "Ground",
+        fabricJson: {
+          objects: [
+            {
+              type: "polygon",
+              points: [
+                { x: 0, y: 0 },
+                { x: 300, y: 0 },
+                { x: 300, y: 400 },
+                { x: 0, y: 400 },
+              ],
+              data: {
+                type: "room",
+                material: "fibro",
+                label: "Legacy Bathroom",
+              },
+            },
+          ],
+        },
+      },
+    ];
+    const res = await POST(post({ floors: untagged }), params);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.structured.floors[0].rooms[0].areaM2).toBeCloseTo(12, 5);
+    expect(body.narrative).toContain("Legacy Bathroom");
+  });
+
   it("422 when floors[] is missing", async () => {
     const res = await POST(post({}), params);
     expect(res.status).toBe(422);

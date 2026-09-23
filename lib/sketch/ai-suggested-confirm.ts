@@ -19,6 +19,8 @@ import {
 } from "./measured-provenance";
 import {
   appendRoomPlanCorrection,
+  currentRecordedPoints,
+  geometryPointsMatch,
   type RoomPlanCorrectionEntry,
 } from "./roomplan-correction";
 
@@ -166,12 +168,7 @@ export function recordAiSuggestedGeometryCorrection(
   const widthChanged = nextWidth !== undefined && nextWidth !== data.widthM;
   const pointsChanged =
     nextPoints !== undefined &&
-    !samePoints(
-      nextPoints,
-      Array.isArray(data.points)
-        ? (data.points as { x: number; y: number }[])
-        : undefined,
-    );
+    !geometryPointsMatch(currentRecordedPoints(data), nextPoints);
 
   if (!areaChanged && !lengthChanged && !widthChanged && !pointsChanged) {
     return { ...data };
@@ -284,6 +281,10 @@ function isPresentConfirmStamp(
  * On the unconfirmed → confirmed transition, `confirmedBy` is the session
  * user id and `confirmedAt` is server time. Client-supplied values for both
  * are ignored. An already-confirmed row keeps its original stamp.
+ *
+ * `isExplicitConfirm` is the RA-7617 path: an existing `ai_suggested` row
+ * promoted to `operator_measured`. Stamp even when the client omitted
+ * confirmedAt/confirmedBy.
  */
 export function resolveSketchRoomConfirmAttribution(input: {
   existingConfirmedAt?: Date | string | null;
@@ -292,6 +293,7 @@ export function resolveSketchRoomConfirmAttribution(input: {
   incomingConfirmedBy?: string | null;
   sessionUserId: string;
   now?: Date;
+  isExplicitConfirm?: boolean;
 }): { confirmedAt: Date | null; confirmedBy: string | null } {
   if (isPresentConfirmStamp(input.existingConfirmedAt)) {
     const existingAt = input.existingConfirmedAt;
@@ -304,6 +306,13 @@ export function resolveSketchRoomConfirmAttribution(input: {
     return {
       confirmedAt: at && !Number.isNaN(at.getTime()) ? at : null,
       confirmedBy: input.existingConfirmedBy ?? null,
+    };
+  }
+
+  if (input.isExplicitConfirm) {
+    return {
+      confirmedAt: input.now ?? new Date(),
+      confirmedBy: input.sessionUserId,
     };
   }
 
@@ -320,4 +329,92 @@ export function resolveSketchRoomConfirmAttribution(input: {
     confirmedAt: input.now ?? new Date(),
     confirmedBy: input.sessionUserId,
   };
+}
+
+export interface ResolveSketchRoomProvenanceInput {
+  existingProvenance?: string | null;
+  incomingProvenance: string;
+  fabricObjectId: string;
+  rememberedAiRoomIds: ReadonlySet<string>;
+  /**
+   * Fabric object ids the authenticated user confirmed in this POST.
+   * Required for a remembered AI room whose SketchRoom row does not
+   * exist yet (import then Confirm before the first save lands).
+   */
+  explicitlyConfirmedIds?: ReadonlySet<string>;
+}
+
+export interface ResolveSketchRoomProvenanceResult {
+  provenance: string;
+  isExplicitConfirm: boolean;
+}
+
+/**
+ * RA-7617 — SketchRoom.provenance is derived on the server.
+ *
+ * - An existing `ai_suggested` row becomes `operator_measured` only as an
+ *   explicit confirm (incoming tag is operator_measured). Any other tag is
+ *   ignored; the row stays `ai_suggested`.
+ * - An existing `operator_measured` row is never downgraded.
+ * - A first save whose fabric id the server recorded as AI-produced cannot
+ *   claim `operator_measured`, unless this POST lists that id in
+ *   `confirmedFabricObjectIds` (a genuine Confirm that raced the first save).
+ * - Otherwise the incoming tag is kept (hand-drawn, LiDAR, untagged default).
+ */
+export function resolveSketchRoomProvenance(
+  input: ResolveSketchRoomProvenanceInput,
+): ResolveSketchRoomProvenanceResult {
+  const existing =
+    typeof input.existingProvenance === "string" &&
+    input.existingProvenance.length > 0
+      ? input.existingProvenance
+      : null;
+  const incoming = input.incomingProvenance;
+  const remembered = input.rememberedAiRoomIds.has(input.fabricObjectId);
+  const explicitlyConfirmed =
+    incoming === OPERATOR_MEASURED_PROVENANCE &&
+    (input.explicitlyConfirmedIds?.has(input.fabricObjectId) ?? false);
+
+  if (existing === OPERATOR_MEASURED_PROVENANCE) {
+    return {
+      provenance: OPERATOR_MEASURED_PROVENANCE,
+      isExplicitConfirm: false,
+    };
+  }
+
+  if (existing === AI_SUGGESTED_PROVENANCE) {
+    if (incoming === OPERATOR_MEASURED_PROVENANCE) {
+      return {
+        provenance: OPERATOR_MEASURED_PROVENANCE,
+        isExplicitConfirm: true,
+      };
+    }
+    return {
+      provenance: AI_SUGGESTED_PROVENANCE,
+      isExplicitConfirm: false,
+    };
+  }
+
+  if (!existing && remembered) {
+    if (explicitlyConfirmed) {
+      return {
+        provenance: OPERATOR_MEASURED_PROVENANCE,
+        isExplicitConfirm: true,
+      };
+    }
+    return {
+      provenance: AI_SUGGESTED_PROVENANCE,
+      isExplicitConfirm: false,
+    };
+  }
+
+  return { provenance: incoming, isExplicitConfirm: false };
+}
+
+/** Ids the client listed as technician-confirmed in this POST body. */
+export function parseConfirmedFabricObjectIds(raw: unknown): Set<string> {
+  if (!Array.isArray(raw)) return new Set();
+  return new Set(
+    raw.filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
 }

@@ -452,6 +452,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             aiConfidence: true,
             aiModel: true,
             aiRunAt: true,
+            metadata: true,
             createdAt: true,
             updatedAt: true,
           },
