@@ -49,6 +49,20 @@ describe("RA-7610 — reading ↔ room link", () => {
     ).toBe(false);
   });
 
+  it("lets the room link decide: a Kitchen-linked reading typed 'Bathroom' does not match the Bathroom area", () => {
+    const kitchenLinkedBathroomText = {
+      location: "Bathroom",
+      sketchRoomId: "sr-kitchen",
+      sketchRoom: { id: "sr-kitchen", name: "Kitchen" },
+    };
+    expect(
+      readingMatchesArea(kitchenLinkedBathroomText, { roomZoneId: "Bathroom" }),
+    ).toBe(false);
+    expect(
+      readingMatchesArea(kitchenLinkedBathroomText, { roomZoneId: "Kitchen" }),
+    ).toBe(true);
+  });
+
   it("places a room-linked reading on that room's moisture heat-map", () => {
     const onMap = heatmapReadingsForRoom(
       [linkedReading, freeTextReading],

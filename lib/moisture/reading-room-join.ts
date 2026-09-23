@@ -41,11 +41,13 @@ export function readingMatchesArea(
   area: AreaRoomJoinInput,
 ): boolean {
   if (reading.sketchRoomId) {
-    const roomName = reading.sketchRoom?.name;
-    if (roomName && locationMatchesRoomName(roomName, area.roomZoneId)) {
-      return true;
-    }
+    // The room link decides. Free-text location must not also pull a linked
+    // reading into a second room's area.
     if (area.roomZoneId === reading.sketchRoomId) return true;
+    const roomName = reading.sketchRoom?.name;
+    return Boolean(
+      roomName && locationMatchesRoomName(roomName, area.roomZoneId),
+    );
   }
   return locationMatchesRoomName(reading.location, area.roomZoneId);
 }
