@@ -249,7 +249,7 @@ export default function QuotePage() {
     const email = quoteResult.client?.email?.trim();
     if (!email) {
       fail(
-        "Add a client email to the quote, then calculate again. The invoice is sent to that address.",
+        "Add a client email to the quote, then calculate again. The draft invoice needs it so you can send it from Billing → Invoices.",
       );
       return;
     }
