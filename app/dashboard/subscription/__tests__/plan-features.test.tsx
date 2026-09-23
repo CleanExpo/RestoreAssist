@@ -8,13 +8,17 @@
  * further down the page, so this mounts an ACTIVE subscription and asserts
  * inside the Plan Features block only.
  *
- * The number shown is the subscriber's OWN enforced allowance: the page reads
- * profile.reportLimits.baseLimit, which /api/user/profile gets from
- * getUserReportLimits -> resolveBaseReportLimit (lib/report-limits.ts), the
- * function that enforces the limit. Grandfathered plans keep their own
- * number (Yearly Plan 70, Lifetime 999 — see
- * lib/__tests__/report-limits.grandfathering.test.ts), so a Lifetime customer
- * must never be told "50 inspection reports per month".
+ * The number shown is the subscriber's OWN plan allowance: the page reads
+ * profile.planReportAllowance, which /api/user/profile resolves with
+ * resolveBaseReportLimit (lib/report-limits.ts) from the effective plan —
+ * Lifetime for any lifetimeAccess customer, the owner's plan for a team
+ * member. The route side, driven by real stored user rows, is proven in
+ * app/api/user/profile/__tests__/plan-report-allowance.test.ts. The profile
+ * payloads below are the shapes that route returns.
+ *
+ * Round 3: a lifetime customer stored as CANCELED or null gets
+ * reportLimits.baseLimit 0 from getUserReportLimits; the page used to print
+ * "0 inspection reports per month". It must print 999.
  */
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
@@ -46,7 +50,11 @@ function activeSubscription(planName: string) {
   };
 }
 
-function stubApi(planName: string, reportLimits: { baseLimit: number } | null) {
+function stubApi(
+  planName: string,
+  planReportAllowance: number | null,
+  enforcedBaseLimit: number | null = planReportAllowance,
+) {
   const active = activeSubscription(planName);
   vi.stubGlobal(
     "fetch",
@@ -62,13 +70,17 @@ function stubApi(planName: string, reportLimits: { baseLimit: number } | null) {
             profile: {
               subscriptionStatus: "ACTIVE",
               subscriptionPlan: planName,
-              reportLimits: reportLimits && {
-                ...reportLimits,
-                addonReports: 0,
-                monthlyReportsUsed: 0,
-                availableReports: reportLimits.baseLimit,
-                hasUnlimited: false,
-              },
+              planReportAllowance,
+              reportLimits:
+                enforcedBaseLimit === null
+                  ? null
+                  : {
+                      baseLimit: enforcedBaseLimit,
+                      addonReports: 0,
+                      monthlyReportsUsed: 0,
+                      availableReports: enforcedBaseLimit,
+                      hasUnlimited: false,
+                    },
             },
           }),
         };
@@ -95,7 +107,7 @@ async function planFeaturesBlock() {
 describe("Subscription page — Plan Features", () => {
   it("states the plan's report allowance, not unlimited reports", async () => {
     const allowance = PRICING_CONFIG.pricing.monthly.reportLimit;
-    stubApi("Monthly Plan", { baseLimit: allowance });
+    stubApi("Monthly Plan", allowance);
     render(<SubscriptionPage />);
 
     const block = await planFeaturesBlock();
@@ -113,26 +125,40 @@ describe("Subscription page — Plan Features", () => {
     ["Yearly Plan", 70],
     ["Lifetime", 999],
   ])(
-    "a %s subscriber sees their own enforced allowance (%i)",
-    async (planName, baseLimit) => {
-      stubApi(planName, { baseLimit });
+    "a %s subscriber sees their own allowance (%i)",
+    async (planName, allowance) => {
+      stubApi(planName, allowance);
       render(<SubscriptionPage />);
 
       const block = await planFeaturesBlock();
       expect(
         await within(block).findByText(
-          `${baseLimit} inspection reports per month`,
+          `${allowance} inspection reports per month`,
         ),
       ).toBeInTheDocument();
       const stated = (block.textContent ?? "").match(
         /\d+ inspection reports per month/g,
       );
-      expect(stated).toEqual([`${baseLimit} inspection reports per month`]);
+      expect(stated).toEqual([`${allowance} inspection reports per month`]);
     },
   );
 
-  it("states no number when the enforced allowance is unavailable", async () => {
-    stubApi("Lifetime", null);
+  it("a lifetime customer stored as CANCELED (enforced baseLimit 0) sees 999, never 0", async () => {
+    // What /api/user/profile returns for lifetimeAccess true + status
+    // CANCELED: effective plan Lifetime, planReportAllowance 999, and
+    // reportLimits.baseLimit 0 from getUserReportLimits' non-active branch.
+    stubApi("Lifetime", 999, 0);
+    render(<SubscriptionPage />);
+
+    const block = await planFeaturesBlock();
+    expect(
+      await within(block).findByText("999 inspection reports per month"),
+    ).toBeInTheDocument();
+    expect(block.textContent ?? "").not.toMatch(/\b0 inspection reports/);
+  });
+
+  it("states no number when the plan allowance is unavailable", async () => {
+    stubApi("Lifetime", null, 0);
     render(<SubscriptionPage />);
 
     const block = await planFeaturesBlock();

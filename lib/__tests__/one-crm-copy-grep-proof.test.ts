@@ -267,6 +267,42 @@ describe("grep proof — no copy calls reports unlimited, any case", () => {
   });
 });
 
+// ── RA-7714 review round 3: no "Premium API integrations" upsell ──────────
+//
+// components/pricing/TierComparison.tsx records why the pricing row was
+// removed: reports run on the customer's own Anthropic or OpenAI key on EVERY
+// plan, so there is no API upgrade to sell. Signup and the upgrade banner
+// still sold it. Comment lines (which explain the removal) are not copy.
+
+const PREMIUM_API = /\bpremium\s+api\s+integrations?\b/i;
+
+describe("grep proof — no copy sells premium API integrations", () => {
+  it("the matcher flags both spellings and ignores a comment", () => {
+    expect(PREMIUM_API.test("<li>Premium API integrations</li>")).toBe(true);
+    expect(PREMIUM_API.test('title: "Premium API Integrations",')).toBe(true);
+    expect(
+      PREMIUM_API.test(
+        withoutCommentLines('  // The "Premium API integrations" row was removed'),
+      ),
+    ).toBe(false);
+  });
+
+  it("the comment that records the removal is really scanned", () => {
+    const tier = corpus.find(
+      (c) => c.file === "components/pricing/TierComparison.tsx",
+    );
+    expect(tier).toBeDefined();
+    expect(PREMIUM_API.test(tier!.raw)).toBe(true);
+  });
+
+  it("no scanned file says it outside a comment", () => {
+    const hits = corpus
+      .filter((c) => PREMIUM_API.test(withoutCommentLines(c.raw)))
+      .map((c) => c.file);
+    expect(hits).toEqual([]);
+  });
+});
+
 // ── Round 2: no public claim of ServiceM8 / MYOB / QuickBooks support ──────
 
 const PROVIDER = String.raw`\b(?:ServiceM8|MYOB|QuickBooks|QBO)\b`;
