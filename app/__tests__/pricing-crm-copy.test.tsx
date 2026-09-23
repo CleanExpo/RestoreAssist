@@ -118,6 +118,9 @@ describe("/pricing sells the CRM", () => {
     // Positive control: the add-on table rendered at all.
     expect(text).toMatch(/Technician/i);
     expect(text).not.toMatch(FORBIDDEN);
-    expect(text).toContain("Migrate from Ascora or ServiceM8");
+    // RA-7714 round 2: only the Ascora import can be started, so the add-on
+    // is sold for Ascora alone.
+    expect(text).toContain("Migrate from Ascora");
+    expect(text).not.toMatch(/ServiceM8/i);
   });
 });

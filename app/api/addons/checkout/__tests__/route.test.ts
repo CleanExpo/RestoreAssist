@@ -226,9 +226,7 @@ describe("POST /api/addons/checkout — SERVICE_CRM recurring add-on (RA-6920 B1
     expect(lineItem.price_data.recurring).toEqual({ interval: "month" });
     // RA-7714: new checkouts carry the renamed product; sku, price and the
     // subscription marker the webhook keys on are unchanged.
-    expect(lineItem.price_data.product_data.name).toBe(
-      "Migrate from Ascora or ServiceM8",
-    );
+    expect(lineItem.price_data.product_data.name).toBe("Migrate from Ascora");
 
     // GST compliance preserved on the subscription session.
     expect(arg.automatic_tax).toEqual({ enabled: true });

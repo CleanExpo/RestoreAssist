@@ -31,20 +31,14 @@ afterEach(() => {
 describe("recurring add-on copy with every listing switch off", () => {
   it("no descriptor names NRPG, ServiceM8, MYOB or QuickBooks", async () => {
     const { RECURRING_ADDONS } = await loadRegistry({});
-    // RA-7714: the one exception is the migration add-on, whose founder-set
-    // name "Migrate from Ascora or ServiceM8" names ServiceM8 as a SOURCE to
-    // bring data across from once. That is a migration claim, not a claim
-    // that RestoreAssist connects or syncs with ServiceM8 (which RA-7660 hid
-    // because it never passed a real sync test). NRPG stays banned everywhere.
+    // RA-7714 review round 2: no exception for the migration add-on. A buyer
+    // cannot start a ServiceM8 import (the card is flag-hidden and
+    // beta-disabled; RA-7660 hid it because it never passed a real sync
+    // test), so the add-on may not be sold under a ServiceM8 name.
     const text = Object.values(RECURRING_ADDONS)
       .map((a) => `${a.name}\n${a.description}`)
       .join("\n");
-    expect(text).not.toMatch(/NRPG|MYOB|QuickBooks/i);
-    const outsideMigration = Object.values(RECURRING_ADDONS)
-      .filter((a) => a.sku !== "SERVICE_CRM")
-      .map((a) => `${a.name}\n${a.description}`)
-      .join("\n");
-    expect(outsideMigration).not.toMatch(/ServiceM8/i);
+    expect(text).not.toMatch(/NRPG|ServiceM8|MYOB|QuickBooks/i);
   });
 
   it("the Bookkeeping add-on names Xero only", async () => {
@@ -54,16 +48,16 @@ describe("recurring add-on copy with every listing switch off", () => {
     );
   });
 
-  it("the SERVICE_CRM add-on is the Ascora / ServiceM8 migration and keeps its $11 price", async () => {
+  it("the SERVICE_CRM add-on is the Ascora migration and keeps its $11 price", async () => {
     const { RECURRING_ADDONS } = await loadRegistry({});
     const serviceCrm = RECURRING_ADDONS.SERVICE_CRM;
-    // RA-7714: founder-set wording. Ascora and ServiceM8 are migration
-    // sources, never ongoing connections; the price is a founder decision
-    // and does not move.
+    // RA-7714: Ascora is a migration source, never an ongoing connection,
+    // and the only import a buyer can start today; the price is a founder
+    // decision and does not move.
     expect(serviceCrm.description).toBe(
       "Sign in once and bring your clients, jobs, history and pricing into RestoreAssist.",
     );
-    expect(serviceCrm.name).toBe("Migrate from Ascora or ServiceM8");
+    expect(serviceCrm.name).toBe("Migrate from Ascora");
     expect(`${serviceCrm.name} ${serviceCrm.description}`).not.toMatch(
       /Service CRM Connection|sync jobs|connect ascora|NRPG/i,
     );

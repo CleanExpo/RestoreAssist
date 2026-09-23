@@ -139,6 +139,9 @@ const REMOVED: readonly string[] = [
   "Connect your field service and CRM platforms",
   "Restoration Report Software Plans",
   "Xero and Ascora connections",
+  // RA-7714 round 2: a ServiceM8 import cannot be started (flag-hidden,
+  // beta-disabled), so the add-on is not sold under its name.
+  "Migrate from Ascora or ServiceM8",
 ];
 
 describe("grep proof — positive controls (the scan can find things)", () => {
