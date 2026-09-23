@@ -21,6 +21,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const resource = await getResourceBySlug(slug);
   if (!resource) return {};
+  // Every article currently ships a placehold.co thumbnail. Advertising one as the
+  // social preview is worse than having none, so omit the image until a real asset lands.
+  const shareImage = resource.thumbnailUrl?.[2];
+  const hasRealShareImage = Boolean(
+    shareImage && !shareImage.includes("placehold.co"),
+  );
+
   return {
     title: `${resource.title} | RestoreAssist`,
     description: resource.description,
@@ -28,7 +35,7 @@ export async function generateMetadata({
     openGraph: {
       title: resource.title,
       description: resource.description,
-      images: [{ url: resource.thumbnailUrl[2] }],
+      ...(hasRealShareImage ? { images: [{ url: shareImage as string }] } : {}),
       type: "article",
       publishedTime: resource.uploadDate,
     },
