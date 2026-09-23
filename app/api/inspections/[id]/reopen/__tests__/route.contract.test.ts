@@ -44,6 +44,11 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+const assertInspectionTenancy = vi.fn();
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionTenancy: (...a: unknown[]) => assertInspectionTenancy(...a),
+}));
+
 import { POST } from "../route";
 
 function postReq(body: unknown): NextRequest {
@@ -67,12 +72,36 @@ beforeEach(() => {
   // Default: caller is a verified admin.
   getServerSession.mockResolvedValue({ user: { id: "admin", role: "ADMIN" } });
   verifyAdminFromDb.mockResolvedValue({ user: { id: "admin", role: "ADMIN" } });
+  // Default: the admin is inside the inspection's tenancy. verifyAdminFromDb
+  // proves the ADMIN role only, and tenant ADMIN is every self-registered
+  // owner (RA-7592), so the route asserts tenancy separately.
+  assertInspectionTenancy.mockResolvedValue({
+    ok: true,
+    data: { id: "i_1", userId: "admin", workspaceId: null },
+  });
 });
 
 describe("POST /api/inspections/[id]/reopen", () => {
   it("returns 422 when the reason is too short", async () => {
     const res = await POST(postReq({ reason: "too short" }), ctx);
     expect(res.status).toBe(422);
+  });
+
+it("refuses an admin outside the inspection's tenancy", async () => {
+    // Remove assertInspectionTenancy from the route and this goes red: the
+    // admin gate alone would let any self-registered owner reopen another
+    // tenant's closed job and rewrite its ClaimProgress.
+    assertInspectionTenancy.mockResolvedValue({
+      ok: false,
+      status: 404,
+      reason: "Inspection not found",
+    });
+
+    const res = await POST(postReq({ reason: REASON }), ctx);
+
+    expect(res.status).toBe(404);
+    expect(inspectionFindUnique).not.toHaveBeenCalled();
+    expect(txInspectionUpdateMany).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the inspection does not exist", async () => {
