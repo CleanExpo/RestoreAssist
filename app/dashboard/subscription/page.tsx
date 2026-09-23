@@ -56,7 +56,7 @@ function SubscriptionPageContent() {
     subscriptionStatus?: string;
     creditsRemaining?: number;
     trialEndsAt?: string | null;
-    /** Enforced base monthly report limit (profile.reportLimits.baseLimit). */
+    /** Monthly report allowance of the account's plan (profile.planReportAllowance). */
     reportAllowance?: number;
   } | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
@@ -80,14 +80,16 @@ function SubscriptionPageContent() {
             subscriptionStatus: data.profile.subscriptionStatus,
             creditsRemaining: data.profile.creditsRemaining,
             trialEndsAt: data.profile.trialEndsAt,
-            // RA-7714: the allowance this subscriber is actually held to.
-            // /api/user/profile computes it with getUserReportLimits ->
-            // resolveBaseReportLimit, the function that enforces the limit,
-            // so grandfathered Yearly Plan (70) and Lifetime (999) customers
-            // see their own number, not the catalog 50.
+            // RA-7714: the allowance of the plan this account is on.
+            // /api/user/profile resolves it with resolveBaseReportLimit from
+            // the effective plan, so Yearly Plan (70) and Lifetime (999)
+            // customers see their own number, not the catalogue 50. Not
+            // reportLimits.baseLimit: that is 0 for a lifetime customer
+            // stored as CANCELED or null. A non-positive value is never shown.
             reportAllowance:
-              typeof data.profile.reportLimits?.baseLimit === "number"
-                ? data.profile.reportLimits.baseLimit
+              typeof data.profile.planReportAllowance === "number" &&
+              data.profile.planReportAllowance > 0
+                ? data.profile.planReportAllowance
                 : undefined,
           });
         }
@@ -535,7 +537,7 @@ function SubscriptionPageContent() {
               <h2 className="text-xl font-semibold mb-4">Plan Features</h2>
 
               <div className="grid md:grid-cols-2 gap-4">
-                {/* RA-7714: only the enforced allowance is stated. If the
+                {/* RA-7714: only the account's own plan allowance is stated. If the
                   profile could not supply it, no number is shown rather than
                   a catalog figure that may not be this customer's. */}
                 {typeof userStatus?.reportAllowance === "number" && (

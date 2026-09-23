@@ -16,7 +16,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { PRICING_CONFIG } from "@/lib/pricing";
 import { useSession } from "next-auth/react";
 
 // Module-level flag to prevent verification from running multiple times across remounts
@@ -28,6 +27,12 @@ export default function SuccessPage() {
   const { data: session, update } = useSession();
   const addonKey = searchParams.get("addon");
   const isAddonPurchase = !!addonKey;
+  // app/api/checkout-lifetime/route.ts returns lifetime buyers with ?lifetime=1.
+  const isLifetimeReturn = searchParams.get("lifetime") === "1";
+  const [purchasedPlan, setPurchasedPlan] = useState<{
+    name: string;
+    allowance: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(true);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
@@ -508,6 +513,33 @@ export default function SuccessPage() {
     }
   }, [loading, checking, isAddonPurchase, router, update]);
 
+  // RA-7714: once the payment is confirmed, read the plan the account is now
+  // on (the profile's effective plan: Lifetime for lifetimeAccess, the
+  // owner's plan for a team member) and its allowance. Nothing is stated
+  // unless the account is ACTIVE with a positive allowance, and a lifetime
+  // return must already show Lifetime (else fulfillment has not landed) —
+  // otherwise the page says no plan rather than a wrong one.
+  useEffect(() => {
+    if (loading || checking || isAddonPurchase) return;
+    let cancelled = false;
+    fetch("/api/user/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const profile = data?.profile;
+        if (cancelled || profile?.subscriptionStatus !== "ACTIVE") return;
+        const name = profile.subscriptionPlan;
+        const allowance = profile.planReportAllowance;
+        if (typeof name !== "string" || !name) return;
+        if (typeof allowance !== "number" || allowance <= 0) return;
+        if (isLifetimeReturn && name !== "Lifetime") return;
+        setPurchasedPlan({ name, allowance });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, checking, isAddonPurchase, isLifetimeReturn]);
+
   // For add-ons, show a brief processing state while verify runs (then redirect).
   // NOTE: must come AFTER all hooks above — an early return before a hook
   // violates rules-of-hooks and crashes when isAddonPurchase toggles.
@@ -622,10 +654,9 @@ export default function SuccessPage() {
               Payment Successful!
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Thank you for your subscription. Your account is now on the{" "}
-              {PRICING_CONFIG.pricing.monthly.name}, with{" "}
-              {PRICING_CONFIG.pricing.monthly.reportLimit} inspection reports a
-              month.
+              Thank you for your payment.
+              {purchasedPlan &&
+                ` Your plan: ${purchasedPlan.name}, with ${purchasedPlan.allowance} inspection reports a month.`}
             </p>
           </div>
 
