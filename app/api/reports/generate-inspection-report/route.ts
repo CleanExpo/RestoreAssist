@@ -39,6 +39,10 @@ import {
   aiDraftResetOnGenerate,
 } from "@/lib/reports/ai-ownership";
 import { isClaimSketchExportEligible } from "@/lib/reports/claim-sketch-floors";
+import {
+  WORKSPACE_OWNER_SELECT,
+  workspaceBusiness,
+} from "@/lib/reports/workspace-business";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -81,6 +85,8 @@ export async function POST(request: NextRequest) {
         businessEmail: true,
         subscriptionStatus: true,
         pricingConfig: true,
+        // RA-7727: the header names the workspace owner's business.
+        ...WORKSPACE_OWNER_SELECT,
       },
     });
 
@@ -509,14 +515,7 @@ export async function POST(request: NextRequest) {
         tier1,
         tier2,
         tier3,
-        businessInfo: {
-          businessName: user.businessName,
-          businessAddress: user.businessAddress,
-          businessLogo: user.businessLogo,
-          businessABN: user.businessABN,
-          businessPhone: user.businessPhone,
-          businessEmail: user.businessEmail,
-        },
+        businessInfo: workspaceBusiness(user),
       });
 
       // Save the structured report as JSON
@@ -742,14 +741,7 @@ export async function POST(request: NextRequest) {
         psychrometricAssessment,
         scopeAreas,
         equipmentSelection,
-        businessInfo: {
-          businessName: user.businessName,
-          businessAddress: user.businessAddress,
-          businessLogo: user.businessLogo,
-          businessABN: user.businessABN,
-          businessPhone: user.businessPhone,
-          businessEmail: user.businessEmail,
-        },
+        businessInfo: workspaceBusiness(user),
       }) +
       safetyPlanContext +
       artifactContext +
