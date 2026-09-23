@@ -111,7 +111,7 @@ export default function FieldDashboardPage() {
     setLoadError(null);
     try {
       const res = await fetch(
-        `/api/inspections?status=${ACTIVE_STATUSES.join(",")}&assignee=me&take=10`,
+        `/api/inspections?status=${ACTIVE_STATUSES.join(",")}&assignee=me&limit=100`,
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
