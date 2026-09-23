@@ -24,6 +24,7 @@ import {
 import { buildEstimateLines, lineTotal } from "@/lib/estimate-lines";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { resolveAreaSqm } from "@/lib/units";
+import { formatNirCostLine } from "@/lib/nir-report-generation";
 
 const expected = (qty: number, rate: number) =>
   new Decimal(qty).mul(rate).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
@@ -259,5 +260,58 @@ describe("RA-7708 money oracle: area units", () => {
     expect(line.quantity).toBe(29.5);
     expect(line.unit).toBe("m²");
     expect(line.subtotal).toBe(649.0); // 29.5 x $22
+  });
+});
+
+describe("RA-7708 money oracle: printed rows", () => {
+  const cat2 = "IICRC S500 Category 2 water";
+  const scope = [
+    ["install_dehumidification", "Dehumidification", 5],
+    ["install_air_movers", "Air movers", 5],
+    ["extract_standing_water", "Extraction", 2],
+    ["remove_carpet", "Carpet", 22],
+    ["dry_out_structure", "Dry out", 5],
+  ].map(([itemType, description, quantity]) => ({
+    itemType: itemType as string,
+    description: description as string,
+    quantity: quantity as number,
+    justification: cat2,
+  }));
+
+  it("6. the NIR PDF prints every persisted row at its total; contingency reads 'Contingency (12%) ... $271.08'", async () => {
+    const est = await estimateCosts(scope, null, null, null);
+    const rows = buildEstimateLines(est).map((l, i) => ({
+      id: `ce${i}`,
+      ...l,
+    }));
+    const printed = rows.map((r) => formatNirCostLine(r));
+
+    const cont = printed.filter((t) => t.startsWith("Contingency"));
+    expect(cont).toHaveLength(1);
+    expect(cont[0]).toBe("Contingency (12%): 1 job @ $271.08 AUD = $271.08 AUD");
+    expect(cont[0]).not.toContain("$0.00");
+
+    rows.forEach((r, i) => {
+      expect(printed[i].endsWith(`= $${r.total.toFixed(2)} AUD`)).toBe(true);
+    });
+    // Priced rows are unchanged: their subtotal equals their total.
+    expect(printed[0]).toBe(
+      "Dehumidification: 5 day @ $65.00 AUD = $325.00 AUD",
+    );
+  });
+
+  it("6b. a stored pre-fix row (per-line contingency share) still prints its own qty x rate", () => {
+    expect(
+      formatNirCostLine({
+        id: "legacy",
+        description: "Dehumidification",
+        quantity: 5,
+        unit: "day",
+        rate: 65,
+        subtotal: 325,
+        contingency: 54.216,
+        total: 379.216,
+      }),
+    ).toBe("Dehumidification: 5 day @ $65.00 AUD = $325.00 AUD");
   });
 });

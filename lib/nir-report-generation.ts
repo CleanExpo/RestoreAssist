@@ -190,6 +190,22 @@ const TIER_PREFIX: Record<VerificationChecklistItem["tier"], string> = {
   quality: "◆ ", // diamond       — advisory
 };
 
+/**
+ * One printed Cost Estimate row in the NIR PDF.
+ *
+ * The job-level contingency row (RA-7708) stores its amount in `contingency`
+ * and `total` with subtotal 0, so the Subtotal / Contingency / Total summary
+ * still reconciles. Print that row at its total. Every other row prints its
+ * subtotal (qty × rate): equal to its total for rows written since RA-7708,
+ * and the correct line amount for older rows whose total carries a spread
+ * contingency share.
+ */
+export function formatNirCostLine(item: NirCostEstimateItem): string {
+  const contingencyOnly = item.subtotal === 0 && (item.contingency ?? 0) > 0;
+  const amount = contingencyOnly ? item.total : item.subtotal;
+  return `${item.description}: ${item.quantity} ${item.unit ?? ""} @ ${AUD(item.rate)} = ${AUD(amount)}`;
+}
+
 // ─── PDF GENERATION ───────────────────────────────────────────────────────────
 
 export async function generateNIRPDF(
@@ -387,10 +403,7 @@ export async function generateNIRPDF(
 
     section("Cost Estimate");
     inspection.costEstimates.forEach((item) => {
-      text(
-        `${item.description}: ${item.quantity} ${item.unit ?? ""} @ ${AUD(item.rate)} = ${AUD(item.subtotal)}`,
-        10,
-      );
+      text(formatNirCostLine(item), 10);
     });
     y += 3;
     text(`Subtotal:    ${AUD(subtotal)}`, 11);
