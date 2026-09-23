@@ -10,7 +10,7 @@
  * can still be synced or disconnected.
  */
 import "@testing-library/jest-dom/vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
@@ -129,7 +129,9 @@ async function settled() {
       within(providerCard("Xero")).getByRole("button", { name: /Connect/i }),
     ).toBeEnabled();
     expect(
-      within(providerCard("Ascora")).getByRole("button", { name: /Connect/i }),
+      within(providerCard("Ascora")).getByRole("button", {
+        name: /Start import/i,
+      }),
     ).toBeEnabled();
   });
 }
@@ -211,10 +213,53 @@ describe("Integrations page with every listing switch off", () => {
         }),
       ).toBeInTheDocument();
     });
-    expect(screen.getByText("DR-NRPG")).toBeInTheDocument();
-
+    // RA-7714: NRPG appears nowhere until the founder switches it on — not
+    // even for an account that already has it connected.
     const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/NRPG|Referral Networks/i);
     expect(text).not.toMatch(/MYOB|ServiceM8|Import Data/);
+  });
+});
+
+describe("RA-7714 — the Integrations page moves data across, it does not connect a rival CRM", () => {
+  const FORBIDDEN =
+    /Service CRM Connection|sync jobs|connect ascora|NRPG|Job Management|Connect your field service/i;
+
+  it("says Move your data across and offers Start import on the Ascora card", async () => {
+    setFlags({});
+    mountFetch({});
+    render(<IntegrationsPage />);
+    await settled();
+
+    expect(
+      screen.getByRole("heading", { name: "Move your data across" }),
+    ).toBeInTheDocument();
+    const ascora = providerCard("Ascora");
+    expect(
+      within(ascora).getByRole("button", { name: /Start import/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(ascora).queryByRole("button", { name: /^Connect$/i }),
+    ).toBeNull();
+    expect(document.body.textContent ?? "").not.toMatch(FORBIDDEN);
+  });
+
+  it("the Ascora dialog is an import, not a connection", async () => {
+    setFlags({});
+    mountFetch({});
+    render(<IntegrationsPage />);
+    await settled();
+
+    fireEvent.click(
+      within(providerCard("Ascora")).getByRole("button", {
+        name: /Start import/i,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent ?? "").not.toMatch(FORBIDDEN);
+    expect(
+      within(dialog).getByRole("button", { name: "Start import" }),
+    ).toBeInTheDocument();
   });
 });
 

@@ -526,7 +526,9 @@ function SubscriptionPageContent() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-success" />
-                  <span className="text-slate-300">Unlimited reports</span>
+                  <span className="text-slate-300">
+                    {`${PRICING_CONFIG.pricing.monthly.reportLimit} inspection reports per month`}
+                  </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-success" />

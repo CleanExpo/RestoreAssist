@@ -131,6 +131,14 @@ const REMOVED: readonly string[] = [
   "Ascora & ServiceM8, and professional PDF reports",
   "upgrade your plan to connect to Xero, QuickBooks, MYOB, ServiceM8, or Ascora",
   "Native QuickBooks sync, no re-keying",
+  // RA-7714: the plan is 50 inspection reports a month, never unlimited.
+  "Unlimited reports",
+  // RA-7714: RestoreAssist IS the CRM; Ascora is a migration source, not an
+  // ongoing connection.
+  "Connect Ascora to sync jobs and pricing data.",
+  "Connect your field service and CRM platforms",
+  "Restoration Report Software Plans",
+  "Xero and Ascora connections",
 ];
 
 describe("grep proof — positive controls (the scan can find things)", () => {

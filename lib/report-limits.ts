@@ -4,6 +4,7 @@ import {
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 import { checkAndUpdateTrialStatus } from "@/lib/trial-handling";
+import { PRICING_CONFIG } from "@/lib/pricing";
 import {
   isExpiredTrialStatus,
   isExpiredTrialWindow,
@@ -21,15 +22,21 @@ import {
  * catalog, those users would silently drop to 50 the moment `pricing.yearly`
  * was deleted. Resolving from this stable map preserves 70/999 forever;
  * unknown/null plans fall back to the base 50 (never a lower silent value).
+ *
+ * RA-7714: only the RETIRED plans are decoupled. The live Monthly Plan and the
+ * fallback read the one plan allowance (PRICING_CONFIG.pricing.monthly
+ * .reportLimit), so what is enforced is what /pricing and the Subscription
+ * page state.
  */
+/** Base monthly report limit for any plan not in {@link PLAN_REPORT_LIMITS}. */
+export const DEFAULT_REPORT_LIMIT: number =
+  PRICING_CONFIG.pricing.monthly.reportLimit;
+
 export const PLAN_REPORT_LIMITS: Record<string, number> = {
   Lifetime: 999,
   "Yearly Plan": 70,
-  "Monthly Plan": 50,
+  "Monthly Plan": DEFAULT_REPORT_LIMIT,
 };
-
-/** Base monthly report limit for any plan not in {@link PLAN_REPORT_LIMITS}. */
-export const DEFAULT_REPORT_LIMIT = 50;
 
 /**
  * Resolve the base monthly report limit for a stored `subscriptionPlan` string.

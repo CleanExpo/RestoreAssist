@@ -290,7 +290,10 @@ export default function IntegrationsPage() {
       isProviderListed(integration.slug) ||
       Boolean(externalIntegrations[integration.slug]?.connected),
   );
-  const showReferralNetworks = isNrpgEnabled() || drNrpg.connected;
+  // RA-7714: NRPG appears nowhere until the founder switches it on — not
+  // even for an account that already has it connected (founder ruling). The
+  // saved connection is untouched; switching the flag on shows it again.
+  const showReferralNetworks = isNrpgEnabled();
   const showImportData = isImportDataEnabled();
 
   // Show success/error messages from OAuth callback
@@ -1419,7 +1422,9 @@ export default function IntegrationsPage() {
             </div>
           </div>
 
-          {/* ── Job Management ───────────────────────── */}
+          {/* ── Move your data across (RA-7714) ─────────
+              Ascora and ServiceM8 are migration sources, never ongoing
+              connections: RestoreAssist is the CRM. */}
           <div>
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-orange-500/10 dark:bg-orange-500/15 border border-orange-500/20">
@@ -1430,10 +1435,11 @@ export default function IntegrationsPage() {
               </div>
               <div>
                 <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                  Job Management
+                  Move your data across
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Connect your field service and CRM platforms
+                  Sign in once and bring your clients, jobs, history and
+                  pricing into RestoreAssist.
                 </p>
               </div>
             </div>
@@ -1607,7 +1613,7 @@ export default function IntegrationsPage() {
                           }
                         >
                           <ExternalLink />
-                          Connect
+                          Start import
                         </Button>
                       )}
                     </CardFooter>
@@ -1648,9 +1654,8 @@ export default function IntegrationsPage() {
             </div>
           </div>
           {/* ── Referral Networks ───────────────────── */}
-          {/* RA-7660: DR-NRPG is not ready to sell. Listed only with
-              NEXT_PUBLIC_NRPG_ENABLED on, or when this account already has it
-              connected, so an existing connection can still be disconnected. */}
+          {/* RA-7660 / RA-7714: DR-NRPG is not ready to sell. Listed only
+              with NEXT_PUBLIC_NRPG_ENABLED on. */}
           {showReferralNetworks && (
           <div>
             <div className="flex items-center gap-3">
@@ -1757,7 +1762,7 @@ export default function IntegrationsPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Connect Ascora</DialogTitle>
+            <DialogTitle>Import from Ascora</DialogTitle>
             <DialogDescription>
               Paste the API key from Ascora (Administration → API Settings).
               RestoreAssist verifies it against Ascora before saving, and stores
@@ -1795,7 +1800,7 @@ export default function IntegrationsPage() {
                   Connecting...
                 </>
               ) : (
-                "Connect"
+                "Start import"
               )}
             </Button>
           </DialogFooter>

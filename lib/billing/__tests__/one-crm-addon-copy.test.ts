@@ -31,10 +31,20 @@ afterEach(() => {
 describe("recurring add-on copy with every listing switch off", () => {
   it("no descriptor names NRPG, ServiceM8, MYOB or QuickBooks", async () => {
     const { RECURRING_ADDONS } = await loadRegistry({});
+    // RA-7714: the one exception is the migration add-on, whose founder-set
+    // name "Migrate from Ascora or ServiceM8" names ServiceM8 as a SOURCE to
+    // bring data across from once. That is a migration claim, not a claim
+    // that RestoreAssist connects or syncs with ServiceM8 (which RA-7660 hid
+    // because it never passed a real sync test). NRPG stays banned everywhere.
     const text = Object.values(RECURRING_ADDONS)
       .map((a) => `${a.name}\n${a.description}`)
       .join("\n");
-    expect(text).not.toMatch(/NRPG|ServiceM8|MYOB|QuickBooks/i);
+    expect(text).not.toMatch(/NRPG|MYOB|QuickBooks/i);
+    const outsideMigration = Object.values(RECURRING_ADDONS)
+      .filter((a) => a.sku !== "SERVICE_CRM")
+      .map((a) => `${a.name}\n${a.description}`)
+      .join("\n");
+    expect(outsideMigration).not.toMatch(/ServiceM8/i);
   });
 
   it("the Bookkeeping add-on names Xero only", async () => {
@@ -44,13 +54,19 @@ describe("recurring add-on copy with every listing switch off", () => {
     );
   });
 
-  it("the Service CRM add-on drops DR-NRPG and keeps its name and $11 price", async () => {
+  it("the SERVICE_CRM add-on is the Ascora / ServiceM8 migration and keeps its $11 price", async () => {
     const { RECURRING_ADDONS } = await loadRegistry({});
     const serviceCrm = RECURRING_ADDONS.SERVICE_CRM;
+    // RA-7714: founder-set wording. Ascora and ServiceM8 are migration
+    // sources, never ongoing connections; the price is a founder decision
+    // and does not move.
     expect(serviceCrm.description).toBe(
-      "Connect Ascora to sync jobs and pricing data.",
+      "Sign in once and bring your clients, jobs, history and pricing into RestoreAssist.",
     );
-    expect(serviceCrm.name).toBe("Service CRM Connection");
+    expect(serviceCrm.name).toBe("Migrate from Ascora or ServiceM8");
+    expect(`${serviceCrm.name} ${serviceCrm.description}`).not.toMatch(
+      /Service CRM Connection|sync jobs|connect ascora|NRPG/i,
+    );
     expect(serviceCrm.amount).toBe(11);
     expect(serviceCrm.currency).toBe("AUD");
     expect(serviceCrm.interval).toBe("month");

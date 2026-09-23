@@ -257,7 +257,7 @@ describe("IntegrationsPage — one status outage does not disable the others", (
     expect(
       within(ascora).queryByRole("button", { name: "Status unavailable" }),
     ).toBeNull();
-    const connect = within(ascora).getByRole("button", { name: /Connect/i });
+    const connect = within(ascora).getByRole("button", { name: /Start import/i });
     expect(connect).toBeEnabled();
 
     // The banner names what is down without gating anything.
@@ -343,7 +343,7 @@ describe("IntegrationsPage — Ascora status source of truth", () => {
     const card = await waitFor(() => providerCard("Ascora"));
     expect(within(card).queryByText("Connected")).not.toBeInTheDocument();
     expect(
-      within(card).getByRole("button", { name: /Connect/i }),
+      within(card).getByRole("button", { name: /Start import/i }),
     ).toBeInTheDocument();
   });
 });
@@ -356,13 +356,13 @@ describe("IntegrationsPage — Ascora connect dialog", () => {
 
   async function openDialogAndSubmit(key: string) {
     const card = await waitFor(() => providerCard("Ascora"));
-    fireEvent.click(within(card).getByRole("button", { name: /Connect/i }));
+    fireEvent.click(within(card).getByRole("button", { name: /Start import/i }));
 
     const input = await screen.findByLabelText("Ascora API Key");
     fireEvent.change(input, { target: { value: key } });
 
     const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Connect" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start import" }));
 
     return input as HTMLInputElement;
   }

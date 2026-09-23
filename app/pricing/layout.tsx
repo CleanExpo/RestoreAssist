@@ -5,7 +5,7 @@ import { isIosShellUserAgent } from "@/lib/capacitor";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pricing - Restoration Report Software Plans Australia",
+  title: "Pricing - Restoration CRM Plans Australia",
   // "unlimited reports" was FALSE — PRICING_CONFIG.pricing.monthly.reportLimit
   // is 50 per month, with paid top-up packs beyond it. "used by certified
   // restorers" was an unsubstantiated social-proof claim, the same one removed
@@ -23,8 +23,7 @@ export const metadata: Metadata = {
     "affordable restoration tools",
   ],
   openGraph: {
-    title:
-      "Pricing - Restoration Report Software Plans Australia | Restore Assist",
+    title: "Pricing - Restoration CRM Plans Australia | Restore Assist",
     description:
       "Pricing for Australian restoration professionals. 50 inspection reports a month, per-report rates published, IICRC S500 alignment.",
     type: "website",
