@@ -109,26 +109,6 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
-      # Must run BEFORE Build — `npm run build` invokes `prisma migrate deploy`
-      # via scripts/build.sh whenever DATABASE_URL is set (and VERCEL_ENV
-      # isn't preview/development). On vanilla postgres:16-alpine the
-      # 20260403010000_add_evidence_schema migration fails with
-      # `schema "auth" does not exist`, which writes a failed row into
-      # `_prisma_migrations`. Build is enforcing, and a failed migration row
-      # also poisons the database for the later
-      # `Prisma migration drift check` step (P3009). Stubbing the auth
-      # schema HERE — before any step touches Postgres — keeps the DB
-      # clean. Production unaffected: Supabase ships `auth.uid()` and
-      # the CREATE OR REPLACE never runs there because the workflow only
-      # runs in CI.
-      - name: Bootstrap Supabase auth.uid() stub for CI
-        run: |
-          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
-            CREATE SCHEMA IF NOT EXISTS auth;
-            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
-          "
-
       # RA-1548 follow-up — pre-resolve migrations that use
       # `CREATE INDEX CONCURRENTLY`. Prisma wraps each migration in a
       # transaction; CONCURRENTLY can't run inside one. These migrations
@@ -507,14 +487,6 @@ jobs:
         run: npm run prisma:generate
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-
-      - name: Bootstrap Supabase auth.uid() stub for CI
-        run: |
-          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
-            CREATE SCHEMA IF NOT EXISTS auth;
-            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
-          "
 
       # Keep this list in step with every copy named in the `quality` job
       # comment above `Pre-resolve CONCURRENTLY migrations`.

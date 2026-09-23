@@ -58,14 +58,6 @@ for i in $(seq 1 30); do
   if [ "$i" = "30" ]; then echo "Postgres did not become ready" >&2; exit 1; fi
 done
 
-# Mirror CI: stub the Supabase auth schema so migrations referencing auth.* apply.
-echo "==> Bootstrapping auth.uid() stub (matches CI)"
-docker exec -e PGPASSWORD=ci "$CONTAINER" psql -h localhost -U ci -d ci -c "
-  CREATE SCHEMA IF NOT EXISTS auth;
-  CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-    LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
-" >/dev/null
-
 echo "==> Generating Prisma client"
 npx --no-install prisma generate >/dev/null
 

@@ -6,8 +6,9 @@ name: Sketch E2E
 # run on every PR. NOT a required check yet — it's being stabilised; flip to
 # required once it's reliably green.
 #
-# Mirrors pr-checks.yml's DB bootstrap (auth.uid() stub + CONCURRENTLY
-# pre-resolve) so `prisma migrate deploy` applies cleanly on plain Postgres.
+# Mirrors pr-checks.yml's DB bootstrap (CONCURRENTLY pre-resolve) so
+# `prisma migrate deploy` applies cleanly on plain Postgres. auth.uid() is
+# supplied by 20260401000000_ra_7716_auth_uid_shim, not by a step here.
 
 on:
   pull_request:
@@ -134,16 +135,6 @@ jobs:
 
       - name: Generate Prisma client
         run: npm run prisma:generate
-
-      # Supabase ships auth.uid(); plain Postgres doesn't. The RLS migrations
-      # define SQL functions that reference it, so stub it before migrate deploy.
-      - name: Bootstrap Supabase auth.uid() stub for CI
-        run: |
-          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
-            CREATE SCHEMA IF NOT EXISTS auth;
-            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
-          "
 
       # CREATE INDEX CONCURRENTLY can't run inside Prisma's per-migration
       # transaction on plain Postgres — mark them applied (mirrors pr-checks).
