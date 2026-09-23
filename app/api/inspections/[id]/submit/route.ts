@@ -221,6 +221,7 @@ export async function POST(
         return NextResponse.json(
           {
             error:
+              makeSafeResult.reason ??
               "Stabilisation checklist incomplete — required per ANSI/IICRC S500:2021",
             blockers: makeSafeResult.blockers,
           },

@@ -24,6 +24,10 @@ import {
   moistureReadingsRequired,
   type IicrcClaimType,
 } from "@/lib/nir-standards-mapping";
+import {
+  evidenceReadiness,
+  type RequiredEvidenceProgress,
+} from "@/lib/evidence/evidence-readiness";
 
 export type InspectionEvidenceTab =
   | "overview"
@@ -47,6 +51,11 @@ interface InspectionEvidenceReadinessPanelProps {
   costEstimateCount: number;
   totalCost: number;
   onSelectTab: (tab: InspectionEvidenceTab) => void;
+  /**
+   * RA-7713: required items from the Field Evidence Checklist. Caps the
+   * readiness figure. null = not loaded yet or failed; omitted = not wired.
+   */
+  requiredEvidence?: RequiredEvidenceProgress | null;
 }
 
 type ReadinessItem = {
@@ -78,6 +87,7 @@ export default function InspectionEvidenceReadinessPanel({
   costEstimateCount,
   totalCost,
   onSelectTab,
+  requiredEvidence,
 }: InspectionEvidenceReadinessPanelProps) {
   const waterClaim = moistureReadingsRequired(
     claimType as IicrcClaimType | null | undefined,
@@ -177,9 +187,19 @@ export default function InspectionEvidenceReadinessPanel({
   const completeCount = actionableItems.filter(
     (item) => item.state === "complete",
   ).length;
-  const percent = Math.round((completeCount / actionableItems.length) * 100);
+  // RA-7713: never above required field-evidence completion.
+  const readiness = evidenceReadiness({
+    sectionsComplete: completeCount,
+    sectionsTotal: actionableItems.length,
+    required: requiredEvidence,
+  });
+  const percent = readiness.percent;
   const nextItem = items.find((item) => item.state === "attention");
-  const packageReady = !nextItem && ["COMPLETED", "CLOSED", "ARCHIVED"].includes(status);
+  const packageReady =
+    !nextItem &&
+    requiredEvidence !== null &&
+    readiness.requiredComplete !== false &&
+    ["COMPLETED", "CLOSED", "ARCHIVED"].includes(status);
 
   return (
     <section className="rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/60 p-5 space-y-5">
@@ -197,13 +217,20 @@ export default function InspectionEvidenceReadinessPanel({
           </p>
         </div>
 
-        <div className="rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-950/50 px-4 py-3 min-w-[180px]">
+        <div
+          className="rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-950/50 px-4 py-3 min-w-[180px]"
+          data-testid="evidence-readiness-meter"
+        >
           <div className="flex items-baseline justify-between gap-4">
             <span className="text-sm text-neutral-500 dark:text-slate-400">
               Ready
             </span>
             <span className="text-2xl font-bold text-neutral-900 dark:text-white">
-              {percent}%
+              {percent === null
+                ? "—"
+                : readiness.notStarted
+                  ? "Not started"
+                  : `${percent}%`}
             </span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-slate-800">
@@ -212,12 +239,19 @@ export default function InspectionEvidenceReadinessPanel({
                 "h-full rounded-full transition-all",
                 percent === 100 ? "bg-success" : "bg-cyan-500",
               )}
-              style={{ width: `${percent}%` }}
+              style={{ width: `${percent ?? 0}%` }}
             />
           </div>
           <p className="mt-2 text-xs text-neutral-500 dark:text-slate-400">
-            {completeCount}/{actionableItems.length} evidence checks complete
+            {completeCount}/{actionableItems.length} job sections recorded
           </p>
+          {requiredEvidence !== undefined && (
+            <p className="text-xs text-neutral-500 dark:text-slate-400">
+              {requiredEvidence === null
+                ? "Required field evidence not loaded"
+                : `${requiredEvidence.present}/${requiredEvidence.total} required field evidence captured`}
+            </p>
+          )}
         </div>
       </div>
 

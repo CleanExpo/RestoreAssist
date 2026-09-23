@@ -63,6 +63,14 @@ interface MoistureMappingCanvasProps {
   onBackgroundImageChange?: (imageUrl: string | null) => void;
   onImageUpload?: (file: File) => Promise<string>;
   readonly?: boolean;
+  /**
+   * RA-7713: persist a reading's position (normalised 0-1). If it rejects,
+   * the reading goes back to the unplaced list with an error.
+   */
+  onPlaceReading?: (
+    readingId: string,
+    position: { mapX: number; mapY: number },
+  ) => Promise<void> | void;
 }
 
 // IICRC S500 equipment configuration
@@ -131,6 +139,7 @@ export default function MoistureMappingCanvas({
   onBackgroundImageChange,
   onImageUpload,
   readonly = false,
+  onPlaceReading,
 }: MoistureMappingCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [sketchMode, setSketchMode] = useState<SketchMode>("moisture");
@@ -159,34 +168,66 @@ export default function MoistureMappingCanvas({
   const [zoom, setZoom] = useState(1);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showCoverage, setShowCoverage] = useState(true);
+  const [placeError, setPlaceError] = useState<string | null>(null);
 
   const CANVAS_WIDTH = 800;
   const CANVAS_HEIGHT = 600;
 
+  // RA-7713: canvas coordinates of a pointer event (click or drop).
+  const toCanvasPoint = (clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const x = ((clientX - rect.left) / rect.width) * CANVAS_WIDTH;
+    const y = ((clientY - rect.top) / rect.height) * CANVAS_HEIGHT;
+    // A NaN would serialise to null and clear the saved position.
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return { x, y };
+  };
+
+  // RA-7713: place a reading locally, then persist it through onPlaceReading.
+  // A failed save puts the reading back in the unplaced list and says so.
+  const placeReadingAt = (reading: MoistureReading, x: number, y: number) => {
+    const newPoint: MoisturePoint = { id: reading.id, x, y, reading };
+    const updatedPoints = [
+      ...points.filter((p) => p.id !== reading.id),
+      newPoint,
+    ];
+    setPoints(updatedPoints);
+    setUnplacedReadings((prev) => prev.filter((r) => r.id !== reading.id));
+    setPlacingReading(null);
+    setPlaceError(null);
+    onPointsChange?.(updatedPoints);
+    if (!onPlaceReading) return;
+    const position = {
+      mapX: Math.min(1, Math.max(0, x / CANVAS_WIDTH)),
+      mapY: Math.min(1, Math.max(0, y / CANVAS_HEIGHT)),
+    };
+    Promise.resolve()
+      .then(() => onPlaceReading(reading.id, position))
+      .catch((err: unknown) => {
+        setPoints((prev) => prev.filter((p) => p.id !== reading.id));
+        setUnplacedReadings((prev) =>
+          prev.some((r) => r.id === reading.id) ? prev : [...prev, reading],
+        );
+        setPlaceError(
+          `Could not save the position of ${reading.location}: ${
+            err instanceof Error ? err.message : "unknown error"
+          }. Try again.`,
+        );
+      });
+  };
+
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
       if (readonly) return;
-      const svg = svgRef.current;
-      if (!svg) return;
-
-      const rect = svg.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * CANVAS_WIDTH;
-      const y = ((e.clientY - rect.top) / rect.height) * CANVAS_HEIGHT;
+      const pt = toCanvasPoint(e.clientX, e.clientY);
+      if (!pt) return;
+      const { x, y } = pt;
 
       if (sketchMode === "moisture" && placingReading) {
-        const newPoint: MoisturePoint = {
-          id: placingReading.id,
-          x,
-          y,
-          reading: placingReading,
-        };
-        const updatedPoints = [...points, newPoint];
-        setPoints(updatedPoints);
-        setUnplacedReadings((prev) =>
-          prev.filter((r) => r.id !== placingReading.id),
-        );
-        setPlacingReading(null);
-        onPointsChange?.(updatedPoints);
+        placeReadingAt(placingReading, x, y);
       } else if (sketchMode === "equipment" && placingEquipment) {
         const newEq: EquipmentPoint = {
           id: `eq-${Date.now()}`,
@@ -209,8 +250,20 @@ export default function MoistureMappingCanvas({
       sketchMode,
       onPointsChange,
       onEquipmentPointsChange,
+      onPlaceReading,
     ],
   );
+
+  // RA-7713: drag a reading from the unplaced list onto the grid.
+  const handleDrop = (e: React.DragEvent<SVGSVGElement>) => {
+    if (readonly || sketchMode !== "moisture") return;
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text/plain");
+    const reading = unplacedReadings.find((r) => r.id === id);
+    const pt = toCanvasPoint(e.clientX, e.clientY);
+    if (!reading || !pt) return;
+    placeReadingAt(reading, pt.x, pt.y);
+  };
 
   const removeEquipment = (id: string) => {
     if (readonly) return;
@@ -519,6 +572,10 @@ export default function MoistureMappingCanvas({
             )}
             style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
             onClick={handleCanvasClick}
+            onDragOver={(e) => {
+              if (!readonly && sketchMode === "moisture") e.preventDefault();
+            }}
+            onDrop={handleDrop}
             role="img"
             aria-label="Moisture mapping canvas — click to place readings and equipment"
           >
@@ -564,7 +621,9 @@ export default function MoistureMappingCanvas({
                     opacity="0.3"
                     fontSize="16"
                   >
-                    Upload a floor plan or click to place readings on the grid
+                    {sketchMode === "moisture" && unplacedReadings.length > 0
+                      ? "Select a reading on the right, then click the grid to place it (or drag it here)"
+                      : "Upload a floor plan or place readings from the Moisture Map tab"}
                   </text>
                 )}
               </>
@@ -581,6 +640,7 @@ export default function MoistureMappingCanvas({
                 return (
                   <g
                     key={point.id}
+                    data-testid={`moisture-marker-${point.id}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!readonly && sketchMode === "moisture") {
@@ -797,15 +857,35 @@ export default function MoistureMappingCanvas({
                 </div>
               )}
 
+              {placeError && (
+                <div
+                  role="alert"
+                  className="p-2.5 rounded-lg border border-destructive/40 bg-destructive/10 text-xs text-destructive"
+                >
+                  {placeError}
+                </div>
+              )}
+
               {unplacedReadings.length > 0 && (
                 <div className="space-y-2">
                   <div className="text-xs font-semibold text-neutral-500 uppercase">
                     Unplaced Readings ({unplacedReadings.length})
                   </div>
+                  {!readonly && (
+                    <p className="text-xs text-neutral-500 dark:text-slate-400">
+                      Select a reading, then click the grid to place it, or
+                      drag it onto the grid.
+                    </p>
+                  )}
                   <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
                     {unplacedReadings.map((reading) => (
                       <button
                         key={reading.id}
+                        draggable={!readonly}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", reading.id);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
                         onClick={() =>
                           setPlacingReading(
                             placingReading?.id === reading.id ? null : reading,
