@@ -112,6 +112,7 @@ const db = vi.hoisted(() => ({
   rows: [] as Array<Record<string, unknown>>,
   seq: 0,
   inspection: null as Record<string, unknown> | null,
+  wdc: null as Record<string, unknown> | null,
 }));
 
 function matches(row: Record<string, unknown>, where: Record<string, unknown> = {}) {
@@ -208,7 +209,27 @@ vi.mock("@/lib/prisma", () => {
     pilotObservation: { create: vi.fn(async () => ({})) },
     auditLog: { create: vi.fn(async () => ({})) },
     classification,
-    waterDamageClassification: { upsert: vi.fn(async () => ({})) },
+    // Stateful: the Claim-type evidence panel reads and writes this record.
+    waterDamageClassification: {
+      findUnique: vi.fn(async () => (db.wdc ? { ...db.wdc } : null)),
+      upsert: vi.fn(
+        async ({
+          create,
+          update,
+        }: {
+          create: Record<string, unknown>;
+          update: Record<string, unknown>;
+        }) => {
+          db.wdc = db.wdc ? { ...db.wdc, ...update } : { ...create };
+          return { ...db.wdc };
+        },
+      ),
+      deleteMany: vi.fn(async () => {
+        const count = db.wdc ? 1 : 0;
+        db.wdc = null;
+        return { count };
+      }),
+    },
     affectedArea: { update: vi.fn(async () => ({})) },
     scopeItem: { createMany: vi.fn(async () => ({ count: 0 })) },
     costEstimate: { createMany: vi.fn(async () => ({ count: 0 })) },
@@ -275,6 +296,7 @@ function inspectionFixture(
       class: null,
     })),
     scopeItems: [],
+    _count: { photos: 0 },
     photos: [],
     waterDamageClassification: wdc,
   };
@@ -328,6 +350,7 @@ beforeEach(() => {
   db.rows = [];
   db.seq = 0;
   db.inspection = null;
+  db.wdc = null;
   mockGetServerSession.mockResolvedValue({
     user: { id: "user-1", email: "t@example.com" },
   } as never);
@@ -542,5 +565,114 @@ describe("RA-7709 — manual override flag", () => {
     });
     expect(saved.reviewedBy).toBe("user-1");
     expect(JSON.parse(saved.inputData ?? "{}").manualOverride).toBe(true);
+  });
+});
+
+// ── 4. The Claim-type evidence panel's Category / Class pick ────────────────
+//
+// Lead decision (RA-7709): a pick in NIRClaimAssessmentPanel is a real
+// technician edit. It must reach the saved row and the preview, and clearing
+// it must return the job to the calculated result.
+
+async function panelPost(body: Record<string, unknown>) {
+  const { POST } = await import("../../water-damage-classification/route");
+  const res = await POST(
+    new NextRequest(
+      "http://localhost/api/inspections/insp-1/water-damage-classification",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    ),
+    params,
+  );
+  expect(res.status).toBe(200);
+}
+
+async function panelDelete() {
+  const { DELETE } = await import("../../water-damage-classification/route");
+  const res = await DELETE(
+    new NextRequest(
+      "http://localhost/api/inspections/insp-1/water-damage-classification",
+      { method: "DELETE" },
+    ),
+    params,
+  );
+  expect(res.status).toBe(200);
+}
+
+const PANEL_AREAS: CaseArea[] = [
+  { room: "Hall", sqm: 5, source: "Clean Water", hours: 4 },
+];
+const PANEL_READINGS: CaseReading[] = [
+  { room: "Hall", surface: "Carpet", level: 8 },
+];
+
+describe("RA-7709 — Claim-type evidence panel choice", () => {
+  it("a panel pick of Cat 2 / Class 3 is what the preview shows and what submit saves, as an override", async () => {
+    db.inspection = inspectionFixture(PANEL_AREAS, PANEL_READINGS);
+    await panelPost({ waterCategory: "CAT_2", damageClass: "CLASS_3" });
+
+    await submit();
+
+    const saved = shownRow()!;
+    expect({ category: saved.category, class: saved.class }).toEqual({
+      category: "2",
+      class: "3",
+    });
+    expect(saved.reviewedBy).toBe("user-1");
+    expect(JSON.parse(saved.inputData ?? "{}").manualOverride).toBe(true);
+    expect(rowsFor()).toHaveLength(1);
+
+    // The panel reports { category: "2", class: "3" } to the form (see the
+    // panel component test); the preview is computed from that choice.
+    const preview = calculateClassificationPreview({
+      ...formInput(PANEL_AREAS, PANEL_READINGS),
+      manualClassification: { category: "2", class: "3" },
+    });
+    expect({ category: preview!.category, class: preview!.class }).toEqual({
+      category: saved.category,
+      class: saved.class,
+    });
+  });
+
+  it("clearing the panel pick before submit gives the calculated result, not an override", async () => {
+    db.inspection = inspectionFixture(PANEL_AREAS, PANEL_READINGS);
+    await panelPost({ waterCategory: "CAT_2", damageClass: "CLASS_3" });
+    await panelPost({ waterCategory: null, damageClass: null });
+
+    await submit();
+
+    const preview = calculateClassificationPreview({
+      ...formInput(PANEL_AREAS, PANEL_READINGS),
+      manualClassification: null,
+    });
+    const saved = shownRow()!;
+    expect(saved.reviewedBy).toBeNull();
+    expect(JSON.parse(saved.inputData ?? "{}").manualOverride).toBe(false);
+    expect({ category: saved.category, class: saved.class }).toEqual({
+      category: preview!.category,
+      class: preview!.class,
+    });
+    expect(rowsFor()).toHaveLength(1);
+  });
+
+  it("removing the panel record (claim type changed) before submit also clears the pick", async () => {
+    db.inspection = inspectionFixture(PANEL_AREAS, PANEL_READINGS);
+    await panelPost({ waterCategory: "CAT_2", damageClass: "CLASS_3" });
+    await panelDelete();
+
+    await submit();
+
+    const saved = shownRow()!;
+    expect(saved.reviewedBy).toBeNull();
+    expect(JSON.parse(saved.inputData ?? "{}").manualOverride).toBe(false);
+  });
+
+  it("saving only loss-source fields does not create a technician choice", async () => {
+    db.inspection = inspectionFixture(PANEL_AREAS, PANEL_READINGS);
+    await panelPost({ lossSourceType: "PLUMBING", lossSourceIdentified: true });
+    expect(rowsFor()).toHaveLength(0);
   });
 });
