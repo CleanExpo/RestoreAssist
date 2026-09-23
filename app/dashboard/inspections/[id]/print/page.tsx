@@ -142,7 +142,14 @@ export default function InspectionPrintPage({
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { treatment: gstTreatment } = useOrganizationGst();
+  const {
+    treatment: gstTreatment,
+    ready: gstReady,
+    failed: gstFailed,
+  } = useOrganizationGst();
+  // RA-7725: the hook starts at the AU default. Show no tax figure and keep
+  // printing disabled until the tenant's own treatment is known.
+  const gstKnown = gstReady && !gstFailed;
 
   useEffect(() => {
     fetch(`/api/inspections/${id}`)
@@ -245,10 +252,25 @@ export default function InspectionPrintPage({
         <span className="text-sm font-semibold text-neutral-700">
           {inspection.inspectionNumber}
         </span>
-        <Button onClick={() => window.print()} size="sm">
+        <Button
+          onClick={() => window.print()}
+          size="sm"
+          disabled={!gstKnown}
+        >
           Print / Save PDF
         </Button>
       </div>
+
+      {gstFailed && (
+        <div
+          role="alert"
+          className="no-print max-w-4xl mx-auto mt-20 -mb-16 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800"
+        >
+          Could not load your organisation&apos;s GST rate, so GST and the
+          grand total are not shown and printing is disabled. Check the
+          organisation country in Settings, then reload this page.
+        </div>
+      )}
 
       {/* ── Report Body ──────────────────────────────────────────────────── */}
       <div className="max-w-4xl mx-auto px-6 pb-16 pt-20 print:pt-0 print:px-0 space-y-8">
@@ -741,10 +763,14 @@ export default function InspectionPrintPage({
                       colSpan={5}
                       className="px-3 py-2 text-right text-sm text-neutral-600"
                     >
-                      GST ({gstTreatment.percentLabel})
+                      {gstKnown ? `GST (${gstTreatment.percentLabel})` : "GST"}
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-neutral-900">
-                      ${fmtCurrency(gst)}
+                      {gstKnown
+                        ? `$${fmtCurrency(gst)}`
+                        : gstFailed
+                          ? "Unavailable"
+                          : "Calculating GST..."}
                     </td>
                   </tr>
                   <tr className="bg-neutral-50 border-t-2 border-neutral-300">
@@ -755,7 +781,11 @@ export default function InspectionPrintPage({
                       Grand Total (inc. GST)
                     </td>
                     <td className="px-3 py-3 text-right font-bold text-lg text-success">
-                      ${fmtCurrency(grandTotal)}
+                      {gstKnown
+                        ? `$${fmtCurrency(grandTotal)}`
+                        : gstFailed
+                          ? "Unavailable"
+                          : "Calculating GST..."}
                     </td>
                   </tr>
                 </tfoot>
