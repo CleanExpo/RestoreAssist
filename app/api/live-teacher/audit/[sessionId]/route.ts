@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { adminUserScope, verifyAdminFromDb } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
@@ -81,7 +81,27 @@ export async function GET(
           status: 403,
         });
       }
-      // adminAuth.user is set — proceed as admin
+
+      // adminAuth.user is set, but ADMIN is every self-registered owner
+      // (RA-7592) — it proves the role, not the tenant. Without this an owner
+      // of one organisation could read another's full on-site transcript:
+      // every utterance, the tool arguments and results, and the session cost.
+      // adminUserScope narrows to the admin's organisation and falls back to
+      // their own row when that organisation is null (RA-7647).
+      const reachable = await prisma.user.findFirst({
+        where: {
+          id: liveSession.userId,
+          ...adminUserScope(adminAuth.user!),
+        },
+        select: { id: true },
+      });
+      if (!reachable) {
+        return apiError(_request, {
+          code: "NOT_FOUND",
+          message: "Session not found",
+          status: 404,
+        });
+      }
     }
 
     // Rule 4: explicit select + take limits on child queries
