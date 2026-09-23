@@ -2,6 +2,7 @@
 
 import { Crown, XIcon } from "lucide-react";
 import BillingGate from "@/components/capacitor/BillingGate";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -37,12 +38,13 @@ function UpgradeModalContent({
         </div>
         <div className="space-y-4">
           <p className="text-neutral-700 dark:text-slate-300">
-            To create clients, you need an active subscription (Monthly or
-            Yearly plan).
+            To create clients, you need an active subscription (the Monthly
+            Plan).
           </p>
           <p className="text-sm text-neutral-600 dark:text-slate-400">
-            Upgrade now to unlock all features including unlimited clients,
-            reports, API integrations, and priority support.
+            The Monthly Plan includes client management and{" "}
+            {PRICING_CONFIG.pricing.monthly.reportLimit} inspection reports a
+            month.
           </p>
           <div className="flex gap-3 pt-4">
             <button

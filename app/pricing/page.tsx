@@ -159,7 +159,7 @@ function PricingPageContent() {
       <MarketingPageHero
         align="center"
         eyebrow="Plans"
-        title="Restoration Report Software Plans"
+        title="Restoration CRM Plans"
         description={`Start with a ${freeCfg.trialDays}-day free trial — ${freeCfg.trialReportCredits} inspection report credits and basic features, no credit card required. Paying gets you a report allowance that comes back every month, Quick Fill that stays unlimited once the trial ends, enhanced and optimised report types, PDF upload and processing, and full profile and pricing configuration. Your first month carries a signup bonus of ${PRICING_CONFIG.pricing.monthly.signupBonus} additional reports.`}
       />
 

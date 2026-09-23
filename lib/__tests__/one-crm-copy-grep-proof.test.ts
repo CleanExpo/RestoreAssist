@@ -131,6 +131,17 @@ const REMOVED: readonly string[] = [
   "Ascora & ServiceM8, and professional PDF reports",
   "upgrade your plan to connect to Xero, QuickBooks, MYOB, ServiceM8, or Ascora",
   "Native QuickBooks sync, no re-keying",
+  // RA-7714: the plan is 50 inspection reports a month, never unlimited.
+  "Unlimited reports",
+  // RA-7714: RestoreAssist IS the CRM; Ascora is a migration source, not an
+  // ongoing connection.
+  "Connect Ascora to sync jobs and pricing data.",
+  "Connect your field service and CRM platforms",
+  "Restoration Report Software Plans",
+  "Xero and Ascora connections",
+  // RA-7714 round 2: a ServiceM8 import cannot be started (flag-hidden,
+  // beta-disabled), so the add-on is not sold under its name.
+  "Migrate from Ascora or ServiceM8",
 ];
 
 describe("grep proof — positive controls (the scan can find things)", () => {
@@ -182,6 +193,113 @@ describe("grep proof — removed strings appear nowhere user-facing", () => {
       expect(entry, `${file} was not scanned`).toBeDefined();
       expect(entry!.raw).not.toMatch(/NRPG/i);
     }
+  });
+});
+
+// ── RA-7714 review: no "unlimited reports" in ANY letter case ──────────────
+//
+// The exact-string needle above ("Unlimited reports") missed lowercase
+// sentences in two upgrade modals and the trial-expiring email. The plan is a
+// monthly allowance (PRICING_CONFIG.pricing.monthly.reportLimit), so no
+// buyer-facing copy may call reports unlimited. Comment lines are removed
+// first: comments that explain the old false claim are not copy.
+
+// Round 2 review: "you now have unlimited access" (post-payment page) is the
+// same claim in other words, so "unlimited access" is banned too.
+const UNLIMITED_REPORTS =
+  /\bunlimited\s+(?:(?:clients,\s+)?reports?\b(?:\s+generation)?|access\b)/i;
+
+// The only permitted match: the credits-page banner that renders ONLY when
+// reportLimits.hasUnlimited (or an unlimited trial) is true, so it is true
+// whenever it is shown.
+const UNLIMITED_REPORTS_ALLOWED = new Set(["app/dashboard/credits/page.tsx"]);
+
+function withoutCommentLines(raw: string): string {
+  return raw
+    .split("\n")
+    .filter((line) => !/^\s*(?:\/\/|\/\*|\*|\{\/\*)/.test(line))
+    .join(" ")
+    .replace(/\s+/g, " ");
+}
+
+function unlimitedReportsHits(): string[] {
+  return corpus
+    .filter((c) => !UNLIMITED_REPORTS_ALLOWED.has(c.file))
+    .filter((c) => UNLIMITED_REPORTS.test(withoutCommentLines(c.raw)))
+    .map((c) => c.file);
+}
+
+describe("grep proof — no copy calls reports unlimited, any case", () => {
+  it.each([
+    "unlock all features — unlimited reports, priority support",
+    "Upgrade now to unlock unlimited reports, client management",
+    "<li>Unlimited report generation</li>",
+    "all features including unlimited clients,\n reports, API integrations",
+    "Your account has been upgraded\n and you now have unlimited access.",
+  ])("the matcher flags %j", (sentence) => {
+    expect(UNLIMITED_REPORTS.test(withoutCommentLines(sentence))).toBe(true);
+  });
+
+  it("the matcher ignores a comment line and a bounded allowance", () => {
+    expect(
+      UNLIMITED_REPORTS.test(
+        withoutCommentLines('  // "unlimited reports" was FALSE'),
+      ),
+    ).toBe(false);
+    expect(
+      UNLIMITED_REPORTS.test("50 inspection reports per month, unlimited Quick Fill"),
+    ).toBe(false);
+  });
+
+  it("the allow-listed file really contains the gated banner", () => {
+    const credits = corpus.find(
+      (c) => c.file === "app/dashboard/credits/page.tsx",
+    );
+    expect(credits).toBeDefined();
+    expect(UNLIMITED_REPORTS.test(withoutCommentLines(credits!.raw))).toBe(
+      true,
+    );
+    expect(credits!.raw).toContain("reportLimits?.hasUnlimited");
+  });
+
+  it("no other scanned file says it", () => {
+    expect(unlimitedReportsHits()).toEqual([]);
+  });
+});
+
+// ── RA-7714 review round 3: no "Premium API integrations" upsell ──────────
+//
+// components/pricing/TierComparison.tsx records why the pricing row was
+// removed: reports run on the customer's own Anthropic or OpenAI key on EVERY
+// plan, so there is no API upgrade to sell. Signup and the upgrade banner
+// still sold it. Comment lines (which explain the removal) are not copy.
+
+const PREMIUM_API = /\bpremium\s+api\s+integrations?\b/i;
+
+describe("grep proof — no copy sells premium API integrations", () => {
+  it("the matcher flags both spellings and ignores a comment", () => {
+    expect(PREMIUM_API.test("<li>Premium API integrations</li>")).toBe(true);
+    expect(PREMIUM_API.test('title: "Premium API Integrations",')).toBe(true);
+    expect(
+      PREMIUM_API.test(
+        withoutCommentLines('  // The "Premium API integrations" row was removed'),
+      ),
+    ).toBe(false);
+  });
+
+  it("the comment that records the removal is really scanned", () => {
+    const tier = corpus.find(
+      (c) => c.file === "components/pricing/TierComparison.tsx",
+    );
+    expect(tier).toBeDefined();
+    expect(PREMIUM_API.test(tier!.raw)).toBe(true);
+  });
+
+  it("no scanned file says it outside a comment", () => {
+    const hits = corpus
+      .filter((c) => PREMIUM_API.test(withoutCommentLines(c.raw)))
+      .map((c) => c.file);
+    expect(hits).toEqual([]);
   });
 });
 

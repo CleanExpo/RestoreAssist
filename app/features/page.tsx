@@ -354,7 +354,9 @@ const PAID_ADDS: readonly string[] = [
   `${monthlyCfg.reportLimit} inspection reports a month, plus ${monthlyCfg.signupBonus} in your first`,
   "A monthly allowance that resets, in place of a one-off trial credit grant",
   "Your own labour, equipment and chemical rates, in place of the state defaults",
-  "Xero and Ascora connections",
+  // RA-7714: Ascora is a migration source, not an ongoing connection, and
+  // both it and Xero are separately-priced add-ons, not part of the $99.
+  "Optional add-ons, including Migrate from Ascora",
   "Report packs when a month runs long, from $20 for 8",
 ];
 
