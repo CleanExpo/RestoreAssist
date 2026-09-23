@@ -3,6 +3,10 @@ import { resolvePortalAccess } from "@/lib/portal/resolve-portal-inspection";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { generateConsumerReportPdf } from "@/lib/portal/consumer-report";
+import {
+  WORKSPACE_OWNER_SELECT,
+  workspaceBusiness,
+} from "@/lib/reports/workspace-business";
 
 // Public token downloads intentionally exclude reviewer-only classifications,
 // environmental measurements and raw moisture readings.
@@ -57,7 +61,9 @@ export async function GET(
         select: {
           title: true,
           status: true,
-          user: { select: { businessName: true, name: true } },
+          user: {
+            select: { businessName: true, name: true, ...WORKSPACE_OWNER_SELECT },
+          },
         },
       },
     },
@@ -82,7 +88,9 @@ export async function GET(
     date: inspection.createdAt,
     affectedAreaCount: inspection.affectedAreas.length,
     scopeItemCount: inspection.scopeItems.length,
-    contractorName: report.user.businessName ?? report.user.name,
+    // RA-7727: the workspace owner's business, whoever wrote the report.
+    contractorName:
+      workspaceBusiness(report.user).businessName ?? report.user.name,
   });
 
   const filename = `client-report-${inspection.inspectionNumber}.pdf`.replace(

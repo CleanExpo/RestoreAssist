@@ -124,6 +124,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
     ? await fetchTechnicianIdentity(
         inspection.technicianId,
         inspection.technicianName,
+        inspection.userId,
       ).catch(() => null)
     : null;
 
@@ -279,9 +280,10 @@ export default async function ClientPortalPage({ params }: PageProps) {
         {/* Client evidence upload — photos + a note (quarantined for staff review) */}
         {showInteractiveActions && <ClientPortalUpload token={token} />}
 
-        {/* Who is in your home. Falls back to the bare name above when the
-            technician is not linked to a profile, or has opted out of being
-            shown publicly. */}
+        {/* Who is in your home: the business's profile, saved by the
+            workspace owner (RA-7727). Falls back to the bare name above when
+            there is no profile, or the owner opted out of being shown
+            publicly. */}
         {technician && <TechnicianIdentityCard technician={technician} />}
 
         <PortalAboutSection

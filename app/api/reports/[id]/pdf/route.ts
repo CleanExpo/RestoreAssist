@@ -13,6 +13,10 @@ import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 import { crossReferenceEvidencePhotos } from "@/lib/reports/evidence-map";
+import {
+  WORKSPACE_OWNER_SELECT,
+  workspaceBusiness,
+} from "@/lib/reports/workspace-business";
 
 /**
  * GET /api/reports/[id]/pdf
@@ -81,9 +85,15 @@ export async function GET(
             businessName: true,
             businessAddress: true,
             businessABN: true,
+            // RA-7727: the header names the workspace owner's business.
+            role: WORKSPACE_OWNER_SELECT.role,
             // Firm branding (setup BrandCard) → drives the report's logo + accent.
             organization: {
-              select: { logoUrl: true, primaryColor: true },
+              select: {
+                logoUrl: true,
+                primaryColor: true,
+                ...WORKSPACE_OWNER_SELECT.organization.select,
+              },
             },
           },
         },
@@ -169,6 +179,12 @@ export async function GET(
     // Parse JSON fields before passing to PDF generator
     const reportData = {
       ...report,
+      // RA-7727: header business details are the workspace owner's, whoever
+      // wrote the report; the author stays the named technician.
+      user: report.user && {
+        ...report.user,
+        ...workspaceBusiness(report.user),
+      },
       // Structured Basic/Enhanced reports store JSON in detailedReport —
       // Section 7 renders a text narrative, so raw JSON must not leak into
       // the client PDF (RA-7003).

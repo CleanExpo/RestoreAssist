@@ -87,6 +87,7 @@ export default async function ClientLearnKioskPage({ params }: PageProps) {
       ? fetchTechnicianIdentity(
           inspection.technicianId,
           inspection.technicianName,
+          inspection.userId,
         ).catch(() => null)
       : Promise.resolve(null),
   ]);
