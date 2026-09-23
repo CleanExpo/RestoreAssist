@@ -81,6 +81,12 @@ export interface NIRJobPayload {
   waterCategory?: "1" | "2" | "3";
   waterClass?: "1" | "2" | "3" | "4";
   scopeItems: NIRScopeItem[];
+  /**
+   * RA-7736: job-level contingency, ex-GST, in cents. Since RA-7708 it is one
+   * CostEstimate row with no scope item, so it is not in `scopeItems`; every
+   * accounting sync exports it as its own taxable line.
+   */
+  contingencyExGST?: number;
   totalExGST: number; // cents
   gstAmount: number; // cents
   totalIncGST: number; // cents
@@ -205,6 +211,23 @@ export async function syncNIRJobToXero(
         ],
       };
     }),
+    // RA-7736: taxed at the jurisdiction rate, as on the invoice.
+    ...(job.contingencyExGST && job.contingencyExGST > 0
+      ? [
+          {
+            Description: "Contingency",
+            Quantity: 1,
+            UnitAmount: cents(job.contingencyExGST),
+            AccountCode: damageAccountCode,
+            TaxType: jurisdiction.xeroTaxType,
+            LineAmount: cents(job.contingencyExGST),
+            TrackingCategories: [
+              { Name: "Damage Type", Option: job.damageType },
+              { Name: "State", Option: job.propertyState ?? "QLD" },
+            ],
+          },
+        ]
+      : []),
     ...(job.technician
       ? [
           {
