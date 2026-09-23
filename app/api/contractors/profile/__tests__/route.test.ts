@@ -1,0 +1,166 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+
+// RA-7723: the workspace owner (User.role "ADMIN" — D-023, every
+// self-registered owner) must be able to create and reload their contractor
+// profile. The PUT guard used to compare against "CONTRACTOR", a value the
+// Role enum (USER | ADMIN | MANAGER) has never had, so every save was 403.
+//
+// The REAL lib/api-errors envelope is used on purpose so these tests assert
+// the shape the browser actually receives: { error: { code, message } }.
+
+const getServerSession = vi.fn();
+const userFindUnique = vi.fn();
+const profileFindUnique = vi.fn();
+const profileUpsert = vi.fn();
+
+vi.mock("next-auth", () => ({
+  getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
+vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
+    contractorProfile: {
+      findUnique: (...a: unknown[]) => profileFindUnique(...a),
+      upsert: (...a: unknown[]) => profileUpsert(...a),
+    },
+  },
+}));
+
+import { GET, PUT } from "../route";
+
+const URL = "http://localhost/api/contractors/profile";
+
+function putReq(body: unknown) {
+  return new NextRequest(URL, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+const VALID_BODY = {
+  publicDescription: "Water damage restoration, Brisbane north",
+  yearsInBusiness: 12,
+  teamSize: 6,
+  isPubliclyVisible: true,
+  specializations: ["Water damage", "Mould"],
+};
+
+// In-memory stand-in for the ContractorProfile table, keyed by userId, so a
+// PUT followed by a GET round-trips through the same handlers.
+let rows: Map<string, Record<string, unknown>>;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  rows = new Map();
+  profileFindUnique.mockImplementation(
+    async (args: { where: { userId: string } }) =>
+      rows.get(args.where.userId) ?? null,
+  );
+  profileUpsert.mockImplementation(
+    async (args: {
+      where: { userId: string };
+      create: Record<string, unknown>;
+      update: Record<string, unknown>;
+    }) => {
+      const existing = rows.get(args.where.userId);
+      const next = existing
+        ? { ...existing, ...args.update }
+        : { id: `cp_${args.where.userId}`, ...args.create };
+      rows.set(args.where.userId, next);
+      return next;
+    },
+  );
+});
+
+describe("/api/contractors/profile (RA-7723)", () => {
+  it("GET with no profile row yet returns 200 and an empty profile, not an error", async () => {
+    getServerSession.mockResolvedValue({ user: { id: "owner1" } });
+    const res = await GET(new NextRequest(URL));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.profile).toBeNull();
+  });
+
+  it("workspace owner (ADMIN): first PUT creates the row, GET returns the same values", async () => {
+    getServerSession.mockResolvedValue({ user: { id: "owner1" } });
+    userFindUnique.mockResolvedValue({
+      role: "ADMIN",
+      businessName: "Acme Restoration",
+    });
+
+    const put = await PUT(putReq(VALID_BODY));
+    expect(put.status).toBe(200);
+
+    // Tenant-scoped: created for the session user, nobody else.
+    expect(profileUpsert).toHaveBeenCalledTimes(1);
+    const upsertArgs = profileUpsert.mock.calls[0][0];
+    expect(upsertArgs.where).toEqual({ userId: "owner1" });
+    expect(upsertArgs.create.userId).toBe("owner1");
+
+    const get = await GET(new NextRequest(URL));
+    expect(get.status).toBe(200);
+    const { profile } = await get.json();
+    expect(profile).toMatchObject({
+      publicDescription: VALID_BODY.publicDescription,
+      yearsInBusiness: 12,
+      teamSize: 6,
+      isPubliclyVisible: true,
+      specializations: ["Water damage", "Mould"],
+    });
+  });
+
+  it("workspace owner (ADMIN): second PUT updates the same row", async () => {
+    getServerSession.mockResolvedValue({ user: { id: "owner1" } });
+    userFindUnique.mockResolvedValue({ role: "ADMIN", businessName: "Acme" });
+
+    expect((await PUT(putReq(VALID_BODY))).status).toBe(200);
+    expect(
+      (await PUT(putReq({ ...VALID_BODY, teamSize: 9 }))).status,
+    ).toBe(200);
+
+    const { profile } = await (await GET(new NextRequest(URL))).json();
+    expect(profile.teamSize).toBe(9);
+    expect(rows.size).toBe(1);
+  });
+
+  it("technician (USER) gets 403 with a JSON error message and nothing is written", async () => {
+    getServerSession.mockResolvedValue({ user: { id: "tech1" } });
+    userFindUnique.mockResolvedValue({ role: "USER", businessName: null });
+
+    const res = await PUT(putReq(VALID_BODY));
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.error.code).toBe("FORBIDDEN");
+    expect(typeof json.error.message).toBe("string");
+    expect(json.error.message.length).toBeGreaterThan(0);
+    expect(profileUpsert).not.toHaveBeenCalled();
+  });
+
+  it("manager (MANAGER) is not widened in: 403", async () => {
+    getServerSession.mockResolvedValue({ user: { id: "mgr1" } });
+    userFindUnique.mockResolvedValue({ role: "MANAGER", businessName: null });
+
+    const res = await PUT(putReq(VALID_BODY));
+    expect(res.status).toBe(403);
+    expect(profileUpsert).not.toHaveBeenCalled();
+  });
+
+  it("role is read from the DB, not the JWT: a stale ADMIN claim for a USER row is 403", async () => {
+    getServerSession.mockResolvedValue({ user: { id: "u9", role: "ADMIN" } });
+    userFindUnique.mockResolvedValue({ role: "USER", businessName: null });
+
+    const res = await PUT(putReq(VALID_BODY));
+    expect(res.status).toBe(403);
+    expect(profileUpsert).not.toHaveBeenCalled();
+  });
+
+  it("unauthenticated PUT and GET are 401", async () => {
+    getServerSession.mockResolvedValue(null);
+    expect((await PUT(putReq(VALID_BODY))).status).toBe(401);
+    expect((await GET(new NextRequest(URL))).status).toBe(401);
+  });
+});
