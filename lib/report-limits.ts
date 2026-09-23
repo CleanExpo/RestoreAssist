@@ -73,6 +73,7 @@ export async function getUserReportLimits(
       monthlyReportsUsed: true,
       monthlyResetDate: true,
       createdAt: true,
+      lifetimeAccess: true,
     },
   });
 
@@ -126,8 +127,15 @@ export async function getUserReportLimits(
     user.monthlyResetDate = nextReset;
   }
 
+  // RA-7747 — mirror getEffectiveSubscription's lifetimeAccess overrides
+  // exactly. Lifetime buyers are normally stored with a CANCELED/null status;
+  // reading the raw status gave them a 0 allowance after canCreateReport had
+  // already treated them as ACTIVE.
+  const effStatus = user.lifetimeAccess ? "ACTIVE" : user.subscriptionStatus;
+  const effPlan = user.lifetimeAccess ? "Lifetime" : user.subscriptionPlan;
+
   // For trial users, use credits system
-  if (user.subscriptionStatus === "TRIAL") {
+  if (effStatus === "TRIAL") {
     return {
       baseLimit: 0,
       addonReports: 0,
@@ -138,11 +146,11 @@ export async function getUserReportLimits(
   }
 
   // For active subscribers, calculate limits
-  if (user.subscriptionStatus === "ACTIVE") {
+  if (effStatus === "ACTIVE") {
     // F3 — resolve the base limit from the stable PLAN_REPORT_LIMITS map so
     // grandfathered "Yearly Plan" (70) and "Lifetime" (999) users survive the
     // catalog collapse instead of silently dropping to 50.
-    const baseLimit = resolveBaseReportLimit(user.subscriptionPlan);
+    const baseLimit = resolveBaseReportLimit(effPlan);
 
     // Calculate add-on reports: sum of all completed purchases from AddonPurchase table
     // This is the source of truth for purchased add-ons
