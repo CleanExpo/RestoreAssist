@@ -10,6 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { estimateCosts } from "@/lib/nir-cost-estimation";
+import { buildEstimateLines } from "@/lib/estimate-lines";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
 
@@ -139,30 +140,15 @@ export async function POST(
       });
     }
 
-    const contingencyPerItem =
-      costEstimate.items.length > 0
-        ? costEstimate.contingency / costEstimate.items.length
-        : 0;
-
     const costEstimates = await prisma.$transaction(async (tx) => {
       if (replace) {
         await tx.costEstimate.deleteMany({ where: { inspectionId: id } });
       }
 
       await tx.costEstimate.createMany({
-        data: costEstimate.items.map((costItem) => ({
+        data: buildEstimateLines(costEstimate).map((line) => ({
           inspectionId: id,
-          scopeItemId: costItem.scopeItemId ?? null,
-          category: costItem.category,
-          description: costItem.description,
-          quantity: costItem.quantity,
-          unit: costItem.unit,
-          rate: costItem.rate,
-          subtotal: costItem.subtotal,
-          costDatabaseId: costItem.costDatabaseId || null,
-          isEstimated: costItem.isEstimated,
-          contingency: contingencyPerItem,
-          total: costItem.subtotal + contingencyPerItem,
+          ...line,
         })),
       });
 

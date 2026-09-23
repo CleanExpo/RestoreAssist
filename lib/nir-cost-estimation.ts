@@ -25,6 +25,7 @@ import {
   validateRateInRange,
   type NRPGRateRange,
 } from "@/lib/nrpg-rate-ranges";
+import { lineTotal } from "@/lib/estimate-lines";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -412,7 +413,7 @@ function buildEstimateItem(
     quantity,
     unit: config.unit,
     rate,
-    subtotal: Math.round(rate * quantity * 100) / 100,
+    subtotal: lineTotal(quantity, rate),
     nrpgField: config.nrpgField,
     nrpgCompliant,
     nrpgRange,
