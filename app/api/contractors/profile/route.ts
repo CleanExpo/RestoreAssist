@@ -37,15 +37,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!profile) {
-      return apiError(request, {
-        code: "NOT_FOUND",
-        message: "Contractor profile not found",
-        status: 404,
-      });
-    }
-
-    return NextResponse.json({ profile });
+    // RA-7723: no row yet is the normal state for a new owner — the first
+    // save creates it. Return an empty profile, not an error.
+    return NextResponse.json({ profile: profile ?? null });
   } catch (error: any) {
     console.error("Error fetching contractor profile:", error);
     return fromException(request, error, {
@@ -79,16 +73,21 @@ export async function PUT(request: NextRequest) {
       searchKeywords,
     } = body;
 
-    // Check if user has contractor role
+    // RA-7723: only the business owner may publish the contractor listing.
+    // `role: "ADMIN"` is every self-registered owner (D-023); MANAGER and USER
+    // are invited staff. Role is read from the DB, not the JWT (RULES.md #3).
+    // This used to compare against "CONTRACTOR", which the Role enum has
+    // never contained, so every save was refused.
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { role: true, businessName: true },
     });
 
-    if (user?.role !== ("CONTRACTOR" as any)) {
+    if (user?.role !== "ADMIN") {
       return apiError(request, {
         code: "FORBIDDEN",
-        message: "User is not a contractor",
+        message:
+          "Only the workspace owner can edit the contractor profile. Ask your account owner to make this change.",
         status: 403,
       });
     }

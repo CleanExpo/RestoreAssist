@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useAsyncAction } from "@/lib/client/use-async-action";
+import { parseApiError } from "@/lib/client/parse-api-error";
 import { ContractorsBackLink } from "../ContractorsBackLink";
 
 interface ContractorProfile {
@@ -116,31 +117,38 @@ export default function ContractorProfileDashboard() {
         fetch("/api/contractors/service-areas"),
       ]);
 
-      if (!profileRes.ok || !certsRes.ok || !areasRes.ok) {
-        setLoadError("Failed to load contractor profile");
-        return;
+      // RA-7723: show the server's own error text. Certifications and
+      // service areas answer 404 until the profile row exists; that is the
+      // empty state for a new owner, not a load failure.
+      for (const res of [profileRes, certsRes, areasRes]) {
+        if (!res.ok && !(res !== profileRes && res.status === 404)) {
+          const parsed = await parseApiError(res);
+          setLoadError(`Failed to load contractor profile: ${parsed.message}`);
+          return;
+        }
       }
 
       const profileData = await profileRes.json();
-      setProfile(profileData.profile);
-      setPublicDescription(profileData.profile.publicDescription || "");
-      setYearsInBusiness(
-        profileData.profile.yearsInBusiness?.toString() || "",
-      );
-      setTeamSize(profileData.profile.teamSize?.toString() || "");
-      setIsPubliclyVisible(profileData.profile.isPubliclyVisible);
-      setSpecializations(
-        (profileData.profile.specializations || []).join(", "),
-      );
+      const loaded: ContractorProfile | null = profileData.profile ?? null;
+      setProfile(loaded);
+      setPublicDescription(loaded?.publicDescription || "");
+      setYearsInBusiness(loaded?.yearsInBusiness?.toString() || "");
+      setTeamSize(loaded?.teamSize?.toString() || "");
+      setIsPubliclyVisible(loaded?.isPubliclyVisible ?? true);
+      setSpecializations((loaded?.specializations || []).join(", "));
 
-      const certsData = await certsRes.json();
+      const certsData = certsRes.ok ? await certsRes.json() : {};
       setCertifications(certsData.certifications || []);
 
-      const areasData = await areasRes.json();
+      const areasData = areasRes.ok ? await areasRes.json() : {};
       setServiceAreas(areasData.serviceAreas || []);
     } catch (error) {
       console.error("Failed to fetch profile:", error);
-      setLoadError("Failed to load contractor profile");
+      setLoadError(
+        `Failed to load contractor profile: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     } finally {
       setLoading(false);
     }
@@ -169,14 +177,21 @@ export default function ContractorProfileDashboard() {
         setMessage({ type: "success", text: "Profile updated successfully" });
         await fetchProfile();
       } else {
-        const data = await res.json();
+        // RA-7723: the envelope's `error` is an object; rendering it crashed
+        // the page. Show the server's message instead.
+        const parsed = await parseApiError(res);
         setMessage({
           type: "error",
-          text: data.error || "Failed to update profile",
+          text: `Failed to update profile: ${parsed.message}`,
         });
       }
     } catch (error) {
-      setMessage({ type: "error", text: "Failed to update profile" });
+      setMessage({
+        type: "error",
+        text: `Failed to update profile: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
     }
   });
 
@@ -333,7 +348,9 @@ export default function ContractorProfileDashboard() {
       <h1 className="text-3xl font-bold text-white mb-8">Contractor Profile</h1>
 
       {loadError && (
-        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div
+          role="alert"
+          className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {loadError}
           <button
             type="button"
@@ -351,6 +368,7 @@ export default function ContractorProfileDashboard() {
       {/* Message */}
       {message && (
         <div
+          role={message.type === "error" ? "alert" : "status"}
           className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
             message.type === "success"
               ? "bg-green-500/10 border border-green-500/30 text-green-400"
