@@ -1,8 +1,9 @@
 /**
- * RA-7711 (A2) — sample rows (isSample = true) must not reach the dashboard
- * counts or the Clients / Reports lists. The dashboard derives its counts
- * from GET /api/reports and GET /api/clients (app/dashboard/page.tsx), so
- * both list handlers, and the `count` each returns, exclude samples.
+ * RA-7711 — the setup demo client and report (app/api/setup/activate,
+ * lib/demo-data, marked isSample since RA-1239) are what the first-run tour
+ * opens, and the user deletes them from the Clients and Reports pages. Those
+ * pages and the dashboard read GET /api/reports and GET /api/clients, so
+ * neither list handler may filter on isSample: lists behave as on main.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
@@ -58,21 +59,21 @@ beforeEach(() => {
   clientCount.mockResolvedValue(0);
 });
 
-describe("list handlers exclude sample rows (RA-7711)", () => {
-  it("GET /api/reports lists and counts non-sample reports only", async () => {
+describe("list handlers keep the setup sample visible (RA-7711)", () => {
+  it("GET /api/reports does not filter on isSample", async () => {
     const res = await getReports(new NextRequest("http://localhost/api/reports?limit=40"));
     expect(res.status).toBe(200);
-    expect(reportFindMany.mock.calls[0][0].where.isSample).toBe(false);
-    expect(reportCount.mock.calls[0][0].where.isSample).toBe(false);
+    expect(reportFindMany.mock.calls[0][0].where).not.toHaveProperty("isSample");
+    expect(reportCount.mock.calls[0][0].where).not.toHaveProperty("isSample");
     // Tenancy is untouched.
     expect(reportFindMany.mock.calls[0][0].where.AND).toEqual(TENANCY.AND);
   });
 
-  it("GET /api/clients lists and counts non-sample clients only", async () => {
+  it("GET /api/clients does not filter on isSample", async () => {
     const res = await getClients(new NextRequest("http://localhost/api/clients"));
     expect(res.status).toBe(200);
-    expect(clientFindMany.mock.calls[0][0].where.isSample).toBe(false);
-    expect(clientCount.mock.calls[0][0].where.isSample).toBe(false);
+    expect(clientFindMany.mock.calls[0][0].where).not.toHaveProperty("isSample");
+    expect(clientCount.mock.calls[0][0].where).not.toHaveProperty("isSample");
     expect(clientFindMany.mock.calls[0][0].where.AND).toEqual(TENANCY.AND);
   });
 });
