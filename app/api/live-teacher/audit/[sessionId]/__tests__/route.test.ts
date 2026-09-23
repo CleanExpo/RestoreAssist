@@ -4,7 +4,6 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.hoisted(() => vi.fn());
 const applyRateLimit = vi.hoisted(() => vi.fn());
 const verifyAdminFromDb = vi.hoisted(() => vi.fn());
-const adminUserScope = vi.hoisted(() => vi.fn());
 const liveTeacherSessionFindUnique = vi.hoisted(() => vi.fn());
 const userFindFirst = vi.hoisted(() => vi.fn());
 const teacherUtteranceFindMany = vi.hoisted(() => vi.fn());
@@ -14,7 +13,16 @@ const standardsChunkFindMany = vi.hoisted(() => vi.fn());
 vi.mock("next-auth", () => ({ getServerSession }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit }));
-vi.mock("@/lib/admin-auth", () => ({ verifyAdminFromDb, adminUserScope }));
+
+// Only verifyAdminFromDb is faked. adminUserScope is the REAL implementation on
+// purpose: the previous version of this file mocked it, so the org-less
+// fallback it returns was never executed and a P0 walked straight through the
+// suite. A control that stubs the function under test proves nothing.
+vi.mock("@/lib/admin-auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/admin-auth")>();
+  return { ...actual, verifyAdminFromDb };
+});
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     liveTeacherSession: { findUnique: liveTeacherSessionFindUnique },
@@ -27,11 +35,37 @@ vi.mock("@/lib/prisma", () => ({
 
 import { GET } from "../route";
 
+/**
+ * A two-row stand-in for the User table. Both users genuinely exist, which is
+ * the whole point: the attack is not "the row is missing", it is "the query
+ * stopped constraining the row". A mock that returns null unconditionally
+ * answers 404 either way and cannot tell a fixed route from a broken one.
+ */
+const USERS: Array<{ id: string; organizationId: string | null }> = [
+  { id: "user-B", organizationId: "org-B" },
+  { id: "admin-A", organizationId: null },
+];
+
+type Clause = { id?: string; organizationId?: string | null };
+
+function rowMatches(
+  row: { id: string; organizationId: string | null },
+  clause: Clause,
+): boolean {
+  if (clause.id !== undefined && clause.id !== row.id) return false;
+  if (
+    clause.organizationId !== undefined &&
+    clause.organizationId !== row.organizationId
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function request() {
-  return new NextRequest(
-    "http://localhost/api/live-teacher/audit/session-B",
-    { method: "GET" },
-  );
+  return new NextRequest("http://localhost/api/live-teacher/audit/session-B", {
+    method: "GET",
+  });
 }
 
 const params = { params: Promise.resolve({ sessionId: "session-B" }) };
@@ -44,9 +78,6 @@ beforeEach(() => {
     response: null,
     user: { id: "admin-A", role: "ADMIN", organizationId: "org-A" },
   });
-  adminUserScope.mockReturnValue({ organizationId: "org-A" });
-  // The session belongs to user-B, so the caller is never the owner and the
-  // admin branch is the one under test.
   liveTeacherSessionFindUnique.mockResolvedValue({
     id: "session-B",
     userId: "user-B",
@@ -56,13 +87,15 @@ beforeEach(() => {
     jurisdiction: "AU",
     deviceOs: "ios",
   });
-  // Scope-sensitive, for the same reason as revoke-sessions: user-B exists and
-  // only an unscoped lookup reaches them. A flat null would answer 404 whether
-  // or not the organisation clause is present, and the mutant would stay green.
-  userFindFirst.mockImplementation((args: { where: Record<string, unknown> }) =>
-    Promise.resolve(
-      args?.where?.organizationId ? null : { id: args?.where?.id },
-    ),
+  userFindFirst.mockImplementation(
+    (args: { where?: { AND?: Clause[] } & Clause }) => {
+      const where = args?.where ?? {};
+      const clauses: Clause[] = Array.isArray(where.AND) ? where.AND : [where];
+      const row = USERS.find((candidate) =>
+        clauses.every((clause) => rowMatches(candidate, clause)),
+      );
+      return Promise.resolve(row ? { id: row.id } : null);
+    },
   );
   teacherUtteranceFindMany.mockResolvedValue([]);
   teacherToolCallFindMany.mockResolvedValue([]);
@@ -70,22 +103,36 @@ beforeEach(() => {
 });
 
 describe("GET /api/live-teacher/audit/[sessionId]", () => {
+  function expectNoTranscriptRead() {
+    // The payload is the entire on-site transcript: every utterance, the tool
+    // arguments and their results, and the session cost.
+    expect(teacherUtteranceFindMany).not.toHaveBeenCalled();
+    expect(teacherToolCallFindMany).not.toHaveBeenCalled();
+  }
+
   it("refuses an admin outside the session owner's organisation", async () => {
     const response = await GET(request(), params);
 
     expect(response.status).toBe(404);
-    // The payload is the whole on-site transcript: every utterance, the tool
-    // arguments and their results, and the session cost.
-    expect(teacherUtteranceFindMany).not.toHaveBeenCalled();
-    expect(teacherToolCallFindMany).not.toHaveBeenCalled();
-    expect(userFindFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: "user-B",
-          organizationId: "org-A",
-        }),
-      }),
-    );
+    expectNoTranscriptRead();
+  });
+
+  it("refuses an ORG-LESS admin instead of matching them against themselves", async () => {
+    // The P0 this file previously missed. User.organizationId is nullable
+    // (onDelete: SetNull) and OAuth createUser sets role ADMIN without an
+    // organisation, so this account is reachable in production. adminUserScope
+    // returns {id: "admin-A"} here; spreading that over `id: liveSession.userId`
+    // would look up the CALLER, who always exists, and serve user-B's
+    // transcript with HTTP 200.
+    verifyAdminFromDb.mockResolvedValue({
+      response: null,
+      user: { id: "admin-A", role: "ADMIN", organizationId: null },
+    });
+
+    const response = await GET(request(), params);
+
+    expect(response.status).toBe(404);
+    expectNoTranscriptRead();
   });
 
   it("still returns the transcript to the session's own owner", async () => {
@@ -95,14 +142,16 @@ describe("GET /api/live-teacher/audit/[sessionId]", () => {
 
     expect(response.status).toBe(200);
     expect(teacherUtteranceFindMany).toHaveBeenCalled();
-    // The owner path must not consult the admin gate at all.
     expect(verifyAdminFromDb).not.toHaveBeenCalled();
   });
 
   it("returns the transcript to an admin inside the same organisation", async () => {
-    // The reachable case, so the 404 above is known to come from the scope
-    // clause rather than the route refusing every admin.
-    adminUserScope.mockReturnValue({});
+    // The reachable case, so the refusals above are known to come from the
+    // scope clause and not from the route refusing every admin.
+    verifyAdminFromDb.mockResolvedValue({
+      response: null,
+      user: { id: "admin-A", role: "ADMIN", organizationId: "org-B" },
+    });
 
     const response = await GET(request(), params);
 

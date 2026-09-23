@@ -88,10 +88,19 @@ export async function GET(
       // every utterance, the tool arguments and results, and the session cost.
       // adminUserScope narrows to the admin's organisation and falls back to
       // their own row when that organisation is null (RA-7647).
+      //
+      // AND, never a spread. adminUserScope returns {organizationId} OR
+      // {id: self} for an org-less admin, and User.organizationId is nullable
+      // (onDelete: SetNull), while OAuth createUser sets role ADMIN without
+      // setting an organisation. Spreading {id: self} into a where that already
+      // carries `id` REPLACES the session owner's id with the caller's — and
+      // the caller always exists, so the check would pass for every org-less
+      // admin and hand them another tenant's transcript. AND composes the two
+      // constraints instead of overwriting one, so an org-less admin matches
+      // only their own row.
       const reachable = await prisma.user.findFirst({
         where: {
-          id: liveSession.userId,
-          ...adminUserScope(adminAuth.user!),
+          AND: [{ id: liveSession.userId }, adminUserScope(adminAuth.user!)],
         },
         select: { id: true },
       });

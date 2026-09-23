@@ -6,7 +6,6 @@ const validateCsrf = vi.hoisted(() => vi.fn());
 const applyRateLimit = vi.hoisted(() => vi.fn());
 const logSecurityEvent = vi.hoisted(() => vi.fn());
 const verifyAdminFromDb = vi.hoisted(() => vi.fn());
-const adminUserScope = vi.hoisted(() => vi.fn());
 const userFindFirst = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({ getServerSession }));
@@ -14,12 +13,41 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/csrf", () => ({ validateCsrf }));
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit }));
 vi.mock("@/lib/security-audit", () => ({ logSecurityEvent }));
-vi.mock("@/lib/admin-auth", () => ({ verifyAdminFromDb, adminUserScope }));
+
+// adminUserScope stays REAL. Mocking it is what let the org-less fallback go
+// unexercised and a P0 reach review.
+vi.mock("@/lib/admin-auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/admin-auth")>();
+  return { ...actual, verifyAdminFromDb };
+});
+
 vi.mock("@/lib/prisma", () => ({
   prisma: { user: { findFirst: userFindFirst } },
 }));
 
 import { POST } from "../route";
+
+/** Both users exist; only the query's constraints decide reachability. */
+const USERS: Array<{ id: string; organizationId: string | null }> = [
+  { id: "user-B", organizationId: "org-B" },
+  { id: "admin-A", organizationId: null },
+];
+
+type Clause = { id?: string; organizationId?: string | null };
+
+function rowMatches(
+  row: { id: string; organizationId: string | null },
+  clause: Clause,
+): boolean {
+  if (clause.id !== undefined && clause.id !== row.id) return false;
+  if (
+    clause.organizationId !== undefined &&
+    clause.organizationId !== row.organizationId
+  ) {
+    return false;
+  }
+  return true;
+}
 
 function request(body: Record<string, unknown>) {
   return new NextRequest("http://localhost/api/auth/revoke-sessions", {
@@ -39,17 +67,15 @@ beforeEach(() => {
     response: null,
     user: { id: "admin-A", role: "ADMIN", organizationId: "org-A" },
   });
-  adminUserScope.mockReturnValue({ organizationId: "org-A" });
-
-  // Scope-sensitive on purpose, and this is the whole point of the control.
-  // user-B genuinely exists; it simply belongs to another organisation. Only
-  // an UNSCOPED lookup reaches it. A mock that returned null unconditionally
-  // would answer 404 with or without the scope clause, so the mutant would
-  // stay green and the control would be worthless.
-  userFindFirst.mockImplementation((args: { where: Record<string, unknown> }) =>
-    Promise.resolve(
-      args?.where?.organizationId ? null : { id: args?.where?.id },
-    ),
+  userFindFirst.mockImplementation(
+    (args: { where?: { AND?: Clause[] } & Clause }) => {
+      const where = args?.where ?? {};
+      const clauses: Clause[] = Array.isArray(where.AND) ? where.AND : [where];
+      const row = USERS.find((candidate) =>
+        clauses.every((clause) => rowMatches(candidate, clause)),
+      );
+      return Promise.resolve(row ? { id: row.id } : null);
+    },
   );
 });
 
@@ -60,14 +86,22 @@ describe("POST /api/auth/revoke-sessions", () => {
     // 404 rather than 403 so a caller cannot probe which ids exist elsewhere.
     expect(response.status).toBe(404);
     expect(logSecurityEvent).not.toHaveBeenCalled();
-    expect(userFindFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: "user-B",
-          organizationId: "org-A",
-        }),
-      }),
-    );
+  });
+
+  it("refuses an ORG-LESS admin instead of matching them against themselves", async () => {
+    // adminUserScope returns {id: "admin-A"} with no organisation. Spread over
+    // `id: requestedTarget` that replaces the target with the caller, the
+    // lookup succeeds and the route reports a successful revoke it never
+    // performed against the requested account.
+    verifyAdminFromDb.mockResolvedValue({
+      response: null,
+      user: { id: "admin-A", role: "ADMIN", organizationId: null },
+    });
+
+    const response = await POST(request({ targetUserId: "user-B" }));
+
+    expect(response.status).toBe(404);
+    expect(logSecurityEvent).not.toHaveBeenCalled();
   });
 
   it("still lets any signed-in user revoke their own sessions", async () => {
@@ -84,9 +118,10 @@ describe("POST /api/auth/revoke-sessions", () => {
   });
 
   it("revokes a user inside the caller's own organisation", async () => {
-    // The reachable case, so the 404 above is known to come from the scope
-    // clause and not from the route refusing every admin revoke.
-    adminUserScope.mockReturnValue({});
+    verifyAdminFromDb.mockResolvedValue({
+      response: null,
+      user: { id: "admin-A", role: "ADMIN", organizationId: "org-B" },
+    });
 
     const response = await POST(request({ targetUserId: "user-B" }));
 

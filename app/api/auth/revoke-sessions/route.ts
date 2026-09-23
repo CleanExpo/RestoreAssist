@@ -74,8 +74,13 @@ export async function POST(request: NextRequest) {
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
 
+    // AND, never a spread: adminUserScope returns {id: self} for an org-less
+    // admin, and spreading that into a where that already carries `id` would
+    // REPLACE the requested target with the caller — who always exists — so
+    // the lookup would succeed and silently revoke the caller instead of
+    // refusing. AND composes both constraints rather than overwriting one.
     const target = await prisma.user.findFirst({
-      where: { id: requestedTarget, ...adminUserScope(auth.user!) },
+      where: { AND: [{ id: requestedTarget }, adminUserScope(auth.user!)] },
       select: { id: true },
     });
     // 404 rather than 403 so a caller cannot probe which user ids exist
