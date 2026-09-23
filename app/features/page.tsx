@@ -356,7 +356,7 @@ const PAID_ADDS: readonly string[] = [
   "Your own labour, equipment and chemical rates, in place of the state defaults",
   // RA-7714: Ascora is a migration source, not an ongoing connection, and
   // both it and Xero are separately-priced add-ons, not part of the $99.
-  "Optional add-ons, including Migrate from Ascora or ServiceM8",
+  "Optional add-ons, including Migrate from Ascora",
   "Report packs when a month runs long, from $20 for 8",
 ];
 

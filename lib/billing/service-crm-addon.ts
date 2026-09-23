@@ -37,7 +37,11 @@ export const SERVICE_CRM_ADDON = {
   // the Stripe webhook are unaffected; only new checkouts carry the new name.
   // RA-7660: DR-NRPG stays out of the buyer-facing copy. The entitlement
   // still gates the dormant DR-NRPG connect route.
-  name: "Migrate from Ascora or ServiceM8",
+  // RA-7714 review round 2: named for Ascora only. The founder wording also
+  // named ServiceM8, but a buyer cannot start a ServiceM8 import (the card
+  // is flag-hidden and beta-disabled: it never passed a real sync test).
+  // Add ServiceM8 back only once that import can be started.
+  name: "Migrate from Ascora",
   description:
     "Sign in once and bring your clients, jobs, history and pricing into RestoreAssist.",
   /** Dollars, AUD, GST-inclusive. */
