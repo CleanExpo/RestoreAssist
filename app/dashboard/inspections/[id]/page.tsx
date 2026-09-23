@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useRef } from "react";
+import { useState, useEffect, use, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -24,6 +24,10 @@ import {
   type EnvironmentalReading,
 } from "@/lib/inspections/latest-environmental-reading";
 import type { RequiredEvidenceProgress } from "@/lib/evidence/evidence-readiness";
+import {
+  pointsFromReadings,
+  saveReadingPlacement,
+} from "@/lib/moisture/moisture-map-placement";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -533,6 +537,13 @@ export default function InspectionDetailPage({
       cancelled = true;
     };
   }, []);
+
+  // RA-7713 part 12: saved floor-plan positions (MoistureReading.mapX/mapY).
+  // Memoised: the canvas re-syncs whenever this array's identity changes.
+  const moistureMapPoints = useMemo(
+    () => pointsFromReadings(moistureReadings),
+    [moistureReadings],
+  );
 
   const fetchInspection = async () => {
     try {
@@ -2201,7 +2212,22 @@ export default function InspectionDetailPage({
         {activeTab === "moisture-map" && showMoistureTabs && (
           <div>
             {moistureReadings.length > 0 ? (
-              <MoistureMappingCanvas readings={moistureReadings} />
+              <MoistureMappingCanvas
+                readings={moistureReadings}
+                initialPoints={moistureMapPoints}
+                onPlaceReading={async (readingId, position) => {
+                  await saveReadingPlacement(
+                    inspection.id,
+                    readingId,
+                    position,
+                  );
+                  setMoistureReadings((prev) =>
+                    prev.map((r) =>
+                      r.id === readingId ? { ...r, ...position } : r,
+                    ),
+                  );
+                }}
+              />
             ) : (
               <div className="text-center py-12 text-neutral-400">
                 No moisture readings to map — add readings first

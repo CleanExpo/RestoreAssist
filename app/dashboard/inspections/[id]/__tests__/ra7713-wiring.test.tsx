@@ -30,3 +30,15 @@ describe("RA-7713 job page wiring", () => {
     );
   });
 });
+
+describe("RA-7713 job page wiring (part 12)", () => {
+  it("mounts the moisture map with saved positions and a persisting place handler", () => {
+    expect(source).toMatch(
+      /<MoistureMappingCanvas\s+readings=\{moistureReadings\}\s+initialPoints=\{moistureMapPoints\}\s+onPlaceReading=/,
+    );
+    expect(source).toMatch(/saveReadingPlacement\(\s*inspection\.id,/);
+    expect(source).toMatch(
+      /useMemo\(\s*\(\) => pointsFromReadings\(moistureReadings\),\s*\[moistureReadings\],?\s*\)/,
+    );
+  });
+});
