@@ -1451,11 +1451,6 @@ export default function InitialDataEntryForm({
           lastInspectionDate: formData.lastInspectionDate
             ? new Date(formData.lastInspectionDate).toISOString()
             : null,
-          // RA-7711: still Quick Fill data -> the server stores it as a
-          // sample, kept out of the client list and dashboard counts.
-          quickFillSample:
-            quickFillKeyRef.current !== null &&
-            quickFillKeyRef.current === quickFillKey(formData),
           // Include NIR data if provided
           nirData:
             nirData.moistureReadings.length > 0 ||
@@ -1490,17 +1485,6 @@ export default function InitialDataEntryForm({
       setLoading(false);
     }
   };
-
-  // RA-7711: the client and property Quick Fill wrote. While the form still
-  // holds exactly these, a submit is a sample, not a real job.
-  const quickFillKeyRef = useRef<string | null>(null);
-  const quickFillKey = (d: typeof formData) =>
-    [
-      d.clientName,
-      d.clientContactDetails,
-      d.propertyAddress,
-      d.propertyPostcode,
-    ].join("|");
 
   const handleInputChange = (
     field: string,
@@ -2367,7 +2351,6 @@ export default function InitialDataEntryForm({
   const populateUseCaseData = (useCase: UseCaseData) => {
     // Set form data
     setFormData(useCase.formData);
-    quickFillKeyRef.current = quickFillKey(useCase.formData);
 
     // Set NIR Moisture Readings
     setNirMoistureReadings(useCase.nirMoistureReadings);
