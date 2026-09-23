@@ -222,6 +222,9 @@ export default function NIRTechnicianInputForm({
       moistureLevel: number;
       depth: "Surface" | "Subsurface";
       sketchRoomId?: string | null;
+      // Loaded with the reading so the classification preview can match a
+      // linked reading to its room, as submit does (RA-7610).
+      sketchRoom?: { id: string; name: string } | null;
     }>
   >([]);
 

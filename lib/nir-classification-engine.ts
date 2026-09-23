@@ -23,6 +23,7 @@ import {
   STANDARDS_VERSIONS,
 } from "@/lib/nir-standards-mapping";
 import { sqmToSqft } from "@/lib/units";
+import { readingMatchesArea } from "@/lib/moisture/reading-room-join";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -302,18 +303,9 @@ export function classifyWaterDamage(
 // ─── WHOLE-INSPECTION CLASSIFICATION (RA-7709) ────────────────────────────────
 //
 // The one function both the Review & Submit preview and the submit route call,
-// so what the technician is shown is what gets saved.
-
-/** Same normalised room match used when classifying an area's moisture readings. */
-export function readingMatchesArea(
-  location: string,
-  roomZoneId: string,
-): boolean {
-  return (
-    location === roomZoneId ||
-    location.toLowerCase().includes(roomZoneId.toLowerCase())
-  );
-}
+// so what the technician is shown is what gets saved. Readings are matched to
+// an area by the RA-7610 room join: a reading linked to a drawn room counts in
+// that room; free-text location decides only when there is no link.
 
 export interface InspectionClassificationInput {
   affectedAreas: Array<{
@@ -328,6 +320,10 @@ export interface InspectionClassificationInput {
     surfaceType: string;
     moistureLevel: number;
     depth: string;
+    /** RA-7610: the drawn room this reading was taken in, if linked. */
+    sketchRoomId?: string | null;
+    /** Needed to match a linked reading to an area by the room's name. */
+    sketchRoom?: { id?: string; name: string } | null;
   }>;
   environmentalData: ClassificationInput["environmentalData"];
   /** The technician's own choice. Applied only when both fields are set. */
@@ -372,7 +368,7 @@ export function classifyInspection(
       waterSource: area.waterSource,
       affectedSquareFootage: sqmToSqft(area.areaSqm),
       moistureReadings: input.moistureReadings
-        .filter((r) => readingMatchesArea(r.location, area.roomZoneId))
+        .filter((r) => readingMatchesArea(r, area))
         .map((r) => ({
           surfaceType: r.surfaceType,
           moistureLevel: r.moistureLevel,

@@ -108,8 +108,17 @@ vi.mock("@/lib/prisma", () => ({
     pilotObservation: { create: (...a: unknown[]) => mockPilotCreate(...a) },
     auditLog: { create: (...a: unknown[]) => mockAuditCreate(...a) },
     classification: {
+      findFirst: async () => null,
       create: (...a: unknown[]) => mockClassificationCreate(...a),
     },
+    // RA-7709: the classification row is written inside a transaction.
+    $transaction: (fn: (tx: unknown) => unknown) =>
+      fn({
+        classification: {
+          findFirst: async () => null,
+          create: (...a: unknown[]) => mockClassificationCreate(...a),
+        },
+      }),
     affectedArea: {
       update: (...a: unknown[]) => mockAffectedAreaUpdate(...a),
     },
