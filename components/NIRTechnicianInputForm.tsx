@@ -721,24 +721,11 @@ export default function NIRTechnicianInputForm({
         ...prev,
         weatherConditions: initialData.weatherConditions as string,
       }));
-    // Water classification: normalize "Category 1" / "Class 1" to "1" for NIR dropdowns
-    const catRaw = initialData.waterCategory;
-    const classRaw = initialData.waterClass;
-    if (catRaw != null && classRaw != null) {
-      const category =
-        typeof catRaw === "number"
-          ? String(catRaw)
-          : String(catRaw)
-              .replace(/^Category\s*/i, "")
-              .trim() || String(catRaw);
-      const waterClass =
-        typeof classRaw === "number"
-          ? String(classRaw)
-          : String(classRaw)
-              .replace(/^Class\s*/i, "")
-              .trim() || String(classRaw);
-      setManualClassification({ category, class: waterClass });
-    }
+    // RA-7709: interview answers (initialData.waterCategory / waterClass) are
+    // not seeded into the manual override. They come from the interview's own
+    // derivation, and seeding them recorded an untouched submit as a
+    // "Technician manual classification override". The technician's own
+    // choice is made with the Category / Class selectors below.
   }, [initialData]);
 
   // Initialize inspection if reportId provided
@@ -1183,6 +1170,7 @@ export default function NIRTechnicianInputForm({
       affectedAreas,
       moistureReadings,
       environmentalData,
+      manualClassification,
     });
 
   const handleReview = () => {
@@ -1489,17 +1477,9 @@ export default function NIRTechnicianInputForm({
     );
   }
 
-  const calculatedClassificationPreview = calculateClassificationPreview();
-  const classificationPreview = calculatedClassificationPreview
-    ? {
-        ...calculatedClassificationPreview,
-        category:
-          manualClassification?.category ||
-          calculatedClassificationPreview.category,
-        class:
-          manualClassification?.class || calculatedClassificationPreview.class,
-      }
-    : null;
+  // RA-7709: includes the technician's choice when both fields are set — the
+  // same rule the draft save and the submit route apply.
+  const classificationPreview = calculateClassificationPreview();
 
   // Review/Summary View
   if (showReview) {
