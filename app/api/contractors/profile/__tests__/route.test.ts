@@ -214,6 +214,17 @@ describe("/api/contractors/profile slug uniqueness (RA-7728)", () => {
     expect(new Set(slugs).size).toBe(3);
   });
 
+  it("after 20 numbered slugs are taken the next owner gets a random suffix, still 200", async () => {
+    const ids = Array.from({ length: 21 }, (_, i) => `many${i}`);
+    for (const id of ids) {
+      expect((await saveAs(id, "Acme")).status).toBe(200);
+    }
+    const slugs = ids.map((id) => rows.get(id)?.slug);
+    expect(new Set(slugs).size).toBe(21);
+    expect(slugs[19]).toBe("acme-20");
+    expect(slugs[20]).toMatch(/^acme-[0-9a-f]{8}$/);
+  });
+
   it("two owners with a blank business name both save with non-empty, different slugs", async () => {
     const a = await saveAs("blankA", "");
     const b = await saveAs("blankB", null);

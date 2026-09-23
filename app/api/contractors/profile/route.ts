@@ -3,6 +3,28 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { apiError, fromException } from "@/lib/api-errors";
+import { randomUUID } from "crypto";
+
+function slugify(name: string | null | undefined): string {
+  const slug = (name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return slug || "contractor";
+}
+
+// First free slug of base, base-2 ... base-20, then base-<random>.
+async function findFreeSlug(base: string): Promise<string> {
+  for (let n = 1; n <= 20; n++) {
+    const candidate = n === 1 ? base : `${base}-${n}`;
+    const taken = await prisma.contractorProfile.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
+    if (!taken) return candidate;
+  }
+  return `${base}-${randomUUID().slice(0, 8)}`;
+}
 
 // Get contractor's own profile
 export async function GET(request: NextRequest) {
@@ -92,11 +114,16 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Generate slug from business name
-    const slug = (user?.businessName ?? "contractor")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
+    // RA-7728: the public slug is unique across all owners. An owner who
+    // already has a profile keeps their slug (links must not churn); a new
+    // profile gets the first free slug, so a second business with the same
+    // name no longer fails its first save with a 409.
+    const existing = await prisma.contractorProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { slug: true },
+    });
+    const slug =
+      existing?.slug ?? (await findFreeSlug(slugify(user?.businessName)));
 
     // Upsert contractor profile
     const profile = await prisma.contractorProfile.upsert({
