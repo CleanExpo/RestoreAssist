@@ -118,4 +118,21 @@ describe("RA-7711 Quick Fill fills the form only", () => {
     );
     expect(writes).toEqual([]);
   });
+
+  it("still creates the job once the technician edits a quick-filled field", async () => {
+    await quickFill("Residential Burst Pipe");
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText("0000"), {
+        target: { value: "2001" },
+      });
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 2000));
+    });
+
+    expect(
+      calls.filter((c) => c.method === "POST" && c.url === "/api/inspections"),
+    ).toHaveLength(1);
+  });
 });
