@@ -153,12 +153,16 @@ export default function RestorationDocumentsPage() {
         </div>
 
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
-          <p className="font-medium">Two invoice systems — keep them distinct</p>
+          <p className="font-medium">
+            The customer&apos;s invoice lives in Billing → Invoices
+          </p>
           <p className="mt-1 text-amber-800/90 dark:text-amber-100/80">
-            <strong>Restoration Documents</strong> are field/insurer-facing IICRC
-            tax invoices &amp; estimates.{" "}
-            <strong>Billing → Invoices</strong> are AR invoices (PDF, email,
-            payments, Xero). They are not auto-merged. To bill in AR, open{" "}
+            <strong>Billing → Invoices</strong> is the invoice your customer
+            receives and pays: PDF, email, payments and Xero all run from there.{" "}
+            <strong>Restoration Documents</strong> are supporting field and
+            insurer paperwork (IICRC estimates and tax invoice records). They do
+            not create a customer invoice and are not merged automatically. To
+            bill a customer, open{" "}
             <Link href="/dashboard/invoices/new" className="underline font-medium">
               New Invoice
             </Link>{" "}
