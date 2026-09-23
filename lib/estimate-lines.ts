@@ -9,10 +9,18 @@
  * tests/unit/estimate-engine.property.test.ts can exercise the exact rows the
  * writers persist.
  */
+import Decimal from "decimal.js";
 
-/** Line total for `qty` units at `rate` AUD per unit. */
+/**
+ * Line total for `qty` units at `rate` AUD per unit: qty × rate, rounded to
+ * cents with ROUND_HALF_UP in decimal (not binary floating point, which rounds
+ * 1.005 × 1 down to 1.00).
+ */
 export function lineTotal(qty: number, rate: number): number {
-  return Math.round(rate * qty * 100) / 100;
+  return new Decimal(qty)
+    .mul(rate)
+    .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+    .toNumber();
 }
 
 /** The engine fields the line builder reads. */
@@ -49,16 +57,18 @@ export interface PersistedEstimateLine {
 
 /**
  * Turn an engine result into the CostEstimate rows both writers persist.
+ *
+ * Each priced line totals exactly its own qty × rate. The job-level
+ * contingency is emitted once, as its own "Contingency (N%)" line, and never
+ * added to the other lines. That row carries subtotal 0 and the amount in
+ * `contingency` and `total`, so readers that sum the subtotal, contingency
+ * and total columns separately (report route, NIR PDF) still reconcile:
+ * Σsubtotal + Σcontingency = Σtotal = the grand total.
  */
 export function buildEstimateLines(
   estimate: EstimateLinesInput,
 ): PersistedEstimateLine[] {
-  // Distribute contingency evenly across items, computed once.
-  const contingencyPerItem =
-    estimate.items.length > 0
-      ? estimate.contingency / estimate.items.length
-      : 0;
-  return estimate.items.map((costItem) => ({
+  const lines: PersistedEstimateLine[] = estimate.items.map((costItem) => ({
     scopeItemId: costItem.scopeItemId ?? null,
     category: costItem.category,
     description: costItem.description,
@@ -68,7 +78,26 @@ export function buildEstimateLines(
     subtotal: costItem.subtotal,
     costDatabaseId: costItem.costDatabaseId || null,
     isEstimated: costItem.isEstimated,
-    contingency: contingencyPerItem,
-    total: costItem.subtotal + contingencyPerItem,
+    contingency: 0,
+    total: costItem.subtotal,
   }));
+
+  if (estimate.contingency > 0) {
+    const pct = estimate.contingencyPercentage;
+    lines.push({
+      scopeItemId: null,
+      category: "Other",
+      description: pct != null ? `Contingency (${pct}%)` : "Contingency",
+      quantity: 1,
+      unit: "job",
+      rate: estimate.contingency,
+      subtotal: 0,
+      costDatabaseId: null,
+      isEstimated: true,
+      contingency: estimate.contingency,
+      total: estimate.contingency,
+    });
+  }
+
+  return lines;
 }

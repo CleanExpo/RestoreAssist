@@ -131,7 +131,9 @@ export async function POST(
       session.user.id,
     );
 
-    if (costEstimate.items.length === 0) {
+    // Unpriced item types now come back as $0 warning lines (RA-7708), so
+    // count priced lines: an estimate with nothing priced is still rejected.
+    if (costEstimate.items.every((item) => item.warning)) {
       return apiError(request, {
         code: "VALIDATION",
         message:

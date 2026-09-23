@@ -25,6 +25,7 @@ import {
   validateRateInRange,
   type NRPGRateRange,
 } from "@/lib/nrpg-rate-ranges";
+import Decimal from "decimal.js";
 import { lineTotal } from "@/lib/estimate-lines";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -43,11 +44,20 @@ export interface CostEstimateItem {
   nrpgCompliant: boolean;
   /** NRPG min/max for adjuster reference (null if no NRPG field) */
   nrpgRange: { min: number; max: number; unit: string } | null;
-  /** Where the rate came from */
-  rateSource: "company-config" | "nrpg-midpoint";
+  /** Where the rate came from ("none" = no rate configured for this item type) */
+  rateSource: "company-config" | "nrpg-midpoint" | "none";
   costDatabaseId?: string;
   isEstimated: boolean;
+  /**
+   * Set when the scope item's type has no rate in the catalog. The line is
+   * still emitted (at $0, description prefixed NO_RATE_PREFIX) so a required
+   * scope item is never dropped silently (RA-7708).
+   */
+  warning?: "NO_RATE_CONFIGURED";
 }
+
+/** Description prefix on a line whose item type has no configured rate. */
+export const NO_RATE_PREFIX = "No rate configured";
 
 export interface NRPGViolation {
   scopeItemDescription: string;
@@ -257,6 +267,29 @@ const SCOPE_ITEM_NRPG_CONFIG: Record<string, ScopeItemNRPGConfig> = {
   },
 };
 
+/**
+ * Item types written by other scope sources, mapped onto the catalog keys
+ * above. Only aliases whose meaning is unambiguous are listed; anything else
+ * becomes an explicit "No rate configured" line (RA-7708).
+ *
+ * Sources: equipment-calculator route (air_mover, lgr_dehumidifier) and the
+ * IICRC checklist templates in lib/iicrc-checklists.ts.
+ */
+const SCOPE_ITEM_TYPE_ALIASES: Record<string, string> = {
+  air_mover: "install_air_movers",
+  deploy_air_movers: "install_air_movers",
+  lgr_dehumidifier: "install_dehumidification",
+  antimicrobial_treatment: "apply_antimicrobial",
+  containment_poly: "containment_setup",
+  containment_erect: "containment_setup",
+  ppe_deploy: "ppe_required",
+};
+
+/** Resolve a scope item type to its SCOPE_ITEM_NRPG_CONFIG key, if any. */
+export function resolveScopeItemType(itemType: string): string {
+  return SCOPE_ITEM_TYPE_ALIASES[itemType] ?? itemType;
+}
+
 /** Return the midpoint of an NRPG range. Used for fallback default rates. */
 function midpoint(field: keyof typeof NRPG_RATE_RANGES): number {
   const r = NRPG_RATE_RANGES[field];
@@ -298,15 +331,38 @@ export async function estimateCosts(
   const pricingSourceTracker = new Set<"company-config" | "nrpg-midpoint">();
 
   // ── Build estimate items ──────────────────────────────────────────────────
+  // Every scope item yields a line; unknown types get a $0 warning line.
   const items: CostEstimateItem[] = [];
+  // Scope items that were actually priced, with their catalog item type.
+  const pricedScopeItems: ScopeItemInput[] = [];
+  const unpricedTypes: string[] = [];
 
   for (const scopeItem of scopeItems) {
     const item = buildEstimateItem(scopeItem, rates, pricingSourceTracker);
-    if (item) items.push(item);
+    items.push(item);
+    if (item.warning) {
+      unpricedTypes.push(scopeItem.itemType);
+    } else {
+      pricedScopeItems.push({
+        ...scopeItem,
+        itemType: resolveScopeItemType(scopeItem.itemType),
+      });
+    }
+  }
+
+  if (unpricedTypes.length > 0) {
+    console.warn(
+      `[NIR Cost] ${unpricedTypes.length} scope item(s) have no configured rate:`,
+      unpricedTypes,
+    );
   }
 
   // ── Aggregate ─────────────────────────────────────────────────────────────
-  const subtotal = items.reduce((s, i) => s + i.subtotal, 0);
+  const subtotalDec = items.reduce(
+    (s, i) => s.plus(i.subtotal),
+    new Decimal(0),
+  );
+  const subtotal = subtotalDec.toNumber();
 
   const breakdown = {
     equipment: items
@@ -323,10 +379,17 @@ export async function estimateCosts(
       .reduce((s, i) => s + i.subtotal, 0),
   };
 
-  const contingencyPercentage = calculateContingencyPercentage(scopeItems);
-  const contingency =
-    Math.round(subtotal * (contingencyPercentage / 100) * 100) / 100;
-  const total = Math.round((subtotal + contingency) * 100) / 100;
+  // Contingency is one job-level amount, computed from priced items only.
+  // It is persisted as its own line by buildEstimateLines, never spread
+  // across the other lines (RA-7708).
+  const contingencyPercentage =
+    calculateContingencyPercentage(pricedScopeItems);
+  const contingencyDec = subtotalDec
+    .mul(contingencyPercentage)
+    .div(100)
+    .toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  const contingency = contingencyDec.toNumber();
+  const total = subtotalDec.plus(contingencyDec).toNumber();
 
   // ── NRPG compliance rollup ────────────────────────────────────────────────
   const nrpgViolations: NRPGViolation[] = items
@@ -348,7 +411,7 @@ export async function estimateCosts(
 
   return {
     items,
-    subtotal: Math.round(subtotal * 100) / 100,
+    subtotal,
     contingency,
     contingencyPercentage,
     total,
@@ -366,13 +429,32 @@ function buildEstimateItem(
   scopeItem: ScopeItemInput,
   rates: CompanyPricingRates | null,
   pricingSourceTracker: Set<"company-config" | "nrpg-midpoint">,
-): CostEstimateItem | null {
-  const config = SCOPE_ITEM_NRPG_CONFIG[scopeItem.itemType];
+): CostEstimateItem {
+  const config =
+    SCOPE_ITEM_NRPG_CONFIG[resolveScopeItemType(scopeItem.itemType)];
 
   if (!config) {
-    // Unknown scope item type — skip silently
-    // In production: log to observability for SCOPE_ITEM_NRPG_CONFIG expansion
-    return null;
+    // No rate for this item type: emit an explicit $0 warning line so the
+    // required item stays visible on the estimate (RA-7708).
+    const description =
+      scopeItem.description || getDefaultDescription(scopeItem.itemType);
+    return {
+      category: "Other",
+      description: `${NO_RATE_PREFIX}: ${description}`,
+      quantity:
+        scopeItem.quantity != null && scopeItem.quantity > 0
+          ? scopeItem.quantity
+          : 1,
+      unit: scopeItem.unit || "item",
+      rate: 0,
+      subtotal: 0,
+      nrpgField: null,
+      nrpgCompliant: true,
+      nrpgRange: null,
+      rateSource: "none",
+      isEstimated: true,
+      warning: "NO_RATE_CONFIGURED",
+    };
   }
 
   // ── Determine rate ───────────────────────────────────────────────────────
