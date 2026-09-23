@@ -28,7 +28,15 @@ const moistureSchema = z.object({
   depth: z.string().trim().min(1).max(50),
   mapX: z.number().finite().min(0).max(1).nullable().optional(),
   mapY: z.number().finite().min(0).max(1).nullable().optional(),
+  sketchRoomId: z.string().trim().min(1).max(200).nullable().optional(),
 });
+
+/** Metres. Out-of-range / non-numeric values store nothing (do not fail the save). */
+function coerceRoomHeightMetres(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value < 0 || value > 20) return null;
+  return value;
+}
 
 const affectedAreaSchema = z.object({
   roomZoneId: z.string().trim().min(1).max(200),
@@ -36,6 +44,7 @@ const affectedAreaSchema = z.object({
   waterSource: z.string().trim().min(1).max(100),
   timeSinceLoss: z.number().finite().min(0).nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
+  height: z.preprocess(coerceRoomHeightMetres, z.number().nullable()),
 });
 
 const scopeItemSchema = z.object({
@@ -143,6 +152,36 @@ export async function PUT(
     }
 
     const data = parsed.data;
+
+    const requestedRoomIds = [
+      ...new Set(
+        data.moistureReadings
+          .map((reading) => reading.sketchRoomId)
+          .filter((roomId): roomId is string => Boolean(roomId)),
+      ),
+    ];
+    // Existing links to a detached room on THIS job must still save: sketch
+    // save detaches rather than deletes rooms that hold moisture readings.
+    // New room picks go through POST /moisture, which still requires
+    // detachedAt: null. Tenancy is sketch.inspectionId === this job.
+    if (requestedRoomIds.length > 0) {
+      const rooms = await prisma.sketchRoom.findMany({
+        where: {
+          id: { in: requestedRoomIds },
+          sketch: { inspectionId: id },
+        },
+        select: { id: true },
+        take: requestedRoomIds.length,
+      });
+      if (rooms.length !== requestedRoomIds.length) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "The selected room does not belong to this job.",
+          status: 422,
+        });
+      }
+    }
+
     const affectedAreas = data.affectedAreas.map((area) => {
       const columns = deriveAreaColumns({
         affectedAreaSqm: area.affectedAreaSqm,
@@ -158,6 +197,7 @@ export async function PUT(
         description: area.description
           ? sanitizeString(area.description, 2000)
           : null,
+        height: area.height ?? null,
       };
     });
 
@@ -199,6 +239,7 @@ export async function PUT(
             depth: sanitizeString(reading.depth, 50),
             mapX: reading.mapX ?? null,
             mapY: reading.mapY ?? null,
+            sketchRoomId: reading.sketchRoomId ?? null,
             source: "manual",
           })),
         });

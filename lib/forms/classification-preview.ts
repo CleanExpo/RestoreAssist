@@ -23,6 +23,9 @@ export interface ClassificationPreviewInput {
     surfaceType: string;
     moistureLevel: number;
     depth: string;
+    /** RA-7610: a linked reading is matched to an area by its sketch room. */
+    sketchRoomId?: string | null;
+    sketchRoom?: { id?: string; name: string } | null;
   }>;
   environmentalData?: {
     ambientTemperature: number;

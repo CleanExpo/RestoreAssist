@@ -196,6 +196,30 @@ describe("GET /api/inspections", () => {
     const whereArg = inspectionFindMany.mock.calls[0][0].where;
     expect(whereArg.status).toEqual({ notIn: ["COMPLETED", "REJECTED"] });
   });
+
+  // RA-7610: the technician form resumes from this response and its
+  // classification preview matches a room-linked reading by the room's name,
+  // so each reading must arrive with its sketch room, as submit loads it.
+  it("returns each moisture reading with its linked sketch room when resuming by reportId", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    const { prisma } = await import("@/lib/prisma");
+    vi.mocked(prisma.report.findFirst).mockResolvedValueOnce({
+      propertyAddress: "1 Test St",
+      propertyPostcode: "4000",
+    } as never);
+    const inspectionFindFirst = vi.mocked(prisma.inspection.findFirst);
+    inspectionFindFirst.mockResolvedValueOnce({ id: "insp-1" } as never);
+
+    const res = await GET(getReq("?reportId=rep-1"));
+    expect(res.status).toBe(200);
+
+    const include = inspectionFindFirst.mock.calls[0][0]!.include as {
+      moistureReadings: { include?: { sketchRoom?: unknown } };
+    };
+    expect(include.moistureReadings.include?.sketchRoom).toEqual({
+      select: { id: true, name: true },
+    });
+  });
 });
 
 describe("POST /api/inspections", () => {

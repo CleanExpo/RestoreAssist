@@ -2436,6 +2436,13 @@ model MoistureReading {
   mapX Float?
   mapY Float?
 
+  // RA-7610: optional link to the drawn SketchRoom this reading was taken in.
+  // Nullable so a free-text location (room not on the plan) still saves.
+  // ON DELETE SET NULL — deleting the room must not cascade-delete the reading;
+  // partitionStaleRooms detaches rather than deletes rooms that hold these.
+  sketchRoomId String?
+  sketchRoom   SketchRoom? @relation("JobMoistureReadings", fields: [sketchRoomId], references: [id], onDelete: SetNull)
+
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -2446,6 +2453,7 @@ model MoistureReading {
   @@index([inspectionId, isBaseline])
   @@index([inspectionId, isMonitoringPoint])
   @@index([inspectionId, affectedArea])
+  @@index([sketchRoomId])
 }
 
 // ─── RA-261 NIR phase 1 enums (per issue #963) ────────────────────────────────
@@ -3011,6 +3019,10 @@ model AffectedArea {
   // Additional Context
   description String? @db.Text
   photos      String? @db.Text // JSON array of photo URLs
+
+  // RA-7610: typed room height in metres. The draft-snapshot zod schema used
+  // to strip this, so a ceiling height typed on an affected area never landed.
+  height Float?
 
   // RA-6996 — optional link to the room this area belongs to (FK on prod:
   // AffectedArea_roomId_fkey → Room.id ON DELETE SET NULL).
@@ -7023,9 +7035,10 @@ model SketchRoom {
   correctionHistory Json?
   originalAreaM2   Float?
   originalGeometryJson Json?
-  evidencePins     EvidencePin[]
-  moistureReadings SketchMoistureReading[]
-  hazards          Hazard[]
+  evidencePins         EvidencePin[]
+  moistureReadings     SketchMoistureReading[]
+  jobMoistureReadings  MoistureReading[]       @relation("JobMoistureReadings")
+  hazards              Hazard[]
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
 
