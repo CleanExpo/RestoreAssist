@@ -133,6 +133,74 @@ describe("inspection print page totals (RA-7725)", () => {
       }
       expect(rows.get("Subtotal (ex. GST)")).toBe("$2,530.08");
       expect(rows.get("Grand Total (inc. GST)")).toBe(`$${grand}`);
+      expect(printButton()).toBeEnabled();
+    },
+  );
+});
+
+// RA-7725 review P1: the GST hook starts at the AU default. Until the
+// tenant's treatment is known the page must not print a tax figure, and a
+// failed lookup must never silently become AU 10%.
+function mockFetchWithGst(gst: () => Promise<unknown>) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) => {
+      if (url === "/api/inspections/insp-1") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ inspection }),
+        });
+      }
+      if (url === "/api/gst-treatment") return gst();
+      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+    }),
+  );
+}
+
+function printButton() {
+  return screen.getByRole("button", { name: /Print \/ Save PDF/ });
+}
+
+function assertNoTaxFigures() {
+  const rows = footerRows();
+  const gst = gstRow(rows);
+  expect(gst).toBeDefined();
+  expect(gst?.[1]).not.toMatch(/\$/);
+  expect(rows.get("Grand Total (inc. GST)")).not.toMatch(/\$/);
+  expect(document.body.textContent).not.toContain("253.01");
+  expect(document.body.textContent).not.toContain("2,783.09");
+}
+
+describe("inspection print page before the GST treatment is known (RA-7725)", () => {
+  it("while the GST lookup is pending: no GST amount or grand total, printing disabled", async () => {
+    mockFetchWithGst(() => new Promise(() => {}));
+    await renderPage();
+
+    assertNoTaxFigures();
+    expect(printButton()).toBeDisabled();
+  });
+
+  it.each([
+    ["rejected", () => Promise.reject(new TypeError("Failed to fetch"))],
+    [
+      "422 locale not set",
+      () =>
+        Promise.resolve({
+          ok: false,
+          status: 422,
+          json: async () => ({ error: { code: "VALIDATION" } }),
+        }),
+    ],
+  ])(
+    "when the GST lookup fails (%s): an alert shows and printing stays disabled",
+    async (_label, gst) => {
+      mockFetchWithGst(gst);
+      await renderPage();
+
+      await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+      assertNoTaxFigures();
+      expect(printButton()).toBeDisabled();
     },
   );
 });
