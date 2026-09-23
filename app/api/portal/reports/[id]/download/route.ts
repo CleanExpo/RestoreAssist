@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { requireClientAuth } from "@/lib/portal/require-client-auth";
 import { apiError, fromException } from "@/lib/api-errors";
 import { generateConsumerReportPdf } from "@/lib/portal/consumer-report";
+import {
+  WORKSPACE_OWNER_SELECT,
+  workspaceBusiness,
+} from "@/lib/reports/workspace-business";
 
 // Client downloads are plain-language decision summaries. Technical evidence
 // remains available through the authenticated reviewer report.
@@ -24,7 +28,9 @@ export async function GET(
         propertyAddress: true,
         createdAt: true,
         reportNumber: true,
-        user: { select: { businessName: true, name: true } },
+        user: {
+          select: { businessName: true, name: true, ...WORKSPACE_OWNER_SELECT },
+        },
         inspection: {
           select: {
             inspectionNumber: true,
@@ -62,7 +68,9 @@ export async function GET(
       date: report.createdAt,
       affectedAreaCount: report.inspection?.affectedAreas.length ?? 0,
       scopeItemCount: report.inspection?.scopeItems.length ?? 0,
-      contractorName: report.user.businessName ?? report.user.name,
+      // RA-7727: the workspace owner's business, whoever wrote the report.
+      contractorName:
+        workspaceBusiness(report.user).businessName ?? report.user.name,
     });
 
     const filename = `client-report-${report.reportNumber || report.id}.pdf`.replace(
