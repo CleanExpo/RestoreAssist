@@ -14,7 +14,7 @@ export interface ResourceArticle {
   transcript: string; // Full article body in markdown
 }
 
-const CONTENT_DIR = path.join(process.cwd(), "content", "resources");
+const CONTENT_DIR = path.join(process.cwd(), "data", "content", "resources");
 
 export async function getAllResources(): Promise<ResourceArticle[]> {
   // Guard: if the directory doesn't exist return empty array
