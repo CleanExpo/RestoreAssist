@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 /**
- * RA-7711 (A2) — a quick-filled Initial Data Entry submit must reach the
- * server marked as a sample, so it never becomes a real client or report.
- *
- * The flag is true only while the form still holds the Quick Fill client and
- * property. Once the user edits either, the submission is theirs and goes
- * through unmarked.
+ * RA-7711 — the server no longer accepts a browser-sent sample flag (a
+ * client-controlled flag could hide a real job), so the Initial Data Entry
+ * form must not send one. Quick Fill only fills the form; an explicit submit
+ * is the user's own job.
  */
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
@@ -81,22 +79,11 @@ async function quickFillThenSubmit(edit?: () => Promise<void>) {
   });
 }
 
-describe("Initial Data Entry Quick Fill submits as a sample (RA-7711)", () => {
-  it("marks an unedited quick-filled submit as a sample", async () => {
+describe("Initial Data Entry Quick Fill sends no sample flag (RA-7711)", () => {
+  it("submits an unedited quick-filled form with no quickFillSample field", async () => {
     await quickFillThenSubmit();
     expect(entryBodies).toHaveLength(1);
     expect(entryBodies[0].clientName).toBe("ABC Co.");
-    expect(entryBodies[0].quickFillSample).toBe(true);
-  });
-
-  it("does not mark it once the user changes the client name", async () => {
-    await quickFillThenSubmit(async () => {
-      fireEvent.change(screen.getByDisplayValue("ABC Co."), {
-        target: { value: "Real Client Pty Ltd" },
-      });
-    });
-    expect(entryBodies).toHaveLength(1);
-    expect(entryBodies[0].clientName).toBe("Real Client Pty Ltd");
-    expect(entryBodies[0].quickFillSample).not.toBe(true);
+    expect(entryBodies[0]).not.toHaveProperty("quickFillSample");
   });
 });

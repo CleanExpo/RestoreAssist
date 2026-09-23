@@ -1,13 +1,9 @@
 /**
- * RA-7711 (A2) — a quick-filled submission must not pollute the account.
- *
- * Observed live 2026-09-23: each Quick Fill + submit created a real client
- * ("ABC Co.", john.smith@abcco.com.au) and a DRAFT report at
- * "123 Main Street, Suburb, NSW 2000", and the dashboard counted them.
- *
- * With `quickFillSample: true` the route must write `isSample: true` on the
- * client and the report it creates, and must never find-and-reuse (or
- * update) a real client. Without the flag, behaviour is unchanged.
+ * RA-7711 — POST /api/reports/initial-entry must not take its sample marking
+ * from the browser. A body flag (`quickFillSample`) let any caller store a
+ * real job as a hidden sample while still spending a credit and the one-shot
+ * activation event. The route ignores it: nothing a client sends marks a
+ * submission, its client or its report as a sample.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
@@ -85,34 +81,22 @@ beforeEach(() => {
   reportCreate.mockResolvedValue({ id: "r-new" });
 });
 
-describe("POST /api/reports/initial-entry — Quick Fill samples (RA-7711)", () => {
-  it("marks the client and report it creates as samples", async () => {
+describe("POST /api/reports/initial-entry ignores a browser sample flag (RA-7711)", () => {
+  it("stores a submission sent with quickFillSample: true as a normal job", async () => {
     const res = await POST(req({ ...QUICK_FILL_BODY, quickFillSample: true }));
     expect(res.status).toBe(200);
 
     expect(clientCreate).toHaveBeenCalledTimes(1);
-    expect(clientCreate.mock.calls[0][0].data.isSample).toBe(true);
-    expect(reportCreate.mock.calls[0][0].data.isSample).toBe(true);
-  });
-
-  it("never reuses or updates a real client for a sample submission", async () => {
-    // A real client with the same name exists on the account.
-    clientFindFirst.mockImplementation(async (args: { where: { isSample?: boolean } }) =>
-      args.where.isSample === true ? null : { id: "c-real", email: "real@x.au" },
+    expect(clientCreate.mock.calls[0][0].data).not.toHaveProperty("isSample");
+    expect(clientCreate.mock.calls[0][0].data.email).toBe(
+      "john.smith@abcco.com.au",
     );
-
-    await POST(req({ ...QUICK_FILL_BODY, quickFillSample: true }));
-
-    expect(clientUpdate).not.toHaveBeenCalled();
-    for (const [args] of clientFindFirst.mock.calls) {
-      expect(args.where.isSample).toBe(true);
-    }
-    expect(reportCreate.mock.calls[0][0].data.clientId).not.toBe("c-real");
+    expect(reportCreate.mock.calls[0][0].data).not.toHaveProperty("isSample");
   });
 
   it("leaves a normal submission unmarked", async () => {
     await POST(req(QUICK_FILL_BODY));
-    expect(clientCreate.mock.calls[0][0].data.isSample).not.toBe(true);
-    expect(reportCreate.mock.calls[0][0].data.isSample).not.toBe(true);
+    expect(clientCreate.mock.calls[0][0].data).not.toHaveProperty("isSample");
+    expect(reportCreate.mock.calls[0][0].data).not.toHaveProperty("isSample");
   });
 });
