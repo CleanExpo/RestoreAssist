@@ -3,8 +3,9 @@
  *
  * The submit gate treats missing rows as incomplete blockers. The new-inspection
  * intake form historically never created these rows, so every submit 422'd.
- * Seeding N/A placeholders unblocks intake while still requiring an explicit
- * checklist save when an item is marked applicable.
+ * Seeding N/A placeholders gives the checklist rows to edit. Since RA-7739 an
+ * all-N/A checklist is refused at submit ("not assessed"), so the technician
+ * must mark and complete at least one applicable item before submitting.
  */
 
 import { prisma } from "@/lib/prisma";

@@ -7,8 +7,8 @@
  * an untouched seed showed "Compliance: PASS". PASS now needs at least one
  * applicable item, all of them complete.
  *
- * This does not change the submit gate (lib/compliance/make-safe-gate.ts) and
- * needs no schema change.
+ * The submit gate (lib/compliance/make-safe-gate.ts) uses this same function
+ * since RA-7739, so badge and gate cannot disagree. No schema change.
  */
 
 export const MAKE_SAFE_SEED_NOTE =
