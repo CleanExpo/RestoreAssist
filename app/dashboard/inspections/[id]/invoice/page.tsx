@@ -81,6 +81,12 @@ export default function InspectionInvoicePage({
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+  // RA-7710: the reason a generate attempt failed stays on the page. A toast
+  // alone vanished after four seconds and the operator saw nothing.
+  const [generateError, setGenerateError] = useState<{
+    message: string;
+    needsReport: boolean;
+  } | null>(null);
 
   useEffect(() => {
     fetchInvoice();
@@ -106,15 +112,22 @@ export default function InspectionInvoicePage({
   const handleGenerate = async () => {
     try {
       setGenerating(true);
+      setGenerateError(null);
       const res = await fetch(`/api/inspections/${id}/generate-invoice`, {
         method: "POST",
         headers: {
           "Idempotency-Key": idempotencyKey,
         },
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(apiErrorMessage(data) ?? "Failed to generate invoice");
+        const message =
+          apiErrorMessage(data) ?? `Failed to generate invoice (${res.status})`;
+        setGenerateError({
+          message,
+          needsReport: res.status === 409 && /linked report/i.test(message),
+        });
+        toast.error(message);
         return;
       }
       toast.success(
@@ -124,7 +137,10 @@ export default function InspectionInvoicePage({
       );
       await fetchInvoice();
     } catch {
-      toast.error("Failed to generate invoice");
+      const message =
+        "Network error — could not generate the invoice. Check your connection and try again.";
+      setGenerateError({ message, needsReport: false });
+      toast.error(message);
     } finally {
       setGenerating(false);
     }
@@ -184,6 +200,25 @@ export default function InspectionInvoicePage({
           </Link>
         )}
       </div>
+
+      {!invoice && generateError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-950/30 dark:text-red-200"
+        >
+          <p className="font-medium">Invoice not generated</p>
+          <p className="mt-1">{generateError.message}</p>
+          {generateError.needsReport && (
+            <Link
+              href={`/dashboard/reports/new?inspectionId=${id}`}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700"
+            >
+              <FileText size={16} />
+              Generate report first
+            </Link>
+          )}
+        </div>
+      )}
 
       {!invoice ? (
         <div className="p-12 rounded-xl border border-dashed border-neutral-300 dark:border-slate-700 text-center space-y-3">

@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { dollarsToCents } from "@/lib/quotes/quote-calc";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
 /* ─── Types ─── */
@@ -142,6 +143,9 @@ export default function QuotePage() {
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [savedEstimateId, setSavedEstimateId] = useState<string | null>(null);
   const [savedInvoiceId, setSavedInvoiceId] = useState<string | null>(null);
+  // RA-7710: a toast disappears after four seconds, so a failed invoice draft
+  // also leaves its reason on the page until the next attempt.
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
   /**
    * A critical advisory means the quote AS CONFIGURED is unsafe to act on --
@@ -166,6 +170,7 @@ export default function QuotePage() {
     if (!selectedJobType) return;
     setCalculating(true);
     setQuoteResult(null);
+    setInvoiceError(null);
     try {
       const res = await fetch("/api/calculate", {
         method: "POST",
@@ -236,9 +241,16 @@ export default function QuotePage() {
 
   const handleCreateInvoiceDraft = async () => {
     if (!quoteResult) return;
-    const email = quoteResult.client.email?.trim();
+    setInvoiceError(null);
+    const fail = (message: string) => {
+      setInvoiceError(message);
+      toast.error(message);
+    };
+    const email = quoteResult.client?.email?.trim();
     if (!email) {
-      toast.error("Add a client email before creating an AR invoice draft");
+      fail(
+        "Add a client email to the quote, then calculate again. The invoice is sent to that address.",
+      );
       return;
     }
     setSavingInvoice(true);
@@ -284,7 +296,7 @@ export default function QuotePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data?.error?.message || data?.error || "Failed to create invoice draft");
+        fail(apiErrorMessage(data) ?? `Failed to create invoice draft (${res.status})`);
         return;
       }
       const id = (data.invoice?.id || data.id) as string | undefined;
@@ -296,7 +308,7 @@ export default function QuotePage() {
         toast.success("Invoice draft created");
       }
     } catch {
-      toast.error("Network error — could not create invoice");
+      fail("Network error — could not create the invoice draft. Check your connection and try again.");
     } finally {
       setSavingInvoice(false);
     }
@@ -647,6 +659,15 @@ export default function QuotePage() {
               </button>
             </div>
           </div>
+          {invoiceError && (
+            <div
+              role="alert"
+              className="print:hidden rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-950/30 dark:text-red-200"
+            >
+              <p className="font-medium">Invoice draft not created</p>
+              <p className="mt-1">{invoiceError}</p>
+            </div>
+          )}
           {(savedEstimateId || savedInvoiceId || quoteResult.pricingNote) && (
             <div className="print:hidden rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300 space-y-1">
               {quoteResult.pricingNote && <p>{quoteResult.pricingNote}</p>}
