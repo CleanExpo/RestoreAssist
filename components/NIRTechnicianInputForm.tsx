@@ -28,10 +28,17 @@ import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { buildAffectedAreaPayload } from "@/lib/forms/affected-area-payload";
+import { buildMoistureReadingDraftPayload } from "@/lib/forms/moisture-reading-draft-payload";
+import {
+  calculateClassificationPreview as computeClassificationPreview,
+  manualClassificationPayload,
+  resumedManualClassification,
+} from "@/lib/forms/classification-preview";
 import {
   fromNormalizedMoistureMapPoint,
   toNormalizedMoistureMapPoint,
 } from "@/lib/nir-moisture-map-coordinates";
+import { latestEnvironmentalReading } from "@/lib/inspections/latest-environmental-reading";
 import {
   isCapacitorIOS,
   getCurrentLocation,
@@ -228,6 +235,10 @@ export default function NIRTechnicianInputForm({
       surfaceType: string;
       moistureLevel: number;
       depth: "Surface" | "Subsurface";
+      sketchRoomId?: string | null;
+      // Loaded with the reading so the classification preview can match a
+      // linked reading to its room, as submit does (RA-7610).
+      sketchRoom?: { id: string; name: string } | null;
     }>
   >([]);
 
@@ -300,6 +311,16 @@ export default function NIRTechnicianInputForm({
     category: string;
     class: string;
   } | null>(null);
+
+  // RA-7709: true once the form has held a complete choice this session
+  // (restored on resume or picked). Clearing it afterwards is then sent as an
+  // explicit clear; a form that never had one leaves the field out.
+  const hadManualChoice = useRef(false);
+  useEffect(() => {
+    if (manualClassification?.category && manualClassification.class) {
+      hadManualChoice.current = true;
+    }
+  }, [manualClassification]);
 
   // Damage description — feeds the auto-classifier
   const [damageDescription, setDamageDescription] = useState("");
@@ -759,24 +780,11 @@ export default function NIRTechnicianInputForm({
         ...prev,
         weatherConditions: initialData.weatherConditions as string,
       }));
-    // Water classification: normalize "Category 1" / "Class 1" to "1" for NIR dropdowns
-    const catRaw = initialData.waterCategory;
-    const classRaw = initialData.waterClass;
-    if (catRaw != null && classRaw != null) {
-      const category =
-        typeof catRaw === "number"
-          ? String(catRaw)
-          : String(catRaw)
-              .replace(/^Category\s*/i, "")
-              .trim() || String(catRaw);
-      const waterClass =
-        typeof classRaw === "number"
-          ? String(classRaw)
-          : String(classRaw)
-              .replace(/^Class\s*/i, "")
-              .trim() || String(classRaw);
-      setManualClassification({ category, class: waterClass });
-    }
+    // RA-7709: interview answers (initialData.waterCategory / waterClass) are
+    // not seeded into the manual override. They come from the interview's own
+    // derivation, and seeding them recorded an untouched submit as a
+    // "Technician manual classification override". The technician's own
+    // choice is made with the Category / Class selectors below.
   }, [initialData]);
 
   // Initialize inspection if reportId provided
@@ -818,8 +826,23 @@ export default function NIRTechnicianInputForm({
         if (data.inspection) {
           setInspectionId(data.inspection.id);
           // Load existing data
-          if (data.inspection.environmentalData) {
-            setEnvironmentalData(data.inspection.environmentalData);
+          // RA-7740: the API returns environmentalData as a LIST of readings
+          // (EnvironmentalData[]); this form holds one reading. Load the
+          // latest; an empty list keeps the defaults.
+          const latestReading = latestEnvironmentalReading(
+            data.inspection.environmentalData,
+          );
+          if (latestReading) {
+            setEnvironmentalData((prev) => ({
+              ambientTemperature:
+                latestReading.ambientTemperature ?? prev.ambientTemperature,
+              humidityLevel: latestReading.humidityLevel ?? prev.humidityLevel,
+              dewPoint: latestReading.dewPoint ?? prev.dewPoint,
+              airCirculation:
+                latestReading.airCirculation ?? prev.airCirculation,
+              weatherConditions:
+                latestReading.weatherConditions ?? prev.weatherConditions,
+            }));
           }
           if (data.inspection.moistureReadings) {
             setMoistureReadings(data.inspection.moistureReadings);
@@ -881,6 +904,10 @@ export default function NIRTechnicianInputForm({
           }
           if (data.inspection.technicianName) {
             setTechnicianName(data.inspection.technicianName);
+          }
+          const resumedChoice = resumedManualClassification(data.inspection);
+          if (resumedChoice) {
+            setManualClassification(resumedChoice);
           }
           const hydratedClaim = asIicrcClaimType(data.inspection.claimType);
           if (hydratedClaim) {
@@ -1216,51 +1243,13 @@ export default function NIRTechnicianInputForm({
   };
 
   // Calculate expected classification preview
-  const calculateClassificationPreview = () => {
-    if (affectedAreas.length === 0 || moistureReadings.length === 0) {
-      return null;
-    }
-
-    // Get primary water source
-    const primaryWaterSource = affectedAreas[0]?.waterSource || "Clean Water";
-    const waterSourceLower = primaryWaterSource.toLowerCase();
-
-    // Determine category
-    let category = "1";
-    if (
-      waterSourceLower.includes("black") ||
-      waterSourceLower.includes("sewage") ||
-      waterSourceLower.includes("contaminated")
-    ) {
-      category = "3";
-    } else if (
-      waterSourceLower.includes("grey") ||
-      waterSourceLower.includes("washing")
-    ) {
-      category = "2";
-    }
-
-    // Calculate average moisture and affected area
-    const avgMoisture =
-      moistureReadings.reduce((sum, r) => sum + r.moistureLevel, 0) /
-      moistureReadings.length;
-    const totalArea = affectedAreas.reduce(
-      (sum, a) => sum + a.affectedSquareFootage,
-      0,
-    ); // Already in m²
-
-    // Determine class based on area
-    let classValue = "1";
-    if (totalArea > 200) {
-      classValue = "4";
-    } else if (totalArea > 100) {
-      classValue = "3";
-    } else if (totalArea > 30) {
-      classValue = "2";
-    }
-
-    return { category, class: classValue, avgMoisture, totalArea };
-  };
+  const calculateClassificationPreview = () =>
+    computeClassificationPreview({
+      affectedAreas,
+      moistureReadings,
+      environmentalData,
+      manualClassification,
+    });
 
   const handleReview = () => {
     // Additional validation for review - require photos
@@ -1381,14 +1370,7 @@ export default function NIRTechnicianInputForm({
             const normalizedPoint = mapPoint
               ? toNormalizedMoistureMapPoint(mapPoint)
               : null;
-            return {
-              location: reading.location,
-              surfaceType: reading.surfaceType,
-              moistureLevel: reading.moistureLevel,
-              depth: reading.depth,
-              mapX: normalizedPoint?.mapX ?? null,
-              mapY: normalizedPoint?.mapY ?? null,
-            };
+            return buildMoistureReadingDraftPayload(reading, normalizedPoint);
           }),
           affectedAreas: affectedAreas.map(buildAffectedAreaPayload),
           scopeItems: Array.from(selectedScopeItems).flatMap((itemId) => {
@@ -1403,10 +1385,10 @@ export default function NIRTechnicianInputForm({
                 ]
               : [];
           }),
-          manualClassification:
-            manualClassification?.category && manualClassification.class
-              ? manualClassification
-              : null,
+          manualClassification: manualClassificationPayload(
+            manualClassification,
+            hadManualChoice.current,
+          ),
         }),
       },
     );
@@ -1568,17 +1550,9 @@ export default function NIRTechnicianInputForm({
     );
   }
 
-  const calculatedClassificationPreview = calculateClassificationPreview();
-  const classificationPreview = calculatedClassificationPreview
-    ? {
-        ...calculatedClassificationPreview,
-        category:
-          manualClassification?.category ||
-          calculatedClassificationPreview.category,
-        class:
-          manualClassification?.class || calculatedClassificationPreview.class,
-      }
-    : null;
+  // RA-7709: includes the technician's choice when both fields are set — the
+  // same rule the draft save and the submit route apply.
+  const classificationPreview = calculateClassificationPreview();
 
   // Review/Summary View
   if (showReview) {
@@ -2304,6 +2278,9 @@ export default function NIRTechnicianInputForm({
           <NIRClaimAssessmentPanel
             inspectionId={inspectionId}
             lockedClaimType={claimType}
+            // RA-7709: a Category / Class pick in the panel is the
+            // technician's choice, shown in the preview and saved as such.
+            onWaterClassificationSaved={setManualClassification}
           />
         </div>
       )}

@@ -112,12 +112,18 @@ export async function syncNIRJobToAscora(
   const damageLabel = classificationParts.join(" ");
 
   // ── Build scope items summary for job description ────────────────────────
-  const scopeSummary = job.scopeItems
-    .map((item, i) => {
-      const ref = item.iicrcRef ? ` [${item.iicrcRef}]` : "";
-      return `${i + 1}. ${item.description}${ref} — ${item.quantity} ${item.unit} @ $${cents(item.unitPriceExGST).toFixed(2)}`;
-    })
-    .join("\n");
+  const scopeLines = job.scopeItems.map((item, i) => {
+    const ref = item.iicrcRef ? ` [${item.iicrcRef}]` : "";
+    return `${i + 1}. ${item.description}${ref} — ${item.quantity} ${item.unit} @ $${cents(item.unitPriceExGST).toFixed(2)}`;
+  });
+  // RA-7736: the contingency is not a scope item (RA-7708); list it so the
+  // lines add up to the ex-GST total sent below.
+  if (job.contingencyExGST && job.contingencyExGST > 0) {
+    scopeLines.push(
+      `${scopeLines.length + 1}. Contingency — 1 job @ $${cents(job.contingencyExGST).toFixed(2)}`,
+    );
+  }
+  const scopeSummary = scopeLines.join("\n");
 
   // ── Build job description ────────────────────────────────────────────────
   const descriptionParts = [

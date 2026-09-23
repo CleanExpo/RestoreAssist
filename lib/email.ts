@@ -1,6 +1,7 @@
 import { reportError } from "@/lib/observability";
 import { sanitiseEmailField } from "@/lib/email/sanitise-header";
 import { BRAND } from "@/lib/brand";
+import { PRICING_CONFIG } from "@/lib/pricing";
 import {
   isEmailServiceConfigured,
   resolveFromAddress,
@@ -743,10 +744,9 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
           <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 12px; padding: 24px; margin: 24px 0;">
             <p style="margin: 0 0 12px; font-weight: 600; color: #166534; font-size: 16px;">Subscribe now to keep:</p>
             <ul style="margin: 0; padding-left: 20px; color: #166534;">
-              <li style="margin-bottom: 8px;">Unlimited report generation</li>
+              <li style="margin-bottom: 8px;">${PRICING_CONFIG.pricing.monthly.reportLimit} inspection reports every month</li>
               <li style="margin-bottom: 8px;">All your saved reports and data</li>
-              <li style="margin-bottom: 8px;">Premium features and integrations</li>
-              <li>Priority support</li>
+              <li>Premium features and integrations</li>
             </ul>
           </div>
 

@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { classifyIICRC } from "@/lib/nir-classification-engine";
+import { classifyInspection } from "@/lib/nir-classification-engine";
+import {
+  findTechnicianClassification,
+  persistInspectionClassification,
+} from "@/lib/nir-classification-persist";
 import {
   getBuildingCodeRequirements,
   checkBuildingCodeTriggers,
@@ -29,14 +33,7 @@ import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
-
-/** Same normalised room match used when classifying an area's moisture readings. */
-function readingMatchesArea(location: string, roomZoneId: string): boolean {
-  return (
-    location === roomZoneId ||
-    location.toLowerCase().includes(roomZoneId.toLowerCase())
-  );
-}
+import { readingMatchesArea } from "@/lib/moisture/reading-room-join";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -86,6 +83,8 @@ export async function POST(
             select: {
               id: true,
               location: true,
+              sketchRoomId: true,
+              sketchRoom: { select: { id: true, name: true } },
               surfaceType: true,
               moistureLevel: true,
               depth: true,
@@ -108,9 +107,6 @@ export async function POST(
           // `.length` plus per-stage coverage (RA-7003) are read by
           // validateTieredCompletion.
           photos: { select: { id: true, photoStage: true } },
-          waterDamageClassification: {
-            select: { waterCategory: true, damageClass: true },
-          },
         },
       });
 
@@ -225,6 +221,7 @@ export async function POST(
         return NextResponse.json(
           {
             error:
+              makeSafeResult.reason ??
               "Stabilisation checklist incomplete — required per ANSI/IICRC S500:2021",
             blockers: makeSafeResult.blockers,
           },
@@ -458,82 +455,73 @@ async function processInspectionComplete(
     inspection.propertyPostcode,
   );
 
-  // Step 2: Classify each affected area
-  let primaryCategory = "1";
-  let primaryClass = "1";
-  const classifications: any[] = [];
-  const manualCategory =
-    inspection.waterDamageClassification?.waterCategory?.replace("CAT_", "") ??
-    null;
-  const manualClass =
-    inspection.waterDamageClassification?.damageClass?.replace("CLASS_", "") ??
-    null;
+  // Step 2: Classify. The same function the Review & Submit preview calls
+  // (RA-7709), so what the technician was shown is what is saved. A manual
+  // override is only the technician's own saved choice (a Classification row
+  // with reviewedBy, written by the draft save or the job-page classification
+  // tab) — never a WaterDamageClassification row another screen left behind.
+  const technicianChoice = await findTechnicianClassification(
+    prisma,
+    inspectionId,
+  );
+  const result = classifyInspection({
+    affectedAreas: inspection.affectedAreas.map((area: any) => ({
+      roomZoneId: area.roomZoneId,
+      areaSqm: resolveAreaSqm(area),
+      waterSource: area.waterSource,
+      timeSinceLoss: area.timeSinceLoss,
+    })),
+    moistureReadings: inspection.moistureReadings,
+    environmentalData: inspection.environmentalData,
+    manual: technicianChoice,
+  });
+  const primaryCategory = result.category;
+  const primaryClass = result.class;
 
-  for (const area of inspection.affectedAreas) {
-    // Get relevant moisture readings for this area
-    const relevantReadings = inspection.moistureReadings.filter((r: any) =>
-      readingMatchesArea(r.location, area.roomZoneId),
-    );
-
-    // Determine classification
-    const classification =
-      manualCategory && manualClass
-        ? {
-            category: manualCategory,
-            class: manualClass,
-            justification:
-              "Technician manual classification override recorded during inspection review.",
-            standardReference: "IICRC S500:2021 §7.1",
-            confidence: 100,
-          }
-        : await classifyIICRC({
-            waterSource: area.waterSource,
-            affectedSquareFootage: area.affectedSquareFootage,
-            moistureReadings: relevantReadings,
-            environmentalData: inspection.environmentalData,
-            timeSinceLoss: area.timeSinceLoss,
-          });
-
-    // Save classification
-    const savedClassification = await prisma.classification.create({
-      data: {
-        inspectionId,
-        category: classification.category,
-        class: classification.class,
-        justification: classification.justification,
-        standardReference: classification.standardReference,
-        confidence: classification.confidence,
-        inputData: JSON.stringify({
-          waterSource: area.waterSource,
-          affectedSquareFootage: area.affectedSquareFootage,
-          moistureReadings: relevantReadings,
-          timeSinceLoss: area.timeSinceLoss,
-          manualOverride: !!(manualCategory && manualClass),
-        }),
-        isFinal: true,
-        reviewedBy:
-          manualCategory && manualClass ? inspectionOwnerId : undefined,
-      },
-    });
-
-    classifications.push(savedClassification);
-
-    // Update affected area with classification
+  // Update each affected area with its classification
+  for (const [index, area] of inspection.affectedAreas.entries()) {
     await prisma.affectedArea.update({
       where: { id: area.id },
       data: {
-        category: classification.category,
-        class: classification.class,
+        category: result.areas[index].category,
+        class: result.areas[index].class,
       },
     });
+  }
 
-    // Track primary (worst) category and class
-    if (parseInt(classification.category) > parseInt(primaryCategory)) {
-      primaryCategory = classification.category;
-    }
-    if (parseInt(classification.class) > parseInt(primaryClass)) {
-      primaryClass = classification.class;
-    }
+  // Save the inspection's one classification row — a retry updates it.
+  let savedClassification = null;
+  if (result.areas.length > 0) {
+    const areaInputs = result.areas.map((a) => ({
+      roomZoneId: a.roomZoneId,
+      category: a.category,
+      class: a.class,
+      waterSource: a.input.waterSource,
+      affectedSquareFootage: a.input.affectedSquareFootage,
+      moistureReadings: a.input.moistureReadings,
+      timeSinceLoss: a.input.timeSinceLoss,
+    }));
+    const [first] = areaInputs;
+    savedClassification = await prisma.$transaction((tx) =>
+      persistInspectionClassification(tx, inspectionId, {
+        category: result.category,
+        class: result.class,
+        justification: technicianChoice?.justification ?? result.justification,
+        standardReference:
+          technicianChoice?.standardReference ?? result.standardReference,
+        confidence: technicianChoice?.confidence ?? result.confidence,
+        inputData: JSON.stringify({
+          waterSource: first.waterSource,
+          affectedSquareFootage: first.affectedSquareFootage,
+          moistureReadings: first.moistureReadings,
+          timeSinceLoss: first.timeSinceLoss,
+          areas: areaInputs,
+          manualOverride: result.manualOverride,
+        }),
+        isFinal: true,
+        reviewedBy: technicianChoice?.reviewedBy ?? null,
+      }),
+    );
   }
 
   // Update status to CLASSIFIED
@@ -576,7 +564,7 @@ async function processInspectionComplete(
     waterSource: inspection.affectedAreas[0]?.waterSource || "Clean Water",
     affectedAreas: inspection.affectedAreas.map((area: any) => {
       const matchedReading = inspection.moistureReadings.find((r: any) =>
-        readingMatchesArea(r.location, area.roomZoneId),
+        readingMatchesArea(r, area),
       );
       return {
         roomZoneId: area.roomZoneId,
@@ -655,7 +643,7 @@ async function processInspectionComplete(
   );
 
   return {
-    classification: classifications[0],
+    classification: savedClassification,
     scopeItems,
     costEstimate,
   };

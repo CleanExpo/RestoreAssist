@@ -1,3 +1,14 @@
+/**
+ * RA-7714 — the plan's monthly inspection-report allowance, stated ONCE.
+ * $99 AUD a month buys the CRM with this many inspection reports; the free
+ * trial grants the same number of credits. Every surface that states or
+ * enforces the allowance reads it through PRICING_CONFIG below (pricing page,
+ * trial copy, subscription page, lib/report-limits.ts enforcement), so the
+ * number cannot drift between them again (the Subscription page once said
+ * reports were unlimited while this said 50 a month).
+ */
+const PLAN_REPORT_ALLOWANCE = 50;
+
 export const PRICING_CONFIG = {
   /**
    * Public marketing free tier — SSOT for trial copy.
@@ -26,16 +37,15 @@ export const PRICING_CONFIG = {
     /** Length of the free trial in days. Mirrors `trialEndsAt` in register/route.ts. */
     trialDays: 15,
     /** Report credits granted on signup. Mirrors `creditsRemaining` in register/route.ts. */
-    trialReportCredits: 50,
+    trialReportCredits: PLAN_REPORT_ALLOWANCE,
     /** Quick Fill credits granted on signup. Mirrors `quickFillCreditsRemaining`. */
     trialQuickFillCredits: 30,
     /** @deprecated Use `trialReportCredits`. Kept so display cards reading `reportLimit` still work. */
-    reportLimit: 50,
-    description:
-      "Try Restore Assist free for 15 days — 50 inspection report credits with basic features. No credit card required.",
+    reportLimit: PLAN_REPORT_ALLOWANCE,
+    description: `Try Restore Assist free for 15 days — ${PLAN_REPORT_ALLOWANCE} inspection report credits with basic features. No credit card required.`,
     features: [
       "15-day free trial",
-      "50 inspection report credits",
+      `${PLAN_REPORT_ALLOWANCE} inspection report credits`,
       // NOT "AI-powered". The shipped Quick Fill copies hardcoded scenario
       // data; `generateQuickFillData` (lib/deepseek-api.ts:74) has zero callers
       // anywhere in the repository, so there is no AI in this path to sell.
@@ -96,11 +106,11 @@ export const PRICING_CONFIG = {
       amount: 99.0,
       currency: "AUD",
       interval: "month",
-      reportLimit: 50,
+      reportLimit: PLAN_REPORT_ALLOWANCE,
       popular: true,
       signupBonus: 10, // Additional 10 reports on first month signup
       features: [
-        "50 inspection reports per month",
+        `${PLAN_REPORT_ALLOWANCE} inspection reports per month`,
         "First month signup bonus: +10 reports",
         "PDF & Excel export",
         "Email support",

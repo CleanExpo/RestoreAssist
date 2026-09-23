@@ -9,7 +9,6 @@ import {
   FileText,
   Upload,
   Settings,
-  Sparkles,
   ArrowRight,
   Check,
 } from "lucide-react";
@@ -91,11 +90,9 @@ function UpgradeBannerContent({
       title: "Full Profile & Pricing Control",
       description: "Edit business profile and configure pricing rates",
     },
-    {
-      icon: Sparkles,
-      title: "Premium API Integrations",
-      description: "Connect with Claude, GPT, and other premium AI models",
-    },
+    // RA-7714: "Premium API Integrations" removed. Reports run on the
+    // customer's own Anthropic or OpenAI key on every plan (see
+    // components/pricing/TierComparison.tsx), so it is not an upgrade.
   ];
 
   if (variant === "floating") {

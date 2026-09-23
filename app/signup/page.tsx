@@ -285,7 +285,6 @@ export default function SignupPage() {
                   <li>Enhanced & Optimised report types</li>
                   <li>PDF upload and processing</li>
                   <li>Full profile and pricing configuration</li>
-                  <li>Premium API integrations</li>
                 </ul>
               </div>
 

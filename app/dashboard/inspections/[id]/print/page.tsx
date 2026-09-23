@@ -4,21 +4,19 @@ import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { resolveAreaSqm } from "@/lib/units";
+import { computeGstCents } from "@/lib/gst-rules";
+import { useOrganizationGst } from "@/hooks/use-organization-gst";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
 } from "@/lib/nir-standards-mapping";
+import {
+  formatEnvironmentalValue,
+  latestEnvironmentalReading,
+  type EnvironmentalReading,
+} from "@/lib/inspections/latest-environmental-reading";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface EnvironmentalData {
-  ambientTemperature: number;
-  humidityLevel: number;
-  dewPoint: number | null;
-  airCirculation: boolean;
-  weatherConditions: string | null;
-  notes: string | null;
-}
 
 interface MoistureReading {
   id: string;
@@ -61,6 +59,7 @@ interface CostEstimate {
   unit: string;
   rate: number;
   subtotal: number;
+  contingency: number;
   total: number;
 }
 
@@ -83,7 +82,7 @@ interface Inspection {
   claimType: string | null;
   createdAt: string;
   submittedAt: string | null;
-  environmentalData: EnvironmentalData | null;
+  environmentalData: EnvironmentalReading | EnvironmentalReading[] | null;
   moistureReadings: MoistureReading[];
   affectedAreas: AffectedArea[];
   scopeItems: ScopeItem[];
@@ -114,6 +113,88 @@ function fmtDate(iso: string): string {
   });
 }
 
+// RA-7738: GET /api/inspections/[id] returns environmentalData as an ARRAY
+// (EnvironmentalData[] since RA-1383). Reading it as one object left every
+// field undefined, so the printout showed units with no numbers. Show the
+// latest reading; "—" only for a value that is genuinely missing.
+function EnvironmentalConditions({
+  environmentalData,
+}: {
+  environmentalData: Inspection["environmentalData"];
+}) {
+  const reading = latestEnvironmentalReading(environmentalData);
+  if (!reading) return null;
+  return (
+    <div className="print-card rounded-xl border border-neutral-200 bg-white p-6">
+      <h2 className="text-base font-bold text-neutral-900 mb-4 pb-2 border-b border-neutral-100">
+        Environmental Conditions
+      </h2>
+      <div className="grid grid-cols-2 gap-4">
+        <table className="text-sm w-full">
+          <tbody>
+            <tr className="border-b border-neutral-100">
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Internal Temperature
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {formatEnvironmentalValue(reading.ambientTemperature, "°C")}
+              </td>
+            </tr>
+            <tr className="border-b border-neutral-100">
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Relative Humidity
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {formatEnvironmentalValue(reading.humidityLevel, "%")}
+              </td>
+            </tr>
+            <tr className="border-b border-neutral-100">
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Dew Point
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {formatEnvironmentalValue(reading.dewPoint, "°C", 1)}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Air Circulation
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {reading.airCirculation == null
+                  ? "—"
+                  : reading.airCirculation
+                    ? "Active"
+                    : "None"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <table className="text-sm w-full">
+          <tbody>
+            <tr className="border-b border-neutral-100">
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Weather Conditions
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {reading.weatherConditions ?? "—"}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-4 text-neutral-500 font-medium align-top pt-2">
+                Notes
+              </td>
+              <td className="py-2 text-neutral-700">
+                {reading.notes ?? "—"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── Loading Skeleton ──────────────────────────────────────────────────────────
 
 function PrintSkeleton() {
@@ -139,6 +220,14 @@ export default function InspectionPrintPage({
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const {
+    treatment: gstTreatment,
+    ready: gstReady,
+    failed: gstFailed,
+  } = useOrganizationGst();
+  // RA-7725: the hook starts at the AU default. Show no tax figure and keep
+  // printing disabled until the tenant's own treatment is known.
+  const gstKnown = gstReady && !gstFailed;
 
   useEffect(() => {
     fetch(`/api/inspections/${id}`)
@@ -172,16 +261,23 @@ export default function InspectionPrintPage({
     ? inspection.claimType.charAt(0) +
       inspection.claimType.slice(1).toLowerCase()
     : "Not set";
+  // RA-7725: since RA-7708 the contingency is its own row (subtotal 0,
+  // amount in contingency and total), so the total minus subtotal is the
+  // contingency, not tax. GST is charged on priced lines + contingency, the
+  // same base as the invoice generator, at the tenant's lib/gst-rules.ts rate.
   const subtotalCost = inspection.costEstimates.reduce(
     (sum, c) => sum + c.subtotal,
     0,
   );
-  const totalCost = inspection.costEstimates.reduce(
-    (sum, c) => sum + c.total,
+  const contingencyCost = inspection.costEstimates.reduce(
+    (sum, c) => sum + (c.contingency ?? 0),
     0,
   );
-  const gst = Math.max(0, totalCost - subtotalCost);
-  const grandTotal = totalCost;
+  const exGstCents = Math.round((subtotalCost + contingencyCost) * 100);
+  const gstCents = computeGstCents(exGstCents, gstTreatment.country);
+  const exGstTotal = exGstCents / 100;
+  const gst = gstCents / 100;
+  const grandTotal = (exGstCents + gstCents) / 100;
   const generatedAt = new Date().toLocaleString("en-AU", {
     day: "2-digit",
     month: "long",
@@ -234,10 +330,25 @@ export default function InspectionPrintPage({
         <span className="text-sm font-semibold text-neutral-700">
           {inspection.inspectionNumber}
         </span>
-        <Button onClick={() => window.print()} size="sm">
+        <Button
+          onClick={() => window.print()}
+          size="sm"
+          disabled={!gstKnown}
+        >
           Print / Save PDF
         </Button>
       </div>
+
+      {gstFailed && (
+        <div
+          role="alert"
+          className="no-print max-w-4xl mx-auto mt-20 -mb-16 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800"
+        >
+          Could not load your organisation&apos;s GST rate, so GST and the
+          grand total are not shown and printing is disabled. Check the
+          organisation country in Settings, then reload this page.
+        </div>
+      )}
 
       {/* ── Report Body ──────────────────────────────────────────────────── */}
       <div className="max-w-4xl mx-auto px-6 pb-16 pt-20 print:pt-0 print:px-0 space-y-8">
@@ -336,75 +447,9 @@ export default function InspectionPrintPage({
         </div>
 
         {/* ── 2. Environmental Conditions ─────────────────────────────────── */}
-        {inspection.environmentalData && (
-          <div className="print-card rounded-xl border border-neutral-200 bg-white p-6">
-            <h2 className="text-base font-bold text-neutral-900 mb-4 pb-2 border-b border-neutral-100">
-              Environmental Conditions
-            </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <table className="text-sm w-full">
-                <tbody>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Internal Temperature
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.ambientTemperature}°C
-                    </td>
-                  </tr>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Relative Humidity
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.humidityLevel}%
-                    </td>
-                  </tr>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Dew Point
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.dewPoint != null
-                        ? `${inspection.environmentalData.dewPoint.toFixed(1)}°C`
-                        : "Not recorded"}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Air Circulation
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.airCirculation
-                        ? "Active"
-                        : "None"}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <table className="text-sm w-full">
-                <tbody>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Weather Conditions
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.weatherConditions ?? "—"}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 pr-4 text-neutral-500 font-medium align-top pt-2">
-                      Notes
-                    </td>
-                    <td className="py-2 text-neutral-700">
-                      {inspection.environmentalData.notes ?? "—"}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <EnvironmentalConditions
+          environmentalData={inspection.environmentalData}
+        />
 
         {/* ── 3. Moisture Readings (water claims) ─────────────────────────── */}
         {waterClaim && inspection.moistureReadings.length > 0 && (
@@ -697,7 +742,7 @@ export default function InspectionPrintPage({
                       colSpan={5}
                       className="px-3 py-2 text-right text-sm text-neutral-600"
                     >
-                      Subtotal (ex. GST)
+                      Priced lines (ex. GST)
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-neutral-900">
                       ${fmtCurrency(subtotalCost)}
@@ -708,10 +753,36 @@ export default function InspectionPrintPage({
                       colSpan={5}
                       className="px-3 py-2 text-right text-sm text-neutral-600"
                     >
-                      GST
+                      Contingency
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-neutral-900">
-                      ${fmtCurrency(gst)}
+                      ${fmtCurrency(contingencyCost)}
+                    </td>
+                  </tr>
+                  <tr className="bg-neutral-50">
+                    <td
+                      colSpan={5}
+                      className="px-3 py-2 text-right text-sm text-neutral-600"
+                    >
+                      Subtotal (ex. GST)
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-neutral-900">
+                      ${fmtCurrency(exGstTotal)}
+                    </td>
+                  </tr>
+                  <tr className="bg-neutral-50">
+                    <td
+                      colSpan={5}
+                      className="px-3 py-2 text-right text-sm text-neutral-600"
+                    >
+                      {gstKnown ? `GST (${gstTreatment.percentLabel})` : "GST"}
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-neutral-900">
+                      {gstKnown
+                        ? `$${fmtCurrency(gst)}`
+                        : gstFailed
+                          ? "Unavailable"
+                          : "Calculating GST..."}
                     </td>
                   </tr>
                   <tr className="bg-neutral-50 border-t-2 border-neutral-300">
@@ -722,7 +793,11 @@ export default function InspectionPrintPage({
                       Grand Total (inc. GST)
                     </td>
                     <td className="px-3 py-3 text-right font-bold text-lg text-success">
-                      ${fmtCurrency(grandTotal)}
+                      {gstKnown
+                        ? `$${fmtCurrency(grandTotal)}`
+                        : gstFailed
+                          ? "Unavailable"
+                          : "Calculating GST..."}
                     </td>
                   </tr>
                 </tfoot>

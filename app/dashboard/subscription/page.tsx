@@ -56,6 +56,8 @@ function SubscriptionPageContent() {
     subscriptionStatus?: string;
     creditsRemaining?: number;
     trialEndsAt?: string | null;
+    /** Monthly report allowance of the account's plan (profile.planReportAllowance). */
+    reportAllowance?: number;
   } | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -78,6 +80,17 @@ function SubscriptionPageContent() {
             subscriptionStatus: data.profile.subscriptionStatus,
             creditsRemaining: data.profile.creditsRemaining,
             trialEndsAt: data.profile.trialEndsAt,
+            // RA-7714: the allowance of the plan this account is on.
+            // /api/user/profile resolves it with resolveBaseReportLimit from
+            // the effective plan, so Yearly Plan (70) and Lifetime (999)
+            // customers see their own number, not the catalogue 50. Not
+            // reportLimits.baseLimit: that is 0 for a lifetime customer
+            // stored as CANCELED or null. A non-positive value is never shown.
+            reportAllowance:
+              typeof data.profile.planReportAllowance === "number" &&
+              data.profile.planReportAllowance > 0
+                ? data.profile.planReportAllowance
+                : undefined,
           });
         }
       })
@@ -524,10 +537,17 @@ function SubscriptionPageContent() {
               <h2 className="text-xl font-semibold mb-4">Plan Features</h2>
 
               <div className="grid md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-success" />
-                  <span className="text-slate-300">Unlimited reports</span>
-                </div>
+                {/* RA-7714: only the account's own plan allowance is stated. If the
+                  profile could not supply it, no number is shown rather than
+                  a catalog figure that may not be this customer's. */}
+                {typeof userStatus?.reportAllowance === "number" && (
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-success" />
+                    <span className="text-slate-300">
+                      {`${userStatus.reportAllowance} inspection reports per month`}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-success" />
                   <span className="text-slate-300">PDF & Excel export</span>

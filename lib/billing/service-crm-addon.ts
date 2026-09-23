@@ -30,10 +30,20 @@ export const SERVICE_CRM_ADDON_SUBSCRIPTION_TYPE = "service_crm_addon" as const;
  */
 export const SERVICE_CRM_ADDON = {
   sku: SERVICE_CRM_SKU,
-  name: "Service CRM Connection",
-  // RA-7660: DR-NRPG removed from the buyer-facing copy (NRPG is not ready to
-  // sell). The entitlement still gates the dormant DR-NRPG connect route.
-  description: "Connect Ascora to sync jobs and pricing data.",
+  // RA-7714: founder-set wording. RestoreAssist IS the CRM; Ascora and
+  // ServiceM8 are migration SOURCES ("sign in once, bring it across"), never
+  // ongoing connections. The sku, price and subscription marker are
+  // unchanged (price is a founder decision), so existing subscriptions and
+  // the Stripe webhook are unaffected; only new checkouts carry the new name.
+  // RA-7660: DR-NRPG stays out of the buyer-facing copy. The entitlement
+  // still gates the dormant DR-NRPG connect route.
+  // RA-7714 review round 2: named for Ascora only. The founder wording also
+  // named ServiceM8, but a buyer cannot start a ServiceM8 import (the card
+  // is flag-hidden and beta-disabled: it never passed a real sync test).
+  // Add ServiceM8 back only once that import can be started.
+  name: "Migrate from Ascora",
+  description:
+    "Sign in once and bring your clients, jobs, history and pricing into RestoreAssist.",
   /** Dollars, AUD, GST-inclusive. */
   amount: 11.0,
   currency: "AUD",

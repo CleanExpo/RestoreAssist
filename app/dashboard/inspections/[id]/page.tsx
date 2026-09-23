@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useRef } from "react";
+import { useState, useEffect, use, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -18,6 +18,16 @@ import InspectionEvidenceReadinessPanel, {
 } from "@/components/inspection/InspectionEvidenceReadinessPanel";
 import HandoverPackagePanel from "@/components/inspection/HandoverPackagePanel";
 import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
+import EnvironmentalSummary from "@/components/inspection/EnvironmentalSummary";
+import {
+  latestEnvironmentalReading,
+  type EnvironmentalReading,
+} from "@/lib/inspections/latest-environmental-reading";
+import type { RequiredEvidenceProgress } from "@/lib/evidence/evidence-readiness";
+import {
+  pointsFromReadings,
+  saveReadingPlacement,
+} from "@/lib/moisture/moisture-map-placement";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -186,14 +196,9 @@ interface Inspection {
   handoverPackageStorageKey: string | null;
   // RA-6949 — per-job Restoration Pulse notification toggle.
   pulseEnabled: boolean;
-  environmentalData: {
-    ambientTemperature: number;
-    humidityLevel: number;
-    dewPoint: number | null;
-    airCirculation: boolean;
-    weatherConditions: string | null;
-    notes: string | null;
-  } | null;
+  // RA-7713: the API returns an array (time series since RA-1383); the demo
+  // inspection returns a single object. Read it via latestEnvironmentalReading.
+  environmentalData: EnvironmentalReading | EnvironmentalReading[] | null;
   moistureReadings: {
     id: string;
     location: string;
@@ -202,6 +207,8 @@ interface Inspection {
     depth: string;
     notes: string | null;
     photoUrl: string | null;
+    sketchRoomId?: string | null;
+    sketchRoom?: { id: string; name: string } | null;
   }[];
   affectedAreas: {
     id: string;
@@ -415,7 +422,10 @@ export default function InspectionDetailPage({
     quantity: "",
     unit: "",
   });
-  const [envData, setEnvData] = useState<Inspection["environmentalData"]>(null);
+  const [envData, setEnvData] = useState<EnvironmentalReading | null>(null);
+  // RA-7713: required Field Evidence Checklist progress caps the readiness %.
+  const [requiredEvidence, setRequiredEvidence] =
+    useState<RequiredEvidenceProgress | null>(null);
   const [showEnvForm, setShowEnvForm] = useState(false);
   const [envForm, setEnvForm] = useState<{
     ambientTemperature: number | null;
@@ -437,17 +447,22 @@ export default function InspectionDetailPage({
   const [showAddMoisture, setShowAddMoisture] = useState(false);
   const [moistureForm, setMoistureForm] = useState<{
     location: string;
+    sketchRoomId: string | null;
     surfaceType: string;
     moistureLevel: number | null;
     depth: string;
     notes: string;
   }>({
     location: "",
+    sketchRoomId: null,
     surfaceType: "",
     moistureLevel: null,
     depth: "Surface",
     notes: "",
   });
+  const [sketchRooms, setSketchRooms] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [addingMoisture, setAddingMoisture] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [generatingDisputePack, setGeneratingDisputePack] = useState(false);
@@ -504,6 +519,33 @@ export default function InspectionDetailPage({
     let cancelled = false;
     (async () => {
       try {
+        const res = await fetch(`/api/inspections/${id}/sketches`);
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          sketches?: Array<{
+            rooms?: Array<{ id: string; name: string }>;
+          }>;
+        };
+        const rooms = (json.sketches ?? []).flatMap((sketch) =>
+          (sketch.rooms ?? []).map((room) => ({
+            id: room.id,
+            name: room.name,
+          })),
+        );
+        if (!cancelled) setSketchRooms(rooms);
+      } catch {
+        if (!cancelled) setSketchRooms([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
         const { isUnderlayUrlImportEnabled } = await import(
           "@/lib/sketch/underlay-import-flag"
         );
@@ -530,6 +572,13 @@ export default function InspectionDetailPage({
     };
   }, []);
 
+  // RA-7713 part 12: saved floor-plan positions (MoistureReading.mapX/mapY).
+  // Memoised: the canvas re-syncs whenever this array's identity changes.
+  const moistureMapPoints = useMemo(
+    () => pointsFromReadings(moistureReadings),
+    [moistureReadings],
+  );
+
   const fetchInspection = async () => {
     try {
       setLoading(true);
@@ -540,8 +589,10 @@ export default function InspectionDetailPage({
         setScopeItems(data.inspection.scopeItems ?? []);
         setMoistureReadings(data.inspection.moistureReadings ?? []);
         setAffectedAreas(data.inspection.affectedAreas ?? []);
-        setEnvData(data.inspection.environmentalData);
-        const ed = data.inspection.environmentalData;
+        const ed = latestEnvironmentalReading(
+          data.inspection.environmentalData,
+        );
+        setEnvData(ed);
         if (ed) {
           setEnvForm({
             ambientTemperature: ed.ambientTemperature ?? null,
@@ -927,16 +978,22 @@ export default function InspectionDetailPage({
     }
     setAddingMoisture(true);
     try {
+      const sketchRoomId =
+        moistureForm.sketchRoomId &&
+        moistureForm.sketchRoomId !== "__not_on_plan__"
+          ? moistureForm.sketchRoomId
+          : null;
       const res = await fetch(`/api/inspections/${inspection!.id}/moisture`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(moistureForm),
+        body: JSON.stringify({ ...moistureForm, sketchRoomId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMoistureReadings((prev) => [...prev, data.moistureReading]);
       setMoistureForm({
         location: "",
+        sketchRoomId: null,
         surfaceType: "",
         moistureLevel: null,
         depth: "Surface",
@@ -1471,6 +1528,7 @@ export default function InspectionDetailPage({
         costEstimateCount={inspection.costEstimates.length}
         totalCost={totalCost}
         onSelectTab={(tab) => setActiveTab(tab as InspectionEvidenceTab)}
+        requiredEvidence={requiredEvidence}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -1502,7 +1560,10 @@ export default function InspectionDetailPage({
             onSigned={() => fetchInspection()}
           />
         )}
-        <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
+        <FieldEvidenceChecklistPanel
+          inspectionId={inspection.id}
+          onRequiredProgress={setRequiredEvidence}
+        />
       </div>
 
       {/* SP-A close-job Sidekick card. Renders while the inspection is in
@@ -1739,47 +1800,9 @@ export default function InspectionDetailPage({
             )}
 
             {/* Environmental Summary */}
-            {inspection.environmentalData && (
-              <div className="md:col-span-2 p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-                <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                  Environmental Conditions
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div>
-                    <span className="text-xs text-neutral-400">
-                      Temperature
-                    </span>
-                    <div className="text-lg font-semibold">
-                      {inspection.environmentalData.ambientTemperature}°C
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs text-neutral-400">Humidity</span>
-                    <div className="text-lg font-semibold">
-                      {inspection.environmentalData.humidityLevel}%
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs text-neutral-400">Dew Point</span>
-                    <div className="text-lg font-semibold">
-                      {inspection.environmentalData.dewPoint?.toFixed(1) ??
-                        "N/A"}
-                      °C
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs text-neutral-400">
-                      Air Circulation
-                    </span>
-                    <div className="text-lg font-semibold">
-                      {inspection.environmentalData.airCirculation
-                        ? "Yes"
-                        : "No"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            <EnvironmentalSummary
+              environmentalData={inspection.environmentalData}
+            />
 
             {/* Make-safe is a hard submit blocker — keep it editable on the hub */}
             <div className="lg:col-span-4 md:col-span-2">
@@ -2048,18 +2071,79 @@ export default function InspectionDetailPage({
                     <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
                       Location
                     </label>
-                    <input
-                      type="text"
-                      value={moistureForm.location}
-                      onChange={(e) =>
-                        setMoistureForm((f) => ({
-                          ...f,
-                          location: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-                      placeholder="e.g. Living Room Wall"
-                    />
+                    {sketchRooms.length > 0 ? (
+                      <>
+                        <select
+                          value={moistureForm.sketchRoomId ?? ""}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            if (!next) {
+                              setMoistureForm((f) => ({
+                                ...f,
+                                sketchRoomId: null,
+                                location: "",
+                              }));
+                              return;
+                            }
+                            if (next === "__not_on_plan__") {
+                              setMoistureForm((f) => ({
+                                ...f,
+                                sketchRoomId: "__not_on_plan__",
+                                location: f.sketchRoomId === "__not_on_plan__"
+                                  ? f.location
+                                  : "",
+                              }));
+                              return;
+                            }
+                            const room = sketchRooms.find((r) => r.id === next);
+                            setMoistureForm((f) => ({
+                              ...f,
+                              sketchRoomId: room?.id ?? null,
+                              location: room?.name ?? "",
+                            }));
+                          }}
+                          className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                        >
+                          <option value="">Select a room</option>
+                          {sketchRooms.map((room) => (
+                            <option key={room.id} value={room.id}>
+                              {room.name}
+                            </option>
+                          ))}
+                          <option value="__not_on_plan__">
+                            Room not on the plan
+                          </option>
+                        </select>
+                        {moistureForm.sketchRoomId === "__not_on_plan__" && (
+                          <input
+                            type="text"
+                            value={moistureForm.location}
+                            onChange={(e) =>
+                              setMoistureForm((f) => ({
+                                ...f,
+                                location: e.target.value,
+                              }))
+                            }
+                            className="mt-2 w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            placeholder="Describe the location"
+                            aria-label="Room not on the plan"
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <input
+                        type="text"
+                        value={moistureForm.location}
+                        onChange={(e) =>
+                          setMoistureForm((f) => ({
+                            ...f,
+                            location: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                        placeholder="e.g. Living Room Wall"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
@@ -2181,7 +2265,7 @@ export default function InspectionDetailPage({
                         className="hover:bg-neutral-50 dark:hover:bg-slate-800/30"
                       >
                         <td className="px-4 py-3 font-medium text-sm">
-                          {reading.location}
+                          {reading.sketchRoom?.name ?? reading.location}
                         </td>
                         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-slate-300 capitalize">
                           {reading.surfaceType}
@@ -2229,7 +2313,22 @@ export default function InspectionDetailPage({
         {activeTab === "moisture-map" && showMoistureTabs && (
           <div>
             {moistureReadings.length > 0 ? (
-              <MoistureMappingCanvas readings={moistureReadings} />
+              <MoistureMappingCanvas
+                readings={moistureReadings}
+                initialPoints={moistureMapPoints}
+                onPlaceReading={async (readingId, position) => {
+                  await saveReadingPlacement(
+                    inspection.id,
+                    readingId,
+                    position,
+                  );
+                  setMoistureReadings((prev) =>
+                    prev.map((r) =>
+                      r.id === readingId ? { ...r, ...position } : r,
+                    ),
+                  );
+                }}
+              />
             ) : (
               <div className="text-center py-12 text-neutral-400">
                 No moisture readings to map — add readings first

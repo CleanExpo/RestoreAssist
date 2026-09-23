@@ -44,6 +44,7 @@ describe("partitionStaleRooms", () => {
   it.each([
     ["an evidence pin", { evidencePins: 1 }],
     ["a moisture reading", { moistureReadings: 1 }],
+    ["a job moisture reading", { jobMoistureReadings: 1 }],
     ["a hazard", { hazards: 1 }],
     ["several of each", { evidencePins: 3, moistureReadings: 9, hazards: 2 }],
   ])("never deletes a stale room holding %s", (_label, counts) => {

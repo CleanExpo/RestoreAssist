@@ -97,7 +97,11 @@ export async function GET(request: NextRequest) {
           },
           include: {
             environmentalData: true,
-            moistureReadings: true,
+            // RA-7610: the form's classification preview matches a linked
+            // reading to an area by its room's name, as submit does.
+            moistureReadings: {
+              include: { sketchRoom: { select: { id: true, name: true } } },
+            },
             affectedAreas: true,
             scopeItems: true,
             classifications: true,

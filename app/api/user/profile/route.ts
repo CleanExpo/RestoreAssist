@@ -4,7 +4,10 @@ import { validateCsrf } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { stripe } from "@/lib/stripe";
-import { getUserReportLimits } from "@/lib/report-limits";
+import {
+  getUserReportLimits,
+  resolveBaseReportLimit,
+} from "@/lib/report-limits";
 import {
   getTrialStatus,
   checkAndUpdateTrialStatus,
@@ -296,6 +299,16 @@ export async function GET(request: NextRequest) {
         lastBillingDate: user.lastBillingDate?.toISOString(),
         monthlyResetDate: user.monthlyResetDate?.toISOString(),
         reportLimits: reportLimits,
+        // RA-7714: the monthly report allowance of the plan this account is
+        // on, for display (Subscription and payment-success pages). Resolved
+        // from the EFFECTIVE plan, so a lifetimeAccess customer is Lifetime
+        // (999) even when the stored status is CANCELED or null — where
+        // reportLimits.baseLimit is 0 — and a team member gets the owner's
+        // plan. Null when there is no active plan.
+        planReportAllowance:
+          subscriptionStatus === "ACTIVE"
+            ? resolveBaseReportLimit(subscriptionPlan)
+            : null,
         trialStatus: isLifetime
           ? null
           : trialStatus

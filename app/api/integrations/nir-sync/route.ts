@@ -28,6 +28,7 @@ import {
   type NIRJobPayload,
 } from "@/lib/integrations/nir-sync-orchestrator";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
+import { computeGstCents } from "@/lib/gst-rules";
 
 export async function POST(request: NextRequest) {
   try {
@@ -82,13 +83,12 @@ export async function POST(request: NextRequest) {
     const classification = inspection?.classifications?.[0];
     const costEstimates = inspection?.costEstimates ?? [];
 
-    // Sum cost estimates. All CostEstimate.subtotal / total are Float (dollars) in schema.
+    // Sum cost estimates. All CostEstimate money columns are Float (dollars),
+    // ex-GST. RA-7725: since RA-7708 the contingency is its own row (subtotal
+    // 0, amount in contingency and total), so it belongs in the ex-GST base.
+    // Treating the total as inc-GST booked the contingency as tax.
     const totalExGSTDollars = costEstimates.reduce(
-      (s, ce) => s + (ce.subtotal ?? 0),
-      0,
-    );
-    const totalIncGSTDollars = costEstimates.reduce(
-      (s, ce) => s + (ce.total ?? 0),
+      (s, ce) => s + (ce.subtotal ?? 0) + (ce.contingency ?? 0),
       0,
     );
     const fallback = report.totalCost ?? 0;
@@ -97,12 +97,8 @@ export async function POST(request: NextRequest) {
     const totalExGST = Math.round(
       (totalExGSTDollars > 0 ? totalExGSTDollars : fallback) * 100,
     );
-    const totalIncGST = Math.round(
-      (totalIncGSTDollars > 0
-        ? totalIncGSTDollars
-        : fallback * (1 + gstTreatment.rate)) * 100,
-    );
-    const gstAmount = totalIncGST - totalExGST;
+    const gstAmount = computeGstCents(totalExGST, gstTreatment.country);
+    const totalIncGST = totalExGST + gstAmount;
 
     const payload: NIRJobPayload = {
       reportId: report.id,
@@ -140,6 +136,11 @@ export async function POST(request: NextRequest) {
         ),
         iicrcRef: item.justification ?? undefined,
       })),
+      // RA-7736: the contingency row has no scope item (RA-7708), so the
+      // scope mapping above never carries it. Hand it over separately.
+      contingencyExGST: Math.round(
+        costEstimates.reduce((s, ce) => s + (ce.contingency ?? 0), 0) * 100,
+      ),
       totalExGST,
       gstAmount,
       totalIncGST,

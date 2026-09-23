@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
+import { persistInspectionClassification } from "@/lib/nir-classification-persist";
 
 /**
  * GET  — latest Classification row(s) for the inspection
@@ -165,28 +166,20 @@ export async function POST(
       `Technician-recorded IICRC S500 Category ${category} / Class ${damageClass}.`;
 
     const classification = await prisma.$transaction(async (tx) => {
-      // Mark prior rows non-final so the newest is authoritative.
-      await tx.classification.updateMany({
-        where: { inspectionId: id, isFinal: true },
-        data: { isFinal: false },
-      });
-
-      const created = await tx.classification.create({
-        data: {
-          inspectionId: id,
-          category,
-          class: damageClass,
-          justification: finalJustification,
-          standardReference:
-            standardReference ?? "IICRC S500:2021 §7.1 (technician recorded)",
-          confidence: confidence ?? 100,
-          inputData: JSON.stringify({
-            source: "manual_classification_tab",
-            reviewedBy: session.user.id,
-          }),
-          isFinal: true,
+      // RA-7709: one row per inspection — replace it, never append.
+      const created = await persistInspectionClassification(tx, id, {
+        category,
+        class: damageClass,
+        justification: finalJustification,
+        standardReference:
+          standardReference ?? "IICRC S500:2021 §7.1 (technician recorded)",
+        confidence: confidence ?? 100,
+        inputData: JSON.stringify({
+          source: "manual_classification_tab",
           reviewedBy: session.user.id,
-        },
+        }),
+        isFinal: true,
+        reviewedBy: session.user.id,
       });
 
       const waterCategory = toWaterCategory(category);

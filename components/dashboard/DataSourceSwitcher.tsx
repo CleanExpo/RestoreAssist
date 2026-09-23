@@ -6,7 +6,8 @@ import type { DataSource } from "@/lib/synced-data/types";
 const OPTIONS: Array<{ value: DataSource; label: string }> = [
   { value: "native", label: "RestoreAssist" },
   { value: "xero", label: "Xero" },
-  { value: "ascora", label: "Ascora" },
+  // RA-7714: Ascora is a migration source, not a partner system.
+  { value: "ascora", label: "Imported from Ascora" },
 ];
 
 interface DataSourceSwitcherProps {

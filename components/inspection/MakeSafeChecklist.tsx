@@ -13,6 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
+import {
+  MAKE_SAFE_COMPLIANCE_LABEL,
+  makeSafeCompliance,
+} from "@/lib/compliance/make-safe-compliance";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -97,13 +101,11 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
 
   // ── Compliance pill ──────────────────────────────────────────────────────
 
-  const applicableActions = MAKE_SAFE_ACTIONS.filter(
-    (a) => state[a].applicable,
+  // RA-7713: all-N/A (the intake seed) is "Not assessed", never PASS.
+  const compliance = makeSafeCompliance(
+    MAKE_SAFE_ACTIONS.map((a) => state[a]),
   );
-  const allApplicableComplete = applicableActions.every(
-    (a) => state[a].completed,
-  );
-  const complianceStatus = allApplicableComplete ? "PASS" : "INCOMPLETE";
+  const complianceStatus = MAKE_SAFE_COMPLIANCE_LABEL[compliance];
 
   // ── Field handlers ───────────────────────────────────────────────────────
 
@@ -197,9 +199,11 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
         </div>
         <Badge
           className={
-            complianceStatus === "PASS"
+            compliance === "PASS"
               ? "bg-green-600 text-white hover:bg-green-600"
-              : "bg-amber-500 text-white hover:bg-amber-500"
+              : compliance === "NOT_ASSESSED"
+                ? "bg-slate-500 text-white hover:bg-slate-500"
+                : "bg-amber-500 text-white hover:bg-amber-500"
           }
           aria-label={`Compliance status: ${complianceStatus}`}
         >

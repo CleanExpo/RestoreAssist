@@ -25,7 +25,6 @@
     "app/api/admin/users/route.ts",
     "app/api/admin/vectorise/route.ts",
     "app/api/analytics/activation-funnel/route.ts",
-    "app/api/analytics/billing-overview/route.ts",
     "app/api/auth/revoke-sessions/route.ts",
     "app/api/inspections/[id]/reopen/route.ts",
     "app/api/inspections/[id]/scope-variations/route.ts",
@@ -42,8 +41,6 @@
     "app/api/margot/voice/route.ts",
     "app/api/mission-control/context/route.ts",
     "app/api/mobile/beta-signup/route.ts",
-    "app/api/pilot/observations/route.ts",
-    "app/api/pilot/readiness/route.ts",
     "app/api/progress/governance/route.ts",
     "app/api/v1/connections/status/route.ts"
   ]

@@ -106,6 +106,7 @@
     "audit:advisors": "tsx scripts/ci/supabase-advisor-gate.ts",
     "backfill:account-tokens": "tsx scripts/backfill-encrypt-account-tokens.ts",
     "backfill:email-connection-tokens": "node --import tsx scripts/backfill-encrypt-email-connections.ts",
+    "backfill:moisture-reading-sketch-room": "tsx scripts/backfill-moisture-reading-sketch-room.ts",
     "security:scan": "node scripts/security/route-safety-scan.mjs",
     "verifier:ledger": "node scripts/verifier-ledger.mjs",
     "prisma:generate": "prisma generate",

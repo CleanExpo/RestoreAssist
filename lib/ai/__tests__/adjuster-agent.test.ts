@@ -719,4 +719,46 @@ describe("runAdjusterAgent", () => {
     const result = await runAdjusterAgent("insp-001");
     expect(result.recommendation).toBe("approve");
   });
+
+  // RA-7725: since RA-7708 the contingency is its own CostEstimate row with
+  // subtotal 0 and the amount in `total`. Summing `subtotal` left it out of
+  // the cost the adjuster audits.
+  it("12. total cost includes the contingency row (NIR-2026-09-F1C142 shape)", async () => {
+    const priced = [325, 175, 225, 484, 1050].map((amount, i) => ({
+      category: "Labor",
+      description: `Line ${i + 1}`,
+      subtotal: amount,
+      contingency: 0,
+      total: amount,
+    }));
+    mockFindUnique.mockResolvedValueOnce(
+      makeInspection({
+        costEstimates: [
+          ...priced,
+          {
+            category: "Other",
+            description: "Contingency (12%)",
+            subtotal: 0,
+            contingency: 271.08,
+            total: 271.08,
+          },
+        ],
+      } as never),
+    );
+    mockAiResponse(aiJson("approve"));
+
+    await runAdjusterAgent("insp-001");
+
+    // The query must fetch `total`, or the sum reads undefined in production.
+    const query = mockFindUnique.mock.calls[0][0] as {
+      select: { costEstimates: { select: Record<string, boolean> } };
+    };
+    expect(query.select.costEstimates.select.total).toBe(true);
+
+    const { userPrompt } = mockDispatch.mock.calls[0][0] as {
+      userPrompt: string;
+    };
+    // 2259.00 priced + 271.08 contingency = 2530.08 -> 253008 cents, exactly.
+    expect(userPrompt).toMatch(/Total \(cents\): 253008\n/);
+  });
 });

@@ -6,6 +6,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { MAKE_SAFE_ACTIONS } from "@/app/api/inspections/[id]/make-safe/route";
+import {
+  makeSafeCompliance,
+  type MakeSafeComplianceItem,
+} from "@/lib/compliance/make-safe-compliance";
 
 export const MAKE_SAFE_ACTION_LABELS: Record<string, string> = {
   power_isolated: "Power isolated (electrical hazard)",
@@ -18,7 +22,13 @@ export const MAKE_SAFE_ACTION_LABELS: Record<string, string> = {
 export type MakeSafeGateResult = {
   canSubmit: boolean;
   blockers: Array<{ action: string; label: string }>;
+  /** Plain-English reason when the refusal is not about a specific item. */
+  reason?: string;
 };
+
+// RA-7739: shown to the technician when nothing was marked applicable.
+export const MAKE_SAFE_NOT_ASSESSED_REASON =
+  "The Stabilisation checklist has not been filled in. Mark each item as applicable or not applicable, complete the applicable ones, then submit again.";
 
 /**
  * Stabilisation gate per ANSI/IICRC S500:2021.
@@ -32,6 +42,10 @@ export type MakeSafeGateResult = {
  *
  * Actions that have no row at all (i.e. never been set) are treated as
  * "applicable + not completed" — this is the safe default.
+ *
+ * RA-7739: a checklist with nothing applicable (the untouched intake seed,
+ * or every item marked N/A) is not an assessment and is refused. Submit is
+ * allowed exactly when makeSafeCompliance() — the badge — reads PASS.
  */
 export async function checkMakeSafeGate(
   inspectionId: string,
@@ -45,12 +59,14 @@ export async function checkMakeSafeGate(
   const rowMap = new Map(rows.map((r) => [r.action, r]));
 
   const blockers: Array<{ action: string; label: string }> = [];
+  const items: MakeSafeComplianceItem[] = [];
 
   for (const action of MAKE_SAFE_ACTIONS) {
     const row = rowMap.get(action);
 
     if (!row) {
       // Row never created — treat as applicable + incomplete
+      items.push({ applicable: true, completed: false });
       blockers.push({
         action,
         label: MAKE_SAFE_ACTION_LABELS[action] ?? action,
@@ -58,6 +74,7 @@ export async function checkMakeSafeGate(
       continue;
     }
 
+    items.push({ applicable: row.applicable, completed: row.completed });
     if (row.applicable && !row.completed) {
       blockers.push({
         action,
@@ -66,8 +83,13 @@ export async function checkMakeSafeGate(
     }
   }
 
+  const status = makeSafeCompliance(items);
+  if (status === "NOT_ASSESSED") {
+    return { canSubmit: false, blockers, reason: MAKE_SAFE_NOT_ASSESSED_REASON };
+  }
+
   return {
-    canSubmit: blockers.length === 0,
+    canSubmit: status === "PASS",
     blockers,
   };
 }

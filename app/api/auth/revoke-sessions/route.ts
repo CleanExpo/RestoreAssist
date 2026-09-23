@@ -26,7 +26,8 @@ import { authOptions } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { logSecurityEvent } from "@/lib/security-audit";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { adminUserScope, verifyAdminFromDb } from "@/lib/admin-auth";
+import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
@@ -60,12 +61,38 @@ export async function POST(request: NextRequest) {
   const reason =
     typeof body?.reason === "string" ? body.reason.trim().slice(0, 200) : "";
 
-  // Resolve target — default self, else require admin.
+  // Resolve target — default self, else require an admin of the SAME tenant.
+  //
+  // The docstring above predates self-serve signup. Tenant ADMIN is now every
+  // registered owner (RA-7592), so the admin check alone would let any account
+  // on the platform force a re-login on any other account, including a
+  // competitor's entire staff. `adminUserScope` narrows the lookup to the
+  // caller's organisation and falls back to their own row when that
+  // organisation is null, so an org-less admin reaches nobody else (RA-7647).
   let targetUserId = session.user.id;
   if (requestedTarget && requestedTarget !== session.user.id) {
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
-    targetUserId = requestedTarget;
+
+    // AND, never a spread: adminUserScope returns {id: self} for an org-less
+    // admin, and spreading that into a where that already carries `id` would
+    // REPLACE the requested target with the caller — who always exists — so
+    // the lookup would succeed and silently revoke the caller instead of
+    // refusing. AND composes both constraints rather than overwriting one.
+    const target = await prisma.user.findFirst({
+      where: { AND: [{ id: requestedTarget }, adminUserScope(auth.user!)] },
+      select: { id: true },
+    });
+    // 404 rather than 403 so a caller cannot probe which user ids exist
+    // outside their own organisation.
+    if (!target) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
+    }
+    targetUserId = target.id;
   }
 
   try {

@@ -284,6 +284,19 @@ export async function PATCH(
 
     const { id } = await params;
 
+    // GET and POST above already assert this; PATCH omitted it. The admin gate
+    // proves the caller is an ADMIN, not which tenant's admin, so without this
+    // an owner of one organisation could approve or reject another's pending
+    // scope variation and stamp it with their own approvedByUserId.
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason,
+        status: tenancy.status,
+      });
+    }
+
     const rateLimitResponse = await applyRateLimit(request, {
       windowMs: 60_000,
       maxRequests: 30,

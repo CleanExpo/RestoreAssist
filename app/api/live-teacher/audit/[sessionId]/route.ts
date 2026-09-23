@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { adminUserScope, verifyAdminFromDb } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
@@ -81,7 +81,36 @@ export async function GET(
           status: 403,
         });
       }
-      // adminAuth.user is set — proceed as admin
+
+      // adminAuth.user is set, but ADMIN is every self-registered owner
+      // (RA-7592) — it proves the role, not the tenant. Without this an owner
+      // of one organisation could read another's full on-site transcript:
+      // every utterance, the tool arguments and results, and the session cost.
+      // adminUserScope narrows to the admin's organisation and falls back to
+      // their own row when that organisation is null (RA-7647).
+      //
+      // AND, never a spread. adminUserScope returns {organizationId} OR
+      // {id: self} for an org-less admin, and User.organizationId is nullable
+      // (onDelete: SetNull), while OAuth createUser sets role ADMIN without
+      // setting an organisation. Spreading {id: self} into a where that already
+      // carries `id` REPLACES the session owner's id with the caller's — and
+      // the caller always exists, so the check would pass for every org-less
+      // admin and hand them another tenant's transcript. AND composes the two
+      // constraints instead of overwriting one, so an org-less admin matches
+      // only their own row.
+      const reachable = await prisma.user.findFirst({
+        where: {
+          AND: [{ id: liveSession.userId }, adminUserScope(adminAuth.user!)],
+        },
+        select: { id: true },
+      });
+      if (!reachable) {
+        return apiError(_request, {
+          code: "NOT_FOUND",
+          message: "Session not found",
+          status: 404,
+        });
+      }
     }
 
     // Rule 4: explicit select + take limits on child queries

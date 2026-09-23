@@ -23,6 +23,12 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
+import type { Prisma } from "@prisma/client";
+import {
+  MANUAL_OVERRIDE_JUSTIFICATION,
+  MANUAL_OVERRIDE_REFERENCE,
+} from "@/lib/nir-classification-engine";
+import { persistInspectionClassification } from "@/lib/nir-classification-persist";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -65,6 +71,56 @@ function computeGates(
     ),
     gatePhotosAttached: photoCount >= 3,
   };
+}
+
+// ─── Technician choice (RA-7709) ─────────────────────────────────────────────
+
+type ChoiceFields = {
+  waterCategory?: string | null;
+  damageClass?: string | null;
+} | null;
+
+function choiceKey(r: ChoiceFields): string | null {
+  return r?.waterCategory && r?.damageClass
+    ? `${r.waterCategory}/${r.damageClass}`
+    : null;
+}
+
+/**
+ * A Category / Class pick in the Claim-type evidence panel is the technician's
+ * choice. Record it as the inspection's Classification row with reviewedBy —
+ * the signal submit honours — only when the pick itself changed. Clearing a
+ * pick on a DRAFT removes that row so submit classifies automatically. After
+ * submit the saved row is left as it is (see RA-7709 report).
+ */
+async function syncTechnicianChoice(
+  tx: Prisma.TransactionClient,
+  inspectionId: string,
+  status: string,
+  userId: string,
+  before: ChoiceFields,
+  after: ChoiceFields,
+) {
+  const beforeKey = choiceKey(before);
+  const afterKey = choiceKey(after);
+  if (beforeKey === afterKey) return;
+
+  if (afterKey && after?.waterCategory && after.damageClass) {
+    await persistInspectionClassification(tx, inspectionId, {
+      category: after.waterCategory.replace("CAT_", ""),
+      class: after.damageClass.replace("CLASS_", ""),
+      justification: MANUAL_OVERRIDE_JUSTIFICATION,
+      standardReference: MANUAL_OVERRIDE_REFERENCE,
+      confidence: 100,
+      inputData: JSON.stringify({ source: "claim_assessment_panel" }),
+      isFinal: status !== "DRAFT",
+      reviewedBy: userId,
+    });
+  } else if (status === "DRAFT") {
+    await tx.classification.deleteMany({
+      where: { inspectionId, reviewedBy: { not: null } },
+    });
+  }
 }
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
@@ -128,6 +184,7 @@ export async function POST(
       where: { id, userId: session.user.id },
       select: {
         id: true,
+        status: true,
         _count: { select: { photos: true } },
       },
     });
@@ -152,10 +209,15 @@ export async function POST(
     const data = parsed.data;
     const gates = computeGates(data, inspection._count.photos);
 
-    // Atomically upsert classification + stamp claimType — prevents split-brain
-    // state if DB connection drops between the two writes.
-    const [record] = await prisma.$transaction([
-      prisma.waterDamageClassification.upsert({
+    // Atomically upsert classification + stamp claimType + record the
+    // technician's Category / Class choice (RA-7709) — prevents split-brain
+    // state if DB connection drops between the writes.
+    const record = await prisma.$transaction(async (tx) => {
+      const before = await tx.waterDamageClassification.findUnique({
+        where: { inspectionId: id },
+        select: { waterCategory: true, damageClass: true },
+      });
+      const saved = await tx.waterDamageClassification.upsert({
         where: { inspectionId: id },
         create: {
           inspectionId: id,
@@ -188,12 +250,21 @@ export async function POST(
           }),
           ...gates,
         },
-      }),
-      prisma.inspection.update({
+      });
+      await tx.inspection.update({
         where: { id, userId: session.user.id },
         data: { claimType: "WATER" },
-      }),
-    ]);
+      });
+      await syncTechnicianChoice(
+        tx,
+        id,
+        inspection.status,
+        session.user.id,
+        before,
+        saved,
+      );
+      return saved;
+    });
 
     return NextResponse.json(record);
   } catch (err) {
@@ -223,7 +294,7 @@ export async function DELETE(
 
     const inspection = await prisma.inspection.findUnique({
       where: { id, userId: session.user.id },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (!inspection) {
@@ -234,15 +305,21 @@ export async function DELETE(
       });
     }
 
-    await prisma.$transaction([
-      prisma.waterDamageClassification.deleteMany({
+    await prisma.$transaction(async (tx) => {
+      await tx.waterDamageClassification.deleteMany({
         where: { inspectionId: id, inspection: { userId: session.user.id } },
-      }),
-      prisma.inspection.update({
+      });
+      await tx.inspection.update({
         where: { id, userId: session.user.id },
         data: { claimType: null },
-      }),
-    ]);
+      });
+      // RA-7709: removing the panel record removes the pick it carried.
+      if (inspection.status === "DRAFT") {
+        await tx.classification.deleteMany({
+          where: { inspectionId: id, reviewedBy: { not: null } },
+        });
+      }
+    });
 
     return NextResponse.json({ deleted: true });
   } catch (err) {
