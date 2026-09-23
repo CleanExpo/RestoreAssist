@@ -28,6 +28,7 @@ import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { buildAffectedAreaPayload } from "@/lib/forms/affected-area-payload";
+import { calculateClassificationPreview as computeClassificationPreview } from "@/lib/forms/classification-preview";
 import {
   fromNormalizedMoistureMapPoint,
   toNormalizedMoistureMapPoint,
@@ -1177,51 +1178,12 @@ export default function NIRTechnicianInputForm({
   };
 
   // Calculate expected classification preview
-  const calculateClassificationPreview = () => {
-    if (affectedAreas.length === 0 || moistureReadings.length === 0) {
-      return null;
-    }
-
-    // Get primary water source
-    const primaryWaterSource = affectedAreas[0]?.waterSource || "Clean Water";
-    const waterSourceLower = primaryWaterSource.toLowerCase();
-
-    // Determine category
-    let category = "1";
-    if (
-      waterSourceLower.includes("black") ||
-      waterSourceLower.includes("sewage") ||
-      waterSourceLower.includes("contaminated")
-    ) {
-      category = "3";
-    } else if (
-      waterSourceLower.includes("grey") ||
-      waterSourceLower.includes("washing")
-    ) {
-      category = "2";
-    }
-
-    // Calculate average moisture and affected area
-    const avgMoisture =
-      moistureReadings.reduce((sum, r) => sum + r.moistureLevel, 0) /
-      moistureReadings.length;
-    const totalArea = affectedAreas.reduce(
-      (sum, a) => sum + a.affectedSquareFootage,
-      0,
-    ); // Already in m²
-
-    // Determine class based on area
-    let classValue = "1";
-    if (totalArea > 200) {
-      classValue = "4";
-    } else if (totalArea > 100) {
-      classValue = "3";
-    } else if (totalArea > 30) {
-      classValue = "2";
-    }
-
-    return { category, class: classValue, avgMoisture, totalArea };
-  };
+  const calculateClassificationPreview = () =>
+    computeClassificationPreview({
+      affectedAreas,
+      moistureReadings,
+      environmentalData,
+    });
 
   const handleReview = () => {
     // Additional validation for review - require photos
