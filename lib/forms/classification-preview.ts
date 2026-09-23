@@ -80,3 +80,36 @@ export function calculateClassificationPreview({
     totalArea,
   };
 }
+
+// ─── Technician choice: resume and draft-save payload (RA-7709) ─────────────
+
+export type ManualChoice = { category: string; class: string };
+
+/**
+ * The technician's choice to restore when the form resumes an inspection.
+ * Current behaviour, moved here unchanged: initializeInspection does not read
+ * the inspection's classifications, so nothing is restored.
+ */
+export function resumedManualClassification(_inspection: {
+  classifications?: Array<{
+    category: string;
+    class: string;
+    reviewedBy?: string | null;
+    createdAt?: string | Date;
+  }> | null;
+}): ManualChoice | null {
+  return null;
+}
+
+/**
+ * `manualClassification` for the draft-save body. Current behaviour, moved
+ * here unchanged from saveDraftSnapshot: a complete choice, otherwise null.
+ */
+export function manualClassificationPayload(
+  manual: { category?: string | null; class?: string | null } | null,
+  _hadChoice?: boolean,
+): ManualChoice | null | undefined {
+  return manual?.category && manual.class
+    ? { category: manual.category, class: manual.class }
+    : null;
+}

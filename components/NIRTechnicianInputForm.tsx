@@ -28,7 +28,11 @@ import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { buildAffectedAreaPayload } from "@/lib/forms/affected-area-payload";
-import { calculateClassificationPreview as computeClassificationPreview } from "@/lib/forms/classification-preview";
+import {
+  calculateClassificationPreview as computeClassificationPreview,
+  manualClassificationPayload,
+  resumedManualClassification,
+} from "@/lib/forms/classification-preview";
 import {
   fromNormalizedMoistureMapPoint,
   toNormalizedMoistureMapPoint,
@@ -831,6 +835,10 @@ export default function NIRTechnicianInputForm({
           if (data.inspection.technicianName) {
             setTechnicianName(data.inspection.technicianName);
           }
+          const resumedChoice = resumedManualClassification(data.inspection);
+          if (resumedChoice) {
+            setManualClassification(resumedChoice);
+          }
           const hydratedClaim = asIicrcClaimType(data.inspection.claimType);
           if (hydratedClaim) {
             setClaimType(hydratedClaim);
@@ -1313,9 +1321,7 @@ export default function NIRTechnicianInputForm({
               : [];
           }),
           manualClassification:
-            manualClassification?.category && manualClassification.class
-              ? manualClassification
-              : null,
+            manualClassificationPayload(manualClassification),
         }),
       },
     );

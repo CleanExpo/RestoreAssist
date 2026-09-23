@@ -13,7 +13,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { sqmToSqft } from "@/lib/units";
 import { classifyIICRC } from "@/lib/nir-classification-engine";
-import { calculateClassificationPreview } from "@/lib/forms/classification-preview";
+import {
+  calculateClassificationPreview,
+  manualClassificationPayload,
+  resumedManualClassification,
+} from "@/lib/forms/classification-preview";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
@@ -230,8 +234,23 @@ vi.mock("@/lib/prisma", () => {
         return { count };
       }),
     },
-    affectedArea: { update: vi.fn(async () => ({})) },
-    scopeItem: { createMany: vi.fn(async () => ({ count: 0 })) },
+    affectedArea: {
+      update: vi.fn(async () => ({})),
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+      createMany: vi.fn(async () => ({ count: 0 })),
+    },
+    environmentalData: {
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+      create: vi.fn(async () => ({})),
+    },
+    moistureReading: {
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+      createMany: vi.fn(async () => ({ count: 0 })),
+    },
+    scopeItem: {
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+      createMany: vi.fn(async () => ({ count: 0 })),
+    },
     costEstimate: { createMany: vi.fn(async () => ({ count: 0 })) },
   };
   client.$transaction = vi.fn(async (arg: unknown) =>
@@ -674,5 +693,140 @@ describe("RA-7709 — Claim-type evidence panel choice", () => {
     db.inspection = inspectionFixture(PANEL_AREAS, PANEL_READINGS);
     await panelPost({ lossSourceType: "PLUMBING", lossSourceIdentified: true });
     expect(rowsFor()).toHaveLength(0);
+  });
+});
+
+// ── 5. Resuming a job keeps the technician's saved choice ───────────────────
+//
+// Cursor review of dd1b840f1 (P1-A / P1-B): the form never loaded an existing
+// technician classification, and every draft save without a choice deleted
+// it, so a job-page classification made on a DRAFT was wiped on submit.
+
+async function draftSave(extra: Record<string, unknown>) {
+  const { PUT } = await import("../../draft-snapshot/route");
+  const res = await PUT(
+    new NextRequest(
+      "http://localhost/api/inspections/insp-1/draft-snapshot",
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          environmentalData: {
+            ambientTemperature: 22,
+            humidityLevel: 55,
+            dewPoint: 12,
+            airCirculation: false,
+          },
+          moistureReadings: [],
+          affectedAreas: [],
+          scopeItems: [],
+          ...extra,
+        }),
+      },
+    ),
+    params,
+  );
+  expect(res.status).toBe(200);
+}
+
+async function jobPageClassification(category: string, cls: string) {
+  const { POST } = await import("../../classification/route");
+  const res = await POST(
+    new NextRequest("http://localhost/api/inspections/insp-1/classification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category, class: cls }),
+    }),
+    params,
+  );
+  expect(res.status).toBe(201);
+}
+
+describe("RA-7709 — resuming a job keeps the technician's choice", () => {
+  it("(a) an existing Cat 2 / Class 3 choice is restored, previewed, kept through draft save and submit", async () => {
+    db.inspection = inspectionFixture(PANEL_AREAS, PANEL_READINGS);
+    await jobPageClassification("2", "3");
+
+    // The form resumes from GET /api/inspections?reportId=… which includes
+    // the inspection's classifications.
+    const resumed = resumedManualClassification({
+      classifications: rowsFor(),
+    });
+    const preview = calculateClassificationPreview({
+      ...formInput(PANEL_AREAS, PANEL_READINGS),
+      manualClassification: resumed,
+    });
+    expect({ category: preview!.category, class: preview!.class }).toEqual({
+      category: "2",
+      class: "3",
+    });
+
+    // handleSubmit always draft-saves first.
+    const payload = manualClassificationPayload(resumed, resumed !== null);
+    await draftSave(payload === undefined ? {} : { manualClassification: payload });
+    await submit();
+
+    const saved = shownRow()!;
+    expect({ category: saved.category, class: saved.class }).toEqual({
+      category: "2",
+      class: "3",
+    });
+    expect(JSON.parse(saved.inputData ?? "{}").manualOverride).toBe(true);
+    expect(saved.reviewedBy).toBe("user-1");
+  });
+
+  it("(b) a draft save with no choice field leaves a job-page classification alone", async () => {
+    db.inspection = inspectionFixture(PANEL_AREAS, PANEL_READINGS);
+    await jobPageClassification("2", "3");
+
+    await draftSave({});
+
+    expect(rowsFor()).toHaveLength(1);
+    expect(rowsFor()[0]).toMatchObject({
+      category: "2",
+      class: "3",
+      reviewedBy: "user-1",
+    });
+  });
+
+  it("(b) a form that never had a choice sends no choice field", () => {
+    expect(manualClassificationPayload(null, false)).toBeUndefined();
+    expect(
+      manualClassificationPayload({ category: "2", class: "" }, false),
+    ).toBeUndefined();
+  });
+
+  it("(c) an explicit clear deletes the choice and submit then auto-classifies", async () => {
+    db.inspection = inspectionFixture(PANEL_AREAS, PANEL_READINGS);
+    await jobPageClassification("2", "3");
+
+    // The technician had the choice (restored) and pressed "Clear".
+    const payload = manualClassificationPayload(null, true);
+    expect(payload).toBeNull();
+    await draftSave({ manualClassification: payload });
+    expect(rowsFor()).toHaveLength(0);
+
+    await submit();
+    const preview = calculateClassificationPreview({
+      ...formInput(PANEL_AREAS, PANEL_READINGS),
+      manualClassification: null,
+    });
+    const saved = shownRow()!;
+    expect(saved.reviewedBy).toBeNull();
+    expect(JSON.parse(saved.inputData ?? "{}").manualOverride).toBe(false);
+    expect({ category: saved.category, class: saved.class }).toEqual({
+      category: preview!.category,
+      class: preview!.class,
+    });
+  });
+
+  it("an automatic row is not restored as a technician choice", () => {
+    expect(
+      resumedManualClassification({
+        classifications: [
+          { category: "2", class: "2", reviewedBy: null, createdAt: new Date() },
+        ],
+      }),
+    ).toBeNull();
   });
 });
