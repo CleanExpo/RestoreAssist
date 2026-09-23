@@ -9,9 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { MAKE_SAFE_ACTIONS } from "@/app/api/inspections/[id]/make-safe/route";
-
-const SEED_NOTE =
-  "Seeded at intake — mark applicable items complete before relying on this for compliance.";
+import { MAKE_SAFE_SEED_NOTE as SEED_NOTE } from "@/lib/compliance/make-safe-compliance";
 
 /**
  * Idempotent: only inserts when the inspection has zero MakeSafeAction rows.
