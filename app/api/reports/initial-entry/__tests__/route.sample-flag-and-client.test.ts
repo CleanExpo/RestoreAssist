@@ -100,3 +100,24 @@ describe("POST /api/reports/initial-entry ignores a browser sample flag (RA-7711
     expect(reportCreate.mock.calls[0][0].data).not.toHaveProperty("isSample");
   });
 });
+
+describe("POST /api/reports/initial-entry never binds a real job to a sample client (RA-7711)", () => {
+  it("creates a real client when the only name match is a sample client", async () => {
+    // The account holds a sample client with the same name (the setup demo,
+    // or a sample written before this change). The mock honours the where
+    // clause: a lookup that does not exclude samples finds it.
+    clientFindFirst.mockImplementation(
+      async (args: { where: { isSample?: boolean } }) =>
+        args.where.isSample === false
+          ? null
+          : { id: "c-sample", email: "sample@example.com", isSample: true },
+    );
+
+    const res = await POST(req(QUICK_FILL_BODY));
+    expect(res.status).toBe(200);
+
+    expect(clientUpdate).not.toHaveBeenCalled();
+    expect(clientCreate).toHaveBeenCalledTimes(1);
+    expect(reportCreate.mock.calls[0][0].data.clientId).toBe("c-new");
+  });
+});
