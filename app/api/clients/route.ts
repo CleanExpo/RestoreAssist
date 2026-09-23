@@ -44,10 +44,6 @@ export async function GET(request: NextRequest) {
     }
     const where: any = { ...reach.data };
 
-    // RA-7711: sample clients (setup demo data, Quick Fill submissions) never
-    // reach the clients list or the dashboard counts built from it.
-    where.isSample = false;
-
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
