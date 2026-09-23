@@ -33,6 +33,7 @@ import { ClaimState, InspectionStatus, Prisma } from "@prisma/client";
 import { apiError } from "@/lib/api-errors";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
@@ -74,6 +75,20 @@ export async function POST(
   const adminUserId = auth.user!.id;
 
   const { id } = await params;
+
+  // The admin gate proves the caller is an ADMIN, not which tenant's admin —
+  // every self-serve signup is the ADMIN of its own organisation. Without this
+  // the handler reopens any tenant's CLOSED job into IN_BILLING and rewrites
+  // its ClaimProgress. Asserted before the body is parsed so a caller outside
+  // the tenancy learns nothing from the validation errors below.
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
+    return apiError(request, {
+      code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+      message: tenancy.reason,
+      status: tenancy.status,
+    });
+  }
 
   let body: ReopenBody;
   try {

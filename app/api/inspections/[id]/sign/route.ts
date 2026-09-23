@@ -19,6 +19,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -149,6 +150,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/inspections/[id]/sign
  *
  * Resets the e-signature (admin-only). Allows re-signing after error.
+ *
+ * `verifyAdminFromDb` proves the caller is an ADMIN, not *which* tenant's
+ * admin, and every self-serve signup becomes the ADMIN of its own
+ * organisation. On its own it therefore authorises clearing any tenant's
+ * e-signature by id, destroying the Electronic Transactions Act 1999 evidence
+ * the POST above exists to create. The tenancy assertion is what binds the
+ * caller to the inspection; the admin check only gates the capability.
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
@@ -158,8 +166,16 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     const { id: inspectionId } = await params;
 
+    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
     await prisma.inspection.updateMany({
-      where: { id: inspectionId },
+      where: { id: inspectionId, userId: tenancy.data.userId },
       data: { signedAt: null, signedByName: null, signatureUrl: null } as any,
     });
 

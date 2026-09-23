@@ -19,7 +19,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
 import { getPilotCommandCentre } from "@/lib/pilot-readiness-command-centre";
 import {
@@ -38,6 +41,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // Tenant ADMIN is every self-registered owner (RA-7592). This handler
+    // reads every COMPLETED inspection on the platform with its userId and
+    // user.organizationId, so it must be platform-support staff only.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     const commandCentrePromise = getPilotCommandCentre();
 

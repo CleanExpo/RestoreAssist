@@ -9,8 +9,13 @@ const { inspectionUpdateMany, inspectionFindFirst, onNextAction } = vi.hoisted(
   }),
 );
 
+const verifyAdminFromDb = vi.hoisted(() => vi.fn());
+const assertInspectionTenancy = vi.hoisted(() => vi.fn());
+
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/admin-auth", () => ({ verifyAdminFromDb }));
+vi.mock("@/lib/auth/assert-tenancy", () => ({ assertInspectionTenancy }));
 vi.mock("@prisma/client", () => ({
   InspectionStatus: {
     SUBMITTED: "SUBMITTED",
@@ -38,7 +43,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { getServerSession } from "next-auth";
-import { POST } from "../route";
+import { DELETE, POST } from "../route";
 
 const mockSession = vi.mocked(getServerSession);
 
@@ -99,5 +104,56 @@ describe("inspection sign lifecycle", () => {
       }),
     );
     expect(onNextAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /api/inspections/[id]/sign", () => {
+  function deleteRequest() {
+    return new NextRequest("http://localhost/api/inspections/i1/sign", {
+      method: "DELETE",
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSession.mockResolvedValue({ user: { id: "admin-A" } } as never);
+    verifyAdminFromDb.mockResolvedValue({
+      response: null,
+      user: { id: "admin-A", role: "ADMIN", organizationId: "org-A" },
+    });
+    assertInspectionTenancy.mockResolvedValue({
+      ok: true,
+      data: { userId: "admin-A", inspectionId: "i1" },
+    });
+    inspectionUpdateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it("refuses an admin outside the inspection's tenancy", async () => {
+    assertInspectionTenancy.mockResolvedValue({
+      ok: false,
+      status: 404,
+      reason: "Inspection not found",
+    });
+
+    const response = await DELETE(deleteRequest(), {
+      params: Promise.resolve({ id: "i1" }),
+    });
+
+    expect(response.status).toBe(404);
+    // Clearing a signature destroys ETA-1999 evidence. A gate that returned
+    // the right status while still issuing the write would pass a status-only
+    // assertion, so assert the write never happened.
+    expect(inspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("clears the signature only on the row the tenancy check proved", async () => {
+    const response = await DELETE(deleteRequest(), {
+      params: Promise.resolve({ id: "i1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(inspectionUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "i1", userId: "admin-A" } }),
+    );
   });
 });

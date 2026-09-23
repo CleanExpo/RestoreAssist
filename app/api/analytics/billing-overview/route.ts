@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
+import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { fromException } from "@/lib/api-errors";
 
@@ -19,9 +23,22 @@ const CACHE_TTL_MS = 60_000;
 
 export async function GET(request: NextRequest) {
   try {
+    // RA-1842 Path B — Apple guideline 3.1.1. This response carries MRR,
+    // subscription status and credit balances, which is the paid-content
+    // surface that got build 1.0(3) rejected. Keyed on the Capacitor header,
+    // so it blocks the iOS shell only; a browser on the same device is
+    // unaffected.
+    const blocked = rejectIfIOSCapacitor(request);
+    if (blocked) return blocked;
+
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // Tenant ADMIN is every self-registered owner (RA-7592). This returns
+    // platform MRR, churn, trial expiry and credit balances, plus the name and
+    // email of other tenants' add-on purchasers. Platform-support staff only.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     // RA-1320 — serve from cache if fresh
     if (cachedResponse && cachedResponse.expiresAt > Date.now()) {

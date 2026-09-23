@@ -27,6 +27,9 @@ const prismaTx = {
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({ verifyAdminFromDb: vi.fn() }));
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionTenancy: vi.fn(),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $transaction: vi.fn(async (fn) => fn(prismaTx)),
@@ -41,12 +44,16 @@ vi.mock("@/lib/audit/lifecycle-event", () => ({
 
 import { getServerSession } from "next-auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const mockVerifyAdmin = verifyAdminFromDb as unknown as ReturnType<
+  typeof vi.fn
+>;
+const mockAssertTenancy = assertInspectionTenancy as unknown as ReturnType<
   typeof vi.fn
 >;
 const mockWriteLifecycleTransition =
@@ -74,6 +81,13 @@ const ADMIN = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: the admin is inside the inspection's tenancy. verifyAdminFromDb
+  // proves the ADMIN role only, and tenant ADMIN is every self-registered
+  // owner (RA-7592), so the route asserts tenancy separately.
+  mockAssertTenancy.mockResolvedValue({
+    ok: true,
+    data: { id: "i1", userId: "admin", workspaceId: null },
+  });
   p.$transaction.mockImplementation(async (fn) => fn(prismaTx));
   prismaTx.inspection.updateMany.mockResolvedValue({ count: 1 });
   prismaTx.claimProgress.updateMany.mockResolvedValue({ count: 1 });

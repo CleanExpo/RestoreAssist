@@ -6,10 +6,14 @@ const inspectionFindFirst = vi.hoisted(() => vi.fn());
 const pilotObservationCreate = vi.hoisted(() => vi.fn());
 const pilotObservationFindMany = vi.hoisted(() => vi.fn());
 const verifyAdminFromDb = vi.hoisted(() => vi.fn());
+const verifyPlatformSupportOperator = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({ getServerSession }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/admin-auth", () => ({ verifyAdminFromDb }));
+vi.mock("@/lib/admin-auth", () => ({
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: inspectionFindFirst },
@@ -20,7 +24,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { POST } from "../route";
+import { GET, POST } from "../route";
 
 const body = {
   claimId: "CLAIM-004",
@@ -51,7 +55,11 @@ beforeEach(() => {
     createdAt: new Date("2026-08-25T00:00:00.000Z"),
   });
   pilotObservationFindMany.mockResolvedValue([]);
-  verifyAdminFromDb.mockResolvedValue({ response: null });
+  verifyAdminFromDb.mockResolvedValue({
+    response: null,
+    user: { id: "admin-A", role: "ADMIN", organizationId: "org-A" },
+  });
+  verifyPlatformSupportOperator.mockReturnValue({ response: null });
 });
 
 describe("POST /api/pilot/observations", () => {
@@ -89,5 +97,37 @@ describe("POST /api/pilot/observations", () => {
         recordedByUserId: "user-1",
       }),
     }));
+  });
+});
+
+describe("GET /api/pilot/observations", () => {
+  function getRequest() {
+    return new NextRequest("http://localhost/api/pilot/observations", {
+      method: "GET",
+      headers: { host: "localhost" },
+    });
+  }
+
+  it("refuses a tenant admin who is not platform-support staff", async () => {
+    // The handler's filter starts empty, so this returns every observation on
+    // the platform — free-text notes plus a context Json carrying adjuster and
+    // company names. Tenant ADMIN is every self-registered owner (RA-7592).
+    verifyPlatformSupportOperator.mockReturnValue({
+      response: new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+      }),
+    });
+
+    const response = await GET(getRequest());
+
+    expect(response.status).toBe(403);
+    expect(pilotObservationFindMany).not.toHaveBeenCalled();
+  });
+
+  it("returns the platform-wide list to platform-support staff", async () => {
+    const response = await GET(getRequest());
+
+    expect(response.status).toBe(200);
+    expect(pilotObservationFindMany).toHaveBeenCalled();
   });
 });

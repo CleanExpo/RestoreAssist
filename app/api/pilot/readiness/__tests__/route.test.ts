@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   verifyAdminFromDb: vi.fn(),
+  verifyPlatformSupportOperator: vi.fn(),
   pilotObservationFindMany: vi.fn(),
   inspectionFindMany: vi.fn(),
   generatePilotReport: vi.fn(),
@@ -17,6 +18,7 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: mocks.verifyAdminFromDb,
+  verifyPlatformSupportOperator: mocks.verifyPlatformSupportOperator,
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -77,6 +79,10 @@ describe("GET /api/pilot/readiness", () => {
     mocks.verifyAdminFromDb.mockResolvedValue({
       user: { id: "admin-1", role: "ADMIN", organizationId: null },
     });
+    // Default to platform-support staff. Tenant ADMIN is every self-registered
+    // owner (RA-7592), so the cases below describe RestoreAssist staff, not a
+    // customer who happens to administer their own organisation.
+    mocks.verifyPlatformSupportOperator.mockImplementation((auth) => auth);
     mocks.pilotObservationFindMany.mockResolvedValue([]);
     mocks.inspectionFindMany.mockResolvedValue([]);
     mocks.generatePilotReport.mockReturnValue(REPORT);
@@ -99,7 +105,7 @@ describe("GET /api/pilot/readiness", () => {
     expect(mocks.getPilotCommandCentre).not.toHaveBeenCalled();
   });
 
-  it("returns the command-centre snapshot to a DB-verified admin", async () => {
+  it("returns the command-centre snapshot to platform-support staff", async () => {
     const response = await GET(request());
     const body = await response.json();
 
@@ -107,6 +113,24 @@ describe("GET /api/pilot/readiness", () => {
     expect(body.commandCentre).toEqual(COMMAND_CENTRE);
     expect(body.report).toEqual(REPORT);
     expect(mocks.getPilotCommandCentre).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a tenant admin who is not platform-support staff", async () => {
+    // This report spans every tenant: it reads all COMPLETED inspections with
+    // their userId and owning organizationId. Before RA-7592 was applied here,
+    // any self-registered owner could read it, and the suite asserted that as
+    // correct behaviour. Remove verifyPlatformSupportOperator from the route
+    // and this test goes red.
+    mocks.verifyPlatformSupportOperator.mockReturnValue({
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(403);
+    expect(mocks.inspectionFindMany).not.toHaveBeenCalled();
+    expect(mocks.pilotObservationFindMany).not.toHaveBeenCalled();
+    expect(mocks.getPilotCommandCentre).not.toHaveBeenCalled();
   });
 
   it("loads pilot observations with an explicit bounded select", async () => {
