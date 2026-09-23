@@ -57,6 +57,19 @@ describe("report-credit enforcement reads the plan allowance", () => {
   });
 });
 
+describe("the /pricing metadata reads the plan allowance", () => {
+  it("description and Open Graph description follow PRICING_CONFIG", async () => {
+    await loadWithAllowance(51);
+    const { metadata } = await import("@/app/pricing/layout");
+    const og = metadata.openGraph as { description?: string };
+    expect(String(metadata.description)).toContain("51 inspection reports a month");
+    expect(String(og.description)).toContain("51 inspection reports a month");
+    expect(`${metadata.description} ${og.description}`).not.toMatch(
+      /\b50 inspection reports/,
+    );
+  });
+});
+
 describe("the trial and the plan state one allowance", () => {
   it("trial credits, the display limit and the plan allowance are the same number", async () => {
     const { PRICING_CONFIG } = await import("@/lib/pricing");

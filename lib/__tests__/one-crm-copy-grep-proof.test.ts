@@ -204,8 +204,10 @@ describe("grep proof — removed strings appear nowhere user-facing", () => {
 // buyer-facing copy may call reports unlimited. Comment lines are removed
 // first: comments that explain the old false claim are not copy.
 
+// Round 2 review: "you now have unlimited access" (post-payment page) is the
+// same claim in other words, so "unlimited access" is banned too.
 const UNLIMITED_REPORTS =
-  /\bunlimited\s+(?:clients,\s+)?reports?\b(?:\s+generation)?/i;
+  /\bunlimited\s+(?:(?:clients,\s+)?reports?\b(?:\s+generation)?|access\b)/i;
 
 // The only permitted match: the credits-page banner that renders ONLY when
 // reportLimits.hasUnlimited (or an unlimited trial) is true, so it is true
@@ -233,6 +235,7 @@ describe("grep proof — no copy calls reports unlimited, any case", () => {
     "Upgrade now to unlock unlimited reports, client management",
     "<li>Unlimited report generation</li>",
     "all features including unlimited clients,\n reports, API integrations",
+    "Your account has been upgraded\n and you now have unlimited access.",
   ])("the matcher flags %j", (sentence) => {
     expect(UNLIMITED_REPORTS.test(withoutCommentLines(sentence))).toBe(true);
   });
