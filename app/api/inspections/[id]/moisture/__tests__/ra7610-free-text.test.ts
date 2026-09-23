@@ -27,6 +27,9 @@ vi.mock("@/lib/prisma", () => ({
     sketchRoom: { findFirst: (...a: unknown[]) => sketchRoomFindFirst(...a) },
   },
 }));
+vi.mock("@/lib/workspace/provider-connections", () => ({
+  getWorkspaceForUser: async () => null,
+}));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (
     request: NextRequest,
