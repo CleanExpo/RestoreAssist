@@ -35,7 +35,13 @@ test.describe("DR/NRPG inbound job flow", () => {
 
     const alert = page.getByTestId("inbound-job-alert");
     await expect(alert).toBeVisible({ timeout: 10_000 });
-    await expect(alert).toContainText(/from DR\/NRPG/i);
+    // Copy is deliberately network-agnostic: RA-7660 switched the DR/NRPG name
+    // out of customer-facing text while keeping DR_NRPG as the internal source.
+    // Assert the shipped wording, and assert the brand name is NOT shown — the
+    // point of RA-7660 was that it stopped being shown, so a test that only
+    // checked the new string would pass again if the old one came back.
+    await expect(alert).toContainText(/from a referral network/i);
+    await expect(alert).not.toContainText(/DR\/NRPG/i);
 
     const acceptBtn = alert.getByRole("button", {
       name: /accept and start inspection/i,
