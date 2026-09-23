@@ -56,6 +56,8 @@ function SubscriptionPageContent() {
     subscriptionStatus?: string;
     creditsRemaining?: number;
     trialEndsAt?: string | null;
+    /** Enforced base monthly report limit (profile.reportLimits.baseLimit). */
+    reportAllowance?: number;
   } | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -78,6 +80,15 @@ function SubscriptionPageContent() {
             subscriptionStatus: data.profile.subscriptionStatus,
             creditsRemaining: data.profile.creditsRemaining,
             trialEndsAt: data.profile.trialEndsAt,
+            // RA-7714: the allowance this subscriber is actually held to.
+            // /api/user/profile computes it with getUserReportLimits ->
+            // resolveBaseReportLimit, the function that enforces the limit,
+            // so grandfathered Yearly Plan (70) and Lifetime (999) customers
+            // see their own number, not the catalog 50.
+            reportAllowance:
+              typeof data.profile.reportLimits?.baseLimit === "number"
+                ? data.profile.reportLimits.baseLimit
+                : undefined,
           });
         }
       })
@@ -524,12 +535,17 @@ function SubscriptionPageContent() {
               <h2 className="text-xl font-semibold mb-4">Plan Features</h2>
 
               <div className="grid md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-success" />
-                  <span className="text-slate-300">
-                    {`${PRICING_CONFIG.pricing.monthly.reportLimit} inspection reports per month`}
-                  </span>
-                </div>
+                {/* RA-7714: only the enforced allowance is stated. If the
+                  profile could not supply it, no number is shown rather than
+                  a catalog figure that may not be this customer's. */}
+                {typeof userStatus?.reportAllowance === "number" && (
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-success" />
+                    <span className="text-slate-300">
+                      {`${userStatus.reportAllowance} inspection reports per month`}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-success" />
                   <span className="text-slate-300">PDF & Excel export</span>
