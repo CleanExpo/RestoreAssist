@@ -209,13 +209,19 @@ export default function InspectionInvoicePage({
           <p className="font-medium">Invoice not generated</p>
           <p className="mt-1">{generateError.message}</p>
           {generateError.needsReport && (
-            <Link
-              href={`/dashboard/reports/new?inspectionId=${id}`}
-              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700"
-            >
-              <FileText size={16} />
-              Generate report first
-            </Link>
+            <>
+              <p className="mt-1">
+                This inspection has no report linked to it, so an invoice
+                can&apos;t be built from it here yet.
+              </p>
+              <Link
+                href="/dashboard/invoices/new"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700"
+              >
+                <FileText size={16} />
+                Create the invoice in Billing → Invoices
+              </Link>
+            </>
           )}
         </div>
       )}

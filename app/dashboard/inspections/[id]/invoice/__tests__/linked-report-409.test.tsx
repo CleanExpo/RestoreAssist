@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 describe("RA-7710 inspection invoice — Generate Invoice says why not", () => {
-  it("on a 409 shows 'linked report is required' on the page with a Generate report first control", async () => {
+  it("on a 409 shows 'linked report is required' on the page with a working next step", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ invoice: null }) })
@@ -72,8 +72,12 @@ describe("RA-7710 inspection invoice — Generate Invoice says why not", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/linked report is required/i);
 
-    const next = screen.getByRole("link", { name: /Generate report first/i });
-    expect(next).toHaveAttribute("href", "/dashboard/reports/new?inspectionId=insp_7710");
+    // Creating a report does not link it back to this inspection (POST /api/reports never
+    // writes Inspection.reportId), so "Generate report first" would 409 again. Point at the
+    // path that does work: a manual invoice in Billing -> Invoices.
+    expect(screen.queryByRole("link", { name: /Generate report first/i })).toBeNull();
+    const next = screen.getByRole("link", { name: /Create the invoice in Billing/i });
+    expect(next).toHaveAttribute("href", "/dashboard/invoices/new");
   });
 
   it("fail-loud: a network failure still leaves a visible message on the page", async () => {
