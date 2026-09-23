@@ -2205,6 +2205,9 @@ export default function NIRTechnicianInputForm({
           <NIRClaimAssessmentPanel
             inspectionId={inspectionId}
             lockedClaimType={claimType}
+            // RA-7709: a Category / Class pick in the panel is the
+            // technician's choice, shown in the preview and saved as such.
+            onWaterClassificationSaved={setManualClassification}
           />
         </div>
       )}
