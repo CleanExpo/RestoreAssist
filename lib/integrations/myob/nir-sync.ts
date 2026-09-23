@@ -115,20 +115,37 @@ export async function syncNIRJobToMYOB(
     Date: formatDate(job.reportDate),
     CustomerPurchaseOrderNumber: job.reportNumber,
     IsTaxInclusive: false,
-    Lines: job.scopeItems.map((item) => ({
-      Type: "Transaction",
-      Description: item.iicrcRef
-        ? `${item.description} (${item.category}) [${item.iicrcRef}]`
-        : `${item.description} (${item.category})`,
-      Units: item.quantity,
-      UnitPrice: cents(item.unitPriceExGST),
-      DiscountPercent: 0,
-      Total: cents(item.subtotalExGST),
-      Account: { DisplayID: accountDisplayId },
-      TaxCode: {
-        Code: item.gstRate === 0 ? "FRE" : jurisdiction.myobTaxCode,
-      },
-    })),
+    Lines: [
+      ...job.scopeItems.map((item) => ({
+        Type: "Transaction",
+        Description: item.iicrcRef
+          ? `${item.description} (${item.category}) [${item.iicrcRef}]`
+          : `${item.description} (${item.category})`,
+        Units: item.quantity,
+        UnitPrice: cents(item.unitPriceExGST),
+        DiscountPercent: 0,
+        Total: cents(item.subtotalExGST),
+        Account: { DisplayID: accountDisplayId },
+        TaxCode: {
+          Code: item.gstRate === 0 ? "FRE" : jurisdiction.myobTaxCode,
+        },
+      })),
+      // RA-7736: taxed at the jurisdiction rate, as on the invoice.
+      ...(job.contingencyExGST && job.contingencyExGST > 0
+        ? [
+            {
+              Type: "Transaction",
+              Description: "Contingency",
+              Units: 1,
+              UnitPrice: cents(job.contingencyExGST),
+              DiscountPercent: 0,
+              Total: cents(job.contingencyExGST),
+              Account: { DisplayID: accountDisplayId },
+              TaxCode: { Code: jurisdiction.myobTaxCode },
+            },
+          ]
+        : []),
+    ],
     InvoiceDeliveryStatus: "Print",
     Terms: {
       PaymentIsDue: "DaysAfterInvoiceDate",

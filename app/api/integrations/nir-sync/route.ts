@@ -136,6 +136,11 @@ export async function POST(request: NextRequest) {
         ),
         iicrcRef: item.justification ?? undefined,
       })),
+      // RA-7736: the contingency row has no scope item (RA-7708), so the
+      // scope mapping above never carries it. Hand it over separately.
+      contingencyExGST: Math.round(
+        costEstimates.reduce((s, ce) => s + (ce.contingency ?? 0), 0) * 100,
+      ),
       totalExGST,
       gstAmount,
       totalIncGST,
