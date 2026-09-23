@@ -140,7 +140,12 @@ async function collectSignals(inspectionId: string) {
         take: 100,
       },
       costEstimates: {
-        select: { category: true, description: true, subtotal: true },
+        select: {
+          category: true,
+          description: true,
+          subtotal: true,
+          total: true,
+        },
         take: 100,
       },
     },
@@ -211,9 +216,11 @@ function buildUserPrompt(
   anomalies: string[],
   exactAssessment?: unknown,
 ): string {
-  const totalCostCents = inspection.costEstimates.reduce(
-    (s, e) => s + e.subtotal * 100,
-    0,
+  // RA-7725: sum `total`, not `subtotal`. Since RA-7708 the contingency is
+  // its own row with subtotal 0, so summing subtotal left it out. Rounded to
+  // whole cents because dollar floats do not convert exactly.
+  const totalCostCents = Math.round(
+    inspection.costEstimates.reduce((s, e) => s + e.total * 100, 0),
   );
   const variationNetCents = inspection.scopeVariations.reduce(
     (s, v) => s + v.costDeltaCents,

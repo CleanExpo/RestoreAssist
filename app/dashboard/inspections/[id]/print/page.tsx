@@ -4,6 +4,8 @@ import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { resolveAreaSqm } from "@/lib/units";
+import { computeGstCents } from "@/lib/gst-rules";
+import { useOrganizationGst } from "@/hooks/use-organization-gst";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -61,6 +63,7 @@ interface CostEstimate {
   unit: string;
   rate: number;
   subtotal: number;
+  contingency: number;
   total: number;
 }
 
@@ -139,6 +142,7 @@ export default function InspectionPrintPage({
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { treatment: gstTreatment } = useOrganizationGst();
 
   useEffect(() => {
     fetch(`/api/inspections/${id}`)
@@ -172,16 +176,23 @@ export default function InspectionPrintPage({
     ? inspection.claimType.charAt(0) +
       inspection.claimType.slice(1).toLowerCase()
     : "Not set";
+  // RA-7725: since RA-7708 the contingency is its own row (subtotal 0,
+  // amount in contingency and total), so the total minus subtotal is the
+  // contingency, not tax. GST is charged on priced lines + contingency, the
+  // same base as the invoice generator, at the tenant's lib/gst-rules.ts rate.
   const subtotalCost = inspection.costEstimates.reduce(
     (sum, c) => sum + c.subtotal,
     0,
   );
-  const totalCost = inspection.costEstimates.reduce(
-    (sum, c) => sum + c.total,
+  const contingencyCost = inspection.costEstimates.reduce(
+    (sum, c) => sum + (c.contingency ?? 0),
     0,
   );
-  const gst = Math.max(0, totalCost - subtotalCost);
-  const grandTotal = totalCost;
+  const exGstCents = Math.round((subtotalCost + contingencyCost) * 100);
+  const gstCents = computeGstCents(exGstCents, gstTreatment.country);
+  const exGstTotal = exGstCents / 100;
+  const gst = gstCents / 100;
+  const grandTotal = (exGstCents + gstCents) / 100;
   const generatedAt = new Date().toLocaleString("en-AU", {
     day: "2-digit",
     month: "long",
@@ -697,7 +708,7 @@ export default function InspectionPrintPage({
                       colSpan={5}
                       className="px-3 py-2 text-right text-sm text-neutral-600"
                     >
-                      Subtotal (ex. GST)
+                      Priced lines (ex. GST)
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-neutral-900">
                       ${fmtCurrency(subtotalCost)}
@@ -708,7 +719,29 @@ export default function InspectionPrintPage({
                       colSpan={5}
                       className="px-3 py-2 text-right text-sm text-neutral-600"
                     >
-                      GST
+                      Contingency
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-neutral-900">
+                      ${fmtCurrency(contingencyCost)}
+                    </td>
+                  </tr>
+                  <tr className="bg-neutral-50">
+                    <td
+                      colSpan={5}
+                      className="px-3 py-2 text-right text-sm text-neutral-600"
+                    >
+                      Subtotal (ex. GST)
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-neutral-900">
+                      ${fmtCurrency(exGstTotal)}
+                    </td>
+                  </tr>
+                  <tr className="bg-neutral-50">
+                    <td
+                      colSpan={5}
+                      className="px-3 py-2 text-right text-sm text-neutral-600"
+                    >
+                      GST ({gstTreatment.percentLabel})
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-neutral-900">
                       ${fmtCurrency(gst)}
