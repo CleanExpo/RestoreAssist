@@ -69,7 +69,7 @@ describe("classification route", () => {
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
       const tx = {
         classification: {
-          updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+          findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue(created),
         },
         waterDamageClassification: {
