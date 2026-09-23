@@ -3,15 +3,14 @@
  *
  * The submit gate treats missing rows as incomplete blockers. The new-inspection
  * intake form historically never created these rows, so every submit 422'd.
- * Seeding N/A placeholders unblocks intake while still requiring an explicit
- * checklist save when an item is marked applicable.
+ * Seeding N/A placeholders gives the checklist rows to edit. Since RA-7739 an
+ * all-N/A checklist is refused at submit ("not assessed"), so the technician
+ * must mark and complete at least one applicable item before submitting.
  */
 
 import { prisma } from "@/lib/prisma";
 import { MAKE_SAFE_ACTIONS } from "@/app/api/inspections/[id]/make-safe/route";
-
-const SEED_NOTE =
-  "Seeded at intake — mark applicable items complete before relying on this for compliance.";
+import { MAKE_SAFE_SEED_NOTE as SEED_NOTE } from "@/lib/compliance/make-safe-compliance";
 
 /**
  * Idempotent: only inserts when the inspection has zero MakeSafeAction rows.

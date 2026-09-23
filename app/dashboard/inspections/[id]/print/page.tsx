@@ -10,17 +10,13 @@ import {
   moistureReadingsRequired,
   type IicrcClaimType,
 } from "@/lib/nir-standards-mapping";
+import {
+  formatEnvironmentalValue,
+  latestEnvironmentalReading,
+  type EnvironmentalReading,
+} from "@/lib/inspections/latest-environmental-reading";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface EnvironmentalData {
-  ambientTemperature: number;
-  humidityLevel: number;
-  dewPoint: number | null;
-  airCirculation: boolean;
-  weatherConditions: string | null;
-  notes: string | null;
-}
 
 interface MoistureReading {
   id: string;
@@ -86,7 +82,7 @@ interface Inspection {
   claimType: string | null;
   createdAt: string;
   submittedAt: string | null;
-  environmentalData: EnvironmentalData | null;
+  environmentalData: EnvironmentalReading | EnvironmentalReading[] | null;
   moistureReadings: MoistureReading[];
   affectedAreas: AffectedArea[];
   scopeItems: ScopeItem[];
@@ -115,6 +111,88 @@ function fmtDate(iso: string): string {
     month: "long",
     year: "numeric",
   });
+}
+
+// RA-7738: GET /api/inspections/[id] returns environmentalData as an ARRAY
+// (EnvironmentalData[] since RA-1383). Reading it as one object left every
+// field undefined, so the printout showed units with no numbers. Show the
+// latest reading; "—" only for a value that is genuinely missing.
+function EnvironmentalConditions({
+  environmentalData,
+}: {
+  environmentalData: Inspection["environmentalData"];
+}) {
+  const reading = latestEnvironmentalReading(environmentalData);
+  if (!reading) return null;
+  return (
+    <div className="print-card rounded-xl border border-neutral-200 bg-white p-6">
+      <h2 className="text-base font-bold text-neutral-900 mb-4 pb-2 border-b border-neutral-100">
+        Environmental Conditions
+      </h2>
+      <div className="grid grid-cols-2 gap-4">
+        <table className="text-sm w-full">
+          <tbody>
+            <tr className="border-b border-neutral-100">
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Internal Temperature
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {formatEnvironmentalValue(reading.ambientTemperature, "°C")}
+              </td>
+            </tr>
+            <tr className="border-b border-neutral-100">
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Relative Humidity
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {formatEnvironmentalValue(reading.humidityLevel, "%")}
+              </td>
+            </tr>
+            <tr className="border-b border-neutral-100">
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Dew Point
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {formatEnvironmentalValue(reading.dewPoint, "°C", 1)}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Air Circulation
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {reading.airCirculation == null
+                  ? "—"
+                  : reading.airCirculation
+                    ? "Active"
+                    : "None"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <table className="text-sm w-full">
+          <tbody>
+            <tr className="border-b border-neutral-100">
+              <td className="py-2 pr-4 text-neutral-500 font-medium">
+                Weather Conditions
+              </td>
+              <td className="py-2 font-semibold text-neutral-900">
+                {reading.weatherConditions ?? "—"}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-4 text-neutral-500 font-medium align-top pt-2">
+                Notes
+              </td>
+              <td className="py-2 text-neutral-700">
+                {reading.notes ?? "—"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 // ── Loading Skeleton ──────────────────────────────────────────────────────────
@@ -369,75 +447,9 @@ export default function InspectionPrintPage({
         </div>
 
         {/* ── 2. Environmental Conditions ─────────────────────────────────── */}
-        {inspection.environmentalData && (
-          <div className="print-card rounded-xl border border-neutral-200 bg-white p-6">
-            <h2 className="text-base font-bold text-neutral-900 mb-4 pb-2 border-b border-neutral-100">
-              Environmental Conditions
-            </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <table className="text-sm w-full">
-                <tbody>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Internal Temperature
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.ambientTemperature}°C
-                    </td>
-                  </tr>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Relative Humidity
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.humidityLevel}%
-                    </td>
-                  </tr>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Dew Point
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.dewPoint != null
-                        ? `${inspection.environmentalData.dewPoint.toFixed(1)}°C`
-                        : "Not recorded"}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Air Circulation
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.airCirculation
-                        ? "Active"
-                        : "None"}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <table className="text-sm w-full">
-                <tbody>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-2 pr-4 text-neutral-500 font-medium">
-                      Weather Conditions
-                    </td>
-                    <td className="py-2 font-semibold text-neutral-900">
-                      {inspection.environmentalData.weatherConditions ?? "—"}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 pr-4 text-neutral-500 font-medium align-top pt-2">
-                      Notes
-                    </td>
-                    <td className="py-2 text-neutral-700">
-                      {inspection.environmentalData.notes ?? "—"}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <EnvironmentalConditions
+          environmentalData={inspection.environmentalData}
+        />
 
         {/* ── 3. Moisture Readings (water claims) ─────────────────────────── */}
         {waterClaim && inspection.moistureReadings.length > 0 && (

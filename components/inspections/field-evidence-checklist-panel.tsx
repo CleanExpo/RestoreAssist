@@ -43,11 +43,19 @@ import {
 interface FieldEvidenceChecklistPanelProps {
   inspectionId: string;
   className?: string;
+  /**
+   * RA-7713: reports required-item progress so the readiness figure on the
+   * job page cannot claim more than this checklist. null = failed to load.
+   */
+  onRequiredProgress?: (
+    progress: { present: number; total: number } | null,
+  ) => void;
 }
 
 export function FieldEvidenceChecklistPanel({
   inspectionId,
   className,
+  onRequiredProgress,
 }: FieldEvidenceChecklistPanelProps) {
   const [checklist, setChecklist] = useState<FieldEvidenceChecklist | null>(
     null,
@@ -80,6 +88,16 @@ export function FieldEvidenceChecklistPanel({
   useEffect(() => {
     loadChecklist();
   }, [loadChecklist]);
+
+  useEffect(() => {
+    if (!onRequiredProgress || loading) return;
+    if (error || !checklist) {
+      onRequiredProgress(null);
+      return;
+    }
+    const s = summarizeChecklistProgress(checklist);
+    onRequiredProgress({ present: s.requiredPresent, total: s.requiredTotal });
+  }, [checklist, error, loading, onRequiredProgress]);
 
   if (loading) {
     return (

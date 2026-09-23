@@ -109,21 +109,38 @@ export async function syncNIRJobToQuickBooks(
     ]
       .filter(Boolean)
       .join(" | "),
-    Line: job.scopeItems.map((item) => ({
-      DetailType: "SalesItemLineDetail",
-      Amount: cents(item.subtotalExGST),
-      Description: item.iicrcRef
-        ? `${item.description} — ${item.category} [${item.iicrcRef}]`
-        : `${item.description} — ${item.category}`,
-      SalesItemLineDetail: {
-        Qty: item.quantity,
-        UnitPrice: cents(item.unitPriceExGST),
-        TaxCodeRef: {
-          value:
-            item.gstRate === 0 ? "EXEMPTINC" : jurisdiction.qboTaxRateName,
+    Line: [
+      ...job.scopeItems.map((item) => ({
+        DetailType: "SalesItemLineDetail",
+        Amount: cents(item.subtotalExGST),
+        Description: item.iicrcRef
+          ? `${item.description} — ${item.category} [${item.iicrcRef}]`
+          : `${item.description} — ${item.category}`,
+        SalesItemLineDetail: {
+          Qty: item.quantity,
+          UnitPrice: cents(item.unitPriceExGST),
+          TaxCodeRef: {
+            value:
+              item.gstRate === 0 ? "EXEMPTINC" : jurisdiction.qboTaxRateName,
+          },
         },
-      },
-    })),
+      })),
+      // RA-7736: taxed at the jurisdiction rate, as on the invoice.
+      ...(job.contingencyExGST && job.contingencyExGST > 0
+        ? [
+            {
+              DetailType: "SalesItemLineDetail",
+              Amount: cents(job.contingencyExGST),
+              Description: "Contingency",
+              SalesItemLineDetail: {
+                Qty: 1,
+                UnitPrice: cents(job.contingencyExGST),
+                TaxCodeRef: { value: jurisdiction.qboTaxRateName },
+              },
+            },
+          ]
+        : []),
+    ],
     CurrencyRef: { value: job.currency },
     GlobalTaxCalculation: "TaxExcluded",
   };

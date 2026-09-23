@@ -93,6 +93,23 @@ export async function syncNIRJobToServiceM8(
     ),
   );
 
+  // RA-7736: the contingency is not a scope item (RA-7708); post it as one
+  // more material, shaped exactly like the priced lines above.
+  if (job.contingencyExGST && job.contingencyExGST > 0) {
+    await fetch(`${SM8_BASE}/jobmaterial.json`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        job_uuid: jobUuid,
+        name: "Contingency",
+        unit_price: dollars(job.contingencyExGST),
+        qty: 1,
+        active: 1,
+        notes: "Commercial adjustment",
+      }),
+    }).catch(() => {}); // non-blocking, same as the priced materials
+  }
+
   // Post NIR summary note
   await fetch(`${SM8_BASE}/jobnote.json`, {
     method: "POST",

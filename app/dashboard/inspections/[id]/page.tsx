@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useRef } from "react";
+import { useState, useEffect, use, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -18,6 +18,16 @@ import InspectionEvidenceReadinessPanel, {
 } from "@/components/inspection/InspectionEvidenceReadinessPanel";
 import HandoverPackagePanel from "@/components/inspection/HandoverPackagePanel";
 import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
+import EnvironmentalSummary from "@/components/inspection/EnvironmentalSummary";
+import {
+  latestEnvironmentalReading,
+  type EnvironmentalReading,
+} from "@/lib/inspections/latest-environmental-reading";
+import type { RequiredEvidenceProgress } from "@/lib/evidence/evidence-readiness";
+import {
+  pointsFromReadings,
+  saveReadingPlacement,
+} from "@/lib/moisture/moisture-map-placement";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -186,14 +196,9 @@ interface Inspection {
   handoverPackageStorageKey: string | null;
   // RA-6949 — per-job Restoration Pulse notification toggle.
   pulseEnabled: boolean;
-  environmentalData: {
-    ambientTemperature: number;
-    humidityLevel: number;
-    dewPoint: number | null;
-    airCirculation: boolean;
-    weatherConditions: string | null;
-    notes: string | null;
-  } | null;
+  // RA-7713: the API returns an array (time series since RA-1383); the demo
+  // inspection returns a single object. Read it via latestEnvironmentalReading.
+  environmentalData: EnvironmentalReading | EnvironmentalReading[] | null;
   moistureReadings: {
     id: string;
     location: string;
@@ -417,7 +422,10 @@ export default function InspectionDetailPage({
     quantity: "",
     unit: "",
   });
-  const [envData, setEnvData] = useState<Inspection["environmentalData"]>(null);
+  const [envData, setEnvData] = useState<EnvironmentalReading | null>(null);
+  // RA-7713: required Field Evidence Checklist progress caps the readiness %.
+  const [requiredEvidence, setRequiredEvidence] =
+    useState<RequiredEvidenceProgress | null>(null);
   const [showEnvForm, setShowEnvForm] = useState(false);
   const [envForm, setEnvForm] = useState<{
     ambientTemperature: number | null;
@@ -564,6 +572,13 @@ export default function InspectionDetailPage({
     };
   }, []);
 
+  // RA-7713 part 12: saved floor-plan positions (MoistureReading.mapX/mapY).
+  // Memoised: the canvas re-syncs whenever this array's identity changes.
+  const moistureMapPoints = useMemo(
+    () => pointsFromReadings(moistureReadings),
+    [moistureReadings],
+  );
+
   const fetchInspection = async () => {
     try {
       setLoading(true);
@@ -574,8 +589,10 @@ export default function InspectionDetailPage({
         setScopeItems(data.inspection.scopeItems ?? []);
         setMoistureReadings(data.inspection.moistureReadings ?? []);
         setAffectedAreas(data.inspection.affectedAreas ?? []);
-        setEnvData(data.inspection.environmentalData);
-        const ed = data.inspection.environmentalData;
+        const ed = latestEnvironmentalReading(
+          data.inspection.environmentalData,
+        );
+        setEnvData(ed);
         if (ed) {
           setEnvForm({
             ambientTemperature: ed.ambientTemperature ?? null,
@@ -1511,6 +1528,7 @@ export default function InspectionDetailPage({
         costEstimateCount={inspection.costEstimates.length}
         totalCost={totalCost}
         onSelectTab={(tab) => setActiveTab(tab as InspectionEvidenceTab)}
+        requiredEvidence={requiredEvidence}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -1542,7 +1560,10 @@ export default function InspectionDetailPage({
             onSigned={() => fetchInspection()}
           />
         )}
-        <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
+        <FieldEvidenceChecklistPanel
+          inspectionId={inspection.id}
+          onRequiredProgress={setRequiredEvidence}
+        />
       </div>
 
       {/* SP-A close-job Sidekick card. Renders while the inspection is in
@@ -1779,47 +1800,9 @@ export default function InspectionDetailPage({
             )}
 
             {/* Environmental Summary */}
-            {inspection.environmentalData && (
-              <div className="md:col-span-2 p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-                <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                  Environmental Conditions
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div>
-                    <span className="text-xs text-neutral-400">
-                      Temperature
-                    </span>
-                    <div className="text-lg font-semibold">
-                      {inspection.environmentalData.ambientTemperature}°C
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs text-neutral-400">Humidity</span>
-                    <div className="text-lg font-semibold">
-                      {inspection.environmentalData.humidityLevel}%
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs text-neutral-400">Dew Point</span>
-                    <div className="text-lg font-semibold">
-                      {inspection.environmentalData.dewPoint?.toFixed(1) ??
-                        "N/A"}
-                      °C
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs text-neutral-400">
-                      Air Circulation
-                    </span>
-                    <div className="text-lg font-semibold">
-                      {inspection.environmentalData.airCirculation
-                        ? "Yes"
-                        : "No"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            <EnvironmentalSummary
+              environmentalData={inspection.environmentalData}
+            />
 
             {/* Make-safe is a hard submit blocker — keep it editable on the hub */}
             <div className="lg:col-span-4 md:col-span-2">
@@ -2330,7 +2313,22 @@ export default function InspectionDetailPage({
         {activeTab === "moisture-map" && showMoistureTabs && (
           <div>
             {moistureReadings.length > 0 ? (
-              <MoistureMappingCanvas readings={moistureReadings} />
+              <MoistureMappingCanvas
+                readings={moistureReadings}
+                initialPoints={moistureMapPoints}
+                onPlaceReading={async (readingId, position) => {
+                  await saveReadingPlacement(
+                    inspection.id,
+                    readingId,
+                    position,
+                  );
+                  setMoistureReadings((prev) =>
+                    prev.map((r) =>
+                      r.id === readingId ? { ...r, ...position } : r,
+                    ),
+                  );
+                }}
+              />
             ) : (
               <div className="text-center py-12 text-neutral-400">
                 No moisture readings to map — add readings first
