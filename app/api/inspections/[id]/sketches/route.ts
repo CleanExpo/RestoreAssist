@@ -69,6 +69,17 @@ export async function GET(
             updatedAt: true,
           },
         },
+        rooms: {
+          where: { detachedAt: null },
+          orderBy: [{ floorNumber: "asc" }, { name: "asc" }],
+          select: {
+            id: true,
+            name: true,
+            floorNumber: true,
+            heightM: true,
+          },
+          take: 500,
+        },
       },
       orderBy: [{ floorNumber: "asc" }, { createdAt: "asc" }],
       take: 50,
@@ -316,6 +327,7 @@ export async function POST(
         evidencePins: number;
         moistureReadings: number;
         hazards: number;
+        jobMoistureReadings: number;
       };
     }> = [];
     if (existing?.id) {
@@ -337,6 +349,7 @@ export async function POST(
                 evidencePins: true,
                 moistureReadings: true,
                 hazards: true,
+                jobMoistureReadings: true,
               },
             },
           },

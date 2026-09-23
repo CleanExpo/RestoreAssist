@@ -100,6 +100,7 @@ export interface StaleRoom {
     evidencePins: number;
     moistureReadings: number;
     hazards: number;
+    jobMoistureReadings?: number;
   };
 }
 
@@ -108,8 +109,8 @@ export interface StaleRoom {
  *
  * WHY THIS IS NOT JUST A DELETE
  * -----------------------------
- * `EvidencePin`, `SketchMoistureReading` and `Hazard` all reference
- * `SketchRoom` with `onDelete: SetNull`. Deleting a room therefore does not
+ * `EvidencePin`, `SketchMoistureReading`, `Hazard` and job
+ * `MoistureReading` all reference `SketchRoom` with `onDelete: SetNull`. Deleting a room therefore does not
  * fail and does not cascade -- it silently blanks the room link on evidence
  * that was already captured. The reading survives; the answer to "which room
  * was this taken in" does not.
@@ -133,7 +134,8 @@ export function partitionStaleRooms(stale: StaleRoom[]): {
     const dependents =
       (room._count?.evidencePins ?? 0) +
       (room._count?.moistureReadings ?? 0) +
-      (room._count?.hazards ?? 0);
+      (room._count?.hazards ?? 0) +
+      (room._count?.jobMoistureReadings ?? 0);
     if (dependents > 0) {
       detachableIds.push(room.id);
     } else {

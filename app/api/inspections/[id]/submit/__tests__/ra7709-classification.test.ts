@@ -272,7 +272,13 @@ type CaseArea = {
   source: string;
   hours: number;
 };
-type CaseReading = { room: string; surface: string; level: number };
+type CaseReading = {
+  room: string;
+  surface: string;
+  level: number;
+  /** RA-7610: the drawn room the reading is linked to, if any. */
+  sketchRoom?: { id: string; name: string };
+};
 
 const environmentalData = {
   id: "env-1",
@@ -299,6 +305,8 @@ function inspectionFixture(
     moistureReadings: readings.map((r, i) => ({
       id: `mr-${i}`,
       location: r.room,
+      sketchRoomId: r.sketchRoom?.id ?? null,
+      sketchRoom: r.sketchRoom ?? null,
       surfaceType: r.surface,
       moistureLevel: r.level,
       depth: "Surface",
@@ -330,8 +338,11 @@ function formInput(areas: CaseArea[], readings: CaseReading[]) {
       waterSource: a.source,
       timeSinceLoss: a.hours,
     })),
+    // RA-7610: as loaded by GET /api/inspections?reportId= (sketchRoom included).
     moistureReadings: readings.map((r) => ({
       location: r.room,
+      sketchRoomId: r.sketchRoom?.id ?? null,
+      sketchRoom: r.sketchRoom ?? null,
       surfaceType: r.surface,
       moistureLevel: r.level,
       depth: "Surface",
@@ -470,6 +481,68 @@ describe("RA-7709 — Review & Submit preview equals the saved classification", 
       category: saved!.category,
       class: saved!.class,
     });
+  });
+});
+
+// RA-7610: a reading linked to a drawn room counts in that room, whatever its
+// typed location says — in the preview and in what submit saves.
+const KITCHEN_ROOM = { id: "sr-kitchen", name: "Kitchen" };
+
+describe("RA-7610 — preview equals saved for a reading linked to a room", () => {
+  it("a Kitchen-linked reading typed 'Bathroom' lands in Kitchen in both", async () => {
+    const areas: CaseArea[] = [
+      { room: "Kitchen", sqm: 5, source: "Clean Water", hours: 4 },
+      { room: "Bathroom", sqm: 5, source: "Clean Water", hours: 4 },
+    ];
+    const readings: CaseReading[] = [
+      {
+        room: "Bathroom",
+        surface: "Carpet",
+        level: 30,
+        sketchRoom: KITCHEN_ROOM,
+      },
+    ];
+    db.inspection = inspectionFixture(areas, readings);
+    await submit();
+
+    const saved = shownRow();
+    const perArea = JSON.parse(saved!.inputData!).areas as Array<{
+      roomZoneId: string;
+      class: string;
+      moistureReadings: unknown[];
+    }>;
+    const kitchen = perArea.find((a) => a.roomZoneId === "Kitchen")!;
+    const bathroom = perArea.find((a) => a.roomZoneId === "Bathroom")!;
+    expect(kitchen.moistureReadings).toHaveLength(1);
+    expect(kitchen.class).toBe("2");
+    expect(bathroom.moistureReadings).toHaveLength(0);
+    expect(bathroom.class).toBe("1");
+  });
+
+  it("a linked reading whose location names no area is counted in the preview and the saved record", async () => {
+    const areas: CaseArea[] = [
+      { room: "Kitchen", sqm: 5, source: "Clean Water", hours: 4 },
+    ];
+    const readings: CaseReading[] = [
+      {
+        room: "near the fridge",
+        surface: "Carpet",
+        level: 30,
+        sketchRoom: KITCHEN_ROOM,
+      },
+    ];
+    const preview = calculateClassificationPreview(formInput(areas, readings));
+
+    db.inspection = inspectionFixture(areas, readings);
+    await submit();
+
+    const saved = shownRow();
+    expect({ category: preview!.category, class: preview!.class }).toEqual({
+      category: saved!.category,
+      class: saved!.class,
+    });
+    // Class 2 only if the linked 30% reading was counted.
+    expect(saved!.class).toBe("2");
   });
 });
 

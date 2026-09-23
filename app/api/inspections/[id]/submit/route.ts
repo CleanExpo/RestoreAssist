@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  classifyInspection,
-  readingMatchesArea,
-} from "@/lib/nir-classification-engine";
+import { classifyInspection } from "@/lib/nir-classification-engine";
 import {
   findTechnicianClassification,
   persistInspectionClassification,
@@ -36,6 +33,7 @@ import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
+import { readingMatchesArea } from "@/lib/moisture/reading-room-join";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -85,6 +83,8 @@ export async function POST(
             select: {
               id: true,
               location: true,
+              sketchRoomId: true,
+              sketchRoom: { select: { id: true, name: true } },
               surfaceType: true,
               moistureLevel: true,
               depth: true,
@@ -563,7 +563,7 @@ async function processInspectionComplete(
     waterSource: inspection.affectedAreas[0]?.waterSource || "Clean Water",
     affectedAreas: inspection.affectedAreas.map((area: any) => {
       const matchedReading = inspection.moistureReadings.find((r: any) =>
-        readingMatchesArea(r.location, area.roomZoneId),
+        readingMatchesArea(r, area),
       );
       return {
         roomZoneId: area.roomZoneId,

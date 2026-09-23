@@ -28,6 +28,7 @@ import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { buildAffectedAreaPayload } from "@/lib/forms/affected-area-payload";
+import { buildMoistureReadingDraftPayload } from "@/lib/forms/moisture-reading-draft-payload";
 import {
   calculateClassificationPreview as computeClassificationPreview,
   manualClassificationPayload,
@@ -220,6 +221,10 @@ export default function NIRTechnicianInputForm({
       surfaceType: string;
       moistureLevel: number;
       depth: "Surface" | "Subsurface";
+      sketchRoomId?: string | null;
+      // Loaded with the reading so the classification preview can match a
+      // linked reading to its room, as submit does (RA-7610).
+      sketchRoom?: { id: string; name: string } | null;
     }>
   >([]);
 
@@ -1308,14 +1313,7 @@ export default function NIRTechnicianInputForm({
             const normalizedPoint = mapPoint
               ? toNormalizedMoistureMapPoint(mapPoint)
               : null;
-            return {
-              location: reading.location,
-              surfaceType: reading.surfaceType,
-              moistureLevel: reading.moistureLevel,
-              depth: reading.depth,
-              mapX: normalizedPoint?.mapX ?? null,
-              mapY: normalizedPoint?.mapY ?? null,
-            };
+            return buildMoistureReadingDraftPayload(reading, normalizedPoint);
           }),
           affectedAreas: affectedAreas.map(buildAffectedAreaPayload),
           scopeItems: Array.from(selectedScopeItems).flatMap((itemId) => {
