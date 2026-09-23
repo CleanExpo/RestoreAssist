@@ -16,6 +16,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { PRICING_CONFIG } from "@/lib/pricing";
 import { useSession } from "next-auth/react";
 
 // Module-level flag to prevent verification from running multiple times across remounts
@@ -621,8 +622,10 @@ export default function SuccessPage() {
               Payment Successful!
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Thank you for your subscription. Your account has been upgraded
-              and you now have unlimited access.
+              Thank you for your subscription. Your account is now on the{" "}
+              {PRICING_CONFIG.pricing.monthly.name}, with{" "}
+              {PRICING_CONFIG.pricing.monthly.reportLimit} inspection reports a
+              month.
             </p>
           </div>
 

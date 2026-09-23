@@ -3,6 +3,9 @@ import { headers } from "next/headers";
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 import { isIosShellUserAgent } from "@/lib/capacitor";
 import { Metadata } from "next";
+import { PRICING_CONFIG } from "@/lib/pricing";
+
+const allowance = PRICING_CONFIG.pricing.monthly.reportLimit;
 
 export const metadata: Metadata = {
   title: "Pricing - Restoration CRM Plans Australia",
@@ -12,8 +15,7 @@ export const metadata: Metadata = {
   // from the SoftwareApplication schema in components/seo/JsonLd.tsx; nothing
   // in this repo backs it. Metadata is a claim surface like any other, and it
   // is the one that ends up in search results.
-  description:
-    "RestoreAssist pricing for Australian restoration contractors. 50 inspection reports a month on the $99 plan, per-report rates published, IICRC S500 alignment. Basic reports on the free trial work without pasting an API key; provider charges apply only if you add your own key.",
+  description: `RestoreAssist pricing for Australian restoration contractors. ${allowance} inspection reports a month on the $99 plan, per-report rates published, IICRC S500 alignment. Basic reports on the free trial work without pasting an API key; provider charges apply only if you add your own key.`,
   keywords: [
     "restoration software pricing",
     "restoration report software cost",
@@ -24,8 +26,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "Pricing - Restoration CRM Plans Australia | Restore Assist",
-    description:
-      "Pricing for Australian restoration professionals. 50 inspection reports a month, per-report rates published, IICRC S500 alignment.",
+    description: `Pricing for Australian restoration professionals. ${allowance} inspection reports a month, per-report rates published, IICRC S500 alignment.`,
     type: "website",
     images: [
       { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
