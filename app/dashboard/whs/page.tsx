@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -487,10 +488,10 @@ function NewIncidentFormPanel({
     };
 
   return (
-    <div className="bg-slate-700/20 border border-slate-600 rounded-xl p-6 space-y-5">
-      <h3 className="text-base font-semibold text-white">
+    <div className="space-y-5">
+      <DialogTitle className="text-base font-semibold text-white">
         Log New WHS Incident
-      </h3>
+      </DialogTitle>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Incident Type */}
@@ -1151,22 +1152,39 @@ export default function WHSPage() {
       </div>
 
       {/* ── New incident form ── */}
-      {showForm && (
-        <NewIncidentFormPanel
-          form={form}
-          onChange={setForm}
-          onSave={handleSave}
-          onCancel={() => {
+      {/* RA-7711: a dialog, not an inline panel. The inline panel mounted at
+          the top of the page, out of view of "Log First Incident" at the foot
+          of the empty state, so the click looked like it did nothing. */}
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!open) {
             setShowForm(false);
             setForm(BLANK_FORM);
             setFormErrors({});
-          }}
-          saving={saving}
-          errors={formErrors}
-          inspections={inspections}
-          inspectionsLoading={inspectionsLoading}
-        />
-      )}
+          }
+        }}
+      >
+        <DialogContent
+          aria-describedby={undefined}
+          className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-700"
+        >
+          <NewIncidentFormPanel
+            form={form}
+            onChange={setForm}
+            onSave={handleSave}
+            onCancel={() => {
+              setShowForm(false);
+              setForm(BLANK_FORM);
+              setFormErrors({});
+            }}
+            saving={saving}
+            errors={formErrors}
+            inspections={inspections}
+            inspectionsLoading={inspectionsLoading}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* ── Filter tabs ── */}
       <div className="flex items-center gap-1 border-b border-slate-700 overflow-x-auto">
