@@ -24,7 +24,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { apiError, fromException } from "@/lib/api-errors";
 import { validateCsrf } from "@/lib/csrf";
 import {
@@ -140,6 +143,12 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // Tenant ADMIN is every self-registered owner (RA-7592). The filter below
+    // starts empty, so this returns every observation on the platform —
+    // including the free-text notes and the context Json, which carries
+    // adjuster and company names. Platform-support staff only.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     const { searchParams } = new URL(request.url);
     const claimId = searchParams.get("claimId");
