@@ -5,12 +5,31 @@ import { authOptions } from "@/lib/auth";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
+// RA-7577: submitting a review and listing "my reviews" were written for a
+// portal-client sign-in that does not exist yet, so they crashed on every
+// call and hid a cross-business ownership gap. They answer "not available
+// yet" until portal-client sign-in is decided. The legacy code is kept below
+// (_legacyPOST, the myReviews branch) for the proper fix; do not re-enable it
+// without resolving RA-7577.
+function reviewsNotAvailable(request: NextRequest): NextResponse {
+  return apiError(request, {
+    code: "FEATURE_UNAVAILABLE",
+    message: "Contractor reviews are not available yet",
+    status: 503,
+  });
+}
+
 // Get reviews (filtered by contractor slug or client)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const contractorSlug = searchParams.get("contractorSlug");
     const myReviews = searchParams.get("myReviews") === "true";
+
+    // RA-7577: switched off before any session or database work.
+    if (myReviews) {
+      return reviewsNotAvailable(request);
+    }
 
     const session = await getServerSession(authOptions);
 
@@ -128,8 +147,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Submit a new review (clients only)
+// Submit a new review (clients only) — switched off, see RA-7577.
 export async function POST(request: NextRequest) {
+  return reviewsNotAvailable(request);
+}
+
+// RA-7577: unreachable legacy handler, kept for the proper fix. It looks up
+// ClientUser by a field it does not have and its report ownership check
+// compares against a value it never selected. Do not wire it back as-is.
+async function _legacyPOST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
