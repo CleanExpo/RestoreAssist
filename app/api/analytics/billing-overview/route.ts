@@ -6,6 +6,7 @@ import {
   verifyAdminFromDb,
   verifyPlatformSupportOperator,
 } from "@/lib/admin-auth";
+import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { fromException } from "@/lib/api-errors";
 
@@ -22,6 +23,14 @@ const CACHE_TTL_MS = 60_000;
 
 export async function GET(request: NextRequest) {
   try {
+    // RA-1842 Path B — Apple guideline 3.1.1. This response carries MRR,
+    // subscription status and credit balances, which is the paid-content
+    // surface that got build 1.0(3) rejected. Keyed on the Capacitor header,
+    // so it blocks the iOS shell only; a browser on the same device is
+    // unaffected.
+    const blocked = rejectIfIOSCapacitor(request);
+    if (blocked) return blocked;
+
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
