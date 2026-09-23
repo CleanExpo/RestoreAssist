@@ -7,6 +7,11 @@ import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { deriveAreaColumns } from "@/lib/units";
+import {
+  MANUAL_OVERRIDE_JUSTIFICATION,
+  MANUAL_OVERRIDE_REFERENCE,
+} from "@/lib/nir-classification-engine";
+import { persistInspectionClassification } from "@/lib/nir-classification-persist";
 
 const environmentalSchema = z.object({
   ambientTemperature: z.number().finite().min(-20).max(55),
@@ -235,6 +240,25 @@ export async function PUT(
             damageClass,
             gateClassificationComplete: true,
           },
+        });
+        // RA-7709: the technician's own choice, recorded as theirs so submit
+        // honours it. One row per inspection, however often the draft saves.
+        await persistInspectionClassification(tx, id, {
+          category: data.manualClassification.category,
+          class: data.manualClassification.class,
+          justification: MANUAL_OVERRIDE_JUSTIFICATION,
+          standardReference: MANUAL_OVERRIDE_REFERENCE,
+          confidence: 100,
+          inputData: JSON.stringify({ source: "draft_snapshot" }),
+          isFinal: false,
+          reviewedBy: session.user.id,
+        });
+      } else if (data.manualClassification === null) {
+        // An explicit clear from the form: drop the technician choice so
+        // submit classifies automatically. A body without the field leaves
+        // it alone. Draft only — this route refuses non-DRAFT inspections.
+        await tx.classification.deleteMany({
+          where: { inspectionId: id, reviewedBy: { not: null } },
         });
       }
 
