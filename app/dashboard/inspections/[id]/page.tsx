@@ -23,6 +23,7 @@ import {
   latestEnvironmentalReading,
   type EnvironmentalReading,
 } from "@/lib/inspections/latest-environmental-reading";
+import type { RequiredEvidenceProgress } from "@/lib/evidence/evidence-readiness";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -416,6 +417,9 @@ export default function InspectionDetailPage({
     unit: "",
   });
   const [envData, setEnvData] = useState<EnvironmentalReading | null>(null);
+  // RA-7713: required Field Evidence Checklist progress caps the readiness %.
+  const [requiredEvidence, setRequiredEvidence] =
+    useState<RequiredEvidenceProgress | null>(null);
   const [showEnvForm, setShowEnvForm] = useState(false);
   const [envForm, setEnvForm] = useState<{
     ambientTemperature: number | null;
@@ -1473,6 +1477,7 @@ export default function InspectionDetailPage({
         costEstimateCount={inspection.costEstimates.length}
         totalCost={totalCost}
         onSelectTab={(tab) => setActiveTab(tab as InspectionEvidenceTab)}
+        requiredEvidence={requiredEvidence}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -1504,7 +1509,10 @@ export default function InspectionDetailPage({
             onSigned={() => fetchInspection()}
           />
         )}
-        <FieldEvidenceChecklistPanel inspectionId={inspection.id} />
+        <FieldEvidenceChecklistPanel
+          inspectionId={inspection.id}
+          onRequiredProgress={setRequiredEvidence}
+        />
       </div>
 
       {/* SP-A close-job Sidekick card. Renders while the inspection is in
