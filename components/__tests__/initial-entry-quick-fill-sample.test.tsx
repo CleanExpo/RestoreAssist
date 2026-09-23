@@ -7,7 +7,7 @@
  * property. Once the user edits either, the submission is theirs and goes
  * through unmarked.
  */
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -60,9 +60,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function quickFillThenSubmit(edit?: () => void) {
+async function quickFillThenSubmit(edit?: () => Promise<void>) {
   const { container } = render(<InitialDataEntryForm />);
   const button = await screen.findByRole("button", { name: /Quick Fill Test Data/ });
+  // Disabled until the credits check resolves.
+  await waitFor(() => expect(button).toBeEnabled());
   await act(async () => {
     fireEvent.click(button);
   });
@@ -70,7 +72,8 @@ async function quickFillThenSubmit(edit?: () => void) {
   await act(async () => {
     fireEvent.click(useCase);
   });
-  if (edit) await act(async () => edit());
+  await screen.findByDisplayValue("ABC Co.");
+  if (edit) await act(edit);
   const form = container.querySelector("form");
   expect(form).not.toBeNull();
   await act(async () => {
@@ -87,7 +90,7 @@ describe("Initial Data Entry Quick Fill submits as a sample (RA-7711)", () => {
   });
 
   it("does not mark it once the user changes the client name", async () => {
-    await quickFillThenSubmit(() => {
+    await quickFillThenSubmit(async () => {
       fireEvent.change(screen.getByDisplayValue("ABC Co."), {
         target: { value: "Real Client Pty Ltd" },
       });

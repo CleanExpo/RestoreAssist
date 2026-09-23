@@ -58,6 +58,10 @@ export async function GET(request: NextRequest) {
     }
     const where: any = { ...reach.data };
 
+    // RA-7711: sample rows (setup demo data, Quick Fill submissions) never
+    // reach the reports list or the dashboard counts built from it.
+    where.isSample = false;
+
     if (status && status !== "all") {
       where.status = status;
     }

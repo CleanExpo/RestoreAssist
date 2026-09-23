@@ -152,6 +152,18 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // RA-7711: a submission still holding Quick Fill data is a sample. It
+      // gets its own sample client (reserved example.com address, so it can
+      // never collide with or be merged into a real client) and a sample
+      // report, and both stay out of the lists and dashboard counts.
+      const isQuickFillSample = data.quickFillSample === true;
+      if (isQuickFillSample) {
+        clientEmail = `sample-quickfill-${data.clientName
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")}@example.com`;
+      }
+
       // If no email found, create a placeholder email
       if (!clientEmail) {
         clientEmail = `${data.clientName.trim().toLowerCase().replace(/\s+/g, ".")}@client.local`;
@@ -164,11 +176,15 @@ export async function POST(request: NextRequest) {
         const existingClient = await prisma.client.findFirst({
           where: {
             userId: user.id,
+            ...(isQuickFillSample ? { isSample: true } : {}),
             OR: [{ name: data.clientName.trim() }, { email: clientEmail }],
           },
         });
 
-        if (existingClient) {
+        if (existingClient && isQuickFillSample) {
+          // Reuse the existing sample client as-is; never touch real ones.
+          clientId = existingClient.id;
+        } else if (existingClient) {
           clientId = existingClient.id;
           // Update client with new information if available
           await prisma.client.update({
@@ -192,6 +208,7 @@ export async function POST(request: NextRequest) {
               address: data.propertyAddress.trim() || null,
               status: "ACTIVE",
               userId: user.id,
+              ...(isQuickFillSample ? { isSample: true } : {}),
             },
           });
           clientId = newClient.id;
@@ -345,6 +362,9 @@ export async function POST(request: NextRequest) {
 
       // Conditionally add team assignment fields if they exist in the schema
       // These fields were added for the team management feature
+      if (isQuickFillSample) {
+        reportData.isSample = true;
+      }
       if (data.assignedManagerId) {
         reportData.assignedManagerId = data.assignedManagerId;
       }
