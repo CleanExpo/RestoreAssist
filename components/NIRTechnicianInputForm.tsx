@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Thermometer,
   Droplets,
@@ -292,6 +292,16 @@ export default function NIRTechnicianInputForm({
     category: string;
     class: string;
   } | null>(null);
+
+  // RA-7709: true once the form has held a complete choice this session
+  // (restored on resume or picked). Clearing it afterwards is then sent as an
+  // explicit clear; a form that never had one leaves the field out.
+  const hadManualChoice = useRef(false);
+  useEffect(() => {
+    if (manualClassification?.category && manualClassification.class) {
+      hadManualChoice.current = true;
+    }
+  }, [manualClassification]);
 
   // Damage description — feeds the auto-classifier
   const [damageDescription, setDamageDescription] = useState("");
@@ -1320,8 +1330,10 @@ export default function NIRTechnicianInputForm({
                 ]
               : [];
           }),
-          manualClassification:
-            manualClassificationPayload(manualClassification),
+          manualClassification: manualClassificationPayload(
+            manualClassification,
+            hadManualChoice.current,
+          ),
         }),
       },
     );

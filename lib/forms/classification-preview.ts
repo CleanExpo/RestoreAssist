@@ -86,11 +86,12 @@ export function calculateClassificationPreview({
 export type ManualChoice = { category: string; class: string };
 
 /**
- * The technician's choice to restore when the form resumes an inspection.
- * Current behaviour, moved here unchanged: initializeInspection does not read
- * the inspection's classifications, so nothing is restored.
+ * The technician's choice to restore when the form resumes an inspection:
+ * the inspection's newest Classification row, when a technician chose it
+ * (reviewedBy set — the same signal submit honours). An automatic row is
+ * not a choice and restores nothing.
  */
-export function resumedManualClassification(_inspection: {
+export function resumedManualClassification(inspection: {
   classifications?: Array<{
     category: string;
     class: string;
@@ -98,18 +99,30 @@ export function resumedManualClassification(_inspection: {
     createdAt?: string | Date;
   }> | null;
 }): ManualChoice | null {
-  return null;
+  const newest = [...(inspection.classifications ?? [])].sort(
+    (a, b) =>
+      new Date(b.createdAt ?? 0).getTime() -
+      new Date(a.createdAt ?? 0).getTime(),
+  )[0];
+  return newest?.reviewedBy
+    ? { category: newest.category, class: newest.class }
+    : null;
 }
 
 /**
- * `manualClassification` for the draft-save body. Current behaviour, moved
- * here unchanged from saveDraftSnapshot: a complete choice, otherwise null.
+ * `manualClassification` for the draft-save body:
+ * - a complete choice → the choice;
+ * - no complete choice, but the form held one this session (restored or
+ *   picked, then cleared) → null, an explicit clear;
+ * - otherwise → undefined, so the field is left out and the server keeps any
+ *   choice recorded elsewhere (for example the job-page classification tab).
  */
 export function manualClassificationPayload(
   manual: { category?: string | null; class?: string | null } | null,
-  _hadChoice?: boolean,
+  hadChoice: boolean,
 ): ManualChoice | null | undefined {
-  return manual?.category && manual.class
-    ? { category: manual.category, class: manual.class }
-    : null;
+  if (manual?.category && manual.class) {
+    return { category: manual.category, class: manual.class };
+  }
+  return hadChoice ? null : undefined;
 }

@@ -253,10 +253,10 @@ export async function PUT(
           isFinal: false,
           reviewedBy: session.user.id,
         });
-      } else {
-        // No choice in the form (never made, or cleared): drop any earlier
-        // technician choice so submit classifies automatically. Draft only —
-        // this route refuses non-DRAFT inspections above.
+      } else if (data.manualClassification === null) {
+        // An explicit clear from the form: drop the technician choice so
+        // submit classifies automatically. A body without the field leaves
+        // it alone. Draft only — this route refuses non-DRAFT inspections.
         await tx.classification.deleteMany({
           where: { inspectionId: id, reviewedBy: { not: null } },
         });
