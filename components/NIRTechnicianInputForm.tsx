@@ -32,6 +32,7 @@ import {
   fromNormalizedMoistureMapPoint,
   toNormalizedMoistureMapPoint,
 } from "@/lib/nir-moisture-map-coordinates";
+import { latestEnvironmentalReading } from "@/lib/inspections/latest-environmental-reading";
 import {
   isCapacitorIOS,
   getCurrentLocation,
@@ -779,8 +780,23 @@ export default function NIRTechnicianInputForm({
         if (data.inspection) {
           setInspectionId(data.inspection.id);
           // Load existing data
-          if (data.inspection.environmentalData) {
-            setEnvironmentalData(data.inspection.environmentalData);
+          // RA-7740: the API returns environmentalData as a LIST of readings
+          // (EnvironmentalData[]); this form holds one reading. Load the
+          // latest; an empty list keeps the defaults.
+          const latestReading = latestEnvironmentalReading(
+            data.inspection.environmentalData,
+          );
+          if (latestReading) {
+            setEnvironmentalData((prev) => ({
+              ambientTemperature:
+                latestReading.ambientTemperature ?? prev.ambientTemperature,
+              humidityLevel: latestReading.humidityLevel ?? prev.humidityLevel,
+              dewPoint: latestReading.dewPoint ?? prev.dewPoint,
+              airCirculation:
+                latestReading.airCirculation ?? prev.airCirculation,
+              weatherConditions:
+                latestReading.weatherConditions ?? prev.weatherConditions,
+            }));
           }
           if (data.inspection.moistureReadings) {
             setMoistureReadings(data.inspection.moistureReadings);
