@@ -55,6 +55,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/EmptyState";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 interface Integration {
   id: string;
@@ -2014,9 +2015,10 @@ export default function IntegrationsPage() {
                 <DialogTitle>Upgrade Required</DialogTitle>
               </div>
               <DialogDescription>
-                An active subscription is required to connect integrations and
-                unlock all features — unlimited reports, priority support, and
-                full API access.
+                An active subscription is required to connect integrations. The
+                plan includes{" "}
+                {PRICING_CONFIG.pricing.monthly.reportLimit} inspection reports
+                a month.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

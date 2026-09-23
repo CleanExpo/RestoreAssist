@@ -32,6 +32,7 @@ import {
   UPLOAD_PDF_TRIAL_TITLE,
   UPLOAD_PDF_TRIAL_TOAST,
 } from "@/lib/reports/upload-pdf-copy";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 export default function NewReportPage() {
   const router = useRouter();
@@ -1061,11 +1062,12 @@ export default function NewReportPage() {
             <div className="space-y-4">
               <p className="text-neutral-700 dark:text-slate-300">
                 You've used all your free credits. To create more reports, you
-                need to upgrade to a Monthly or Yearly plan.
+                need to upgrade to the Monthly Plan.
               </p>
               <p className="text-sm text-neutral-600 dark:text-slate-400">
-                Upgrade now to unlock unlimited reports, client management, API
-                integrations, and priority support.
+                The Monthly Plan includes{" "}
+                {PRICING_CONFIG.pricing.monthly.reportLimit} inspection reports
+                a month and client management.
               </p>
               <div className="flex gap-3 pt-4">
                 <button
