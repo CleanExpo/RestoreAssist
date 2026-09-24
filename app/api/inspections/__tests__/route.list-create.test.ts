@@ -185,6 +185,79 @@ describe("GET /api/inspections", () => {
     expect(inspectionCount).not.toHaveBeenCalled();
   });
 
+  // RA-7711 — Field Mode lists the signed-in technician's jobs plus the
+  // workspace's unassigned ones. The clause must sit under AND so a search
+  // (which assigns where.OR) cannot erase it, and must not replace tenancy.
+  it("narrows ?assignee=me to the caller's jobs or unassigned ones, under AND", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    userFindUnique.mockResolvedValue({ role: "USER", organizationId: "org_1" });
+    inspectionCount.mockResolvedValueOnce(0);
+    inspectionFindMany.mockResolvedValueOnce([]);
+
+    const res = await GET(getReq("?assignee=me&search=smith"));
+    expect(res.status).toBe(200);
+
+    const whereArg = inspectionFindMany.mock.calls[0][0].where;
+    expect(whereArg.AND[0].OR).toContainEqual({ userId: "u_1" });
+    expect(whereArg.AND).toContainEqual({
+      OR: [{ technicianId: "u_1" }, { technicianId: null }],
+    });
+    expect(whereArg.OR).toBeTruthy();
+  });
+
+  // RA-7711 (B2) — the reported job had a technician and the viewer was the
+  // owner. ADMIN and MANAGER (read from the DB, never the JWT — RULES #3)
+  // see every active job in their tenant scope; USER sees own + unassigned.
+  // Tenancy (the organisation clause) stays in every case, so no role sees
+  // another organisation's jobs.
+  for (const role of ["ADMIN", "MANAGER"] as const) {
+    it(`?assignee=me does not narrow a DB ${role} (JWT says USER)`, async () => {
+      getServerSession.mockResolvedValueOnce({
+        user: { id: "u_owner", role: "USER" },
+      });
+      userFindUnique.mockResolvedValue({ role, organizationId: "org_1" });
+      inspectionCount.mockResolvedValueOnce(0);
+      inspectionFindMany.mockResolvedValueOnce([]);
+
+      const res = await GET(getReq("?assignee=me&status=ESTIMATED"));
+      expect(res.status).toBe(200);
+
+      const whereArg = inspectionFindMany.mock.calls[0][0].where;
+      expect(JSON.stringify(whereArg)).not.toContain("technicianId");
+      expect(whereArg.AND[0].OR).toContainEqual({
+        user: { organizationId: "org_1" },
+      });
+    });
+  }
+
+  it("?assignee=me narrows a DB USER even when the JWT says ADMIN", async () => {
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", role: "ADMIN" },
+    });
+    userFindUnique.mockResolvedValue({ role: "USER", organizationId: "org_1" });
+    inspectionCount.mockResolvedValueOnce(0);
+    inspectionFindMany.mockResolvedValueOnce([]);
+
+    await GET(getReq("?assignee=me&status=ESTIMATED"));
+    const whereArg = inspectionFindMany.mock.calls[0][0].where;
+    expect(whereArg.AND).toContainEqual({
+      OR: [{ technicianId: "u_1" }, { technicianId: null }],
+    });
+    expect(whereArg.AND[0].OR).toContainEqual({
+      user: { organizationId: "org_1" },
+    });
+  });
+
+  it("does not narrow by assignee unless asked", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    inspectionCount.mockResolvedValueOnce(0);
+    inspectionFindMany.mockResolvedValueOnce([]);
+
+    await GET(getReq());
+    const whereArg = inspectionFindMany.mock.calls[0][0].where;
+    expect(JSON.stringify(whereArg)).not.toContain("technicianId");
+  });
+
   it("keeps the active alias as notIn COMPLETED/REJECTED", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
     inspectionCount.mockResolvedValueOnce(0);

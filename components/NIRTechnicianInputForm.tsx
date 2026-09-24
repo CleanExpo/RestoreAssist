@@ -195,6 +195,19 @@ const WATER_CLASSES = [
   },
 ];
 
+// RA-7711: claim type and IICRC S500 water category/class for each Quick Fill
+// template. Mould has no water classification.
+const QUICK_FILL_CLASSIFICATION: Record<
+  string,
+  { claimType: IicrcClaimType; category?: string; waterClass?: string }
+> = {
+  "residential-burst-pipe": { claimType: "WATER", category: "1", waterClass: "2" },
+  "commercial-hvac-failure": { claimType: "WATER", category: "1", waterClass: "3" },
+  "mould-remediation": { claimType: "MOULD" },
+  "storm-damage": { claimType: "WATER", category: "2", waterClass: "3" },
+  "flood-damage": { claimType: "WATER", category: "3", waterClass: "3" },
+};
+
 export default function NIRTechnicianInputForm({
   reportId,
   initialData,
@@ -338,6 +351,12 @@ export default function NIRTechnicianInputForm({
   // Claim type — IICRC standard that governs this job. Picked BEFORE evidence
   // capture starts so the correct field surface renders (RA-1029 P1 #7).
   const [claimType, setClaimType] = useState<IicrcClaimType | null>(null);
+
+  // RA-7711: the values Quick Fill wrote. While the form still holds exactly
+  // these, the silent auto-create below stays off, so Quick Fill never creates
+  // a job on its own. Any edit to claim type, address or postcode, or an
+  // explicit save, creates it as normal.
+  const quickFillKeyRef = useRef<string | null>(null);
 
   // Property Address (required)
   const [propertyAddress, setPropertyAddress] = useState("");
@@ -683,6 +702,26 @@ export default function NIRTechnicianInputForm({
       setEquipmentSelection(useCaseData.equipmentSelection);
     if (useCaseData.dryingDuration)
       setDryingDuration(useCaseData.dryingDuration);
+
+    // RA-7711: the template carries its claim type and, for water claims, the
+    // IICRC category and class, so the filled form is classified.
+    const classification = QUICK_FILL_CLASSIFICATION[useCaseId];
+    if (classification) {
+      quickFillKeyRef.current = [
+        classification.claimType,
+        (useCaseData.propertyAddress ?? propertyAddress).trim(),
+        (useCaseData.propertyPostcode ?? propertyPostcode).trim(),
+      ].join("|");
+      setClaimType(classification.claimType);
+      setManualClassification(
+        classification.category && classification.waterClass
+          ? {
+              category: classification.category,
+              class: classification.waterClass,
+            }
+          : null,
+      );
+    }
 
     setShowQuickFillModal(false);
     toast.success("Quick Fill data populated successfully!");
@@ -1303,7 +1342,9 @@ export default function NIRTechnicianInputForm({
       propertyAddress.trim() &&
       propertyPostcode.trim() &&
       !inspectionId &&
-      !loading
+      !loading &&
+      quickFillKeyRef.current !==
+        [claimType, propertyAddress.trim(), propertyPostcode.trim()].join("|")
     ) {
       const timer = setTimeout(() => {
         ensureInspectionExists(false); // Silent creation

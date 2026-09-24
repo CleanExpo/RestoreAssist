@@ -176,6 +176,36 @@ export async function GET(request: NextRequest) {
     }
     const where: Prisma.InspectionWhereInput = { ...reach.data };
 
+    // RA-7711: Field Mode asks for the signed-in technician's jobs plus the
+    // unassigned ones. ADMIN and MANAGER see every job in their tenant scope;
+    // the role is read from the DB, not the JWT (RULES #3). The clause is
+    // appended to AND, alongside tenancy, so the search filter's `where.OR`
+    // assignment below cannot erase it.
+    const fieldViewer =
+      searchParams.get("assignee") === "me"
+        ? await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { role: true },
+          })
+        : null;
+    if (
+      searchParams.get("assignee") === "me" &&
+      fieldViewer?.role !== "ADMIN" &&
+      fieldViewer?.role !== "MANAGER"
+    ) {
+      const existingAnd = where.AND
+        ? Array.isArray(where.AND)
+          ? where.AND
+          : [where.AND]
+        : [];
+      where.AND = [
+        ...existingAnd,
+        {
+          OR: [{ technicianId: session.user.id }, { technicianId: null }],
+        },
+      ];
+    }
+
     // Status filter — support "active" alias (not COMPLETED/REJECTED).
     // RA-7567: Field Mode sends several statuses in one query value
     // (`DRAFT,SUBMITTED,…`). Split and validate so Prisma never sees the

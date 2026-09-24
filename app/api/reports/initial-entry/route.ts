@@ -164,6 +164,8 @@ export async function POST(request: NextRequest) {
         const existingClient = await prisma.client.findFirst({
           where: {
             userId: user.id,
+            // RA-7711: a real job never binds to (or updates) a sample client.
+            isSample: false,
             OR: [{ name: data.clientName.trim() }, { email: clientEmail }],
           },
         });
