@@ -43,7 +43,14 @@ export default function NewCreditNotePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
-  const { treatment: gstTreatment, ready: gstReady } = useOrganizationGst();
+  const {
+    treatment: gstTreatment,
+    ready: gstReady,
+    failed: gstFailed,
+  } = useOrganizationGst();
+  // RA-7743: the hook starts at the AU default. Show no tax figure and keep
+  // saving disabled until the tenant's own treatment is known.
+  const gstKnown = gstReady && !gstFailed;
 
   const [form, setForm] = useState({
     invoiceId: "",
@@ -109,6 +116,14 @@ export default function NewCreditNotePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!gstKnown) {
+      toast.error(
+        gstFailed
+          ? "We couldn't load your GST settings, so tax can't be calculated. Reload the page to try again."
+          : "Loading your organisation tax settings. Please try again.",
+      );
+      return;
+    }
     if (!form.invoiceId) {
       toast.error("Please select an invoice");
       return;
@@ -326,7 +341,9 @@ export default function NewCreditNotePage() {
                   />
                 </div>
                 <div className="col-span-1 flex items-center justify-center pt-2">
-                  <span className="text-xs text-slate-400">10%</span>
+                  <span className="text-xs text-slate-400">
+                    {gstKnown ? gstTreatment.percentLabel : "-"}
+                  </span>
                 </div>
                 <div className="col-span-1 flex items-center justify-center pt-1">
                   {lineItems.length > 1 && (
@@ -350,14 +367,36 @@ export default function NewCreditNotePage() {
               </div>
               <div className="flex justify-between text-slate-400">
                 <span>GST</span>
-                <span>${gst.toFixed(2)}</span>
+                <span>
+                  {gstKnown
+                    ? `$${gst.toFixed(2)}`
+                    : gstFailed
+                      ? "Unavailable"
+                      : "Calculating GST..."}
+                </span>
               </div>
               <div className="flex justify-between text-white font-semibold text-base pt-1">
                 <span>Total Credit</span>
-                <span>${total.toFixed(2)}</span>
+                <span>
+                  {gstKnown
+                    ? `$${total.toFixed(2)}`
+                    : gstFailed
+                      ? "Unavailable"
+                      : "Calculating GST..."}
+                </span>
               </div>
             </div>
           </div>
+
+          {gstFailed && (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+            >
+              We couldn&apos;t load your GST settings, so tax can&apos;t be
+              calculated. Reload the page to try again.
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3">
@@ -369,7 +408,7 @@ export default function NewCreditNotePage() {
             </Link>
             <button
               type="submit"
-              disabled={isSubmitting || !form.invoiceId}
+              disabled={isSubmitting || !form.invoiceId || !gstKnown}
               className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (

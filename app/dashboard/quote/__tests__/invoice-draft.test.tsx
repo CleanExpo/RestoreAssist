@@ -78,7 +78,11 @@ function mockFetch(email: string, invoiceReply: Reply) {
         json: async () => invoiceReply.body,
       };
     }
-    // /api/gst-treatment and anything else: not under test.
+    // RA-7743: a failed lookup disables the draft, so the tenant's treatment
+    // must load for the draft path to be reachable.
+    if (url === "/api/gst-treatment") {
+      return { ok: true, status: 200, json: async () => ({ data: { country: "AU" } }) };
+    }
     return { ok: false, status: 404, json: async () => ({}) };
   });
   vi.stubGlobal("fetch", fetchMock);
