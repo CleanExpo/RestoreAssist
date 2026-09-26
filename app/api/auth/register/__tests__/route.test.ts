@@ -34,6 +34,7 @@ const notifyWelcome = vi.fn();
 const sendFounderSignupAlert = vi.fn().mockResolvedValue({ sent: true });
 const logSecurityEvent = vi.fn();
 const track = vi.fn();
+const ensureWorkspaceForUser = vi.fn();
 
 vi.mock("bcryptjs", () => ({
   default: { hash: (...args: unknown[]) => bcryptHash(...args) },
@@ -63,6 +64,9 @@ vi.mock("@/lib/email/founder-signup-alert", () => ({
 vi.mock("@/lib/security-audit", () => ({
   logSecurityEvent: (...args: unknown[]) => logSecurityEvent(...args),
   extractRequestContext: vi.fn(() => ({ ipAddress: "127.0.0.1" })),
+}));
+vi.mock("@/lib/workspace/provision", () => ({
+  ensureWorkspaceForUser: (...args: unknown[]) => ensureWorkspaceForUser(...args),
 }));
 vi.mock("@/lib/analytics/track", () => ({
   track: (...args: unknown[]) => track(...args),
@@ -110,6 +114,7 @@ beforeEach(() => {
   sendFounderSignupAlert.mockResolvedValue({ sent: true });
   logSecurityEvent.mockResolvedValue(undefined);
   track.mockResolvedValue(undefined);
+  ensureWorkspaceForUser.mockResolvedValue({ workspaceId: "ws-1", workspaceName: "W", alreadyExisted: false });
   userInviteFindFirst.mockResolvedValue(null);
 
   // $transaction runs the callback against a tx object backed by the same
@@ -345,5 +350,41 @@ describe("POST /api/auth/register — founder signup alert (launch-night Unit 4)
 
     expect(res.status).toBe(201);
     expect((await res.json()).user.email).toBe("resilient@example.com");
+  });
+});
+
+describe("POST /api/auth/register — workspace at signup (J-10)", () => {
+  function seedOwner(email: string) {
+    userFindUnique.mockResolvedValue(null);
+    txUserCreate.mockResolvedValue({ id: "user-1" });
+    txOrgCreate.mockResolvedValue({ id: "org-1" });
+    txUserUpdate.mockResolvedValue({ id: "user-1", email, name: VALID_BODY.name, organizationId: "org-1" });
+  }
+
+  it("provisions the new business's workspace for the new user", async () => {
+    seedOwner("owner@example.com");
+
+    const res = await POST(makeRequest({ ...VALID_BODY, email: "owner@example.com" }));
+
+    expect(res.status).toBe(201);
+    expect(ensureWorkspaceForUser).toHaveBeenCalledTimes(1);
+    expect(ensureWorkspaceForUser).toHaveBeenCalledWith("user-1");
+  });
+
+  it("still returns 201 when provisioning throws", async () => {
+    seedOwner("owner2@example.com");
+    ensureWorkspaceForUser.mockRejectedValueOnce(new Error("db blip"));
+
+    const res = await POST(makeRequest({ ...VALID_BODY, email: "owner2@example.com" }));
+
+    expect(res.status).toBe(201);
+  });
+
+  it("provisions nothing when signup is refused", async () => {
+    userFindUnique.mockResolvedValue({ id: "existing-user" });
+
+    await POST(makeRequest(VALID_BODY));
+
+    expect(ensureWorkspaceForUser).not.toHaveBeenCalled();
   });
 });

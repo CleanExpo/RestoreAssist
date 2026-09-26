@@ -15,6 +15,7 @@ import { apiError } from "@/lib/api-errors";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
 import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
+import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -237,6 +238,15 @@ export async function POST(request: NextRequest) {
         // sandbox + prod transactions complete in <100ms).
         { maxWait: 10_000, timeout: 30_000 },
       );
+      // J-10 — a new business needs its Workspace from day one: add-on and
+      // seat entitlements live on it, and checkPaymentGate answers 402
+      // NO_WORKSPACE without one. Idempotent. A failure is logged, not fatal:
+      // the account exists, and the AI-key setup step repairs it the same way.
+      try {
+        await ensureWorkspaceForUser(updatedUser.id);
+      } catch (err) {
+        console.error("[Register] workspace provisioning failed:", err);
+      }
       // RA-1309 — await all post-transaction side effects via allSettled so
       // they run concurrently but we don't return the HTTP response until
       // they're done. Previous code fired them as unawaited fire-and-forgets
