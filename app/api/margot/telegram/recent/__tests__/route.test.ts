@@ -11,11 +11,9 @@ vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/admin-auth", () => ({
+vi.mock("@/lib/admin-auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/admin-auth")>()),
   verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
-  // These cases are about error text for an allowed operator; the
-  // platform-staff refusal is covered in app/api/margot/__tests__.
-  verifyPlatformSupportOperator: (auth: unknown) => auth,
 }));
 vi.mock("@/lib/supabase-server", () => ({
   getSupabaseServerClient: (...args: unknown[]) =>
@@ -32,6 +30,8 @@ beforeEach(() => {
   from.mockReset();
   getSupabaseServerClient.mockReset();
 
+  // The real platform-staff gate runs; these cases are an allowed operator.
+  vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "admin_user");
   getServerSession.mockResolvedValue({ user: { id: "admin_user" } });
   verifyAdminFromDb.mockResolvedValue({
     response: null,
