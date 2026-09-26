@@ -16,6 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import { colors, spacing, input, shadows } from "@/constants/theme";
 import { api } from "@/lib/api/client";
 import { calculateDewPoint } from "@/lib/utils/dew-point";
+import { latestEnvironmentalReading } from "@/lib/inspections/latest-environmental-reading";
 import { checkTieredCompletion } from "@/lib/validation/tiered-completion";
 import type { Inspection, MoistureReading, AffectedArea } from "@/shared/types";
 import SectionCard from "@/components/SectionCard";
@@ -125,10 +126,12 @@ export default function InspectionDetailScreen() {
       const { inspection: data } = await api.inspections.get(id);
       setInspection(data);
 
-      if (data.environmentalData) {
-        setEnvTemp(String(data.environmentalData.ambientTemperature));
-        setEnvHumidity(String(data.environmentalData.humidityLevel));
-        setEnvWeather(data.environmentalData.weatherConditions ?? "");
+      // RA-7744: the API returns a LIST of readings; load the latest.
+      const env = latestEnvironmentalReading(data.environmentalData);
+      if (env) {
+        setEnvTemp(String(env.ambientTemperature));
+        setEnvHumidity(String(env.humidityLevel));
+        setEnvWeather(env.weatherConditions ?? "");
       }
     } catch (err: any) {
       setError(err.message ?? "Failed to load inspection");

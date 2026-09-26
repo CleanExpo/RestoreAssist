@@ -19,9 +19,22 @@ export interface EnvironmentalReading {
   createdAt?: string | null;
 }
 
-function timeOf(r: EnvironmentalReading): number {
-  const t = Date.parse(r.recordedAt ?? r.createdAt ?? "");
+function parseTime(value: string | null | undefined): number {
+  const t = Date.parse(value ?? "");
   return Number.isNaN(t) ? -Infinity : t;
+}
+
+function timeOf(r: EnvironmentalReading): number {
+  return parseTime(r.recordedAt ?? r.createdAt);
+}
+
+// RA-7744: two readings can share a recordedAt; createdAt breaks the tie so
+// the answer does not depend on the order the database returned them in.
+function isLater(r: EnvironmentalReading, than: EnvironmentalReading): boolean {
+  const a = timeOf(r);
+  const b = timeOf(than);
+  if (a !== b) return a > b;
+  return parseTime(r.createdAt) > parseTime(than.createdAt);
 }
 
 /** The most recent reading, or null when there is none. */
@@ -31,7 +44,7 @@ export function latestEnvironmentalReading(
   if (!value) return null;
   if (!Array.isArray(value)) return value;
   if (value.length === 0) return null;
-  return value.reduce((latest, r) => (timeOf(r) > timeOf(latest) ? r : latest));
+  return value.reduce((latest, r) => (isLater(r, latest) ? r : latest));
 }
 
 /** "—" only when the value is genuinely missing. */
