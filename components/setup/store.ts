@@ -30,6 +30,10 @@ export interface SetupOrganization {
 interface SetupState {
   org: SetupOrganization | null;
   sections: Record<SectionKey, HydrationState>;
+  // Bumped each time POST /api/setup/hydrate is accepted, so SetupShell opens
+  // the status stream for a lookup started after the page loaded (J-04).
+  hydrationRun: number;
+  startHydrationWatch: () => void;
   setOrg: (org: SetupOrganization | null) => void;
   setSectionStatus: (key: SectionKey, status: HydrationState) => void;
   updateOrgField: <K extends keyof SetupOrganization>(key: K, value: SetupOrganization[K]) => void;
@@ -47,8 +51,10 @@ const INITIAL_SECTIONS: Record<SectionKey, HydrationState> = {
 export const useSetupStore = create<SetupState>((set) => ({
   org: null,
   sections: INITIAL_SECTIONS,
+  hydrationRun: 0,
+  startHydrationWatch: () => set((s) => ({ hydrationRun: s.hydrationRun + 1 })),
   setOrg: (org) => set({ org }),
   setSectionStatus: (key, status) => set((s) => ({ sections: { ...s.sections, [key]: status } })),
   updateOrgField: (key, value) => set((s) => (s.org ? { org: { ...s.org, [key]: value } } : s)),
-  reset: () => set({ org: null, sections: INITIAL_SECTIONS }),
+  reset: () => set({ org: null, sections: INITIAL_SECTIONS, hydrationRun: 0 }),
 }));

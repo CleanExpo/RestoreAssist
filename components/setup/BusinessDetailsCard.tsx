@@ -33,6 +33,7 @@ export function BusinessDetailsCard() {
   const status = useSetupStore((s) => s.sections.businessDetails);
   const org = useSetupStore((s) => s.org);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
+  const startHydrationWatch = useSetupStore((s) => s.startHydrationWatch);
   const updateOrgField = useSetupStore((s) => s.updateOrgField);
 
   const [country, setCountry] = useState<SetupCountry>(org?.country ?? 'AU');
@@ -147,7 +148,9 @@ export function BusinessDetailsCard() {
         setSectionStatus('businessDetails', 'pending');
         setSectionStatus('branding', 'pending');
         setSectionStatus('pricing', 'pending');
+        return;
       }
+      startHydrationWatch();
     } catch {
       setSubmitError('Network error — check your connection and try again');
       setSectionStatus('businessDetails', 'pending');

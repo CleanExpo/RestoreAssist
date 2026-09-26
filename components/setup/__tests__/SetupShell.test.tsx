@@ -25,7 +25,22 @@ const storeState: {
   org: Record<string, unknown> | null;
   setOrg: ReturnType<typeof vi.fn>;
   setSectionStatus: ReturnType<typeof vi.fn>;
-} = { org: null, setOrg: vi.fn(), setSectionStatus: vi.fn() };
+  hydrationRun: number;
+} = { org: null, setOrg: vi.fn(), setSectionStatus: vi.fn(), hydrationRun: 0 };
+
+// Minimal EventSource stand-in: records every stream the shell opens.
+class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  onmessage: ((e: { data: string }) => void) | null = null;
+  onerror: ((e: unknown) => void) | null = null;
+  closed = false;
+  constructor(public url: string) {
+    FakeEventSource.instances.push(this);
+  }
+  close() {
+    this.closed = true;
+  }
+}
 vi.mock("../store", () => ({
   useSetupStore: (selector: (s: typeof storeState) => unknown) =>
     selector(storeState),
@@ -38,6 +53,9 @@ const initial = { id: "o1", hydrationJobs: [] } as never;
 
 beforeEach(() => {
   storeState.org = null;
+  storeState.hydrationRun = 0;
+  FakeEventSource.instances = [];
+  vi.stubGlobal("EventSource", FakeEventSource);
   storeState.setOrg.mockClear();
   storeState.setSectionStatus.mockClear();
   // mockReset, not mockClear: the ordering test installs a deferred
@@ -156,6 +174,33 @@ describe("SetupShell — one-step wizard wiring", () => {
       ).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
+  });
+
+  it("J-04: opens the status stream for a lookup started after page load and shows its failure", async () => {
+    const { rerender } = render(<SetupShell initial={initial} />);
+    expect(FakeEventSource.instances).toHaveLength(0);
+
+    // BusinessDetailsCard bumps hydrationRun once POST /api/setup/hydrate is accepted.
+    storeState.hydrationRun = 1;
+    rerender(<SetupShell initial={initial} />);
+    expect(FakeEventSource.instances).toHaveLength(1);
+    const es = FakeEventSource.instances[0];
+    expect(es.url).toBe("/api/setup/hydrate/stream");
+
+    es.onmessage?.({ data: JSON.stringify([{ kind: "ABR", status: "ERROR" }]) });
+    expect(storeState.setSectionStatus).toHaveBeenCalledWith("businessDetails", "error");
+    // Not every job has finished, so the watch stays open.
+    expect(es.closed).toBe(false);
+
+    es.onmessage?.({
+      data: JSON.stringify([
+        { kind: "ABR", status: "ERROR" },
+        { kind: "PRICING", status: "READY" },
+        { kind: "WEBSITE", status: "MANUAL" },
+      ]),
+    });
+    // All three terminal: close, so the browser does not reconnect.
+    expect(es.closed).toBe(true);
   });
 
   it("restores a completed New Zealand business step without an ABR hydration job", async () => {
