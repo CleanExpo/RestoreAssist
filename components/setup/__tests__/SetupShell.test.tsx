@@ -72,6 +72,55 @@ beforeEach(() => {
   );
 });
 
+describe("SetupShell — resume where the business left off (J-05)", () => {
+  const base = {
+    id: "o1",
+    hydrationJobs: [],
+    country: "AU",
+    timezone: "Australia/Brisbane",
+    legalName: null,
+    abn: null,
+    nzbn: null,
+    state: null,
+    logoUrl: null,
+    primaryColor: null,
+    pricingConfig: null,
+  };
+
+  it("reopens on the first unfinished optional step once business details are complete", async () => {
+    const done = { ...base, legalName: "Synthetic Drying Pty Ltd", abn: "51824753556", state: "QLD", pricingConfig: { labour: 999 } };
+    render(<SetupShell initial={done as never} />);
+    expect(await screen.findByText(/Step 4 of 7: Branding/)).toBeInTheDocument();
+  });
+
+  it("never reopens on the finish step before the AI-key requirement is known", async () => {
+    // Status never answers: the AI key's required flag is still unknown.
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const everything = {
+      ...base,
+      legalName: "Synthetic Drying Pty Ltd",
+      abn: "51824753556",
+      state: "QLD",
+      primaryColor: "#1C2E47",
+      pricingConfig: { labour: 999 },
+    };
+    render(<SetupShell initial={everything as never} />);
+    expect(await screen.findByText(/Step 6 of 7: Integrations/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Generate your first report/ })).not.toBeInTheDocument();
+  });
+
+  it("reopens on Business details when it was started but not finished", async () => {
+    const partial = { ...base, legalName: "Synthetic Drying Pty Ltd" };
+    render(<SetupShell initial={partial as never} />);
+    expect(await screen.findByText(/Step 3 of 7: Business details/)).toBeInTheDocument();
+  });
+
+  it("still starts a brand-new business at Welcome", async () => {
+    render(<SetupShell initial={base as never} />);
+    expect(await screen.findByText(/Step 1 of 7: Welcome/)).toBeInTheDocument();
+  });
+});
+
 describe("SetupShell — one-step wizard wiring", () => {
   it("renders the wizard starting at the Welcome step (one step visible)", async () => {
     render(<SetupShell initial={initial} />);
