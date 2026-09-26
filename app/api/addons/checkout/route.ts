@@ -191,17 +191,30 @@ export async function POST(request: NextRequest) {
             },
             select: { active: true, stripeSubscriptionId: true },
           });
-          if (existingSeats?.active && existingSeats.stripeSubscriptionId) {
+          if (existingSeats?.stripeSubscriptionId) {
             try {
               const seatSubscription = await stripe.subscriptions.retrieve(
                 existingSeats.stripeSubscriptionId,
               );
-              // The row can lag Stripe (a cancel whose webhook has not landed).
-              // Only a live subscription can take more seats; otherwise fall
-              // through to a fresh Checkout below.
+              // Decide on Stripe's status, not the row: the row can lag a
+              // webhook, and past_due marks it inactive while Stripe still
+              // bills. Only a finished subscription may be replaced by a new
+              // Checkout; one that can still charge must be settled first, or
+              // the business would pay for two seat subscriptions again.
               const live =
                 seatSubscription.status === "active" ||
                 seatSubscription.status === "trialing";
+              const finished =
+                seatSubscription.status === "canceled" ||
+                seatSubscription.status === "incomplete_expired";
+              if (!live && !finished) {
+                return apiError(request, {
+                  code: "PAYMENT_REQUIRED",
+                  message:
+                    "Your technician seat subscription has an unpaid invoice. Update your payment details in Subscription settings, then add seats.",
+                  status: 402,
+                });
+              }
               const item = seatSubscription.items.data[0];
               if (live && !item)
                 throw new Error("Seat subscription has no line item");
