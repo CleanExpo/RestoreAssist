@@ -82,6 +82,20 @@ describe("Field mode when the connection drops (J-08)", () => {
     expect(screen.queryByText("Could not load this inspection")).not.toBeInTheDocument();
   });
 
+  it("keeps the capture pad mounted while a refresh is in flight", async () => {
+    await renderLoaded();
+
+    // A refresh that has not answered yet: a full-page spinner here would
+    // unmount the pad and hide its "Saved on this device" message.
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}));
+    fireEvent.click(screen.getByText("save reading"));
+    await act(async () => {});
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(screen.getByText("save reading")).toBeInTheDocument();
+    expect(screen.getByText("1 Synthetic St")).toBeInTheDocument();
+  });
+
   it("refreshes the job and clears the notice when the connection returns", async () => {
     await renderLoaded();
 
@@ -100,6 +114,32 @@ describe("Field mode when the connection drops (J-08)", () => {
 
     await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
     expect(screen.getByText("1 Synthetic St")).toBeInTheDocument();
+  });
+
+  it("does not show the last job under a different job's address", async () => {
+    const first = Promise.resolve({ id: "insp_1" });
+    let rerender!: ReturnType<typeof render>["rerender"];
+    await act(async () => {
+      ({ rerender } = render(
+        <Suspense fallback={null}>
+          <FieldModePage params={first} />
+        </Suspense>,
+      ));
+    });
+    await screen.findByText("1 Synthetic St");
+
+    fetchMock.mockImplementation(() => Promise.reject(new TypeError("Failed to fetch")));
+    const second = Promise.resolve({ id: "insp_2" });
+    await act(async () => {
+      rerender(
+        <Suspense fallback={null}>
+          <FieldModePage params={second} />
+        </Suspense>,
+      );
+    });
+
+    expect(await screen.findByText("Could not load this inspection")).toBeInTheDocument();
+    expect(screen.queryByText("1 Synthetic St")).not.toBeInTheDocument();
   });
 
   it("still shows the error page when the first load fails", async () => {

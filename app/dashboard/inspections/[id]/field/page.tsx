@@ -89,7 +89,8 @@ export default function FieldModePage({ params }: PageProps) {
   // Set when a refresh fails after the job has loaded: the last loaded copy
   // stays on screen instead of being replaced by the error page (J-08).
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const loadedOnce = useRef(false);
+  // The job id the page has loaded, so a different job never inherits it.
+  const loadedFor = useRef<string | null>(null);
   const [readingsSaved, setReadingsSaved] = useState(0);
 
   const waterClaim = moistureReadingsRequired(
@@ -98,7 +99,7 @@ export default function FieldModePage({ params }: PageProps) {
 
   useEffect(() => {
     function fail() {
-      if (loadedOnce.current) {
+      if (loadedFor.current === inspectionId) {
         setRefreshError(
           typeof navigator !== "undefined" && !navigator.onLine
             ? "You're offline. Showing the last loaded job. Readings are saved on this device and sync when you reconnect."
@@ -111,7 +112,7 @@ export default function FieldModePage({ params }: PageProps) {
     }
 
     async function load() {
-      if (!loadedOnce.current) {
+      if (loadedFor.current !== inspectionId) {
         setLoadError(null);
         setLoading(true);
       }
@@ -132,8 +133,8 @@ export default function FieldModePage({ params }: PageProps) {
         const needsMoisture = moistureReadingsRequired(
           next.claimType as IicrcClaimType | null | undefined,
         );
-        if (!loadedOnce.current) setTab(needsMoisture ? "readings" : "checklist");
-        loadedOnce.current = true;
+        if (loadedFor.current !== inspectionId) setTab(needsMoisture ? "readings" : "checklist");
+        loadedFor.current = inspectionId;
 
         if (checklistRes.ok) {
           const checklistData = await checklistRes.json();
