@@ -73,21 +73,37 @@ vi.mock("@/lib/prisma", () => {
   return { prisma, default: prisma };
 });
 
-type Handler = (req: NextRequest) => Promise<Response>;
+import * as telegramRecent from "../telegram/recent/route";
+import * as linearTop from "../linear/top/route";
+import * as chat from "../chat/route";
+import * as corpusStatus from "../corpus/status/route";
+import * as health from "../health/route";
+import * as hermesProxy from "../hermes-proxy/route";
+import * as schedules from "../schedules/route";
+import * as socialRelevance from "../social-relevance/route";
+import * as missionControlContext from "../../mission-control/context/route";
+import * as ragIngest from "../../admin/rag/ingest/route";
+import * as ragProbe from "../../admin/rag/probe/route";
+import * as ragStatus from "../../admin/rag/status/route";
 
-const ROUTES: Array<[string, "GET" | "POST", () => Promise<Record<string, unknown>>]> = [
-  ["margot/telegram/recent", "GET", () => import("../telegram/recent/route")],
-  ["margot/linear/top", "GET", () => import("../linear/top/route")],
-  ["margot/chat", "POST", () => import("../chat/route")],
-  ["margot/corpus/status", "GET", () => import("../corpus/status/route")],
-  ["margot/health", "GET", () => import("../health/route")],
-  ["margot/hermes-proxy", "POST", () => import("../hermes-proxy/route")],
-  ["margot/schedules", "GET", () => import("../schedules/route")],
-  ["margot/social-relevance", "POST", () => import("../social-relevance/route")],
-  ["mission-control/context", "GET", () => import("../../mission-control/context/route")],
-  ["admin/rag/ingest", "POST", () => import("../../admin/rag/ingest/route")],
-  ["admin/rag/probe", "GET", () => import("../../admin/rag/probe/route")],
-  ["admin/rag/status", "GET", () => import("../../admin/rag/status/route")],
+type Handler = (req: NextRequest) => Promise<Response>;
+type RouteModule = Record<string, unknown>;
+
+// Static imports: vi.mock is hoisted above them, so every route binds to
+// this file's mocks and never to a module instance another file created.
+const ROUTES: Array<[string, "GET" | "POST", RouteModule]> = [
+  ["margot/telegram/recent", "GET", telegramRecent],
+  ["margot/linear/top", "GET", linearTop],
+  ["margot/chat", "POST", chat],
+  ["margot/corpus/status", "GET", corpusStatus],
+  ["margot/health", "GET", health],
+  ["margot/hermes-proxy", "POST", hermesProxy],
+  ["margot/schedules", "GET", schedules],
+  ["margot/social-relevance", "POST", socialRelevance],
+  ["mission-control/context", "GET", missionControlContext],
+  ["admin/rag/ingest", "POST", ragIngest],
+  ["admin/rag/probe", "GET", ragProbe],
+  ["admin/rag/status", "GET", ragStatus],
 ];
 
 function request(path: string, method: "GET" | "POST") {
@@ -125,8 +141,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-async function call(path: string, method: "GET" | "POST", load: () => Promise<Record<string, unknown>>) {
-  const mod = await load();
+async function call(path: string, method: "GET" | "POST", mod: RouteModule) {
   const handler = mod[method] as Handler;
   try {
     return await handler(request(path, method));
@@ -136,17 +151,22 @@ async function call(path: string, method: "GET" | "POST", load: () => Promise<Re
 }
 
 describe("founder / platform routes refuse a tenant ADMIN", () => {
-  it.each(ROUTES)("%s (%s) returns 403 and touches nothing", async (path, method, load) => {
-    const res = await call(path, method, load);
-    expect(res?.status).toBe(403);
-    expect(downstream).toEqual([]);
+  it.each(ROUTES)("%s (%s) returns 403 and touches nothing", async (path, method, mod) => {
+    const res = await call(path, method, mod);
+    const seen = {
+      status: res?.status,
+      body: res ? await res.clone().text() : null,
+      downstream: [...downstream],
+      allowlist: process.env.PLATFORM_SUPPORT_USER_IDS,
+    };
+    expect(seen).toMatchObject({ status: 403, downstream: [] });
   });
 });
 
 describe("positive control: the allowlisted caller gets past the gate", () => {
-  it.each(ROUTES)("%s (%s) is not refused for platform staff", async (path, method, load) => {
+  it.each(ROUTES)("%s (%s) is not refused for platform staff", async (path, method, mod) => {
     vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", `x, ${TENANT_ADMIN}`);
-    const res = await call(path, method, load);
+    const res = await call(path, method, mod);
     expect(res === null || res.status !== 403 || downstream.length > 0).toBe(true);
   });
 });
