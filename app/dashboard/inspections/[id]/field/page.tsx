@@ -6,7 +6,7 @@
  * Mobile-first inspection interface for on-site use.
  * Claim-type aware: moisture quick-entry only for water jobs (Wave 3).
  */
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -86,6 +86,10 @@ export default function FieldModePage({ params }: PageProps) {
   const [tab, setTab] = useState<TabId>("checklist");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Set when a refresh fails after the job has loaded: the last loaded copy
+  // stays on screen instead of being replaced by the error page (J-08).
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const loadedOnce = useRef(false);
   const [readingsSaved, setReadingsSaved] = useState(0);
 
   const waterClaim = moistureReadingsRequired(
@@ -93,41 +97,63 @@ export default function FieldModePage({ params }: PageProps) {
   );
 
   useEffect(() => {
+    function fail() {
+      if (loadedOnce.current) {
+        setRefreshError(
+          typeof navigator !== "undefined" && !navigator.onLine
+            ? "You're offline. Showing the last loaded job. Readings are saved on this device and sync when you reconnect."
+            : "Could not refresh this job. Showing the last loaded copy.",
+        );
+        return;
+      }
+      setInspection(null);
+      setLoadError("Could not load this inspection");
+    }
+
     async function load() {
-      setLoadError(null);
-      setLoading(true);
+      if (!loadedOnce.current) {
+        setLoadError(null);
+        setLoading(true);
+      }
       try {
         const [inspRes, checklistRes] = await Promise.all([
           fetch(`/api/inspections/${inspectionId}`),
           fetch(`/api/inspections/${inspectionId}/voice/checklist`),
         ]);
         if (!inspRes.ok) {
-          setInspection(null);
-          setLoadError("Could not load this inspection");
+          fail();
           return;
         }
         const data = await inspRes.json();
         const next = (data.inspection ?? data) as Inspection;
         setInspection(next);
+        setRefreshError(null);
 
         const needsMoisture = moistureReadingsRequired(
           next.claimType as IicrcClaimType | null | undefined,
         );
-        setTab(needsMoisture ? "readings" : "checklist");
+        if (!loadedOnce.current) setTab(needsMoisture ? "readings" : "checklist");
+        loadedOnce.current = true;
 
         if (checklistRes.ok) {
           const checklistData = await checklistRes.json();
           setChecklist(checklistData.items ?? []);
         }
       } catch {
-        setInspection(null);
-        setLoadError("Could not load this inspection");
+        fail();
       } finally {
         setLoading(false);
       }
     }
     void load();
   }, [inspectionId, readingsSaved]);
+
+  // Refresh once the connection returns, so queued readings show up.
+  useEffect(() => {
+    const onOnline = () => setReadingsSaved((n) => n + 1);
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, []);
 
   // Non-water: bounce off moisture tab if somehow selected
   useEffect(() => {
@@ -220,6 +246,15 @@ export default function FieldModePage({ params }: PageProps) {
             )}
           </div>
         </div>
+
+        {refreshError && (
+          <p
+            role="status"
+            className="mx-4 mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+          >
+            {refreshError}
+          </p>
+        )}
 
         {/* Compact evidence readiness */}
         <div className="mx-4 mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
