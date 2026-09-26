@@ -219,3 +219,30 @@ describe("POST scope-narrative — raise-only ACM latches (RA-7640)", () => {
     expect(text).not.toContain("SUSPECTED ASBESTOS");
   });
 });
+
+// RA-7770 — photo AI flagged possible asbestos on a job with nothing drawn.
+describe("POST scope-narrative — job-level photo-AI ACM line (RA-7770)", () => {
+  it("never reads 'No suspected ACM identified' when the latch is set", async () => {
+    p.inspection.findUnique.mockResolvedValue({
+      propertyAddress: "1 Test St",
+      photos: [{ metadata: { photoAi: { whsLatch: { aiRaisedAcm: true } } } }],
+    });
+    const res = await POST(post({ floors: [] }), params);
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toMatch(
+      /Suspected asbestos-containing material \(ACM\) in: .*photo AI/i,
+    );
+    expect(text).not.toContain("No suspected ACM identified");
+  });
+
+  it("control: no latch and nothing drawn still reads none identified", async () => {
+    p.inspection.findUnique.mockResolvedValue({
+      propertyAddress: "1 Test St",
+      photos: [],
+    });
+    const res = await POST(post({ floors: [] }), params);
+    const text = await res.text();
+    expect(text).toContain("No suspected ACM identified");
+  });
+});

@@ -208,3 +208,39 @@ describe("buildScopeExport + buildScopeNarrative — raise-only ACM latches (RA-
     expect(md).toContain("No suspected ACM identified");
   });
 });
+
+// RA-7770 — photo AI flagged possible asbestos on a job with nothing drawn.
+// The handover document must carry a job-level line, never "No suspected ACM".
+describe("buildScopeExport + buildScopeNarrative — job-level photo-AI ACM (RA-7770)", () => {
+  const EMPTY_FLOOR = { label: "Ground Floor", fabricJson: { objects: [] } };
+
+  it.each([
+    ["no floors", []],
+    ["a floor with nothing drawn", [EMPTY_FLOOR]],
+  ])("carries a job-level suspected-ACM line with %s", (_name, floors) => {
+    const scope = buildScopeExport({
+      floors,
+      materials: MATERIALS,
+      aiRaisedAcm: true,
+    });
+    expect(scope.compliance.acmElements).toHaveLength(1);
+    expect(scope.compliance.acmElements[0]).toMatch(/photo AI/i);
+    const md = buildScopeNarrative(scope);
+    expect(md).toContain(
+      `Suspected asbestos-containing material (ACM) in: ${scope.compliance.acmElements[0]}.`,
+    );
+    expect(md).toContain("Demolition / strip-out scope is BLOCKED");
+    expect(md).not.toContain("No suspected ACM identified");
+  });
+
+  it("control: no latch and nothing drawn still reads none identified", () => {
+    const scope = buildScopeExport({
+      floors: [EMPTY_FLOOR],
+      materials: MATERIALS,
+    });
+    expect(scope.compliance.acmElements).toEqual([]);
+    expect(buildScopeNarrative(scope)).toContain(
+      "No suspected ACM identified in the annotated elements.",
+    );
+  });
+});

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildComplianceAnnex,
   buildDryingLog,
+  JOB_LEVEL_AI_ACM_LABEL,
   roomHasPotentialAcm,
   type ScopeMaterialInfo,
 } from "../pdf-scope";
@@ -221,5 +222,30 @@ describe("roomHasPotentialAcm (RA-7640)", () => {
   it("is false with a non-ACM or missing material and no latch", () => {
     expect(roomHasPotentialAcm(nonAcm, {})).toBe(false);
     expect(roomHasPotentialAcm(undefined, {})).toBe(false);
+  });
+});
+
+// RA-7770 — the photo-AI latch is job-wide. With nothing drawn there is no
+// element to carry it, so the annex must still carry a job-level line rather
+// than an empty flagged list that reads as "no suspected ACM".
+describe("buildComplianceAnnex — job-level photo-AI ACM line (RA-7770)", () => {
+  it("carries a job-level suspected-ACM line when nothing is drawn", () => {
+    const annex = buildComplianceAnnex({ objects: [] }, MATERIALS, {
+      aiRaisedAcm: true,
+    });
+    expect(annex.rows).toEqual([]);
+    expect(annex.acmElements).toEqual([JOB_LEVEL_AI_ACM_LABEL]);
+  });
+
+  it("carries the line when there is no sketch blob at all", () => {
+    const annex = buildComplianceAnnex(null, MATERIALS, { aiRaisedAcm: true });
+    expect(annex.acmElements).toEqual([JOB_LEVEL_AI_ACM_LABEL]);
+  });
+
+  it("control: no latch and nothing drawn still carries no line", () => {
+    const annex = buildComplianceAnnex({ objects: [] }, MATERIALS, {
+      aiRaisedAcm: false,
+    });
+    expect(annex.acmElements).toEqual([]);
   });
 });
