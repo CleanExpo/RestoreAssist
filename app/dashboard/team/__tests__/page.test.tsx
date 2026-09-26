@@ -120,6 +120,44 @@ describe("TeamPage technician data loading", () => {
     );
   });
 
+  it("shows a future invite expiry as time remaining, not '-7 days ago' (J-13)", async () => {
+    currentRole.value = "ADMIN";
+    const inSevenDays = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url === "/api/team/members") {
+          return { ok: true, json: async () => ({ members: [] }) };
+        }
+        if (url === "/api/team/invites") {
+          return {
+            ok: true,
+            json: async () => ({
+              invites: [{
+                id: "invite_1",
+                email: "new@example.com",
+                role: "USER",
+                token: "a".repeat(48),
+                expiresAt: inSevenDays,
+                usedAt: null,
+                createdAt: new Date().toISOString(),
+                createdById: "admin_1",
+                managedById: null,
+              }],
+            }),
+          };
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    render(<TeamPage />);
+
+    expect(await screen.findByText("Expires in 7 days")).toBeInTheDocument();
+    expect(screen.queryByText(/days ago/)).not.toBeInTheDocument();
+  });
+
   it("catches create-invite network failures and restores the form", async () => {
     currentRole.value = "ADMIN";
     vi.stubGlobal(

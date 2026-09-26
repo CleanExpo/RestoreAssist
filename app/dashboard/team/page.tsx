@@ -92,6 +92,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { formatInviteExpiry } from "./invite-expiry";
 
 type Member = {
   id: string;
@@ -1401,7 +1402,7 @@ export default function TeamPage() {
                                 {!isUsed && (
                                   <span className="flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
-                                    Expires {formatDate(invite.expiresAt)}
+                                    {formatInviteExpiry(invite.expiresAt)}
                                   </span>
                                 )}
                               </div>
