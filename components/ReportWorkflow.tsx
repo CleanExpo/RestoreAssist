@@ -31,6 +31,8 @@ interface ReportWorkflowProps {
     technicianAttendanceDate?: string;
     technicianName?: string;
     technicianFieldReport?: string;
+    /** RA-7625: "NZ" | "AU" | "unknown", resolved by generation's rule */
+    lawJurisdiction?: string | null;
   };
   subscriptionStatus?: string;
   /** RA-7726: inspection this report is started from */

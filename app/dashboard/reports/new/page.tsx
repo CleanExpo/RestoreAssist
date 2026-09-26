@@ -318,7 +318,12 @@ export default function NewReportPage() {
         );
         return;
       }
-      setUploadedData(data.fields);
+      // RA-7625: the job's country travels with the prefill so the form's
+      // default report instructions name NZ law on a New Zealand job.
+      setUploadedData({
+        ...data.fields,
+        lawJurisdiction: data.lawJurisdiction,
+      });
       toast.success(
         `${filled.length} field${filled.length === 1 ? "" : "s"} pre-filled from ${data?.inspectionNumber ?? "the inspection"}. Check them before generating.`,
         { duration: 5000 },
@@ -395,6 +400,8 @@ export default function NewReportPage() {
             : "",
           technicianName: reportData.technicianName,
           technicianFieldReport: reportData.technicianFieldReport,
+          // RA-7625: see loadInspectionPrefill.
+          lawJurisdiction: reportData.lawJurisdiction ?? null,
         });
         toast.success("Report data loaded");
       } else {
