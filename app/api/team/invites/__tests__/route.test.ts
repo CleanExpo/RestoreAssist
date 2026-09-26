@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { TechnicianSeatLimitReached } from "@/lib/billing/technician-seats";
 
 // RA-6800: the same-org role update in POST /api/team/invites (Case 1 — invitee
 // already in the caller's org) must re-assert the org in the write `where`.
@@ -11,6 +12,17 @@ const userUpdate = vi.fn();
 const userInviteCreate = vi.fn();
 const userInviteFindFirst = vi.fn();
 const sendInviteEmail = vi.fn();
+
+// J-09: seat enforcement is exercised against Postgres in
+// technician-seat-enforcement.integration.test.ts; here it is a seam.
+const assertTechnicianSeatAvailable = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/billing/technician-seats", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/billing/technician-seats")>();
+  return {
+    ...actual,
+    assertTechnicianSeatAvailable: (...a: unknown[]) => assertTechnicianSeatAvailable(...a),
+  };
+});
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -283,6 +295,37 @@ describe("POST /api/team/invites — same-org role update (Case 1)", () => {
     expect(body.inviteLink).toMatch(
       /^https:\/\/restoreassist\.app\/invite\/[a-f0-9]{48}$/,
     );
+    expect(userInviteCreate).toHaveBeenCalled();
+  });
+
+  it("J-09: a technician invite with no free seat is refused and nothing is written", async () => {
+    userFindFirst.mockResolvedValue(null);
+    assertTechnicianSeatAvailable.mockRejectedValueOnce(new TechnicianSeatLimitReached());
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/team/invites", {
+        method: "POST",
+        body: JSON.stringify({ email: "tech@x.com", role: "USER" }),
+      }),
+    );
+
+    expect(res.status).toBe(402);
+    expect((await res.json()).error).toMatch(/Field Technician Seat/);
+    expect(userInviteCreate).not.toHaveBeenCalled();
+    expect(sendInviteEmail).not.toHaveBeenCalled();
+  });
+
+  it("J-09: a manager invite takes no technician seat", async () => {
+    userFindFirst.mockResolvedValue(null);
+
+    await POST(
+      new NextRequest("http://localhost/api/team/invites", {
+        method: "POST",
+        body: JSON.stringify({ email: "boss@x.com", role: "MANAGER" }),
+      }),
+    );
+
+    expect(assertTechnicianSeatAvailable).not.toHaveBeenCalled();
     expect(userInviteCreate).toHaveBeenCalled();
   });
 });

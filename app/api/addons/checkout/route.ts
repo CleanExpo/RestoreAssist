@@ -5,7 +5,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { withIdempotency } from "@/lib/idempotency";
+import { getIdempotencyKey, withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { getAppUrl } from "@/lib/app-url";
@@ -174,6 +174,54 @@ export async function POST(request: NextRequest) {
             });
           }
           quantity = requested;
+        }
+
+        // J-09: one seat subscription per business. The entitlement row holds
+        // a single subscription id and seat count, so a second checkout would
+        // bill both subscriptions while the row kept only the newer quantity.
+        // When seats are already active, raise that subscription's quantity
+        // instead; Stripe prorates the difference on the existing card.
+        if (recurringAddon.perSeat) {
+          const existingSeats = await prisma.featureEntitlement.findUnique({
+            where: {
+              workspaceId_sku: { workspaceId: workspace.id, sku: recurringAddon.sku },
+            },
+            select: { active: true, stripeSubscriptionId: true },
+          });
+          if (existingSeats?.active && existingSeats.stripeSubscriptionId) {
+            try {
+              const seatSubscription = await stripe.subscriptions.retrieve(
+                existingSeats.stripeSubscriptionId,
+              );
+              const item = seatSubscription.items.data[0];
+              if (!item) throw new Error("Seat subscription has no line item");
+              const seats = (item.quantity ?? 0) + quantity;
+              const requestKey = getIdempotencyKey(request);
+              await stripe.subscriptions.update(
+                seatSubscription.id,
+                {
+                  items: [{ id: item.id, quantity: seats }],
+                  proration_behavior: "create_prorations",
+                },
+                requestKey.ok && requestKey.key
+                  ? { idempotencyKey: `addon-seats:${userId}:${requestKey.key}` }
+                  : undefined,
+              );
+              // The customer.subscription.updated webhook writes the same count;
+              // write it now so the new seat is usable without waiting for it.
+              await prisma.featureEntitlement.update({
+                where: {
+                  workspaceId_sku: { workspaceId: workspace.id, sku: recurringAddon.sku },
+                },
+                data: { seats },
+              });
+              return NextResponse.json({ updated: true, seats });
+            } catch (stripeError) {
+              return fromException(request, stripeError, {
+                stage: "stripe-seat-quantity-update",
+              });
+            }
+          }
         }
 
         try {

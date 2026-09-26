@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { POST } from "../route";
+import { TechnicianSeatLimitReached } from "@/lib/billing/technician-seats";
 
 const validateCsrf = vi.fn();
 const getServerSession = vi.fn();
@@ -24,6 +25,17 @@ const rateLimitHitCreate = vi.fn();
 const rateLimitHitCount = vi.fn();
 const rateLimitHitDelete = vi.fn();
 const rateLimitHitFindFirst = vi.fn();
+
+// J-09: seat enforcement is exercised against Postgres in
+// technician-seat-enforcement.integration.test.ts; here it is a seam.
+const assertTechnicianSeatAvailable = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/billing/technician-seats", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/billing/technician-seats")>();
+  return {
+    ...actual,
+    assertTechnicianSeatAvailable: (...a: unknown[]) => assertTechnicianSeatAvailable(...a),
+  };
+});
 
 const INVITE_TOKEN = "a".repeat(48);
 
@@ -879,4 +891,31 @@ describe("POST /api/invites/[token] (extended)", () => {
     },
     15_000,
   );
+
+  it("J-09: accepting a technician invite with no free seat creates no account and cleans up the photo", async () => {
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv_1",
+      token: INVITE_TOKEN,
+      email: "jamie@example.com",
+      role: "USER",
+      organizationId: "org_1",
+      expiresAt: new Date(Date.now() + 86400000),
+      usedAt: null,
+    });
+    userFindUnique.mockResolvedValueOnce(null);
+    cloudinaryUploadDataUrl.mockResolvedValueOnce(
+      { url: "https://res.cloudinary.com/.../jamie.jpg", publicId: "headshots/jamie-1" },
+    );
+    assertTechnicianSeatAvailable.mockRejectedValueOnce(new TechnicianSeatLimitReached());
+
+    const res = await POST(makeReq(baseBody), await ctx());
+
+    expect(res.status).toBe(402);
+    expect(assertTechnicianSeatAvailable).toHaveBeenCalledWith(expect.anything(), "org_1", {
+      excludeInviteId: "inv_1",
+    });
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(inviteUpdate).not.toHaveBeenCalled();
+    expect(cloudinaryDeleteImage).toHaveBeenCalledWith("headshots/jamie-1");
+  });
 });

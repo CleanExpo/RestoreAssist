@@ -19,6 +19,7 @@ vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: vi.fn(async () => null),
 }));
 vi.mock("@/lib/idempotency", () => ({
+  getIdempotencyKey: vi.fn(() => ({ ok: true, key: "click-key-1" })),
   withIdempotency: vi.fn(
     async (
       req: NextRequest,
@@ -32,11 +33,15 @@ const stripeMock = vi.hoisted(() => ({
   customers: { create: vi.fn() },
   prices: { create: vi.fn() },
   checkout: { sessions: { create: vi.fn() } },
+  subscriptions: { retrieve: vi.fn(), update: vi.fn() },
 }));
 vi.mock("@/lib/stripe", () => ({ stripe: stripeMock }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { user: { findUnique: vi.fn(), update: vi.fn() } },
+  prisma: {
+    user: { findUnique: vi.fn(), update: vi.fn() },
+    featureEntitlement: { findUnique: vi.fn(), update: vi.fn() },
+  },
 }));
 
 vi.mock("@/lib/workspace/provider-connections", () => ({
@@ -75,6 +80,8 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
       id: "cs_seats_1",
       url: "https://checkout.stripe.com/seats",
     });
+    // No seat pack yet: the first purchase goes through Checkout.
+    vi.mocked(prisma.featureEntitlement.findUnique).mockResolvedValue(null);
   });
 
   it("passes the buyer-supplied seat count through as the line-item quantity", async () => {
@@ -125,5 +132,45 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
     expect(arg.line_items[0].price_data.product_data.metadata.sku).toBe(
       "FLOORPLAN_UNDERLAY",
     );
+  });
+
+  it("J-09: with seats already active, adds to the existing subscription instead of a second checkout", async () => {
+    vi.mocked(prisma.featureEntitlement.findUnique).mockResolvedValue({
+      active: true,
+      stripeSubscriptionId: "sub_seats_1",
+    } as never);
+    stripeMock.subscriptions.retrieve.mockResolvedValue({
+      id: "sub_seats_1",
+      items: { data: [{ id: "si_1", quantity: 2 }] },
+    });
+    stripeMock.subscriptions.update.mockResolvedValue({ id: "sub_seats_1" });
+
+    const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS" }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ updated: true, seats: 3 });
+    expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
+    expect(stripeMock.subscriptions.update).toHaveBeenCalledWith(
+      "sub_seats_1",
+      { items: [{ id: "si_1", quantity: 3 }], proration_behavior: "create_prorations" },
+      { idempotencyKey: "addon-seats:u1:click-key-1" },
+    );
+    expect(prisma.featureEntitlement.update).toHaveBeenCalledWith({
+      where: { workspaceId_sku: { workspaceId: "ws_9", sku: "TECHNICIAN_SEATS" } },
+      data: { seats: 3 },
+    });
+  });
+
+  it("J-09: a cancelled seat pack starts a fresh checkout", async () => {
+    vi.mocked(prisma.featureEntitlement.findUnique).mockResolvedValue({
+      active: false,
+      stripeSubscriptionId: "sub_old",
+    } as never);
+
+    const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS" }));
+
+    expect(res.status).toBe(200);
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    expect(stripeMock.checkout.sessions.create).toHaveBeenCalledTimes(1);
   });
 });

@@ -25,6 +25,11 @@ import { validateCsrf } from "@/lib/csrf";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { isUserInviteToken } from "@/lib/public-token-shape";
 import { apiError } from "@/lib/api-errors";
+import {
+  assertTechnicianSeatAvailable,
+  TechnicianSeatLimitReached,
+  TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+} from "@/lib/billing/technician-seats";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { canonicalEmail } from "@/lib/email-identity";
 import { reportError } from "@/lib/observability";
@@ -581,6 +586,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
           data: { usedAt: now },
         });
         if (claimed.count !== 1) throw new InviteClaimConflict();
+        if (invite.role === "USER") {
+          await assertTechnicianSeatAvailable(tx, invite.organizationId, {
+            excludeInviteId: invite.id,
+          });
+        }
 
         // Re-assert that OAuth created an unassigned user. An existing owner or
         // member with the same email must never be silently moved across tenants.
@@ -626,6 +636,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     } catch (error) {
       if (headshotUpload) {
         await deleteLosingHeadshot(headshotUpload.publicId);
+      }
+      if (error instanceof TechnicianSeatLimitReached) {
+        return apiError(req, {
+          code: "PAYMENT_REQUIRED",
+          message: TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+          status: 402,
+        });
       }
       if (error instanceof InviteClaimConflict) {
         const committed = await prisma.userInvite.findUnique({
@@ -742,6 +759,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         data: { usedAt: now },
       });
       if (claimed.count !== 1) throw new InviteClaimConflict();
+      if (invite.role === "USER") {
+        await assertTechnicianSeatAvailable(tx, invite.organizationId, {
+          excludeInviteId: invite.id,
+        });
+      }
 
       const memberData = {
           email: canonicalEmail(invite.email),
@@ -779,6 +801,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   } catch (error) {
     if (headshotUpload) {
       await deleteLosingHeadshot(headshotUpload.publicId);
+    }
+    if (error instanceof TechnicianSeatLimitReached) {
+      return apiError(req, {
+        code: "PAYMENT_REQUIRED",
+        message: TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+        status: 402,
+      });
     }
     if (error instanceof InviteClaimConflict) {
       const committed = await prisma.userInvite.findUnique({
