@@ -241,4 +241,29 @@ describe('BusinessDetailsCard', () => {
     render(<BusinessDetailsCard />);
     expect(screen.getByText(/looking up your business/i)).toBeInTheDocument();
   });
+
+  it('J-04: an accepted lookup starts the status watch; a rejected one does not', async () => {
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) =>
+      url === '/api/setup/hydrate'
+        ? { ok: false, status: 409, json: async () => ({ error: 'ABN taken' }) }
+        : { ok: true, json: async () => ({ data: { accepted: true } }) },
+    );
+    const { unmount } = render(<BusinessDetailsCard />);
+    fireEvent.change(screen.getByPlaceholderText(/53 004/i), { target: { value: '53004085616' } });
+    fireEvent.click(screen.getByRole('button', { name: /start setup/i }));
+    await screen.findByText('ABN taken');
+    expect(useSetupStore.getState().hydrationRun).toBe(0);
+    unmount();
+
+    fetchMock.mockImplementation(async (url: string) =>
+      url === '/api/setup/hydrate'
+        ? { ok: true, status: 202, json: async () => ({ data: { accepted: true } }) }
+        : { ok: true, json: async () => ({ data: { accepted: true } }) },
+    );
+    render(<BusinessDetailsCard />);
+    fireEvent.change(screen.getByPlaceholderText(/53 004/i), { target: { value: '53004085616' } });
+    fireEvent.click(screen.getByRole('button', { name: /start setup/i }));
+    await vi.waitFor(() => expect(useSetupStore.getState().hydrationRun).toBe(1));
+  });
 });

@@ -91,10 +91,16 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     if (!hasBusinessHydration && orgFields.country === 'NZ' && orgFields.legalName && orgFields.nzbn && orgFields.state && orgFields.timezone) {
       setSectionStatus('businessDetails', 'ready');
     }
+  }, [initial, setOrg, setSectionStatus]);
 
-    // SSE bridge — only subscribe if any non-terminal jobs
-    const hasActive = hydrationJobs.some((j) => j.status === 'RUNNING');
-    if (!hasActive) return;
+  // SSE bridge — subscribe while a lookup is running: one that was already
+  // running at page load, or one started on this page (hydrationRun bumps on
+  // every accepted POST /api/setup/hydrate). Without the second case an ABR
+  // lookup that failed never left "Looking up your business…" (J-04).
+  const hydrationRun = useSetupStore((s) => s.hydrationRun);
+  const runningAtLoad = initial.hydrationJobs.some((j) => j.status === 'RUNNING');
+  useEffect(() => {
+    if (!runningAtLoad && !hydrationRun) return;
 
     const es = new EventSource('/api/setup/hydrate/stream');
     es.onmessage = (e) => {
@@ -136,7 +142,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     es.onerror = (err) => console.error('[setup] SSE error:', err);
 
     return () => es.close();
-  }, [initial, setOrg, setSectionStatus]);
+  }, [runningAtLoad, hydrationRun, setOrg, setSectionStatus]);
 
   // Locked one-step-at-a-time flow (Phase 4). Business details is the hard
   // gate; the AI key is optional for funded trials (D-022). Optional steps
