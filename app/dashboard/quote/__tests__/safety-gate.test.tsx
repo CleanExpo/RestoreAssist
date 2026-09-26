@@ -58,10 +58,15 @@ const CRITICAL = [
 function mockCalculate(advisories: Array<{ severity: string; text: string }>) {
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({
+    // RA-7743: a failed GST lookup also disables the draft, so the tenant's
+    // treatment must load for these tests to isolate the safety gate.
+    vi.fn(async (url: string) => ({
       ok: true,
-      json: async () => quoteResponse(advisories),
-    }),
+      json: async () =>
+        url === "/api/gst-treatment"
+          ? { data: { country: "AU" } }
+          : quoteResponse(advisories),
+    })),
   );
 }
 
