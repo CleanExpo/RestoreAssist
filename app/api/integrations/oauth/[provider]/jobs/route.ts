@@ -276,12 +276,23 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      imported: imported.length,
-      errors,
-      message: `Imported ${imported.length} jobs as reports from ${PROVIDER_CONFIG[provider].name}`,
-    });
+    // RA-7663 — say what actually happened. Nothing imported and at least one
+    // failure is a failed import, not a success with imported: 0; a 422 also
+    // keeps callers that only check `res.ok` from reporting it as a success.
+    const failed = errors.length;
+    const nothingImported = imported.length === 0 && failed > 0;
+    return NextResponse.json(
+      {
+        success: !nothingImported,
+        imported: imported.length,
+        failed,
+        errors,
+        message:
+          `Imported ${imported.length} jobs as reports from ${PROVIDER_CONFIG[provider].name}` +
+          (failed > 0 ? `; ${failed} could not be imported` : ""),
+      },
+      { status: nothingImported ? 422 : 200 },
+    );
   } catch (error) {
     return fromException(request, error, { stage: "integration-jobs-import" });
   }
