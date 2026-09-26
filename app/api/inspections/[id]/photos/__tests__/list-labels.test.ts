@@ -12,14 +12,14 @@ import { GET } from "../route";
 const getServerSession = vi.fn();
 const inspectionFindFirst = vi.fn();
 const photoFindMany = vi.fn();
-const assertInspectionTenancy = vi.fn();
+const assertInspectionReadable = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: (...a: unknown[]) => assertInspectionTenancy(...a),
+  assertInspectionReadable: (...a: unknown[]) => assertInspectionReadable(...a),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -107,9 +107,9 @@ beforeEach(() => {
   getServerSession.mockReset();
   inspectionFindFirst.mockReset();
   photoFindMany.mockReset();
-  assertInspectionTenancy.mockReset();
+  assertInspectionReadable.mockReset();
   getServerSession.mockResolvedValue({ user: { id: "u_1" } });
-  assertInspectionTenancy.mockResolvedValue({
+  assertInspectionReadable.mockResolvedValue({
     ok: true,
     data: { id: "i_1", userId: "owner_1", workspaceId: "w_1" },
   });
@@ -150,7 +150,7 @@ describe("GET /api/inspections/[id]/photos (RA-7054 label payload)", () => {
     const res = await GET(makeRequest(), ctx());
 
     expect(res.status).toBe(200);
-    expect(assertInspectionTenancy).toHaveBeenCalledWith(
+    expect(assertInspectionReadable).toHaveBeenCalledWith(
       { user: { id: "u_1" } },
       "i_1",
     );
@@ -175,7 +175,7 @@ describe("GET /api/inspections/[id]/photos (RA-7054 label payload)", () => {
   });
 
   it("404 when inspection tenancy rejects the user", async () => {
-    assertInspectionTenancy.mockResolvedValueOnce({
+    assertInspectionReadable.mockResolvedValueOnce({
       ok: false,
       status: 404,
       reason: "Inspection not found",

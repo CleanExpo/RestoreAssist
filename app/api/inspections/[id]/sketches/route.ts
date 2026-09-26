@@ -3,7 +3,10 @@ import { createHash } from "node:crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionReadable,
+  assertInspectionTenancy,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { decomposeElements } from "@/lib/sketch/decompose-elements";
 import { pinsToMoistureReadingInputs } from "@/lib/sketch/moisture-readings-sync";
@@ -46,7 +49,9 @@ export async function GET(
     const { id } = await params;
 
     // RA-1711 batch 4 — adopt shared tenancy helper.
-    const tenancy = await assertInspectionTenancy(session, id);
+    // RA-7755: read-only, so the organisation read reach applies (a colleague's
+    // job is visible to every member of the business).
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",

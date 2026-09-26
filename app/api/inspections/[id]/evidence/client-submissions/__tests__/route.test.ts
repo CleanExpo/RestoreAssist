@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({
+  assertInspectionReadable: vi.fn(async () => ({
     ok: true,
     data: { id: "i1", userId: "u_1", workspaceId: "ws_1" },
   })),
@@ -26,12 +26,12 @@ vi.mock("@/lib/storage/sign-stored-url", () => ({
 }));
 
 import { getServerSession } from "next-auth";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { GET } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
-const mTenancy = assertInspectionTenancy as unknown as ReturnType<typeof vi.fn>;
+const mTenancy = assertInspectionReadable as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
   clientEvidenceSubmission: { findMany: ReturnType<typeof vi.fn> };
 };

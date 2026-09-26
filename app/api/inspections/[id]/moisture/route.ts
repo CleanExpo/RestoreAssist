@@ -7,6 +7,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { assertInspectionCapturable } from "@/lib/auth/assert-tenancy";
 
 // POST - Add moisture reading
 export async function POST(
@@ -37,10 +38,10 @@ export async function POST(
   let inspection;
   let workspace;
   try {
-    inspection = await prisma.inspection.findFirst({
-      where: { id, userId },
-      select: { id: true },
-    });
+    // RA-7755: any member of the job's business may add a reading, not only
+    // the creator. Create-only handler, so the capture reach applies.
+    const access = await assertInspectionCapturable(session, id);
+    inspection = access.ok ? { id: access.data.id } : null;
     // RA-7586: the sync ledger is keyed to the caller's workspace, not
     // Inspection.workspaceId, which no create path writes.
     workspace = inspection ? await getWorkspaceForUser(userId) : null;

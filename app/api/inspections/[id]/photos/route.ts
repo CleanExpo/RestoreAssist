@@ -24,7 +24,10 @@ import {
   withIdempotencyFingerprint,
 } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionCapturable,
+  assertInspectionReadable,
+} from "@/lib/auth/assert-tenancy";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 
 // GET - List photos for inspection
@@ -44,7 +47,9 @@ export async function GET(
 
     const { id } = await params;
 
-    const tenancy = await assertInspectionTenancy(session, id);
+    // RA-7755: read-only, so the organisation read reach applies (a colleague's
+    // job is visible to every member of the business).
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -145,14 +150,10 @@ export async function POST(
 
     const { id } = await params;
 
-    // Validate inspection exists and belongs to user
-    const inspection = await prisma.inspection.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
-      select: { id: true },
-    });
+    // RA-7755: any member of the job's business may add a photo, not only the
+    // creator. Create-only handler, so the capture reach applies.
+    const access = await assertInspectionCapturable(session, id);
+    const inspection = access.ok ? { id: access.data.id } : null;
 
     if (!inspection) {
       return apiError(request, {

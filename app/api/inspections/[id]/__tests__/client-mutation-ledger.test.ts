@@ -62,6 +62,17 @@ vi.mock("@/lib/rate-limiter", () => ({
 vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: (...a: unknown[]) => mocks.getWorkspaceForUser(...a),
 }));
+// RA-7755: the capture gate is proven against a real database in
+// ./technician-field-capture.integration.test.ts. Here it
+// resolves through the existing inspection lookup mock.
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionCapturable: async (_s: unknown, id: string) => {
+    const row = await mocks.inspectionFindFirst({ where: { id }, select: { id: true } });
+    return row
+      ? { ok: true, data: { id: row.id, userId: "user_1", workspaceId: null } }
+      : { ok: false, status: 404, reason: "Inspection not found" };
+  },
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
@@ -166,7 +177,7 @@ beforeEach(() => {
 
 describe.each(ROUTES)(
   "POST /api/inspections/[id]/$name — client-mutation ledger (RA-7586)",
-  ({ segment, post, body, mutationType, okStatus }) => {
+  ({ name, segment, post, body, mutationType, okStatus }) => {
     it("records the ledger row under the signed-in user's workspace when the inspection has none", async () => {
       const res = await post(syncRequest(segment, body, "1"), params());
 
@@ -211,7 +222,16 @@ describe.each(ROUTES)(
 
       expect(res.status).toBe(404);
       expect(mocks.inspectionFindFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: "insp_1", userId: "user_1" } }),
+        // Moisture goes through the capture gate (RA-7755), which looks the
+        // inspection up by id and is proven against a real database in
+        // technician-field-capture.integration.test.ts. The other routes keep
+        // the owner-only lookup, and this pins it.
+        expect.objectContaining({
+          where:
+            name === "moisture"
+              ? { id: "insp_1" }
+              : { id: "insp_1", userId: "user_1" },
+        }),
       );
       expect(mocks.clientMutationCreate).not.toHaveBeenCalled();
     });
