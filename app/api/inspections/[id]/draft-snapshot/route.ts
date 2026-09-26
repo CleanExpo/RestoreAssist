@@ -55,6 +55,7 @@ const scopeItemSchema = z.object({
 
 const snapshotSchema = z.object({
   lossDescription: z.string().max(2000).optional(),
+  technicianName: z.string().max(200).optional(),
   environmentalData: environmentalSchema,
   moistureReadings: z.array(moistureSchema).max(500),
   affectedAreas: z.array(affectedAreaSchema).max(100),
@@ -208,6 +209,12 @@ export async function PUT(
           lossDescription: data.lossDescription
             ? sanitizeString(data.lossDescription, 2000)
             : null,
+          // Absent (an older client) leaves the stored name alone.
+          ...(data.technicianName !== undefined && {
+            technicianName: data.technicianName
+              ? sanitizeString(data.technicianName, 200)
+              : null,
+          }),
         },
       });
 

@@ -80,11 +80,11 @@ const payload = {
   manualClassification: { category: "1", class: "2" },
 };
 
-function request() {
+function request(body: object = payload) {
   return new NextRequest("http://localhost/api/inspections/insp_1/draft-snapshot", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 }
 
@@ -127,6 +127,35 @@ describe("PUT inspection draft snapshot", () => {
           damageClass: "CLASS_2",
         }),
       }),
+    );
+  });
+
+  it("saves the technician name typed on the form (J-06)", async () => {
+    const response = await PUT(request({ ...payload, technicianName: "J3 Tech" }), {
+      params: Promise.resolve({ id: "insp_1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(tx.inspection.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ technicianName: "J3 Tech" }),
+      }),
+    );
+  });
+
+  it("clears the technician name when the form sends it blank", async () => {
+    await PUT(request({ ...payload, technicianName: "" }), {
+      params: Promise.resolve({ id: "insp_1" }),
+    });
+
+    expect(tx.inspection.update.mock.calls[0][0].data.technicianName).toBeNull();
+  });
+
+  it("leaves the stored technician name alone when a client omits it", async () => {
+    await PUT(request(), { params: Promise.resolve({ id: "insp_1" }) });
+
+    expect(tx.inspection.update.mock.calls[0][0].data).not.toHaveProperty(
+      "technicianName",
     );
   });
 

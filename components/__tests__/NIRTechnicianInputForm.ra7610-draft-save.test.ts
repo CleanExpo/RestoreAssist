@@ -25,4 +25,16 @@ describe("NIRTechnicianInputForm draft save — RA-7610 room link", () => {
       /return \{\s*location: reading\.location,\s*surfaceType: reading\.surfaceType/,
     );
   });
+
+  it("sends the technician name with every draft save (J-06)", () => {
+    const saveStart = formSource.indexOf("const saveDraftSnapshot");
+    const saveChunk = formSource.slice(saveStart, saveStart + 2_500);
+
+    // Comments stripped, so a commented-out line cannot satisfy the check.
+    const code = saveChunk.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+    expect(code).toMatch(
+      /body: JSON\.stringify\(\{[^}]*?\btechnicianName: technicianName\.trim\(\),/,
+    );
+  });
 });
