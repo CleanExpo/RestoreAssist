@@ -259,12 +259,22 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      imported: imported.length,
-      errors,
-      message: `Imported ${imported.length} clients from ${PROVIDER_CONFIG[provider].name}`,
-    });
+    // RA-7663 — same truth-telling as the jobs import: nothing imported and at
+    // least one failure is a failed import (422), never success: true.
+    const failed = errors.length;
+    const nothingImported = imported.length === 0 && failed > 0;
+    return NextResponse.json(
+      {
+        success: !nothingImported,
+        imported: imported.length,
+        failed,
+        errors,
+        message:
+          `Imported ${imported.length} clients from ${PROVIDER_CONFIG[provider].name}` +
+          (failed > 0 ? `; ${failed} could not be imported` : ""),
+      },
+      { status: nothingImported ? 422 : 200 },
+    );
   } catch (error) {
     return fromException(request, error, {
       stage: "integration-clients-import",
