@@ -12,6 +12,8 @@ describe("formatInviteExpiry (J-13)", () => {
     expect(formatInviteExpiry(at(2 * 60 * 60 * 1000), NOW)).toBe("Expires in under a day");
     expect(formatInviteExpiry(at(DAY / 2), NOW)).toBe("Expires in under a day");
     expect(formatInviteExpiry(at(DAY - 60 * 1000), NOW)).toBe("Expires in under a day");
+    // The card still shows Active at the exact expiry instant.
+    expect(formatInviteExpiry(at(0), NOW)).toBe("Expires in under a day");
   });
 
   it("never prints NaN for a missing or malformed date", () => {

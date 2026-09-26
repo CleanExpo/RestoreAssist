@@ -7,7 +7,8 @@ const DAY_MS = 1000 * 60 * 60 * 24;
 export function formatInviteExpiry(expiresAt: string, now: number = Date.now()): string {
   const diffMs = new Date(expiresAt).getTime() - now;
   if (!Number.isFinite(diffMs)) return "Expiry unknown";
-  if (diffMs <= 0) {
+  // Same boundary as the card's isExpired (expiresAt < now).
+  if (diffMs < 0) {
     const daysAgo = Math.floor(-diffMs / DAY_MS);
     if (daysAgo === 0) return "Expired today";
     return daysAgo === 1 ? "Expired 1 day ago" : `Expired ${daysAgo} days ago`;
