@@ -8,7 +8,6 @@
  */
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { User } from "lucide-react";
 
 interface TeamMember {
   id: string;
@@ -68,7 +67,6 @@ export function AssignTechnician({
 
   return (
     <label className="flex items-center gap-1">
-      <User size={14} aria-hidden />
       <span className="sr-only">Assigned technician</span>
       <select
         aria-label="Assigned technician"
