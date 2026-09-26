@@ -10,9 +10,11 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 }));
 
 const mockFindUnique = vi.fn();
+const mockUserFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: (...a: unknown[]) => mockFindUnique(...a) },
+    user: { findUnique: (...a: unknown[]) => mockUserFindUnique(...a) },
   },
 }));
 
@@ -30,6 +32,7 @@ const INSPECTION = {
   inspectionNumber: "NIR-2026-09-0007",
   propertyAddress: "12 Wattle Street, Toowoomba QLD",
   propertyPostcode: "4350",
+  propertyCountry: "AU",
   inspectionDate: new Date("2026-09-01T23:15:00.000Z"),
   technicianName: "J. Nguyen",
   lossDescription: "Supply line to the dishwasher failed overnight.",
@@ -46,7 +49,10 @@ const INSPECTION = {
 };
 
 describe("GET /api/inspections/[id]/report-prefill", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUserFindUnique.mockResolvedValue({ organization: { country: "AU" } });
+  });
 
   it("401 when unauthenticated", async () => {
     mockSession.mockResolvedValue(null);
@@ -89,6 +95,28 @@ describe("GET /api/inspections/[id]/report-prefill", () => {
     expect(body.fields.technicianAttendanceDate).toBe("2026-09-01");
     expect(body.fields.waterCategory).toBe("2");
     expect(body.filled).toHaveLength(Object.keys(body.fields).length);
+    // RA-7625: the jurisdiction rides alongside the form fields, not inside.
+    expect(body.lawJurisdiction).toBe("AU");
+    expect(body.fields).not.toHaveProperty("lawJurisdiction");
+  });
+
+  it("an NZ organisation is not hidden by a schema-default AU inspection (RA-7625)", async () => {
+    // Inspection.propertyCountry defaults to "AU" and 6011 is a valid AU
+    // (WA) and NZ postcode. Generation resolves this job as NZ (RA-7599), so
+    // the form's instructions must too.
+    mockSession.mockResolvedValue({ user: { id: "u1" } } as never);
+    mockAssertTenancy.mockResolvedValue({ ok: true, data: { id: "i1" } });
+    mockFindUnique.mockResolvedValue({
+      ...INSPECTION,
+      propertyAddress: "3 Synthetic Lane, Wellington",
+      propertyPostcode: "6011",
+      propertyCountry: "AU",
+    });
+    mockUserFindUnique.mockResolvedValue({ organization: { country: "NZ" } });
+    const { GET } = await import("../report-prefill/route");
+    const body = await (await GET(req(), ctx)).json();
+    expect(body.lawJurisdiction).toBe("NZ");
+    expect(mockUserFindUnique.mock.calls[0][0].where).toEqual({ id: "u1" });
   });
 
   it("reports nothing filled rather than an empty-looking success", async () => {
@@ -145,6 +173,7 @@ describe("GET /api/inspections/[id]/report-prefill", () => {
       "inspectionNumber",
       "lossDescription",
       "propertyAddress",
+      "propertyCountry",
       "propertyPostcode",
       "propertyWallConstruction",
       "propertyWallMaterial",

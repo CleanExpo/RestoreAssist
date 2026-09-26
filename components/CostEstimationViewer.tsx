@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import VisualCostEstimationViewer from "./VisualCostEstimationViewer";
+import { jurisdictionLawLabels } from "@/lib/reports/viewer-compliance-prose";
 
 interface CostEstimationViewerProps {
   reportId: string;
@@ -26,6 +27,8 @@ export default function CostEstimationViewer({
   const [costDocument, setCostDocument] = useState<string>("");
   const [costData, setCostData] = useState<any>(null);
   const [businessInfo, setBusinessInfo] = useState<any>(null);
+  // RA-7625: jurisdiction resolved on the server by generation's own rule.
+  const law = jurisdictionLawLabels(report?.lawJurisdiction);
 
   useEffect(() => {
     fetchReport();
@@ -292,9 +295,9 @@ export default function CostEstimationViewer({
               </p>
               <p className="text-sm text-slate-400">
                 Our AI expert system is analysing your data and generating a
-                professional cost estimation document based on IICRC S500, S520,
-                WHS Regulations 2011, NCC, and AS/NZS 3000 standards. This may
-                take a few moments. Please wait.
+                professional cost estimation document based on{" "}
+                {law.standardsList} standards. This may take a few moments.
+                Please wait.
               </p>
             </div>
           </div>

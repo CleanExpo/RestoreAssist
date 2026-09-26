@@ -24,6 +24,10 @@ import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { buildReportPrefill } from "@/lib/reports/inspection-prefill";
+import {
+  enhancedReportJurisdiction,
+  resolveEnhancedReportStateInfo,
+} from "@/lib/services/ai/generate-enhanced-report";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -54,6 +58,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         inspectionNumber: true,
         propertyAddress: true,
         propertyPostcode: true,
+        propertyCountry: true,
         inspectionDate: true,
         technicianName: true,
         lossDescription: true,
@@ -91,8 +96,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const prefill = buildReportPrefill(inspection);
 
+    // RA-7625: the law the form's default report instructions name. Same
+    // function and inputs report generation uses. The organisation is the
+    // caller's, as in generate-enhanced, because the caller generates.
+    const callerId = session?.user?.id;
+    const caller = callerId
+      ? await prisma.user.findUnique({
+          where: { id: callerId },
+          select: { organization: { select: { country: true } } },
+        })
+      : null;
+    const lawJurisdiction = enhancedReportJurisdiction(
+      resolveEnhancedReportStateInfo({
+        propertyAddress: inspection.propertyAddress,
+        propertyPostcode: inspection.propertyPostcode,
+        inspectionCountry: inspection.propertyCountry,
+        organisationCountry: caller?.organization?.country ?? null,
+      }),
+    );
+
     return NextResponse.json({
       inspectionNumber: inspection.inspectionNumber,
+      // RA-7625: not a form field, so not in `fields`/`filled`.
+      lawJurisdiction,
       fields: prefill.fields,
       filled: prefill.filled,
     });
