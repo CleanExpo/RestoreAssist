@@ -11,7 +11,7 @@
  * the same workspace `/api/addons/checkout` stamps on the seat subscription.
  */
 
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import { TECHNICIAN_SEATS_SKU } from "./technician-seats-addon";
 
 type SeatDb = PrismaClient | Prisma.TransactionClient;
@@ -53,7 +53,10 @@ export async function technicianSeatUsage(
     if (workspace) {
       const entitlement = await db.featureEntitlement.findUnique({
         where: {
-          workspaceId_sku: { workspaceId: workspace.id, sku: TECHNICIAN_SEATS_SKU },
+          workspaceId_sku: {
+            workspaceId: workspace.id,
+            sku: TECHNICIAN_SEATS_SKU,
+          },
         },
         select: { active: true, seats: true },
       });
@@ -77,12 +80,26 @@ export async function technicianSeatUsage(
   return { purchased, used: members + invites };
 }
 
-/** Throws TechnicianSeatLimitReached when one more technician would not fit. */
+/**
+ * Throws TechnicianSeatLimitReached when one more technician would not fit.
+ *
+ * Call it inside the transaction that writes the technician. It locks the
+ * organisation row first, so two seat-taking writes for one business run one
+ * after the other: without the lock, two concurrent role switches each saw
+ * the last free seat and both committed.
+ */
 export async function assertTechnicianSeatAvailable(
   db: SeatDb,
   organizationId: string,
   opts: { excludeInviteId?: string } = {},
 ): Promise<void> {
-  const { purchased, used } = await technicianSeatUsage(db, organizationId, opts);
+  await db.$queryRaw(
+    Prisma.sql`SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR UPDATE`,
+  );
+  const { purchased, used } = await technicianSeatUsage(
+    db,
+    organizationId,
+    opts,
+  );
   if (used + 1 > purchased) throw new TechnicianSeatLimitReached();
 }

@@ -141,6 +141,7 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
     } as never);
     stripeMock.subscriptions.retrieve.mockResolvedValue({
       id: "sub_seats_1",
+      status: "active",
       items: { data: [{ id: "si_1", quantity: 2 }] },
     });
     stripeMock.subscriptions.update.mockResolvedValue({ id: "sub_seats_1" });
@@ -166,6 +167,24 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
       active: false,
       stripeSubscriptionId: "sub_old",
     } as never);
+
+    const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS" }));
+
+    expect(res.status).toBe(200);
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    expect(stripeMock.checkout.sessions.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("J-09: a seat row still marked active over a cancelled Stripe subscription starts a fresh checkout", async () => {
+    vi.mocked(prisma.featureEntitlement.findUnique).mockResolvedValue({
+      active: true,
+      stripeSubscriptionId: "sub_seats_canceled",
+    } as never);
+    stripeMock.subscriptions.retrieve.mockResolvedValue({
+      id: "sub_seats_canceled",
+      status: "canceled",
+      items: { data: [{ id: "si_1", quantity: 2 }] },
+    });
 
     const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS" }));
 

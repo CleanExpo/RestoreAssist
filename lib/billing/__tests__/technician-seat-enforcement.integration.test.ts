@@ -114,4 +114,26 @@ describe.skipIf(!process.env.DATABASE_URL)("technician seat enforcement (J-09)",
     });
     await expect(assertTechnicianSeatAvailable(prisma, orgId)).resolves.toBeUndefined();
   });
+
+  it("two technician writes racing for the last seat: exactly one commits", async () => {
+    // 3 purchased, 2 used (from the test above): one seat left.
+    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 3, used: 2 });
+    const takeSeat = (suffix: string) =>
+      prisma.$transaction(async (tx) => {
+        await assertTechnicianSeatAvailable(tx, orgId);
+        // Widen the window between the check and the write.
+        await new Promise((r) => setTimeout(r, 150));
+        await tx.user.create({
+          data: { email: `${tag}-race-${suffix}@example.com`, role: "USER", organizationId: orgId },
+        });
+      });
+
+    const results = await Promise.allSettled([takeSeat("a"), takeSeat("b")]);
+
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toBeInstanceOf(TechnicianSeatLimitReached);
+    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 3, used: 3 });
+  });
 });
