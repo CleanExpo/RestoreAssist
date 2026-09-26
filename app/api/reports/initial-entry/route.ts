@@ -427,10 +427,13 @@ export async function POST(request: NextRequest) {
       // RA-7726: link the inspection. The scoped where re-asserts the caller's
       // write reach at write time, and `reportId: null` means an inspection
       // that already carries a report keeps it rather than being repointed.
+      // Only the inspection's owner links: Generate Invoice accepts a linked
+      // report only when the inspection owner wrote it, so a colleague's
+      // report would block the owner's invoice for good.
       let inspectionLinked = false;
       if (inspectionLinkWhere) {
         const linked = await prisma.inspection.updateMany({
-          where: { AND: [inspectionLinkWhere, { reportId: null }] },
+          where: { AND: [inspectionLinkWhere, { userId }, { reportId: null }] },
           data: { reportId: report.id },
         });
         inspectionLinked = linked.count === 1;

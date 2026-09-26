@@ -47,6 +47,10 @@ const ids = {
   inspB: "",
   inspLinked: "",
   existingReport: "",
+  orgAdmin: "",
+  tech: "",
+  inspTech: "",
+  org: "",
 };
 
 const BODY = {
@@ -110,15 +114,46 @@ describe.skipIf(!HAS_DB)(
       });
       ids.existingReport = existing.id;
       ids.inspLinked = (await insp(ownerA.id, "linked", existing.id)).id;
+
+      // A technician's inspection, and an ADMIN in the same business who can
+      // write it but is not its owner.
+      const orgAdmin = await user("orgAdmin");
+      const tech = await prisma.user.create({
+        data: {
+          email: `${S}-tech@test.local`,
+          role: "USER",
+          subscriptionStatus: "TRIAL",
+        },
+      });
+      ids.orgAdmin = orgAdmin.id;
+      ids.tech = tech.id;
+      const org = await prisma.organization.create({
+        data: { name: `${S} business`, ownerId: orgAdmin.id, country: "AU" },
+      });
+      ids.org = org.id;
+      await prisma.user.updateMany({
+        where: { id: { in: [orgAdmin.id, tech.id] } },
+        data: { organizationId: org.id },
+      });
+      ids.inspTech = (await insp(tech.id, "tech")).id;
     });
 
     afterAll(async () => {
-      const userIds = [ids.ownerA, ids.ownerB].filter(Boolean);
+      const userIds = [ids.ownerA, ids.ownerB, ids.orgAdmin, ids.tech].filter(
+        Boolean,
+      );
       await prisma.inspection.deleteMany({
         where: { inspectionNumber: { startsWith: S } },
       });
       await prisma.report.deleteMany({ where: { userId: { in: userIds } } });
       await prisma.client.deleteMany({ where: { userId: { in: userIds } } });
+      await prisma.user.updateMany({
+        where: { id: { in: userIds } },
+        data: { organizationId: null },
+      });
+      if (ids.org) {
+        await prisma.organization.deleteMany({ where: { id: ids.org } });
+      }
       await prisma.user.deleteMany({ where: { email: { startsWith: S } } });
     });
 
@@ -173,6 +208,19 @@ describe.skipIf(!HAS_DB)(
         select: { reportId: true },
       });
       expect(insp?.reportId).toBe(ids.existingReport);
+    });
+
+    it("does not link a colleague's report, which the owner could not invoice", async () => {
+      const res = await createAs(ids.orgAdmin, ids.inspTech);
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as { inspectionLinked: boolean };
+      expect(json.inspectionLinked).toBe(false);
+
+      const insp = await prisma.inspection.findUnique({
+        where: { id: ids.inspTech },
+        select: { reportId: true },
+      });
+      expect(insp?.reportId).toBeNull();
     });
   },
 );
