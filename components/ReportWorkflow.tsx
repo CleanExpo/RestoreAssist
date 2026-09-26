@@ -33,6 +33,8 @@ interface ReportWorkflowProps {
     technicianFieldReport?: string;
   };
   subscriptionStatus?: string;
+  /** RA-7726: inspection this report is started from */
+  inspectionId?: string;
 }
 
 export default function ReportWorkflow({
@@ -40,6 +42,7 @@ export default function ReportWorkflow({
   onComplete,
   initialFormData,
   subscriptionStatus,
+  inspectionId,
 }: ReportWorkflowProps) {
   const router = useRouter();
   const [currentStage, setCurrentStage] = useState<WorkflowStage>(
@@ -335,6 +338,7 @@ export default function ReportWorkflow({
           initialReportId={reportId}
           initialData={initialFormData}
           subscriptionStatus={subscriptionStatus}
+          inspectionId={inspectionId}
         />
       )}
 

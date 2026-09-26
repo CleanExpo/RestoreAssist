@@ -106,4 +106,6 @@ export interface InitialDataEntryFormProps {
   initialReportId?: string | null;
   initialData?: InitialDataShape;
   subscriptionStatus?: string;
+  /** RA-7726: inspection this report is started from; the new report links to it */
+  inspectionId?: string;
 }

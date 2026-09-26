@@ -71,6 +71,7 @@ export default function InitialDataEntryForm({
   initialReportId,
   initialData,
   subscriptionStatus,
+  inspectionId,
 }: InitialDataEntryFormProps) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -1442,6 +1443,8 @@ export default function InitialDataEntryForm({
         body: JSON.stringify({
           ...formData,
           ...assigneeData, // Include assignee selection
+          // RA-7726: link the new report back to the inspection it came from
+          ...(inspectionId ? { inspectionId } : {}),
           incidentDate: formData.incidentDate
             ? new Date(formData.incidentDate).toISOString()
             : null,
