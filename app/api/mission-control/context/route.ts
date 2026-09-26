@@ -4,7 +4,10 @@
  */
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { loadNexusContextBundle } from "@/lib/nexus-hub-context";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +16,9 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // Platform-owned surface: tenant ADMIN is every self-registered owner.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   const bundle = await loadNexusContextBundle();
   return Response.json({

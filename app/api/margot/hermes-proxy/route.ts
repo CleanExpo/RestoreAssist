@@ -7,7 +7,10 @@ import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { apiError } from "@/lib/api-errors";
 import { rateLimit } from "@/lib/bulk-operations";
 import { prisma } from "@/lib/prisma";
@@ -55,6 +58,9 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // Platform-owned surface: tenant ADMIN is every self-registered owner.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
     const userId = auth.user!.id;
 
     const user = await prisma.user.findUnique({

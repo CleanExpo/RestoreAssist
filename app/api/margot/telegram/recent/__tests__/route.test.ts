@@ -11,7 +11,8 @@ vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/admin-auth", () => ({
+vi.mock("@/lib/admin-auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/admin-auth")>()),
   verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
 }));
 vi.mock("@/lib/supabase-server", () => ({
@@ -29,6 +30,8 @@ beforeEach(() => {
   from.mockReset();
   getSupabaseServerClient.mockReset();
 
+  // The real platform-staff gate runs; these cases are an allowed operator.
+  vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "admin_user");
   getServerSession.mockResolvedValue({ user: { id: "admin_user" } });
   verifyAdminFromDb.mockResolvedValue({
     response: null,
