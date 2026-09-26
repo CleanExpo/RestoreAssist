@@ -198,6 +198,10 @@ describe.skipIf(!process.env.DATABASE_URL)(
         () => detailGET(new NextRequest(url("")), ctx()),
         () => downloadJsonGET(new NextRequest(url("/download-json")), ctx()),
         () => exportExcelGET(new NextRequest(url("/export-excel")), ctx()),
+        () =>
+          bulkExcelListPOST(
+            post("http://localhost/api/reports/bulk-export-excel-list", { ids: [ids.report] }),
+          ),
       ]) {
         as(ids.colleague);
         expect((await call()).status).toBe(404);
