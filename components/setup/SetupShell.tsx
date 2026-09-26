@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { activationErrorMessage } from '@/lib/setup/activation-error';
-import { firstIncompleteRequiredIndex } from '@/lib/setup/wizard-steps';
 import { RAIcon } from '@/components/brand/RAIcon';
 import { useSetupStore, type SetupOrganization } from './store';
 import { BusinessDetailsCard } from './BusinessDetailsCard';
@@ -44,17 +43,20 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
   const org = useSetupStore((s) => s.org);
   const { update: refreshSession } = useSession();
 
-  // J-05: a returning business reopens on the first required step still to
-  // do (or the finish step), read from the server's data because the store is
-  // only filled after mount. A business that has entered nothing yet still
-  // starts at Welcome.
+  // J-05: a returning business reopens on its first unfinished step, read
+  // from the server's data because the store is only filled after mount. A
+  // business that has entered nothing yet still starts at Welcome. It never
+  // reopens on the finish step: whether the AI key is required is only known
+  // after /api/onboarding/status answers, so the Finish button must not be on
+  // screen before then. Indexes follow the `steps` array below.
   const [resumeIndex] = useState(() => {
     const id = initial.country === 'NZ' ? initial.nzbn : initial.abn;
     const started = !!(initial.legalName || id || initial.logoUrl || initial.primaryColor || initial.pricingConfig);
     if (!started) return 0;
-    return firstIncompleteRequiredIndex({
-      business: !!(initial.legalName && id && initial.state && initial.timezone),
-    });
+    if (!(initial.legalName && id && initial.state && initial.timezone)) return 2; // Business details
+    if (!(initial.logoUrl || initial.primaryColor)) return 3; // Branding
+    if (!initial.pricingConfig) return 4; // Pricing
+    return 5; // Integrations, the step before the finish
   });
 
   // AI-key completion is the one gate the store doesn't already carry, so read

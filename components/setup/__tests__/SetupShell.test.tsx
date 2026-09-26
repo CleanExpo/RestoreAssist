@@ -87,10 +87,26 @@ describe("SetupShell — resume where the business left off (J-05)", () => {
     pricingConfig: null,
   };
 
-  it("reopens at the finish step once business details are complete", async () => {
+  it("reopens on the first unfinished optional step once business details are complete", async () => {
     const done = { ...base, legalName: "Synthetic Drying Pty Ltd", abn: "51824753556", state: "QLD", pricingConfig: { labour: 999 } };
     render(<SetupShell initial={done as never} />);
-    expect(await screen.findByText(/Step 7 of 7: Your first report/)).toBeInTheDocument();
+    expect(await screen.findByText(/Step 4 of 7: Branding/)).toBeInTheDocument();
+  });
+
+  it("never reopens on the finish step before the AI-key requirement is known", async () => {
+    // Status never answers: the AI key's required flag is still unknown.
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const everything = {
+      ...base,
+      legalName: "Synthetic Drying Pty Ltd",
+      abn: "51824753556",
+      state: "QLD",
+      primaryColor: "#1C2E47",
+      pricingConfig: { labour: 999 },
+    };
+    render(<SetupShell initial={everything as never} />);
+    expect(await screen.findByText(/Step 6 of 7: Integrations/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Generate your first report/ })).not.toBeInTheDocument();
   });
 
   it("reopens on Business details when it was started but not finished", async () => {
