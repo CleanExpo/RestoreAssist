@@ -156,3 +156,50 @@ describe("Field mode when the connection drops (J-08)", () => {
     expect(await screen.findByText("Could not load this inspection")).toBeInTheDocument();
   });
 });
+
+function status(code: number) {
+  return Promise.resolve({ ok: false, status: code, json: async () => ({}) } as Response);
+}
+
+async function saveWith(response: () => Promise<Response>) {
+  fetchMock.mockImplementation(response);
+  fireEvent.click(screen.getByText("save reading"));
+}
+
+/**
+ * RA-7765: a refresh that fails because the technician has lost access (the
+ * job was reassigned, or they left the team) must not keep the old copy on
+ * screen. Offline, network and server errors keep the J-08 behaviour.
+ */
+describe("Field mode when the technician loses access (RA-7765)", () => {
+  it.each([403, 404])("clears the job when a refresh answers %i", async (code) => {
+    await renderLoaded();
+
+    await saveWith(() => status(code));
+
+    expect(await screen.findByText("You no longer have access to this job")).toBeInTheDocument();
+    expect(screen.queryByText("1 Synthetic St")).not.toBeInTheDocument();
+    expect(screen.queryByText("save reading")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Could not refresh/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the job on screen when the network fails", async () => {
+    await renderLoaded();
+
+    await saveWith(() => Promise.reject(new TypeError("Failed to fetch")));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/Could not refresh/);
+    expect(screen.getByText("1 Synthetic St")).toBeInTheDocument();
+    expect(screen.queryByText("You no longer have access to this job")).not.toBeInTheDocument();
+  });
+
+  it("keeps the job on screen when the server answers 500", async () => {
+    await renderLoaded();
+
+    await saveWith(() => status(500));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/Could not refresh/);
+    expect(screen.getByText("1 Synthetic St")).toBeInTheDocument();
+    expect(screen.queryByText("You no longer have access to this job")).not.toBeInTheDocument();
+  });
+});

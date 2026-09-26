@@ -122,6 +122,18 @@ export default function FieldModePage({ params }: PageProps) {
           fetch(`/api/inspections/${inspectionId}/voice/checklist`),
         ]);
         if (!inspRes.ok) {
+          // Lost access (reassigned, or removed from the team): drop the old
+          // copy rather than keep it on screen (RA-7765).
+          if (
+            loadedFor.current === inspectionId &&
+            (inspRes.status === 403 || inspRes.status === 404)
+          ) {
+            loadedFor.current = null;
+            setRefreshError(null);
+            setInspection(null);
+            setLoadError("You no longer have access to this job");
+            return;
+          }
           fail();
           return;
         }
