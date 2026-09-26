@@ -42,7 +42,14 @@ export default function NewInvoicePage() {
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const [loading, setLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
-  const { treatment: gstTreatment, ready: gstReady } = useOrganizationGst();
+  const {
+    treatment: gstTreatment,
+    ready: gstReady,
+    failed: gstFailed,
+  } = useOrganizationGst();
+  // RA-7743: the hook starts at the AU default. Show no tax figure and keep
+  // saving disabled until the tenant's own treatment is known.
+  const gstKnown = gstReady && !gstFailed;
 
   // Customer selection
   const [customerType, setCustomerType] = useState<"client" | "manual">(
@@ -228,8 +235,12 @@ export default function NewInvoicePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!gstReady) {
-      toast.error("Loading your organisation tax settings. Please try again.");
+    if (!gstKnown) {
+      toast.error(
+        gstFailed
+          ? "We couldn't load your GST settings, so tax can't be calculated. Reload the page to try again."
+          : "Loading your organisation tax settings. Please try again.",
+      );
       return;
     }
 
@@ -769,31 +780,51 @@ export default function NewInvoicePage() {
                   GST
                 </span>
                 <span className="font-medium text-slate-900 dark:text-white">
-                  ${(financials.gst / 100).toFixed(2)}
+                  {gstKnown
+                    ? `$${(financials.gst / 100).toFixed(2)}`
+                    : gstFailed
+                      ? "Unavailable"
+                      : "Calculating GST..."}
                 </span>
               </div>
 
               <div className="flex justify-between text-lg font-bold pt-2 border-t border-slate-200 dark:border-slate-700">
                 <span className="text-slate-900 dark:text-white">Total</span>
                 <span className="text-slate-900 dark:text-white">
-                  ${(financials.total / 100).toFixed(2)}
+                  {gstKnown
+                    ? `$${(financials.total / 100).toFixed(2)}`
+                    : gstFailed
+                      ? "Unavailable"
+                      : "Calculating GST..."}
                 </span>
               </div>
             </div>
           </div>
 
+          {gstFailed && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-950/30 dark:text-red-200"
+            >
+              We couldn&apos;t load your GST settings, so tax can&apos;t be
+              calculated. Reload the page to try again.
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="space-y-3">
             <button
               type="submit"
-              disabled={loading || !gstReady}
+              disabled={loading || !gstKnown}
               className="w-full px-4 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
             >
               {loading
                 ? "Creating Invoice..."
-                : gstReady
+                : gstKnown
                   ? "Create Invoice"
-                  : "Loading tax settings..."}
+                  : gstFailed
+                    ? "Tax settings unavailable"
+                    : "Loading tax settings..."}
             </button>
             <button
               type="button"

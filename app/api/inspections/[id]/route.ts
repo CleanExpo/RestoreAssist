@@ -302,6 +302,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         // Inspection is returned wholesale to the client — enumerate every
         // scalar to preserve response shape per CLAUDE.md rule 4.
         environmentalData: {
+          // RA-7744: a stable order, so the latest reading is well defined.
+          orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }],
           select: {
             id: true,
             inspectionId: true,

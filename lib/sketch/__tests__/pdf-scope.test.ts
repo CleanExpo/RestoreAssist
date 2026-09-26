@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildComplianceAnnex,
   buildDryingLog,
+  roomHasPotentialAcm,
   type ScopeMaterialInfo,
 } from "../pdf-scope";
 
@@ -158,5 +159,67 @@ describe("NHCover (NZ) annex routing", () => {
     });
     expect(annex.nhcover?.routing?.building.covered).toBe(false);
     expect(annex.nhcover?.routing?.land.covered).toBe(true);
+  });
+});
+
+// RA-7640 — photo AI and an accepted voice note raise the asbestos flag and it
+// stays raised. Before this, the annex read only the room's current material,
+// so a room flagged in the editor lost the flag in every handover document once
+// its material was changed to a non-ACM one.
+describe("buildComplianceAnnex — raise-only ACM latches (RA-7640)", () => {
+  const room = (label: string, extra: Record<string, unknown> = {}) => ({
+    data: { type: "room", material: "timber-framing", label, ...extra },
+  });
+
+  it("flags a non-ACM room whose voice latch is set", () => {
+    const annex = buildComplianceAnnex(
+      {
+        objects: [room("Laundry", { voiceRaisedAcm: true }), room("Lounge")],
+      },
+      MATERIALS,
+    );
+    const laundry = annex.rows.find((r) => r.roomLabel === "Laundry")!;
+    const lounge = annex.rows.find((r) => r.roomLabel === "Lounge")!;
+    expect(laundry.materialName).toBe("Timber framing");
+    expect(laundry.isPotentialAcm).toBe(true);
+    expect(annex.acmElements).toEqual(["Laundry"]);
+    // Control: neither latch, non-ACM material — no flag.
+    expect(lounge.isPotentialAcm).toBe(false);
+  });
+
+  it("flags every element when photo AI raised the job-wide latch", () => {
+    const annex = buildComplianceAnnex(
+      { objects: [room("Laundry"), room("Lounge")] },
+      MATERIALS,
+      { aiRaisedAcm: true },
+    );
+    expect(annex.rows.map((r) => r.isPotentialAcm)).toEqual([true, true]);
+    expect(annex.acmElements).toEqual(["Laundry", "Lounge"]);
+  });
+
+  it("carries no flag when neither latch is set and the material is not ACM", () => {
+    const annex = buildComplianceAnnex(
+      { objects: [room("Laundry", { voiceRaisedAcm: false })] },
+      MATERIALS,
+      { aiRaisedAcm: false },
+    );
+    expect(annex.rows[0].isPotentialAcm).toBe(false);
+    expect(annex.acmElements).toEqual([]);
+  });
+});
+
+describe("roomHasPotentialAcm (RA-7640)", () => {
+  const nonAcm = { isPotentialAcm: false };
+
+  it("is true for an ACM material, a voice latch, or an AI latch", () => {
+    expect(roomHasPotentialAcm({ isPotentialAcm: true }, {})).toBe(true);
+    expect(roomHasPotentialAcm(nonAcm, { voiceRaisedAcm: true })).toBe(true);
+    expect(roomHasPotentialAcm(nonAcm, { aiRaisedAcm: true })).toBe(true);
+    expect(roomHasPotentialAcm(undefined, { voiceRaisedAcm: true })).toBe(true);
+  });
+
+  it("is false with a non-ACM or missing material and no latch", () => {
+    expect(roomHasPotentialAcm(nonAcm, {})).toBe(false);
+    expect(roomHasPotentialAcm(undefined, {})).toBe(false);
   });
 });

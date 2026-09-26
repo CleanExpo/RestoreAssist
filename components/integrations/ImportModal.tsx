@@ -173,41 +173,56 @@ export default function ImportModal({
     const slug = selectedProvider.toLowerCase();
     setImporting(true);
     try {
-      const promises = [];
+      // RA-7663 — count what the server says arrived, never what was ticked.
+      const importOne = async (
+        kind: "clients" | "jobs",
+        ids: string[],
+      ): Promise<{ imported: number; failed: number }> => {
+        if (ids.length === 0) return { imported: 0, failed: 0 };
+        const res = await fetch(`/api/integrations/oauth/${slug}/${kind}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            kind === "clients" ? { clientIds: ids } : { jobIds: ids },
+          ),
+        });
+        const body = await res.json().catch(() => ({}));
+        const imported = typeof body.imported === "number" ? body.imported : 0;
+        const failed =
+          typeof body.failed === "number"
+            ? body.failed
+            : Array.isArray(body.errors)
+              ? body.errors.length
+              : 0;
+        // A refused request with no counts (auth, validation) imported nothing.
+        if (!res.ok && typeof body.imported !== "number") {
+          return { imported: 0, failed: ids.length };
+        }
+        return { imported, failed };
+      };
 
-      if (clientIds.length > 0) {
-        promises.push(
-          fetch(`/api/integrations/oauth/${slug}/clients`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ clientIds }),
-          }),
+      const [clientResult, jobResult] = await Promise.all([
+        importOne("clients", clientIds),
+        importOne("jobs", jobIds),
+      ]);
+      const totalImported = clientResult.imported + jobResult.imported;
+      const totalFailed = clientResult.failed + jobResult.failed;
+
+      if (totalImported > 0) onImportComplete?.();
+
+      if (totalFailed > 0) {
+        toast.error(
+          `${totalFailed} could not be imported. Imported ${clientResult.imported} clients and ${jobResult.imported} jobs.`,
         );
-      }
-
-      if (jobIds.length > 0) {
-        promises.push(
-          fetch(`/api/integrations/oauth/${slug}/jobs`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ jobIds }),
-          }),
-        );
-      }
-
-      const results = await Promise.all(promises);
-      const allOk = results.every((r) => r.ok);
-
-      if (allOk) {
+      } else if (totalImported === 0) {
+        toast.error("Nothing was imported");
+      } else {
         toast.success(
-          `Successfully imported ${clientIds.length} clients and ${jobIds.length} jobs`,
+          `Successfully imported ${clientResult.imported} clients and ${jobResult.imported} jobs`,
         );
         setSelectedClientIds(new Set());
         setSelectedJobIds(new Set());
-        onImportComplete?.();
         onClose();
-      } else {
-        toast.error("Some imports failed");
       }
     } catch (error) {
       console.error("Error importing:", error);

@@ -6,6 +6,8 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
+import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
+import type { Prisma } from "@prisma/client";
 
 // POST - Create initial report entry (Phase 2 Step 2)
 export async function POST(request: NextRequest) {
@@ -97,6 +99,33 @@ export async function POST(request: NextRequest) {
           message: "Technician field report is required",
           status: 400,
         });
+      }
+
+      // RA-7726: a report started from /dashboard/reports/new?inspectionId=
+      // must link back to that inspection, or Generate Invoice refuses it with
+      // "A linked report is required". Linking writes Inspection.reportId, so
+      // it takes the same write scope as the prefill that loaded the form, and
+      // is checked before any client row is written or credit is charged.
+      // "Not yours" and "does not exist" are the same 404, so an id from
+      // another tenant reveals nothing.
+      let inspectionLinkWhere: Prisma.InspectionWhereInput | null = null;
+      if (data.inspectionId !== undefined && data.inspectionId !== null) {
+        if (typeof data.inspectionId !== "string" || !data.inspectionId) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "inspectionId must be a non-empty string",
+            status: 400,
+          });
+        }
+        const write = await resolveInspectionWrite(session, data.inspectionId);
+        if (!write.ok) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Inspection not found",
+            status: 404,
+          });
+        }
+        inspectionLinkWhere = write.data.inspectionManyWhere;
       }
 
       // Generate report title/number
@@ -395,6 +424,21 @@ export async function POST(request: NextRequest) {
         data: reportData,
       });
 
+      // RA-7726: link the inspection. The scoped where re-asserts the caller's
+      // write reach at write time, and `reportId: null` means an inspection
+      // that already carries a report keeps it rather than being repointed.
+      // Only the inspection's owner links: Generate Invoice accepts a linked
+      // report only when the inspection owner wrote it, so a colleague's
+      // report would block the owner's invoice for good.
+      let inspectionLinked = false;
+      if (inspectionLinkWhere) {
+        const linked = await prisma.inspection.updateMany({
+          where: { AND: [inspectionLinkWhere, { userId }, { reportId: null }] },
+          data: { reportId: report.id },
+        });
+        inspectionLinked = linked.count === 1;
+      }
+
       // RA-7622 — first_report_saved (first-time only, AFTER persist)
       await recordFirstReportSaved(userId, { reportId: report.id });
 
@@ -462,6 +506,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         report,
+        inspectionLinked,
         message:
           "Initial data saved successfully. Standards analysis initiated. Proceed to report generation.",
       });

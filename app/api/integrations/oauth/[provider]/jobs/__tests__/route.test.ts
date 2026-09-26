@@ -185,4 +185,37 @@ describe("POST /api/integrations/oauth/[provider]/jobs", () => {
     expect(body.imported).toBe(1);
     expect(reportCreate).toHaveBeenCalledTimes(1);
   });
+
+  it("reports a partial import honestly: 200, success, imported 1, failed 1 (RA-7663)", async () => {
+    const job = (id: string, externalId: string) => ({
+      id,
+      externalId,
+      title: "Synthetic job",
+      status: null,
+      clientExternalId: null,
+      address: null,
+      description: null,
+    });
+    externalJobFindMany.mockResolvedValue([
+      job("job_5", "xero-job-5"),
+      job("job_6", "xero-job-6"),
+    ]);
+    reportCreate
+      .mockResolvedValueOnce({ id: "report_5" })
+      .mockRejectedValueOnce(new Error("rejected by the database"));
+
+    const response = await POST(
+      postRequest({ jobIds: ["xero-job-5", "xero-job-6"] }),
+      routeContext(),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.imported).toBe(1);
+    expect(body.failed).toBe(1);
+    expect(body.errors).toEqual([
+      { id: "xero-job-6", error: expect.any(String) },
+    ]);
+  });
 });

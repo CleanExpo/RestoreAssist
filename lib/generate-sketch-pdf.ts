@@ -1188,6 +1188,11 @@ export interface SketchPdfOptions {
    * 2x20A budget and the annex prints it as ASSUMED.
    */
   powerAssessment?: PowerAssessment;
+  /**
+   * Photo-AI asbestos latch for the job (RA-7640). Read it with
+   * `jobHasAiRaisedAcm`; when true every annex element carries the ACM flag.
+   */
+  aiRaisedAcm?: boolean;
 }
 
 /**
@@ -1242,6 +1247,7 @@ export async function generateSketchPdf(
     estimatedRepairNzd,
     mouldActive,
     powerAssessment,
+    aiRaisedAcm,
   } = options;
 
   if (!floors.length) throw new Error("At least one floor is required");
@@ -1283,6 +1289,7 @@ export async function generateSketchPdf(
       country,
       nhCause,
       estimatedRepairNzd,
+      aiRaisedAcm,
     });
     const totalAreaM2 = floors.reduce(
       (s, f) =>

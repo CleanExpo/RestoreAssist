@@ -96,7 +96,10 @@ export async function GET(request: NextRequest) {
               : {}),
           },
           include: {
-            environmentalData: true,
+            // RA-7744: a stable order, so the latest reading is well defined.
+            environmentalData: {
+              orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }],
+            },
             // RA-7610: the form's classification preview matches a linked
             // reading to an area by its room's name, as submit does.
             moistureReadings: {
@@ -288,7 +291,10 @@ export async function GET(request: NextRequest) {
     const inspections = await prisma.inspection.findMany({
       where,
       include: {
-        environmentalData: true,
+        // RA-7744: a stable order, so the latest reading is well defined.
+        environmentalData: {
+          orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }],
+        },
         moistureReadings: true,
         affectedAreas: true,
         scopeItems: true,

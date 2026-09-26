@@ -133,7 +133,15 @@ const DEFAULT_FORM = {
 /* ─── Component ─── */
 
 export default function QuotePage() {
-  const { treatment: gstTreatment } = useOrganizationGst();
+  const {
+    treatment: gstTreatment,
+    ready: gstReady,
+    failed: gstFailed,
+  } = useOrganizationGst();
+  // RA-7743: the quote's own GST comes from /api/calculate, but the invoice
+  // draft is built with this client-side rate, which starts at the AU default.
+  // No draft until the tenant's own treatment is known.
+  const gstKnown = gstReady && !gstFailed;
   const router = useRouter();
   const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -240,7 +248,7 @@ export default function QuotePage() {
   };
 
   const handleCreateInvoiceDraft = async () => {
-    if (!quoteResult) return;
+    if (!quoteResult || !gstKnown) return;
     setInvoiceError(null);
     const fail = (message: string) => {
       setInvoiceError(message);
@@ -634,7 +642,9 @@ export default function QuotePage() {
               <button
                 type="button"
                 onClick={handleCreateInvoiceDraft}
-                disabled={savingInvoice || hasCriticalSafetyConflict}
+                disabled={
+                  savingInvoice || hasCriticalSafetyConflict || !gstKnown
+                }
                 title={
                   hasCriticalSafetyConflict
                     ? "Resolve the safety conflict above before creating an invoice from this quote."
@@ -659,6 +669,16 @@ export default function QuotePage() {
               </button>
             </div>
           </div>
+          {gstFailed && (
+            <div
+              role="alert"
+              className="print:hidden rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-950/30 dark:text-red-200"
+            >
+              We couldn&apos;t load your GST settings, so an invoice draft
+              can&apos;t be created from this quote. Reload the page to try
+              again.
+            </div>
+          )}
           {invoiceError && (
             <div
               role="alert"

@@ -24,6 +24,11 @@ import {
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  formatEnvironmentalValue,
+  latestEnvironmentalReading,
+  type EnvironmentalReading,
+} from "@/lib/inspections/latest-environmental-reading";
 
 interface Inspection {
   id: string;
@@ -37,10 +42,8 @@ interface Inspection {
   processedAt: string | null;
   moistureReadings: { id: string }[];
   affectedAreas: { id: string }[];
-  environmentalData: {
-    ambientTemperature: number;
-    humidityLevel: number;
-  } | null;
+  // RA-7744: GET /api/inspections returns a LIST of readings.
+  environmentalData: EnvironmentalReading[] | EnvironmentalReading | null;
   classifications: { category: string; class: string }[];
   photos: { id: string }[];
 }
@@ -529,13 +532,22 @@ export default function InspectionsPage() {
                       <Camera size={12} />
                       {insp.photos?.length || 0} photos
                     </span>
-                    {insp.environmentalData && (
-                      <span className="flex items-center gap-1">
-                        <Thermometer size={12} />
-                        {insp.environmentalData.ambientTemperature}°C /{" "}
-                        {insp.environmentalData.humidityLevel}%
-                      </span>
-                    )}
+                    {(() => {
+                      const env = latestEnvironmentalReading(
+                        insp.environmentalData,
+                      );
+                      if (!env) return null;
+                      return (
+                        <span className="flex items-center gap-1">
+                          <Thermometer size={12} />
+                          {formatEnvironmentalValue(
+                            env.ambientTemperature,
+                            "°C",
+                          )}{" "}
+                          / {formatEnvironmentalValue(env.humidityLevel, "%")}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div

@@ -248,4 +248,31 @@ describe("POST /api/integrations/oauth/[provider]/clients", () => {
       address: "9 New Rd",
     });
   });
+
+  it("answers 422, success: false when every client fails to import (RA-7663)", async () => {
+    externalClientFindMany.mockResolvedValue([
+      {
+        id: "ext_9",
+        externalId: "xero-9",
+        name: "Rejected Client",
+        email: "rejected@example.com",
+        phone: null,
+        address: null,
+        contactId: null,
+      },
+    ]);
+    clientUpsert.mockRejectedValue(new Error("rejected by the database"));
+
+    const response = await POST(
+      postRequest({ clientIds: ["xero-9"] }),
+      routeContext(),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.success).toBe(false);
+    expect(body.imported).toBe(0);
+    expect(body.failed).toBe(1);
+    expect(body.errors).toEqual([{ id: "xero-9", error: expect.any(String) }]);
+  });
 });

@@ -7,6 +7,7 @@ import {
   insurerTokenExpiresAt,
 } from "@/lib/portal-token";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 
 /**
  * POST /api/reports/[id]/share-link  (RA-1460)
@@ -33,8 +34,19 @@ export async function POST(
 
     const { id } = await params;
 
+    // RA-7641 / D-023: minting a share link is a read. Anyone who can read the
+    // report in the business may share it; reach is merged with AND.
+    const reach = await resolveReportReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     const report = await prisma.report.findFirst({
-      where: { id, userId: session.user.id },
+      where: { AND: [{ id }, reach.data] },
       select: { id: true, reportNumber: true, propertyAddress: true },
     });
 

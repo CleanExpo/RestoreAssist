@@ -177,3 +177,53 @@ export function collectViewerComplianceProse(source: {
   }
   return parts.join("\n");
 }
+
+export interface JurisdictionLawLabels {
+  /** Work health and safety law, as a short in-sentence label. */
+  safety: string;
+  /** Building code, as a short in-sentence label. */
+  buildingCode: string;
+  /** "IICRC S500, S520, <safety>, <building code>, and AS/NZS 3000". */
+  standardsList: string;
+}
+
+/**
+ * RA-7625: short law labels for the report screens' progress notes and the
+ * default report instructions, which are sent into report generation. Every
+ * one of those strings used to name WHS Regulations 2011 and the NCC for
+ * every job, New Zealand included.
+ *
+ * `jurisdiction` must come from generation's own resolver, computed on the
+ * server: `enhancedReportJurisdiction(resolveEnhancedReportStateInfo(...))`
+ * in lib/services/ai/generate-enhanced-report.ts, fed the report address and
+ * postcode, the inspection country and postcode, and the organisation
+ * country. The report GET route and the inspection report-prefill route
+ * return it as `lawJurisdiction`. Do not re-derive it from
+ * Inspection.propertyCountry alone: that column defaults to "AU", so it
+ * hides a recorded New Zealand organisation (RA-7599).
+ *
+ * "unknown" names no statute, matching generation, which fails closed rather
+ * than invent an Australian one. AS/NZS 3000 is a joint AU/NZ standard, so
+ * it stays in every case.
+ */
+export function jurisdictionLawLabels(
+  jurisdiction: string | null | undefined,
+): JurisdictionLawLabels {
+  const safety =
+    jurisdiction === "NZ"
+      ? "HSWA 2015 (WorkSafe NZ)"
+      : jurisdiction === "AU"
+        ? "WHS Regulations 2011"
+        : "the applicable work health and safety legislation";
+  const buildingCode =
+    jurisdiction === "NZ"
+      ? "NZ Building Code"
+      : jurisdiction === "AU"
+        ? "NCC"
+        : "the applicable building code";
+  return {
+    safety,
+    buildingCode,
+    standardsList: `IICRC S500, S520, ${safety}, ${buildingCode}, and AS/NZS 3000`,
+  };
+}

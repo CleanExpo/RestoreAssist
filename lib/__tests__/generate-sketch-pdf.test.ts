@@ -429,6 +429,66 @@ describe("generateSketchPdf — the annex's drying plan is mould-gated (RA-7005)
   });
 });
 
+describe("generateSketchPdf — raise-only ACM latches reach the annex (RA-7640)", () => {
+  const MATERIALS = [
+    ...ANNEX_MATERIALS,
+    { slug: "timber-framing", name: "Timber framing", isPotentialAcm: false },
+  ];
+  const floorWith = (extra: Record<string, unknown>) => [
+    {
+      label: "Ground",
+      pngDataUrl: PNG_1PX,
+      fabricJson: {
+        objects: [
+          {
+            ...ANNEX_FABRIC.objects[0],
+            data: {
+              type: "room",
+              material: "timber-framing",
+              label: "Laundry",
+              provenance: "operator_measured",
+              ...extra,
+            },
+          },
+        ],
+      },
+    },
+  ];
+  const BLOCKED = "Strip-out / demolition blocked until a WHS pathway is recorded for: Laundry";
+
+  it("flags a voice-latched room whose material is now non-ACM", async () => {
+    const text = await pdfText(
+      await generateSketchPdf({
+        floors: floorWith({ voiceRaisedAcm: true }),
+        materials: MATERIALS,
+      }),
+    );
+    expect(text).toContain("[SUSPECTED ACM]");
+    expect(text).toContain(BLOCKED);
+  });
+
+  it("flags the room when photo AI raised the job-wide latch", async () => {
+    const text = await pdfText(
+      await generateSketchPdf({
+        floors: floorWith({}),
+        materials: MATERIALS,
+        aiRaisedAcm: true,
+      }),
+    );
+    expect(text).toContain("[SUSPECTED ACM]");
+    expect(text).toContain(BLOCKED);
+  });
+
+  it("prints no flag for a non-ACM room with neither latch", async () => {
+    const text = await pdfText(
+      await generateSketchPdf({ floors: floorWith({}), materials: MATERIALS }),
+    );
+    expect(text).toContain("Compliance Annex");
+    expect(text).not.toContain("[SUSPECTED ACM]");
+    expect(text).not.toContain("Strip-out / demolition blocked");
+  });
+});
+
 describe("generateSketchPdf — image insert + report embed (RA-7547)", () => {
   it("embeds the floor PNG at its native size, not a blank/cropped substitute", async () => {
     const bytes = await generateSketchPdf({
