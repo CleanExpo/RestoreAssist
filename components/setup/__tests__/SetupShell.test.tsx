@@ -189,6 +189,18 @@ describe("SetupShell — one-step wizard wiring", () => {
 
     es.onmessage?.({ data: JSON.stringify([{ kind: "ABR", status: "ERROR" }]) });
     expect(storeState.setSectionStatus).toHaveBeenCalledWith("businessDetails", "error");
+    // Not every job has finished, so the watch stays open.
+    expect(es.closed).toBe(false);
+
+    es.onmessage?.({
+      data: JSON.stringify([
+        { kind: "ABR", status: "ERROR" },
+        { kind: "PRICING", status: "READY" },
+        { kind: "WEBSITE", status: "MANUAL" },
+      ]),
+    });
+    // All three terminal: close, so the browser does not reconnect.
+    expect(es.closed).toBe(true);
   });
 
   it("restores a completed New Zealand business step without an ABR hydration job", async () => {

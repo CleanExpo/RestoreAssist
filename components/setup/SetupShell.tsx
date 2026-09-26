@@ -112,6 +112,11 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
         for (const job of jobs) {
           setSectionStatus(jobKindToSectionKey(job.kind), jobStatusToHydrationState(job.status));
         }
+        // The server ends the stream once all three jobs are terminal; close
+        // here too, or EventSource reconnects for the rest of the wizard.
+        if (jobs.length === 3 && jobs.every((j) => j.status === 'READY' || j.status === 'ERROR' || j.status === 'MANUAL')) {
+          es.close();
+        }
         // Re-fetch the canonical Organization snapshot whenever a job hits READY
         if (jobs.some((j) => j.status === 'READY')) {
           fetch('/api/setup/state')
