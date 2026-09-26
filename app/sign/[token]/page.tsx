@@ -14,6 +14,7 @@ import {
   Shield,
 } from "lucide-react";
 import { SignatureCanvas } from "@/components/authority-forms/SignatureCanvas";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface SignatoryInfo {
   id: string;
@@ -77,7 +78,9 @@ export default function PublicSigningPage() {
           if (data.error === "already_signed") {
             setPageState("already_signed");
           } else {
-            setErrorMessage(data.error || "Failed to load form");
+            // The API sends { error: { code, message } }; rendering that object
+            // crashed the page to "Application Error" (prelaunch J-12).
+            setErrorMessage(apiErrorMessage(data) ?? "Failed to load form");
             setPageState("error");
           }
           return;
@@ -114,7 +117,7 @@ export default function PublicSigningPage() {
         setPageState("success");
       } else {
         const data = await res.json().catch(() => ({}));
-        setErrorMessage(data.error || "Failed to submit signature");
+        setErrorMessage(apiErrorMessage(data) ?? "Failed to submit signature");
         setPageState("error");
       }
     } catch {
