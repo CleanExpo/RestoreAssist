@@ -10,6 +10,14 @@ describe("formatInviteExpiry (J-13)", () => {
     expect(formatInviteExpiry(at(7 * DAY - 5000), NOW)).toBe("Expires in 7 days");
     expect(formatInviteExpiry(at(DAY), NOW)).toBe("Expires in 1 day");
     expect(formatInviteExpiry(at(2 * 60 * 60 * 1000), NOW)).toBe("Expires in under a day");
+    expect(formatInviteExpiry(at(DAY / 2), NOW)).toBe("Expires in under a day");
+    expect(formatInviteExpiry(at(DAY - 60 * 1000), NOW)).toBe("Expires in under a day");
+  });
+
+  it("never prints NaN for a missing or malformed date", () => {
+    for (const bad of ["not-a-date", "", "undefined"]) {
+      expect(formatInviteExpiry(bad, NOW)).toBe("Expiry unknown");
+    }
   });
 
   it("says expired, not 'Expires … ago', once the date has passed", () => {
