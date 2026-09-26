@@ -38,6 +38,7 @@ describe.skipIf(!process.env.DATABASE_URL)(
     const inviteeEmail = `invite-concurrent-${runId}@test.local`;
     let userId = "";
     let organizationId = "";
+    let workspaceId = "";
 
     beforeAll(async () => {
       const user = await prisma.user.create({
@@ -56,6 +57,19 @@ describe.skipIf(!process.env.DATABASE_URL)(
         where: { id: user.id },
         data: { organizationId: organization.id },
       });
+      // J-09: technician invites need purchased seats (0 are included).
+      const workspace = await prisma.workspace.create({
+        data: {
+          name: `Invite concurrency ${runId}`,
+          slug: `invite-concurrency-${runId}`,
+          ownerId: user.id,
+          status: "READY",
+        },
+      });
+      workspaceId = workspace.id;
+      await prisma.featureEntitlement.create({
+        data: { workspaceId, sku: "TECHNICIAN_SEATS", active: true, seats: 10 },
+      });
       getServerSession.mockResolvedValue({
         user: { id: user.id, email: user.email, role: "ADMIN" },
       });
@@ -66,6 +80,9 @@ describe.skipIf(!process.env.DATABASE_URL)(
     });
 
     afterAll(async () => {
+      if (workspaceId) {
+        await prisma.workspace.delete({ where: { id: workspaceId } }).catch(() => {});
+      }
       if (organizationId) {
         await prisma.userInvite.deleteMany({ where: { organizationId } });
         await prisma.organization

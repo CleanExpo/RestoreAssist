@@ -26,6 +26,7 @@ interface CatalogAddon {
 interface CatalogResponse {
   addons: CatalogAddon[];
   owned: string[];
+  technicianSeats?: { purchased: number; used: number } | null;
 }
 
 /** Geometric category cues — matches help/dashboard mark language; no icon libs. */
@@ -86,6 +87,10 @@ function PackPrice({ addon }: { addon: CatalogAddon }) {
 export default function AddonsClient() {
   const [addons, setAddons] = useState<CatalogAddon[]>([]);
   const [owned, setOwned] = useState<Set<string>>(new Set());
+  const [technicianSeats, setTechnicianSeats] = useState<
+    CatalogResponse["technicianSeats"]
+  >(null);
+  const [seatNotice, setSeatNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
@@ -98,6 +103,7 @@ export default function AddonsClient() {
         if (!active) return;
         setAddons(data.addons ?? []);
         setOwned(new Set(data.owned ?? []));
+        setTechnicianSeats(data.technicianSeats ?? null);
       })
       .catch(() => active && setError(true))
       .finally(() => active && setLoading(false));
@@ -111,13 +117,32 @@ export default function AddonsClient() {
     try {
       const res = await fetch("/api/addons/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // One key per click: a retried request replays, never buys twice.
+          "Idempotency-Key": crypto.randomUUID(),
+        },
         body: JSON.stringify({ addonKey: sku }),
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.url) {
         window.location.href = data.url;
         return;
+      }
+      // J-09: an extra seat on an active seat pack is added to the existing
+      // subscription in place; there is no checkout page to visit.
+      if (res.ok && data?.updated && typeof data.seats === "number") {
+        setTechnicianSeats((prev) => ({
+          purchased: data.seats,
+          used: prev?.used ?? 0,
+        }));
+        setSeatNotice(
+          `Seat added. You now have ${data.seats} field technician seat${data.seats === 1 ? "" : "s"}.`,
+        );
+      } else {
+        setSeatNotice(
+          data?.error?.message ?? "Couldn't add the seat. Please try again.",
+        );
       }
       setBuying(null);
     } catch {
@@ -164,6 +189,7 @@ export default function AddonsClient() {
         <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
           {addons.map((addon) => {
             const isOwned = owned.has(addon.sku);
+            const seats = addon.perSeat ? technicianSeats : null;
             return (
               <Card
                 key={addon.sku}
@@ -202,12 +228,25 @@ export default function AddonsClient() {
                 </CardHeader>
                 <CardContent className="mt-auto space-y-1 px-5 pb-4">
                   <PackPrice addon={addon} />
+                  {seats ? (
+                    <p className="text-sm font-medium text-brand-navy dark:text-foreground">
+                      {seats.used} of {seats.purchased} seat{seats.purchased === 1 ? "" : "s"} in use
+                    </p>
+                  ) : null}
                   <p className="text-xs text-muted-foreground">
                     AUD · GST inclusive
                   </p>
                 </CardContent>
                 <CardFooter className="border-t border-border bg-muted/20 px-5 py-4 dark:bg-muted/10">
-                  {isOwned ? (
+                  {isOwned && addon.perSeat ? (
+                    <Button
+                      className="w-full bg-brand-navy text-white hover:bg-brand-navy-hover focus-visible:ring-brand-bronze"
+                      onClick={() => handleAdd(addon.sku)}
+                      disabled={buying === addon.sku}
+                    >
+                      {buying === addon.sku ? "Adding…" : "Add a seat"}
+                    </Button>
+                  ) : isOwned ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -231,6 +270,12 @@ export default function AddonsClient() {
           })}
         </div>
       )}
+
+      {seatNotice ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {seatNotice}
+        </p>
+      ) : null}
 
       <p className="border-t border-border pt-4 text-xs text-muted-foreground">
         Prices are GST-inclusive (AUD). Each pack is a separate subscription you

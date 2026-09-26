@@ -102,4 +102,31 @@ describe("AddonsClient", () => {
       expect(screen.getByRole("alert")).toBeInTheDocument(),
     );
   });
+
+  it("J-09: an active seat pack shows seats in use and adds a seat in place", async () => {
+    const seatCatalog = {
+      ...catalog,
+      owned: ["TECHNICIAN_SEATS"],
+      technicianSeats: { purchased: 2, used: 1 },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => seatCatalog })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ updated: true, seats: 3 }) });
+    vi.stubGlobal("fetch", fetchMock as never);
+
+    render(<AddonsClient />);
+    await waitFor(() => expect(screen.getByText("1 of 2 seats in use")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /add a seat/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("You now have 3 field technician seats"),
+    );
+    expect(screen.getByText("1 of 3 seats in use")).toBeInTheDocument();
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(url).toBe("/api/addons/checkout");
+    expect(JSON.parse(init.body)).toEqual({ addonKey: "TECHNICIAN_SEATS" });
+    expect(init.headers["Idempotency-Key"]).toEqual(expect.any(String));
+  });
 });

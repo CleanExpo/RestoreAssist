@@ -17,6 +17,7 @@ import { prisma } from "@/lib/prisma";
 import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { apiError, fromException } from "@/lib/api-errors";
+import { technicianSeatUsage } from "@/lib/billing/technician-seats";
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,7 +55,17 @@ export async function GET(req: NextRequest) {
       owned = entitlements.map((e) => e.sku);
     }
 
-    return NextResponse.json({ addons, owned });
+    // J-09: seats in use vs purchased, so the seat card can say how many are
+    // left and offer another seat once the pack is active.
+    const caller = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true },
+    });
+    const technicianSeats = caller?.organizationId
+      ? await technicianSeatUsage(prisma, caller.organizationId)
+      : null;
+
+    return NextResponse.json({ addons, owned, technicianSeats });
   } catch (error) {
     return fromException(req, error, { stage: "catalog" });
   }

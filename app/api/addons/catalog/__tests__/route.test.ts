@@ -3,7 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { featureEntitlement: { findMany: vi.fn() } },
+  prisma: {
+    featureEntitlement: { findMany: vi.fn() },
+    user: { findUnique: vi.fn().mockResolvedValue({ organizationId: "org1" }) },
+  },
+}));
+vi.mock("@/lib/billing/technician-seats", () => ({
+  technicianSeatUsage: vi.fn().mockResolvedValue({ purchased: 2, used: 1 }),
 }));
 vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: vi.fn(),
@@ -54,6 +60,8 @@ describe("GET /api/addons/catalog", () => {
       expect(a.currency).toBeTruthy();
     }
     expect(json.owned).toEqual(["VOICE"]);
+    // J-09: seats in use vs purchased for the caller's organisation.
+    expect(json.technicianSeats).toEqual({ purchased: 2, used: 1 });
 
     // The entitlement query is workspace-scoped, active-only, and bounded (rule 3).
     expect(mockFindMany).toHaveBeenCalledWith(

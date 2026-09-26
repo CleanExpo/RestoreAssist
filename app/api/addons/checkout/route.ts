@@ -5,7 +5,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { withIdempotency } from "@/lib/idempotency";
+import { getIdempotencyKey, withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { getAppUrl } from "@/lib/app-url";
@@ -174,6 +174,84 @@ export async function POST(request: NextRequest) {
             });
           }
           quantity = requested;
+        }
+
+        // J-09: one seat subscription per business. The entitlement row holds
+        // a single subscription id and seat count, so a second checkout would
+        // bill both subscriptions while the row kept only the newer quantity.
+        // When seats are already active, raise that subscription's quantity
+        // instead; Stripe prorates the difference on the existing card.
+        if (recurringAddon.perSeat) {
+          const existingSeats = await prisma.featureEntitlement.findUnique({
+            where: {
+              workspaceId_sku: {
+                workspaceId: workspace.id,
+                sku: recurringAddon.sku,
+              },
+            },
+            select: { active: true, stripeSubscriptionId: true },
+          });
+          if (existingSeats?.stripeSubscriptionId) {
+            try {
+              const seatSubscription = await stripe.subscriptions.retrieve(
+                existingSeats.stripeSubscriptionId,
+              );
+              // Decide on Stripe's status, not the row: the row can lag a
+              // webhook, and past_due marks it inactive while Stripe still
+              // bills. Only a finished subscription may be replaced by a new
+              // Checkout; one that can still charge must be settled first, or
+              // the business would pay for two seat subscriptions again.
+              const live =
+                seatSubscription.status === "active" ||
+                seatSubscription.status === "trialing";
+              const finished =
+                seatSubscription.status === "canceled" ||
+                seatSubscription.status === "incomplete_expired";
+              if (!live && !finished) {
+                return apiError(request, {
+                  code: "PAYMENT_REQUIRED",
+                  message:
+                    "Your technician seat subscription has an unpaid invoice. Update your payment details in Subscription settings, then add seats.",
+                  status: 402,
+                });
+              }
+              const item = seatSubscription.items.data[0];
+              if (live && !item)
+                throw new Error("Seat subscription has no line item");
+              if (live && item) {
+                const seats = (item.quantity ?? 0) + quantity;
+                const requestKey = getIdempotencyKey(request);
+                await stripe.subscriptions.update(
+                  seatSubscription.id,
+                  {
+                    items: [{ id: item.id, quantity: seats }],
+                    proration_behavior: "create_prorations",
+                  },
+                  requestKey.ok && requestKey.key
+                    ? {
+                        idempotencyKey: `addon-seats:${userId}:${requestKey.key}`,
+                      }
+                    : undefined,
+                );
+                // The customer.subscription.updated webhook writes the same count;
+                // write it now so the new seat is usable without waiting for it.
+                await prisma.featureEntitlement.update({
+                  where: {
+                    workspaceId_sku: {
+                      workspaceId: workspace.id,
+                      sku: recurringAddon.sku,
+                    },
+                  },
+                  data: { seats },
+                });
+                return NextResponse.json({ updated: true, seats });
+              }
+            } catch (stripeError) {
+              return fromException(request, stripeError, {
+                stage: "stripe-seat-quantity-update",
+              });
+            }
+          }
         }
 
         try {

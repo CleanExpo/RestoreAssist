@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  assertTechnicianSeatAvailable,
+  TechnicianSeatLimitReached,
+  TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+} from "@/lib/billing/technician-seats";
 
 function canRemoveMember(role?: string) {
   return role === "ADMIN";
@@ -105,19 +110,25 @@ export async function PATCH(
       });
     }
 
-    // Update the role
-    const updatedUser = await prisma.user.update({
-      // RA-6800: re-assert same-org boundary atomically in the write.
-      where: { id: memberId, organizationId: currentUser.organizationId },
-      data: { role },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        organizationId: true,
-        createdAt: true,
-      },
+    // Update the role. J-09: switching someone to technician takes a seat.
+    const organizationId = currentUser.organizationId;
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      if (role === "USER" && memberToUpdate.role !== "USER") {
+        await assertTechnicianSeatAvailable(tx, organizationId);
+      }
+      return tx.user.update({
+        // RA-6800: re-assert same-org boundary atomically in the write.
+        where: { id: memberId, organizationId },
+        data: { role },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          organizationId: true,
+          createdAt: true,
+        },
+      });
     });
 
     return NextResponse.json({
@@ -125,6 +136,13 @@ export async function PATCH(
       user: updatedUser,
     });
   } catch (error: any) {
+    if (error instanceof TechnicianSeatLimitReached) {
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message: TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+        status: 402,
+      });
+    }
     console.error("[TEAM] Error changing member role:", error);
     return fromException(request, error, { stage: "change-role" });
   }

@@ -8,6 +8,11 @@ import { validateCsrf } from "@/lib/csrf";
 import { sendInviteEmail } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  assertTechnicianSeatAvailable,
+  TechnicianSeatLimitReached,
+  TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+} from "@/lib/billing/technician-seats";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
 import { getIdempotencyKey, withIdempotency } from "@/lib/idempotency";
 import { deliverEmailOnce, EmailDeliveryPending } from "@/lib/email-delivery-ledger";
@@ -249,6 +254,9 @@ export async function POST(req: NextRequest) {
       // failed audit write must not leave a silently changed membership.
       const membershipResult = await prisma
         .$transaction(async (tx) => {
+          if (role === "USER" && existingUser.role !== "USER") {
+            await assertTechnicianSeatAvailable(tx, orgId);
+          }
           const updatedUser = await tx.user.update({
             where: {
               id: existingUser.id,
@@ -275,6 +283,13 @@ export async function POST(req: NextRequest) {
         .catch((error: unknown) => ({ ok: false as const, error }));
       if (!membershipResult.ok) {
         const error = membershipResult.error;
+        if (error instanceof TechnicianSeatLimitReached) {
+          return apiError(req, {
+            code: "PAYMENT_REQUIRED",
+            message: TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+            status: 402,
+          });
+        }
         if (
           typeof error === "object" &&
           error !== null &&
@@ -413,6 +428,7 @@ export async function POST(req: NextRequest) {
           select: { id: true },
         });
         if (activeInvite) throw new ActiveInviteConflict();
+        if (role === "USER") await assertTechnicianSeatAvailable(tx, orgId);
         return tx.userInvite.create({
           data: {
             token,
@@ -487,6 +503,13 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: any) {
+    if (error instanceof TechnicianSeatLimitReached) {
+      return apiError(req, {
+        code: "PAYMENT_REQUIRED",
+        message: TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+        status: 402,
+      });
+    }
     if (error instanceof ActiveInviteConflict) {
       return apiError(req, {
         code: "CONFLICT",
