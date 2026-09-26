@@ -398,6 +398,49 @@ export async function resolveReportReach(
 }
 
 /**
+ * Whether the caller may link a client, report or estimate named by id in a
+ * request body.
+ *
+ * A body id is chosen by the caller. Storing it unchecked let one business
+ * attach another business's client to its own invoice and then read that
+ * client's name and email back through the invoice (prelaunch audit D-021).
+ * The reach required is the one the caller would need to read the record
+ * directly, so linking can never expose more than a direct read would. An
+ * estimate has no workspace relation of its own; it is reached through its
+ * report.
+ */
+export async function canLinkRecord(
+  session: SessionLike | null,
+  kind: "client" | "report" | "estimate",
+  id: unknown,
+): Promise<boolean> {
+  if (typeof id !== "string" || id.length === 0) return false;
+  if (kind === "client") {
+    const reach = await resolveClientReach(session);
+    if (!reach.ok) return false;
+    const row = await prisma.client.findFirst({
+      where: { AND: [{ id }, reach.data] },
+      select: { id: true },
+    });
+    return row !== null;
+  }
+  const reach = await resolveReportReach(session);
+  if (!reach.ok) return false;
+  if (kind === "report") {
+    const row = await prisma.report.findFirst({
+      where: { AND: [{ id }, reach.data] },
+      select: { id: true },
+    });
+    return row !== null;
+  }
+  const row = await prisma.estimate.findFirst({
+    where: { id, report: reach.data },
+    select: { id: true },
+  });
+  return row !== null;
+}
+
+/**
  * RA-6800: resolve ownership-scoped `where` fragments for WRITING to an
  * inspection or its child records. Verifies access using the same model as
  * `assertInspectionTenancy` (direct owner OR active workspace member, widened

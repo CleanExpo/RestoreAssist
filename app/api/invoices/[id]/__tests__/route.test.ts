@@ -14,6 +14,8 @@ vi.mock("@/lib/prisma", () => ({
     invoice: { findUnique: vi.fn() },
     $transaction: vi.fn(async (cb: any) =>
       cb({
+        // D-025 row lock; its effect is proven in the DB integration test.
+        $queryRaw: vi.fn().mockResolvedValue([]),
         invoiceLineItem: { deleteMany: txLineItemDeleteMany },
         invoice: { update: txInvoiceUpdate },
         invoiceAuditLog: { create: txAuditCreate },

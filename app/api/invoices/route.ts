@@ -8,7 +8,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
-import { resolveInvoiceReach } from "@/lib/auth/assert-tenancy";
+import { canLinkRecord, resolveInvoiceReach } from "@/lib/auth/assert-tenancy";
 import { InvoiceStatus } from "@prisma/client";
 import {
   enumEqualityOrIn,
@@ -212,6 +212,22 @@ export async function POST(request: NextRequest) {
         source: bodySource,
       } = body;
       const gstTreatment = await resolveUserGstTreatment(userId);
+
+      // D-021: a linked client, report or estimate is read back through this
+      // invoice, so each id must be one the caller can already read.
+      for (const [kind, id] of [
+        ["client", clientId],
+        ["report", reportId],
+        ["estimate", estimateId],
+      ] as const) {
+        if (id && !(await canLinkRecord(session, kind, id))) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: `${kind[0].toUpperCase()}${kind.slice(1)} not found`,
+            status: 404,
+          });
+        }
+      }
 
       // Validate required fields
       if (!customerName || !customerEmail) {

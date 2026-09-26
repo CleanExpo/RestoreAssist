@@ -45,6 +45,9 @@ import {
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { determineScopeItems } from "@/lib/nir-scope-determination";
 
+// D-030: marks the rows this route writes, the only rows a regenerate replaces.
+const AI_SCOPE_SOURCE = "ai_generate_scope";
+
 function clauseRefForGeneratedTitle(
   title: string,
   determined: ReturnType<typeof determineScopeItems>,
@@ -503,6 +506,7 @@ export async function POST(
                     .slice(0, 50),
                   description: title,
                   autoDetermined: false,
+                  source: AI_SCOPE_SOURCE,
                   justification: iicrcRef ?? "AI-generated per IICRC S500:2021",
                   clauseRef: clauseRefForGeneratedTitle(
                     title,
@@ -520,10 +524,16 @@ export async function POST(
                 ...item,
               }));
 
-              // Atomic: delete stale items and bulk-insert new ones in one transaction
+              // Atomic: delete stale items and bulk-insert new ones in one transaction.
+              // D-030: only rows this generator wrote are stale. A technician's
+              // own items are also autoDetermined:false and must survive.
               await prisma.$transaction(async (tx) => {
                 await tx.scopeItem.deleteMany({
-                  where: { inspectionId, autoDetermined: false },
+                  where: {
+                    inspectionId,
+                    autoDetermined: false,
+                    source: AI_SCOPE_SOURCE,
+                  },
                 });
                 await tx.scopeItem.createMany({ data: newItemsWithIds });
               });

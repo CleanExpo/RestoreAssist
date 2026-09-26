@@ -9,7 +9,7 @@ import { track, isFirstTime } from "@/lib/analytics/track";
 import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 import { parseDate } from "@/lib/parse-date";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveReportReach } from "@/lib/auth/assert-tenancy";
+import { canLinkRecord, resolveReportReach } from "@/lib/auth/assert-tenancy";
 import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
@@ -189,6 +189,20 @@ export async function POST(request: NextRequest) {
             status: 400,
           });
         }
+      }
+
+      // D-005 / D-021: the linked client is read back through the report, so
+      // a body clientId must be one the caller can already read. Checked
+      // before any credit is charged or AI call is made.
+      if (
+        body.clientId &&
+        !(await canLinkRecord(session, "client", body.clientId))
+      ) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Client not found",
+          status: 404,
+        });
       }
 
       // RA-1300 — reject malformed user-supplied dates up-front (400) instead
