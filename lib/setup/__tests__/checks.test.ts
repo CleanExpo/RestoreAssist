@@ -131,11 +131,12 @@ describe.skipIf(!process.env.DATABASE_URL)("runAllChecks", () => {
     });
   });
 
-  it("returns red for ai_generation when routeBasic throws", async () => {
+  // Prelaunch audit J-02: a platform AI outage must not block a tenant's setup.
+  it("returns yellow for ai_generation when routeBasic throws", async () => {
     (routeBasic as any).mockRejectedValueOnce(new Error("gemma down"));
     const results = await runAllChecks(testOrgId);
     const ai = results.find((r) => r.capability === "ai_generation");
-    expect(ai?.status).toBe("red");
+    expect(ai?.status).toBe("yellow");
   });
 
   it("returns yellow for cloud_storage by default (stub — not connected)", async () => {
@@ -186,19 +187,20 @@ describe("welcomeEmailCheck (Mailtrap presence)", () => {
     process.env = ORIGINAL_ENV;
   });
 
-  it("returns red when MAILTRAP_API_KEY is not set", async () => {
+  // Prelaunch audit J-02: welcome_email is optional (see the checks.ts header).
+  it("returns yellow when MAILTRAP_API_KEY is not set", async () => {
     delete process.env.MAILTRAP_API_KEY;
     process.env.SENDER_EMAIL = "support@restoreassist.app";
     const r = await welcomeEmailCheck("any-org");
-    expect(r.status).toBe("red");
+    expect(r.status).toBe("yellow");
     expect(r.note).toMatch(/MAILTRAP_API_KEY\+SENDER_EMAIL/);
   });
 
-  it("returns red when SENDER_EMAIL is not set", async () => {
+  it("returns yellow when SENDER_EMAIL is not set", async () => {
     process.env.MAILTRAP_API_KEY = "mt_test_key";
     delete process.env.SENDER_EMAIL;
     const r = await welcomeEmailCheck("any-org");
-    expect(r.status).toBe("red");
+    expect(r.status).toBe("yellow");
     expect(r.note).toMatch(/MAILTRAP_API_KEY\+SENDER_EMAIL/);
   });
 
