@@ -494,7 +494,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
-// PATCH - Update mutable scalar fields (lossDescription, technicianName)
+// PATCH - Update mutable scalar fields (lossDescription, technicianName, technicianId)
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
@@ -507,6 +507,68 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params;
+    const body = await request.json();
+
+    // J-07 — assign or unassign the job's field technician. This is a
+    // business-level action, not an edit of the job's content: the owner
+    // (ADMIN) or a MANAGER may do it on any job their organisation can see,
+    // and only to a technician of their own organisation. A body id is
+    // caller-chosen, and technicianId decides who sees the job in Field Mode
+    // and who is notified about it.
+    if (body?.technicianId !== undefined) {
+      if (Object.keys(body).length !== 1) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Assign the technician on its own request",
+          status: 400,
+        });
+      }
+      const caller = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true, organizationId: true },
+      });
+      if (!caller || (caller.role !== "ADMIN" && caller.role !== "MANAGER")) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Only an owner or manager can assign a technician",
+          status: 403,
+        });
+      }
+      const readable = await assertInspectionReadable(session, id);
+      if (!readable.ok) {
+        return NextResponse.json(
+          { error: readable.reason },
+          { status: readable.status },
+        );
+      }
+      let technicianId: string | null = null;
+      if (body.technicianId !== null) {
+        const technician =
+          typeof body.technicianId === "string" && caller.organizationId
+            ? await prisma.user.findFirst({
+                where: {
+                  id: body.technicianId,
+                  organizationId: caller.organizationId,
+                  role: "USER",
+                },
+                select: { id: true },
+              })
+            : null;
+        if (!technician) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Choose a technician from your team",
+            status: 400,
+          });
+        }
+        technicianId = technician.id;
+      }
+      await prisma.inspection.update({
+        where: { id: readable.data.id },
+        data: { technicianId },
+      });
+      return NextResponse.json({ success: true });
+    }
 
     // RA-1711 batch 5 — adopt shared tenancy helper. PATCH allows
     // workspace members + admin (techs document the loss in the field).
@@ -519,7 +581,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const body = await request.json();
     const data: Record<string, unknown> = {};
 
     if (body.lossDescription !== undefined) {

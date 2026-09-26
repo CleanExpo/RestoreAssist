@@ -4,6 +4,7 @@ import { useState, useEffect, use, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { AssignTechnician } from "@/components/inspection/AssignTechnician";
 import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 import { cn } from "@/lib/utils";
 import { resolveAreaSqm } from "@/lib/units";
@@ -180,6 +181,7 @@ interface Inspection {
   propertyAddress: string;
   propertyPostcode: string;
   technicianName: string | null;
+  technicianId: string | null;
   status: string;
   createdAt: string;
   submittedAt: string | null;
@@ -1501,6 +1503,15 @@ export default function InspectionDetailPage({
                 <User size={14} />
                 {inspection.technicianName}
               </span>
+            )}
+            {(session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER") && (
+              <AssignTechnician
+                inspectionId={inspection.id}
+                technicianId={inspection.technicianId ?? null}
+                onAssigned={(technicianId) =>
+                  setInspection((prev) => (prev ? { ...prev, technicianId } : prev))
+                }
+              />
             )}
             <span className="flex items-center gap-1">
               <Calendar size={14} />
