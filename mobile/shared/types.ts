@@ -119,7 +119,8 @@ export interface Inspection {
   createdAt: string;
   updatedAt: string;
   // Relations (populated when fetching full detail)
-  environmentalData?: EnvironmentalData | null;
+  // RA-7744: GET /api/inspections/[id] returns a LIST of readings.
+  environmentalData?: EnvironmentalData[] | EnvironmentalData | null;
   moistureReadings?: MoistureReading[];
   affectedAreas?: AffectedArea[];
   scopeItems?: ScopeItem[];

@@ -316,6 +316,11 @@ export default function NIRTechnicianInputForm({
   // (restored on resume or picked). Clearing it afterwards is then sent as an
   // explicit clear; a form that never had one leaves the field out.
   const hadManualChoice = useRef(false);
+  // RA-7744: the temperature/humidity a saved dew point was loaded with.
+  const hydratedDewPointInputs = useRef<{
+    ambientTemperature: number | null;
+    humidityLevel: number | null;
+  } | null>(null);
   useEffect(() => {
     if (manualClassification?.category && manualClassification.class) {
       hadManualChoice.current = true;
@@ -833,6 +838,15 @@ export default function NIRTechnicianInputForm({
             data.inspection.environmentalData,
           );
           if (latestReading) {
+            // RA-7744: a recorded dew point stays as recorded. Remember the
+            // temperature/humidity it was saved with; the calculation below
+            // only runs once the technician changes one of them.
+            if (latestReading.dewPoint != null) {
+              hydratedDewPointInputs.current = {
+                ambientTemperature: latestReading.ambientTemperature,
+                humidityLevel: latestReading.humidityLevel,
+              };
+            }
             setEnvironmentalData((prev) => ({
               ambientTemperature:
                 latestReading.ambientTemperature ?? prev.ambientTemperature,
@@ -1535,6 +1549,17 @@ export default function NIRTechnicianInputForm({
   useEffect(() => {
     const temp = environmentalData.ambientTemperature;
     const humidity = environmentalData.humidityLevel;
+    // RA-7744: do not overwrite a saved dew point on load.
+    const saved = hydratedDewPointInputs.current;
+    if (saved) {
+      if (
+        (saved.ambientTemperature ?? temp) === temp &&
+        (saved.humidityLevel ?? humidity) === humidity
+      ) {
+        return;
+      }
+      hydratedDewPointInputs.current = null;
+    }
     // Simplified dew point calculation (Magnus formula approximation)
     const dewPoint = temp - (100 - humidity) / 5;
     setEnvironmentalData((prev) => ({
