@@ -40,8 +40,8 @@ export default function InspectionReportViewer({
   const [exportingExcel, setExportingExcel] = useState(false);
   const [editing, setEditing] = useState(false);
   const [report, setReport] = useState<any>(null);
-  // RA-7625: same country field report generation reads (RA-7361).
-  const law = jurisdictionLawLabels(report?.inspection?.propertyCountry);
+  // RA-7625: jurisdiction resolved on the server by generation's own rule.
+  const law = jurisdictionLawLabels(report?.lawJurisdiction);
   const [reportContent, setReportContent] = useState<string>("");
   const [visualData, setVisualData] = useState<any>(null);
   const [structuredReportData, setStructuredReportData] = useState<any>(null);

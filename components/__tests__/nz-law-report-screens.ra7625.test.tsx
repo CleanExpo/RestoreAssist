@@ -8,6 +8,11 @@
  * sent into generation, still said "WHS Regulations 2011, NCC" for every job.
  * Each case below has an Australian control, so a check that can never see
  * Australian law cannot pass the New Zealand assertion by accident.
+ *
+ * The jurisdiction arrives from the server as `lawJurisdiction`, resolved by
+ * generation's own rule (see route.law-jurisdiction.test.ts). The NZ cases
+ * keep the inspection's schema-default "AU" to prove the screens do not read
+ * that column: an NZ organisation must not be hidden by it (RA-7599).
  */
 import {
   act,
@@ -43,7 +48,7 @@ import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer";
 import InspectionReportViewer from "@/components/InspectionReportViewer";
 import InitialDataEntryForm from "@/components/InitialDataEntryForm";
 
-type Country = "NZ" | "AU";
+type Jurisdiction = "NZ" | "AU" | "unknown";
 
 const AU_LAW = [/WHS Regulations/, /\bNCC\b/];
 
@@ -55,7 +60,7 @@ function expectNz(text: string) {
   expect(text).not.toMatch(AU_LAW[1]);
 }
 
-let country: Country | null = "NZ";
+let jurisdiction: Jurisdiction = "NZ";
 let entryBodies: Array<Record<string, unknown>> = [];
 
 function jsonResponse(body: unknown) {
@@ -78,7 +83,9 @@ beforeEach(() => {
       if (url === "/api/reports/r1") {
         return jsonResponse({
           id: "r1",
-          inspection: country ? { id: "i1", propertyCountry: country } : null,
+          // Schema default on every case; only lawJurisdiction may decide.
+          inspection: { id: "i1", propertyCountry: "AU" },
+          lawJurisdiction: jurisdiction,
         });
       }
       if (url.includes("/api/user/quick-fill-credits")) {
@@ -124,8 +131,8 @@ async function viewerNote(
 
 describe("report screens name the job's law while generating (RA-7625)", () => {
   for (const which of ["cost", "scope", "inspection"] as const) {
-    it(`${which}: NZ job gets HSWA 2015 and the NZ Building Code`, async () => {
-      country = "NZ";
+    it(`${which}: NZ job (default-AU inspection) gets HSWA 2015 and the NZ Building Code`, async () => {
+      jurisdiction = "NZ";
       const text = await viewerNote(which);
       expectNz(text);
       expect(text).toContain("HSWA 2015 (WorkSafe NZ)");
@@ -134,7 +141,7 @@ describe("report screens name the job's law while generating (RA-7625)", () => {
     });
 
     it(`${which}: AU control still names WHS Regulations 2011 and the NCC`, async () => {
-      country = "AU";
+      jurisdiction = "AU";
       const text = await viewerNote(which);
       expect(text).toContain("WHS Regulations 2011");
       expect(text).toMatch(/\bNCC\b/);
@@ -142,10 +149,13 @@ describe("report screens name the job's law while generating (RA-7625)", () => {
     });
   }
 
-  it("unknown country keeps today's Australian wording", async () => {
-    country = null;
+  it("unknown jurisdiction names no statute, as generation fails closed", async () => {
+    jurisdiction = "unknown";
     const text = await viewerNote("cost");
-    expect(text).toContain("WHS Regulations 2011, NCC, and AS/NZS 3000");
+    expect(text).toContain(
+      "the applicable work health and safety legislation, the applicable building code, and AS/NZS 3000",
+    );
+    expect(text).not.toMatch(/WHS Regulations|\bNCC\b|HSWA|NZ Building Code/);
   });
 });
 
@@ -157,11 +167,12 @@ const USE_CASES = [
   "Flood Damage - Category 3",
 ];
 // Stable references: the form re-seeds itself whenever initialData changes.
-const NZ_JOB = { propertyCountry: "NZ" };
-const AU_JOB = { propertyCountry: "AU" };
+const NZ_JOB = { lawJurisdiction: "NZ" };
+const AU_JOB = { lawJurisdiction: "AU" };
+const UNKNOWN_JOB = { lawJurisdiction: "unknown" };
 
 async function quickFillInstructions(
-  job: { propertyCountry: string },
+  job: { lawJurisdiction: string },
   useCase: string,
 ): Promise<string> {
   const { container, unmount } = render(
@@ -196,4 +207,13 @@ describe("quick-fill report instructions sent to generation (RA-7625)", () => {
       expect(au).not.toContain("HSWA");
     });
   }
+
+  it("unknown jurisdiction sends no statute into generation", async () => {
+    const text = await quickFillInstructions(
+      UNKNOWN_JOB,
+      "Residential Water Damage",
+    );
+    expect(text).toContain("the applicable work health and safety legislation");
+    expect(text).not.toMatch(/WHS Regulations|\bNCC\b|HSWA|NZ Building Code/);
+  });
 });

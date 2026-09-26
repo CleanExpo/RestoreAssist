@@ -27,8 +27,8 @@ export default function CostEstimationViewer({
   const [costDocument, setCostDocument] = useState<string>("");
   const [costData, setCostData] = useState<any>(null);
   const [businessInfo, setBusinessInfo] = useState<any>(null);
-  // RA-7625: same country field report generation reads (RA-7361).
-  const law = jurisdictionLawLabels(report?.inspection?.propertyCountry);
+  // RA-7625: jurisdiction resolved on the server by generation's own rule.
+  const law = jurisdictionLawLabels(report?.lawJurisdiction);
 
   useEffect(() => {
     fetchReport();

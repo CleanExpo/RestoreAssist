@@ -28,8 +28,8 @@ export default function ScopeOfWorksViewer({
   const [scopeDocument, setScopeDocument] = useState<string>("");
   const [scopeData, setScopeData] = useState<any>(null);
   const [businessInfo, setBusinessInfo] = useState<any>(null);
-  // RA-7625: same country field report generation reads (RA-7361).
-  const law = jurisdictionLawLabels(report?.inspection?.propertyCountry);
+  // RA-7625: jurisdiction resolved on the server by generation's own rule.
+  const law = jurisdictionLawLabels(report?.lawJurisdiction);
 
   useEffect(() => {
     fetchReport();
@@ -115,7 +115,11 @@ export default function ScopeOfWorksViewer({
 
           // Also update report state with fresh data
           if (data.report) {
-            setReport(data.report);
+            // RA-7625: keep the GET route's lawJurisdiction for a re-run.
+            setReport((prev: any) => ({
+              ...data.report,
+              lawJurisdiction: prev?.lawJurisdiction,
+            }));
           }
 
           toast.success("Scope of Works generated successfully");

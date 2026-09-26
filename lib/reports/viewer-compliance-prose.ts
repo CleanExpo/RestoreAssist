@@ -193,20 +193,34 @@ export interface JurisdictionLawLabels {
  * one of those strings used to name WHS Regulations 2011 and the NCC for
  * every job, New Zealand included.
  *
- * `country` is Inspection.propertyCountry, the field report generation reads
- * (RA-7361). AS/NZS 3000 is a joint AU/NZ standard, so it stays on both.
+ * `jurisdiction` must come from generation's own resolver, computed on the
+ * server: `enhancedReportJurisdiction(resolveEnhancedReportStateInfo(...))`
+ * in lib/services/ai/generate-enhanced-report.ts, fed the report address and
+ * postcode, the inspection country and postcode, and the organisation
+ * country. The report GET route and the inspection report-prefill route
+ * return it as `lawJurisdiction`. Do not re-derive it from
+ * Inspection.propertyCountry alone: that column defaults to "AU", so it
+ * hides a recorded New Zealand organisation (RA-7599).
  *
- * An unknown country keeps the Australian labels on purpose: that is what
- * these strings said before, and generation resolves a job with no recorded
- * country from its postcode as Australian. Nothing New Zealand is invented
- * for a job that did not say it is in New Zealand.
+ * "unknown" names no statute, matching generation, which fails closed rather
+ * than invent an Australian one. AS/NZS 3000 is a joint AU/NZ standard, so
+ * it stays in every case.
  */
 export function jurisdictionLawLabels(
-  country: string | null | undefined,
+  jurisdiction: string | null | undefined,
 ): JurisdictionLawLabels {
-  const nz = viewerJurisdiction({ state: country }) === "NZ";
-  const safety = nz ? "HSWA 2015 (WorkSafe NZ)" : "WHS Regulations 2011";
-  const buildingCode = nz ? "NZ Building Code" : "NCC";
+  const safety =
+    jurisdiction === "NZ"
+      ? "HSWA 2015 (WorkSafe NZ)"
+      : jurisdiction === "AU"
+        ? "WHS Regulations 2011"
+        : "the applicable work health and safety legislation";
+  const buildingCode =
+    jurisdiction === "NZ"
+      ? "NZ Building Code"
+      : jurisdiction === "AU"
+        ? "NCC"
+        : "the applicable building code";
   return {
     safety,
     buildingCode,

@@ -77,8 +77,9 @@ export default function InitialDataEntryForm({
   const router = useRouter();
   const { data: session } = useSession();
   // RA-7625: the report instructions below are sent into generation, so they
-  // name the law of the job's country (Inspection.propertyCountry).
-  const law = jurisdictionLawLabels(initialData?.propertyCountry);
+  // name the law generation will apply (lawJurisdiction, resolved on the
+  // server by generation's own rule).
+  const law = jurisdictionLawLabels(initialData?.lawJurisdiction);
   const [loading, setLoading] = useState(false);
   // RA-6799: race-safe guard so a create cannot fire twice concurrently
   // (double-click / impatient re-submit) before `reportId` state updates.

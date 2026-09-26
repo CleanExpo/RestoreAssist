@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { parseDate } from "@/lib/parse-date";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  enhancedReportJurisdiction,
+  resolveEnhancedReportStateInfo,
+} from "@/lib/services/ai/generate-enhanced-report";
 
 export async function GET(
   request: NextRequest,
@@ -33,6 +37,8 @@ export async function GET(
           select: {
             name: true,
             email: true,
+            // RA-7625: generation's jurisdiction input (RA-7599).
+            organization: { select: { country: true } },
           },
         },
         client: {
@@ -44,9 +50,8 @@ export async function GET(
           },
         },
         inspection: {
-          // RA-7625: propertyCountry lets the report screens name NZ law on
-          // a New Zealand job, the same field generation reads (RA-7361).
-          select: { id: true, propertyCountry: true },
+          // RA-7625: country and postcode feed lawJurisdiction below.
+          select: { id: true, propertyCountry: true, propertyPostcode: true },
         },
       },
     });
@@ -113,7 +118,20 @@ export async function GET(
         : null,
     };
 
-    return NextResponse.json(parsedReport);
+    // RA-7625: the law the report screens name, resolved with the same
+    // function and inputs report generation uses, so an NZ organisation is
+    // not hidden by an inspection's schema-default "AU".
+    const lawJurisdiction = enhancedReportJurisdiction(
+      resolveEnhancedReportStateInfo({
+        propertyAddress: report.propertyAddress,
+        propertyPostcode: report.propertyPostcode,
+        inspectionCountry: report.inspection?.propertyCountry ?? null,
+        inspectionPostcode: report.inspection?.propertyPostcode ?? null,
+        organisationCountry: report.user?.organization?.country ?? null,
+      }),
+    );
+
+    return NextResponse.json({ ...parsedReport, lawJurisdiction });
   } catch (error) {
     return fromException(request, error, { stage: "get" });
   }

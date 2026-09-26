@@ -12,8 +12,8 @@ export interface InitialDataShape {
   clientContactDetails?: string;
   propertyAddress?: string;
   propertyPostcode?: string;
-  /** RA-7625: Inspection.propertyCountry. Read-only; not submitted. */
-  propertyCountry?: string | null;
+  /** RA-7625: "NZ" | "AU" | "unknown" from the server. Not submitted. */
+  lawJurisdiction?: string | null;
   claimReferenceNumber?: string;
   incidentDate?: string;
   technicianAttendanceDate?: string;
