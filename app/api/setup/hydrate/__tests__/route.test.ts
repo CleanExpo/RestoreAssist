@@ -140,4 +140,33 @@ describe.skipIf(!process.env.DATABASE_URL)('POST /api/setup/hydrate', () => {
     const abr = jobs.find((j) => j.kind === 'ABR');
     expect(abr?.status).toBe('RUNNING');
   });
+
+  // Prelaunch audit J-03: an ABN another business already holds gave a bare 500
+  // ("Request failed") and left the jobs RUNNING, so the business step spun.
+  it('returns 409 with a readable message, and starts nothing, when another business holds the ABN', async () => {
+    // The first business holds the ABN.
+    await prisma.organization.update({ where: { id: testOrgId }, data: { abn: '53004085616' } });
+    const second = await prisma.user.create({ data: { email: `hydrate-2-${Date.now()}@test.com` } });
+    const secondOrg = await prisma.organization.create({
+      data: { name: 'Second Hydrate Co', ownerId: second.id },
+    });
+    try {
+      mockGetServerSession.mockResolvedValue({ user: { id: second.id, email: 'second@test.com' } });
+      const res = await POST(makeReq({ abn: '53 004 085 616', website: 'https://example.com' }));
+      const body = await res.json();
+
+      expect(res.status).toBe(409);
+      expect(body.error).toMatch(/already registered to another RestoreAssist account/);
+      expect(await prisma.hydrationJob.count({ where: { organizationId: secondOrg.id } })).toBe(0);
+      const org = await prisma.organization.findUniqueOrThrow({ where: { id: secondOrg.id } });
+      expect(org.abn).toBeNull();
+      expect(org.setupStartedAt).toBeNull();
+      expect(mockRunAbrJob).not.toHaveBeenCalled();
+      expect(mockRunPricingJob).not.toHaveBeenCalled();
+    } finally {
+      await prisma.hydrationJob.deleteMany({ where: { organizationId: secondOrg.id } });
+      await prisma.organization.delete({ where: { id: secondOrg.id } }).catch(() => {});
+      await prisma.user.delete({ where: { id: second.id } }).catch(() => {});
+    }
+  });
 });

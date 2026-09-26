@@ -7,6 +7,9 @@ import { applyRateLimit } from '@/lib/rate-limiter';
 import { isPublicHttpUrl } from '@/lib/branding/url-validator';
 import { runAbrJob, runWebsiteJob, runPricingJob } from '@/lib/setup/jobs';
 
+const ABN_TAKEN_MESSAGE =
+  'This ABN is already registered to another RestoreAssist account. If it is your business, contact support and we will sort it out.';
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -49,6 +52,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No organization for this user' }, { status: 404 });
   }
 
+  // J-03 (prelaunch audit): Organization.abn is unique across the platform. The
+  // ABN used to be written AFTER the jobs were marked RUNNING, so an ABN another
+  // business holds threw P2002 there: the caller got a bare 500 and the jobs
+  // stayed RUNNING, leaving the business step spinning. Claim the ABN first and
+  // answer 409 with a message the setup card shows as-is.
+  const abnTaken = await prisma.organization.findFirst({
+    where: { abn, NOT: { id: org.id } },
+    select: { id: true },
+  });
+  if (abnTaken) {
+    return NextResponse.json({ error: ABN_TAKEN_MESSAGE }, { status: 409 });
+  }
+  try {
+    // Persist ABN + website + mark setup as started
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: {
+        abn,
+        website: body.website ?? null,
+        setupStartedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    // Another business claimed the same ABN between the check and the write.
+    if ((err as { code?: string })?.code === 'P2002') {
+      return NextResponse.json({ error: ABN_TAKEN_MESSAGE }, { status: 409 });
+    }
+    throw err;
+  }
+
   // WEBSITE job is RUNNING only when a website was provided; otherwise MANUAL (user-driven).
   const websiteInitialStatus: 'RUNNING' | 'MANUAL' = body.website ? 'RUNNING' : 'MANUAL';
   const initialStatuses = {
@@ -68,16 +101,6 @@ export async function POST(req: NextRequest) {
       },
     });
   }
-
-  // Persist ABN + website + mark setup as started
-  await prisma.organization.update({
-    where: { id: org.id },
-    data: {
-      abn,
-      website: body.website ?? null,
-      setupStartedAt: new Date(),
-    },
-  });
 
   // Fire-and-forget — each job writes back to HydrationJob + Organization
   void runAbrJob(org.id, abn).catch((err) => console.error('runAbrJob failed:', err));
