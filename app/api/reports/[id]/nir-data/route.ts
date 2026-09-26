@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 import {
   validateImageUpload,
   type ImageMediaType,
@@ -36,9 +37,17 @@ export async function GET(
 
     const { id } = await params;
 
-    // Verify report belongs to user — use session.user.id directly (no extra DB round-trip)
-    const report = await prisma.report.findUnique({
-      where: { id, userId: session.user.id },
+    // RA-7769 / D-023: reads follow the organisation read reach, as the list does. POST below stays creator-scoped.
+    const reach = await resolveReportReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+    const report = await prisma.report.findFirst({
+      where: { AND: [{ id }, reach.data] },
     });
 
     if (!report) {

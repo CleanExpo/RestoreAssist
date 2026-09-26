@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { parseDate } from "@/lib/parse-date";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   request: NextRequest,
@@ -23,11 +24,19 @@ export async function GET(
 
     const { id } = await params;
 
+    // RA-7769 / D-023: reading a report follows the organisation read reach,
+    // the same as the list. Writes (PUT/DELETE below) stay creator-scoped.
+    const reach = await resolveReportReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     const report = await prisma.report.findFirst({
-      where: {
-        id: id,
-        userId: session.user.id,
-      },
+      where: { AND: [{ id }, reach.data] },
       include: {
         user: {
           select: {

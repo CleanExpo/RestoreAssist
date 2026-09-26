@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateInsurerToken } from "@/lib/portal-token";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 import { REPORT_INSURER_LINK_GENERATED_ACTION } from "@/lib/lifecycle/report-delivery";
 
 /**
@@ -28,8 +29,19 @@ export async function POST(
 
     const { id } = await params;
 
+    // RA-7769 / D-023: minting a read-only insurer link is a read, like
+    // share-link (RA-7641). Anyone who can read the report may share it.
+    const reach = await resolveReportReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     const report = await prisma.report.findFirst({
-      where: { id, userId: session.user.id },
+      where: { AND: [{ id }, reach.data] },
       select: {
         id: true,
         reportNumber: true,

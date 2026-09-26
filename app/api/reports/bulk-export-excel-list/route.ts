@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createZipArchive } from "@/lib/exports/create-zip-archive";
 import { Readable } from "stream";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,12 +38,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // RA-7769 / D-023: reads follow the organisation read reach, as the list does.
+    const reach = await resolveReportReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     // Fetch all selected reports to check which ones have Excel files
     const allReports = await prisma.report.findMany({
-      where: {
-        id: { in: ids },
-        userId: session.user.id,
-      },
+      where: { AND: [{ id: { in: ids } }, reach.data] },
       select: {
         id: true,
         reportNumber: true,

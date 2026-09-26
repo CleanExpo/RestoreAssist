@@ -9,6 +9,7 @@ import {
 import { uploadExcelToCloudinary } from "@/lib/cloudinary";
 import { format } from "date-fns";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   request: NextRequest,
@@ -27,12 +28,20 @@ export async function GET(
 
     const { id } = await params;
 
+    // RA-7769 / D-023: reads follow the organisation read reach, as the list does.
+    // The excelReportUrl write below stays creator-scoped.
+    const reach = await resolveReportReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     // Fetch report with all related data
     const report = await prisma.report.findFirst({
-      where: {
-        id: id,
-        userId: session.user.id,
-      },
+      where: { AND: [{ id }, reach.data] },
       include: {
         user: {
           select: {
@@ -131,8 +140,8 @@ export async function GET(
       );
 
       // Update report with Excel URL
-      await prisma.report.update({
-        where: { id: report.id },
+      await prisma.report.updateMany({
+        where: { id: report.id, userId: session.user.id },
         data: { excelReportUrl: cloudinaryUrl },
       });
     } catch (cloudinaryError) {

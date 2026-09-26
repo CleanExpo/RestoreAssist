@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 import { COMPLETENESS_INSPECTION_INCLUDE } from "@/lib/reports/completeness-inspection-include";
 import {
   computeReportCompletenessSections,
@@ -30,8 +31,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // RA-7769 / D-023: reads follow the organisation read reach, as the list does.
+    const reach = await resolveReportReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     const report = await prisma.report.findFirst({
-      where: { id: reportId, userId: session.user.id },
+      where: { AND: [{ id: reportId }, reach.data] },
       include: {
         client: {
           select: {

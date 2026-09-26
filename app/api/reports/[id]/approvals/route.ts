@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ApprovalType } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   request: NextRequest,
@@ -23,11 +24,18 @@ export async function GET(
 
     const { id } = await params;
 
+    // RA-7769 / D-023: reads follow the organisation read reach, as the list does.
+    const reach = await resolveReportReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     const report = await prisma.report.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+      where: { AND: [{ id }, reach.data] },
     });
 
     if (!report) {
