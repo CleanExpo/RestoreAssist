@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ApprovalType } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveReportReach } from "@/lib/auth/assert-tenancy";
+import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   request: NextRequest,
@@ -24,8 +24,9 @@ export async function GET(
 
     const { id } = await params;
 
-    // RA-7769 / D-023: reads follow the organisation read reach, as the list does.
-    const reach = await resolveReportReach(session);
+    // RA-7769 / D-023: approvals carry amounts, so the organisation widening
+    // stops at MANAGER, as it does for invoices.
+    const reach = await resolveReportFinancialReach(session);
     if (!reach.ok) {
       return apiError(request, {
         code: "UNAUTHORIZED",

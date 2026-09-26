@@ -421,6 +421,15 @@ export async function resolveReportReach(
   >;
 }
 
+/** A report's money (approval amounts): the organisation widening stops at MANAGER, as for invoices. */
+export async function resolveReportFinancialReach(
+  session: SessionLike | null,
+): Promise<TenancyResult<Prisma.ReportWhereInput>> {
+  return resolveReach(session, "read-financial") as Promise<
+    TenancyResult<Prisma.ReportWhereInput>
+  >;
+}
+
 /**
  * Whether the caller may link a client, report or estimate named by id in a
  * request body.

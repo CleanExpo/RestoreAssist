@@ -62,7 +62,7 @@ import { POST as bulkExcelListPOST } from "../bulk-export-excel-list/route";
 
 const S = `ra7769-read-${Date.now().toString(36)}`;
 const SEED_EXCEL_URL = "https://res.cloudinary.com/demo/raw/upload/seed.xlsx";
-const ids = { owner: "", tech: "", outsider: "", report: "" };
+const ids = { owner: "", tech: "", colleague: "", outsider: "", report: "" };
 
 type Call = () => Promise<Response>;
 
@@ -117,15 +117,19 @@ describe.skipIf(!process.env.DATABASE_URL)(
       const outsider = await prisma.user.create({
         data: { email: `${S}-out@test.local`, role: "ADMIN", subscriptionStatus: "TRIAL" },
       });
+      const colleague = await prisma.user.create({
+        data: { email: `${S}-colleague@test.local`, role: "USER", subscriptionStatus: "TRIAL" },
+      });
       ids.owner = owner.id;
       ids.tech = tech.id;
+      ids.colleague = colleague.id;
       ids.outsider = outsider.id;
 
       const org = await prisma.organization.create({
         data: { name: `${S} business`, ownerId: owner.id, country: "AU" },
       });
       await prisma.user.updateMany({
-        where: { id: { in: [owner.id, tech.id] } },
+        where: { id: { in: [owner.id, tech.id, colleague.id] } },
         data: { organizationId: org.id },
       });
       const otherOrg = await prisma.organization.create({
@@ -163,7 +167,7 @@ describe.skipIf(!process.env.DATABASE_URL)(
     });
 
     afterAll(async () => {
-      const users = [ids.owner, ids.tech, ids.outsider].filter(Boolean);
+      const users = [ids.owner, ids.tech, ids.colleague, ids.outsider].filter(Boolean);
       // Audit rows cascade with the inspection.
       await prisma.inspection.deleteMany({ where: { userId: { in: users } } });
       await prisma.report.deleteMany({ where: { userId: { in: users } } });
@@ -185,6 +189,15 @@ describe.skipIf(!process.env.DATABASE_URL)(
         expect(res.status).toBe(route.refused);
       });
     }
+
+    it("a USER colleague reads the report but not its approval amounts", async () => {
+      as(ids.colleague);
+      const detail = await detailGET(new NextRequest(url("")), ctx());
+      expect(detail.status).toBe(200);
+      as(ids.colleague);
+      const approvals = await approvalsGET(new NextRequest(url("/approvals")), ctx());
+      expect(approvals.status).toBe(404);
+    });
 
     it("export-excel by the owner does not overwrite the technician's stored Excel URL", async () => {
       as(ids.owner);
