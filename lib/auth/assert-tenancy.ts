@@ -306,6 +306,30 @@ export async function assertInspectionReadable(
 }
 
 /**
+ * Gate for ADDING new field evidence (a moisture reading, a photo) to an
+ * inspection: the same reach as `assertInspectionReadable`.
+ *
+ * RA-7755 (prelaunch audit J-01). An invited technician joins the
+ * organisation but no workspace, and no create path writes
+ * `Inspection.workspaceId`, so under `assertInspectionTenancy` only the job's
+ * creator and a tenant ADMIN could record anything. Every save from the field
+ * returned 404. Capturing evidence on a colleague's job is the technician's
+ * whole job, so it takes the organisation reach a read already has.
+ *
+ * Deliberately narrow: only for handlers that CREATE rows and never update or
+ * delete an existing one. Editing or deleting a colleague's record stays on
+ * `assertInspectionTenancy`.
+ */
+export async function assertInspectionCapturable(
+  session: SessionLike | null,
+  inspectionId: string,
+): Promise<
+  TenancyResult<{ id: string; userId: string; workspaceId: string | null }>
+> {
+  return assertInspectionReadable(session, inspectionId);
+}
+
+/**
  * The inspection filter for everything the session user can reach, for a
  * lookup that does not start from a known id (a list, or a search by
  * inspection number). Same rules as `assertInspectionTenancy`. `{}` only for

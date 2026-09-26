@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 
 // RA-1136a: Make-Safe compliance gate
 // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
@@ -23,7 +24,13 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 // ── Auth + ownership guard ─────────────────────────────────────────────────
 
-async function authorise(request: NextRequest, inspectionId: string) {
+// RA-7755: GET reads with the organisation read reach; POST and PATCH change
+// rows and keep the owner-only check.
+async function authorise(
+  request: NextRequest,
+  inspectionId: string,
+  intent: "read" | "write" = "write",
+) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return {
@@ -43,10 +50,13 @@ async function authorise(request: NextRequest, inspectionId: string) {
   });
   if (rateLimited) return { error: rateLimited };
 
-  const inspection = await prisma.inspection.findFirst({
-    where: { id: inspectionId, userId: session.user.id },
-    select: { id: true },
-  });
+  const inspection =
+    intent === "read"
+      ? (await assertInspectionReadable(session, inspectionId)).ok
+      : await prisma.inspection.findFirst({
+          where: { id: inspectionId, userId: session.user.id },
+          select: { id: true },
+        });
   if (!inspection) {
     return {
       error: apiError(request, {
@@ -65,7 +75,7 @@ async function authorise(request: NextRequest, inspectionId: string) {
 export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params;
-    const auth = await authorise(request, id);
+    const auth = await authorise(request, id, "read");
     if (auth.error) return auth.error;
 
     const actions = await prisma.makeSafeAction.findMany({

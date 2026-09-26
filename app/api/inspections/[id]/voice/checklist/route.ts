@@ -8,9 +8,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { checkCompletion } from "@/lib/voice/completion-checker";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   req: NextRequest,
@@ -27,24 +27,14 @@ export async function GET(
     }
 
     const { id } = await params;
-    const inspection = await prisma.inspection.findUnique({
-      where: { id },
-      select: { id: true, userId: true },
-    });
-
-    if (!inspection) {
+    // RA-7755: read-only, so the organisation read reach applies. 404 for
+    // both "missing" and "not yours", so ids cannot be enumerated.
+    const access = await assertInspectionReadable(session, id);
+    if (!access.ok) {
       return apiError(req, {
-        code: "NOT_FOUND",
-        message: "Inspection not found",
-        status: 404,
-      });
-    }
-
-    if (inspection.userId !== session.user.id) {
-      return apiError(req, {
-        code: "FORBIDDEN",
-        message: "Forbidden",
-        status: 403,
+        code: access.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+        message: access.status === 401 ? "Unauthorized" : "Inspection not found",
+        status: access.status === 401 ? 401 : 404,
       });
     }
 

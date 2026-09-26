@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { auditInspectionById } from "@/lib/evidence/field-evidence-audit";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -25,7 +25,9 @@ export async function GET(
 
     const { id } = await params;
 
-    const tenancy = await assertInspectionTenancy(session, id);
+    // RA-7755: read-only, so the organisation read reach applies (a colleague's
+    // job is visible to every member of the business).
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },

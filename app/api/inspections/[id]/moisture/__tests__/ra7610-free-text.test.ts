@@ -19,6 +19,17 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: (...args: unknown[]) => applyRateLimit(...args),
 }));
+// RA-7755: the capture gate is proven against a real database in
+// ../../__tests__/technician-field-capture.integration.test.ts. Here it
+// resolves through the existing inspection lookup mock.
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionCapturable: async (_s: unknown, id: string) => {
+    const row = await inspectionFindFirst({ where: { id }, select: { id: true } });
+    return row
+      ? { ok: true, data: { id: row.id, userId: "user_1", workspaceId: null } }
+      : { ok: false, status: 404, reason: "Inspection not found" };
+  },
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: (...a: unknown[]) => inspectionFindFirst(...a) },

@@ -62,6 +62,17 @@ vi.mock("@/lib/rate-limiter", () => ({
 vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: (...a: unknown[]) => mocks.getWorkspaceForUser(...a),
 }));
+// RA-7755: the capture gate is proven against a real database in
+// ./technician-field-capture.integration.test.ts. Here it
+// resolves through the existing inspection lookup mock.
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionCapturable: async (_s: unknown, id: string) => {
+    const row = await mocks.inspectionFindFirst({ where: { id }, select: { id: true } });
+    return row
+      ? { ok: true, data: { id: row.id, userId: "user_1", workspaceId: null } }
+      : { ok: false, status: 404, reason: "Inspection not found" };
+  },
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
@@ -211,7 +222,9 @@ describe.each(ROUTES)(
 
       expect(res.status).toBe(404);
       expect(mocks.inspectionFindFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: "insp_1", userId: "user_1" } }),
+        // Moisture now goes through the capture gate (RA-7755), which looks the
+        // inspection up by id; the other routes still add userId.
+        expect.objectContaining({ where: expect.objectContaining({ id: "insp_1" }) }),
       );
       expect(mocks.clientMutationCreate).not.toHaveBeenCalled();
     });

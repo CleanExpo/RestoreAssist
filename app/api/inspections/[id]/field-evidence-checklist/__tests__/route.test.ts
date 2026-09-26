@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getServerSession = vi.hoisted(() => vi.fn());
-const assertInspectionTenancy = vi.hoisted(() => vi.fn());
+const assertInspectionReadable = vi.hoisted(() => vi.fn());
 const auditInspectionById = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({
@@ -10,7 +10,7 @@ vi.mock("next-auth", () => ({
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: (...a: unknown[]) => assertInspectionTenancy(...a),
+  assertInspectionReadable: (...a: unknown[]) => assertInspectionReadable(...a),
 }));
 vi.mock("@/lib/evidence/field-evidence-audit", () => ({
   auditInspectionById: (...a: unknown[]) => auditInspectionById(...a),
@@ -38,10 +38,10 @@ const sampleChecklist = {
 
 beforeEach(() => {
   getServerSession.mockReset();
-  assertInspectionTenancy.mockReset();
+  assertInspectionReadable.mockReset();
   auditInspectionById.mockReset();
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
-  assertInspectionTenancy.mockResolvedValue({ ok: true, data: { id: "insp_1" } });
+  assertInspectionReadable.mockResolvedValue({ ok: true, data: { id: "insp_1" } });
   auditInspectionById.mockResolvedValue(sampleChecklist);
 });
 
@@ -54,7 +54,7 @@ describe("GET /api/inspections/[id]/field-evidence-checklist", () => {
   });
 
   it("propagates the tenancy check's status when not ok", async () => {
-    assertInspectionTenancy.mockResolvedValueOnce({
+    assertInspectionReadable.mockResolvedValueOnce({
       ok: false,
       status: 404,
       reason: "Inspection not found",
@@ -69,7 +69,7 @@ describe("GET /api/inspections/[id]/field-evidence-checklist", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toEqual(sampleChecklist);
-    expect(assertInspectionTenancy).toHaveBeenCalledWith(
+    expect(assertInspectionReadable).toHaveBeenCalledWith(
       { user: { id: "user_1" } },
       "insp_1",
     );
