@@ -190,13 +190,18 @@ describe.skipIf(!process.env.DATABASE_URL)(
       });
     }
 
-    it("a USER colleague reads the report but not its approval amounts", async () => {
+    it("a USER colleague reads the job but not the report's money", async () => {
       as(ids.colleague);
-      const detail = await detailGET(new NextRequest(url("")), ctx());
-      expect(detail.status).toBe(200);
-      as(ids.colleague);
-      const approvals = await approvalsGET(new NextRequest(url("/approvals")), ctx());
-      expect(approvals.status).toBe(404);
+      expect((await nirDataGET(new NextRequest(url("/nir-data")), ctx())).status).toBe(200);
+      for (const call of [
+        () => approvalsGET(new NextRequest(url("/approvals")), ctx()),
+        () => detailGET(new NextRequest(url("")), ctx()),
+        () => downloadJsonGET(new NextRequest(url("/download-json")), ctx()),
+        () => exportExcelGET(new NextRequest(url("/export-excel")), ctx()),
+      ]) {
+        as(ids.colleague);
+        expect((await call()).status).toBe(404);
+      }
     });
 
     it("export-excel by the owner does not overwrite the technician's stored Excel URL", async () => {

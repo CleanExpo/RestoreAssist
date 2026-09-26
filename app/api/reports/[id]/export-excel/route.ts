@@ -9,7 +9,7 @@ import {
 import { uploadExcelToCloudinary } from "@/lib/cloudinary";
 import { format } from "date-fns";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveReportReach } from "@/lib/auth/assert-tenancy";
+import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   request: NextRequest,
@@ -28,9 +28,11 @@ export async function GET(
 
     const { id } = await params;
 
-    // RA-7769 / D-023: reads follow the organisation read reach, as the list does.
-    // The excelReportUrl write below stays creator-scoped.
-    const reach = await resolveReportReach(session);
+    // RA-7769 / D-023: the export carries costEstimationData (and the estimate
+    // on request), so it follows the financial reach: the organisation
+    // widening stops at MANAGER. The excelReportUrl write below stays
+    // creator-scoped.
+    const reach = await resolveReportFinancialReach(session);
     if (!reach.ok) {
       return apiError(request, {
         code: "UNAUTHORIZED",

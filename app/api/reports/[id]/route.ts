@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { parseDate } from "@/lib/parse-date";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveReportReach } from "@/lib/auth/assert-tenancy";
+import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   request: NextRequest,
@@ -24,9 +24,10 @@ export async function GET(
 
     const { id } = await params;
 
-    // RA-7769 / D-023: reading a report follows the organisation read reach,
-    // the same as the list. Writes (PUT/DELETE below) stay creator-scoped.
-    const reach = await resolveReportReach(session);
+    // RA-7769 / D-023: the detail carries costEstimationData, so it follows the
+    // financial reach: the organisation widening stops at MANAGER. Writes
+    // (PUT/DELETE below) stay creator-scoped.
+    const reach = await resolveReportFinancialReach(session);
     if (!reach.ok) {
       return apiError(request, {
         code: "UNAUTHORIZED",
