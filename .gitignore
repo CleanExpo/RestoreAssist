@@ -135,6 +135,9 @@ videos/*.mp4
 # Remotion rendered videos — hosted on Cloudinary CDN
 public/videos/remotion/*.mp4
 remotion/output/*.mp4
+# tools/remotion/render-showcase.mjs renders to the TOP level of public/videos/
+# (RA-7478). Top level only: shipped help/ and tutorials/ videos stay tracked.
+/public/videos/*.mp4
 
 # Playwright auth state. The suite moved from docs/archive/ to e2e/ (B1-05); the OLD
 # rule is kept deliberately, because a developer who ran the suite before the move still
