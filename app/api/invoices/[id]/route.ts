@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -390,6 +391,13 @@ export async function PUT(
 
       // Update invoice with line items in transaction
       const invoice = await prisma.$transaction(async (tx) => {
+        // D-025: lock the invoice row first. Without it, two concurrent edits
+        // each delete only the lines they can see, both inserts survive, and
+        // the stored totals match just one of them.
+        await tx.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`,
+        );
+
         // Delete existing line items
         await tx.invoiceLineItem.deleteMany({
           where: { invoiceId: id, invoice: { userId: session.user.id } },

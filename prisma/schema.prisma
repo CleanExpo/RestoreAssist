@@ -3057,6 +3057,10 @@ model ScopeItem {
   // System Determination
   autoDetermined Boolean @default(false) // True if system auto-added this
   justification  String? @db.Text // Why this item is required (IICRC/building code reference)
+  // D-030: "ai_generate_scope" on rows written by AI scope generation, which
+  // is the only set a regenerate replaces. Null for every other writer,
+  // including a technician's own items.
+  source         String?
 
   // RA-1142: IICRC / building-code clause citation (e.g. "S500:2021 §7.1")
   clauseRef String? // stops JSON-in-justification hack; unblocks RA-1131 PDF citations
@@ -4734,7 +4738,7 @@ model Invoice {
   id String @id @default(cuid())
 
   // Invoice identification
-  invoiceNumber String        @unique // "RA-2024-0001"
+  invoiceNumber String // "RA-2024-0001"; unique per owner, see @@unique below
   status        InvoiceStatus @default(DRAFT)
 
   // Dates
@@ -4863,6 +4867,10 @@ model Invoice {
   // (NULL values don't collide) are exactly what we want: local-only invoices
   // (no external origin) can still have many rows with both columns NULL.
   @@unique([externalSyncProvider, externalInvoiceId], name: "Invoice_external_sync_uniq")
+  // D-022: numbers come from a per-user sequence (RA-{year}-nnnn), so they are
+  // unique per owner. A platform-wide unique let only the first business each
+  // year create invoices.
+  @@unique([userId, invoiceNumber])
   @@index([userId, invoiceNumber])
   @@index([userId, status])
   @@index([userId, invoiceDate])

@@ -6,6 +6,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
+import { canLinkRecord } from "@/lib/auth/assert-tenancy";
 
 function nextDateFromFrequency(start: Date, frequency: string): Date {
   const d = new Date(start);
@@ -115,6 +116,16 @@ export async function POST(request: NextRequest) {
           message:
             "templateName, customerName, customerEmail, frequency, and startDate are required",
           status: 422,
+        });
+      }
+
+      // D-021: the template's client is read back through GET, so the id must
+      // be one the caller can already read.
+      if (clientId && !(await canLinkRecord(session, "client", clientId))) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Client not found",
+          status: 404,
         });
       }
 
