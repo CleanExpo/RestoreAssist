@@ -11,6 +11,7 @@ import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 import { crossReferenceEvidencePhotos } from "@/lib/reports/evidence-map";
 import {
@@ -49,11 +50,17 @@ export async function GET(
     }
 
     // Mode 2: authenticated session
+    // RA-7769 / D-023: the PDF prints the Estimated Total Cost, so session
+    // access follows the financial reach: the organisation widening stops at
+    // MANAGER.
     if (!authorised && session?.user?.id) {
-      const owns = await prisma.report.findFirst({
-        where: { id, userId: session.user.id },
-        select: { id: true },
-      });
+      const reach = await resolveReportFinancialReach(session);
+      const owns = reach.ok
+        ? await prisma.report.findFirst({
+            where: { AND: [{ id }, reach.data] },
+            select: { id: true },
+          })
+        : null;
       if (owns) authorised = true;
     }
 

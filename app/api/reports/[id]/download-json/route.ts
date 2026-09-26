@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   request: NextRequest,
@@ -21,12 +22,20 @@ export async function GET(
 
     const { id } = await params;
 
+    // RA-7769 / D-023: the export carries the estimate's totals, so it follows
+    // the financial reach: the organisation widening stops at MANAGER.
+    const reach = await resolveReportFinancialReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     // Fetch the report
     const report = await prisma.report.findFirst({
-      where: {
-        id: id,
-        userId: session.user.id,
-      },
+      where: { AND: [{ id }, reach.data] },
       include: {
         user: {
           select: {

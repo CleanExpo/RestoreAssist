@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createZipArchive } from "@/lib/exports/create-zip-archive";
 import { Readable } from "stream";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,12 +38,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // RA-7769 / D-023: the stored Excel files carry a Cost Estimation sheet, so
+    // the list follows the financial reach: the organisation widening stops at
+    // MANAGER.
+    const reach = await resolveReportFinancialReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     // Fetch all selected reports to check which ones have Excel files
     const allReports = await prisma.report.findMany({
-      where: {
-        id: { in: ids },
-        userId: session.user.id,
-      },
+      where: { AND: [{ id: { in: ids } }, reach.data] },
       select: {
         id: true,
         reportNumber: true,
