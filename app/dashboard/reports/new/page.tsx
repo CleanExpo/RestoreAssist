@@ -893,6 +893,7 @@ export default function NewReportPage() {
             onComplete={handleComplete}
             initialFormData={uploadedData || undefined}
             subscriptionStatus={subscriptionStatus || undefined}
+            inspectionId={searchParams.get("inspectionId") || undefined}
           />
         ) : null}
       </div>
