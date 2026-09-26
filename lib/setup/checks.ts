@@ -35,9 +35,7 @@ import { PLATFORM_KEY_MISSING_BODY } from "@/lib/signup-pricing-honesty";
  *
  * Required (RED-when-unmet) — must pass to start using the app:
  *   - business_profile       (legalName + region + timezone + ABN/NZBN or PRE_TRADING)
- *   - branding               (logoUrl or primaryColor)
  *   - pricing                (master qualified hours + administration fee)
- *   - ai_generation          (AI inference reachable — system health)
  *   - sample_report_render   (IICRC PDF generation works — system health)
  *   - chain_of_custody       (hashing + UTC timestamps work — system health)
  *   - byok_keys              (≥1 ACTIVE Anthropic or OpenAI key that validates,
@@ -45,6 +43,14 @@ import { PLATFORM_KEY_MISSING_BODY } from "@/lib/signup-pricing-honesty";
  *
  * Optional (YELLOW-when-unmet) — do not block activation:
  *   - cloud_storage, accounting, welcome_email
+ *   - branding               (the wizard labels the step OPTIONAL; PDFs fall
+ *                            back to the default brand)
+ *   - ai_generation          (a platform service the tenant cannot fix; a
+ *                            report can still be written by hand)
+ *
+ * Prelaunch audit J-02: branding, welcome_email and ai_generation used to be
+ * red, so a blank optional step, or platform email/AI settings the tenant
+ * cannot see, refused "Generate your first report" for every new business.
  */
 export type CheckStatus = "green" | "yellow" | "red";
 
@@ -114,7 +120,7 @@ const brandingCheck: Check = async (orgId) => {
     return {
       capability: "branding",
       label: "Branding set",
-      status: "red",
+      status: "yellow",
       note: "No logo or primary colour set",
     };
   if (!org.logoUrl || !org.primaryColor)
@@ -152,14 +158,15 @@ const aiGenerationCheck: Check = async () => {
     return {
       capability: "ai_generation",
       label: "System AI service (Gemma)",
-      status: result ? "green" : "red",
+      status: result ? "green" : "yellow",
+      note: result ? undefined : "AI assistance unavailable right now",
     };
   } catch {
     return {
       capability: "ai_generation",
       label: "System AI service (Gemma)",
-      status: "red",
-      note: "Gemma endpoint unreachable",
+      status: "yellow",
+      note: "AI assistance unavailable right now",
     };
   }
 };
@@ -615,7 +622,7 @@ const welcomeEmailCheck: Check = async () => {
   return {
     capability,
     label,
-    status: "red",
+    status: "yellow",
     note: "MAILTRAP_API_KEY+SENDER_EMAIL not configured",
   };
 };

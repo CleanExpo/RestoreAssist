@@ -168,6 +168,60 @@ describe.skipIf(!process.env.DATABASE_URL)('POST /api/setup/activate', () => {
     expect(org.setupCompletedAt).not.toBeNull();
   });
 
+  // Prelaunch audit J-02: "Generate your first report" returned 400 when the
+  // OPTIONAL Branding step was blank, and when platform AI or email settings
+  // the tenant cannot see were missing.
+  it('returns 200 with branding blank, platform AI down and welcome email unconfigured', async () => {
+    await prisma.organization.update({
+      where: { id: testOrgId },
+      data: {
+        legalName: 'Blank Branding Pty Ltd',
+        state: 'NSW',
+        abn: '53004085616',
+        setupStartedAt: new Date(Date.now() - 60_000),
+      },
+    });
+    await prisma.organizationPricingConfig.create({
+      data: {
+        organizationId: testOrgId,
+        masterQualifiedNormalHours: 165,
+        masterQualifiedSaturday: 206,
+        masterQualifiedSunday: 247,
+        qualifiedTechnicianNormalHours: 140,
+        qualifiedTechnicianSaturday: 175,
+        qualifiedTechnicianSunday: 210,
+        labourerNormalHours: 90,
+        labourerSaturday: 113,
+        labourerSunday: 135,
+        airMoverAxialDailyRate: 50,
+        airMoverCentrifugalDailyRate: 60,
+        dehumidifierLGRDailyRate: 75,
+        dehumidifierDesiccantDailyRate: 90,
+        afdUnitLargeDailyRate: 100,
+        extractionTruckMountedHourlyRate: 150,
+        extractionElectricHourlyRate: 80,
+        injectionDryingSystemDailyRate: 120,
+        antimicrobialTreatmentRate: 12,
+        mouldRemediationTreatmentRate: 18,
+        biohazardTreatmentRate: 25,
+        administrationFee: 165,
+        callOutFee: 110,
+        thermalCameraUseCostPerAssessment: 55,
+      },
+    });
+    (routeBasic as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('gemma down'));
+    delete process.env.MAILTRAP_API_KEY;
+    delete process.env.SENDER_EMAIL;
+
+    const res = await POST();
+    const json = await res.json();
+    expect(res.status, JSON.stringify(json)).toBe(200);
+    const org = await prisma.organization.findUniqueOrThrow({ where: { id: testOrgId } });
+    expect(org.setupCompletedAt).not.toBeNull();
+    expect(org.logoUrl).toBeNull();
+    expect(org.primaryColor).toBeNull();
+  });
+
   it('returns 409 if already activated', async () => {
     await prisma.organization.update({
       where: { id: testOrgId },
