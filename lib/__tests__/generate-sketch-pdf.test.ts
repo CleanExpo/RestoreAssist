@@ -561,3 +561,36 @@ describe("generateSketchPdf — image insert + report embed (RA-7547)", () => {
     );
   });
 });
+// RA-7770 — photo AI flagged possible asbestos but nothing is drawn. The annex
+// has no element to flag, so it must still print the job-level WHS block.
+describe("generateSketchPdf — job-level photo-AI ACM line (RA-7770)", () => {
+  const EMPTY_FLOOR = [
+    { label: "Ground", pngDataUrl: PNG_1PX, fabricJson: { objects: [] } },
+  ];
+
+  it("prints the WHS asbestos block when the latch is set and nothing is drawn", async () => {
+    const text = await pdfText(
+      await generateSketchPdf({
+        floors: EMPTY_FLOOR,
+        materials: ANNEX_MATERIALS,
+        aiRaisedAcm: true,
+      }),
+    );
+    expect(text).toContain("No annotated elements.");
+    expect(text).toContain("suspected asbestos (ACM)");
+    expect(text).toMatch(
+      /Strip-out \/ demolition blocked until a WHS pathway is recorded for: .*photo AI/i,
+    );
+  });
+
+  it("control: no latch and nothing drawn prints no asbestos block", async () => {
+    const text = await pdfText(
+      await generateSketchPdf({
+        floors: EMPTY_FLOOR,
+        materials: ANNEX_MATERIALS,
+      }),
+    );
+    expect(text).toContain("No annotated elements.");
+    expect(text).not.toContain("suspected asbestos (ACM)");
+  });
+});

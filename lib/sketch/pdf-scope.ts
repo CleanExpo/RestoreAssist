@@ -128,6 +128,13 @@ export function roomHasPotentialAcm(
   );
 }
 
+/**
+ * RA-7770 — the `acmElements` entry for a job whose photo AI raised the ACM
+ * latch when no drawn element carries the flag (for example, nothing drawn).
+ */
+export const JOB_LEVEL_AI_ACM_LABEL =
+  "Whole job (photo AI flagged possible asbestos)";
+
 // Maps an ANZ material to the NCC reinstatement topic it most implicates.
 const MATERIAL_TO_NCC_TOPIC: Record<string, string> = {
   "timber-framing": "structural-timber",
@@ -199,6 +206,12 @@ export function buildComplianceAnnex(
     if (isPotentialAcm) acmElements.push(label);
     if (slug && MATERIAL_TO_NCC_TOPIC[slug])
       topics.add(MATERIAL_TO_NCC_TOPIC[slug]);
+  }
+
+  // RA-7770: the photo-AI latch is job-wide. With no drawn element to carry
+  // it, an empty list would read as "no suspected ACM", so add a job-level line.
+  if (opts.aiRaisedAcm === true && acmElements.length === 0) {
+    acmElements.push(JOB_LEVEL_AI_ACM_LABEL);
   }
 
   const nccReferences = [...topics]
