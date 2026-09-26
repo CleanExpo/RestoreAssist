@@ -14,7 +14,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 // RA-7769: report reads resolve reach from the database; the org-reach
 // behaviour itself is proved in __tests__/read-routes.org-reach.integration.test.ts.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  resolveReportReach: async () => ({
+  resolveReportFinancialReach: async () => ({
     ok: true,
     data: { AND: [{ OR: [{ userId: "reach-user" }] }] },
   }),

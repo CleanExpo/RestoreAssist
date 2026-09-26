@@ -11,7 +11,7 @@ import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveReportReach } from "@/lib/auth/assert-tenancy";
+import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 import { isAiDraftPending } from "@/lib/reports/ai-ownership";
 import { crossReferenceEvidencePhotos } from "@/lib/reports/evidence-map";
 import {
@@ -50,10 +50,11 @@ export async function GET(
     }
 
     // Mode 2: authenticated session
-    // RA-7769 / D-023: downloading a report is a read, so it follows the
-    // organisation read reach, as the list does.
+    // RA-7769 / D-023: the PDF prints the Estimated Total Cost, so session
+    // access follows the financial reach: the organisation widening stops at
+    // MANAGER.
     if (!authorised && session?.user?.id) {
-      const reach = await resolveReportReach(session);
+      const reach = await resolveReportFinancialReach(session);
       const owns = reach.ok
         ? await prisma.report.findFirst({
             where: { AND: [{ id }, reach.data] },

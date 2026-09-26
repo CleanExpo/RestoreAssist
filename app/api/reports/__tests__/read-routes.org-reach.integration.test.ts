@@ -193,6 +193,14 @@ describe.skipIf(!process.env.DATABASE_URL)(
     it("a USER colleague reads the job but not the report's money", async () => {
       as(ids.colleague);
       expect((await nirDataGET(new NextRequest(url("/nir-data")), ctx())).status).toBe(200);
+      for (const [call, refused] of [
+        [() => pdfGET(new NextRequest(url("/pdf")), ctx()), 401],
+        [() => downloadGET(new NextRequest(url("/download")), ctx()), 404],
+        [() => insurerLinkPOST(post(url("/insurer-link")), ctx()), 404],
+      ] as const) {
+        as(ids.colleague);
+        expect((await call()).status).toBe(refused);
+      }
       for (const call of [
         () => approvalsGET(new NextRequest(url("/approvals")), ctx()),
         () => detailGET(new NextRequest(url("")), ctx()),
