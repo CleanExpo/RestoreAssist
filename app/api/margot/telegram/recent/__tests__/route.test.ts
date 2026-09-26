@@ -13,6 +13,9 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
+  // These cases are about error text for an allowed operator; the
+  // platform-staff refusal is covered in app/api/margot/__tests__.
+  verifyPlatformSupportOperator: (auth: unknown) => auth,
 }));
 vi.mock("@/lib/supabase-server", () => ({
   getSupabaseServerClient: (...args: unknown[]) =>

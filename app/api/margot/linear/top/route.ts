@@ -2,7 +2,10 @@
 // Returns top 5 urgent/high Linear issues (priority 1/2) across the workspace.
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { LINEAR_GRAPHQL_URL } from "@/lib/margot-linear";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +38,9 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // Platform-owned surface: tenant ADMIN is every self-registered owner.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   const fetchedAt = new Date().toISOString();
   const apiKey = process.env.LINEAR_API_KEY ?? "";

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { apiError, fromException } from "@/lib/api-errors";
 import { ragIngestBodySchema } from "@/lib/rag/ingest-body";
 import { runStandardsIngest } from "@/lib/rag/run-standards-ingest";
@@ -13,6 +16,9 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // Platform-owned surface: tenant ADMIN is every self-registered owner.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   try {
     const body = ragIngestBodySchema.safeParse(await request.json());

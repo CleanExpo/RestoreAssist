@@ -10,7 +10,10 @@ import { getServerSession } from "next-auth";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { apiError } from "@/lib/api-errors";
 import { assessSocialRestorationRelevance } from "@/lib/margot/social-restoration-relevance";
 import { prepareSocialReply } from "@/lib/margot/social-reply-style";
@@ -29,6 +32,9 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // Platform-owned surface: tenant ADMIN is every self-registered owner.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   let json: unknown;
   try {
