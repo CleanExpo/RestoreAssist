@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { activationErrorMessage } from '@/lib/setup/activation-error';
+import { firstIncompleteRequiredIndex } from '@/lib/setup/wizard-steps';
 import { RAIcon } from '@/components/brand/RAIcon';
 import { useSetupStore, type SetupOrganization } from './store';
 import { BusinessDetailsCard } from './BusinessDetailsCard';
@@ -42,6 +43,19 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
   const org = useSetupStore((s) => s.org);
   const { update: refreshSession } = useSession();
+
+  // J-05: a returning business reopens on the first required step still to
+  // do (or the finish step), read from the server's data because the store is
+  // only filled after mount. A business that has entered nothing yet still
+  // starts at Welcome.
+  const [resumeIndex] = useState(() => {
+    const id = initial.country === 'NZ' ? initial.nzbn : initial.abn;
+    const started = !!(initial.legalName || id || initial.logoUrl || initial.primaryColor || initial.pricingConfig);
+    if (!started) return 0;
+    return firstIncompleteRequiredIndex({
+      business: !!(initial.legalName && id && initial.state && initial.timezone),
+    });
+  });
 
   // AI-key completion is the one gate the store doesn't already carry, so read
   // it from the canonical onboarding status (same signal the setup gate uses).
@@ -333,5 +347,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     window.location.assign('/dashboard');
   };
 
-  return <SetupStepper items={steps} onFinish={handleFinish} onSkip={handleSkip} />;
+  return (
+    <SetupStepper items={steps} initialIndex={resumeIndex} onFinish={handleFinish} onSkip={handleSkip} />
+  );
 }

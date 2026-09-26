@@ -72,6 +72,39 @@ beforeEach(() => {
   );
 });
 
+describe("SetupShell — resume where the business left off (J-05)", () => {
+  const base = {
+    id: "o1",
+    hydrationJobs: [],
+    country: "AU",
+    timezone: "Australia/Brisbane",
+    legalName: null,
+    abn: null,
+    nzbn: null,
+    state: null,
+    logoUrl: null,
+    primaryColor: null,
+    pricingConfig: null,
+  };
+
+  it("reopens at the finish step once business details are complete", async () => {
+    const done = { ...base, legalName: "Synthetic Drying Pty Ltd", abn: "51824753556", state: "QLD", pricingConfig: { labour: 999 } };
+    render(<SetupShell initial={done as never} />);
+    expect(await screen.findByText(/Step 7 of 7: Your first report/)).toBeInTheDocument();
+  });
+
+  it("reopens on Business details when it was started but not finished", async () => {
+    const partial = { ...base, legalName: "Synthetic Drying Pty Ltd" };
+    render(<SetupShell initial={partial as never} />);
+    expect(await screen.findByText(/Step 3 of 7: Business details/)).toBeInTheDocument();
+  });
+
+  it("still starts a brand-new business at Welcome", async () => {
+    render(<SetupShell initial={base as never} />);
+    expect(await screen.findByText(/Step 1 of 7: Welcome/)).toBeInTheDocument();
+  });
+});
+
 describe("SetupShell — one-step wizard wiring", () => {
   it("renders the wizard starting at the Welcome step (one step visible)", async () => {
     render(<SetupShell initial={initial} />);
