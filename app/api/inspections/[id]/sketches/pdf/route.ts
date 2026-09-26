@@ -24,6 +24,10 @@ import {
 } from "@/lib/restoration/fetch-plan-inputs";
 import { serverAuthoritativeFloors } from "@/lib/sketch/measured-sketch-data";
 import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
+import {
+  WORKSPACE_OWNER_SELECT,
+  workspaceBusiness,
+} from "@/lib/reports/workspace-business";
 import type { DamageCause } from "@/lib/nz/nhcover";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -65,8 +69,14 @@ export async function POST(
       select: {
         id: true,
         propertyAddress: true,
+        // RA-7746: the workspace owner's business, reached through this
+        // user's own organisation (see lib/reports/workspace-business.ts).
         user: {
-          select: { businessName: true, businessLogo: true },
+          select: {
+            businessName: true,
+            businessLogo: true,
+            ...WORKSPACE_OWNER_SELECT,
+          },
         },
         // RA-7005: mould signals + power assessment for the annex's drying plan,
         // via the shared select so this route cannot silently narrow it.
@@ -153,6 +163,9 @@ export async function POST(
       });
     }
 
+    const business = inspection.user
+      ? workspaceBusiness(inspection.user)
+      : null;
     const pdfBytes = await generateSketchPdf({
       // RA-6761: server-authoritative geometry — room areas + compliance annex
       // come from the saved ClaimSketch (measured-only), not client fabricJson.
@@ -166,8 +179,8 @@ export async function POST(
       nhCause: body.nhCause,
       estimatedRepairNzd: body.estimatedRepairNzd,
       branding: {
-        businessName: inspection.user?.businessName,
-        businessLogo: inspection.user?.businessLogo,
+        businessName: business?.businessName,
+        businessLogo: business?.businessLogo,
       },
       ...planInputsFromRow(inspection as PlanInputRow),
     });

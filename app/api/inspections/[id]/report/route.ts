@@ -13,6 +13,10 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { resolveAreaSqm } from "@/lib/units";
 import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
+import {
+  WORKSPACE_OWNER_SELECT,
+  workspaceBusiness,
+} from "@/lib/reports/workspace-business";
 import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 
 // Dynamic import for ExcelJS to handle cases where it's not installed
@@ -176,6 +180,8 @@ export async function GET(
                 businessAddress: true,
                 businessPhone: true,
                 businessEmail: true,
+                // RA-7746: the header names the workspace owner's business.
+                ...WORKSPACE_OWNER_SELECT,
               },
             },
           },
@@ -201,7 +207,13 @@ export async function GET(
 
     // Shape the Prisma result into the typed NirReportInspectionData interface.
     // This single cast is the only place `any` escapes — the rest of the file is typed.
-    const data = inspection as unknown as NirReportInspectionData;
+    const data = {
+      ...inspection,
+      report: inspection.report && {
+        ...inspection.report,
+        user: workspaceBusiness(inspection.report.user),
+      },
+    } as unknown as NirReportInspectionData;
 
     switch (format.toLowerCase()) {
       case "pdf":
