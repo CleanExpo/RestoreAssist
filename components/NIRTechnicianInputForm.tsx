@@ -1362,6 +1362,7 @@ export default function NIRTechnicianInputForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lossDescription: damageDescription.trim(),
+          technicianName: technicianName.trim(),
           environmentalData,
           moistureReadings: moistureReadings.map((reading) => {
             const mapPoint = moistureMapPoints.find(
