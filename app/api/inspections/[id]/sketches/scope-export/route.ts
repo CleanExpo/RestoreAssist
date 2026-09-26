@@ -11,6 +11,10 @@ import {
   type PlanInputRow,
 } from "@/lib/restoration/fetch-plan-inputs";
 import { serverAuthoritativeFloors } from "@/lib/sketch/measured-sketch-data";
+import {
+  AI_RAISED_ACM_PHOTOS_SELECT,
+  jobHasAiRaisedAcm,
+} from "@/lib/anz/photo-ai-whs";
 import type { DamageCause } from "@/lib/nz/nhcover";
 
 // POST /api/inspections/[id]/sketches/scope-export
@@ -55,7 +59,12 @@ export async function POST(
       // RA-7005: the mould signals and the power assessment come from the same
       // row and the same shared select the report uses, so the scope's drying
       // plan cannot contradict the report's for one job.
-      select: { propertyAddress: true, ...PLAN_INPUT_SELECT },
+      // RA-7640: photo-AI asbestos latch, so a flagged room stays flagged.
+      select: {
+        propertyAddress: true,
+        ...PLAN_INPUT_SELECT,
+        ...AI_RAISED_ACM_PHOTOS_SELECT,
+      },
     });
     const planInputs = planInputsFromRow(inspection as PlanInputRow | null);
     // ra-query-ok: Material is a seed-only reference catalogue (no tenant write path).
@@ -93,6 +102,7 @@ export async function POST(
       country,
       nhCause: body.nhCause as DamageCause | undefined,
       estimatedRepairNzd: body.estimatedRepairNzd,
+      aiRaisedAcm: jobHasAiRaisedAcm(inspection?.photos ?? []),
     });
 
     return new NextResponse(JSON.stringify(scope, null, 2), {

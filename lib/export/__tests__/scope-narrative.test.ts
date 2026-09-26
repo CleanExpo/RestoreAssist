@@ -149,3 +149,62 @@ describe("buildScopeNarrative (NZ)", () => {
     expect(md).not.toContain("NCC 2022");
   });
 });
+
+// RA-7640 — a room flagged by photo AI or an accepted voice note keeps its
+// asbestos flag in the structured scope and the narrative, whatever material
+// it carries now.
+describe("buildScopeExport + buildScopeNarrative — raise-only ACM latches (RA-7640)", () => {
+  const LATCH_MATERIALS: ScopeMaterialInfo[] = [
+    ...MATERIALS,
+    { slug: "timber-framing", name: "Timber framing", isPotentialAcm: false },
+  ];
+  const floorWith = (extra: Record<string, unknown>) => ({
+    label: "Ground Floor",
+    fabricJson: {
+      objects: [
+        {
+          ...FLOOR.fabricJson.objects[0],
+          data: {
+            type: "room",
+            material: "timber-framing",
+            label: "Laundry",
+            provenance: "operator_measured",
+            ...extra,
+          },
+        },
+      ],
+    },
+  });
+
+  it("keeps the voice-raised flag after the material changes to non-ACM", () => {
+    const scope = buildScopeExport({
+      floors: [floorWith({ voiceRaisedAcm: true })],
+      materials: LATCH_MATERIALS,
+    });
+    expect(scope.compliance.acmElements).toEqual(["Laundry"]);
+    const md = buildScopeNarrative(scope);
+    expect(md).toContain("- Laundry: 12.0 m² — Timber framing — SUSPECTED ASBESTOS (ACM)");
+    expect(md).toContain("Suspected asbestos-containing material (ACM) in: Laundry.");
+  });
+
+  it("keeps the photo-AI flag, which is job-wide", () => {
+    const scope = buildScopeExport({
+      floors: [floorWith({})],
+      materials: LATCH_MATERIALS,
+      aiRaisedAcm: true,
+    });
+    expect(scope.compliance.acmElements).toEqual(["Laundry"]);
+    expect(buildScopeNarrative(scope)).toContain("SUSPECTED ASBESTOS (ACM)");
+  });
+
+  it("shows no flag for a non-ACM room with neither latch", () => {
+    const scope = buildScopeExport({
+      floors: [floorWith({})],
+      materials: LATCH_MATERIALS,
+    });
+    expect(scope.compliance.acmElements).toEqual([]);
+    const md = buildScopeNarrative(scope);
+    expect(md).not.toContain("SUSPECTED ASBESTOS");
+    expect(md).toContain("No suspected ACM identified");
+  });
+});

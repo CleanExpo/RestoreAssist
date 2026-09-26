@@ -210,3 +210,79 @@ describe("POST scope-export", () => {
     expect(res.status).toBe(403);
   });
 });
+
+// RA-7640 — a room flagged by photo AI or an accepted voice note stays flagged
+// in the handover document, whatever material it carries now.
+describe("POST scope-export — raise-only ACM latches (RA-7640)", () => {
+  const LATCHED_PHOTO = {
+    metadata: { photoAi: { whsLatch: { aiRaisedAcm: true } } },
+  };
+  const nonAcmFloors = (extra: Record<string, unknown> = {}) => [
+    {
+      ...FLOORS[0],
+      fabricJson: {
+        objects: [
+          {
+            ...FLOORS[0].fabricJson.objects[0],
+            data: {
+              type: "room",
+              material: "timber-framing",
+              label: "Laundry",
+              provenance: "operator_measured",
+              ...extra,
+            },
+          },
+        ],
+      },
+    },
+  ];
+
+  beforeEach(() => {
+    p.material.findMany.mockResolvedValue([
+      { slug: "fibro", name: "Fibro", isPotentialAcm: true },
+      { slug: "timber-framing", name: "Timber framing", isPotentialAcm: false },
+    ]);
+  });
+
+  it("asks the database only for photos whose AI latch is raised", async () => {
+    await POST(post({ floors: nonAcmFloors() }), params);
+    const arg = p.inspection.findUnique.mock.calls[0][0];
+    expect(arg.select.photos).toEqual({
+      where: {
+        metadata: { path: ["photoAi", "whsLatch", "aiRaisedAcm"], equals: true },
+      },
+      select: { metadata: true },
+      take: 1,
+    });
+  });
+
+  it("flags a non-ACM room when photo AI raised the latch on the job", async () => {
+    p.inspection.findUnique.mockResolvedValue({
+      propertyAddress: "1 Test St",
+      photos: [LATCHED_PHOTO],
+    });
+    const res = await POST(post({ floors: nonAcmFloors() }), params);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.compliance.acmElements).toEqual(["Laundry"]);
+  });
+
+  it("flags a non-ACM room whose voice latch is set", async () => {
+    const res = await POST(
+      post({ floors: nonAcmFloors({ voiceRaisedAcm: true }) }),
+      params,
+    );
+    const body = await res.json();
+    expect(body.compliance.acmElements).toEqual(["Laundry"]);
+  });
+
+  it("shows no flag for a non-ACM room with neither latch", async () => {
+    p.inspection.findUnique.mockResolvedValue({
+      propertyAddress: "1 Test St",
+      photos: [],
+    });
+    const res = await POST(post({ floors: nonAcmFloors() }), params);
+    const body = await res.json();
+    expect(body.compliance.acmElements).toEqual([]);
+  });
+});

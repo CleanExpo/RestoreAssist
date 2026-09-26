@@ -23,6 +23,10 @@ import {
   type PlanInputRow,
 } from "@/lib/restoration/fetch-plan-inputs";
 import { serverAuthoritativeFloors } from "@/lib/sketch/measured-sketch-data";
+import {
+  AI_RAISED_ACM_PHOTOS_SELECT,
+  jobHasAiRaisedAcm,
+} from "@/lib/anz/photo-ai-whs";
 import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import type { DamageCause } from "@/lib/nz/nhcover";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
@@ -71,6 +75,8 @@ export async function POST(
         // RA-7005: mould signals + power assessment for the annex's drying plan,
         // via the shared select so this route cannot silently narrow it.
         ...PLAN_INPUT_SELECT,
+        // RA-7640: photo-AI asbestos latch, so a flagged room stays flagged.
+        ...AI_RAISED_ACM_PHOTOS_SELECT,
       },
     });
     if (!inspection) {
@@ -165,6 +171,7 @@ export async function POST(
       country,
       nhCause: body.nhCause,
       estimatedRepairNzd: body.estimatedRepairNzd,
+      aiRaisedAcm: jobHasAiRaisedAcm(inspection.photos ?? []),
       branding: {
         businessName: inspection.user?.businessName,
         businessLogo: inspection.user?.businessLogo,
