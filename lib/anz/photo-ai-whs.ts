@@ -91,6 +91,26 @@ export function jobHasAiRaisedAcm(
   return photos.some((photo) => readPhotoAiLatch(photo?.metadata).aiRaisedAcm);
 }
 
+/**
+ * RA-7640 — spread into an Inspection `select` to fetch the photo-AI latch for
+ * the scope and PDF routes; pass the result to `jobHasAiRaisedAcm`.
+ *
+ * The database filters to latched photos before `take: 1` applies, so the
+ * bound cannot drop a latched photo the way a capped list of every photo could.
+ */
+export const AI_RAISED_ACM_PHOTOS_SELECT = {
+  photos: {
+    where: {
+      metadata: {
+        path: [PHOTO_AI_METADATA_KEY, "whsLatch", "aiRaisedAcm"],
+        equals: true,
+      },
+    },
+    select: { metadata: true },
+    take: 1,
+  },
+};
+
 export interface PhotoAiWhsInput {
   labels?: unknown;
   latch?: AiAcmLatch;

@@ -95,6 +95,11 @@ export interface ScopeExportInput {
   mouldActive?: boolean;
   /** On-site power assessment. Omitted means assumed, and the plan says so. */
   powerAssessment?: PowerAssessment;
+  /**
+   * Photo-AI asbestos latch for the job (RA-7640). Read it with
+   * `jobHasAiRaisedAcm`; when true every element carries the ACM flag.
+   */
+  aiRaisedAcm?: boolean;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -123,6 +128,7 @@ export function buildScopeExport(input: ScopeExportInput): ScopeExport {
       country: input.country,
       nhCause: input.nhCause,
       estimatedRepairNzd: input.estimatedRepairNzd,
+      aiRaisedAcm: input.aiRaisedAcm,
     },
   );
 

@@ -101,6 +101,33 @@ export function buildDryingLog(pins: MoisturePinInput[]): DryingLogRow[] {
 
 const CANONICAL_TYPES = new Set(["room", "wall", "opening", "fixture"]);
 
+/**
+ * RA-7640 — the raise-only asbestos latches. Either one flags an element
+ * whatever its current material, the same way the sketch editor does.
+ */
+export interface AcmLatches {
+  /** Accepted voice note named ACM; stored on the element's sketch data. */
+  voiceRaisedAcm?: boolean;
+  /** Photo AI raised ACM on any photo in the job; job-wide, not per room. */
+  aiRaisedAcm?: boolean;
+}
+
+/**
+ * Suspected ACM for one element: its catalogue material, or either latch.
+ * Every scope and PDF consumer reads the flag through here. A latch can only
+ * add the flag; nothing here can take one away.
+ */
+export function roomHasPotentialAcm(
+  material: Pick<ScopeMaterialInfo, "isPotentialAcm"> | undefined,
+  latches: AcmLatches,
+): boolean {
+  return (
+    material?.isPotentialAcm === true ||
+    latches.voiceRaisedAcm === true ||
+    latches.aiRaisedAcm === true
+  );
+}
+
 // Maps an ANZ material to the NCC reinstatement topic it most implicates.
 const MATERIAL_TO_NCC_TOPIC: Record<string, string> = {
   "timber-framing": "structural-timber",
@@ -120,6 +147,8 @@ export function buildComplianceAnnex(
     country?: "AU" | "NZ";
     nhCause?: DamageCause;
     estimatedRepairNzd?: number;
+    /** Photo-AI latch for the job (RA-7640). Flags every element when true. */
+    aiRaisedAcm?: boolean;
   } = {},
 ): ComplianceAnnex {
   // The NCC does not apply in New Zealand. `opts.country` was already here; it
@@ -156,14 +185,18 @@ export function buildComplianceAnnex(
         : null;
     if (waterCategory) waterCats.add(waterCategory);
 
+    const isPotentialAcm = roomHasPotentialAcm(mat, {
+      voiceRaisedAcm: data?.voiceRaisedAcm === true,
+      aiRaisedAcm: opts.aiRaisedAcm,
+    });
     rows.push({
       roomLabel: label,
       elementType: type,
       materialName: mat?.name ?? null,
-      isPotentialAcm: mat?.isPotentialAcm ?? false,
+      isPotentialAcm,
       waterCategory,
     });
-    if (mat?.isPotentialAcm) acmElements.push(label);
+    if (isPotentialAcm) acmElements.push(label);
     if (slug && MATERIAL_TO_NCC_TOPIC[slug])
       topics.add(MATERIAL_TO_NCC_TOPIC[slug]);
   }
