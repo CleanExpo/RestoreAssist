@@ -177,7 +177,7 @@ beforeEach(() => {
 
 describe.each(ROUTES)(
   "POST /api/inspections/[id]/$name — client-mutation ledger (RA-7586)",
-  ({ segment, post, body, mutationType, okStatus }) => {
+  ({ name, segment, post, body, mutationType, okStatus }) => {
     it("records the ledger row under the signed-in user's workspace when the inspection has none", async () => {
       const res = await post(syncRequest(segment, body, "1"), params());
 
@@ -222,9 +222,16 @@ describe.each(ROUTES)(
 
       expect(res.status).toBe(404);
       expect(mocks.inspectionFindFirst).toHaveBeenCalledWith(
-        // Moisture now goes through the capture gate (RA-7755), which looks the
-        // inspection up by id; the other routes still add userId.
-        expect.objectContaining({ where: expect.objectContaining({ id: "insp_1" }) }),
+        // Moisture goes through the capture gate (RA-7755), which looks the
+        // inspection up by id and is proven against a real database in
+        // technician-field-capture.integration.test.ts. The other routes keep
+        // the owner-only lookup, and this pins it.
+        expect.objectContaining({
+          where:
+            name === "moisture"
+              ? { id: "insp_1" }
+              : { id: "insp_1", userId: "user_1" },
+        }),
       );
       expect(mocks.clientMutationCreate).not.toHaveBeenCalled();
     });
