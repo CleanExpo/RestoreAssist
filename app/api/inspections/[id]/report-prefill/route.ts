@@ -54,6 +54,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         inspectionNumber: true,
         propertyAddress: true,
         propertyPostcode: true,
+        propertyCountry: true,
         inspectionDate: true,
         technicianName: true,
         lossDescription: true,
@@ -93,6 +94,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       inspectionNumber: inspection.inspectionNumber,
+      // RA-7625: not a form field, so not in `fields`/`filled`. The form reads
+      // it to name NZ law in its default report instructions.
+      propertyCountry: inspection.propertyCountry,
       fields: prefill.fields,
       filled: prefill.filled,
     });

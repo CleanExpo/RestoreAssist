@@ -11,6 +11,7 @@ import {
 import toast from "react-hot-toast";
 import VisualScopeOfWorksViewer from "./VisualScopeOfWorksViewer";
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer";
+import { jurisdictionLawLabels } from "@/lib/reports/viewer-compliance-prose";
 
 interface ScopeOfWorksViewerProps {
   reportId: string;
@@ -27,6 +28,8 @@ export default function ScopeOfWorksViewer({
   const [scopeDocument, setScopeDocument] = useState<string>("");
   const [scopeData, setScopeData] = useState<any>(null);
   const [businessInfo, setBusinessInfo] = useState<any>(null);
+  // RA-7625: same country field report generation reads (RA-7361).
+  const law = jurisdictionLawLabels(report?.inspection?.propertyCountry);
 
   useEffect(() => {
     fetchReport();
@@ -435,9 +438,9 @@ export default function ScopeOfWorksViewer({
               </p>
               <p className="text-sm text-slate-400">
                 Our AI expert system is analysing your data and generating a
-                professional scope of works document based on IICRC S500, S520,
-                WHS Regulations 2011, NCC, and AS/NZS 3000 standards. This may
-                take a few moments. Please wait.
+                professional scope of works document based on{" "}
+                {law.standardsList} standards. This may take a few moments.
+                Please wait.
               </p>
             </div>
           </div>

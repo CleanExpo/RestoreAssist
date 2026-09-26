@@ -31,6 +31,8 @@ interface ReportWorkflowProps {
     technicianAttendanceDate?: string;
     technicianName?: string;
     technicianFieldReport?: string;
+    /** RA-7625: Inspection.propertyCountry, when the job has one */
+    propertyCountry?: string | null;
   };
   subscriptionStatus?: string;
   /** RA-7726: inspection this report is started from */

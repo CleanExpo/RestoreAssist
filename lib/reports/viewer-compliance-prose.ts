@@ -177,3 +177,39 @@ export function collectViewerComplianceProse(source: {
   }
   return parts.join("\n");
 }
+
+export interface JurisdictionLawLabels {
+  /** Work health and safety law, as a short in-sentence label. */
+  safety: string;
+  /** Building code, as a short in-sentence label. */
+  buildingCode: string;
+  /** "IICRC S500, S520, <safety>, <building code>, and AS/NZS 3000". */
+  standardsList: string;
+}
+
+/**
+ * RA-7625: short law labels for the report screens' progress notes and the
+ * default report instructions, which are sent into report generation. Every
+ * one of those strings used to name WHS Regulations 2011 and the NCC for
+ * every job, New Zealand included.
+ *
+ * `country` is Inspection.propertyCountry, the field report generation reads
+ * (RA-7361). AS/NZS 3000 is a joint AU/NZ standard, so it stays on both.
+ *
+ * An unknown country keeps the Australian labels on purpose: that is what
+ * these strings said before, and generation resolves a job with no recorded
+ * country from its postcode as Australian. Nothing New Zealand is invented
+ * for a job that did not say it is in New Zealand.
+ */
+export function jurisdictionLawLabels(
+  country: string | null | undefined,
+): JurisdictionLawLabels {
+  const nz = viewerJurisdiction({ state: country }) === "NZ";
+  const safety = nz ? "HSWA 2015 (WorkSafe NZ)" : "WHS Regulations 2011";
+  const buildingCode = nz ? "NZ Building Code" : "NCC";
+  return {
+    safety,
+    buildingCode,
+    standardsList: `IICRC S500, S520, ${safety}, ${buildingCode}, and AS/NZS 3000`,
+  };
+}

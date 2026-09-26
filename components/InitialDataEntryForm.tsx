@@ -64,6 +64,7 @@ import { FormNavigation } from "./initial-data-entry/FormNavigation";
 import { ReportTypeSelection } from "./initial-data-entry/ReportTypeSelection";
 import { ReviewSection } from "./initial-data-entry/ReviewSection";
 import { UseCaseModal } from "./initial-data-entry/UseCaseModal";
+import { jurisdictionLawLabels } from "@/lib/reports/viewer-compliance-prose";
 
 export default function InitialDataEntryForm({
   onSuccess,
@@ -75,6 +76,9 @@ export default function InitialDataEntryForm({
 }: InitialDataEntryFormProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  // RA-7625: the report instructions below are sent into generation, so they
+  // name the law of the job's country (Inspection.propertyCountry).
+  const law = jurisdictionLawLabels(initialData?.propertyCountry);
   const [loading, setLoading] = useState(false);
   // RA-6799: race-safe guard so a create cannot fire twice concurrently
   // (double-click / impatient re-submit) before `reportId` state updates.
@@ -1540,7 +1544,7 @@ export default function InitialDataEntryForm({
         propertyId: "PROP-2024-001",
         jobNumber: "JOB-2024-056",
         reportInstructions:
-          "Provide a restoration inspection report per IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000. Provide recommendations to ensure longevity.",
+          `Provide a restoration inspection report per ${law.standardsList}. Provide recommendations to ensure longevity.`,
         builderDeveloperCompanyName: "Premier Builders Pty Ltd",
         builderDeveloperContact: "Sarah Johnson",
         builderDeveloperAddress: "456 Builder Street, Sydney NSW 2000",
@@ -1709,7 +1713,7 @@ export default function InitialDataEntryForm({
         propertyId: "PROP-2024-002",
         jobNumber: "JOB-2024-089",
         reportInstructions:
-          "Provide comprehensive commercial restoration report per IICRC S500, AS/NZS 3000, NCC, and WHS Regulations. Include business interruption assessment.",
+          `Provide comprehensive commercial restoration report per IICRC S500, AS/NZS 3000, ${law.buildingCode}, and ${law.safety}. Include business interruption assessment.`,
         builderDeveloperCompanyName: "Metro Developments Ltd",
         builderDeveloperContact: "James Mitchell",
         builderDeveloperAddress: "789 Development Avenue, Melbourne VIC 3000",
@@ -1876,7 +1880,7 @@ export default function InitialDataEntryForm({
         propertyId: "PROP-2024-003",
         jobNumber: "JOB-2024-112",
         reportInstructions:
-          "Provide mould remediation report per IICRC S520, AS/NZS 3000, and WHS Regulations. Include health and safety recommendations.",
+          `Provide mould remediation report per IICRC S520, AS/NZS 3000, and ${law.safety}. Include health and safety recommendations.`,
         builderDeveloperCompanyName: "Brisbane Builders Group",
         builderDeveloperContact: "David Martinez",
         builderDeveloperAddress: "234 Construction Way, Brisbane QLD 4000",
@@ -2035,7 +2039,7 @@ export default function InitialDataEntryForm({
         propertyId: "PROP-2024-004",
         jobNumber: "JOB-2024-145",
         reportInstructions:
-          "Provide storm damage assessment report per IICRC S500, NCC, and AS/NZS 3000. Include structural assessment recommendations.",
+          `Provide storm damage assessment report per IICRC S500, ${law.buildingCode}, and AS/NZS 3000. Include structural assessment recommendations.`,
         builderDeveloperCompanyName: "Sydney Construction Co.",
         builderDeveloperContact: "Amanda White",
         builderDeveloperAddress: "567 Builder Avenue, Sydney NSW 2000",
@@ -2181,7 +2185,7 @@ export default function InitialDataEntryForm({
         propertyId: "PROP-2024-005",
         jobNumber: "JOB-2024-178",
         reportInstructions:
-          "Provide comprehensive flood damage report per IICRC S500, WHS Regulations, and AS/NZS 3000. Include health and safety protocols for Category 3 water.",
+          `Provide comprehensive flood damage report per IICRC S500, ${law.safety}, and AS/NZS 3000. Include health and safety protocols for Category 3 water.`,
         builderDeveloperCompanyName: "Adelaide Property Developers",
         builderDeveloperContact: "Christopher Taylor",
         builderDeveloperAddress: "890 Development Road, Adelaide SA 5000",
@@ -3241,7 +3245,7 @@ export default function InitialDataEntryForm({
                     "text-neutral-900 dark:text-neutral-50",
                     "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50",
                   )}
-                  placeholder="e.g., Provide a restoration inspection report per IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000. Provide recommendations to ensure longevity."
+                  placeholder={`e.g., Provide a restoration inspection report per ${law.standardsList}. Provide recommendations to ensure longevity.`}
                   rows={3}
                 />
                 <p

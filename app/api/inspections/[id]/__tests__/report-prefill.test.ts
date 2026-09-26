@@ -30,6 +30,7 @@ const INSPECTION = {
   inspectionNumber: "NIR-2026-09-0007",
   propertyAddress: "12 Wattle Street, Toowoomba QLD",
   propertyPostcode: "4350",
+  propertyCountry: "AU",
   inspectionDate: new Date("2026-09-01T23:15:00.000Z"),
   technicianName: "J. Nguyen",
   lossDescription: "Supply line to the dishwasher failed overnight.",
@@ -89,6 +90,9 @@ describe("GET /api/inspections/[id]/report-prefill", () => {
     expect(body.fields.technicianAttendanceDate).toBe("2026-09-01");
     expect(body.fields.waterCategory).toBe("2");
     expect(body.filled).toHaveLength(Object.keys(body.fields).length);
+    // RA-7625: the country rides alongside the form fields, not inside them.
+    expect(body.propertyCountry).toBe("AU");
+    expect(body.fields).not.toHaveProperty("propertyCountry");
   });
 
   it("reports nothing filled rather than an empty-looking success", async () => {
@@ -145,6 +149,7 @@ describe("GET /api/inspections/[id]/report-prefill", () => {
       "inspectionNumber",
       "lossDescription",
       "propertyAddress",
+      "propertyCountry",
       "propertyPostcode",
       "propertyWallConstruction",
       "propertyWallMaterial",

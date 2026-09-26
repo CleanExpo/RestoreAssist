@@ -44,7 +44,9 @@ export async function GET(
           },
         },
         inspection: {
-          select: { id: true },
+          // RA-7625: propertyCountry lets the report screens name NZ law on
+          // a New Zealand job, the same field generation reads (RA-7361).
+          select: { id: true, propertyCountry: true },
         },
       },
     });

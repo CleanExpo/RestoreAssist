@@ -23,6 +23,7 @@ import {
   deriveIicrcClaimTypeFromHazardType,
 } from "@/lib/iicrc-inclusion-check";
 import { isAiDraftPending } from "@/lib/reports/ai-ownership";
+import { jurisdictionLawLabels } from "@/lib/reports/viewer-compliance-prose";
 
 interface InspectionReportViewerProps {
   reportId: string;
@@ -39,6 +40,8 @@ export default function InspectionReportViewer({
   const [exportingExcel, setExportingExcel] = useState(false);
   const [editing, setEditing] = useState(false);
   const [report, setReport] = useState<any>(null);
+  // RA-7625: same country field report generation reads (RA-7361).
+  const law = jurisdictionLawLabels(report?.inspection?.propertyCountry);
   const [reportContent, setReportContent] = useState<string>("");
   const [visualData, setVisualData] = useState<any>(null);
   const [structuredReportData, setStructuredReportData] = useState<any>(null);
@@ -619,8 +622,8 @@ export default function InspectionReportViewer({
               </p>
               <p className="text-sm text-slate-400">
                 Our AI assistant is drafting a professional restoration
-                inspection report based on IICRC S500, S520, WHS Regulations
-                2011, NCC, and AS/NZS 3000 standards. You must review and rewrite
+                inspection report based on {law.standardsList} standards. You
+                must review and rewrite
                 the draft in your own words before it is your report. This may
                 take a few moments.
               </p>
