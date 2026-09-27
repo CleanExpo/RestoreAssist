@@ -9,7 +9,9 @@
  * `/api/addons/checkout` (via getWorkspaceForUser) resolve for the owner —
  * marked active, with no Stripe subscription, and `stripePriceId` set to
  * COMPLIMENTARY_PRICE_ID. That marker is what keeps the grant free:
- *   - `/api/addons/checkout` refuses to sell an add-on held complimentary;
+ *   - `/api/addons/checkout` refuses to sell an add-on held complimentary,
+ *     and checks again after creating a session, withholding its link if
+ *     the grant committed in between;
  *   - `applyRecurringAddonSubscription` will not overwrite or deactivate it,
  *     so a checkout left open before the grant cannot replace it.
  * Nothing else reads `stripePriceId`, so the marker needs no schema change.
@@ -178,10 +180,11 @@ async function currentConflicts(
 
 /**
  * How long the grant waits after writing before it checks Stripe again.
- * Checkout reads the entitlement row and then creates the session, so a
- * request that read the row just before the grant committed can still open a
- * session afterwards. Stripe's client waits up to 80 s per attempt and
- * retries; five minutes outlasts any such request.
+ * Correctness does not rest on this wait. Checkout re-reads the row after
+ * creating a session, so a session created after the grant committed never
+ * has its link handed out; one created before is already listable when the
+ * second check runs. The wait is margin, letting a request already under way
+ * finish so the second check sees its outcome.
  */
 export const GRANT_SETTLE_MS = 5 * 60 * 1000;
 
@@ -191,12 +194,13 @@ export type FoundingTrialRunOutcome =
   | { status: "dry_run" | "granted"; result: FoundingTrialGrantResult };
 
 /**
- * Check Stripe, write the grant, wait out any checkout already in flight,
- * then check again. From the moment the grant commits, checkout refuses every
- * granted add-on (409), so a later conflict can only come from a checkout
- * started before that; the second check sees it and the grant is put back as
- * it was. The business is never left holding a free add-on it is also paying
- * for, and nothing in Stripe is touched.
+ * Check Stripe, write the grant, wait (GRANT_SETTLE_MS), then check again.
+ * From the moment the grant commits, checkout refuses every granted add-on
+ * (409) and withholds the link of any session it created after that instant,
+ * so a payable conflict can only be a session created before the commit; the
+ * second check sees it and the grant is put back as it was. The business is
+ * never left holding a free add-on it is also paying for, and the grant
+ * touches nothing in Stripe.
  */
 export async function runFoundingTrialGrant(deps: {
   db: PrismaClient;
