@@ -10,7 +10,18 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
+
+// Prisma 7 needs the pg driver adapter at construction; a bare
+// `new PrismaClient()` throws before the first query (RA-7772). Mirrors
+// prisma/seed-portal-content.ts and lib/prisma.ts.
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is required.");
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(new Pool({ connectionString, max: 2 })),
+});
 
 const DEMO_REPORT_NUMBER = "RA-DEMO-2026-001";
 
