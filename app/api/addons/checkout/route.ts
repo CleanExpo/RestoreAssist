@@ -12,6 +12,7 @@ import { getAppUrl } from "@/lib/app-url";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { getRecurringAddon } from "@/lib/billing/addon-registry";
 import { TECHNICIAN_SEATS_MAX_PER_CHECKOUT } from "@/lib/billing/technician-seats-addon";
+import { isComplimentaryEntitlement } from "@/lib/billing/founding-trial-grant";
 import { CHECKOUT_CANCEL_PATH } from "@/lib/billing/checkout-presentation";
 
 export async function POST(request: NextRequest) {
@@ -153,6 +154,27 @@ export async function POST(request: NextRequest) {
             code: "NOT_FOUND",
             message: "No workspace found for this account",
             status: 404,
+          });
+        }
+
+        // RA-7721 — a Founding Trial business already has this add-on free.
+        // Selling it would bill for something included, and the resulting
+        // subscription is kept off the complimentary row anyway.
+        const heldFree = await prisma.featureEntitlement.findUnique({
+          where: {
+            workspaceId_sku: {
+              workspaceId: workspace.id,
+              sku: recurringAddon.sku,
+            },
+          },
+          select: { stripePriceId: true },
+        });
+        if (isComplimentaryEntitlement(heldFree)) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message:
+              "This add-on is included free in your Founding Trial, so there is nothing to buy.",
+            status: 409,
           });
         }
 

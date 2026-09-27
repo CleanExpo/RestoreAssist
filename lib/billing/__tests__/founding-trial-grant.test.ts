@@ -1,119 +1,196 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { AddonSku } from "@prisma/client";
 import {
+  COMPLIMENTARY_PRICE_ID,
   FOUNDING_TRIAL_SEATS,
   FoundingTrialGrantError,
   grantFoundingTrial,
+  isComplimentaryEntitlement,
 } from "../founding-trial-grant";
 
-const orgFindUnique = vi.fn();
-const workspaceFindFirst = vi.fn();
-const entitlementFindMany = vi.fn();
-const entitlementUpsert = vi.fn();
+type Row = {
+  workspaceId: string;
+  sku: AddonSku;
+  active: boolean;
+  seats: number | null;
+  stripeSubscriptionId: string | null;
+  stripePriceId: string | null;
+};
 
-const db = {
-  organization: { findUnique: orgFindUnique },
-  workspace: { findFirst: workspaceFindFirst },
-  featureEntitlement: {
-    findMany: entitlementFindMany,
-    upsert: entitlementUpsert,
-  },
-} as never;
+/** In-memory FeatureEntitlement store keyed on (workspaceId, sku). */
+function makeDb(opts: { beforeWrite?: (rows: Map<string, Row>) => void } = {}) {
+  const rows = new Map<string, Row>();
+  const key = (w: string, s: string) => `${w}:${s}`;
+  const org = vi.fn(async () => ({ ownerId: "owner_1" }));
+  const ws = vi.fn(async () => ({ id: "ws_1" }));
+  const db = {
+    organization: { findUnique: org },
+    workspace: { findFirst: ws },
+    featureEntitlement: {
+      findMany: vi.fn(async ({ where }: { where: { workspaceId: string } }) =>
+        [...rows.values()].filter((r) => r.workspaceId === where.workspaceId),
+      ),
+      updateMany: vi.fn(
+        async ({ where, data }: { where: Row & object; data: Partial<Row> }) => {
+          opts.beforeWrite?.(rows);
+          const r = rows.get(key(where.workspaceId, where.sku));
+          if (!r || r.stripeSubscriptionId !== where.stripeSubscriptionId) {
+            return { count: 0 };
+          }
+          Object.assign(r, data);
+          return { count: 1 };
+        },
+      ),
+      createMany: vi.fn(
+        async ({ data }: { data: Row[]; skipDuplicates: boolean }) => {
+          const d = data[0];
+          if (rows.has(key(d.workspaceId, d.sku))) return { count: 0 };
+          rows.set(key(d.workspaceId, d.sku), {
+            stripeSubscriptionId: null,
+            ...d,
+          });
+          return { count: 1 };
+        },
+      ),
+    },
+  };
+  return { db, rows, org, ws, get: (sku: AddonSku) => rows.get(key("ws_1", sku)) };
+}
 
 const ALL = Object.values(AddonSku);
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  orgFindUnique.mockResolvedValue({ ownerId: "owner_1" });
-  workspaceFindFirst.mockResolvedValue({ id: "ws_1" });
-  entitlementFindMany.mockResolvedValue([]);
-  entitlementUpsert.mockResolvedValue({});
-});
-
 describe("grantFoundingTrial (RA-7721, founder ruling 27/09)", () => {
-  it("switches on every add-on, uncharged, on the owner's oldest READY workspace", async () => {
-    const res = await grantFoundingTrial(db, "org_1", { apply: true });
+  let h: ReturnType<typeof makeDb>;
+  beforeEach(() => {
+    h = makeDb();
+  });
 
-    expect(workspaceFindFirst).toHaveBeenCalledWith(
+  it("switches on every add-on, marked free, on the owner's oldest READY workspace", async () => {
+    const res = await grantFoundingTrial(h.db as never, "org_1", { apply: true });
+
+    expect(h.ws).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { ownerId: "owner_1", status: "READY" },
         orderBy: { createdAt: "asc" },
       }),
     );
-    expect(res).toMatchObject({ workspaceId: "ws_1", applied: true });
+    expect(res).toMatchObject({ workspaceId: "ws_1", applied: true, skippedPaid: [] });
     expect([...res.granted].sort()).toEqual([...ALL].sort());
-    expect(entitlementUpsert).toHaveBeenCalledTimes(ALL.length);
-
-    for (const [arg] of entitlementUpsert.mock.calls) {
-      expect(arg.create.active).toBe(true);
-      expect(arg.update.active).toBe(true);
-      // Uncharged: nothing links the row to a Stripe subscription or price.
-      expect(arg.create).not.toHaveProperty("stripeSubscriptionId");
-      expect(arg.create).not.toHaveProperty("stripePriceId");
-      expect(arg.update).not.toHaveProperty("stripeSubscriptionId");
+    for (const sku of ALL) {
+      const row = h.get(sku)!;
+      expect(row.active).toBe(true);
+      expect(row.stripeSubscriptionId).toBeNull();
+      expect(isComplimentaryEntitlement(row)).toBe(true);
     }
   });
 
   it("gives technician seats an effectively unlimited count; flat add-ons carry none", async () => {
-    await grantFoundingTrial(db, "org_1", { apply: true });
-    const bySku = new Map(
-      entitlementUpsert.mock.calls.map(([a]) => [a.create.sku, a]),
-    );
-    expect(bySku.get(AddonSku.TECHNICIAN_SEATS).create.seats).toBe(
-      FOUNDING_TRIAL_SEATS,
-    );
-    expect(bySku.get(AddonSku.VOICE).create.seats).toBeUndefined();
+    await grantFoundingTrial(h.db as never, "org_1", { apply: true });
+    expect(h.get(AddonSku.TECHNICIAN_SEATS)!.seats).toBe(FOUNDING_TRIAL_SEATS);
+    expect(h.get(AddonSku.VOICE)!.seats).toBeNull();
+  });
+
+  it("turns an existing unpaid, inactive row into a free grant", async () => {
+    h.rows.set("ws_1:VOICE", {
+      workspaceId: "ws_1",
+      sku: AddonSku.VOICE,
+      active: false,
+      seats: null,
+      stripeSubscriptionId: null,
+      stripePriceId: null,
+    });
+    await grantFoundingTrial(h.db as never, "org_1", { apply: true });
+    expect(h.get(AddonSku.VOICE)).toMatchObject({
+      active: true,
+      stripePriceId: COMPLIMENTARY_PRICE_ID,
+    });
   });
 
   it("dry run writes nothing but reports what it would grant", async () => {
-    const res = await grantFoundingTrial(db, "org_1", { apply: false });
-    expect(entitlementUpsert).not.toHaveBeenCalled();
+    const res = await grantFoundingTrial(h.db as never, "org_1", { apply: false });
+    expect(h.db.featureEntitlement.updateMany).not.toHaveBeenCalled();
+    expect(h.db.featureEntitlement.createMany).not.toHaveBeenCalled();
+    expect(h.rows.size).toBe(0);
     expect(res.applied).toBe(false);
     expect(res.granted.length).toBe(ALL.length);
   });
 
-  it("leaves a row already backed by a Stripe subscription untouched", async () => {
-    entitlementFindMany.mockResolvedValueOnce([
-      { sku: AddonSku.VOICE, stripeSubscriptionId: "sub_paid" },
-      { sku: AddonSku.PAYMENTS, stripeSubscriptionId: null },
-    ]);
-    const res = await grantFoundingTrial(db, "org_1", { apply: true });
-    expect(res.skippedPaid).toEqual([AddonSku.VOICE]);
-    const written = entitlementUpsert.mock.calls.map(([a]) => a.create.sku);
-    expect(written).not.toContain(AddonSku.VOICE);
-    expect(written).toContain(AddonSku.PAYMENTS);
+  it("leaves every row backed by a Stripe subscription untouched, active or not", async () => {
+    h.rows.set("ws_1:VOICE", {
+      workspaceId: "ws_1",
+      sku: AddonSku.VOICE,
+      active: true,
+      seats: null,
+      stripeSubscriptionId: "sub_paid",
+      stripePriceId: "price_voice",
+    });
+    h.rows.set("ws_1:TECHNICIAN_SEATS", {
+      workspaceId: "ws_1",
+      sku: AddonSku.TECHNICIAN_SEATS,
+      active: false,
+      seats: 2,
+      stripeSubscriptionId: "sub_seats",
+      stripePriceId: "price_seats",
+    });
+    const res = await grantFoundingTrial(h.db as never, "org_1", { apply: true });
+    expect([...res.skippedPaid].sort()).toEqual(
+      [AddonSku.TECHNICIAN_SEATS, AddonSku.VOICE].sort(),
+    );
+    expect(h.get(AddonSku.VOICE)).toMatchObject({ stripeSubscriptionId: "sub_paid", stripePriceId: "price_voice" });
+    expect(h.get(AddonSku.TECHNICIAN_SEATS)).toMatchObject({ active: false, seats: 2, stripeSubscriptionId: "sub_seats" });
+  });
+
+  it("a paid row written by Stripe mid-grant is skipped, not overwritten", async () => {
+    const racing = makeDb({
+      beforeWrite: (rows) => {
+        if (!rows.has("ws_1:TECHNICIAN_SEATS")) {
+          rows.set("ws_1:TECHNICIAN_SEATS", {
+            workspaceId: "ws_1",
+            sku: AddonSku.TECHNICIAN_SEATS,
+            active: true,
+            seats: 2,
+            stripeSubscriptionId: "sub_new",
+            stripePriceId: "price_seats",
+          });
+        }
+      },
+    });
+    const res = await grantFoundingTrial(racing.db as never, "org_1", { apply: true });
+    expect(res.skippedPaid).toContain(AddonSku.TECHNICIAN_SEATS);
+    expect(res.granted).not.toContain(AddonSku.TECHNICIAN_SEATS);
+    expect(racing.get(AddonSku.TECHNICIAN_SEATS)).toMatchObject({
+      seats: 2,
+      stripeSubscriptionId: "sub_new",
+      stripePriceId: "price_seats",
+    });
   });
 
   it("refuses an unknown organisation or one with no READY workspace", async () => {
-    orgFindUnique.mockResolvedValueOnce(null);
+    h.org.mockResolvedValueOnce(null as never);
     await expect(
-      grantFoundingTrial(db, "nope", { apply: true }),
+      grantFoundingTrial(h.db as never, "nope", { apply: true }),
     ).rejects.toBeInstanceOf(FoundingTrialGrantError);
 
-    workspaceFindFirst.mockResolvedValueOnce(null);
+    h.ws.mockResolvedValueOnce(null as never);
     await expect(
-      grantFoundingTrial(db, "org_1", { apply: true }),
+      grantFoundingTrial(h.db as never, "org_1", { apply: true }),
     ).rejects.toBeInstanceOf(FoundingTrialGrantError);
-    expect(entitlementUpsert).not.toHaveBeenCalled();
+    expect(h.rows.size).toBe(0);
   });
 });
 
 describe("a granted Founding Trial business can take on technicians", () => {
   it("the real seat counter sees the granted seats as purchased", async () => {
     const { technicianSeatUsage } = await import("../technician-seats");
-    await grantFoundingTrial(db, "org_1", { apply: true });
-    const seatRow = entitlementUpsert.mock.calls
-      .map(([a]) => a)
-      .find((a) => a.create.sku === AddonSku.TECHNICIAN_SEATS);
+    const h = makeDb();
+    await grantFoundingTrial(h.db as never, "org_1", { apply: true });
+    const seatRow = h.get(AddonSku.TECHNICIAN_SEATS)!;
 
     const seatDb = {
       organization: { findUnique: async () => ({ ownerId: "owner_1" }) },
       workspace: { findFirst: async () => ({ id: "ws_1" }) },
       featureEntitlement: {
-        findUnique: async () => ({
-          active: seatRow.create.active,
-          seats: seatRow.create.seats,
-        }),
+        findUnique: async () => ({ active: seatRow.active, seats: seatRow.seats }),
       },
       user: { count: async () => 5 },
       userInvite: { count: async () => 2 },

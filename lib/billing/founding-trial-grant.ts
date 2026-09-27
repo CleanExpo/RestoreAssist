@@ -6,12 +6,18 @@
  *
  * The grant is a set of FeatureEntitlement rows on the organisation owner's
  * oldest READY workspace — the same workspace `technicianSeatUsage` and
- * `/api/addons/checkout` use — marked active with no Stripe linkage. The
- * Stripe webhook only writes a row for that workspace's own add-on
- * subscription, so an unlinked row is not touched by billing.
+ * `/api/addons/checkout` (via getWorkspaceForUser) resolve for the owner —
+ * marked active, with no Stripe subscription, and `stripePriceId` set to
+ * COMPLIMENTARY_PRICE_ID. That marker is what keeps the grant free:
+ *   - `/api/addons/checkout` refuses to sell an add-on held complimentary;
+ *   - `applyRecurringAddonSubscription` will not overwrite or deactivate it,
+ *     so a checkout left open before the grant cannot replace it.
+ * Nothing else reads `stripePriceId`, so the marker needs no schema change.
  *
- * A row already linked to a Stripe subscription is left alone and reported:
- * overwriting it would detach a paid subscription from its entitlement.
+ * A row already linked to a Stripe subscription is never written: each write
+ * is a conditional update on `stripeSubscriptionId: null`, or a create that
+ * loses cleanly to a concurrent Stripe write, so a paid row that appears
+ * between planning and writing is skipped and reported, not overwritten.
  */
 
 import { AddonSku, type Prisma, type PrismaClient } from "@prisma/client";
@@ -21,11 +27,20 @@ type GrantDb = PrismaClient | Prisma.TransactionClient;
 /** Seat count for a Founding Trial: effectively unlimited, still an Int. */
 export const FOUNDING_TRIAL_SEATS = 999;
 
+/** `stripePriceId` value that marks an entitlement as a free grant. */
+export const COMPLIMENTARY_PRICE_ID = "complimentary:founding-trial";
+
+export function isComplimentaryEntitlement(
+  row: { stripePriceId?: string | null } | null | undefined,
+): boolean {
+  return row?.stripePriceId === COMPLIMENTARY_PRICE_ID;
+}
+
 export interface FoundingTrialGrantResult {
   workspaceId: string;
   /** SKUs written (or that would be written, on a dry run). */
   granted: AddonSku[];
-  /** SKUs skipped because a Stripe subscription already backs the row. */
+  /** SKUs skipped because a Stripe subscription backs the row. */
   skippedPaid: AddonSku[];
   applied: boolean;
 }
@@ -62,37 +77,52 @@ export async function grantFoundingTrial(
       `Organisation ${organizationId} has no READY workspace`,
     );
   }
-
-  const existing = await db.featureEntitlement.findMany({
-    where: { workspaceId: workspace.id },
-    select: { sku: true, stripeSubscriptionId: true },
-  });
-  const paid = new Set(
-    existing.filter((e) => e.stripeSubscriptionId).map((e) => e.sku),
-  );
+  const workspaceId = workspace.id;
 
   const granted: AddonSku[] = [];
   const skippedPaid: AddonSku[] = [];
-  for (const sku of Object.values(AddonSku)) {
-    if (paid.has(sku)) {
-      skippedPaid.push(sku);
-      continue;
-    }
-    granted.push(sku);
-    if (!opts.apply) continue;
-    const seats =
-      sku === AddonSku.TECHNICIAN_SEATS ? FOUNDING_TRIAL_SEATS : undefined;
-    await db.featureEntitlement.upsert({
-      where: { workspaceId_sku: { workspaceId: workspace.id, sku } },
-      create: { workspaceId: workspace.id, sku, active: true, seats },
-      update: { active: true, seats },
+
+  if (!opts.apply) {
+    const existing = await db.featureEntitlement.findMany({
+      where: { workspaceId },
+      select: { sku: true, stripeSubscriptionId: true },
     });
+    const paid = new Set(
+      existing.filter((e) => e.stripeSubscriptionId).map((e) => e.sku),
+    );
+    for (const sku of Object.values(AddonSku)) {
+      (paid.has(sku) ? skippedPaid : granted).push(sku);
+    }
+    return { workspaceId, granted, skippedPaid, applied: false };
   }
 
-  return {
-    workspaceId: workspace.id,
-    granted,
-    skippedPaid,
-    applied: opts.apply,
-  };
+  for (const sku of Object.values(AddonSku)) {
+    const data = {
+      active: true,
+      seats: sku === AddonSku.TECHNICIAN_SEATS ? FOUNDING_TRIAL_SEATS : null,
+      stripePriceId: COMPLIMENTARY_PRICE_ID,
+    };
+
+    // Only a row with no Stripe subscription may be written.
+    const updated = await db.featureEntitlement.updateMany({
+      where: { workspaceId, sku, stripeSubscriptionId: null },
+      data,
+    });
+    if (updated.count === 1) {
+      granted.push(sku);
+      continue;
+    }
+
+    // No writable row: create one, unless a row already exists — then a
+    // Stripe subscription backs it (possibly written a moment ago) and it is
+    // left alone. skipDuplicates is ON CONFLICT DO NOTHING, so a conflict
+    // does not abort the surrounding transaction the way a failed create would.
+    const created = await db.featureEntitlement.createMany({
+      data: [{ workspaceId, sku, ...data }],
+      skipDuplicates: true,
+    });
+    (created.count === 1 ? granted : skippedPaid).push(sku);
+  }
+
+  return { workspaceId, granted, skippedPaid, applied: true };
 }
