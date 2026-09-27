@@ -1,4 +1,21 @@
 import { prisma } from "@/lib/prisma";
+import { PG_POOL_CONNECTION_TIMEOUT_MS } from "@/lib/prisma-pool-config";
+
+/**
+ * Options for the RA-7774 claim transaction. Prisma's interactive defaults
+ * (maxWait 2s, timeout 5s) would make the claim stricter than the plain
+ * queries it replaced, so a busy pool would fail a cron that used to run:
+ * - maxWait matches the pool's own connection wait (lib/prisma.ts), so getting
+ *   a connection is bounded exactly as it was before the transaction existed.
+ * - timeout covers the claim's work, which is milliseconds, plus waiting on the
+ *   advisory lock behind another invocation's claim of the same job, which is
+ *   also milliseconds per claim. 20s leaves a wide margin for a slow database
+ *   without letting a stuck claim hold a pooled connection indefinitely.
+ */
+export const CRON_CLAIM_TRANSACTION_OPTIONS = {
+  maxWait: PG_POOL_CONNECTION_TIMEOUT_MS,
+  timeout: 20_000,
+} as const;
 
 export interface CronJobResult {
   itemsProcessed: number;
@@ -42,7 +59,7 @@ export async function runCronJob(
     return tx.cronJobRun.create({
       data: { jobName, status: "running" },
     });
-  });
+  }, CRON_CLAIM_TRANSACTION_OPTIONS);
 
   if (!run) {
     return {

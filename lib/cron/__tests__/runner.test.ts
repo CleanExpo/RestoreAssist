@@ -25,6 +25,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+import { PG_POOL_CONNECTION_TIMEOUT_MS } from "@/lib/prisma-pool-config";
 import { runCronJob } from "../runner";
 
 beforeEach(() => {
@@ -83,6 +84,43 @@ describe("runCronJob", () => {
     // The job name is a bound parameter, never spliced into the SQL text.
     expect(values).toEqual(["test-job"]);
     expect(sqlParts.join("?")).not.toContain("test-job");
+  });
+
+  it("opens the claim transaction with a connection wait no tighter than the pool's", async () => {
+    await runCronJob("test-job", vi.fn().mockResolvedValue({ itemsProcessed: 0 }));
+
+    // Prisma's interactive defaults are maxWait 2s / timeout 5s; the pool in
+    // lib/prisma.ts waits 20s for a connection.
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+      maxWait: 20_000,
+      timeout: 20_000,
+    });
+    expect(transaction.mock.calls[0][1].maxWait).toBe(
+      PG_POOL_CONNECTION_TIMEOUT_MS,
+    );
+  });
+
+  it("propagates a rejected claim transaction unchanged: no handler, no run recorded, not skipped", async () => {
+    const claimError = new Error("Transaction API error: Unable to start a transaction");
+    transaction.mockRejectedValueOnce(claimError);
+    const handler = vi.fn();
+
+    await expect(runCronJob("test-job", handler)).rejects.toBe(claimError);
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(cronJobRunUpdate).not.toHaveBeenCalled();
+  });
+
+  it("propagates a check that throws inside the claim unchanged, as main's bare findFirst did", async () => {
+    const checkError = new Error("connection reset");
+    cronJobRunFindFirst.mockRejectedValueOnce(checkError);
+    const handler = vi.fn();
+
+    await expect(runCronJob("test-job", handler)).rejects.toBe(checkError);
+
+    expect(cronJobRunCreate).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+    expect(cronJobRunUpdate).not.toHaveBeenCalled();
   });
 
   it("skips when a recent run is already in progress (overlap protection)", async () => {
