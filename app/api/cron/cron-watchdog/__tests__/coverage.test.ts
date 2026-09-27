@@ -442,8 +442,9 @@ function findStaleScheduleClaims(commentBody: string): string[] {
  *     vercel.json time in that zone; a time with no zone is a finding;
  *   - "every N minutes" / "every minute" must equal the vercel.json interval;
  *   - "daily" / "hourly" with no time or interval is not a claim.
- * A time or interval in a sentence that names another scheduled route
- * before it is about that route, not this one, and is skipped.
+ * A time or interval that is wrong for this route is excused only when a
+ * scheduled route named before it in the same sentence runs at exactly
+ * that time or interval: then the claim is about that route and true.
  */
 const TZ_OFFSET_HOURS: Record<string, number> = { UTC: 0, AEST: 10, AEDT: 11 };
 const CRON_FIELD_RANGES: Array<[number, number]> = [
@@ -498,16 +499,44 @@ function minuteInterval(schedule: string): number | null {
   return step ? Number(step[1]) : null;
 }
 
-function namesOtherRoute(
+/**
+ * vercel.json schedules of the other scheduled routes named in `prefix`.
+ * A claim after such a name may be about that route, but only a claim that
+ * is TRUE for it is excused (RA-7460/7469 review P1).
+ */
+function namedOtherSchedules(
   prefix: string,
   segment: string,
   allSegments: string[],
-): boolean {
-  return allSegments.some(
-    (other) =>
-      other !== segment &&
-      new RegExp(`(?<![\\w-])${other}(?![\\w-])`).test(prefix),
+): string[] {
+  const schedules = new Map(
+    scheduledCrons().map((c) => [c.segment, c.schedule]),
   );
+  return allSegments
+    .filter(
+      (other) =>
+        other !== segment &&
+        new RegExp(`(?<![\\w-])${other}(?![\\w-])`).test(prefix),
+    )
+    .flatMap((other) => schedules.get(other) ?? []);
+}
+
+function timeFinding(
+  text: string,
+  h: number,
+  min: number,
+  zone: string | undefined,
+  schedule: string,
+): string | null {
+  if (!zone) return `"${text}" names no timezone (write UTC, AEST or AEDT)`;
+  const utc = dailyUtcTime(schedule);
+  if (!utc) {
+    return `"${text} ${zone}" but vercel.json \`${schedule}\` has no fixed daily time`;
+  }
+  const expected = (utc.h + TZ_OFFSET_HOURS[zone]!) % 24;
+  if (expected === h && utc.m === min) return null;
+  const want = `${String(expected).padStart(2, "0")}:${String(utc.m).padStart(2, "0")}`;
+  return `"${text} ${zone}" but vercel.json \`${schedule}\` is ${want} ${zone}`;
 }
 
 function scheduleClaimFindings(
@@ -528,9 +557,6 @@ function scheduleClaimFindings(
   for (const sentence of comment.split(/(?<=[.;])\s+/)) {
     for (const m of sentence.matchAll(TIME_CLAIM)) {
       const text = m[0];
-      if (namesOtherRoute(sentence.slice(0, m.index), segment, allSegments)) {
-        continue;
-      }
       let h = Number(m[1] ?? m[4]);
       const min = Number(m[2] ?? 0);
       const meridiem = (m[3] ?? m[5])?.toUpperCase();
@@ -538,34 +564,29 @@ function scheduleClaimFindings(
       if (meridiem === "PM" && h !== 12) h += 12;
       const after = sentence.slice(m.index! + text.length);
       const zone = after.match(/^\s*(UTC|AEST|AEDT)\b/)?.[1];
-      if (!zone) {
-        findings.push(`"${text}" names no timezone (write UTC, AEST or AEDT)`);
+      const own = timeFinding(text, h, min, zone, schedule);
+      if (!own) continue;
+      const others = namedOtherSchedules(
+        sentence.slice(0, m.index),
+        segment,
+        allSegments,
+      );
+      if (others.some((s) => timeFinding(text, h, min, zone, s) === null)) {
         continue;
       }
-      const utc = dailyUtcTime(schedule);
-      if (!utc) {
-        findings.push(
-          `"${text} ${zone}" but vercel.json \`${schedule}\` has no fixed daily time`,
-        );
-        continue;
-      }
-      const expected = (utc.h + TZ_OFFSET_HOURS[zone]!) % 24;
-      if (expected !== h || utc.m !== min) {
-        const want = `${String(expected).padStart(2, "0")}:${String(utc.m).padStart(2, "0")}`;
-        findings.push(
-          `"${text} ${zone}" but vercel.json \`${schedule}\` is ${want} ${zone}`,
-        );
-      }
+      findings.push(own);
     }
 
     for (const m of sentence.matchAll(INTERVAL_CLAIM)) {
-      if (namesOtherRoute(sentence.slice(0, m.index), segment, allSegments)) {
-        continue;
-      }
       const claimed = Number(m[1] ?? 1);
-      if (minuteInterval(schedule) !== claimed) {
-        findings.push(`"${m[0]}" but vercel.json runs \`${schedule}\``);
-      }
+      if (minuteInterval(schedule) === claimed) continue;
+      const others = namedOtherSchedules(
+        sentence.slice(0, m.index),
+        segment,
+        allSegments,
+      );
+      if (others.some((s) => minuteInterval(s) === claimed)) continue;
+      findings.push(`"${m[0]}" but vercel.json runs \`${schedule}\``);
     }
   }
 
@@ -840,7 +861,7 @@ describe("cron comment truthfulness (RA-7455)", () => {
     ).toEqual([]);
     expect(
       scheduleClaimFindings(
-        "Runs daily at 17:30 UTC, after the main cleanup cron at 03:00.",
+        "Runs daily at 17:30 UTC, after the main cleanup cron at 17:00 UTC.",
         "prune-webhook-events",
         "30 17 * * *",
         all,
@@ -855,5 +876,27 @@ describe("cron comment truthfulness (RA-7455)", () => {
         all,
       ),
     ).toEqual(['"every 20 minutes" but vercel.json runs `*/30 * * * *`']);
+  });
+
+  it("named-route arm: another route's name only excuses a claim true for that route", () => {
+    // Review P1 repro: storage-mirror runs */10, so "every 5 minutes" is true
+    // for neither route and must not be swallowed by the name before it.
+    expect(
+      scheduleClaimFindings(
+        "Unlike storage-mirror, Schedule: every 5 minutes (vercel.json).",
+        "storage-restore",
+        "*/10 * * * *",
+        ["storage-restore", "storage-mirror"],
+      ),
+    ).toEqual(['"every 5 minutes" but vercel.json runs `*/10 * * * *`']);
+    // cleanup runs at 17:00 UTC; 16:00 UTC is true for neither route.
+    expect(
+      scheduleClaimFindings(
+        "Runs daily at 17:30 UTC, after the main cleanup cron at 16:00 UTC.",
+        "prune-webhook-events",
+        "30 17 * * *",
+        ["prune-webhook-events", "cleanup"],
+      ),
+    ).toEqual(['"16:00 UTC" but vercel.json `30 17 * * *` is 17:30 UTC']);
   });
 });
