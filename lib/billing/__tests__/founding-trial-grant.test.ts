@@ -202,33 +202,247 @@ describe("a granted Founding Trial business can take on technicians", () => {
   });
 });
 
-describe("openAddonCheckouts — the grant will not race an open add-on checkout", () => {
-  const lister = (sessions: Array<{ id: string; metadata?: Record<string, string> }>) => {
-    const list = vi.fn((_p: unknown) => ({
-      async *[Symbol.asyncIterator]() {
-        yield* sessions;
-      },
-    }));
-    return { stripe: { checkout: { sessions: { list } } }, list };
-  };
+type Session = { id: string; customer: string; status: string; metadata?: Record<string, string> };
+type Sub = { id: string; customer: string; status: string; metadata?: Record<string, string> };
 
-  it("names every open add-on checkout for the owner, and only those", async () => {
-    const { stripe, list } = lister([
-      { id: "cs_seat", metadata: { type: "addon_subscription", sku: "TECHNICIAN_SEATS" } },
-      { id: "cs_base", metadata: { type: "subscription" } },
-      { id: "cs_none" },
-    ]);
-    const { openAddonCheckouts } = await import("../founding-trial-grant");
-    expect(await openAddonCheckouts(stripe, "cus_1")).toEqual([
-      { id: "cs_seat", sku: "TECHNICIAN_SEATS" },
-    ]);
-    expect(list).toHaveBeenCalledWith({ customer: "cus_1", status: "open", limit: 100 });
+/** Stripe read double: lists whatever the arrays hold at the moment of the call. */
+function makeStripe(sessions: Session[], subs: Sub[]) {
+  const iter = <T,>(items: T[]) => ({
+    async *[Symbol.asyncIterator]() {
+      yield* items;
+    },
+  });
+  const sessionsList = vi.fn((p: { customer: string; status: string }) =>
+    iter(sessions.filter((s) => s.customer === p.customer && s.status === p.status)),
+  );
+  const subsList = vi.fn((p: { customer: string }) =>
+    iter(subs.filter((s) => s.customer === p.customer)),
+  );
+  return {
+    stripe: {
+      checkout: { sessions: { list: sessionsList } },
+      subscriptions: { list: subsList },
+    },
+    sessionsList,
+    subsList,
+  };
+}
+
+const seatCheckout = (
+  id: string,
+  customer: string,
+  status = "open",
+  workspaceId = "ws_1",
+): Session => ({
+  id,
+  customer,
+  status,
+  metadata: { type: "addon_subscription", sku: "TECHNICIAN_SEATS", workspaceId },
+});
+const seatSub = (
+  id: string,
+  customer: string,
+  status = "active",
+  workspaceId = "ws_1",
+): Sub => ({
+  id,
+  customer,
+  status,
+  metadata: { type: "technician_seats_addon", sku: "TECHNICIAN_SEATS", workspaceId },
+});
+
+/** makeDb plus what runFoundingTrialGrant needs: members, a transaction, deletes. */
+function makeRunDb(members: Array<string | null> = []) {
+  const base = makeDb();
+  const db = {
+    ...base.db,
+    workspace: {
+      findFirst: base.ws,
+      findUnique: vi.fn(async () => ({
+        owner: { stripeCustomerId: "cus_owner" },
+        members: members.map((c) => ({ user: { stripeCustomerId: c } })),
+      })),
+    },
+    featureEntitlement: {
+      ...base.db.featureEntitlement,
+      deleteMany: vi.fn(async ({ where }: { where: Row & object }) => {
+        const k = `${where.workspaceId}:${where.sku}`;
+        const r = base.rows.get(k);
+        if (
+          !r ||
+          r.stripePriceId !== where.stripePriceId ||
+          r.stripeSubscriptionId !== null
+        ) {
+          return { count: 0 };
+        }
+        base.rows.delete(k);
+        return { count: 1 };
+      }),
+    },
+    $transaction: vi.fn(async (fn: (tx: unknown) => unknown): Promise<unknown> => fn(db)),
+  };
+  return { ...base, db };
+}
+
+async function run(
+  db: unknown,
+  stripe: unknown,
+  opts: { duringSettle?: () => void } = {},
+) {
+  const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+  return runFoundingTrialGrant({
+    db: db as never,
+    stripe: stripe as never,
+    organizationId: "org_1",
+    apply: true,
+    sleep: async () => opts.duringSettle?.(),
+  });
+}
+
+describe("runFoundingTrialGrant — never free while the business is also paying (codex r3)", () => {
+  it("control: an owner's open add-on checkout refuses before anything is written", async () => {
+    const { db, rows } = makeRunDb();
+    const { stripe } = makeStripe([seatCheckout("cs_owner", "cus_owner")], []);
+    const out = await run(db, stripe);
+    expect(out).toMatchObject({
+      status: "refused",
+      conflicts: [{ kind: "open_checkout", id: "cs_owner" }],
+    });
+    expect(rows.size).toBe(0);
+    expect(db.featureEntitlement.updateMany).not.toHaveBeenCalled();
   });
 
-  it("an owner with no Stripe customer has nothing open, and Stripe is not called", async () => {
-    const { stripe, list } = lister([]);
-    const { openAddonCheckouts } = await import("../founding-trial-grant");
-    expect(await openAddonCheckouts(stripe, null)).toEqual([]);
-    expect(list).not.toHaveBeenCalled();
+  it("P1-PREFLIGHT-NOT-A-DRAIN: a checkout completed before the check, webhook not landed, refuses", async () => {
+    const { db, rows } = makeRunDb();
+    const { stripe } = makeStripe(
+      [seatCheckout("cs_done", "cus_owner", "complete")],
+      [seatSub("sub_unrecorded", "cus_owner")],
+    );
+    const out = await run(db, stripe);
+    expect(out).toMatchObject({
+      status: "refused",
+      conflicts: [{ kind: "live_subscription", id: "sub_unrecorded" }],
+    });
+    expect(rows.size).toBe(0);
+  });
+
+  it("P1-PREFLIGHT-MISSES-MEMBER-CUSTOMERS: an active member's open checkout refuses", async () => {
+    const { db, rows } = makeRunDb(["cus_member", null]);
+    const { stripe } = makeStripe([seatCheckout("cs_member", "cus_member")], []);
+    const out = await run(db, stripe);
+    expect(out).toMatchObject({
+      status: "refused",
+      conflicts: [{ kind: "open_checkout", id: "cs_member", customer: "cus_member" }],
+    });
+    expect(rows.size).toBe(0);
+  });
+
+  it("P1-PREFLIGHT-NOT-A-DRAIN: a checkout opened after the check is caught after the wait, and the grant is put back as it was", async () => {
+    const { db, rows, get } = makeRunDb();
+    rows.set("ws_1:VOICE", {
+      workspaceId: "ws_1",
+      sku: AddonSku.VOICE,
+      active: false,
+      seats: null,
+      stripeSubscriptionId: null,
+      stripePriceId: "price_old",
+    });
+    const sessions: Session[] = [];
+    const { stripe } = makeStripe(sessions, []);
+    const out = await run(db, stripe, {
+      duringSettle: () => {
+        // The grant has committed: every add-on is held free, so checkout now 409s.
+        expect(get(AddonSku.TECHNICIAN_SEATS)?.stripePriceId).toBe(COMPLIMENTARY_PRICE_ID);
+        sessions.push(seatCheckout("cs_racing", "cus_owner"));
+      },
+    });
+    expect(out).toMatchObject({ status: "reverted", conflicts: [{ id: "cs_racing" }] });
+    expect([...rows.keys()]).toEqual(["ws_1:VOICE"]);
+    expect(get(AddonSku.VOICE)).toMatchObject({
+      active: false,
+      seats: null,
+      stripePriceId: "price_old",
+    });
+  });
+
+  it("the revert leaves alone a row Stripe linked during the wait", async () => {
+    const { db, get } = makeRunDb();
+    const sessions: Session[] = [];
+    const { stripe } = makeStripe(sessions, []);
+    await run(db, stripe, {
+      duringSettle: () => {
+        Object.assign(get(AddonSku.VOICE)!, {
+          stripeSubscriptionId: "sub_voice",
+          stripePriceId: "price_voice",
+        });
+        sessions.push(seatCheckout("cs_racing", "cus_owner"));
+      },
+    });
+    expect(get(AddonSku.VOICE)).toMatchObject({ stripeSubscriptionId: "sub_voice", active: true });
+    expect(get(AddonSku.TECHNICIAN_SEATS)).toBeUndefined();
+  });
+
+  it("with nothing in flight the grant stands, and every customer is checked before and after", async () => {
+    const { db, get } = makeRunDb(["cus_member"]);
+    const { stripe, sessionsList, subsList } = makeStripe([], []);
+    const out = await run(db, stripe);
+    expect(out.status).toBe("granted");
+    expect(get(AddonSku.TECHNICIAN_SEATS)?.seats).toBe(FOUNDING_TRIAL_SEATS);
+    expect(sessionsList.mock.calls.map((c) => c[0].customer)).toEqual([
+      "cus_owner",
+      "cus_member",
+      "cus_owner",
+      "cus_member",
+    ]);
+    expect(subsList).toHaveBeenCalledWith({ customer: "cus_member", status: "all", limit: 100 });
+  });
+
+  it("dry run writes nothing and does not wait", async () => {
+    const { db, rows } = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const sleep = vi.fn(async () => {});
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const out = await runFoundingTrialGrant({
+      db: db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: false,
+      sleep,
+    });
+    expect(out.status).toBe("dry_run");
+    expect(rows.size).toBe(0);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+});
+
+describe("addonBillingConflicts — what counts as billing in flight", () => {
+  it("ignores other workspaces, non-add-on billing, finished subscriptions and ones already recorded", async () => {
+    const { addonBillingConflicts } = await import("../founding-trial-grant");
+    const { stripe } = makeStripe(
+      [
+        seatCheckout("cs_other_ws", "cus_owner", "open", "ws_other"),
+        { id: "cs_base", customer: "cus_owner", status: "open", metadata: { type: "subscription" } },
+        { id: "cs_no_ws", customer: "cus_owner", status: "open", metadata: { type: "addon_subscription" } },
+      ],
+      [
+        seatSub("sub_other_ws", "cus_owner", "active", "ws_other"),
+        seatSub("sub_cancelled", "cus_owner", "canceled"),
+        seatSub("sub_recorded", "cus_owner"),
+        seatSub("sub_unpaid", "cus_owner", "past_due"),
+        {
+          id: "sub_base",
+          customer: "cus_owner",
+          status: "active",
+          metadata: { workspaceId: "ws_1", type: "subscription" },
+        },
+      ],
+    );
+    const found = await addonBillingConflicts(
+      stripe as never,
+      ["cus_owner"],
+      "ws_1",
+      new Set(["sub_recorded"]),
+    );
+    expect(found.map((c) => c.id)).toEqual(["cs_no_ws", "sub_unpaid"]);
   });
 });

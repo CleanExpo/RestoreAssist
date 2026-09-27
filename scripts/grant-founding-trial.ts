@@ -8,11 +8,13 @@
  *
  * Or: npm run script:grant-founding-trial -- <organizationId> [--apply]
  *
- * Before writing, it asks Stripe (read-only) whether the owner has an add-on
- * Checkout still open. One that completed after the grant would start a paid
- * subscription for an add-on the business now holds free, so the script
- * refuses to apply while any are open and names them. It never expires,
- * cancels or refunds anything in Stripe.
+ * It asks Stripe (read-only) about every customer that can buy add-ons for the
+ * business — the owner and each active member — before writing and again
+ * five minutes after. Any add-on checkout still open, or any live add-on
+ * subscription the database does not know about yet, would leave the
+ * business paying for something now free: before writing, the script refuses;
+ * after, it puts the grant back as it was. Either way it names what it found.
+ * It never expires, cancels or refunds anything in Stripe.
  */
 import Stripe from "stripe";
 import { PrismaClient } from "@prisma/client";
@@ -21,8 +23,8 @@ import { Pool } from "pg";
 import { STRIPE_API_VERSION } from "../lib/stripe";
 import {
   FoundingTrialGrantError,
-  grantFoundingTrial,
-  openAddonCheckouts,
+  runFoundingTrialGrant,
+  type BillingConflict,
 } from "../lib/billing/founding-trial-grant";
 
 // Prisma 7 needs the pg driver adapter at construction; a bare
@@ -49,25 +51,39 @@ const prisma = new PrismaClient({
 });
 const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION });
 
+function listConflicts(conflicts: BillingConflict[]) {
+  for (const c of conflicts) {
+    const what = c.kind === "open_checkout" ? "open checkout" : "live subscription";
+    console.error(`  ${what} ${c.id}  customer=${c.customer}  ${c.sku ?? "(no sku)"}`);
+  }
+}
+
 async function main() {
-  const org = await prisma.organization.findUnique({
-    where: { id: organizationId! },
-    select: { owner: { select: { stripeCustomerId: true } } },
+  const out = await runFoundingTrialGrant({
+    db: prisma,
+    stripe,
+    organizationId: organizationId!,
+    apply,
   });
-  const open = await openAddonCheckouts(stripe, org?.owner?.stripeCustomerId);
-  if (open.length) {
+  if (out.status === "refused") {
     console.error(
-      "REFUSED: the owner has add-on checkouts still open. If one completed after " +
-        "the grant it would start a paid subscription for an add-on that is now free. " +
-        "Wait for them to expire or be abandoned, then run this again:",
+      "REFUSED, nothing written: this business has add-on billing in Stripe that " +
+        "the grant would clash with. Once each checkout has expired or been " +
+        "abandoned, and each subscription is resolved by the owner, run this again:",
     );
-    for (const s of open) console.error(`  ${s.id}  ${s.sku ?? "(no sku)"}`);
+    listConflicts(out.conflicts);
     process.exit(3);
   }
-
-  const res = await prisma.$transaction((tx) =>
-    grantFoundingTrial(tx, organizationId!, { apply }),
-  );
+  if (out.status === "reverted") {
+    console.error(
+      "REVERTED: an add-on checkout or subscription appeared while the grant was " +
+        "being applied, so the grant has been put back as it was. Resolve these, " +
+        "then run this again:",
+    );
+    listConflicts(out.conflicts);
+    process.exit(4);
+  }
+  const res = out.result;
   console.log(
     `${res.applied ? "GRANTED" : "DRY RUN (nothing written; add --apply)"} ` +
       `workspace=${res.workspaceId}`,
