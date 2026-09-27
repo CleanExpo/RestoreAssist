@@ -73,7 +73,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
       prisma.auditLog.count({ where }),
     ]);
 
-    return NextResponse.json({ logs, total });
+    // Show who made each entry by name (RA-7721). AuditLog has no user
+    // relation, so look up only the people in these entries, names only.
+    const userIds = [...new Set(logs.map((log) => log.userId))];
+    const users = userIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const nameById = new Map(users.map((u) => [u.id, u.name]));
+
+    return NextResponse.json({
+      logs: logs.map((log) => ({
+        ...log,
+        userName: nameById.get(log.userId) ?? null,
+      })),
+      total,
+    });
   } catch (error) {
     return fromException(request, error, { stage: "inspection:audit" });
   }
