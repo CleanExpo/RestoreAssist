@@ -123,17 +123,22 @@ jobs:
       # column migration runs, the sibling `unit-tests` job executes and
       # mutation-tests that security-critical index directly.
       #
-      # If a NEW migration file uses `CREATE INDEX CONCURRENTLY` and
-      # this gate goes red again, append the migration name to EVERY copy
-      # of this list. After RA-7443 there are five:
+      # This list is written out in six places:
       #   .github/workflows/pr-checks.yml          (this `quality` job)
       #   .github/workflows/pr-checks.yml          (`unit-tests` job)
       #   .github/workflows/release-gate.yml
       #   .github/workflows/sketch-e2e.yml
       #   scripts/ci/test-with-db.sh
-      # Find them with: grep -rn 20260407_n1_performance_indexes --include='*.yml' --include='*.sh'
-      # A composite action would collapse the copies; that is out of scope
-      # here. Updating two of five leaves a red gate that looks unrelated.
+      #   scripts/ci/migration-roundtrip.sh
+      # RA-7502: the step below (scripts/ci/check-migration-preresolve.mjs,
+      # tested by scripts/__tests__/migration-preresolve-lists.test.ts) fails
+      # when the number of copies is not six, when the copies disagree, or
+      # when they differ from the migrations whose SQL, comments stripped,
+      # contains CONCURRENTLY. When a new CONCURRENTLY migration lands, it
+      # names every copy that must gain it.
+      - name: CONCURRENTLY pre-resolve lists agree (RA-7502)
+        run: node scripts/ci/check-migration-preresolve.mjs
+
       - name: Pre-resolve CONCURRENTLY migrations (Supabase-only syntax)
         run: |
           npx --no-install prisma migrate resolve --applied 20260407_n1_performance_indexes
