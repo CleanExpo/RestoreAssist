@@ -361,10 +361,16 @@ jobs:
       #      DO_APP_PLATFORM is set in this step's environment.
       #   2. It exits 2 if package.json no longer holds its exact
       #      "validate:next-build-no-db" alias line.
-      #   3. It greps its own file for a build, migrate or drift-check command
-      #      at the START of a line. That is a text match, not a guarantee: a
-      #      command later in a line (for example `true && npm run build`) is
-      #      not caught.
+      #   3. Before anything else runs (RA-7773), it exits 2 unless its own
+      #      executable lines equal the `#| ` allowlist in its comments: every
+      #      line that is non-empty and does not start with `#` after trimming
+      #      spaces and tabs, matched whole and in order. So an added or edited
+      #      line such as `true && npm run build` is refused, wherever it sits
+      #      below that check. It is a text check, not a guarantee: a line
+      #      added above the check still runs first, and one edit can change a
+      #      line and its `#| ` copy together.
+      #      scripts/__tests__/validate-next-build-no-db-allowlist.test.ts pins
+      #      the same lines from outside the wrapper, in the Unit tests job.
       # Do NOT give this step an `env:` block, and do not set any of those four
       # variables at job or workflow level. Setting them would turn this step
       # red on every PR; unsetting them inside the step would disable check 1.
