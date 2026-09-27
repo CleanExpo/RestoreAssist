@@ -96,19 +96,29 @@ export type BillingReader = {
       customer: string;
       status: "all";
       limit: number;
-    }): AsyncIterable<{ id: string; status: string; metadata?: Metadata }>;
+    }): AsyncIterable<StripeSub>;
+    search(params: { query: string; limit: number }): AsyncIterable<StripeSub>;
   };
+};
+
+type StripeSub = {
+  id: string;
+  status: string;
+  customer: string | { id: string };
+  metadata?: Metadata;
 };
 
 /** Subscription states that can no longer charge. */
 const FINISHED_SUBSCRIPTION = new Set(["canceled", "incomplete_expired"]);
 
 /**
- * Every Stripe customer that can buy an add-on for this workspace. Checkout
- * bills the purchasing user's own customer and resolves an ACTIVE member to
- * the shared workspace (getWorkspaceForUser), so the owner alone is not
- * enough. A member who resolves elsewhere only adds sessions the workspace
- * filter in addonBillingConflicts drops.
+ * Every Stripe customer that can have bought an add-on for this workspace.
+ * Checkout bills the purchasing user's own customer and resolves an ACTIVE
+ * member to the shared workspace (getWorkspaceForUser), so the owner alone is
+ * not enough — and a member removed or suspended since keeps a checkout or
+ * subscription that can still charge, so membership status is not filtered.
+ * A member who resolves elsewhere only adds billing the workspace filter in
+ * addonBillingConflicts drops.
  */
 export async function workspaceBillingCustomers(
   db: GrantDb,
@@ -119,7 +129,6 @@ export async function workspaceBillingCustomers(
     select: {
       owner: { select: { stripeCustomerId: true } },
       members: {
-        where: { status: "ACTIVE" },
         select: { user: { select: { stripeCustomerId: true } } },
       },
     },
@@ -134,6 +143,10 @@ export async function workspaceBillingCustomers(
 /**
  * Read-only: nothing is expired, cancelled or refunded. An add-on checkout
  * without a workspace id cannot be ruled out, so it counts against this one.
+ * Subscriptions are also found by the workspace id Checkout stamps on them,
+ * which reaches a payer no customer list names (a deleted user, a replaced
+ * customer id). Stripe's search index can trail by about a minute; the
+ * per-customer lists cover that gap for everyone the database still knows.
  */
 export async function addonBillingConflicts(
   stripe: BillingReader,
@@ -142,6 +155,22 @@ export async function addonBillingConflicts(
   linkedSubscriptionIds: ReadonlySet<string>,
 ): Promise<BillingConflict[]> {
   const conflicts: BillingConflict[] = [];
+  const seenSubs = new Set<string>();
+  const checkSub = (sub: StripeSub) => {
+    const m = sub.metadata;
+    if (seenSubs.has(sub.id)) return;
+    if (m?.workspaceId !== workspaceId) return;
+    if (!getRecurringAddonBySubscriptionType(m.type ?? "")) return;
+    if (FINISHED_SUBSCRIPTION.has(sub.status)) return;
+    if (linkedSubscriptionIds.has(sub.id)) return;
+    seenSubs.add(sub.id);
+    conflicts.push({
+      kind: "live_subscription",
+      id: sub.id,
+      customer: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
+      sku: m.sku ?? null,
+    });
+  };
   for (const customer of customerIds) {
     for await (const s of stripe.checkout.sessions.list({
       customer,
@@ -163,26 +192,28 @@ export async function addonBillingConflicts(
       status: "all",
       limit: 100,
     })) {
-      const m = sub.metadata;
-      if (m?.workspaceId !== workspaceId) continue;
-      if (!getRecurringAddonBySubscriptionType(m.type ?? "")) continue;
-      if (FINISHED_SUBSCRIPTION.has(sub.status)) continue;
-      if (linkedSubscriptionIds.has(sub.id)) continue;
-      conflicts.push({
-        kind: "live_subscription",
-        id: sub.id,
-        customer,
-        sku: m.sku ?? null,
-      });
+      checkSub(sub);
     }
+  }
+  for await (const sub of stripe.subscriptions.search({
+    query: `metadata['workspaceId']:'${workspaceId}'`,
+    limit: 100,
+  })) {
+    checkSub(sub);
   }
   return conflicts;
 }
 
+/**
+ * `seenCustomers` accumulates across calls, so a customer found by the first
+ * check is still checked the second time even if their membership row has
+ * gone in between.
+ */
 async function currentConflicts(
   db: GrantDb,
   stripe: BillingReader,
   workspaceId: string,
+  seenCustomers: Set<string>,
 ): Promise<BillingConflict[]> {
   const rows = await db.featureEntitlement.findMany({
     where: { workspaceId },
@@ -193,8 +224,10 @@ async function currentConflicts(
       .map((r) => r.stripeSubscriptionId)
       .filter((id): id is string => !!id),
   );
-  const customers = await workspaceBillingCustomers(db, workspaceId);
-  return addonBillingConflicts(stripe, customers, workspaceId, linked);
+  for (const c of await workspaceBillingCustomers(db, workspaceId)) {
+    seenCustomers.add(c);
+  }
+  return addonBillingConflicts(stripe, [...seenCustomers], workspaceId, linked);
 }
 
 /**
@@ -230,7 +263,8 @@ export async function runFoundingTrialGrant(deps: {
   const { db, stripe, organizationId, apply } = deps;
   const workspaceId = await grantWorkspaceId(db, organizationId);
 
-  const before = await currentConflicts(db, stripe, workspaceId);
+  const seenCustomers = new Set<string>();
+  const before = await currentConflicts(db, stripe, workspaceId, seenCustomers);
   if (before.length) {
     return { status: "refused", workspaceId, conflicts: before };
   }
@@ -248,7 +282,7 @@ export async function runFoundingTrialGrant(deps: {
     deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   await sleep(deps.settleMs ?? GRANT_SETTLE_MS);
 
-  const after = await currentConflicts(db, stripe, workspaceId);
+  const after = await currentConflicts(db, stripe, workspaceId, seenCustomers);
   if (!after.length) return { status: "granted", result };
   await db.$transaction((tx) => revertFoundingTrial(tx, result));
   return { status: "reverted", workspaceId, conflicts: after };

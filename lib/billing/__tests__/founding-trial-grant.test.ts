@@ -205,8 +205,12 @@ describe("a granted Founding Trial business can take on technicians", () => {
 type Session = { id: string; customer: string; status: string; metadata?: Record<string, string> };
 type Sub = { id: string; customer: string; status: string; metadata?: Record<string, string> };
 
-/** Stripe read double: lists whatever the arrays hold at the moment of the call. */
-function makeStripe(sessions: Session[], subs: Sub[]) {
+/**
+ * Stripe read double: lists whatever the arrays hold at the moment of the call.
+ * `indexed` is what Stripe's search index has caught up with — empty by
+ * default, as it is for a subscription created in the last minute.
+ */
+function makeStripe(sessions: Session[], subs: Sub[], indexed: Sub[] = []) {
   const iter = <T,>(items: T[]) => ({
     async *[Symbol.asyncIterator]() {
       yield* items;
@@ -218,13 +222,17 @@ function makeStripe(sessions: Session[], subs: Sub[]) {
   const subsList = vi.fn((p: { customer: string }) =>
     iter(subs.filter((s) => s.customer === p.customer)),
   );
+  const subsSearch = vi.fn((p: { query: string }) =>
+    iter(indexed.filter((s) => p.query === `metadata['workspaceId']:'${s.metadata?.workspaceId}'`)),
+  );
   return {
     stripe: {
       checkout: { sessions: { list: sessionsList } },
-      subscriptions: { list: subsList },
+      subscriptions: { list: subsList, search: subsSearch },
     },
     sessionsList,
     subsList,
+    subsSearch,
   };
 }
 
@@ -251,17 +259,33 @@ const seatSub = (
   metadata: { type: "technician_seats_addon", sku: "TECHNICIAN_SEATS", workspaceId },
 });
 
-/** makeDb plus what runFoundingTrialGrant needs: members, a transaction, deletes. */
-function makeRunDb(members: Array<string | null> = []) {
+type Member = { customer: string | null; status: string };
+
+/**
+ * makeDb plus what runFoundingTrialGrant needs: members, a transaction,
+ * deletes. The members double honours a status filter in the query, so a
+ * filter that drops former members is visible to the tests.
+ */
+function makeRunDb(members: Array<string | null | Member> = []) {
   const base = makeDb();
+  const roster: Member[] = members.map((m) =>
+    m && typeof m === "object" ? m : { customer: m, status: "ACTIVE" },
+  );
   const db = {
     ...base.db,
     workspace: {
       findFirst: base.ws,
-      findUnique: vi.fn(async () => ({
-        owner: { stripeCustomerId: "cus_owner" },
-        members: members.map((c) => ({ user: { stripeCustomerId: c } })),
-      })),
+      findUnique: vi.fn(
+        async (args: { select: { members: { where?: { status?: string } } } }) => {
+          const status = args.select.members.where?.status;
+          return {
+            owner: { stripeCustomerId: "cus_owner" },
+            members: roster
+              .filter((m) => !status || m.status === status)
+              .map((m) => ({ user: { stripeCustomerId: m.customer } })),
+          };
+        },
+      ),
     },
     featureEntitlement: {
       ...base.db.featureEntitlement,
@@ -281,7 +305,7 @@ function makeRunDb(members: Array<string | null> = []) {
     },
     $transaction: vi.fn(async (fn: (tx: unknown) => unknown): Promise<unknown> => fn(db)),
   };
-  return { ...base, db };
+  return { ...base, db, roster };
 }
 
 async function run(
@@ -412,6 +436,43 @@ describe("runFoundingTrialGrant — never free while the business is also paying
     expect(out.status).toBe("dry_run");
     expect(rows.size).toBe(0);
     expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("P1-DRAIN-DROPS-HISTORICAL-PAYERS: a REMOVED member's unrecorded subscription refuses", async () => {
+    const { db, rows } = makeRunDb([{ customer: "cus_former", status: "REMOVED" }]);
+    const { stripe } = makeStripe([], [seatSub("sub_former", "cus_former")]);
+    const out = await run(db, stripe);
+    expect(out).toMatchObject({
+      status: "refused",
+      conflicts: [{ kind: "live_subscription", id: "sub_former", customer: "cus_former" }],
+    });
+    expect(rows.size).toBe(0);
+  });
+
+  it("P1-DRAIN-DROPS-HISTORICAL-PAYERS: a member whose row vanishes during the wait is still checked", async () => {
+    const { db, rows, roster } = makeRunDb(["cus_member"]);
+    const subs: Sub[] = [];
+    const { stripe } = makeStripe([], subs);
+    const out = await run(db, stripe, {
+      duringSettle: () => {
+        roster.length = 0;
+        subs.push(seatSub("sub_member", "cus_member"));
+      },
+    });
+    expect(out).toMatchObject({ status: "reverted", conflicts: [{ id: "sub_member" }] });
+    expect(rows.size).toBe(0);
+  });
+
+  it("a subscription no known customer names is found by its workspace id", async () => {
+    const { db, rows } = makeRunDb();
+    const orphan: Sub = seatSub("sub_orphan", "cus_deleted_user");
+    const { stripe } = makeStripe([], [orphan], [orphan]);
+    const out = await run(db, stripe);
+    expect(out).toMatchObject({
+      status: "refused",
+      conflicts: [{ id: "sub_orphan", customer: "cus_deleted_user" }],
+    });
+    expect(rows.size).toBe(0);
   });
 });
 

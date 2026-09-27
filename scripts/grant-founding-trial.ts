@@ -9,7 +9,7 @@
  * Or: npm run script:grant-founding-trial -- <organizationId> [--apply]
  *
  * It asks Stripe (read-only) about every customer that can buy add-ons for the
- * business — the owner and each active member — before writing and again
+ * business — the owner and every member, current or former — before writing and again
  * five minutes after. Any add-on checkout still open, or any live add-on
  * subscription the database does not know about yet, would leave the
  * business paying for something now free: before writing, the script refuses;
@@ -49,7 +49,10 @@ if (!organizationId) {
 const prisma = new PrismaClient({
   adapter: new PrismaPg(new Pool({ connectionString, max: 2 })),
 });
-const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION });
+const stripe = new Stripe(stripeKey, {
+  apiVersion: STRIPE_API_VERSION,
+  typescript: true,
+});
 
 function listConflicts(conflicts: BillingConflict[]) {
   for (const c of conflicts) {
