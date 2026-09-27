@@ -112,6 +112,16 @@ export async function POST(
 
     // Create workflow + steps in a transaction
     const workflow = await prisma.$transaction(async (tx) => {
+      // RA-7721: claim the job through the caller's write filter FIRST, so a
+      // reassignment after the check above matches 0 rows and nothing is
+      // created. The row lock also holds a concurrent reassignment until
+      // this transaction commits.
+      const claimed = await tx.inspection.updateMany({
+        where: tenancy.data.inspectionManyWhere,
+        data: { updatedAt: new Date() },
+      });
+      if (claimed.count === 0) return null;
+
       const wf = await tx.inspectionWorkflow.create({
         data: {
           inspectionId,
@@ -163,6 +173,9 @@ export async function POST(
       },
       });
     });
+    if (workflow === null) {
+      return tenancyError(request, { status: 404, reason: "Inspection not found" });
+    }
 
     return NextResponse.json({ workflow }, { status: 201 });
   } catch (error) {

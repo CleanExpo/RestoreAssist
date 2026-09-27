@@ -654,6 +654,31 @@ describe.skipIf(!process.env.DATABASE_URL)(
       expect(await evidenceExists(ev)).toBe(true);
     });
 
+    it("case 12b: a technician reassigned after the check cannot start the workflow", async () => {
+      const w = await mkWorld();
+      const job = await mkJob(w, { workflow: false });
+      // Deterministic race: the access check has already passed; the owner
+      // reassigns the job just before the handler's write transaction opens.
+      // `prisma` from @/lib/prisma is a Proxy that reads every property from the
+      // real client, so a spy must sit on that client (cached on globalThis
+      // outside production), not on the Proxy.
+      const client = (globalThis as { prisma?: typeof prisma }).prisma;
+      if (!client) throw new Error("real Prisma client not initialised");
+      const realTransaction = client.$transaction.bind(client);
+      let reassigned = false;
+      vi.spyOn(client, "$transaction").mockImplementationOnce((async (...args: unknown[]) => {
+        await client.inspection.update({ where: { id: job.id }, data: { technicianId: w.O } });
+        reassigned = true;
+        return (realTransaction as (...a: unknown[]) => unknown)(...args);
+      }) as typeof client.$transaction);
+      as2(w.T);
+      const res = await call.postWorkflow(job.id);
+      // Positive control first: the reassignment really ran inside this request.
+      expect(reassigned).toBe(true);
+      await expectStatus(res, 404);
+      expect(await prisma.inspectionWorkflow.count({ where: { inspectionId: job.id } })).toBe(0);
+    });
+
     it("case 13: a user of another business assigned to the job is refused by the organisation rule", async () => {
       const w = await mkWorld();
       const job = await mkJob(w, { technicianId: null });
