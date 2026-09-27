@@ -92,6 +92,10 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: (...args: unknown[]) =>
     mocks.assertInspectionTenancy(...args),
+  // RA-7721: POST gates on the capture reach; same mock, same assertions.
+  assertInspectionCapturable: (...args: unknown[]) =>
+    mocks.assertInspectionTenancy(...args),
+  assertInspectionAssignedWrite: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({

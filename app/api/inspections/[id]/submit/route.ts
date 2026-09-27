@@ -24,7 +24,7 @@ import { checkNzbsGate } from "@/lib/compliance/nzbs-compliance-gate";
 import { detectMoistureTrendAnomalies } from "@/lib/compliance/moisture-trend-anomaly";
 import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 import { withIdempotency } from "@/lib/idempotency";
-import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -59,7 +59,9 @@ export async function POST(
       // RA-1711 batch 5 — adopt shared tenancy helper. Workspace techs
       // submit inspections from the field; admins audit. CAS at the
       // status-DRAFT update below still serialises concurrent submits.
-      const tenancy = await resolveInspectionWrite(session, id);
+      // RA-7721: the technician the owner assigned may submit too; the CAS
+      // below re-checks that assignment inside the write.
+      const tenancy = await assertInspectionAssignedWrite(session, id);
       if (!tenancy.ok) {
         return NextResponse.json(
           { error: tenancy.reason },
@@ -300,7 +302,9 @@ export async function POST(
       // report: first_report_saved (first-time only, AFTER the CAS lands).
       // Not on POST /api/inspections, which auto-creates a draft as the
       // address is typed.
-      await recordFirstReportSaved(userId, {
+      // RA-7721 / D1: activation describes the business, so it is credited to
+      // the job's owner even when the assigned technician submits.
+      await recordFirstReportSaved(inspection.userId, {
         inspectionId: id,
         reportId: inspection.reportId ?? null,
       });
@@ -363,8 +367,9 @@ export async function POST(
       // Process classification, scope determination, and cost estimation.
       // Only run if enough data is present — supplementary gaps may limit processing.
       // In production, this should be done asynchronously via a queue.
+      // RA-7721 / D1: pricing and processing use the owner's configuration.
       try {
-        await processInspectionComplete(id, inspection, userId);
+        await processInspectionComplete(id, inspection, inspection.userId);
       } catch (error) {
         console.error("Error processing inspection:", error);
         // Don't fail the submission, but log the error
@@ -373,7 +378,17 @@ export async function POST(
 
       // After successful submit — trigger integration sync (non-blocking)
       // Only fires if the inspection is linked to a Report (reportId is nullable).
-      if (inspection.reportId) {
+      // RA-7721 / D2: the sync forwards the SUBMITTER's cookie and refuses
+      // anyone but the report's author, so for the assigned technician it
+      // would fail silently. Skip it with a trace; syncing on the owner's
+      // behalf is follow-up work.
+      if (inspection.reportId && tenancy.data.viaAssignment) {
+        console.warn("[nir-sync.skipped_assignee_submit]", {
+          inspectionId: id,
+          userId,
+          reportId: inspection.reportId,
+        });
+      } else if (inspection.reportId) {
         try {
           const syncPayload = { reportId: inspection.reportId };
           // Fire-and-forget: don't await, don't fail the submit if sync fails

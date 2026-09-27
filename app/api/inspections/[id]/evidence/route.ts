@@ -21,8 +21,9 @@ import {
   withIdempotencyFingerprint,
 } from "@/lib/idempotency";
 import {
+  assertInspectionAssignedWrite,
+  assertInspectionCapturable,
   assertInspectionTenancy,
-  resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import {
@@ -96,7 +97,9 @@ export async function POST(
   const { id: inspectionId } = await params;
 
   // RA-1711 batch 4 — adopt shared tenancy helper.
-  const tenancy = await assertInspectionTenancy(session, inspectionId);
+  // RA-7721: append-only, so the RA-7755 capture reach (the organisation,
+  // the assigned technician included). Deleting stays on the write gate.
+  const tenancy = await assertInspectionCapturable(session, inspectionId);
   if (!tenancy.ok) {
     return NextResponse.json(
       { error: tenancy.reason },
@@ -775,16 +778,22 @@ export async function DELETE(
   try {
     // RA-1711 batch 4 — adopt shared tenancy helper.
     // RA-6800 — scope the child write so ownership is re-asserted atomically.
-    const tenancy = await resolveInspectionWrite(session, inspectionId);
+    // RA-7721 — the assigned technician may delete too, but only a row they
+    // captured, and only while the job is still a DRAFT.
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
         { status: tenancy.status },
       );
     }
+    const { viaAssignment, childInspectionFilter } = tenancy.data;
+    const assigneeLimits = viaAssignment
+      ? { capturedById: session.user.id, inspection: { status: "DRAFT" as const } }
+      : {};
 
     const evidence = await prisma.evidenceItem.findFirst({
-      where: { id: evidenceId, inspectionId },
+      where: { id: evidenceId, inspectionId, ...assigneeLimits },
     });
 
     if (!evidence) {
@@ -795,12 +804,41 @@ export async function DELETE(
       });
     }
 
-    await prisma.evidenceItem.delete({
+    if (!viaAssignment) {
+      await prisma.evidenceItem.delete({
+        where: {
+          id: evidenceId,
+          ...(childInspectionFilter && { inspection: childInspectionFilter }),
+        },
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    // Branch (b): every limit is re-checked inside the delete itself, so a
+    // reassignment or a submit in between matches 0 rows and answers 404.
+    const deleted = await prisma.evidenceItem.deleteMany({
       where: {
         id: evidenceId,
-        ...(tenancy.data.childInspectionFilter && {
-          inspection: tenancy.data.childInspectionFilter,
-        }),
+        inspectionId,
+        capturedById: session.user.id,
+        inspection: { ...childInspectionFilter, status: "DRAFT" },
+      },
+    });
+    if (deleted.count === 0) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Evidence not found",
+        status: 404,
+      });
+    }
+    // D3: a custody record removed by someone other than the owner's reach.
+    await prisma.auditLog.create({
+      data: {
+        inspectionId,
+        action: "Evidence deleted by the assigned technician",
+        entityType: "EvidenceItem",
+        entityId: evidenceId,
+        userId: session.user.id,
       },
     });
 
