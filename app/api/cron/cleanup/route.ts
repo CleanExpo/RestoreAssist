@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Cron endpoint: Cleanup old data
- * Runs daily at 3:00 AM UTC via Vercel Cron
+ * Runs daily at 17:00 UTC (03:00 AEST) via Vercel Cron
  * Removes old logs, workflows, tokens, emails, and security events
  */
 export async function GET(request: NextRequest) {

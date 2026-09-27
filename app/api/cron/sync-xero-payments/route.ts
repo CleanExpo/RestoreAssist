@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
   const authError = verifyCronAuth(request);
   if (authError) return authError;
 
-  // RA-1315: wrap in runCronJob so parallel 4h-cron invocations (e.g. during
-  // a slow Xero poll) don't both reconcile the same invoices.
+  // RA-1315: wrap in runCronJob so overlapping 15-minute cron invocations
+  // (e.g. during a slow Xero poll) don't both reconcile the same invoices.
   const jobResult = await runCronJob("sync-xero-payments", async () => {
     return await syncXeroPaymentsOnce();
   });

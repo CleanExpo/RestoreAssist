@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Cron endpoint: Advance workflows
- * Runs every 1 minute via Vercel Cron
+ * Runs every 5 minutes via Vercel Cron
  * Handles scheduled workflow activation, READY task execution, and stale detection
  */
 export async function GET(request: NextRequest) {

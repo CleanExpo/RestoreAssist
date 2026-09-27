@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  * permanently-broken event does not retry forever.
  *
  * Runs every 30 minutes (vercel.json) so a Xero event reset here is picked
- * up by the next sync-xero-payments poll (which runs every 15 minutes).
+ * up by the next sync-xero-payments poll (see that route for its timing).
  */
 export async function GET(request: NextRequest) {
   const authError = verifyCronAuth(request);
