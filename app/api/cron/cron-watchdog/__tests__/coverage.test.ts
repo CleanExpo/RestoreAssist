@@ -441,7 +441,8 @@ function findStaleScheduleClaims(commentBody: string): string[] {
  *   - a stated time must carry UTC, AEST (+10) or AEDT (+11) and equal the
  *     vercel.json time in that zone; a time with no zone is a finding;
  *   - "every N minutes" / "every minute" must equal the vercel.json interval,
- *     and "daily" beside a stated time needs a schedule that runs every day
+ *     and "daily" (or "nightly", "every day", "each day", "every night")
+ *     beside a stated time needs a schedule that runs every day
  *     (day-of-month, month and day-of-week all `*`);
  *   - "daily" / "hourly" with no time or interval is not a claim.
  * Every time or interval in a route's comments is read as a claim about
@@ -449,6 +450,7 @@ function findStaleScheduleClaims(commentBody: string): string[] {
  * at its route file; it does not restate that route's timing.
  */
 const TZ_OFFSET_HOURS: Record<string, number> = { UTC: 0, AEST: 10, AEDT: 11 };
+const EVERY_DAY_WORDS = /\b(?:daily|nightly|(?:every|each) (?:day|night))\b/i;
 const CRON_FIELD_RANGES: Array<[number, number]> = [
   [0, 59],
   [0, 23],
@@ -539,7 +541,7 @@ function scheduleClaimFindings(
 
   for (const sentence of comment.split(/(?<=[.;])\s+/)) {
     const timed = [...sentence.matchAll(TIME_CLAIM)].length > 0;
-    if (timed && /\bdaily\b/i.test(sentence) && !runsEveryDay(schedule)) {
+    if (timed && EVERY_DAY_WORDS.test(sentence) && !runsEveryDay(schedule)) {
       findings.push(`"daily" but vercel.json \`${schedule}\` does not run every day`);
     }
     for (const m of sentence.matchAll(TIME_CLAIM)) {
@@ -849,6 +851,21 @@ describe("cron comment truthfulness (RA-7455)", () => {
     expect(
       scheduleClaimFindings("Runs daily at 01:00 UTC.", "0 1 1 * *"),
     ).toEqual(['"daily" but vercel.json `0 1 1 * *` does not run every day']);
+  });
+
+  it("recurrence arm: every-day synonyms are held to the same rule as 'daily'", () => {
+    // Cursor round 4 on the #2345 follow-up: only the word "daily" was gated.
+    for (const sentence of [
+      "Runs every day at 09:00 UTC.",
+      "Runs each day at 09:00 UTC.",
+      "Runs nightly at 09:00 UTC.",
+      "Runs every night at 09:00 UTC.",
+    ]) {
+      expect(scheduleClaimFindings(sentence, "0 9 * * 1")).toEqual([
+        '"daily" but vercel.json `0 9 * * 1` does not run every day',
+      ]);
+      expect(scheduleClaimFindings(sentence, "0 9 * * *")).toEqual([]);
+    }
   });
 
   it("recurrence arm: 'every N minutes' needs every day-of-month, month and weekday", () => {
