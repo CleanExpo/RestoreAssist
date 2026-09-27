@@ -80,6 +80,39 @@ describe("CONCURRENTLY pre-resolve lists (RA-7502)", () => {
     expect(problems).toEqual([]);
   });
 
+  it("does not require a migration whose CONCURRENTLY is inside a string, identifier or $$ body", () => {
+    const cases = [
+      { name: "string_default", sql: "ALTER TABLE t ADD COLUMN note TEXT DEFAULT 'use CONCURRENTLY carefully';" },
+      { name: "escape_string", sql: "ALTER TABLE t ADD COLUMN n TEXT DEFAULT E'it\\'s CONCURRENTLY';" },
+      { name: "doubled_quote", sql: "ALTER TABLE t ADD COLUMN n TEXT DEFAULT 'it''s CONCURRENTLY';" },
+      { name: "quoted_identifier", sql: 'ALTER TABLE t ADD COLUMN "CONCURRENTLY" TEXT;' },
+      { name: "do_block", sql: "DO $$ BEGIN RAISE NOTICE 'CONCURRENTLY'; END $$;" },
+      { name: "tagged_body", sql: "CREATE FUNCTION f() RETURNS void AS $fn$ BEGIN PERFORM 'CONCURRENTLY'; END $fn$ LANGUAGE plpgsql;" },
+    ];
+    expect(requiredMigrations(cases)).toEqual([]);
+  });
+
+  it("still requires every executable CONCURRENTLY form", () => {
+    expect(
+      requiredMigrations([
+        { name: "create", sql: "CREATE INDEX CONCURRENTLY a ON t (x);" },
+        { name: "unique", sql: "CREATE UNIQUE INDEX CONCURRENTLY b ON t (y);" },
+        { name: "drop", sql: 'DROP INDEX CONCURRENTLY IF EXISTS "c";' },
+        { name: "after_string", sql: "ALTER TABLE t ADD COLUMN n TEXT DEFAULT 'x'; CREATE INDEX CONCURRENTLY d ON t (n);" },
+        { name: "after_body", sql: "DO $$ BEGIN NULL; END $$;\nCREATE INDEX CONCURRENTLY e ON t (x);" },
+      ]),
+    ).toEqual(["after_body", "after_string", "create", "drop", "unique"]);
+  });
+
+  it("does not let a -- inside a string swallow the rest of the line", () => {
+    expect(
+      requiredMigrations([
+        { name: "dash_string", sql: "ALTER TABLE t ADD COLUMN n TEXT DEFAULT '--'; CREATE INDEX CONCURRENTLY x ON t (n);" },
+        { name: "dash_ident", sql: 'CREATE INDEX "a--b" ON t (x); DROP INDEX CONCURRENTLY y;' },
+      ]),
+    ).toEqual(["dash_ident", "dash_string"]);
+  });
+
   it("flags a listed migration that is not on disk", () => {
     const { problems } = checkPreresolve({
       files: fixture(six([A, B, "zz_not_a_real_migration"])),

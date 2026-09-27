@@ -14,7 +14,8 @@
 //   - a copy omits a migration whose SQL has an executable CONCURRENTLY,
 //   - a copy lists a migration that does not need it, or is not on disk.
 //
-// SQL comments are stripped before matching. 20260516000000_inspection_close_
+// Comments, strings, quoted identifiers and $$ bodies are blanked before
+// matching. 20260516000000_inspection_close_
 // terminal_state mentions CONCURRENTLY only in a comment and must NOT be
 // listed: marking it applied would skip real column ADDs.
 
@@ -27,13 +28,19 @@ const SCAN_DIRS = [".github", "scripts"];
 const APPLIED_RE = /migrate\s+resolve\s+--applied\s+(\S+)/;
 
 /**
- * Remove `--` line comments and (nesting) block comments. String literals,
- * quoted identifiers and dollar-quoted bodies are kept intact so a `--`
- * inside one does not start a comment, and a CONCURRENTLY inside a DO block
- * still counts.
+ * The SQL that can actually execute as a statement. `--` line comments,
+ * (nesting) block comments, string literals (including E'...' with backslash
+ * escapes and doubled '' quotes), double-quoted identifiers and dollar-quoted
+ * bodies ($$...$$ and $tag$...$tag$) are each replaced by a space, in one
+ * pass, so a `--` inside a string cannot start a comment and a quote inside
+ * a comment cannot start a string.
+ *
+ * Dropping whole dollar-quoted bodies is correct, not a shortcut: Postgres
+ * refuses CONCURRENTLY inside a function or DO block, because it cannot run
+ * inside a transaction block, so text in a body never needs pre-resolving.
  * @param {string} sql
  */
-export function stripSqlComments(sql) {
+export function executableSql(sql) {
   let out = "";
   let i = 0;
   while (i < sql.length) {
@@ -41,6 +48,7 @@ export function stripSqlComments(sql) {
     const next = sql[i + 1];
     if (ch === "-" && next === "-") {
       while (i < sql.length && sql[i] !== "\n") i++;
+      out += " ";
       continue;
     }
     if (ch === "/" && next === "*") {
@@ -61,9 +69,13 @@ export function stripSqlComments(sql) {
       continue;
     }
     if (ch === "'" || ch === '"') {
+      const backslashEscapes =
+        ch === "'" && /[Ee]/.test(sql[i - 1] ?? "") && !/\w/.test(sql[i - 2] ?? "");
       let j = i + 1;
       while (j < sql.length) {
-        if (sql[j] === ch && sql[j + 1] === ch) {
+        if (backslashEscapes && sql[j] === "\\") {
+          j += 2;
+        } else if (sql[j] === ch && sql[j + 1] === ch) {
           j += 2;
         } else if (sql[j] === ch) {
           j++;
@@ -72,17 +84,16 @@ export function stripSqlComments(sql) {
           j++;
         }
       }
-      out += sql.slice(i, j);
+      out += " ";
       i = j;
       continue;
     }
-    if (ch === "$") {
-      const tag = /^\$[A-Za-z_]*\$/.exec(sql.slice(i));
+    if (ch === "$" && !/\w/.test(sql[i - 1] ?? "")) {
+      const tag = /^\$(?:[A-Za-z_]\w*)?\$/.exec(sql.slice(i));
       if (tag) {
         const end = sql.indexOf(tag[0], i + tag[0].length);
-        const j = end === -1 ? sql.length : end + tag[0].length;
-        out += sql.slice(i, j);
-        i = j;
+        i = end === -1 ? sql.length : end + tag[0].length;
+        out += " ";
         continue;
       }
     }
@@ -93,13 +104,13 @@ export function stripSqlComments(sql) {
 }
 
 /**
- * Names of migrations whose SQL, comments stripped, contains the bare word
- * CONCURRENTLY (covers CREATE [UNIQUE] INDEX and DROP INDEX alike).
+ * Names of migrations whose executable SQL (see executableSql) contains the
+ * bare word CONCURRENTLY (covers CREATE [UNIQUE] INDEX and DROP INDEX alike).
  * @param {{ name: string, sql: string }[]} migrations
  */
 export function requiredMigrations(migrations) {
   return migrations
-    .filter((m) => /\bCONCURRENTLY\b/i.test(stripSqlComments(m.sql)))
+    .filter((m) => /\bCONCURRENTLY\b/i.test(executableSql(m.sql)))
     .map((m) => m.name)
     .sort();
 }
