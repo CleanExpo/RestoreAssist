@@ -20,6 +20,18 @@ const RLS_CATEGORISE_PY = resolve(__dirname, "..", "rls-categorise.py");
 
 /** Extract the whitespace-separated names in `RLS_DISABLED = """..."""`. */
 function parseRlsDisabled(pythonSource: string): string[] {
+  // Python keeps the LAST binding, so a second assignment (`=`, `+=`, or any
+  // non-triple-quoted form) would leave this parser reading a list Python no
+  // longer uses. One assignment is the invariant; anything else is refused.
+  const assignments = pythonSource.match(
+    /^[ \t]*RLS_DISABLED\b[ \t]*(?::[^=\n]*)?(?:\/\/|\*\*|<<|>>|[-+*/%&|^@])?=(?!=)/gm,
+  );
+  const count = assignments?.length ?? 0;
+  if (count > 1) {
+    throw new Error(
+      `RLS_DISABLED is assigned ${count} times in ${RLS_CATEGORISE_PY}; exactly one assignment is required`,
+    );
+  }
   const match = pythonSource.match(
     /^RLS_DISABLED\s*=\s*[rR]?("""|''')([\s\S]*?)\1/m,
   );
@@ -92,6 +104,21 @@ describe("RA-7503 comparator (fixtures)", () => {
     expect(() => parseRlsDisabled('OTHER = """Account"""')).toThrow(
       /RLS_DISABLED/,
     );
+  });
+
+  it("throws when RLS_DISABLED is assigned twice (Python keeps the last)", () => {
+    const src = `${pySource("Account User")}RLS_DISABLED = """OnlySecondAssign""".split()\n`;
+    expect(() => parseRlsDisabled(src)).toThrow(/assigned 2 times/);
+  });
+
+  it("throws when RLS_DISABLED is extended with +=", () => {
+    const src = `${pySource("Account User")}RLS_DISABLED += ["Extra"]\n`;
+    expect(() => parseRlsDisabled(src)).toThrow(/assigned 2 times/);
+  });
+
+  it("throws when RLS_DISABLED is reassigned without triple quotes", () => {
+    const src = `${pySource("Account User")}RLS_DISABLED = ["Replaced"]\n`;
+    expect(() => parseRlsDisabled(src)).toThrow(/assigned 2 times/);
   });
 });
 
