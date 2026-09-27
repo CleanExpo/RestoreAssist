@@ -3,12 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const cronJobRunFindFirst = vi.fn();
 const cronJobRunCreate = vi.fn();
 const cronJobRunUpdate = vi.fn();
+const lockExecuteRaw = vi.fn();
+const transaction = vi.fn();
+
+// RA-7774: the claim (check + create) runs inside prisma.$transaction on the
+// transaction client `tx`; the finish/fail update after the handler uses prisma.
+const tx = {
+  $executeRaw: (...args: unknown[]) => lockExecuteRaw(...args),
+  cronJobRun: {
+    findFirst: (...args: unknown[]) => cronJobRunFindFirst(...args),
+    create: (...args: unknown[]) => cronJobRunCreate(...args),
+  },
+};
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $transaction: (...args: unknown[]) => transaction(...args),
     cronJobRun: {
-      findFirst: (...args: unknown[]) => cronJobRunFindFirst(...args),
-      create: (...args: unknown[]) => cronJobRunCreate(...args),
       update: (...args: unknown[]) => cronJobRunUpdate(...args),
     },
   },
@@ -20,13 +31,60 @@ beforeEach(() => {
   cronJobRunFindFirst.mockReset();
   cronJobRunCreate.mockReset();
   cronJobRunUpdate.mockReset();
+  lockExecuteRaw.mockReset();
+  transaction.mockReset();
 
+  transaction.mockImplementation((claim: (t: typeof tx) => unknown) =>
+    claim(tx),
+  );
+  lockExecuteRaw.mockResolvedValue(0);
   cronJobRunFindFirst.mockResolvedValue(null);
   cronJobRunCreate.mockResolvedValue({ id: "run_1" });
   cronJobRunUpdate.mockResolvedValue({});
 });
 
 describe("runCronJob", () => {
+  it("claims the run inside one transaction, taking the per-job advisory lock before the check", async () => {
+    const order: string[] = [];
+    transaction.mockImplementation(
+      async (claim: (t: typeof tx) => unknown) => {
+        const claimed = await claim(tx);
+        order.push("commit");
+        return claimed;
+      },
+    );
+    lockExecuteRaw.mockImplementation(async () => {
+      order.push("lock");
+      return 0;
+    });
+    cronJobRunFindFirst.mockImplementation(async () => {
+      order.push("check");
+      return null;
+    });
+    cronJobRunCreate.mockImplementation(async () => {
+      order.push("create");
+      return { id: "run_1" };
+    });
+    const handler = vi.fn(async () => {
+      order.push("handler");
+      return { itemsProcessed: 0 };
+    });
+
+    await runCronJob("test-job", handler);
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+    // The handler runs after the claim transaction has returned, not inside it.
+    expect(order).toEqual(["lock", "check", "create", "commit", "handler"]);
+    const [sqlParts, ...values] = lockExecuteRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    expect(sqlParts.join("?")).toContain("pg_advisory_xact_lock(hashtext(");
+    // The job name is a bound parameter, never spliced into the SQL text.
+    expect(values).toEqual(["test-job"]);
+    expect(sqlParts.join("?")).not.toContain("test-job");
+  });
+
   it("skips when a recent run is already in progress (overlap protection)", async () => {
     cronJobRunFindFirst.mockResolvedValueOnce({ id: "running_1" });
     const handler = vi.fn();

@@ -20,27 +20,37 @@ export async function runCronJob(
   jobName: string,
   handler: () => Promise<CronJobResult>,
 ): Promise<CronJobResult & { status: string }> {
-  // Guard against overlapping runs (check if any running within last 5 min)
-  const recentRunning = await prisma.cronJobRun.findFirst({
-    where: {
-      jobName,
-      status: "running",
-      startedAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
-    },
+  // Guard against overlapping runs (check if any running within last 5 min).
+  // RA-7774: the check and the create run in one short transaction under a
+  // per-job advisory lock, so two invocations that start together cannot both
+  // see "nothing running" and both claim. The lock is released at commit; the
+  // handler runs outside the transaction.
+  const run = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('cron:' || ${jobName}))`;
+
+    const recentRunning = await tx.cronJobRun.findFirst({
+      where: {
+        jobName,
+        status: "running",
+        startedAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
+      },
+    });
+
+    if (recentRunning) return null;
+
+    // Create a new job run record
+    return tx.cronJobRun.create({
+      data: { jobName, status: "running" },
+    });
   });
 
-  if (recentRunning) {
+  if (!run) {
     return {
       itemsProcessed: 0,
       status: "skipped",
       metadata: { reason: "Already running" },
     };
   }
-
-  // Create a new job run record
-  const run = await prisma.cronJobRun.create({
-    data: { jobName, status: "running" },
-  });
 
   const startTime = Date.now();
 

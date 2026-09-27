@@ -29,6 +29,11 @@ vi.mock("@/lib/integrations/ascora/fetch-with-retry", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     cronJobRun: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    // RA-7774: runCronJob claims a run in a transaction under an advisory lock.
+    $executeRaw: async () => 0,
+    $transaction(claim: (tx: unknown) => unknown) {
+      return claim(this);
+    },
     ascoraIntegration: { findFirst: vi.fn(), findUnique: vi.fn() },
     ascoraJob: { findMany: vi.fn(), update: vi.fn(), count: vi.fn() },
     ascoraLineItem: { deleteMany: vi.fn(), create: vi.fn() },

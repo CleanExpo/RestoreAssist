@@ -28,6 +28,11 @@ vi.mock("@/lib/prisma", () => ({
       create: (...a: unknown[]) => cronJobRunCreate(...a),
       update: (...a: unknown[]) => cronJobRunUpdate(...a),
     },
+    // RA-7774: runCronJob claims a run in a transaction under an advisory lock.
+    $executeRaw: async () => 0,
+    $transaction(claim: (tx: unknown) => unknown) {
+      return claim(this);
+    },
   },
 }));
 
