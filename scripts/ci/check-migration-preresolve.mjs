@@ -38,6 +38,10 @@ const APPLIED_RE = /migrate\s+resolve\s+--applied\s+(\S+)/;
  * Dropping whole dollar-quoted bodies is correct, not a shortcut: Postgres
  * refuses CONCURRENTLY inside a function or DO block, because it cannot run
  * inside a transaction block, so text in a body never needs pre-resolving.
+ *
+ * A string, identifier, block comment or dollar body that never closes throws
+ * rather than guessing: Postgres would reject the file, and either guess could
+ * be wrong (a non-E 'it\'s' closes at the backslash and leaves a quote open).
  * @param {string} sql
  */
 export function executableSql(sql) {
@@ -65,6 +69,7 @@ export function executableSql(sql) {
           i++;
         }
       }
+      if (depth > 0) throw new Error("unterminated block comment");
       out += " ";
       continue;
     }
@@ -72,6 +77,7 @@ export function executableSql(sql) {
       const backslashEscapes =
         ch === "'" && /[Ee]/.test(sql[i - 1] ?? "") && !/\w/.test(sql[i - 2] ?? "");
       let j = i + 1;
+      let closed = false;
       while (j < sql.length) {
         if (backslashEscapes && sql[j] === "\\") {
           j += 2;
@@ -79,11 +85,13 @@ export function executableSql(sql) {
           j += 2;
         } else if (sql[j] === ch) {
           j++;
+          closed = true;
           break;
         } else {
           j++;
         }
       }
+      if (!closed) throw new Error(`unterminated ${ch === "'" ? "string" : "quoted identifier"}`);
       out += " ";
       i = j;
       continue;
@@ -92,7 +100,8 @@ export function executableSql(sql) {
       const tag = /^\$(?:[A-Za-z_]\w*)?\$/.exec(sql.slice(i));
       if (tag) {
         const end = sql.indexOf(tag[0], i + tag[0].length);
-        i = end === -1 ? sql.length : end + tag[0].length;
+        if (end === -1) throw new Error("unterminated dollar-quoted body");
+        i = end + tag[0].length;
         out += " ";
         continue;
       }
@@ -109,8 +118,15 @@ export function executableSql(sql) {
  * @param {{ name: string, sql: string }[]} migrations
  */
 export function requiredMigrations(migrations) {
+  const executable = (m) => {
+    try {
+      return executableSql(m.sql);
+    } catch (err) {
+      throw new Error(`cannot parse prisma/migrations/${m.name}/migration.sql: ${err.message}`);
+    }
+  };
   return migrations
-    .filter((m) => /\bCONCURRENTLY\b/i.test(executableSql(m.sql)))
+    .filter((m) => /\bCONCURRENTLY\b/i.test(executable(m)))
     .map((m) => m.name)
     .sort();
 }
@@ -262,7 +278,14 @@ export function readRepo(root) {
 }
 
 if (process.argv[1]?.endsWith("check-migration-preresolve.mjs")) {
-  const { sites, required, problems } = checkPreresolve(readRepo(process.cwd()));
+  let result;
+  try {
+    result = checkPreresolve(readRepo(process.cwd()));
+  } catch (err) {
+    console.error(`::error::${err.message}`);
+    process.exit(1);
+  }
+  const { sites, required, problems } = result;
   if (problems.length > 0) {
     for (const p of problems) console.error(`::error::${p}`);
     process.exitCode = 1;

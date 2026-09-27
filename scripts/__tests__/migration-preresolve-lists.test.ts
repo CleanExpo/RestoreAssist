@@ -92,6 +92,27 @@ describe("CONCURRENTLY pre-resolve lists (RA-7502)", () => {
     expect(requiredMigrations(cases)).toEqual([]);
   });
 
+  it("does not require a migration whose only CONCURRENTLY is bare text inside a $$ or $tag$ body", () => {
+    const cases = [
+      { name: "bare_in_dollar", sql: "DO $$ BEGIN\n  CREATE INDEX CONCURRENTLY x ON t (y);\nEND $$;" },
+      { name: "bare_in_tag", sql: "CREATE FUNCTION f() RETURNS void AS $fn$\n  DROP INDEX CONCURRENTLY x;\n$fn$ LANGUAGE sql;" },
+    ];
+    expect(requiredMigrations(cases)).toEqual([]);
+  });
+
+  it("refuses to guess when a migration leaves a string, comment or $$ body unterminated", () => {
+    const cannot = (name: string, sql: string, kind: string) =>
+      expect(() => requiredMigrations([{ name, sql }])).toThrow(
+        `cannot parse prisma/migrations/${name}/migration.sql: unterminated ${kind}`,
+      );
+    // Without E, \' does not escape: the string closes early and the trailing ' is left open.
+    cannot("non_e_backslash", "ALTER TABLE t ADD COLUMN n TEXT DEFAULT 'it\\'s CONCURRENTLY fine';\nALTER TABLE t ADD COLUMN o INT;", "string");
+    cannot("open_quote", "ALTER TABLE t ADD COLUMN n TEXT DEFAULT 'x;\nCREATE INDEX CONCURRENTLY a ON t (n);", "string");
+    cannot("open_ident", 'CREATE INDEX "a ON t (x);\nCREATE INDEX CONCURRENTLY b ON t (y);', "quoted identifier");
+    cannot("open_dollar", "DO $$ BEGIN NULL;\nCREATE INDEX CONCURRENTLY a ON t (x);", "dollar-quoted body");
+    cannot("open_block", "/* note\nCREATE INDEX CONCURRENTLY a ON t (x);", "block comment");
+  });
+
   it("still requires every executable CONCURRENTLY form", () => {
     expect(
       requiredMigrations([
