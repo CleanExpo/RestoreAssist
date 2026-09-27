@@ -105,6 +105,20 @@ describe("Stripe events never replace a Founding Trial grant (RA-7721)", () => {
     expect(store.rows.get("ws_9:TECHNICIAN_SEATS")).toEqual(GRANT);
   });
 
+  it("flags an ACTIVE paid subscription on a free add-on loudly, with its ids, for the owner", async () => {
+    store.rows.set("ws_9:TECHNICIAN_SEATS", { ...GRANT });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await handleRecurringAddonSubscription({
+      ...seatSubscription("active", 1),
+      customer: "cus_9",
+    } as Stripe.Subscription);
+    expect(store.rows.get("ws_9:TECHNICIAN_SEATS")).toEqual(GRANT);
+    expect(err).toHaveBeenCalledWith(
+      expect.stringContaining("needs owner review"),
+      expect.objectContaining({ subscriptionId: "sub_new", customerId: "cus_9", status: "active" }),
+    );
+  });
+
   it("still applies an event to a paid row", async () => {
     store.rows.set("ws_9:TECHNICIAN_SEATS", {
       ...GRANT,

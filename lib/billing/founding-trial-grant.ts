@@ -52,6 +52,48 @@ export class FoundingTrialGrantError extends Error {
   }
 }
 
+/** An add-on Checkout the business opened and has not finished. */
+export interface OpenAddonCheckout {
+  id: string;
+  sku: string | null;
+}
+
+type CheckoutLister = {
+  checkout: {
+    sessions: {
+      list(params: {
+        customer: string;
+        status: "open";
+        limit: number;
+      }): AsyncIterable<{ id: string; metadata?: Record<string, string> | null }>;
+    };
+  };
+};
+
+/**
+ * Open add-on Checkouts for a Stripe customer. Read-only: nothing is expired
+ * or cancelled. An open one could complete after the grant and start a paid
+ * subscription for an add-on the business now holds free, so the grant
+ * script refuses to apply while any exist and names them instead.
+ */
+export async function openAddonCheckouts(
+  stripe: CheckoutLister,
+  customerId: string | null | undefined,
+): Promise<OpenAddonCheckout[]> {
+  if (!customerId) return [];
+  const open: OpenAddonCheckout[] = [];
+  for await (const s of stripe.checkout.sessions.list({
+    customer: customerId,
+    status: "open",
+    limit: 100,
+  })) {
+    if (s.metadata?.type === "addon_subscription") {
+      open.push({ id: s.id, sku: s.metadata?.sku ?? null });
+    }
+  }
+  return open;
+}
+
 export async function grantFoundingTrial(
   db: GrantDb,
   organizationId: string,

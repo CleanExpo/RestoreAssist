@@ -114,9 +114,26 @@ export async function applyRecurringAddonSubscription(
       select: { stripePriceId: true },
     });
     if (isComplimentaryEntitlement(current)) {
-      console.warn(
-        "[recurring-addon] complimentary entitlement kept; subscription event not applied",
-        { workspaceId, sku: descriptor.sku, subscriptionId: subscription.id },
+      // A paid subscription exists for an add-on this business holds free
+      // (a checkout that completed after the Founding Trial grant). The free
+      // row is kept; whether to cancel and refund the subscription is an
+      // owner decision (RULES.md #32), so it is surfaced, not actioned.
+      const active =
+        subscription.status === "active" || subscription.status === "trialing";
+      (active ? console.error : console.warn)(
+        active
+          ? "[recurring-addon] PAID SUBSCRIPTION ON A FREE FOUNDING TRIAL ADD-ON — needs owner review (cancel/refund)"
+          : "[recurring-addon] complimentary entitlement kept; subscription event not applied",
+        {
+          workspaceId,
+          sku: descriptor.sku,
+          subscriptionId: subscription.id,
+          customerId:
+            typeof subscription.customer === "string"
+              ? subscription.customer
+              : (subscription.customer?.id ?? null),
+          status: subscription.status,
+        },
       );
       return true;
     }

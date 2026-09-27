@@ -201,3 +201,34 @@ describe("a granted Founding Trial business can take on technicians", () => {
     expect(usage.purchased).toBeGreaterThan(usage.used);
   });
 });
+
+describe("openAddonCheckouts — the grant will not race an open add-on checkout", () => {
+  const lister = (sessions: Array<{ id: string; metadata?: Record<string, string> }>) => {
+    const list = vi.fn((_p: unknown) => ({
+      async *[Symbol.asyncIterator]() {
+        yield* sessions;
+      },
+    }));
+    return { stripe: { checkout: { sessions: { list } } }, list };
+  };
+
+  it("names every open add-on checkout for the owner, and only those", async () => {
+    const { stripe, list } = lister([
+      { id: "cs_seat", metadata: { type: "addon_subscription", sku: "TECHNICIAN_SEATS" } },
+      { id: "cs_base", metadata: { type: "subscription" } },
+      { id: "cs_none" },
+    ]);
+    const { openAddonCheckouts } = await import("../founding-trial-grant");
+    expect(await openAddonCheckouts(stripe, "cus_1")).toEqual([
+      { id: "cs_seat", sku: "TECHNICIAN_SEATS" },
+    ]);
+    expect(list).toHaveBeenCalledWith({ customer: "cus_1", status: "open", limit: 100 });
+  });
+
+  it("an owner with no Stripe customer has nothing open, and Stripe is not called", async () => {
+    const { stripe, list } = lister([]);
+    const { openAddonCheckouts } = await import("../founding-trial-grant");
+    expect(await openAddonCheckouts(stripe, null)).toEqual([]);
+    expect(list).not.toHaveBeenCalled();
+  });
+});
