@@ -3,48 +3,55 @@
  *
  * `scripts/audit-rls-coverage.ts` AUDIT_TABLES and `scripts/rls-categorise.py`
  * RLS_DISABLED are two literal copies of the 119-table Supabase advisor list.
- * This test reads the Python file as TEXT (Python is never executed), extracts
- * the RLS_DISABLED names, and fails naming every table found on one side only.
+ * This test loads the Python module with python3 and compares the RUNTIME value
+ * of RLS_DISABLED, so every way Python can change the list (a second
+ * assignment, `+=`, `.append`, `.extend`, slice assignment, `del`) is seen as
+ * Python sees it. Reading the file as text missed each of those in turn.
  *
- * Order is deliberately ignored: the two files wrap their lines differently, so
- * a reflow must not fail. Duplicates are not ignored: a repeated name would let
+ * Loading is safe: the module only imports `re`/`pathlib` and binds constants
+ * at top level; `main()` sits behind `if __name__ == "__main__"`, and the
+ * module is run under a different name so that guard never fires. If it ever
+ * did, main() prints to stdout and the loader's JSON parse fails the test.
+ *
+ * python3 missing, a non-zero exit, or a value that is not a list of strings
+ * all FAIL the test. Nothing here skips.
+ *
+ * Order is deliberately ignored. Duplicates are not: a repeated name would let
  * one list hold 120 entries while the sets still agree.
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AUDIT_TABLES } from "../audit-rls-coverage";
 
 const RLS_CATEGORISE_PY = resolve(__dirname, "..", "rls-categorise.py");
 
-/** Extract the whitespace-separated names in `RLS_DISABLED = """..."""`. */
-function parseRlsDisabled(pythonSource: string): string[] {
-  // Python keeps the LAST binding, so a second assignment (`=`, `+=`, or any
-  // non-triple-quoted form) would leave this parser reading a list Python no
-  // longer uses. One assignment is the invariant; anything else is refused.
-  const assignments = pythonSource.match(
-    /^[ \t]*RLS_DISABLED\b[ \t]*(?::[^=\n]*)?(?:\/\/|\*\*|<<|>>|[-+*/%&|^@])?=(?!=)/gm,
-  );
-  const count = assignments?.length ?? 0;
-  if (count > 1) {
-    throw new Error(
-      `RLS_DISABLED is assigned ${count} times in ${RLS_CATEGORISE_PY}; exactly one assignment is required`,
-    );
+const LOADER = `
+import json, runpy, sys
+ns = runpy.run_path(sys.argv[1], run_name="rls_audit_lists_agree")
+if "RLS_DISABLED" not in ns:
+    sys.exit("RLS_DISABLED is not defined after running " + sys.argv[1])
+value = ns["RLS_DISABLED"]
+if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+    sys.exit("RLS_DISABLED is not a list of str: " + type(value).__name__)
+sys.stdout.write(json.dumps(sorted(value)))
+`;
+
+/** Run `pyFile` in python3 and return its runtime RLS_DISABLED, sorted. */
+function loadRlsDisabled(pyFile: string, python = "python3"): string[] {
+  const stdout = execFileSync(python, ["-I", "-c", LOADER, pyFile], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: 30_000,
+  });
+  const names: unknown = JSON.parse(stdout);
+  if (!Array.isArray(names) || names.length === 0) {
+    throw new Error(`RLS_DISABLED loaded as ${stdout} from ${pyFile}`);
   }
-  const match = pythonSource.match(
-    /^RLS_DISABLED\s*=\s*[rR]?("""|''')([\s\S]*?)\1/m,
-  );
-  if (!match) {
-    throw new Error(
-      `RLS_DISABLED triple-quoted literal not found in ${RLS_CATEGORISE_PY}`,
-    );
-  }
-  const names = match[2].split(/\s+/).filter(Boolean);
-  if (names.length === 0) {
-    throw new Error("RLS_DISABLED literal parsed to zero table names");
-  }
-  return names;
+  return names as string[];
 }
 
 function duplicates(names: readonly string[]): string[] {
@@ -70,16 +77,30 @@ const pySource = (body: string, quote = '"""') =>
   `SENTINEL = "x"\n\nRLS_DISABLED = ${quote}\n${body}\n${quote}.split()\n\nPUBLIC_REF = {"A"}\n`;
 
 describe("RA-7503 comparator (fixtures)", () => {
+  let dir = "";
+  let n = 0;
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), "rls-lists-agree-"));
+  });
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const load = (source: string) => {
+    const file = join(dir, `fixture-${n++}.py`);
+    writeFileSync(file, source);
+    return loadRlsDisabled(file);
+  };
+  const base = pySource("Account User");
+
   it("names a table that is only in the TypeScript list", () => {
-    const py = parseRlsDisabled(pySource("Account User"));
-    expect(listDiff(["Account", "User", "OnlyInTs"], py)).toEqual({
+    expect(listDiff(["Account", "User", "OnlyInTs"], load(base))).toEqual({
       tsOnly: ["OnlyInTs"],
       pyOnly: [],
     });
   });
 
   it("names a table that is only in the Python list", () => {
-    const py = parseRlsDisabled(pySource("Account User\nOnlyInPy"));
+    const py = load(pySource("Account User\nOnlyInPy"));
     expect(listDiff(["Account", "User"], py)).toEqual({
       tsOnly: [],
       pyOnly: ["OnlyInPy"],
@@ -87,43 +108,86 @@ describe("RA-7503 comparator (fixtures)", () => {
   });
 
   it("reports a name repeated in the Python list", () => {
-    const py = parseRlsDisabled(pySource("Account User\nAccount"));
-    expect(duplicates(py)).toEqual(["Account"]);
+    expect(duplicates(load(pySource("Account User\nAccount")))).toEqual([
+      "Account",
+    ]);
   });
 
-  it("parses a '''-quoted literal and ignores line wrapping and order", () => {
-    const py = parseRlsDisabled(pySource("User\n  Account", "'''"));
-    expect(py).toEqual(["User", "Account"]);
-    expect(listDiff(["Account", "User"], py)).toEqual({
-      tsOnly: [],
-      pyOnly: [],
-    });
+  it("reads a '''-quoted literal and ignores line wrapping and order", () => {
+    const py = load(pySource("User\n  Account", "'''"));
+    expect(py).toEqual(["Account", "User"]);
   });
 
-  it("throws rather than comparing two empty lists when the literal is missing", () => {
-    expect(() => parseRlsDisabled('OTHER = """Account"""')).toThrow(
-      /RLS_DISABLED/,
+  it("throws rather than comparing two empty lists when RLS_DISABLED is missing", () => {
+    expect(() => load('OTHER = """Account""".split()\n')).toThrow(
+      /RLS_DISABLED is not defined/,
     );
   });
 
-  it("throws when RLS_DISABLED is assigned twice (Python keeps the last)", () => {
-    const src = `${pySource("Account User")}RLS_DISABLED = """OnlySecondAssign""".split()\n`;
-    expect(() => parseRlsDisabled(src)).toThrow(/assigned 2 times/);
+  it("throws when RLS_DISABLED is not a list", () => {
+    expect(() => load('RLS_DISABLED = {"Account"}\n')).toThrow(
+      /not a list of str: set/,
+    );
   });
 
-  it("throws when RLS_DISABLED is extended with +=", () => {
-    const src = `${pySource("Account User")}RLS_DISABLED += ["Extra"]\n`;
-    expect(() => parseRlsDisabled(src)).toThrow(/assigned 2 times/);
+  it("throws when RLS_DISABLED is empty", () => {
+    expect(() => load("RLS_DISABLED = []\n")).toThrow(/RLS_DISABLED loaded as/);
   });
 
-  it("throws when RLS_DISABLED is reassigned without triple quotes", () => {
-    const src = `${pySource("Account User")}RLS_DISABLED = ["Replaced"]\n`;
-    expect(() => parseRlsDisabled(src)).toThrow(/assigned 2 times/);
+  it("throws when the interpreter is missing, never skips", () => {
+    const file = join(dir, "present.py");
+    writeFileSync(file, base);
+    expect(() => loadRlsDisabled(file, "python3-does-not-exist")).toThrow();
+  });
+
+  it("uses the second assignment, as Python does", () => {
+    expect(load(`${base}RLS_DISABLED = """OnlySecondAssign""".split()\n`)).toEqual(
+      ["OnlySecondAssign"],
+    );
+  });
+
+  it("uses a reassignment without triple quotes", () => {
+    expect(load(`${base}RLS_DISABLED = ["Replaced"]\n`)).toEqual(["Replaced"]);
+  });
+
+  it("sees RLS_DISABLED += [...]", () => {
+    expect(load(`${base}RLS_DISABLED += ["Extra"]\n`)).toEqual([
+      "Account",
+      "Extra",
+      "User",
+    ]);
+  });
+
+  it("sees RLS_DISABLED.append(...)", () => {
+    expect(load(`${base}RLS_DISABLED.append("Extra")\n`)).toEqual([
+      "Account",
+      "Extra",
+      "User",
+    ]);
+  });
+
+  it("sees RLS_DISABLED.extend(...)", () => {
+    expect(load(`${base}RLS_DISABLED.extend(["Extra", "More"])\n`)).toEqual([
+      "Account",
+      "Extra",
+      "More",
+      "User",
+    ]);
+  });
+
+  it("sees RLS_DISABLED[:] = [...]", () => {
+    expect(load(`${base}RLS_DISABLED[:] = ["OnlySlice"]\n`)).toEqual([
+      "OnlySlice",
+    ]);
+  });
+
+  it("sees del RLS_DISABLED[0]", () => {
+    expect(load(`${base}del RLS_DISABLED[0]\n`)).toEqual(["User"]);
   });
 });
 
 describe("RA-7503 real files: AUDIT_TABLES and RLS_DISABLED agree", () => {
-  const py = parseRlsDisabled(readFileSync(RLS_CATEGORISE_PY, "utf8"));
+  const py = loadRlsDisabled(RLS_CATEGORISE_PY);
 
   it("neither list repeats a table", () => {
     expect(duplicates(py)).toEqual([]);
