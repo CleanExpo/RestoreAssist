@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Cron endpoint: DR-NRPG integration liveness (RA-1287)
- * Runs daily at 04:30 UTC via Vercel Cron.
+ * Runs daily at 18:30 UTC (04:30 AEST) via Vercel Cron.
  * Pings each active DrNrpgIntegration with its stored API key and records
  * outcome. Deactivates integrations after sustained auth failure so dispatch
  * does not silently keep calling a dead key.

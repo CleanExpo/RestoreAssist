@@ -12,10 +12,10 @@ import { POST as syncAscoraHistorical } from "@/app/api/ascora/sync/route";
  * dashboard "Sync" button drives the separate generic client/job pipeline
  * (lib/integrations/ascora/client.ts), not this historical importer.
  *
- * Wired into vercel.json (daily, off-peak: 02:30). Re-invokes the sync
- * route's own POST handler in-process (not over HTTP) with the same
- * Authorization header this request was already verified against, so the
- * importer's existing CRON_SECRET auth path is reused unchanged.
+ * Wired into vercel.json (daily, off-peak: 16:30 UTC, which is 02:30 AEST).
+ * Re-invokes the sync route's own POST handler in-process (not over HTTP)
+ * with the same Authorization header this request was already verified
+ * against, so the importer's existing CRON_SECRET auth path is reused unchanged.
  *
  * Mirrors the /api/cron/sync-xero-payments / sync-qbo-myob-payments pattern:
  * verifyCronAuth → runCronJob (overlap protection + audit trail) → always

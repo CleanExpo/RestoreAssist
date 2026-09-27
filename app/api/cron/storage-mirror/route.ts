@@ -1,8 +1,7 @@
 /**
  * SP-E: Storage mirror cron route.
  *
- * Schedule: every minute (`* * * * *` in vercel.json — Vercel hobby plan
- * minimum granularity is 1 min). Drains the StorageMirrorJob queue.
+ * Schedule: every 10 minutes (vercel.json). Drains the StorageMirrorJob queue.
  *
  * Auth: header `Authorization: Bearer ${CRON_SECRET}` via
  *       `verifyCronAuth` — identical to other cron routes in the repo.

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Cron endpoint: Process scheduled emails
- * Runs every 1 minute via Vercel Cron
+ * Runs every 5 minutes via Vercel Cron
  */
 export async function GET(request: NextRequest) {
   const authError = verifyCronAuth(request);

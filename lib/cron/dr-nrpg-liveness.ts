@@ -31,7 +31,8 @@ const BATCH_SIZE = 100;
  * sweep the whole population least-recently-probed-first.
  *
  * Scaling assumption (TUNE if the integration population grows): the cron runs
- * DAILY (`30 4 * * *`). BATCH_SIZE=100 covers 100 integrations/day. To keep
+ * DAILY (`30 18 * * *` in vercel.json: 18:30 UTC, 04:30 AEST).
+ * BATCH_SIZE=100 covers 100 integrations/day. To keep
  * every active integration probed at least weekly, the active population must
  * stay under ~700. DrNrpgIntegration.userId is @unique, so the population is
  * bounded by the number of users with an integration — small today. Raise

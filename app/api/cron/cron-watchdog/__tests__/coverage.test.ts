@@ -432,6 +432,203 @@ function findStaleScheduleClaims(commentBody: string): string[] {
   return claims;
 }
 
+/**
+ * Scheduled-cron comment truthfulness (RA-7460 expressions, RA-7469 prose).
+ *
+ * vercel.json is what runs and its expressions are UTC. A comment that
+ * restates the schedule must agree with it. Conventions enforced:
+ *   - a backticked five-field expression is UTC and must equal vercel.json;
+ *   - a stated time must carry UTC, AEST (+10) or AEDT (+11) and equal the
+ *     vercel.json time in that zone; a time with no zone is a finding;
+ *   - "every N minutes" / "every minute" must equal the vercel.json interval;
+ *   - "daily" / "hourly" with no time or interval is not a claim.
+ * A time or interval in a sentence that names another scheduled route
+ * before it is about that route, not this one, and is skipped.
+ */
+const TZ_OFFSET_HOURS: Record<string, number> = { UTC: 0, AEST: 10, AEDT: 11 };
+const CRON_FIELD_RANGES: Array<[number, number]> = [
+  [0, 59],
+  [0, 23],
+  [1, 31],
+  [1, 12],
+  [0, 7],
+];
+const TIME_CLAIM =
+  /\b(\d{1,2}):(\d{2})(?:\s*([AP]M))?\b|\b(\d{1,2})\s*([AP]M)\b/gi;
+const INTERVAL_CLAIM = /\bevery\s+(?:(\d+)\s*)?min(?:ute)?s?\b/gi;
+const BACKTICKED = /`([^`]+)`/g;
+
+function commentSourcesFor(segment: string): string[] {
+  return [`app/api/cron/${segment}/route.ts`, `lib/cron/${segment}.ts`].filter(
+    (rel) => fs.existsSync(path.join(repoRoot, rel)),
+  );
+}
+
+function blockComments(src: string): string[] {
+  return (src.match(/\/\*\*[\s\S]*?\*\//g) ?? []).map(collapseComment);
+}
+
+function isCronExpression(candidate: string): boolean {
+  const fields = candidate.trim().split(/\s+/);
+  if (fields.length !== 5) return false;
+  return fields.every((field, i) => {
+    if (!/^[*\d][\d*,/-]*$/.test(field)) return false;
+    const [lo, hi] = CRON_FIELD_RANGES[i]!;
+    const [base, step] = field.split("/");
+    if (step !== undefined && !(Number(step) >= 1)) return false;
+    return (base!.match(/\d+/g) ?? []).every(
+      (n) => Number(n) >= lo && Number(n) <= hi,
+    );
+  });
+}
+
+/** The fixed UTC hour:minute of a daily expression, or null. */
+function dailyUtcTime(schedule: string): { h: number; m: number } | null {
+  const [min, hour] = schedule.split(/\s+/);
+  if (!/^\d+$/.test(min ?? "") || !/^\d+$/.test(hour ?? "")) return null;
+  return { h: Number(hour), m: Number(min) };
+}
+
+/** Minutes between fires for a `*` or step minute field, or null. */
+function minuteInterval(schedule: string): number | null {
+  const [min, hour] = schedule.split(/\s+/);
+  if (hour !== "*") return null;
+  if (min === "*") return 1;
+  const step = min?.match(/^\*\/(\d+)$/);
+  return step ? Number(step[1]) : null;
+}
+
+function namesOtherRoute(
+  prefix: string,
+  segment: string,
+  allSegments: string[],
+): boolean {
+  return allSegments.some(
+    (other) =>
+      other !== segment &&
+      new RegExp(`(?<![\\w-])${other}(?![\\w-])`).test(prefix),
+  );
+}
+
+function scheduleClaimFindings(
+  comment: string,
+  segment: string,
+  schedule: string,
+  allSegments: string[],
+): string[] {
+  const findings: string[] = [];
+
+  for (const m of comment.matchAll(BACKTICKED)) {
+    const expr = m[1]!.trim();
+    if (isCronExpression(expr) && expr !== schedule.trim()) {
+      findings.push(`states \`${expr}\`, vercel.json runs \`${schedule}\``);
+    }
+  }
+
+  for (const sentence of comment.split(/(?<=[.;])\s+/)) {
+    for (const m of sentence.matchAll(TIME_CLAIM)) {
+      const text = m[0];
+      if (namesOtherRoute(sentence.slice(0, m.index), segment, allSegments)) {
+        continue;
+      }
+      let h = Number(m[1] ?? m[4]);
+      const min = Number(m[2] ?? 0);
+      const meridiem = (m[3] ?? m[5])?.toUpperCase();
+      if (meridiem === "AM" && h === 12) h = 0;
+      if (meridiem === "PM" && h !== 12) h += 12;
+      const after = sentence.slice(m.index! + text.length);
+      const zone = after.match(/^\s*(UTC|AEST|AEDT)\b/)?.[1];
+      if (!zone) {
+        findings.push(`"${text}" names no timezone (write UTC, AEST or AEDT)`);
+        continue;
+      }
+      const utc = dailyUtcTime(schedule);
+      if (!utc) {
+        findings.push(
+          `"${text} ${zone}" but vercel.json \`${schedule}\` has no fixed daily time`,
+        );
+        continue;
+      }
+      const expected = (utc.h + TZ_OFFSET_HOURS[zone]!) % 24;
+      if (expected !== h || utc.m !== min) {
+        const want = `${String(expected).padStart(2, "0")}:${String(utc.m).padStart(2, "0")}`;
+        findings.push(
+          `"${text} ${zone}" but vercel.json \`${schedule}\` is ${want} ${zone}`,
+        );
+      }
+    }
+
+    for (const m of sentence.matchAll(INTERVAL_CLAIM)) {
+      if (namesOtherRoute(sentence.slice(0, m.index), segment, allSegments)) {
+        continue;
+      }
+      const claimed = Number(m[1] ?? 1);
+      if (minuteInterval(schedule) !== claimed) {
+        findings.push(`"${m[0]}" but vercel.json runs \`${schedule}\``);
+      }
+    }
+  }
+
+  return findings;
+}
+
+function scheduledCrons(): Array<{ segment: string; schedule: string }> {
+  const vercelJson = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "vercel.json"), "utf8"),
+  ) as { crons?: Array<{ path: string; schedule: string }> };
+  return (vercelJson.crons ?? []).map((c) => ({
+    segment: c.path.replace(/^\/api\/cron\//, "").replace(/\/$/, ""),
+    schedule: c.schedule,
+  }));
+}
+
+function routeComments(segment: string): Array<{ rel: string; comment: string }> {
+  return commentSourcesFor(segment).flatMap((rel) =>
+    blockComments(fs.readFileSync(path.join(repoRoot, rel), "utf8")).map(
+      (comment) => ({ rel, comment }),
+    ),
+  );
+}
+
+function routeScheduleFindings(segment: string, schedule: string): string[] {
+  const allSegments = scheduledCrons().map((c) => c.segment);
+  return routeComments(segment).flatMap(({ rel, comment }) =>
+    scheduleClaimFindings(comment, segment, schedule, allSegments).map(
+      (f) => `${rel}: ${f}`,
+    ),
+  );
+}
+
+function routeClaimCount(segment: string): number {
+  return routeComments(segment).reduce(
+    (count, { comment }) =>
+      count +
+      [...comment.matchAll(BACKTICKED)].filter((m) => isCronExpression(m[1]!))
+        .length +
+      [...comment.matchAll(TIME_CLAIM)].length +
+      [...comment.matchAll(INTERVAL_CLAIM)].length,
+    0,
+  );
+}
+
+/** RA-7469's control table: sites whose comments are correct. */
+const CORRECT_SCHEDULE_COMMENTS = [
+  "dead-letter-review",
+  "retry-failed-webhooks",
+  "provision-tenant-db",
+  "sync-invoices",
+  "sync-ascora-labour",
+  "sync-xero-payments",
+  "storage-mirror",
+  "storage-restore",
+  "dr-nrpg-liveness",
+  "pulse-digest",
+  "winback",
+  "pricing-setup-reminders",
+  "cleanup-expired-files",
+  "google-token-refresh",
+] as const;
+
 describe("cron comment truthfulness (RA-7455)", () => {
   it("detector self-test: collapsed registration and cron expressions", () => {
     expect(
@@ -507,5 +704,156 @@ describe("cron comment truthfulness (RA-7455)", () => {
       `A reader opening these routes cannot tell they never run. Each must ` +
         `say "not scheduled" in its header comment, as ingest-standards does:\n  ${silent.join(", ")}`,
     ).toEqual([]);
+  });
+
+  it("scheduled-cron comments state the vercel.json schedule (RA-7460, RA-7469)", () => {
+    const crons = scheduledCrons();
+    expect(crons.length).toBeGreaterThan(0);
+    const wrong: string[] = [];
+    for (const { segment, schedule } of crons) {
+      expect(
+        commentSourcesFor(segment).length,
+        `${segment} is scheduled but has no route.ts or lib/cron file to inspect`,
+      ).toBeGreaterThan(0);
+      wrong.push(...routeScheduleFindings(segment, schedule));
+    }
+    expect(
+      wrong,
+      `These comments contradict vercel.json (UTC). Correct the comment, ` +
+        `never the schedule:\n  ${wrong.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
+  it("negative controls: the RA-7469 correct sites stay silent, and are actually read", () => {
+    const bySegment = new Map(
+      scheduledCrons().map((c) => [c.segment, c.schedule]),
+    );
+    for (const segment of CORRECT_SCHEDULE_COMMENTS) {
+      const schedule = bySegment.get(segment);
+      expect(schedule, `${segment} is no longer in vercel.json`).toBeDefined();
+      expect(routeScheduleFindings(segment, schedule!), segment).toEqual([]);
+      // Non-vacuous: every control except sync-ascora-labour ("an hourly
+      // cron", deliberately not a claim) yields at least one checked claim.
+      if (segment !== "sync-ascora-labour") {
+        expect(
+          routeClaimCount(segment),
+          `${segment} yielded no checked claim`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("negative control: millisecond arithmetic is not a cron expression (RA-7460)", () => {
+    for (const text of ["15 * 60 * 1000", "30 * 60 * 1000"]) {
+      expect(isCronExpression(text)).toBe(false);
+      expect(
+        scheduleClaimFindings(`timeout \`${text}\``, "x", "0 1 * * *", ["x"]),
+      ).toEqual([]);
+    }
+    expect(isCronExpression("*/10 * * * *")).toBe(true);
+  });
+
+  it("expression arm: a backticked expression that is not vercel.json's is a finding", () => {
+    expect(
+      scheduleClaimFindings(
+        "Schedule: every 10 minutes (`* * * * *` in vercel.json)",
+        "x",
+        "*/10 * * * *",
+        ["x"],
+      ),
+    ).toEqual(["states `* * * * *`, vercel.json runs `*/10 * * * *`"]);
+    // Mutant schedule for a real, correctly commented route: the guard fires.
+    expect(routeScheduleFindings("google-token-refresh", "0 6 * * 0")).not.toEqual(
+      [],
+    );
+  });
+
+  it("timezone-label arm: AEST and AEDT are parsed, never assumed UTC", () => {
+    expect(
+      scheduleClaimFindings("Vercel daily 09:00 AEST.", "x", "0 23 * * *", ["x"]),
+    ).toEqual([]);
+    expect(
+      scheduleClaimFindings(
+        "Runs daily at 21:00 UTC (07:00 AEST / 08:00 AEDT).",
+        "x",
+        "0 21 * * *",
+        ["x"],
+      ),
+    ).toEqual([]);
+    expect(
+      scheduleClaimFindings(
+        "Runs daily at 3:00 AM UTC via Vercel Cron",
+        "x",
+        "0 17 * * *",
+        ["x"],
+      ),
+    ).toEqual(['"3:00 AM UTC" but vercel.json `0 17 * * *` is 17:00 UTC']);
+  });
+
+  it("unlabelled-time arm: a time with no timezone fails loudly", () => {
+    expect(
+      scheduleClaimFindings(
+        "Wired into vercel.json (daily, off-peak: 02:30).",
+        "x",
+        "30 16 * * *",
+        ["x"],
+      ),
+    ).toEqual(['"02:30" names no timezone (write UTC, AEST or AEDT)']);
+    // "Runs daily" with no time is not a claim.
+    expect(scheduleClaimFindings("Runs daily.", "x", "30 16 * * *", ["x"])).toEqual(
+      [],
+    );
+  });
+
+  it("interval arm: 'every N minutes' must equal the vercel.json interval", () => {
+    expect(
+      scheduleClaimFindings(
+        "Runs every 1 minute via Vercel Cron",
+        "x",
+        "*/5 * * * *",
+        ["x"],
+      ),
+    ).toEqual(['"every 1 minute" but vercel.json runs `*/5 * * * *`']);
+    expect(
+      scheduleClaimFindings("Schedule: every minute.", "x", "*/10 * * * *", ["x"]),
+    ).toHaveLength(1);
+    expect(
+      scheduleClaimFindings("Runs every 5 minutes.", "x", "*/5 * * * *", ["x"]),
+    ).toEqual([]);
+  });
+
+  it("other-route arm: an interval or time stated about another route is skipped", () => {
+    const all = [
+      "retry-failed-webhooks",
+      "sync-xero-payments",
+      "cleanup",
+      "prune-webhook-events",
+    ];
+    expect(
+      scheduleClaimFindings(
+        "Runs every 30 minutes (vercel.json) so a Xero event reset here is " +
+          "picked up by the next sync-xero-payments poll (which runs every 15 minutes).",
+        "retry-failed-webhooks",
+        "*/30 * * * *",
+        all,
+      ),
+    ).toEqual([]);
+    expect(
+      scheduleClaimFindings(
+        "Runs daily at 17:30 UTC, after the main cleanup cron at 03:00.",
+        "prune-webhook-events",
+        "30 17 * * *",
+        all,
+      ),
+    ).toEqual([]);
+    // The route's own claim in the same sentence is still checked.
+    expect(
+      scheduleClaimFindings(
+        "Runs every 20 minutes so the next sync-xero-payments poll (every 15 minutes) sees it.",
+        "retry-failed-webhooks",
+        "*/30 * * * *",
+        all,
+      ),
+    ).toEqual(['"every 20 minutes" but vercel.json runs `*/30 * * * *`']);
   });
 });
