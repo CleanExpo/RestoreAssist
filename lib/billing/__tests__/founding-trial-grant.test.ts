@@ -451,6 +451,14 @@ describe("runFoundingTrialGrant — never free while the business is also paying
     expect(rows.size).toBe(0);
   });
 
+  it("P1-DRAIN-WORKSPACE-DRIFT: if the owner's workspace changes after the check, nothing is written", async () => {
+    const { db, rows, ws } = makeRunDb();
+    ws.mockResolvedValueOnce({ id: "ws_1" }).mockResolvedValue({ id: "ws_2" });
+    const { stripe } = makeStripe([], [seatSub("sub_ws2", "cus_owner", "active", "ws_2")]);
+    await expect(run(db, stripe)).rejects.toThrow(/changed from ws_1 to ws_2/);
+    expect(rows.size).toBe(0);
+  });
+
   it("P1-DRAIN-MISSES-DELETED-PAYER-CHECKOUTS: a deleted user's open checkout refuses", async () => {
     const { db, rows } = makeRunDb();
     const { stripe } = makeStripe([seatCheckout("cs_deleted", "cus_deleted_user")], []);

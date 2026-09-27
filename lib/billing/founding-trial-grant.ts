@@ -213,15 +213,21 @@ export async function runFoundingTrialGrant(deps: {
   if (before.length) {
     return { status: "refused", workspaceId, conflicts: before };
   }
+  // The grant is pinned to the workspace both checks cover, so it cannot land
+  // on a different one if another of the owner's workspaces turns READY.
   if (!apply) {
     const result = await grantFoundingTrial(db, organizationId, {
       apply: false,
+      expectWorkspaceId: workspaceId,
     });
     return { status: "dry_run", result };
   }
 
   const result = await db.$transaction((tx) =>
-    grantFoundingTrial(tx, organizationId, { apply: true }),
+    grantFoundingTrial(tx, organizationId, {
+      apply: true,
+      expectWorkspaceId: workspaceId,
+    }),
   );
   const sleep =
     deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -288,9 +294,16 @@ async function grantWorkspaceId(
 export async function grantFoundingTrial(
   db: GrantDb,
   organizationId: string,
-  opts: { apply: boolean },
+  opts: { apply: boolean; expectWorkspaceId?: string },
 ): Promise<FoundingTrialGrantResult> {
   const workspaceId = await grantWorkspaceId(db, organizationId);
+  if (opts.expectWorkspaceId && workspaceId !== opts.expectWorkspaceId) {
+    throw new FoundingTrialGrantError(
+      `Organisation ${organizationId}'s workspace changed from ` +
+        `${opts.expectWorkspaceId} to ${workspaceId} while Stripe was being ` +
+        `checked. Nothing was written; run the grant again.`,
+    );
+  }
 
   const granted: AddonSku[] = [];
   const skippedPaid: AddonSku[] = [];
