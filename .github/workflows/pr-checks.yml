@@ -351,6 +351,18 @@ jobs:
       - name: Workflow claim verification
         run: bash scripts/ci/verify-workflow-claims.sh
 
+      # RA-7468 — database-free Next validation guard. Until now only the local
+      # handoff loop ran it, so no PR was ever gated by it. It exits 2 when
+      # DATABASE_URL, DIRECT_URL, VERCEL_ENV or DO_APP_PLATFORM is set, or when
+      # its own wrapper gains an executable build, migrate or drift-check line.
+      # Do NOT give this step an `env:` block, and do not add any of those four
+      # variables at job or workflow level. This job sets DATABASE_URL only on
+      # individual steps, and step env does not carry over to later steps. If
+      # this step goes red, find where the variable came from and remove it;
+      # adding it here or unsetting it inside the step weakens the guard.
+      - name: Database-free Next validation guard
+        run: npm run validate:next-build-no-db
+
       # RA-7443 — unit suite, RA-6685 migrate-before-tests, and the paid-audit
       # replay-index probe now live in the sibling `unit-tests` job. This job
       # does not need that migrate: Build runs with no DATABASE_URL (so
