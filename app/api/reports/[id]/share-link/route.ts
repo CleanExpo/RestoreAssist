@@ -7,7 +7,7 @@ import {
   insurerTokenExpiresAt,
 } from "@/lib/portal-token";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveReportReach } from "@/lib/auth/assert-tenancy";
+import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 
 /**
  * POST /api/reports/[id]/share-link  (RA-1460)
@@ -34,9 +34,10 @@ export async function POST(
 
     const { id } = await params;
 
-    // RA-7641 / D-023: minting a share link is a read. Anyone who can read the
-    // report in the business may share it; reach is merged with AND.
-    const reach = await resolveReportReach(session);
+    // RA-7771 / D-023: the homeowner view the link opens shows the report
+    // total, so minting one follows the financial reach, as insurer-link does:
+    // the organisation widening stops at MANAGER. Reach is merged with AND.
+    const reach = await resolveReportFinancialReach(session);
     if (!reach.ok) {
       return apiError(request, {
         code: "UNAUTHORIZED",
