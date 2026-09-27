@@ -440,13 +440,23 @@ function findStaleScheduleClaims(commentBody: string): string[] {
  *   - a backticked five-field expression is UTC and must equal vercel.json;
  *   - a stated time must carry UTC, AEST (+10) or AEDT (+11) and equal the
  *     vercel.json time in that zone; a time with no zone is a finding;
- *   - "every N minutes" / "every minute" must equal the vercel.json interval;
+ *   - "every N minutes" / "every minute" must equal the vercel.json interval,
+ *     and on a schedule that does not run every day (day-of-month, month
+ *     and day-of-week not all `*`), a stated time is a finding unless its
+ *     sentence names the restriction ("weekly", "Sunday", "monthly", "of the
+ *     month") and makes no every-day claim ("daily", "every morning",
+ *     "once a day"). Whether the named restriction is the right one is not
+ *     checked;
  *   - "daily" / "hourly" with no time or interval is not a claim.
  * Every time or interval in a route's comments is read as a claim about
  * that route. A comment that refers to another route names it and points
  * at its route file; it does not restate that route's timing.
  */
 const TZ_OFFSET_HOURS: Record<string, number> = { UTC: 0, AEST: 10, AEDT: 11 };
+const EVERY_DAY_WORDS =
+  /\b(?:daily|nightly|(?:every|each) (?:day|night|morning|afternoon|evening)|(?:once|twice|\w+ times) (?:a|per) day)\b/i;
+const RESTRICTED_RECURRENCE =
+  /\b(?:weekly|fortnightly|monthly|quarterly|yearly|annually|weekdays?|weekends?|(?:mon|tues|wednes|thurs|fri|satur|sun)days?)\b|\bof (?:the|each|every) month\b/i;
 const CRON_FIELD_RANGES: Array<[number, number]> = [
   [0, 59],
   [0, 23],
@@ -490,10 +500,15 @@ function dailyUtcTime(schedule: string): { h: number; m: number } | null {
   return { h: Number(hour), m: Number(min) };
 }
 
+/** True when day-of-month, month and day-of-week are all `*`. */
+function runsEveryDay(schedule: string): boolean {
+  return schedule.trim().split(/\s+/).slice(2).every((field) => field === "*");
+}
+
 /** Minutes between fires for a `*` or step minute field, or null. */
 function minuteInterval(schedule: string): number | null {
   const [min, hour] = schedule.split(/\s+/);
-  if (hour !== "*") return null;
+  if (hour !== "*" || !runsEveryDay(schedule)) return null;
   if (min === "*") return 1;
   const step = min?.match(/^\*\/(\d+)$/);
   return step ? Number(step[1]) : null;
@@ -531,6 +546,12 @@ function scheduleClaimFindings(
   }
 
   for (const sentence of comment.split(/(?<=[.;])\s+/)) {
+    const timed = [...sentence.matchAll(TIME_CLAIM)].length > 0;
+    const statesRestriction =
+      RESTRICTED_RECURRENCE.test(sentence) && !EVERY_DAY_WORDS.test(sentence);
+    if (timed && !runsEveryDay(schedule) && !statesRestriction) {
+      findings.push(`"daily" but vercel.json \`${schedule}\` does not run every day`);
+    }
     for (const m of sentence.matchAll(TIME_CLAIM)) {
       const text = m[0];
       let h = Number(m[1] ?? m[4]);
@@ -827,5 +848,70 @@ describe("cron comment truthfulness (RA-7455)", () => {
         "*/10 * * * *",
       ),
     ).toEqual(['"every 5 minutes" but vercel.json runs `*/10 * * * *`']);
+  });
+
+  it("recurrence arm: 'daily' needs every day-of-month, month and weekday", () => {
+    // CodeRabbit on #2345: `0 9 * * 1` fires on Mondays only.
+    expect(
+      scheduleClaimFindings("Runs daily at 09:00 UTC.", "0 9 * * 1"),
+    ).toEqual(['"daily" but vercel.json `0 9 * * 1` does not run every day']);
+    // Day-of-month restricted (override-governance's real schedule).
+    expect(
+      scheduleClaimFindings("Runs daily at 01:00 UTC.", "0 1 1 * *"),
+    ).toEqual(['"daily" but vercel.json `0 1 1 * *` does not run every day']);
+  });
+
+  it("recurrence arm: every-day synonyms are held to the same rule as 'daily'", () => {
+    // Cursor round 4 on the #2345 follow-up: only the word "daily" was gated.
+    for (const sentence of [
+      "Runs every day at 09:00 UTC.",
+      "Runs each day at 09:00 UTC.",
+      "Runs nightly at 09:00 UTC.",
+      "Runs every night at 09:00 UTC.",
+    ]) {
+      expect(scheduleClaimFindings(sentence, "0 9 * * 1")).toEqual([
+        '"daily" but vercel.json `0 9 * * 1` does not run every day',
+      ]);
+      expect(scheduleClaimFindings(sentence, "0 9 * * *")).toEqual([]);
+    }
+  });
+
+  it("recurrence arm: a time on a restricted schedule must say how often it runs", () => {
+    // Cursor round 5: a synonym list never ends, so the rule is inverted. On a
+    // schedule that does not run every day, a stated time is a finding unless
+    // the sentence names the restriction and makes no every-day claim.
+    for (const sentence of [
+      "Runs once a day at 09:00 UTC.",
+      "Runs once per day at 09:00 UTC.",
+      "Runs every morning at 09:00 UTC.",
+      "Runs twice a day at 09:00 UTC.",
+      "Runs at 09:00 UTC.",
+      "Runs every day except Sunday at 09:00 UTC.",
+    ]) {
+      expect(scheduleClaimFindings(sentence, "0 9 * * 1")).toEqual([
+        '"daily" but vercel.json `0 9 * * 1` does not run every day',
+      ]);
+    }
+    expect(
+      scheduleClaimFindings("Runs on Mondays at 09:00 UTC.", "0 9 * * 1"),
+    ).toEqual([]);
+    expect(
+      scheduleClaimFindings("Runs monthly, on the 1st at 01:00 UTC.", "0 1 1 * *"),
+    ).toEqual([]);
+  });
+
+  it("recurrence arm: 'every N minutes' needs every day-of-month, month and weekday", () => {
+    // CodeRabbit on #2345: `*/5 * * * 1` fires on Mondays only.
+    expect(
+      scheduleClaimFindings("Runs every 5 minutes.", "*/5 * * * 1"),
+    ).toEqual(['"every 5 minutes" but vercel.json runs `*/5 * * * 1`']);
+    // Month restricted: January only.
+    expect(
+      scheduleClaimFindings("Runs every 5 minutes.", "*/5 * * 1 *"),
+    ).toEqual(['"every 5 minutes" but vercel.json runs `*/5 * * 1 *`']);
+    // A restricted schedule stated as such is not a finding.
+    expect(
+      scheduleClaimFindings("Schedule: weekly, Sunday 05:00 UTC.", "0 5 * * 0"),
+    ).toEqual([]);
   });
 });
