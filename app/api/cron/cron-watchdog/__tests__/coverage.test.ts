@@ -441,16 +441,22 @@ function findStaleScheduleClaims(commentBody: string): string[] {
  *   - a stated time must carry UTC, AEST (+10) or AEDT (+11) and equal the
  *     vercel.json time in that zone; a time with no zone is a finding;
  *   - "every N minutes" / "every minute" must equal the vercel.json interval,
- *     and "daily" (or "nightly", "every day", "each day", "every night")
- *     beside a stated time needs a schedule that runs every day
- *     (day-of-month, month and day-of-week all `*`);
+ *     and on a schedule that does not run every day (day-of-month, month
+ *     and day-of-week not all `*`), a stated time is a finding unless its
+ *     sentence names the restriction ("weekly", "Sunday", "monthly", "of the
+ *     month") and makes no every-day claim ("daily", "every morning",
+ *     "once a day"). Whether the named restriction is the right one is not
+ *     checked;
  *   - "daily" / "hourly" with no time or interval is not a claim.
  * Every time or interval in a route's comments is read as a claim about
  * that route. A comment that refers to another route names it and points
  * at its route file; it does not restate that route's timing.
  */
 const TZ_OFFSET_HOURS: Record<string, number> = { UTC: 0, AEST: 10, AEDT: 11 };
-const EVERY_DAY_WORDS = /\b(?:daily|nightly|(?:every|each) (?:day|night))\b/i;
+const EVERY_DAY_WORDS =
+  /\b(?:daily|nightly|(?:every|each) (?:day|night|morning|afternoon|evening)|(?:once|twice|\w+ times) (?:a|per) day)\b/i;
+const RESTRICTED_RECURRENCE =
+  /\b(?:weekly|fortnightly|monthly|quarterly|yearly|annually|weekdays?|weekends?|(?:mon|tues|wednes|thurs|fri|satur|sun)days?)\b|\bof (?:the|each|every) month\b/i;
 const CRON_FIELD_RANGES: Array<[number, number]> = [
   [0, 59],
   [0, 23],
@@ -541,7 +547,9 @@ function scheduleClaimFindings(
 
   for (const sentence of comment.split(/(?<=[.;])\s+/)) {
     const timed = [...sentence.matchAll(TIME_CLAIM)].length > 0;
-    if (timed && EVERY_DAY_WORDS.test(sentence) && !runsEveryDay(schedule)) {
+    const statesRestriction =
+      RESTRICTED_RECURRENCE.test(sentence) && !EVERY_DAY_WORDS.test(sentence);
+    if (timed && !runsEveryDay(schedule) && !statesRestriction) {
       findings.push(`"daily" but vercel.json \`${schedule}\` does not run every day`);
     }
     for (const m of sentence.matchAll(TIME_CLAIM)) {
@@ -866,6 +874,30 @@ describe("cron comment truthfulness (RA-7455)", () => {
       ]);
       expect(scheduleClaimFindings(sentence, "0 9 * * *")).toEqual([]);
     }
+  });
+
+  it("recurrence arm: a time on a restricted schedule must say how often it runs", () => {
+    // Cursor round 5: a synonym list never ends, so the rule is inverted. On a
+    // schedule that does not run every day, a stated time is a finding unless
+    // the sentence names the restriction and makes no every-day claim.
+    for (const sentence of [
+      "Runs once a day at 09:00 UTC.",
+      "Runs once per day at 09:00 UTC.",
+      "Runs every morning at 09:00 UTC.",
+      "Runs twice a day at 09:00 UTC.",
+      "Runs at 09:00 UTC.",
+      "Runs every day except Sunday at 09:00 UTC.",
+    ]) {
+      expect(scheduleClaimFindings(sentence, "0 9 * * 1")).toEqual([
+        '"daily" but vercel.json `0 9 * * 1` does not run every day',
+      ]);
+    }
+    expect(
+      scheduleClaimFindings("Runs on Mondays at 09:00 UTC.", "0 9 * * 1"),
+    ).toEqual([]);
+    expect(
+      scheduleClaimFindings("Runs monthly, on the 1st at 01:00 UTC.", "0 1 1 * *"),
+    ).toEqual([]);
   });
 
   it("recurrence arm: 'every N minutes' needs every day-of-month, month and weekday", () => {
