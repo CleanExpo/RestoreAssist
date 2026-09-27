@@ -8,9 +8,9 @@
  *
  * Or: npm run script:grant-founding-trial -- <organizationId> [--apply]
  *
- * It asks Stripe (read-only) about every customer that can buy add-ons for the
- * business — the owner and every member, current or former — before writing and again
- * five minutes after. Any add-on checkout still open, or any live add-on
+ * It asks Stripe (read-only), across the whole account, for add-on billing
+ * stamped with this business's workspace, before writing and again five
+ * minutes after. Any add-on checkout still open, or any live add-on
  * subscription the database does not know about yet, would leave the
  * business paying for something now free: before writing, the script refuses;
  * after, it puts the grant back as it was. Either way it names what it found.

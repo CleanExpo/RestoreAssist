@@ -205,34 +205,24 @@ describe("a granted Founding Trial business can take on technicians", () => {
 type Session = { id: string; customer: string; status: string; metadata?: Record<string, string> };
 type Sub = { id: string; customer: string; status: string; metadata?: Record<string, string> };
 
-/**
- * Stripe read double: lists whatever the arrays hold at the moment of the call.
- * `indexed` is what Stripe's search index has caught up with — empty by
- * default, as it is for a subscription created in the last minute.
- */
-function makeStripe(sessions: Session[], subs: Sub[], indexed: Sub[] = []) {
+/** Stripe read double: account-wide lists of whatever the arrays hold at the call. */
+function makeStripe(sessions: Session[], subs: Sub[]) {
   const iter = <T,>(items: T[]) => ({
     async *[Symbol.asyncIterator]() {
       yield* items;
     },
   });
-  const sessionsList = vi.fn((p: { customer: string; status: string }) =>
-    iter(sessions.filter((s) => s.customer === p.customer && s.status === p.status)),
+  const sessionsList = vi.fn((p: { status: string }) =>
+    iter(sessions.filter((s) => s.status === p.status)),
   );
-  const subsList = vi.fn((p: { customer: string }) =>
-    iter(subs.filter((s) => s.customer === p.customer)),
-  );
-  const subsSearch = vi.fn((p: { query: string }) =>
-    iter(indexed.filter((s) => p.query === `metadata['workspaceId']:'${s.metadata?.workspaceId}'`)),
-  );
+  const subsList = vi.fn((_p: { limit: number }) => iter(subs));
   return {
     stripe: {
       checkout: { sessions: { list: sessionsList } },
-      subscriptions: { list: subsList, search: subsSearch },
+      subscriptions: { list: subsList },
     },
     sessionsList,
     subsList,
-    subsSearch,
   };
 }
 
@@ -406,19 +396,17 @@ describe("runFoundingTrialGrant — never free while the business is also paying
     expect(get(AddonSku.TECHNICIAN_SEATS)).toBeUndefined();
   });
 
-  it("with nothing in flight the grant stands, and every customer is checked before and after", async () => {
-    const { db, get } = makeRunDb(["cus_member"]);
+  it("with nothing in flight the grant stands; Stripe is listed account-wide before and after", async () => {
+    const { db, get } = makeRunDb();
     const { stripe, sessionsList, subsList } = makeStripe([], []);
     const out = await run(db, stripe);
     expect(out.status).toBe("granted");
     expect(get(AddonSku.TECHNICIAN_SEATS)?.seats).toBe(FOUNDING_TRIAL_SEATS);
-    expect(sessionsList.mock.calls.map((c) => c[0].customer)).toEqual([
-      "cus_owner",
-      "cus_member",
-      "cus_owner",
-      "cus_member",
+    expect(sessionsList.mock.calls).toEqual([
+      [{ status: "open", limit: 100 }],
+      [{ status: "open", limit: 100 }],
     ]);
-    expect(subsList).toHaveBeenCalledWith({ customer: "cus_member", status: "all", limit: 100 });
+    expect(subsList.mock.calls).toEqual([[{ limit: 100 }], [{ limit: 100 }]]);
   });
 
   it("dry run writes nothing and does not wait", async () => {
@@ -463,15 +451,27 @@ describe("runFoundingTrialGrant — never free while the business is also paying
     expect(rows.size).toBe(0);
   });
 
-  it("a subscription no known customer names is found by its workspace id", async () => {
+  it("P1-DRAIN-MISSES-DELETED-PAYER-CHECKOUTS: a deleted user's open checkout refuses", async () => {
     const { db, rows } = makeRunDb();
-    const orphan: Sub = seatSub("sub_orphan", "cus_deleted_user");
-    const { stripe } = makeStripe([], [orphan], [orphan]);
+    const { stripe } = makeStripe([seatCheckout("cs_deleted", "cus_deleted_user")], []);
     const out = await run(db, stripe);
     expect(out).toMatchObject({
       status: "refused",
-      conflicts: [{ id: "sub_orphan", customer: "cus_deleted_user" }],
+      conflicts: [{ kind: "open_checkout", id: "cs_deleted", customer: "cus_deleted_user" }],
     });
+    expect(rows.size).toBe(0);
+  });
+
+  it("P1-DRAIN-MISSES-DELETED-PAYER-CHECKOUTS: a deleted user's checkout completing during the wait is reverted", async () => {
+    const { db, rows } = makeRunDb();
+    const subs: Sub[] = [];
+    const { stripe } = makeStripe([], subs);
+    const out = await run(db, stripe, {
+      duringSettle: () => {
+        subs.push(seatSub("sub_deleted", "cus_deleted_user"));
+      },
+    });
+    expect(out).toMatchObject({ status: "reverted", conflicts: [{ id: "sub_deleted" }] });
     expect(rows.size).toBe(0);
   });
 });
@@ -500,10 +500,9 @@ describe("addonBillingConflicts — what counts as billing in flight", () => {
     );
     const found = await addonBillingConflicts(
       stripe as never,
-      ["cus_owner"],
       "ws_1",
       new Set(["sub_recorded"]),
     );
-    expect(found.map((c) => c.id)).toEqual(["cs_no_ws", "sub_unpaid"]);
+    expect(found.map((c) => c.id)).toEqual(["sub_unpaid"]);
   });
 });
