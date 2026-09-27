@@ -91,8 +91,10 @@ export const RA_RLS_CLIENTCOMMSLOG_FEATUREENTITLEMENT_MIGRATION = resolve(
 
 /**
  * The 119 tables the Supabase advisor flagged as RLS-disabled (the audit set).
- * Mirrors `scripts/rls-categorise.py` RLS_DISABLED — kept in sync by hand; the
- * test cross-checks this list against the RA-4970 migration so drift is caught.
+ * Mirrors `scripts/rls-categorise.py` RLS_DISABLED. The two lists must name the
+ * same tables; `scripts/__tests__/rls-audit-lists-agree.test.ts` enforces it
+ * (RA-7503). The coverage test also cross-checks this list against the RA-4970
+ * migration so drift is caught.
  */
 export const AUDIT_TABLES: readonly string[] = `
 _prisma_migrations Account Session User VerificationToken CostItem Scope Estimate
