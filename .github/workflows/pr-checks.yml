@@ -351,19 +351,23 @@ jobs:
       - name: Workflow claim verification
         run: bash scripts/ci/verify-workflow-claims.sh
 
-      # RA-7468 — database-free Next validation guard. Until now only the local
-      # handoff loop ran it, so no PR was ever gated by it. It exits 2 when
-      # DATABASE_URL, DIRECT_URL, VERCEL_ENV or DO_APP_PLATFORM is set, or when
-      # its own wrapper gains an executable build, migrate or drift-check line.
-      # Do NOT give this step an `env:` block, and do not add any of those four
-      # variables at job or workflow level. This job sets DATABASE_URL only on
-      # individual steps, and step env does not carry over to later steps. If
-      # this step goes red, find where the variable came from and remove it;
-      # adding it here or unsetting it inside the step weakens the guard.
-      # The wrapper is run directly, not through `npm run`: if the package.json
-      # alias were edited to `true`, `npm run` would exit 0 without ever
-      # entering the wrapper. Run directly, the wrapper still checks that
-      # package.json holds its exact alias line, so that edit turns this red.
+      # RA-7468 — database-free Next validation guard. What it checks, and no more:
+      #   1. It exits 2 if DATABASE_URL, DIRECT_URL, VERCEL_ENV or
+      #      DO_APP_PLATFORM is set in this step's environment.
+      #   2. It exits 2 if package.json no longer holds its exact
+      #      "validate:next-build-no-db" alias line.
+      #   3. It greps its own file for a build, migrate or drift-check command
+      #      at the START of a line. That is a text match, not a guarantee: a
+      #      command later in a line (for example `true && npm run build`) is
+      #      not caught.
+      # Do NOT give this step an `env:` block, and do not set any of those four
+      # variables at job or workflow level. Setting them would turn this step
+      # red on every PR; unsetting them inside the step would disable check 1.
+      # Other steps in this job set DATABASE_URL (and some DIRECT_URL) in their
+      # own `env:` blocks, which apply to that step only.
+      # The wrapper runs directly, not through `npm run`: with the alias edited
+      # to `true`, `npm run` exits 0 without entering the wrapper, while this
+      # command exits 2 on check 2.
       - name: Database-free Next validation guard
         run: sh scripts/validate-next-build-no-db.sh
 
