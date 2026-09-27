@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 /**
  * Cron endpoint: Prune webhook audit rows older than 90 days (RA-1328).
  * Runs daily at 17:30 UTC (03:30 AEST) — off-peak, after the main cleanup
- * cron at 17:00 UTC (03:00 AEST).
+ * cron (see app/api/cron/cleanup for its timing).
  *
  * Batched deletion (20×1000 rows max per run) to avoid blocking VACUUM.
  * If backlog exceeds 20k rows, next day's run continues cleanup.

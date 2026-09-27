@@ -442,9 +442,9 @@ function findStaleScheduleClaims(commentBody: string): string[] {
  *     vercel.json time in that zone; a time with no zone is a finding;
  *   - "every N minutes" / "every minute" must equal the vercel.json interval;
  *   - "daily" / "hourly" with no time or interval is not a claim.
- * A time or interval that is wrong for this route is excused only when a
- * scheduled route named before it in the same sentence runs at exactly
- * that time or interval: then the claim is about that route and true.
+ * Every time or interval in a route's comments is read as a claim about
+ * that route. A comment that refers to another route names it and points
+ * at its route file; it does not restate that route's timing.
  */
 const TZ_OFFSET_HOURS: Record<string, number> = { UTC: 0, AEST: 10, AEDT: 11 };
 const CRON_FIELD_RANGES: Array<[number, number]> = [
@@ -499,28 +499,6 @@ function minuteInterval(schedule: string): number | null {
   return step ? Number(step[1]) : null;
 }
 
-/**
- * vercel.json schedules of the other scheduled routes named in `prefix`.
- * A claim after such a name may be about that route, but only a claim that
- * is TRUE for it is excused (RA-7460/7469 review P1).
- */
-function namedOtherSchedules(
-  prefix: string,
-  segment: string,
-  allSegments: string[],
-): string[] {
-  const schedules = new Map(
-    scheduledCrons().map((c) => [c.segment, c.schedule]),
-  );
-  return allSegments
-    .filter(
-      (other) =>
-        other !== segment &&
-        new RegExp(`(?<![\\w-])${other}(?![\\w-])`).test(prefix),
-    )
-    .flatMap((other) => schedules.get(other) ?? []);
-}
-
 function timeFinding(
   text: string,
   h: number,
@@ -541,9 +519,7 @@ function timeFinding(
 
 function scheduleClaimFindings(
   comment: string,
-  segment: string,
   schedule: string,
-  allSegments: string[],
 ): string[] {
   const findings: string[] = [];
 
@@ -564,28 +540,13 @@ function scheduleClaimFindings(
       if (meridiem === "PM" && h !== 12) h += 12;
       const after = sentence.slice(m.index! + text.length);
       const zone = after.match(/^\s*(UTC|AEST|AEDT)\b/)?.[1];
-      const own = timeFinding(text, h, min, zone, schedule);
-      if (!own) continue;
-      const others = namedOtherSchedules(
-        sentence.slice(0, m.index),
-        segment,
-        allSegments,
-      );
-      if (others.some((s) => timeFinding(text, h, min, zone, s) === null)) {
-        continue;
-      }
-      findings.push(own);
+      const finding = timeFinding(text, h, min, zone, schedule);
+      if (finding) findings.push(finding);
     }
 
     for (const m of sentence.matchAll(INTERVAL_CLAIM)) {
       const claimed = Number(m[1] ?? 1);
       if (minuteInterval(schedule) === claimed) continue;
-      const others = namedOtherSchedules(
-        sentence.slice(0, m.index),
-        segment,
-        allSegments,
-      );
-      if (others.some((s) => minuteInterval(s) === claimed)) continue;
       findings.push(`"${m[0]}" but vercel.json runs \`${schedule}\``);
     }
   }
@@ -612,9 +573,8 @@ function routeComments(segment: string): Array<{ rel: string; comment: string }>
 }
 
 function routeScheduleFindings(segment: string, schedule: string): string[] {
-  const allSegments = scheduledCrons().map((c) => c.segment);
   return routeComments(segment).flatMap(({ rel, comment }) =>
-    scheduleClaimFindings(comment, segment, schedule, allSegments).map(
+    scheduleClaimFindings(comment, schedule).map(
       (f) => `${rel}: ${f}`,
     ),
   );
@@ -768,7 +728,7 @@ describe("cron comment truthfulness (RA-7455)", () => {
     for (const text of ["15 * 60 * 1000", "30 * 60 * 1000"]) {
       expect(isCronExpression(text)).toBe(false);
       expect(
-        scheduleClaimFindings(`timeout \`${text}\``, "x", "0 1 * * *", ["x"]),
+        scheduleClaimFindings(`timeout \`${text}\``, "0 1 * * *"),
       ).toEqual([]);
     }
     expect(isCronExpression("*/10 * * * *")).toBe(true);
@@ -778,9 +738,7 @@ describe("cron comment truthfulness (RA-7455)", () => {
     expect(
       scheduleClaimFindings(
         "Schedule: every 10 minutes (`* * * * *` in vercel.json)",
-        "x",
         "*/10 * * * *",
-        ["x"],
       ),
     ).toEqual(["states `* * * * *`, vercel.json runs `*/10 * * * *`"]);
     // Mutant schedule for a real, correctly commented route: the guard fires.
@@ -791,22 +749,18 @@ describe("cron comment truthfulness (RA-7455)", () => {
 
   it("timezone-label arm: AEST and AEDT are parsed, never assumed UTC", () => {
     expect(
-      scheduleClaimFindings("Vercel daily 09:00 AEST.", "x", "0 23 * * *", ["x"]),
+      scheduleClaimFindings("Vercel daily 09:00 AEST.", "0 23 * * *"),
     ).toEqual([]);
     expect(
       scheduleClaimFindings(
         "Runs daily at 21:00 UTC (07:00 AEST / 08:00 AEDT).",
-        "x",
         "0 21 * * *",
-        ["x"],
       ),
     ).toEqual([]);
     expect(
       scheduleClaimFindings(
         "Runs daily at 3:00 AM UTC via Vercel Cron",
-        "x",
         "0 17 * * *",
-        ["x"],
       ),
     ).toEqual(['"3:00 AM UTC" but vercel.json `0 17 * * *` is 17:00 UTC']);
   });
@@ -815,13 +769,11 @@ describe("cron comment truthfulness (RA-7455)", () => {
     expect(
       scheduleClaimFindings(
         "Wired into vercel.json (daily, off-peak: 02:30).",
-        "x",
         "30 16 * * *",
-        ["x"],
       ),
     ).toEqual(['"02:30" names no timezone (write UTC, AEST or AEDT)']);
     // "Runs daily" with no time is not a claim.
-    expect(scheduleClaimFindings("Runs daily.", "x", "30 16 * * *", ["x"])).toEqual(
+    expect(scheduleClaimFindings("Runs daily.", "30 16 * * *")).toEqual(
       [],
     );
   });
@@ -830,73 +782,50 @@ describe("cron comment truthfulness (RA-7455)", () => {
     expect(
       scheduleClaimFindings(
         "Runs every 1 minute via Vercel Cron",
-        "x",
         "*/5 * * * *",
-        ["x"],
       ),
     ).toEqual(['"every 1 minute" but vercel.json runs `*/5 * * * *`']);
     expect(
-      scheduleClaimFindings("Schedule: every minute.", "x", "*/10 * * * *", ["x"]),
+      scheduleClaimFindings("Schedule: every minute.", "*/10 * * * *"),
     ).toHaveLength(1);
     expect(
-      scheduleClaimFindings("Runs every 5 minutes.", "x", "*/5 * * * *", ["x"]),
+      scheduleClaimFindings("Runs every 5 minutes.", "*/5 * * * *"),
     ).toEqual([]);
   });
 
-  it("other-route arm: an interval or time stated about another route is skipped", () => {
-    const all = [
-      "retry-failed-webhooks",
-      "sync-xero-payments",
-      "cleanup",
-      "prune-webhook-events",
-    ];
+  it("other-route arm: another route's timing restated here is a finding", () => {
+    // A comment names another route and points at its file; it does not
+    // restate that route's timing, which is read as a claim about this one.
     expect(
       scheduleClaimFindings(
-        "Runs every 30 minutes (vercel.json) so a Xero event reset here is " +
-          "picked up by the next sync-xero-payments poll (which runs every 15 minutes).",
-        "retry-failed-webhooks",
+        "Runs every 30 minutes (vercel.json) so the next sync-xero-payments " +
+          "poll (which runs every 15 minutes) sees it.",
         "*/30 * * * *",
-        all,
       ),
-    ).toEqual([]);
+    ).toEqual(['"every 15 minutes" but vercel.json runs `*/30 * * * *`']);
     expect(
       scheduleClaimFindings(
         "Runs daily at 17:30 UTC, after the main cleanup cron at 17:00 UTC.",
-        "prune-webhook-events",
         "30 17 * * *",
-        all,
       ),
-    ).toEqual([]);
-    // The route's own claim in the same sentence is still checked.
-    expect(
-      scheduleClaimFindings(
-        "Runs every 20 minutes so the next sync-xero-payments poll (every 15 minutes) sees it.",
-        "retry-failed-webhooks",
-        "*/30 * * * *",
-        all,
-      ),
-    ).toEqual(['"every 20 minutes" but vercel.json runs `*/30 * * * *`']);
-  });
-
-  it("named-route arm: another route's name only excuses a claim true for that route", () => {
-    // Review P1 repro: storage-mirror runs */10, so "every 5 minutes" is true
-    // for neither route and must not be swallowed by the name before it.
+    ).toEqual(['"17:00 UTC" but vercel.json `30 17 * * *` is 17:30 UTC']);
+    // Review round-1 P1: storage-mirror runs */10, not */5.
     expect(
       scheduleClaimFindings(
         "Unlike storage-mirror, Schedule: every 5 minutes (vercel.json).",
-        "storage-restore",
         "*/10 * * * *",
-        ["storage-restore", "storage-mirror"],
       ),
     ).toEqual(['"every 5 minutes" but vercel.json runs `*/10 * * * *`']);
-    // cleanup runs at 17:00 UTC; 16:00 UTC is true for neither route.
+  });
+
+  it("coincident-route arm: a claim true only for a named route is still a finding", () => {
+    // Review round-2 P1: process-emails really runs */5, so a name-based
+    // excuse passes this false claim about storage-restore (*/10).
     expect(
       scheduleClaimFindings(
-        "Runs daily at 17:30 UTC, after the main cleanup cron at 16:00 UTC.",
-        "prune-webhook-events",
-        "30 17 * * *",
-        ["prune-webhook-events", "cleanup"],
+        "Unlike process-emails, Schedule: every 5 minutes (vercel.json).",
+        "*/10 * * * *",
       ),
-    ).toEqual(['"16:00 UTC" but vercel.json `30 17 * * *` is 17:30 UTC']);
+    ).toEqual(['"every 5 minutes" but vercel.json runs `*/10 * * * *`']);
   });
 });
