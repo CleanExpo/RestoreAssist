@@ -2,8 +2,9 @@
  * RA-7474 — the corpus-hygiene CLI is a real gate.
  *
  * `isMain` must hold for a Windows argv (`C:\...`) against the file URL Node
- * emits (`file:///C:/...`). `` file://${argv[1]} `` never matches, so the
- * process used to exit 0 without scanning.
+ * emits (`file:///C:/...`), including a space encoded as `%20`.
+ * `` file://${argv[1]} `` never matches, so the process used to exit 0
+ * without scanning.
  *
  * Each `scanText` fixture matches only one `RATE_PATTERNS` entry (`$440/hr`
  * also matches the bare `85/hr` pattern). Deleting one pattern turns its
@@ -42,6 +43,16 @@ describe("isMain", () => {
     expect(
       isMain(metaUrl, argv1),
       "isMain must accept a Windows argv; file://${argv} never matches file:///C:/",
+    ).toBe(true);
+  });
+
+  it("matches a Windows path that contains a space", () => {
+    const argv1 = "C:\\Users\\Phill McGurk\\repo\\scripts\\ci\\check-corpus-hygiene.mjs";
+    const metaUrl = "file:///C:/Users/Phill%20McGurk/repo/scripts/ci/check-corpus-hygiene.mjs";
+    expect(metaUrl === `file://${argv1}`).toBe(false);
+    expect(
+      isMain(metaUrl, argv1),
+      "pathToFileURL encodes the space as %20; file://${argv} leaves it raw",
     ).toBe(true);
   });
 
