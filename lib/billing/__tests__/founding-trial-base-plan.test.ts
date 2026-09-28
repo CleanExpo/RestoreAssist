@@ -209,6 +209,29 @@ describe("grantFoundingTrialBasePlan (founder ruling 28/09: base plan free 60 da
     expect(user.trialEndsAt?.getTime()).toBe(NOW.getTime() + 3 * DAY);
   });
 
+  it("does not overwrite a credit balance that changed between the grant's read and its write", async () => {
+    const { db, user } = makeUserDb(
+      { subscriptionStatus: "TRIAL", trialEndsAt: new Date(NOW.getTime() + 2 * DAY), creditsRemaining: 10 },
+      { beforeWrite: (u) => (u.creditsRemaining = FLOOR + 50) },
+    );
+    const res = await grantFoundingTrialBasePlan(db as never, "owner_1", { apply: true, now: NOW });
+    expect(res.outcome).toBe("skipped_changed");
+    expect(user.creditsRemaining).toBe(FLOOR + 50);
+  });
+
+  it("revert does not hand back credits spent after the grant", async () => {
+    const { db, user } = makeUserDb({
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date(NOW.getTime() + 5 * DAY),
+      creditsRemaining: FLOOR + 50,
+    });
+    const res = await grantFoundingTrialBasePlan(db as never, "owner_1", { apply: true, now: NOW });
+    user.creditsRemaining = FLOOR + 49; // one report created meanwhile
+    await revertFoundingTrialBasePlan(db as never, res);
+    expect(user.trialEndsAt?.getTime()).toBe(NOW.getTime() + 5 * DAY);
+    expect(user.creditsRemaining).toBe(FLOOR + 49);
+  });
+
   it("leaves lifetime access alone", async () => {
     const { db } = makeUserDb({ lifetimeAccess: true, subscriptionStatus: "ACTIVE" });
     const res = await grantFoundingTrialBasePlan(db as never, "owner_1", { apply: true, now: NOW });

@@ -40,7 +40,7 @@
 
 import {
   AddonSku,
-  type Prisma,
+  Prisma,
   type PrismaClient,
   type SubscriptionStatus,
 } from "@prisma/client";
@@ -372,6 +372,9 @@ export async function grantFoundingTrialBasePlan(
     where: {
       id: ownerId,
       subscriptionId: null,
+      // Compare-and-set: the floor was computed from this balance, so a report
+      // charged or refunded since the read makes the write skip, not clobber.
+      creditsRemaining: owner.creditsRemaining,
       AND: [
         { OR: [{ lifetimeAccess: null }, { lifetimeAccess: false }] },
         {
@@ -404,21 +407,34 @@ export async function grantFoundingTrialBasePlan(
 
 /**
  * Undo the base-plan write, only while the owner still holds exactly what the
- * grant wrote and has no Stripe subscription.
+ * grant wrote and has no Stripe subscription. Credits go back only if nothing
+ * has been charged against them since; a balance spent meanwhile is kept, so
+ * the revert never refunds a report the business already made.
  */
 export async function revertFoundingTrialBasePlan(
   db: GrantDb,
   result: FoundingTrialBasePlanResult,
 ): Promise<void> {
   if (!result.applied || !result.prior || !result.written) return;
-  await db.user.updateMany({
+  const reverted = await db.user.updateMany({
     where: {
       id: result.ownerId,
       subscriptionId: null,
       subscriptionStatus: "TRIAL",
       trialEndsAt: result.written.trialEndsAt,
     },
-    data: result.prior,
+    data: {
+      subscriptionStatus: result.prior.subscriptionStatus,
+      trialEndsAt: result.prior.trialEndsAt,
+    },
+  });
+  if (reverted.count !== 1) return;
+  await db.user.updateMany({
+    where: {
+      id: result.ownerId,
+      creditsRemaining: result.written.creditsRemaining,
+    },
+    data: { creditsRemaining: result.prior.creditsRemaining },
   });
 }
 
@@ -467,16 +483,41 @@ export async function runFoundingTrialGrant(deps: {
     return { status: "dry_run", entity, result, basePlan };
   }
 
-  const { result, basePlan } = await db.$transaction(async (tx) => ({
-    result: await grantFoundingTrial(tx, organizationId, {
-      apply: true,
-      expectWorkspaceId: workspaceId,
-    }),
-    basePlan: await grantFoundingTrialBasePlan(tx, ownerId, {
-      apply: true,
-      now: deps.now,
-    }),
-  }));
+  const written = await db.$transaction(async (tx) => {
+    // The ABR check above ran before the Stripe reads. Lock the organisation
+    // and its ABR lookup for the rest of this transaction, then check again,
+    // so a setup/hydrate or setup/state write cannot swap the ABN or fail the
+    // lookup between the check and the grant (review r1 P1-ABR-IDENTITY-RACE).
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR UPDATE`,
+    );
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "HydrationJob" WHERE "organizationId" = ${organizationId} AND "kind" = 'ABR' FOR UPDATE`,
+    );
+    const still = await verifiedAbrEntity(tx, organizationId);
+    if (!still.ok) return { ok: false as const, reason: still.reason };
+    if (still.entity.abn !== entity.abn) {
+      return {
+        ok: false as const,
+        reason: "The business's ABN changed while the grant was being checked.",
+      };
+    }
+    return {
+      ok: true as const,
+      result: await grantFoundingTrial(tx, organizationId, {
+        apply: true,
+        expectWorkspaceId: workspaceId,
+      }),
+      basePlan: await grantFoundingTrialBasePlan(tx, ownerId, {
+        apply: true,
+        now: deps.now,
+      }),
+    };
+  });
+  if (!written.ok) {
+    return { status: "unverified_abn", organizationId, reason: written.reason };
+  }
+  const { result, basePlan } = written;
   const sleep =
     deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   await sleep(deps.settleMs ?? GRANT_SETTLE_MS);

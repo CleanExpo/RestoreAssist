@@ -21,7 +21,16 @@ type Row = {
 function makeDb(opts: { beforeWrite?: (rows: Map<string, Row>) => void } = {}) {
   const rows = new Map<string, Row>();
   const key = (w: string, s: string) => `${w}:${s}`;
-  const org = vi.fn(async () => ({ ownerId: "owner_1", abn: "51824753556" }));
+  // Organisations by id. org_2 holds the same ABN but has no ABR lookup of
+  // its own, so an unscoped ABR read would let it borrow org_1's.
+  const orgs = new Map<string, { ownerId: string; abn: string | null }>([
+    ["org_1", { ownerId: "owner_1", abn: "51824753556" }],
+    ["org_2", { ownerId: "owner_1", abn: "51824753556" }],
+  ]);
+  const org = vi.fn(async ({ where }: { where: { id: string } }) => {
+    const o = orgs.get(where.id);
+    return o ? { ...o } : null;
+  });
   const ws = vi.fn(async () => ({ id: "ws_1" }));
   const db = {
     organization: { findUnique: org },
@@ -54,7 +63,7 @@ function makeDb(opts: { beforeWrite?: (rows: Map<string, Row>) => void } = {}) {
       ),
     },
   };
-  return { db, rows, org, ws, get: (sku: AddonSku) => rows.get(key("ws_1", sku)) };
+  return { db, rows, org, orgs, ws, get: (sku: AddonSku) => rows.get(key("ws_1", sku)) };
 }
 
 const ALL = Object.values(AddonSku);
@@ -305,8 +314,18 @@ function makeRunDb(members: Array<string | null | Member> = []) {
     // Founder input 28/09: the grant needs the firm's ABN confirmed by ABR
     // during the signup walkthrough (HydrationJob kind ABR, READY).
     hydrationJob: {
-      findUnique: vi.fn(async () => abrJob.current),
+      findUnique: vi.fn(
+        async ({ where }: { where: { organizationId_kind?: { organizationId?: string; kind?: string } } }) => {
+          const k = where?.organizationId_kind;
+          if (!k?.organizationId || !k?.kind) {
+            throw new Error("hydrationJob read must be scoped by organizationId_kind");
+          }
+          return k.organizationId === "org_1" && k.kind === "ABR" ? abrJob.current : null;
+        },
+      ),
     },
+    // Row locks taken inside the write transaction (SELECT ... FOR UPDATE).
+    $queryRaw: vi.fn(async (_sql: unknown) => [{}]),
     // RA-7721 (28/09): the owner's base-plan trial, written with the grant.
     user: {
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
@@ -640,7 +659,7 @@ describe("runFoundingTrialGrant — only for a business whose ABN ABR confirmed 
   }
 
   it("refuses a business with no ABN on record", async () => {
-    await refusedFor((h) => h.org.mockResolvedValue({ ownerId: "owner_1", abn: null } as never));
+    await refusedFor((h) => (h.orgs.get("org_1")!.abn = null));
   });
 
   it("refuses when ABR never confirmed the ABN (no ABR lookup on record)", async () => {
@@ -658,9 +677,7 @@ describe("runFoundingTrialGrant — only for a business whose ABN ABR confirmed 
   });
 
   it("refuses when the ABN on the business no longer matches the one ABR confirmed", async () => {
-    await refusedFor((h) =>
-      h.org.mockResolvedValue({ ownerId: "owner_1", abn: "33102417032" } as never),
-    );
+    await refusedFor((h) => (h.orgs.get("org_1")!.abn = "33102417032"));
   });
 
   it("refuses an ABN that ABR reports as cancelled", async () => {
@@ -691,5 +708,104 @@ describe("runFoundingTrialGrant — only for a business whose ABN ABR confirmed 
         tradingNames: ["Waterline Restorations"],
       },
     });
+  });
+});
+
+describe("runFoundingTrialGrant — the ABR identity holds through the write (review r1)", () => {
+  const sqlText = (call: unknown[]) => {
+    const q = call[0] as { strings?: readonly string[]; sql?: string };
+    return (q.sql ?? q.strings?.join("?") ?? String(q)).replace(/\s+/g, " ");
+  };
+
+  it("another business's ABR lookup never satisfies this one (scoped read)", async () => {
+    const h = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const out = await runFoundingTrialGrant({
+      db: h.db as never,
+      stripe: stripe as never,
+      organizationId: "org_2",
+      apply: true,
+      sleep: async () => {},
+    });
+    expect(out.status).toBe("unverified_abn");
+    expect(h.rows.size).toBe(0);
+  });
+
+  it("P1-ABR-IDENTITY-RACE: ABN replaced and ABR lookup failed during the Stripe check — nothing is written", async () => {
+    const h = makeRunDb();
+    const { stripe, sessionsList } = makeStripe([], []);
+    const list = sessionsList.getMockImplementation()!;
+    sessionsList.mockImplementationOnce((p: { status: string }) => {
+      h.orgs.get("org_1")!.abn = "33102417032";
+      h.abrJob.current = { ...VERIFIED_ABR_JOB, status: "ERROR" };
+      return list(p);
+    });
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("unverified_abn");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.featureEntitlement.updateMany).not.toHaveBeenCalled();
+    expect(h.db.featureEntitlement.createMany).not.toHaveBeenCalled();
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+    expect(h.owner.subscriptionStatus).toBe("EXPIRED");
+  });
+
+  it("P1-ABR-IDENTITY-RACE: ABN alone replaced during the Stripe check — nothing is written", async () => {
+    const h = makeRunDb();
+    const { stripe, subsList } = makeStripe([], []);
+    const list = subsList.getMockImplementation()!;
+    subsList.mockImplementationOnce((p: { limit: number }) => {
+      h.orgs.get("org_1")!.abn = "33102417032";
+      return list(p);
+    });
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("unverified_abn");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("P1-ABR-IDENTITY-RACE: re-verified as a DIFFERENT business during the Stripe check — nothing is written", async () => {
+    // The new ABN is itself ABR-confirmed, so only comparing it with the ABN
+    // the operator was shown catches the swap.
+    const h = makeRunDb();
+    const { stripe, sessionsList } = makeStripe([], []);
+    const list = sessionsList.getMockImplementation()!;
+    sessionsList.mockImplementationOnce((p: { status: string }) => {
+      h.orgs.get("org_1")!.abn = "33102417032";
+      h.abrJob.current = {
+        status: "READY",
+        payload: { abn: "33102417032", status: "ACTIVE", legalName: "OTHER PTY LTD", tradingNames: [] },
+      };
+      return list(p);
+    });
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("unverified_abn");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("locks the organisation and its ABR lookup inside the transaction before any grant write", async () => {
+    const h = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("granted");
+    const locks = h.db.$queryRaw.mock.calls.map(sqlText);
+    expect(locks.some((q) => /FROM "Organization" WHERE "id" = \? FOR UPDATE/.test(q))).toBe(true);
+    expect(
+      locks.some((q) => /FROM "HydrationJob" WHERE "organizationId" = \? AND "kind" = 'ABR' FOR UPDATE/.test(q)),
+    ).toBe(true);
+    const lastLock = Math.max(...h.db.$queryRaw.mock.invocationCallOrder);
+    const firstWrite = Math.min(
+      ...h.db.featureEntitlement.updateMany.mock.invocationCallOrder,
+      ...h.db.user.updateMany.mock.invocationCallOrder,
+    );
+    expect(lastLock).toBeLessThan(firstWrite);
+    // The identity is re-read after the locks, inside the transaction.
+    const orgReadsAfterLock = h.org.mock.invocationCallOrder.filter((n) => n > lastLock);
+    const jobReadsAfterLock = h.db.hydrationJob.findUnique.mock.invocationCallOrder.filter(
+      (n: number) => n > lastLock,
+    );
+    expect(orgReadsAfterLock.length).toBeGreaterThan(0);
+    expect(jobReadsAfterLock.length).toBeGreaterThan(0);
   });
 });
