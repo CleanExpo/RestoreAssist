@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import {
   validateWorkflowEvidence,
   formatValidationSummary,
@@ -26,12 +27,25 @@ export async function GET(
 
     const { id } = await params;
 
+    // RA-7721: read-only, so the organisation's read reach (the assigned
+    // technician included) — the same gate as GET /api/inspections/[id].
+    const tenancy = await assertInspectionReadable(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code:
+          tenancy.status === 401
+            ? "UNAUTHORIZED"
+            : tenancy.status === 403
+              ? "FORBIDDEN"
+              : "NOT_FOUND",
+        message: tenancy.reason,
+        status: tenancy.status,
+      });
+    }
+
     // Fetch workflow with steps and evidence counts
     const workflow = await prisma.inspectionWorkflow.findFirst({
-      where: {
-        inspectionId: id,
-        inspection: { userId: session.user.id },
-      },
+      where: { inspectionId: id },
       include: {
         steps: {
           orderBy: { stepOrder: "asc" },
