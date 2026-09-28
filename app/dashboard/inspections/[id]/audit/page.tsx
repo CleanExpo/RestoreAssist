@@ -16,6 +16,7 @@ interface AuditLog {
   entityType: string | null;
   entityId: string | null;
   userId: string;
+  userName?: string | null;
   device: string | null;
   gpsLocation: string | null;
   changes: string | null;
@@ -403,7 +404,12 @@ export default function InspectionAuditPage({
                       {/* User + Device + GPS row */}
                       <div className="flex items-center gap-3 flex-wrap text-xs text-neutral-500 dark:text-slate-400">
                         <span className="font-medium text-neutral-700 dark:text-slate-300">
-                          User: <span className="font-mono">{log.userId}</span>
+                          User:{" "}
+                          {log.userName ? (
+                            log.userName
+                          ) : (
+                            <span className="font-mono">{log.userId}</span>
+                          )}
                         </span>
                         {log.device && (
                           <>
