@@ -1,14 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { glob } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, matchesGlob } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { listParityScanFiles } from "../ci/check-test-parity.mjs";
+import { listParityScanFiles } from "../ci/lib/test-parity.mjs";
 
 const ROOT = process.cwd();
 const GUARD = join(ROOT, "scripts/ci/check-test-parity.mjs");
+const LIB = join(ROOT, "scripts/ci/lib/test-parity.mjs");
 
 /**
  * Independent of the guard's walker: Node's glob over the vitest config's
@@ -30,9 +31,12 @@ async function filesVitestWouldRun(
   return [...files].sort();
 }
 
-function runGuard(cwd: string): { status: number; stderr: string; stdout: string } {
+function runGuardAt(
+  script: string,
+  cwd: string,
+): { status: number; stderr: string; stdout: string } {
   try {
-    const stdout = execFileSync("node", [GUARD, "--strict"], {
+    const stdout = execFileSync("node", [script, "--strict"], {
       cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -46,6 +50,22 @@ function runGuard(cwd: string): { status: number; stderr: string; stdout: string
       stdout: failure.stdout ?? "",
     };
   }
+}
+
+function runGuard(cwd: string) {
+  return runGuardAt(GUARD, cwd);
+}
+
+function expectMissingConfig(result: {
+  status: number;
+  stderr: string;
+  stdout: string;
+}) {
+  expect(result.status).toBe(1);
+  expect(`${result.stdout}\n${result.stderr}`).toContain("vitest config not found");
+  expect(result.stderr).toContain(
+    "Refusing to fall back to a hand-kept scan list.",
+  );
 }
 
 describe("test-parity scan follows vitest include", () => {
@@ -118,7 +138,7 @@ describe("test-parity scan follows vitest include", () => {
   });
 
   it("fails if a hand-coded scan root list is reintroduced", () => {
-    const src = readFileSync(GUARD, "utf8");
+    const src = readFileSync(LIB, "utf8");
     expect(src).toContain('config/vitest.config.js');
     expect(src).toContain("test.include");
     expect(src).toContain("test.exclude");
@@ -126,6 +146,47 @@ describe("test-parity scan follows vitest include", () => {
     expect(src).not.toContain(
       '["app", "src", "components", "lib", "server"]',
     );
+  });
+
+  it("does not decide whether to scan from the invoked path", () => {
+    const src = readFileSync(GUARD, "utf8");
+    expect(src).toMatch(/await main\(\)/);
+    expect(src).not.toMatch(/endsWith\(\s*["']check-test-parity\.mjs["']\s*\)/);
+    expect(src).not.toMatch(/invokedDirectly/);
+    expect(src).not.toMatch(/\bif\s*\(/);
+  });
+
+  it("exits 1 through the real CLI path when the vitest config is missing", () => {
+    const work = mkdtempSync(join(tmpdir(), "parity-real-cwd-"));
+    try {
+      expectMissingConfig(runGuardAt(GUARD, work));
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 1 when the CLI is reached through a differently named symlink", (ctx) => {
+    const linkDir = mkdtempSync(join(tmpdir(), "parity-link-"));
+    const work = mkdtempSync(join(tmpdir(), "parity-link-cwd-"));
+    const link = join(linkDir, "parity-link.mjs");
+    try {
+      try {
+        symlinkSync(GUARD, link);
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === "EPERM") {
+          ctx.skip(
+            "symlink() threw EPERM; this platform cannot create the fixture",
+          );
+          return;
+        }
+        throw err;
+      }
+      expectMissingConfig(runGuardAt(link, work));
+    } finally {
+      rmSync(linkDir, { recursive: true, force: true });
+      rmSync(work, { recursive: true, force: true });
+    }
   });
 
   it("exits non-zero when the vitest config cannot be loaded", () => {
