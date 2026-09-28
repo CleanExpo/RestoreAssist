@@ -866,6 +866,20 @@ describe("runFoundingTrialGrant — Apply is bound to the business the operator 
     expect(h.rows.size).toBe(0);
   });
 
+  it("refuses when the ABN changed since Preview but the ABR business name is the same", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    h.orgs.get("org_1")!.abn = "33102417032";
+    h.abrJob.current = {
+      status: "READY",
+      payload: { ...VERIFIED_ABR_JOB.payload, abn: "33102417032" },
+    };
+    const out = await apply(h, confirmed);
+    expect(out.status).toBe("identity_changed");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+  });
+
   it("refuses a confirmation made for a different organisation", async () => {
     const h = makeRunDb();
     const confirmed = await preview(h);

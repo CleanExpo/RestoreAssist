@@ -48,12 +48,30 @@ function formatDate(value: string | null | undefined): string {
   });
 }
 
+/** The business a Preview showed: what the operator ticks and Apply sends. */
+interface PreviewedBusiness {
+  organizationId: string;
+  abn: string;
+  legalName: string;
+}
+
+const sameBusiness = (a: PreviewedBusiness | null, b: PreviewedBusiness | null) =>
+  !!a &&
+  !!b &&
+  a.organizationId === b.organizationId &&
+  a.abn === b.abn &&
+  a.legalName === b.legalName;
+
 export default function FoundingTrialPage() {
   const router = useRouter();
   const [lookup, setLookup] = useState("");
   const [previewFor, setPreviewFor] = useState<string | null>(null);
-  const [previewOrgId, setPreviewOrgId] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  // The latest Preview's business, and the snapshot the operator ticked.
+  // The tick confirms one exact business: a later Preview clears it, and it
+  // only counts while it matches the business on screen (review r4
+  // P1-REPREVIEW-REUSES-CONFIRMATION).
+  const [previewed, setPreviewed] = useState<PreviewedBusiness | null>(null);
+  const [confirmed, setConfirmed] = useState<PreviewedBusiness | null>(null);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +80,11 @@ export default function FoundingTrialPage() {
   const isAbn = /^[\d\s]+$/.test(trimmed);
 
   async function send(apply: boolean) {
+    const confirmedAtClick = confirmed;
+    if (!apply) {
+      setConfirmed(null);
+      setPreviewed(null);
+    }
     setBusy(true);
     setError(null);
     try {
@@ -71,15 +94,11 @@ export default function FoundingTrialPage() {
         // Apply names the organisation Preview resolved and the identity the
         // operator confirmed; the grant refuses if either has changed.
         body: JSON.stringify(
-          apply && previewOrgId && outcome?.entity
+          apply && confirmedAtClick
             ? {
-                organizationId: previewOrgId,
+                organizationId: confirmedAtClick.organizationId,
                 apply: true,
-                confirmed: {
-                  organizationId: previewOrgId,
-                  abn: outcome.entity.abn,
-                  legalName: outcome.entity.legalName,
-                },
+                confirmed: confirmedAtClick,
               }
             : { ...(isAbn ? { abn: trimmed } : { organizationId: trimmed }), apply: false },
         ),
@@ -90,13 +109,23 @@ export default function FoundingTrialPage() {
         setOutcome(null);
       } else if (data.outcome) {
         setOutcome(data.outcome as Outcome);
-        if (!apply && data.outcome.status === "dry_run") {
+        setConfirmed(null);
+        const entity = (data.outcome as Outcome).entity;
+        if (
+          !apply &&
+          data.outcome.status === "dry_run" &&
+          entity &&
+          typeof data.organizationId === "string"
+        ) {
           setPreviewFor(trimmed);
-          setPreviewOrgId(typeof data.organizationId === "string" ? data.organizationId : null);
+          setPreviewed({
+            organizationId: data.organizationId,
+            abn: entity.abn,
+            legalName: entity.legalName,
+          });
         } else {
           setPreviewFor(null);
-          setPreviewOrgId(null);
-          setConfirmed(false);
+          setPreviewed(null);
         }
       } else {
         setError(data.error ?? "The grant could not be run.");
@@ -111,9 +140,8 @@ export default function FoundingTrialPage() {
 
   const canApply =
     previewFor === trimmed &&
-    previewOrgId !== null &&
     outcome?.status === "dry_run" &&
-    confirmed &&
+    sameBusiness(confirmed, previewed) &&
     !busy;
 
   return (
@@ -161,7 +189,7 @@ export default function FoundingTrialPage() {
               value={lookup}
               onChange={(e) => {
                 setLookup(e.target.value);
-                setConfirmed(false);
+                setConfirmed(null);
               }}
               placeholder="51 824 753 556"
               className="flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
@@ -231,8 +259,10 @@ export default function FoundingTrialPage() {
                 <label className="flex items-center gap-2 pt-2 text-neutral-900 dark:text-white">
                   <input
                     type="checkbox"
-                    checked={confirmed}
-                    onChange={(e) => setConfirmed(e.target.checked)}
+                    checked={sameBusiness(confirmed, previewed)}
+                    onChange={(e) =>
+                      setConfirmed(e.target.checked && previewed ? { ...previewed } : null)
+                    }
                   />
                   This is the right business
                 </label>

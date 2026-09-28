@@ -110,4 +110,57 @@ describe("Founding Trial page, rendered through its layout", () => {
     });
     expect(screen.queryByRole("button", { name: "Apply Founding Trial" })).not.toBeInTheDocument();
   });
+
+  it("P1-REPREVIEW-REUSES-CONFIRMATION: a second Preview clears the tick; Apply then sends the business re-ticked, not the old one", async () => {
+    const dryRun = (entity: { abn: string; legalName: string }) =>
+      new Response(
+        JSON.stringify({
+          organizationId: "org_firm",
+          outcome: {
+            status: "dry_run",
+            entity: { ...entity, tradingNames: [] },
+            result: { granted: ["VOICE"], skippedPaid: [], applied: false },
+            basePlan: { outcome: "extended", trialEndsAt: "2026-11-27T00:00:00.000Z" },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    const A = { abn: "51824753556", legalName: "FIRST PTY LTD" };
+    const B = { abn: "33102417032", legalName: "OTHER PTY LTD" };
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => dryRun(A))
+      .mockImplementationOnce(async () => dryRun(B))
+      .mockImplementation(async () =>
+        new Response(JSON.stringify({ organizationId: "org_firm", outcome: { status: "granted" } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    await renderAs(OPERATOR);
+    fireEvent.change(screen.getByLabelText("ABN or organisation id"), { target: { value: "org_firm" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await screen.findByText("FIRST PTY LTD");
+    fireEvent.click(screen.getByLabelText("This is the right business"));
+    expect(screen.getByRole("button", { name: "Apply Founding Trial" })).toBeEnabled();
+
+    // Same lookup, previewed again: the business behind it is now B.
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await screen.findByText("OTHER PTY LTD");
+    expect(screen.getByLabelText("This is the right business")).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Apply Founding Trial" })).toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText("This is the right business"));
+    const apply = screen.getByRole("button", { name: "Apply Founding Trial" });
+    expect(apply).toBeEnabled();
+    fireEvent.click(apply);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(JSON.parse((fetchMock.mock.calls[2] as unknown as [string, RequestInit])[1].body as string)).toEqual({
+      organizationId: "org_firm",
+      apply: true,
+      confirmed: { organizationId: "org_firm", ...B },
+    });
+  });
 });
