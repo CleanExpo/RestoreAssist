@@ -8,17 +8,22 @@
  * the DR-PRICINGGUIDE global rate card, and CARSI training $ rates). Pricing is
  * a live per-tenant injection, never embedded.
  *
- * Importable: `scanText`, `scanDir`, `RATE_PATTERNS` (used by the ingest driver
- * scripts/ingest-standards-remote.ts to abort an ingest that carries rates).
+ * Importable: `scanText`, `scanDir`, `isMain`, `RATE_PATTERNS` (`scanText` is
+ * used by the ingest driver scripts/ingest-standards-remote.ts to abort an
+ * ingest that carries rates).
  * CLI:  node scripts/ci/check-corpus-hygiene.mjs --dir <staging-dir> [--strict]
- * There is no npm `check:corpus` alias (RA-7474). That invocation passed no
- * `--dir`, so it was a silent no-op on Windows and a usage-error on Linux.
+ * Exit 0 — at least one .txt/.md scanned, and no rate hits (or hits without --strict).
+ * Exit 1 — rate hits and --strict.
+ * Exit 2 — missing --dir, unreadable dir, or zero .txt/.md files. A usage
+ * error or an empty scan is never exit 0.
+ * There is no npm `check:corpus` alias (RA-7474).
  * Detector coverage in CI is `scripts/__tests__/check-corpus-hygiene.test.ts`.
  *
  * See .claude/skills/rag-corpus-hygiene/SKILL.md.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 // Charge-out RATE signatures — a number bound to a PER-TIME unit. Deliberately
 // NOT matching bare "$1,005 ex-GST" job-value totals (aggregate context is
@@ -60,6 +65,34 @@ export function scanDir(dir) {
   return { files, hits };
 }
 
+// Drive-letter (`C:\...` or `C:/...`) or UNC (`\\server\share\...`).
+const WINDOWS_PATH = /^[A-Za-z]:[\\/]|^\\\\/;
+
+/**
+ * True when `metaUrl` (`import.meta.url`) is the module Node was started with
+ * (`argv1`, `process.argv[1]`).
+ *
+ * Compares `pathToFileURL(path.resolve(argv1)).href` with `metaUrl`. On
+ * Windows that turns `C:\repo\file.mjs` into `file:///C:/repo/file.mjs`.
+ * `` file://${argv1} `` never matches, so the CLI used to exit 0 without
+ * scanning.
+ *
+ * A Windows-shaped argv on Linux cannot be `path.resolve`d — it is joined
+ * onto the POSIX cwd. Those paths use `pathToFileURL(argv, { windows: true })`,
+ * which resolves with `path.win32` and emits the href Node uses on Windows.
+ */
+export function isMain(metaUrl, argv1) {
+  if (!argv1 || !metaUrl) return false;
+  return fileUrlForArgv(argv1) === metaUrl;
+}
+
+function fileUrlForArgv(argv1) {
+  if (process.platform !== "win32" && WINDOWS_PATH.test(argv1)) {
+    return pathToFileURL(argv1, { windows: true }).href;
+  }
+  return pathToFileURL(resolve(argv1)).href;
+}
+
 // ── CLI ──────────────────────────────────────────────────────────────────────
 function main() {
   const args = process.argv.slice(2);
@@ -75,6 +108,12 @@ function main() {
     result = scanDir(dir);
   } catch (e) {
     console.error(`check-corpus-hygiene - cannot read dir: ${dir} (${e.message})`);
+    process.exit(2);
+  }
+  if (result.files.length === 0) {
+    console.error(
+      `check-corpus-hygiene - no .txt/.md files under ${dir}. An empty scan is not a pass.`,
+    );
     process.exit(2);
   }
   if (result.hits.length === 0) {
@@ -94,4 +133,4 @@ function main() {
   process.exit(strict ? 1 : 0);
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) main();
+if (isMain(import.meta.url, process.argv[1])) main();
