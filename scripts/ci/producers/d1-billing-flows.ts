@@ -95,6 +95,8 @@ export const D1_NOT_PURCHASE_INITIATING: Record<string, string> = {
     "a contractor's customer paying for restoration WORK, not digital content; guideline 3.1.1 does not reach physical services",
   "app/api/revenue/job-file-audit/intake/route.ts":
     "intake form; the paid step is the sibling checkout route, which is guarded",
+  "app/api/admin/founding-trial/route.ts":
+    "support-staff complimentary grant; reads Stripe to refuse clashes, charges and sells nothing",
 };
 
 export interface D1Measurements {
