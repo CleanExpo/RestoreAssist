@@ -1,3 +1,4 @@
+// SCRATCH RA-7721 AC4(a) - do not merge
 /**
  * Sprint G: Workflow API — GET/PATCH for guided capture workflow
  * GET  /api/inspections/[id]/workflow — Load or initialize workflow for inspection
