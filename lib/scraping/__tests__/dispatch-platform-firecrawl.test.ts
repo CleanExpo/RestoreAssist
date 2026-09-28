@@ -225,6 +225,33 @@ describe("fetchHtmlViaWorkspaceProvider — platform Firecrawl", () => {
       fellBack: true,
     });
     expect(sharedFetch).not.toHaveBeenCalled();
+    // Order: Apify (platform token) ran first and failed, THEN Firecrawl.
+    expect(fetchViaApify).toHaveBeenCalledTimes(1);
+    expect(fetchViaApify).toHaveBeenCalledWith(URL, "apify-platform");
+    expect(fetchViaFirecrawl).toHaveBeenCalledTimes(1);
+    expect(fetchViaApify.mock.invocationCallOrder[0]).toBeLessThan(
+      fetchViaFirecrawl.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("both platform keys set and Apify succeeds: Firecrawl is never called", async () => {
+    resolveApifyToken.mockReturnValue("apify-platform");
+    fetchViaApify.mockResolvedValue({ html: "<html>ap</html>", status: 200 });
+    resolveFirecrawlKey.mockReturnValue(PLATFORM_KEY);
+    fetchViaFirecrawl.mockResolvedValue({ html: "<html>fc</html>", status: 200 });
+    const sharedFetch = vi.fn();
+
+    const result = await fetchHtmlViaWorkspaceProvider(URL, "user-1", sharedFetch);
+
+    expect(result).toEqual({
+      html: "<html>ap</html>",
+      status: 200,
+      providerUsed: "APIFY",
+      fellBack: false,
+    });
+    expect(fetchViaApify).toHaveBeenCalledWith(URL, "apify-platform");
+    expect(fetchViaFirecrawl).not.toHaveBeenCalled();
+    expect(sharedFetch).not.toHaveBeenCalled();
   });
 
   it("never writes the platform key into any log line, even when the provider echoes it", async () => {
