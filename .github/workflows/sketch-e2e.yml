@@ -21,14 +21,42 @@ on:
       - "config/playwright.config.ts"
       - "scripts/seed-e2e-user.ts"
       - ".github/workflows/sketch-e2e.yml"
+      # RA-7721: the technician journey's product files (invite, dashboard,
+      # inspection submit, seats, tenancy, evidence, compliance, schema).
+      - "app/invite/**"
+      - "app/dashboard/DashboardShell.tsx"
+      - "app/dashboard/team/**"
+      - "app/dashboard/field/**"
+      - "app/dashboard/inspections/**"
+      - "app/api/invites/**"
+      - "app/api/team/**"
+      - "app/api/inspections/**"
+      - "app/api/test/**"
+      - "components/inspection/**"
+      - "components/inspections/**"
+      - "lib/billing/technician-seats.ts"
+      - "lib/billing/technician-seats-addon.ts"
+      - "lib/auth/assert-tenancy.ts"
+      - "lib/auth/dashboard-page-access.ts"
+      - "lib/evidence/**"
+      - "lib/compliance/**"
+      - "lib/nir-tiered-completion.ts"
+      - "lib/services/inspection/validate-submission.ts"
+      - "prisma/schema.prisma"
+      - "prisma/migrations/**"
+  # RA-7721: every merged main SHA gets its own run.
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# RA-7721: push runs get a per-SHA group so main runs never cancel (or evict)
+# each other; only pull_request runs cancel a superseded run.
 concurrency:
-  group: sketch-e2e-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: sketch-e2e-${{ github.event_name == 'push' && github.sha || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   sketch-e2e:
