@@ -25,7 +25,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 // RA-7026: refuse to embed charge-out rates into the shared corpus.
-import { scanText } from "./ci/check-corpus-hygiene.mjs";
+import { scanText } from "./ci/lib/corpus-hygiene.mjs";
 
 /** Must not exceed the route's `files` array cap (BodySchema: max 50). */
 export const MAX_FILES_PER_POST = 50;

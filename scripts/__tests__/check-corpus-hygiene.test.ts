@@ -1,74 +1,52 @@
 /**
  * RA-7474 — the corpus-hygiene CLI is a real gate.
  *
- * `isMain` must hold for a Windows argv (`C:\...`) against the file URL Node
- * emits (`file:///C:/...`), including a space encoded as `%20`.
- * `` file://${argv[1]} `` never matches, so the process used to exit 0
- * without scanning.
+ * The detector lives in `scripts/ci/lib/corpus-hygiene.mjs`. The CLI entry
+ * always calls `main()` and sets `process.exitCode`. There is no
+ * `import.meta.url` guard: a symlink (and a lowercase drive letter) used to
+ * skip the scan and exit 0.
  *
  * Each `scanText` fixture matches only one `RATE_PATTERNS` entry (`$440/hr`
  * also matches the bare `85/hr` pattern). Deleting one pattern turns its
  * own case red.
  *
  * The CLI is spawned against temp dirs. A clean file exits 0 and reports
- * how many files were scanned. A rate under `--strict` exits non-zero. An
- * empty dir, a dir with no .txt/.md, a missing dir, and a missing `--dir`
- * all exit 2.
+ * how many files were scanned. A rate under `--strict` exits exactly 1.
+ * An empty dir, a dir with no .txt/.md, a missing dir, and a missing `--dir`
+ * all exit 2. The same empty-dir and `--strict` cases are spawned through
+ * a symlink to the CLI.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // @ts-expect-error — plain .mjs helper, no type declarations.
-import { isMain, scanText } from "../ci/check-corpus-hygiene.mjs";
+import { scanText } from "../ci/lib/corpus-hygiene.mjs";
 
 const ROOT = process.cwd();
 const SCRIPT = join(ROOT, "scripts/ci/check-corpus-hygiene.mjs");
 
-function runCli(args: string[]) {
-  return spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" });
+const TEST_FILE = join(ROOT, "scripts/__tests__/check-corpus-hygiene.test.ts");
+
+function runCli(args: string[], script = SCRIPT) {
+  return spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
 }
 
 function tempDir(): string {
   return mkdtempSync(join(tmpdir(), "corpus-hygiene-"));
 }
 
-describe("isMain", () => {
-  it("matches a Windows path to the file URL Node emits", () => {
-    const argv1 = "C:\\repo\\scripts\\ci\\check-corpus-hygiene.mjs";
-    const metaUrl = "file:///C:/repo/scripts/ci/check-corpus-hygiene.mjs";
-    expect(metaUrl === `file://${argv1}`).toBe(false);
-    expect(
-      isMain(metaUrl, argv1),
-      "isMain must accept a Windows argv; file://${argv} never matches file:///C:/",
-    ).toBe(true);
-  });
+function isEperm(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "code" in err && err.code === "EPERM";
+}
 
-  it("matches a Windows path that contains a space", () => {
-    const argv1 = "C:\\Users\\Phill McGurk\\repo\\scripts\\ci\\check-corpus-hygiene.mjs";
-    const metaUrl = "file:///C:/Users/Phill%20McGurk/repo/scripts/ci/check-corpus-hygiene.mjs";
-    expect(metaUrl === `file://${argv1}`).toBe(false);
-    expect(
-      isMain(metaUrl, argv1),
-      "pathToFileURL encodes the space as %20; file://${argv} leaves it raw",
-    ).toBe(true);
-  });
-
-  it("matches a POSIX path to its file URL", () => {
-    const argv1 = "/repo/scripts/ci/check-corpus-hygiene.mjs";
-    const metaUrl = "file:///repo/scripts/ci/check-corpus-hygiene.mjs";
-    expect(isMain(metaUrl, argv1)).toBe(true);
-  });
-
-  it("rejects a path that is not this module", () => {
-    expect(
-      isMain(
-        "file:///C:/repo/scripts/ci/check-corpus-hygiene.mjs",
-        "C:\\repo\\scripts\\ci\\other.mjs",
-      ),
-    ).toBe(false);
+describe("detector import", () => {
+  it("imports the detector from the library, not the CLI entry", () => {
+    const src = readFileSync(TEST_FILE, "utf8");
+    expect(src).toContain('from "../ci/lib/corpus-hygiene.mjs"');
+    expect(src).not.toMatch(/from ["'][^"']*check-corpus-hygiene\.mjs["']/);
   });
 });
 
@@ -130,13 +108,13 @@ describe("check-corpus-hygiene CLI", () => {
     }
   });
 
-  it("exits non-zero for a rate-bearing file under --strict", () => {
+  it("exits 1 for a rate-bearing file under --strict", () => {
     const dir = tempDir();
     try {
       writeFileSync(join(dir, "rates.md"), "Technician charge-out is $440/hr on site.\n");
       const result = runCli(["--dir", dir, "--strict"]);
-      expect(result.status).not.toBe(0);
-      expect(result.status).toBeGreaterThan(0);
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}\n${result.stderr}`).toContain("$440/hr");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -188,6 +166,53 @@ describe("check-corpus-hygiene CLI", () => {
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("$440/hr");
     } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 2 through a symlink against an empty directory", (ctx) => {
+    const scratch = tempDir();
+    const empty = tempDir();
+    const link = join(scratch, "check-corpus-hygiene.mjs");
+    try {
+      try {
+        symlinkSync(SCRIPT, link);
+      } catch (err) {
+        if (isEperm(err)) {
+          ctx.skip("symlink creation threw EPERM");
+          return;
+        }
+        throw err;
+      }
+      const result = runCli(["--dir", empty], link);
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain("no .txt/.md files");
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+      rmSync(empty, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 1 through a symlink for a rate-bearing file under --strict", (ctx) => {
+    const scratch = tempDir();
+    const dir = tempDir();
+    const link = join(scratch, "check-corpus-hygiene.mjs");
+    try {
+      try {
+        symlinkSync(SCRIPT, link);
+      } catch (err) {
+        if (isEperm(err)) {
+          ctx.skip("symlink creation threw EPERM");
+          return;
+        }
+        throw err;
+      }
+      writeFileSync(join(dir, "rates.md"), "Technician charge-out is $440/hr on site.\n");
+      const result = runCli(["--dir", dir, "--strict"], link);
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}\n${result.stderr}`).toContain("$440/hr");
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
       rmSync(dir, { recursive: true, force: true });
     }
   });
