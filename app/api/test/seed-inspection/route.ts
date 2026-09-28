@@ -4,9 +4,10 @@
  * /dashboard/inspections/test-inspection and need the row to exist with a
  * status that lets InspectionSignOff render.
  *
- * HARD GUARD — returns 404 unless ALLOW_TEST_HELPERS === "true".
+ * HARD GUARD — returns 404 while testHelpersBlocked() (see ../_helpers).
  *
- * Body (all optional):
+ * Body: a JSON object (an unparseable or non-object body answers 400). Unknown
+ * keys are ignored. Every key is optional:
  *   - inspectionId  (string)  — defaults to "test-inspection" (stable ID for E2E).
  *   - status        (string)  — InspectionStatus enum value. Defaults to "COMPLETED".
  *                                Ignored when `readyForClose=true` (forced IN_BILLING).
@@ -28,6 +29,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-errors";
+import { testHelpersBlocked } from "../_helpers";
 import type { InspectionStatus } from "@prisma/client";
 
 interface SeedBody {
@@ -44,10 +46,10 @@ interface SeedBody {
 }
 
 export async function POST(req: NextRequest) {
-  // Vercel preview deploys run with NODE_ENV=production, so we cannot use
-  // NODE_ENV to gate. The sandbox Vercel project sets ALLOW_TEST_HELPERS=true;
-  // prod does not. Local dev sets it via .env.local for the E2E suite to work.
-  if (process.env.ALLOW_TEST_HELPERS !== "true") {
+  // Shared guard (see ../_helpers): ALLOW_TEST_HELPERS=true everywhere, plus
+  // ALLOW_TEST_HELPERS_IN_PROD_ENV=true when VERCEL_ENV=production. Order is
+  // guard (404), then session (401), then body (400).
+  if (testHelpersBlocked()) {
     return apiError(req, {
       code: "NOT_FOUND",
       message: "Test helpers are not enabled in this environment",
@@ -64,12 +66,23 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  let body: SeedBody;
+  // An unparseable or non-object body answers 400 before any database call.
+  // It used to fall back to {} and upsert the default inspection. Unknown keys
+  // are still accepted and ignored, so existing callers keep working.
+  let parsed: unknown;
   try {
-    body = (await req.json()) as SeedBody;
+    parsed = JSON.parse(await req.text());
   } catch {
-    body = {};
+    parsed = undefined;
   }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Body must be a JSON object",
+      status: 400,
+    });
+  }
+  const body = parsed as SeedBody;
 
   const id = body.inspectionId ?? "test-inspection";
   // When readyForClose=true the close route requires status=IN_BILLING for
