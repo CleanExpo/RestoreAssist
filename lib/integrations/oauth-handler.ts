@@ -129,7 +129,8 @@ function getProviderEnvCredential(
     ASCORA_CLIENT_ID: process.env.ASCORA_CLIENT_ID,
     ASCORA_CLIENT_SECRET: process.env.ASCORA_CLIENT_SECRET,
   };
-  return credentials[`${provider}_${kind}`] || null;
+  const key = `${provider}_${kind}`;
+  return (Object.hasOwn(credentials, key) ? credentials[key] : undefined) || null;
 }
 
 /**

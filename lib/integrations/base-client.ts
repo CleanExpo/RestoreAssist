@@ -367,7 +367,9 @@ export function getClientId(provider: IntegrationProvider): string {
     SERVICEM8: process.env.SERVICEM8_CLIENT_ID,
     ASCORA: process.env.ASCORA_CLIENT_ID,
   };
-  const clientId = clientIds[provider];
+  // hasOwn: a plain index would return Object.prototype members such as
+  // "constructor" instead of treating them as unconfigured.
+  const clientId = Object.hasOwn(clientIds, provider) ? clientIds[provider] : undefined;
   if (!clientId) {
     throw new Error(`${provider}_CLIENT_ID is not configured`);
   }
@@ -396,7 +398,9 @@ export function getClientSecret(provider: IntegrationProvider): string {
     SERVICEM8: process.env.SERVICEM8_CLIENT_SECRET,
     ASCORA: process.env.ASCORA_CLIENT_SECRET,
   };
-  const clientSecret = clientSecrets[provider];
+  const clientSecret = Object.hasOwn(clientSecrets, provider)
+    ? clientSecrets[provider]
+    : undefined;
   if (!clientSecret) {
     throw new Error(`${provider}_CLIENT_SECRET is not configured`);
   }

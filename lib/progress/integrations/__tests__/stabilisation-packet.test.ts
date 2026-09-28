@@ -3,6 +3,7 @@ import {
   CARRIERS,
   buildStabilisationPacket,
   submitToCarrier,
+  type CarrierKey,
   type FetchDelegate,
   type StabilisationPacket,
   type TransitionData,
@@ -232,6 +233,22 @@ describe("submitToCarrier — env / config", () => {
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error("unreachable");
     expect(r.error).toBe("carrier endpoint not configured");
+  });
+
+  it("returns not configured for an unlisted carrier", async () => {
+    const unlisted = await submitToCarrier(fakePacket(), "toString" as CarrierKey);
+    expect(unlisted).toEqual({ ok: false, error: "carrier endpoint not configured" });
+  });
+
+  it("returns not configured for constructor", async () => {
+    const constructorKey = await submitToCarrier(
+      fakePacket(),
+      "constructor" as CarrierKey,
+    );
+    expect(constructorKey).toEqual({
+      ok: false,
+      error: "carrier endpoint not configured",
+    });
   });
 });
 

@@ -8,12 +8,13 @@ import ts from "typescript";
  *
  * Design B. Include roots are explicit, and so is every excluded root, with
  * a reason. A new top-level directory or root file that contains
- * .ts/.tsx/.js/.mjs source and is on neither list fails this test, so a
- * hand-kept include list cannot hide a new folder.
+ * .ts/.tsx/.js/.jsx/.mjs/.cjs/.mts/.cts source and is on neither list fails
+ * this test, so a hand-kept include list cannot hide a new folder.
  *
  * Reads .env.example only — never a live env file. Tests are not scanned.
- * A process.env read whose name cannot be resolved fails the test and names
- * the file. It is not skipped.
+ * Every reference to the process object (a bare `process` that is not a
+ * local shadow, `globalThis.process`, or `global.process`) is either resolved
+ * to an env name or rejected with file:line. It is not skipped.
  */
 
 const repoRoot = path.resolve(__dirname, "../..");
@@ -21,8 +22,8 @@ const repoRoot = path.resolve(__dirname, "../..");
 /** The only env file this guard is allowed to open. */
 const ENV_EXAMPLE_REL = ".env.example";
 
-const SOURCE_EXT = /\.(ts|tsx|js|mjs)$/;
-const TEST_FILE = /\.(test|spec)\.(ts|tsx|js|mjs)$/;
+const SOURCE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
+const TEST_FILE = /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
 
 /**
  * Injected by Node, Next.js, Vercel, npm, or the CI runner. Not application
@@ -113,7 +114,19 @@ const ARRAY_METHODS = new Set([
   "find",
 ]);
 
-type ScanResult = { names: string[]; unresolved: string[] };
+/**
+ * Non-env members of the Node `process` object that included roots actually
+ * call. `cwd`, `exit`, `execPath`, and `exitCode` are the whole set at this
+ * head. `platform`, `argv`, and `nextTick` are not listed because nothing
+ * scanned reads them. `typeof process` is a type query, not a read.
+ */
+const PROCESS_MEMBERS = new Set(["cwd", "exit", "execPath", "exitCode"]);
+
+type ScanResult = {
+  names: string[];
+  unresolved: string[];
+  sites: Map<string, string>;
+};
 
 function isBuiltinEnvName(name: string): boolean {
   if ((BUILTIN_ENV_NAMES as readonly string[]).includes(name)) return true;
@@ -125,9 +138,14 @@ function isBuiltinEnvName(name: string): boolean {
 }
 
 function scriptKind(filePath: string): ts.ScriptKind {
-  if (filePath.endsWith(".tsx")) return ts.ScriptKind.TSX;
-  if (filePath.endsWith(".ts")) return ts.ScriptKind.TS;
-  if (filePath.endsWith(".jsx")) return ts.ScriptKind.JSX;
+  if (filePath.endsWith(".tsx") || filePath.endsWith(".jsx")) return ts.ScriptKind.TSX;
+  if (
+    filePath.endsWith(".ts") ||
+    filePath.endsWith(".mts") ||
+    filePath.endsWith(".cts")
+  ) {
+    return ts.ScriptKind.TS;
+  }
   return ts.ScriptKind.JS;
 }
 
@@ -155,28 +173,188 @@ function unwrap(expr: ts.Expression): ts.Expression {
   return current;
 }
 
-function isProcessEnv(expr: ts.Expression): boolean {
-  const node = unwrap(expr);
+function isBindingIdentifier(node: ts.Identifier): boolean {
+  const parent = node.parent;
+  if (!parent) return false;
+  if (ts.isVariableDeclaration(parent) && parent.name === node) return true;
+  if (ts.isParameter(parent) && parent.name === node) return true;
+  if (ts.isBindingElement(parent) && parent.name === node) return true;
   if (
-    ts.isPropertyAccessExpression(node) &&
-    node.name.text === "env" &&
-    ts.isIdentifier(node.expression) &&
-    node.expression.text === "process" &&
-    !node.questionDotToken
+    (ts.isFunctionDeclaration(parent) ||
+      ts.isFunctionExpression(parent) ||
+      ts.isClassDeclaration(parent) ||
+      ts.isClassExpression(parent)) &&
+    parent.name === node
   ) {
     return true;
   }
-  if (
-    ts.isElementAccessExpression(node) &&
-    ts.isIdentifier(node.expression) &&
-    node.expression.text === "process" &&
-    node.argumentExpression &&
-    ts.isStringLiteral(node.argumentExpression) &&
-    node.argumentExpression.text === "env"
-  ) {
-    return true;
+  if (ts.isImportClause(parent) && parent.name === node) return true;
+  if (ts.isImportSpecifier(parent) && parent.name === node) return true;
+  if (ts.isNamespaceImport(parent) && parent.name === node) return true;
+  if (ts.isImportEqualsDeclaration(parent) && parent.name === node) return true;
+  return false;
+}
+
+function declaresName(node: ts.Node, name: string): boolean {
+  if (ts.isIdentifier(node)) return node.text === name;
+  if (ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node)) {
+    return node.elements.some(
+      (element) => !ts.isOmittedExpression(element) && declaresName(element.name, name),
+    );
+  }
+  if (ts.isBindingElement(node)) return declaresName(node.name, name);
+  return false;
+}
+
+function statementDeclares(stmt: ts.Statement, name: string): boolean {
+  if (ts.isVariableStatement(stmt)) {
+    return stmt.declarationList.declarations.some((decl) => declaresName(decl.name, name));
+  }
+  if (ts.isFunctionDeclaration(stmt) && stmt.name?.text === name) return true;
+  if (ts.isClassDeclaration(stmt) && stmt.name?.text === name) return true;
+  if (ts.isImportEqualsDeclaration(stmt) && stmt.name.text === name) return true;
+  if (ts.isImportDeclaration(stmt) && stmt.importClause) {
+    const clause = stmt.importClause;
+    if (clause.name?.text === name) return true;
+    if (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) {
+      return clause.namedBindings.name.text === name;
+    }
+    if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+      return clause.namedBindings.elements.some((element) => element.name.text === name);
+    }
   }
   return false;
+}
+
+/** True when `at` sees a local binding of `name` rather than the global. */
+function isShadowed(name: string, at: ts.Node): boolean {
+  let current: ts.Node | undefined = at.parent;
+  while (current) {
+    if (isFunctionLike(current)) {
+      if (current.parameters.some((param) => declaresName(param.name, name))) return true;
+    }
+    if (
+      ts.isCatchClause(current) &&
+      current.variableDeclaration &&
+      declaresName(current.variableDeclaration.name, name)
+    ) {
+      return true;
+    }
+    const statements =
+      ts.isSourceFile(current) || ts.isBlock(current) || ts.isModuleBlock(current)
+        ? current.statements
+        : null;
+    if (statements) {
+      for (const stmt of statements) {
+        if (!statementDeclares(stmt, name)) continue;
+        if (
+          ts.isImportDeclaration(stmt) ||
+          ts.isImportEqualsDeclaration(stmt) ||
+          ts.isFunctionDeclaration(stmt)
+        ) {
+          return true;
+        }
+        if (stmt.getStart() < at.getStart()) return true;
+      }
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
+function isGlobalObject(expr: ts.Expression): boolean {
+  const node = unwrap(expr);
+  if (!ts.isIdentifier(node)) return false;
+  if (node.text !== "globalThis" && node.text !== "global") return false;
+  return !isShadowed(node.text, node);
+}
+
+/** A bare `process`, or `globalThis.process` / `global.process`, not a local shadow. */
+function isProcessObjectExpr(expr: ts.Expression): boolean {
+  const node = unwrap(expr);
+  if (ts.isIdentifier(node)) {
+    if (node.text !== "process" || isBindingIdentifier(node)) return false;
+    const parent = node.parent;
+    if (parent && ts.isPropertyAccessExpression(parent) && parent.name === node) return false;
+    if (parent && ts.isBindingElement(parent) && parent.propertyName === node) return false;
+    if (parent && ts.isPropertyAssignment(parent) && parent.name === node) return false;
+    return !isShadowed("process", node);
+  }
+  if (
+    ts.isPropertyAccessExpression(node) &&
+    node.name.text === "process" &&
+    isGlobalObject(node.expression)
+  ) {
+    return true;
+  }
+  if (ts.isElementAccessExpression(node) && isGlobalObject(node.expression)) {
+    return literalKey(node.argumentExpression) === "process";
+  }
+  return false;
+}
+
+function literalKey(expr: ts.Expression | undefined): string | null {
+  if (!expr) return null;
+  const node = unwrap(expr);
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  return null;
+}
+
+function outerParent(node: ts.Node): ts.Node | undefined {
+  let parent = node.parent;
+  while (
+    parent &&
+    (ts.isParenthesizedExpression(parent) ||
+      ts.isAsExpression(parent) ||
+      ts.isSatisfiesExpression(parent) ||
+      ts.isTypeAssertionExpression(parent) ||
+      ts.isNonNullExpression(parent))
+  ) {
+    parent = parent.parent;
+  }
+  return parent;
+}
+
+function sameExpr(candidate: ts.Expression | undefined, expr: ts.Node): boolean {
+  return candidate !== undefined && unwrap(candidate) === expr;
+}
+
+/** `process.env`, including `process?.env` and `process[\`env\`]`. */
+function isEnvObjectExpr(expr: ts.Expression): boolean {
+  const node = unwrap(expr);
+  if (ts.isPropertyAccessExpression(node) && node.name.text === "env") {
+    return isProcessObjectExpr(node.expression);
+  }
+  if (ts.isElementAccessExpression(node) && literalKey(node.argumentExpression) === "env") {
+    return isProcessObjectExpr(node.expression);
+  }
+  return false;
+}
+
+function bindingPropertyName(element: ts.BindingElement): string | null {
+  if (element.propertyName) {
+    if (ts.isIdentifier(element.propertyName)) return element.propertyName.text;
+    if (
+      ts.isStringLiteral(element.propertyName) ||
+      ts.isNumericLiteral(element.propertyName)
+    ) {
+      return element.propertyName.text;
+    }
+    return null;
+  }
+  if (ts.isIdentifier(element.name)) return element.name.text;
+  return null;
+}
+
+/** `const { env } = process` or `const { env: alias } = process`. */
+function bindingIsProcessEnv(element: ts.BindingElement): boolean {
+  if (element.dotDotDotToken || !ts.isIdentifier(element.name)) return false;
+  if (bindingPropertyName(element) !== "env") return false;
+  const pattern = element.parent;
+  if (!ts.isObjectBindingPattern(pattern)) return false;
+  const decl = pattern.parent;
+  if (!ts.isVariableDeclaration(decl) || !decl.initializer) return false;
+  return isProcessObjectExpr(decl.initializer);
 }
 
 function lineOf(sf: ts.SourceFile, node: ts.Node): number {
@@ -504,27 +682,27 @@ function addUnresolved(
 function scanSourceText(filePath: string, text: string): ScanResult {
   const sf = parseSource(filePath, text);
   const names = new Set<string>();
+  const sites = new Map<string, string>();
   const unresolved: string[] = [];
 
-  function addResolved(values: string[] | null, node: ts.Node): void {
-    if (!values || values.length === 0) {
-      addUnresolved(unresolved, filePath, sf, node);
-      return;
-    }
-    for (const value of values) names.add(value);
+  function addName(name: string, node: ts.Node): void {
+    names.add(name);
+    if (!sites.has(name)) sites.set(name, `${filePath}:${lineOf(sf, node)}`);
   }
 
   function collectBindingNames(pattern: ts.BindingPattern, node: ts.Node): void {
     for (const element of pattern.elements) {
       if (ts.isOmittedExpression(element)) continue;
+      // Rest copies the remaining environment through. It is not a named key.
+      // Names pulled out beside it are still recorded.
       if (element.dotDotDotToken) continue;
       if (element.propertyName) {
-        if (ts.isIdentifier(element.propertyName)) names.add(element.propertyName.text);
-        else if (ts.isStringLiteral(element.propertyName)) names.add(element.propertyName.text);
+        if (ts.isIdentifier(element.propertyName)) addName(element.propertyName.text, element);
+        else if (ts.isStringLiteral(element.propertyName)) addName(element.propertyName.text, element);
         else addUnresolved(unresolved, filePath, sf, element);
         continue;
       }
-      if (ts.isIdentifier(element.name)) names.add(element.name.text);
+      if (ts.isIdentifier(element.name)) addName(element.name.text, element);
       else addUnresolved(unresolved, filePath, sf, element);
     }
     void node;
@@ -541,14 +719,14 @@ function scanSourceText(filePath: string, text: string): ScanResult {
       return;
     }
     const read = readsOfEnvParameter(fn, param.name.text);
-    for (const name of read.names) names.add(name);
+    for (const name of read.names) addName(name, call ?? fn);
     if (read.unresolved) addUnresolved(unresolved, filePath, sf, fn);
     if (call) {
       for (const index of read.keyParameters) {
         const arg = call.arguments[index];
         const textValue = arg ? stringLiteralText(arg) : null;
         if (textValue === null) addUnresolved(unresolved, filePath, sf, call);
-        else names.add(textValue);
+        else addName(textValue, call);
       }
     }
   }
@@ -570,63 +748,238 @@ function scanSourceText(filePath: string, text: string): ScanResult {
     if (fn.body) walk(fn.body);
   }
 
-  function visit(node: ts.Node): void {
-    if (isProcessEnv(node as ts.Expression)) {
-      const parent = node.parent;
-      if (
-        parent &&
-        ts.isPropertyAccessExpression(parent) &&
-        parent.expression === node &&
-        ts.isIdentifier(parent.name)
-      ) {
-        names.add(parent.name.text);
-      } else if (
-        parent &&
-        ts.isElementAccessExpression(parent) &&
-        parent.expression === node
-      ) {
-        if (!parent.argumentExpression) addUnresolved(unresolved, filePath, sf, parent);
-        else addResolved(resolveStrings(parent.argumentExpression, sf, new Set()), parent);
-      } else if (
-        parent &&
-        ts.isBindingElement(parent) &&
-        parent.initializer === node
-      ) {
-        addUnresolved(unresolved, filePath, sf, parent);
-      } else if (
-        parent &&
-        ts.isVariableDeclaration(parent) &&
-        parent.initializer === node &&
-        ts.isObjectBindingPattern(parent.name)
-      ) {
-        collectBindingNames(parent.name, parent);
-      } else if (parent && ts.isParameter(parent) && parent.initializer === node) {
-        const fn = parent.parent;
-        if (isFunctionLike(fn) && ts.isIdentifier(parent.name)) {
-          const index = fn.parameters.indexOf(parent);
-          traceFunction(fn, index, null);
-          traceCallsPassing(fn, parent.name.text);
-        } else {
-          addUnresolved(unresolved, filePath, sf, parent);
-        }
-      } else if (parent && ts.isCallExpression(parent) && parent.arguments.some((arg) => arg === node)) {
-        if (ts.isIdentifier(parent.expression)) {
-          const callee = findFunction(parent.expression.text, sf);
-          const index = parent.arguments.findIndex((arg) => arg === node);
-          if (!callee) addUnresolved(unresolved, filePath, sf, parent);
-          else traceFunction(callee, index, parent);
-        } else {
-          addUnresolved(unresolved, filePath, sf, parent);
-        }
-      } else {
-        addUnresolved(unresolved, filePath, sf, node);
+  function declarationInScope(scope: ts.Node, name: string, at: ts.Node): ts.Node | null {
+    if (isFunctionLike(scope)) {
+      for (const param of scope.parameters) {
+        if (declaresName(param.name, name)) return param;
       }
+    }
+    const statements =
+      ts.isSourceFile(scope) || ts.isBlock(scope) || ts.isModuleBlock(scope)
+        ? scope.statements
+        : null;
+    if (!statements) return null;
+    let found: ts.Node | null = null;
+    for (const stmt of statements) {
+      if (stmt.getStart() >= at.getStart()) break;
+      if (!ts.isVariableStatement(stmt)) continue;
+      for (const decl of stmt.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name) && decl.name.text === name) found = decl;
+        if (ts.isObjectBindingPattern(decl.name)) {
+          for (const element of decl.name.elements) {
+            if (ts.isOmittedExpression(element) || element.dotDotDotToken) continue;
+            if (ts.isIdentifier(element.name) && element.name.text === name) found = element;
+          }
+        }
+      }
+    }
+    return found;
+  }
+
+  function envDeclaration(id: ts.Identifier): ts.Node | null {
+    let current: ts.Node | undefined = id.parent;
+    while (current) {
+      const found = declarationInScope(current, id.text, id);
+      if (found) return found;
+      current = current.parent;
+    }
+    return null;
+  }
+
+  function isEnvBinding(node: ts.Node): boolean {
+    if (ts.isParameter(node)) {
+      return node.initializer !== undefined && isEnvObjectExpr(node.initializer);
+    }
+    if (ts.isVariableDeclaration(node)) {
+      return (
+        ts.isIdentifier(node.name) &&
+        node.initializer !== undefined &&
+        isEnvObjectExpr(node.initializer)
+      );
+    }
+    if (ts.isBindingElement(node)) return bindingIsProcessEnv(node);
+    return false;
+  }
+
+  function resolvesToEnvBinding(id: ts.Identifier): boolean {
+    if (isBindingIdentifier(id)) return false;
+    const decl = envDeclaration(id);
+    return decl !== null && isEnvBinding(decl);
+  }
+
+  function indexIsCallerSupplied(envExpr: ts.Expression, index: ts.Expression): boolean {
+    const envId = unwrap(envExpr);
+    const indexId = unwrap(index);
+    if (!ts.isIdentifier(envId) || !ts.isIdentifier(indexId)) return false;
+    const decl = envDeclaration(envId);
+    if (!decl || !ts.isParameter(decl)) return false;
+    const fn = decl.parent;
+    if (!isFunctionLike(fn)) return false;
+    return parameterIndex(fn, indexId.text) !== null;
+  }
+
+  function accountEnv(envExpr: ts.Expression): void {
+    const parent = outerParent(envExpr);
+    if (!parent) {
+      addUnresolved(unresolved, filePath, sf, envExpr);
+      return;
+    }
+    if (
+      ts.isPropertyAccessExpression(parent) &&
+      sameExpr(parent.expression, envExpr) &&
+      ts.isIdentifier(parent.name)
+    ) {
+      addName(parent.name.text, parent);
+      return;
+    }
+    if (ts.isElementAccessExpression(parent) && sameExpr(parent.expression, envExpr)) {
+      if (!parent.argumentExpression) {
+        addUnresolved(unresolved, filePath, sf, parent);
+      } else {
+        const values = resolveStrings(parent.argumentExpression, sf, new Set());
+        if (values && values.length > 0) {
+          for (const value of values) addName(value, parent);
+        } else if (!indexIsCallerSupplied(envExpr, parent.argumentExpression)) {
+          addUnresolved(unresolved, filePath, sf, parent);
+        }
+      }
+      return;
+    }
+    if (
+      ts.isVariableDeclaration(parent) &&
+      parent.initializer &&
+      sameExpr(parent.initializer, envExpr)
+    ) {
+      if (ts.isObjectBindingPattern(parent.name)) {
+        collectBindingNames(parent.name, parent);
+        return;
+      }
+      if (ts.isIdentifier(parent.name)) return;
+      addUnresolved(unresolved, filePath, sf, parent);
+      return;
+    }
+    if (ts.isParameter(parent) && parent.initializer && sameExpr(parent.initializer, envExpr)) {
+      const fn = parent.parent;
+      if (isFunctionLike(fn) && ts.isIdentifier(parent.name)) {
+        const index = fn.parameters.indexOf(parent);
+        traceFunction(fn, index, null);
+        traceCallsPassing(fn, parent.name.text);
+      } else {
+        addUnresolved(unresolved, filePath, sf, parent);
+      }
+      return;
+    }
+    if (
+      ts.isCallExpression(parent) &&
+      parent.arguments.some((arg) => sameExpr(arg, envExpr))
+    ) {
+      if (ts.isIdentifier(parent.expression)) {
+        const callee = findFunction(parent.expression.text, sf);
+        const index = parent.arguments.findIndex((arg) => sameExpr(arg, envExpr));
+        if (!callee) addUnresolved(unresolved, filePath, sf, parent);
+        else traceFunction(callee, index, parent);
+      } else {
+        addUnresolved(unresolved, filePath, sf, parent);
+      }
+      return;
+    }
+    if (ts.isBindingElement(parent) && parent.initializer && sameExpr(parent.initializer, envExpr)) {
+      addUnresolved(unresolved, filePath, sf, parent);
+      return;
+    }
+    addUnresolved(unresolved, filePath, sf, envExpr);
+  }
+
+  function accountProcessDestructure(decl: ts.VariableDeclaration): void {
+    if (!ts.isObjectBindingPattern(decl.name)) {
+      addUnresolved(unresolved, filePath, sf, decl);
+      return;
+    }
+    for (const element of decl.name.elements) {
+      if (ts.isOmittedExpression(element)) continue;
+      if (element.dotDotDotToken) {
+        addUnresolved(unresolved, filePath, sf, element);
+        continue;
+      }
+      const prop = bindingPropertyName(element);
+      if (prop === null) {
+        addUnresolved(unresolved, filePath, sf, element);
+        continue;
+      }
+      if (prop === "env") {
+        if (ts.isObjectBindingPattern(element.name)) collectBindingNames(element.name, element);
+        else if (!ts.isIdentifier(element.name)) addUnresolved(unresolved, filePath, sf, element);
+        continue;
+      }
+      if (PROCESS_MEMBERS.has(prop)) continue;
+      addUnresolved(unresolved, filePath, sf, element);
+    }
+  }
+
+  function accountProcess(expr: ts.Expression): void {
+    const parent = outerParent(expr);
+    if (!parent) {
+      addUnresolved(unresolved, filePath, sf, expr);
+      return;
+    }
+    // `typeof process` is a value-level TypeOfExpression. A type-position
+    // `typeof process` is a TypeQueryNode. Neither reads an env name.
+    if (ts.isTypeOfExpression(parent) || ts.isTypeQueryNode(parent)) return;
+    if (ts.isPropertyAccessExpression(parent) && sameExpr(parent.expression, expr)) {
+      if (parent.name.text === "env") {
+        accountEnv(parent);
+        return;
+      }
+      if (PROCESS_MEMBERS.has(parent.name.text)) return;
+      addUnresolved(unresolved, filePath, sf, parent);
+      return;
+    }
+    if (ts.isElementAccessExpression(parent) && sameExpr(parent.expression, expr)) {
+      const key = literalKey(parent.argumentExpression);
+      if (key === "env") {
+        accountEnv(parent);
+        return;
+      }
+      if (key && PROCESS_MEMBERS.has(key)) return;
+      addUnresolved(unresolved, filePath, sf, parent);
+      return;
+    }
+    if (
+      ts.isVariableDeclaration(parent) &&
+      parent.initializer &&
+      sameExpr(parent.initializer, expr) &&
+      ts.isObjectBindingPattern(parent.name)
+    ) {
+      accountProcessDestructure(parent);
+      return;
+    }
+    addUnresolved(unresolved, filePath, sf, parent);
+  }
+
+  function isPropertyName(node: ts.Identifier): boolean {
+    const parent = node.parent;
+    if (!parent) return false;
+    if (ts.isPropertyAccessExpression(parent) && parent.name === node) return true;
+    if (ts.isBindingElement(parent) && parent.propertyName === node) return true;
+    if (ts.isPropertyAssignment(parent) && parent.name === node) return true;
+    return false;
+  }
+
+  function visit(node: ts.Node): void {
+    if (ts.isExpression(node) && isProcessObjectExpr(node)) {
+      accountProcess(node);
+    } else if (
+      ts.isIdentifier(node) &&
+      !isPropertyName(node) &&
+      resolvesToEnvBinding(node)
+    ) {
+      accountEnv(node);
     }
     ts.forEachChild(node, visit);
   }
 
   visit(sf);
-  return { names: [...names].sort(), unresolved };
+  return { names: [...names].sort(), unresolved, sites };
 }
 
 function isRuntimeSource(name: string): boolean {
@@ -693,16 +1046,28 @@ function classifiedPaths(): Set<string> {
   ]);
 }
 
+const scanCache = new Map<string, ScanResult>();
+
 function scanRoot(rootName: string): ScanResult {
+  const cached = scanCache.get(rootName);
+  if (cached) return cached;
   const names = new Set<string>();
   const unresolved: string[] = [];
+  const sites = new Map<string, string>();
   for (const file of runtimeFilesForRoot(rootName)) {
     const rel = path.relative(repoRoot, file);
     const result = scanSourceText(rel, fs.readFileSync(file, "utf8"));
-    for (const name of result.names) names.add(name);
+    for (const name of result.names) {
+      names.add(name);
+      if (!sites.has(name) && result.sites.has(name)) {
+        sites.set(name, result.sites.get(name)!);
+      }
+    }
     unresolved.push(...result.unresolved);
   }
-  return { names: [...names].sort(), unresolved };
+  const result = { names: [...names].sort(), unresolved, sites };
+  scanCache.set(rootName, result);
+  return result;
 }
 
 function documentedEnvNames(exampleSource: string): Set<string> {
@@ -749,6 +1114,78 @@ describe("runtime env names are documented in .env.example (RA-7477)", () => {
     );
     expect(result.unresolved).toEqual([]);
     expect(result.names).toEqual(["ONE", "THREE", "TWO"]);
+  });
+
+  it("resolves optional process, globalThis, template keys, and destructured env", () => {
+    const result = scanSourceText(
+      "lib/shapes.ts",
+      [
+        "process?.env.OPT_PROCESS_VAR",
+        "const { env } = process; void env.DESTRUCT_VAR",
+        "const { env: alias } = process; const { RENAMED } = alias",
+        "globalThis.process.env.GLOBAL_VAR",
+        "global.process.env.GLOBAL_ALIAS",
+        "process[`env`].TEMPLATE_VAR",
+        'process["env"].STRING_KEY',
+      ].join("\n"),
+    );
+    expect(result.unresolved).toEqual([]);
+    expect(result.names).toEqual([
+      "DESTRUCT_VAR",
+      "GLOBAL_ALIAS",
+      "GLOBAL_VAR",
+      "OPT_PROCESS_VAR",
+      "RENAMED",
+      "STRING_KEY",
+      "TEMPLATE_VAR",
+    ]);
+  });
+
+  it("fails closed on a process alias and ignores an unrelated env binding", () => {
+    const alias = scanSourceText(
+      "lib/alias.ts",
+      "const p = process; void p.env.ALIAS_VAR",
+    );
+    expect(alias.names).toEqual([]);
+    expect(alias.unresolved.join("\n")).toMatch(/lib\/alias\.ts:\d+:/);
+    expect(alias.unresolved.join("\n")).toMatch(/const p = process/);
+
+    const unrelated = scanSourceText(
+      "lib/unrelated.ts",
+      [
+        "const env = { HOST: 'local' };",
+        "void env.HOST;",
+        "const { HOST } = env;",
+        "function read(process: { env: { SHADOW: string } }) { return process.env.SHADOW; }",
+      ].join("\n"),
+    );
+    expect(unrelated.names).toEqual([]);
+    expect(unrelated.unresolved).toEqual([]);
+  });
+
+  it("ignores the process members the scanned tree actually calls", () => {
+    const result = scanSourceText(
+      "lib/members.ts",
+      [
+        "process.cwd()",
+        "process.exit(1)",
+        "process.execPath",
+        "process.exitCode = 0",
+        "typeof process !== 'undefined' && process.env.AFTER_TYPEOF",
+      ].join("\n"),
+    );
+    expect(result.unresolved).toEqual([]);
+    expect(result.names).toEqual(["AFTER_TYPEOF"]);
+  });
+
+  it("treats cjs, jsx, mts, and cts as source, including their tests", () => {
+    for (const name of ["read.cjs", "view.jsx", "mod.mts", "mod.cts"]) {
+      expect(SOURCE_EXT.test(name), name).toBe(true);
+      expect(TEST_FILE.test(name), name).toBe(false);
+    }
+    expect(TEST_FILE.test("read.test.cjs")).toBe(true);
+    expect(TEST_FILE.test("read.spec.mts")).toBe(true);
+    expect(SOURCE_EXT.test("notes.md")).toBe(false);
   });
 
   it("fails closed on a non-literal index it cannot resolve", () => {
@@ -834,7 +1271,7 @@ describe("runtime env names are documented in .env.example (RA-7477)", () => {
     const unresolved = INCLUDE_ROOTS.flatMap((root) => scanRoot(root.path).unresolved);
     expect(
       unresolved,
-      `These process.env reads have no resolvable name. Name the variable literally, or extend the scanner to resolve the shape:\n${unresolved
+      `These process references have no resolvable env name. Name the variable literally, or extend the scanner to resolve the shape:\n${unresolved
         .map((line) => `  ${line}`)
         .join("\n")}`,
     ).toEqual([]);
@@ -842,15 +1279,22 @@ describe("runtime env names are documented in .env.example (RA-7477)", () => {
 
   it("every runtime process.env name is in .env.example or the built-in allow-list", () => {
     const documented = documentedEnvNames(readEnvExample());
-    const missing = [
-      ...new Set(INCLUDE_ROOTS.flatMap((root) => scanRoot(root.path).names)),
-    ]
+    const sites = new Map<string, string>();
+    for (const root of INCLUDE_ROOTS) {
+      const found = scanRoot(root.path);
+      for (const name of found.names) {
+        if (!sites.has(name) && found.sites.has(name)) {
+          sites.set(name, found.sites.get(name)!);
+        }
+      }
+    }
+    const missing = [...sites.keys()]
       .filter((name) => !documented.has(name) && !isBuiltinEnvName(name))
       .sort();
     expect(
       missing,
       `These names are read in scanned runtime source but absent from .env.example:\n${missing
-        .map((name) => `  ${name}`)
+        .map((name) => `  ${sites.get(name)}: ${name}`)
         .join("\n")}`,
     ).toEqual([]);
   });

@@ -157,7 +157,9 @@ export async function submitToCarrier(
     youi: process.env.YOUI_API_URL,
     hollard: process.env.HOLLARD_API_URL,
   };
-  const url = urls[carrier]?.trim();
+  // hasOwn: "toString" and "constructor" are prototype members, not carriers.
+  // Indexing them used to throw from .trim instead of the configured-endpoint result.
+  const url = (Object.hasOwn(urls, carrier) ? urls[carrier] : undefined)?.trim();
   if (!url) {
     return { ok: false, error: "carrier endpoint not configured" };
   }

@@ -67,7 +67,8 @@ function getDamageTypeAccountCode(damageType: string): string {
     CONTENTS: process.env.XERO_ACCOUNT_CONTENTS,
     GENERAL: process.env.XERO_ACCOUNT_GENERAL,
   };
-  return codes[damageType.toUpperCase()] ?? "200";
+  const key = damageType.toUpperCase();
+  return (Object.hasOwn(codes, key) ? codes[key] : undefined) ?? "200";
 }
 
 export interface NIRJobPayload {
