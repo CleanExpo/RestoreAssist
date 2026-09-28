@@ -1,6 +1,11 @@
 /**
  * RA-7721 — give one Founding Trial business every technician seat and every
- * add-on, uncharged (founder ruling 27/09/2026).
+ * add-on, uncharged (founder ruling 27/09/2026), and the base plan free for 60
+ * days from the grant (founder ruling 28/09/2026). Only for a business whose
+ * ABN the Australian Business Register confirmed at signup.
+ *
+ * Operators without database access use /dashboard/admin/founding-trial,
+ * which calls the same grant.
  *
  * Dry run by default; nothing is written without --apply:
  *   DATABASE_URL=... STRIPE_SECRET_KEY=... npx tsx scripts/grant-founding-trial.ts <organizationId>
@@ -68,6 +73,10 @@ async function main() {
     organizationId: organizationId!,
     apply,
   });
+  if (out.status === "unverified_abn") {
+    console.error(`REFUSED, nothing written: ${out.reason}`);
+    process.exit(5);
+  }
   if (out.status === "refused") {
     console.error(
       "REFUSED, nothing written: this business has add-on billing in Stripe that " +
@@ -90,6 +99,15 @@ async function main() {
   console.log(
     `${res.applied ? "GRANTED" : "DRY RUN (nothing written; add --apply)"} ` +
       `workspace=${res.workspaceId}`,
+  );
+  console.log(
+    `  business (ABR): ${out.entity.legalName}  ABN ${out.entity.abn}` +
+      (out.entity.tradingNames.length ? `  trading as ${out.entity.tradingNames.join(", ")}` : ""),
+  );
+  const bp = out.basePlan;
+  console.log(
+    `  base plan: ${bp.outcome}` +
+      (bp.trialEndsAt ? `, free until ${bp.trialEndsAt.toISOString()}` : ""),
   );
   console.log(`  add-ons on, uncharged: ${res.granted.join(", ") || "none"}`);
   if (res.skippedPaid.length) {

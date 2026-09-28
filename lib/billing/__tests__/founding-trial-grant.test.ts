@@ -21,7 +21,7 @@ type Row = {
 function makeDb(opts: { beforeWrite?: (rows: Map<string, Row>) => void } = {}) {
   const rows = new Map<string, Row>();
   const key = (w: string, s: string) => `${w}:${s}`;
-  const org = vi.fn(async () => ({ ownerId: "owner_1" }));
+  const org = vi.fn(async () => ({ ownerId: "owner_1", abn: "51824753556" }));
   const ws = vi.fn(async () => ({ id: "ws_1" }));
   const db = {
     organization: { findUnique: org },
@@ -258,6 +258,15 @@ type Member = { customer: string | null; status: string };
  */
 function makeRunDb(members: Array<string | null | Member> = []) {
   const base = makeDb();
+  const abrJob: { current: unknown } = { current: VERIFIED_ABR_JOB };
+  const owner: Owner = {
+    id: "owner_1",
+    subscriptionStatus: "EXPIRED",
+    trialEndsAt: new Date("2026-09-15T00:00:00.000Z"),
+    creditsRemaining: 0,
+    subscriptionId: null,
+    lifetimeAccess: false,
+  };
   const roster: Member[] = members.map((m) =>
     m && typeof m === "object" ? m : { customer: m, status: "ACTIVE" },
   );
@@ -293,10 +302,49 @@ function makeRunDb(members: Array<string | null | Member> = []) {
         return { count: 1 };
       }),
     },
+    // Founder input 28/09: the grant needs the firm's ABN confirmed by ABR
+    // during the signup walkthrough (HydrationJob kind ABR, READY).
+    hydrationJob: {
+      findUnique: vi.fn(async () => abrJob.current),
+    },
+    // RA-7721 (28/09): the owner's base-plan trial, written with the grant.
+    user: {
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
+        where.id === owner.id ? { ...owner } : null,
+      ),
+      updateMany: vi.fn(
+        async ({ where, data }: { where: { id: string }; data: Partial<Owner> }) => {
+          // Only the id is honoured here; the base-plan guards are proven in
+          // founding-trial-base-plan.test.ts against a where-evaluating double.
+          if (where.id !== owner.id) return { count: 0 };
+          Object.assign(owner, data);
+          return { count: 1 };
+        },
+      ),
+    },
     $transaction: vi.fn(async (fn: (tx: unknown) => unknown): Promise<unknown> => fn(db)),
   };
-  return { ...base, db, roster };
+  return { ...base, db, roster, owner, abrJob };
 }
+
+const VERIFIED_ABR_JOB = {
+  status: "READY",
+  payload: {
+    abn: "51824753556",
+    status: "ACTIVE",
+    legalName: "WATERLINE RESTORATIONS PTY LTD",
+    tradingNames: ["Waterline Restorations"],
+  },
+};
+
+type Owner = {
+  id: string;
+  subscriptionStatus: string | null;
+  trialEndsAt: Date | null;
+  creditsRemaining: number | null;
+  subscriptionId: string | null;
+  lifetimeAccess: boolean | null;
+};
 
 async function run(
   db: unknown,
@@ -512,5 +560,136 @@ describe("addonBillingConflicts — what counts as billing in flight", () => {
       new Set(["sub_recorded"]),
     );
     expect(found.map((c) => c.id)).toEqual(["sub_unpaid"]);
+  });
+});
+
+describe("runFoundingTrialGrant — the base plan travels with the grant (founder ruling 28/09)", () => {
+  const LOCKED_OUT = "2026-09-15T00:00:00.000Z";
+
+  it("a granted business's owner is back on TRIAL for 60 days", async () => {
+    const { db, owner } = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const now = new Date("2026-09-28T00:00:00.000Z");
+    const out = await runFoundingTrialGrant({
+      db: db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: true,
+      now,
+      sleep: async () => {},
+    });
+    expect(out).toMatchObject({ status: "granted", basePlan: { outcome: "extended" } });
+    expect(owner.subscriptionStatus).toBe("TRIAL");
+    expect(owner.trialEndsAt?.toISOString()).toBe("2026-11-27T00:00:00.000Z");
+  });
+
+  it("refused: the owner's base plan is not touched either", async () => {
+    const { db, owner } = makeRunDb();
+    const { stripe } = makeStripe([seatCheckout("cs_owner", "cus_owner")], []);
+    const out = await run(db, stripe);
+    expect(out.status).toBe("refused");
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+    expect(owner.trialEndsAt?.toISOString()).toBe(LOCKED_OUT);
+  });
+
+  it("reverted: the owner's base plan is put back with the add-ons", async () => {
+    const { db, owner } = makeRunDb();
+    const sessions: Session[] = [];
+    const { stripe } = makeStripe(sessions, []);
+    const out = await run(db, stripe, {
+      duringSettle: () => {
+        expect(owner.subscriptionStatus).toBe("TRIAL");
+        sessions.push(seatCheckout("cs_racing", "cus_owner"));
+      },
+    });
+    expect(out.status).toBe("reverted");
+    expect(owner).toMatchObject({ subscriptionStatus: "EXPIRED", creditsRemaining: 0 });
+    expect(owner.trialEndsAt?.toISOString()).toBe(LOCKED_OUT);
+  });
+
+  it("dry run reports the base plan and writes nothing", async () => {
+    const { db, owner } = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const out = await runFoundingTrialGrant({
+      db: db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: false,
+      now: new Date("2026-09-28T00:00:00.000Z"),
+    });
+    expect(out).toMatchObject({ status: "dry_run", basePlan: { outcome: "extended", applied: false } });
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+    expect(owner.subscriptionStatus).toBe("EXPIRED");
+  });
+});
+
+describe("runFoundingTrialGrant — only for a business whose ABN ABR confirmed (founder input 28/09)", () => {
+  async function refusedFor(mutate: (h: ReturnType<typeof makeRunDb>) => void) {
+    const h = makeRunDb();
+    mutate(h);
+    const { stripe, sessionsList } = makeStripe([], []);
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("unverified_abn");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.featureEntitlement.updateMany).not.toHaveBeenCalled();
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+    expect(sessionsList).not.toHaveBeenCalled();
+    return out;
+  }
+
+  it("refuses a business with no ABN on record", async () => {
+    await refusedFor((h) => h.org.mockResolvedValue({ ownerId: "owner_1", abn: null } as never));
+  });
+
+  it("refuses when ABR never confirmed the ABN (no ABR lookup on record)", async () => {
+    await refusedFor((h) => (h.abrJob.current = null));
+  });
+
+  it("refuses when the ABR lookup did not succeed", async () => {
+    // A re-run lookup that errors keeps the previous success's payload: the
+    // hydrate upsert never clears it, so only the status says it failed.
+    await refusedFor((h) => (h.abrJob.current = { ...VERIFIED_ABR_JOB, status: "ERROR" }));
+  });
+
+  it("refuses while an ABR lookup is still running over an old result", async () => {
+    await refusedFor((h) => (h.abrJob.current = { ...VERIFIED_ABR_JOB, status: "RUNNING" }));
+  });
+
+  it("refuses when the ABN on the business no longer matches the one ABR confirmed", async () => {
+    await refusedFor((h) =>
+      h.org.mockResolvedValue({ ownerId: "owner_1", abn: "33102417032" } as never),
+    );
+  });
+
+  it("refuses an ABN that ABR reports as cancelled", async () => {
+    await refusedFor(
+      (h) =>
+        (h.abrJob.current = {
+          ...VERIFIED_ABR_JOB,
+          payload: { ...VERIFIED_ABR_JOB.payload, status: "CANCELLED" },
+        }),
+    );
+  });
+
+  it("a verified business: the dry run names the ABR entity for the operator to confirm", async () => {
+    const { db } = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const out = await runFoundingTrialGrant({
+      db: db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: false,
+    });
+    expect(out).toMatchObject({
+      status: "dry_run",
+      entity: {
+        abn: "51824753556",
+        legalName: "WATERLINE RESTORATIONS PTY LTD",
+        tradingNames: ["Waterline Restorations"],
+      },
+    });
   });
 });
