@@ -124,15 +124,50 @@ describe("POST /api/admin/founding-trial — what it grants", () => {
     vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", OPERATOR);
   });
 
+  const CONFIRMED = {
+    organizationId: "org_firm",
+    abn: "51824753556",
+    legalName: "WATERLINE RESTORATIONS PTY LTD",
+  };
+
   it("applies only on an explicit apply: true", async () => {
     await post({ organizationId: "org_firm", apply: "true" });
     expect(runFoundingTrialGrant.mock.calls[0][0].apply).toBe(false);
-    await post({ organizationId: "org_firm", apply: true });
+    await post({ organizationId: "org_firm", apply: true, confirmed: CONFIRMED });
     expect(runFoundingTrialGrant.mock.calls[1][0].apply).toBe(true);
   });
 
+  it("the dry run tells the page which organisation it previewed", async () => {
+    const body = await (await post({ abn: "51824753556" })).json();
+    expect(body.organizationId).toBe("org_firm");
+  });
+
+  it("Apply without the previewed identity is refused before any grant", async () => {
+    const res = await post({ organizationId: "org_firm", apply: true });
+    expect(res.status).toBe(400);
+    const partial = await post({ organizationId: "org_firm", apply: true, confirmed: { abn: "51824753556" } });
+    expect(partial.status).toBe(400);
+    expect(runFoundingTrialGrant).not.toHaveBeenCalled();
+  });
+
+  it("Apply carries the previewed organisation, ABN and ABR name into the grant", async () => {
+    await post({ organizationId: "org_firm", apply: true, confirmed: CONFIRMED });
+    expect(runFoundingTrialGrant.mock.calls[0][0].confirmed).toEqual(CONFIRMED);
+  });
+
+  it("identity changed since Preview is a 409", async () => {
+    runFoundingTrialGrant.mockResolvedValue({
+      status: "identity_changed",
+      organizationId: "org_firm",
+      reason: "Preview again",
+    });
+    const res = await post({ organizationId: "org_firm", apply: true, confirmed: CONFIRMED });
+    expect(res.status).toBe(409);
+    expect((await res.json()).outcome.status).toBe("identity_changed");
+  });
+
   it("an ABN no business holds is a 404, not a guess", async () => {
-    const res = await post({ abn: "33102417032", apply: true });
+    const res = await post({ abn: "33102417032", apply: true, confirmed: CONFIRMED });
     expect(res.status).toBe(404);
     expect(runFoundingTrialGrant).not.toHaveBeenCalled();
   });
@@ -150,14 +185,14 @@ describe("POST /api/admin/founding-trial — what it grants", () => {
       organizationId: "org_firm",
       reason: "ABR has not confirmed this business's ABN",
     });
-    const res = await post({ organizationId: "org_firm", apply: true });
+    const res = await post({ organizationId: "org_firm", apply: true, confirmed: CONFIRMED });
     expect(res.status).toBe(422);
     expect((await res.json()).outcome.status).toBe("unverified_abn");
   });
 
   it("a Stripe billing clash is a 409", async () => {
     runFoundingTrialGrant.mockResolvedValue({ status: "refused", workspaceId: "ws_1", conflicts: [] });
-    const res = await post({ organizationId: "org_firm", apply: true });
+    const res = await post({ organizationId: "org_firm", apply: true, confirmed: CONFIRMED });
     expect(res.status).toBe(409);
   });
 });

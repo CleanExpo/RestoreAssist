@@ -42,6 +42,7 @@ const STATUS_CODE: Record<string, number> = {
   dry_run: 200,
   granted: 200,
   unverified_abn: 422,
+  identity_changed: 409,
   refused: 409,
   reverted: 409,
 };
@@ -61,7 +62,19 @@ export async function POST(request: NextRequest) {
       abn?: unknown;
       organizationId?: unknown;
       apply?: unknown;
+      confirmed?: unknown;
     } | null;
+    const apply = body?.apply === true;
+    // Apply must name the business the operator previewed: organisation id,
+    // ABN and ABR name. The grant compares them with the locked record.
+    const c = (body?.confirmed ?? null) as Record<string, unknown> | null;
+    const confirmed =
+      c &&
+      typeof c.organizationId === "string" &&
+      typeof c.abn === "string" &&
+      typeof c.legalName === "string"
+        ? { organizationId: c.organizationId, abn: c.abn, legalName: c.legalName }
+        : null;
     const hasAbn = typeof body?.abn === "string" && body.abn.trim() !== "";
     const hasOrg =
       typeof body?.organizationId === "string" && body.organizationId !== "";
@@ -97,15 +110,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (apply && !confirmed) {
+      return NextResponse.json(
+        { error: "Preview the business first; Apply must confirm what Preview showed." },
+        { status: 400 },
+      );
+    }
+
     const outcome = await runFoundingTrialGrant({
       db: prisma,
       stripe,
       organizationId: org.id,
-      apply: body?.apply === true,
+      apply,
       settleMs: ROUTE_SETTLE_MS,
+      ...(apply && confirmed ? { confirmed } : {}),
     });
     return NextResponse.json(
-      { outcome },
+      { outcome, organizationId: org.id },
       { status: STATUS_CODE[outcome.status] ?? 500 },
     );
   } catch (err) {

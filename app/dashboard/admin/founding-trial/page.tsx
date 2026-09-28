@@ -52,6 +52,7 @@ export default function FoundingTrialPage() {
   const router = useRouter();
   const [lookup, setLookup] = useState("");
   const [previewFor, setPreviewFor] = useState<string | null>(null);
+  const [previewOrgId, setPreviewOrgId] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -67,10 +68,21 @@ export default function FoundingTrialPage() {
       const response = await fetch("/api/admin/founding-trial", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ...(isAbn ? { abn: trimmed } : { organizationId: trimmed }),
-          apply,
-        }),
+        // Apply names the organisation Preview resolved and the identity the
+        // operator confirmed; the grant refuses if either has changed.
+        body: JSON.stringify(
+          apply && previewOrgId && outcome?.entity
+            ? {
+                organizationId: previewOrgId,
+                apply: true,
+                confirmed: {
+                  organizationId: previewOrgId,
+                  abn: outcome.entity.abn,
+                  legalName: outcome.entity.legalName,
+                },
+              }
+            : { ...(isAbn ? { abn: trimmed } : { organizationId: trimmed }), apply: false },
+        ),
       });
       const data = await response.json().catch(() => ({}));
       if (response.status === 403) {
@@ -78,7 +90,14 @@ export default function FoundingTrialPage() {
         setOutcome(null);
       } else if (data.outcome) {
         setOutcome(data.outcome as Outcome);
-        if (!apply && data.outcome.status === "dry_run") setPreviewFor(trimmed);
+        if (!apply && data.outcome.status === "dry_run") {
+          setPreviewFor(trimmed);
+          setPreviewOrgId(typeof data.organizationId === "string" ? data.organizationId : null);
+        } else {
+          setPreviewFor(null);
+          setPreviewOrgId(null);
+          setConfirmed(false);
+        }
       } else {
         setError(data.error ?? "The grant could not be run.");
         setOutcome(null);
@@ -91,7 +110,11 @@ export default function FoundingTrialPage() {
   }
 
   const canApply =
-    previewFor === trimmed && outcome?.status === "dry_run" && confirmed && !busy;
+    previewFor === trimmed &&
+    previewOrgId !== null &&
+    outcome?.status === "dry_run" &&
+    confirmed &&
+    !busy;
 
   return (
     <div className="space-y-6">
@@ -155,6 +178,13 @@ export default function FoundingTrialPage() {
           {error && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
               {error}
+            </div>
+          )}
+
+          {outcome && outcome.status === "identity_changed" && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+              Not granted. The business&apos;s details changed after Preview.
+              Preview again and check the name before applying.
             </div>
           )}
 

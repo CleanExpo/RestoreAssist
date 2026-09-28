@@ -7,11 +7,13 @@
  * Operators without database access use /dashboard/admin/founding-trial,
  * which calls the same grant.
  *
- * Dry run by default; nothing is written without --apply:
+ * Dry run by default; nothing is written without --apply. --apply must repeat
+ * the ABN and ABR business name the dry run printed, and is refused if the
+ * business no longer matches them:
  *   DATABASE_URL=... STRIPE_SECRET_KEY=... npx tsx scripts/grant-founding-trial.ts <organizationId>
- *   DATABASE_URL=... STRIPE_SECRET_KEY=... npx tsx scripts/grant-founding-trial.ts <organizationId> --apply
+ *   DATABASE_URL=... STRIPE_SECRET_KEY=... npx tsx scripts/grant-founding-trial.ts <organizationId> --apply --abn=<ABN> --name="<ABR name>"
  *
- * Or: npm run script:grant-founding-trial -- <organizationId> [--apply]
+ * Or: npm run script:grant-founding-trial -- <organizationId> [--apply --abn=... --name=...]
  *
  * It asks Stripe (read-only), across the whole account, for add-on billing
  * stamped with this business's workspace, before writing and again five
@@ -44,9 +46,14 @@ if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is required.");
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
 const organizationId = args.find((a) => !a.startsWith("--"));
-if (!organizationId) {
+const flag = (name: string) =>
+  args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+const confirmedAbn = flag("abn")?.replace(/\s/g, "");
+const confirmedName = flag("name");
+if (!organizationId || (apply && (!confirmedAbn || !confirmedName))) {
   console.error(
-    "Usage: npx tsx scripts/grant-founding-trial.ts <organizationId> [--apply]",
+    "Usage: npx tsx scripts/grant-founding-trial.ts <organizationId> " +
+      '[--apply --abn=<ABN from the dry run> --name="<ABR name from the dry run>"]',
   );
   process.exit(2);
 }
@@ -72,7 +79,20 @@ async function main() {
     stripe,
     organizationId: organizationId!,
     apply,
+    ...(apply
+      ? {
+          confirmed: {
+            organizationId: organizationId!,
+            abn: confirmedAbn!,
+            legalName: confirmedName!,
+          },
+        }
+      : {}),
   });
+  if (out.status === "identity_changed") {
+    console.error(`REFUSED, nothing written: ${out.reason}`);
+    process.exit(6);
+  }
   if (out.status === "unverified_abn") {
     console.error(`REFUSED, nothing written: ${out.reason}`);
     process.exit(5);

@@ -779,7 +779,7 @@ describe("runFoundingTrialGrant — the ABR identity holds through the write (re
       return list(p);
     });
     const out = await run(h.db, stripe);
-    expect(out.status).toBe("unverified_abn");
+    expect(out.status).toBe("identity_changed");
     expect(h.rows.size).toBe(0);
     expect(h.db.user.updateMany).not.toHaveBeenCalled();
   });
@@ -807,5 +807,79 @@ describe("runFoundingTrialGrant — the ABR identity holds through the write (re
     );
     expect(orgReadsAfterLock.length).toBeGreaterThan(0);
     expect(jobReadsAfterLock.length).toBeGreaterThan(0);
+  });
+});
+
+describe("runFoundingTrialGrant — Apply is bound to the business the operator previewed (review r3)", () => {
+  async function preview(h: ReturnType<typeof makeRunDb>) {
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const out = await runFoundingTrialGrant({
+      db: h.db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: false,
+    });
+    if (out.status !== "dry_run") throw new Error(`preview was ${out.status}`);
+    return { organizationId: "org_1", abn: out.entity.abn, legalName: out.entity.legalName };
+  }
+  async function apply(h: ReturnType<typeof makeRunDb>, confirmed: { organizationId: string; abn: string; legalName: string }) {
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    return runFoundingTrialGrant({
+      db: h.db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: true,
+      confirmed,
+      sleep: async () => {},
+    });
+  }
+
+  it("P1-PREVIEW-IDENTITY-NOT-BOUND: the business is re-verified as another between Preview and Apply — Apply refuses and writes nothing", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    expect(confirmed).toEqual({ organizationId: "org_1", abn: "51824753556", legalName: "WATERLINE RESTORATIONS PTY LTD" });
+    // setup/hydrate runs again: new ABN, READY, ACTIVE — a fully verified other business.
+    h.orgs.get("org_1")!.abn = "33102417032";
+    h.abrJob.current = {
+      status: "READY",
+      payload: { abn: "33102417032", status: "ACTIVE", legalName: "OTHER PTY LTD", tradingNames: [] },
+    };
+    const out = await apply(h, confirmed);
+    expect(out.status).toBe("identity_changed");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.featureEntitlement.updateMany).not.toHaveBeenCalled();
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+    expect(h.owner).toMatchObject({ subscriptionStatus: "EXPIRED", creditsRemaining: 0 });
+  });
+
+  it("refuses when the ABR business name changed since Preview, ABN unchanged", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    h.abrJob.current = {
+      ...VERIFIED_ABR_JOB,
+      payload: { ...VERIFIED_ABR_JOB.payload, legalName: "RENAMED PTY LTD" },
+    };
+    const out = await apply(h, confirmed);
+    expect(out.status).toBe("identity_changed");
+    expect(h.rows.size).toBe(0);
+  });
+
+  it("refuses a confirmation made for a different organisation", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    const out = await apply(h, { ...confirmed, organizationId: "org_2" });
+    expect(out.status).toBe("identity_changed");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("positive control: an unchanged business is granted on its preview", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    const out = await apply(h, confirmed);
+    expect(out.status).toBe("granted");
+    expect(h.rows.size).toBeGreaterThan(0);
   });
 });

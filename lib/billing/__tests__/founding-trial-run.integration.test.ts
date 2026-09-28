@@ -149,12 +149,30 @@ describe.skipIf(!HAS_DB)("runFoundingTrialGrant on a real database (RA-7721 r2)"
       { timeout: 20_000 },
     );
     await writerHoldsLocks;
-    const running = grant(b.organizationId);
-    await new Promise((r) => setTimeout(r, 1_500));
+    let settled = false;
+    const running = grant(b.organizationId).finally(() => (settled = true));
+    // Commit the writer only once the grant's backend is actually waiting on
+    // a row lock (review r3 P2: a fixed delay could pass with the two running
+    // one after the other). If the grant finishes without ever waiting, which
+    // is what happens when it takes no lock, stop polling and let the
+    // assertions below judge it.
+    const waitedOnLock = await (async () => {
+      const deadline = Date.now() + 10_000;
+      while (!settled && Date.now() < deadline) {
+        const [{ n }] = await prisma.$queryRaw<Array<{ n: number }>>`
+          SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE datname = current_database()
+            AND wait_event_type = 'Lock'
+            AND query LIKE '%FOR UPDATE%'`;
+        if (n > 0) return true;
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      return false;
+    })();
     releaseWriter();
     await writer;
     const out = await running;
-    return { b, before, out };
+    return { b, before, out, waitedOnLock };
   }
 
   const swapAbn = (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], orgId: string) =>
@@ -173,12 +191,50 @@ describe.skipIf(!HAS_DB)("runFoundingTrialGrant on a real database (RA-7721 r2)"
     ["ABR lookup failed (lookup row only)", failLookup],
   ] as const) {
     it(`a concurrent transaction commits "${name}" during the grant: nothing is written`, async () => {
-      const { b, before, out } = await grantDuring(change as never);
+      const { b, before, out, waitedOnLock } = await grantDuring(change as never);
+      expect(waitedOnLock).toBe(true);
       expect(out.status).toBe("unverified_abn");
       expect(await prisma.featureEntitlement.count({ where: { workspaceId: b.workspaceId } })).toBe(0);
       expect(await ownerRow(b.ownerId)).toEqual(before);
     }, 30_000);
   }
+
+  it("P1-PREVIEW-IDENTITY-NOT-BOUND: re-verified as another business between Preview and Apply — Apply writes nothing", async () => {
+    const b = await business();
+    const before = await ownerRow(b.ownerId);
+    const preview = await runFoundingTrialGrant({
+      db: prisma as unknown as PrismaClient,
+      stripe: noBilling,
+      organizationId: b.organizationId,
+      apply: false,
+      now: NOW,
+    });
+    if (preview.status !== "dry_run") throw new Error(`preview was ${preview.status}`);
+    const confirmed = {
+      organizationId: b.organizationId,
+      abn: preview.entity.abn,
+      legalName: preview.entity.legalName,
+    };
+    // setup/hydrate completes again for a different, ABR-confirmed business.
+    const other = abnFor();
+    await prisma.organization.update({ where: { id: b.organizationId }, data: { abn: other } });
+    await prisma.hydrationJob.update({
+      where: { organizationId_kind: { organizationId: b.organizationId, kind: "ABR" } },
+      data: { payload: { abn: other, status: "ACTIVE", legalName: "OTHER PTY LTD", tradingNames: [] } },
+    });
+    const out = await runFoundingTrialGrant({
+      db: prisma as unknown as PrismaClient,
+      stripe: noBilling,
+      organizationId: b.organizationId,
+      apply: true,
+      confirmed,
+      now: NOW,
+      sleep: async () => {},
+    });
+    expect(out.status).toBe("identity_changed");
+    expect(await prisma.featureEntitlement.count({ where: { workspaceId: b.workspaceId } })).toBe(0);
+    expect(await ownerRow(b.ownerId)).toEqual(before);
+  });
 
   it("a trial already running past 60 days is not shortened", async () => {
     const longer = new Date(NOW.getTime() + 90 * DAY);

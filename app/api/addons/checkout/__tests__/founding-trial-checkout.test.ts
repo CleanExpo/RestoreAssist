@@ -168,8 +168,36 @@ describe("POST /api/addons/checkout — Founding Trial add-ons are not sold (RA-
           });
           const match = (row: Record<string, unknown>, where: Record<string, unknown>) =>
             Object.entries(where).every(([k, v]) => row[k] === v);
+          // A business the grant accepts: ABN confirmed by ABR at signup, an
+          // owner on an expired 15-day trial (review r3 P0: without these the
+          // grant refused as unverified_abn and the race was never run).
+          const owner = {
+            subscriptionStatus: "EXPIRED",
+            trialEndsAt: new Date(Date.now() - 13 * 86_400_000),
+            creditsRemaining: 0,
+            subscriptionId: null,
+            lifetimeAccess: false,
+          };
           const db: Record<string, unknown> = {
-            organization: { findUnique: async () => ({ ownerId: "u1" }) },
+            organization: {
+              findUnique: async ({ where }: { where: { id: string } }) =>
+                where.id === "org_1" ? { ownerId: "u1", abn: "51824753556" } : null,
+            },
+            hydrationJob: {
+              findUnique: async ({ where }: { where: { organizationId_kind: { organizationId: string; kind: string } } }) =>
+                where.organizationId_kind.organizationId === "org_1" && where.organizationId_kind.kind === "ABR"
+                  ? { status: "READY", payload: { abn: "51824753556", status: "ACTIVE", legalName: "FIXTURE RESTORATION PTY LTD", tradingNames: [] } }
+                  : null,
+            },
+            $queryRaw: async () => [{}],
+            user: {
+              findUnique: async ({ where }: { where: { id: string } }) => (where.id === "u1" ? { ...owner } : null),
+              updateMany: async ({ where, data }: { where: { id: string }; data: object }) => {
+                if (where.id !== "u1") return { count: 0 };
+                Object.assign(owner, data);
+                return { count: 1 };
+              },
+            },
             workspace: { findFirst: async () => ({ id: "ws_9" }) },
             featureEntitlement: {
               findMany: async () => [...rows.values()],
@@ -210,9 +238,18 @@ describe("POST /api/addons/checkout — Founding Trial add-ons are not sold (RA-
             subs.push({ id: "sub_late", status: "active", customer: "cus_1",
               metadata: { type: "technician_seats_addon", sku: "TECHNICIAN_SEATS", workspaceId: "ws_9" } });
           }
-          const free = rows.get("TECHNICIAN_SEATS")?.stripePriceId === "complimentary:founding-trial";
-          expect(free && subs.length > 0).toBe(false);
-          expect(grant.status === "granted" ? res.status : 409).toBe(409);
+          // The grant really ran and holds the seats free...
+          expect(grant.status).toBe("granted");
+          expect(rows.get("TECHNICIAN_SEATS")).toMatchObject({
+            active: true,
+            stripeSubscriptionId: null,
+            stripePriceId: "complimentary:founding-trial",
+          });
+          // ...so the stalled request must refuse and hand out no payable link.
+          expect(res.status).toBe(409);
+          expect(body.url).toBeUndefined();
+          expect(JSON.stringify(body)).not.toContain("checkout.stripe.com");
+          expect(subs).toHaveLength(0);
         } finally {
           vi.useRealTimers();
         }

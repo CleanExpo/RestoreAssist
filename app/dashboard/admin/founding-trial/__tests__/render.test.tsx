@@ -59,6 +59,7 @@ describe("Founding Trial page, rendered through its layout", () => {
             result: { granted: ["VOICE", "TECHNICIAN_SEATS"], skippedPaid: [], applied: false },
             basePlan: { outcome: "extended", trialEndsAt: "2026-11-27T00:00:00.000Z" },
           },
+          organizationId: "org_firm",
         }),
         { status: 200, headers: { "content-type": "application/json" } },
       ),
@@ -81,5 +82,32 @@ describe("Founding Trial page, rendered through its layout", () => {
     expect(apply).toBeDisabled();
     fireEvent.click(screen.getByLabelText("This is the right business"));
     expect(apply).toBeEnabled();
+
+    // Apply names the previewed organisation and the identity the operator saw.
+    fetchMock.mockImplementationOnce(async () =>
+      new Response(
+        JSON.stringify({
+          outcome: {
+            status: "identity_changed",
+            organizationId: "org_firm",
+            reason: "The business's details changed after Preview.",
+          },
+          organizationId: "org_firm",
+        }),
+        { status: 409, headers: { "content-type": "application/json" } },
+      ),
+    );
+    fireEvent.click(apply);
+    expect(await screen.findByText(/Preview again/)).toBeInTheDocument();
+    expect(JSON.parse((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)).toEqual({
+      organizationId: "org_firm",
+      apply: true,
+      confirmed: {
+        organizationId: "org_firm",
+        abn: "51824753556",
+        legalName: "WATERLINE RESTORATIONS PTY LTD",
+      },
+    });
+    expect(screen.queryByRole("button", { name: "Apply Founding Trial" })).not.toBeInTheDocument();
   });
 });

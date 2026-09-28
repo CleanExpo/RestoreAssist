@@ -209,6 +209,7 @@ export const GRANT_SETTLE_MS = 5 * 60 * 1000;
 
 export type FoundingTrialRunOutcome =
   | { status: "unverified_abn"; organizationId: string; reason: string }
+  | { status: "identity_changed"; organizationId: string; reason: string }
   | { status: "refused"; workspaceId: string; conflicts: BillingConflict[] }
   | { status: "reverted"; workspaceId: string; conflicts: BillingConflict[] }
   | {
@@ -217,6 +218,20 @@ export type FoundingTrialRunOutcome =
       result: FoundingTrialGrantResult;
       basePlan: FoundingTrialBasePlanResult;
     };
+
+/**
+ * The business the operator confirmed on Preview. Apply is refused unless the
+ * locked, re-verified business is still exactly this one (review r3
+ * P1-PREVIEW-IDENTITY-NOT-BOUND).
+ */
+export interface ConfirmedBusiness {
+  organizationId: string;
+  abn: string;
+  legalName: string;
+}
+
+const IDENTITY_CHANGED =
+  "The business's details changed after Preview. Preview again before applying.";
 
 /** The business as the Australian Business Register named it at signup. */
 export interface VerifiedAbrEntity {
@@ -455,8 +470,13 @@ export async function runFoundingTrialGrant(deps: {
   settleMs?: number;
   sleep?: (ms: number) => Promise<void>;
   now?: Date;
+  /** What the operator saw on Preview; when absent, the check below. */
+  confirmed?: ConfirmedBusiness;
 }): Promise<FoundingTrialRunOutcome> {
-  const { db, stripe, organizationId, apply } = deps;
+  const { db, stripe, organizationId, apply, confirmed } = deps;
+  if (confirmed && confirmed.organizationId !== organizationId) {
+    return { status: "identity_changed", organizationId, reason: IDENTITY_CHANGED };
+  }
   const verified = await verifiedAbrEntity(db, organizationId);
   if (!verified.ok) {
     return { status: "unverified_abn", organizationId, reason: verified.reason };
@@ -495,12 +515,17 @@ export async function runFoundingTrialGrant(deps: {
       Prisma.sql`SELECT "id" FROM "HydrationJob" WHERE "organizationId" = ${organizationId} AND "kind" = 'ABR' FOR UPDATE`,
     );
     const still = await verifiedAbrEntity(tx, organizationId);
-    if (!still.ok) return { ok: false as const, reason: still.reason };
-    if (still.entity.abn !== entity.abn) {
-      return {
-        ok: false as const,
-        reason: "The business's ABN changed while the grant was being checked.",
-      };
+    if (!still.ok) {
+      return { ok: false as const, status: "unverified_abn" as const, reason: still.reason };
+    }
+    // Bound to what the operator confirmed on Preview, or, with no preview,
+    // to what this run checked before the Stripe reads.
+    const expected = confirmed ?? entity;
+    if (
+      still.entity.abn !== expected.abn ||
+      still.entity.legalName !== expected.legalName
+    ) {
+      return { ok: false as const, status: "identity_changed" as const, reason: IDENTITY_CHANGED };
     }
     return {
       ok: true as const,
@@ -515,7 +540,7 @@ export async function runFoundingTrialGrant(deps: {
     };
   });
   if (!written.ok) {
-    return { status: "unverified_abn", organizationId, reason: written.reason };
+    return { status: written.status, organizationId, reason: written.reason };
   }
   const { result, basePlan } = written;
   const sleep =
