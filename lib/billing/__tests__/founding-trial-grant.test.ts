@@ -21,7 +21,16 @@ type Row = {
 function makeDb(opts: { beforeWrite?: (rows: Map<string, Row>) => void } = {}) {
   const rows = new Map<string, Row>();
   const key = (w: string, s: string) => `${w}:${s}`;
-  const org = vi.fn(async () => ({ ownerId: "owner_1" }));
+  // Organisations by id. org_2 holds the same ABN but has no ABR lookup of
+  // its own, so an unscoped ABR read would let it borrow org_1's.
+  const orgs = new Map<string, { ownerId: string; abn: string | null }>([
+    ["org_1", { ownerId: "owner_1", abn: "51824753556" }],
+    ["org_2", { ownerId: "owner_1", abn: "51824753556" }],
+  ]);
+  const org = vi.fn(async ({ where }: { where: { id: string } }) => {
+    const o = orgs.get(where.id);
+    return o ? { ...o } : null;
+  });
   const ws = vi.fn(async () => ({ id: "ws_1" }));
   const db = {
     organization: { findUnique: org },
@@ -54,7 +63,7 @@ function makeDb(opts: { beforeWrite?: (rows: Map<string, Row>) => void } = {}) {
       ),
     },
   };
-  return { db, rows, org, ws, get: (sku: AddonSku) => rows.get(key("ws_1", sku)) };
+  return { db, rows, org, orgs, ws, get: (sku: AddonSku) => rows.get(key("ws_1", sku)) };
 }
 
 const ALL = Object.values(AddonSku);
@@ -258,6 +267,15 @@ type Member = { customer: string | null; status: string };
  */
 function makeRunDb(members: Array<string | null | Member> = []) {
   const base = makeDb();
+  const abrJob: { current: unknown } = { current: VERIFIED_ABR_JOB };
+  const owner: Owner = {
+    id: "owner_1",
+    subscriptionStatus: "EXPIRED",
+    trialEndsAt: new Date("2026-09-15T00:00:00.000Z"),
+    creditsRemaining: 0,
+    subscriptionId: null,
+    lifetimeAccess: false,
+  };
   const roster: Member[] = members.map((m) =>
     m && typeof m === "object" ? m : { customer: m, status: "ACTIVE" },
   );
@@ -293,10 +311,59 @@ function makeRunDb(members: Array<string | null | Member> = []) {
         return { count: 1 };
       }),
     },
+    // Founder input 28/09: the grant needs the firm's ABN confirmed by ABR
+    // during the signup walkthrough (HydrationJob kind ABR, READY).
+    hydrationJob: {
+      findUnique: vi.fn(
+        async ({ where }: { where: { organizationId_kind?: { organizationId?: string; kind?: string } } }) => {
+          const k = where?.organizationId_kind;
+          if (!k?.organizationId || !k?.kind) {
+            throw new Error("hydrationJob read must be scoped by organizationId_kind");
+          }
+          return k.organizationId === "org_1" && k.kind === "ABR" ? abrJob.current : null;
+        },
+      ),
+    },
+    // Row locks taken inside the write transaction (SELECT ... FOR UPDATE).
+    $queryRaw: vi.fn(async (_sql: unknown) => [{}]),
+    // RA-7721 (28/09): the owner's base-plan trial, written with the grant.
+    user: {
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
+        where.id === owner.id ? { ...owner } : null,
+      ),
+      updateMany: vi.fn(
+        async ({ where, data }: { where: { id: string }; data: Partial<Owner> }) => {
+          // Only the id is honoured here; the base-plan guards are proven in
+          // founding-trial-base-plan.test.ts against a where-evaluating double.
+          if (where.id !== owner.id) return { count: 0 };
+          Object.assign(owner, data);
+          return { count: 1 };
+        },
+      ),
+    },
     $transaction: vi.fn(async (fn: (tx: unknown) => unknown): Promise<unknown> => fn(db)),
   };
-  return { ...base, db, roster };
+  return { ...base, db, roster, owner, abrJob };
 }
+
+const VERIFIED_ABR_JOB = {
+  status: "READY",
+  payload: {
+    abn: "51824753556",
+    status: "ACTIVE",
+    legalName: "WATERLINE RESTORATIONS PTY LTD",
+    tradingNames: ["Waterline Restorations"],
+  },
+};
+
+type Owner = {
+  id: string;
+  subscriptionStatus: string | null;
+  trialEndsAt: Date | null;
+  creditsRemaining: number | null;
+  subscriptionId: string | null;
+  lifetimeAccess: boolean | null;
+};
 
 async function run(
   db: unknown,
@@ -512,5 +579,321 @@ describe("addonBillingConflicts — what counts as billing in flight", () => {
       new Set(["sub_recorded"]),
     );
     expect(found.map((c) => c.id)).toEqual(["sub_unpaid"]);
+  });
+});
+
+describe("runFoundingTrialGrant — the base plan travels with the grant (founder ruling 28/09)", () => {
+  const LOCKED_OUT = "2026-09-15T00:00:00.000Z";
+
+  it("a granted business's owner is back on TRIAL for 60 days", async () => {
+    const { db, owner } = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const now = new Date("2026-09-28T00:00:00.000Z");
+    const out = await runFoundingTrialGrant({
+      db: db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: true,
+      now,
+      sleep: async () => {},
+    });
+    expect(out).toMatchObject({ status: "granted", basePlan: { outcome: "extended" } });
+    expect(owner.subscriptionStatus).toBe("TRIAL");
+    expect(owner.trialEndsAt?.toISOString()).toBe("2026-11-27T00:00:00.000Z");
+  });
+
+  it("refused: the owner's base plan is not touched either", async () => {
+    const { db, owner } = makeRunDb();
+    const { stripe } = makeStripe([seatCheckout("cs_owner", "cus_owner")], []);
+    const out = await run(db, stripe);
+    expect(out.status).toBe("refused");
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+    expect(owner.trialEndsAt?.toISOString()).toBe(LOCKED_OUT);
+  });
+
+  it("reverted: the owner's base plan is put back with the add-ons", async () => {
+    const { db, owner } = makeRunDb();
+    const sessions: Session[] = [];
+    const { stripe } = makeStripe(sessions, []);
+    const out = await run(db, stripe, {
+      duringSettle: () => {
+        expect(owner.subscriptionStatus).toBe("TRIAL");
+        sessions.push(seatCheckout("cs_racing", "cus_owner"));
+      },
+    });
+    expect(out.status).toBe("reverted");
+    expect(owner).toMatchObject({ subscriptionStatus: "EXPIRED", creditsRemaining: 0 });
+    expect(owner.trialEndsAt?.toISOString()).toBe(LOCKED_OUT);
+  });
+
+  it("dry run reports the base plan and writes nothing", async () => {
+    const { db, owner } = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const out = await runFoundingTrialGrant({
+      db: db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: false,
+      now: new Date("2026-09-28T00:00:00.000Z"),
+    });
+    expect(out).toMatchObject({ status: "dry_run", basePlan: { outcome: "extended", applied: false } });
+    expect(db.user.updateMany).not.toHaveBeenCalled();
+    expect(owner.subscriptionStatus).toBe("EXPIRED");
+  });
+});
+
+describe("runFoundingTrialGrant — only for a business whose ABN ABR confirmed (founder input 28/09)", () => {
+  async function refusedFor(mutate: (h: ReturnType<typeof makeRunDb>) => void) {
+    const h = makeRunDb();
+    mutate(h);
+    const { stripe, sessionsList } = makeStripe([], []);
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("unverified_abn");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.featureEntitlement.updateMany).not.toHaveBeenCalled();
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+    expect(sessionsList).not.toHaveBeenCalled();
+    return out;
+  }
+
+  it("refuses a business with no ABN on record", async () => {
+    await refusedFor((h) => (h.orgs.get("org_1")!.abn = null));
+  });
+
+  it("refuses when ABR never confirmed the ABN (no ABR lookup on record)", async () => {
+    await refusedFor((h) => (h.abrJob.current = null));
+  });
+
+  it("refuses when the ABR lookup did not succeed", async () => {
+    // A re-run lookup that errors keeps the previous success's payload: the
+    // hydrate upsert never clears it, so only the status says it failed.
+    await refusedFor((h) => (h.abrJob.current = { ...VERIFIED_ABR_JOB, status: "ERROR" }));
+  });
+
+  it("refuses while an ABR lookup is still running over an old result", async () => {
+    await refusedFor((h) => (h.abrJob.current = { ...VERIFIED_ABR_JOB, status: "RUNNING" }));
+  });
+
+  it("refuses when the ABN on the business no longer matches the one ABR confirmed", async () => {
+    await refusedFor((h) => (h.orgs.get("org_1")!.abn = "33102417032"));
+  });
+
+  it("refuses an ABN that ABR reports as cancelled", async () => {
+    await refusedFor(
+      (h) =>
+        (h.abrJob.current = {
+          ...VERIFIED_ABR_JOB,
+          payload: { ...VERIFIED_ABR_JOB.payload, status: "CANCELLED" },
+        }),
+    );
+  });
+
+  it("a verified business: the dry run names the ABR entity for the operator to confirm", async () => {
+    const { db } = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const out = await runFoundingTrialGrant({
+      db: db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: false,
+    });
+    expect(out).toMatchObject({
+      status: "dry_run",
+      entity: {
+        abn: "51824753556",
+        legalName: "WATERLINE RESTORATIONS PTY LTD",
+        tradingNames: ["Waterline Restorations"],
+      },
+    });
+  });
+});
+
+describe("runFoundingTrialGrant — the ABR identity holds through the write (review r1)", () => {
+  const sqlText = (call: unknown[]) => {
+    const q = call[0] as { strings?: readonly string[]; sql?: string };
+    return (q.sql ?? q.strings?.join("?") ?? String(q)).replace(/\s+/g, " ");
+  };
+
+  it("another business's ABR lookup never satisfies this one (scoped read)", async () => {
+    const h = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const out = await runFoundingTrialGrant({
+      db: h.db as never,
+      stripe: stripe as never,
+      organizationId: "org_2",
+      apply: true,
+      sleep: async () => {},
+    });
+    expect(out.status).toBe("unverified_abn");
+    expect(h.rows.size).toBe(0);
+  });
+
+  it("P1-ABR-IDENTITY-RACE: ABN replaced and ABR lookup failed during the Stripe check — nothing is written", async () => {
+    const h = makeRunDb();
+    const { stripe, sessionsList } = makeStripe([], []);
+    const list = sessionsList.getMockImplementation()!;
+    sessionsList.mockImplementationOnce((p: { status: string }) => {
+      h.orgs.get("org_1")!.abn = "33102417032";
+      h.abrJob.current = { ...VERIFIED_ABR_JOB, status: "ERROR" };
+      return list(p);
+    });
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("unverified_abn");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.featureEntitlement.updateMany).not.toHaveBeenCalled();
+    expect(h.db.featureEntitlement.createMany).not.toHaveBeenCalled();
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+    expect(h.owner.subscriptionStatus).toBe("EXPIRED");
+  });
+
+  it("P1-ABR-IDENTITY-RACE: ABN alone replaced during the Stripe check — nothing is written", async () => {
+    const h = makeRunDb();
+    const { stripe, subsList } = makeStripe([], []);
+    const list = subsList.getMockImplementation()!;
+    subsList.mockImplementationOnce((p: { limit: number }) => {
+      h.orgs.get("org_1")!.abn = "33102417032";
+      return list(p);
+    });
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("unverified_abn");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("P1-ABR-IDENTITY-RACE: re-verified as a DIFFERENT business during the Stripe check — nothing is written", async () => {
+    // The new ABN is itself ABR-confirmed, so only comparing it with the ABN
+    // the operator was shown catches the swap.
+    const h = makeRunDb();
+    const { stripe, sessionsList } = makeStripe([], []);
+    const list = sessionsList.getMockImplementation()!;
+    sessionsList.mockImplementationOnce((p: { status: string }) => {
+      h.orgs.get("org_1")!.abn = "33102417032";
+      h.abrJob.current = {
+        status: "READY",
+        payload: { abn: "33102417032", status: "ACTIVE", legalName: "OTHER PTY LTD", tradingNames: [] },
+      };
+      return list(p);
+    });
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("identity_changed");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("locks the organisation and its ABR lookup inside the transaction before any grant write", async () => {
+    const h = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    const out = await run(h.db, stripe);
+    expect(out.status).toBe("granted");
+    const locks = h.db.$queryRaw.mock.calls.map(sqlText);
+    expect(locks.some((q) => /FROM "Organization" WHERE "id" = \? FOR UPDATE/.test(q))).toBe(true);
+    expect(
+      locks.some((q) => /FROM "HydrationJob" WHERE "organizationId" = \? AND "kind" = 'ABR' FOR UPDATE/.test(q)),
+    ).toBe(true);
+    const lastLock = Math.max(...h.db.$queryRaw.mock.invocationCallOrder);
+    const firstWrite = Math.min(
+      ...h.db.featureEntitlement.updateMany.mock.invocationCallOrder,
+      ...h.db.user.updateMany.mock.invocationCallOrder,
+    );
+    expect(lastLock).toBeLessThan(firstWrite);
+    // The identity is re-read after the locks, inside the transaction.
+    const orgReadsAfterLock = h.org.mock.invocationCallOrder.filter((n) => n > lastLock);
+    const jobReadsAfterLock = h.db.hydrationJob.findUnique.mock.invocationCallOrder.filter(
+      (n: number) => n > lastLock,
+    );
+    expect(orgReadsAfterLock.length).toBeGreaterThan(0);
+    expect(jobReadsAfterLock.length).toBeGreaterThan(0);
+  });
+});
+
+describe("runFoundingTrialGrant — Apply is bound to the business the operator previewed (review r3)", () => {
+  async function preview(h: ReturnType<typeof makeRunDb>) {
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    const out = await runFoundingTrialGrant({
+      db: h.db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: false,
+    });
+    if (out.status !== "dry_run") throw new Error(`preview was ${out.status}`);
+    return { organizationId: "org_1", abn: out.entity.abn, legalName: out.entity.legalName };
+  }
+  async function apply(h: ReturnType<typeof makeRunDb>, confirmed: { organizationId: string; abn: string; legalName: string }) {
+    const { stripe } = makeStripe([], []);
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    return runFoundingTrialGrant({
+      db: h.db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: true,
+      confirmed,
+      sleep: async () => {},
+    });
+  }
+
+  it("P1-PREVIEW-IDENTITY-NOT-BOUND: the business is re-verified as another between Preview and Apply — Apply refuses and writes nothing", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    expect(confirmed).toEqual({ organizationId: "org_1", abn: "51824753556", legalName: "WATERLINE RESTORATIONS PTY LTD" });
+    // setup/hydrate runs again: new ABN, READY, ACTIVE — a fully verified other business.
+    h.orgs.get("org_1")!.abn = "33102417032";
+    h.abrJob.current = {
+      status: "READY",
+      payload: { abn: "33102417032", status: "ACTIVE", legalName: "OTHER PTY LTD", tradingNames: [] },
+    };
+    const out = await apply(h, confirmed);
+    expect(out.status).toBe("identity_changed");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.featureEntitlement.updateMany).not.toHaveBeenCalled();
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+    expect(h.owner).toMatchObject({ subscriptionStatus: "EXPIRED", creditsRemaining: 0 });
+  });
+
+  it("refuses when the ABR business name changed since Preview, ABN unchanged", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    h.abrJob.current = {
+      ...VERIFIED_ABR_JOB,
+      payload: { ...VERIFIED_ABR_JOB.payload, legalName: "RENAMED PTY LTD" },
+    };
+    const out = await apply(h, confirmed);
+    expect(out.status).toBe("identity_changed");
+    expect(h.rows.size).toBe(0);
+  });
+
+  it("refuses when the ABN changed since Preview but the ABR business name is the same", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    h.orgs.get("org_1")!.abn = "33102417032";
+    h.abrJob.current = {
+      status: "READY",
+      payload: { ...VERIFIED_ABR_JOB.payload, abn: "33102417032" },
+    };
+    const out = await apply(h, confirmed);
+    expect(out.status).toBe("identity_changed");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses a confirmation made for a different organisation", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    const out = await apply(h, { ...confirmed, organizationId: "org_2" });
+    expect(out.status).toBe("identity_changed");
+    expect(h.rows.size).toBe(0);
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("positive control: an unchanged business is granted on its preview", async () => {
+    const h = makeRunDb();
+    const confirmed = await preview(h);
+    const out = await apply(h, confirmed);
+    expect(out.status).toBe("granted");
+    expect(h.rows.size).toBeGreaterThan(0);
   });
 });

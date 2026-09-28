@@ -421,6 +421,14 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2"
+              onClick={() => router.push("/dashboard/admin/founding-trial")}
+            >
+              <CreditCard className="h-5 w-5" />
+              <span className="text-sm">Founding Trial</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2"
               onClick={() => router.push("/dashboard/governance")}
             >
               <Shield className="h-5 w-5" />

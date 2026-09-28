@@ -23,9 +23,28 @@
  *
  * `runFoundingTrialGrant` wraps the grant in Stripe checks so it is never
  * applied while the business has add-on billing in flight (see there).
+ *
+ * Founder ruling 28/09/2026: the $99/month base plan is ALSO free for 60 days
+ * from the grant, then $99/month. The base plan rides the existing trial: the
+ * organisation owner's User row goes to TRIAL with trialEndsAt 60 days out
+ * (members inherit it through getEffectiveSubscription), and report credits
+ * are restored, because the day-16 lockout zeroed them. See
+ * grantFoundingTrialBasePlan.
+ *
+ * Founder input 28/09/2026: the grant is only for a business whose ABN the
+ * Australian Business Register confirmed during the signup walkthrough. There
+ * is no "verified" column; the record of that confirmation is the ABR
+ * HydrationJob (READY, payload from ABR) for the organisation, and it must
+ * name the ABN the organisation holds now. See verifiedAbrEntity.
  */
 
-import { AddonSku, type Prisma, type PrismaClient } from "@prisma/client";
+import {
+  AddonSku,
+  Prisma,
+  type PrismaClient,
+  type SubscriptionStatus,
+} from "@prisma/client";
+import { PRICING_CONFIG } from "@/lib/pricing";
 import { getRecurringAddonBySubscriptionType } from "./addon-registry";
 
 type GrantDb = PrismaClient | Prisma.TransactionClient;
@@ -189,9 +208,250 @@ async function currentConflicts(
 export const GRANT_SETTLE_MS = 5 * 60 * 1000;
 
 export type FoundingTrialRunOutcome =
+  | { status: "unverified_abn"; organizationId: string; reason: string }
+  | { status: "identity_changed"; organizationId: string; reason: string }
   | { status: "refused"; workspaceId: string; conflicts: BillingConflict[] }
   | { status: "reverted"; workspaceId: string; conflicts: BillingConflict[] }
-  | { status: "dry_run" | "granted"; result: FoundingTrialGrantResult };
+  | {
+      status: "dry_run" | "granted";
+      entity: VerifiedAbrEntity;
+      result: FoundingTrialGrantResult;
+      basePlan: FoundingTrialBasePlanResult;
+    };
+
+/**
+ * The business the operator confirmed on Preview. Apply is refused unless the
+ * locked, re-verified business is still exactly this one (review r3
+ * P1-PREVIEW-IDENTITY-NOT-BOUND).
+ */
+export interface ConfirmedBusiness {
+  organizationId: string;
+  abn: string;
+  legalName: string;
+}
+
+const IDENTITY_CHANGED =
+  "The business's details changed after Preview. Preview again before applying.";
+
+/** The business as the Australian Business Register named it at signup. */
+export interface VerifiedAbrEntity {
+  abn: string;
+  legalName: string;
+  tradingNames: string[];
+}
+
+const digitsOnly = (v: unknown) =>
+  typeof v === "string" ? v.replace(/\D/g, "") : "";
+
+/**
+ * The ABR-confirmed identity of an organisation, or why there is none.
+ * Fails closed: no ABN, no ABR lookup, a lookup that did not succeed, a
+ * lookup for a different ABN than the one held now, or a cancelled ABN all
+ * refuse. Nothing here calls ABR; it reads what the signup walkthrough stored.
+ */
+export async function verifiedAbrEntity(
+  db: GrantDb,
+  organizationId: string,
+): Promise<{ ok: true; entity: VerifiedAbrEntity } | { ok: false; reason: string }> {
+  const org = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { abn: true },
+  });
+  if (!org) return { ok: false, reason: `No organisation with id ${organizationId}` };
+  const abn = digitsOnly(org.abn);
+  if (abn.length !== 11) {
+    return { ok: false, reason: "This business has no ABN on record." };
+  }
+  const job = await db.hydrationJob.findUnique({
+    where: { organizationId_kind: { organizationId, kind: "ABR" } },
+    select: { status: true, payload: true },
+  });
+  if (!job || job.status !== "READY" || !job.payload) {
+    return {
+      ok: false,
+      reason: "The Australian Business Register has not confirmed this business's ABN.",
+    };
+  }
+  const p = job.payload as Record<string, unknown>;
+  if (digitsOnly(p.abn) !== abn) {
+    return {
+      ok: false,
+      reason: "The ABN on this business is not the one the Australian Business Register confirmed.",
+    };
+  }
+  if (p.status !== "ACTIVE") {
+    return { ok: false, reason: "The Australian Business Register lists this ABN as cancelled." };
+  }
+  if (typeof p.legalName !== "string" || !p.legalName) {
+    return { ok: false, reason: "The Australian Business Register record has no entity name." };
+  }
+  const tradingNames = Array.isArray(p.tradingNames)
+    ? p.tradingNames.filter((n): n is string => typeof n === "string")
+    : [];
+  return { ok: true, entity: { abn, legalName: p.legalName, tradingNames } };
+}
+
+/** Length of the free base plan for a Founding Trial business. */
+export const FOUNDING_TRIAL_BASE_PLAN_DAYS = 60;
+
+export type BasePlanPrior = {
+  subscriptionStatus: SubscriptionStatus | null;
+  trialEndsAt: Date | null;
+  creditsRemaining: number | null;
+};
+
+export interface FoundingTrialBasePlanResult {
+  ownerId: string;
+  /**
+   * extended          owner is (or, on a dry run, would be) on TRIAL to trialEndsAt
+   * kept_longer       an existing trial already runs past 60 days; left alone
+   * skipped_paying    the owner pays for the base plan (or has a Stripe
+   *                   subscription, or a non-trial status); left alone
+   * skipped_lifetime  lifetime access; left alone
+   * skipped_changed   the row changed between read and write; nothing written
+   */
+  outcome:
+    | "extended"
+    | "kept_longer"
+    | "skipped_paying"
+    | "skipped_lifetime"
+    | "skipped_changed";
+  trialEndsAt: Date | null;
+  /** The row before the write, when the grant wrote it. */
+  prior: BasePlanPrior | null;
+  /** What the grant wrote, so a revert only undoes its own write. */
+  written: { trialEndsAt: Date; creditsRemaining: number } | null;
+  applied: boolean;
+}
+
+const TRIAL_STATUSES: SubscriptionStatus[] = ["TRIAL", "EXPIRED"];
+
+/**
+ * Put the owner on the base plan, free, until 60 days from `now`.
+ * Never shortens a longer trial, never touches a Stripe payer, lifetime access,
+ * or any status other than TRIAL / EXPIRED / none. The write is one
+ * conditional update carrying every one of those guards, so a subscription or
+ * a longer trial that lands after the read is not overwritten.
+ */
+export async function grantFoundingTrialBasePlan(
+  db: GrantDb,
+  ownerId: string,
+  opts: { apply: boolean; now?: Date },
+): Promise<FoundingTrialBasePlanResult> {
+  const now = opts.now ?? new Date();
+  const end = new Date(
+    now.getTime() + FOUNDING_TRIAL_BASE_PLAN_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const base = { ownerId, prior: null, written: null, applied: opts.apply };
+
+  const owner = await db.user.findUnique({
+    where: { id: ownerId },
+    select: {
+      subscriptionStatus: true,
+      trialEndsAt: true,
+      creditsRemaining: true,
+      subscriptionId: true,
+      lifetimeAccess: true,
+    },
+  });
+  if (!owner) {
+    throw new FoundingTrialGrantError(`No owner user with id ${ownerId}`);
+  }
+  if (owner.lifetimeAccess) {
+    return { ...base, outcome: "skipped_lifetime", trialEndsAt: owner.trialEndsAt };
+  }
+  if (
+    owner.subscriptionId ||
+    (owner.subscriptionStatus !== null &&
+      !TRIAL_STATUSES.includes(owner.subscriptionStatus))
+  ) {
+    return { ...base, outcome: "skipped_paying", trialEndsAt: owner.trialEndsAt };
+  }
+  if (
+    owner.subscriptionStatus === "TRIAL" &&
+    owner.trialEndsAt &&
+    owner.trialEndsAt.getTime() >= end.getTime()
+  ) {
+    return { ...base, outcome: "kept_longer", trialEndsAt: owner.trialEndsAt };
+  }
+
+  const creditsRemaining = Math.max(
+    owner.creditsRemaining ?? 0,
+    PRICING_CONFIG.free.trialReportCredits,
+  );
+  if (!opts.apply) {
+    return { ...base, outcome: "extended", trialEndsAt: end };
+  }
+
+  const updated = await db.user.updateMany({
+    where: {
+      id: ownerId,
+      subscriptionId: null,
+      // Compare-and-set: the floor was computed from this balance, so a report
+      // charged or refunded since the read makes the write skip, not clobber.
+      creditsRemaining: owner.creditsRemaining,
+      AND: [
+        { OR: [{ lifetimeAccess: null }, { lifetimeAccess: false }] },
+        {
+          OR: [
+            { subscriptionStatus: null },
+            { subscriptionStatus: { in: TRIAL_STATUSES } },
+          ],
+        },
+        { OR: [{ trialEndsAt: null }, { trialEndsAt: { lt: end } }] },
+      ],
+    },
+    data: { subscriptionStatus: "TRIAL", trialEndsAt: end, creditsRemaining },
+  });
+  if (updated.count !== 1) {
+    return { ...base, outcome: "skipped_changed", trialEndsAt: null };
+  }
+  return {
+    ownerId,
+    outcome: "extended",
+    trialEndsAt: end,
+    prior: {
+      subscriptionStatus: owner.subscriptionStatus,
+      trialEndsAt: owner.trialEndsAt,
+      creditsRemaining: owner.creditsRemaining,
+    },
+    written: { trialEndsAt: end, creditsRemaining },
+    applied: true,
+  };
+}
+
+/**
+ * Undo the base-plan write, only while the owner still holds exactly what the
+ * grant wrote and has no Stripe subscription. Credits go back only if nothing
+ * has been charged against them since; a balance spent meanwhile is kept, so
+ * the revert never refunds a report the business already made.
+ */
+export async function revertFoundingTrialBasePlan(
+  db: GrantDb,
+  result: FoundingTrialBasePlanResult,
+): Promise<void> {
+  if (!result.applied || !result.prior || !result.written) return;
+  const reverted = await db.user.updateMany({
+    where: {
+      id: result.ownerId,
+      subscriptionId: null,
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: result.written.trialEndsAt,
+    },
+    data: {
+      subscriptionStatus: result.prior.subscriptionStatus,
+      trialEndsAt: result.prior.trialEndsAt,
+    },
+  });
+  if (reverted.count !== 1) return;
+  await db.user.updateMany({
+    where: {
+      id: result.ownerId,
+      creditsRemaining: result.written.creditsRemaining,
+    },
+    data: { creditsRemaining: result.prior.creditsRemaining },
+  });
+}
 
 /**
  * Check Stripe, write the grant, wait (GRANT_SETTLE_MS), then check again.
@@ -209,9 +469,21 @@ export async function runFoundingTrialGrant(deps: {
   apply: boolean;
   settleMs?: number;
   sleep?: (ms: number) => Promise<void>;
+  now?: Date;
+  /** What the operator saw on Preview; when absent, the check below. */
+  confirmed?: ConfirmedBusiness;
 }): Promise<FoundingTrialRunOutcome> {
-  const { db, stripe, organizationId, apply } = deps;
+  const { db, stripe, organizationId, apply, confirmed } = deps;
+  if (confirmed && confirmed.organizationId !== organizationId) {
+    return { status: "identity_changed", organizationId, reason: IDENTITY_CHANGED };
+  }
+  const verified = await verifiedAbrEntity(db, organizationId);
+  if (!verified.ok) {
+    return { status: "unverified_abn", organizationId, reason: verified.reason };
+  }
+  const { entity } = verified;
   const workspaceId = await grantWorkspaceId(db, organizationId);
+  const ownerId = await organisationOwnerId(db, organizationId);
 
   const before = await currentConflicts(db, stripe, workspaceId);
   if (before.length) {
@@ -224,22 +496,63 @@ export async function runFoundingTrialGrant(deps: {
       apply: false,
       expectWorkspaceId: workspaceId,
     });
-    return { status: "dry_run", result };
+    const basePlan = await grantFoundingTrialBasePlan(db, ownerId, {
+      apply: false,
+      now: deps.now,
+    });
+    return { status: "dry_run", entity, result, basePlan };
   }
 
-  const result = await db.$transaction((tx) =>
-    grantFoundingTrial(tx, organizationId, {
-      apply: true,
-      expectWorkspaceId: workspaceId,
-    }),
-  );
+  const written = await db.$transaction(async (tx) => {
+    // The ABR check above ran before the Stripe reads. Lock the organisation
+    // and its ABR lookup for the rest of this transaction, then check again,
+    // so a setup/hydrate or setup/state write cannot swap the ABN or fail the
+    // lookup between the check and the grant (review r1 P1-ABR-IDENTITY-RACE).
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR UPDATE`,
+    );
+    await tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "HydrationJob" WHERE "organizationId" = ${organizationId} AND "kind" = 'ABR' FOR UPDATE`,
+    );
+    const still = await verifiedAbrEntity(tx, organizationId);
+    if (!still.ok) {
+      return { ok: false as const, status: "unverified_abn" as const, reason: still.reason };
+    }
+    // Bound to what the operator confirmed on Preview, or, with no preview,
+    // to what this run checked before the Stripe reads.
+    const expected = confirmed ?? entity;
+    if (
+      still.entity.abn !== expected.abn ||
+      still.entity.legalName !== expected.legalName
+    ) {
+      return { ok: false as const, status: "identity_changed" as const, reason: IDENTITY_CHANGED };
+    }
+    return {
+      ok: true as const,
+      result: await grantFoundingTrial(tx, organizationId, {
+        apply: true,
+        expectWorkspaceId: workspaceId,
+      }),
+      basePlan: await grantFoundingTrialBasePlan(tx, ownerId, {
+        apply: true,
+        now: deps.now,
+      }),
+    };
+  });
+  if (!written.ok) {
+    return { status: written.status, organizationId, reason: written.reason };
+  }
+  const { result, basePlan } = written;
   const sleep =
     deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   await sleep(deps.settleMs ?? GRANT_SETTLE_MS);
 
   const after = await currentConflicts(db, stripe, workspaceId);
-  if (!after.length) return { status: "granted", result };
-  await db.$transaction((tx) => revertFoundingTrial(tx, result));
+  if (!after.length) return { status: "granted", entity, result, basePlan };
+  await db.$transaction(async (tx) => {
+    await revertFoundingTrial(tx, result);
+    await revertFoundingTrialBasePlan(tx, basePlan);
+  });
   return { status: "reverted", workspaceId, conflicts: after };
 }
 
@@ -266,6 +579,22 @@ export async function revertFoundingTrial(
       await db.featureEntitlement.deleteMany({ where });
     }
   }
+}
+
+async function organisationOwnerId(
+  db: GrantDb,
+  organizationId: string,
+): Promise<string> {
+  const org = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { ownerId: true },
+  });
+  if (!org) {
+    throw new FoundingTrialGrantError(
+      `No organisation with id ${organizationId}`,
+    );
+  }
+  return org.ownerId;
 }
 
 async function grantWorkspaceId(
