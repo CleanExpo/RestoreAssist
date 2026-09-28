@@ -24,9 +24,9 @@ vi.mock("@/lib/idempotency", () => ({
 
 // ── Tenancy — owner write allowed ──────────────────────────────────────────────
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  resolveInspectionWrite: vi.fn().mockResolvedValue({
+  assertInspectionAssignedWrite: vi.fn().mockResolvedValue({
     ok: true,
-    data: { inspectionManyWhere: { id: "insp-1" } },
+    data: { inspectionManyWhere: { id: "insp-1" }, viaAssignment: false },
   }),
 }));
 

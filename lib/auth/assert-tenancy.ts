@@ -553,6 +553,84 @@ export async function resolveInspectionWrite(
 }
 
 /**
+ * RA-7721: the write gate for Guided Capture — the owner's reach, plus the ONE
+ * technician the owner assigned to the job.
+ *
+ * (a) Everyone `resolveInspectionWrite` admits, returned unchanged with
+ *     `viaAssignment: false`.
+ * (b) The assigned technician: `Inspection.technicianId` is the caller, and the
+ *     caller's organisation (read from the DATABASE on this call, never the
+ *     JWT) is a non-empty string equal to the job owner's organisation.
+ *     Removing a technician from the team clears their organisation, so this
+ *     also revokes a removed technician.
+ *
+ * Branch (b) returns write filters that re-check the assignment and the
+ * organisation INSIDE the write statement, so a reassignment between this
+ * check and the write matches 0 rows. None of them is ever `undefined`.
+ *
+ * Deliberately not wider than that: an unassigned colleague in the same
+ * organisation is still refused, and every refusal is an opaque 404.
+ */
+export type AssigneeRefusalReason = "org_null" | "org_mismatch" | "owner_org_null";
+
+export async function assertInspectionAssignedWrite(
+  session: SessionLike | null,
+  inspectionId: string,
+): Promise<
+  TenancyResult<{
+    inspectionWhere: Prisma.InspectionWhereUniqueInput;
+    inspectionManyWhere: Prisma.InspectionWhereInput;
+    childInspectionFilter: Prisma.InspectionWhereInput | undefined;
+    /** True only for branch (b): the caller is the assigned technician, not the owner's reach. */
+    viaAssignment: boolean;
+  }>
+> {
+  const base = await resolveInspectionWrite(session, inspectionId);
+  if (base.ok) return { ok: true, data: { ...base.data, viaAssignment: false } };
+  if (base.status !== 404) return base;
+
+  const userId = session?.user?.id;
+  if (!userId) return base;
+
+  const insp = await prisma.inspection.findUnique({
+    where: { id: inspectionId },
+    select: { technicianId: true, user: { select: { organizationId: true } } },
+  });
+  if (!insp || insp.technicianId !== userId) return base;
+
+  const caller = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
+  const orgT = caller?.organizationId;
+  const ownerOrg = insp.user?.organizationId;
+
+  let reason: AssigneeRefusalReason | null = null;
+  if (typeof orgT !== "string" || orgT.length === 0) reason = "org_null";
+  else if (typeof ownerOrg !== "string" || ownerOrg.length === 0) reason = "owner_org_null";
+  else if (orgT !== ownerOrg) reason = "org_mismatch";
+  if (reason !== null || typeof orgT !== "string") {
+    // Assigned, yet refused: worth a trace. The HTTP answer stays an opaque 404.
+    console.warn("[tenancy.assignee_refused]", { inspectionId, userId, reason });
+    return base;
+  }
+
+  const assignment = {
+    technicianId: userId,
+    user: { organizationId: orgT },
+  } satisfies Prisma.InspectionWhereInput;
+  return {
+    ok: true,
+    data: {
+      inspectionWhere: { id: inspectionId, ...assignment },
+      inspectionManyWhere: { id: inspectionId, ...assignment },
+      childInspectionFilter: assignment,
+      viaAssignment: true,
+    },
+  };
+}
+
+/**
  * Write a CHILD record of an inspection with the caller's scope re-asserted,
  * atomically.
  *

@@ -138,12 +138,6 @@ export async function buildStabilisationPacket(
 
 // ─── Submit ──────────────────────────────────────────────────────────────────
 
-const ENV_VAR_BY_CARRIER: Record<CarrierKey, string> = {
-  guidewire: "GUIDEWIRE_SANDBOX_URL",
-  youi: "YOUI_API_URL",
-  hollard: "HOLLARD_API_URL",
-};
-
 const RESPONSE_ID_KEYS_BY_CARRIER: Record<CarrierKey, readonly string[]> = {
   guidewire: ["claimReference", "id", "publicId"],
   youi: ["caseId", "id", "reference"],
@@ -158,8 +152,14 @@ export async function submitToCarrier(
   packet: StabilisationPacket,
   carrier: CarrierKey,
 ): Promise<SubmitResult> {
-  const envVar = ENV_VAR_BY_CARRIER[carrier];
-  const url = process.env[envVar]?.trim();
+  const urls: Record<CarrierKey, string | undefined> = {
+    guidewire: process.env.GUIDEWIRE_SANDBOX_URL,
+    youi: process.env.YOUI_API_URL,
+    hollard: process.env.HOLLARD_API_URL,
+  };
+  // hasOwn: "toString" and "constructor" are prototype members, not carriers.
+  // Indexing them used to throw from .trim instead of the configured-endpoint result.
+  const url = (Object.hasOwn(urls, carrier) ? urls[carrier] : undefined)?.trim();
   if (!url) {
     return { ok: false, error: "carrier endpoint not configured" };
   }

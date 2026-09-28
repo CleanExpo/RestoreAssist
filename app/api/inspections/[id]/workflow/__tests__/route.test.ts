@@ -15,6 +15,20 @@ vi.mock("@/lib/evidence", () => ({
   getWorkflowTemplate: vi.fn(),
   buildWorkflowStepsData: vi.fn(),
 }));
+// RA-7721: the handler now gates through the shared tenancy helper; the
+// caller here is the owner, so it resolves to the owner's write filters.
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionReadable: vi.fn(),
+  assertInspectionAssignedWrite: vi.fn().mockResolvedValue({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "insp_1", OR: [{ userId: "owner_1" }] },
+      inspectionManyWhere: { id: "insp_1", OR: [{ userId: "owner_1" }] },
+      childInspectionFilter: { OR: [{ userId: "owner_1" }] },
+      viaAssignment: false,
+    },
+  }),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: vi.fn() },

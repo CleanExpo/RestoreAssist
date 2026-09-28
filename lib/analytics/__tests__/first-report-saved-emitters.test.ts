@@ -102,6 +102,11 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
     ok: true,
     data: { inspectionManyWhere: { id } },
   })),
+  // RA-7721: submit gates on the assigned-write helper; the caller is the owner.
+  assertInspectionAssignedWrite: vi.fn(async (_s: unknown, id: string) => ({
+    ok: true,
+    data: { inspectionManyWhere: { id }, viaAssignment: false },
+  })),
   resolveInspectionReach: vi.fn(),
   resolveReportReach: vi.fn(),
 }));
@@ -535,8 +540,11 @@ describe("counted: POST /api/integrations/oauth/[provider]/jobs (import from a c
 });
 
 describe("counted: POST /api/inspections/[id]/submit (inspection submitted as a report)", () => {
-  const inspection = (id: string) => ({
+  // RA-7721 / D1: first_report_saved is credited to the job owner, so the
+  // fixture names one: the signed-in user submitting their own job.
+  const inspection = (id: string, userId: string) => ({
     id,
+    userId,
     status: "DRAFT",
     claimType: "WATER",
     propertyAddress: "1 Test St",
@@ -560,12 +568,12 @@ describe("counted: POST /api/inspections/[id]/submit (inspection submitted as a 
     signIn(user);
     h.db.inspection.updateMany.mockResolvedValue({ count: 1 });
 
-    h.db.inspection.findUnique.mockResolvedValue(inspection("insp-1"));
+    h.db.inspection.findUnique.mockResolvedValue(inspection("insp-1", user));
     const first = await submit("insp-1");
     expect(first.status).toBe(200);
     await settle();
 
-    h.db.inspection.findUnique.mockResolvedValue(inspection("insp-2"));
+    h.db.inspection.findUnique.mockResolvedValue(inspection("insp-2", user));
     const second = await submit("insp-2");
     expect(second.status).toBe(200);
     await settle();
@@ -581,7 +589,7 @@ describe("counted: POST /api/inspections/[id]/submit (inspection submitted as a 
   it("does not record it when the submit loses the race (409, nothing submitted)", async () => {
     const user = "u-submit-conflict";
     signIn(user);
-    h.db.inspection.findUnique.mockResolvedValue(inspection("insp-3"));
+    h.db.inspection.findUnique.mockResolvedValue(inspection("insp-3", user));
     h.db.inspection.updateMany.mockResolvedValue({ count: 0 });
 
     const res = await submit("insp-3");

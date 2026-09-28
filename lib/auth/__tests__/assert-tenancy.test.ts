@@ -10,6 +10,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { prisma } from "@/lib/prisma";
 import {
+  assertInspectionAssignedWrite,
   assertInspectionTenancy,
   assertPortalReportTenancy,
   assertReportTenancy,
@@ -365,6 +366,112 @@ describe("resolveInspectionWrite", () => {
     if (!r.ok) throw new Error("unreachable");
     expect((r.data.inspectionWhere as { OR?: unknown }).OR).toBeTruthy();
     expect(inspFindFirst).toHaveBeenCalled();
+  });
+});
+
+// ─── assertInspectionAssignedWrite (RA-7721) ────────────────────────────────
+
+describe("assertInspectionAssignedWrite", () => {
+  const T = { user: { id: "u_tech" } };
+
+  /** The technician's DB rows: role/org for the scope read, then org for branch (b). */
+  function techInOrg(org: string | null, ownerOrg: string | null, technicianId = "u_tech") {
+    userFindUnique
+      .mockResolvedValueOnce({ role: "USER", organizationId: org })
+      .mockResolvedValueOnce({ organizationId: org });
+    inspFindFirst.mockResolvedValueOnce(null); // not the owner's reach
+    inspFindUnique.mockResolvedValueOnce({
+      technicianId,
+      user: { organizationId: ownerOrg },
+    });
+  }
+
+  function refusedWith(reason: string | null, spy: ReturnType<typeof vi.spyOn>) {
+    const hits = spy.mock.calls.filter((a) => a[0] === "[tenancy.assignee_refused]");
+    if (reason === null) return hits.length === 0;
+    return hits.length === 1 && (hits[0][1] as { reason: string }).reason === reason;
+  }
+
+  it("401 when no session", async () => {
+    const r = await assertInspectionAssignedWrite(null, "insp_1");
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(401);
+  });
+
+  it("branch (a): the owner's result passes through unchanged, viaAssignment false", async () => {
+    inspFindFirst.mockResolvedValueOnce({ id: "insp_1" });
+    const r = await assertInspectionAssignedWrite({ user: { id: "owner_1" } }, "insp_1");
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    expect(r.data.viaAssignment).toBe(false);
+    expect((r.data.inspectionManyWhere as { OR?: unknown }).OR).toBeTruthy();
+    expect(inspFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("branch (b): the assigned, org-matched technician gets filters that re-check the assignment", async () => {
+    techInOrg("org_a", "org_a");
+    const r = await assertInspectionAssignedWrite(T, "insp_1");
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    const assignment = { technicianId: "u_tech", user: { organizationId: "org_a" } };
+    expect(r.data.viaAssignment).toBe(true);
+    expect(r.data.inspectionWhere).toEqual({ id: "insp_1", ...assignment });
+    expect(r.data.inspectionManyWhere).toEqual({ id: "insp_1", ...assignment });
+    expect(r.data.childInspectionFilter).toEqual(assignment);
+  });
+
+  it("not assigned: 404 and no assignee warn", async () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    techInOrg("org_a", "org_a", "someone_else");
+    const r = await assertInspectionAssignedWrite(T, "insp_1");
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(404);
+    expect(refusedWith(null, spy)).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("mismatched organisation: 404 with an org_mismatch warn", async () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    techInOrg("org_b", "org_a");
+    const r = await assertInspectionAssignedWrite(T, "insp_1");
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(404);
+    expect(refusedWith("org_mismatch", spy)).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("technician with no organisation: 404 with an org_null warn", async () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    techInOrg(null, "org_a");
+    const r = await assertInspectionAssignedWrite(T, "insp_1");
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(404);
+    expect(refusedWith("org_null", spy)).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("owner with no organisation never matches an org-less technician: 404, owner_org_null", async () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    techInOrg("org_a", null);
+    const r = await assertInspectionAssignedWrite(T, "insp_1");
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(404);
+    expect(refusedWith("owner_org_null", spy)).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("empty-string organisations are refused, never compared equal", async () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    techInOrg("", "");
+    const r = await assertInspectionAssignedWrite(T, "insp_1");
+    expect(r.ok).toBe(false);
+    expect(refusedWith("org_null", spy)).toBe(true);
+    spy.mockRestore();
   });
 });
 

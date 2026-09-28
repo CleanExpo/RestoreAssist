@@ -21,11 +21,13 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: async () => null,
 }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({
+  // RA-7721: POST gates on the capture reach.
+  assertInspectionCapturable: vi.fn(async () => ({
     ok: true,
     data: { workspaceId: null },
   })),
-  resolveInspectionWrite: vi.fn(),
+  assertInspectionTenancy: vi.fn(),
+  assertInspectionAssignedWrite: vi.fn(),
 }));
 
 // In-memory fake of the idempotencyRecord table — faithful to the contract
@@ -91,13 +93,13 @@ vi.mock("@/lib/storage", () => ({
 }));
 
 import { getServerSession } from "next-auth";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionCapturable } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { BUCKET_OPTIMISED, BUCKET_ORIGINALS } from "@/lib/storage/types";
 import { POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
-const mTenancy = assertInspectionTenancy as unknown as ReturnType<typeof vi.fn>;
+const mTenancy = assertInspectionCapturable as unknown as ReturnType<typeof vi.fn>;
 const mCreate = prisma.evidenceItem.create as unknown as ReturnType<
   typeof vi.fn
 >;

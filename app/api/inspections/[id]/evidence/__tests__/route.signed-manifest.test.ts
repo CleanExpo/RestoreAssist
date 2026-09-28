@@ -20,11 +20,13 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: async () => null,
 }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({
+  // RA-7721: POST gates on the capture reach.
+  assertInspectionCapturable: vi.fn(async () => ({
     ok: true,
     data: { workspaceId: null },
   })),
-  resolveInspectionWrite: vi.fn(),
+  assertInspectionTenancy: vi.fn(),
+  assertInspectionAssignedWrite: vi.fn(),
 }));
 
 // In-memory idempotencyRecord fake — same contract as the slice-1 suite.

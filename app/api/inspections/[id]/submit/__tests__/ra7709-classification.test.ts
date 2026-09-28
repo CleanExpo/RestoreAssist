@@ -31,9 +31,15 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // draft-snapshot still gates on resolveInspectionWrite; submit on the
+  // RA-7721 assigned-write helper.
   resolveInspectionWrite: vi.fn().mockResolvedValue({
     ok: true,
     data: { inspectionManyWhere: { id: "insp-1" } },
+  }),
+  assertInspectionAssignedWrite: vi.fn().mockResolvedValue({
+    ok: true,
+    data: { inspectionManyWhere: { id: "insp-1" }, viaAssignment: false },
   }),
 }));
 
