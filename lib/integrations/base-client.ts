@@ -360,10 +360,18 @@ export function getClientId(provider: IntegrationProvider): string {
     }
   }
 
-  const envKey = `${provider}_CLIENT_ID`;
-  const clientId = process.env[envKey];
+  const clientIds: Record<IntegrationProvider, string | undefined> = {
+    XERO: process.env.XERO_CLIENT_ID,
+    QUICKBOOKS: process.env.QUICKBOOKS_CLIENT_ID,
+    MYOB: process.env.MYOB_CLIENT_ID,
+    SERVICEM8: process.env.SERVICEM8_CLIENT_ID,
+    ASCORA: process.env.ASCORA_CLIENT_ID,
+  };
+  // hasOwn: a plain index would return Object.prototype members such as
+  // "constructor" instead of treating them as unconfigured.
+  const clientId = Object.hasOwn(clientIds, provider) ? clientIds[provider] : undefined;
   if (!clientId) {
-    throw new Error(`${envKey} is not configured`);
+    throw new Error(`${provider}_CLIENT_ID is not configured`);
   }
   return clientId;
 }
@@ -383,10 +391,18 @@ export function getClientSecret(provider: IntegrationProvider): string {
     }
   }
 
-  const envKey = `${provider}_CLIENT_SECRET`;
-  const clientSecret = process.env[envKey];
+  const clientSecrets: Record<IntegrationProvider, string | undefined> = {
+    XERO: process.env.XERO_CLIENT_SECRET,
+    QUICKBOOKS: process.env.QUICKBOOKS_CLIENT_SECRET,
+    MYOB: process.env.MYOB_CLIENT_SECRET,
+    SERVICEM8: process.env.SERVICEM8_CLIENT_SECRET,
+    ASCORA: process.env.ASCORA_CLIENT_SECRET,
+  };
+  const clientSecret = Object.hasOwn(clientSecrets, provider)
+    ? clientSecrets[provider]
+    : undefined;
   if (!clientSecret) {
-    throw new Error(`${envKey} is not configured`);
+    throw new Error(`${provider}_CLIENT_SECRET is not configured`);
   }
   return clientSecret;
 }

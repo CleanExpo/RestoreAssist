@@ -116,7 +116,21 @@ function getProviderEnvCredential(
   provider: string,
   kind: "CLIENT_ID" | "CLIENT_SECRET",
 ): string | null {
-  return process.env[`${provider}_${kind}`] || null;
+  // Read at call time. Unknown providers return null, as an unset env var did.
+  const credentials: Record<string, string | undefined> = {
+    XERO_CLIENT_ID: process.env.XERO_CLIENT_ID,
+    XERO_CLIENT_SECRET: process.env.XERO_CLIENT_SECRET,
+    QUICKBOOKS_CLIENT_ID: process.env.QUICKBOOKS_CLIENT_ID,
+    QUICKBOOKS_CLIENT_SECRET: process.env.QUICKBOOKS_CLIENT_SECRET,
+    MYOB_CLIENT_ID: process.env.MYOB_CLIENT_ID,
+    MYOB_CLIENT_SECRET: process.env.MYOB_CLIENT_SECRET,
+    SERVICEM8_CLIENT_ID: process.env.SERVICEM8_CLIENT_ID,
+    SERVICEM8_CLIENT_SECRET: process.env.SERVICEM8_CLIENT_SECRET,
+    ASCORA_CLIENT_ID: process.env.ASCORA_CLIENT_ID,
+    ASCORA_CLIENT_SECRET: process.env.ASCORA_CLIENT_SECRET,
+  };
+  const key = `${provider}_${kind}`;
+  return (Object.hasOwn(credentials, key) ? credentials[key] : undefined) || null;
 }
 
 /**

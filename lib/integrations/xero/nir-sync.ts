@@ -52,10 +52,23 @@ export interface NIRScopeItem {
 // RA-855: Resolve account code from env var for a given damage type.
 // Applies as fallback when no category-level mapping is found.
 // Env vars: XERO_ACCOUNT_WATER, XERO_ACCOUNT_FIRE, XERO_ACCOUNT_MOULD,
-//           XERO_ACCOUNT_STORM, XERO_ACCOUNT_BIOHAZARD, XERO_ACCOUNT_CONTENTS
+//           XERO_ACCOUNT_STORM, XERO_ACCOUNT_BIOHAZARD, XERO_ACCOUNT_CONTENTS,
+//           XERO_ACCOUNT_GENERAL
 function getDamageTypeAccountCode(damageType: string): string {
-  const envKey = `XERO_ACCOUNT_${damageType.toUpperCase()}`;
-  return process.env[envKey] ?? "200";
+  // Literal reads so each account code is a named env var. GENERAL is part
+  // of the NIR damage-type union. Anything outside this set keeps the
+  // previous fallback of "200".
+  const codes: Record<string, string | undefined> = {
+    WATER: process.env.XERO_ACCOUNT_WATER,
+    FIRE: process.env.XERO_ACCOUNT_FIRE,
+    MOULD: process.env.XERO_ACCOUNT_MOULD,
+    STORM: process.env.XERO_ACCOUNT_STORM,
+    BIOHAZARD: process.env.XERO_ACCOUNT_BIOHAZARD,
+    CONTENTS: process.env.XERO_ACCOUNT_CONTENTS,
+    GENERAL: process.env.XERO_ACCOUNT_GENERAL,
+  };
+  const key = damageType.toUpperCase();
+  return (Object.hasOwn(codes, key) ? codes[key] : undefined) ?? "200";
 }
 
 export interface NIRJobPayload {
