@@ -7,6 +7,17 @@
  * Docs: https://docs.firecrawl.dev/api-reference/endpoint/scrape
  */
 
+/**
+ * RA-7721 — platform Firecrawl key. Used only when a workspace has no BYOK
+ * scraping provider; null when unset or blank.
+ */
+export function resolveFirecrawlKey(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const key = env.FIRECRAWL_API_KEY?.trim();
+  return key ? key : null;
+}
+
 const FIRECRAWL_ENDPOINT = "https://api.firecrawl.dev/v1/scrape";
 const FIRECRAWL_TIMEOUT_MS = 45_000;
 

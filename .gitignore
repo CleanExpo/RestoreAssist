@@ -22,8 +22,9 @@ yarn-error.log*
 !.env.example
 !.env*.example
 
-# MCP config (contains API keys)
-.mcp.json
+# MCP config: .mcp.json is TRACKED (RA-7721) so build agents share the pinned
+# servers. Keys enter only as ${VAR} expansions — tests/unit/mcp-config.test.ts
+# fails on any literal env value. Put personal servers in ~/.claude.json instead.
 
 # vercel
 .vercel
