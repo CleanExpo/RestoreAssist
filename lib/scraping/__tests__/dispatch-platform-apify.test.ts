@@ -1,14 +1,23 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchViaApify = vi.fn();
 const resolveApifyToken = vi.fn();
 const getActiveScrapingProvider = vi.fn();
 const workspaceFindFirst = vi.fn();
 const memberFindFirst = vi.fn();
+const fetchViaFirecrawl = vi.fn();
 
 vi.mock("../providers/apify", () => ({
   fetchViaApify: (...args: unknown[]) => fetchViaApify(...args),
   resolveApifyToken: (...args: unknown[]) => resolveApifyToken(...args),
+}));
+
+// RA-7721: dispatch now also reads FIRECRAWL_API_KEY. Mock the adapter so no
+// test here can reach the network, and keep the real resolver so the
+// per-test env stub below is what decides the platform Firecrawl path.
+vi.mock("../providers/firecrawl", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../providers/firecrawl")>()),
+  fetchViaFirecrawl: (...args: unknown[]) => fetchViaFirecrawl(...args),
 }));
 
 vi.mock("@/lib/workspace/scraping-provider-connections", () => ({
@@ -39,6 +48,15 @@ describe("fetchHtmlViaWorkspaceProvider — platform Apify", () => {
     memberFindFirst.mockReset();
     workspaceFindFirst.mockResolvedValue(null);
     memberFindFirst.mockResolvedValue(null);
+    fetchViaFirecrawl.mockReset();
+    vi.stubEnv("FIRECRAWL_API_KEY", "");
+  });
+
+  afterEach(() => {
+    // Isolation: this suite must never exercise platform Firecrawl, even
+    // when a developer shell has FIRECRAWL_API_KEY set.
+    expect(fetchViaFirecrawl).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
   });
 
   it("uses the platform Apify token when the workspace has no BYOK provider", async () => {

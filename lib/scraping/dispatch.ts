@@ -5,7 +5,9 @@
  * an HTML fetch through the corresponding adapter. Falls back to the
  * caller-supplied SHARED fetch path when there is no configured BYOK provider.
  * A configured BYOK provider fails closed instead of crossing a credential or
- * contractual boundary. Platform Apify may fall back to shared fetch on:
+ * contractual boundary. With no BYOK provider the platform keys are tried in
+ * order — Apify (APIFY_API_TOKEN), then Firecrawl (FIRECRAWL_API_KEY, RA-7721)
+ * — and either may fall back to shared fetch on:
  *   - No workspace
  *   - No active provider / provider = SHARED
  *   - Platform adapter throws (network, auth, bad response)
@@ -18,7 +20,7 @@ import { prisma } from "../prisma";
 import { getActiveScrapingProvider } from "../workspace/scraping-provider-connections";
 import { fetchViaApify, resolveApifyToken } from "./providers/apify";
 import { fetchViaBrightData } from "./providers/brightdata";
-import { fetchViaFirecrawl } from "./providers/firecrawl";
+import { fetchViaFirecrawl, resolveFirecrawlKey } from "./providers/firecrawl";
 import { fetchViaZyte } from "./providers/zyte";
 
 export interface FetchResult {
@@ -130,13 +132,35 @@ export async function fetchHtmlViaWorkspaceProvider(
     );
   }
 
+  // RA-7721 — platform Firecrawl (FIRECRAWL_API_KEY) after platform Apify,
+  // before shared fetch. Unset key → skipped entirely.
+  const firecrawlKey = resolveFirecrawlKey();
+  if (firecrawlKey) {
+    try {
+      const platform = await fetchViaFirecrawl(url, firecrawlKey);
+      return {
+        ...platform,
+        providerUsed: "FIRECRAWL",
+        fellBack: Boolean(resolveApifyToken()),
+      };
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Unknown error";
+      // Provider error text is server-supplied; never let it echo the key.
+      const message = raw.split(firecrawlKey).join("[redacted]");
+      console.warn(
+        `[dispatch] platform Firecrawl failed — falling back to direct fetch: ${message}`,
+      );
+    }
+  }
+
   const result = await sharedFetch(url);
   return {
     ...result,
     providerUsed: "SHARED",
     fellBack:
       Boolean(active && active.provider !== "SHARED") ||
-      Boolean(resolveApifyToken()),
+      Boolean(resolveApifyToken()) ||
+      Boolean(firecrawlKey),
   };
 }
 
