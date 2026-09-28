@@ -14,7 +14,9 @@ import ts from "typescript";
  * Reads .env.example only — never a live env file. Tests are not scanned.
  * Every reference to the process object (a bare `process` that is not a
  * local shadow, `globalThis.process`, or `global.process`) is either resolved
- * to an env name or rejected with file:line. It is not skipped.
+ * to an env name or rejected with file:line. An import, require, or dynamic
+ * import of `process` or `node:process` is rejected with file:line and is
+ * not followed. It is not skipped.
  */
 
 const repoRoot = path.resolve(__dirname, "../..");
@@ -965,7 +967,41 @@ function scanSourceText(filePath: string, text: string): ScanResult {
     return false;
   }
 
+  function isProcessModuleName(text: string | null): boolean {
+    return text === "process" || text === "node:process";
+  }
+
+  function specifierText(expr: ts.Expression | undefined): string | null {
+    if (!expr) return null;
+    const node = unwrap(expr);
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+    return null;
+  }
+
+  /**
+   * Loading the process module binds the same object as the global. Flag the
+   * import or require itself. Do not resolve names through the binding.
+   */
+  function flagProcessModule(node: ts.Node): void {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      isProcessModuleName(specifierText(node.moduleSpecifier))
+    ) {
+      addUnresolved(unresolved, filePath, sf, node);
+      return;
+    }
+    if (!ts.isCallExpression(node)) return;
+    const dynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
+    const required = ts.isIdentifier(node.expression) && node.expression.text === "require";
+    if (!dynamicImport && !required) return;
+    if (isProcessModuleName(specifierText(node.arguments[0]))) {
+      addUnresolved(unresolved, filePath, sf, node);
+    }
+  }
+
   function visit(node: ts.Node): void {
+    flagProcessModule(node);
     if (ts.isExpression(node) && isProcessObjectExpr(node)) {
       accountProcess(node);
     } else if (
@@ -1139,6 +1175,47 @@ describe("runtime env names are documented in .env.example (RA-7477)", () => {
       "STRING_KEY",
       "TEMPLATE_VAR",
     ]);
+  });
+
+  it("fails closed on an import or require of the process module", () => {
+    const samples = [
+      ["require('process')", "const proc = require('process'); void proc.env.REQ_VAR;"],
+      [
+        "require('node:process')",
+        "const proc = require('node:process'); void proc.env.REQ_NODE_VAR;",
+      ],
+      [
+        "import proc from 'node:process'",
+        "import proc from 'node:process'; void proc.env.IMPORT_VAR;",
+      ],
+      [
+        "import { env } from 'node:process'",
+        "import { env } from 'node:process'; void env.IMPORT_ENV_VAR;",
+      ],
+      ["import * as p from 'process'", "import * as p from 'process'; void p.env.STAR_VAR;"],
+      [
+        "import('node:process')",
+        "export async function load() { const proc = await import('node:process'); void proc.env.DYN_VAR; }",
+      ],
+    ] as const;
+    for (const [label, source] of samples) {
+      const result = scanSourceText("lib/mod.ts", source);
+      expect(result.names, label).toEqual([]);
+      expect(result.unresolved.join("\n"), label).toMatch(/lib\/mod\.ts:\d+:/);
+    }
+
+    const other = scanSourceText(
+      "lib/other.ts",
+      [
+        "import fs from 'node:fs';",
+        "const env = require('./config');",
+        "void env.HOST;",
+        "import { env } from './local-env';",
+        "void env.HOST;",
+      ].join("\n"),
+    );
+    expect(other.names).toEqual([]);
+    expect(other.unresolved).toEqual([]);
   });
 
   it("fails closed on a process alias and ignores an unrelated env binding", () => {
