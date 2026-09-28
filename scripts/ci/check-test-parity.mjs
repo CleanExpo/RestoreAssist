@@ -15,6 +15,14 @@
  * var that is missing from the current environment - i.e. every suite that a
  * local run will NOT actually execute.
  *
+ * WHAT IT SCANS
+ * -------------
+ * The file set is derived from `config/vitest.config.js` `test.include`, minus
+ * `test.exclude` — the same set `vitest run --config config/vitest.config.js`
+ * collects. There is no hand-kept root list. If that config cannot be loaded
+ * or its globs cannot be expanded, the guard exits 1. It does not fall back
+ * to a narrower scan.
+ *
  * Modes:
  *   (default)   Report mode. Lists env-gated suites that will skip in the
  *               current environment. Exit 0 (informational).
@@ -29,49 +37,201 @@
  * Usage:  node scripts/ci/check-test-parity.mjs [--strict] [--changed] [--json]
  *         npm run test:parity
  */
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, relative } from "node:path";
+import { readFileSync, readdirSync, statSync, existsSync, realpathSync } from "node:fs";
+import { join, relative, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import { execSync } from "node:child_process";
 
-const ROOT = process.cwd();
-const SCAN_DIRS = ["app", "src", "components", "lib", "server"];
+const VITEST_CONFIG_RELATIVE = "config/vitest.config.js";
+
 const TEST_RE = /\.test\.(ts|tsx|js|jsx|mts)$/;
-const IGNORE_DIRS = new Set([
-  "node_modules",
-  ".next",
-  ".git",
-  "dist",
-  "build",
-  "coverage",
-  ".turbo",
-]);
 
 const ARGS = new Set(process.argv.slice(2));
 const STRICT = ARGS.has("--strict");
 const CHANGED_ONLY = ARGS.has("--changed");
 const AS_JSON = ARGS.has("--json");
 
-/** Recursively collect every test file under the scan dirs. */
-function collectTestFiles(dir, acc = []) {
-  let entries;
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return acc;
+const REFUSAL = "Refusing to fall back to a hand-kept scan list.";
+
+function refusal(message) {
+  return new Error(`test-parity: ${message} ${REFUSAL}`);
+}
+
+/**
+ * Load `test.include` and `test.exclude` from the repo vitest config.
+ * Throws if the file is missing, cannot be evaluated, or does not expose
+ * those fields as string arrays. Never substitutes a default root list.
+ */
+export async function loadVitestTestConfig(root = process.cwd()) {
+  const configPath = join(root, VITEST_CONFIG_RELATIVE);
+  if (!existsSync(configPath)) {
+    throw refusal(`vitest config not found at ${configPath}.`);
   }
-  for (const entry of entries) {
-    if (IGNORE_DIRS.has(entry)) continue;
-    const full = join(dir, entry);
-    let st;
+
+  let mod;
+  try {
+    mod = await import(pathToFileURL(configPath).href);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw refusal(`failed to load ${configPath}: ${detail}.`);
+  }
+
+  let exported = mod?.default ?? mod;
+  if (typeof exported === "function") {
     try {
-      st = statSync(full);
-    } catch {
+      exported = await exported();
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw refusal(`failed to evaluate ${configPath}: ${detail}.`);
+    }
+  }
+
+  const include = exported?.test?.include;
+  const exclude = exported?.test?.exclude;
+  if (
+    !Array.isArray(include) ||
+    include.length === 0 ||
+    include.some((pattern) => typeof pattern !== "string" || pattern.length === 0)
+  ) {
+    throw refusal(
+      `${configPath} test.include must be a non-empty array of glob strings.`,
+    );
+  }
+  if (
+    !Array.isArray(exclude) ||
+    exclude.some((pattern) => typeof pattern !== "string")
+  ) {
+    throw refusal(`${configPath} test.exclude must be an array of glob strings.`);
+  }
+  return { include, exclude, configPath };
+}
+
+function assertSupportedGlob(pattern) {
+  if (pattern.startsWith("!")) {
+    throw refusal(
+      `glob "${pattern}" uses a negation. This guard does not expand negations.`,
+    );
+  }
+  if (/[{}\[\]\\]/.test(pattern)) {
+    throw refusal(
+      `glob "${pattern}" uses braces, character classes, or backslashes. This guard does not expand that syntax.`,
+    );
+  }
+  for (const part of pattern.split("/")) {
+    if (part.includes("**") && part !== "**") {
+      throw refusal(
+        `glob "${pattern}" has "**" inside a path segment. This guard does not expand that syntax.`,
+      );
+    }
+  }
+}
+
+/** Picomatch-style subset: `**` is a whole segment, `*` and `?` stay in-segment. */
+export function globToRegExp(pattern) {
+  assertSupportedGlob(pattern);
+  let source = "^";
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+    if (char === "*") {
+      if (pattern[i + 1] === "*") {
+        if (pattern[i + 2] === "/") {
+          source += "(?:[^/]+/)*";
+          i += 2;
+          continue;
+        }
+        source += ".*";
+        i += 1;
+        continue;
+      }
+      source += "[^/]*";
       continue;
     }
-    if (st.isDirectory()) collectTestFiles(full, acc);
-    else if (TEST_RE.test(entry)) acc.push(full);
+    if (char === "?") {
+      source += "[^/]";
+      continue;
+    }
+    if ("\\^$+?.()|".includes(char)) source += "\\";
+    source += char;
   }
-  return acc;
+  source += "$";
+  return new RegExp(source);
+}
+
+function staticPrefix(pattern) {
+  const prefix = [];
+  for (const part of pattern.split("/")) {
+    if (part.includes("*") || part.includes("?")) break;
+    prefix.push(part);
+  }
+  return prefix.join("/");
+}
+
+function toPosixRelative(root, abs) {
+  return relative(root, abs).split(sep).join("/");
+}
+
+function collectMatching(root, pattern) {
+  const re = globToRegExp(pattern);
+  const prefix = staticPrefix(pattern);
+  const start = prefix ? join(root, prefix) : root;
+  if (!existsSync(start)) return [];
+
+  const out = [];
+  const seen = new Set();
+  const walk = (abs) => {
+    let real;
+    try {
+      real = realpathSync(abs);
+    } catch {
+      return;
+    }
+    if (seen.has(real)) return;
+    seen.add(real);
+
+    let st;
+    try {
+      st = statSync(real);
+    } catch {
+      return;
+    }
+    if (st.isDirectory()) {
+      let entries;
+      try {
+        entries = readdirSync(real);
+      } catch {
+        return;
+      }
+      for (const entry of entries) walk(join(abs, entry));
+      return;
+    }
+    if (!st.isFile()) return;
+    const rel = toPosixRelative(root, abs);
+    if (re.test(rel)) out.push(rel);
+  };
+  walk(start);
+  return out;
+}
+
+/**
+ * Files vitest would collect: every path matching `include`, minus any path
+ * matching `exclude`. Paths are repo-relative and sorted.
+ */
+export function filesMatchingVitestGlobs(root, include, exclude) {
+  const excludeRes = exclude.map((pattern) => globToRegExp(pattern));
+  const files = new Set();
+  for (const pattern of include) {
+    for (const rel of collectMatching(root, pattern)) {
+      if (excludeRes.some((re) => re.test(rel))) continue;
+      files.add(rel);
+    }
+  }
+  return [...files].sort();
+}
+
+/** Scan set for this repo: vitest include minus vitest exclude. */
+export async function listParityScanFiles(root = process.cwd()) {
+  const { include, exclude } = await loadVitestTestConfig(root);
+  return filesMatchingVitestGlobs(root, include, exclude);
 }
 
 /** Files changed vs origin/main (best-effort; empty set => "consider all"). */
@@ -102,7 +262,7 @@ function changedTestFiles() {
  *   2. Aliased:  const HAS_DB = !!process.env.DATABASE_URL
  *                describe.skipIf(!HAS_DB)(...)
  */
-function gatingEnvVars(src) {
+export function gatingEnvVars(src) {
   const vars = new Set();
 
   // Map local boolean aliases -> env var, e.g. `const HAS_DB = process.env.DATABASE_URL`
@@ -125,72 +285,96 @@ function gatingEnvVars(src) {
   return vars;
 }
 
-const changed = CHANGED_ONLY ? changedTestFiles() : null;
+async function main() {
+  const root = process.cwd();
+  let scanned;
+  try {
+    scanned = await listParityScanFiles(root);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
 
-const findings = [];
-for (const dir of SCAN_DIRS) {
-  const abs = join(ROOT, dir);
-  if (!existsSync(abs)) continue;
-  for (const file of collectTestFiles(abs)) {
-    const rel = relative(ROOT, file);
-    if (changed && !changed.has(rel)) continue;
-    const src = readFileSync(file, "utf8");
+  const changed = CHANGED_ONLY ? changedTestFiles() : null;
+  const considered = changed
+    ? scanned.filter((rel) => changed.has(rel))
+    : scanned;
+
+  const findings = [];
+  for (const rel of considered) {
+    const src = readFileSync(join(root, rel), "utf8");
     if (!/\.(?:skipIf|runIf)\(/.test(src)) continue;
     const vars = [...gatingEnvVars(src)];
     if (vars.length) findings.push({ file: rel, vars });
   }
-}
 
-// Aggregate which gating env vars are present vs missing in THIS environment.
-const allVars = new Set();
-for (const f of findings) f.vars.forEach((v) => allVars.add(v));
-const missing = [...allVars].filter((v) => !process.env[v]).sort();
-const present = [...allVars].filter((v) => process.env[v]).sort();
+  // Aggregate which gating env vars are present vs missing in THIS environment.
+  const allVars = new Set();
+  for (const f of findings) f.vars.forEach((v) => allVars.add(v));
+  const missing = [...allVars].filter((v) => !process.env[v]).sort();
+  const present = [...allVars].filter((v) => process.env[v]).sort();
 
-const skippedHere = findings.filter((f) =>
-  f.vars.some((v) => missing.includes(v)),
-);
-
-if (AS_JSON) {
-  console.log(
-    JSON.stringify(
-      { findings, present, missing, skippedHere, strict: STRICT },
-      null,
-      2,
-    ),
+  const skippedHere = findings.filter((f) =>
+    f.vars.some((v) => missing.includes(v)),
   );
-} else {
-  const scope = CHANGED_ONLY ? "changed test files" : "all test files";
-  console.log(`\nCI test-parity guard — scope: ${scope}\n`);
-  if (findings.length === 0) {
-    console.log("  No env-gated suites found. Local run is CI-representative.\n");
-  } else {
+
+  if (AS_JSON) {
     console.log(
-      `  Env-gated suites: ${findings.length} file(s) gate on: ${[...allVars].sort().join(", ")}`,
+      JSON.stringify(
+        {
+          scannedCount: considered.length,
+          findings,
+          present,
+          missing,
+          skippedHere,
+          strict: STRICT,
+        },
+        null,
+        2,
+      ),
     );
-    if (present.length) console.log(`  Present here:  ${present.join(", ")}`);
-    if (missing.length) {
-      console.log(`  MISSING here:  ${missing.join(", ")}`);
-      console.log(
-        `\n  ${skippedHere.length} file(s) will SILENTLY SKIP locally but RUN in CI:\n`,
-      );
-      for (const f of skippedHere) {
-        console.log(`    - ${f.file}  [${f.vars.join(", ")}]`);
-      }
-      console.log(
-        "\n  A local 'green' here does NOT prove these suites pass.\n" +
-          "  Run them the CI way before claiming green:  npm run test:db\n",
-      );
+  } else {
+    const scope = CHANGED_ONLY
+      ? "changed test files within vitest include"
+      : "vitest include";
+    console.log(
+      `\nCI test-parity guard — scope: ${scope} (${considered.length} file(s))\n`,
+    );
+    if (findings.length === 0) {
+      console.log("  No env-gated suites found. Local run is CI-representative.\n");
     } else {
-      console.log("\n  All gating env vars are present. Local run is CI-representative.\n");
+      console.log(
+        `  Env-gated suites: ${findings.length} file(s) gate on: ${[...allVars].sort().join(", ")}`,
+      );
+      if (present.length) console.log(`  Present here:  ${present.join(", ")}`);
+      if (missing.length) {
+        console.log(`  MISSING here:  ${missing.join(", ")}`);
+        console.log(
+          `\n  ${skippedHere.length} file(s) will SILENTLY SKIP locally but RUN in CI:\n`,
+        );
+        for (const f of skippedHere) {
+          console.log(`    - ${f.file}  [${f.vars.join(", ")}]`);
+        }
+        console.log(
+          "\n  A local 'green' here does NOT prove these suites pass.\n" +
+            "  Run them the CI way before claiming green:  npm run test:db\n",
+        );
+      } else {
+        console.log("\n  All gating env vars are present. Local run is CI-representative.\n");
+      }
     }
+  }
+
+  if (STRICT && missing.length) {
+    console.error(
+      `test-parity: ${missing.length} gating env var(s) missing (${missing.join(", ")}). ` +
+        `Refusing to treat this run as authoritative. Use 'npm run test:db'.`,
+    );
+    process.exit(1);
   }
 }
 
-if (STRICT && missing.length) {
-  console.error(
-    `test-parity: ${missing.length} gating env var(s) missing (${missing.join(", ")}). ` +
-      `Refusing to treat this run as authoritative. Use 'npm run test:db'.`,
-  );
-  process.exit(1);
+const invokedDirectly = process.argv[1]?.endsWith("check-test-parity.mjs");
+if (invokedDirectly) {
+  await main();
 }

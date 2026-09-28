@@ -2,7 +2,9 @@
 #
 # RestoreAssist - run the unit suite the CI way (with a real Postgres).
 #
-# WHY: 16+ test files are gated with `describe.skipIf(!process.env.DATABASE_URL)`.
+# WHY: 40 test files (vitest include, measured 2026-09-28) are gated with
+# `describe.skipIf(!process.env.DATABASE_URL)`. The parity guard derives that
+# file set from config/vitest.config.js; it is not a hand-kept root list.
 # Without a DB they SILENTLY SKIP, so a plain `vitest run` is not CI-representative
 # (see scripts/ci/check-test-parity.mjs). This script stands up the SAME Postgres
 # image CI uses (pgvector 0.8.6-pg16, pinned by digest), applies migrations, exports DATABASE_URL,

@@ -16,7 +16,7 @@ A focused playbook for the single most common red-CI surprise on RestoreAssist:
 
 ## Why this keeps happening (the mechanism)
 
-16+ test files gate themselves with:
+40 test files (measured 2026-09-28 against vitest's include set) gate themselves with:
 
 ```ts
 describe.skipIf(!process.env.DATABASE_URL)("...", () => { ... })
@@ -26,6 +26,12 @@ describe.skipIf(!process.env.DATABASE_URL)("...", () => { ... })
   `vitest run` reports them as skipped (not failed) and exits 0 → looks green.
 - **In CI** the `pgvector/pgvector:pg16` Postgres service sets `DATABASE_URL`, so the
   exact same suites **run for real** — and can fail.
+
+The parity guard does not keep its own root list. It scans every file
+`config/vitest.config.js` `test.include` selects, minus `test.exclude`, which
+is the set `vitest run` collects — including `scripts/**/__tests__` and
+`tests/unit`. The "40" above is that env-gated subset on the date noted, not
+a second source of truth.
 
 So the bug was always there; your local run just never executed it. Common triggers:
 
