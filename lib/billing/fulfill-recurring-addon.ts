@@ -17,6 +17,7 @@
  */
 
 import type Stripe from "stripe";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import {
@@ -24,6 +25,10 @@ import {
   getRecurringAddonBySubscriptionType,
 } from "@/lib/billing/addon-registry";
 import type { FulfillResult } from "@/lib/billing/fulfill-one-time";
+import {
+  COMPLIMENTARY_PRICE_ID,
+  isComplimentaryEntitlement,
+} from "@/lib/billing/founding-trial-grant";
 
 export interface RecurringAddonFulfillResult extends FulfillResult {
   sku?: string;
@@ -67,25 +72,73 @@ export async function applyRecurringAddonSubscription(
     ? (subscription.items?.data?.[0]?.quantity ?? 1)
     : undefined;
 
-  await prisma.featureEntitlement.upsert({
-    where: {
-      workspaceId_sku: { workspaceId, sku: descriptor.sku },
-    },
-    create: {
-      workspaceId,
-      sku: descriptor.sku,
-      active,
-      seats,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId,
-    },
-    update: {
-      active,
-      seats,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId,
-    },
-  });
+  // RA-7721 — a Founding Trial grant is free and stays free: never overwrite
+  // or deactivate a complimentary row (a checkout opened before the grant, or
+  // any later subscription event). The filter makes the write conditional in
+  // the same statement. When it does not match an existing row, Prisma falls
+  // back to create and hits the unique key; the row is then re-read, and the
+  // event is skipped only if that row really is complimentary. Otherwise the
+  // conflict was two events for one subscription racing, and the write is
+  // retried once, now as an update.
+  const where = {
+    workspaceId_sku: { workspaceId, sku: descriptor.sku },
+    OR: [
+      { stripePriceId: null },
+      { NOT: { stripePriceId: COMPLIMENTARY_PRICE_ID } },
+    ],
+  };
+  const values = {
+    active,
+    seats,
+    stripeSubscriptionId: subscription.id,
+    stripePriceId,
+  };
+  const write = () =>
+    prisma.featureEntitlement.upsert({
+      where,
+      create: { workspaceId, sku: descriptor.sku, ...values },
+      update: values,
+    });
+
+  try {
+    await write();
+  } catch (e) {
+    if (
+      !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+      e.code !== "P2002"
+    ) {
+      throw e;
+    }
+    const current = await prisma.featureEntitlement.findUnique({
+      where: { workspaceId_sku: { workspaceId, sku: descriptor.sku } },
+      select: { stripePriceId: true },
+    });
+    if (isComplimentaryEntitlement(current)) {
+      // A paid subscription exists for an add-on this business holds free
+      // (a checkout that completed after the Founding Trial grant). The free
+      // row is kept; whether to cancel and refund the subscription is an
+      // owner decision (RULES.md #32), so it is surfaced, not actioned.
+      const active =
+        subscription.status === "active" || subscription.status === "trialing";
+      (active ? console.error : console.warn)(
+        active
+          ? "[recurring-addon] PAID SUBSCRIPTION ON A FREE FOUNDING TRIAL ADD-ON — needs owner review (cancel/refund)"
+          : "[recurring-addon] complimentary entitlement kept; subscription event not applied",
+        {
+          workspaceId,
+          sku: descriptor.sku,
+          subscriptionId: subscription.id,
+          customerId:
+            typeof subscription.customer === "string"
+              ? subscription.customer
+              : (subscription.customer?.id ?? null),
+          status: subscription.status,
+        },
+      );
+      return true;
+    }
+    await write();
+  }
 
   return true;
 }

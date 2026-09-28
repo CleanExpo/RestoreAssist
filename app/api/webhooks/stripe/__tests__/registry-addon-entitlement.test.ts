@@ -81,6 +81,11 @@ describe("handleRecurringAddonSubscription — fixture registry entry (RA-6920 B
     expect(mockUpsert).toHaveBeenCalledWith({
       where: {
         workspaceId_sku: { workspaceId: "ws_9", sku: "FIXTURE_ADDON" },
+        // RA-7721: never overwrite a free Founding Trial grant.
+        OR: [
+          { stripePriceId: null },
+          { NOT: { stripePriceId: "complimentary:founding-trial" } },
+        ],
       },
       create: {
         workspaceId: "ws_9",

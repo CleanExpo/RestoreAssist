@@ -60,7 +60,11 @@ const stripeMock = vi.hoisted(() => ({
 vi.mock("@/lib/stripe", () => ({ stripe: stripeMock }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { user: { findUnique: vi.fn(), update: vi.fn() } },
+  prisma: {
+    user: { findUnique: vi.fn(), update: vi.fn() },
+    // RA-7721: checkout first checks for a free Founding Trial grant.
+    featureEntitlement: { findUnique: vi.fn(async () => null) },
+  },
 }));
 
 vi.mock("@/lib/workspace/provider-connections", () => ({

@@ -1,0 +1,379 @@
+/**
+ * RA-7721 / RA-7717 — Founding Trial grant.
+ *
+ * Founder ruling (27/09/2026): a Founding Trial business gets every technician
+ * seat free and every add-on switched on, none of it charged.
+ *
+ * The grant is a set of FeatureEntitlement rows on the organisation owner's
+ * oldest READY workspace — the same workspace `technicianSeatUsage` and
+ * `/api/addons/checkout` (via getWorkspaceForUser) resolve for the owner —
+ * marked active, with no Stripe subscription, and `stripePriceId` set to
+ * COMPLIMENTARY_PRICE_ID. That marker is what keeps the grant free:
+ *   - `/api/addons/checkout` refuses to sell an add-on held complimentary,
+ *     and checks again after creating a session, withholding its link if
+ *     the grant committed in between;
+ *   - `applyRecurringAddonSubscription` will not overwrite or deactivate it,
+ *     so a checkout left open before the grant cannot replace it.
+ * Nothing else reads `stripePriceId`, so the marker needs no schema change.
+ *
+ * A row already linked to a Stripe subscription is never written: each write
+ * is a conditional update on `stripeSubscriptionId: null`, or a create that
+ * loses cleanly to a concurrent Stripe write, so a paid row that appears
+ * between planning and writing is skipped and reported, not overwritten.
+ *
+ * `runFoundingTrialGrant` wraps the grant in Stripe checks so it is never
+ * applied while the business has add-on billing in flight (see there).
+ */
+
+import { AddonSku, type Prisma, type PrismaClient } from "@prisma/client";
+import { getRecurringAddonBySubscriptionType } from "./addon-registry";
+
+type GrantDb = PrismaClient | Prisma.TransactionClient;
+
+/** Seat count for a Founding Trial: effectively unlimited, still an Int. */
+export const FOUNDING_TRIAL_SEATS = 999;
+
+/** `stripePriceId` value that marks an entitlement as a free grant. */
+export const COMPLIMENTARY_PRICE_ID = "complimentary:founding-trial";
+
+export function isComplimentaryEntitlement(
+  row: { stripePriceId?: string | null } | null | undefined,
+): boolean {
+  return row?.stripePriceId === COMPLIMENTARY_PRICE_ID;
+}
+
+/** A row's state before the grant wrote it; null when there was no row. */
+export type PriorEntitlement = {
+  active: boolean;
+  seats: number | null;
+  stripePriceId: string | null;
+} | null;
+
+export interface FoundingTrialGrantResult {
+  workspaceId: string;
+  /** SKUs written (or that would be written, on a dry run). */
+  granted: AddonSku[];
+  /** SKUs skipped because a Stripe subscription backs the row. */
+  skippedPaid: AddonSku[];
+  /** For each granted SKU, what the row held before, so it can be put back. */
+  prior: Partial<Record<AddonSku, PriorEntitlement>>;
+  applied: boolean;
+}
+
+export class FoundingTrialGrantError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FoundingTrialGrantError";
+  }
+}
+
+/**
+ * Stripe billing for this business that the grant would collide with: an
+ * add-on Checkout not yet finished, or a live add-on subscription that no
+ * entitlement row records yet (its checkout completed but the webhook has not
+ * landed). Either one would leave the business paying for an add-on it holds
+ * free, so the grant refuses while any exist and names them.
+ */
+export interface BillingConflict {
+  kind: "open_checkout" | "live_subscription";
+  id: string;
+  customer: string | null;
+  sku: string | null;
+}
+
+type Metadata = Record<string, string> | null | undefined;
+
+export type BillingReader = {
+  checkout: {
+    sessions: {
+      list(params: {
+        status: "open";
+        limit: number;
+      }): AsyncIterable<{
+        id: string;
+        customer: string | { id: string } | null;
+        metadata?: Metadata;
+      }>;
+    };
+  };
+  subscriptions: {
+    list(params: { limit: number }): AsyncIterable<{
+      id: string;
+      status: string;
+      customer: string | { id: string };
+      metadata?: Metadata;
+    }>;
+  };
+};
+
+/** Subscription states that can no longer charge. */
+const FINISHED_SUBSCRIPTION = new Set(["canceled", "incomplete_expired"]);
+
+const customerId = (c: string | { id: string } | null) =>
+  typeof c === "string" ? c : (c?.id ?? null);
+
+/**
+ * Read-only: nothing is expired, cancelled or refunded.
+ *
+ * Both lists run across the whole Stripe account, not per customer, and keep
+ * what Checkout stamped with this workspace id. A payer the database can no
+ * longer name (a removed member, a deleted user, a replaced customer id) is
+ * still found, and a list reads current state where Stripe's search index
+ * can trail. Every add-on Checkout the app creates carries the workspace id
+ * (/api/addons/checkout), and an unfinished session expires within 24 hours,
+ * so every live add-on session carries it.
+ */
+export async function addonBillingConflicts(
+  stripe: BillingReader,
+  workspaceId: string,
+  linkedSubscriptionIds: ReadonlySet<string>,
+): Promise<BillingConflict[]> {
+  const conflicts: BillingConflict[] = [];
+  for await (const s of stripe.checkout.sessions.list({
+    status: "open",
+    limit: 100,
+  })) {
+    const m = s.metadata;
+    if (m?.type !== "addon_subscription" || m.workspaceId !== workspaceId) {
+      continue;
+    }
+    conflicts.push({
+      kind: "open_checkout",
+      id: s.id,
+      customer: customerId(s.customer),
+      sku: m.sku ?? null,
+    });
+  }
+  // Without a status filter Stripe lists every subscription not cancelled.
+  for await (const sub of stripe.subscriptions.list({ limit: 100 })) {
+    const m = sub.metadata;
+    if (m?.workspaceId !== workspaceId) continue;
+    if (!getRecurringAddonBySubscriptionType(m.type ?? "")) continue;
+    if (FINISHED_SUBSCRIPTION.has(sub.status)) continue;
+    if (linkedSubscriptionIds.has(sub.id)) continue;
+    conflicts.push({
+      kind: "live_subscription",
+      id: sub.id,
+      customer: customerId(sub.customer),
+      sku: m.sku ?? null,
+    });
+  }
+  return conflicts;
+}
+
+async function currentConflicts(
+  db: GrantDb,
+  stripe: BillingReader,
+  workspaceId: string,
+): Promise<BillingConflict[]> {
+  const rows = await db.featureEntitlement.findMany({
+    where: { workspaceId },
+    select: { stripeSubscriptionId: true },
+  });
+  const linked = new Set(
+    rows
+      .map((r) => r.stripeSubscriptionId)
+      .filter((id): id is string => !!id),
+  );
+  return addonBillingConflicts(stripe, workspaceId, linked);
+}
+
+/**
+ * How long the grant waits after writing before it checks Stripe again.
+ * Correctness does not rest on this wait. Checkout re-reads the row after
+ * creating a session, so a session created after the grant committed never
+ * has its link handed out; one created before is already listable when the
+ * second check runs. The wait is margin, letting a request already under way
+ * finish so the second check sees its outcome.
+ */
+export const GRANT_SETTLE_MS = 5 * 60 * 1000;
+
+export type FoundingTrialRunOutcome =
+  | { status: "refused"; workspaceId: string; conflicts: BillingConflict[] }
+  | { status: "reverted"; workspaceId: string; conflicts: BillingConflict[] }
+  | { status: "dry_run" | "granted"; result: FoundingTrialGrantResult };
+
+/**
+ * Check Stripe, write the grant, wait (GRANT_SETTLE_MS), then check again.
+ * From the moment the grant commits, checkout refuses every granted add-on
+ * (409) and withholds the link of any session it created after that instant,
+ * so a payable conflict can only be a session created before the commit; the
+ * second check sees it and the grant is put back as it was. The business is
+ * never left holding a free add-on it is also paying for, and the grant
+ * touches nothing in Stripe.
+ */
+export async function runFoundingTrialGrant(deps: {
+  db: PrismaClient;
+  stripe: BillingReader;
+  organizationId: string;
+  apply: boolean;
+  settleMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+}): Promise<FoundingTrialRunOutcome> {
+  const { db, stripe, organizationId, apply } = deps;
+  const workspaceId = await grantWorkspaceId(db, organizationId);
+
+  const before = await currentConflicts(db, stripe, workspaceId);
+  if (before.length) {
+    return { status: "refused", workspaceId, conflicts: before };
+  }
+  // The grant is pinned to the workspace both checks cover, so it cannot land
+  // on a different one if another of the owner's workspaces turns READY.
+  if (!apply) {
+    const result = await grantFoundingTrial(db, organizationId, {
+      apply: false,
+      expectWorkspaceId: workspaceId,
+    });
+    return { status: "dry_run", result };
+  }
+
+  const result = await db.$transaction((tx) =>
+    grantFoundingTrial(tx, organizationId, {
+      apply: true,
+      expectWorkspaceId: workspaceId,
+    }),
+  );
+  const sleep =
+    deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  await sleep(deps.settleMs ?? GRANT_SETTLE_MS);
+
+  const after = await currentConflicts(db, stripe, workspaceId);
+  if (!after.length) return { status: "granted", result };
+  await db.$transaction((tx) => revertFoundingTrial(tx, result));
+  return { status: "reverted", workspaceId, conflicts: after };
+}
+
+/**
+ * Put back every row this grant wrote, as it was before. Each write is
+ * conditional on the row still being the untouched free grant, so a row
+ * Stripe has since linked to a subscription is left alone.
+ */
+export async function revertFoundingTrial(
+  db: GrantDb,
+  result: FoundingTrialGrantResult,
+): Promise<void> {
+  for (const sku of result.granted) {
+    const where = {
+      workspaceId: result.workspaceId,
+      sku,
+      stripePriceId: COMPLIMENTARY_PRICE_ID,
+      stripeSubscriptionId: null,
+    };
+    const prior = result.prior[sku];
+    if (prior) {
+      await db.featureEntitlement.updateMany({ where, data: prior });
+    } else {
+      await db.featureEntitlement.deleteMany({ where });
+    }
+  }
+}
+
+async function grantWorkspaceId(
+  db: GrantDb,
+  organizationId: string,
+): Promise<string> {
+  const org = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { ownerId: true },
+  });
+  if (!org) {
+    throw new FoundingTrialGrantError(
+      `No organisation with id ${organizationId}`,
+    );
+  }
+
+  const workspace = await db.workspace.findFirst({
+    where: { ownerId: org.ownerId, status: "READY" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (!workspace) {
+    throw new FoundingTrialGrantError(
+      `Organisation ${organizationId} has no READY workspace`,
+    );
+  }
+  return workspace.id;
+}
+
+export async function grantFoundingTrial(
+  db: GrantDb,
+  organizationId: string,
+  opts: { apply: boolean; expectWorkspaceId?: string },
+): Promise<FoundingTrialGrantResult> {
+  const workspaceId = await grantWorkspaceId(db, organizationId);
+  if (opts.expectWorkspaceId && workspaceId !== opts.expectWorkspaceId) {
+    throw new FoundingTrialGrantError(
+      `Organisation ${organizationId}'s workspace changed from ` +
+        `${opts.expectWorkspaceId} to ${workspaceId} while Stripe was being ` +
+        `checked. Nothing was written; run the grant again.`,
+    );
+  }
+
+  const granted: AddonSku[] = [];
+  const skippedPaid: AddonSku[] = [];
+  const prior: FoundingTrialGrantResult["prior"] = {};
+
+  const existing = await db.featureEntitlement.findMany({
+    where: { workspaceId },
+    select: {
+      sku: true,
+      active: true,
+      seats: true,
+      stripePriceId: true,
+      stripeSubscriptionId: true,
+    },
+  });
+
+  if (!opts.apply) {
+    const paid = new Set(
+      existing.filter((e) => e.stripeSubscriptionId).map((e) => e.sku),
+    );
+    for (const sku of Object.values(AddonSku)) {
+      (paid.has(sku) ? skippedPaid : granted).push(sku);
+    }
+    return { workspaceId, granted, skippedPaid, prior, applied: false };
+  }
+
+  // Snapshot the values now, before any write, so a revert restores them.
+  const before = new Map<AddonSku, NonNullable<PriorEntitlement>>(
+    existing.map((e) => [
+      e.sku,
+      { active: e.active, seats: e.seats, stripePriceId: e.stripePriceId },
+    ]),
+  );
+  for (const sku of Object.values(AddonSku)) {
+    const data = {
+      active: true,
+      seats: sku === AddonSku.TECHNICIAN_SEATS ? FOUNDING_TRIAL_SEATS : null,
+      stripePriceId: COMPLIMENTARY_PRICE_ID,
+    };
+
+    // Only a row with no Stripe subscription may be written.
+    const updated = await db.featureEntitlement.updateMany({
+      where: { workspaceId, sku, stripeSubscriptionId: null },
+      data,
+    });
+    if (updated.count === 1) {
+      prior[sku] = before.get(sku) ?? null;
+      granted.push(sku);
+      continue;
+    }
+
+    // No writable row: create one, unless a row already exists — then a
+    // Stripe subscription backs it (possibly written a moment ago) and it is
+    // left alone. skipDuplicates is ON CONFLICT DO NOTHING, so a conflict
+    // does not abort the surrounding transaction the way a failed create would.
+    const created = await db.featureEntitlement.createMany({
+      data: [{ workspaceId, sku, ...data }],
+      skipDuplicates: true,
+    });
+    if (created.count === 1) {
+      prior[sku] = null;
+      granted.push(sku);
+    } else {
+      skippedPaid.push(sku);
+    }
+  }
+
+  return { workspaceId, granted, skippedPaid, prior, applied: true };
+}

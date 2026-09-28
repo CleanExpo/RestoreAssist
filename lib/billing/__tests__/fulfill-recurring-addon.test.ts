@@ -104,6 +104,11 @@ describe("applyRecurringAddonSubscription", () => {
       expect.objectContaining({
         where: {
           workspaceId_sku: { workspaceId: "ws_1", sku: "BOOKKEEPING" },
+          // RA-7721: never overwrite a free Founding Trial grant.
+          OR: [
+            { stripePriceId: null },
+            { NOT: { stripePriceId: "complimentary:founding-trial" } },
+          ],
         },
         create: expect.objectContaining({
           workspaceId: "ws_1",
@@ -157,6 +162,11 @@ describe("fulfillRecurringAddonFromSession", () => {
       expect.objectContaining({
         where: {
           workspaceId_sku: { workspaceId: "ws_1", sku: "BOOKKEEPING" },
+          // RA-7721: never overwrite a free Founding Trial grant.
+          OR: [
+            { stripePriceId: null },
+            { NOT: { stripePriceId: "complimentary:founding-trial" } },
+          ],
         },
       }),
     );
