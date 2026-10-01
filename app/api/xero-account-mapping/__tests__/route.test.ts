@@ -342,3 +342,13 @@ describe("DELETE /api/xero-account-mapping", () => {
     });
   });
 });
+
+// These tests cover route policy/import behaviour; provider identity has dedicated real-service regressions.
+vi.mock("@/lib/services/integrations/select-oauth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/services/integrations/select-oauth")>();
+  return { ...actual, selectOAuthIntegration: vi.fn(async (input: { prisma: any; userId: string; provider: string; requireReady?: boolean }) => {
+    const row = await input.prisma.integration.findFirst({ where: { userId: input.userId, provider: input.provider,
+      ...(input.requireReady ? { status: { in: ["CONNECTED", "ERROR", "SYNCING"] } } : {}) } });
+    return row ? { ok: true, data: row } : { ok: false, reason: "NOT_FOUND" };
+  }) };
+});

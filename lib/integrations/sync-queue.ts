@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
 import { Integration, IntegrationProvider } from "@prisma/client";
 import { withRateLimit } from "./rate-limiter";
 import { withCircuitBreaker, DEFAULT_CIRCUIT_OPTIONS } from "./circuit-breaker";
@@ -348,14 +349,11 @@ async function _syncInvoiceToProvider(
   provider: IntegrationProvider,
 ): Promise<void> {
   // Find the active integration for this provider + workspace/user
-  const integration = await prisma.integration.findFirst({
-    where: {
-      provider,
-      userId: invoice.userId,
-      ...(invoice.workspaceId ? { workspaceId: invoice.workspaceId } : {}),
-      status: "CONNECTED",
-    },
+  const selection = await selectOAuthIntegration({
+    prisma, userId: invoice.userId, provider,
+    workspaceId: invoice.workspaceId ?? null, requireReady: true,
   });
+  const integration = selection.ok ? selection.data : null;
 
   if (!integration) {
     throw new Error(

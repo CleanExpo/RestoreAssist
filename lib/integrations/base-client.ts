@@ -5,6 +5,7 @@
 
 import {
   getTokens,
+  assertOAuthIntegration,
   storeTokens,
   markIntegrationError,
   logSync,
@@ -88,7 +89,7 @@ export abstract class BaseIntegrationClient {
     endpoint: string,
     options: RequestInit = {},
   ): Promise<T> {
-    const tokens = await getTokens(this.integrationId);
+    const tokens = await getTokens(this.integrationId, this.provider);
 
     if (!tokens.accessToken) {
       throw new Error("No access token available");
@@ -108,7 +109,7 @@ export abstract class BaseIntegrationClient {
     if (needsRefresh && tokens.refreshToken) {
       await this.refreshAccessToken();
       // Re-fetch tokens after refresh
-      const newTokens = await getTokens(this.integrationId);
+      const newTokens = await getTokens(this.integrationId, this.provider);
       if (!newTokens.accessToken) {
         throw new Error("Failed to refresh access token");
       }
@@ -133,6 +134,7 @@ export abstract class BaseIntegrationClient {
       await markIntegrationError(
         this.integrationId,
         `API Error ${response.status}: ${errorText}`,
+        this.provider,
       );
       throw new Error(`API request failed: ${response.status} ${errorText}`);
     }
@@ -151,6 +153,7 @@ export abstract class BaseIntegrationClient {
       tokenResponse.access_token,
       tokenResponse.refresh_token,
       tokenResponse.expires_in,
+      this.provider,
     );
   }
 
@@ -171,6 +174,7 @@ export abstract class BaseIntegrationClient {
       processed,
       failed,
       error,
+      this.provider,
     );
   }
 
@@ -178,6 +182,7 @@ export abstract class BaseIntegrationClient {
    * Sync clients - with mock data support for development mode
    */
   async syncClients(): Promise<number> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     if (isIntegrationDevMode()) {
       return this.syncMockClients();
     }
@@ -222,6 +227,7 @@ export abstract class BaseIntegrationClient {
    * Sync jobs - with mock data support for development mode
    */
   async syncJobs(): Promise<number> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     if (isIntegrationDevMode()) {
       return this.syncMockJobs();
     }

@@ -16,70 +16,49 @@
  * @see .claude/skills/service-layer-architecture/SKILL.md
  */
 
-import {
-  getTokens,
-  markIntegrationError,
-} from "@/lib/integrations/oauth-handler";
 import { XeroClient } from "@/lib/integrations/xero/client";
-import { prisma } from "@/lib/prisma";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
+import { readReadyXeroBinding, updateXeroBinding, type XeroBindingExpectation, type XeroBinding } from "./binding";
 
 export type XeroCredentialsReason =
-  | "DISCONNECTED"
-  | "RECONNECT_REQUIRED"
-  | "REFRESH_FAILED";
+  | "INVALID_INTEGRATION" | "DISCONNECTED" | "BINDING_CHANGED"
+  | "RECONNECT_REQUIRED" | "REFRESH_FAILED";
 
-const FIVE_MINUTES_MS = 5 * 60 * 1000;
+export async function getValidXeroCredentials(
+  integrationId: string,
+  options: XeroBindingExpectation & { forceRefresh?: boolean } = {},
+): Promise<ServiceResult<{ accessToken: string; tenantId: string; binding: XeroBinding }, XeroCredentialsReason>> {
+  const current = await readReadyXeroBinding(integrationId, options);
+  if (!current.ok) return current;
+  const { binding, accessToken, refreshToken, tenantId } = current.data;
+  const needsRefresh = options.forceRefresh ||
+    (binding.tokenExpiresAt != null && binding.tokenExpiresAt.getTime() - Date.now() < 5 * 60 * 1000);
+  if (!needsRefresh) return ok({ accessToken, tenantId, binding });
+  if (!refreshToken) {
+    const updated = await updateXeroBinding(binding, {
+      status: "ERROR", syncError: "Xero token expired and no refresh token — user must re-connect",
+    });
+    if (!updated.ok) return updated;
+    return fail("RECONNECT_REQUIRED", { detail: "Token expired and no refresh token available" });
+  }
+  try {
+    await new XeroClient(integrationId, tenantId).refreshAccessToken({ expectedUserId: binding.userId, expectedWorkspaceId: binding.workspaceId });
+    const fresh = await readReadyXeroBinding(integrationId, {
+      expectedTenantId: tenantId, expectedUserId: binding.userId,
+      expectedWorkspaceId: binding.workspaceId,
+    });
+    if (!fresh.ok) return fresh;
+    return ok({ accessToken: fresh.data.accessToken, tenantId: fresh.data.tenantId, binding: fresh.data.binding });
+  } catch (cause) {
+    return fail("REFRESH_FAILED", { detail: "Xero credentials could not be refreshed; retry or reconnect", cause });
+  }
+}
 
+/** Compatibility wrapper for callers that bind their own expected context. */
 export async function getValidXeroAccessToken(
   integrationId: string,
+  options: XeroBindingExpectation & { forceRefresh?: boolean } = {},
 ): Promise<ServiceResult<string, XeroCredentialsReason>> {
-  const tokens = await getTokens(integrationId);
-
-  if (!tokens.accessToken) {
-    return fail("DISCONNECTED", {
-      detail: `Integration ${integrationId} has no access token`,
-    });
-  }
-
-  const needsRefresh =
-    tokens.isExpired ||
-    (tokens.tokenExpiresAt != null &&
-      tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
-
-  if (!needsRefresh) {
-    return ok(tokens.accessToken);
-  }
-
-  if (!tokens.refreshToken) {
-    await markIntegrationError(
-      integrationId,
-      "Xero token expired and no refresh token — user must re-connect",
-    );
-    return fail("RECONNECT_REQUIRED", {
-      detail: "Token expired and no refresh token available",
-    });
-  }
-
-  try {
-    const integration = await prisma.integration.findUnique({
-      where: { id: integrationId },
-      select: { tenantId: true },
-    });
-    const client = new XeroClient(
-      integrationId,
-      integration?.tenantId ?? undefined,
-    );
-    await client.refreshAccessToken();
-    const fresh = await getTokens(integrationId);
-    if (!fresh.accessToken) {
-      return fail("REFRESH_FAILED", {
-        detail: "Refresh completed but token still missing",
-      });
-    }
-    return ok(fresh.accessToken);
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    return fail("REFRESH_FAILED", { detail, cause: err });
-  }
+  const result = await getValidXeroCredentials(integrationId, options);
+  return result.ok ? ok(result.data.accessToken) : result;
 }

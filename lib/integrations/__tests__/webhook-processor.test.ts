@@ -18,6 +18,7 @@ const txInvoicePaymentCreate = vi.fn();
 const txInvoiceUpdate = vi.fn();
 const txInvoiceAuditLogCreate = vi.fn();
 const txInvoicePaymentFindFirst = vi.fn();
+const directInvoiceAuditLogCreate = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -34,6 +35,7 @@ vi.mock("@/lib/prisma", () => ({
     integration: {
       findUnique: vi.fn(),
     },
+    invoiceAuditLog: { create: (...args: unknown[]) => directInvoiceAuditLogCreate(...args) },
     // Generic path wraps the payment insert in a transaction; hand the callback
     // a tx double so we can assert what would have been written.
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
@@ -106,11 +108,57 @@ beforeEach(() => {
   // RA-6984 — QBO/MYOB payment recording resolves the integration's owning
   // userId to scope the invoice lookup (cross-tenant guard). Default to a
   // resolvable tenant; the XERO delegation test overrides with its own shape.
-  mockFindUniqueIntegration.mockResolvedValue({ userId: "user-x" });
+  mockFindUniqueIntegration.mockImplementation(async () => {
+    const event = await mockFindUniqueEvent.mock.results.at(-1)?.value;
+    return { userId: "user-x", workspaceId: null, provider: event?.provider, name: event?.provider };
+  });
   // RA-6984 F1 — per-allocation idempotency guard: default to "no prior
   // allocation recorded" so the create path runs; tests re-recording a payment
   // override this to return an existing row.
   txInvoicePaymentFindFirst.mockResolvedValue(null);
+});
+
+describe("queued webhook provider identity boundary", () => {
+  it.each([
+    { provider: "XERO", name: "Anthropic Claude", icon: "[ra:ai]" },
+    { provider: "QUICKBOOKS", name: "QuickBooks" },
+    { provider: "XERO", name: "Private assistant", config: { apiKeyType: "OPENAI" } },
+  ])("rejects a Xero event bound to $name before dispatch or invoice mutation", async identity => {
+    mockFindUniqueEvent.mockResolvedValue({ id: "synthetic-event", integrationId: "synthetic-id", provider: "XERO", eventType: "payment.created", integration: identity });
+    await processWebhookEvent("synthetic-event");
+    expect(prisma.webhookEvent.updateMany).not.toHaveBeenCalled();
+    expect(mockFindManyEvent).not.toHaveBeenCalled(); expect(mockTransaction).not.toHaveBeenCalled(); expect(mockUpdateInvoice).not.toHaveBeenCalled();
+    expect(mockUpdateEvent).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SKIPPED" }) }));
+  });
+});
+
+describe.each(["QUICKBOOKS", "MYOB"])("%s webhook exact workspace scope", provider => {
+  const identity = { provider, name: provider === "QUICKBOOKS" ? "QuickBooks" : "MYOB", userId: "same-user" };
+  function prepare(workspaceId: string | null, invoiceWorkspace: string | null, eventType = "payment.created") {
+    mockFindUniqueIntegration.mockResolvedValue({ ...identity, workspaceId });
+    mockFindUniqueEvent.mockResolvedValue({ id: "scoped-event", provider, integrationId: "scoped-integration", eventType, payload: { id: "external-payment", ResourceUID: "external-payment" }, status: "PENDING", retryCount: 0, integration: identity });
+    qboGetPayment.mockResolvedValue({ Id: "external-payment", Line: [{ Amount: 50, LinkedTxn: [{ TxnId: "external-invoice", TxnType: "Invoice" }] }] });
+    myobGetCustomerPayment.mockResolvedValue({ UID: "external-payment", AmountReceived: 50, Invoices: [{ UID: "external-invoice", AmountApplied: 50 }] });
+    mockFindFirstInvoice.mockImplementation(async ({ where }) => !Object.hasOwn(where, "workspaceId") || where.workspaceId === invoiceWorkspace
+      ? { id: "local-invoice", currency: "AUD", userId: "same-user", workspaceId: invoiceWorkspace } : null);
+    txInvoicePaymentCreate.mockResolvedValue({ id: "new-payment" });
+    txInvoiceUpdate.mockResolvedValue({ amountDue: 0, amountPaid: 5000, totalIncGST: 5000 });
+  }
+  it.each([["workspace-a", "workspace-b"], ["workspace-a", null], [null, "workspace-b"]] as const)("does not record payment across %s → %s", async (source, target) => {
+    prepare(source, target); await processWebhookEvent("scoped-event");
+    expect(txInvoicePaymentCreate).not.toHaveBeenCalled(); expect(txInvoiceUpdate).not.toHaveBeenCalled();
+  });
+  it.each(["workspace-a", null])("scopes matching invoice reads and writes to exact workspace %s", async workspaceId => {
+    prepare(workspaceId, workspaceId); await processWebhookEvent("scoped-event");
+    const scope = { userId: "same-user", workspaceId, externalSyncProvider: { in: [provider, provider.toLowerCase()] }, externalInvoiceId: "external-invoice" };
+    expect(mockFindFirstInvoice).toHaveBeenCalledWith(expect.objectContaining({ where: scope }));
+    expect(txInvoiceUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "local-invoice", ...scope } }));
+    expect(txInvoicePaymentCreate).toHaveBeenCalledOnce();
+  });
+  it.each(["invoice.updated", "invoice.deleted"])("does not attach %s audit events to another workspace", async eventType => {
+    prepare("workspace-a", "workspace-b", eventType); await processWebhookEvent("scoped-event");
+    expect(directInvoiceAuditLogCreate).not.toHaveBeenCalled();
+  });
 });
 
 // ─── XERO delegation ──────────────────────────────────────────────────────────
@@ -125,11 +173,12 @@ describe("processWebhookEvent — XERO payment delegates to the Xero batch", () 
       status: "PENDING",
       retryCount: 0,
       payload: {
+        tenantId: "tenant-x",
         resourceId: "xero-pay-1",
         resourceType: "PAYMENT",
         eventDateUtc: "2026-07-01T00:00:00.000Z",
       },
-      integration: { id: "integ-x" },
+      integration: { id: "integ-x", provider: "XERO", name: "Xero" },
     };
 
     // processWebhookEvent looks the event up by id...
@@ -137,7 +186,7 @@ describe("processWebhookEvent — XERO payment delegates to the Xero batch", () 
     // ...then delegates to processXeroWebhookBatch which claims PENDING rows.
     mockFindManyEvent.mockResolvedValue([xeroEvent]);
     mockFindUniqueIntegration.mockResolvedValue({
-      id: "integ-x",
+      id: "integ-x", provider: "XERO", name: "Xero", icon: null, config: null, status: "CONNECTED", userId: "user-x", workspaceId: null,
       tenantId: "tenant-x",
     });
     mockFindFirstInvoice.mockResolvedValue({
@@ -166,7 +215,7 @@ describe("processWebhookEvent — XERO payment delegates to the Xero batch", () 
     // The batch resolved and wrote the REAL amount onto the invoice.
     expect(mockUpdateInvoice).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "local-1" },
+        where: expect.objectContaining({ id: "local-1", userId: "user-x", workspaceId: null, externalSyncProvider: { in: ["XERO", "xero"] }, externalInvoiceId: "xero-inv-1" }),
         data: expect.objectContaining({
           status: "PAID",
           amountPaid: 110000,
@@ -195,7 +244,7 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       status: "PENDING",
       retryCount: 0,
       payload: {}, // no id — cannot even attempt resolution
-      integration: { id: "integ-q" },
+      integration: { id: "integ-q", provider: "QUICKBOOKS", name: "QuickBooks" },
     });
 
     await expect(processWebhookEvent("evt-qbo-1")).resolves.toBeUndefined();
@@ -222,7 +271,7 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       payload: { name: "Payment", id: "qbo-pay-2", operation: "Create" },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-q" },
+      integration: { id: "integ-q", provider: "QUICKBOOKS", name: "QuickBooks" },
     });
     qboGetPayment.mockResolvedValue({
       Id: "qbo-pay-2",
@@ -256,7 +305,7 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       expect.objectContaining({
         where: expect.objectContaining({
           externalInvoiceId: "qbo-inv-2",
-          externalSyncProvider: "QUICKBOOKS",
+          externalSyncProvider: { in: ["QUICKBOOKS", "quickbooks"] },
         }),
       }),
     );
@@ -280,7 +329,7 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       payload: { name: "Payment", id: "qbo-pay-partial", operation: "Create" },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-q" },
+      integration: { id: "integ-q", provider: "QUICKBOOKS", name: "QuickBooks" },
     });
     qboGetPayment.mockResolvedValue({
       Id: "qbo-pay-partial",
@@ -311,7 +360,7 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
     await processWebhookEvent("evt-qbo-partial");
 
     expect(txInvoiceUpdate).toHaveBeenLastCalledWith({
-      where: { id: "local-partial" },
+      where: { id: "local-partial", userId: "user-x", workspaceId: null, externalSyncProvider: { in: ["QUICKBOOKS", "quickbooks"] }, externalInvoiceId: "qbo-inv-partial" },
       data: { status: "PARTIALLY_PAID" },
     });
   });
@@ -325,7 +374,7 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       payload: { name: "Payment", id: "qbo-pay-3", operation: "Create" },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-q" },
+      integration: { id: "integ-q", provider: "QUICKBOOKS", name: "QuickBooks" },
     });
     // Resolved payment with no LinkedTxn at all — e.g. an unapplied credit.
     qboGetPayment.mockResolvedValue({
@@ -360,9 +409,9 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       payload: { id: "qbo-pay-scope" },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-tenant-a" },
+      integration: { id: "integ-tenant-a", provider: "QUICKBOOKS", name: "QuickBooks" },
     });
-    mockFindUniqueIntegration.mockResolvedValue({ userId: "tenant-a" });
+    mockFindUniqueIntegration.mockResolvedValue({ userId: "tenant-a", workspaceId: null, provider: "QUICKBOOKS", name: "QuickBooks" });
     qboGetPayment.mockResolvedValue({
       Id: "qbo-pay-scope",
       TotalAmt: 300,
@@ -392,7 +441,7 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       expect.objectContaining({
         where: expect.objectContaining({
           externalInvoiceId: "145",
-          externalSyncProvider: "QUICKBOOKS",
+          externalSyncProvider: { in: ["QUICKBOOKS", "quickbooks"] },
           userId: "tenant-a",
         }),
       }),
@@ -411,7 +460,7 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       payload: { id: "qbo-pay-noint" },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-gone" },
+      integration: { id: "integ-gone", provider: "QUICKBOOKS", name: "QuickBooks" },
     });
     mockFindUniqueIntegration.mockResolvedValue(null);
     qboGetPayment.mockResolvedValue({
@@ -455,7 +504,7 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       payload: { ResourceUID: "myob-pay-noint" },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-gone-myob" },
+      integration: { id: "integ-gone-myob", provider: "MYOB", name: "MYOB" },
     });
     mockFindUniqueIntegration.mockResolvedValue(null);
     myobGetCustomerPayment.mockResolvedValue({
@@ -492,9 +541,9 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       payload: { id: "qbo-pay-multi" },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-q" },
+      integration: { id: "integ-q", provider: "QUICKBOOKS", name: "QuickBooks" },
     });
-    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-q" });
+    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-q", workspaceId: null, provider: "QUICKBOOKS", name: "QuickBooks" });
     // One $300 payment split $200 → invoice A, $100 → invoice B.
     qboGetPayment.mockResolvedValue({
       Id: "qbo-pay-multi",
@@ -553,9 +602,9 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       payload: { id: "qbo-pay-frac" },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-q" },
+      integration: { id: "integ-q", provider: "QUICKBOOKS", name: "QuickBooks" },
     });
-    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-q" });
+    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-q", workspaceId: null, provider: "QUICKBOOKS", name: "QuickBooks" });
     qboGetPayment.mockResolvedValue({
       Id: "qbo-pay-frac",
       TotalAmt: 123.45,
@@ -596,9 +645,9 @@ describe("processWebhookEvent — QUICKBOOKS payment resolution via the QBO API"
       payload: { id: "qbo-pay-retry" },
       status: "PENDING",
       retryCount: 1,
-      integration: { id: "integ-q" },
+      integration: { id: "integ-q", provider: "QUICKBOOKS", name: "QuickBooks" },
     });
-    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-q" });
+    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-q", workspaceId: null, provider: "QUICKBOOKS", name: "QuickBooks" });
     qboGetPayment.mockResolvedValue({
       Id: "qbo-pay-retry",
       TotalAmt: 200,
@@ -631,7 +680,7 @@ describe("processWebhookEvent — MYOB payment resolution via the MYOB API", () 
       status: "PENDING",
       retryCount: 0,
       payload: {}, // no ResourceUID — cannot even attempt resolution
-      integration: { id: "integ-m" },
+      integration: { id: "integ-m", provider: "MYOB", name: "MYOB" },
     });
 
     await expect(processWebhookEvent("evt-myob-1")).resolves.toBeUndefined();
@@ -657,7 +706,7 @@ describe("processWebhookEvent — MYOB payment resolution via the MYOB API", () 
       },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-m" },
+      integration: { id: "integ-m", provider: "MYOB", name: "MYOB" },
     });
     myobGetCustomerPayment.mockResolvedValue({
       UID: "myob-pay-2",
@@ -685,7 +734,7 @@ describe("processWebhookEvent — MYOB payment resolution via the MYOB API", () 
       expect.objectContaining({
         where: expect.objectContaining({
           externalInvoiceId: "myob-inv-2",
-          externalSyncProvider: "MYOB",
+          externalSyncProvider: { in: ["MYOB", "myob"] },
         }),
       }),
     );
@@ -714,7 +763,7 @@ describe("processWebhookEvent — MYOB payment resolution via the MYOB API", () 
       },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-m" },
+      integration: { id: "integ-m", provider: "MYOB", name: "MYOB" },
     });
     // Resolved payment applied to nothing yet (e.g. on-account payment).
     myobGetCustomerPayment.mockResolvedValue({
@@ -741,9 +790,9 @@ describe("processWebhookEvent — MYOB payment resolution via the MYOB API", () 
       payload: { ResourceUID: "myob-pay-multi" },
       status: "PENDING",
       retryCount: 0,
-      integration: { id: "integ-m" },
+      integration: { id: "integ-m", provider: "MYOB", name: "MYOB" },
     });
-    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-m" });
+    mockFindUniqueIntegration.mockResolvedValue({ userId: "user-m", workspaceId: null, provider: "MYOB", name: "MYOB" });
     // One $900 payment split $600 → invoice A, $300 → invoice B.
     myobGetCustomerPayment.mockResolvedValue({
       UID: "myob-pay-multi",
