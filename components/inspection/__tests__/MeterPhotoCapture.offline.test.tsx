@@ -15,6 +15,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { installFakeIndexedDB } from "@/lib/__tests__/helpers/fake-indexeddb";
+import {
+  beginOfflineIdentity,
+  SYNTHETIC_OFFLINE_OWNER,
+} from "@/lib/__tests__/helpers/offline-identity";
 
 const INSPECTION_ID = "insp-ra-7604";
 const MOISTURE_ENDPOINT = `/api/inspections/${INSPECTION_ID}/moisture`;
@@ -34,6 +38,8 @@ const READING = {
 };
 
 let uninstallIdb: () => void;
+let endOfflineIdentity: () => void;
+const operationFetch = vi.fn();
 let MeterPhotoCapture: typeof import("../MeterPhotoCapture").MeterPhotoCapture;
 let drainQueue: typeof import("@/lib/nir-sync-queue").drainQueue;
 let getPendingEntries: typeof import("@/lib/nir-sync-queue").getPendingEntries;
@@ -49,7 +55,7 @@ function jsonResponse(status: number, body: unknown) {
 beforeEach(async () => {
   uninstallIdb = installFakeIndexedDB();
   vi.resetModules();
-  vi.stubGlobal("fetch", vi.fn());
+  operationFetch.mockReset();
   Object.defineProperty(window.navigator, "onLine", {
     value: true,
     configurable: true,
@@ -65,9 +71,11 @@ beforeEach(async () => {
 
   ({ MeterPhotoCapture } = await import("../MeterPhotoCapture"));
   ({ drainQueue, getPendingEntries } = await import("@/lib/nir-sync-queue"));
+  endOfflineIdentity = await beginOfflineIdentity(operationFetch);
 });
 
 afterEach(() => {
+  endOfflineIdentity();
   uninstallIdb();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -95,7 +103,7 @@ async function attachMeterPhoto() {
 }
 
 async function reachConfirmForm(props?: { onReadingAccepted?: () => void }) {
-  (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+  operationFetch.mockResolvedValueOnce(
     jsonResponse(200, { reading: READING }),
   );
   render(
@@ -126,9 +134,31 @@ function confirmAndSave(location = "Floor - lounge") {
 }
 
 describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
+  it("fails closed after account identity is cleared, without claiming a local save", async () => {
+    const onReadingAccepted = vi.fn();
+    await reachConfirmForm({ onReadingAccepted });
+    operationFetch.mockClear();
+    const { clearOfflineContext } = await import("@/lib/offline/account-boundary");
+    clearOfflineContext(false);
+    setOnline(false);
+    const openDatabase = vi.spyOn(indexedDB, "open");
+
+    confirmAndSave();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/verify your account before saving offline work/i),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/Saved on this device — will sync/i)).not.toBeInTheDocument();
+    expect(onReadingAccepted).not.toHaveBeenCalled();
+    expect(openDatabase).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
+  });
+
   it("queues an offline save, shows the local-sync copy, and drains exactly one reading on reconnect", async () => {
     await reachConfirmForm();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(operationFetch).toHaveBeenCalledTimes(1);
 
     setOnline(false);
     confirmAndSave();
@@ -138,7 +168,7 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
         screen.getByText(/Saved on this device — will sync/i),
       ).toBeInTheDocument(),
     );
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(operationFetch).toHaveBeenCalledTimes(1);
 
     const pending = await getPendingEntries(INSPECTION_ID);
     expect(pending).toHaveLength(1);
@@ -147,6 +177,7 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
       endpoint: MOISTURE_ENDPOINT,
       method: "POST",
       status: "pending",
+      owner: SYNTHETIC_OFFLINE_OWNER,
     });
     expect(pending[0].payload).toMatchObject({
       location: "Floor - lounge",
@@ -158,15 +189,15 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
       "18.5% WME",
     );
 
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+    operationFetch.mockResolvedValue(
       jsonResponse(201, { moistureReading: { id: "mr-1" } }),
     );
     setOnline(true);
     const synced = await drainQueue();
     expect(synced).toBe(1);
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(operationFetch).toHaveBeenCalledTimes(2);
 
-    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[1] as [
+    const [url, init] = operationFetch.mock.calls[1] as [
       string,
       RequestInit,
     ];
@@ -175,6 +206,9 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
     const headers = new Headers(init.headers);
     expect(headers.get("Idempotency-Key")).toBe(pending[0].id);
     expect(headers.get("X-RestoreAssist-Mutation-Id")).toBe(pending[0].id);
+    expect(
+      JSON.parse(decodeURIComponent(headers.get("x-restoreassist-offline-owner")!)),
+    ).toEqual(SYNTHETIC_OFFLINE_OWNER);
     expect(JSON.parse(String(init.body))).toMatchObject({
       location: "Floor - lounge",
       surfaceType: "timber",
@@ -184,7 +218,7 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
 
     const afterDrain = await drainQueue();
     expect(afterDrain).toBe(0);
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(operationFetch).toHaveBeenCalledTimes(2);
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
 
@@ -203,7 +237,7 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
     const mutationId = pending[0].id;
 
     setOnline(true);
-    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    const fetchMock = operationFetch;
     fetchMock
       .mockResolvedValueOnce({
         ok: false,
@@ -235,7 +269,7 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
 
   it("queues on a network error even when navigator.onLine reports true", async () => {
     await reachConfirmForm();
-    (fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+    operationFetch.mockRejectedValueOnce(
       new TypeError("Failed to fetch"),
     );
     confirmAndSave();
@@ -254,22 +288,22 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
   it("posts directly when online and the route succeeds (regression guard)", async () => {
     const onReadingAccepted = vi.fn();
     await reachConfirmForm({ onReadingAccepted });
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+    operationFetch.mockResolvedValueOnce(
       jsonResponse(201, { moistureReading: { id: "mr-online" } }),
     );
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+    operationFetch.mockResolvedValueOnce(
       jsonResponse(201, {}),
     );
     confirmAndSave();
 
     await waitFor(() => {
       expect(
-        (fetch as ReturnType<typeof vi.fn>).mock.calls.some(
+        operationFetch.mock.calls.some(
           (call) => call[0] === MOISTURE_ENDPOINT,
         ),
       ).toBe(true);
     });
-    const moistureCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+    const moistureCall = operationFetch.mock.calls.find(
       (call) => call[0] === MOISTURE_ENDPOINT,
     ) as [string, RequestInit];
     const [url, init] = moistureCall;
@@ -288,7 +322,7 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
 
   it("queues when the moisture route returns a 5xx", async () => {
     await reachConfirmForm();
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+    operationFetch.mockResolvedValueOnce(
       jsonResponse(503, { error: "Internal server error" }),
     );
     confirmAndSave();
@@ -330,18 +364,18 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
     expect(onReadingAccepted).not.toHaveBeenCalled();
     expect(toastError).not.toHaveBeenCalled();
     expect(
-      (fetch as ReturnType<typeof vi.fn>).mock.calls.some(
+      operationFetch.mock.calls.some(
         (call) => call[0] === `/api/inspections/${INSPECTION_ID}`,
       ),
     ).toBe(false);
     expect(screen.getByText(/Moisture Meter — Photo OCR/i)).toBeInTheDocument();
 
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+    operationFetch.mockResolvedValue(
       jsonResponse(201, { moistureReading: { id: "mr-1" } }),
     );
     setOnline(true);
     expect(await drainQueue()).toBe(1);
-    const moisturePosts = (fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+    const moisturePosts = operationFetch.mock.calls.filter(
       (call) => call[0] === MOISTURE_ENDPOINT,
     );
     expect(moisturePosts).toHaveLength(1);
@@ -356,7 +390,7 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
 
   it("does not queue a 4xx — the technician must retry or fix the input", async () => {
     await reachConfirmForm();
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+    operationFetch.mockResolvedValueOnce(
       jsonResponse(400, { error: "Location is required" }),
     );
     confirmAndSave();

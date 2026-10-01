@@ -12,11 +12,17 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { installFakeIndexedDB } from "@/lib/__tests__/helpers/fake-indexeddb";
+import {
+  beginOfflineIdentity,
+  SYNTHETIC_OFFLINE_OWNER,
+} from "@/lib/__tests__/helpers/offline-identity";
 
 const INSPECTION_ID = "insp-t12";
 const MOISTURE_ENDPOINT = `/api/inspections/${INSPECTION_ID}/moisture`;
 
 let uninstallIdb: () => void;
+let endOfflineIdentity: () => void;
+const operationFetch = vi.fn();
 let QuickMoistureEntry: typeof import("../QuickMoistureEntry").QuickMoistureEntry;
 let drainQueue: typeof import("@/lib/nir-sync-queue").drainQueue;
 let getPendingEntries: typeof import("@/lib/nir-sync-queue").getPendingEntries;
@@ -24,7 +30,7 @@ let getPendingEntries: typeof import("@/lib/nir-sync-queue").getPendingEntries;
 beforeEach(async () => {
   uninstallIdb = installFakeIndexedDB();
   vi.resetModules();
-  vi.stubGlobal("fetch", vi.fn());
+  operationFetch.mockReset();
   Object.defineProperty(window.navigator, "onLine", {
     value: true,
     configurable: true,
@@ -32,9 +38,11 @@ beforeEach(async () => {
 
   ({ QuickMoistureEntry } = await import("../QuickMoistureEntry"));
   ({ drainQueue, getPendingEntries } = await import("@/lib/nir-sync-queue"));
+  endOfflineIdentity = await beginOfflineIdentity(operationFetch);
 });
 
 afterEach(() => {
+  endOfflineIdentity();
   uninstallIdb();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -57,9 +65,28 @@ function enterWalkthroughReading() {
 }
 
 describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
+  it("fails closed after account identity is cleared, without claiming a local save", async () => {
+    const { clearOfflineContext } = await import("@/lib/offline/account-boundary");
+    clearOfflineContext(false);
+    setOnline(false);
+    const openDatabase = vi.spyOn(indexedDB, "open");
+    const onSaved = vi.fn();
+    render(<QuickMoistureEntry inspectionId={INSPECTION_ID} onSaved={onSaved} />);
+
+    enterWalkthroughReading();
+
+    await waitFor(() =>
+      expect(screen.getByText(/Save failed — tap to retry/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/Saved on this device — will sync/i)).not.toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(openDatabase).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
+  });
+
   it("queues an offline save, shows the local-sync copy, and drains exactly one reading on reconnect", async () => {
     setOnline(false);
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    operationFetch.mockResolvedValue({
       ok: true,
       status: 201,
       json: async () => ({ moistureReading: { id: "mr-1" } }),
@@ -78,7 +105,7 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
       ).toBeInTheDocument(),
     );
     expect(screen.queryByText(/Save failed — tap to retry/i)).not.toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
     expect(onSaved).toHaveBeenCalledWith({
       location: "Floor - lounge",
       moistureLevel: 37.4,
@@ -92,6 +119,7 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
       endpoint: MOISTURE_ENDPOINT,
       method: "POST",
       status: "pending",
+      owner: SYNTHETIC_OFFLINE_OWNER,
     });
     expect(pending[0].payload).toMatchObject({
       location: "Floor - lounge",
@@ -102,9 +130,9 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
     setOnline(true);
     const synced = await drainQueue();
     expect(synced).toBe(1);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(operationFetch).toHaveBeenCalledTimes(1);
 
-    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+    const [url, init] = operationFetch.mock.calls[0] as [
       string,
       RequestInit,
     ];
@@ -113,6 +141,9 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
     const headers = new Headers(init.headers);
     expect(headers.get("Idempotency-Key")).toBe(pending[0].id);
     expect(headers.get("X-RestoreAssist-Mutation-Id")).toBe(pending[0].id);
+    expect(
+      JSON.parse(decodeURIComponent(headers.get("x-restoreassist-offline-owner")!)),
+    ).toEqual(SYNTHETIC_OFFLINE_OWNER);
     expect(JSON.parse(String(init.body))).toMatchObject({
       location: "Floor - lounge",
       surfaceType: "plasterboard",
@@ -123,7 +154,7 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
 
     const afterDrain = await drainQueue();
     expect(afterDrain).toBe(0);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(operationFetch).toHaveBeenCalledTimes(1);
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
 
@@ -141,7 +172,7 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
     const mutationId = pending[0].id;
 
     setOnline(true);
-    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    const fetchMock = operationFetch;
     fetchMock
       .mockResolvedValueOnce({
         ok: false,
@@ -172,7 +203,7 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
   });
 
   it("queues on a network error even when navigator.onLine reports true", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+    operationFetch.mockRejectedValue(
       new TypeError("Failed to fetch"),
     );
 
@@ -192,7 +223,7 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
   });
 
   it("posts directly when online and the route succeeds (regression guard)", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    operationFetch.mockResolvedValue({
       ok: true,
       status: 201,
       json: async () => ({ moistureReading: { id: "mr-online" } }),
@@ -201,7 +232,7 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
     render(<QuickMoistureEntry inspectionId={INSPECTION_ID} />);
     enterWalkthroughReading();
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(operationFetch).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Saved" })).toBeInTheDocument(),
     );
@@ -210,7 +241,7 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
   });
 
   it("queues when the moisture route returns a 5xx", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    operationFetch.mockResolvedValue({
       ok: false,
       status: 503,
       json: async () => ({ error: "Internal server error" }),
@@ -229,7 +260,7 @@ describe("QuickMoistureEntry — offline queue (RA-7568)", () => {
   });
 
   it("does not queue a 4xx — the technician must retry or fix the input", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    operationFetch.mockResolvedValue({
       ok: false,
       status: 400,
       json: async () => ({ error: "Location is required" }),

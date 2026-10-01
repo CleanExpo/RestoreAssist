@@ -12,11 +12,17 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { installFakeIndexedDB } from "@/lib/__tests__/helpers/fake-indexeddb";
+import {
+  beginOfflineIdentity,
+  SYNTHETIC_OFFLINE_OWNER,
+} from "@/lib/__tests__/helpers/offline-identity";
 
 const INSPECTION_ID = "insp-ra-7602";
 const MOISTURE_ENDPOINT = `/api/inspections/${INSPECTION_ID}/moisture`;
 
 let uninstallIdb: () => void;
+let endOfflineIdentity: () => void;
+const operationFetch = vi.fn();
 let MoistureReadingEntryForm: typeof import("../MoistureReadingEntryForm").MoistureReadingEntryForm;
 let drainQueue: typeof import("@/lib/nir-sync-queue").drainQueue;
 let getPendingEntries: typeof import("@/lib/nir-sync-queue").getPendingEntries;
@@ -24,7 +30,7 @@ let getPendingEntries: typeof import("@/lib/nir-sync-queue").getPendingEntries;
 beforeEach(async () => {
   uninstallIdb = installFakeIndexedDB();
   vi.resetModules();
-  vi.stubGlobal("fetch", vi.fn());
+  operationFetch.mockReset();
   Object.defineProperty(window.navigator, "onLine", {
     value: true,
     configurable: true,
@@ -47,9 +53,11 @@ beforeEach(async () => {
 
   ({ MoistureReadingEntryForm } = await import("../MoistureReadingEntryForm"));
   ({ drainQueue, getPendingEntries } = await import("@/lib/nir-sync-queue"));
+  endOfflineIdentity = await beginOfflineIdentity(operationFetch);
 });
 
 afterEach(() => {
+  endOfflineIdentity();
   uninstallIdb();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -73,9 +81,30 @@ function enterReading(overrides?: { location?: string; moistureLevel?: string })
 }
 
 describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
+  it("fails closed after account identity is cleared, without claiming a local save", async () => {
+    const { clearOfflineContext } = await import("@/lib/offline/account-boundary");
+    clearOfflineContext(false);
+    setOnline(false);
+    const openDatabase = vi.spyOn(indexedDB, "open");
+    const onSuccess = vi.fn();
+    render(<MoistureReadingEntryForm inspectionId={INSPECTION_ID} onSuccess={onSuccess} />);
+
+    enterReading();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/verify your account before saving offline work/i),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/Saved on this device — will sync/i)).not.toBeInTheDocument();
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(openDatabase).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
+  });
+
   it("queues an offline save, shows the local-sync copy, and drains exactly one reading on reconnect", async () => {
     setOnline(false);
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    operationFetch.mockResolvedValue({
       ok: true,
       status: 201,
       json: async () => ({
@@ -101,7 +130,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
     expect(
       screen.queryByText(/Failed to save reading/i),
     ).not.toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onSuccess.mock.calls[0][0]).toMatchObject({
       location: "Floor - lounge",
@@ -117,6 +146,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
       endpoint: MOISTURE_ENDPOINT,
       method: "POST",
       status: "pending",
+      owner: SYNTHETIC_OFFLINE_OWNER,
     });
     expect(pending[0].payload).toMatchObject({
       location: "Floor - lounge",
@@ -131,9 +161,9 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
     setOnline(true);
     const synced = await drainQueue();
     expect(synced).toBe(1);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(operationFetch).toHaveBeenCalledTimes(1);
 
-    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+    const [url, init] = operationFetch.mock.calls[0] as [
       string,
       RequestInit,
     ];
@@ -142,6 +172,9 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
     const headers = new Headers(init.headers);
     expect(headers.get("Idempotency-Key")).toBe(pending[0].id);
     expect(headers.get("X-RestoreAssist-Mutation-Id")).toBe(pending[0].id);
+    expect(
+      JSON.parse(decodeURIComponent(headers.get("x-restoreassist-offline-owner")!)),
+    ).toEqual(SYNTHETIC_OFFLINE_OWNER);
     expect(JSON.parse(String(init.body))).toMatchObject({
       location: "Floor - lounge",
       surfaceType: "timber",
@@ -153,7 +186,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
 
     const afterDrain = await drainQueue();
     expect(afterDrain).toBe(0);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(operationFetch).toHaveBeenCalledTimes(1);
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
 
@@ -174,7 +207,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
     const mutationId = pending[0].id;
 
     setOnline(true);
-    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    const fetchMock = operationFetch;
     fetchMock
       .mockResolvedValueOnce({
         ok: false,
@@ -205,7 +238,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
   });
 
   it("queues on a network error even when navigator.onLine reports true", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+    operationFetch.mockRejectedValue(
       new TypeError("Failed to fetch"),
     );
 
@@ -233,7 +266,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
   });
 
   it("posts directly when online and the route succeeds (regression guard)", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    operationFetch.mockResolvedValue({
       ok: true,
       status: 201,
       json: async () => ({
@@ -259,7 +292,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
     );
     enterReading();
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(operationFetch).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
     expect(
       screen.queryByText(/Saved on this device — will sync/i),
@@ -267,7 +300,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
 
     const headers = new Headers(
-      ((fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit)
+      (operationFetch.mock.calls[0][1] as RequestInit)
         .headers,
     );
     expect(headers.get("Idempotency-Key")).toBeTruthy();
@@ -279,7 +312,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
   });
 
   it("queues when the moisture route returns a 5xx", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    operationFetch.mockResolvedValue({
       ok: false,
       status: 503,
       json: async () => ({ error: "Internal server error" }),
@@ -305,7 +338,7 @@ describe("MoistureReadingEntryForm — offline queue (RA-7602)", () => {
   });
 
   it("does not queue a 4xx — the technician must retry or fix the input", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    operationFetch.mockResolvedValue({
       ok: false,
       status: 400,
       json: async () => ({ error: "Location is required" }),
