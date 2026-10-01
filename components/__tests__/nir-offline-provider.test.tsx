@@ -11,6 +11,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // swallowed so the badge stays at its last-known-good state instead of
 // producing a recurring unhandled promise rejection every 30 seconds.
 
+vi.mock("next-auth/react", () => ({ useSession: () => ({ data: null, status: "unauthenticated" }) }));
+
 const getSyncStatus = vi.fn();
 const getQueueStats = vi.fn();
 const getQueuedEvidenceCount = vi.fn();

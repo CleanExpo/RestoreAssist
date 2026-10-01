@@ -304,7 +304,11 @@ async function drainVoiceNoteQueueImpl(): Promise<number> {
         method: "POST",
         body: form,
         credentials: "same-origin",
-      });
+      }, () => putEntry(db, {
+        ...entry,
+        status: "error",
+        error: "Transcription delivery is unconfirmed. The recording is preserved; automatic replay is paused to avoid duplicate charges.",
+      }));
 
       if (!response) break;
       if (response.ok) {
@@ -334,8 +338,8 @@ async function drainVoiceNoteQueueImpl(): Promise<number> {
       // 5xx / unexpected — transient, retry on next reconnect.
       await putEntry(db, { ...entry, retryCount: entry.retryCount + 1 });
     } catch {
-      // Network error — still offline or intermittent. Retry next reconnect.
-      if (ownsOfflineEntry(entry)) await putEntry(db, { ...entry, retryCount: entry.retryCount + 1 });
+      // The provider may have accepted the request before the connection died.
+      // Keep the unconfirmed marker and audio; never automatically pay twice.
     }
   }
 

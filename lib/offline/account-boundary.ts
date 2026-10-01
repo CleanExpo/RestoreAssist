@@ -95,11 +95,13 @@ export async function offlineReplayOptions(owner: OfflineOwner | undefined): Pro
   return { headers: { [OFFLINE_OWNER_HEADER]: encodeURIComponent(JSON.stringify(owner)) }, signal: controller.signal };
 }
 
-export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: string, init: RequestInit): Promise<Response | null> {
+export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: string, init: RequestInit, beforeSend?: () => Promise<void>): Promise<Response | null> {
   if (!url.startsWith("/api/") || /[\\\u0000-\u0020]/.test(url) || url.includes("://")) return null;
   const options = await offlineReplayOptions(owner);
   if (!options) return null;
   try {
+    await beforeSend?.();
+    if (!ownsOfflineEntry({ owner })) return null;
     const headers = new Headers(init.headers);
     for (const [name, value] of Object.entries(options.headers)) headers.set(name, value);
     const response = await fetch(url, { ...init, credentials: "same-origin", headers, signal: options.signal });

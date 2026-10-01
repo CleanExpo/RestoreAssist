@@ -10,6 +10,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installFakeIndexedDB } from "./helpers/fake-indexeddb";
 
+// These tests isolate the pre-existing audio/custody behaviour. The real
+// identity and replay boundary is exercised in offline-containment.test.ts.
+vi.mock("@/lib/offline/account-boundary", () => ({
+  getOfflineOwner: () => ({ userId: "synthetic", organizationId: null, workspaceId: null, workspaceOwnerId: null }),
+  requireOfflineOwner: () => ({ userId: "synthetic", organizationId: null, workspaceId: null, workspaceOwnerId: null }),
+  ownsOfflineEntry: (entry: { owner?: { userId: string } }) => entry.owner?.userId === "synthetic",
+  fetchOfflineReplay: async (_owner: unknown, url: string, init: RequestInit, beforeSend?: () => Promise<void>) => {
+    await beforeSend?.();
+    return fetch(url, init);
+  },
+  withOfflineDrainLock: (_name: string, drain: () => Promise<number>) => drain(),
+}));
+
 let uninstall: () => void;
 let queue: typeof import("../voice-note-queue");
 
