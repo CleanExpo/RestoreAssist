@@ -71,7 +71,9 @@ export async function refreshOfflineOwner(): Promise<OfflineOwner | null> {
       if (generation !== started) return null;
       if (!owner || owner.userId !== userId) { clearOfflineContext(); return null; }
       if (context && !sameOfflineOwner(context, owner)) {
-        clearOfflineContext();
+        // Refresh this tab's scope without cancelling another tab's verified
+        // session. Every replay still rechecks its own scope with the server.
+        clearOfflineContext(false);
         sessionUserId = userId;
       }
       const identityChanged = !sameOfflineOwner(context, owner);

@@ -167,7 +167,7 @@ function LineSkeleton({ className }: { className?: string }) {
 }
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   if (status === "loading") {
     return (
       <div className="flex min-h-[40vh] items-center justify-center" role="status">
@@ -177,6 +177,14 @@ export default function DashboardPage() {
   }
   if (status !== "authenticated" || !session?.user?.id) {
     return <Link href="/login">Sign in to load your workspace</Link>;
+  }
+  if (session.user.organizationScopeVerified === false) {
+    return (
+      <div role="alert">
+        <p>We couldn’t verify your workspace. Your saved work is preserved.</p>
+        <button type="button" onClick={() => { void update(); }}>Retry workspace</button>
+      </div>
+    );
   }
 
   // Unmount every resource reader when account or workspace changes. Cached

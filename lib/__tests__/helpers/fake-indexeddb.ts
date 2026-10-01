@@ -18,14 +18,16 @@ class FakeRequest<T> {
   onsuccess: (() => void) | null = null;
   onerror: (() => void) | null = null;
 
+  constructor(private readonly settled?: () => void) {}
+
   succeed(result: T) {
     this.result = result;
-    queueMicrotask(() => this.onsuccess?.());
+    queueMicrotask(() => { this.onsuccess?.(); this.settled?.(); });
   }
 
   fail(error: Error) {
     this.error = error;
-    queueMicrotask(() => this.onerror?.());
+    queueMicrotask(() => { this.onerror?.(); this.settled?.(); });
   }
 }
 
@@ -38,10 +40,11 @@ class FakeIndex {
   constructor(
     private readonly rows: Map<string, Row>,
     private readonly field: string,
+    private readonly request: <T>() => FakeRequest<T> = () => new FakeRequest(),
   ) {}
 
   getAll(query?: unknown) {
-    const req = new FakeRequest<Row[]>();
+    const req = this.request<Row[]>();
     const all = Array.from(this.rows.values());
     req.succeed(
       query === undefined ? all : all.filter((row) => row[this.field] === query),
@@ -50,7 +53,7 @@ class FakeIndex {
   }
 
   count(query?: unknown) {
-    const req = new FakeRequest<number>();
+    const req = this.request<number>();
     const all = Array.from(this.rows.values());
     req.succeed(
       query === undefined
@@ -66,6 +69,7 @@ class FakeObjectStore {
     private readonly rows: Map<string, Row>,
     private readonly keyPath: string,
     private readonly indexDefs: Map<string, string>,
+    private readonly request: <T>() => FakeRequest<T> = () => new FakeRequest(),
   ) {}
 
   createIndex(name: string, keyPath: string, _options?: { unique?: boolean }) {
@@ -77,11 +81,11 @@ class FakeObjectStore {
     if (!field) {
       throw new Error(`Index ${name} not found`);
     }
-    return new FakeIndex(this.rows, field);
+    return new FakeIndex(this.rows, field, this.request);
   }
 
   add(value: Row) {
-    const req = new FakeRequest<undefined>();
+    const req = this.request<undefined>();
     const key = String(value[this.keyPath]);
     if (this.rows.has(key)) {
       req.fail(new Error(`Key ${key} already exists`));
@@ -93,32 +97,32 @@ class FakeObjectStore {
   }
 
   put(value: Row) {
-    const req = new FakeRequest<undefined>();
+    const req = this.request<undefined>();
     this.rows.set(String(value[this.keyPath]), value);
     req.succeed(undefined);
     return req;
   }
 
   get(key: string) {
-    const req = new FakeRequest<Row | undefined>();
+    const req = this.request<Row | undefined>();
     req.succeed(this.rows.get(key));
     return req;
   }
 
   getAll() {
-    const req = new FakeRequest<Row[]>();
+    const req = this.request<Row[]>();
     req.succeed(Array.from(this.rows.values()));
     return req;
   }
 
   count() {
-    const req = new FakeRequest<number>();
+    const req = this.request<number>();
     req.succeed(this.rows.size);
     return req;
   }
 
   delete(key: string) {
-    const req = new FakeRequest<undefined>();
+    const req = this.request<undefined>();
     this.rows.delete(key);
     req.succeed(undefined);
     return req;
@@ -128,6 +132,11 @@ class FakeObjectStore {
 class FakeTransaction {
   error: Error | null = null;
   onerror: (() => void) | null = null;
+  onabort: (() => void) | null = null;
+  oncomplete: (() => void) | null = null;
+  private pending = 0;
+  private aborted = false;
+  private completed = false;
 
   constructor(
     private readonly rows: Map<string, Row>,
@@ -136,8 +145,21 @@ class FakeTransaction {
   ) {}
 
   objectStore(_name: string) {
-    return new FakeObjectStore(this.rows, this.keyPath, this.indexDefs);
+    return new FakeObjectStore(this.rows, this.keyPath, this.indexDefs, <T>() => {
+      this.pending++;
+      return new FakeRequest<T>(() => {
+        this.pending--;
+        queueMicrotask(() => {
+          if (!this.aborted && !this.completed && this.pending === 0) {
+            this.completed = true;
+            this.oncomplete?.();
+          }
+        });
+      });
+    });
   }
+
+  abort() { this.aborted = true; this.onabort?.(); }
 }
 
 class FakeDatabase {

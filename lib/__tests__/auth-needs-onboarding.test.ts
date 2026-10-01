@@ -80,6 +80,7 @@ describe("RA-1259 — JWT needsOnboarding refresh while the gate is closed", () 
       trialEndsAt: new Date(Date.now() + 86_400_000),
       lifetimeAccess: false,
       organization: null,
+      organizationId: "org-a",
     });
   });
 
@@ -105,14 +106,50 @@ describe("RA-1259 — JWT needsOnboarding refresh while the gate is closed", () 
     );
   });
 
-  it("does not re-query the user row when the gate is already open", async () => {
+  it("only refreshes organisation scope when the onboarding gate is already open", async () => {
     const token = await invokeJwt(
       settledToken({ needsOnboarding: false }),
     );
 
-    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledExactlyOnceWith({
+      where: { id: "u1" },
+      select: { organizationId: true, organization: { select: { setupCompletedAt: true } } },
+    });
     expect((token as { needsOnboarding?: boolean }).needsOnboarding).toBe(
       false,
     );
+  });
+
+  it("refreshes a same-user organisation change on ordinary session reads", async () => {
+    const first = await invokeJwt(settledToken({ needsOnboarding: false }));
+    expect(first).toMatchObject({ organizationId: "org-a", organizationScopeVerified: true });
+    mockPrisma.user.findUnique.mockResolvedValue({ organizationId: "org-b", organization: { setupCompletedAt: new Date("2026-02-01") } });
+    const moved = await invokeJwt(first);
+    expect(moved).toMatchObject({ organizationId: "org-b", organizationScopeVerified: true, setupCompletedAt: "2026-02-01T00:00:00.000Z" });
+    const session = await authOptions.callbacks!.session!({ token: moved, session: { user: { organizationId: "client-forged" } } } as never);
+    expect(session.user).toMatchObject({ id: "u1", organizationId: "org-b", organizationScopeVerified: true });
+  });
+
+  it("uses persisted scope on first mint and explicit updates, never client metadata", async () => {
+    const first = await invokeJwt(settledToken(), { user: { id: "u1", role: "ADMIN", organizationId: "forged" }, trigger: "signIn" });
+    expect(first.organizationId).toBe("org-a");
+    mockPrisma.user.findUnique.mockResolvedValue({ organizationId: null, organization: null });
+    const moved = await authOptions.callbacks!.jwt!({ token: first, trigger: "update", session: { organizationId: "forged-again" } } as never);
+    expect(moved).toMatchObject({ organizationId: null, organizationScopeVerified: true, setupCompletedAt: null });
+  });
+
+  it("marks scope unverified during database failure without removing sign-in, then recovers", async () => {
+    mockPrisma.user.findUnique.mockRejectedValue(new Error("synthetic database failure"));
+    const unavailable = await invokeJwt(settledToken({ needsOnboarding: false, organizationId: "old-org" }));
+    expect(unavailable).toMatchObject({ sub: "u1", organizationScopeVerified: false });
+    const session = await authOptions.callbacks!.session!({ token: unavailable, session: { user: {} } } as never);
+    expect(session.user).toMatchObject({ id: "u1", organizationScopeVerified: false });
+    mockPrisma.user.findUnique.mockResolvedValue({ organizationId: "org-b", organization: null });
+    expect(await invokeJwt(unavailable)).toMatchObject({ organizationId: "org-b", organizationScopeVerified: true });
+  });
+
+  it("does not report a deleted user's workspace as verified", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    expect(await invokeJwt(settledToken({ needsOnboarding: false }))).toMatchObject({ organizationScopeVerified: false });
   });
 });

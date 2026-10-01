@@ -8,8 +8,9 @@ const auth = vi.hoisted(() => ({
   session: { user: { id: "synthetic-a", email: "a@example.test", name: "Synthetic A", role: "ADMIN", organizationId: "org-a" } } as Session,
   status: "authenticated",
   replace: vi.fn(),
+  update: vi.fn(),
 }));
-vi.mock("next-auth/react", () => ({ useSession: () => ({ data: auth.session, status: auth.status }) }));
+vi.mock("next-auth/react", () => ({ useSession: () => ({ data: auth.session, status: auth.status, update: auth.update }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: auth.replace }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("react-hot-toast", () => ({ default: { success: vi.fn() } }));
 vi.mock("@/components/dashboard/TechLicenceBanner", () => ({ TechLicenceBanner: () => null }));
@@ -34,6 +35,7 @@ beforeEach(() => {
   auth.session = { user: { id: "synthetic-a", email: "a@example.test", name: "Synthetic A", role: "ADMIN", organizationId: "org-a" }, expires: "2099-01-01" };
   auth.status = "authenticated";
   auth.replace.mockClear();
+  auth.update.mockClear();
   for (const key of Object.keys(responses)) delete responses[key];
   responses["/api/workspace/status"] = () => json({ hasWorkspace: true, status: "READY", ready: true, workspaceId: "workspace-a" });
   responses["/api/reports"] = () => json({ reports: [report] });
@@ -50,6 +52,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("dashboard resource failures and account separation", () => {
+  it("hides cached rows when organisation scope cannot be verified and offers a session retry", async () => {
+    const view = render(<DashboardPage />);
+    await screen.findAllByText(report.title);
+    const before = fetchMock.mock.calls.length;
+    auth.session = { ...auth.session, user: { ...auth.session.user, organizationScopeVerified: false } };
+    view.rerender(<DashboardPage />);
+    expect(screen.queryByText(report.title)).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("verify your workspace");
+    expect(fetchMock.mock.calls).toHaveLength(before);
+    fireEvent.click(screen.getByRole("button", { name: "Retry workspace" }));
+    expect(auth.update).toHaveBeenCalledOnce();
+  });
   it("preserves successful reports and invoices when clients return a 500, with correlation and targeted retry", async () => {
     responses["/api/clients"] = () => failure();
     render(<DashboardPage />);

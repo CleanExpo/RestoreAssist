@@ -116,7 +116,7 @@ export default function DashboardShell({
     }
   }, []);
   // NotificationBell manages its own open/close state
-  const [profile, setProfile] = useState<{ userId: string; subscriptionStatus: string | null; businessName?: string | null; organizationId?: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ userId: string; scopeKey: string; subscriptionStatus: string | null; businessName?: string | null; organizationId?: string | null } | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const logoutInFlight = useRef(false);
 
@@ -131,7 +131,10 @@ export default function DashboardShell({
   const [savingMode, setSavingMode] = useState(false);
   const { data: session, status } = useSession();
   const accountId = session?.user?.id;
-  const currentProfile = profile?.userId === accountId ? profile : null;
+  const organizationId = session?.user?.organizationId;
+  const scopeVerified = session?.user?.organizationScopeVerified !== false;
+  const profileScopeKey = JSON.stringify([accountId, organizationId, scopeVerified]);
+  const currentProfile = scopeVerified && profile?.scopeKey === profileScopeKey ? profile : null;
   const subscriptionStatus = currentProfile?.subscriptionStatus ?? null;
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -154,8 +157,9 @@ export default function DashboardShell({
         if (response.status === 401) return;
         if (response.ok) {
           const data = await response.json();
-          if (!cancelled && accountId && data.profile?.id === accountId) {
-            setProfile({ userId: accountId, subscriptionStatus: data.profile.subscriptionStatus ?? null, businessName: data.profile.businessName, organizationId: data.profile.organizationId });
+          if (!cancelled && accountId && data.profile?.id === accountId &&
+            (organizationId === undefined || (data.profile.organizationId ?? null) === organizationId)) {
+            setProfile({ userId: accountId, scopeKey: profileScopeKey, subscriptionStatus: data.profile.subscriptionStatus ?? null, businessName: data.profile.businessName, organizationId: data.profile.organizationId });
           }
         }
       } catch (error) {
@@ -163,7 +167,7 @@ export default function DashboardShell({
       }
     };
 
-    if (status === "authenticated" && accountId) {
+    if (status === "authenticated" && accountId && scopeVerified) {
       fetchSubscriptionStatus();
 
       // Refetch on window focus (e.g., after Stripe checkout redirect)
@@ -172,7 +176,7 @@ export default function DashboardShell({
 
       return () => { cancelled = true; window.removeEventListener("focus", handleFocus); };
     }
-  }, [status, accountId]);
+  }, [status, accountId, organizationId, scopeVerified, profileScopeKey]);
 
   // Load the persisted experience mode once authenticated. Anything other than
   // an explicit EXPERIENCED opt-in resolves to Simple mode (see nav-config),

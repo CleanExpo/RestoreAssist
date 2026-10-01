@@ -235,15 +235,6 @@ function shouldHardPaywall(token: {
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Only offline replays carry this restriction. Validate against the cookie
-  // on this request so switching accounts between client checks cannot replay
-  // somebody else's queued work. Route auth/CSRF/tenancy gates still apply.
-  if (pathname.startsWith("/api/") && req.headers.has("x-restoreassist-offline-owner")) {
-    const { guardOfflineReplay } = await import("@/lib/offline/server-boundary");
-    const refused = await guardOfflineReplay(req);
-    if (refused) return refused;
-  }
-
   // Compatibility for invitation links issued by the retired signup flow.
   // The public registration endpoint always creates a new ADMIN + organisation,
   // so an invitation token must never be allowed to continue through /signup.
@@ -312,6 +303,15 @@ export async function proxy(req: NextRequest) {
     if (limited) return limited;
     // Fall through — route handler executes; any route-level
     // applyRateLimit it calls layers on top.
+  }
+
+  // Check the host and mutation budget before replay validation can perform
+  // auth/database work. This header only restricts authority; route auth,
+  // CSRF and tenant checks still apply to every accepted replay.
+  if (pathname.startsWith("/api/") && req.headers.has("x-restoreassist-offline-owner")) {
+    const { guardOfflineReplay } = await import("@/lib/offline/server-boundary");
+    const refused = await guardOfflineReplay(req);
+    if (refused) return refused;
   }
 
   // ── Unauth → /login redirect for protected surfaces (P1 #16) ────────────────

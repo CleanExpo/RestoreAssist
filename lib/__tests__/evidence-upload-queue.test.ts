@@ -51,31 +51,42 @@ function makeRequest(): FakeRequest {
 /** Minimal in-memory fake of the IndexedDB surface openDatabase()/queueEvidenceUpload() use. */
 function installFakeIndexedDB() {
   const store = new Map<string, Record<string, unknown>>();
-
-  const objectStore = {
+  const transaction = () => {
+    let pending = 0;
+    let aborted = false;
+    let completed = false;
+    const tx = { objectStore: () => objectStore, oncomplete: null as (() => void) | null, onabort: null as (() => void) | null, abort: () => { aborted = true; tx.onabort?.(); } };
+    const finish = () => { pending--; queueMicrotask(() => { if (!pending && !aborted && !completed) { completed = true; tx.oncomplete?.(); } }); };
+    const objectStore = {
     add(entry: Record<string, unknown>) {
+      pending++;
       const req = makeRequest();
       queueMicrotask(() => {
         store.set(entry.id as string, entry);
         req.result = entry.id;
         req.onsuccess?.();
+        finish();
       });
       return req;
     },
-    count() {
+    getAll() {
+      pending++;
       const req = makeRequest();
       queueMicrotask(() => {
-        req.result = store.size;
+        req.result = [...store.values()];
         req.onsuccess?.();
+        finish();
       });
       return req;
     },
+    };
+    return tx;
   };
 
   const fakeDb = {
     objectStoreNames: { contains: () => true },
-    createObjectStore: () => objectStore,
-    transaction: () => ({ objectStore: () => objectStore }),
+    createObjectStore: () => transaction().objectStore(),
+    transaction,
   };
 
   vi.stubGlobal("indexedDB", {

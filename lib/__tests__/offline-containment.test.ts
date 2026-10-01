@@ -154,6 +154,44 @@ describe("offline ownership containment", () => {
     expect(await rows("ra-evidence-queue", "uploads")).toHaveLength(3);
   });
 
+  it.each(["foreign", "exhausted", "legacy"])("allows captures beside 50 preserved %s photos", async (kind) => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    await queue.getQueuedEvidenceCount();
+    for (let i = 0; i < 50; i++) {
+      await put("ra-evidence-queue", "uploads", { id: `preserved-${i}`, owner: kind === "legacy" ? undefined : kind === "foreign" ? B : A, retryCount: kind === "exhausted" ? 5 : 0, blob: audio() });
+    }
+    const id = await queue.queueEvidenceUpload({ inspectionId: "i", blob: new Blob(["synthetic"], { type: "image/webp" }), filename: "new.webp", mimeType: "image/webp" });
+    const saved = await rows("ra-evidence-queue", "uploads");
+    expect(saved).toHaveLength(51);
+    expect(saved.find((row) => row.id === id)).toMatchObject({ owner: A, retryCount: 0 });
+    expect(saved.filter((row) => row.id.startsWith("preserved-"))).toHaveLength(50);
+  });
+
+  it.each([
+    { count: 50, owner: A, error: /Evidence queue full/ },
+    { count: 250, owner: B, error: /Device evidence storage is full/ },
+  ])("enforces active-owner and absolute device row limits: $count", async ({ count, owner, error }) => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    await queue.getQueuedEvidenceCount();
+    for (let i = 0; i < count; i++) await put("ra-evidence-queue", "uploads", { id: `preserved-${i}`, owner, retryCount: 0, blob: audio() });
+    await expect(queue.queueEvidenceUpload({ inspectionId: "i", blob: new Blob(["synthetic"], { type: "image/webp" }), filename: "new.webp", mimeType: "image/webp" })).rejects.toThrow(error);
+    expect(await rows("ra-evidence-queue", "uploads")).toHaveLength(count);
+  });
+
+  it("counts actual stored blob sizes across owners against the hard byte budget", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    await queue.getQueuedEvidenceCount();
+    const retained = audio();
+    // Synthetic size metadata avoids allocating 250 MiB in this unit test.
+    Object.defineProperty(retained, "size", { value: 250 * 1024 * 1024 });
+    await put("ra-evidence-queue", "uploads", { id: "large-foreign", owner: B, retryCount: 5, blob: retained, compressedSize: 1 });
+    await expect(queue.queueEvidenceUpload({ inspectionId: "i", blob: new Blob(["synthetic"], { type: "image/webp" }), filename: "new.webp", mimeType: "image/webp" })).rejects.toThrow(/Device evidence storage is full/);
+    expect(await rows("ra-evidence-queue", "uploads")).toHaveLength(1);
+  });
+
   it("rejects NIR reads, direct retry, discard and replay under another identity", async () => {
     await login();
     const queue = await import("../nir-sync-queue");
@@ -212,6 +250,21 @@ describe("offline ownership containment", () => {
     expect(await queue.drainVoiceNoteQueue()).toBe(0);
     expect(replayCalls()).toHaveLength(0);
     expect(await rows("ra-voice-note-queue", "notes")).toMatchObject([{ owner: A, status: "pending" }]);
+  });
+
+  it("refreshes a same-user scope locally while sign-out and revocation still broadcast", async () => {
+    await login();
+    const broadcast = vi.spyOn(Storage.prototype, "setItem");
+    serverOwner = { ...A, organizationId: "new-org" };
+    expect(await boundary.refreshOfflineOwner()).toEqual(serverOwner);
+    expect(broadcast).not.toHaveBeenCalled();
+    expect(boundary.getOfflineOwner()).toEqual(serverOwner);
+    serverOwner = null;
+    expect(await boundary.refreshOfflineOwner()).toBeNull();
+    expect(broadcast).toHaveBeenCalledOnce();
+    broadcast.mockClear();
+    boundary.clearOfflineContext();
+    expect(broadcast).toHaveBeenCalledOnce();
   });
 
   it("coalesces repeated voice drain attempts and uses the browser's cross-tab lock", async () => {
