@@ -5,7 +5,8 @@
  * Caching strategy:
  *   /_next/static/**  → Cache-first, permanent (content-hashed filenames)
  *   /api/**           → Network-only, no cache (auth-protected, fresh data required)
- *   All other GET     → Network-first, fallback to cache, fallback to offline shell
+ *   Public HTML only  → Network-first, fallback to cache
+ *   Other documents   → Network-only, public offline fallback
  *
  * Background Sync:
  *   Listens for 'nir-inspection-sync' tag registered by nir-sync-queue.ts
@@ -138,10 +139,10 @@ if (IS_LOCAL_DEV) {
       event.respondWith(networkOnlyWithOfflineStub(request));
       return;
     }
-    if (/^\/(dashboard|reports|compliance|portal|capture|sign|invite)(\/|$)/.test(url.pathname)) {
-      event.respondWith(fetch(request).catch(async () =>
-        (await caches.match("/offline")) || new Response("Reconnect to verify your account. Saved offline work is preserved.", { status: 503 }),
-      ));
+    const isDocument = request.mode === "navigate" || request.destination === "document";
+    const isPublicDocument = url.pathname === "/" || url.pathname === "/offline";
+    if (isDocument && !isPublicDocument) {
+      event.respondWith(privateDocumentWithOfflineFallback(request));
       return;
     }
 
@@ -160,14 +161,10 @@ if (IS_LOCAL_DEV) {
       return;
     }
 
-    // ── API routes — network-only, offline stub response
-    if (url.pathname.startsWith("/api/")) {
-      event.respondWith(networkOnlyWithOfflineStub(request));
-      return;
-    }
-
-    // ── App pages — network-first, offline fallback
-    event.respondWith(networkFirstWithOfflineFallback(request));
+    // Only explicitly public documents can enter the shared HTML cache.
+    event.respondWith(isPublicDocument
+      ? networkFirstWithOfflineFallback(request)
+      : privateDocumentWithOfflineFallback(request));
   });
 
   // ─── BACKGROUND SYNC ──────────────────────────────────────────────────────────
@@ -207,6 +204,15 @@ async function cacheFirst(request, cacheName) {
   }
 }
 
+async function privateDocumentWithOfflineFallback(request) {
+  return fetch(request).catch(async () =>
+    (await caches.match("/offline")) || new Response(
+      "Reconnect to verify your account. Saved offline work is preserved.",
+      { status: 503 },
+    ),
+  );
+}
+
 /**
  * Network-first: try the network, fall back to cache, fall back to offline shell.
  * Used for app pages that should show fresh content but must work offline.
@@ -218,6 +224,7 @@ async function networkFirstWithOfflineFallback(request) {
     // Cache successful HTML responses for offline fallback
     if (
       response.ok &&
+      !response.redirected &&
       response.headers.get("content-type")?.includes("text/html")
     ) {
       const cache = await caches.open(CACHE_APP);

@@ -224,6 +224,32 @@ describe("offline ownership containment", () => {
     expect(await queue.drainVoiceNoteQueue()).toBe(0);
   });
 
+  it.each([500, 502, 503])("never automatically resubmits voice after ambiguous HTTP %s", async (status) => {
+    await login();
+    const queue = await import("../voice-note-queue");
+    const id = await queue.queueVoiceNote(audio(), { inspectionId: "i", fieldLabel: "notes" });
+    uploadStatus = status;
+    expect(await queue.drainVoiceNoteQueue()).toBe(0);
+    expect(await queue.drainVoiceNoteQueue()).toBe(0);
+    expect(replayCalls()).toHaveLength(1);
+    await queue.markTranscriptConsumed(id);
+    expect(await queue.pruneVoiceNoteQueue()).toBe(0);
+    expect(await rows("ra-voice-note-queue", "notes")).toMatchObject([{ status: "error", error: expect.stringMatching(/unconfirmed/), blob: expect.any(Blob) }]);
+  });
+
+  it.each([{}, { transcript: "   " }, { transcript: 123 }])("preserves malformed or empty success audio through UI consumption: %j", async (body) => {
+    await login();
+    const queue = await import("../voice-note-queue");
+    const id = await queue.queueVoiceNote(audio(), { inspectionId: "i", fieldLabel: "notes" });
+    fetchMock.mockImplementation(async (url: string) => new Response(JSON.stringify(url === "/api/auth/offline-context" ? { owner: A } : body)));
+    expect(await queue.drainVoiceNoteQueue()).toBe(0);
+    await queue.markTranscriptConsumed(id);
+    expect(await queue.pruneVoiceNoteQueue()).toBe(0);
+    expect(await queue.drainVoiceNoteQueue()).toBe(0);
+    expect(replayCalls()).toHaveLength(1);
+    expect(await rows("ra-voice-note-queue", "notes")).toMatchObject([{ id, status: "error", blob: expect.any(Blob) }]);
+  });
+
   it("keeps work pending when a cross-tab lock is unavailable", async () => {
     await login();
     const queue = await import("../voice-note-queue");
@@ -259,5 +285,32 @@ describe("offline ownership containment", () => {
     await login(A);
     expect((await cache.getCachedJobs()).jobs).toEqual(jobs);
     expect(await rows("ra-field-cache", "jobs")).toHaveLength(2);
+  });
+
+  it("all reconnect and service-worker entry points stay paused after sign-out", async () => {
+    const messages = new EventTarget();
+    Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: messages });
+    await login();
+    const nir = await import("../nir-sync-queue");
+    const voice = await import("../voice-note-queue");
+    const photos = await import("../evidence-upload-queue");
+    await nir.queueWrite({ type: "moisture-reading", endpoint: "/api/inspections/i/moisture", method: "POST", payload: {}, inspectionId: "i" });
+    await voice.queueVoiceNote(audio(), { inspectionId: "i", fieldLabel: "notes" });
+    boundary.clearOfflineContext();
+    const cleanups = [nir.initSyncOnReconnect(), voice.initVoiceNoteSyncOnReconnect(), photos.initEvidenceSyncOnReconnect()];
+    window.dispatchEvent(new Event("online"));
+    for (const tag of ["nir-inspection-sync", "evidence-upload-sync", "voice-note-sync"]) {
+      messages.dispatchEvent(new MessageEvent("message", { data: { type: "NIR_SYNC_TRIGGER", tag } }));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(replayCalls()).toHaveLength(0);
+    for (const cleanup of cleanups) cleanup();
+    await login();
+    messages.dispatchEvent(new MessageEvent("message", { data: { type: "NIR_SYNC_TRIGGER" } }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(replayCalls()).toHaveLength(0);
+    expect(await rows("nir-offline-queue", "sync-queue")).toHaveLength(1);
+    expect(await rows("ra-voice-note-queue", "notes")).toHaveLength(1);
+    Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: undefined });
   });
 });

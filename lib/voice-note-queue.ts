@@ -221,12 +221,12 @@ export async function getPendingTranscripts(): Promise<PendingTranscript[]> {
   }
 }
 
-/** Mark a transcribed/errored entry as consumed by the UI — pruned on the next sweep. */
+/** Only a delivered, nonempty transcript may be consumed and pruned. */
 export async function markTranscriptConsumed(id: string): Promise<void> {
   if (typeof window === "undefined") return;
   const db = await openDatabase();
   const entry = await getEntry(db, id);
-  if (!entry || !ownsOfflineEntry(entry)) return;
+  if (!entry || !ownsOfflineEntry(entry) || entry.status !== "done" || !entry.transcript?.trim()) return;
   await putEntry(db, { ...entry, status: "consumed" });
 }
 
@@ -312,11 +312,12 @@ async function drainVoiceNoteQueueImpl(): Promise<number> {
 
       if (!response) break;
       if (response.ok) {
-        const data = (await response.json()) as { transcript?: string };
+        const data = (await response.json()) as { transcript?: unknown };
+        if (typeof data.transcript !== "string" || !data.transcript.trim()) continue;
         await putEntry(db, {
           ...entry,
           status: "done",
-          transcript: (data.transcript ?? "").trim(),
+          transcript: data.transcript.trim(),
         });
         transcribed++;
         continue;
@@ -335,8 +336,8 @@ async function drainVoiceNoteQueueImpl(): Promise<number> {
         continue;
       }
 
-      // 5xx / unexpected — transient, retry on next reconnect.
-      await putEntry(db, { ...entry, retryCount: entry.retryCount + 1 });
+      // An unexpected HTTP response may follow successful provider dispatch.
+      // Retain the pre-send unconfirmed marker instead of paying twice.
     } catch {
       // The provider may have accepted the request before the connection died.
       // Keep the unconfirmed marker and audio; never automatically pay twice.

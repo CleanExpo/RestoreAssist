@@ -31,7 +31,7 @@ export function clearOfflineContext(broadcast = true) {
 
 export function setOfflineSession(userId: string | null) {
   if (sessionUserId === userId) return;
-  clearOfflineContext();
+  clearOfflineContext(sessionUserId !== null);
   sessionUserId = userId;
 }
 

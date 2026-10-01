@@ -24,9 +24,21 @@ vi.mock("next/link", () => ({
 }));
 vi.mock("@/components/mobile/MobileNav", () => ({ MobileNav: () => null }));
 vi.mock("@/lib/capacitor", () => ({ isCapacitor: () => false }));
+vi.mock("@/lib/offline/account-boundary", () => ({
+  getOfflineOwner: () => ({ userId: "synthetic", organizationId: null, workspaceId: null, workspaceOwnerId: null }),
+  ownsOfflineEntry: () => true,
+  fetchOfflineReplay: async (owner: unknown, url: string, init: RequestInit) => {
+    const headers = new Headers(init.headers);
+    headers.set("x-restoreassist-offline-owner", encodeURIComponent(JSON.stringify(owner)));
+    const response = await fetch(url, { ...init, headers });
+    return response.headers.get("x-restoreassist-offline-paused") === "1" ? null : response;
+  },
+  OFFLINE_CONTEXT_EVENT: "restoreassist-offline-context",
+}));
+const { cacheJobs } = vi.hoisted(() => ({ cacheJobs: vi.fn(async () => undefined) }));
 const getCachedJobs = vi.fn();
 vi.mock("@/lib/offline/job-cache", () => ({
-  cacheJobs: vi.fn(async () => undefined),
+  cacheJobs,
   getCachedJobs: (...a: unknown[]) => getCachedJobs(...a),
 }));
 
@@ -59,6 +71,7 @@ const DRAFT_JOB = {
 beforeEach(() => {
   fetchMock.mockReset();
   getCachedJobs.mockReset();
+  cacheJobs.mockClear();
   getCachedJobs.mockResolvedValue({ jobs: [], fetchedAt: null });
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -99,6 +112,29 @@ describe("Field Mode active jobs (RA-7711)", () => {
       "IN_BILLING",
     ]);
     expect(url.searchParams.get("assignee")).toBe("me");
+  });
+
+  it("rejects another cookie account's jobs through the same-request owner restriction", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      const owner = new Headers(init?.headers).get("x-restoreassist-offline-owner");
+      // Synthetic server: B cookie can only return B data when A's restriction is absent.
+      if (owner) return new Response("{}", { status: 409, headers: { "x-restoreassist-offline-paused": "1" } });
+      return jsonResponse({ inspections: [{ ...ESTIMATED_JOB, propertyAddress: "B PRIVATE ADDRESS" }] });
+    });
+    render(<FieldDashboardPage />);
+    await screen.findByRole("alert");
+    expect(screen.queryByText("B PRIVATE ADDRESS")).not.toBeInTheDocument();
+    expect(cacheJobs).not.toHaveBeenCalled();
+  });
+
+  it("restricts checklist enrichment to the same account as the job request", async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      expect(new Headers(init?.headers).get("x-restoreassist-offline-owner")).toContain("synthetic");
+      return url.includes("?") ? jsonResponse({ inspections: [ESTIMATED_JOB] }) : jsonResponse({ criticalMissing: [], readyToLeave: false });
+    });
+    render(<FieldDashboardPage />);
+    expect(await screen.findByText("NIR-2026-09-F1C142")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/voice/checklist"))).toBe(true);
   });
 
   it("asks for the route's largest page, so owners see more than one default page", async () => {

@@ -18,6 +18,8 @@
 
 import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineReplay, withOfflineDrainLock, type OfflineOwner } from "@/lib/offline/account-boundary";
 
+import { sameOfflineOwner } from "@/lib/offline/ownership";
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const DB_NAME = "nir-offline-queue";
@@ -264,11 +266,15 @@ export async function enqueueSketchSave(
     const cursorReq = index.openCursor(IDBKeyRange.only(inspectionId));
 
     cursorReq.onsuccess = (evt) => {
+      if (!ownsOfflineEntry({ owner })) {
+        tx.abort();
+        return;
+      }
       const cursor = (evt.target as IDBRequest<IDBCursorWithValue>).result;
       if (cursor) {
         const existing = cursor.value as SyncQueueEntry;
         if (
-          ownsOfflineEntry(existing) &&
+          sameOfflineOwner(existing.owner ?? null, owner) &&
           existing.type === "sketch-save" &&
           existing.status === "pending" &&
           (existing.payload as SketchSavePayload | null)?.floorNumber ===
@@ -281,6 +287,10 @@ export async function enqueueSketchSave(
         // Coalesce scan complete — add the new entry within the same tx.
         const addReq = store.add(queueEntry);
         addReq.onsuccess = () => {
+          if (!ownsOfflineEntry({ owner })) {
+            tx.abort();
+            return;
+          }
           // Best-effort Background Sync registration (Chromium).
           if ("serviceWorker" in navigator && "SyncManager" in window) {
             navigator.serviceWorker.ready
@@ -291,7 +301,7 @@ export async function enqueueSketchSave(
                 /* SW not yet active, online listener will handle it */
               });
           }
-          resolve(id);
+          // Resolve only after commit; abort must roll back earlier deletes.
         };
         addReq.onerror = () => reject(addReq.error);
       }
@@ -299,6 +309,8 @@ export async function enqueueSketchSave(
 
     cursorReq.onerror = () => reject(cursorReq.error);
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error("Offline account changed; work was not overwritten"));
+    tx.oncomplete = () => resolve(id);
   });
 }
 

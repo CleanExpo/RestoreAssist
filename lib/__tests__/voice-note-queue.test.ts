@@ -130,7 +130,7 @@ describe("drainVoiceNoteQueue", () => {
     await expect(queue.getQueuedVoiceNoteCount()).resolves.toBe(1);
   });
 
-  it("retries on a transient 5xx instead of marking it a terminal error", async () => {
+  it("preserves an unconfirmed recording after a 5xx without replaying it", async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,
       status: 503,
@@ -144,8 +144,11 @@ describe("drainVoiceNoteQueue", () => {
 
     await queue.drainVoiceNoteQueue();
 
-    // Not yet terminal — no transcript, no surfaced error, still pending.
-    await expect(queue.getPendingTranscripts()).resolves.toEqual([]);
+    await queue.drainVoiceNoteQueue();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const entries = await queue.getPendingTranscripts();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ status: "error", error: expect.stringContaining("unconfirmed") });
     await expect(queue.getQueuedVoiceNoteCount()).resolves.toBe(1);
   });
 });

@@ -160,6 +160,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   const [pendingVoiceNotes, setPendingVoiceNotes] = useState(0);
 
   const refreshStatus = useCallback(async () => {
+    const owner = getOfflineOwner();
     try {
       const [status, stats, evidenceCount, voiceNoteCount] = await Promise.all([
         getSyncStatus(),
@@ -167,6 +168,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
         getQueuedEvidenceCount(),
         getQueuedVoiceNoteCount(),
       ]);
+      if (owner !== getOfflineOwner()) return;
       setSyncStatus(status);
       setQueueStats(stats);
       setPendingEvidenceUploads(evidenceCount);
