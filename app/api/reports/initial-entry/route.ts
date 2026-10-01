@@ -181,11 +181,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // If no email found, create a placeholder email
-      if (!clientEmail) {
-        clientEmail = `${data.clientName.trim().toLowerCase().replace(/\s+/g, ".")}@client.local`;
-      }
-
       // Find or create client record
       let clientId = null;
       try {
@@ -195,7 +190,10 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             // RA-7711: a real job never binds to (or updates) a sample client.
             isSample: false,
-            OR: [{ name: data.clientName.trim() }, { email: clientEmail }],
+            OR: [
+              { name: data.clientName.trim() },
+              ...(clientEmail ? [{ email: clientEmail }] : []),
+            ],
           },
         });
 
@@ -207,10 +205,8 @@ export async function POST(request: NextRequest) {
             data: {
               phone: clientPhone || existingClient.phone,
               address: data.propertyAddress.trim() || existingClient.address,
-              // Update email if we found a real one
-              email: clientEmail.includes("@client.local")
-                ? existingClient.email
-                : clientEmail,
+              // An unknown email must not replace a previously verified address.
+              email: clientEmail || existingClient.email,
             },
           });
         } else {
@@ -420,9 +416,24 @@ export async function POST(request: NextRequest) {
       }
 
       // Create the report with initial data (including NIR and equipment data if provided)
-      const report = await prisma.report.create({
-        data: reportData,
-      });
+      let report;
+      try {
+        report = await prisma.report.create({ data: reportData });
+      } catch (createError) {
+        // The atomic charge succeeded but no report was persisted. Compensate
+        // once, keeping the original write failure if the refund also fails.
+        try {
+          const { refundCreditsAndTrackUsage } =
+            await import("@/lib/report-limits");
+          const { refunded } = await refundCreditsAndTrackUsage(user.id);
+          if (!refunded) {
+            console.error("[initial-entry] credit refund incomplete after failed report create");
+          }
+        } catch (refundError) {
+          console.error("[initial-entry] credit refund failed after report create error", refundError);
+        }
+        throw createError;
+      }
 
       // RA-7726: link the inspection. The scoped where re-asserts the caller's
       // write reach at write time, and `reportId: null` means an inspection

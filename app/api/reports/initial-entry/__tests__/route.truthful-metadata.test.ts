@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   session: vi.fn(), user: vi.fn(), clientFind: vi.fn(), clientCreate: vi.fn(),
   clientUpdate: vi.fn(), create: vi.fn(), reportFind: vi.fn(), reportUpdate: vi.fn(),
-  deduct: vi.fn(),
+  deduct: vi.fn(), refund: vi.fn(), firstSaved: vi.fn(),
 }));
 vi.mock("next-auth", () => ({ getServerSession: mocks.session }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
@@ -19,8 +19,9 @@ vi.mock("@/lib/idempotency", () => ({ withIdempotency: async (
 ) => callback(await request.text()) }));
 vi.mock("@/lib/report-limits", () => ({
   canCreateReport: async () => ({ allowed: true }), deductCreditsAndTrackUsage: mocks.deduct,
+  refundCreditsAndTrackUsage: mocks.refund,
 }));
-vi.mock("@/lib/analytics/first-report-saved", () => ({ recordFirstReportSaved: async () => undefined }));
+vi.mock("@/lib/analytics/first-report-saved", () => ({ recordFirstReportSaved: mocks.firstSaved }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({ resolveReportFinancialReach: vi.fn(), resolveInspectionWrite: vi.fn() }));
 vi.mock("@/lib/services/ai/generate-enhanced-report", () => ({
   enhancedReportJurisdiction: vi.fn(), resolveEnhancedReportStateInfo: vi.fn(),
@@ -42,6 +43,8 @@ beforeEach(() => {
   mocks.clientCreate.mockResolvedValue({ id: "synthetic-client" });
   mocks.create.mockResolvedValue({ id: "synthetic-report" });
   mocks.deduct.mockResolvedValue(undefined);
+  mocks.refund.mockResolvedValue({ refunded: true });
+  mocks.firstSaved.mockResolvedValue(undefined);
   mocks.reportFind.mockResolvedValue({ id: "synthetic-report", userId: "synthetic-owner", inspectionDate: null });
   mocks.reportUpdate.mockImplementation(async ({ data }: { data: unknown }) => ({ id: "synthetic-report", ...data as object }));
 });
@@ -76,16 +79,56 @@ describe("truthful initial-entry metadata", () => {
   it("stores unspecified insurance without claiming building or contents coverage", async () => {
     expect((await saved()).insuranceType).toBe("");
   });
+  it("keeps an unprovided client email empty and does not match another blank-email client", async () => {
+    const data = await saved();
+    expect(mocks.clientFind.mock.calls[0][0].where.OR).toEqual([{ name: "Synthetic Client" }]);
+    expect(mocks.clientCreate.mock.calls[0][0].data.email).toBe("");
+    expect(data.clientId).toBe("synthetic-client");
+  });
+  it("uses a provided client email for the existing name-or-email lookup", async () => {
+    await saved({ clientContactDetails: "Contact known@example.test" });
+    expect(mocks.clientFind.mock.calls[0][0].where.OR).toEqual([
+      { name: "Synthetic Client" }, { email: "known@example.test" },
+    ]);
+    expect(mocks.clientCreate.mock.calls[0][0].data.email).toBe("known@example.test");
+  });
+  it("retains a matched client's real email when intake provides none", async () => {
+    mocks.clientFind.mockResolvedValue({ id: "known-client", email: "known@example.test", phone: null, address: null });
+    const data = await saved();
+    expect(mocks.clientUpdate.mock.calls[0][0].data.email).toBe("known@example.test");
+    expect(data.clientId).toBe("known-client");
+    expect(mocks.clientCreate).not.toHaveBeenCalled();
+  });
   it("preserves authorisation and refuses creation without a session", async () => {
     mocks.session.mockResolvedValue(null);
     expect((await POST(request(base))).status).toBe(401);
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.deduct).not.toHaveBeenCalled();
+    expect(mocks.refund).not.toHaveBeenCalled();
   });
   it("creates nothing when the existing atomic credit check refuses the charge", async () => {
     mocks.deduct.mockRejectedValue(new Error("INSUFFICIENT_CREDITS"));
     expect((await POST(request(base))).status).toBe(402);
     expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.refund).not.toHaveBeenCalled();
+  });
+  it("refunds once when the charged report cannot be persisted", async () => {
+    mocks.create.mockRejectedValue(new Error("synthetic write failure"));
+    expect((await POST(request(base))).status).toBe(500);
+    expect(mocks.deduct).toHaveBeenCalledOnce();
+    expect(mocks.refund).toHaveBeenCalledExactlyOnceWith("synthetic-owner");
+  });
+  it("returns the original failure when compensation fails", async () => {
+    mocks.create.mockRejectedValue(new Error("synthetic write failure"));
+    mocks.refund.mockRejectedValue(new Error("synthetic refund failure"));
+    expect((await POST(request(base))).status).toBe(500);
+    expect(mocks.refund).toHaveBeenCalledOnce();
+  });
+  it("does not refund a persisted report if a later side effect fails", async () => {
+    mocks.firstSaved.mockRejectedValue(new Error("synthetic analytics failure"));
+    expect((await POST(request(base))).status).toBe(500);
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.refund).not.toHaveBeenCalled();
   });
 });
 
