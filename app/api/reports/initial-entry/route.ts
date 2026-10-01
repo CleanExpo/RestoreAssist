@@ -181,13 +181,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // If no email found, create a placeholder email
-      if (!clientEmail) {
-        clientEmail = `${data.clientName.trim().toLowerCase().replace(/\s+/g, ".")}@client.local`;
-      }
-
       // Find or create client record
       let clientId = null;
+      let clientLinkWarning: string | null = null;
       try {
         // First, try to find existing client by name or email
         const existingClient = await prisma.client.findFirst({
@@ -195,7 +191,10 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             // RA-7711: a real job never binds to (or updates) a sample client.
             isSample: false,
-            OR: [{ name: data.clientName.trim() }, { email: clientEmail }],
+            OR: [
+              { name: data.clientName.trim() },
+              ...(clientEmail ? [{ email: clientEmail }] : []),
+            ],
           },
         });
 
@@ -207,13 +206,11 @@ export async function POST(request: NextRequest) {
             data: {
               phone: clientPhone || existingClient.phone,
               address: data.propertyAddress.trim() || existingClient.address,
-              // Update email if we found a real one
-              email: clientEmail.includes("@client.local")
-                ? existingClient.email
-                : clientEmail,
+              // An unknown email must not replace a previously verified address.
+              email: clientEmail || existingClient.email,
             },
           });
-        } else {
+        } else if (clientEmail) {
           // Create new client record (no subscription check - allow creating clients from reports)
           const newClient = await prisma.client.create({
             data: {
@@ -226,10 +223,17 @@ export async function POST(request: NextRequest) {
             },
           });
           clientId = newClient.id;
+        } else {
+          // Client.email is required and unique per owner. A shared blank value
+          // would collide, while an invented address could become a recipient.
+          clientLinkWarning =
+            "Report saved without a client link. Add the client's email to create their client record.";
         }
       } catch (error) {
         console.error("Error creating/updating client:", error);
-        // Continue without clientId if there's an error - don't block report creation
+        clientLinkWarning = clientId
+          ? "Report linked to the client, but their contact details were not updated."
+          : "Report saved without a client link. Check the client record before sending or invoicing.";
       }
 
       // Prepare NIR data if provided
@@ -274,7 +278,7 @@ export async function POST(request: NextRequest) {
         clientId: clientId, // Link to client if created/found
         propertyAddress: data.propertyAddress.trim(),
         hazardType: "Water", // Default for water damage restoration
-        insuranceType: "Building and Contents Insurance", // Default
+        insuranceType: "", // Insurance cover has not been recorded at intake.
         userId: user.id,
 
         // Phase 2: Initial Data Entry Fields
@@ -371,7 +375,7 @@ export async function POST(request: NextRequest) {
 
         // Set report number
         reportNumber: reportTitle,
-        inspectionDate: technicianAttendanceDate || incidentDate || new Date(),
+        inspectionDate: technicianAttendanceDate,
       };
 
       // Conditionally add team assignment fields if they exist in the schema
@@ -420,9 +424,24 @@ export async function POST(request: NextRequest) {
       }
 
       // Create the report with initial data (including NIR and equipment data if provided)
-      const report = await prisma.report.create({
-        data: reportData,
-      });
+      let report;
+      try {
+        report = await prisma.report.create({ data: reportData });
+      } catch (createError) {
+        // The atomic charge succeeded but no report was persisted. Compensate
+        // once, keeping the original write failure if the refund also fails.
+        try {
+          const { refundCreditsAndTrackUsage } =
+            await import("@/lib/report-limits");
+          const { refunded } = await refundCreditsAndTrackUsage(user.id);
+          if (!refunded) {
+            console.error("[initial-entry] credit refund incomplete after failed report create");
+          }
+        } catch (refundError) {
+          console.error("[initial-entry] credit refund failed after report create error", refundError);
+        }
+        throw createError;
+      }
 
       // RA-7726: link the inspection. The scoped where re-asserts the caller's
       // write reach at write time, and `reportId: null` means an inspection
@@ -506,6 +525,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         report,
+        clientLinkWarning,
         inspectionLinked,
         message:
           "Initial data saved successfully. Standards analysis initiated. Proceed to report generation.",

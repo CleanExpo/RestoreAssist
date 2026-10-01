@@ -219,13 +219,33 @@ export default function NIRTechnicianInputForm({
   const [inspectionId, setInspectionId] = useState<string | null>(null);
 
   // Environmental Data
-  const [environmentalData, setEnvironmentalData] = useState({
-    ambientTemperature: 25,
-    humidityLevel: 60,
-    dewPoint: 0,
+  const [environmentalData, setEnvironmentalData] = useState<{
+    ambientTemperature: number | null;
+    humidityLevel: number | null;
+    dewPoint: number | null;
+    airCirculation: boolean;
+    weatherConditions: string;
+  }>({
+    ambientTemperature: null,
+    humidityLevel: null,
+    dewPoint: null,
     airCirculation: false,
     weatherConditions: "",
   });
+  const measuredEnvironmentalData =
+    environmentalData.ambientTemperature !== null &&
+    environmentalData.humidityLevel !== null
+      ? {
+          ...environmentalData,
+          ambientTemperature: environmentalData.ambientTemperature,
+          humidityLevel: environmentalData.humidityLevel,
+        }
+      : null;
+  const hasPartialEnvironmentalData =
+    (environmentalData.ambientTemperature === null) !==
+    (environmentalData.humidityLevel === null);
+  const partialEnvironmentalMessage =
+    "Enter both temperature and humidity, or clear both before saving.";
 
   // Moisture Readings
   const [moistureReadings, setMoistureReadings] = useState<
@@ -356,12 +376,6 @@ export default function NIRTechnicianInputForm({
   // Claim type — IICRC standard that governs this job. Picked BEFORE evidence
   // capture starts so the correct field surface renders (RA-1029 P1 #7).
   const [claimType, setClaimType] = useState<IicrcClaimType | null>(null);
-
-  // RA-7711: the values Quick Fill wrote. While the form still holds exactly
-  // these, the silent auto-create below stays off, so Quick Fill never creates
-  // a job on its own. Any edit to claim type, address or postcode, or an
-  // explicit save, creates it as normal.
-  const quickFillKeyRef = useRef<string | null>(null);
 
   // Property Address (required)
   const [propertyAddress, setPropertyAddress] = useState("");
@@ -712,11 +726,6 @@ export default function NIRTechnicianInputForm({
     // IICRC category and class, so the filled form is classified.
     const classification = QUICK_FILL_CLASSIFICATION[useCaseId];
     if (classification) {
-      quickFillKeyRef.current = [
-        classification.claimType,
-        (useCaseData.propertyAddress ?? propertyAddress).trim(),
-        (useCaseData.propertyPostcode ?? propertyPostcode).trim(),
-      ].join("|");
       setClaimType(classification.claimType);
       setManualClassification(
         classification.category && classification.waterClass
@@ -833,7 +842,7 @@ export default function NIRTechnicianInputForm({
           // Load existing data
           // RA-7740: the API returns environmentalData as a LIST of readings
           // (EnvironmentalData[]); this form holds one reading. Load the
-          // latest; an empty list keeps the defaults.
+          // latest; an empty list keeps measurements unknown.
           const latestReading = latestEnvironmentalReading(
             data.inspection.environmentalData,
           );
@@ -978,17 +987,22 @@ export default function NIRTechnicianInputForm({
 
     // Validate environmental data ranges
     if (
-      environmentalData.ambientTemperature < -20 ||
-      environmentalData.ambientTemperature > 55
+      (environmentalData.ambientTemperature !== null &&
+        (environmentalData.ambientTemperature < -20 ||
+          environmentalData.ambientTemperature > 55))
     ) {
       errors.temperature = "Temperature must be between -20°C and 55°C";
     }
 
     if (
-      environmentalData.humidityLevel < 0 ||
-      environmentalData.humidityLevel > 100
+      (environmentalData.humidityLevel !== null &&
+        (environmentalData.humidityLevel < 0 ||
+          environmentalData.humidityLevel > 100))
     ) {
       errors.humidity = "Humidity must be between 0% and 100%";
+    }
+    if (hasPartialEnvironmentalData) {
+      errors.temperature = partialEnvironmentalMessage;
     }
 
     setValidationErrors(errors);
@@ -1261,7 +1275,7 @@ export default function NIRTechnicianInputForm({
     computeClassificationPreview({
       affectedAreas,
       moistureReadings,
-      environmentalData,
+      environmentalData: measuredEnvironmentalData,
       manualClassification,
     });
 
@@ -1347,28 +1361,10 @@ export default function NIRTechnicianInputForm({
     return null;
   };
 
-  // Auto-create inspection when property info changes (silent, no toast).
-  // RA-1029 P1 #7 — also gate on claimType so the inspection is born with the
-  // correct IICRC standard stamped (rather than created early and patched).
-  useEffect(() => {
-    if (
-      claimType &&
-      propertyAddress.trim() &&
-      propertyPostcode.trim() &&
-      !inspectionId &&
-      !loading &&
-      quickFillKeyRef.current !==
-        [claimType, propertyAddress.trim(), propertyPostcode.trim()].join("|")
-    ) {
-      const timer = setTimeout(() => {
-        ensureInspectionExists(false); // Silent creation
-      }, 1500); // Debounce: wait 1.5 seconds after user stops typing
-
-      return () => clearTimeout(timer);
-    }
-  }, [claimType, propertyAddress, propertyPostcode, inspectionId, loading]);
-
   const saveDraftSnapshot = async (currentInspectionId: string) => {
+    if (hasPartialEnvironmentalData) {
+      throw new Error(partialEnvironmentalMessage);
+    }
     const response = await fetch(
       `/api/inspections/${currentInspectionId}/draft-snapshot`,
       {
@@ -1377,7 +1373,7 @@ export default function NIRTechnicianInputForm({
         body: JSON.stringify({
           lossDescription: damageDescription.trim(),
           technicianName: technicianName.trim(),
-          environmentalData,
+          environmentalData: measuredEnvironmentalData,
           moistureReadings: moistureReadings.map((reading) => {
             const mapPoint = moistureMapPoints.find(
               (point) => point.id === reading.id,
@@ -1549,6 +1545,12 @@ export default function NIRTechnicianInputForm({
   useEffect(() => {
     const temp = environmentalData.ambientTemperature;
     const humidity = environmentalData.humidityLevel;
+    if (temp === null || humidity === null) {
+      setEnvironmentalData((prev) =>
+        prev.dewPoint === null ? prev : { ...prev, dewPoint: null },
+      );
+      return;
+    }
     // RA-7744: do not overwrite a saved dew point on load.
     const saved = hydratedDewPointInputs.current;
     if (saved) {
@@ -1692,7 +1694,9 @@ export default function NIRTechnicianInputForm({
                   "text-neutral-900 dark:text-white",
                 )}
               >
-                {environmentalData.ambientTemperature}°C
+                {environmentalData.ambientTemperature === null
+                  ? "Not recorded"
+                  : `${environmentalData.ambientTemperature}°C`}
               </p>
             </div>
             <div>
@@ -1705,7 +1709,9 @@ export default function NIRTechnicianInputForm({
                   "text-neutral-900 dark:text-white",
                 )}
               >
-                {environmentalData.humidityLevel}%
+                {environmentalData.humidityLevel === null
+                  ? "Not recorded"
+                  : `${environmentalData.humidityLevel}%`}
               </p>
             </div>
             <div>
@@ -1718,7 +1724,9 @@ export default function NIRTechnicianInputForm({
                   "text-neutral-900 dark:text-white",
                 )}
               >
-                {environmentalData.dewPoint.toFixed(1)}°C
+                {environmentalData.dewPoint === null
+                  ? "Not recorded"
+                  : `${environmentalData.dewPoint.toFixed(1)}°C`}
               </p>
             </div>
             <div>
@@ -1731,7 +1739,12 @@ export default function NIRTechnicianInputForm({
                   "text-neutral-900 dark:text-white",
                 )}
               >
-                {environmentalData.airCirculation ? "Yes" : "No"}
+                {environmentalData.ambientTemperature === null ||
+                environmentalData.humidityLevel === null
+                  ? "Not recorded"
+                  : environmentalData.airCirculation
+                    ? "Yes"
+                    : "No"}
               </p>
             </div>
           </div>
@@ -2283,6 +2296,12 @@ export default function NIRTechnicianInputForm({
         error={validationErrors.claimType}
         disabled={!!inspectionId}
       />
+      {claimType && !inspectionId && (
+        <p className="text-sm text-neutral-600 dark:text-slate-400">
+          Save Draft or upload a floor plan to create the inspection before
+          completing its assessment.
+        </p>
+      )}
 
       {/* Claim-type assessment panel (S520 / S540 / S700 / S500) — RA-1029 */}
       {inspectionId && claimType && (
@@ -2462,11 +2481,12 @@ export default function NIRTechnicianInputForm({
               type="number"
               min="-20"
               max="55"
-              value={environmentalData.ambientTemperature}
+              value={environmentalData.ambientTemperature ?? ""}
               onChange={(e) =>
                 setEnvironmentalData((prev) => ({
                   ...prev,
-                  ambientTemperature: parseFloat(e.target.value) || 0,
+                  ambientTemperature:
+                    e.target.value === "" ? null : Number(e.target.value),
                 }))
               }
               className={cn(
@@ -2495,11 +2515,12 @@ export default function NIRTechnicianInputForm({
               type="number"
               min="0"
               max="100"
-              value={environmentalData.humidityLevel}
+              value={environmentalData.humidityLevel ?? ""}
               onChange={(e) =>
                 setEnvironmentalData((prev) => ({
                   ...prev,
-                  humidityLevel: parseFloat(e.target.value) || 0,
+                  humidityLevel:
+                    e.target.value === "" ? null : Number(e.target.value),
                 }))
               }
               className={cn(
@@ -2526,7 +2547,7 @@ export default function NIRTechnicianInputForm({
             </label>
             <input
               type="number"
-              value={environmentalData.dewPoint.toFixed(1)}
+              value={environmentalData.dewPoint?.toFixed(1) ?? ""}
               disabled
               className={cn(
                 "w-full px-4 py-2 rounded-lg cursor-not-allowed",
@@ -2813,8 +2834,8 @@ export default function NIRTechnicianInputForm({
             {!inspectionId &&
               (!propertyAddress.trim() || !propertyPostcode.trim()) && (
                 <span className="block mt-2 text-amber-400 text-xs">
-                  Enter property address and postcode first. Inspection will
-                  be created automatically, then you can upload floor plan.
+                  Select a claim type and enter property address and postcode,
+                  then Save Draft or upload a floor plan to create the inspection.
                 </span>
               )}
             {inspectionId && (
@@ -3927,6 +3948,11 @@ export default function NIRTechnicianInputForm({
               }
               if (!propertyAddress.trim() || !propertyPostcode.trim()) {
                 toast.error("Please enter property address and postcode first");
+                setSaving(false);
+                return;
+              }
+              if (hasPartialEnvironmentalData) {
+                toast.error(partialEnvironmentalMessage);
                 setSaving(false);
                 return;
               }

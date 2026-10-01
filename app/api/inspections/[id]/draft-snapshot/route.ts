@@ -56,7 +56,7 @@ const scopeItemSchema = z.object({
 const snapshotSchema = z.object({
   lossDescription: z.string().max(2000).optional(),
   technicianName: z.string().max(200).optional(),
-  environmentalData: environmentalSchema,
+  environmentalData: environmentalSchema.nullable(),
   moistureReadings: z.array(moistureSchema).max(500),
   affectedAreas: z.array(affectedAreaSchema).max(100),
   scopeItems: z.array(scopeItemSchema).max(200),
@@ -223,18 +223,20 @@ export async function PUT(
       await tx.affectedArea.deleteMany({ where: { inspectionId: id } });
       await tx.scopeItem.deleteMany({ where: { inspectionId: id } });
 
-      await tx.environmentalData.create({
-        data: {
-          inspectionId: id,
-          ambientTemperature: data.environmentalData.ambientTemperature,
-          humidityLevel: data.environmentalData.humidityLevel,
-          dewPoint: data.environmentalData.dewPoint ?? null,
-          airCirculation: data.environmentalData.airCirculation,
-          weatherConditions: data.environmentalData.weatherConditions
-            ? sanitizeString(data.environmentalData.weatherConditions, 200)
-            : null,
-        },
-      });
+      if (data.environmentalData) {
+        await tx.environmentalData.create({
+          data: {
+            inspectionId: id,
+            ambientTemperature: data.environmentalData.ambientTemperature,
+            humidityLevel: data.environmentalData.humidityLevel,
+            dewPoint: data.environmentalData.dewPoint ?? null,
+            airCirculation: data.environmentalData.airCirculation,
+            weatherConditions: data.environmentalData.weatherConditions
+              ? sanitizeString(data.environmentalData.weatherConditions, 200)
+              : null,
+          },
+        });
+      }
 
       if (data.moistureReadings.length > 0) {
         await tx.moistureReading.createMany({
@@ -330,7 +332,7 @@ export async function PUT(
     return NextResponse.json({
       saved: true,
       counts: {
-        environmentalData: 1,
+        environmentalData: data.environmentalData ? 1 : 0,
         moistureReadings: data.moistureReadings.length,
         affectedAreas: data.affectedAreas.length,
         scopeItems: data.scopeItems.length,

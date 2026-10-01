@@ -56,7 +56,7 @@ export default function EditReportPage({
     clientName: "",
     propertyAddress: "",
     hazardType: "Water",
-    insuranceType: "Building and Contents Insurance",
+    insuranceType: "",
     waterCategory: "",
     waterClass: "",
     sourceOfWater: "",
@@ -98,14 +98,14 @@ export default function EditReportPage({
           propertyAddress: reportData.propertyAddress || "",
           hazardType: reportData.hazardType || "Water",
           insuranceType:
-            reportData.insuranceType || "Building and Contents Insurance",
+            reportData.insuranceType || "",
           waterCategory: reportData.waterCategory || "",
           waterClass: reportData.waterClass || "",
           sourceOfWater: reportData.sourceOfWater || "",
           affectedArea: reportData.affectedArea || 0,
           inspectionDate: reportData.inspectionDate
             ? new Date(reportData.inspectionDate).toISOString().slice(0, 16)
-            : new Date().toISOString().slice(0, 16),
+            : "",
         });
 
         // Fetch scope if exists
@@ -156,6 +156,11 @@ export default function EditReportPage({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...inspectionData,
+            // Unknown dates use the existing null contract. Clearing a stored
+            // date keeps the existing API rejection instead of a false success.
+            inspectionDate:
+              inspectionData.inspectionDate ||
+              (report?.inspectionDate ? "" : null),
             title: inspectionData.title || report?.reportNumber,
             description: "Initial Inspection Report",
           }),

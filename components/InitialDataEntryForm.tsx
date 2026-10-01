@@ -1478,7 +1478,10 @@ export default function InitialDataEntryForm({
         // RA-6799: notify the parent immediately so it persists the reportId and
         // never creates a duplicate on remount/refresh.
         onReportCreated?.(newReportId);
-        toast.success("All data saved successfully");
+        toast.success("Report saved");
+        if (data.clientLinkWarning) {
+          toast.error(data.clientLinkWarning);
+        }
 
         // Show review page first, then report type selection
         setShowReview(true);

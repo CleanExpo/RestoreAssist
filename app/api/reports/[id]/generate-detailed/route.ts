@@ -416,7 +416,7 @@ export async function POST(
       const reportDetails = [
         {
           label: "Date:",
-          value: formatDate(report.inspectionDate || report.createdAt),
+          value: formatDate(report.inspectionDate),
         },
         { label: "Job Supplier:", value: report.user?.name || "RestoreAssist" },
         { label: "Insurance Company:", value: report.insuranceType || "N/A" },
@@ -429,11 +429,11 @@ export async function POST(
         },
         {
           label: "Date On-Site:",
-          value: formatDate(report.inspectionDate || report.createdAt),
+          value: formatDate(report.inspectionDate),
         },
         {
           label: "Time On-Site:",
-          value: formatTime(report.inspectionDate || report.createdAt),
+          value: formatTime(report.inspectionDate),
         },
         { label: "Meeting On-Site:", value: report.clientName || "N/A" },
         { label: "Phone Number:", value: report.client?.phone || "N/A" },
@@ -519,12 +519,12 @@ export async function POST(
         },
         {
           label: "Date Contacted:",
-          value: formatDate(report.inspectionDate || report.createdAt),
+          value: formatDate(report.inspectionDate),
           checkbox: false,
         },
         {
           label: "Time Contacted:",
-          value: formatTime(report.inspectionDate || report.createdAt),
+          value: formatTime(report.inspectionDate),
           checkbox: false,
         },
         {
@@ -534,8 +534,8 @@ export async function POST(
         },
         {
           label: "Claim Covered:",
-          value: report.insuranceType ? "Yes" : "No",
-          checkbox: true,
+          value: "Not recorded",
+          checkbox: false,
         },
         { label: "Photos Taken:", value: "Yes", checkbox: true },
         {
