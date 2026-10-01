@@ -17,6 +17,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe("account selection at login", () => {
   it("shows the currently signed-in identity and a clear switch action", async () => {
     h.session = { user: { id: "demo-user", email: "demo@example.com" } };
+    h.params = new URLSearchParams("callbackUrl=/dashboard/inspections/prior-job");
     render(<LoginPage />);
     expect(screen.getByText("demo@example.com")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Use another Google account" }));

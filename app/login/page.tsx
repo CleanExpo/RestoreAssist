@@ -50,7 +50,7 @@ function LoginForm() {
   // hydration matches.
   const [rememberMe, setRememberMe] = useState(false);
   const searchParams = useSearchParams();
-  const switchingAccount = searchParams?.get("switchAccount") === "google";
+  const switchingAccount = searchParams?.get("switchAccount") === "google" || Boolean(currentSession?.user);
   // An explicit account switch starts at the dashboard, never at another
   // account's job-specific callback. Normal sign-in preserves safe deep links.
   const callbackUrl = switchingAccount ? "/dashboard" : safeCallbackUrl(searchParams?.get("callbackUrl"));

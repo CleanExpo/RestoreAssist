@@ -53,6 +53,12 @@ test("account switch uses NextAuth CSRF and Google chooser parameters, then supp
 });
 
 test("recovery keeps errors truthful and lets an invalid code be corrected", async ({ page }, testInfo) => {
+  // Isolate this UI test from the external BotID challenge transport. Save
+  // native fetch before the SDK wraps it; every API is intercepted below and
+  // external requests stay blocked. This does NOT evaluate BotID itself.
+  await page.addInitScript(() => {
+    (window as any).__syntheticFetch = window.fetch.bind(window);
+  });
   let requests = 0;
   await page.route("**/api/auth/forgot-password", async (route) => {
     requests++;
@@ -61,6 +67,7 @@ test("recovery keeps errors truthful and lets an invalid code be corrected", asy
   await page.route("**/api/auth/reset-password", (route) => route.fulfill({ status: 400, json: { error: { message: "Invalid verification code." } } }));
   await page.goto("/forgot-password");
   await page.getByLabel("Email Address").fill("synthetic@example.com");
+  await page.evaluate(() => { window.fetch = (window as any).__syntheticFetch; });
   await page.getByRole("button", { name: "Send Verification Code" }).click();
   await expect(page.getByText("Could not process the reset request. Please try again.", { exact: true }).first()).toBeVisible();
   await expect(page.getByLabel("Email Address")).toBeVisible();
