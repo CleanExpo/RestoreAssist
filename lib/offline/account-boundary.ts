@@ -74,8 +74,9 @@ export async function refreshOfflineOwner(): Promise<OfflineOwner | null> {
         clearOfflineContext();
         sessionUserId = userId;
       }
+      const identityChanged = !sameOfflineOwner(context, owner);
       context = Object.freeze(owner);
-      changed();
+      if (identityChanged) changed();
       return context;
     } catch {
       // Offline data remains intact; replay still requires a fresh verification.
@@ -95,6 +96,7 @@ export async function offlineReplayOptions(owner: OfflineOwner | undefined): Pro
 }
 
 export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: string, init: RequestInit): Promise<Response | null> {
+  if (!url.startsWith("/api/") || /[\\\u0000-\u0020]/.test(url) || url.includes("://")) return null;
   const options = await offlineReplayOptions(owner);
   if (!options) return null;
   try {

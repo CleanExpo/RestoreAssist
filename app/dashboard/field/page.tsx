@@ -80,7 +80,10 @@ export default function FieldDashboardPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    const clear = () => { setInspections([]); setFromCache(false); setCacheAge(null); };
+    const clear = () => {
+      setInspections([]); setFromCache(false); setCacheAge(null);
+      if (getOfflineOwner()) void loadInspections();
+    };
     window.addEventListener(OFFLINE_CONTEXT_EVENT, clear);
     return () => window.removeEventListener(OFFLINE_CONTEXT_EVENT, clear);
   }, []);

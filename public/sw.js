@@ -42,8 +42,8 @@
  * next time they open the app. They re-download the shell, which on
  * a flaky connection means a blank screen until the network catches up.
  */
-// Bumped: localhost self-destruct + no Turbopack chunk caching (HMR fix).
-const NIR_VERSION = "nir-v2.1";
+// Bumped: private documents are no longer cached; retire old account HTML.
+const NIR_VERSION = "nir-v2.2";
 const CACHE_APP = `${NIR_VERSION}-app`;
 const CACHE_STATIC = `${NIR_VERSION}-static`;
 const ALL_CACHES = [CACHE_APP, CACHE_STATIC];
@@ -55,7 +55,7 @@ const IS_LOCAL_DEV =
  * Pages to precache on install so the app shell is immediately available offline.
  * Keep this list small — only the inspection workflow entry points.
  */
-const PRECACHE_URLS = ["/", "/portal/inspections", "/offline"];
+const PRECACHE_URLS = ["/", "/offline"];
 
 // ─── LOCAL DEV: self-destruct ─────────────────────────────────────────────────
 // A leftover SW from a prior session cache-firsts /_next/static and serves
@@ -131,6 +131,19 @@ if (IS_LOCAL_DEV) {
     // Only handle same-origin GET requests
     if (request.method !== "GET") return;
     if (url.origin !== self.location.origin) return;
+
+    // Account-specific documents and API responses must never be served from
+    // another account's browser cache. API matching precedes file extensions.
+    if (url.pathname.startsWith("/api/")) {
+      event.respondWith(networkOnlyWithOfflineStub(request));
+      return;
+    }
+    if (/^\/(dashboard|reports|compliance|portal|capture|sign|invite)(\/|$)/.test(url.pathname)) {
+      event.respondWith(fetch(request).catch(async () =>
+        (await caches.match("/offline")) || new Response("Reconnect to verify your account. Saved offline work is preserved.", { status: 503 }),
+      ));
+      return;
+    }
 
     // ── Next.js static assets — cache-first (content-hashed, safe to cache forever)
     if (url.pathname.startsWith("/_next/static/")) {
