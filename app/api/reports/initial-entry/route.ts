@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
         clientId: clientId, // Link to client if created/found
         propertyAddress: data.propertyAddress.trim(),
         hazardType: "Water", // Default for water damage restoration
-        insuranceType: "Building and Contents Insurance", // Default
+        insuranceType: "", // Insurance cover has not been recorded at intake.
         userId: user.id,
 
         // Phase 2: Initial Data Entry Fields
@@ -371,7 +371,7 @@ export async function POST(request: NextRequest) {
 
         // Set report number
         reportNumber: reportTitle,
-        inspectionDate: technicianAttendanceDate || incidentDate || new Date(),
+        inspectionDate: technicianAttendanceDate,
       };
 
       // Conditionally add team assignment fields if they exist in the schema
