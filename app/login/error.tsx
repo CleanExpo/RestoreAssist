@@ -13,8 +13,8 @@
 //
 // This route-segment error.tsx is the canonical Next.js fix: any uncaught
 // render error inside /login (or its child segments) lands here instead
-// of taking down the whole shell. The Try Again button calls `reset()`
-// which re-mounts the segment fresh.
+// of taking down the whole shell. The Try Again button calls `retry()`
+// which re-fetches route data as well as clearing the error state.
 //
 // Logging: console.error with a tagged prefix so iOS Web Inspector +
 // Vercel logs make the source obvious. RA-1349 — Vercel Observability is
@@ -36,10 +36,10 @@ import {
 
 interface LoginErrorProps {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }
 
-export default function LoginError({ error, reset }: LoginErrorProps) {
+export default function LoginError({ error, retry }: LoginErrorProps) {
   useEffect(() => {
     // Tagged log: grep `[login-error]` in Vercel + iOS Web Inspector to
     // find the underlying stack the moment the boundary fires.
@@ -80,7 +80,7 @@ export default function LoginError({ error, reset }: LoginErrorProps) {
 
         <CardFooter>
           <Button
-            onClick={reset}
+            onClick={retry}
             variant="outline"
             size="sm"
             className="border-slate-500 text-white hover:bg-slate-700 hover:text-white hover:border-slate-400"

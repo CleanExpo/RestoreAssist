@@ -19,10 +19,10 @@ import { reportClientError } from "@/lib/observability";
 
 export default function DashboardError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error("[DashboardError]", error);
@@ -62,7 +62,7 @@ export default function DashboardError({
 
         <CardFooter className="gap-3">
           <Button
-            onClick={reset}
+            onClick={retry}
             size="sm"
             style={{ backgroundColor: "#8A6B4E", borderColor: "#8A6B4E" }}
             className="text-white hover:opacity-90"

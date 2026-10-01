@@ -44,6 +44,8 @@
  * a flaky connection means a blank screen until the network catches up.
  */
 // Bumped: private documents are no longer cached; retire old account HTML.
+// Keep this namespace for MIME recovery: validate/repair only the requested
+// asset entry below, preserving usable cached assets and offline documents.
 const NIR_VERSION = "nir-v2.2";
 const CACHE_APP = `${NIR_VERSION}-app`;
 const CACHE_STATIC = `${NIR_VERSION}-static`;
@@ -189,19 +191,44 @@ if (IS_LOCAL_DEV) {
  * Used for content-hashed static assets that never change at the same URL.
  */
 async function cacheFirst(request, cacheName) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
+  let cache;
+  try {
+    cache = await caches.open(cacheName);
+    const cached = await cache.match(request);
+    if (cached && isCacheableAsset(request, cached)) return cached;
+    // A gateway/login HTML response can be 200 at a chunk URL. Remove only
+    // that invalid entry so a recovered network can supply the actual asset.
+    if (cached) await cache.delete(request);
+  } catch {
+    // Unavailable/quota-limited cache storage must not prevent a network load.
+  }
 
   try {
     const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
+    if (cache && isCacheableAsset(request, response)) {
+      try {
+        await cache.put(request, response.clone());
+      } catch {
+        // Serving the asset does not depend on successfully caching it.
+      }
     }
     return response;
   } catch {
     return new Response("Asset unavailable offline", { status: 503 });
   }
+}
+
+function isCacheableAsset(request, response) {
+  if (!response.ok) return false;
+  const path = new URL(request.url).pathname;
+  if (!path.startsWith("/_next/static/")) return true;
+  if (response.redirected) return false;
+  const type = (response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  if (/\.m?js$/.test(path)) {
+    return /^(text|application)\/(javascript|ecmascript|x-javascript)$/.test(type);
+  }
+  if (path.endsWith(".css")) return type === "text/css";
+  return true;
 }
 
 async function privateDocumentWithOfflineFallback(request) {

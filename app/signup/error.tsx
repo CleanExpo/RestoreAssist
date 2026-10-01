@@ -21,10 +21,10 @@ import {
 
 interface SignupErrorProps {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }
 
-export default function SignupError({ error, reset }: SignupErrorProps) {
+export default function SignupError({ error, retry }: SignupErrorProps) {
   useEffect(() => {
     console.error("[signup-error]", error.message, {
       digest: error.digest,
@@ -63,7 +63,7 @@ export default function SignupError({ error, reset }: SignupErrorProps) {
 
         <CardFooter>
           <Button
-            onClick={reset}
+            onClick={retry}
             variant="outline"
             size="sm"
             className="border-slate-500 text-white hover:bg-slate-700 hover:text-white hover:border-slate-400"
