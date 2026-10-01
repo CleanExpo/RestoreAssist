@@ -7,6 +7,19 @@ import {
 } from "../ai-provider-step";
 
 describe("buildAiProviderOnboardingStep (RA-6801)", () => {
+  it.each(["DISABLED", "FAILED"] as const)("funded trial with %s Anthropic explains the connection state without advertising readiness", (status) => {
+    const step = buildAiProviderOnboardingStep({
+      hasByokKey: false,
+      canUsePlatformTrial: false,
+      fundedTrial: true,
+      platformProviderStatus: status,
+    });
+    expect(step.completed).toBe(false);
+    expect(step.required).toBe(false);
+    expect(step.route).toContain("provider=ANTHROPIC");
+    expect(step.description).toMatch(status === "DISABLED" ? /disabled/i : /failed/i);
+    expect(step.description).not.toMatch(/platform.*(missing|not configured)/i);
+  });
   it("does not require BYOK when a funded trial can use the platform key", () => {
     const step = buildAiProviderOnboardingStep({
       hasByokKey: false,
@@ -62,6 +75,8 @@ describe("buildAiProviderOnboardingStep (RA-6801)", () => {
     expect(step.required).toBe(false);
     expect(step.completed).toBe(true);
     expect(step.title).toMatch(/configured/i);
+    expect(step.description).toMatch(/validity has not been checked/i);
+    expect(step.description).not.toMatch(/generation is active/i);
   });
 
   it("says the stored key was rejected, with the date, instead of asking to add a key (RA-7428)", () => {

@@ -4,7 +4,7 @@
  * Workspace-scoped REST endpoints for managing BYOK AI provider keys.
  *
  * GET  /api/workspace/provider-connections
- *   Returns the list of all provider connections for the user's workspace (masked keys).
+ *   Returns existing provider configuration metadata without reading keys or provisioning.
  *
  * POST /api/workspace/provider-connections
  *   Upsert a provider connection (save/update an API key).
@@ -22,33 +22,23 @@
  * SECURITY:
  *   - Requires authenticated session
  *   - Only workspace owners and managers may modify connections
- *   - Plaintext API keys are NEVER returned — only masked representations
+ *   - GET never reads credentials; writes return only the existing safe summary
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import {
-  listProviderConnections,
   upsertProviderConnection,
   disableProviderConnection,
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
-import { checkPaymentGate } from "@/lib/workspace/payment-gate";
-import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
-import { hasPermission } from "@/lib/workspace/permissions";
+import { getEffectiveUserIdForIntegrations } from "@/lib/ai-provider";
+import { listConfiguredAiConnections } from "@/lib/services/integrations/ai-connections";
+import { authorizeProviderWorkspace } from "@/lib/workspace/provider-connection-access";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
-
-/**
- * Signup creates an Organization but historically skipped workspace
- * provisioning. Setup "Add your AI key" needs a READY workspace first.
- */
-async function ensureReadyWorkspaceGate(userId: string) {
-  await ensureWorkspaceForUser(userId);
-  return checkPaymentGate(userId);
-}
 
 const VALID_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
@@ -91,17 +81,15 @@ export async function GET(_req: NextRequest) {
       });
     }
 
-    const gate = await ensureReadyWorkspaceGate(session.user.id);
-    if (!gate.allowed) return gate.response;
-    const { workspace } = gate;
-
-    const connections = await listProviderConnections(workspace.id);
-
+    const ownerId = await getEffectiveUserIdForIntegrations(session.user.id);
+    const { workspaceId, connections } = await listConfiguredAiConnections(ownerId);
+    // Keep the settings response shape without reading or decrypting secrets.
     return NextResponse.json({
-      workspaceId: workspace.id,
-      workspaceName: workspace.name,
-      connections,
-    });
+      workspaceId,
+      connections: connections.map(connection => ({
+        ...connection, workspaceId, maskedKey: "", lastError: null,
+      })),
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return fromException(_req, error, { stage: "list" });
   }
@@ -124,24 +112,9 @@ export async function POST(req: NextRequest) {
   // write of the same key on retry.
   return withIdempotency(req, userId, async (rawBody) => {
     try {
-      const gate = await ensureReadyWorkspaceGate(userId);
+      const gate = await authorizeProviderWorkspace(req, userId);
       if (!gate.allowed) return gate.response;
       const { workspace } = gate;
-
-      // Only members with workspace.settings permission may save provider keys
-      const canManage = await hasPermission(
-        userId,
-        workspace.id,
-        "workspace.settings",
-      );
-      if (!canManage) {
-        return apiError(req, {
-          code: "FORBIDDEN",
-          message:
-            "Forbidden — only workspace owners and managers may configure AI providers",
-          status: 403,
-        });
-      }
 
       let body: any = null;
       try {
@@ -260,23 +233,9 @@ export async function DELETE(req: NextRequest) {
       });
     }
 
-    const gate = await ensureReadyWorkspaceGate(session.user.id);
+    const gate = await authorizeProviderWorkspace(req, session.user.id);
     if (!gate.allowed) return gate.response;
     const { workspace } = gate;
-
-    const canManage = await hasPermission(
-      session.user.id,
-      workspace.id,
-      "workspace.settings",
-    );
-    if (!canManage) {
-      return apiError(req, {
-        code: "FORBIDDEN",
-        message:
-          "Forbidden — only workspace owners and managers may configure AI providers",
-        status: 403,
-      });
-    }
 
     const body = await req.json().catch(() => null);
     const { provider } = (body ?? {}) as Record<string, unknown>;

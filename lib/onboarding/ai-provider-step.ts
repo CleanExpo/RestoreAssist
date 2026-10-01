@@ -5,6 +5,7 @@
 
 import { formatDate } from "@/lib/locale/format";
 import type { OnboardingApiStep } from "@/lib/onboarding/steps";
+import type { ProviderConnectionStatus } from "@/lib/workspace/provider-connections";
 import {
   PAID_AI_KEY_REQUIRED_BODY,
   PLATFORM_KEY_MISSING_BODY,
@@ -53,9 +54,10 @@ export function buildAiProviderOnboardingStep(input: {
   canUsePlatformTrial: boolean;
   /** In-date TRIAL with credits — platform should supply even if env key is missing. */
   fundedTrial?: boolean;
+  platformProviderStatus?: ProviderConnectionStatus;
   rejectedKey?: { provider: string; rejectedAt: Date } | null;
 }): OnboardingApiStep {
-  const { hasByokKey, canUsePlatformTrial, fundedTrial, rejectedKey } = input;
+  const { hasByokKey, canUsePlatformTrial, fundedTrial, rejectedKey, platformProviderStatus } = input;
 
   if (hasByokKey) {
     return {
@@ -63,8 +65,23 @@ export function buildAiProviderOnboardingStep(input: {
       required: false,
       title: "AI provider key configured",
       description:
-        "An Anthropic or OpenAI API key is configured — AI report generation is active.",
+        "An AI provider key is configured. Its current validity has not been checked here.",
       route: AI_PROVIDER_ROUTE,
+    };
+  }
+
+  if (fundedTrial && platformProviderStatus) {
+    const description = platformProviderStatus === "DISABLED"
+      ? "Your Anthropic connection is disabled. Review it before generating reports. Your trial eligibility has not changed."
+      : platformProviderStatus === "FAILED"
+        ? "Your Anthropic connection failed validation. Review it before generating reports. Your trial eligibility has not changed."
+        : "An Anthropic connection is configured. Review that connection before generating reports; platform trial credentials are not used as a fallback.";
+    return {
+      completed: false,
+      required: false,
+      title: "Review your Anthropic connection",
+      description,
+      route: aiProviderSettingsHref("ANTHROPIC"),
     };
   }
 

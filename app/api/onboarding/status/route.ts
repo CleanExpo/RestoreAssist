@@ -6,10 +6,8 @@ import {
   getEffectiveSubscription,
   getOrganizationOwner,
 } from "@/lib/organization-credits";
-import {
-  getFailedOperatingProviderConnection,
-  hasActiveOperatingProviderConnection,
-} from "@/lib/workspace/provider-connections";
+import { getFailedOperatingProviderConnection } from "@/lib/workspace/provider-connections";
+import { hasConfiguredAi } from "@/lib/services/integrations/ai-readiness";
 import { describePlatformTrialCoverage } from "@/lib/ai/platform-trial-credential";
 import {
   AI_PROVIDER_ROUTE,
@@ -67,7 +65,6 @@ export async function GET(request: NextRequest) {
     let businessProfileCompleted = !!(
       user.businessName && user.businessAddress
     );
-    let integration = null;
     // RA-7026: org-first "is pricing configured?" so this agrees with the setup
     // stepper (which reads OrganizationPricingConfig) instead of only the user table.
     let pricingConfigured = false;
@@ -88,46 +85,11 @@ export async function GET(request: NextRequest) {
           owner?.businessName && owner?.businessAddress
         );
 
-        // Check Admin's integrations
-        integration = await prisma.integration.findFirst({
-          where: {
-            userId: ownerId,
-            status: "CONNECTED",
-            OR: [
-              { name: { contains: "Anthropic" } },
-              { name: { contains: "OpenAI" } },
-              { name: { contains: "Gemini" } },
-              { name: { contains: "Claude" } },
-              { name: { contains: "GPT" } },
-            ],
-          },
-          select: {
-            apiKey: true,
-          },
-        });
-
         // Check Admin's pricing configuration (org-first)
         pricingConfigured = await isPricingConfigured(prisma, ownerId);
       }
     } else {
       // Admin - check their own onboarding
-      integration = await prisma.integration.findFirst({
-        where: {
-          userId: session.user.id,
-          status: "CONNECTED",
-          OR: [
-            { name: { contains: "Anthropic" } },
-            { name: { contains: "OpenAI" } },
-            { name: { contains: "Gemini" } },
-            { name: { contains: "Claude" } },
-            { name: { contains: "GPT" } },
-          ],
-        },
-        select: {
-          apiKey: true,
-        },
-      });
-
       pricingConfigured = await isPricingConfigured(prisma, session.user.id);
     }
 
@@ -138,53 +100,34 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Check for Deepseek API key (for free users) or regular integrations (for paid users)
-    let hasApiKey = !!integration?.apiKey;
-    if (!hasApiKey && isAdmin) {
-      // Check for Deepseek API key for free users
-      const adminUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { deepseekApiKey: true },
+    // Canonical configuration takes precedence over stale legacy integrations.
+    // This is a presence check, not live credential validation.
+    let hasApiKey = await hasConfiguredAi(session.user.id);
+    const byokOwnerId =
+      (await getOrganizationOwner(session.user.id)) || session.user.id;
+    if (!hasApiKey && (isAdmin || isTeamMember)) {
+      // Preserve legacy DeepSeek support without selecting its plaintext key.
+      const deepseek = await prisma.user.findFirst({
+        where: {
+          id: byokOwnerId,
+          deepseekApiKey: { not: null },
+          NOT: { deepseekApiKey: "" },
+        },
+        select: { id: true },
       });
-      hasApiKey = !!adminUser?.deepseekApiKey;
-    } else if (!hasApiKey && isTeamMember) {
-      // For team members, check Admin's Deepseek API key
-      const ownerId = await getOrganizationOwner(session.user.id);
-      if (ownerId) {
-        const owner = await prisma.user.findUnique({
-          where: { id: ownerId },
-          select: { deepseekApiKey: true },
-        });
-        hasApiKey = !!owner?.deepseekApiKey;
-      }
+      hasApiKey = Boolean(deepseek);
     }
 
-    // RA-6801: Recognise a key saved via the new BYOK store. The onboarding
-    // "Add your AI key" card writes to ProviderConnection (workspace BYOK),
-    // NOT the legacy Integration table checked above — so without this bridge
-    // a user who completed that card would still be nagged to add a key, and
-    // onboarding/status would disagree with the setup gate (byok_keys check),
-    // which already reads ProviderConnection. Resolve the workspace owner
-    // (Admin's for team members) and check for an ACTIVE Anthropic/OpenAI key.
     // RA-7428: a FAILED stored key is not "no key" — surface the rejection
     // (provider + when) so the dashboard does not say "add a key".
     let rejectedKey: { provider: string; rejectedAt: Date } | null = null;
     if (!hasApiKey) {
-      const byokOwnerId = isTeamMember
-        ? await getOrganizationOwner(session.user.id)
-        : session.user.id;
-      if (byokOwnerId) {
-        hasApiKey = await hasActiveOperatingProviderConnection(byokOwnerId);
-        if (!hasApiKey) {
-          const failed =
-            await getFailedOperatingProviderConnection(byokOwnerId);
-          if (failed) {
-            rejectedKey = {
-              provider: failed.provider,
-              rejectedAt: failed.rejectedAt,
-            };
-          }
-        }
+      const failed = await getFailedOperatingProviderConnection(byokOwnerId);
+      if (failed) {
+        rejectedKey = {
+          provider: failed.provider,
+          rejectedAt: failed.rejectedAt,
+        };
       }
     }
 
@@ -222,6 +165,7 @@ export async function GET(request: NextRequest) {
         hasByokKey: hasApiKey,
         canUsePlatformTrial: trialCoverage.canUsePlatformTrial,
         fundedTrial: trialCoverage.fundedTrial,
+        platformProviderStatus: trialCoverage.platformProviderStatus,
         rejectedKey,
       }),
       first_inspection: {

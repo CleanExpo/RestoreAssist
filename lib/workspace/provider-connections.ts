@@ -417,9 +417,17 @@ export async function disableProviderConnection(
   workspaceId: string,
   provider: AiProvider,
 ): Promise<void> {
-  await prisma.providerConnection.updateMany({
-    where: { workspaceId, provider },
-    data: { status: "DISABLED" },
+  // An explicit disable must suppress legacy/platform fallback even when
+  // the workspace only had a legacy key or an untouched provisioned row.
+  // Preserve existing encrypted credentials and the audit history on update.
+  await prisma.providerConnection.upsert({
+    where: { workspaceId_provider: { workspaceId, provider } },
+    create: {
+      workspaceId, provider, status: "DISABLED", encryptedCredentials: "",
+      lastError: "Disabled by user.",
+    },
+    update: { status: "DISABLED", lastError: "Disabled by user." },
+    select: { id: true },
   });
 }
 

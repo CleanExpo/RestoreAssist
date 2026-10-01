@@ -10,9 +10,10 @@
  * here — do not re-derive "is this a funded trial?" at the call site.
  */
 
-import { getEffectiveSubscription } from "@/lib/organization-credits";
+import { getEffectiveSubscription, getOrganizationOwner } from "@/lib/organization-credits";
 import { hasActiveOperatingProviderConnection } from "@/lib/workspace/provider-connections";
-import type { AiProvider } from "@/lib/workspace/provider-connections";
+import type { AiProvider, ProviderConnectionStatus } from "@/lib/workspace/provider-connections";
+import { listConfiguredAiConnections } from "@/lib/services/integrations/ai-connections";
 
 export interface FundedTrialAccountInput {
   subscriptionStatus: string | null | undefined;
@@ -26,10 +27,12 @@ export interface PlatformTrialEligibilityInput extends FundedTrialAccountInput {
 }
 
 export interface PlatformTrialCoverage {
-  /** In-date TRIAL with at least one report credit — platform should supply. */
+  /** Account eligibility only; independent of provider configuration. */
   fundedTrial: boolean;
   platformKeyPresent: boolean;
-  /** Funded trial AND a configured platform Anthropic key. */
+  /** A configured Anthropic connection is authoritative over platform fallback. */
+  platformProviderStatus?: ProviderConnectionStatus;
+  /** Funded trial, platform key present, and no configured Anthropic override. */
   canUsePlatformTrial: boolean;
 }
 
@@ -85,7 +88,8 @@ export function readPlatformTrialApiKey(
 }
 
 /**
- * Split "this account is a funded trial" from "the platform key is present".
+ * Split funded-trial eligibility from usable platform fallback. A configured
+ * Anthropic connection remains authoritative, without changing trial funding.
  * Wizard / onboarding copy must use this — `canUsePlatformTrialCredential`
  * is fail-closed on a missing env key and must not decide the BYOK hard gate.
  */
@@ -93,7 +97,8 @@ export async function describePlatformTrialCoverage(
   userId: string,
 ): Promise<PlatformTrialCoverage> {
   const platformKeyPresent = isPlatformTrialApiKeyConfigured();
-  const sub = await getEffectiveSubscription(userId);
+  const ownerId = (await getOrganizationOwner(userId)) || userId;
+  const sub = await getEffectiveSubscription(ownerId);
   if (!sub) {
     return {
       fundedTrial: false,
@@ -108,16 +113,28 @@ export async function describePlatformTrialCoverage(
     trialEndsAt: sub.trialEndsAt,
   });
 
+  // Presence metadata only: no decryption, provisioning or provider probe.
+  // The resolver never substitutes platform credentials for a configured
+  // Anthropic key, including one that is disabled, failed or unreadable.
+  const canonical = fundedTrial
+    ? await listConfiguredAiConnections(ownerId)
+    : null;
+  const platformProvider = canonical?.connections.find(
+    (connection) => connection.provider === "ANTHROPIC",
+  );
+
   return {
     fundedTrial,
     platformKeyPresent,
-    canUsePlatformTrial: fundedTrial && platformKeyPresent,
+    ...(platformProvider ? { platformProviderStatus: platformProvider.status } : {}),
+    canUsePlatformTrial: fundedTrial && platformKeyPresent && !platformProvider,
   };
 }
 
 /**
  * True when this user (or their org owner) is on an in-date TRIAL with at
- * least one report credit AND the platform Anthropic key is configured.
+ * least one report credit, the platform key is present, and no configured
+ * Anthropic connection overrides platform fallback.
  */
 export async function canUsePlatformTrialCredential(
   userId: string,
@@ -132,8 +149,9 @@ export async function canUsePlatformTrialCredential(
 export async function hasReportGenerationCredential(
   userId: string,
 ): Promise<boolean> {
-  if (await hasActiveOperatingProviderConnection(userId)) return true;
-  return canUsePlatformTrialCredential(userId);
+  const ownerId = (await getOrganizationOwner(userId)) || userId;
+  if (await hasActiveOperatingProviderConnection(ownerId)) return true;
+  return canUsePlatformTrialCredential(ownerId);
 }
 
 /**

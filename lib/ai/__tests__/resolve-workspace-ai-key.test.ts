@@ -8,6 +8,14 @@ const getWorkspaceForUser = vi.fn();
 const getProviderApiKey = vi.fn();
 const tryPlatformTrialApiKey = vi.fn();
 const describePlatformTrialCoverage = vi.fn();
+const listConfiguredAiConnections = vi.fn();
+
+vi.mock("@/lib/organization-credits", () => ({
+  getOrganizationOwner: vi.fn(async (userId: string) => userId),
+}));
+vi.mock("@/lib/services/integrations/ai-connections", () => ({
+  listConfiguredAiConnections: (...args: unknown[]) => listConfiguredAiConnections(...args),
+}));
 
 vi.mock("../../workspace/provider-connections", () => ({
   getWorkspaceForUser: (...args: unknown[]) => getWorkspaceForUser(...args),
@@ -43,6 +51,11 @@ beforeEach(() => {
   getProviderApiKey.mockReset();
   tryPlatformTrialApiKey.mockReset();
   describePlatformTrialCoverage.mockReset();
+  listConfiguredAiConnections.mockReset();
+  listConfiguredAiConnections.mockImplementation(async (userId: string) => {
+    const workspace = await getWorkspaceForUser(userId);
+    return { workspaceId: workspace?.id ?? null, connections: [] };
+  });
   tryPlatformTrialApiKey.mockResolvedValue(null);
   describePlatformTrialCoverage.mockResolvedValue(PAID_COVERAGE);
 });
@@ -51,6 +64,10 @@ describe("resolveWorkspaceAiKey (RA-6921 P0)", () => {
   it("resolves the workspace's own BYOK key", async () => {
     getWorkspaceForUser.mockResolvedValue({ id: "ws_1", name: "Acme" });
     getProviderApiKey.mockResolvedValue("sk-client-owned");
+    listConfiguredAiConnections.mockResolvedValue({
+      workspaceId: "ws_1",
+      connections: [{ id: "configured-openai", provider: "OPENAI", status: "ACTIVE" }],
+    });
 
     const result = await resolveWorkspaceAiKey("user_1", "OPENAI");
 

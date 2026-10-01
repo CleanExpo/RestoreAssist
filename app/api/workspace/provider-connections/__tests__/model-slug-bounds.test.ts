@@ -18,6 +18,8 @@ const findFirst = vi.fn();
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
+vi.mock("@/lib/ai-provider", () => ({ getEffectiveUserIdForIntegrations: async (id: string) => id }));
+vi.mock("@/lib/services/integrations/ai-connections", () => ({ listConfiguredAiConnections: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/workspace/provision", () => ({
   ensureWorkspaceForUser: (...a: unknown[]) => ensureWorkspaceForUser(...a),
@@ -62,7 +64,7 @@ beforeEach(() => {
   ensureWorkspaceForUser.mockResolvedValue(undefined);
   checkPaymentGate.mockResolvedValue({
     allowed: true,
-    workspace: { id: "w1", name: "W" },
+    workspace: { id: "w1", ownerId: "u1", name: "W" },
   });
   hasPermission.mockResolvedValue(true);
   findFirst.mockResolvedValue({ id: "m1" });
