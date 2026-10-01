@@ -1,24 +1,8 @@
 "use client";
 
-import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { outfit, jakarta } from "@/app/fonts/landing";
 import { LandingNav, LandingFooter } from "@/components/landing/home";
 import { ClaimFolioLanding } from "@/components/landing/concepts/claim-folio/ClaimFolioLanding";
-
-/** Display — geometric, premium, distinctive for headlines. */
-const outfit = Outfit({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-  variable: "--font-landing-display",
-});
-
-/** Body — highly readable for long-form marketing copy. */
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-landing",
-});
 
 /**
  * Marketing home — Claim Spine (client-approved).
