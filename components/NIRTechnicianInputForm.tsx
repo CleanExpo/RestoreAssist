@@ -235,7 +235,11 @@ export default function NIRTechnicianInputForm({
   const measuredEnvironmentalData =
     environmentalData.ambientTemperature !== null &&
     environmentalData.humidityLevel !== null
-      ? environmentalData
+      ? {
+          ...environmentalData,
+          ambientTemperature: environmentalData.ambientTemperature,
+          humidityLevel: environmentalData.humidityLevel,
+        }
       : null;
 
   // Moisture Readings
