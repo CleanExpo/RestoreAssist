@@ -193,6 +193,7 @@ type WorkspaceStatusResult = {
   hasWorkspace: boolean;
   status: "PROVISIONING" | "READY" | "SUSPENDED";
   workspaceId: string;
+  workspaceName?: string;
   ready: boolean;
 };
 
@@ -209,31 +210,39 @@ function DashboardWorkspace({ session }: { session: Session }) {
   if (needsOnboarding) {
     return <Link href="/onboarding/account-type">Complete your account setup to open the workspace</Link>;
   }
-  if (loading) return <p role="status">Checking workspace access…</p>;
-  if (error || !data?.hasWorkspace || data.status !== "READY" || !data.workspaceId) {
-    return (
-      <div role="alert" className="space-y-3 py-6">
-        <p>
-          {error
-            ? `Could not verify workspace access${error.status ? ` (HTTP ${error.status})` : ""}.`
-            : data?.status === "PROVISIONING"
-              ? "Your workspace is still being prepared. Retry when setup has finished."
-              : data?.status === "SUSPENDED"
-                ? "This workspace is suspended. Review its access with your workspace administrator."
-                : "Workspace access could not be confirmed."}
-          {error?.eventId ? ` Error ID: ${error.eventId}` : ""}
-        </p>
-        <button type="button" onClick={refetch} className="min-h-11 rounded-[10px] border border-border px-4">
-          Retry workspace access
-        </button>
-        {error?.status === 401 && <Link href="/login">Sign in again</Link>}
-      </div>
-    );
+  if (error?.status === 401 || error?.status === 403) {
+    return <div role="alert">Workspace access could not be confirmed (HTTP {error.status}). <Link href="/login">Sign in again</Link></div>;
   }
-  return <DashboardContent key={data.workspaceId} session={session} />;
+  // Older OAuth accounts can have authorised User/Organisation records before
+  // a separate Workspace row exists. Metadata is not a new billing/access gate;
+  // each resource API continues to enforce its existing tenant permissions.
+  return (
+    <>
+      {loading && <p role="status">Loading workspace details…</p>}
+      {!loading && (error || !data?.hasWorkspace || data.status !== "READY") && (
+        <div role="alert" className="space-y-3 py-6">
+          <p>
+            {error
+              ? `Workspace details are unavailable (HTTP ${error.status || "unknown"}).`
+              : data?.status === "PROVISIONING"
+                ? "Workspace setup is still in progress."
+                : data?.status === "SUSPENDED"
+                  ? "Workspace status: suspended. Contact your workspace administrator."
+                  : "Workspace details are unavailable."}
+            {error?.eventId ? ` Error ID: ${error.eventId}` : ""}
+            {" "}Available account records are shown below.
+          </p>
+          <button type="button" onClick={refetch} className="min-h-11 rounded-[10px] border border-border px-4">
+            Retry workspace details
+          </button>
+        </div>
+      )}
+      <DashboardContent session={session} workspaceName={data?.workspaceName || data?.workspaceId} />
+    </>
+  );
 }
 
-function DashboardContent({ session }: { session: Session }) {
+function DashboardContent({ session, workspaceName }: { session: Session; workspaceName?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
 
@@ -433,6 +442,7 @@ function DashboardContent({ session }: { session: Session }) {
           <p className="text-sm text-brand-slate dark:text-slate-400">
             Good to see you, {firstName}
           </p>
+          {workspaceName && <p className="mt-1 break-words text-sm text-muted-foreground">Workspace: {workspaceName}</p>}
           <h1 className="mt-1 text-pretty text-2xl font-semibold text-slate-50 sm:text-3xl">
             {model.loadFailed ? "Workspace partially available" : model.loading ? "Loading the board…" : model.focus.title}
           </h1>

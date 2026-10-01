@@ -8,12 +8,14 @@ import { TRIAL_EXPIRED_PAY_ROUTE } from "@/lib/billing/trial-expired-pay-route";
 const SESSION_KEY = "dismissedTrialBanner";
 
 export default function TrialCountdownBanner() {
-  const { data, isLoading } = useTrialStatus();
-  const [dismissed, setDismissed] = useState(false);
+  const { data, isLoading, accountId } = useTrialStatus();
+  const [dismissal, setDismissal] = useState<{ accountId?: string; dismissed: boolean } | null>(null);
+  const dismissKey = `${SESSION_KEY}:${accountId ?? "unavailable"}`;
+  const dismissed = dismissal?.accountId === accountId && dismissal?.dismissed;
 
   useEffect(() => {
-    setDismissed(sessionStorage.getItem(SESSION_KEY) === "1");
-  }, []);
+    setDismissal({ accountId, dismissed: sessionStorage.getItem(dismissKey) === "1" });
+  }, [accountId, dismissKey]);
 
   if (isLoading || !data || data.lifetimeAccess) return null;
 
@@ -55,8 +57,8 @@ export default function TrialCountdownBanner() {
         <button
           type="button"
           onClick={() => {
-            sessionStorage.setItem(SESSION_KEY, "1");
-            setDismissed(true);
+            sessionStorage.setItem(dismissKey, "1");
+            setDismissal({ accountId, dismissed: true });
           }}
           aria-label="Dismiss"
           className="ml-4 min-h-[44px] min-w-[44px] p-2"

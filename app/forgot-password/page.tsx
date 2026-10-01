@@ -226,7 +226,8 @@ function ForgotPasswordForm() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                  role="alert"
+                  className="p-3 bg-red-950 border border-red-400 rounded-lg text-red-100 text-sm"
                 >
                   {error}
                 </motion.div>
@@ -305,7 +306,8 @@ function ForgotPasswordForm() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                  role="alert"
+                  className="p-3 bg-red-950 border border-red-400 rounded-lg text-red-100 text-sm"
                 >
                   {error}
                 </motion.div>
@@ -419,7 +421,8 @@ function ForgotPasswordForm() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                  role="alert"
+                  className="p-3 bg-red-950 border border-red-400 rounded-lg text-red-100 text-sm"
                 >
                   {error}
                 </motion.div>

@@ -77,3 +77,15 @@ it("does not ask a persisted lifetime account to upgrade even with stale trial c
   const { container } = render(<TrialCountdownBanner />);
   expect(container.firstChild).toBeNull();
 });
+
+it("does not carry another account's dismissal into this account", async () => {
+  sessionStorage.setItem("dismissedTrialBanner:account-a", "1");
+  const trial = { showCountdownBanner: true, daysRemaining: 2, lifetimeAccess: false };
+  vi.mocked(useTrialStatus).mockReturnValue({ accountId: "account-a", data: trial, isLoading: false } as any);
+  const { container, rerender } = render(<TrialCountdownBanner />);
+  expect(container.firstChild).toBeNull();
+  vi.mocked(useTrialStatus).mockReturnValue({ accountId: "account-b", data: trial, isLoading: false } as any);
+  rerender(<TrialCountdownBanner />);
+  expect(container.textContent).toContain("Upgrade now");
+  sessionStorage.clear();
+});

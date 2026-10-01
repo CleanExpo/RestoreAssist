@@ -93,18 +93,28 @@ describe("dashboard resource failures and account separation", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it.each([401, 403, 500])("blocks all resource reads when workspace verification returns HTTP %s", async (status) => {
+  it.each([401, 403])("surfaces an authentication failure from workspace metadata without treating it as an empty workspace", async (status) => {
     responses["/api/workspace/status"] = () => failure(status);
     render(<DashboardPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent(`HTTP ${status}`);
-    expect(hasResourceRequests()).toBe(false);
+    expect(screen.queryByText("Start the first job")).not.toBeInTheDocument();
   });
 
-  it.each(["PROVISIONING", "SUSPENDED"])("does not load resources for a %s workspace", async (status) => {
+  it.each(["PROVISIONING", "SUSPENDED"])("shows %s metadata without replacing per-resource access controls", async (status) => {
     responses["/api/workspace/status"] = () => json({ hasWorkspace: true, status, ready: false, workspaceId: "workspace-a" });
     render(<DashboardPage />);
     await screen.findByRole("alert");
-    expect(hasResourceRequests()).toBe(false);
+    await screen.findAllByText(report.title);
+    expect(hasResourceRequests()).toBe(true);
+  });
+
+  it.each([404, 500])("keeps authorised OAuth/legacy records available when separate Workspace metadata returns %s", async (status) => {
+    auth.session.user.needsOnboarding = false;
+    responses["/api/workspace/status"] = () => failure(status);
+    render(<DashboardPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(`Workspace details are unavailable (HTTP ${status})`);
+    expect((await screen.findAllByText(report.title)).length).toBeGreaterThan(0);
+    expect(hasResourceRequests()).toBe(true);
   });
 
   it("routes incomplete account onboarding before starting workspace or resource reads", async () => {
@@ -134,9 +144,10 @@ describe("dashboard resource failures and account separation", () => {
     await screen.findAllByText(report.title);
     auth.session = { ...auth.session, user: { ...auth.session.user, organizationId: "org-b" } };
     responses["/api/workspace/status"] = () => new Promise(() => {});
+    responses["/api/reports"] = () => new Promise(() => {});
     view.rerender(<DashboardPage />);
     expect(screen.queryByText(report.title)).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Checking workspace access");
+    expect(screen.getByRole("status")).toHaveTextContent("Loading workspace details");
   });
 
   it("preserves successful resources when a sibling response is interrupted or returns HTML", async () => {
@@ -145,4 +156,12 @@ describe("dashboard resource failures and account separation", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Clients: HTTP 200 (INVALID_RESPONSE)");
     expect(screen.getAllByText(report.title).length).toBeGreaterThan(0);
   });
+});
+
+
+it("does not let a hanging optional workspace metadata request block authorised records", async () => {
+  responses["/api/workspace/status"] = () => new Promise(() => {});
+  render(<DashboardPage />);
+  expect((await screen.findAllByText(report.title)).length).toBeGreaterThan(0);
+  expect(screen.getByRole("status")).toHaveTextContent("Loading workspace details");
 });

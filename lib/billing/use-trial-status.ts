@@ -35,6 +35,7 @@ export default function useTrialStatus() {
     },
   );
   return {
+    accountId: session?.user?.id,
     data: data ?? undefined,
     error,
     isLoading: status === "loading" || isLoading,
