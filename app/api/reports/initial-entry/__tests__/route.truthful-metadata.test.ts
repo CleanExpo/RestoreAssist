@@ -116,6 +116,14 @@ describe("truthful initial-entry metadata", () => {
     expect(mocks.create.mock.calls[0][0].data.clientId).toBeNull();
     expect((await response.json()).clientLinkWarning).toMatch(/without a client link/);
   });
+  it("describes an existing link honestly when client detail update fails", async () => {
+    mocks.clientFind.mockResolvedValue({ id: "known-client", email: "known@example.test", phone: null, address: null });
+    mocks.clientUpdate.mockRejectedValue(new Error("synthetic update failure"));
+    const response = await POST(request(base));
+    expect(response.status).toBe(200);
+    expect(mocks.create.mock.calls[0][0].data.clientId).toBe("known-client");
+    expect((await response.json()).clientLinkWarning).toMatch(/linked.*details.*not updated/i);
+  });
   it("preserves authorisation and refuses creation without a session", async () => {
     mocks.session.mockResolvedValue(null);
     expect((await POST(request(base))).status).toBe(401);

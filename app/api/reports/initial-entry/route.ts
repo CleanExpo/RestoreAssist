@@ -231,8 +231,9 @@ export async function POST(request: NextRequest) {
         }
       } catch (error) {
         console.error("Error creating/updating client:", error);
-        clientLinkWarning =
-          "Report saved without a client link. Check the client record before sending or invoicing.";
+        clientLinkWarning = clientId
+          ? "Report linked to the client, but their contact details were not updated."
+          : "Report saved without a client link. Check the client record before sending or invoicing.";
       }
 
       // Prepare NIR data if provided

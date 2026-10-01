@@ -241,6 +241,11 @@ export default function NIRTechnicianInputForm({
           humidityLevel: environmentalData.humidityLevel,
         }
       : null;
+  const hasPartialEnvironmentalData =
+    (environmentalData.ambientTemperature === null) !==
+    (environmentalData.humidityLevel === null);
+  const partialEnvironmentalMessage =
+    "Enter both temperature and humidity, or clear both before saving.";
 
   // Moisture Readings
   const [moistureReadings, setMoistureReadings] = useState<
@@ -996,6 +1001,9 @@ export default function NIRTechnicianInputForm({
     ) {
       errors.humidity = "Humidity must be between 0% and 100%";
     }
+    if (hasPartialEnvironmentalData) {
+      errors.temperature = partialEnvironmentalMessage;
+    }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1354,6 +1362,9 @@ export default function NIRTechnicianInputForm({
   };
 
   const saveDraftSnapshot = async (currentInspectionId: string) => {
+    if (hasPartialEnvironmentalData) {
+      throw new Error(partialEnvironmentalMessage);
+    }
     const response = await fetch(
       `/api/inspections/${currentInspectionId}/draft-snapshot`,
       {
@@ -2285,6 +2296,12 @@ export default function NIRTechnicianInputForm({
         error={validationErrors.claimType}
         disabled={!!inspectionId}
       />
+      {claimType && !inspectionId && (
+        <p className="text-sm text-neutral-600 dark:text-slate-400">
+          Save Draft or upload a floor plan to create the inspection before
+          completing its assessment.
+        </p>
+      )}
 
       {/* Claim-type assessment panel (S520 / S540 / S700 / S500) — RA-1029 */}
       {inspectionId && claimType && (
@@ -2817,8 +2834,8 @@ export default function NIRTechnicianInputForm({
             {!inspectionId &&
               (!propertyAddress.trim() || !propertyPostcode.trim()) && (
                 <span className="block mt-2 text-amber-400 text-xs">
-                  Enter property address and postcode first. Inspection will
-                  be created automatically, then you can upload floor plan.
+                  Select a claim type and enter property address and postcode,
+                  then Save Draft or upload a floor plan to create the inspection.
                 </span>
               )}
             {inspectionId && (
@@ -3931,6 +3948,11 @@ export default function NIRTechnicianInputForm({
               }
               if (!propertyAddress.trim() || !propertyPostcode.trim()) {
                 toast.error("Please enter property address and postcode first");
+                setSaving(false);
+                return;
+              }
+              if (hasPartialEnvironmentalData) {
+                toast.error(partialEnvironmentalMessage);
                 setSaving(false);
                 return;
               }

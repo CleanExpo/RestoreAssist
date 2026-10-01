@@ -10,6 +10,9 @@ import {
   waitFor,
 } from "@testing-library/react";
 
+const notification = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+vi.mock("react-hot-toast", () => ({ default: notification }));
+
 // RA-7740: GET /api/inspections?reportId= returns environmentalData as an
 // ARRAY (EnvironmentalData[] since RA-1383). The form put that list straight
 // into single-reading state, so the temperature/humidity fields went blank,
@@ -39,6 +42,7 @@ import NIRTechnicianInputForm from "@/components/NIRTechnicianInputForm";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 const READINGS = [
@@ -142,22 +146,23 @@ describe("NIRTechnicianInputForm environmental hydration (RA-7740)", () => {
       render(<NIRTechnicianInputForm initialData={{ propertyAddress: "1 Test St", propertyPostcode: "4000" }} />);
     });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Pick Water" })); });
+    expect(screen.getByText(/Save Draft or upload a floor plan/)).toBeInTheDocument();
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1700)); });
     expect(calls.some((x) => x.url === "/api/inspections" && x.init?.method === "POST")).toBe(false);
   });
 
-  it("keeps a partial measurement unsaved and preserves explicit zero readings", async () => {
+  it("rejects a partial measurement and preserves explicit zero readings", async () => {
     const calls = await renderLoaded([]);
     fireEvent.change(field("Ambient Temperature (°C)"), { target: { value: "0" } });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save Draft" })); });
-    await waitFor(() => expect(calls.filter((x) => x.url.endsWith("/draft-snapshot"))).toHaveLength(1));
-    expect(JSON.parse(String(calls.find((x) => x.url.endsWith("/draft-snapshot"))?.init?.body)).environmentalData).toBeNull();
+    expect(calls.filter((x) => x.url.endsWith("/draft-snapshot"))).toHaveLength(0);
+    expect(notification.error).toHaveBeenCalledWith("Enter both temperature and humidity, or clear both before saving.");
 
     fireEvent.change(field("Humidity Level (%)"), { target: { value: "0" } });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save Draft" })); });
-    await waitFor(() => expect(calls.filter((x) => x.url.endsWith("/draft-snapshot"))).toHaveLength(2));
+    await waitFor(() => expect(calls.filter((x) => x.url.endsWith("/draft-snapshot"))).toHaveLength(1));
     const saves = calls.filter((x) => x.url.endsWith("/draft-snapshot"));
-    const measured = JSON.parse(String(saves[1].init?.body)).environmentalData;
+    const measured = JSON.parse(String(saves[0].init?.body)).environmentalData;
     expect(measured.ambientTemperature).toBe(0);
     expect(measured.humidityLevel).toBe(0);
   });
