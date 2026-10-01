@@ -5,6 +5,11 @@ import { prisma } from "./prisma";
 import { tryClaudeModels } from "./anthropic-models";
 import { getOrganizationOwner } from "./organization-credits";
 import { createCachedSystemPrompt } from "./anthropic/features/prompt-cache";
+import { listConfiguredAiConnections } from "./services/integrations/ai-connections";
+import {
+  getProviderCredentials,
+  type AiProvider,
+} from "./workspace/provider-connections";
 
 export type AIProvider = "anthropic" | "openai" | "gemini" | "openrouter";
 
@@ -67,7 +72,13 @@ export async function getIntegrationsForUser(
   },
 ): Promise<any[]> {
   const effectiveUserId = await getEffectiveUserIdForIntegrations(userId);
+  return getIntegrationsForEffectiveUserId(effectiveUserId, filters);
+}
 
+async function getIntegrationsForEffectiveUserId(
+  effectiveUserId: string,
+  filters?: { status?: "CONNECTED" | "DISCONNECTED"; nameContains?: string[] },
+): Promise<any[]> {
   const whereClause: any = {
     userId: effectiveUserId,
     apiKey: { not: null },
@@ -102,16 +113,74 @@ export async function getIntegrationsForUser(
   });
 }
 
+const CANONICAL_AI_PROVIDERS: Partial<
+  Record<AiProvider, { provider: AIProvider; name: string }>
+> = {
+  ANTHROPIC: { provider: "anthropic", name: "Anthropic Claude" },
+  OPENAI: { provider: "openai", name: "OpenAI GPT" },
+  GOOGLE: { provider: "gemini", name: "Google Gemini" },
+  OPENROUTER: { provider: "openrouter", name: "OpenRouter" },
+};
+
+function legacyAiProvider(integration: {
+  apiKey: string;
+  name: string;
+}): AIProvider {
+  // Preserve key-authoritative legacy routing, with a name hint only for an
+  // unrecognised key format. Canonical records never infer their typed vendor.
+  const keyProvider = providerForKey(integration.apiKey);
+  if (keyProvider) return keyProvider;
+  const name = (integration.name || "").toLowerCase();
+  if (name.includes("openrouter")) return "openrouter";
+  if (name.includes("openai") || name.includes("gpt")) return "openai";
+  if (name.includes("gemini") || name.includes("google")) return "gemini";
+  return "anthropic";
+}
+
 /**
  * Get the latest connected AI integration (OpenAI, Anthropic, or Gemini)
  * For Managers/Technicians, uses the Admin's integrations
  * For Admins, uses their own integrations
- * Returns the most recently connected integration
+ * Prefer configured canonical workspace credentials, then legacy records only
+ * for providers without a configured canonical record. Disabled/failed/unreadable
+ * canonical records must never resurrect the same provider's old legacy key.
  */
 export async function getLatestAIIntegration(
   userId: string,
 ): Promise<AIIntegration | null> {
-  const integrations = await getIntegrationsForUser(userId, {
+  const effectiveUserId = await getEffectiveUserIdForIntegrations(userId);
+  const canonical = await listConfiguredAiConnections(effectiveUserId);
+  const configuredProviders = new Set<AIProvider>();
+
+  for (const connection of canonical.connections) {
+    const mapping = CANONICAL_AI_PROVIDERS[connection.provider];
+    if (mapping) configuredProviders.add(mapping.provider);
+  }
+
+  for (const connection of canonical.connections) {
+    const mapping = CANONICAL_AI_PROVIDERS[connection.provider];
+    if (!mapping || connection.status !== "ACTIVE" || !canonical.workspaceId) {
+      continue;
+    }
+    const credentials = await getProviderCredentials(
+      canonical.workspaceId,
+      connection.provider,
+    );
+    if (!credentials) continue;
+    const keyProvider = providerForKey(credentials.apiKey);
+    if (keyProvider && keyProvider !== mapping.provider) continue;
+    return {
+      id: connection.id,
+      name: mapping.name,
+      apiKey: credentials.apiKey,
+      provider: mapping.provider,
+      ...(mapping.provider === "openrouter" && credentials.model
+        ? { model: credentials.model }
+        : {}),
+    };
+  }
+
+  const integrations = await getIntegrationsForEffectiveUserId(effectiveUserId, {
     status: "CONNECTED",
     nameContains: [
       "Anthropic",
@@ -123,47 +192,19 @@ export async function getLatestAIIntegration(
     ],
   });
 
-  if (integrations.length === 0) {
-    return null;
-  }
-
-  // Get the latest integration
-  const integration = integrations[0];
-
-  // Provider is resolved from the API key prefix (authoritative — the key
-  // decides which vendor accepts it), falling back to the free-text name only
-  // when the key format is unrecognised. Never name-only: a key named
-  // "Claude API" that is actually an OpenAI key must NOT be sent to Anthropic.
-  let provider = providerForKey(integration.apiKey);
-  if (!provider) {
-    const nameLower = (integration.name || "").toLowerCase();
-    if (nameLower.includes("openrouter")) {
-      provider = "openrouter";
-    } else if (nameLower.includes("openai") || nameLower.includes("gpt")) {
-      provider = "openai";
-    } else if (nameLower.includes("gemini") || nameLower.includes("google")) {
-      provider = "gemini";
-    } else {
-      provider = "anthropic";
-    }
-  }
-
-  return {
-    id: integration.id,
-    name: integration.name,
-    apiKey: integration.apiKey!,
-    provider,
-  };
+  const integration = integrations.find(
+    (row) => !configuredProviders.has(legacyAiProvider(row)),
+  );
+  return integration
+    ? {
+        id: integration.id,
+        name: integration.name,
+        apiKey: integration.apiKey!,
+        provider: legacyAiProvider(integration),
+      }
+    : null;
 }
 
-/**
- * Get the Anthropic API key for the user.
- * Both trial and paid users must add their own API key in Integrations (no env fallback).
- *
- * @param userId - The user ID (uses org owner's integrations for team members)
- * @returns The Anthropic API key to use
- * @throws Error if no API key is available
- */
 /**
  * Pure key-precedence resolver (RA-6799 follow-up). A user-supplied (BYOK)
  * Anthropic key wins; otherwise free/trial users fall back to the platform key
@@ -200,8 +241,28 @@ export function selectAnthropicApiKey(
   );
 }
 
+/** Canonical credentials are authoritative; only absent records allow fallback. */
 export async function getAnthropicApiKey(userId: string): Promise<string> {
-  const integrations = await getIntegrationsForUser(userId, {
+  const effectiveUserId = await getEffectiveUserIdForIntegrations(userId);
+  const canonical = await listConfiguredAiConnections(effectiveUserId);
+  const connection = canonical.connections.find(
+    (row) => row.provider === "ANTHROPIC",
+  );
+  if (connection) {
+    const credentials =
+      connection.status === "ACTIVE" && canonical.workspaceId
+        ? await getProviderCredentials(canonical.workspaceId, "ANTHROPIC")
+        : null;
+    const keyProvider = providerForKey(credentials?.apiKey);
+    if (!credentials || (keyProvider && keyProvider !== "anthropic")) {
+      throw new Error(
+        "The configured Anthropic connection is unavailable. Review it in Settings → Integrations before retrying.",
+      );
+    }
+    return credentials.apiKey;
+  }
+
+  const integrations = await getIntegrationsForEffectiveUserId(effectiveUserId, {
     status: "CONNECTED",
     nameContains: ["Anthropic", "Claude"],
   });

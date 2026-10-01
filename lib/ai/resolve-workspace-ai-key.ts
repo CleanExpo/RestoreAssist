@@ -30,6 +30,16 @@ import {
   REPORT_GEN_PLATFORM_NOT_READY_BODY,
   reportGenByokRequiredBody,
 } from "@/lib/signup-pricing-honesty";
+import { getOrganizationOwner } from "@/lib/organization-credits";
+import { listConfiguredAiConnections } from "@/lib/services/integrations/ai-connections";
+import { providerForKey, type AIProvider } from "@/lib/ai-provider";
+
+const KEY_PROVIDER_TO_CONNECTION: Record<AIProvider, AiProvider> = {
+  anthropic: "ANTHROPIC",
+  openai: "OPENAI",
+  gemini: "GOOGLE",
+  openrouter: "OPENROUTER",
+};
 
 export interface ResolvedWorkspaceAiKey {
   workspaceId: string;
@@ -95,33 +105,38 @@ export async function reportGenUnexpectedKeyFailureCopy(
 
 /**
  * Resolve the calling user's workspace-owned BYOK key for the given provider.
- * Funded trials may receive the platform Anthropic key (RA-6801). Everyone
- * else throws `NoWorkspaceKeyError` — callers must not add a second fallback.
+ * Funded trials without a configured provider may receive the platform key.
+ * Configured disabled/failed/unreadable keys remain authoritative and never
+ * fall back. Callers must not add a second fallback.
  */
 export async function resolveWorkspaceAiKey(
   userId: string,
   provider: AiProvider,
 ): Promise<ResolvedWorkspaceAiKey> {
-  const workspace = await getWorkspaceForUser(userId);
-  if (!workspace) {
-    const trialKey = await tryPlatformTrialApiKey(userId, provider);
-    if (trialKey) {
-      return { workspaceId: "platform-trial", apiKey: trialKey };
+  const ownerId = (await getOrganizationOwner(userId)) || userId;
+  const canonical = await listConfiguredAiConnections(ownerId);
+  const connection = canonical.connections.find((row) => row.provider === provider);
+  if (connection) {
+    if (connection.status !== "ACTIVE" || !canonical.workspaceId) {
+      throw new NoWorkspaceKeyError(provider);
     }
-    throw await noWorkspaceKeyErrorForUser(userId, provider);
+    // The credential helper rechecks status, including a disconnect that
+    // happened after the metadata read. A null result cannot enable fallback.
+    const apiKey = await getProviderApiKey(canonical.workspaceId, provider);
+    const keyProvider = providerForKey(apiKey);
+    if (!apiKey || (keyProvider && KEY_PROVIDER_TO_CONNECTION[keyProvider] !== provider)) {
+      throw new NoWorkspaceKeyError(provider);
+    }
+    return { workspaceId: canonical.workspaceId, apiKey };
   }
 
-  const apiKey = await getProviderApiKey(workspace.id, provider);
-  if (apiKey) {
-    return { workspaceId: workspace.id, apiKey };
-  }
-
-  const trialKey = await tryPlatformTrialApiKey(userId, provider);
+  // Untouched empty DISABLED placeholders are absent from this metadata list.
+  const trialKey = await tryPlatformTrialApiKey(ownerId, provider);
   if (trialKey) {
-    return { workspaceId: workspace.id, apiKey: trialKey };
+    return { workspaceId: canonical.workspaceId ?? "platform-trial", apiKey: trialKey };
   }
 
-  throw await noWorkspaceKeyErrorForUser(userId, provider);
+  throw await noWorkspaceKeyErrorForUser(ownerId, provider);
 }
 
 /**

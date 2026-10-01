@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { hasConfiguredAi } from "@/lib/services/integrations/ai-readiness";
 
 // GET - Retrieve pricing configuration for current user
 export async function GET(request: NextRequest) {
@@ -32,17 +33,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Check if user has a connected API key
-    const integration = await prisma.integration.findFirst({
-      where: {
-        userId: user.id,
-        status: "CONNECTED",
-        apiKey: { not: null },
-      },
-      select: { id: true },
-    });
-
-    const hasApiKey = Boolean(integration);
+    // Configuration presence, using the same canonical scope as AI readers.
+    const hasApiKey = await hasConfiguredAi(user.id);
 
     // D-001: show the same organisation-first card used by the estimators.
     // Reading the legacy user row here can overwrite newer setup rates on save.

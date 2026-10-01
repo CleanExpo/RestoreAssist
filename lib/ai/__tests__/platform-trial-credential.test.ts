@@ -2,10 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getEffectiveSubscription = vi.fn();
 const hasActiveOperatingProviderConnection = vi.fn();
+const getOrganizationOwner = vi.fn();
+const listConfiguredAiConnections = vi.fn();
 
 vi.mock("@/lib/organization-credits", () => ({
+  getOrganizationOwner: (...args: unknown[]) => getOrganizationOwner(...args),
   getEffectiveSubscription: (...args: unknown[]) =>
     getEffectiveSubscription(...args),
+}));
+
+vi.mock("@/lib/services/integrations/ai-connections", () => ({
+  listConfiguredAiConnections: (...args: unknown[]) => listConfiguredAiConnections(...args),
 }));
 
 vi.mock("@/lib/workspace/provider-connections", () => ({
@@ -160,6 +167,8 @@ describe("canUsePlatformTrialCredential / hasReportGenerationCredential", () => 
   beforeEach(() => {
     getEffectiveSubscription.mockReset();
     hasActiveOperatingProviderConnection.mockReset();
+    getOrganizationOwner.mockReset().mockImplementation(async (userId: string) => userId);
+    listConfiguredAiConnections.mockReset().mockResolvedValue({ workspaceId: "fixture-workspace", connections: [] });
     process.env.ANTHROPIC_API_KEY = "sk-ant-platform-test";
   });
 
@@ -181,6 +190,46 @@ describe("canUsePlatformTrialCredential / hasReportGenerationCredential", () => 
     expect(await tryPlatformTrialApiKey("trial-user", "ANTHROPIC")).toBe(
       "sk-ant-platform-test",
     );
+  });
+
+  it.each(["DISABLED", "FAILED"])("configured Anthropic %s blocks advertised trial availability without changing funded eligibility", async (status) => {
+    getEffectiveSubscription.mockResolvedValue({ subscriptionStatus: "TRIAL", creditsRemaining: 50, trialEndsAt: future });
+    hasActiveOperatingProviderConnection.mockResolvedValue(false);
+    listConfiguredAiConnections.mockResolvedValue({ workspaceId: "fixture-workspace", connections: [{ provider: "ANTHROPIC", status }] });
+    const coverage = await describePlatformTrialCoverage("trial-user");
+    expect(coverage).toMatchObject({ fundedTrial: true, platformKeyPresent: true, canUsePlatformTrial: false, platformProviderStatus: status });
+    expect(await hasReportGenerationCredential("trial-user")).toBe(false);
+    expect(await tryPlatformTrialApiKey("trial-user", "ANTHROPIC")).toBeNull();
+  });
+
+  it("configured ACTIVE Anthropic uses BYOK availability without advertising platform fallback", async () => {
+    getEffectiveSubscription.mockResolvedValue({ subscriptionStatus: "TRIAL", creditsRemaining: 50, trialEndsAt: future });
+    hasActiveOperatingProviderConnection.mockResolvedValue(true);
+    listConfiguredAiConnections.mockResolvedValue({ workspaceId: "fixture-workspace", connections: [{ provider: "ANTHROPIC", status: "ACTIVE" }] });
+    expect(await canUsePlatformTrialCredential("trial-user")).toBe(false);
+    expect(await hasReportGenerationCredential("trial-user")).toBe(true);
+  });
+
+  it("a disabled different provider does not block intended Anthropic trial availability", async () => {
+    getEffectiveSubscription.mockResolvedValue({ subscriptionStatus: "TRIAL", creditsRemaining: 50, trialEndsAt: future });
+    listConfiguredAiConnections.mockResolvedValue({ workspaceId: "fixture-workspace", connections: [{ provider: "OPENAI", status: "DISABLED" }] });
+    expect(await canUsePlatformTrialCredential("trial-user")).toBe(true);
+  });
+
+  it("readiness and platform metadata resolve the same organisation owner", async () => {
+    getOrganizationOwner.mockResolvedValue("organisation-owner");
+    hasActiveOperatingProviderConnection.mockResolvedValue(false);
+    getEffectiveSubscription.mockResolvedValue({ subscriptionStatus: "TRIAL", creditsRemaining: 50, trialEndsAt: future });
+    expect(await hasReportGenerationCredential("team-member")).toBe(true);
+    expect(hasActiveOperatingProviderConnection).toHaveBeenCalledWith("organisation-owner");
+    expect(listConfiguredAiConnections).toHaveBeenCalledWith("organisation-owner");
+    expect(getEffectiveSubscription).toHaveBeenCalledWith("organisation-owner");
+  });
+
+  it("a metadata failure cannot advertise platform availability", async () => {
+    getEffectiveSubscription.mockResolvedValue({ subscriptionStatus: "TRIAL", creditsRemaining: 50, trialEndsAt: future });
+    listConfiguredAiConnections.mockRejectedValue(new Error("synthetic metadata failure"));
+    await expect(canUsePlatformTrialCredential("trial-user")).rejects.toThrow("synthetic metadata failure");
   });
 
   it("does not hand the platform Anthropic key to an OPENAI resolve", async () => {

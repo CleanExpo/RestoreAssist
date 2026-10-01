@@ -7,11 +7,15 @@ const mocks = vi.hoisted(() => ({
   organisation: vi.fn(),
   company: vi.fn(),
   integration: vi.fn(),
+  aiConfigured: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.session }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
+vi.mock("@/lib/services/integrations/ai-readiness", () => ({
+  hasConfiguredAi: mocks.aiConfigured,
+}));
 // The real route and pricing resolver run. All database access is mocked.
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -43,6 +47,7 @@ beforeEach(() => {
   mocks.organisation.mockResolvedValue(canonical);
   mocks.company.mockResolvedValue(legacy);
   mocks.integration.mockResolvedValue(null);
+  mocks.aiConfigured.mockResolvedValue(false);
 });
 
 const get = () => GET(new NextRequest(
@@ -50,6 +55,19 @@ const get = () => GET(new NextRequest(
 ));
 
 describe("GET /api/pricing-config canonical rate card", () => {
+  it("recognises canonical AI configuration without a legacy Integration row", async () => {
+    mocks.aiConfigured.mockResolvedValue(true);
+    const body = await (await get()).json();
+    expect(body.hasApiKey).toBe(true);
+    expect(mocks.aiConfigured).toHaveBeenCalledWith("signed-in-user");
+    expect(mocks.integration).not.toHaveBeenCalled();
+  });
+
+  it("does not reactivate a legacy record when canonical readiness is false", async () => {
+    mocks.integration.mockResolvedValue({ id: "stale-legacy-key" });
+    expect((await (await get()).json()).hasApiKey).toBe(false);
+  });
+
   it("shows the organisation card rather than a stale per-user card", async () => {
     const response = await get();
     expect(response.status).toBe(200);
