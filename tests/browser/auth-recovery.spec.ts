@@ -86,3 +86,37 @@ test("recovery keeps errors truthful and lets an invalid code be corrected", asy
   await expect(page.getByRole("link", { name: /Continue with Google/ })).toBeVisible();
   await page.screenshot({ path: `/tmp/restoreassist-auth-evidence/recovery-${testInfo.project.name}.png`, fullPage: true });
 });
+
+test("dashboard preserves authorised legacy records when one resource fails and identifies the signed-in account", async ({ page, context }, testInfo) => {
+  const { encode } = await import("next-auth/jwt");
+  // This value matches only the isolated local test server. It is not a live credential.
+  const cookie = await encode({ secret: "synthetic-local-browser-secret", token: { sub: "synthetic-a", role: "ADMIN", needsOnboarding: false, setupCompletedAt: "2026-01-01T00:00:00.000Z" } });
+  await context.addCookies([{ name: "next-auth.session-token", value: cookie, url: base }]);
+  const user = { id: "synthetic-a", email: "real-fixture@example.com", name: "Synthetic owner", role: "ADMIN", needsOnboarding: false };
+  await page.route("**/api/**", (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    if (path === "/api/auth/session") return route.fulfill({ json: { user, expires: "2099-01-01T00:00:00.000Z" } });
+    if (path === "/api/user/profile") return route.fulfill({ json: { profile: { ...user, organizationId: "synthetic-org", businessName: "Synthetic real-jobs business", subscriptionStatus: "ACTIVE" } } });
+    if (path === "/api/workspace/status") return route.fulfill({ status: 404, json: { hasWorkspace: false, status: null, workspaceId: null } });
+    if (path === "/api/reports") return route.fulfill({ json: { reports: [{ id: "report-a", title: "Preserved synthetic report", status: "DRAFT", createdAt: "2026-10-01T00:00:00Z" }] } });
+    if (path === "/api/clients") return route.fulfill({ status: 500, json: { error: { code: "INTERNAL", message: "Synthetic error", eventId: "synthetic-client-error" } } });
+    if (path === "/api/inspections") return route.fulfill({ json: { inspections: [] } });
+    if (path === "/api/invoices") return route.fulfill({ json: { invoices: [{ id: "invoice-a", invoiceNumber: "SYNTHETIC-INVOICE", status: "SENT" }] } });
+    if (path === "/api/user/experience-mode") return route.fulfill({ json: { experienceMode: "APPRENTICE" } });
+    if (path === "/api/onboarding/first-run") return route.fulfill({ json: { dismissed: true, allComplete: true, completedCount: 0, totalCount: 0, steps: [] } });
+    if (path === "/api/billing/trial-status") return route.fulfill({ json: { data: { lifetimeAccess: true, showCountdownBanner: true, daysRemaining: 1 } } });
+    if (path === "/api/user/trial-status") return route.fulfill({ json: { lifetimeAccess: true, subscriptionStatus: "TRIAL", daysRemaining: 1 } });
+    return route.fulfill({ json: {} });
+  });
+  await page.goto("/dashboard");
+  await expect(page.getByText("Preserved synthetic report", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("SYNTHETIC-INVOICE", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Clients: HTTP 500.*synthetic-client-error/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Start the first job" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Upgrade now/i })).toHaveCount(0);
+  await page.getByRole("button", { name: "Account and workspace" }).click();
+  await expect(page.getByText("Organisation: synthetic-org", { exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Use another Google account" })).toHaveAttribute("href", "/login?switchAccount=google");
+  await page.screenshot({ path: `/tmp/restoreassist-auth-evidence/dashboard-${testInfo.project.name}.png`, fullPage: true });
+});
