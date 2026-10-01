@@ -29,6 +29,10 @@ vi.mock("@/components/inspection/NIRClaimAssessmentPanel", () => ({
 vi.mock("@/components/inspection/MakeSafeChecklist", () => ({
   MakeSafeChecklist: () => null,
 }));
+vi.mock("@/components/inspection/ClaimTypePicker", () => ({
+  default: ({ onChange }: { onChange: (value: "WATER") => void }) =>
+    <button type="button" onClick={() => onChange("WATER")}>Pick Water</button>,
+}));
 
 import NIRTechnicianInputForm from "@/components/NIRTechnicianInputForm";
 
@@ -114,13 +118,48 @@ describe("NIRTechnicianInputForm environmental hydration (RA-7740)", () => {
     expect(Number(dew)).not.toBeNaN();
   });
 
-  it("keeps the defaults when the list is empty", async () => {
-    await renderLoaded([]);
+  it("keeps unknown measurements empty and saves no fabricated reading", async () => {
+    const calls = await renderLoaded([]);
     await waitFor(() =>
-      expect(field("Ambient Temperature (°C)").value).toBe("25"),
+      expect(field("Ambient Temperature (°C)").value).toBe(""),
     );
-    expect(field("Humidity Level (%)").value).toBe("60");
-    expect(field("Dew Point (°C)").value).not.toMatch(/NaN/);
+    expect(field("Humidity Level (%)").value).toBe("");
+    expect(field("Dew Point (°C)").value).toBe("");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
+    });
+    const draft = await waitFor(() => {
+      const call = calls.find((x) => x.url.endsWith("/draft-snapshot"));
+      if (!call) throw new Error("draft-snapshot not called");
+      return call;
+    });
+    expect(JSON.parse(String(draft.init?.body)).environmentalData).toBeNull();
+  });
+
+  it("does not create an inspection solely because claim type and address were filled", async () => {
+    const calls = stubFetch([]);
+    await act(async () => {
+      render(<NIRTechnicianInputForm initialData={{ propertyAddress: "1 Test St", propertyPostcode: "4000" }} />);
+    });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Pick Water" })); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1700)); });
+    expect(calls.some((x) => x.url === "/api/inspections" && x.init?.method === "POST")).toBe(false);
+  });
+
+  it("keeps a partial measurement unsaved and preserves explicit zero readings", async () => {
+    const calls = await renderLoaded([]);
+    fireEvent.change(field("Ambient Temperature (°C)"), { target: { value: "0" } });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save Draft" })); });
+    await waitFor(() => expect(calls.filter((x) => x.url.endsWith("/draft-snapshot"))).toHaveLength(1));
+    expect(JSON.parse(String(calls.find((x) => x.url.endsWith("/draft-snapshot"))?.init?.body)).environmentalData).toBeNull();
+
+    fireEvent.change(field("Humidity Level (%)"), { target: { value: "0" } });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save Draft" })); });
+    await waitFor(() => expect(calls.filter((x) => x.url.endsWith("/draft-snapshot"))).toHaveLength(2));
+    const saves = calls.filter((x) => x.url.endsWith("/draft-snapshot"));
+    const measured = JSON.parse(String(saves[1].init?.body)).environmentalData;
+    expect(measured.ambientTemperature).toBe(0);
+    expect(measured.humidityLevel).toBe(0);
   });
 
   it("saves ONE reading object with the latest values in the draft", async () => {

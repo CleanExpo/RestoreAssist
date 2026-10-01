@@ -79,11 +79,21 @@ describe("truthful initial-entry metadata", () => {
   it("stores unspecified insurance without claiming building or contents coverage", async () => {
     expect((await saved()).insuranceType).toBe("");
   });
-  it("keeps an unprovided client email empty and does not match another blank-email client", async () => {
-    const data = await saved();
+  it("does not create a colliding blank-email client and clearly reports the missing link", async () => {
+    const response = await POST(request(base));
+    expect(response.status).toBe(200);
     expect(mocks.clientFind.mock.calls[0][0].where.OR).toEqual([{ name: "Synthetic Client" }]);
-    expect(mocks.clientCreate.mock.calls[0][0].data.email).toBe("");
-    expect(data.clientId).toBe("synthetic-client");
+    expect(mocks.clientCreate).not.toHaveBeenCalled();
+    expect(mocks.create.mock.calls[0][0].data.clientId).toBeNull();
+    expect((await response.json()).clientLinkWarning).toMatch(/without a client link/);
+  });
+  it("allows distinct no-email reports without creating duplicate blank-email clients", async () => {
+    const first = await POST(request(base));
+    const second = await POST(request({ ...base, clientName: "Another Synthetic Client" }));
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(mocks.clientCreate).not.toHaveBeenCalled();
+    expect(mocks.create).toHaveBeenCalledTimes(2);
   });
   it("uses a provided client email for the existing name-or-email lookup", async () => {
     await saved({ clientContactDetails: "Contact known@example.test" });
@@ -98,6 +108,13 @@ describe("truthful initial-entry metadata", () => {
     expect(mocks.clientUpdate.mock.calls[0][0].data.email).toBe("known@example.test");
     expect(data.clientId).toBe("known-client");
     expect(mocks.clientCreate).not.toHaveBeenCalled();
+  });
+  it("surfaces a client-link warning if creation with a provided email fails", async () => {
+    mocks.clientCreate.mockRejectedValue({ code: "P2002" });
+    const response = await POST(request({ ...base, clientContactDetails: "known@example.test" }));
+    expect(response.status).toBe(200);
+    expect(mocks.create.mock.calls[0][0].data.clientId).toBeNull();
+    expect((await response.json()).clientLinkWarning).toMatch(/without a client link/);
   });
   it("preserves authorisation and refuses creation without a session", async () => {
     mocks.session.mockResolvedValue(null);

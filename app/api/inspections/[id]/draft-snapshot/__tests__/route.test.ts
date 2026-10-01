@@ -106,6 +106,22 @@ beforeEach(() => {
 });
 
 describe("PUT inspection draft snapshot", () => {
+  it("accepts an unmeasured draft without creating an environmental reading", async () => {
+    const response = await PUT(request({ ...payload, environmentalData: null }), {
+      params: Promise.resolve({ id: "insp_1" }),
+    });
+    expect(response.status).toBe(200);
+    expect(tx.environmentalData.deleteMany).toHaveBeenCalledOnce();
+    expect(tx.environmentalData.create).not.toHaveBeenCalled();
+  });
+  it("rejects partial readings instead of inventing the missing measurement", async () => {
+    const response = await PUT(request({
+      ...payload,
+      environmentalData: { ...payload.environmentalData, humidityLevel: null },
+    }), { params: Promise.resolve({ id: "insp_1" }) });
+    expect(response.status).toBe(400);
+    expect(transaction).not.toHaveBeenCalled();
+  });
   it("replaces editable child rows on every save instead of appending", async () => {
     const context = { params: Promise.resolve({ id: "insp_1" }) };
 

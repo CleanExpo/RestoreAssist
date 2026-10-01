@@ -183,6 +183,7 @@ export async function POST(request: NextRequest) {
 
       // Find or create client record
       let clientId = null;
+      let clientLinkWarning: string | null = null;
       try {
         // First, try to find existing client by name or email
         const existingClient = await prisma.client.findFirst({
@@ -209,7 +210,7 @@ export async function POST(request: NextRequest) {
               email: clientEmail || existingClient.email,
             },
           });
-        } else {
+        } else if (clientEmail) {
           // Create new client record (no subscription check - allow creating clients from reports)
           const newClient = await prisma.client.create({
             data: {
@@ -222,10 +223,16 @@ export async function POST(request: NextRequest) {
             },
           });
           clientId = newClient.id;
+        } else {
+          // Client.email is required and unique per owner. A shared blank value
+          // would collide, while an invented address could become a recipient.
+          clientLinkWarning =
+            "Report saved without a client link. Add the client's email to create their client record.";
         }
       } catch (error) {
         console.error("Error creating/updating client:", error);
-        // Continue without clientId if there's an error - don't block report creation
+        clientLinkWarning =
+          "Report saved without a client link. Check the client record before sending or invoicing.";
       }
 
       // Prepare NIR data if provided
@@ -517,6 +524,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         report,
+        clientLinkWarning,
         inspectionLinked,
         message:
           "Initial data saved successfully. Standards analysis initiated. Proceed to report generation.",
