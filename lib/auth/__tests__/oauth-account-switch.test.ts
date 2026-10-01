@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { signInMock, signOutMock } = vi.hoisted(() => ({
+const { signInMock, signOutMock, clearOfflineMock } = vi.hoisted(() => ({
   signInMock: vi.fn(),
   signOutMock: vi.fn(),
+  clearOfflineMock: vi.fn(),
 }));
+vi.mock("@/lib/offline/account-boundary", () => ({ clearOfflineContext: clearOfflineMock }));
 
 vi.mock("next-auth/react", () => ({
   signIn: signInMock,
@@ -31,6 +33,8 @@ describe("signInWithOAuth web account switching", () => {
     await signInWithOAuth("google", { callbackUrl: "/dashboard" });
 
     expect(signOutMock).toHaveBeenCalledWith({ redirect: false });
+    expect(clearOfflineMock).toHaveBeenCalledTimes(1);
+    expect(clearOfflineMock.mock.invocationCallOrder[0]).toBeLessThan(signOutMock.mock.invocationCallOrder[0]);
     expect(signOutMock.mock.invocationCallOrder[0]).toBeLessThan(
       signInMock.mock.invocationCallOrder[0],
     );
