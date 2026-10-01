@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { signIn, getSession, useSession } from "next-auth/react";
+import { clearOfflineContext } from "@/lib/offline/account-boundary";
 import { signInWithOAuth } from "@/lib/oauth-native";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import { useSearchParams } from "next/navigation";
@@ -100,6 +101,7 @@ function LoginForm() {
     setError("");
 
     try {
+      clearOfflineContext();
       const result = await signIn("credentials", {
         email,
         password,
