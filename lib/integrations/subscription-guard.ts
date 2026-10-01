@@ -1,6 +1,6 @@
 /**
  * Subscription Guard for External Integrations
- * Ensures only paid subscribers can access integration features
+ * Requires an active paid subscription or persisted lifetime base access.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -15,7 +15,7 @@ export interface SubscriptionCheckResult {
 }
 
 /**
- * Check if a user has an active paid subscription
+ * Check persisted paid or lifetime base access; add-on gates remain separate.
  * Required for accessing external integrations (Xero, QuickBooks, etc.)
  *
  * @param userId - The user ID to check
@@ -41,6 +41,7 @@ export async function checkIntegrationAccess(
       subscriptionStatus: true,
       subscriptionPlan: true,
       subscriptionEndsAt: true,
+      lifetimeAccess: true,
     },
   });
 
@@ -54,16 +55,17 @@ export async function checkIntegrationAccess(
     };
   }
 
-  // Only allow ACTIVE subscribers
-  // TRIAL users cannot access external integrations
+  // Lifetime access is a persisted base grant, not a subscription plan label.
+  // Ordinary TRIAL users still cannot access external integrations.
+  const hasLifetimeAccess = user.lifetimeAccess === true;
   const allowedStatuses = ["ACTIVE"];
-  const isAllowed = allowedStatuses.includes(user.subscriptionStatus || "");
+  const isAllowed = hasLifetimeAccess || allowedStatuses.includes(user.subscriptionStatus || "");
 
   // Also check if subscription hasn't expired
   const isExpired =
     user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) < new Date();
 
-  if (isExpired) {
+  if (isExpired && !hasLifetimeAccess) {
     return {
       isAllowed: false,
       userId,
