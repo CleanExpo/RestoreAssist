@@ -60,6 +60,7 @@ export function useFetchWithError<T>(
     setError(null);
 
     (async () => {
+      let responseStatus = 0;
       try {
         const res = await fetch(url, {
           credentials: "include",
@@ -68,6 +69,7 @@ export function useFetchWithError<T>(
           signal: controller.signal,
         });
         if (cancelled) return;
+        responseStatus = res.status;
         if (!res.ok) {
           const failure = await parseApiError(res);
           if (cancelled) return;
@@ -78,13 +80,13 @@ export function useFetchWithError<T>(
           if (cancelled) return;
           setData(result);
         }
-      } catch (err) {
+      } catch {
         if (cancelled) return;
         setData(null);
         setError({
-          code: "NETWORK",
-          message: err instanceof Error ? err.message : "Network error",
-          status: 0,
+          code: responseStatus ? "INVALID_RESPONSE" : "NETWORK",
+          message: responseStatus ? "The server returned an unreadable response." : "Network error",
+          status: responseStatus,
         });
       } finally {
         if (!cancelled) setLoading(false);
