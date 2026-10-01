@@ -7,6 +7,24 @@ import {
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
 import { createQuickBooksClient } from "@/lib/integrations/quickbooks/client";
 import { createMYOBClient } from "@/lib/integrations/myob/client";
+import { isOAuthIntegration } from "./identity";
+
+const WEBHOOK_INTEGRATION_IDENTITY_SELECT = {
+  provider: true, name: true, icon: true, config: true,
+  tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true,
+} as const;
+
+async function canDispatchWebhook(event: { id: string; integrationId: string; provider: string }, integration?: Parameters<typeof isOAuthIntegration>[0] | null): Promise<boolean> {
+  const row = integration === undefined ? await prisma.integration.findUnique({
+    where: { id: event.integrationId }, select: WEBHOOK_INTEGRATION_IDENTITY_SELECT,
+  }) : integration;
+  if (row && isOAuthIntegration(row, event.provider)) return true;
+  await prisma.webhookEvent.update({ where: { id: event.id }, data: {
+    status: "SKIPPED", processedAt: new Date(),
+    errorMessage: row ? "Invalid integration identity or webhook provider" : new IntegrationDeletedError(event.integrationId).message,
+  } });
+  return false;
+}
 
 /**
  * Webhook Event Processor
@@ -37,7 +55,7 @@ export async function processWebhookEvent(eventId: string): Promise<void> {
   const event = await prisma.webhookEvent.findUnique({
     where: { id: eventId },
     include: {
-      integration: true,
+      integration: { select: WEBHOOK_INTEGRATION_IDENTITY_SELECT },
     },
   });
 
@@ -45,6 +63,7 @@ export async function processWebhookEvent(eventId: string): Promise<void> {
     console.error(`[Webhook Processor] Event ${eventId} not found`);
     return;
   }
+  if (!await canDispatchWebhook(event, event.integration)) return;
 
   // RA-6965 — XERO events must be resolved through the Xero batch processor,
   // which fetches the real settled amount from the Xero Payments API. The
@@ -370,16 +389,10 @@ async function recordExternalPayment(
   const { externalPaymentId, paymentDate, paymentReference, allocations } =
     resolved;
 
-  const integration = await prisma.integration.findUnique({
-    where: { id: event.integrationId },
-    select: { userId: true },
-  });
-  if (!integration) {
-    throw new IntegrationDeletedError(event.integrationId);
-  }
+  const scope = await getEventOwnerScope(event);
 
   for (const allocation of allocations) {
-    await recordInvoiceAllocation(event, integration.userId, {
+    await recordInvoiceAllocation(event, scope, {
       externalInvoiceId: allocation.externalInvoiceId,
       externalPaymentId,
       paymentAmount: allocation.amount,
@@ -387,6 +400,22 @@ async function recordExternalPayment(
       paymentReference,
     });
   }
+}
+
+async function getEventOwnerScope(event: { integrationId: string; provider: string }) {
+  const integration = await prisma.integration.findUnique({
+    where: { id: event.integrationId },
+    select: { ...WEBHOOK_INTEGRATION_IDENTITY_SELECT, userId: true, workspaceId: true },
+  });
+  if (!integration) throw new IntegrationDeletedError(event.integrationId);
+  if (!isOAuthIntegration(integration, event.provider)) {
+    throw new Error("Invalid integration identity or webhook provider");
+  }
+  return { userId: integration.userId, workspaceId: integration.workspaceId ?? null };
+}
+
+function eventInvoiceScope(event: { provider: string }, externalInvoiceId: string, owner: { userId: string; workspaceId: string | null }) {
+  return { externalInvoiceId, externalSyncProvider: { in: [event.provider, event.provider.toLowerCase()] }, ...owner };
 }
 
 interface ResolvedInvoiceAllocation {
@@ -400,12 +429,12 @@ interface ResolvedInvoiceAllocation {
 /**
  * Atomic create + increment of a single invoice allocation. Prevents TOCTOU
  * duplicate payment and ensures amountPaid/amountDue update with correct
- * concurrent values. The invoice lookup is scoped to `ownerUserId` (resolved
- * in recordExternalPayment) so a cross-tenant invoice can never match.
+ * concurrent values. Reads and writes include the integration's exact owner
+ * and workspace, including null, so another workspace's invoice cannot match.
  */
 async function recordInvoiceAllocation(
   event: any,
-  ownerUserId: string,
+  owner: { userId: string; workspaceId: string | null },
   resolved: ResolvedInvoiceAllocation,
 ): Promise<void> {
   const {
@@ -417,12 +446,10 @@ async function recordInvoiceAllocation(
   } = resolved;
 
   // Find the invoice by external ID, scoped to the owning tenant
+  const invoiceScope = eventInvoiceScope(event, externalInvoiceId, owner);
   const invoice = await prisma.invoice.findFirst({
-    where: {
-      externalInvoiceId,
-      externalSyncProvider: event.provider,
-      userId: ownerUserId,
-    },
+    where: invoiceScope,
+    select: { id: true, currency: true, userId: true },
   });
 
   if (!invoice) {
@@ -477,7 +504,7 @@ async function recordInvoiceAllocation(
 
       // Use atomic increment — avoids stale read-modify-write across concurrent webhooks
       const updatedInvoice = await tx.invoice.update({
-        where: { id: invoice.id },
+        where: { id: invoice.id, ...invoiceScope },
         data: {
           amountPaid: { increment: paymentAmountCents },
           amountDue: { decrement: paymentAmountCents },
@@ -488,7 +515,7 @@ async function recordInvoiceAllocation(
       // Clamp amountDue to 0 and set PAID status if fully settled
       if (updatedInvoice.amountDue <= 0) {
         await tx.invoice.update({
-          where: { id: invoice.id },
+          where: { id: invoice.id, ...invoiceScope },
           data: {
             amountDue: 0,
             status: "PAID",
@@ -497,7 +524,7 @@ async function recordInvoiceAllocation(
         });
       } else {
         await tx.invoice.update({
-          where: { id: invoice.id },
+          where: { id: invoice.id, ...invoiceScope },
           data: { status: InvoiceStatus.PARTIALLY_PAID },
         });
       }
@@ -565,11 +592,10 @@ async function handleInvoiceUpdated(event: any): Promise<void> {
   }
 
   // Find the invoice by external ID
+  const owner = await getEventOwnerScope(event);
   const invoice = await prisma.invoice.findFirst({
-    where: {
-      externalInvoiceId,
-      externalSyncProvider: event.provider,
-    },
+    where: eventInvoiceScope(event, externalInvoiceId, owner),
+    select: { id: true, userId: true },
   });
 
   if (!invoice) {
@@ -633,11 +659,10 @@ async function handleInvoiceDeleted(event: any): Promise<void> {
   }
 
   // Find the invoice by external ID
+  const owner = await getEventOwnerScope(event);
   const invoice = await prisma.invoice.findFirst({
-    where: {
-      externalInvoiceId,
-      externalSyncProvider: event.provider,
-    },
+    where: eventInvoiceScope(event, externalInvoiceId, owner),
+    select: { id: true, userId: true },
   });
 
   if (!invoice) {
@@ -803,6 +828,7 @@ export async function processQboMyobPendingPayments(
   });
 
   for (const event of events) {
+    if (!await canDispatchWebhook(event)) { result.skipped++; continue; }
     const claim = await prisma.webhookEvent.updateMany({
       where: { id: event.id, status: "PENDING" },
       data: { status: "PROCESSING" },
@@ -892,6 +918,7 @@ export async function retryUnresolvedQboMyobPayments(
   });
 
   for (const event of events) {
+    if (!await canDispatchWebhook(event)) { result.skipped++; continue; }
     const claim = await prisma.webhookEvent.updateMany({
       where: { id: event.id, status: "SKIPPED" },
       data: { status: "PROCESSING" },

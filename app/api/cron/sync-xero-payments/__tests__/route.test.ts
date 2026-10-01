@@ -70,13 +70,14 @@ function xeroReturns(invoice: Record<string, unknown>) {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.CRON_SECRET = SECRET;
+  vi.stubGlobal("fetch", vi.fn(() => { throw new Error("External network denied"); }));
   cronJobRunFindFirst.mockResolvedValue(null);
   cronJobRunCreate.mockResolvedValue({ id: "run_1" });
   cronJobRunUpdate.mockResolvedValue({});
   processXeroWebhookBatch.mockResolvedValue({ processed: 0, failed: 0, skipped: 0 });
   getValidXeroAccessToken.mockResolvedValue({ ok: true, data: "xero-token" });
   integrationFindMany.mockResolvedValue([
-    { id: "integ-1", tenantId: "tenant-1", userId: "user-1" },
+    { id: "integ-1", provider: "XERO", name: "Xero", workspaceId: null, tenantId: "tenant-1", userId: "user-1" },
   ]);
   invoiceFindMany.mockResolvedValue([{ id: "inv-1", externalInvoiceId: "xero-inv-1" }]);
   invoiceUpdate.mockResolvedValue({});
@@ -100,7 +101,7 @@ describe("GET /api/cron/sync-xero-payments — polled payment amounts", () => {
     expect(response.status).toBe(200);
     expect(invoiceUpdate).toHaveBeenCalledTimes(1);
     expect(invoiceUpdate).toHaveBeenCalledWith({
-      where: { id: "inv-1" },
+      where: { id: "inv-1", userId: "user-1", workspaceId: null, externalInvoiceId: "xero-inv-1", externalSyncProvider: { in: ["XERO", "xero"] } },
       data: expect.objectContaining({
         status: "PAID",
         amountPaid: 110055,
@@ -128,4 +129,16 @@ describe("GET /api/cron/sync-xero-payments — polled payment amounts", () => {
 
     expect(invoiceUpdate).not.toHaveBeenCalled();
   });
+});
+
+it("does not poll a mislabeled AI row or scan another workspace's invoices", async () => {
+  integrationFindMany.mockResolvedValue([{ id: "ai", provider: "XERO", name: "OpenAI GPT", icon: "[ra:ai]", tenantId: "tenant", userId: "user-1", workspaceId: null }]);
+  await GET(authorisedRequest());
+  expect(getValidXeroAccessToken).not.toHaveBeenCalled(); expect(invoiceFindMany).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
+});
+it("uses exact personal workspace scope and does not treat a malformed response as a settled invoice", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ error: "synthetic malformed" }) }));
+  await GET(authorisedRequest());
+  expect(invoiceFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ workspaceId: null, userId: "user-1", externalSyncProvider: { in: ["XERO", "xero"] } }) }));
+  expect(invoiceUpdate).not.toHaveBeenCalled();
 });

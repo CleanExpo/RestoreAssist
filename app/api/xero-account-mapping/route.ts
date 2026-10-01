@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
 import {
   clearAccountCodeCache,
   isValidXeroAccountCode,
@@ -32,10 +33,8 @@ import { apiError, fromException } from "@/lib/api-errors";
 const DEFAULT_SENTINEL = "__default__"; // used by the UI to target the null-category row
 
 async function getActiveXeroIntegration(userId: string) {
-  return prisma.integration.findFirst({
-    where: { userId, provider: "XERO", status: "CONNECTED" },
-    select: { id: true },
-  });
+  const result = await selectOAuthIntegration({ prisma, userId, provider: "XERO", requireReady: true });
+  return result.ok ? result.data : null;
 }
 
 interface MappingUpsertData {

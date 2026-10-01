@@ -23,6 +23,7 @@ vi.mock("../../gst-treatment-rules", () => ({
 }));
 
 import { syncInvoiceToXero } from "../../xero";
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ function makeIntegration(overrides: Partial<Integration> = {}): Integration {
   return {
     id: "int-1",
     provider: "XERO",
+    name: "Xero",
     accessToken: "access-token",
     refreshToken: "refresh-token",
     tenantId: "tenant-123",
@@ -85,6 +87,7 @@ function mockFetchOnce(status: number, body: unknown) {
 describe("syncInvoiceToXero", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(getValidXeroAccessToken).mockResolvedValue({ ok: true, data: "synthetic-decrypted-access" });
   });
 
   it("creates invoice successfully on 200", async () => {
@@ -206,10 +209,11 @@ describe("syncInvoiceToXero", () => {
     ).rejects.toThrow(/could not recover existing InvoiceID/);
   });
 
-  it("throws when access token is missing", async () => {
+  it("throws when the credential service reports a missing access token", async () => {
+    vi.mocked(getValidXeroAccessToken).mockResolvedValue({ ok: false, reason: "DISCONNECTED" });
     await expect(
       syncInvoiceToXero(makeInvoice(), makeIntegration({ accessToken: null })),
-    ).rejects.toThrow("No access token available for Xero");
+    ).rejects.toThrow("Xero credentials unavailable: DISCONNECTED");
   });
 
   it("throws when tenant ID is missing", async () => {

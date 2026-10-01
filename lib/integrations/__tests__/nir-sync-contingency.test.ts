@@ -24,14 +24,17 @@ vi.mock("../oauth-handler", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    integrationSyncLog: { create: vi.fn() },
+    report: { findUnique: vi.fn(async () => ({ userId: "synthetic-owner", workspaceId: null })) },
     integration: {
-      findUnique: vi.fn(async () => ({ companyId: "cf_1", realmId: "realm_1" })),
+      findUnique: vi.fn(async () => ({ tenantId: "cf_1", realmId: "realm_1" })),
+      updateMany: vi.fn(async () => ({ count: 1 })),
     },
   },
 }));
 
 vi.mock("@/lib/services/xero/credentials", () => ({
-  getValidXeroAccessToken: vi.fn(async () => ({ ok: true, data: "tok" })),
+  getValidXeroCredentials: vi.fn(async () => ({ ok: true, data: { accessToken: "tok", tenantId: "tenant_1", binding: { id: "synthetic-integration", userId: "synthetic-owner", workspaceId: null, provider: "XERO", status: "CONNECTED", tenantId: "tenant_1", updatedAt: new Date("2026-10-01") } } })),
 }));
 vi.mock("@/lib/services/xero/tenant", () => ({
   getXeroTenantId: vi.fn(async () => ({ ok: true, data: "tenant_1" })),

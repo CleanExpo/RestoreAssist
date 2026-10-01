@@ -10,10 +10,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
 import {
   PROVIDER_CONFIG,
   type IntegrationProvider,
 } from "@/lib/integrations/oauth-handler";
+import { createXeroClient } from "@/lib/integrations/xero/client";
 import { createClientForIntegration } from "@/lib/integrations";
 import {
   checkIntegrationAccess,
@@ -43,7 +45,7 @@ export async function POST(
     }
 
     // Check subscription status - external integrations require paid subscription
-    const subscriptionCheck = await checkIntegrationAccess(session.user.id);
+    const subscriptionCheck = await checkIntegrationAccess(session.user.id, (await params).provider);
     if (!subscriptionCheck.isAllowed) {
       return NextResponse.json(
         createSubscriptionRequiredResponse(subscriptionCheck),
@@ -73,15 +75,36 @@ export async function POST(
 
     // Find integration — allow ERROR/SYNCING so a failed sync can be retried
     // without forcing a full OAuth reconnect (tokens are still present).
-    const integration = await prisma.integration.findFirst({
-      where: {
-        userId: session.user.id,
-        provider,
-        status: { in: ["CONNECTED", "ERROR", "SYNCING"] },
-      },
+    const selection = await selectOAuthIntegration({
+      prisma, userId: session.user.id, provider, requireReady: true,
+      workspaceId: subscriptionCheck.foundingTrialWorkspaceId,
     });
+    if (!selection.ok && selection.reason !== "NOT_FOUND") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: selection.reason === "AMBIGUOUS"
+          ? "Multiple connections require an explicit workspace selection."
+          : selection.reason === "NOT_READY"
+            ? "This connection needs valid credentials and an authorised organisation before syncing."
+            : "This provider is not supported by the OAuth integration route.",
+        status: selection.reason === "INVALID_PROVIDER" ? 400 : 409,
+      });
+    }
+    const integration = selection.ok ? selection.data : null;
 
     if (!integration) {
+      if (subscriptionCheck.foundingTrialWorkspaceId) {
+        const existing = await selectOAuthIntegration({
+          prisma, userId: session.user.id, provider, requireReady: false,
+        });
+        if (existing.ok || existing.reason === "AMBIGUOUS") {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "This connection needs an explicit workspace selection before syncing.",
+            status: 409,
+          });
+        }
+      }
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Integration not found or not connected",
@@ -93,6 +116,18 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const syncClients = body.syncClients !== false;
     const syncJobs = body.syncJobs !== false;
+
+    if (provider === "XERO") {
+      const client = await createXeroClient(integration.id);
+      const { clientsCount, jobsCount } = await client.syncWithLifecycle(
+        { syncClients, syncJobs },
+        { expectedTenantId: integration.tenantId ?? undefined, expectedUserId: session.user.id, expectedWorkspaceId: integration.workspaceId },
+      );
+      return NextResponse.json({
+        success: true, clientsSynced: clientsCount, jobsSynced: jobsCount,
+        message: `Synced ${clientsCount} clients and ${jobsCount} jobs from Xero`,
+      });
+    }
 
     // Update status to syncing
     await prisma.integration.update({
@@ -142,21 +177,6 @@ export async function POST(
           syncError: errorMessage,
         },
       });
-
-      // Xero timeout / auth / config → actionable 4xx/5xx (not opaque 500).
-      if (provider === "XERO") {
-        const upstream = mapXeroUpstreamError(syncError);
-        if (upstream) {
-          return apiError(request, {
-            code: "UPSTREAM_FAILED",
-            message: upstream.message,
-            status: upstream.status,
-            err: syncError,
-            stage: "sync",
-            context: { xeroKind: upstream.kind },
-          });
-        }
-      }
 
       throw syncError;
     }
