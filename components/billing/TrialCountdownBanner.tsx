@@ -15,7 +15,7 @@ export default function TrialCountdownBanner() {
     setDismissed(sessionStorage.getItem(SESSION_KEY) === "1");
   }, []);
 
-  if (isLoading || !data) return null;
+  if (isLoading || !data || data.lifetimeAccess) return null;
 
   if (data.hasTrialExpired && !data.lifetimeAccess) {
     return (

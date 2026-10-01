@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { RESET_CODE_TTL_MINUTES, RESET_PASSWORD_MIN_LENGTH, RESET_REQUEST_MESSAGE } from "@/lib/auth/recovery-policy";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import {
@@ -27,6 +28,7 @@ function ForgotPasswordForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const submitting = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
 
@@ -40,6 +42,8 @@ function ForgotPasswordForm() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setIsLoading(true);
     setError("");
 
@@ -50,47 +54,45 @@ function ForgotPasswordForm() {
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        notifySuccess(
-          "If an account exists, a verification code has been generated.",
-        );
+        notifySuccess(RESET_REQUEST_MESSAGE);
+        setCode("");
         setStep("code");
-      } else if (response.status === 429) {
-        const message = "Too many attempts. Please try again later.";
+      } else {
+        const message = response.status === 429
+          ? "Too many attempts. Please try again later."
+          : "Could not process the reset request. Please try again.";
         setError(message);
         notifyError(message);
-      } else {
-        // Show generic message to prevent email enumeration
-        notifySuccess(
-          "If an account exists, a verification code has been generated.",
-        );
-        setStep("code");
       }
     } catch (error) {
       const message = "An error occurred. Please try again.";
       setError(message);
       notifyError(message);
     } finally {
+      submitting.current = false;
       setIsLoading(false);
     }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setIsLoading(true);
     setError("");
 
     // Validation
     if (newPassword !== confirmPassword) {
+      submitting.current = false;
       setError("Passwords do not match");
       setIsLoading(false);
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
+    if (newPassword.length < RESET_PASSWORD_MIN_LENGTH) {
+      submitting.current = false;
+      setError(`Password must be at least ${RESET_PASSWORD_MIN_LENGTH} characters`);
       setIsLoading(false);
       return;
     }
@@ -118,6 +120,7 @@ function ForgotPasswordForm() {
         const lower = message.toLowerCase();
         if (lower.includes("code") || lower.includes("expired")) {
           setCode("");
+          setStep("code");
         }
         setIsLoading(false);
       }
@@ -126,6 +129,8 @@ function ForgotPasswordForm() {
       setError(message);
       notifyError(message);
       setIsLoading(false);
+    } finally {
+      submitting.current = false;
     }
   };
 
@@ -249,7 +254,10 @@ function ForgotPasswordForm() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                setStep("password");
+                if (/^\d{6}$/.test(code)) {
+                  setError("");
+                  setStep("password");
+                }
               }}
               className="space-y-6"
             >
@@ -259,9 +267,8 @@ function ForgotPasswordForm() {
                   className="text-blue-400 flex-shrink-0 mt-0.5"
                 />
                 <span className="text-blue-300 text-sm">
-                  If an account exists for <strong>{email}</strong>, a 6-digit
-                  verification code has been sent. It expires in 15 minutes —
-                  check your inbox and spam folder.
+                  {RESET_REQUEST_MESSAGE} Codes expire {RESET_CODE_TTL_MINUTES} minutes
+                  after the request. Requested for <strong>{email}</strong>.
                 </span>
               </div>
 
@@ -330,10 +337,10 @@ function ForgotPasswordForm() {
             </form>
           ) : (
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
-              <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg flex items-center gap-2">
-                <CheckCircle size={20} className="text-success" />
-                <span className="text-success text-sm">
-                  Code verified. Set your new password.
+              <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg flex items-center gap-2">
+                <ShieldCheck size={20} className="text-blue-300" />
+                <span className="text-blue-300 text-sm">
+                  Enter a new password. Your code will be checked when you submit.
                 </span>
               </div>
 
@@ -355,9 +362,9 @@ function ForgotPasswordForm() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
-                    placeholder="Minimum 8 characters"
+                    placeholder={`Minimum ${RESET_PASSWORD_MIN_LENGTH} characters`}
                     required
-                    minLength={8}
+                    minLength={RESET_PASSWORD_MIN_LENGTH}
                   />
                   <button
                     type="button"
@@ -368,7 +375,7 @@ function ForgotPasswordForm() {
                   </button>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Must be at least 8 characters
+                  Must be at least {RESET_PASSWORD_MIN_LENGTH} characters
                 </p>
               </div>
 
@@ -392,7 +399,7 @@ function ForgotPasswordForm() {
                     className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
                     placeholder="Confirm new password"
                     required
-                    minLength={8}
+                    minLength={RESET_PASSWORD_MIN_LENGTH}
                   />
                   <button
                     type="button"
@@ -437,6 +444,14 @@ function ForgotPasswordForm() {
               </motion.button>
             </form>
           )}
+
+          <p className="mt-6 text-sm text-slate-300">
+            Signed up with Google or Apple? Use that sign-in method. Accounts
+            without a password do not receive password reset codes.
+          </p>
+          <Link href="/login?switchAccount=google" className="mt-2 block text-center text-cyan-400 underline">
+            Continue with Google or choose another account
+          </Link>
 
           {/* Back to Login */}
           <div className="mt-6 text-center">

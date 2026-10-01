@@ -6,11 +6,8 @@
  * `?callbackUrl=<encoded path+search>` when bouncing unauthenticated traffic,
  * and the login page calls this validator before honouring it post-sign-in.
  *
- * Rule (simplest correct form per brief — do NOT add more checks):
- *   safe ⇔ path.startsWith("/") && !path.startsWith("//") && !path.includes("://")
- *
- * Rejects protocol-relative (`//evil.com`) and absolute (`https://evil.com`)
- * URLs that would otherwise navigate off-origin.
+ * Reject absolute/protocol-relative URLs and characters browsers normalise
+ * into an external authority (backslashes and ASCII control characters).
  */
 export function safeCallbackUrl(
   raw: string | null | undefined,
@@ -20,5 +17,6 @@ export function safeCallbackUrl(
   if (!raw.startsWith("/")) return fallback;
   if (raw.startsWith("//")) return fallback;
   if (raw.includes("://")) return fallback;
+  if (/[\\\u0000-\u001f\u007f]/.test(raw)) return fallback;
   return raw;
 }

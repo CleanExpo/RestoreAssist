@@ -1,3 +1,4 @@
+import { RESET_PASSWORD_MIN_LENGTH } from "@/lib/auth/recovery-policy";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -14,7 +15,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 // recommends 8 as an absolute floor, but registration enforces 12 —
 // reset/change must match or the policy is trivially bypassed by setting
 // a weak password via reset after registering with a strong one.
-const MIN_PASSWORD_LENGTH = 12;
+const MIN_PASSWORD_LENGTH = RESET_PASSWORD_MIN_LENGTH;
 
 // POST - Reset password with verification code
 export async function POST(request: NextRequest) {
@@ -98,9 +99,10 @@ export async function POST(request: NextRequest) {
     // Check if user exists
     const user = await prisma.user.findUnique({
       where: { email },
+      select: { id: true, password: true },
     });
 
-    if (!user) {
+    if (!user?.password) {
       return apiError(request, {
         code: "VALIDATION",
         message: "Invalid request",

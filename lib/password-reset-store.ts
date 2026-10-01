@@ -1,3 +1,4 @@
+import { RESET_CODE_TTL_MINUTES } from "@/lib/auth/recovery-policy";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 
@@ -24,7 +25,7 @@ export async function storeResetCode(
     data: {
       token: code,
       email: normalizedEmail,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      expiresAt: new Date(Date.now() + RESET_CODE_TTL_MINUTES * 60 * 1000),
       attempts: 0,
     },
     select: { id: true, expiresAt: true },
