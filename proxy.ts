@@ -325,8 +325,8 @@ export async function proxy(req: NextRequest) {
       url.search = `?callbackUrl=${encodeURIComponent(pathname + (req.nextUrl.search || ""))}`;
       return NextResponse.redirect(url, 307);
     }
-    // ── /dashboard/* — onboarding gate (RA-1259, unchanged) ──────────────────
-    if (pathname.startsWith("/dashboard/")) {
+    // ── /dashboard and descendants — onboarding gate (RA-1259) ──────────────────
+    if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
       const needsOnboarding = Boolean((token as any).needsOnboarding);
       const isActiveSetupWizardDestination =
         SETUP_WIZARD_ENABLED &&

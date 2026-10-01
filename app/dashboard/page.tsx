@@ -1,10 +1,11 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import type { Session } from "next-auth";
 import { useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useFetch } from "@/lib/hooks/useFetch";
+import { useFetchWithError } from "@/lib/client/useFetchWithError";
 import toast from "react-hot-toast";
 import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";
 import { BasicReportWithoutKeyCta } from "@/components/onboarding/BasicReportWithoutKeyCta";
@@ -167,12 +168,76 @@ function LineSkeleton({ className }: { className?: string }) {
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center" role="status">
+        Loading the workspace…
+      </div>
+    );
+  }
+  if (status !== "authenticated" || !session?.user?.id) {
+    return <Link href="/login">Sign in to load your workspace</Link>;
+  }
+
+  // Unmount every resource reader when account or workspace changes. Cached
+  // rows and delayed responses from the previous identity must never be shown.
+  return (
+    <DashboardWorkspace
+      key={JSON.stringify([session.user.id, session.user.organizationId ?? null])}
+      session={session}
+    />
+  );
+}
+
+type WorkspaceStatusResult = {
+  hasWorkspace: boolean;
+  status: "PROVISIONING" | "READY" | "SUSPENDED";
+  workspaceId: string;
+  ready: boolean;
+};
+
+function DashboardWorkspace({ session }: { session: Session }) {
+  const router = useRouter();
+  const needsOnboarding = session.user.needsOnboarding === true;
+  const { data, loading, error, refetch } = useFetchWithError<WorkspaceStatusResult>(
+    needsOnboarding ? null : "/api/workspace/status",
+  );
+  useEffect(() => {
+    if (needsOnboarding) router.replace("/onboarding/account-type");
+  }, [needsOnboarding, router]);
+
+  if (needsOnboarding) {
+    return <Link href="/onboarding/account-type">Complete your account setup to open the workspace</Link>;
+  }
+  if (loading) return <p role="status">Checking workspace access…</p>;
+  if (error || !data?.hasWorkspace || data.status !== "READY" || !data.workspaceId) {
+    return (
+      <div role="alert" className="space-y-3 py-6">
+        <p>
+          {error
+            ? `Could not verify workspace access${error.status ? ` (HTTP ${error.status})` : ""}.`
+            : data?.status === "PROVISIONING"
+              ? "Your workspace is still being prepared. Retry when setup has finished."
+              : data?.status === "SUSPENDED"
+                ? "This workspace is suspended. Review its access with your workspace administrator."
+                : "Workspace access could not be confirmed."}
+          {error?.eventId ? ` Error ID: ${error.eventId}` : ""}
+        </p>
+        <button type="button" onClick={refetch} className="min-h-11 rounded-[10px] border border-border px-4">
+          Retry workspace access
+        </button>
+        {error?.status === 401 && <Link href="/login">Sign in again</Link>}
+      </div>
+    );
+  }
+  return <DashboardContent key={data.workspaceId} session={session} />;
+}
+
+function DashboardContent({ session }: { session: Session }) {
   const router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
-  const isAuthed = status === "authenticated";
 
   useEffect(() => {
-    if (status !== "authenticated") return;
     const isWelcome = searchParams?.get("welcome") === "1";
     if (!isWelcome) return;
 
@@ -195,15 +260,15 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [status, searchParams, router]);
+  }, [searchParams, router]);
 
   const {
     data: reportsRaw,
     loading: reportsLoading,
     error: reportsError,
     refetch: refetchReports,
-  } = useFetch<{ reports: ReportWithSessionData[] }>(
-    isAuthed ? "/api/reports?limit=40" : null,
+  } = useFetchWithError<{ reports: ReportWithSessionData[] }>(
+    "/api/reports?limit=40",
   );
 
   const {
@@ -211,17 +276,17 @@ export default function DashboardPage() {
     loading: clientsLoading,
     error: clientsError,
     refetch: refetchClients,
-  } = useFetch<{
+  } = useFetchWithError<{
     clients: Array<{ id: string; name: string; createdAt: string }>;
-  }>(isAuthed ? "/api/clients" : null);
+  }>("/api/clients");
 
   const {
     data: inspectionsRaw,
     loading: inspectionsLoading,
     error: inspectionsError,
     refetch: refetchInspections,
-  } = useFetch<{ inspections: InspectionRow[] }>(
-    isAuthed ? "/api/inspections?limit=20&sort=recent" : null,
+  } = useFetchWithError<{ inspections: InspectionRow[] }>(
+    "/api/inspections?limit=20&sort=recent",
   );
 
   const {
@@ -229,12 +294,12 @@ export default function DashboardPage() {
     loading: invoicesLoading,
     error: invoicesError,
     refetch: refetchInvoices,
-  } = useFetch<{ invoices: InvoiceRow[] }>(
-    isAuthed ? "/api/invoices?limit=20" : null,
+  } = useFetchWithError<{ invoices: InvoiceRow[] }>(
+    "/api/invoices?limit=20",
   );
 
   useEffect(() => {
-    if (status !== "authenticated" || !session?.user?.name) return;
+    if (!session.user?.name) return;
     const key = "ra-dashboard-welcome";
     try {
       if (sessionStorage.getItem(key) === "1") return;
@@ -245,16 +310,16 @@ export default function DashboardPage() {
     toast.success(`Welcome back, ${session.user.name.split(" ")[0]}!`, {
       id: "dashboard-welcome",
     });
-  }, [status, session?.user?.name]);
+  }, [session.user?.name]);
 
   const model = useMemo(() => {
     const loadFailed = Boolean(
       reportsError || clientsError || inspectionsError || invoicesError,
     );
-    const reports = loadFailed ? [] : (reportsRaw?.reports ?? []);
-    const clients = loadFailed ? [] : (clientsRaw?.clients ?? []);
-    const inspections = loadFailed ? [] : (inspectionsRaw?.inspections ?? []);
-    const invoices = loadFailed ? [] : (invoicesRaw?.invoices ?? []);
+    const reports = reportsError ? [] : (reportsRaw?.reports ?? []);
+    const clients = clientsError ? [] : (clientsRaw?.clients ?? []);
+    const inspections = inspectionsError ? [] : (inspectionsRaw?.inspections ?? []);
+    const invoices = invoicesError ? [] : (invoicesRaw?.invoices ?? []);
 
     const openReports = reports.filter((r) => isOpenReportStatus(r.status));
     const activeInspections = inspections.filter((i) =>
@@ -295,8 +360,12 @@ export default function DashboardPage() {
         inspectionsLoading ||
         invoicesLoading,
       loadFailed,
-      loadError:
-        reportsError || clientsError || inspectionsError || invoicesError,
+      failures: [
+        { label: "Reports", error: reportsError, loading: reportsLoading, retry: refetchReports },
+        { label: "Clients", error: clientsError, loading: clientsLoading, retry: refetchClients },
+        { label: "Inspections", error: inspectionsError, loading: inspectionsLoading, retry: refetchInspections },
+        { label: "Invoices", error: invoicesError, loading: invoicesLoading, retry: refetchInvoices },
+      ].filter((resource) => resource.error),
     };
   }, [
     reportsRaw,
@@ -311,23 +380,13 @@ export default function DashboardPage() {
     clientsError,
     inspectionsError,
     invoicesError,
+    refetchReports,
+    refetchClients,
+    refetchInspections,
+    refetchInvoices,
   ]);
 
-  if (status === "loading") {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-lg border-2 border-brand-bronze/30 border-t-brand-cta" />
-      </div>
-    );
-  }
-
-  const firstName = session?.user?.name?.split(" ")[0] ?? "there";
-  const retryAll = () => {
-    void refetchReports();
-    void refetchClients();
-    void refetchInspections();
-    void refetchInvoices();
-  };
+  const firstName = session.user?.name?.split(" ")[0] ?? "there";
 
   return (
     <div className="min-w-0 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
@@ -340,22 +399,32 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {model.loadFailed && !model.loading && (
+      {model.loadFailed && (
         <div
           role="alert"
-          className="mt-4 flex flex-col gap-3 rounded-[10px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-800 dark:text-red-300 sm:flex-row sm:items-center sm:justify-between"
+          className="mt-4 space-y-2 rounded-[10px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:text-red-300"
         >
-          <p className="min-w-0 text-sm">
-            Could not load the workspace
-            {model.loadError ? ` — ${model.loadError}` : ""}.
-          </p>
-          <button
-            type="button"
-            onClick={retryAll}
-            className="min-h-11 shrink-0 rounded-[10px] border border-red-500/40 px-4 text-sm font-medium"
-          >
-            Retry
-          </button>
+          <p>Some workspace data could not be loaded. Available sections are shown below.</p>
+          <ul className="space-y-2">
+            {model.failures.map(({ label, error, loading, retry }) => (
+              <li key={label} className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  {label}: {error!.status ? `HTTP ${error!.status}` : "Network error"}
+                  {error!.code !== "UNKNOWN" ? ` (${error!.code})` : ""}
+                  {error!.eventId ? ` — Error ID: ${error!.eventId}` : ""}
+                  {error!.status === 401 ? ". Sign in again to reload this section." : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={retry}
+                  disabled={loading}
+                  className="min-h-11 shrink-0 rounded-[10px] border border-red-500/40 px-4 font-medium disabled:opacity-50"
+                >
+                  Retry {label.toLowerCase()}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -365,20 +434,22 @@ export default function DashboardPage() {
             Good to see you, {firstName}
           </p>
           <h1 className="mt-1 text-pretty text-2xl font-semibold text-slate-50 sm:text-3xl">
-            {model.loading ? "Loading the board…" : model.focus.title}
+            {model.loadFailed ? "Workspace partially available" : model.loading ? "Loading the board…" : model.focus.title}
           </h1>
           <p className="mt-1 max-w-xl text-pretty text-sm text-muted-foreground">
-            {model.loading
-              ? "Checking jobs, reports and invoices."
-              : model.focus.why}
+            {model.loadFailed
+              ? "Retry the unavailable sections to check all your work."
+              : model.loading
+                ? "Checking jobs, reports and invoices."
+                : model.focus.why}
           </p>
         </div>
-        <Link
+        {!model.loadFailed && !model.loading && <Link
           href={model.focus.href}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-[10px] bg-brand-cta px-5 text-sm font-medium text-white hover:bg-brand-cta-hover sm:w-auto"
         >
           {model.focus.label}
-        </Link>
+        </Link>}
       </header>
 
       <section aria-label="Job through invoice" className="mb-6">
@@ -395,14 +466,16 @@ export default function DashboardPage() {
             label="Inspect"
             hint="Jobs still open"
             value={model.activeInspections.length}
-            loading={model.loading}
+            loading={inspectionsLoading}
+            unavailable={Boolean(inspectionsError)}
           />
           <PipelineStep
             href="/dashboard/reports"
             label="Report"
             hint="Drafts and reviews"
             value={model.openReports.length}
-            loading={model.loading}
+            loading={reportsLoading}
+            unavailable={Boolean(reportsError)}
             connector
           />
           <PipelineStep
@@ -410,7 +483,8 @@ export default function DashboardPage() {
             label="Invoice"
             hint="Waiting on payment"
             value={model.outstandingInvoices.length}
-            loading={model.loading}
+            loading={invoicesLoading}
+            unavailable={Boolean(invoicesError)}
             connector
           />
           <PipelineStep
@@ -418,7 +492,8 @@ export default function DashboardPage() {
             label="Clients"
             hint="People on file"
             value={model.clients.length}
-            loading={model.loading}
+            loading={clientsLoading}
+            unavailable={Boolean(clientsError)}
             connector
           />
         </ol>
@@ -463,7 +538,12 @@ export default function DashboardPage() {
               </Link>
             }
           />
-          {model.loading ? (
+          {(reportsError || inspectionsError) && (
+            <p className="mb-3 text-sm text-muted-foreground">
+              Open work is incomplete while reports or inspections are unavailable.
+            </p>
+          )}
+          {reportsLoading || inspectionsLoading ? (
             <div className="space-y-3" aria-busy>
               <LineSkeleton className="h-12 w-full" />
               <LineSkeleton className="h-12 w-full" />
@@ -471,7 +551,7 @@ export default function DashboardPage() {
             </div>
           ) : model.activeInspections.length === 0 &&
             model.openReports.length === 0 ? (
-            <EmptyBlock
+            reportsError || inspectionsError ? null : <EmptyBlock
               title={
                 model.hasAnyWork
                   ? "Nothing waiting"
@@ -564,11 +644,13 @@ export default function DashboardPage() {
               </Link>
             }
           />
-          {model.loading ? (
+          {invoicesLoading ? (
             <div className="space-y-3" aria-busy>
               <LineSkeleton className="h-10 w-full" />
               <LineSkeleton className="h-10 w-full" />
             </div>
+          ) : invoicesError ? (
+            <p className="text-sm text-muted-foreground">Invoices are unavailable. Payment status could not be checked.</p>
           ) : model.outstandingInvoices.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No invoices waiting on payment.
@@ -618,12 +700,14 @@ export default function DashboardPage() {
             </Link>
           }
         />
-        {model.loading ? (
+        {reportsLoading ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-busy>
             {Array.from({ length: 3 }).map((_, i) => (
               <LineSkeleton key={i} className="h-28 w-full" />
             ))}
           </div>
+        ) : reportsError ? (
+          <p className="text-sm text-muted-foreground">Reports are unavailable. Retry to check your records.</p>
         ) : model.recentReports.length === 0 ? (
           <EmptyBlock
             title="No reports yet"
@@ -728,6 +812,7 @@ function PipelineStep({
   hint,
   value,
   loading,
+  unavailable,
   connector,
 }: {
   href: string;
@@ -735,6 +820,7 @@ function PipelineStep({
   hint: string;
   value: number;
   loading: boolean;
+  unavailable: boolean;
   connector?: boolean;
 }) {
   return (
@@ -758,7 +844,7 @@ function PipelineStep({
           </span>
         </span>
         <span className="text-2xl font-semibold tabular-nums text-white lg:mt-2 lg:block">
-          {loading ? "—" : value}
+          {unavailable ? <span className="text-sm">Unavailable</span> : loading ? "—" : value}
         </span>
       </Link>
     </li>

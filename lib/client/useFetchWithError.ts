@@ -49,25 +49,38 @@ export function useFetchWithError<T>(
 
   useEffect(() => {
     if (url == null) {
+      setData(null);
+      setError(null);
       setLoading(false);
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
     (async () => {
       try {
-        const res = await fetch(url, initRef.current);
+        const res = await fetch(url, {
+          credentials: "include",
+          cache: "no-store",
+          ...initRef.current,
+          signal: controller.signal,
+        });
         if (cancelled) return;
         if (!res.ok) {
-          setError(await parseApiError(res));
+          const failure = await parseApiError(res);
+          if (cancelled) return;
+          setError(failure);
           setData(null);
         } else {
-          setData((await res.json()) as T);
+          const result = (await res.json()) as T;
+          if (cancelled) return;
+          setData(result);
         }
       } catch (err) {
         if (cancelled) return;
+        setData(null);
         setError({
           code: "NETWORK",
           message: err instanceof Error ? err.message : "Network error",
@@ -80,6 +93,7 @@ export function useFetchWithError<T>(
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [url, tick]);
 
