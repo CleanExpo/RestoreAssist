@@ -4,10 +4,10 @@
  *
  * Observed live 2026-09-23: Quick Fill left the claim type and the water
  * category/class empty, so the job it produced was unclassified. The form also
- * auto-creates an inspection (POST /api/inspections, which can also create a
- * shell DRAFT report) 1.5 s after claim type + address + postcode are all
- * filled. Once Quick Fill sets the claim type, that timer would turn every
- * Quick Fill into a real job on the account unless it is held back.
+ * formerly auto-created an inspection (POST /api/inspections, which can also
+ * create a shell DRAFT report) 1.5 s after claim type + address + postcode
+ * were filled. Quick Fill and subsequent edits must leave creation to an
+ * explicit Save Draft, upload or submit action.
  *
  * This control fails when Quick Fill leaves the classification empty, and
  * fails when Quick Fill on its own causes any request that creates an
@@ -108,7 +108,7 @@ describe("RA-7711 Quick Fill fills the form only", () => {
   it("makes no request that creates an inspection, report or client", async () => {
     await quickFill("Residential Burst Pipe");
 
-    // Outlast the 1.5 s auto-create debounce.
+    // Outlast the former 1.5 s auto-create debounce.
     await act(async () => {
       await new Promise((r) => setTimeout(r, 2000));
     });
@@ -119,7 +119,7 @@ describe("RA-7711 Quick Fill fills the form only", () => {
     expect(writes).toEqual([]);
   });
 
-  it("still creates the job once the technician edits a quick-filled field", async () => {
+  it("creates the job only when the technician saves an edited quick-filled draft", async () => {
     await quickFill("Residential Burst Pipe");
 
     await act(async () => {
@@ -129,6 +129,14 @@ describe("RA-7711 Quick Fill fills the form only", () => {
     });
     await act(async () => {
       await new Promise((r) => setTimeout(r, 2000));
+    });
+
+    expect(
+      calls.filter((c) => c.method === "POST" && c.url === "/api/inspections"),
+    ).toHaveLength(0);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save Draft" }));
     });
 
     expect(
