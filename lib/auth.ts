@@ -576,28 +576,27 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // C2+C5: keep setupCompletedAt fresh. Refresh when missing OR null so
-      // that invited admins (who have organizationId but aren't the owner)
-      // and users whose org gets activated mid-session both pick up the
-      // correct value without waiting up to 24h for JWT updateAge.
-      if (
-        token.sub &&
-        (trigger === "signIn" ||
-          trigger === "update" ||
-          (token as any).setupCompletedAt == null)
-      ) {
+      // Re-read organisation scope on every session refresh, including normal
+      // GETs. A same-user move must invalidate client resource state even when
+      // no client called update(); never trust an organisation sent by a client.
+      // Read setup status with that scope so it cannot belong to the old org.
+      if (token.sub) {
         try {
           const userWithOrg = await prisma.user.findUnique({
             where: { id: token.sub as string },
-            select: { organization: { select: { setupCompletedAt: true } } },
+            select: { organizationId: true, organization: { select: { setupCompletedAt: true } } },
           });
+          token.organizationId = userWithOrg?.organizationId ?? null;
+          token.organizationScopeVerified = !!userWithOrg;
           const setupCompletedAt = (userWithOrg as any)?.organization
             ?.setupCompletedAt;
           (token as any).setupCompletedAt = setupCompletedAt
             ? (setupCompletedAt as Date).toISOString()
             : null;
         } catch {
-          // Fail-open — don't break auth on a transient DB error.
+          // Preserve sign-in during a transient DB error, but do not render
+          // cached workspace resources under an unverified organisation.
+          token.organizationScopeVerified = false;
           if (!("setupCompletedAt" in token)) {
             (token as any).setupCompletedAt = null;
           }
@@ -698,6 +697,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.sub;
         session.user.role = token.role as string;
+        session.user.organizationId = token.organizationId ?? null;
+        session.user.organizationScopeVerified = token.organizationScopeVerified === true;
         (session.user as any).needsOnboarding = Boolean(
           (token as any).needsOnboarding,
         );

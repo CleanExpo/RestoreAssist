@@ -32,6 +32,7 @@
  */
 
 import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineReplay, withOfflineDrainLock, type OfflineOwner } from "@/lib/offline/account-boundary";
+import { sameOfflineOwner } from "@/lib/offline/ownership";
 
 import { compressImageForUpload } from "./image-compression";
 import { computeSha256 } from "./capture/cocoa-client";
@@ -42,8 +43,12 @@ const DB_NAME = "ra-evidence-queue";
 const DB_VERSION = 1;
 const STORE = "uploads";
 
-/** Cap queue size to avoid IndexedDB blowout on a long offline session. */
+/** Active captures per verified owner; retained/foreign rows have a separate bound. */
 const MAX_QUEUE_SIZE = 50;
+// Keep headroom for retained evidence across account changes without deleting
+// anyone's unsynced bytes. The device still has a hard row and byte budget.
+const MAX_STORED_ENTRIES = 250;
+const MAX_STORED_BYTES = 250 * 1024 * 1024;
 
 const MAX_RETRY_COUNT = 5;
 
@@ -130,8 +135,8 @@ function renameToWebp(filename: string): string {
  *
  * Returns the entry id (also used as Idempotency-Key).
  *
- * Throws if the queue is already at MAX_QUEUE_SIZE — the caller should
- * surface an error to the contractor to free up space before capturing more.
+ * Throws when this owner's active queue or the device storage budget is full.
+ * Existing evidence is retained; callers keep the unsaved capture open.
  */
 export async function queueEvidenceUpload(input: {
   inspectionId: string;
@@ -146,13 +151,6 @@ export async function queueEvidenceUpload(input: {
 }): Promise<string> {
   const owner = requireOfflineOwner();
   const db = await openDatabase();
-
-  const count = await countQueue();
-  if (count >= MAX_QUEUE_SIZE) {
-    throw new Error(
-      `Evidence queue full (${MAX_QUEUE_SIZE}) — sync pending uploads before capturing more`,
-    );
-  }
 
   const compressed = await compressImageForUpload(input.blob);
 
@@ -183,10 +181,27 @@ export async function queueEvidenceUpload(input: {
   };
 
   await new Promise<void>((resolve, reject) => {
+    // Count and add in one write transaction: concurrent tabs cannot both
+    // claim the last slot after independent readonly capacity checks.
     const tx = db.transaction(STORE, "readwrite");
-    const req = tx.objectStore(STORE).add(entry);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    const store = tx.objectStore(STORE);
+    let failure: Error | null = null;
+    const refuse = (message: string) => { failure = new Error(message); tx.abort(); };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(failure ?? tx.error);
+    tx.onabort = () => reject(failure ?? tx.error ?? new Error("Photo was not saved; keep this capture open and retry"));
+    const read = store.getAll() as IDBRequest<EvidenceQueueEntry[]>;
+    read.onsuccess = () => {
+      if (!ownsOfflineEntry({ owner })) return refuse("Offline account changed; photo was not overwritten");
+      const entries = read.result;
+      const active = entries.filter((row) => sameOfflineOwner(row.owner, owner) && row.retryCount < MAX_RETRY_COUNT).length;
+      if (active >= MAX_QUEUE_SIZE) return refuse(`Evidence queue full (${MAX_QUEUE_SIZE}) — sync pending uploads before capturing more`);
+      const storedBytes = entries.reduce((total, row) => total + (row.blob?.size ?? 0), 0);
+      if (entries.length >= MAX_STORED_ENTRIES || storedBytes + entry.blob.size > MAX_STORED_BYTES) {
+        return refuse("Device evidence storage is full. Existing photos are preserved; keep this capture open and reconnect to sync your account's uploads.");
+      }
+      store.add(entry);
+    };
   });
 
   // Request Background Sync if supported (Chromium / Edge / Android)
@@ -345,16 +360,6 @@ export function initEvidenceSyncOnReconnect(): () => void {
 }
 
 // ─── INTERNAL HELPERS ─────────────────────────────────────────────────────────
-
-async function countQueue(): Promise<number> {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, "readonly");
-    const req = tx.objectStore(STORE).count();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
 
 function listAll(db: IDBDatabase): Promise<EvidenceQueueEntry[]> {
   return new Promise((resolve, reject) => {
