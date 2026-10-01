@@ -64,7 +64,7 @@ beforeEach(() => {
   ensureWorkspaceForUser.mockResolvedValue(undefined);
   checkPaymentGate.mockResolvedValue({
     allowed: true,
-    workspace: { id: "w1", name: "W" },
+    workspace: { id: "w1", ownerId: "u1", name: "W" },
   });
   hasPermission.mockResolvedValue(true);
   findFirst.mockResolvedValue({ id: "m1" });

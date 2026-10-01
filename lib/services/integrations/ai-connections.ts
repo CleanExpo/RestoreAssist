@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import {
-  getWorkspaceForUser,
   type AiProvider,
   type ProviderConnectionStatus,
 } from "@/lib/workspace/provider-connections";
@@ -21,12 +20,14 @@ export interface ConfiguredAiConnections {
 }
 
 interface Dependencies {
-  getWorkspaceForUser: typeof getWorkspaceForUser;
+  workspace: Pick<typeof prisma.workspace, "findFirst">;
   providerConnection: Pick<typeof prisma.providerConnection, "findMany">;
 }
 
 /**
- * Read an existing authorised READY workspace without provisioning anything.
+ * Read the effective owner's READY workspace without provisioning anything.
+ * An owner may also be a member of an unrelated tenant, so membership fallback
+ * must not select that tenant's BYOK configuration.
  * No credential column is selected or decrypted, including for masked display.
  * Empty DISABLED rows are provisioned placeholders; an actual disconnect keeps
  * its encrypted credentials, so it remains authoritative over legacy records.
@@ -34,11 +35,15 @@ interface Dependencies {
 export async function listConfiguredAiConnections(
   userId: string,
   dependencies: Dependencies = {
-    getWorkspaceForUser,
+    workspace: prisma.workspace,
     providerConnection: prisma.providerConnection,
   },
 ): Promise<ConfiguredAiConnections> {
-  const workspace = await dependencies.getWorkspaceForUser(userId);
+  const workspace = await dependencies.workspace.findFirst({
+    where: { ownerId: userId, status: "READY" },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
   if (!workspace) return { workspaceId: null, connections: [] };
 
   const rows = await dependencies.providerConnection.findMany({

@@ -17,10 +17,7 @@ import {
   validateProviderKey,
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
-import { getEffectiveUserIdForIntegrations } from "@/lib/ai-provider";
-import { hasPermission } from "@/lib/workspace/permissions";
-import { checkPaymentGate } from "@/lib/workspace/payment-gate";
-import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
+import { authorizeProviderWorkspace } from "@/lib/workspace/provider-connection-access";
 import { apiError, fromException } from "@/lib/api-errors";
 
 const VALID_PROVIDERS: AiProvider[] = [
@@ -48,16 +45,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Signup may not have provisioned a workspace yet — bridge that gap
-    // before the payment gate (same as the parent provider-connections route).
-    const ownerId = await getEffectiveUserIdForIntegrations(session.user.id);
-    await ensureWorkspaceForUser(ownerId);
-    const gate = await checkPaymentGate(ownerId);
+    const gate = await authorizeProviderWorkspace(req, session.user.id);
     if (!gate.allowed) return gate.response;
     const { workspace } = gate;
-    if (!await hasPermission(session.user.id, workspace.id, "workspace.settings")) {
-      return apiError(req, { code: "FORBIDDEN", message: "Forbidden — only authorised workspace members may validate AI providers", status: 403 });
-    }
 
     const body = await req.json().catch(() => null);
     const { provider } = (body ?? {}) as Record<string, unknown>;

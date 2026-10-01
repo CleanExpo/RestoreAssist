@@ -93,17 +93,15 @@ describe("configured AI connection metadata", () => {
     mocks.owned.mockResolvedValue(null);
     expect(await listConfiguredAiConnections("unrelated-user")).toEqual({ workspaceId: null, connections: [] });
     expect(mocks.findMany).not.toHaveBeenCalled();
-    expect(mocks.membership).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "unrelated-user", status: "ACTIVE" } }));
   });
 
-  it("allows an active membership only when its workspace is READY", async () => {
+  it("cannot select a foreign READY membership when the effective owner has no READY workspace", async () => {
     mocks.owned.mockResolvedValue(null);
-    mocks.membership.mockResolvedValue({ workspace: { id: "workspace-a", name: "Team", status: "SUSPENDED" } });
-    expect(await listConfiguredAiConnections("member-a")).toEqual({ workspaceId: null, connections: [] });
+    mocks.membership.mockResolvedValue({ workspace: { id: "workspace-a", name: "Foreign team", status: "READY" } });
+    fixtureRows([row("foreign-key", { status: "ACTIVE" })]);
+    expect(await listConfiguredAiConnections("org-owner")).toEqual({ workspaceId: null, connections: [] });
     expect(mocks.findMany).not.toHaveBeenCalled();
-    mocks.membership.mockResolvedValue({ workspace: { id: "workspace-a", name: "Team", status: "READY" } });
-    fixtureRows([row("team-key", { status: "ACTIVE" })]);
-    expect((await listConfiguredAiConnections("member-a")).connections[0].id).toBe("team-key");
+    expect(mocks.membership).not.toHaveBeenCalled();
   });
 
   it("does not translate a read failure into an empty disconnected state", async () => {
