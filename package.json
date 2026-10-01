@@ -9,7 +9,10 @@
   "overrides": {
     "google-auth-library": "$google-auth-library",
     "googleapis-common": {
-      "google-auth-library": "$google-auth-library"
+      "google-auth-library": "$google-auth-library",
+      "minimatch@9.0.9": {
+        "brace-expansion": ">=2.1.6 <3"
+      }
     },
     "dompurify": "$dompurify",
     "loader-utils": "^2.0.4",
@@ -34,21 +37,21 @@
     "postcss": "$postcss",
     "uuid": ">=11.1.1",
     "ip-address": ">=10.1.1",
-    "brace-expansion": ">=5.0.9",
+    "brace-expansion": ">=5.0.11",
     "minimatch@3.1.5": {
-      "brace-expansion": "1.1.18"
+      "brace-expansion": "1.1.20"
     },
     "minimatch": ">=9.0.5",
     "@tootallnate/once": ">=3.0.1",
     "fast-xml-builder": ">=1.1.7",
-    "fast-uri": ">=4.1.2",
+    "fast-uri": ">=4.1.4",
     "basic-ftp": ">=5.3.1",
     "esbuild": ">=0.28.1",
     "vite": ">=6.4.2",
     "mermaid": ">=11.16.1",
     "hono": ">=4.12.34",
     "valibot": ">=1.4.2",
-    "@grpc/grpc-js": ">=1.14.4",
+    "@grpc/grpc-js": ">=1.14.5",
     "form-data": "^2.5.6",
     "protobufjs": "^7.6.1",
     "linkify-it": "5.0.2",
@@ -246,7 +249,7 @@
     "next-auth": "^4.24.14",
     "next-mdx-remote": "^6.0.0",
     "next-themes": "^0.4.6",
-    "nodemailer": "^9.1.1",
+    "nodemailer": "^10.0.6",
     "openai": "^6.49.0",
     "otpauth": "^9.5.2",
     "pdf-lib": "^1.17.1",
