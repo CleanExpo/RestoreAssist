@@ -1,3 +1,4 @@
+import { RESET_CODE_TTL_MINUTES } from "@/lib/auth/recovery-policy";
 import { reportError } from "@/lib/observability";
 import { sanitiseEmailField } from "@/lib/email/sanitise-header";
 import { BRAND } from "@/lib/brand";
@@ -842,7 +843,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
           <!-- Expiry notice -->
           <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px 20px; border-radius: 8px; margin: 25px 0;">
             <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
-              This code expires in <strong>15 minutes</strong>. If you didn't request a password reset, you can safely ignore this email.
+              This code expires <strong>${RESET_CODE_TTL_MINUTES} minutes after the request</strong>. If you didn't request a password reset, you can safely ignore this email.
             </p>
           </div>
 
@@ -871,7 +872,7 @@ We received a request to reset your password. Your verification code is:
 
 ${data.resetCode}
 
-This code expires in 15 minutes.
+This code expires ${RESET_CODE_TTL_MINUTES} minutes after the request.
 
 If you didn't request this reset, you can safely ignore this email.
 

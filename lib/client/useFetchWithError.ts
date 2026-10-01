@@ -49,29 +49,44 @@ export function useFetchWithError<T>(
 
   useEffect(() => {
     if (url == null) {
+      setData(null);
+      setError(null);
       setLoading(false);
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
     (async () => {
+      let responseStatus = 0;
       try {
-        const res = await fetch(url, initRef.current);
+        const res = await fetch(url, {
+          credentials: "include",
+          cache: "no-store",
+          ...initRef.current,
+          signal: controller.signal,
+        });
         if (cancelled) return;
+        responseStatus = res.status;
         if (!res.ok) {
-          setError(await parseApiError(res));
+          const failure = await parseApiError(res);
+          if (cancelled) return;
+          setError(failure);
           setData(null);
         } else {
-          setData((await res.json()) as T);
+          const result = (await res.json()) as T;
+          if (cancelled) return;
+          setData(result);
         }
-      } catch (err) {
+      } catch {
         if (cancelled) return;
+        setData(null);
         setError({
-          code: "NETWORK",
-          message: err instanceof Error ? err.message : "Network error",
-          status: 0,
+          code: responseStatus ? "INVALID_RESPONSE" : "NETWORK",
+          message: responseStatus ? "The server returned an unreadable response." : "Network error",
+          status: responseStatus,
         });
       } finally {
         if (!cancelled) setLoading(false);
@@ -80,6 +95,7 @@ export function useFetchWithError<T>(
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [url, tick]);
 

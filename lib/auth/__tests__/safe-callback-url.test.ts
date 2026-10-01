@@ -51,3 +51,8 @@ describe("safeCallbackUrl", () => {
     expect(safeCallbackUrl("//evil.com", "/portal")).toBe("/portal");
   });
 });
+
+it.each(["/\\evil.example/account", "/\t/evil.example/account", "/\n/evil.example/account", "/\r/evil.example/account"])("rejects browser-normalised external callback %j", (value) => {
+  expect(new URL(value, "https://app.example").origin).toBe("https://evil.example");
+  expect(safeCallbackUrl(value)).toBe("/dashboard");
+});

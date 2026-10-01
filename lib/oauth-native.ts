@@ -40,6 +40,7 @@
 import { signIn, signOut, type SignInOptions } from "next-auth/react";
 import { isCapacitorAndroid, isCapacitorIOS } from "@/lib/capacitor";
 import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
+import { clearOfflineContext } from "@/lib/offline/account-boundary";
 
 export type OAuthProvider = "google" | "apple";
 
@@ -136,7 +137,35 @@ async function ensureSocialLoginInitialised() {
  *   - Apple → capgo's web fallback (Sign in with Apple JS); Play reviewers
  *     accept this pattern, since Apple-as-IdP on Android is not required.
  */
-export async function signInWithOAuth(
+export async function signOutAndConfirm(): Promise<void> {
+  clearOfflineContext();
+  await signOut({ redirect: false });
+  // NextAuth v4 signOut does not reject every HTTP failure. Confirm that
+  // the session really cleared before allowing its account-linking callback.
+  const response = await fetch("/api/auth/session", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("Could not confirm sign-out. Please try again.");
+  const session = await response.json();
+  if (session !== null && (typeof session !== "object" || Array.isArray(session) || Object.keys(session).length !== 0)) throw new Error("Sign-out did not complete. Please try again.");
+}
+
+let oauthInFlight: Promise<void> | null = null;
+
+// One attempt per page prevents competing state cookies from rapid clicks.
+export function signInWithOAuth(
+  provider: OAuthProvider,
+  options?: SignInOptions,
+): Promise<void> {
+  if (oauthInFlight) return oauthInFlight;
+  oauthInFlight = startOAuth(provider, options).finally(() => {
+    oauthInFlight = null;
+  });
+  return oauthInFlight;
+}
+
+async function startOAuth(
   provider: OAuthProvider,
   options?: SignInOptions,
 ): Promise<void> {
@@ -147,12 +176,19 @@ export async function signInWithOAuth(
     // NextAuth's OAuth callback decodes the existing JWT before resolving the
     // selected provider account. Clear it first so a user can switch accounts
     // from /login without triggering OAuthAccountNotLinked.
-    await signOut({ redirect: false });
-    await signIn(provider, safeOptions);
+    await signOutAndConfirm();
+    if (provider === "google") {
+      // This is an OAuth authorisation parameter, not a NextAuth sign-in option.
+      // Google cookies survive app sign-out; explicitly show the account chooser.
+      await signIn(provider, safeOptions, { prompt: "select_account" });
+    } else {
+      await signIn(provider, safeOptions);
+    }
     return;
   }
 
   // Native branch — capgo SocialLogin handles per-platform internals.
+  clearOfflineContext();
   await ensureSocialLoginInitialised();
   const { SocialLogin } = await import("@capgo/capacitor-social-login");
 
@@ -188,6 +224,7 @@ export async function signInWithOAuth(
         provider: "google",
         options: {
           scopes: ["email", "profile"],
+          forcePrompt: true, // Supported iOS account chooser; Android uses its native sheet.
           nonce: noncePlaintext,
         },
       });

@@ -1,3 +1,4 @@
+import { RESET_REQUEST_MESSAGE } from "@/lib/auth/recovery-policy";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
@@ -110,8 +111,7 @@ export async function POST(request: NextRequest) {
     // Always return the same response regardless of whether user exists
     return NextResponse.json({
       success: true,
-      message:
-        "If an account exists with this email, a verification code has been sent.",
+      message: RESET_REQUEST_MESSAGE,
     });
   } catch (error) {
     return fromException(request, error, { stage: "forgot-password" });

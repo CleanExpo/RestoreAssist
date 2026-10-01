@@ -36,6 +36,7 @@ import {
   getCachedJobs,
   type CachedJob,
 } from "@/lib/offline/job-cache";
+import { fetchOfflineReplay, getOfflineOwner, ownsOfflineEntry, OFFLINE_CONTEXT_EVENT } from "@/lib/offline/account-boundary";
 import { isCapacitor } from "@/lib/capacitor";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -78,6 +79,15 @@ export default function FieldDashboardPage() {
   const [fromCache, setFromCache] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const clear = () => {
+      setInspections([]); setFromCache(false); setCacheAge(null);
+      if (getOfflineOwner()) void loadInspections();
+    };
+    window.addEventListener(OFFLINE_CONTEXT_EVENT, clear);
+    return () => window.removeEventListener(OFFLINE_CONTEXT_EVENT, clear);
+  }, []);
+
   // Greeting
   useEffect(() => {
     const h = new Date().getHours();
@@ -107,12 +117,22 @@ export default function FieldDashboardPage() {
   }, []);
 
   async function loadInspections() {
+    const requestOwner = getOfflineOwner();
+    if (!requestOwner) {
+      setInspections([]);
+      setLoading(false);
+      setLoadError("Reconnect to verify your account. Saved offline work is preserved.");
+      return;
+    }
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch(
+      const res = await fetchOfflineReplay(
+        requestOwner,
         `/api/inspections?status=${ACTIVE_STATUSES.join(",")}&assignee=me&limit=100`,
+        { cache: "no-store" },
       );
+      if (!res) throw new Error("Reconnect to verify your account. Saved offline work is preserved.");
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw Object.assign(
@@ -138,10 +158,12 @@ export default function FieldDashboardPage() {
       const enriched = await Promise.all(
         items.map(async (insp) => {
           try {
-            const clRes = await fetch(
-              `/api/inspections/${insp.id}/voice/checklist`,
+            const clRes = await fetchOfflineReplay(
+              requestOwner,
+              `/api/inspections/${encodeURIComponent(insp.id)}/voice/checklist`,
+              { cache: "no-store" },
             );
-            const cl = clRes.ok
+            const cl = clRes?.ok
               ? await clRes.json()
               : { criticalMissing: [], readyToLeave: false };
             return {
@@ -169,13 +191,19 @@ export default function FieldDashboardPage() {
         }),
       );
 
+      if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) return;
       setInspections(enriched);
       setFromCache(false);
       setCacheAge(null);
       setIsOffline(false);
       // Persist to IndexedDB for offline fallback
-      await cacheJobs(enriched);
+      await cacheJobs(enriched, requestOwner);
     } catch (err) {
+      if (!ownsOfflineEntry({ owner: requestOwner })) {
+        setInspections([]);
+        setLoadError("Reconnect to verify your account. Saved offline work is preserved.");
+        return;
+      }
       const isHttpError =
         err instanceof Error &&
         "isHttpError" in err &&
@@ -188,7 +216,8 @@ export default function FieldDashboardPage() {
         setIsOffline(false);
       } else {
         // Network failure — fall back to IndexedDB cache
-        const { jobs, fetchedAt } = await getCachedJobs();
+        const { jobs, fetchedAt } = await getCachedJobs(requestOwner);
+        if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) return;
         if (jobs.length === 0) {
           // RA-7711: nothing to show is a failed load, not "0 active jobs".
           setLoadError("check your connection and try again");

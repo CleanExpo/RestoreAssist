@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { signIn, getSession } from "next-auth/react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { signIn, getSession, useSession } from "next-auth/react";
+import { clearOfflineContext } from "@/lib/offline/account-boundary";
 import { signInWithOAuth } from "@/lib/oauth-native";
 import { isCapacitorIOS } from "@/lib/capacitor";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -15,6 +16,8 @@ import { CONTAINER, FONT_DISPLAY } from "@/components/landing/home/motion";
 import { CLIENT_PORTAL_PUBLIC_CTA } from "@/lib/portal/canonical-entry";
 
 function LoginForm() {
+  const { data: currentSession } = useSession();
+  const submitting = useRef(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,7 +26,6 @@ function LoginForm() {
   // RA-2073 — Sign in with Apple is now fully wired (see useEffect below).
   // The previous workaround that hid both third-party buttons on iOS for
   // the 1.0(4)..1.0(10) builds is no longer needed.
-  const [authHydrated, setAuthHydrated] = useState(false);
   // Track whether we're inside the iOS Capacitor shell. Used to:
   //   1. Default rememberMe to true (field techs want a 90-day session).
   //   2. Show the Apple Sign-In button via the native plugin path even
@@ -48,12 +50,27 @@ function LoginForm() {
   // The actual default is set in the iOS-detect effect below so SSR
   // hydration matches.
   const [rememberMe, setRememberMe] = useState(false);
-  const router = useRouter();
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const searchParams = useSearchParams();
+  const switchingAccount = searchParams?.get("switchAccount") === "google" || Boolean(currentSession?.user);
+  // An explicit account switch starts at the dashboard, never at another
+  // account's job-specific callback. Normal sign-in preserves safe deep links.
+  const callbackUrl = switchingAccount ? "/dashboard" : safeCallbackUrl(searchParams?.get("callbackUrl"));
+
+  useEffect(() => {
+    if (searchParams?.get("error")) {
+      setError("Sign-in was cancelled or could not be completed. Choose your account and try again, or use your original sign-in method.");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const reset = () => { submitting.current = false; setIsLoading(false); };
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
 
   // Pre-fill email if coming from signup
   useEffect(() => {
-    const emailParam = searchParams.get("email");
+    const emailParam = searchParams?.get("email");
     if (emailParam) {
       setEmail(emailParam);
     }
@@ -70,7 +87,6 @@ function LoginForm() {
   // with cookies attached.
   useEffect(() => {
     const onIos = isCapacitorIOS();
-    setAuthHydrated(true);
     setIsIOS(onIos);
     // RA-2074 — default rememberMe TRUE on iOS shell so field techs
     // get a 90-day session by default. Web users opt in via checkbox.
@@ -79,10 +95,13 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setIsLoading(true);
     setError("");
 
     try {
+      clearOfflineContext();
       const result = await signIn("credentials", {
         email,
         password,
@@ -115,63 +134,56 @@ function LoginForm() {
         const message = "Invalid email or password";
         setError(message);
         notifyError(message);
-      } else {
+      } else if (result?.ok) {
         // Check if user needs to change password
         const session = await getSession();
+        if (!session?.user?.id || session.user.email?.toLowerCase() !== email.trim().toLowerCase()) {
+          throw new Error("Could not confirm the selected account");
+        }
         if (session?.user?.mustChangePassword) {
           notifySuccess("Login successful! Please change your password.");
-          router.push("/dashboard/change-password");
+          window.location.href = "/dashboard/change-password";
         } else {
           // P1 #16 — honour `?callbackUrl=` from middleware-driven login
           // redirects, validated against the same-origin allowlist so an
           // attacker cannot weaponise the login flow into an open redirect.
-          const target = safeCallbackUrl(searchParams.get("callbackUrl"));
+          const target = callbackUrl;
           notifySuccess("Login successful! Welcome back!");
-          router.push(target);
+          window.location.href = target;
         }
+      } else {
+        throw new Error("Sign-in did not complete");
       }
-    } catch (error) {
+    } catch {
       const message = "An error occurred. Please try again.";
       setError(message);
       notifyError(message);
     } finally {
+      submitting.current = false;
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleOAuthSignIn = async (provider: "google" | "apple") => {
+    if (submitting.current) return;
+    submitting.current = true;
     setIsLoading(true);
     setError("");
     try {
-      const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
-      // RA-1842 Ground 3 — on iOS this opens SFSafariViewController
-      // instead of bouncing to Safari proper. Web behaviour unchanged.
-      await signInWithOAuth("google", { callbackUrl });
-    } catch (error: any) {
-      const message = "Google sign-in failed. Please try again.";
+      await signInWithOAuth(provider, { callbackUrl });
+    } catch {
+      const message = "Sign-in was cancelled or could not be completed. Please try again.";
       setError(message);
       notifyError(message);
+    } finally {
+      submitting.current = false;
       setIsLoading(false);
     }
   };
 
-  // RA-1842 Ground 2 — Sign in with Apple (Apple guideline 4.8).
-  // Required by App Review because the app offers third-party login.
-  // Same iOS-aware wrapper as Google handler — uses
-  // SFSafariViewController on iOS, full-page redirect on web.
-  const handleAppleSignIn = async () => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
-      await signInWithOAuth("apple", { callbackUrl });
-    } catch (error: any) {
-      const message = "Apple sign-in failed. Please try again.";
-      setError(message);
-      notifyError(message);
-      setIsLoading(false);
-    }
-  };
+  const googleLabel = switchingAccount || currentSession?.user
+    ? "Use another Google account"
+    : "Continue with Google";
 
   return (
     <div className={`${CONTAINER} flex justify-center py-14 sm:py-20`}>
@@ -198,6 +210,13 @@ function LoginForm() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="bg-white border border-slate-200/90 rounded-2xl p-8 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
         >
+          {currentSession?.user && (
+            <div className="mb-6 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
+              <p>Currently signed in as <strong className="break-all">{currentSession.user.email}</strong>.</p>
+              <p>Choose the account for the business you want to work in.</p>
+              <a href="/dashboard" className="underline">Continue with this account</a>
+            </div>
+          )}
           <form
             onSubmit={handleSubmit}
             className="space-y-6"
@@ -381,7 +400,7 @@ function LoginForm() {
               the @capgo/capacitor-social-login native plugin (same one
               that backs Apple). Web behaviour unchanged. */}
           <motion.button
-            onClick={handleGoogleSignIn}
+            onClick={() => handleOAuthSignIn("google")}
             disabled={isLoading}
             className="w-full py-3 bg-white border border-slate-200 rounded-xl font-medium text-[#0B1F3A] hover:bg-slate-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             whileHover={{ scale: 1.02 }}
@@ -410,7 +429,7 @@ function LoginForm() {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                Continue with Google
+                {googleLabel}
               </>
             )}
           </motion.button>
@@ -427,7 +446,7 @@ function LoginForm() {
           {(isIOS ||
             process.env.NEXT_PUBLIC_APPLE_SIGNIN_ENABLED === "true") && (
             <motion.button
-              onClick={handleAppleSignIn}
+              onClick={() => handleOAuthSignIn("apple")}
               disabled={isLoading}
               className="mt-3 flex w-full items-center justify-center gap-3 rounded-xl border border-[#0B1F3A] bg-[#0B1F3A] py-3 font-medium text-white transition-colors duration-200 hover:bg-[#16345A] disabled:cursor-not-allowed disabled:opacity-50"
               whileHover={{ scale: 1.02 }}

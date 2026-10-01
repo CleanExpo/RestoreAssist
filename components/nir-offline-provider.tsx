@@ -34,6 +34,9 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { useSession } from "next-auth/react";
+import { clearOfflineContext, getOfflineOwner, setOfflineSession, refreshOfflineOwner, listenForOfflineInvalidation, OFFLINE_CONTEXT_EVENT } from "@/lib/offline/account-boundary";
+
 import {
   getSyncStatus,
   getQueueStats,
@@ -143,6 +146,8 @@ interface NirOfflineProviderProps {
 }
 
 export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
+  const { data: session, status: sessionStatus } = useSession();
+  const sessionUserId = sessionStatus === "authenticated" ? session?.user?.id ?? null : null;
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("OFFLINE");
   const [queueStats, setQueueStats] = useState<QueueStats>({
     pending: 0,
@@ -155,6 +160,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   const [pendingVoiceNotes, setPendingVoiceNotes] = useState(0);
 
   const refreshStatus = useCallback(async () => {
+    const owner = getOfflineOwner();
     try {
       const [status, stats, evidenceCount, voiceNoteCount] = await Promise.all([
         getSyncStatus(),
@@ -162,6 +168,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
         getQueuedEvidenceCount(),
         getQueuedVoiceNoteCount(),
       ]);
+      if (owner !== getOfflineOwner()) return;
       setSyncStatus(status);
       setQueueStats(stats);
       setPendingEvidenceUploads(evidenceCount);
@@ -174,10 +181,37 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   }, []);
 
   const triggerSync = useCallback(async () => {
+    if (!await refreshOfflineOwner()) return;
     const { drainQueue } = await import("@/lib/nir-sync-queue");
-    await drainQueue();
+    const { drainEvidenceQueue } = await import("@/lib/evidence-upload-queue");
+    const { drainVoiceNoteQueue } = await import("@/lib/voice-note-queue");
+    await Promise.all([drainQueue(), drainEvidenceQueue(), drainVoiceNoteQueue()]);
     await refreshStatus();
   }, [refreshStatus]);
+
+  useEffect(() => {
+    setOfflineSession(sessionUserId);
+    const stopListening = listenForOfflineInvalidation();
+    let disposed = false;
+    const verify = async () => {
+      if (!sessionUserId || disposed) return;
+      setOfflineSession(sessionUserId);
+      await refreshOfflineOwner();
+      if (!disposed && getOfflineOwner()) await triggerSync();
+    };
+    void verify();
+    window.addEventListener("online", verify);
+    window.addEventListener("focus", verify);
+    window.addEventListener(OFFLINE_CONTEXT_EVENT, refreshStatus);
+    return () => {
+      disposed = true;
+      clearOfflineContext(false);
+      stopListening();
+      window.removeEventListener("online", verify);
+      window.removeEventListener("focus", verify);
+      window.removeEventListener(OFFLINE_CONTEXT_EVENT, refreshStatus);
+    };
+  }, [sessionUserId, triggerSync, refreshStatus]);
 
   useEffect(() => {
     // 1. Service worker — production only. In development, actively unregister

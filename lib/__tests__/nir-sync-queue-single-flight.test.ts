@@ -10,6 +10,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 import { drainQueue } from "@/lib/nir-sync-queue";
+vi.mock("@/lib/offline/account-boundary", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/offline/account-boundary")>(),
+  getOfflineOwner: () => ({ userId: "synthetic", organizationId: null, workspaceId: null, workspaceOwnerId: null }),
+}));
 
 describe("RA-1768 — drainQueue single-flight via navigator.locks", () => {
   beforeEach(() => {
@@ -47,7 +51,7 @@ describe("RA-1768 — drainQueue single-flight via navigator.locks", () => {
     expect(typeof requestSpy.mock.calls[0][2]).toBe("function");
   });
 
-  it("falls back to direct drain when navigator.locks is unavailable", async () => {
+  it("keeps replay paused when navigator.locks is unavailable", async () => {
     vi.stubGlobal("navigator", {
       onLine: true,
       // No `locks` property — simulates older browsers

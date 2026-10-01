@@ -15,6 +15,7 @@
  * Fetches /api/user/trial-status once on mount; safe to fail silently.
  */
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { Clock, X } from "lucide-react";
 import { isCapacitorIOS } from "@/lib/capacitor";
@@ -30,6 +31,13 @@ type TrialStatus = {
 const DISMISS_STORAGE_KEY = "ra-1241-trial-banner-dismissed-session";
 
 export function TrialBanner() {
+  const { data: session, status } = useSession();
+  if (status !== "authenticated" || !session?.user?.id) return null;
+  return <AccountTrialBanner key={session.user.id} accountId={session.user.id} />;
+}
+
+function AccountTrialBanner({ accountId }: { accountId: string }) {
+  const dismissKey = `${DISMISS_STORAGE_KEY}:${accountId}`;
   const [status, setStatus] = useState<TrialStatus | null>(null);
   const [dismissed, setDismissed] = useState<boolean>(false);
   // RA-1842 — never show the trial urgency banner inside the iOS
@@ -43,18 +51,20 @@ export function TrialBanner() {
   useEffect(() => {
     setIsIOS(isCapacitorIOS());
 
+    let cancelled = false;
     // Session-scoped dismissal — not persisted, so the banner returns next
     // session when urgency is higher. Intentional.
     if (typeof window !== "undefined") {
-      const stored = sessionStorage.getItem(DISMISS_STORAGE_KEY);
+      const stored = sessionStorage.getItem(dismissKey);
       if (stored === "1") setDismissed(true);
     }
 
     fetch("/api/user/trial-status", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setStatus(d))
-      .catch(() => setStatus(null));
-  }, []);
+      .then((d) => { if (!cancelled) setStatus(d); })
+      .catch(() => { if (!cancelled) setStatus(null); });
+    return () => { cancelled = true; };
+  }, [dismissKey]);
 
   if (isIOS) return null;
   if (dismissed) return null;
@@ -126,7 +136,7 @@ export function TrialBanner() {
             onClick={() => {
               setDismissed(true);
               if (typeof window !== "undefined") {
-                sessionStorage.setItem(DISMISS_STORAGE_KEY, "1");
+                sessionStorage.setItem(dismissKey, "1");
               }
             }}
             className={`p-1.5 rounded-md transition-colors hover:bg-black/5 dark:hover:bg-white/10 min-h-[36px] min-w-[36px] inline-flex items-center justify-center ${tone.text}`}

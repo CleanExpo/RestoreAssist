@@ -235,6 +235,15 @@ function shouldHardPaywall(token: {
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Only offline replays carry this restriction. Validate against the cookie
+  // on this request so switching accounts between client checks cannot replay
+  // somebody else's queued work. Route auth/CSRF/tenancy gates still apply.
+  if (pathname.startsWith("/api/") && req.headers.has("x-restoreassist-offline-owner")) {
+    const { guardOfflineReplay } = await import("@/lib/offline/server-boundary");
+    const refused = await guardOfflineReplay(req);
+    if (refused) return refused;
+  }
+
   // Compatibility for invitation links issued by the retired signup flow.
   // The public registration endpoint always creates a new ADMIN + organisation,
   // so an invitation token must never be allowed to continue through /signup.
@@ -325,8 +334,8 @@ export async function proxy(req: NextRequest) {
       url.search = `?callbackUrl=${encodeURIComponent(pathname + (req.nextUrl.search || ""))}`;
       return NextResponse.redirect(url, 307);
     }
-    // ── /dashboard/* — onboarding gate (RA-1259, unchanged) ──────────────────
-    if (pathname.startsWith("/dashboard/")) {
+    // ── /dashboard and descendants — onboarding gate (RA-1259) ──────────────────
+    if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
       const needsOnboarding = Boolean((token as any).needsOnboarding);
       const isActiveSetupWizardDestination =
         SETUP_WIZARD_ENABLED &&

@@ -221,7 +221,7 @@ describe("middleware setup gate", () => {
     expect((res as any).headers.get("location")).toBeNull();
   });
 
-  it("keeps the legacy onboarding gate when the setup wizard flag is off", async () => {
+  it.each(["/dashboard", "/dashboard/", "/dashboard/reports", "/dashboard/integrations"])("keeps the legacy onboarding gate at %s when the setup wizard flag is off", async (pathname) => {
     process.env.SETUP_WIZARD_ENABLED = "false";
     (getToken as any).mockResolvedValue({
       sub: "u1",
@@ -229,7 +229,7 @@ describe("middleware setup gate", () => {
       needsOnboarding: true,
     });
 
-    const res = await proxy(mkReq("/dashboard/integrations"));
+    const res = await proxy(mkReq(pathname));
     expect((res as any).status).toBe(307);
     expect((res as any).headers.get("location")).toContain(
       "/onboarding/account-type",

@@ -18,6 +18,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { installFakeIndexedDB } from "@/lib/__tests__/helpers/fake-indexeddb";
+import {
+  beginOfflineIdentity,
+  SYNTHETIC_OFFLINE_OWNER,
+} from "@/lib/__tests__/helpers/offline-identity";
 
 const INSPECTION_ID = "insp-ra-7605";
 const ENVIRONMENTAL_ENDPOINT = `/api/inspections/${INSPECTION_ID}/environmental`;
@@ -29,6 +33,8 @@ const FIXTURE_PATH = join(
 const FIXTURE_BYTES = readFileSync(FIXTURE_PATH);
 
 let uninstallIdb: () => void;
+let endOfflineIdentity: () => void;
+const operationFetch = vi.fn();
 let MeterPhotoCapture: typeof import("../MeterPhotoCapture").MeterPhotoCapture;
 let drainQueue: typeof import("@/lib/nir-sync-queue").drainQueue;
 let getPendingEntries: typeof import("@/lib/nir-sync-queue").getPendingEntries;
@@ -44,7 +50,7 @@ function jsonResponse(status: number, body: unknown) {
 beforeEach(async () => {
   uninstallIdb = installFakeIndexedDB();
   vi.resetModules();
-  vi.stubGlobal("fetch", vi.fn());
+  operationFetch.mockReset();
   Object.defineProperty(window.navigator, "onLine", {
     value: true,
     configurable: true,
@@ -60,9 +66,11 @@ beforeEach(async () => {
 
   ({ MeterPhotoCapture } = await import("../MeterPhotoCapture"));
   ({ drainQueue, getPendingEntries } = await import("@/lib/nir-sync-queue"));
+  endOfflineIdentity = await beginOfflineIdentity(operationFetch);
 });
 
 afterEach(() => {
+  endOfflineIdentity();
   uninstallIdb();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -121,9 +129,30 @@ function confirmAndSave({
 }
 
 describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", () => {
+  it("fails closed after account identity is cleared, without claiming a local save", async () => {
+    const onReadingAccepted = vi.fn();
+    await reachConfirmForm({ onReadingAccepted });
+    const { clearOfflineContext } = await import("@/lib/offline/account-boundary");
+    clearOfflineContext(false);
+    setOnline(false);
+    const openDatabase = vi.spyOn(indexedDB, "open");
+
+    confirmAndSave();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/verify your account before saving offline work/i),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/Saved on this device — will sync/i)).not.toBeInTheDocument();
+    expect(onReadingAccepted).not.toHaveBeenCalled();
+    expect(openDatabase).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
+  });
+
   it("queues an offline save, shows the local-sync copy, and drains exactly one write on reconnect", async () => {
     await reachConfirmForm();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
 
     setOnline(false);
     confirmAndSave();
@@ -133,7 +162,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
         screen.getByText(/Saved on this device — will sync/i),
       ).toBeInTheDocument(),
     );
-    expect(fetch).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
 
     const pending = await getPendingEntries(INSPECTION_ID);
     expect(pending).toHaveLength(1);
@@ -142,6 +171,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
       endpoint: ENVIRONMENTAL_ENDPOINT,
       method: "POST",
       status: "pending",
+      owner: SYNTHETIC_OFFLINE_OWNER,
     });
     expect(pending[0].payload).toMatchObject({
       ambientTemperature: 22.4,
@@ -156,15 +186,15 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
       "null",
     );
 
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+    operationFetch.mockResolvedValue(
       jsonResponse(201, { environmentalData: { id: "env-1" } }),
     );
     setOnline(true);
     const synced = await drainQueue();
     expect(synced).toBe(1);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(operationFetch).toHaveBeenCalledTimes(1);
 
-    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+    const [url, init] = operationFetch.mock.calls[0] as [
       string,
       RequestInit,
     ];
@@ -173,6 +203,9 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
     const headers = new Headers(init.headers);
     expect(headers.get("Idempotency-Key")).toBe(pending[0].id);
     expect(headers.get("X-RestoreAssist-Mutation-Id")).toBe(pending[0].id);
+    expect(
+      JSON.parse(decodeURIComponent(headers.get("x-restoreassist-offline-owner")!)),
+    ).toEqual(SYNTHETIC_OFFLINE_OWNER);
     expect(JSON.parse(String(init.body))).toMatchObject({
       ambientTemperature: 22.4,
       humidityLevel: 55,
@@ -182,7 +215,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
 
     const afterDrain = await drainQueue();
     expect(afterDrain).toBe(0);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(operationFetch).toHaveBeenCalledTimes(1);
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
 
@@ -201,7 +234,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
     const mutationId = pending[0].id;
 
     setOnline(true);
-    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    const fetchMock = operationFetch;
     fetchMock
       .mockResolvedValueOnce({
         ok: false,
@@ -233,7 +266,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
 
   it("queues on a network error even when navigator.onLine reports true", async () => {
     await reachConfirmForm();
-    (fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+    operationFetch.mockRejectedValueOnce(
       new TypeError("Failed to fetch"),
     );
     confirmAndSave();
@@ -252,22 +285,22 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
   it("posts directly when online and the route succeeds (regression guard)", async () => {
     const onReadingAccepted = vi.fn();
     await reachConfirmForm({ onReadingAccepted });
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+    operationFetch.mockResolvedValueOnce(
       jsonResponse(201, { environmentalData: { id: "env-online" } }),
     );
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+    operationFetch.mockResolvedValueOnce(
       jsonResponse(201, {}),
     );
     confirmAndSave();
 
     await waitFor(() => {
       expect(
-        (fetch as ReturnType<typeof vi.fn>).mock.calls.some(
+        operationFetch.mock.calls.some(
           (call) => call[0] === ENVIRONMENTAL_ENDPOINT,
         ),
       ).toBe(true);
     });
-    const envCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+    const envCall = operationFetch.mock.calls.find(
       (call) => call[0] === ENVIRONMENTAL_ENDPOINT,
     ) as [string, RequestInit];
     const [url, init] = envCall;
@@ -286,7 +319,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
 
   it("queues when the environmental route returns a 5xx", async () => {
     await reachConfirmForm();
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+    operationFetch.mockResolvedValueOnce(
       jsonResponse(503, { error: "Internal server error" }),
     );
     confirmAndSave();
@@ -328,7 +361,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
     expect(onReadingAccepted).not.toHaveBeenCalled();
     expect(toastError).not.toHaveBeenCalled();
     expect(
-      (fetch as ReturnType<typeof vi.fn>).mock.calls.some(
+      operationFetch.mock.calls.some(
         (call) => call[0] === `/api/inspections/${INSPECTION_ID}`,
       ),
     ).toBe(false);
@@ -336,12 +369,12 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
       screen.getByText(/Thermo-Hygrometer — Photo OCR/i),
     ).toBeInTheDocument();
 
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+    operationFetch.mockResolvedValue(
       jsonResponse(201, { environmentalData: { id: "env-1" } }),
     );
     setOnline(true);
     expect(await drainQueue()).toBe(1);
-    const envPosts = (fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+    const envPosts = operationFetch.mock.calls.filter(
       (call) => call[0] === ENVIRONMENTAL_ENDPOINT,
     );
     expect(envPosts).toHaveLength(1);
@@ -356,7 +389,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
 
   it("does not queue a 4xx — the technician must retry or fix the input", async () => {
     await reachConfirmForm();
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+    operationFetch.mockResolvedValueOnce(
       jsonResponse(400, {
         error: {
           code: "NOT_FOUND",
@@ -378,7 +411,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
   it("renders the apiError envelope as a string — an error object must not crash the form", async () => {
     const toast = (await import("react-hot-toast")).default;
     await reachConfirmForm();
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+    operationFetch.mockResolvedValueOnce(
       jsonResponse(400, {
         error: {
           code: "VALIDATION",
@@ -416,7 +449,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
     expect(
       screen.queryByText(/Saved on this device — will sync/i),
     ).not.toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
 
@@ -433,7 +466,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
     expect(
       screen.queryByText(/Saved on this device — will sync/i),
     ).not.toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
 
@@ -447,7 +480,7 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
         screen.getByText(/Humidity must be between 0% and 100%/i),
       ).toBeInTheDocument(),
     );
-    expect(fetch).not.toHaveBeenCalled();
+    expect(operationFetch).not.toHaveBeenCalled();
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
 });

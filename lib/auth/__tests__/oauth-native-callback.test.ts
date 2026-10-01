@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const socialLoginInitialize = vi.hoisted(() => vi.fn());
 const socialLogin = vi.hoisted(() => vi.fn());
 const fetchMock = vi.hoisted(() => vi.fn());
+const clearOfflineMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/offline/account-boundary", () => ({ clearOfflineContext: clearOfflineMock }));
 
 vi.mock("next-auth/react", () => ({
   signIn: vi.fn(),
@@ -22,6 +24,7 @@ vi.mock("@capgo/capacitor-social-login", () => ({
 import { signInWithOAuth, type OAuthProvider } from "@/lib/oauth-native";
 
 beforeEach(() => {
+  clearOfflineMock.mockClear();
   socialLoginInitialize.mockResolvedValue(undefined);
   socialLogin.mockReset();
   socialLogin.mockResolvedValue({ result: { idToken: "identity-token" } });
@@ -76,4 +79,12 @@ describe("native OAuth callback completion", () => {
       "/dashboard/inspections/inspection_1?tab=scope",
     );
   });
+});
+
+
+it("requests the supported iOS Google account chooser without dropping nonce protection", async () => {
+  await signInWithOAuth("google");
+  expect(clearOfflineMock).toHaveBeenCalledTimes(1);
+  expect(clearOfflineMock.mock.invocationCallOrder[0]).toBeLessThan(socialLogin.mock.invocationCallOrder[0]);
+  expect(socialLogin).toHaveBeenCalledWith({ provider: "google", options: { scopes: ["email", "profile"], forcePrompt: true, nonce: "server-issued-nonce" } });
 });

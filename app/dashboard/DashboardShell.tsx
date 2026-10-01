@@ -1,8 +1,9 @@
 "use client";
 
+import { AccountMenu } from "@/components/account/AccountMenu";
 import { Fragment } from "react";
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
@@ -42,7 +43,8 @@ import {
   FolderKanban,
   Bot,
 } from "lucide-react";
-import { useSession, signOut } from "next-auth/react";
+import { signOutAndConfirm } from "@/lib/oauth-native";
+import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { NotificationBell } from "@/components/notifications";
@@ -114,9 +116,9 @@ export default function DashboardShell({
     }
   }, []);
   // NotificationBell manages its own open/close state
-  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(
-    null,
-  );
+  const [profile, setProfile] = useState<{ userId: string; subscriptionStatus: string | null; businessName?: string | null; organizationId?: string | null } | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+  const logoutInFlight = useRef(false);
 
   // Experience mode drives Simple (default) vs Advanced sidebar nav.
   // null while loading; APPRENTICE/null => Simple, EXPERIENCED => Advanced.
@@ -128,6 +130,9 @@ export default function DashboardShell({
   );
   const [savingMode, setSavingMode] = useState(false);
   const { data: session, status } = useSession();
+  const accountId = session?.user?.id;
+  const currentProfile = profile?.userId === accountId ? profile : null;
+  const subscriptionStatus = currentProfile?.subscriptionStatus ?? null;
   const router = useRouter();
   const pathname = usePathname() ?? "";
 
@@ -138,6 +143,8 @@ export default function DashboardShell({
 
   // Fetch subscription status on mount and window focus only (not polling)
   useEffect(() => {
+    let cancelled = false;
+    setProfile(null);
     const fetchSubscriptionStatus = async () => {
       try {
         const response = await fetch("/api/user/profile", {
@@ -147,29 +154,32 @@ export default function DashboardShell({
         if (response.status === 401) return;
         if (response.ok) {
           const data = await response.json();
-          setSubscriptionStatus(data.profile?.subscriptionStatus);
+          if (!cancelled && accountId && data.profile?.id === accountId) {
+            setProfile({ userId: accountId, subscriptionStatus: data.profile.subscriptionStatus ?? null, businessName: data.profile.businessName, organizationId: data.profile.organizationId });
+          }
         }
       } catch (error) {
         console.error("Error fetching subscription status:", error);
       }
     };
 
-    if (status === "authenticated") {
+    if (status === "authenticated" && accountId) {
       fetchSubscriptionStatus();
 
       // Refetch on window focus (e.g., after Stripe checkout redirect)
       const handleFocus = () => fetchSubscriptionStatus();
       window.addEventListener("focus", handleFocus);
 
-      return () => window.removeEventListener("focus", handleFocus);
+      return () => { cancelled = true; window.removeEventListener("focus", handleFocus); };
     }
-  }, [status, session]);
+  }, [status, accountId]);
 
   // Load the persisted experience mode once authenticated. Anything other than
   // an explicit EXPERIENCED opt-in resolves to Simple mode (see nav-config),
   // so a fetch failure safely degrades to the default Simple experience.
   useEffect(() => {
-    if (status !== "authenticated") return;
+    setExperienceMode(null);
+    if (status !== "authenticated" || !accountId) return;
     let cancelled = false;
     (async () => {
       try {
@@ -186,7 +196,7 @@ export default function DashboardShell({
     return () => {
       cancelled = true;
     };
-  }, [status]);
+  }, [status, accountId]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -222,12 +232,18 @@ export default function DashboardShell({
   }
 
   const handleLogout = async () => {
-    // RA-1818 — signOut({ callbackUrl }) can silently fail on prod when the
-    // Next.js router intercepts the redirect before the cookie is cleared.
-    // Using redirect:false + window.location forces a full navigation that
-    // guarantees the session cookie is gone before the page reloads.
-    await signOut({ redirect: false });
-    window.location.href = "/";
+    if (logoutInFlight.current) return;
+    logoutInFlight.current = true;
+    setSigningOut(true);
+    try {
+      await signOutAndConfirm();
+      window.location.href = "/login";
+    } catch {
+      toast.error("Sign-out could not be completed. Please try again.");
+    } finally {
+      logoutInFlight.current = false;
+      setSigningOut(false);
+    }
   };
 
   // Check if user is a Manager or Technician (they should be linked to an Admin)
@@ -683,6 +699,7 @@ export default function DashboardShell({
             )}
             <button
               onClick={handleLogout}
+              disabled={signingOut}
               className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group",
                 "text-neutral-700 dark:text-slate-300",
@@ -796,9 +813,14 @@ export default function DashboardShell({
                     {session?.user?.email}
                   </p>
                 </div>
-                <button className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center font-semibold text-sm hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 active:scale-95 transition-all duration-200">
-                  {session?.user?.name?.charAt(0) || "U"}
-                </button>
+                <AccountMenu
+                  email={session?.user?.email ?? ""}
+                  name={session?.user?.name}
+                  organizationId={currentProfile?.organizationId}
+                  businessName={currentProfile?.businessName}
+                  onLogout={handleLogout}
+                  busy={signingOut}
+                />
               </div>
             </div>
           </header>

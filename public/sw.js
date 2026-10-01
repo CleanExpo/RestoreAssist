@@ -5,7 +5,8 @@
  * Caching strategy:
  *   /_next/static/**  → Cache-first, permanent (content-hashed filenames)
  *   /api/**           → Network-only, no cache (auth-protected, fresh data required)
- *   All other GET     → Network-first, fallback to cache, fallback to offline shell
+ *   Public HTML only  → Network-first, fallback to cache
+ *   Other documents   → Network-only, public offline fallback
  *
  * Background Sync:
  *   Listens for 'nir-inspection-sync' tag registered by nir-sync-queue.ts
@@ -42,8 +43,8 @@
  * next time they open the app. They re-download the shell, which on
  * a flaky connection means a blank screen until the network catches up.
  */
-// Bumped: localhost self-destruct + no Turbopack chunk caching (HMR fix).
-const NIR_VERSION = "nir-v2.1";
+// Bumped: private documents are no longer cached; retire old account HTML.
+const NIR_VERSION = "nir-v2.2";
 const CACHE_APP = `${NIR_VERSION}-app`;
 const CACHE_STATIC = `${NIR_VERSION}-static`;
 const ALL_CACHES = [CACHE_APP, CACHE_STATIC];
@@ -55,7 +56,7 @@ const IS_LOCAL_DEV =
  * Pages to precache on install so the app shell is immediately available offline.
  * Keep this list small — only the inspection workflow entry points.
  */
-const PRECACHE_URLS = ["/", "/portal/inspections", "/offline"];
+const PRECACHE_URLS = ["/", "/offline"];
 
 // ─── LOCAL DEV: self-destruct ─────────────────────────────────────────────────
 // A leftover SW from a prior session cache-firsts /_next/static and serves
@@ -132,6 +133,19 @@ if (IS_LOCAL_DEV) {
     if (request.method !== "GET") return;
     if (url.origin !== self.location.origin) return;
 
+    // Account-specific documents and API responses must never be served from
+    // another account's browser cache. API matching precedes file extensions.
+    if (url.pathname.startsWith("/api/")) {
+      event.respondWith(networkOnlyWithOfflineStub(request));
+      return;
+    }
+    const isDocument = request.mode === "navigate" || request.destination === "document";
+    const isPublicDocument = url.pathname === "/" || url.pathname === "/offline";
+    if (isDocument && !isPublicDocument) {
+      event.respondWith(privateDocumentWithOfflineFallback(request));
+      return;
+    }
+
     // ── Next.js static assets — cache-first (content-hashed, safe to cache forever)
     if (url.pathname.startsWith("/_next/static/")) {
       event.respondWith(cacheFirst(request, CACHE_STATIC));
@@ -147,14 +161,10 @@ if (IS_LOCAL_DEV) {
       return;
     }
 
-    // ── API routes — network-only, offline stub response
-    if (url.pathname.startsWith("/api/")) {
-      event.respondWith(networkOnlyWithOfflineStub(request));
-      return;
-    }
-
-    // ── App pages — network-first, offline fallback
-    event.respondWith(networkFirstWithOfflineFallback(request));
+    // Only explicitly public documents can enter the shared HTML cache.
+    event.respondWith(isPublicDocument
+      ? networkFirstWithOfflineFallback(request)
+      : privateDocumentWithOfflineFallback(request));
   });
 
   // ─── BACKGROUND SYNC ──────────────────────────────────────────────────────────
@@ -194,6 +204,15 @@ async function cacheFirst(request, cacheName) {
   }
 }
 
+async function privateDocumentWithOfflineFallback(request) {
+  return fetch(request).catch(async () =>
+    (await caches.match("/offline")) || new Response(
+      "Reconnect to verify your account. Saved offline work is preserved.",
+      { status: 503 },
+    ),
+  );
+}
+
 /**
  * Network-first: try the network, fall back to cache, fall back to offline shell.
  * Used for app pages that should show fresh content but must work offline.
@@ -205,6 +224,7 @@ async function networkFirstWithOfflineFallback(request) {
     // Cache successful HTML responses for offline fallback
     if (
       response.ok &&
+      !response.redirected &&
       response.headers.get("content-type")?.includes("text/html")
     ) {
       const cache = await caches.open(CACHE_APP);

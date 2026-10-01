@@ -1,3 +1,4 @@
+import { RESET_CODE_TTL_MINUTES } from "@/lib/auth/recovery-policy";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 
@@ -24,7 +25,7 @@ export async function storeResetCode(
     data: {
       token: code,
       email: normalizedEmail,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      expiresAt: new Date(Date.now() + RESET_CODE_TTL_MINUTES * 60 * 1000),
       attempts: 0,
     },
     select: { id: true, expiresAt: true },
@@ -70,21 +71,27 @@ export async function verifyResetCode(
     };
   }
 
-  // Increment attempts
-  await prisma.passwordResetToken.update({
-    where: { id: entry.id },
-    data: { attempts: entry.attempts + 1 },
+  const matches = entry.token === code;
+  // Claim the attempt (and, for a match, consume the code) in one conditional
+  // write. Concurrent resets cannot both accept the same one-time code or
+  // lose attempt increments. Recheck expiry at the write boundary.
+  const claimed = await prisma.passwordResetToken.updateMany({
+    where: {
+      id: entry.id,
+      token: entry.token,
+      usedAt: null,
+      attempts: { lt: 5 },
+      expiresAt: { gt: new Date() },
+    },
+    data: {
+      attempts: { increment: 1 },
+      ...(matches ? { usedAt: new Date() } : {}),
+    },
   });
-
-  if (entry.token !== code) {
-    return { valid: false, error: "Invalid verification code." };
+  if (claimed.count !== 1) {
+    return { valid: false, error: "Invalid or expired verification code. Please request a new one." };
   }
-
-  // Code is valid - mark as used
-  await prisma.passwordResetToken.update({
-    where: { id: entry.id },
-    data: { usedAt: new Date() },
-  });
+  if (!matches) return { valid: false, error: "Invalid verification code." };
 
   return { valid: true };
 }

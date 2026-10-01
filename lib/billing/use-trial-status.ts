@@ -21,17 +21,21 @@ const fetcher = async (url: string): Promise<TrialStatus | null> => {
  * the loading → authenticated race on dashboard mount.
  */
 export default function useTrialStatus() {
-  const { status } = useSession();
+  const { status, data: session } = useSession();
   const { data, error, isLoading, mutate } = useSWR<TrialStatus | null>(
-    status === "authenticated" ? "/api/billing/trial-status" : null,
-    fetcher,
+    status === "authenticated" && session?.user?.id
+      ? ["/api/billing/trial-status", session.user.id] as const
+      : null,
+    ([url]: readonly [string, string]) => fetcher(url),
     {
+      keepPreviousData: false,
       refreshInterval: 60_000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
   );
   return {
+    accountId: session?.user?.id,
     data: data ?? undefined,
     error,
     isLoading: status === "loading" || isLoading,

@@ -10,6 +10,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installFakeIndexedDB } from "./helpers/fake-indexeddb";
 
+// These tests isolate the pre-existing audio/custody behaviour. The real
+// identity and replay boundary is exercised in offline-containment.test.ts.
+vi.mock("@/lib/offline/account-boundary", () => ({
+  getOfflineOwner: () => ({ userId: "synthetic", organizationId: null, workspaceId: null, workspaceOwnerId: null }),
+  requireOfflineOwner: () => ({ userId: "synthetic", organizationId: null, workspaceId: null, workspaceOwnerId: null }),
+  ownsOfflineEntry: (entry: { owner?: { userId: string } }) => entry.owner?.userId === "synthetic",
+  fetchOfflineReplay: async (_owner: unknown, url: string, init: RequestInit, beforeSend?: () => Promise<void>) => {
+    await beforeSend?.();
+    return fetch(url, init);
+  },
+  withOfflineDrainLock: (_name: string, drain: () => Promise<number>) => drain(),
+}));
+
 let uninstall: () => void;
 let queue: typeof import("../voice-note-queue");
 
@@ -117,7 +130,7 @@ describe("drainVoiceNoteQueue", () => {
     await expect(queue.getQueuedVoiceNoteCount()).resolves.toBe(1);
   });
 
-  it("retries on a transient 5xx instead of marking it a terminal error", async () => {
+  it("preserves an unconfirmed recording after a 5xx without replaying it", async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,
       status: 503,
@@ -131,8 +144,11 @@ describe("drainVoiceNoteQueue", () => {
 
     await queue.drainVoiceNoteQueue();
 
-    // Not yet terminal — no transcript, no surfaced error, still pending.
-    await expect(queue.getPendingTranscripts()).resolves.toEqual([]);
+    await queue.drainVoiceNoteQueue();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const entries = await queue.getPendingTranscripts();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ status: "error", error: expect.stringContaining("unconfirmed") });
     await expect(queue.getQueuedVoiceNoteCount()).resolves.toBe(1);
   });
 });
