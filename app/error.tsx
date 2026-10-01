@@ -6,10 +6,10 @@ import { reportClientError } from "@/lib/observability";
 
 export default function RootError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error("[RootError]", error);
@@ -22,7 +22,7 @@ export default function RootError({
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <ErrorFallback
         error={error}
-        reset={reset}
+        reset={retry}
         title="Application Error"
         showHomeLink
         homeHref="/"
