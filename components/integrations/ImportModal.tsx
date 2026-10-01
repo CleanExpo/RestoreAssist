@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { OAUTH_PROVIDERS } from "@/lib/integrations/identity";
+import { describeOAuthCard, type LegacyIntegrationMetadata } from "@/lib/services/integrations/display";
 import { RAIcon } from "@/components/brand/RAIcon";
 import {
   Dialog,
@@ -81,13 +83,17 @@ export default function ImportModal({
     new Set(),
   );
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
-  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+  const [loadingIntegrations, setLoadingIntegrations] = useState(true);
+  const [integrationError, setIntegrationError] = useState<string | null>(null);
+  const [dataError, setDataError] = useState(false);
+  const requestVersion = useRef(Symbol("initial"));
   const [loadingData, setLoadingData] = useState(false);
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
+    setConnectedIntegrations([]);
     if (isOpen) {
-      fetchConnectedIntegrations();
+      void fetchConnectedIntegrations();
       setStep("select-provider");
       setSelectedProvider(null);
       setClients([]);
@@ -95,67 +101,73 @@ export default function ImportModal({
       setSelectedClientIds(new Set());
       setSelectedJobIds(new Set());
     }
+    return () => { requestVersion.current = Symbol("closed"); };
   }, [isOpen]);
 
   const fetchConnectedIntegrations = async () => {
+    const version = Symbol("request");
+    requestVersion.current = version;
     setLoadingIntegrations(true);
+    setIntegrationError(null);
+    setConnectedIntegrations([]);
     try {
-      const response = await fetch("/api/integrations");
-      if (response.ok) {
-        const data = await response.json();
-        const connected = (data.integrations || [])
-          .filter(
-            (i: { status: string; provider: string }) =>
-              i.status === "CONNECTED" &&
-              ["XERO", "QUICKBOOKS", "MYOB", "SERVICEM8", "ASCORA"].includes(
-                i.provider,
-              ),
-          )
-          .map((i: { provider: string; name: string; status: string }) => ({
-            provider: i.provider,
-            name: PROVIDER_NAMES[i.provider] || i.name,
-            status: i.status,
-          }));
-        setConnectedIntegrations(connected);
+      const response = await fetch("/api/integrations", { cache: "no-store" });
+      if (!response.ok) throw new Error("Integration metadata unavailable");
+      const data = await response.json();
+      if (data.truncated || !Array.isArray(data.integrations)) throw new Error("Incomplete integration metadata");
+      if (version !== requestVersion.current) return;
+      const rows = data.integrations as LegacyIntegrationMetadata[];
+      const connected: ConnectedIntegration[] = [];
+      for (const provider of OAUTH_PROVIDERS) {
+        const state = describeOAuthCard(rows, provider);
+        if (state.status === "AMBIGUOUS") {
+          setIntegrationError("Multiple workspace connections need review before importing. No connection has been selected.");
+          return;
+        }
+        if (state.connected) connected.push({ provider, name: PROVIDER_NAMES[provider], status: state.status });
       }
-    } catch (error) {
-      console.error("Error fetching integrations:", error);
+      setConnectedIntegrations(connected);
+    } catch {
+      if (version === requestVersion.current) {
+        setIntegrationError("Integration status is unavailable. Retry before importing.");
+      }
     } finally {
-      setLoadingIntegrations(false);
+      if (version === requestVersion.current) setLoadingIntegrations(false);
     }
   };
 
   const handleSelectProvider = async (provider: string) => {
+    if (!connectedIntegrations.some(connection => connection.provider === provider)) return;
     setSelectedProvider(provider);
     setStep("select-data");
     await fetchData(provider);
   };
 
   const fetchData = async (provider: string) => {
+    const version = Symbol("request");
+    requestVersion.current = version;
     const slug = provider.toLowerCase();
     setLoadingData(true);
+    setDataError(false);
+    setClients([]);
+    setJobs([]);
+    setSelectedClientIds(new Set());
+    setSelectedJobIds(new Set());
     try {
       const [clientsRes, jobsRes] = await Promise.all([
         fetch(`/api/integrations/oauth/${slug}/clients`),
         fetch(`/api/integrations/oauth/${slug}/jobs`),
       ]);
-
-      if (clientsRes.ok) {
-        const clientsData = await clientsRes.json();
-        setClients(clientsData.clients || []);
-      }
-
-      if (jobsRes.ok) {
-        const jobsData = await jobsRes.json();
-        setJobs(jobsData.jobs || []);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      toast.error(
-        "Failed to fetch data from " + (PROVIDER_NAMES[provider] || provider),
-      );
+      if (!clientsRes.ok || !jobsRes.ok) throw new Error("Import data unavailable");
+      const [clientsData, jobsData] = await Promise.all([clientsRes.json(), jobsRes.json()]);
+      if (!Array.isArray(clientsData.clients) || !Array.isArray(jobsData.jobs)) throw new Error("Invalid import data");
+      if (version !== requestVersion.current) return;
+      setClients(clientsData.clients);
+      setJobs(jobsData.jobs);
+    } catch {
+      if (version === requestVersion.current) setDataError(true);
     } finally {
-      setLoadingData(false);
+      if (version === requestVersion.current) setLoadingData(false);
     }
   };
 
@@ -297,13 +309,18 @@ export default function ImportModal({
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
               </div>
+            ) : integrationError ? (
+              <div role="alert" className="space-y-3 py-8 text-sm">
+                <p>{integrationError}</p>
+                <Button variant="outline" onClick={() => void fetchConnectedIntegrations()}>Retry status</Button>
+              </div>
             ) : connectedIntegrations.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-slate-500 dark:text-slate-400 font-medium mb-2">
-                  No connected integrations
+                  No integrations ready to import
                 </p>
                 <p className="text-sm text-slate-400 dark:text-slate-500">
-                  Connect Xero, QuickBooks, MYOB, ServiceM8, or Ascora on the
+                  Connect Xero, QuickBooks, MYOB or ServiceM8 on the
                   Integrations page, then return here to import clients and jobs.
                 </p>
               </div>
@@ -370,6 +387,11 @@ export default function ImportModal({
               {loadingData ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+                </div>
+              ) : dataError ? (
+                <div role="alert" className="space-y-3 p-4 text-sm">
+                  <p>Import data is unavailable. Retry before selecting items.</p>
+                  <Button variant="outline" onClick={() => selectedProvider && void fetchData(selectedProvider)}>Retry data</Button>
                 </div>
               ) : activeTab === "clients" ? (
                 <div className="space-y-2 p-2">
@@ -510,7 +532,7 @@ export default function ImportModal({
             <Button
               onClick={handleImport}
               disabled={
-                importing ||
+                importing || loadingData || dataError ||
                 (selectedClientIds.size === 0 && selectedJobIds.size === 0)
               }
             >

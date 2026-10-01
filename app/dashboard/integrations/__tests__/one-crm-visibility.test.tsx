@@ -195,7 +195,7 @@ describe("Integrations page with every listing switch off", () => {
     setFlags({});
     mountFetch({
       genericIntegrations: [
-        { provider: "QUICKBOOKS", status: "CONNECTED", lastSyncAt: null },
+        { id: "qb_synthetic", name: "QuickBooks", provider: "QUICKBOOKS", status: "CONNECTED", realmId: "synthetic-qb-realm", hasOAuthCredentials: true, lastSyncAt: null },
       ],
       drNrpgIntegration: {
         isActive: true,

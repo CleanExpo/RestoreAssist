@@ -8,9 +8,9 @@
  * - Line item category → Xero account code via account-code-resolver (RA-869)
  */
 
-import { markIntegrationError, logSync } from "../oauth-handler";
-import { getXeroTenantId } from "@/lib/services/xero/tenant";
-import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
+import { prisma } from "@/lib/prisma";
+import { updateXeroBinding } from "@/lib/services/xero/binding";
+import { getValidXeroCredentials } from "@/lib/services/xero/credentials";
 import {
   resolveAccountCodes,
   resolveAccountCodeForItemType,
@@ -125,9 +125,13 @@ export async function syncNIRJobToXero(
   xeroInvoiceNumber: string;
   status: string;
 }> {
+  const report = await prisma.report.findUnique({
+    where: { id: job.reportId }, select: { userId: true, workspaceId: true },
+  });
+  if (!report) throw new Error("Xero NIR source report is unavailable");
   // Service-layer credentials result — preserve throw-based contract for this
   // module (callers rely on the existing reject semantics on token failure).
-  const credResult = await getValidXeroAccessToken(integrationId);
+  const credResult = await getValidXeroCredentials(integrationId, { expectedUserId: report.userId, expectedWorkspaceId: report.workspaceId });
   if (!credResult.ok) {
     console.error("[XeroNirSync]", {
       integrationId,
@@ -138,20 +142,7 @@ export async function syncNIRJobToXero(
       `Xero credentials unavailable (${credResult.reason}): ${credResult.detail ?? "no detail"}`,
     );
   }
-  const accessToken = credResult.data;
-  const tenantResult = await getXeroTenantId(integrationId);
-  if (!tenantResult.ok) {
-    console.error("[XeroNirSync]", {
-      integrationId,
-      reason: tenantResult.reason,
-      detail: tenantResult.detail,
-    });
-    throw new Error(
-      `Xero tenant unavailable (${tenantResult.reason}): ${tenantResult.detail ?? "no detail"}`,
-    );
-  }
-  const tenantId = tenantResult.data;
-
+  const { accessToken, tenantId, binding } = credResult.data;
   // RA-869: Per-category account code routing (cached per integration, 5-min TTL).
   // Supports client-configured mappings in XeroAccountCodeMapping; falls back to
   // built-in defaults for canonical categories (LABOUR/EQUIPMENT/MATERIALS/
@@ -286,18 +277,24 @@ export async function syncNIRJobToXero(
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    await markIntegrationError(integrationId, `Xero error: ${res.statusText}`);
-    throw new Error(
-      `Xero API error: ${res.statusText} — ${JSON.stringify(err)}`,
-    );
+    const message = `Xero invoice request failed (${res.status})`;
+    await updateXeroBinding(binding, { status: "ERROR", syncError: message });
+    await prisma.integrationSyncLog.create({ select: { id: true }, data: {
+      integrationId, syncType: "FULL", status: "FAILED", recordsProcessed: 0,
+      recordsFailed: 1, errorMessage: message, completedAt: new Date(),
+    } });
+    throw new Error(message);
   }
 
   const data = await res.json();
   const created = data.Invoices?.[0];
   if (!created) throw new Error("Xero returned empty invoice response");
 
-  await logSync(integrationId, "FULL", "SUCCESS", 1, 0);
+  await updateXeroBinding(binding, { lastSyncAt: new Date(), syncError: null });
+  await prisma.integrationSyncLog.create({ select: { id: true }, data: {
+    integrationId, syncType: "FULL", status: "SUCCESS", recordsProcessed: 1,
+    recordsFailed: 0, completedAt: new Date(),
+  } });
   return {
     xeroInvoiceId: created.InvoiceID,
     xeroInvoiceNumber: created.InvoiceNumber,

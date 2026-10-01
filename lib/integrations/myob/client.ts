@@ -13,11 +13,13 @@ import {
 } from "../base-client";
 import {
   getTokens,
+  assertOAuthIntegration,
   storeTokens,
   markIntegrationError,
   disconnectIntegration,
 } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
+import { isOAuthIntegration } from "../identity";
 
 interface MYOBContact {
   UID: string;
@@ -118,6 +120,7 @@ export class MYOBClient extends BaseIntegrationClient {
     code: string,
     redirectUri: string,
   ): Promise<TokenResponse> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     const clientId = getClientId("MYOB");
     const clientSecret = getClientSecret("MYOB");
 
@@ -153,7 +156,7 @@ export class MYOBClient extends BaseIntegrationClient {
    * Fetch and store MYOB company file
    */
   private async fetchAndStoreCompanyFile(): Promise<void> {
-    const tokens = await getTokens(this.integrationId);
+    const tokens = await getTokens(this.integrationId, this.provider);
     if (!tokens.accessToken) return;
 
     const clientId = getClientId("MYOB");
@@ -181,7 +184,7 @@ export class MYOBClient extends BaseIntegrationClient {
    * Refresh access token
    */
   async refreshAccessToken(): Promise<void> {
-    const tokens = await getTokens(this.integrationId);
+    const tokens = await getTokens(this.integrationId, this.provider);
 
     if (!tokens.refreshToken) {
       throw new Error("No refresh token available");
@@ -214,11 +217,12 @@ export class MYOBClient extends BaseIntegrationClient {
         response.status === 403 ||
         (response.status === 400 && /invalid_grant/i.test(error));
       if (isTerminal) {
-        await disconnectIntegration(this.integrationId);
+        await disconnectIntegration(this.integrationId, this.provider);
       } else {
         await markIntegrationError(
           this.integrationId,
           `Token refresh failed: ${error}`,
+          this.provider,
         );
       }
       throw new Error(`Token refresh failed: ${error}`);
@@ -230,6 +234,7 @@ export class MYOBClient extends BaseIntegrationClient {
       tokenResponse.access_token,
       tokenResponse.refresh_token || tokens.refreshToken,
       tokenResponse.expires_in,
+      this.provider,
     );
   }
 
@@ -257,7 +262,7 @@ export class MYOBClient extends BaseIntegrationClient {
       throw new Error("No MYOB company file connected");
     }
 
-    let tokens = await getTokens(this.integrationId);
+    let tokens = await getTokens(this.integrationId, this.provider);
     if (!tokens.accessToken) {
       throw new Error("No access token available");
     }
@@ -265,7 +270,7 @@ export class MYOBClient extends BaseIntegrationClient {
     if (tokens.isExpired && tokens.refreshToken) {
       await this.refreshAccessToken();
       // Re-fetch tokens after refresh so the request uses the NEW access token
-      tokens = await getTokens(this.integrationId);
+      tokens = await getTokens(this.integrationId, this.provider);
       if (!tokens.accessToken) {
         throw new Error("Token refresh failed — no access token after refresh");
       }
@@ -292,6 +297,7 @@ export class MYOBClient extends BaseIntegrationClient {
       await markIntegrationError(
         this.integrationId,
         `API Error ${response.status}: ${errorText}`,
+        this.provider,
       );
       throw new Error(`API request failed: ${response.status} ${errorText}`);
     }
@@ -303,6 +309,7 @@ export class MYOBClient extends BaseIntegrationClient {
    * Fetch customers from MYOB
    */
   async fetchClients(): Promise<ExternalClientData[]> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     try {
       const response =
         await this.makeRequest<MYOBPagedResponse<MYOBContact>>(
@@ -337,6 +344,7 @@ export class MYOBClient extends BaseIntegrationClient {
    * Fetch jobs from MYOB
    */
   async fetchJobs(): Promise<ExternalJobData[]> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     try {
       const response = await this.makeRequest<MYOBPagedResponse<MYOBJob>>(
         "/GeneralLedger/Job?$filter=IsActive eq true",
@@ -483,9 +491,10 @@ export async function createMYOBClient(
 ): Promise<MYOBClient> {
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
+    select: { provider: true, name: true, icon: true, config: true, tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true },
   });
 
-  if (!integration || integration.provider !== "MYOB") {
+  if (!integration || !isOAuthIntegration(integration, "MYOB")) {
     throw new Error("Invalid MYOB integration");
   }
 
