@@ -183,12 +183,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AnnouncerProvider>
-            <NirOfflineProvider>
-              <SessionProvider>
+            <SessionProvider>
+              <NirOfflineProvider>
                 <CapacitorProvider>{children}</CapacitorProvider>
-              </SessionProvider>
-              <PwaInstallPrompt />
-            </NirOfflineProvider>
+                <PwaInstallPrompt />
+              </NirOfflineProvider>
+            </SessionProvider>
           </AnnouncerProvider>
           {/* ElevenLabs convai support voice widget — dark by default; renders
               nothing until NEXT_PUBLIC_ELEVENLABS_AGENT_ID is set. */}

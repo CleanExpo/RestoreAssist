@@ -1,3 +1,5 @@
+import { getOfflineOwner, ownsOfflineEntry, type OfflineOwner } from "./account-boundary";
+
 // IndexedDB cache for the field dashboard active job list.
 // Survives page reload and app backgrounding. Written on every successful
 // API fetch; read as fallback when the device is offline.
@@ -19,6 +21,7 @@ export interface CachedJob {
 }
 
 interface JobCacheEntry {
+  owner: OfflineOwner;
   key: string;
   jobs: CachedJob[];
   fetchedAt: string;
@@ -38,13 +41,16 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-export async function cacheJobs(jobs: CachedJob[]): Promise<void> {
+export async function cacheJobs(jobs: CachedJob[], owner = getOfflineOwner()): Promise<void> {
+  if (!owner || !ownsOfflineEntry({ owner })) return;
   try {
     const db = await openDb();
     await new Promise<void>((resolve, reject) => {
+      if (!ownsOfflineEntry({ owner })) { resolve(); return; }
       const tx = db.transaction(STORE, "readwrite");
       const entry: JobCacheEntry = {
-        key: CACHE_KEY,
+        key: `${CACHE_KEY}:${JSON.stringify(owner)}`,
+        owner,
         jobs,
         fetchedAt: new Date().toISOString(),
       };
@@ -57,18 +63,20 @@ export async function cacheJobs(jobs: CachedJob[]): Promise<void> {
   }
 }
 
-export async function getCachedJobs(): Promise<{
+export async function getCachedJobs(owner = getOfflineOwner()): Promise<{
   jobs: CachedJob[];
   fetchedAt: string | null;
 }> {
+  if (!owner || !ownsOfflineEntry({ owner })) return { jobs: [], fetchedAt: null };
   try {
     const db = await openDb();
     const entry = await new Promise<JobCacheEntry | null>((resolve, reject) => {
       const tx = db.transaction(STORE, "readonly");
-      const req = tx.objectStore(STORE).get(CACHE_KEY);
+      const req = tx.objectStore(STORE).get(`${CACHE_KEY}:${JSON.stringify(owner)}`);
       req.onsuccess = () => resolve((req.result as JobCacheEntry) ?? null);
       req.onerror = () => reject(req.error);
     });
+    if (!entry || !ownsOfflineEntry(entry)) return { jobs: [], fetchedAt: null };
     return {
       jobs: entry?.jobs ?? [],
       fetchedAt: entry?.fetchedAt ?? null,

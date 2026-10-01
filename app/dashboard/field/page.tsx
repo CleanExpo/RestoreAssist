@@ -36,6 +36,7 @@ import {
   getCachedJobs,
   type CachedJob,
 } from "@/lib/offline/job-cache";
+import { getOfflineOwner, ownsOfflineEntry, OFFLINE_CONTEXT_EVENT } from "@/lib/offline/account-boundary";
 import { isCapacitor } from "@/lib/capacitor";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -78,6 +79,12 @@ export default function FieldDashboardPage() {
   const [fromCache, setFromCache] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const clear = () => { setInspections([]); setFromCache(false); setCacheAge(null); };
+    window.addEventListener(OFFLINE_CONTEXT_EVENT, clear);
+    return () => window.removeEventListener(OFFLINE_CONTEXT_EVENT, clear);
+  }, []);
+
   // Greeting
   useEffect(() => {
     const h = new Date().getHours();
@@ -107,6 +114,7 @@ export default function FieldDashboardPage() {
   }, []);
 
   async function loadInspections() {
+    const requestOwner = getOfflineOwner();
     setLoading(true);
     setLoadError(null);
     try {
@@ -169,12 +177,13 @@ export default function FieldDashboardPage() {
         }),
       );
 
+      if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) return;
       setInspections(enriched);
       setFromCache(false);
       setCacheAge(null);
       setIsOffline(false);
       // Persist to IndexedDB for offline fallback
-      await cacheJobs(enriched);
+      await cacheJobs(enriched, requestOwner);
     } catch (err) {
       const isHttpError =
         err instanceof Error &&
@@ -188,7 +197,8 @@ export default function FieldDashboardPage() {
         setIsOffline(false);
       } else {
         // Network failure — fall back to IndexedDB cache
-        const { jobs, fetchedAt } = await getCachedJobs();
+        const { jobs, fetchedAt } = await getCachedJobs(requestOwner);
+        if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) return;
         if (jobs.length === 0) {
           // RA-7711: nothing to show is a failed load, not "0 active jobs".
           setLoadError("check your connection and try again");
