@@ -43,7 +43,8 @@ import {
   FolderKanban,
   Bot,
 } from "lucide-react";
-import { useSession, signOut } from "next-auth/react";
+import { signOutAndConfirm } from "@/lib/oauth-native";
+import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { NotificationBell } from "@/components/notifications";
@@ -115,7 +116,7 @@ export default function DashboardShell({
     }
   }, []);
   // NotificationBell manages its own open/close state
-  const [profile, setProfile] = useState<{ userId: string; subscriptionStatus: string | null; businessName?: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ userId: string; subscriptionStatus: string | null; businessName?: string | null; organizationId?: string | null } | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const logoutInFlight = useRef(false);
 
@@ -153,8 +154,8 @@ export default function DashboardShell({
         if (response.status === 401) return;
         if (response.ok) {
           const data = await response.json();
-          if (!cancelled && data.profile?.id === accountId) {
-            setProfile({ userId: accountId, subscriptionStatus: data.profile.subscriptionStatus ?? null, businessName: data.profile.businessName });
+          if (!cancelled && accountId && data.profile?.id === accountId) {
+            setProfile({ userId: accountId, subscriptionStatus: data.profile.subscriptionStatus ?? null, businessName: data.profile.businessName, organizationId: data.profile.organizationId });
           }
         }
       } catch (error) {
@@ -235,7 +236,7 @@ export default function DashboardShell({
     logoutInFlight.current = true;
     setSigningOut(true);
     try {
-      await signOut({ redirect: false });
+      await signOutAndConfirm();
       window.location.href = "/login";
     } catch {
       toast.error("Sign-out could not be completed. Please try again.");
@@ -815,7 +816,7 @@ export default function DashboardShell({
                 <AccountMenu
                   email={session?.user?.email ?? ""}
                   name={session?.user?.name}
-                  organizationId={session?.user?.organizationId}
+                  organizationId={currentProfile?.organizationId}
                   businessName={currentProfile?.businessName}
                   onLogout={handleLogout}
                   busy={signingOut}

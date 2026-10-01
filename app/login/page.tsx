@@ -25,7 +25,6 @@ function LoginForm() {
   // RA-2073 — Sign in with Apple is now fully wired (see useEffect below).
   // The previous workaround that hid both third-party buttons on iOS for
   // the 1.0(4)..1.0(10) builds is no longer needed.
-  const [authHydrated, setAuthHydrated] = useState(false);
   // Track whether we're inside the iOS Capacitor shell. Used to:
   //   1. Default rememberMe to true (field techs want a 90-day session).
   //   2. Show the Apple Sign-In button via the native plugin path even
@@ -50,14 +49,14 @@ function LoginForm() {
   // The actual default is set in the iOS-detect effect below so SSR
   // hydration matches.
   const [rememberMe, setRememberMe] = useState(false);
-  const searchParams = useSearchParams() ?? new URLSearchParams();
-  const switchingAccount = searchParams.get("switchAccount") === "google";
+  const searchParams = useSearchParams();
+  const switchingAccount = searchParams?.get("switchAccount") === "google";
   // An explicit account switch starts at the dashboard, never at another
   // account's job-specific callback. Normal sign-in preserves safe deep links.
-  const callbackUrl = switchingAccount ? "/dashboard" : safeCallbackUrl(searchParams.get("callbackUrl"));
+  const callbackUrl = switchingAccount ? "/dashboard" : safeCallbackUrl(searchParams?.get("callbackUrl"));
 
   useEffect(() => {
-    if (searchParams.get("error")) {
+    if (searchParams?.get("error")) {
       setError("Sign-in was cancelled or could not be completed. Choose your account and try again, or use your original sign-in method.");
     }
   }, [searchParams]);
@@ -70,7 +69,7 @@ function LoginForm() {
 
   // Pre-fill email if coming from signup
   useEffect(() => {
-    const emailParam = searchParams.get("email");
+    const emailParam = searchParams?.get("email");
     if (emailParam) {
       setEmail(emailParam);
     }
@@ -87,7 +86,6 @@ function LoginForm() {
   // with cookies attached.
   useEffect(() => {
     const onIos = isCapacitorIOS();
-    setAuthHydrated(true);
     setIsIOS(onIos);
     // RA-2074 — default rememberMe TRUE on iOS shell so field techs
     // get a 90-day session by default. Web users opt in via checkbox.
@@ -154,7 +152,7 @@ function LoginForm() {
       } else {
         throw new Error("Sign-in did not complete");
       }
-    } catch (error) {
+    } catch {
       const message = "An error occurred. Please try again.";
       setError(message);
       notifyError(message);

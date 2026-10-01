@@ -30,6 +30,7 @@ vi.mock("@/lib/security-audit", () => ({
 }));
 
 import { POST } from "../route";
+import { RESET_REQUEST_MESSAGE } from "@/lib/auth/recovery-policy";
 
 function request() {
   return new NextRequest("http://localhost/api/auth/forgot-password", {
@@ -87,8 +88,28 @@ describe("POST /api/auth/forgot-password durable delivery", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       success: true,
-      message:
-        "If an account exists with this email, a verification code has been sent.",
+      message: RESET_REQUEST_MESSAGE,
     });
   });
+});
+
+
+it.each([null, { id: "google-only", email: "user@example.com", password: null }])("does not generate or send codes for absent and Google-only accounts", async (user) => {
+  h.userFindUnique.mockResolvedValue(user);
+  const res = await POST(request());
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ success: true, message: RESET_REQUEST_MESSAGE });
+  expect(h.storeResetCode).not.toHaveBeenCalled();
+  expect(h.deliverEmailOnce).not.toHaveBeenCalled();
+});
+
+it("returns the same public response after accepted delivery, absent account and provider failure", async () => {
+  const delivered = await (await POST(request())).json();
+  h.userFindUnique.mockResolvedValueOnce(null);
+  const absent = await (await POST(request())).json();
+  h.deliverEmailOnce.mockRejectedValueOnce(new Error("synthetic delivery failure"));
+  const failed = await (await POST(request())).json();
+  expect(delivered).toEqual(absent);
+  expect(failed).toEqual(absent);
+  expect(failed.message).not.toMatch(/has been sent/);
 });

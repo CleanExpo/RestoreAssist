@@ -68,3 +68,12 @@ describe("TrialCountdownBanner", () => {
     expect(container.firstChild).toBeNull();
   });
 });
+
+it("does not ask a persisted lifetime account to upgrade even with stale trial countdown fields", () => {
+  vi.mocked(useTrialStatus).mockReturnValue({
+    data: { lifetimeAccess: true, showCountdownBanner: true, daysRemaining: 1 } as any,
+    isLoading: false,
+  } as any);
+  const { container } = render(<TrialCountdownBanner />);
+  expect(container.firstChild).toBeNull();
+});

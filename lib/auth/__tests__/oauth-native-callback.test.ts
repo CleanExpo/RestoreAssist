@@ -77,3 +77,9 @@ describe("native OAuth callback completion", () => {
     );
   });
 });
+
+
+it("requests the supported iOS Google account chooser without dropping nonce protection", async () => {
+  await signInWithOAuth("google");
+  expect(socialLogin).toHaveBeenCalledWith({ provider: "google", options: { scopes: ["email", "profile"], forcePrompt: true, nonce: "server-issued-nonce" } });
+});

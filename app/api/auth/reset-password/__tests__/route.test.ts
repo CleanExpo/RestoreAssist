@@ -110,7 +110,7 @@ describe("POST /api/auth/reset-password", () => {
 
   it("200 on a valid code + strong password: hashes and persists the new password, clears mustChangePassword", async () => {
     verifyResetCode.mockResolvedValue({ valid: true });
-    userFindUnique.mockResolvedValue({ id: "user-1", email: VALID_BODY.email });
+    userFindUnique.mockResolvedValue({ id: "user-1", email: VALID_BODY.email, password: "existing-hash" });
     userUpdate.mockResolvedValue({});
 
     const res = await POST(makeRequest(VALID_BODY));
@@ -128,4 +128,14 @@ describe("POST /api/auth/reset-password", () => {
       },
     });
   });
+});
+
+
+it("never turns a Google-only account into a password account even with a leftover valid reset token", async () => {
+  verifyResetCode.mockResolvedValue({ valid: true });
+  userFindUnique.mockResolvedValue({ id: "google-only", password: null });
+  const response = await POST(makeRequest(VALID_BODY));
+  expect(response.status).toBe(400);
+  expect(bcryptHash).not.toHaveBeenCalled();
+  expect(userUpdate).not.toHaveBeenCalled();
 });

@@ -31,7 +31,9 @@ export function AccountMenu({ email, name, organizationId, businessName, onLogou
           <p className="break-all font-normal">{email}</p>
           {businessName && <p className="font-normal">Business: {businessName}</p>}
           <p className="break-all text-xs font-normal">
-            {organizationId ? `Organisation: ${organizationId}` : "Personal account — no organisation linked"}
+            {organizationId === undefined
+              ? "Organisation details are loading or unavailable"
+              : organizationId ? `Organisation: ${organizationId}` : "No linked organisation"}
           </p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

@@ -30,11 +30,11 @@ function ForgotPasswordForm() {
   const [error, setError] = useState("");
   const submitting = useRef(false);
   const router = useRouter();
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const searchParams = useSearchParams();
 
   // Pre-fill email if coming from login
   useEffect(() => {
-    const emailParam = searchParams.get("email");
+    const emailParam = searchParams?.get("email");
     if (emailParam) {
       setEmail(emailParam);
     }
@@ -65,7 +65,7 @@ function ForgotPasswordForm() {
         setError(message);
         notifyError(message);
       }
-    } catch (error) {
+    } catch {
       const message = "An error occurred. Please try again.";
       setError(message);
       notifyError(message);
@@ -124,7 +124,7 @@ function ForgotPasswordForm() {
         }
         setIsLoading(false);
       }
-    } catch (error) {
+    } catch {
       const message = "An error occurred. Please try again.";
       setError(message);
       notifyError(message);

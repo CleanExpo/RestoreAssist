@@ -80,3 +80,15 @@ describe("useTrialStatus", () => {
     expect(result.current.error).toBeUndefined();
   });
 });
+
+it("does not reuse the previous account's trial data when authenticated identity changes", async () => {
+  mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { daysRemaining: 15, lifetimeAccess: false } }) });
+  const { result, rerender } = renderHook(() => useTrialStatus(), { wrapper });
+  await waitFor(() => expect(result.current.data?.daysRemaining).toBe(15));
+  mockFetch.mockReturnValue(new Promise(() => {}));
+  mockUseSession.mockReturnValue({ status: "authenticated", data: { user: { id: "u2" } } });
+  rerender();
+  expect(result.current.data).toBeUndefined();
+  expect(result.current.isLoading).toBe(true);
+  await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+});

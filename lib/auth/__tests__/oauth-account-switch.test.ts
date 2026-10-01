@@ -114,3 +114,12 @@ describe("OAuth interruption and repeated clicks", () => {
     expect(signInMock).toHaveBeenCalledTimes(2);
   });
 });
+
+
+it.each(["not-json", "false", "[]", '{"error":"unavailable"}'])("does not start OAuth on an unexpected session response: %s", async (body) => {
+  vi.clearAllMocks();
+  signOutMock.mockResolvedValue({ url: "/login" });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)));
+  await expect(signInWithOAuth("google")).rejects.toThrow();
+  expect(signInMock).not.toHaveBeenCalled();
+});

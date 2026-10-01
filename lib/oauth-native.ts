@@ -136,6 +136,19 @@ async function ensureSocialLoginInitialised() {
  *   - Apple → capgo's web fallback (Sign in with Apple JS); Play reviewers
  *     accept this pattern, since Apple-as-IdP on Android is not required.
  */
+export async function signOutAndConfirm(): Promise<void> {
+  await signOut({ redirect: false });
+  // NextAuth v4 signOut does not reject every HTTP failure. Confirm that
+  // the session really cleared before allowing its account-linking callback.
+  const response = await fetch("/api/auth/session", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("Could not confirm sign-out. Please try again.");
+  const session = await response.json();
+  if (session !== null && (typeof session !== "object" || Array.isArray(session) || Object.keys(session).length !== 0)) throw new Error("Sign-out did not complete. Please try again.");
+}
+
 let oauthInFlight: Promise<void> | null = null;
 
 // One attempt per page prevents competing state cookies from rapid clicks.
@@ -161,16 +174,7 @@ async function startOAuth(
     // NextAuth's OAuth callback decodes the existing JWT before resolving the
     // selected provider account. Clear it first so a user can switch accounts
     // from /login without triggering OAuthAccountNotLinked.
-    await signOut({ redirect: false });
-    // NextAuth v4 signOut does not reject every HTTP failure. Confirm that
-    // the session really cleared before allowing its account-linking callback.
-    const response = await fetch("/api/auth/session", {
-      credentials: "same-origin",
-      cache: "no-store",
-    });
-    if (!response.ok) throw new Error("Could not confirm sign-out. Please try again.");
-    const session = await response.json();
-    if (session?.user) throw new Error("Sign-out did not complete. Please try again.");
+    await signOutAndConfirm();
     if (provider === "google") {
       // This is an OAuth authorisation parameter, not a NextAuth sign-in option.
       // Google cookies survive app sign-out; explicitly show the account chooser.
