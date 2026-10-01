@@ -31,6 +31,8 @@
  * direct path sends.
  */
 
+import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineReplay, withOfflineDrainLock, type OfflineOwner } from "@/lib/offline/account-boundary";
+
 import { compressImageForUpload } from "./image-compression";
 import { computeSha256 } from "./capture/cocoa-client";
 
@@ -48,6 +50,7 @@ const MAX_RETRY_COUNT = 5;
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 export interface EvidenceQueueEntry {
+  owner?: OfflineOwner;
   /** Stable client-side id — used for dedupe via Idempotency-Key header */
   id: string;
   inspectionId: string;
@@ -141,6 +144,7 @@ export async function queueEvidenceUpload(input: {
   gps?: { lat: number; lng: number } | null;
   capturedAtUtc?: string;
 }): Promise<string> {
+  const owner = requireOfflineOwner();
   const db = await openDatabase();
 
   const count = await countQueue();
@@ -156,7 +160,9 @@ export async function queueEvidenceUpload(input: {
   // not the caller's pre-compression hash — see the RA-6997 module note above.
   const cocoaSha256 = await computeSha256(compressed.blob);
 
+  if (!ownsOfflineEntry({ owner })) throw new Error("Offline account changed; photo was not overwritten");
   const entry: EvidenceQueueEntry = {
+    owner,
     id: generateId(),
     inspectionId: input.inspectionId,
     blob: compressed.blob,
@@ -206,7 +212,8 @@ export async function queueEvidenceUpload(input: {
 export async function getQueuedEvidenceCount(): Promise<number> {
   if (typeof window === "undefined") return 0;
   try {
-    return await countQueue();
+    const db = await openDatabase();
+    return (await listAll(db)).filter(ownsOfflineEntry).length;
   } catch {
     return 0;
   }
@@ -220,6 +227,11 @@ export async function getQueuedEvidenceCount(): Promise<number> {
  * Returns the number of blobs successfully uploaded.
  */
 export async function drainEvidenceQueue(): Promise<number> {
+  if (typeof window === "undefined" || !navigator.onLine || !getOfflineOwner()) return 0;
+  return withOfflineDrainLock("ra-evidence-drain", drainEvidenceQueueImpl);
+}
+
+async function drainEvidenceQueueImpl(): Promise<number> {
   if (typeof window === "undefined" || !navigator.onLine) return 0;
 
   let db: IDBDatabase;
@@ -233,9 +245,9 @@ export async function drainEvidenceQueue(): Promise<number> {
   let uploaded = 0;
 
   for (const entry of entries) {
+    if (!ownsOfflineEntry(entry)) continue;
     if (entry.retryCount >= MAX_RETRY_COUNT) {
-      // Give up and remove — entry is likely corrupt or auth is permanently broken.
-      await removeEntry(db, entry.id);
+      // Preserve failed uploads for recovery; never delete unsynced evidence.
       continue;
     }
 
@@ -259,7 +271,8 @@ export async function drainEvidenceQueue(): Promise<number> {
       if (entry.gpsLng !== undefined)
         form.append("gpsLng", String(entry.gpsLng));
 
-      const response = await fetch(
+      const response = await fetchOfflineReplay(
+        entry.owner,
         `/api/inspections/${entry.inspectionId}/photos`,
         {
           method: "POST",
@@ -271,18 +284,19 @@ export async function drainEvidenceQueue(): Promise<number> {
         },
       );
 
+      if (!response) break;
       if (response.ok) {
         await removeEntry(db, entry.id);
         uploaded++;
-      } else if (response.status === 401 || response.status === 413) {
-        // Auth expired or file too large — no point retrying.
-        await removeEntry(db, entry.id);
+      } else if (response.status === 413) {
+        // Keep the bytes; a user can recover the original file.
+        await incrementRetry(db, entry);
       } else {
         await incrementRetry(db, entry);
       }
     } catch {
       // Network error — still offline or intermittent. Retry next reconnect.
-      await incrementRetry(db, entry);
+      if (ownsOfflineEntry(entry)) await incrementRetry(db, entry);
     }
   }
 

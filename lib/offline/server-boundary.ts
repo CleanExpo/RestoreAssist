@@ -27,7 +27,7 @@ export async function verifiedOfflineOwner(request: NextRequest): Promise<Offlin
 export async function guardOfflineReplay(request: NextRequest): Promise<NextResponse | null> {
   const raw = request.headers.get(OFFLINE_OWNER_HEADER);
   if (raw === null) return null;
-  const refused = (status: number) => NextResponse.json({ error: { code: "OFFLINE_CONTEXT_CHANGED", message: "Offline sync paused. Reconnect using the account and workspace that saved this work." } }, { status, headers: { "Cache-Control": "no-store" } });
+  const refused = (status: number) => NextResponse.json({ error: { code: "OFFLINE_CONTEXT_CHANGED", message: "Offline sync paused. Reconnect using the account and workspace that saved this work." } }, { status, headers: { "Cache-Control": "no-store", "x-restoreassist-offline-paused": "1" } });
   let expected: OfflineOwner | null;
   try { expected = raw.length <= 2400 ? parseOfflineOwner(JSON.parse(decodeURIComponent(raw))) : null; } catch { expected = null; }
   if (!expected) return refused(409);

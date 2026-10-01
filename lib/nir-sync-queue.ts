@@ -16,6 +16,8 @@
  * Node.js server-side rendering. All public functions guard against SSR.
  */
 
+import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineReplay, withOfflineDrainLock, type OfflineOwner } from "@/lib/offline/account-boundary";
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const DB_NAME = "nir-offline-queue";
@@ -86,6 +88,8 @@ export interface SketchSavePayload {
 }
 
 export interface SyncQueueEntry {
+  /** Absent on legacy rows, which remain quarantined intact. */
+  owner?: OfflineOwner;
   id: string;
   type: QueueEntryType;
   endpoint: string;
@@ -101,6 +105,7 @@ export interface SyncQueueEntry {
 }
 
 export interface SyncConflict {
+  owner?: OfflineOwner;
   id: string;
   entryId: string;
   localPayload: unknown;
@@ -174,11 +179,14 @@ export async function queueWrite(
     id?: string;
   },
 ): Promise<string> {
+  const owner = requireOfflineOwner();
   const db = await openDatabase();
+  if (!ownsOfflineEntry({ owner })) throw new Error("Offline account changed; work was not overwritten");
   const id = entry.id ?? generateId();
 
   const queueEntry: SyncQueueEntry = {
     ...entry,
+    owner,
     id,
     queuedAt: new Date().toISOString(),
     retryCount: 0,
@@ -231,10 +239,13 @@ export async function enqueueSketchSave(
   inspectionId: string,
   payload: SketchSavePayload,
 ): Promise<string> {
+  const owner = requireOfflineOwner();
   const db = await openDatabase();
+  if (!ownsOfflineEntry({ owner })) throw new Error("Offline account changed; work was not overwritten");
   const id = generateId();
 
   const queueEntry: SyncQueueEntry = {
+    owner,
     id,
     type: "sketch-save",
     endpoint: `/api/inspections/${inspectionId}/sketches`,
@@ -257,6 +268,7 @@ export async function enqueueSketchSave(
       if (cursor) {
         const existing = cursor.value as SyncQueueEntry;
         if (
+          ownsOfflineEntry(existing) &&
           existing.type === "sketch-save" &&
           existing.status === "pending" &&
           (existing.payload as SketchSavePayload | null)?.floorNumber ===
@@ -313,7 +325,7 @@ export async function getPendingEntries(
       req = index.getAll("pending");
     }
 
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => resolve(req.result.filter(ownsOfflineEntry));
     req.onerror = () => reject(req.error);
   });
 }
@@ -338,7 +350,7 @@ export async function getFailedEntries(
     const req = statusIndex.getAll("failed");
 
     req.onsuccess = () => {
-      const all = req.result;
+      const all = req.result.filter(ownsOfflineEntry);
       resolve(
         inspectionId ? all.filter((e) => e.inspectionId === inspectionId) : all,
       );
@@ -365,7 +377,7 @@ export async function retryFailedEntry(id: string): Promise<boolean> {
     },
   );
 
-  if (!entry || entry.status !== "failed") return false;
+  if (!entry || !ownsOfflineEntry(entry) || entry.status !== "failed") return false;
 
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readwrite");
@@ -392,6 +404,8 @@ export async function retryFailedEntry(id: string): Promise<boolean> {
  * asking the user before invoking.
  */
 export async function removeFailedEntry(id: string): Promise<void> {
+  const entry = (await getFailedEntries()).find((item) => item.id === id);
+  if (!entry || !ownsOfflineEntry(entry)) return;
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readwrite");
@@ -433,19 +447,8 @@ const SYNC_DRAIN_LOCK_NAME = "nir-sync-drain";
 export async function drainQueue(): Promise<number> {
   if (typeof window === "undefined" || !navigator.onLine) return 0;
 
-  if (
-    typeof navigator !== "undefined" &&
-    "locks" in navigator &&
-    navigator.locks?.request
-  ) {
-    return navigator.locks.request(
-      SYNC_DRAIN_LOCK_NAME,
-      { mode: "exclusive" },
-      () => drainQueueImpl(),
-    );
-  }
-
-  return drainQueueImpl();
+  if (!getOfflineOwner()) return 0;
+  return withOfflineDrainLock(SYNC_DRAIN_LOCK_NAME, drainQueueImpl);
 }
 
 async function drainQueueImpl(): Promise<number> {
@@ -470,6 +473,7 @@ async function drainQueueImpl(): Promise<number> {
   let syncedCount = 0;
 
   for (const entry of entries) {
+    if (!ownsOfflineEntry(entry)) continue;
     // RA-1762 — per-type retry budget. Sketches use a much higher cap
     // because losing 30+ minutes of canvas work to a transient outage
     // is unacceptable; other types keep the historical 5-attempt limit.
@@ -500,12 +504,13 @@ async function drainQueueImpl(): Promise<number> {
         }
       }
 
-      const response = await fetch(entry.endpoint, {
+      const response = await fetchOfflineReplay(entry.owner, entry.endpoint, {
         method: entry.method,
         headers,
         body: JSON.stringify(entry.payload),
       });
 
+      if (!response) break;
       if (response.ok) {
         await removeEntry(db, entry.id);
         syncedCount++;
@@ -538,8 +543,8 @@ async function drainQueueImpl(): Promise<number> {
         await incrementRetry(db, entry);
       }
     } catch {
-      // Network error — still offline or intermittent
-      await incrementRetry(db, entry);
+      // A sign-out must not consume retries or discard work.
+      if (ownsOfflineEntry(entry)) await incrementRetry(db, entry);
     }
   }
 
@@ -616,7 +621,7 @@ export async function resolveConflictWithLocal(
     },
   );
 
-  if (!conflict) throw new Error(`Conflict ${conflictId} not found`);
+  if (!conflict || !ownsOfflineEntry(conflict)) throw new Error("Conflict is unavailable for this account");
 
   // Re-queue with local payload
   const entry = conflict.localPayload as SyncQueueEntry;
@@ -693,6 +698,7 @@ async function storeConflict(
   serverPayload: unknown,
 ): Promise<void> {
   const conflict: SyncConflict = {
+    owner: entry.owner,
     id: generateId(),
     entryId: entry.id,
     localPayload: entry,
@@ -713,8 +719,8 @@ async function countByStatus(db: IDBDatabase, status: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readonly");
     const index = tx.objectStore(QUEUE_STORE).index("by-status");
-    const req = index.count(status);
-    req.onsuccess = () => resolve(req.result);
+    const req = index.getAll(status);
+    req.onsuccess = () => resolve((req.result as SyncQueueEntry[]).filter(ownsOfflineEntry).length);
     req.onerror = () => reject(req.error);
   });
 }
@@ -727,7 +733,7 @@ async function countConflicts(db: IDBDatabase): Promise<number> {
     const req = tx.objectStore(CONFLICT_STORE).getAll();
     req.onsuccess = () => {
       const unresolved = (req.result as SyncConflict[]).filter(
-        (c) => !c.resolved,
+        (c) => !c.resolved && ownsOfflineEntry(c),
       ).length;
       resolve(unresolved);
     };
@@ -754,18 +760,18 @@ export function initSyncOnReconnect(): () => void {
   window.addEventListener("online", handler);
 
   // Also listen for messages from the service worker Background Sync
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.addEventListener("message", (event) => {
-      if (event.data?.type === "NIR_SYNC_TRIGGER") {
-        handler();
-      }
-    });
-  }
+  const onMessage = (event: MessageEvent) => {
+    if (event.data?.type === "NIR_SYNC_TRIGGER") handler();
+  };
+  if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", onMessage);
 
   // Drain immediately if already online and queue has entries
   if (navigator.onLine) {
     handler();
   }
 
-  return () => window.removeEventListener("online", handler);
+  return () => {
+    window.removeEventListener("online", handler);
+    if ("serviceWorker" in navigator) navigator.serviceWorker.removeEventListener("message", onMessage);
+  };
 }

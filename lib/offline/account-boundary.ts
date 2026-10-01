@@ -17,6 +17,7 @@ function changed() {
 
 /** Call before sign-out; invalidates other tabs without sharing identity/data. */
 export function clearOfflineContext(broadcast = true) {
+  sessionUserId = null;
   generation++;
   context = null;
   pending = null;
@@ -30,8 +31,8 @@ export function clearOfflineContext(broadcast = true) {
 
 export function setOfflineSession(userId: string | null) {
   if (sessionUserId === userId) return;
-  sessionUserId = userId;
   clearOfflineContext();
+  sessionUserId = userId;
 }
 
 export function listenForOfflineInvalidation(): () => void {
@@ -69,7 +70,10 @@ export async function refreshOfflineOwner(): Promise<OfflineOwner | null> {
       const owner = response.ok ? parseOfflineOwner((await response.json()).owner) : null;
       if (generation !== started) return null;
       if (!owner || owner.userId !== userId) { clearOfflineContext(); return null; }
-      if (context && !sameOfflineOwner(context, owner)) clearOfflineContext();
+      if (context && !sameOfflineOwner(context, owner)) {
+        clearOfflineContext();
+        sessionUserId = userId;
+      }
       context = Object.freeze(owner);
       changed();
       return context;
@@ -88,6 +92,25 @@ export async function offlineReplayOptions(owner: OfflineOwner | undefined): Pro
   const verified = await refreshOfflineOwner();
   if (!sameOfflineOwner(owner, verified) || !ownsOfflineEntry({ owner })) return null;
   return { headers: { [OFFLINE_OWNER_HEADER]: encodeURIComponent(JSON.stringify(owner)) }, signal: controller.signal };
+}
+
+export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: string, init: RequestInit): Promise<Response | null> {
+  const options = await offlineReplayOptions(owner);
+  if (!options) return null;
+  try {
+    const headers = new Headers(init.headers);
+    for (const [name, value] of Object.entries(options.headers)) headers.set(name, value);
+    const response = await fetch(url, { ...init, credentials: "same-origin", headers, signal: options.signal });
+    if (!ownsOfflineEntry({ owner })) return null;
+    if (response.status === 401 || response.status === 403 || response.headers?.get("x-restoreassist-offline-paused") === "1") {
+      clearOfflineContext();
+      return null;
+    }
+    return response;
+  } catch (error) {
+    if (options.signal.aborted || !ownsOfflineEntry({ owner })) return null;
+    throw error;
+  }
 }
 
 const flights = new Map<string, Promise<number>>();

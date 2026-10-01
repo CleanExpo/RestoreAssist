@@ -19,6 +19,8 @@
  * context, no multipart location) and drain target differ.
  */
 
+import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineReplay, withOfflineDrainLock, type OfflineOwner } from "@/lib/offline/account-boundary";
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const DB_NAME = "ra-voice-note-queue";
@@ -30,9 +32,6 @@ const MAX_QUEUE_SIZE = 50;
 
 const MAX_RETRY_COUNT = 5;
 
-/** Drop consumed/terminal entries after 7 days even if never explicitly pruned by the UI. */
-const STALE_MS = 7 * 24 * 60 * 60 * 1000;
-
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 /** Fired after a drain attempt so open voice-note controls can read transcripts. */
@@ -41,6 +40,7 @@ export const VOICE_NOTES_DRAINED_EVENT = "ra-voice-notes-drained";
 export type VoiceNoteQueueStatus = "pending" | "done" | "error" | "consumed";
 
 export interface VoiceNoteQueueEntry {
+  owner?: OfflineOwner;
   /** Stable client-side id */
   id: string;
   inspectionId: string;
@@ -130,6 +130,7 @@ export async function queueVoiceNote(
   blob: Blob,
   context: { inspectionId: string; fieldLabel: string; roomId?: string },
 ): Promise<string> {
+  const owner = requireOfflineOwner();
   const db = await openDatabase();
 
   const count = await countQueue();
@@ -139,7 +140,9 @@ export async function queueVoiceNote(
     );
   }
 
+  if (!ownsOfflineEntry({ owner })) throw new Error("Offline account changed; recording was not overwritten");
   const entry: VoiceNoteQueueEntry = {
+    owner,
     id: generateId(),
     inspectionId: context.inspectionId,
     fieldLabel: context.fieldLabel,
@@ -183,7 +186,7 @@ export async function getQueuedVoiceNoteCount(): Promise<number> {
   try {
     const db = await openDatabase();
     const entries = await listAll(db);
-    return entries.filter((e) => e.status !== "consumed").length;
+    return entries.filter((e) => ownsOfflineEntry(e) && e.status !== "consumed").length;
   } catch {
     return 0;
   }
@@ -201,7 +204,7 @@ export async function getPendingTranscripts(): Promise<PendingTranscript[]> {
     return entries
       .filter(
         (e): e is VoiceNoteQueueEntry & { status: "done" | "error" } =>
-          e.status === "done" || e.status === "error",
+          ownsOfflineEntry(e) && (e.status === "done" || e.status === "error"),
       )
       .map((e) => ({
         id: e.id,
@@ -223,12 +226,13 @@ export async function markTranscriptConsumed(id: string): Promise<void> {
   if (typeof window === "undefined") return;
   const db = await openDatabase();
   const entry = await getEntry(db, id);
-  if (!entry) return;
+  if (!entry || !ownsOfflineEntry(entry)) return;
   await putEntry(db, { ...entry, status: "consumed" });
 }
 
 /**
- * Drop consumed entries and anything stale (queued longer than STALE_MS).
+ * Drop only explicitly consumed entries belonging to the current account.
+ * Legacy rows and unconsumed recordings are preserved regardless of age.
  * Returns the number of entries removed.
  */
 export async function pruneVoiceNoteQueue(): Promise<number> {
@@ -236,13 +240,11 @@ export async function pruneVoiceNoteQueue(): Promise<number> {
   try {
     const db = await openDatabase();
     const entries = await listAll(db);
-    const now = Date.now();
     let pruned = 0;
 
     for (const entry of entries) {
       const isConsumed = entry.status === "consumed";
-      const isStale = now - new Date(entry.queuedAt).getTime() > STALE_MS;
-      if (isConsumed || isStale) {
+      if (ownsOfflineEntry(entry) && isConsumed) {
         await removeEntry(db, entry.id);
         pruned++;
       }
@@ -262,6 +264,11 @@ export async function pruneVoiceNoteQueue(): Promise<number> {
  * Returns the number of notes successfully transcribed.
  */
 export async function drainVoiceNoteQueue(): Promise<number> {
+  if (typeof window === "undefined" || !navigator.onLine || !getOfflineOwner()) return 0;
+  return withOfflineDrainLock("ra-voice-note-drain", drainVoiceNoteQueueImpl);
+}
+
+async function drainVoiceNoteQueueImpl(): Promise<number> {
   if (typeof window === "undefined" || !navigator.onLine) return 0;
 
   let db: IDBDatabase;
@@ -275,7 +282,7 @@ export async function drainVoiceNoteQueue(): Promise<number> {
   let transcribed = 0;
 
   for (const entry of entries) {
-    if (entry.status !== "pending") continue;
+    if (!ownsOfflineEntry(entry) || entry.status !== "pending") continue;
 
     if (entry.retryCount >= MAX_RETRY_COUNT) {
       await putEntry(db, {
@@ -293,12 +300,13 @@ export async function drainVoiceNoteQueue(): Promise<number> {
         new File([entry.blob], "voice-note.webm", { type: entry.mimeType }),
       );
 
-      const response = await fetch("/api/ai/voice-note-transcribe", {
+      const response = await fetchOfflineReplay(entry.owner, "/api/ai/voice-note-transcribe", {
         method: "POST",
         body: form,
         credentials: "same-origin",
       });
 
+      if (!response) break;
       if (response.ok) {
         const data = (await response.json()) as { transcript?: string };
         await putEntry(db, {
@@ -327,7 +335,7 @@ export async function drainVoiceNoteQueue(): Promise<number> {
       await putEntry(db, { ...entry, retryCount: entry.retryCount + 1 });
     } catch {
       // Network error — still offline or intermittent. Retry next reconnect.
-      await putEntry(db, { ...entry, retryCount: entry.retryCount + 1 });
+      if (ownsOfflineEntry(entry)) await putEntry(db, { ...entry, retryCount: entry.retryCount + 1 });
     }
   }
 
