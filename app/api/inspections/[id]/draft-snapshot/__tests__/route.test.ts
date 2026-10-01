@@ -111,6 +111,7 @@ describe("PUT inspection draft snapshot", () => {
       params: Promise.resolve({ id: "insp_1" }),
     });
     expect(response.status).toBe(200);
+    expect((await response.json()).counts.environmentalData).toBe(0);
     expect(tx.environmentalData.deleteMany).toHaveBeenCalledOnce();
     expect(tx.environmentalData.create).not.toHaveBeenCalled();
   });
@@ -130,6 +131,7 @@ describe("PUT inspection draft snapshot", () => {
 
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
+    expect((await first.json()).counts.environmentalData).toBe(1);
     expect(tx.moistureReading.deleteMany).toHaveBeenCalledTimes(2);
     expect(tx.moistureReading.createMany).toHaveBeenCalledTimes(2);
     expect(tx.affectedArea.deleteMany).toHaveBeenCalledTimes(2);

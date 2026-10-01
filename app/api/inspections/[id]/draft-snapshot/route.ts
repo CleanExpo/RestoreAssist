@@ -332,7 +332,7 @@ export async function PUT(
     return NextResponse.json({
       saved: true,
       counts: {
-        environmentalData: 1,
+        environmentalData: data.environmentalData ? 1 : 0,
         moistureReadings: data.moistureReadings.length,
         affectedAreas: data.affectedAreas.length,
         scopeItems: data.scopeItems.length,
