@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 
 // GET - Retrieve pricing configuration for current user
 export async function GET(request: NextRequest) {
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { pricingConfig: true },
+      select: { id: true },
     });
 
     if (!user) {
@@ -43,18 +44,22 @@ export async function GET(request: NextRequest) {
 
     const hasApiKey = Boolean(integration);
 
+    // D-001: show the same organisation-first card used by the estimators.
+    // Reading the legacy user row here can overwrite newer setup rates on save.
+    const pricingConfig = await resolveEffectivePricing(prisma, user.id);
+
     // Parse custom fields if they exist
     let customFields = null;
-    if (user.pricingConfig?.customFields) {
+    if (pricingConfig?.customFields) {
       try {
-        customFields = JSON.parse(user.pricingConfig.customFields);
+        customFields = JSON.parse(pricingConfig.customFields);
       } catch (e) {
         console.error("Error parsing custom fields:", e);
       }
     }
 
     // If no config exists, return default values
-    if (!user.pricingConfig) {
+    if (!pricingConfig) {
       return NextResponse.json({
         pricingConfig: null,
         defaults: getDefaultPricingConfig(),
@@ -65,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       pricingConfig: {
-        ...user.pricingConfig,
+        ...pricingConfig,
         customFields,
       },
       canEdit: true,
