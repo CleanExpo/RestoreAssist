@@ -102,15 +102,15 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-vi.mock("next/font/google", () => ({
-  Plus_Jakarta_Sans: () => ({
+vi.mock("@/app/fonts/landing", () => ({
+  jakarta: {
     className: "font-landing",
     variable: "--font-landing",
-  }),
-  Outfit: () => ({
+  },
+  outfit: {
     className: "font-landing-display",
     variable: "--font-landing-display",
-  }),
+  },
 }));
 
 // Landing chrome / heavy widgets — render as inert markers. These are NOT the

@@ -1,10 +1,6 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-// RA-1290 — Geist/Geist Mono are declared as --font-sans/--font-mono in
-// globals.css but were previously only available via the system-font
-// fallback stack. Loading via next/font gives preloaded, display=swap
-// webfonts instead of Flash-of-Unstyled-Text + render-blocking CSS.
+import { geistSans, geistMono } from "@/app/fonts/site";
 import { BRAND } from "@/lib/brand";
 import { OG_SHARE_PATH, ogAlt, ogSize } from "@/lib/og/constants";
 import SessionProvider from "@/components/providers/SessionProvider";
@@ -58,17 +54,6 @@ function resolveMetadataBase(): URL {
     return new URL("http://localhost:3000");
   }
 }
-
-const geistSans = Geist({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-sans",
-});
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-mono",
-});
 
 export const metadata: Metadata = {
   title: {

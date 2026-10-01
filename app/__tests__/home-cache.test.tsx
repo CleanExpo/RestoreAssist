@@ -7,7 +7,7 @@
  * `revalidate` (ISR). Next overwrites page Cache-Control set in next.config
  * `headers()`, so route segment config is the only lever.
  *
- * Source is parsed rather than imported: the page pulls in next/font/google,
+ * Source is parsed rather than imported: the page pulls in next/font/local,
  * which only resolves inside the Next compiler.
  */
 import { describe, it, expect } from "vitest";

@@ -1,22 +1,8 @@
 "use client";
 
-import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { outfit, jakarta } from "@/app/fonts/landing";
 import { LandingNav, LandingFooter } from "@/components/landing/home";
 import { OperatorAtlasLanding } from "@/components/landing/concepts/operator-atlas/OperatorAtlasLanding";
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-  variable: "--font-landing-display",
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-landing",
-});
 
 export default function OperatorAtlasPage() {
   return (

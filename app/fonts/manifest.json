@@ -1,0 +1,66 @@
+{
+  "googleFontsCommit": "9710da1eacb3be272583c3224dcb70f9da6eadbb",
+  "conversion": "fontTools 4.61.1 / Brotli 1.2.0: TTFont(source, recalcTimestamp=False); font.flavor=woff2; font.save(destination). No subsetting or design changes.",
+  "fonts": [
+    {
+      "family": "Outfit",
+      "source": "https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/outfit/Outfit%5Bwght%5D.ttf",
+      "sourceSha256": "fc7287273e66929776e2ba54f144fe699080bec29f61bf649d70d871468aeade",
+      "file": "Outfit.woff2",
+      "sha256": "ed629d88c2db8ace1b3ac85fbf1fe0223d7272defaa817d1955100101966f0fb",
+      "bytes": 45100,
+      "axes": [
+        {
+          "tag": "wght",
+          "min": 100.0,
+          "max": 900.0
+        }
+      ]
+    },
+    {
+      "family": "PlusJakartaSans",
+      "source": "https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/plusjakartasans/PlusJakartaSans%5Bwght%5D.ttf",
+      "sourceSha256": "89b3fb38aa0d275d7a731d0d817a4f1622b316b4d7fbdedcf02ee9099ff68bc8",
+      "file": "PlusJakartaSans.woff2",
+      "sha256": "7c59703703f40fb5ff0d634b2a15c9d72dab6377841bd273eb4c8ce9a02f0143",
+      "bytes": 60636,
+      "axes": [
+        {
+          "tag": "wght",
+          "min": 200.0,
+          "max": 800.0
+        }
+      ]
+    },
+    {
+      "family": "Geist",
+      "source": "https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/geist/Geist%5Bwght%5D.ttf",
+      "sourceSha256": "73894e0448cae90a92b6c2f8732b7bb9acb7b94c418bff559dad4a18e1de9659",
+      "file": "Geist.woff2",
+      "sha256": "2ffebe993e969069a9789d15164b7715d42491b5835516c5e3b935d5f81b05f1",
+      "bytes": 69760,
+      "axes": [
+        {
+          "tag": "wght",
+          "min": 100.0,
+          "max": 900.0
+        }
+      ]
+    },
+    {
+      "family": "GeistMono",
+      "source": "https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/geistmono/GeistMono%5Bwght%5D.ttf",
+      "sourceSha256": "d00e590b8eb3a59acc329b2d044fd143ae935090b7da33199ebee27cc7de8196",
+      "file": "GeistMono.woff2",
+      "sha256": "09853cd11045cf50e8ac07faf08bd5420f181b924f4c65b93b8ee49259a03734",
+      "bytes": 71124,
+      "axes": [
+        {
+          "tag": "wght",
+          "min": 100.0,
+          "max": 900.0
+        }
+      ]
+    }
+  ]
+}
