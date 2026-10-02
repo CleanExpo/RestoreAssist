@@ -10,12 +10,9 @@ import { getFailedOperatingProviderConnection } from "@/lib/workspace/provider-c
 import { hasConfiguredAi } from "@/lib/services/integrations/ai-readiness";
 import { describePlatformTrialCoverage } from "@/lib/ai/platform-trial-credential";
 import {
-  AI_PROVIDER_ROUTE,
   buildAiProviderOnboardingStep,
 } from "@/lib/onboarding/ai-provider-step";
 import { apiError, fromException } from "@/lib/api-errors";
-
-export { AI_PROVIDER_ROUTE };
 
 export async function GET(request: NextRequest) {
   try {

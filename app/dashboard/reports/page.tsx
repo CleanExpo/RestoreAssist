@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
+import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRefresh";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -62,9 +63,16 @@ export default function ReportsPage() {
     loading,
     error: fetchError,
     refetch: refetchReports,
+    refresh: refreshReports,
   } = useFetch<{ reports: ReportWithSessionData[] }>(
     dataSource === "native" ? "/api/reports" : null,
   );
+  useMobilePullRefreshHandler(async () => {
+    if (dataSource !== "native") return { kind: "cancelled", message: "Use the synced jobs panel to refresh this source." };
+    return await refreshReports()
+      ? { kind: "updated", message: "Reports updated" }
+      : { kind: "error", message: "Could not refresh reports. Try again." };
+  });
   const reports = reportsData?.reports ?? [];
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);

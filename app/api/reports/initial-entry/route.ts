@@ -3,11 +3,75 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { withIdempotency } from "@/lib/idempotency";
+import {
+  completeIdempotentSuccessInTransaction,
+  getIdempotencyKey,
+  withIdempotency,
+} from "@/lib/idempotency";
+import { isRecentlyIssuedCreationKey } from "@/lib/creation-attempt-key";
 import { apiError, fromException } from "@/lib/api-errors";
 import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import type { Prisma } from "@prisma/client";
+
+class InspectionLinkConflictError extends Error {}
+class IdempotencyReservationLostError extends Error {}
+
+// Read only the caller's own reserved result. This lets a remounted form
+// recover a committed report without storing customer details in the browser.
+export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+  }
+  const keyResult = getIdempotencyKey(request);
+  if (!keyResult.ok || !keyResult.key) {
+    return apiError(request, { code: "VALIDATION", message: "Valid report Idempotency-Key required", status: 400 });
+  }
+  try {
+    const userId = session.user.id;
+    const record = await prisma.idempotencyRecord.findUnique({
+      where: { cacheKey: `idem:${userId}:${keyResult.key}` },
+      select: { scope: true, key: true, status: true, responseStatus: true, responseBody: true, expiresAt: true },
+    });
+    if (!record || record.scope !== userId || record.key !== keyResult.key || record.expiresAt <= new Date()) {
+      const retryable = (!record || (record.scope === userId && record.key === keyResult.key &&
+        record.status === "PENDING" && record.expiresAt <= new Date())) &&
+        isRecentlyIssuedCreationKey(keyResult.key, "report-initial");
+      return NextResponse.json({ state: retryable
+        ? "retryable_missing" : "missing" });
+    }
+    if (record.status !== "COMPLETE") return NextResponse.json({ state: "pending" });
+    if (record.responseStatus !== 200 || !record.responseBody) {
+      return NextResponse.json({ state: "rejected" });
+    }
+    let reportId: unknown;
+    try {
+      const cached = JSON.parse(record.responseBody);
+      reportId = cached?.initialEntry === true ? cached?.report?.id : null;
+    } catch {
+      return NextResponse.json({ state: "unconfirmed" });
+    }
+    if (typeof reportId !== "string" || !reportId) {
+      return NextResponse.json({ state: "unconfirmed" });
+    }
+    const report = await prisma.report.findFirst({
+      where: { id: reportId, userId }, select: { id: true },
+    });
+    if (!report) return NextResponse.json({ state: "unconfirmed" });
+    const inspectionId = request.nextUrl.searchParams.get("inspectionId");
+    if (inspectionId) {
+      const link = await prisma.inspection.findFirst({
+        where: { id: inspectionId, userId, reportId: report.id },
+        select: { id: true },
+      });
+      if (!link) return NextResponse.json({ state: "unconfirmed" });
+    }
+    return NextResponse.json({ state: "complete", reportId: report.id });
+  } catch (error) {
+    return fromException(request, error, { stage: "initial-entry-recovery" });
+  }
+}
 
 // POST - Create initial report entry (Phase 2 Step 2)
 export async function POST(request: NextRequest) {
@@ -21,6 +85,13 @@ export async function POST(request: NextRequest) {
     });
   }
   const userId = session.user.id;
+  const keyResult = getIdempotencyKey(request);
+  if (!keyResult.ok || !keyResult.key) {
+    return apiError(request, {
+      code: "VALIDATION", message: "Valid report Idempotency-Key required", status: 400,
+    });
+  }
+  const creationKey = keyResult.key;
 
   const rateLimited = await applyRateLimit(request, {
     maxRequests: 5,
@@ -93,14 +164,6 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      if (!data.technicianFieldReport || !data.technicianFieldReport.trim()) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "Technician field report is required",
-          status: 400,
-        });
-      }
-
       // RA-7726: a report started from /dashboard/reports/new?inspectionId=
       // must link back to that inspection, or Generate Invoice refuses it with
       // "A linked report is required". Linking writes Inspection.reportId, so
@@ -109,6 +172,7 @@ export async function POST(request: NextRequest) {
       // "Not yours" and "does not exist" are the same 404, so an id from
       // another tenant reveals nothing.
       let inspectionLinkWhere: Prisma.InspectionWhereInput | null = null;
+      let inspectionLinkProperty: { propertyAddress: string; propertyPostcode: string } | null = null;
       if (data.inspectionId !== undefined && data.inspectionId !== null) {
         if (typeof data.inspectionId !== "string" || !data.inspectionId) {
           return apiError(request, {
@@ -126,6 +190,23 @@ export async function POST(request: NextRequest) {
           });
         }
         inspectionLinkWhere = write.data.inspectionManyWhere;
+        const linkTarget = await prisma.inspection.findFirst({
+          where: { AND: [inspectionLinkWhere, { userId, reportId: null }] },
+          select: { id: true, propertyAddress: true, propertyPostcode: true },
+        });
+        if (!linkTarget ||
+            linkTarget.propertyAddress.trim().toLowerCase() !== data.propertyAddress.trim().toLowerCase() ||
+            linkTarget.propertyPostcode.trim() !== data.propertyPostcode.trim()) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "Inspection is no longer available for this report and property",
+            status: 409,
+          });
+        }
+        inspectionLinkProperty = {
+          propertyAddress: linkTarget.propertyAddress,
+          propertyPostcode: linkTarget.propertyPostcode,
+        };
       }
 
       // Generate report title/number
@@ -181,60 +262,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Find or create client record
-      let clientId = null;
       let clientLinkWarning: string | null = null;
-      try {
-        // First, try to find existing client by name or email
-        const existingClient = await prisma.client.findFirst({
-          where: {
-            userId: user.id,
-            // RA-7711: a real job never binds to (or updates) a sample client.
-            isSample: false,
-            OR: [
-              { name: data.clientName.trim() },
-              ...(clientEmail ? [{ email: clientEmail }] : []),
-            ],
-          },
-        });
-
-        if (existingClient) {
-          clientId = existingClient.id;
-          // Update client with new information if available
-          await prisma.client.update({
-            where: { id: existingClient.id },
-            data: {
-              phone: clientPhone || existingClient.phone,
-              address: data.propertyAddress.trim() || existingClient.address,
-              // An unknown email must not replace a previously verified address.
-              email: clientEmail || existingClient.email,
-            },
-          });
-        } else if (clientEmail) {
-          // Create new client record (no subscription check - allow creating clients from reports)
-          const newClient = await prisma.client.create({
-            data: {
-              name: data.clientName.trim(),
-              email: clientEmail,
-              phone: clientPhone || null,
-              address: data.propertyAddress.trim() || null,
-              status: "ACTIVE",
-              userId: user.id,
-            },
-          });
-          clientId = newClient.id;
-        } else {
-          // Client.email is required and unique per owner. A shared blank value
-          // would collide, while an invented address could become a recipient.
-          clientLinkWarning =
-            "Report saved without a client link. Add the client's email to create their client record.";
-        }
-      } catch (error) {
-        console.error("Error creating/updating client:", error);
-        clientLinkWarning = clientId
-          ? "Report linked to the client, but their contact details were not updated."
-          : "Report saved without a client link. Check the client record before sending or invoicing.";
-      }
 
       // Prepare NIR data if provided
       let nirDataJson = null;
@@ -275,7 +303,7 @@ export async function POST(request: NextRequest) {
         description: "Initial data entry - awaiting report generation",
         status: "DRAFT",
         clientName: data.clientName.trim(),
-        clientId: clientId, // Link to client if created/found
+        clientId: null, // Resolved with the client write in the report transaction.
         propertyAddress: data.propertyAddress.trim(),
         hazardType: "Water", // Default for water damage restoration
         insuranceType: "", // Insurance cover has not been recorded at intake.
@@ -288,7 +316,7 @@ export async function POST(request: NextRequest) {
         incidentDate: incidentDate,
         technicianAttendanceDate: technicianAttendanceDate,
         technicianName: sanitizeString(data.technicianName),
-        technicianFieldReport: data.technicianFieldReport.trim(), // Required field
+        technicianFieldReport: sanitizeString(data.technicianFieldReport),
 
         // New Fields: Property ID and Job Number
         propertyId: sanitizeString(data.propertyId),
@@ -387,7 +415,7 @@ export async function POST(request: NextRequest) {
         reportData.assignedAdminId = data.assignedAdminId;
       }
 
-      // Check if user can create a report and deduct credits
+      // Check entitlement before beginning the atomic charge and create.
       const { canCreateReport, deductCreditsAndTrackUsage } =
         await import("@/lib/report-limits");
       const canCreate = await canCreateReport(user.id);
@@ -402,16 +430,85 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Deduct credits and track usage for team hierarchy
-      // deductCreditsAndTrackUsage throws 'INSUFFICIENT_CREDITS' if the atomic
-      // updateMany finds creditsRemaining < 1 (race-safe check-and-deduct)
+      // Charge, update/create the client, create the report, and link its job
+      // in one transaction. A refusal or failed insert leaves none of them.
+      let report;
+      let successPayload;
       try {
-        await deductCreditsAndTrackUsage(user.id);
-      } catch (creditError) {
-        if (
-          creditError instanceof Error &&
-          creditError.message === "INSUFFICIENT_CREDITS"
-        ) {
+        const result = await prisma.$transaction(async (tx) => {
+          await deductCreditsAndTrackUsage(user.id, tx);
+          let linkedClientId: string | null = null;
+          const existingClient = await tx.client.findFirst({
+            where: {
+              userId: user.id,
+              isSample: false,
+              OR: [
+                { name: data.clientName.trim() },
+                ...(clientEmail ? [{ email: clientEmail }] : []),
+              ],
+            },
+            select: { id: true, email: true, phone: true, address: true },
+          });
+          if (existingClient) {
+            linkedClientId = existingClient.id;
+            await tx.client.update({
+              where: { id: existingClient.id, userId: user.id },
+              data: {
+                phone: clientPhone || existingClient.phone,
+                address: data.propertyAddress.trim() || existingClient.address,
+                email: clientEmail || existingClient.email,
+              },
+            });
+          } else if (clientEmail) {
+            const newClient = await tx.client.create({
+              data: {
+                name: data.clientName.trim(),
+                email: clientEmail,
+                phone: clientPhone || null,
+                address: data.propertyAddress.trim() || null,
+                status: "ACTIVE",
+                userId: user.id,
+              },
+              select: { id: true },
+            });
+            linkedClientId = newClient.id;
+          } else {
+            // Client.email is required; never fabricate a recipient address.
+            clientLinkWarning =
+              "Report saved without a client link. Add the client's email to create their client record.";
+          }
+          const created = await tx.report.create({
+            data: { ...reportData, clientId: linkedClientId },
+          });
+          if (inspectionLinkWhere) {
+            const linked = await tx.inspection.updateMany({
+              where: { AND: [
+                inspectionLinkWhere,
+                { userId, reportId: null, ...inspectionLinkProperty },
+              ] },
+              data: { reportId: created.id },
+            });
+            if (linked.count !== 1) throw new InspectionLinkConflictError();
+          }
+          const payload = {
+            initialEntry: true,
+            report: { id: created.id },
+            clientLinkWarning,
+            inspectionLinked: Boolean(inspectionLinkWhere),
+            message: "Initial data saved successfully. Proceed to report generation.",
+          };
+          const completed = await completeIdempotentSuccessInTransaction({
+            tx, scope: userId, key: creationKey, method: "POST",
+            path: request.nextUrl.pathname, rawBody,
+            responseBody: JSON.stringify(payload),
+          });
+          if (!completed) throw new IdempotencyReservationLostError();
+          return { report: created, payload };
+        });
+        report = result.report;
+        successPayload = result.payload;
+      } catch (createError) {
+        if (createError instanceof Error && createError.message === "INSUFFICIENT_CREDITS") {
           return NextResponse.json(
             {
               error: "No credits remaining. Please subscribe to continue.",
@@ -420,46 +517,35 @@ export async function POST(request: NextRequest) {
             { status: 402 },
           );
         }
-        throw creditError;
-      }
-
-      // Create the report with initial data (including NIR and equipment data if provided)
-      let report;
-      try {
-        report = await prisma.report.create({ data: reportData });
-      } catch (createError) {
-        // The atomic charge succeeded but no report was persisted. Compensate
-        // once, keeping the original write failure if the refund also fails.
-        try {
-          const { refundCreditsAndTrackUsage } =
-            await import("@/lib/report-limits");
-          const { refunded } = await refundCreditsAndTrackUsage(user.id);
-          if (!refunded) {
-            console.error("[initial-entry] credit refund incomplete after failed report create");
-          }
-        } catch (refundError) {
-          console.error("[initial-entry] credit refund failed after report create error", refundError);
+        if (createError instanceof InspectionLinkConflictError) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "Inspection was linked to another report; reload before saving",
+            status: 409,
+          });
+        }
+        if (createError instanceof IdempotencyReservationLostError) {
+          const response = apiError(request, {
+            code: "CONFLICT",
+            message: "Report creation could not be verified; check its status before retrying",
+            status: 409,
+          });
+          // Another request may have completed this key while this transaction
+          // rolled back. The outer middleware must not overwrite that result.
+          response.headers.set("X-RestoreAssist-Idempotency-Uncertain", "true");
+          return response;
         }
         throw createError;
       }
 
-      // RA-7726: link the inspection. The scoped where re-asserts the caller's
-      // write reach at write time, and `reportId: null` means an inspection
-      // that already carries a report keeps it rather than being repointed.
-      // Only the inspection's owner links: Generate Invoice accepts a linked
-      // report only when the inspection owner wrote it, so a colleague's
-      // report would block the owner's invoice for good.
-      let inspectionLinked = false;
-      if (inspectionLinkWhere) {
-        const linked = await prisma.inspection.updateMany({
-          where: { AND: [inspectionLinkWhere, { userId }, { reportId: null }] },
-          data: { reportId: report.id },
-        });
-        inspectionLinked = linked.count === 1;
-      }
-
       // RA-7622 — first_report_saved (first-time only, AFTER persist)
-      await recordFirstReportSaved(userId, { reportId: report.id });
+      try {
+        await recordFirstReportSaved(userId, { reportId: report.id });
+      } catch {
+        // The report and charge have committed. A nonessential analytics
+        // failure must not tell the caller to retry report creation.
+        console.error("[initial-entry] first-report analytics failed");
+      }
 
       // After saving, trigger intelligent standards analysis in background
       // This prepares standards context for when user generates the report.
@@ -523,15 +609,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return NextResponse.json({
-        report,
-        clientLinkWarning,
-        inspectionLinked,
-        message:
-          "Initial data saved successfully. Standards analysis initiated. Proceed to report generation.",
-      });
+      return NextResponse.json(successPayload);
     } catch (error) {
       return fromException(request, error, { stage: "initial-entry" });
     }
-  });
+  }, { successCompletedInHandler: true });
 }

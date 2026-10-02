@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { validateClientNotes } from "@/lib/clients/notes";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveClientReach } from "@/lib/auth/assert-tenancy";
 
@@ -179,6 +180,16 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      const notesResult = validateClientNotes(notes);
+      if (!notesResult.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: notesResult.message,
+          status: 400,
+          fields: { notes: notesResult.message },
+        });
+      }
+
       const existingClient = await prisma.client.findFirst({
         where: { email, userId },
       });
@@ -199,7 +210,7 @@ export async function POST(request: NextRequest) {
           address,
           company,
           contactPerson,
-          notes,
+          notes: notesResult.value,
           status: status || "ACTIVE",
           userId,
         },

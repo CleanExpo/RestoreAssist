@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import type { UseFormReturn } from "react-hook-form";
+import { CLIENT_NOTES_MAX_LENGTH } from "@/lib/clients/notes";
 
 // RA-1215 — long add/edit client forms (10+ fields) previously showed
 // validation errors via react-hot-toast which disappears after 4s. Users
@@ -19,7 +20,10 @@ export const clientFormSchema = z.object({
   address: z.string().optional().default(""),
   company: z.string().optional().default(""),
   contactPerson: z.string().optional().default(""),
-  notes: z.string().optional().default(""),
+  notes: z.string().max(
+    CLIENT_NOTES_MAX_LENGTH,
+    `Notes must be ${CLIENT_NOTES_MAX_LENGTH.toLocaleString("en-AU")} characters or fewer`,
+  ).optional().default(""),
   status: z.string().default("ACTIVE"),
 });
 export type ClientFormValues = z.infer<typeof clientFormSchema>;
@@ -46,6 +50,10 @@ export function applyServerFieldError(
 ): boolean {
   if (!message) return false;
   const m = message.toLowerCase();
+  if (m.includes("notes")) {
+    form.setError("notes", { type: "server", message });
+    return true;
+  }
   if (m.includes("email")) {
     form.setError("email", { type: "server", message });
     return true;

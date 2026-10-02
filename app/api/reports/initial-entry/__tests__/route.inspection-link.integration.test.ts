@@ -20,6 +20,8 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: async () => null }));
 vi.mock("@/lib/idempotency", () => ({
+  getIdempotencyKey: (request: Request) => ({ ok: true, key: request.headers.get("Idempotency-Key") }),
+  completeIdempotentSuccessInTransaction: async () => true,
   withIdempotency: async (
     request: { text: () => Promise<string> },
     _userId: string,
@@ -66,7 +68,7 @@ async function createAs(userId: string, inspectionId: string) {
     new NextRequest("http://localhost/api/reports/initial-entry", {
       method: "POST",
       body: JSON.stringify({ ...BODY, inspectionId }),
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "Idempotency-Key": `report-initial-${userId}-${inspectionId}` },
     }),
   );
 }
@@ -92,7 +94,7 @@ describe.skipIf(!HAS_DB)(
         prisma.inspection.create({
           data: {
             inspectionNumber: `${S}-${tag}`,
-            propertyAddress: `${tag} St`,
+            propertyAddress: BODY.propertyAddress,
             propertyPostcode: "4000",
             userId,
             ...(reportId ? { reportId } : {}),
@@ -198,10 +200,10 @@ describe.skipIf(!HAS_DB)(
     });
 
     it("leaves an inspection that already has a report linked to it", async () => {
+      const before = await prisma.report.count({ where: { userId: ids.ownerA } });
       const res = await createAs(ids.ownerA, ids.inspLinked);
-      expect(res.status).toBe(200);
-      const json = (await res.json()) as { inspectionLinked: boolean };
-      expect(json.inspectionLinked).toBe(false);
+      expect(res.status).toBe(409);
+      expect(await prisma.report.count({ where: { userId: ids.ownerA } })).toBe(before);
 
       const insp = await prisma.inspection.findUnique({
         where: { id: ids.inspLinked },
@@ -211,10 +213,10 @@ describe.skipIf(!HAS_DB)(
     });
 
     it("does not link a colleague's report, which the owner could not invoice", async () => {
+      const before = await prisma.report.count({ where: { userId: ids.orgAdmin } });
       const res = await createAs(ids.orgAdmin, ids.inspTech);
-      expect(res.status).toBe(200);
-      const json = (await res.json()) as { inspectionLinked: boolean };
-      expect(json.inspectionLinked).toBe(false);
+      expect(res.status).toBe(409);
+      expect(await prisma.report.count({ where: { userId: ids.orgAdmin } })).toBe(before);
 
       const insp = await prisma.inspection.findUnique({
         where: { id: ids.inspTech },

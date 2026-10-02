@@ -118,6 +118,18 @@ describe("ClientDetailPage — route params (Next 16 async-params regression)", 
   });
 });
 
+describe("ClientDetailPage — plain-text notes", () => {
+  it("renders ampersands and markup-looking notes as text", async () => {
+    const notes = "R&D <img src=x onerror=alert(1)>";
+    vi.stubGlobal("fetch", routeFetch({ client: () => okJson({ ...CLIENT_A, notes }) }));
+
+    const { container } = renderPage("client-a");
+
+    expect(await screen.findByText(notes)).toBeInTheDocument();
+    expect(container.querySelector('img[src="x"]')).toBeNull();
+  });
+});
+
 describe("ClientDetailPage — fetch error states (Bugs 1 & 2)", () => {
   it("shows an inspections load-error (not the empty state) when the inspections fetch fails", async () => {
     vi.stubGlobal(
