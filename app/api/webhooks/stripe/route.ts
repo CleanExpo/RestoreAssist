@@ -969,12 +969,36 @@ export async function handleSubscriptionUpdated(
 
   const user = await prisma.user.findFirst({
     where: { subscriptionId },
-    select: { id: true, subscriptionStatus: true },
+    select: { id: true, subscriptionStatus: true, subscriptionEndsAt: true },
   });
   if (!user) return;
 
+  // Preserve RA-907/RA-893: refresh period-end fields if present.
+  const periodEnd = sub.items?.data?.[0]?.current_period_end;
+  const subscriptionEndsAt =
+    typeof periodEnd === "number" && periodEnd > 0
+      ? new Date(periodEnd * 1000)
+      : undefined;
+
   const mapped = stripeStatusToOurs(stripeStatus);
-  if (mapped === null || mapped === user.subscriptionStatus) return;
+  if (mapped === null) return;
+  if (mapped === user.subscriptionStatus) {
+    // trialing -> active is ACTIVE -> ACTIVE here, but the period end moves from the
+    // trial end to the first paid period. Without it the integration gate
+    // (subscriptionEndsAt < now) shuts the day a Founding Trial starts paying.
+    if (
+      mapped === "ACTIVE" &&
+      subscriptionEndsAt &&
+      ownerAllows(sub, user.id) &&
+      user.subscriptionEndsAt?.getTime() !== subscriptionEndsAt.getTime()
+    ) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { subscriptionEndsAt, nextBillingDate: subscriptionEndsAt },
+      });
+    }
+    return;
+  }
   // A subscription naming another owner never restores this holder's access;
   // a downgrade still applies to whoever holds it.
   if (mapped === "ACTIVE" && !ownerAllows(sub, user.id)) return;
@@ -988,13 +1012,6 @@ export async function handleSubscriptionUpdated(
   // RA-6962 (review): the status-flip write below is idempotent, so a genuine
   // reprocess must still apply it even when the inner dedupe reports "seen".
   if (recorded.kind === "deduped" && !reprocessing) return;
-
-  // Preserve RA-907/RA-893: refresh period-end fields if present.
-  const periodEnd = sub.items?.data?.[0]?.current_period_end;
-  const subscriptionEndsAt =
-    typeof periodEnd === "number" && periodEnd > 0
-      ? new Date(periodEnd * 1000)
-      : undefined;
 
   await prisma.user.update({
     where: { id: user.id },

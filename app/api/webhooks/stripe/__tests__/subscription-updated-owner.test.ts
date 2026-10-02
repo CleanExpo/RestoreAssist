@@ -48,6 +48,34 @@ describe("handleSubscriptionUpdated — explicit owner", () => {
     expect(prisma.user.update).toHaveBeenCalledTimes(2);
   });
 
+  it("carries the new period end when a trial converts (trialing -> active, both ACTIVE)", async () => {
+    vi.mocked(prisma.user.findFirst).mockResolvedValue({
+      id: "u1",
+      subscriptionStatus: "ACTIVE",
+      subscriptionEndsAt: new Date(1_900_000_000 * 1000),
+    } as never);
+    const ev = updated("active", { userId: "u1" }) as any;
+    ev.data.object.items = { data: [{ current_period_end: 2_000_000_000 }] };
+    await handleSubscriptionUpdated(ev);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: { subscriptionEndsAt: new Date(2_000_000_000 * 1000), nextBillingDate: new Date(2_000_000_000 * 1000) },
+    });
+
+    // Another user's subscription, or a period end already stored, writes nothing.
+    vi.mocked(prisma.user.update).mockClear();
+    const other = updated("active", { userId: "u2" }) as any;
+    other.data.object.items = { data: [{ current_period_end: 2_000_000_000 }] };
+    await handleSubscriptionUpdated(other);
+    vi.mocked(prisma.user.findFirst).mockResolvedValue({
+      id: "u1",
+      subscriptionStatus: "ACTIVE",
+      subscriptionEndsAt: new Date(2_000_000_000 * 1000),
+    } as never);
+    await handleSubscriptionUpdated(ev);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
   it("still applies a downgrade to the stored holder", async () => {
     vi.mocked(prisma.user.findFirst).mockResolvedValue({
       id: "u1",
