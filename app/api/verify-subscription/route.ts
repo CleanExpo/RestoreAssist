@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { fulfillLifetimeFromSession } from "@/lib/billing/fulfill-one-time";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isLiveBaseSubscription, ownerAllows } from "@/lib/billing/live-base-subscription";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -61,10 +62,12 @@ export async function POST(request: NextRequest) {
           checkoutSession.customer_email ||
           checkoutSession.customer_details?.email;
 
-        // Allow if userId matches OR if customer email matches current user's email
-        const isValid =
-          (userId && userId === session.user.id) ||
-          (customerEmail && customerEmail === session.user.email);
+        // An explicit owner (metadata.userId, set by create-checkout-session)
+        // decides alone: a billing-email match never overrides a different
+        // named user. The email fallback applies only to a session naming none.
+        const isValid = userId
+          ? userId === session.user.id
+          : Boolean(customerEmail && customerEmail === session.user.email);
 
         if (!isValid) {
           console.error("Session validation failed:", {
@@ -80,8 +83,18 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Check if payment was successful
-        if (checkoutSession.payment_status !== "paid") {
+        // Check if payment was successful. A completed subscription Checkout
+        // with a trial (Founding Trial early upgrade, first charge on day 60)
+        // is "no_payment_required"; the live-subscription check below still
+        // decides whether it may activate the account. Unlike a paid session,
+        // a no-payment session must name this user explicitly: a billing-email
+        // match alone never transfers someone else's free trial onto this account.
+        const trialCheckoutComplete =
+          checkoutSession.metadata?.userId === session.user.id &&
+          checkoutSession.mode === "subscription" &&
+          checkoutSession.status === "complete" &&
+          checkoutSession.payment_status === "no_payment_required";
+        if (checkoutSession.payment_status !== "paid" && !trialCheckoutComplete) {
           return NextResponse.json(
             {
               error: "Payment not completed",
@@ -134,11 +147,24 @@ export async function POST(request: NextRequest) {
         // live (active) subscription may (re)activate the account and reset the
         // usage window — reject anything else so an old session cannot
         // resurrect a cancelled/incomplete subscription or re-gift usage.
-        if (stripeSubscription.status !== "active") {
+        // "trialing" is live too: a Founding Trial customer who subscribes early
+        // starts trialing until day 60 (create-checkout-session trial_end), and
+        // the webhook already maps trialing -> ACTIVE (stripeStatusToOurs).
+        if (!isLiveBaseSubscription(stripeSubscription)) {
           return apiError(request, {
             code: "VALIDATION",
             message: "Subscription is not active",
             status: 400,
+          });
+        }
+
+        // A session admitted by billing email names no owner; the subscription
+        // it points at still may, and one naming another user is never adopted.
+        if (!ownerAllows(stripeSubscription, session.user.id)) {
+          return apiError(request, {
+            code: "FORBIDDEN",
+            message: "Invalid session",
+            status: 403,
           });
         }
 
@@ -193,7 +219,7 @@ export async function POST(request: NextRequest) {
               storedSubscriptionId,
             );
             storedIsCurrent =
-              storedSubscription.status === "active" &&
+              isLiveBaseSubscription(storedSubscription) &&
               (storedSubscription.created ?? 0) >
                 (stripeSubscription.created ?? 0);
           } catch (storedLookupError: unknown) {

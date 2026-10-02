@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isLiveBaseSubscription, ownerAllows } from "@/lib/billing/live-base-subscription";
 
 function subPeriodEnd(sub: import("stripe").Stripe.Subscription): number {
   return (
@@ -91,7 +92,9 @@ export async function POST(request: NextRequest) {
           email: user.email!,
           limit: 1,
         });
-        if (customers.data.length > 0) {
+        // A billing-email match never adopts a customer that names another
+        // user (same explicit-owner rule as verify-subscription).
+        if (customers.data.length > 0 && ownerAllows(customers.data[0], user.id)) {
           customerId = customers.data[0].id;
           // Update user with customer ID
           await prisma.user.update({
@@ -122,10 +125,14 @@ export async function POST(request: NextRequest) {
 
       // Find the most recent active subscription
       const activeSubscription = subscriptions.data
-        .filter((sub) => sub.status === "active" || sub.status === "trialing")
+        .filter(isLiveBaseSubscription)
+        // A subscription naming another user is never applied to this one.
+        .filter((sub) => ownerAllows(sub, user.id))
         .sort((a, b) => b.created - a.created)[0];
 
-      if (activeSubscription && activeSubscription.status === "active") {
+      // Live = active, or a trialing BASE plan (Founding Trial early upgrade,
+      // trialing until day 60). A trialing add-on is excluded above.
+      if (activeSubscription) {
         // Determine subscription plan from price
         let subscriptionPlan = "Monthly Plan"; // Default
         if (activeSubscription.items.data[0]?.price) {
@@ -200,7 +207,8 @@ export async function POST(request: NextRequest) {
               (s) =>
                 s.mode === "payment" &&
                 s.metadata?.type === "lifetime" &&
-                s.payment_status === "paid",
+                s.payment_status === "paid" &&
+                ownerAllows(s, user.id),
             );
             if (lifetimePaid) {
               await prisma.user.update({

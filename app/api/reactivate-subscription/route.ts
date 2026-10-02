@@ -7,6 +7,15 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { prisma } from "@/lib/prisma";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
+import { ownerAllows } from "@/lib/billing/live-base-subscription";
+
+function notYours(request: NextRequest) {
+  return apiError(request, {
+    code: "FORBIDDEN",
+    message: "This subscription belongs to another account",
+    status: 403,
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +55,10 @@ export async function POST(request: NextRequest) {
         email: session.user.email!,
         limit: 1,
       });
-      customerId = customers.data[0]?.id ?? null;
+      // A billing-email match never adopts a customer that names another user.
+      const found = customers.data[0];
+      if (found && !ownerAllows(found, session.user.id)) return notYours(request);
+      customerId = found?.id ?? null;
     }
 
     if (!customerId) {
@@ -66,7 +78,9 @@ export async function POST(request: NextRequest) {
         status: "all",
         limit: 1,
       });
-      subscriptionId = subscriptions.data[0]?.id ?? null;
+      const sub = subscriptions.data[0];
+      if (sub && !ownerAllows(sub, session.user.id)) return notYours(request);
+      subscriptionId = sub?.id ?? null;
     }
 
     if (!subscriptionId) {
@@ -75,6 +89,16 @@ export async function POST(request: NextRequest) {
         message: "No subscription found",
         status: 404,
       });
+    }
+
+    // Whichever way it was resolved (stored id or customer list), the
+    // subscription must belong to this customer and must not name another user
+    // before Stripe is asked to resume billing on it.
+    const resolved = await stripe.subscriptions.retrieve(subscriptionId);
+    const resolvedCustomer =
+      typeof resolved.customer === "string" ? resolved.customer : resolved.customer?.id;
+    if (resolvedCustomer !== customerId || !ownerAllows(resolved, session.user.id)) {
+      return notYours(request);
     }
 
     await stripe.subscriptions.update(subscriptionId, {

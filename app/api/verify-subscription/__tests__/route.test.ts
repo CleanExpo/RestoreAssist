@@ -29,6 +29,7 @@ import { POST } from "../route";
 import { getServerSession } from "next-auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 function makeRequest(body: unknown) {
   return new Request("http://localhost/api/verify-subscription", {
@@ -140,7 +141,7 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
           {
             current_period_end: periodEnd,
             current_period_start: periodStart,
-            price: { recurring: { interval: "month" } },
+            price: { id: PRICING_CONFIG.prices.monthly, recurring: { interval: "month" } },
           },
         ],
       },
@@ -173,6 +174,126 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
     // Bonus is now webhook-only — the browser path must not touch these.
     expect(data.addonReports).toBeUndefined();
     expect(data.signupBonusApplied).toBeUndefined();
+  });
+
+  it("activates a founding customer's subscription that starts in Stripe 'trialing' (first charge deferred to day 60)", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
+      subSession() as any,
+    );
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      ...stripeSub(2_000_000_000, 1_990_000_000),
+      status: "trialing",
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      subscriptionId: null,
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
+    expect(res.status).toBe(200);
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+    expect(data.subscriptionStatus).toBe("ACTIVE");
+    expect(data.subscriptionId).toBe("sub_new");
+  });
+
+  it("accepts a completed trial Checkout that Stripe marks no_payment_required, and still refuses an open one", async () => {
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      ...stripeSub(2_000_000_000, 1_990_000_000),
+      status: "trialing",
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      subscriptionId: null,
+    } as any);
+
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      status: "complete",
+      payment_status: "no_payment_required",
+    } as any);
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(200);
+
+    vi.mocked(prisma.user.update).mockClear();
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      status: "open",
+      payment_status: "no_payment_required",
+    } as any);
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(400);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a trialing subscription that is not the base plan (an add-on cannot become the plan)", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      status: "complete",
+      payment_status: "no_payment_required",
+    } as any);
+    const sub = stripeSub(2_000_000_000, 1_990_000_000);
+    sub.items.data[0].price = { id: "price_technician_seats", recurring: { interval: "month" } } as any;
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({ ...sub, status: "trialing" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      subscriptionId: null,
+    } as any);
+
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(400);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a no-payment trial Checkout owned by another user even when the billing email matches", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      status: "complete",
+      payment_status: "no_payment_required",
+      metadata: { userId: "u2" },
+      customer: "cus_other",
+      customer_details: { email: "owner@example.com" },
+    } as any);
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      ...stripeSub(2_000_000_000, 1_990_000_000),
+      status: "trialing",
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
+    expect(res.status).toBe(403);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a PAID Checkout that names another user even when the billing email matches", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      metadata: { userId: "u2" },
+      customer_details: { email: "owner@example.com" },
+    } as any);
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue(
+      stripeSub(2_000_000_000, 1_990_000_000) as any,
+    );
+
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(403);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("a legacy paid session matched by billing email never adopts a subscription that names another user", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      metadata: {},
+      customer_details: { email: "owner@example.com" },
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ subscriptionId: null } as any);
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      ...stripeSub(2_000_000_000, 1_990_000_000),
+      metadata: { userId: "u2" },
+    } as any);
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(403);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+
+    // Positive control: the same legacy session on an unowned subscription still activates.
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue(
+      stripeSub(2_000_000_000, 1_990_000_000) as any,
+    );
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalled();
   });
 
   it("does NOT reset monthly usage when re-verifying the same active subscription", async () => {
@@ -335,7 +456,7 @@ describe("POST /api/verify-subscription — stored-subscription retrieve failure
           {
             current_period_end: periodEnd,
             current_period_start: periodStart,
-            price: { recurring: { interval: "month" } },
+            price: { id: PRICING_CONFIG.prices.monthly, recurring: { interval: "month" } },
           },
         ],
       },

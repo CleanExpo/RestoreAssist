@@ -9,6 +9,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 import { apiError, fromException } from "@/lib/api-errors";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { COMPLIMENTARY_PRICE_ID } from "@/lib/billing/founding-trial-grant";
 import {
   assertCatalogPrice,
   billingCountryFromOrg,
@@ -217,9 +218,12 @@ export async function POST(request: NextRequest) {
         where: { id: userId },
         select: {
           stripeCustomerId: true,
+          subscriptionStatus: true,
+          trialEndsAt: true,
           organization: { select: { country: true } },
         },
       });
+      const foundingTrialEnd = await foundingTrialEndFor(userId, user);
       const billingCountry = billingCountryFromOrg(
         user?.organization?.country,
       );
@@ -317,6 +321,7 @@ export async function POST(request: NextRequest) {
           userId: userId,
         },
         subscription_data: {
+          ...(foundingTrialEnd ? { trial_end: foundingTrialEnd } : {}),
           description: "RestoreAssist Monthly Plan",
           metadata: {
             userId: userId,
@@ -344,4 +349,32 @@ export async function POST(request: NextRequest) {
       });
     }
   });
+}
+
+// Stripe refuses a trial_end less than 48 hours away.
+const STRIPE_MIN_TRIAL_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Founding Trial customers were promised the base plan free for 60 days, then
+ * $99/month (founder decision 02/10/2026). If one subscribes early, the first
+ * charge lands when the free days end, not on the upgrade day. Returns the Unix
+ * trial_end for Checkout, or null to charge now (not a founding customer, or a
+ * trial ending inside Stripe's 48-hour minimum).
+ */
+async function foundingTrialEndFor(
+  userId: string,
+  user: { subscriptionStatus: string | null; trialEndsAt: Date | null } | null,
+): Promise<number | null> {
+  if (user?.subscriptionStatus !== "TRIAL" || !user.trialEndsAt) return null;
+  const end = new Date(user.trialEndsAt).getTime();
+  if (end - Date.now() < STRIPE_MIN_TRIAL_MS) return null;
+  const founding = await prisma.featureEntitlement.findFirst({
+    where: {
+      stripePriceId: COMPLIMENTARY_PRICE_ID,
+      active: true,
+      workspace: { ownerId: userId },
+    },
+    select: { id: true },
+  });
+  return founding ? Math.floor(end / 1000) : null;
 }

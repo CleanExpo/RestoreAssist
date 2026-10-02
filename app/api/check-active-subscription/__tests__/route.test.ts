@@ -37,6 +37,8 @@ vi.mock("@/lib/prisma", () => ({
 import { POST } from "../route";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { PRICING_CONFIG } from "@/lib/pricing";
+import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
 
 function activeSub(id: string) {
   return {
@@ -46,7 +48,7 @@ function activeSub(id: string) {
     items: {
       data: [
         {
-          price: { recurring: { interval: "month" } },
+          price: { id: PRICING_CONFIG.prices.monthly, recurring: { interval: "month" } },
           current_period_end: 2_000_000_000,
           current_period_start: 1_990_000_000,
         },
@@ -122,5 +124,84 @@ describe("POST /api/check-active-subscription — monthly-usage reset (RA-6962)"
     >;
     expect(data.monthlyReportsUsed).toBe(0);
     expect(data.monthlyResetDate).toBeInstanceOf(Date);
+  });
+
+  it("activates a founding customer's subscription that starts in Stripe 'trialing' (first charge deferred to day 60)", async () => {
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ ...activeSub("sub_f"), status: "trialing" }],
+    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as Record<
+      string,
+      unknown
+    >;
+    expect(data.subscriptionStatus).toBe("ACTIVE");
+    expect(data.subscriptionId).toBe("sub_f");
+  });
+
+  it("never adopts another user's Stripe customer or subscription found by billing email", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ stripeCustomerId: null, subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+    stripeMock.customers.list.mockResolvedValue({
+      data: [{ id: "cus_other", metadata: { userId: "u2" } }],
+    });
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ ...activeSub("sub_other"), status: "trialing", metadata: { userId: "u2" } }],
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(404);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("ignores a subscription that names another user even on the caller's own customer", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ ...activeSub("sub_other"), metadata: { userId: "u2" } }],
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(404);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("the lifetime fallback never grants a paid lifetime session that names another user", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ email: LIFETIME_PRICING_EMAIL, subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [] });
+    const lifetime = { mode: "payment", payment_status: "paid", metadata: { type: "lifetime", userId: "u2" } };
+    stripeMock.checkout.sessions.list.mockResolvedValue({ data: [lifetime] });
+    expect((await POST(makeRequest())).status).toBe(404);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+
+    // Positive control: the same session naming this user, or nobody, is granted.
+    stripeMock.checkout.sessions.list.mockResolvedValue({
+      data: [{ ...lifetime, metadata: { type: "lifetime" } }],
+    });
+    expect((await POST(makeRequest())).status).toBe(200);
+  });
+
+  it("does not activate a trialing add-on subscription as the plan", async () => {
+    const addon = activeSub("sub_addon");
+    addon.items.data[0].price = { id: "price_technician_seats", recurring: { interval: "month" } } as any;
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ ...addon, status: "trialing", created: 2000 }],
+    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(404);
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
