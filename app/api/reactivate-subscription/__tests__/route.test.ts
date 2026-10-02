@@ -107,13 +107,18 @@ describe("POST /api/reactivate-subscription", () => {
       stripeCustomerId: null,
       subscriptionId: null,
     } as never);
+    // The retrieved subscription is unowned and belongs to the found customer, so the
+    // stored-subscription check passes and ONLY the email-customer guard can refuse.
     stripeMock.customers.list.mockResolvedValue({ data: [{ id: "cus_other", metadata: { userId: "u2" } }] });
     stripeMock.subscriptions.list.mockResolvedValue({ data: [{ id: "sub_other", metadata: {} }] });
+    stripeMock.subscriptions.retrieve.mockResolvedValue({ id: "sub_other", customer: "cus_other", metadata: {} });
     expect((await POST(makeRequest())).status).toBe(403);
 
-    // An unowned customer whose subscription names another user is refused as well.
+    // An unowned customer whose subscription names another user is refused as well; again
+    // the retrieve passes, so only the email-subscription guard can refuse.
     stripeMock.customers.list.mockResolvedValue({ data: [{ id: "cus_x", metadata: {} }] });
     stripeMock.subscriptions.list.mockResolvedValue({ data: [{ id: "sub_other", metadata: { userId: "u2" } }] });
+    stripeMock.subscriptions.retrieve.mockResolvedValue({ id: "sub_other", customer: "cus_x", metadata: {} });
     expect((await POST(makeRequest())).status).toBe(403);
 
     expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
