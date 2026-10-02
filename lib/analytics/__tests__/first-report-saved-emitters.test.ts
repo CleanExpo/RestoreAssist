@@ -71,6 +71,7 @@ const h = vi.hoisted(() => {
     externalClient: { findFirst: fn() },
     organization: { findFirst: fn(), update: fn() },
     invoiceTemplate: { updateMany: fn() },
+    idempotencyRecord: { findUnique: fn(), updateMany: fn() },
     $transaction: vi.fn(),
   };
 
@@ -115,7 +116,10 @@ vi.mock("@/lib/admin-auth", () => ({
     user: { id: session.user.id },
   })),
 }));
-vi.mock("@/lib/idempotency", () => ({
+// Only the wrapper is faked; the routes also read the key with the real
+// header parser (getIdempotencyKey), which touches no database.
+vi.mock("@/lib/idempotency", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/idempotency")>()),
   withIdempotency: async (
     req: Request,
     _userId: string,
@@ -283,10 +287,14 @@ function signIn(userId: string, role = "USER") {
   });
 }
 
+/** Each call is a separate submission, so each carries its own key, as the forms do. */
 function jsonRequest(url: string, body?: unknown): NextRequest {
   return new NextRequest(`http://localhost${url}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "Idempotency-Key": `report-initial-${Date.now()}-${crypto.randomUUID()}`,
+    },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
@@ -317,6 +325,9 @@ beforeEach(() => {
       ? (arg as (tx: typeof h.db) => unknown)(h.db)
       : Promise.all(arg as Promise<unknown>[]),
   );
+  // The faked withIdempotency above always grants the reservation, so the
+  // route's in-transaction completion of that reservation succeeds.
+  h.db.idempotencyRecord.updateMany.mockResolvedValue({ count: 1 });
   h.db.report.create.mockImplementation(async () => ({
     id: newId("report"),
     user: { name: "Tester", email: "t@example.com" },
@@ -640,6 +651,8 @@ describe("not counted: POST /api/inspections (draft auto-create)", () => {
         propertyAddress: "1 Test St",
         propertyPostcode: "4000",
         clientId: "client-1",
+        // A client-linked draft must state its claim type (inspections route).
+        claimType: "WATER",
       }),
     );
     expect(res.status).toBe(201);
