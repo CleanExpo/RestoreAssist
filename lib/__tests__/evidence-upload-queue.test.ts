@@ -155,6 +155,34 @@ describe("queueEvidenceUpload — RA-1610 compression wiring", () => {
     expect(entry?.cocoaSha256).not.toBe(await computeSha256(originalBlob));
   });
 
+
+  it("names a PNG re-encode .png, not .webp, so the name matches the bytes", async () => {
+    vi.resetModules();
+    const store = installFakeIndexedDB();
+    const { compressImageForUpload } = await import("../image-compression");
+    const { queueEvidenceUpload } = await import("../evidence-upload-queue");
+
+    // Safari can return PNG when WebP is requested.
+    vi.mocked(compressImageForUpload).mockResolvedValue({
+      blob: new Blob([new Uint8Array(300)], { type: "image/png" }),
+      originalSize: 5_000_000,
+      compressedSize: 300,
+      format: "image/png",
+      skipped: false,
+    } satisfies CompressionResult);
+
+    const id = await queueEvidenceUpload({
+      inspectionId: "insp-1",
+      blob: new Blob([new Uint8Array(5_000_000)], { type: "image/jpeg" }),
+      filename: "site-photo.jpg",
+      mimeType: "image/jpeg",
+    });
+
+    expect(store.get(id)).toMatchObject({
+      filename: "site-photo.png",
+      mimeType: "image/png",
+    });
+  });
   it("keeps the original filename/blob when compression is skipped", async () => {
     vi.resetModules();
     const store = installFakeIndexedDB();

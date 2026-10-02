@@ -129,11 +129,14 @@ function generateId(): string {
   return `ev-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Swaps (or appends) a `.webp` extension once a photo has been re-encoded. */
-function renameToWebp(filename: string): string {
+/**
+ * Swaps (or appends) the extension of the format the photo was re-encoded to.
+ * Safari can return PNG when WebP is requested, so the name follows the bytes.
+ */
+function renameForFormat(filename: string, format: string): string {
   const dot = filename.lastIndexOf(".");
   const base = dot === -1 ? filename : filename.slice(0, dot);
-  return `${base}.webp`;
+  return `${base}.${format === "image/png" ? "png" : "webp"}`;
 }
 
 // ─── PUBLIC API ───────────────────────────────────────────────────────────────
@@ -186,7 +189,7 @@ export async function queueEvidenceUpload(input: {
     blob: compressed.blob,
     filename: compressed.skipped
       ? input.filename
-      : renameToWebp(input.filename),
+      : renameForFormat(input.filename, compressed.format),
     mimeType: compressed.format,
     location: input.location,
     queuedAt: new Date().toISOString(),
