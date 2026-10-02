@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { syncRecurringAddonsFromStripe } from "@/lib/billing/fulfill-recurring-addon";
 import { resolveLocalSubscriptionPlanDisplay } from "@/lib/pricing";
+import { ownerAllows } from "@/lib/billing/live-base-subscription";
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,6 +68,11 @@ export async function GET(request: NextRequest) {
         const subscription = await stripe.subscriptions.retrieve(
           user.subscriptionId,
         );
+        // A stored subscription naming another user is never synced onto this
+        // one; fall back to the local record below.
+        if (!ownerAllows(subscription, session.user.id)) {
+          throw new Error("stored subscription names another user");
+        }
         const price = await stripe.prices.retrieve(
           subscription.items.data[0].price.id,
         );

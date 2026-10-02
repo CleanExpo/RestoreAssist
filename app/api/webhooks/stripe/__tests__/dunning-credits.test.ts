@@ -160,6 +160,33 @@ describe("invoice.payment_succeeded — renewal refresh (RA-6968)", () => {
     );
   });
 
+  it("a renewal of a subscription that names its owner refreshes only that user", async () => {
+    subscriptionsRetrieve.mockResolvedValue({
+      metadata: { userId: "u2" },
+      items: { data: [{ current_period_end: PERIOD_END_UNIX }] },
+    });
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(renewalInvoice() as never);
+    expect((await POST(makeRequest())).status).toBe(200);
+    expect(userUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { subscriptionId: "sub_1", id: "u2" } }),
+    );
+  });
+
+  it("trial_will_end on a subscription that names its owner stamps only that user", async () => {
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
+      makeEvent("customer.subscription.trial_will_end", {
+        id: "sub_t",
+        customer: "cus_1",
+        trial_end: PERIOD_END_UNIX,
+        metadata: { userId: "u2" },
+      }) as never,
+    );
+    expect((await POST(makeRequest())).status).toBe(200);
+    expect(userUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { stripeCustomerId: "cus_1", id: "u2" } }),
+    );
+  });
+
   it("does nothing when the invoice has no subscription linkage", async () => {
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
       makeEvent("invoice.payment_succeeded", {

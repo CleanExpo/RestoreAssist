@@ -62,19 +62,15 @@ function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
 }
 
 /**
- * RA-6968 — resolves a subscription's current period end (item-level in the
- * 2026-05-27 API) as a Date for nextBillingDate. Best-effort: returns null on
- * any Stripe failure so the caller's renewal write still applies.
+ * RA-6968 — the renewed subscription, for its item-level period end (the
+ * 2026-05-27 API) and its named owner. Best-effort: returns null on any Stripe
+ * failure so the caller's renewal write still applies.
  */
-async function subscriptionPeriodEnd(
+async function retrieveSubscriptionQuietly(
   subscriptionId: string,
-): Promise<Date | null> {
+): Promise<Stripe.Subscription | null> {
   try {
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    const periodEnd = subscription.items?.data?.[0]?.current_period_end;
-    return typeof periodEnd === "number" && periodEnd > 0
-      ? new Date(periodEnd * 1000)
-      : null;
+    return await stripe.subscriptions.retrieve(subscriptionId);
   } catch (err) {
     console.error(
       "[stripe-webhook] subscriptions.retrieve for renewal period failed (non-fatal):",
@@ -82,6 +78,13 @@ async function subscriptionPeriodEnd(
     );
     return null;
   }
+}
+
+function periodEndOf(subscription: Stripe.Subscription | null): Date | null {
+  const periodEnd = subscription?.items?.data?.[0]?.current_period_end;
+  return typeof periodEnd === "number" && periodEnd > 0
+    ? new Date(periodEnd * 1000)
+    : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -274,12 +277,17 @@ export async function POST(request: NextRequest) {
           // customer.subscription.created / .updated handlers). Fall back to the
           // invoice's own period_end when the retrieve is unavailable so the
           // renewal write still refreshes nextBillingDate.
+          const renewed = await retrieveSubscriptionQuietly(invoiceSubscriptionId);
           const nextBillingDate =
-            (await subscriptionPeriodEnd(invoiceSubscriptionId)) ??
-            new Date(invoice.period_end * 1000);
+            periodEndOf(renewed) ?? new Date(invoice.period_end * 1000);
+          // A subscription naming its owner renews only that user.
+          const renewedOwner = renewed?.metadata?.userId;
 
           await prisma.user.updateMany({
-            where: { subscriptionId: invoiceSubscriptionId },
+            where: {
+              subscriptionId: invoiceSubscriptionId,
+              ...(renewedOwner ? { id: renewedOwner } : {}),
+            },
             data: {
               lastBillingDate: new Date(),
               nextBillingDate,
@@ -617,8 +625,12 @@ export async function POST(request: NextRequest) {
           : null;
 
         if (trialingSub.customer && trialEndsAt) {
+          const trialOwner = trialingSub.metadata?.userId;
           await prisma.user.updateMany({
-            where: { stripeCustomerId: trialingSub.customer as string },
+            where: {
+              stripeCustomerId: trialingSub.customer as string,
+              ...(trialOwner ? { id: trialOwner } : {}),
+            },
             data: { trialEndsAt },
           });
         }
@@ -814,6 +826,15 @@ export async function handleCheckoutCompleted(
   if (subscriptionId) {
     try {
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      // The session names this user; a subscription naming another user is
+      // never recorded against them.
+      if (!ownerAllows(subscription, metadataUserId)) {
+        console.error(
+          "[stripe-webhook] checkout.session.completed subscription names another user",
+          event.id,
+        );
+        return;
+      }
       subscriptionEndsAt = new Date(
         (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
       );

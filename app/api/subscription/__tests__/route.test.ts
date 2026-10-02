@@ -95,6 +95,18 @@ describe("GET /api/subscription — dahlia dates (RA-6968/6967)", () => {
     expect(data.lastBillingDate).toEqual(new Date(1_990_000_000 * 1000));
   });
 
+  it("never syncs ACTIVE or credits from a stored subscription that names another user", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue({
+      id: "sub_1",
+      status: "active",
+      metadata: { userId: "u2" },
+      cancel_at_period_end: false,
+      items: { data: [{ price: { id: "price_1" }, current_period_end: 2_000_000_000 }] },
+    });
+    expect((await GET(makeRequest())).status).toBe(200);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
   it("does NOT fabricate dates when Stripe omits the item period", async () => {
     stripeMock.subscriptions.retrieve.mockResolvedValue({
       id: "sub_1",
