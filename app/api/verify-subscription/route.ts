@@ -62,10 +62,12 @@ export async function POST(request: NextRequest) {
           checkoutSession.customer_email ||
           checkoutSession.customer_details?.email;
 
-        // Allow if userId matches OR if customer email matches current user's email
-        const isValid =
-          (userId && userId === session.user.id) ||
-          (customerEmail && customerEmail === session.user.email);
+        // An explicit owner (metadata.userId, set by create-checkout-session)
+        // decides alone: a billing-email match never overrides a different
+        // named user. The email fallback applies only to a session naming none.
+        const isValid = userId
+          ? userId === session.user.id
+          : Boolean(customerEmail && customerEmail === session.user.email);
 
         if (!isValid) {
           console.error("Session validation failed:", {

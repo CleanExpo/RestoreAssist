@@ -256,7 +256,21 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
     } as any);
 
     const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(403);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a PAID Checkout that names another user even when the billing email matches", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      metadata: { userId: "u2" },
+      customer_details: { email: "owner@example.com" },
+    } as any);
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue(
+      stripeSub(2_000_000_000, 1_990_000_000) as any,
+    );
+
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(403);
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
