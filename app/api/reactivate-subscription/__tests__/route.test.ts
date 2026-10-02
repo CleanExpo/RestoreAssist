@@ -101,6 +101,24 @@ describe("POST /api/reactivate-subscription", () => {
     );
   });
 
+  it("never reactivates a customer or subscription found by email that names another user", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      stripeCustomerId: null,
+      subscriptionId: null,
+    } as never);
+    stripeMock.customers.list.mockResolvedValue({ data: [{ id: "cus_other", metadata: { userId: "u2" } }] });
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [{ id: "sub_other", metadata: {} }] });
+    expect((await POST(makeRequest())).status).toBe(404);
+
+    // An unowned customer whose subscription names another user is refused as well.
+    stripeMock.customers.list.mockResolvedValue({ data: [{ id: "cus_x", metadata: {} }] });
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [{ id: "sub_other", metadata: { userId: "u2" } }] });
+    expect((await POST(makeRequest())).status).toBe(404);
+
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
   it("uses the stored customer + subscription id and never the shared-email lookup (RA-6939)", async () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);

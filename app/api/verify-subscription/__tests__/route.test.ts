@@ -274,6 +274,28 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
+  it("a legacy paid session matched by billing email never adopts a subscription that names another user", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      metadata: {},
+      customer_details: { email: "owner@example.com" },
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ subscriptionId: null } as any);
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      ...stripeSub(2_000_000_000, 1_990_000_000),
+      metadata: { userId: "u2" },
+    } as any);
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(403);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+
+    // Positive control: the same legacy session on an unowned subscription still activates.
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue(
+      stripeSub(2_000_000_000, 1_990_000_000) as any,
+    );
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalled();
+  });
+
   it("does NOT reset monthly usage when re-verifying the same active subscription", async () => {
     vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
       subSession() as any,

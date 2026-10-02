@@ -102,6 +102,22 @@ describe("customer.subscription.created — unlimited credit grant (RA-6968)", (
       }),
     );
   });
+
+  it("activates only the named owner when the subscription names a user", async () => {
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(
+      makeEvent("customer.subscription.created", {
+        id: "sub_new",
+        customer: "cus_1",
+        metadata: { userId: "u2" },
+        items: { data: [{ current_period_end: PERIOD_END_UNIX }] },
+      }) as never,
+    );
+
+    expect((await POST(makeRequest())).status).toBe(200);
+    expect(userUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { stripeCustomerId: "cus_1", id: "u2" } }),
+    );
+  });
 });
 
 describe("invoice.payment_succeeded — renewal refresh (RA-6968)", () => {
