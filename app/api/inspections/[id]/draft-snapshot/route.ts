@@ -94,6 +94,7 @@ const clientAreaUuidV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3
 class AreaIdCollisionError extends Error {}
 class ReadingIdCollisionError extends Error {}
 class ReadingChangedError extends Error {}
+class InspectionNotDraftError extends Error {}
 
 /** A client UUID that collides with a stored row is refused, never merged. */
 async function createOrCollide<T>(create: () => Promise<T>): Promise<T> {
@@ -337,8 +338,11 @@ export async function PUT(
     });
 
     await prisma.$transaction(async (tx) => {
-      await tx.inspection.update({
-        where: tenancy.data.inspectionWhere,
+      // Re-check DRAFT inside the transaction, as submit's CAS does. The read
+      // above can be stale: a submit that commits between it and here must
+      // stop this save before any child row below is deleted.
+      const parent = await tx.inspection.updateMany({
+        where: { ...tenancy.data.inspectionManyWhere, status: "DRAFT" },
         data: {
           ...(data.inspectionDate !== undefined && { inspectionDate }),
           lossDescription: data.lossDescription
@@ -352,6 +356,7 @@ export async function PUT(
           }),
         },
       });
+      if (parent.count !== 1) throw new InspectionNotDraftError();
 
       // B23: delete only rows this form loaded or saved and no longer holds.
       // A reading captured elsewhere after the form loaded is not in baseIds,
@@ -583,6 +588,13 @@ export async function PUT(
       return apiError(request, {
         code: "CONFLICT",
         message: "A reading changed while saving. Reload the job, then save again.",
+        status: 409,
+      });
+    }
+    if (error instanceof InspectionNotDraftError) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Only draft inspections can be synchronised",
         status: 409,
       });
     }

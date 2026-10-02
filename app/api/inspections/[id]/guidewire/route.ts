@@ -186,6 +186,16 @@ async function buildResponse(
     );
   }
 
+  // The insurer payload carries the attendance date as fact; never invent one.
+  if (!inspection.inspectionDate) {
+    return apiError(request, {
+      code: "VALIDATION",
+      message:
+        "Record the inspection attendance date before generating the Guidewire payload",
+      status: 422,
+    });
+  }
+
   const certifications = await fetchTechnicianCertifications(userId);
 
   const nirOutput = buildNirReportOutput(

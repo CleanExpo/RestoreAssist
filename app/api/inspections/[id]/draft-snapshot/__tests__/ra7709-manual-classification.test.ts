@@ -14,7 +14,7 @@ const { resolveInspectionWrite, inspectionFindUnique, transaction, tx, rows } =
   vi.hoisted(() => {
     const rows: Array<Record<string, unknown>> = [];
     const tx = {
-      inspection: { update: vi.fn() },
+      inspection: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       environmentalData: { deleteMany: vi.fn(), create: vi.fn() },
       moistureReading: { deleteMany: vi.fn(), createMany: vi.fn() },
       affectedArea: { deleteMany: vi.fn(), createMany: vi.fn() },

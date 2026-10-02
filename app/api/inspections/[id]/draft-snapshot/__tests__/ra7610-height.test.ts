@@ -11,7 +11,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 const { resolveInspectionWrite, inspectionFindUnique, transaction, tx } =
   vi.hoisted(() => {
     const tx = {
-      inspection: { update: vi.fn() },
+      inspection: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       environmentalData: { deleteMany: vi.fn(), create: vi.fn() },
       moistureReading: { deleteMany: vi.fn(), createMany: vi.fn() },
       affectedArea: { deleteMany: vi.fn(), createMany: vi.fn() },

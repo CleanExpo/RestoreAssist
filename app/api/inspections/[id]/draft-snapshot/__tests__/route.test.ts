@@ -7,7 +7,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 const { resolveInspectionWrite, inspectionFindUnique, areaFindMany, sketchRoomFindMany, transaction, tx } =
   vi.hoisted(() => {
     const tx = {
-      inspection: { update: vi.fn() },
+      inspection: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       environmentalData: { deleteMany: vi.fn(), create: vi.fn() },
       moistureReading: { deleteMany: vi.fn(), createMany: vi.fn() },
       affectedArea: { deleteMany: vi.fn(), createMany: vi.fn(), updateMany: vi.fn() },
@@ -134,7 +134,7 @@ describe("PUT inspection draft snapshot", () => {
       manualClassification: null,
     }), { params: Promise.resolve({ id: "insp_1" }) });
     expect(response.status).toBe(200);
-    expect(tx.inspection.update.mock.calls[0][0].data.inspectionDate).toBeNull();
+    expect(tx.inspection.updateMany.mock.calls[0][0].data.inspectionDate).toBeNull();
     expect(tx.environmentalData.create).not.toHaveBeenCalled();
     expect(tx.moistureReading.createMany).not.toHaveBeenCalled();
     expect(tx.affectedArea.createMany).not.toHaveBeenCalled();
@@ -144,7 +144,7 @@ describe("PUT inspection draft snapshot", () => {
   it("stores a supplied attendance date and rejects malformed dates", async () => {
     const context = { params: Promise.resolve({ id: "insp_1" }) };
     expect((await PUT(request({ ...payload, inspectionDate: "2026-10-01" }), context)).status).toBe(200);
-    expect(tx.inspection.update.mock.calls[0][0].data.inspectionDate.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    expect(tx.inspection.updateMany.mock.calls[0][0].data.inspectionDate.toISOString()).toBe("2026-10-01T00:00:00.000Z");
     vi.clearAllMocks();
     expect((await PUT(request({ ...payload, inspectionDate: "not-a-date" }), context)).status).toBe(400);
     expect(transaction).not.toHaveBeenCalled();
@@ -284,7 +284,7 @@ describe("PUT inspection draft snapshot", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(tx.inspection.update).toHaveBeenCalledWith(
+    expect(tx.inspection.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ technicianName: "J3 Tech" }),
       }),
@@ -296,13 +296,13 @@ describe("PUT inspection draft snapshot", () => {
       params: Promise.resolve({ id: "insp_1" }),
     });
 
-    expect(tx.inspection.update.mock.calls[0][0].data.technicianName).toBeNull();
+    expect(tx.inspection.updateMany.mock.calls[0][0].data.technicianName).toBeNull();
   });
 
   it("leaves the stored technician name alone when a client omits it", async () => {
     await PUT(request(), { params: Promise.resolve({ id: "insp_1" }) });
 
-    expect(tx.inspection.update.mock.calls[0][0].data).not.toHaveProperty(
+    expect(tx.inspection.updateMany.mock.calls[0][0].data).not.toHaveProperty(
       "technicianName",
     );
   });
@@ -319,5 +319,26 @@ describe("PUT inspection draft snapshot", () => {
 
     expect(response.status).toBe(409);
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  // The DRAFT read above runs before the transaction. A submit that commits
+  // in between must still stop the save before any child row is deleted.
+  it("refuses, deleting nothing, when a submit wins between the check and the save", async () => {
+    tx.inspection.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const response = await PUT(request(), {
+      params: Promise.resolve({ id: "insp_1" }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(tx.inspection.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "DRAFT" }),
+      }),
+    );
+    expect(tx.moistureReading.deleteMany).not.toHaveBeenCalled();
+    expect(tx.environmentalData.deleteMany).not.toHaveBeenCalled();
+    expect(tx.affectedArea.deleteMany).not.toHaveBeenCalled();
+    expect(tx.scopeItem.deleteMany).not.toHaveBeenCalled();
   });
 });
