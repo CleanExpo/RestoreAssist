@@ -62,6 +62,7 @@ const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AutoBreadcrumbs } from "@/components/AutoBreadcrumbs";
+import { MobilePullToRefresh } from "@/components/mobile/MobilePullToRefresh";
 import HowToDropdown from "@/components/help/HowToDropdown";
 import HelpSearchModal from "@/components/help/HelpSearchModal";
 import { cn } from "@/lib/utils";
@@ -873,8 +874,10 @@ export default function DashboardShell({
                 name; by default the slug map in lib/breadcrumb-labels
                 renders friendly text plus a short-hash fallback for
                 cuids so the trail never shows a raw 25-char id. */}
-            <AutoBreadcrumbs className="text-xs" />
-            {children}
+            <MobilePullToRefresh>
+              <AutoBreadcrumbs className="text-xs" />
+              {children}
+            </MobilePullToRefresh>
           </main>
         </div>
       </div>

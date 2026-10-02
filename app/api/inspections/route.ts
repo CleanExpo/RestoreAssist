@@ -6,13 +6,27 @@ import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { randomBytes } from "crypto";
-import { withIdempotency } from "@/lib/idempotency";
+import {
+  completeIdempotentSuccessInTransaction,
+  getIdempotencyKey,
+  withIdempotency,
+} from "@/lib/idempotency";
+import { isRecentlyIssuedCreationKey } from "@/lib/creation-attempt-key";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveInspectionReach } from "@/lib/auth/assert-tenancy";
+import {
+  assertReportLinkable,
+  reportLinkableInTx,
+  resolveInspectionReach,
+} from "@/lib/auth/assert-tenancy";
+import { parseInspectionDate } from "@/lib/parse-date";
 import {
   enumEqualityOrIn,
   parseEnumList,
 } from "@/lib/validation/parse-enum-list";
+
+class ReportClientChangedError extends Error {}
+class IdempotencyReservationLostError extends Error {}
+class ReportReachLostError extends Error {}
 
 // GET - Get inspections (optionally filtered by reportId, with pagination and search)
 export async function GET(request: NextRequest) {
@@ -30,6 +44,64 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const reportId = searchParams.get("reportId");
     const clientId = searchParams.get("clientId");
+
+    if (searchParams.get("creationStatus") === "1") {
+      const keyResult = getIdempotencyKey(request);
+      if (!keyResult.ok || !keyResult.key) {
+        return apiError(request, {
+          code: "VALIDATION", message: "Valid inspection Idempotency-Key required", status: 400,
+        });
+      }
+      const userId = session.user.id;
+      const record = await prisma.idempotencyRecord.findUnique({
+        where: { cacheKey: `idem:${userId}:${keyResult.key}` },
+        select: { scope: true, key: true, status: true, responseStatus: true, responseBody: true, expiresAt: true },
+      });
+      if (!record || record.scope !== userId || record.key !== keyResult.key || record.expiresAt <= new Date()) {
+        const retryable = (!record || (record.scope === userId && record.key === keyResult.key &&
+          record.status === "PENDING" && record.expiresAt <= new Date())) &&
+          isRecentlyIssuedCreationKey(keyResult.key, "nir-inspection");
+        return NextResponse.json({ state: retryable
+          ? "retryable_missing" : "missing" });
+      }
+      if (record.status !== "COMPLETE") return NextResponse.json({ state: "pending" });
+      if (record.responseStatus !== 201 || !record.responseBody) {
+        return NextResponse.json({ state: "rejected" });
+      }
+      let savedId: unknown;
+      try {
+        savedId = JSON.parse(record.responseBody)?.inspection?.id;
+      } catch {
+        return NextResponse.json({ state: "unconfirmed" });
+      }
+      if (typeof savedId !== "string" || !savedId) {
+        return NextResponse.json({ state: "unconfirmed" });
+      }
+      // A report-linked job belongs to the report's owner, also when an ADMIN
+      // created it, so find it within the caller's read reach, not their own rows.
+      const savedReach = await resolveInspectionReach(session);
+      if (!savedReach.ok) return NextResponse.json({ state: "unconfirmed" });
+      const saved = await prisma.inspection.findFirst({
+        where: {
+          AND: [
+            savedReach.data,
+            {
+              id: savedId,
+              ...(reportId ? { reportId } : {}),
+              ...(clientId ? { report: { is: { clientId } } } : {}),
+            },
+          ],
+        },
+        select: {
+          id: true, claimType: true, propertyAddress: true,
+          propertyPostcode: true, inspectionDate: true,
+          lossDescription: true, technicianName: true,
+        },
+      });
+      return NextResponse.json(saved
+        ? { state: "complete", inspection: saved }
+        : { state: "unconfirmed" });
+    }
 
     if (clientId) {
       // Get pagination parameters
@@ -76,48 +148,35 @@ export async function GET(request: NextRequest) {
     }
 
     if (reportId) {
-      // Note: reportId column doesn't exist, so find by property address instead.
-      // RA-1711 — scope the lookup by userId so a probe with a foreign
-      // tenant's reportId returns null, not the report's address. Pre-fix
-      // the lookup was id-only, leaking propertyAddress + propertyPostcode
-      // of any report whose ID an attacker could enumerate.
-      const report = await prisma.report.findFirst({
-        where: { id: reportId, userId: session.user.id },
-        select: { propertyAddress: true, propertyPostcode: true },
-      });
-
-      if (report) {
-        const inspection = await prisma.inspection.findFirst({
-          where: {
-            userId: session.user.id,
-            propertyAddress: report.propertyAddress,
-            ...(report.propertyPostcode
-              ? { propertyPostcode: report.propertyPostcode }
-              : {}),
-          },
-          include: {
-            // RA-7744: a stable order, so the latest reading is well defined.
-            environmentalData: {
-              orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }],
-            },
-            // RA-7610: the form's classification preview matches a linked
-            // reading to an area by its room's name, as submit does.
-            moistureReadings: {
-              include: { sketchRoom: { select: { id: true, name: true } } },
-            },
-            affectedAreas: true,
-            scopeItems: true,
-            classifications: true,
-            costEstimates: true,
-            photos: true,
-          },
-          orderBy: { createdAt: "desc" },
+      // A matching address is not a link: two reports may cover one property.
+      // Same read reach as the list below: a report-linked job belongs to the
+      // report's owner, so the ADMIN who linked it must find it again here,
+      // or the form starts an empty draft over the owner's work.
+      const reportReach = await resolveInspectionReach(session);
+      if (!reportReach.ok) {
+        return apiError(request, {
+          code: "UNAUTHORIZED",
+          message: reportReach.reason,
+          status: reportReach.status,
         });
-
-        if (inspection) {
-          return NextResponse.json({ inspection });
-        }
       }
+      const inspection = await prisma.inspection.findFirst({
+        where: { AND: [reportReach.data, { reportId }] },
+        include: {
+          environmentalData: {
+            orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }],
+          },
+          moistureReadings: {
+            include: { sketchRoom: { select: { id: true, name: true } } },
+          },
+          affectedAreas: true,
+          scopeItems: true,
+          classifications: true,
+          costEstimates: true,
+          photos: true,
+        },
+      });
+      if (inspection) return NextResponse.json({ inspection });
 
       return apiError(request, {
         code: "NOT_FOUND",
@@ -287,6 +346,43 @@ export async function GET(request: NextRequest) {
       ? null
       : await prisma.inspection.count({ where });
 
+    // The native jobs screen needs only these scalar fields. A full inspection
+    // graph belongs on the detail route; fetching it here makes one stale or
+    // mismatched child relation prevent every job from appearing on mobile.
+    if (searchParams.get("view") === "mobile") {
+      const inspections = await prisma.inspection.findMany({
+        where,
+        select: {
+          id: true,
+          reportId: true,
+          inspectionNumber: true,
+          propertyAddress: true,
+          propertyPostcode: true,
+          inspectionDate: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy,
+        ...(isCursorMode
+          ? { cursor: { id: cursor! }, skip: 1, take: fetchLimit }
+          : { skip, take: fetchLimit }),
+      });
+      const pages = total === null ? null : Math.ceil(total / limit);
+      const hasMore = isCursorMode
+        ? inspections.length > limit
+        : pages !== null && page < pages;
+      if (isCursorMode && hasMore) inspections.splice(limit);
+      const nextCursor = hasMore && inspections.length > 0
+        ? inspections[inspections.length - 1].id
+        : null;
+      return NextResponse.json({
+        inspections,
+        nextCursor,
+        pagination: { page, limit, total, pages },
+      });
+    }
+
     // Get inspections
     const inspections = await prisma.inspection.findMany({
       where,
@@ -314,7 +410,9 @@ export async function GET(request: NextRequest) {
     let nextCursor: string | null = null;
     if (isCursorMode) {
       if (inspections.length > limit) {
-        const lastItem = inspections[limit]; // the extra item
+        // The cursor is the last item returned. The lookahead row must remain
+        // eligible on the next page, whose query skips the cursor itself.
+        const lastItem = inspections[limit - 1];
         nextCursor = lastItem.id;
         inspections.splice(limit); // remove extra item from results
       }
@@ -360,6 +458,9 @@ export async function POST(request: NextRequest) {
   // inspections for the same job (causes invoice/scope chaos downstream).
   return withIdempotency(request, userId, async (rawBody) => {
     try {
+      // The wrapper has already validated this header before invoking us.
+      const keyResult = getIdempotencyKey(request);
+      const creationKey = keyResult.ok ? keyResult.key : null;
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
@@ -384,6 +485,41 @@ export async function POST(request: NextRequest) {
         return apiError(request, {
           code: "VALIDATION",
           message: "Property postcode is required",
+          status: 400,
+        });
+      }
+
+      if (
+        (body.reportId !== undefined &&
+          (typeof body.reportId !== "string" || !body.reportId.trim())) ||
+        (body.clientId !== undefined &&
+          (typeof body.clientId !== "string" || !body.clientId.trim()))
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "reportId and clientId must be non-empty strings",
+          status: 400,
+        });
+      }
+      if (body.clientId && !body.reportId && !request.headers.get("Idempotency-Key")) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Idempotency-Key is required for client-linked draft creation",
+          status: 400,
+        });
+      }
+      // A missing date means that nobody has recorded attendance yet. Do not
+      // infer it from the creation timestamp or from an incident date.
+      const inspectionDate = parseInspectionDate(body.inspectionDate);
+      if (
+        body.inspectionDate !== undefined &&
+        body.inspectionDate !== null &&
+        body.inspectionDate !== "" &&
+        !inspectionDate
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid inspectionDate",
           status: 400,
         });
       }
@@ -415,11 +551,34 @@ export async function POST(request: NextRequest) {
         pickedClaimType = body.claimType as PickerClaimType;
       }
 
-      // Validate reportId if provided
+      const requestedClientId: string | null = body.clientId?.trim() ?? null;
+      const client = requestedClientId
+        ? await prisma.client.findFirst({
+            where: { id: requestedClientId, userId },
+            select: { id: true, name: true },
+          })
+        : null;
+      if (requestedClientId && !client) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Client not found",
+          status: 404,
+        });
+      }
+
+      // Validate the actual owner and canonical client on an existing report.
+      let needsClientLink = false;
+      let reportOwnerId: string = userId;
       if (body.reportId) {
         const report = await prisma.report.findUnique({
           where: { id: body.reportId },
-          select: { id: true, userId: true },
+          select: {
+            id: true,
+            userId: true,
+            clientId: true,
+            propertyAddress: true,
+            propertyPostcode: true,
+          },
         });
 
         if (!report) {
@@ -430,13 +589,71 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Verify the report belongs to the user
-        if (report.userId !== userId) {
+        // Report-link reach: the creator, or an ADMIN or MANAGER of the
+        // creator's organisation (founder decision 02/10/2026, RA-7869). A USER
+        // colleague can read the report but cannot create its job.
+        const reach = await assertReportLinkable(session, report.id);
+        if (!reach.ok) {
           return apiError(request, {
-            code: "FORBIDDEN",
-            message: "Unauthorized: Report does not belong to user",
-            status: 403,
+            code: reach.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+            message: reach.reason,
+            status: reach.status,
           });
+        }
+        reportOwnerId = report.userId;
+        if (requestedClientId && report.clientId && report.clientId !== requestedClientId) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "Report is not linked to the selected client",
+            status: 409,
+          });
+        }
+        needsClientLink = Boolean(requestedClientId && !report.clientId);
+        if (
+          report.propertyAddress.trim().toLowerCase() !==
+            body.propertyAddress.trim().toLowerCase() ||
+          (report.propertyPostcode &&
+            report.propertyPostcode.trim() !== body.propertyPostcode.trim())
+        ) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "Inspection property does not match the report",
+            status: 409,
+          });
+        }
+        // Report-to-inspection is unique. An ordinary retry must return the
+        // existing draft, not create a second job or change its evidence.
+        const existing = await prisma.inspection.findUnique({
+          where: { reportId: report.id },
+          include: {
+            environmentalData: true,
+            moistureReadings: true,
+            affectedAreas: true,
+            scopeItems: true,
+          },
+        });
+        if (existing) {
+          if (existing.userId !== userId && existing.userId !== reportOwnerId) {
+            return apiError(request, {
+              code: "CONFLICT",
+              message: "This report already has an inspection job",
+              status: 409,
+            });
+          }
+          if (needsClientLink) {
+            const linked = await prisma.report.updateMany({
+              where: { id: report.id, userId, clientId: null },
+              data: { clientId: requestedClientId },
+            });
+            if (linked.count !== 1) {
+              return apiError(request, {
+                code: "CONFLICT",
+                message: "Report client changed; reload before saving",
+                status: 409,
+              });
+            }
+          }
+          return NextResponse.json({ inspection: existing });
         }
       }
 
@@ -444,36 +661,14 @@ export async function POST(request: NextRequest) {
       // under the client's CRM history (Report.clientId is the join path).
       let reportId: string | null =
         typeof body.reportId === "string" ? body.reportId : null;
-      if (
-        !reportId &&
-        typeof body.clientId === "string" &&
-        body.clientId.trim()
-      ) {
-        const client = await prisma.client.findFirst({
-          where: { id: body.clientId.trim(), userId },
-          select: { id: true, name: true },
-        });
-        if (!client) {
+      if (!reportId && client) {
+        if (!pickedClaimType) {
           return apiError(request, {
-            code: "NOT_FOUND",
-            message: "Client not found",
-            status: 404,
+            code: "VALIDATION",
+            message: "Select the known claim type before linking a client",
+            status: 400,
           });
         }
-        const shell = await prisma.report.create({
-          data: {
-            userId,
-            clientId: client.id,
-            clientName: client.name,
-            title: `Inspection — ${sanitizeString(body.propertyAddress, 200)}`,
-            propertyAddress: sanitizeString(body.propertyAddress, 500),
-            hazardType: pickedClaimType ?? "WATER",
-            insuranceType: "UNKNOWN",
-            status: "DRAFT",
-          },
-          select: { id: true },
-        });
-        reportId = shell.id;
       }
 
       // Generate inspection number (NIR-YYYY-MM-XXXXXX format).
@@ -487,29 +682,77 @@ export async function POST(request: NextRequest) {
       const inspectionNumber = `NIR-${year}-${month}-${sequence}`;
 
       // Create inspection
-      const inspection = await prisma.inspection.create({
-        data: {
-          inspectionNumber,
-          propertyAddress: sanitizeString(body.propertyAddress, 500),
-          propertyPostcode: sanitizeString(body.propertyPostcode, 20),
-          technicianName: body.technicianName
-            ? sanitizeString(body.technicianName, 200)
-            : null,
-          ...(body.lossDescription &&
-            ({
-              lossDescription: sanitizeString(body.lossDescription, 2000),
-            } as any)),
-          ...(pickedClaimType ? { claimType: pickedClaimType } : {}),
-          reportId, // Link to report if provided or created via clientId
-          userId,
-          status: "DRAFT",
-        },
-        include: {
-          environmentalData: true,
-          moistureReadings: true,
-          affectedAreas: true,
-          scopeItems: true,
-        },
+      // Keep a new client report and its one linked job in the same commit.
+      // A failed insert must not leave a duplicate shell Report behind.
+      const inspection = await prisma.$transaction(async (tx) => {
+        // Re-decide write reach under a lock on the caller's role: the
+        // pre-check above ran outside this transaction.
+        if (body.reportId && !(await reportLinkableInTx(tx, userId, body.reportId))) {
+          throw new ReportReachLostError();
+        }
+        if (reportId && needsClientLink) {
+          const linked = await tx.report.updateMany({
+            where: { id: reportId, userId, clientId: null },
+            data: { clientId: requestedClientId },
+          });
+          if (linked.count !== 1) throw new ReportClientChangedError();
+        }
+        if (client && !reportId) {
+          const shell = await tx.report.create({
+            data: {
+              userId,
+              clientId: client.id,
+              clientName: client.name,
+              title: `Inspection — ${sanitizeString(body.propertyAddress, 200)}`,
+              propertyAddress: sanitizeString(body.propertyAddress, 500),
+              propertyPostcode: sanitizeString(body.propertyPostcode, 20),
+              description: body.lossDescription
+                ? sanitizeString(body.lossDescription, 2000)
+                : null,
+              hazardType: pickedClaimType!,
+              insuranceType: "UNKNOWN",
+              status: "DRAFT",
+            },
+            select: { id: true },
+          });
+          reportId = shell.id;
+        }
+        const created = await tx.inspection.create({
+          data: {
+            inspectionNumber,
+            propertyAddress: sanitizeString(body.propertyAddress, 500),
+            propertyPostcode: sanitizeString(body.propertyPostcode, 20),
+            inspectionDate,
+            technicianName: body.technicianName
+              ? sanitizeString(body.technicianName, 200)
+              : null,
+            lossDescription: body.lossDescription
+              ? sanitizeString(body.lossDescription, 2000)
+              : null,
+            ...(pickedClaimType ? { claimType: pickedClaimType } : {}),
+            reportId,
+            // A job linked to a report belongs to the report's owner, also when
+            // an ADMIN creates it; the ADMIN is recorded in the audit row.
+            userId: reportOwnerId,
+            status: "DRAFT",
+          },
+          include: {
+            environmentalData: true,
+            moistureReadings: true,
+            affectedAreas: true,
+            scopeItems: true,
+          },
+        });
+        if (creationKey) {
+          const completed = await completeIdempotentSuccessInTransaction({
+            tx, scope: userId, key: creationKey, method: "POST",
+            path: request.nextUrl.pathname, rawBody,
+            responseBody: JSON.stringify({ inspection: created }),
+            responseStatus: 201,
+          });
+          if (!completed) throw new IdempotencyReservationLostError();
+        }
+        return created;
       });
 
       // Create audit log (optional - don't fail if this fails)
@@ -543,10 +786,36 @@ export async function POST(request: NextRequest) {
         console.error("Error seeding make-safe rows (non-critical):", seedErr);
       }
 
-      return NextResponse.json({ inspection }, { status: 201 });
+      return NextResponse.json({ inspection }, {
+        status: 201,
+        ...(creationKey ? { headers: { "X-RestoreAssist-Idempotency-Completed-In-Transaction": "true" } } : {}),
+      });
     } catch (error) {
+      if (error instanceof IdempotencyReservationLostError) {
+        const response = apiError(request, {
+          code: "CONFLICT",
+          message: "Inspection creation could not be verified; check its status before retrying",
+          status: 409,
+        });
+        response.headers.set("X-RestoreAssist-Idempotency-Uncertain", "true");
+        return response;
+      }
+      if (error instanceof ReportReachLostError) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Report not found",
+          status: 404,
+        });
+      }
+      if (error instanceof ReportClientChangedError) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Report client changed; reload before saving",
+          status: 409,
+        });
+      }
       // RA-786: do not leak error.message / error.code to clients — fromException handles that.
       return fromException(request, error, { stage: "create" });
     }
-  });
+  }, { successCompletedInHandler: "when-marked" });
 }

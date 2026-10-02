@@ -1,4 +1,4 @@
-import type { Inspection } from "@/shared/types";
+import type { Inspection, InspectionListItem } from "@/shared/types";
 
 const API_BASE =
   process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.app";
@@ -50,7 +50,7 @@ async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
 
 export const api = {
   inspections: {
-    list: () => apiFetch<{ inspections: Inspection[] }>("/api/inspections"),
+    list: () => apiFetch<{ inspections: InspectionListItem[] }>("/api/inspections?view=mobile&limit=100"),
 
     get: (id: string) =>
       apiFetch<{ inspection: Inspection }>(`/api/inspections/${id}`),
@@ -59,9 +59,10 @@ export const api = {
       propertyAddress: string;
       propertyPostcode: string;
       technicianName?: string;
-    }) =>
+    }, idempotencyKey: string) =>
       apiFetch<{ inspection: Inspection }>("/api/inspections", {
         method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
         body: JSON.stringify(data),
       }),
 

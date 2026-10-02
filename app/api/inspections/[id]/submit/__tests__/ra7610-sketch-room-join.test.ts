@@ -240,4 +240,262 @@ describe("submit route — RA-7610 SketchRoom join", () => {
     };
     expect(findArgs.include.moistureReadings.select.sketchRoomId).toBe(true);
   });
+
+  it.each([
+    ["Bedroom", ["Bedroom 3", "Bedroom 4"]],
+    ["Bedroom", ["Bedroom", "Bedroom"]],
+    ["Rear Lounge", ["Living Room — Rear Lounge"]],
+    ["Bedroom 3", ["Bedroom"]],
+  ])("blocks a linked %s without one unique area before classification", async (roomName, labels) => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      moistureReadings: [{
+        ...linkedReading,
+        sketchRoomId: "sr-bedroom",
+        sketchRoom: { id: "sr-bedroom", name: roomName },
+      }],
+      affectedAreas: labels.map((label, index) => ({
+        ...livingRoomArea,
+        id: `area-${index}`,
+        roomZoneId: label,
+      })),
+      photos: [],
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(422);
+    expect(mockClassificationCreate).not.toHaveBeenCalled();
+    expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("accepts an exact numbered drawing-room name", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      claimType: "WATER",
+      propertyAddress: "1 Test St",
+      propertyPostcode: "4000",
+      inspectionDate: new Date(),
+      reportId: null,
+      environmentalData,
+      moistureReadings: [{
+        ...linkedReading,
+        sketchRoomId: "sr-bedroom-4",
+        sketchRoom: { id: "sr-bedroom-4", name: "Bedroom 4" },
+      }],
+      affectedAreas: [{ ...livingRoomArea, roomZoneId: "Bedroom 4" }],
+      scopeItems: [],
+      photos: [],
+      waterDamageClassification: null,
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(200);
+    expect(createdScopeItems().some((item) => item.itemType === "remove_carpet"))
+      .toBe(true);
+  });
+
+  it("blocks two distinct drawn rooms from sharing one affected-area label", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      moistureReadings: [
+        { ...linkedReading, sketchRoomId: "sr-bedroom-a", sketchRoom: { id: "sr-bedroom-a", name: "Bedroom" } },
+        { ...linkedReading, id: "mr-2", sketchRoomId: "sr-bedroom-b", sketchRoom: { id: "sr-bedroom-b", name: "Bedroom" } },
+      ],
+      affectedAreas: [{ ...livingRoomArea, roomZoneId: "Bedroom" }],
+      photos: [],
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(422);
+    expect(mockClassificationCreate).not.toHaveBeenCalled();
+    expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("blocks a location-only reading that hints at a composite area but joins to none", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      moistureReadings: [{ ...linkedReading, sketchRoomId: null, sketchRoom: null, location: "Living Room North Wall" }],
+      affectedAreas: [{ ...livingRoomArea, roomZoneId: "Living Room — Rear Lounge" }],
+      photos: [],
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(422);
+    expect(mockClassificationCreate).not.toHaveBeenCalled();
+    expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("submits a meter reading on Master bedroom's east wall", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      claimType: "WATER",
+      propertyAddress: "1 Test St",
+      propertyPostcode: "4000",
+      inspectionDate: new Date(),
+      reportId: null,
+      environmentalData,
+      moistureReadings: [{
+        ...linkedReading,
+        sketchRoomId: null,
+        sketchRoom: null,
+        location: "Master bedroom — east wall, 300mm from floor",
+      }],
+      affectedAreas: [{ ...livingRoomArea, roomZoneId: "Master bedroom" }],
+      scopeItems: [],
+      photos: [],
+      waterDamageClassification: null,
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(200);
+    expect(mockClassificationCreate).toHaveBeenCalledOnce();
+  });
+
+  it("blocks a named Rear Suite reading from submitting under generic Master bedroom", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      moistureReadings: [{
+        ...linkedReading,
+        sketchRoomId: null,
+        sketchRoom: null,
+        location: "Master bedroom — Rear Suite North Wall",
+      }],
+      affectedAreas: [{ ...livingRoomArea, roomZoneId: "Master bedroom" }],
+      photos: [],
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(422);
+    expect(mockClassificationCreate).not.toHaveBeenCalled();
+    expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("submits a location-only Bedroom 2 reading with distinct Bedroom and Bedroom 2 areas", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      claimType: "WATER",
+      propertyAddress: "1 Test St",
+      propertyPostcode: "4000",
+      inspectionDate: new Date(),
+      reportId: null,
+      environmentalData,
+      moistureReadings: [{ ...linkedReading, sketchRoomId: null, sketchRoom: null, location: "Bedroom 2 North Wall" }],
+      affectedAreas: [
+        { ...livingRoomArea, id: "area-bedroom", roomZoneId: "Bedroom" },
+        { ...livingRoomArea, id: "area-bedroom-2", roomZoneId: "Bedroom 2" },
+      ],
+      scopeItems: [],
+      photos: [],
+      waterDamageClassification: null,
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(200);
+    expect(mockClassificationCreate).toHaveBeenCalledOnce();
+  });
+
+  it("blocks a location-only Bedroom 2 reading when only generic Bedroom exists", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      moistureReadings: [{ ...linkedReading, sketchRoomId: null, sketchRoom: null, location: "Bedroom 2 North Wall" }],
+      affectedAreas: [{ ...livingRoomArea, roomZoneId: "Bedroom" }],
+      photos: [],
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(422);
+    expect(mockClassificationCreate).not.toHaveBeenCalled();
+    expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("submits a Kitchen decimal-distance reading without treating 1.2m as Kitchen 1", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      claimType: "WATER",
+      propertyAddress: "1 Test St",
+      propertyPostcode: "4000",
+      inspectionDate: new Date(),
+      reportId: null,
+      environmentalData,
+      moistureReadings: [{ ...linkedReading, sketchRoomId: null, sketchRoom: null, location: "Kitchen 1.2m from sink" }],
+      affectedAreas: [
+        { ...livingRoomArea, id: "area-kitchen", roomZoneId: "Kitchen" },
+        { ...livingRoomArea, id: "area-kitchen-1", roomZoneId: "Kitchen 1" },
+      ],
+      scopeItems: [],
+      photos: [],
+      waterDamageClassification: null,
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(200);
+    expect(mockClassificationCreate).toHaveBeenCalledOnce();
+  });
+
+  it("blocks ambiguous Kitchen 1 m when Kitchen and Kitchen 1 both exist", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      moistureReadings: [{ ...linkedReading, sketchRoomId: null, sketchRoom: null, location: "Kitchen 1 m from sink" }],
+      affectedAreas: [
+        { ...livingRoomArea, id: "area-kitchen", roomZoneId: "Kitchen" },
+        { ...livingRoomArea, id: "area-kitchen-1", roomZoneId: "Kitchen 1" },
+      ],
+      photos: [],
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(422);
+    expect(mockClassificationCreate).not.toHaveBeenCalled();
+    expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("allows an unaffected linked baseline without inventing an affected area", async () => {
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      claimType: "WATER",
+      propertyAddress: "1 Test St",
+      propertyPostcode: "4000",
+      inspectionDate: new Date(),
+      reportId: null,
+      environmentalData,
+      moistureReadings: [{
+        ...linkedReading,
+        isBaseline: true,
+        sketchRoomId: "sr-kitchen",
+        sketchRoom: { id: "sr-kitchen", name: "Kitchen" },
+      }],
+      affectedAreas: [livingRoomArea],
+      scopeItems: [],
+      photos: [],
+      waterDamageClassification: null,
+    });
+
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(200);
+    expect((mockInspectionFindUnique.mock.calls[0]?.[0] as {
+      include: { moistureReadings: { select: { isBaseline?: boolean } } };
+    }).include.moistureReadings.select.isBaseline).toBe(true);
+  });
 });

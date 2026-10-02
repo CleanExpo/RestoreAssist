@@ -33,6 +33,7 @@
 
 import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineReplay, withOfflineDrainLock, type OfflineOwner } from "@/lib/offline/account-boundary";
 import { sameOfflineOwner } from "@/lib/offline/ownership";
+import { notifySyncQueueChanged } from "@/lib/offline/sync-status-event";
 
 import { compressImageForUpload } from "./image-compression";
 import { computeSha256 } from "./capture/cocoa-client";
@@ -67,6 +68,15 @@ export interface EvidenceQueueEntry {
   /** ISO timestamp when queued */
   queuedAt: string;
   retryCount: number;
+  /** Last HTTP response code, for an actionable recovery message. */
+  lastStatus?: number;
+  /** POST succeeded, but owner-scoped readback did not verify the photo. */
+  readbackPending?: boolean;
+  readbackStatus?: number;
+  /** Direct photo POST retry: keep the original request's byte/field shape. */
+  directRetry?: boolean;
+  /** Exact hash field from the first direct request, if it included one. */
+  directCocoaSha256?: string;
   /** RA-1610 — bytes before client-side compression, for telemetry */
   originalSize: number;
   /** RA-1610 — bytes actually queued (post-compression), for telemetry */
@@ -80,6 +90,7 @@ export interface EvidenceQueueEntry {
   cocoaSha256: string;
   /** RA-6997 — optional capture-time metadata, carried through to drain. */
   caption?: string;
+  photoStage?: string;
   gpsLat?: number;
   gpsLng?: number;
   capturedAtUtc?: string;
@@ -146,13 +157,22 @@ export async function queueEvidenceUpload(input: {
   location?: string;
   /** RA-6997 — capture-time metadata, carried through to the eventual upload. */
   caption?: string;
+  photoStage?: string;
   gps?: { lat: number; lng: number } | null;
   capturedAtUtc?: string;
+  /** Same key as an uncertain direct POST, to make replay idempotent. */
+  directRetryKey?: string;
+  directCocoaSha256?: string;
 }): Promise<string> {
   const owner = requireOfflineOwner();
   const db = await openDatabase();
 
-  const compressed = await compressImageForUpload(input.blob);
+  if (input.directRetryKey && !/^[\x21-\x7e]{8,255}$/.test(input.directRetryKey)) {
+    throw new Error("Invalid photo retry key");
+  }
+  const compressed = input.directRetryKey
+    ? { blob: input.blob, originalSize: input.blob.size, compressedSize: input.blob.size, format: input.mimeType, skipped: true }
+    : await compressImageForUpload(input.blob);
 
   // RA-6997: hash the bytes that will actually be uploaded (post-compression),
   // not the caller's pre-compression hash — see the RA-6997 module note above.
@@ -161,7 +181,7 @@ export async function queueEvidenceUpload(input: {
   if (!ownsOfflineEntry({ owner })) throw new Error("Offline account changed; photo was not overwritten");
   const entry: EvidenceQueueEntry = {
     owner,
-    id: generateId(),
+    id: input.directRetryKey ?? generateId(),
     inspectionId: input.inspectionId,
     blob: compressed.blob,
     filename: compressed.skipped
@@ -171,10 +191,13 @@ export async function queueEvidenceUpload(input: {
     location: input.location,
     queuedAt: new Date().toISOString(),
     retryCount: 0,
+    directRetry: Boolean(input.directRetryKey),
+    directCocoaSha256: input.directCocoaSha256,
     originalSize: compressed.originalSize,
     compressedSize: compressed.compressedSize,
     cocoaSha256,
     caption: input.caption,
+    photoStage: input.photoStage,
     gpsLat: input.gps?.lat,
     gpsLng: input.gps?.lng,
     capturedAtUtc: input.capturedAtUtc,
@@ -203,6 +226,7 @@ export async function queueEvidenceUpload(input: {
       store.add(entry);
     };
   });
+  notifySyncQueueChanged();
 
   // Request Background Sync if supported (Chromium / Edge / Android)
   if ("serviceWorker" in navigator && "SyncManager" in window) {
@@ -224,14 +248,57 @@ export async function queueEvidenceUpload(input: {
 }
 
 /** Count pending evidence uploads — drives the "N pending" badge. */
-export async function getQueuedEvidenceCount(): Promise<number> {
+export async function getQueuedEvidenceCount(strict = false): Promise<number> {
   if (typeof window === "undefined") return 0;
   try {
     const db = await openDatabase();
     return (await listAll(db)).filter(ownsOfflineEntry).length;
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     return 0;
   }
+}
+
+/** Owner-scoped, job-scoped pending entries. Never deletes failed evidence. */
+export async function getQueuedEvidenceForInspection(inspectionId: string): Promise<EvidenceQueueEntry[]> {
+  if (typeof window === "undefined") return [];
+  if (!getOfflineOwner()) throw new Error("Verify your account to view saved device photos");
+  const db = await openDatabase();
+  return (await listAll(db)).filter((entry) =>
+    entry.inspectionId === inspectionId && ownsOfflineEntry(entry),
+  );
+}
+
+/** Restart an exhausted entry only after an explicit user retry. */
+export async function retryQueuedEvidence(id: string, inspectionId: string): Promise<number> {
+  const owner = requireOfflineOwner();
+  if (!navigator.onLine) throw new Error("Reconnect before retrying this photo. The saved copy remains on this device.");
+  if (!navigator.locks?.request) throw new Error("Automatic retry is unavailable in this browser. Save a backup and upload it from the job photo screen. The saved copy remains on this device.");
+  const db = await openDatabase();
+  const rows = await listAll(db);
+  const entry = rows.find((row) => row.id === id && row.inspectionId === inspectionId && ownsOfflineEntry(row));
+  if (!entry || !sameOfflineOwner(entry.owner, owner)) {
+    throw new Error("Queued photo is unavailable for this account and job");
+  }
+  if (entry.retryCount >= MAX_RETRY_COUNT) {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      const store = tx.objectStore(STORE);
+      const read = store.get(id) as IDBRequest<EvidenceQueueEntry | undefined>;
+      read.onsuccess = () => {
+        const current = read.result;
+        if (!current || current.inspectionId !== inspectionId || !ownsOfflineEntry(current)) {
+          tx.abort();
+          return;
+        }
+        store.put({ ...current, retryCount: 0, lastStatus: undefined });
+      };
+      tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("Account changed; queued photo was preserved"));
+    });
+  }
+  return withOfflineDrainLock("ra-evidence-drain", () => drainEvidenceQueueImpl(id));
 }
 
 /**
@@ -246,7 +313,7 @@ export async function drainEvidenceQueue(): Promise<number> {
   return withOfflineDrainLock("ra-evidence-drain", drainEvidenceQueueImpl);
 }
 
-async function drainEvidenceQueueImpl(): Promise<number> {
+async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
   if (typeof window === "undefined" || !navigator.onLine) return 0;
 
   let db: IDBDatabase;
@@ -260,6 +327,7 @@ async function drainEvidenceQueueImpl(): Promise<number> {
   let uploaded = 0;
 
   for (const entry of entries) {
+    if (onlyId && entry.id !== onlyId) continue;
     if (!ownsOfflineEntry(entry)) continue;
     if (entry.retryCount >= MAX_RETRY_COUNT) {
       // Preserve failed uploads for recovery; never delete unsynced evidence.
@@ -272,15 +340,22 @@ async function drainEvidenceQueueImpl(): Promise<number> {
         "file",
         new File([entry.blob], entry.filename, { type: entry.mimeType }),
       );
-      if (entry.location) form.append("location", entry.location);
+      if (entry.location !== undefined) form.append("location", entry.location);
+      // Direct retries must preserve the original field order: the photo
+      // route fingerprints ordered multipart entries as well as file bytes.
+      if (entry.caption !== undefined)
+        form.append("caption", entry.caption);
       // RA-6997 — carry custody + capture metadata through to the same
       // fields the direct upload path sends. Guarded: entries queued by an
       // older app version may predate cocoaSha256 and shouldn't send a
       // literal "undefined" string.
-      if (entry.cocoaSha256) form.append("cocoaSha256", entry.cocoaSha256);
+      if (entry.directRetry ? entry.directCocoaSha256 : entry.cocoaSha256) {
+        form.append("cocoaSha256", entry.directRetry ? entry.directCocoaSha256! : entry.cocoaSha256);
+      }
       if (entry.capturedAtUtc)
         form.append("capturedAtUtc", entry.capturedAtUtc);
-      if (entry.caption) form.append("caption", entry.caption);
+      if (entry.photoStage !== undefined)
+        form.append("photoStage", entry.photoStage);
       if (entry.gpsLat !== undefined)
         form.append("gpsLat", String(entry.gpsLat));
       if (entry.gpsLng !== undefined)
@@ -301,13 +376,31 @@ async function drainEvidenceQueueImpl(): Promise<number> {
 
       if (!response) break;
       if (response.ok) {
+        // A successful POST or idempotent replay is not proof that the photo
+        // can be reopened. Keep local bytes until this owner can read it from
+        // the same inspection's listing, including a usable signed URL.
+        const posted = await response.json().catch(() => null);
+        const photoId = posted?.photo?.id;
+        if (typeof photoId !== "string" || !photoId) {
+          // A malformed success response is uncertain for this row, but must
+          // not hold later photos hostage in the same queue drain.
+          await incrementRetry(db, entry, undefined, "readback");
+          continue;
+        }
+        const readback = await fetchOfflineReplay(entry.owner, `/api/inspections/${entry.inspectionId}/photos`, { cache: "no-store" });
+        if (!readback) break;
+        const listing = readback.ok ? await readback.json().catch(() => null) : null;
+        if (!Array.isArray(listing?.photos) || !listing.photos.some((photo: { id?: string; url?: string }) => photo.id === photoId && typeof photo.url === "string" && Boolean(photo.url.trim()))) {
+          await incrementRetry(db, entry, readback.status, "readback");
+          continue;
+        }
         await removeEntry(db, entry.id);
         uploaded++;
       } else if (response.status === 413) {
         // Keep the bytes; a user can recover the original file.
-        await incrementRetry(db, entry);
+        await incrementRetry(db, entry, response.status);
       } else {
-        await incrementRetry(db, entry);
+        await incrementRetry(db, entry, response.status);
       }
     } catch {
       // Network error — still offline or intermittent. Retry next reconnect.
@@ -376,21 +469,27 @@ function removeEntry(db: IDBDatabase, id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const req = tx.objectStore(STORE).delete(id);
-    req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
+    tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
   });
 }
 
 function incrementRetry(
   db: IDBDatabase,
   entry: EvidenceQueueEntry,
+  status?: number,
+  stage: "upload" | "readback" = "upload",
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const req = tx
       .objectStore(STORE)
-      .put({ ...entry, retryCount: entry.retryCount + 1 });
-    req.onsuccess = () => resolve();
+      .put({ ...entry, retryCount: entry.retryCount + 1,
+        lastStatus: stage === "upload" ? status : undefined,
+        readbackPending: stage === "readback" || Boolean(entry.readbackPending),
+        readbackStatus: stage === "readback" ? status : entry.readbackStatus,
+      });
+    tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
     req.onerror = () => reject(req.error);
   });
 }

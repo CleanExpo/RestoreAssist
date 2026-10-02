@@ -76,7 +76,7 @@ function request() {
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ baseIds: { moistureReadings: [] }, ...payload }),
     },
   );
 }
@@ -145,7 +145,7 @@ describe("PUT inspection draft snapshot — RA-7610 tenancy", () => {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          body: JSON.stringify({ baseIds: { moistureReadings: [] },
             ...payload,
             moistureReadings: [
               {

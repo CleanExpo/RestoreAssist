@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CompressionResult } from "../image-compression";
 import { computeSha256 } from "../capture/cocoa-client";
 import { installFakeIndexedDB as installSharedFakeIndexedDB } from "./helpers/fake-indexeddb";
+import { SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline/sync-status-event";
 
 vi.mock("../image-compression", () => ({
   compressImageForUpload: vi.fn(),
@@ -171,6 +172,9 @@ describe("queueEvidenceUpload — RA-1610 compression wiring", () => {
       skipped: true,
     } satisfies CompressionResult);
 
+    const changed = vi.fn();
+    window.addEventListener(SYNC_QUEUE_CHANGED_EVENT, changed);
+
     const id = await queueEvidenceUpload({
       inspectionId: "insp-2",
       blob: originalBlob,
@@ -187,6 +191,8 @@ describe("queueEvidenceUpload — RA-1610 compression wiring", () => {
       compressedSize: 10,
       blob: originalBlob,
     });
+    await vi.waitFor(() => expect(changed).toHaveBeenCalled());
+    window.removeEventListener(SYNC_QUEUE_CHANGED_EVENT, changed);
   });
 });
 
@@ -227,15 +233,17 @@ describe("drainEvidenceQueue — RA-6997 custody + metadata round trip", () => {
         capturedAtUtc: "2026-07-05T09:00:00.000Z",
       });
 
-      (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (fetch as ReturnType<typeof vi.fn>).mockImplementation(async (_url: string, init?: RequestInit) => ({
         ok: true,
-        status: 201,
-        json: async () => ({ photo: { id: "p1" } }),
-      });
+        status: init?.method === "POST" ? 201 : 200,
+        json: async () => init?.method === "POST"
+          ? { photo: { id: "p1" } }
+          : { photos: [{ id: "p1", url: "https://synthetic.invalid/signed-photo" }] },
+      }));
 
       const uploaded = await drainEvidenceQueue();
       expect(uploaded).toBe(1);
-      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch).toHaveBeenCalledTimes(2);
 
       const [, requestInit] = (fetch as ReturnType<typeof vi.fn>).mock
         .calls[0] as [string, RequestInit];

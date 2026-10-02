@@ -33,7 +33,7 @@ import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
-import { readingMatchesArea } from "@/lib/moisture/reading-room-join";
+import { linkedReadingsAreaConflict, readingMatchesArea, unlinkedReadingsAreaAmbiguity } from "@/lib/moisture/reading-room-join";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -86,6 +86,7 @@ export async function POST(
               id: true,
               location: true,
               sketchRoomId: true,
+              isBaseline: true,
               sketchRoom: { select: { id: true, name: true } },
               surfaceType: true,
               moistureLevel: true,
@@ -117,6 +118,33 @@ export async function POST(
           code: "NOT_FOUND",
           message: "Inspection not found",
           status: 404,
+        });
+      }
+
+      // A linked drawing room needs its own affected-area identity. Zero
+      // matches silently omits it; duplicate labels count it twice, while
+      // two drawn rooms sharing a label merge separate physical rooms.
+      // Unlinked readings remain inspection-wide, while validation below
+      // handles no-area drafts.
+      if (linkedReadingsAreaConflict(
+        inspection.moistureReadings,
+        inspection.affectedAreas,
+      )) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Each drawn room with linked moisture readings must match its own affected area",
+          status: 422,
+        });
+      }
+
+      if (unlinkedReadingsAreaAmbiguity(
+        inspection.moistureReadings,
+        inspection.affectedAreas,
+      )) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "A location-only moisture reading may refer to a renamed affected area",
+          status: 422,
         });
       }
 

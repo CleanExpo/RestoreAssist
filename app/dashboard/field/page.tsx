@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile/MobileNav";
+import { useMobilePullRefreshHandler, type RefreshResult } from "@/components/mobile/MobilePullToRefresh";
 import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
 import {
   cacheJobs,
@@ -63,7 +64,8 @@ const ACTIVE_STATUSES = [
   "IN_BILLING",
 ];
 
-function formatInspectionDate(dateStr: string): string {
+function formatInspectionDate(dateStr: string | null): string {
+  if (!dateStr) return "Attendance unknown";
   const d = new Date(dateStr);
   if (isToday(d)) return "Today";
   if (isYesterday(d)) return "Yesterday";
@@ -116,13 +118,13 @@ export default function FieldDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadInspections() {
+  async function loadInspections(): Promise<RefreshResult> {
     const requestOwner = getOfflineOwner();
     if (!requestOwner) {
       setInspections([]);
       setLoading(false);
       setLoadError("Reconnect to verify your account. Saved offline work is preserved.");
-      return;
+      return { kind: "cancelled", message: "Reconnect to verify your account. Saved offline work is preserved." };
     }
     setLoading(true);
     setLoadError(null);
@@ -150,7 +152,7 @@ export default function FieldDashboardPage() {
         inspectionNumber: string;
         propertyAddress: string;
         status: string;
-        inspectionDate: string;
+        inspectionDate: string | null;
         moistureReadings?: unknown[];
       }>;
 
@@ -191,18 +193,21 @@ export default function FieldDashboardPage() {
         }),
       );
 
-      if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) return;
+      if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) {
+        return { kind: "cancelled", message: "Account changed. Refresh cancelled." };
+      }
       setInspections(enriched);
       setFromCache(false);
       setCacheAge(null);
       setIsOffline(false);
       // Persist to IndexedDB for offline fallback
       await cacheJobs(enriched, requestOwner);
+      return { kind: "updated", message: "Jobs updated" };
     } catch (err) {
       if (!ownsOfflineEntry({ owner: requestOwner })) {
         setInspections([]);
         setLoadError("Reconnect to verify your account. Saved offline work is preserved.");
-        return;
+        return { kind: "cancelled", message: "Account changed. Refresh cancelled." };
       }
       const isHttpError =
         err instanceof Error &&
@@ -214,10 +219,13 @@ export default function FieldDashboardPage() {
           err instanceof Error ? err.message : "Failed to load jobs",
         );
         setIsOffline(false);
+        return { kind: "error", message: "Could not refresh jobs. Try again." };
       } else {
         // Network failure — fall back to IndexedDB cache
         const { jobs, fetchedAt } = await getCachedJobs(requestOwner);
-        if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) return;
+        if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) {
+          return { kind: "cancelled", message: "Account changed. Refresh cancelled." };
+        }
         if (jobs.length === 0) {
           // RA-7711: nothing to show is a failed load, not "0 active jobs".
           setLoadError("check your connection and try again");
@@ -232,11 +240,14 @@ export default function FieldDashboardPage() {
           );
         }
         setIsOffline(true);
+        return { kind: "offline", message: jobs.length > 0 ? "Offline. Showing saved jobs." : "Offline. No saved jobs available." };
       }
     } finally {
       setLoading(false);
     }
   }
+
+  useMobilePullRefreshHandler(loadInspections);
 
   useEffect(() => {
     loadInspections();

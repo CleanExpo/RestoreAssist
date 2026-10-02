@@ -13,7 +13,7 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(),
 }));
 
-import { buildNirReportOutput } from "../guidewire/route";
+import { buildNirReportOutput } from "@/lib/export/guidewire-report-output";
 
 // Minimal inspection shape matching fetchInspectionForGuidewire's projection.
 function makeInspection(overrides: Record<string, unknown> = {}) {

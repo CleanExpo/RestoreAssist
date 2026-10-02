@@ -101,7 +101,7 @@ function put(manualClassification: { category: string; class: string } | null) {
     new NextRequest("http://localhost/api/inspections/insp_1/draft-snapshot", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...basePayload, manualClassification }),
+      body: JSON.stringify({ baseIds: { moistureReadings: [] }, ...basePayload, manualClassification }),
     }),
     { params: Promise.resolve({ id: "insp_1" }) },
   );

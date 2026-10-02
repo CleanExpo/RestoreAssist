@@ -69,13 +69,16 @@ import {
   pickEvidencePhotoFile,
 } from "@/lib/evidence/ios-capture";
 import type { IOSCaptureResult } from "@/lib/evidence/ios-capture";
+import { verifyEvidenceReadback } from "@/lib/evidence/verified-readback";
 import {
   createSignedManifest,
   ensureDeviceKeyRegistered,
   recoverFromRejectedKey,
 } from "@/lib/evidence/device-signing";
+import type { SignedManifestPayload } from "@/lib/evidence/device-signing";
 import { submitSignedCapture } from "@/lib/evidence/capture-submit";
 import { useSession } from "next-auth/react";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
 import { AdaptiveGuidancePanel } from "@/components/inspections/adaptive-guidance-panel";
@@ -205,6 +208,7 @@ export default function CaptureWorkflowPage({
 }) {
   const { id: inspectionId } = use(params);
   const router = useRouter();
+  const confirm = useConfirmDialog();
   const { isNative } = useCapacitor();
   const { data: session } = useSession();
   const [offlineCount, setOfflineCount] = useState(0);
@@ -241,7 +245,22 @@ export default function CaptureWorkflowPage({
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [selectedEvidenceClass, setSelectedEvidenceClass] =
     useState<EvidenceClass | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pickerAbortRef = useRef<AbortController | null>(null);
+  const signedRequestCache = useRef(new Map<string, Pick<SignedManifestPayload, "manifestJson" | "signature">>());
+  const [pickerPending, setPickerPending] = useState(false);
+  const [pendingRawFile, setPendingRawFile] = useState<{
+    stepId: string;
+    evidenceClass: EvidenceClass;
+    file: File;
+  } | null>(null);
+  const [pendingCapture, setPendingCapture] = useState<{
+    stepId: string;
+    evidenceClass: EvidenceClass;
+    capture: IOSCaptureResult;
+  } | null>(null);
+  const [pendingFailureStatus, setPendingFailureStatus] = useState<number | null>(null);
+
+  useEffect(() => () => pickerAbortRef.current?.abort(), []);
 
   // Adaptive guidance — apprentice confirmation gate
   const [confirmationsComplete, setConfirmationsComplete] = useState(true);
@@ -420,6 +439,7 @@ export default function CaptureWorkflowPage({
     evidenceClass: EvidenceClass,
     capture: IOSCaptureResult,
   ) => {
+    setPendingFailureStatus(null);
     // RA-7090: upload the captured bytes (multipart) so the server can
     // recompute and verify the evidence hash over the stored file.
     // RA-7090 slice 2 (P1): capture is SIGNED, fail-closed.
@@ -432,23 +452,25 @@ export default function CaptureWorkflowPage({
 
     let lastResponse: Response | null = null;
     const signAndPost = async (attempt: "initial" | "resigned") => {
-      const deviceKey = await ensureDeviceKeyRegistered(keyMode);
-      const payload = await createSignedManifest(
-        capture,
-        {
-          inspectionId,
-          workflowStepId: stepId,
-          evidenceClass,
-          userId,
-        },
-        deviceKey,
-      );
       const idempotencyKey = await evidenceIdempotencyKey(capture.manifest, {
         inspectionId,
         workflowStepId: stepId,
         evidenceClass,
         ...(attempt === "resigned" ? { variant: "resigned-retry" } : {}),
       });
+      let payload = signedRequestCache.current.get(idempotencyKey);
+      if (!payload) {
+        const deviceKey = await ensureDeviceKeyRegistered(keyMode);
+        const signed = await createSignedManifest(
+          capture,
+          { inspectionId, workflowStepId: stepId, evidenceClass, userId },
+          deviceKey,
+        );
+        payload = { manifestJson: signed.manifestJson, signature: signed.signature };
+        // An uncertain POST must replay the exact signed multipart fields for
+        // this idempotency key, even if device registration later changes.
+        signedRequestCache.current.set(idempotencyKey, payload);
+      }
       const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey },
@@ -473,13 +495,20 @@ export default function CaptureWorkflowPage({
     });
 
     if (!result.ok || !lastResponse) {
+      setPendingFailureStatus((lastResponse as Response | null)?.status ?? null);
       const body = lastResponse
         ? await (lastResponse as Response).json().catch(() => null)
         : null;
       throw new Error(body?.error?.message || "Failed to record evidence");
     }
     const data = await (lastResponse as Response).json();
-    setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
+    if (typeof data?.evidenceItem?.id !== "string") {
+      throw new Error("Evidence upload returned no item ID. Keep the pending capture and retry.");
+    }
+    const verified = await verifyEvidenceReadback(inspectionId, stepId, data.evidenceItem.id);
+    setPendingFailureStatus(null);
+    signedRequestCache.current.clear();
+    setEvidenceItems((prev) => [verified as unknown as EvidenceItem, ...prev]);
     setSelectedEvidenceClass(null);
     toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
   };
@@ -488,6 +517,7 @@ export default function CaptureWorkflowPage({
     stepId: string,
     evidenceClass: EvidenceClass,
   ) => {
+    if (pickerAbortRef.current || pendingRawFile || pendingCapture) return;
     try {
       setUploadingEvidence(true);
       setSelectedEvidenceClass(evidenceClass);
@@ -568,10 +598,27 @@ export default function CaptureWorkflowPage({
         return;
       }
 
-      const capture = isNative
-        ? await captureEvidencePhoto()
-        : await evidencePhotoFromFile(await pickEvidencePhotoFile());
+      let capture: IOSCaptureResult;
+      if (isNative) {
+        capture = await captureEvidencePhoto();
+      } else {
+        const controller = new AbortController();
+        pickerAbortRef.current = controller;
+        setPickerPending(true);
+        let selected: File;
+        try {
+          selected = await pickEvidencePhotoFile({ signal: controller.signal });
+        } finally {
+          pickerAbortRef.current = null;
+          setPickerPending(false);
+        }
+        setPendingRawFile({ stepId, evidenceClass, file: selected });
+        capture = await evidencePhotoFromFile(selected);
+      }
+      setPendingCapture({ stepId, evidenceClass, capture });
       await uploadSignedEvidence(stepId, evidenceClass, capture);
+      setPendingCapture(null);
+      setPendingRawFile(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Capture failed";
       if (msg === "Capture cancelled" || msg === "No file selected") {
@@ -583,6 +630,66 @@ export default function CaptureWorkflowPage({
     } finally {
       setUploadingEvidence(false);
     }
+  };
+
+  const retryPendingCapture = async () => {
+    if (!pendingCapture || uploadingEvidence) return;
+    setUploadingEvidence(true);
+    try {
+      await uploadSignedEvidence(pendingCapture.stepId, pendingCapture.evidenceClass, pendingCapture.capture);
+      setPendingCapture(null);
+      setPendingRawFile(null);
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Evidence remains pending. Retry before leaving this page.");
+    } finally {
+      setUploadingEvidence(false);
+    }
+  };
+
+  const retryPendingRawFile = async () => {
+    if (!pendingRawFile || pendingCapture || uploadingEvidence) return;
+    setUploadingEvidence(true);
+    try {
+      const capture = await evidencePhotoFromFile(pendingRawFile.file);
+      setPendingCapture({ stepId: pendingRawFile.stepId, evidenceClass: pendingRawFile.evidenceClass, capture });
+      await uploadSignedEvidence(pendingRawFile.stepId, pendingRawFile.evidenceClass, capture);
+      setPendingCapture(null);
+      setPendingRawFile(null);
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Photo remains selected. Retry preparation or save the original file.");
+    } finally {
+      setUploadingEvidence(false);
+    }
+  };
+
+  const savePendingCaptureCopy = () => {
+    const blob = pendingRawFile?.file ?? pendingCapture?.capture.blob;
+    const filename = pendingRawFile?.file.name ?? pendingCapture?.capture.filename;
+    if (!blob || !filename) return;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
+  const discardPendingCapture = async () => {
+    if (uploadingEvidence || (!pendingCapture && !pendingRawFile)) return;
+    const uncertainUpload = pendingCapture && ![400, 413, 415, 422].includes(pendingFailureStatus ?? -1);
+    const ok = await confirm.ask({
+      title: uncertainUpload ? "Clear photo with uncertain upload?" : "Discard this unsaved photo?",
+      description: uncertainUpload
+        ? "The upload may already be on this job. Save an original copy before clearing this local selection, then check the job evidence list before trying the same photo again to avoid a duplicate. No stored job photo is deleted."
+        : "This clears the local selection so you can capture another photo. Save an original copy first if you need these bytes. No stored job photo is deleted.",
+      confirmLabel: "Discard local selection",
+      destructive: true,
+    });
+    if (!ok) return;
+    setPendingCapture(null);
+    setPendingRawFile(null);
+    setPendingFailureStatus(null);
+    signedRequestCache.current.clear();
   };
 
   const handleDeleteEvidence = async (evidenceId: string) => {
@@ -979,6 +1086,28 @@ export default function CaptureWorkflowPage({
       {/* MAIN STEP PANEL */}
       {/* ============================================ */}
       <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+        {pendingCapture && (
+          <div role="alert" className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <span className="flex-1">Photo captured but its job attachment is not verified. Keep this page open and retry, or save the original file.</span>
+            <button type="button" onClick={() => void retryPendingCapture()} disabled={uploadingEvidence} className="rounded border px-2 py-1 disabled:opacity-50">Retry pending photo</button>
+            <button type="button" onClick={savePendingCaptureCopy} className="rounded border px-2 py-1">Save original copy</button>
+            <button type="button" onClick={() => void discardPendingCapture()} disabled={uploadingEvidence} className="rounded border border-red-500 px-2 py-1 disabled:opacity-50">Clear pending selection</button>
+          </div>
+        )}
+        {pendingRawFile && !pendingCapture && !uploadingEvidence && (
+          <div role="alert" className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <span className="flex-1">The selected photo could not be prepared or attached. It remains on this page. Retry or save the original file.</span>
+            <button type="button" onClick={() => void retryPendingRawFile()} className="rounded border px-2 py-1">Retry selected photo</button>
+            <button type="button" onClick={savePendingCaptureCopy} className="rounded border px-2 py-1">Save original copy</button>
+            <button type="button" onClick={() => void discardPendingCapture()} className="rounded border border-red-500 px-2 py-1">Discard selected photo</button>
+          </div>
+        )}
+        {pickerPending && (
+          <div role="status" className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <span className="flex-1">Waiting for your camera or file picker. If you closed it without choosing a photo, end this selection.</span>
+            <button type="button" onClick={() => pickerAbortRef.current?.abort()} className="rounded border px-2 py-1">I did not choose a photo</button>
+          </div>
+        )}
         {/* Step header */}
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center justify-between mb-6">
@@ -1397,6 +1526,7 @@ export default function CaptureWorkflowPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <confirm.Mount />
     </div>
   );
 }

@@ -24,6 +24,7 @@ global.fetch = vi.fn() as unknown as typeof fetch;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal("crypto", { randomUUID: () => "synthetic-uuid" });
   queueEvidenceUpload.mockReset();
   Object.defineProperty(window.navigator, "onLine", {
     value: true,
@@ -99,10 +100,14 @@ describe("CapturePhotoFab", () => {
   });
 
   it("uses the direct upload path when online and the route succeeds (regression guard)", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       status: 201,
       ok: true,
       json: async () => ({ photo: { id: "p1", url: "u", thumbnailUrl: null } }),
+    }).mockResolvedValueOnce({
+      status: 200,
+      ok: true,
+      json: async () => ({ photos: [{ id: "p1", url: "u", thumbnailUrl: null }] }),
     });
     const onUploaded = vi.fn();
 
@@ -123,7 +128,8 @@ describe("CapturePhotoFab", () => {
         thumbnailUrl: null,
       }),
     );
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].headers).toEqual({ "Idempotency-Key": "photo-synthetic-uuid" });
     expect(queueEvidenceUpload).not.toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith("Photo saved");
   });
@@ -155,7 +161,7 @@ describe("CapturePhotoFab", () => {
     );
     expect(fetch).not.toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith(
-      "Saved — will upload when back online",
+      "Saved on this device — upload will be verified on sync",
     );
   });
 
@@ -180,9 +186,43 @@ describe("CapturePhotoFab", () => {
     await waitFor(() => expect(queueEvidenceUpload).toHaveBeenCalledTimes(1));
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(toast.success).toHaveBeenCalledWith(
-      "Saved — will upload when back online",
+      "Saved on this device — upload will be verified on sync",
     );
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("reuses the first request key and body when both upload and queue fail", async () => {
+    vi.stubGlobal("crypto", { randomUUID: vi.fn().mockReturnValueOnce("first").mockReturnValueOnce("second") });
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ status: 503, ok: false });
+    queueEvidenceUpload.mockRejectedValue(new Error("Device storage full"));
+    render(<CapturePhotoFab inspectionId="i_1" inspectionStatus="DRAFT" onUploaded={vi.fn()} />);
+    await selectFileAndOpenModal();
+    const caption = screen.getByPlaceholderText(/Description \(optional/);
+    fireEvent.change(caption, { target: { value: "First caption" } });
+    clickSave();
+    await waitFor(() => expect(queueEvidenceUpload).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save photo" })).toBeEnabled());
+    expect(caption).toBeDisabled();
+    expect(caption).toHaveValue("First caption");
+    expect(screen.getByRole("status")).toHaveTextContent(/photo and caption are fixed/i);
+    clickSave();
+    await waitFor(() => expect(queueEvidenceUpload).toHaveBeenCalledTimes(2));
+    const [first, second] = (fetch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(first[1].headers["Idempotency-Key"]).toBe("photo-first");
+    expect(second[1].headers["Idempotency-Key"]).toBe("photo-first");
+    for (const field of ["file", "caption", "cocoaSha256", "capturedAtUtc"]) {
+      expect((second[1].body as FormData).get(field)).toEqual((first[1].body as FormData).get(field));
+    }
+    expect(screen.getByRole("button", { name: "Save photo" })).toBeEnabled();
+  });
+
+  it("retains the first request identity for an uncertain HTTP 429", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ status: 429, ok: false });
+    queueEvidenceUpload.mockResolvedValue("photo-synthetic-uuid");
+    render(<CapturePhotoFab inspectionId="i_1" inspectionStatus="DRAFT" onUploaded={vi.fn()} />);
+    await selectFileAndOpenModal();
+    clickSave();
+    await waitFor(() => expect(queueEvidenceUpload).toHaveBeenCalledWith(expect.objectContaining({ directRetryKey: "photo-synthetic-uuid" })));
   });
 
   it("falls back to the queue on a network error even when navigator.onLine reports true", async () => {
@@ -203,7 +243,37 @@ describe("CapturePhotoFab", () => {
 
     await waitFor(() => expect(queueEvidenceUpload).toHaveBeenCalledTimes(1));
     expect(toast.success).toHaveBeenCalledWith(
-      "Saved — will upload when back online",
+      "Saved on this device — upload will be verified on sync",
     );
+  });
+
+  it("keeps an unverified 201 response in the queue with the first request key and custody fields", async () => {
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ status: 201, ok: true, json: async () => ({ photo: { id: "p1" } }) })
+      .mockResolvedValueOnce({ status: 500, ok: false });
+    queueEvidenceUpload.mockResolvedValue("photo-synthetic-uuid");
+    const onUploaded = vi.fn();
+    render(<CapturePhotoFab inspectionId="i_1" inspectionStatus="DRAFT" onUploaded={onUploaded} />);
+    await selectFileAndOpenModal();
+    clickSave();
+    await waitFor(() => expect(queueEvidenceUpload).toHaveBeenCalledWith(expect.objectContaining({
+      directRetryKey: "photo-synthetic-uuid", directCocoaSha256: "abc123",
+    })));
+    expect(onUploaded).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalledWith("Photo saved");
+  });
+
+  it("shows the message from a structured 400 error without clearing the captured file", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: 400,
+      ok: false,
+      json: async () => ({ error: { code: "VALIDATION", message: "Unsupported image bytes", eventId: "synthetic-event" } }),
+    });
+    render(<CapturePhotoFab inspectionId="i_1" inspectionStatus="DRAFT" onUploaded={vi.fn()} />);
+    await selectFileAndOpenModal();
+    clickSave();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Unsupported image bytes"));
+    expect(screen.getByRole("button", { name: "Save photo" })).toBeEnabled();
+    expect(queueEvidenceUpload).not.toHaveBeenCalled();
   });
 });

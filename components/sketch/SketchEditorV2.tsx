@@ -51,6 +51,7 @@ import {
   type SketchSavePayload,
 } from "@/lib/nir-sync-queue";
 import toast from "react-hot-toast";
+import { prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { startRoomPlanCapture } from "@/lib/capacitor-roomplan-bridge";
 import {
@@ -371,6 +372,67 @@ export function SketchEditorV2({
   const [roomTemplateFlipH, setRoomTemplateFlipH] = useState(false);
   const [roomTemplateFlipV, setRoomTemplateFlipV] = useState(false);
   const [evidenceUploading, setEvidenceUploading] = useState(false);
+  const [pendingPinPhoto, setPendingPinPhoto] = useState<{
+    coords: { x: number; y: number; nx: number; ny: number };
+    floorIndex: number;
+    floorId: string;
+    floorClientKey: string;
+    inspectionId: string;
+    file: File;
+    preparedFile?: File;
+    key: string;
+    verifiedPhoto?: ExistingEvidencePhoto;
+    error?: string;
+  } | null>(null);
+  const [pendingExistingPin, setPendingExistingPin] = useState<{
+    key: string;
+    coords: { x: number; y: number; nx: number; ny: number };
+    floorIndex: number;
+    floorId: string;
+    floorClientKey: string;
+    inspectionId: string;
+    photo: ExistingEvidencePhoto;
+    error?: string;
+  } | null>(null);
+  // Keep unresolved page-local pin requests with their original job during
+  // an in-place inspection switch. The normal dashboard remounts per job;
+  // this also protects callers that reuse this editor instance.
+  const pendingByInspectionRef = useRef(new Map<string, {
+    photo: typeof pendingPinPhoto;
+    existing: typeof pendingExistingPin;
+  }>());
+  const pendingInspectionRef = useRef(inspectionId);
+  const pendingPinPhotoRef = useRef(pendingPinPhoto);
+  pendingPinPhotoRef.current = pendingPinPhoto;
+  const pendingExistingPinRef = useRef(pendingExistingPin);
+  pendingExistingPinRef.current = pendingExistingPin;
+  const recordPersistedPendingFloor = useCallback((jobId: string, clientKey: string, localId: string, persistedId: string) => {
+    const update = <T extends { inspectionId: string; floorClientKey: string; floorId: string }>(pending: T | null): T | null =>
+      pending?.inspectionId === jobId && pending.floorClientKey === clientKey && pending.floorId === localId
+        ? { ...pending, floorId: persistedId }
+        : pending;
+    pendingPinPhotoRef.current = update(pendingPinPhotoRef.current);
+    pendingExistingPinRef.current = update(pendingExistingPinRef.current);
+    setPendingPinPhoto(update);
+    setPendingExistingPin(update);
+    const parked = pendingByInspectionRef.current.get(jobId);
+    if (parked) pendingByInspectionRef.current.set(jobId, {
+      photo: update(parked.photo), existing: update(parked.existing),
+    });
+  }, []);
+  useEffect(() => {
+    const previousId = pendingInspectionRef.current;
+    if (previousId === inspectionId) return;
+    if (previousId) {
+      const previous = { photo: pendingPinPhotoRef.current, existing: pendingExistingPinRef.current };
+      if (previous.photo || previous.existing) pendingByInspectionRef.current.set(previousId, previous);
+      else pendingByInspectionRef.current.delete(previousId);
+    }
+    pendingInspectionRef.current = inspectionId;
+    const restored = inspectionId ? pendingByInspectionRef.current.get(inspectionId) : undefined;
+    setPendingPinPhoto(restored?.photo ?? null);
+    setPendingExistingPin(restored?.existing ?? null);
+  }, [inspectionId]);
   const [existingEvidencePhotos, setExistingEvidencePhotos] = useState<
     ExistingEvidencePhoto[]
   >([]);
@@ -448,6 +510,9 @@ export function SketchEditorV2({
   const [sketchesHydrated, setSketchesHydrated] = useState(
     () => !inspectionId || captureMode,
   );
+  const [loadedInspectionId, setLoadedInspectionId] = useState<string | null>(null);
+  const [sketchLoadError, setSketchLoadError] = useState(false);
+  const [sketchLoadAttempt, setSketchLoadAttempt] = useState(0);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirmedFabricObjectIdsRef = useRef<Set<string>>(new Set());
@@ -463,13 +528,12 @@ export function SketchEditorV2({
       return;
     }
     let cancelled = false;
+    setSketchesHydrated(false);
+    setSketchLoadError(false);
     (async () => {
       try {
         const res = await fetch(`/api/inspections/${inspectionId}/sketches`);
-        if (!res.ok) {
-          if (!cancelled) setSketchesHydrated(true);
-          return;
-        }
+        if (!res.ok) throw new Error(`Floor plan read failed (${res.status})`);
         const { sketches } = (await res.json()) as {
           sketches: Array<{
             id: string;
@@ -485,6 +549,7 @@ export function SketchEditorV2({
             country?: "AU" | "NZ" | null;
           }>;
         };
+        if (!Array.isArray(sketches)) throw new Error("Floor plan response is invalid");
         if (cancelled) return;
 
         if (sketches?.length) {
@@ -576,24 +641,45 @@ export function SketchEditorV2({
               }
             }),
           );
+          if (cancelled) return;
+        } else {
+          // A successful empty response is a genuinely new plan. In a mounted
+          // job switch, never retain the previous job's floor in this editor.
+          setFloorsData([{
+            floor: { id: `${uid}-f0`, floorNumber: 0, floorLabel: "Ground Floor" },
+            clientKey: allocFloorClientKey(), canvasRef: makeFabricCanvas(),
+            moisturePins: [], evidencePins: [], damageMarkers: [],
+            backgroundUrl: null, backgroundOpacity: 0.35,
+            backgroundScale: null, backgroundOffsetX: null, backgroundOffsetY: null,
+            backgroundLockAspect: true, scaleConfig: null,
+          }]);
+          setStartOverlayDismissed(false);
+          setPlanReadyAck(false);
         }
+        if (cancelled) return;
+        setActiveIdx(0);
+        setLoadedInspectionId(inspectionId);
+        setSketchesHydrated(true);
       } catch {
-        // Fail soft — editor starts with empty canvas
-      } finally {
-        if (!cancelled) setSketchesHydrated(true);
+        // A failed or malformed read is not an empty plan. Keep Fabric and
+        // save controls unmounted until a successful owner-scoped reload.
+        if (!cancelled) setSketchLoadError(true);
       }
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inspectionId]);
+  }, [inspectionId, sketchLoadAttempt]);
 
   useEffect(() => {
     if (!inspectionId || captureMode) {
       setExistingEvidencePhotos([]);
       return;
     }
+    // A job switch can finish sketch hydration before its photo request.
+    // Never offer the previous job's thumbnails on the new floor in between.
+    setExistingEvidencePhotos([]);
     let cancelled = false;
     fetch(`/api/inspections/${inspectionId}/photos`)
       .then((response) =>
@@ -636,6 +722,41 @@ export function SketchEditorV2({
   // Always-current floors for debounced saves (avoids stale fieldComplete / pins).
   const floorsDataRef = useRef(floorsData);
   floorsDataRef.current = floorsData;
+  const activeIdxRef = useRef(activeIdx);
+  activeIdxRef.current = activeIdx;
+  const inspectionIdRef = useRef(inspectionId);
+  inspectionIdRef.current = inspectionId;
+
+  useEffect(() => {
+    if (!inspectionId || pendingInspectionRef.current !== inspectionId ||
+        loadedInspectionId !== inspectionId || !sketchesHydrated) return;
+    // Rebind only to a server floor whose id was recorded when this pending
+    // pin's original local floor save succeeded. Reused local uid-fN names do
+    // not prove floor identity after a job switch.
+    const rebindingFloor = (pending: { inspectionId: string; floorIndex: number; floorId: string; floorClientKey: string } | null) => {
+      if (!pending || pending.inspectionId !== inspectionId || pending.floorId.startsWith(uid)) return null;
+      const floor = floorsData[pending.floorIndex];
+      return floor?.floor.id === pending.floorId && floor.clientKey !== pending.floorClientKey
+        ? floor : null;
+    };
+    const photoFloor = rebindingFloor(pendingPinPhoto);
+    if (photoFloor && pendingPinPhoto) setPendingPinPhoto((current) => current?.key === pendingPinPhoto.key
+      ? { ...current, floorClientKey: photoFloor.clientKey } : current);
+    const existingFloor = rebindingFloor(pendingExistingPin);
+    if (existingFloor && pendingExistingPin) setPendingExistingPin((current) => current?.key === pendingExistingPin.key
+      ? { ...current, floorClientKey: existingFloor.clientKey } : current);
+    const localFloorWasRecreated = (pending: { inspectionId: string; floorIndex: number; floorId: string; floorClientKey: string } | null) =>
+      pending?.inspectionId === inspectionId && pending.floorId.startsWith(uid) &&
+      floorsData[pending.floorIndex]?.clientKey !== pending.floorClientKey;
+    if (pendingPinPhoto && localFloorWasRecreated(pendingPinPhoto)) {
+      const message = "The original unsaved floor is no longer loaded. Save the original photo and check the job photo list. Clear this pending selection, then choose the correct floor and pin location again.";
+      if (pendingPinPhoto.error !== message) setPendingPinPhoto((current) => current?.key === pendingPinPhoto.key ? { ...current, error: message } : current);
+    }
+    if (pendingExistingPin && localFloorWasRecreated(pendingExistingPin)) {
+      const message = "The original unsaved floor is no longer loaded. The photo remains on this job. Clear this pending selection, then choose the correct floor and pin location again.";
+      if (pendingExistingPin.error !== message) setPendingExistingPin((current) => current?.key === pendingExistingPin.key ? { ...current, error: message } : current);
+    }
+  }, [floorsData, inspectionId, loadedInspectionId, pendingExistingPin, pendingPinPhoto, sketchesHydrated, uid]);
 
   // Hydrate Quick/Advanced preference after mount (localStorage).
   useEffect(() => {
@@ -890,10 +1011,12 @@ export function SketchEditorV2({
               // server assigns its ClaimSketch id. Keep both the mutable ref
               // used by this save loop and React state in sync so a pin placed
               // immediately after the first save targets the persisted floor.
+              const localId = fd.floor.id;
+              if (inspectionId) recordPersistedPendingFloor(inspectionId, fd.clientKey, localId, savedSketch.id);
               fd.floor.id = savedSketch.id;
               setFloorsData((prev) =>
                 prev.map((candidate) =>
-                  candidate.floor.floorNumber === fd.floor.floorNumber
+                  candidate.clientKey === fd.clientKey
                     ? {
                         ...candidate,
                         floor: { ...candidate.floor, id: savedSketch.id! },
@@ -972,7 +1095,7 @@ export function SketchEditorV2({
       setCaptureSaveFailed(indicator.captureFailed);
       setSaving(false);
     },
-    [inspectionId, country, captureMode, captureToken, uid],
+    [inspectionId, country, captureMode, captureToken, recordPersistedPendingFloor, uid],
   );
 
   // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
@@ -1338,10 +1461,14 @@ export function SketchEditorV2({
   const handleRemoveFloor = useCallback(
     (idx: number) => {
       if (floorsData.length <= 1) return;
+      if (pendingPinPhoto || pendingExistingPin || evidenceUploading) {
+        toast.error("Finish, back up, or clear the pending photo pin before removing a floor");
+        return;
+      }
       setFloorsData((prev) => prev.filter((_, i) => i !== idx));
       setActiveIdx((prev) => Math.min(prev, floorsData.length - 2));
     },
-    [floorsData],
+    [evidenceUploading, floorsData, pendingExistingPin, pendingPinPhoto],
   );
 
   // ── Background ──────────────────────────────────────────
@@ -1442,6 +1569,7 @@ export function SketchEditorV2({
         ny: number;
       },
       photo: ExistingEvidencePhoto,
+      pinKey: string,
       details: {
         captureSource: "camera" | "import";
         fileName?: string;
@@ -1449,26 +1577,30 @@ export function SketchEditorV2({
       },
     ) => {
       if (!inspectionId || captureMode) return;
+      const clientKey = floorsDataRef.current[activeIdx]?.clientKey;
+      const stillCurrent = () => inspectionIdRef.current === inspectionId &&
+        activeIdxRef.current === activeIdx &&
+        floorsDataRef.current[activeIdx]?.clientKey === clientKey;
+      if (!clientKey || !stillCurrent()) throw new Error("Return to the original job and floor before pinning this photo");
       const sketchId = floorsDataRef.current[activeIdx]?.floor.id;
       if (!sketchId || sketchId.startsWith(uid)) {
         await flushSaveNow();
       }
       const persistedId = floorsDataRef.current[activeIdx]?.floor.id;
-      if (!persistedId || persistedId.startsWith(uid)) return;
+      if (!persistedId || persistedId.startsWith(uid)) throw new Error("Save this floor before attaching a photo pin");
+      if (!stillCurrent()) throw new Error("Return to the original job and floor before pinning this photo");
 
       const pinRes = await fetch(
         `/api/inspections/${inspectionId}/sketches/${persistedId}/evidence-pins`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Idempotency-Key": pinKey },
           body: JSON.stringify({
             kind: photo.mimeType?.startsWith("video/") ? "video" : "photo",
             x: coords.x,
             y: coords.y,
             nx: coords.nx,
             ny: coords.ny,
-            canvasWidth: width,
-            canvasHeight: height,
             inspectionPhotoId: photo.id,
             fileUrl: photo.url,
             thumbnailUrl: photo.thumbnailUrl ?? photo.url,
@@ -1480,93 +1612,186 @@ export function SketchEditorV2({
           }),
         },
       );
-      if (!pinRes.ok) return;
-      const pinJson = (await pinRes.json()) as { pin: EvidencePinView };
+      if (!pinRes.ok) throw new Error(`Photo attached to job, but floor pin failed (${pinRes.status})`);
+      const pinJson = (await pinRes.json()) as { pin?: EvidencePinView };
+      if (!pinJson.pin?.id) throw new Error("Photo attached to job, but floor pin was not verified");
+      if (!stillCurrent()) throw new Error("Photo pin may have saved. Return to its floor and retry verification.");
       setFloorsData((prev) =>
         prev.map((fd, i) =>
-          i === activeIdx
-            ? { ...fd, evidencePins: [...fd.evidencePins, pinJson.pin] }
+          i === activeIdx && fd.clientKey === clientKey && fd.floor.id === persistedId
+            ? { ...fd, evidencePins: [...fd.evidencePins, pinJson.pin!] }
             : fd,
         ),
       );
     },
-    [activeIdx, captureMode, flushSaveNow, height, inspectionId, uid, width],
+    [activeIdx, captureMode, flushSaveNow, inspectionId, uid],
   );
 
-  const handleEvidencePlace = useCallback(
-    async (coords: {
-      x: number;
-      y: number;
-      nx: number;
-      ny: number;
-      file: File;
-    }) => {
-      if (!inspectionId || captureMode) return;
-      setEvidenceUploading(true);
-      try {
-        const form = new FormData();
-        form.append("file", coords.file);
-        form.append("location", "Floor plan pin");
-        const uploadRes = await fetch(
-          `/api/inspections/${inspectionId}/photos`,
-          { method: "POST", body: form },
-        );
-        if (!uploadRes.ok) return;
-        const uploadJson = (await uploadRes.json()) as {
-          photo?: {
-            id: string;
-            url: string;
-            thumbnailUrl?: string | null;
-            mimeType?: string | null;
-            fileSize?: number | null;
-          };
-          id?: string;
-          url?: string;
-          thumbnailUrl?: string | null;
-          mimeType?: string | null;
-          fileSize?: number | null;
-        };
-        const photo = uploadJson.photo ?? uploadJson;
-        if (!photo.id || !photo.url) return;
-        const persistedPhoto: ExistingEvidencePhoto = {
-          id: photo.id,
-          url: photo.url,
-          thumbnailUrl: photo.thumbnailUrl,
+  const placePendingPinPhoto = useCallback(async (pending: NonNullable<typeof pendingPinPhoto>) => {
+    if (!inspectionId || captureMode || evidenceUploading) return;
+    const targetIsCurrent = () => inspectionIdRef.current === pending.inspectionId &&
+      activeIdxRef.current === pending.floorIndex &&
+      floorsDataRef.current[pending.floorIndex]?.clientKey === pending.floorClientKey;
+    if (!targetIsCurrent()) {
+      toast.error("Return to the original job and floor before retrying this photo pin");
+      return;
+    }
+    setEvidenceUploading(true);
+    try {
+      const preparedFile = pending.preparedFile ?? await prepareInspectionPhoto(pending.file);
+      setPendingPinPhoto((current) => current?.key === pending.key ? { ...current, preparedFile } : current);
+      let verifiedPhoto = pending.verifiedPhoto;
+      if (!verifiedPhoto) {
+        const saved = await uploadInspectionPhoto(inspectionId, preparedFile, pending.key, fetch, { location: "Floor plan pin" });
+        verifiedPhoto = {
+          id: saved.id,
+          url: saved.url,
+          thumbnailUrl: typeof saved.thumbnailUrl === "string" ? saved.thumbnailUrl : null,
           location: "Floor plan pin",
-          mimeType: photo.mimeType ?? coords.file.type,
+          mimeType: typeof saved.mimeType === "string" ? saved.mimeType : preparedFile.type,
         };
-        await persistEvidencePin(coords, persistedPhoto, {
-          captureSource: "camera",
-          fileName: coords.file.name,
-          fileSizeBytes: coords.file.size,
-        });
-        setExistingEvidencePhotos((prev) => [persistedPhoto, ...prev]);
-      } finally {
-        setEvidenceUploading(false);
+        setPendingPinPhoto((current) => current?.key === pending.key ? { ...current, preparedFile, verifiedPhoto } : current);
       }
-    },
-    [captureMode, inspectionId, persistEvidencePin],
-  );
+      if (!targetIsCurrent()) throw new Error("Photo is on the job, but its original floor is no longer active. Keep the original copy.");
+      // A previous pin POST may have committed before its response was lost.
+      // Read this floor's pins before repeating that POST; a failed read keeps
+      // the original photo and pending coordinates available for retry.
+      if (pending.verifiedPhoto) {
+        const sketchId = floorsDataRef.current[pending.floorIndex]?.floor.id;
+        if (sketchId && !sketchId.startsWith(uid)) {
+          const pinLookup = new URLSearchParams({ inspectionPhotoId: verifiedPhoto.id, x: String(pending.coords.x), y: String(pending.coords.y) });
+          const readback = await fetch(`/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins?${pinLookup}`, { cache: "no-store" });
+          if (!readback.ok) throw new Error("Photo is on the job, but floor pin readback failed. Retry when connected.");
+          const listed = (await readback.json()) as { pins?: EvidencePinView[] };
+          if (!Array.isArray(listed.pins)) throw new Error("Floor pin readback was invalid. Keep the pending photo.");
+          if (!targetIsCurrent()) throw new Error("Floor changed during pin verification. Return to its original floor and retry.");
+          const existing = listed.pins.find((pin) => pin.inspectionPhotoId === verifiedPhoto.id &&
+            Math.abs(pin.x - pending.coords.x) < 0.001 && Math.abs(pin.y - pending.coords.y) < 0.001);
+          if (existing) {
+            setFloorsData((prev) => prev.map((fd, i) => i === pending.floorIndex && fd.clientKey === pending.floorClientKey && fd.floor.id === sketchId && !fd.evidencePins.some((pin) => pin.id === existing.id)
+              ? { ...fd, evidencePins: [...fd.evidencePins, existing] } : fd));
+            setExistingEvidencePhotos((prev) => prev.some((photo) => photo.id === verifiedPhoto.id) ? prev : [verifiedPhoto, ...prev]);
+            setPendingPinPhoto((current) => current?.key === pending.key ? null : current);
+            toast.success("Photo pin verified on this floor");
+            return;
+          }
+        }
+      }
+      await persistEvidencePin(pending.coords, verifiedPhoto, `pin-${pending.key}`, {
+        captureSource: "camera", fileName: preparedFile.name, fileSizeBytes: preparedFile.size,
+      });
+      if (!targetIsCurrent()) throw new Error("Photo pin may have saved. Return to its floor and retry verification.");
+      setExistingEvidencePhotos((prev) => prev.some((photo) => photo.id === verifiedPhoto.id) ? prev : [verifiedPhoto, ...prev]);
+      setPendingPinPhoto((current) => current?.key === pending.key ? null : current);
+      toast.success("Photo attached and pinned to this floor");
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : "Photo pin was not verified";
+      setPendingPinPhoto((current) => current?.key === pending.key ? { ...current, error } : current);
+      toast.error(error);
+    } finally {
+      setEvidenceUploading(false);
+    }
+  }, [captureMode, evidenceUploading, inspectionId, persistEvidencePin, uid]);
 
-  const handleExistingEvidencePlace = useCallback(
-    async (coords: {
-      x: number;
-      y: number;
-      nx: number;
-      ny: number;
-      photo: ExistingEvidencePhoto;
-    }) => {
-      setEvidenceUploading(true);
-      try {
-        await persistEvidencePin(coords, coords.photo, {
-          captureSource: "import",
-        });
-      } finally {
-        setEvidenceUploading(false);
+  const handleEvidencePlace = useCallback(async (coords: { x: number; y: number; nx: number; ny: number; file: File }) => {
+    if (!inspectionId || captureMode || pendingPinPhoto || pendingExistingPin || evidenceUploading) return;
+    const pending = {
+      coords: { x: coords.x, y: coords.y, nx: coords.nx, ny: coords.ny },
+      floorIndex: activeIdx,
+      floorId: floorsData[activeIdx].floor.id,
+      floorClientKey: floorsData[activeIdx].clientKey,
+      inspectionId,
+      file: coords.file,
+      key: `photo-${crypto.randomUUID()}`,
+    };
+    setPendingPinPhoto(pending);
+    await placePendingPinPhoto(pending);
+  }, [activeIdx, captureMode, evidenceUploading, floorsData, inspectionId, pendingExistingPin, pendingPinPhoto, placePendingPinPhoto]);
+
+  const placePendingExistingPin = useCallback(async (pending: NonNullable<typeof pendingExistingPin>) => {
+    if (!inspectionId || captureMode || evidenceUploading) return;
+    const targetIsCurrent = () => inspectionIdRef.current === pending.inspectionId &&
+      activeIdxRef.current === pending.floorIndex &&
+      floorsDataRef.current[pending.floorIndex]?.clientKey === pending.floorClientKey;
+    if (!targetIsCurrent()) {
+      toast.error("Return to the original job and floor before retrying this pin");
+      return;
+    }
+    setEvidenceUploading(true);
+    try {
+      const sketchId = floorsDataRef.current[pending.floorIndex]?.floor.id;
+      if (sketchId && !sketchId.startsWith(uid)) {
+        // A lost POST response may have created the pin. A scoped read is
+        // required before any retry, including when the photo was already on
+        // this job before the technician selected it.
+        const pinLookup = new URLSearchParams({ inspectionPhotoId: pending.photo.id, x: String(pending.coords.x), y: String(pending.coords.y) });
+        const readback = await fetch(`/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins?${pinLookup}`, { cache: "no-store" });
+        if (!readback.ok) throw new Error("Could not verify this floor's pins. Keep the pending selection and retry.");
+        const listed = (await readback.json()) as { pins?: EvidencePinView[] };
+        if (!Array.isArray(listed.pins)) throw new Error("Floor pin readback was invalid. Keep the pending selection.");
+        if (!targetIsCurrent()) throw new Error("Floor changed during pin verification. Return and retry.");
+        const existing = listed.pins.find((pin) => pin.inspectionPhotoId === pending.photo.id &&
+          Math.abs(pin.x - pending.coords.x) < 0.001 && Math.abs(pin.y - pending.coords.y) < 0.001);
+        if (existing) {
+          setFloorsData((prev) => prev.map((fd, i) => i === pending.floorIndex && fd.clientKey === pending.floorClientKey && fd.floor.id === sketchId && !fd.evidencePins.some((pin) => pin.id === existing.id)
+            ? { ...fd, evidencePins: [...fd.evidencePins, existing] } : fd));
+          setPendingExistingPin((current) => current?.key === pending.key ? null : current);
+          toast.success("Existing photo pin verified on this floor");
+          return;
+        }
       }
-    },
-    [persistEvidencePin],
-  );
+      if (!targetIsCurrent()) throw new Error("Return to the original job and floor before pinning this photo");
+      await persistEvidencePin(pending.coords, pending.photo, pending.key, { captureSource: "import" });
+      if (!targetIsCurrent()) throw new Error("Pin may have saved. Return to its floor and retry verification.");
+      setPendingExistingPin((current) => current?.key === pending.key ? null : current);
+      toast.success("Existing photo pinned to this floor");
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : "Existing photo pin was not verified";
+      setPendingExistingPin((current) => current?.key === pending.key ? { ...current, error } : current);
+      toast.error(error);
+    } finally {
+      setEvidenceUploading(false);
+    }
+  }, [captureMode, evidenceUploading, inspectionId, persistEvidencePin, uid]);
+
+  const handleExistingEvidencePlace = useCallback(async (coords: {
+    x: number; y: number; nx: number; ny: number; photo: ExistingEvidencePhoto;
+  }) => {
+    if (!inspectionId || captureMode || pendingPinPhoto || pendingExistingPin || evidenceUploading) return;
+    const pending = {
+      key: `pin-${crypto.randomUUID()}`,
+      coords: { x: coords.x, y: coords.y, nx: coords.nx, ny: coords.ny },
+      floorIndex: activeIdx,
+      floorId: floorsData[activeIdx].floor.id,
+      floorClientKey: floorsData[activeIdx].clientKey,
+      inspectionId,
+      photo: coords.photo,
+    };
+    setPendingExistingPin(pending);
+    await placePendingExistingPin(pending);
+  }, [activeIdx, captureMode, evidenceUploading, floorsData, inspectionId, pendingExistingPin, pendingPinPhoto, placePendingExistingPin]);
+
+  const savePendingPinPhotoCopy = () => {
+    if (!pendingPinPhoto) return;
+    const url = URL.createObjectURL(pendingPinPhoto.file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = pendingPinPhoto.file.name;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
+  const discardPendingPinPhoto = () => {
+    if (!pendingPinPhoto || evidenceUploading) return;
+    if (!window.confirm("The photo or pin may already be on this job. Save an original copy and check the job photo list before capturing it again. Clear this local pending selection?")) return;
+    setPendingPinPhoto(null);
+  };
+
+  const discardPendingExistingPin = () => {
+    if (!pendingExistingPin || evidenceUploading) return;
+    if (!window.confirm("The pin may already be on this floor. Check the floor plan before placing this photo again. Clear this pending selection?")) return;
+    setPendingExistingPin(null);
+  };
 
   const handleEvidenceMove = useCallback(
     (id: string, x: number, y: number, nx: number, ny: number) => {
@@ -2139,6 +2364,21 @@ export function SketchEditorV2({
 
   const floors = floorsData.map((fd) => fd.floor);
 
+  if (inspectionId && !captureMode && (pendingInspectionRef.current !== inspectionId || loadedInspectionId !== inspectionId || !sketchesHydrated)) {
+    return (
+      <div className={cn("flex min-h-[480px] items-center justify-center rounded-2xl border border-white/10 bg-brand-canvas p-6", className)}>
+        {sketchLoadError ? (
+          <div role="alert" className="text-center text-sm text-white/80">
+            <p>Could not load this job’s floor plan. No empty plan has been opened.</p>
+            <button type="button" onClick={() => setSketchLoadAttempt((attempt) => attempt + 1)} className="mt-3 rounded border border-white/30 px-3 py-2">Retry floor plan</button>
+          </div>
+        ) : (
+          <p role="status" className="flex items-center gap-2 text-sm text-white/60"><Loader2 size={16} className="animate-spin" />Loading floor plan…</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -2398,6 +2638,22 @@ export function SketchEditorV2({
           )}
         </div>
       </div>
+
+      {pendingPinPhoto && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-white/80">
+          <span className="flex-1">{pendingPinPhoto.error ?? "Photo attachment and floor pin are not both verified."} Keep this page open or save an original copy.</span>
+          <button type="button" disabled={evidenceUploading} onClick={() => void placePendingPinPhoto(pendingPinPhoto)} className="rounded border px-2 py-1 disabled:opacity-50">Retry photo pin</button>
+          <button type="button" onClick={savePendingPinPhotoCopy} className="rounded border px-2 py-1">Save original copy</button>
+          <button type="button" disabled={evidenceUploading} onClick={discardPendingPinPhoto} className="rounded border border-red-500 px-2 py-1 disabled:opacity-50">Clear pending selection</button>
+        </div>
+      )}
+      {pendingExistingPin && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-white/80">
+          <span className="flex-1">{pendingExistingPin.error ?? "Existing photo pin is not yet verified."} The photo remains on this job. Check this floor before placing it again.</span>
+          <button type="button" disabled={evidenceUploading} onClick={() => void placePendingExistingPin(pendingExistingPin)} className="rounded border px-2 py-1 disabled:opacity-50">Retry existing photo pin</button>
+          <button type="button" disabled={evidenceUploading} onClick={discardPendingExistingPin} className="rounded border border-red-500 px-2 py-1 disabled:opacity-50">Clear pending pin</button>
+        </div>
+      )}
 
       {/* ── Floor tabs ─────────────────────────────────────── */}
       <SketchFloorTabs
