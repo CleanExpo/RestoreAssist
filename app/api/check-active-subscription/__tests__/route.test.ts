@@ -123,4 +123,22 @@ describe("POST /api/check-active-subscription — monthly-usage reset (RA-6962)"
     expect(data.monthlyReportsUsed).toBe(0);
     expect(data.monthlyResetDate).toBeInstanceOf(Date);
   });
+
+  it("activates a founding customer's subscription that starts in Stripe 'trialing' (first charge deferred to day 60)", async () => {
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ ...activeSub("sub_f"), status: "trialing" }],
+    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as Record<
+      string,
+      unknown
+    >;
+    expect(data.subscriptionStatus).toBe("ACTIVE");
+    expect(data.subscriptionId).toBe("sub_f");
+  });
 });

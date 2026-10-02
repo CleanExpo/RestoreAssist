@@ -7,6 +7,9 @@ import { withIdempotency } from "@/lib/idempotency";
 import { fulfillLifetimeFromSession } from "@/lib/billing/fulfill-one-time";
 import { apiError, fromException } from "@/lib/api-errors";
 
+// Stripe statuses that mean the subscription is live and may activate the account.
+const LIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
@@ -134,7 +137,10 @@ export async function POST(request: NextRequest) {
         // live (active) subscription may (re)activate the account and reset the
         // usage window — reject anything else so an old session cannot
         // resurrect a cancelled/incomplete subscription or re-gift usage.
-        if (stripeSubscription.status !== "active") {
+        // "trialing" is live too: a Founding Trial customer who subscribes early
+        // starts trialing until day 60 (create-checkout-session trial_end), and
+        // the webhook already maps trialing -> ACTIVE (stripeStatusToOurs).
+        if (!LIVE_SUBSCRIPTION_STATUSES.has(stripeSubscription.status)) {
           return apiError(request, {
             code: "VALIDATION",
             message: "Subscription is not active",
@@ -193,7 +199,7 @@ export async function POST(request: NextRequest) {
               storedSubscriptionId,
             );
             storedIsCurrent =
-              storedSubscription.status === "active" &&
+              LIVE_SUBSCRIPTION_STATUSES.has(storedSubscription.status) &&
               (storedSubscription.created ?? 0) >
                 (stripeSubscription.created ?? 0);
           } catch (storedLookupError: unknown) {

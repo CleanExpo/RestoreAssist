@@ -175,6 +175,26 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
     expect(data.signupBonusApplied).toBeUndefined();
   });
 
+  it("activates a founding customer's subscription that starts in Stripe 'trialing' (first charge deferred to day 60)", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
+      subSession() as any,
+    );
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      ...stripeSub(2_000_000_000, 1_990_000_000),
+      status: "trialing",
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      subscriptionId: null,
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
+    expect(res.status).toBe(200);
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+    expect(data.subscriptionStatus).toBe("ACTIVE");
+    expect(data.subscriptionId).toBe("sub_new");
+  });
+
   it("does NOT reset monthly usage when re-verifying the same active subscription", async () => {
     vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
       subSession() as any,

@@ -125,7 +125,10 @@ export async function POST(request: NextRequest) {
         .filter((sub) => sub.status === "active" || sub.status === "trialing")
         .sort((a, b) => b.created - a.created)[0];
 
-      if (activeSubscription && activeSubscription.status === "active") {
+      // A trialing subscription is live: a Founding Trial customer who
+      // subscribes early is trialing until day 60, and the webhook maps
+      // trialing -> ACTIVE (stripeStatusToOurs).
+      if (activeSubscription) {
         // Determine subscription plan from price
         let subscriptionPlan = "Monthly Plan"; // Default
         if (activeSubscription.items.data[0]?.price) {
