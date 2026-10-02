@@ -106,8 +106,13 @@ describe("the write token reaches only the steps that need it", () => {
         expect(allowedIn(expr), `${where}: \${{ ${expr} }}`).toContain(where);
       }
     }
-    // Within those two steps, exactly one env entry carries it, and no script
-    // text does, so it cannot be copied into a git config or a file.
+    // Each recipient name belongs to exactly one step, so a decoy step cannot
+    // borrow a recipient's allowance by copying its name.
+    for (const name of [SIGN, "Commit the receipt"]) {
+      expect(steps().filter((s) => s.name === name), name).toHaveLength(1);
+    }
+    // Within those two steps exactly one env entry carries the token, and no
+    // script text names it.
     const tokenKeys = (name: string) =>
       Object.entries(steps().find((s) => s.name === name)?.env ?? {})
         .filter(([, v]) => String(v).includes("github.token"))
@@ -115,6 +120,13 @@ describe("the write token reaches only the steps that need it", () => {
     expect(tokenKeys(SIGN)).toEqual(["GITHUB_TOKEN"]);
     expect(tokenKeys("Commit the receipt")).toEqual(["GH_TOKEN"]);
     for (const s of steps()) expect(s.run ?? "").not.toContain("github.token");
+    // The signer's script is fixed, so the workflow cannot forward the token
+    // to a file, $GITHUB_ENV or a git config from that step. (The push step is
+    // last, so nothing runs after it.) Residual, not tested here: repo code the
+    // signer runs can read GITHUB_TOKEN; it is code from main only.
+    expect(steps().find((s) => s.name === SIGN)?.run).toBe(
+      "npx --no-install tsx scripts/ci/sign-release-receipt.ts \\\n  --criterion='${{ inputs.criterion }}'\n",
+    );
   });
 
   it("uses only the pinned actions it was reviewed with, and pushes last", () => {
