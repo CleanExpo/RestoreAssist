@@ -107,6 +107,34 @@ describe("GET /api/subscription — dahlia dates (RA-6968/6967)", () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
+  it("syncs an owned trialing BASE plan (Founding Trial early upgrade) as ACTIVE, never EXPIRED", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue({
+      id: "sub_1",
+      status: "trialing",
+      metadata: { userId: "u1" },
+      cancel_at_period_end: false,
+      items: { data: [{ price: { id: PRICING_CONFIG.prices.monthly }, current_period_end: 2_000_000_000 }] },
+    });
+    expect((await GET(makeRequest())).status).toBe(200);
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+    expect(data.subscriptionStatus).toBe("ACTIVE");
+    expect(data.creditsRemaining).toBe(999999);
+  });
+
+  it("does not treat a trialing subscription to some other price as a live base plan", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue({
+      id: "sub_1",
+      status: "trialing",
+      metadata: { userId: "u1" },
+      cancel_at_period_end: false,
+      items: { data: [{ price: { id: "price_addon_not_base" }, current_period_end: 2_000_000_000 }] },
+    });
+    expect((await GET(makeRequest())).status).toBe(200);
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+    expect(data.subscriptionStatus).not.toBe("ACTIVE");
+    expect(data.creditsRemaining).toBe(5);
+  });
+
   it("does NOT fabricate dates when Stripe omits the item period", async () => {
     stripeMock.subscriptions.retrieve.mockResolvedValue({
       id: "sub_1",
