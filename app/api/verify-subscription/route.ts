@@ -83,8 +83,15 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Check if payment was successful
-        if (checkoutSession.payment_status !== "paid") {
+        // Check if payment was successful. A completed subscription Checkout
+        // with a trial (Founding Trial early upgrade, first charge on day 60)
+        // is "no_payment_required"; the live-subscription check below still
+        // decides whether it may activate the account.
+        const trialCheckoutComplete =
+          checkoutSession.mode === "subscription" &&
+          checkoutSession.status === "complete" &&
+          checkoutSession.payment_status === "no_payment_required";
+        if (checkoutSession.payment_status !== "paid" && !trialCheckoutComplete) {
           return NextResponse.json(
             {
               error: "Payment not completed",

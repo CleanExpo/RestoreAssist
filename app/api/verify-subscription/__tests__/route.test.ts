@@ -195,6 +195,33 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
     expect(data.subscriptionId).toBe("sub_new");
   });
 
+  it("accepts a completed trial Checkout that Stripe marks no_payment_required, and still refuses an open one", async () => {
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      ...stripeSub(2_000_000_000, 1_990_000_000),
+      status: "trialing",
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      subscriptionId: null,
+    } as any);
+
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      status: "complete",
+      payment_status: "no_payment_required",
+    } as any);
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(200);
+
+    vi.mocked(prisma.user.update).mockClear();
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      status: "open",
+      payment_status: "no_payment_required",
+    } as any);
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(400);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
   it("does NOT reset monthly usage when re-verifying the same active subscription", async () => {
     vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue(
       subSession() as any,
