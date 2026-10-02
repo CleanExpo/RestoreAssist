@@ -53,6 +53,36 @@ describe("the receipt workflow cannot be reached from a pull request", () => {
   });
 });
 
+describe("the write token is not left on disk for the steps that hold the key", () => {
+  type Step = {
+    name?: string;
+    uses?: string;
+    run?: string;
+    with?: Record<string, unknown>;
+    env?: Record<string, string>;
+  };
+  const steps = () => workflow().jobs.mint.steps as Step[];
+
+  it("checks out without persisting the token", () => {
+    // The workflow holds contents: write. A persisted checkout writes that
+    // token into .git/config, where `npm ci` and every producer can read it.
+    const checkout = steps().find((s) =>
+      String(s.uses ?? "").startsWith("actions/checkout"),
+    );
+    expect(checkout?.with?.["persist-credentials"]).toBe(false);
+  });
+
+  it("gives the commit step its own credential, through the environment", () => {
+    // With nothing persisted, the push needs a credential of its own. It is
+    // passed as a one-command git config through env, not argv and not
+    // .git/config, so no earlier step could have read it.
+    const commit = steps().find((s) => s.name === "Commit the receipt");
+    expect(commit?.env?.GH_TOKEN).toBe("${{ github.token }}");
+    expect(commit?.run).toContain("GIT_CONFIG_VALUE_0");
+    expect(commit?.run).not.toMatch(/-c\s+["']?http\./);
+  });
+});
+
 describe("the workflow never hand-feeds measurements", () => {
   it("does not pass --measurements to the signer", () => {
     // If this ever reappears, the P1 is back: the signer would be certifying
