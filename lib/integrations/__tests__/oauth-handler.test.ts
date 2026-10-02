@@ -91,6 +91,37 @@ describe("OAuth state callback context", () => {
       codeVerifier: "verifier-1",
     });
   });
+
+  const storedState = (overrides: Record<string, unknown> = {}) => ({
+    userId: "u1", provider: "XERO", integrationId: "integration_1", redirectUri: null,
+    codeVerifier: "verifier-1", expiresAt: new Date(Date.now() + 60_000), usedAt: null, ...overrides,
+  });
+
+  it("refuses a state that was already used", async () => {
+    oauthStateFindUnique.mockResolvedValue(storedState({ usedAt: new Date() }));
+    oauthStateUpdateMany.mockResolvedValue({ count: 1 });
+
+    await expect(validateOAuthState("state-1")).resolves.toBeNull();
+    expect(oauthStateUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses a state another callback consumed first", async () => {
+    oauthStateFindUnique.mockResolvedValue(storedState());
+    oauthStateUpdateMany.mockResolvedValue({ count: 0 });
+
+    await expect(validateOAuthState("state-1")).resolves.toBeNull();
+    expect(oauthStateUpdateMany).toHaveBeenCalledWith({
+      where: { nonce: "state-1", usedAt: null },
+      data: { usedAt: expect.any(Date) },
+    });
+  });
+
+  it("refuses an expired state", async () => {
+    oauthStateFindUnique.mockResolvedValue(storedState({ expiresAt: new Date(Date.now() - 1) }));
+    oauthStateUpdateMany.mockResolvedValue({ count: 1 });
+
+    await expect(validateOAuthState("state-1")).resolves.toBeNull();
+  });
 });
 
 afterEach(() => {
