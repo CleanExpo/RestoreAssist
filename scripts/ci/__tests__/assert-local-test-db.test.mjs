@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { inspect } from "node:util";
@@ -103,4 +105,24 @@ test("the shell entry point passes a local environment", () => {
     encoding: "utf8",
   });
   assert.equal(run.status, 0, run.stderr);
+});
+
+// The entry check once compared import.meta.url (percent-encoded) with the raw
+// argv path, so from a directory with a space main() never ran and the guard
+// exited 0 against any database. The copy sits beside the original so it
+// still resolves `pg` from the repository's node_modules.
+test("the shell entry point refuses from a path that needs URL encoding", () => {
+  const dir = mkdtempSync(join(fileURLToPath(new URL(".", import.meta.url)), "guard space "));
+  try {
+    const copy = join(dir, "assert-local-test-db.mjs");
+    copyFileSync(SCRIPT, copy);
+    const run = spawnSync(process.execPath, [copy], {
+      env: { PATH: process.env.PATH, DATABASE_URL: REMOTE },
+      encoding: "utf8",
+    });
+    assert.equal(run.status, 1, run.stderr);
+    assert.match(run.stderr, /test database guard refused: DATABASE_URL/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

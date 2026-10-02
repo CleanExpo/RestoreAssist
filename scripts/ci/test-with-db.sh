@@ -113,6 +113,10 @@ fi
 cleanup() { docker rm -f "$CID" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 PORT=$(docker port "$CID" 5432/tcp | head -n 1 | sed 's/.*://')
+if ! [[ "$PORT" =~ ^[0-9]+$ ]]; then
+  echo "test:db failed: no published port for $CONTAINER (got '$PORT')" >&2
+  exit 1
+fi
 echo "==> $CONTAINER listening on 127.0.0.1:$PORT"
 
 export DATABASE_URL="postgresql://ci:ci@localhost:${PORT}/ci"

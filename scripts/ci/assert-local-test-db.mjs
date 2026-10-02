@@ -10,6 +10,7 @@
 // the value, because a refused value is usually a production URL with its
 // password in it.
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 
 const require = createRequire(import.meta.url);
 const { parse } = createRequire(require.resolve("pg"))("pg-connection-string");
@@ -126,6 +127,6 @@ export function main(env = process.env) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exitCode = main();
 }

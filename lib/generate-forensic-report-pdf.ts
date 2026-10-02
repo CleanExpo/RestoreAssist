@@ -426,7 +426,7 @@ async function renderPage1(
     options.analysis,
     waterCategory,
     waterClass,
-    methScreen === "POSITIVE",
+    methScreen,
     bioMouldDetected,
   );
   const summaryLines = wrapText(summaryText, width - 2 * margin, helvetica, 10);
@@ -2799,7 +2799,7 @@ function buildForensicSummary(
   analysis: any,
   waterCategory: string,
   waterClass: string,
-  hasMeth: boolean,
+  methScreen: string,
   hasMould: boolean,
 ): string {
   let summary =
@@ -2817,11 +2817,15 @@ function buildForensicSummary(
     summary += ` Water class: ${waterClass}.`;
   }
 
-  if (hasMeth) {
+  // Print NEGATIVE only for a recorded negative: an unassessed screen must not
+  // read as a clear result (the badge on the same page says "Not assessed").
+  if (methScreen === "POSITIVE") {
     summary +=
       " Methamphetamine screening: POSITIVE - specialized remediation protocols required.";
-  } else {
+  } else if (methScreen === "NEGATIVE") {
     summary += " Methamphetamine screening: NEGATIVE.";
+  } else {
+    summary += " Methamphetamine screening: not assessed.";
   }
 
   if (hasMould) {
