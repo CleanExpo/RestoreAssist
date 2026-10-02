@@ -183,6 +183,96 @@ function ownershipClauses(
  * (unify "not yours" and "doesn't exist" so attackers cannot enumerate
  * IDs across tenants).
  */
+/**
+ * Who may create the job linked to someone else's report: an ADMIN or a
+ * MANAGER of the report creator's organisation (founder decision 02/10/2026,
+ * RA-7869), or an allowlisted platform support ADMIN. Only report-linked job
+ * creation uses this. Every other report write keeps `assertReportTenancy`,
+ * where reaching beyond your own records stays ADMIN-only.
+ */
+const REPORT_LINK_ROLES: readonly string[] = ["ADMIN", "MANAGER"];
+
+function canLinkColleagueReport(
+  userId: string,
+  role: string,
+  organizationId: string | null,
+  reportOrganizationId: string | null | undefined,
+): boolean {
+  if (role === "ADMIN" && isPlatformSupportOperator(userId)) return true;
+  if (!REPORT_LINK_ROLES.includes(role)) return false;
+  // Compared against a non-null organisationId, so two org-less accounts
+  // never match each other.
+  return (
+    typeof organizationId === "string" &&
+    organizationId.length > 0 &&
+    reportOrganizationId === organizationId
+  );
+}
+
+/**
+ * Report-link reach before the write: the report's creator, or a caller
+ * `canLinkColleagueReport` allows. Unreachable reports answer 404, so a
+ * refusal never reveals that the report exists.
+ */
+export async function assertReportLinkable(
+  session: SessionLike | null,
+  reportId: string,
+): Promise<TenancyResult<{ id: string; userId: string }>> {
+  if (!session?.user?.id) {
+    return { ok: false, status: 401, reason: "Unauthorized" };
+  }
+  const userId = session.user.id;
+  const [actor, report] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, organizationId: true },
+    }),
+    prisma.report.findUnique({
+      where: { id: reportId },
+      select: { id: true, userId: true, user: { select: { organizationId: true } } },
+    }),
+  ]);
+  if (!report) return { ok: false, status: 404, reason: "Report not found" };
+  const reachable =
+    report.userId === userId ||
+    (actor !== null &&
+      canLinkColleagueReport(
+        userId,
+        String(actor.role),
+        actor.organizationId,
+        report.user?.organizationId,
+      ));
+  if (!reachable) return { ok: false, status: 404, reason: "Report not found" };
+  return { ok: true, data: { id: report.id, userId: report.userId } };
+}
+
+/**
+ * Report-link reach, re-decided INSIDE the caller's write transaction.
+ *
+ * `assertReportLinkable` reads the caller's role before the transaction opens,
+ * so a demotion or organisation removal committed in between was not seen by
+ * the write (review of 62c97497, P1). This takes the caller's User row
+ * `FOR SHARE`, which blocks a concurrent role or organisation change until
+ * this transaction commits, then applies the same rule.
+ */
+export async function reportLinkableInTx(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  reportId: string,
+): Promise<boolean> {
+  const actor = await tx.$queryRaw<
+    { role: string; organizationId: string | null }[]
+  >`SELECT "role"::text AS "role", "organizationId" FROM "User" WHERE "id" = ${userId} FOR SHARE`;
+  const report = await tx.report.findUnique({
+    where: { id: reportId },
+    select: { userId: true, user: { select: { organizationId: true } } },
+  });
+  if (actor.length !== 1 || !report) return false;
+  if (report.userId === userId) return true;
+  const { role, organizationId } = actor[0];
+  return canLinkColleagueReport(userId, role, organizationId, report.user?.organizationId);
+}
+
 export async function assertReportTenancy(
   session: SessionLike | null,
   reportId: string,

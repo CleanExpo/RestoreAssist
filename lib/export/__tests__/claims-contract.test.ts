@@ -17,7 +17,7 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(),
 }));
 
-import { buildNirReportOutput } from "../../../app/api/inspections/[id]/guidewire/route";
+import { buildNirReportOutput } from "@/lib/export/guidewire-report-output";
 import {
   CLAIMS_INTEGRATION_ARTIFACT_PATH,
   CLAIMS_INTEGRATION_SCHEMA_VERSION,

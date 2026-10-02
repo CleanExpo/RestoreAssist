@@ -109,4 +109,19 @@ describe("GET /api/reports/[id] lawJurisdiction (RA-7625)", () => {
       propertyPostcode: true,
     });
   });
+
+  it("omits private version history from the organisation-readable detail", async () => {
+    const body = await get({
+      ...report({}),
+      versionHistory: JSON.stringify([{
+        action: "Automatic draft invalidated",
+        invalidatedDraftSnapshot: { detailedReport: "synthetic unsafe draft" },
+      }]),
+      reportVersion: 2,
+    });
+    expect(body).not.toHaveProperty("versionHistory");
+    expect(JSON.stringify(body)).not.toContain("synthetic unsafe draft");
+    expect(body.reportVersion).toBe(2);
+    expect(body.id).toBe("r1");
+  });
 });

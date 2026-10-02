@@ -9,7 +9,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { MAKE_SAFE_ACTIONS } from "@/app/api/inspections/[id]/make-safe/route";
+import { MAKE_SAFE_ACTIONS } from "@/lib/compliance/make-safe-actions";
 import { MAKE_SAFE_SEED_NOTE as SEED_NOTE } from "@/lib/compliance/make-safe-compliance";
 
 /**

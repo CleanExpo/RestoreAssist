@@ -184,16 +184,8 @@ export async function generateForensicReportPDF(
   // Water class - use actual data only
   const waterClass = report.waterClass || tier1?.T1_Q3_waterClass || "";
 
-  // Hazards - use actual data
-  const hazards = tier1?.T1_Q7_hazards || [];
-
-  // Meth screen - use actual data, check hazards only if report data exists
-  let methScreen = report.methamphetamineScreen || "";
-  if (!methScreen && hazards.length > 0) {
-    methScreen = hazards.some((h: string) => h.toLowerCase().includes("meth"))
-      ? "POSITIVE"
-      : "";
-  }
+  // A hazard mention is not a recorded screening result.
+  const methScreen = report.methamphetamineScreen || "Not assessed";
 
   const methTestCount = report.methamphetamineTestCount || null;
   const bioMouldDetected =
@@ -468,7 +460,9 @@ async function renderPage1(
   // Meth Badge
   const methBadgeX = margin;
   const methBadgeY = yPosition - 20;
-  const methBadgeColor = methScreen === "POSITIVE" ? colors.red : colors.green;
+  const methBadgeColor = methScreen === "POSITIVE"
+    ? colors.red
+    : methScreen === "NEGATIVE" ? colors.green : colors.darkGray;
   const methBadgeText =
     methScreen === "POSITIVE"
       ? `METH: ${methScreen}${methTestCount ? ` (${methTestCount} tests)` : ""}`
@@ -2063,7 +2057,7 @@ function buildScopeItems(
 
   const waterClass = report.waterClass || tier1?.T1_Q3_waterClass || "Class 1";
   const bioMouldDetected = report.biologicalMouldDetected || false;
-  const methScreen = report.methamphetamineScreen || "NEGATIVE";
+  const methScreen = report.methamphetamineScreen || "Not assessed";
 
   const items: ScopeItem[] = [];
 
