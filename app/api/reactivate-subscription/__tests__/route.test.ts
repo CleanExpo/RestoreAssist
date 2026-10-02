@@ -23,7 +23,7 @@ vi.mock("@/lib/rate-limiter", () => ({
 
 const stripeMock = vi.hoisted(() => ({
   customers: { list: vi.fn() },
-  subscriptions: { list: vi.fn(), update: vi.fn() },
+  subscriptions: { list: vi.fn(), update: vi.fn(), retrieve: vi.fn() },
 }));
 vi.mock("@/lib/stripe", () => ({ stripe: stripeMock }));
 
@@ -53,6 +53,7 @@ describe("POST /api/reactivate-subscription", () => {
     } as never);
     vi.mocked(prisma.user.update).mockResolvedValue({} as never);
     stripeMock.subscriptions.update.mockResolvedValue({ id: "sub_1" });
+    stripeMock.subscriptions.retrieve.mockImplementation(async (id: string) => ({ id, customer: "cus_1", metadata: {} }));
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -115,6 +116,15 @@ describe("POST /api/reactivate-subscription", () => {
     stripeMock.subscriptions.list.mockResolvedValue({ data: [{ id: "sub_other", metadata: { userId: "u2" } }] });
     expect((await POST(makeRequest())).status).toBe(403);
 
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("never reactivates a STORED subscription that names another user or belongs to another customer", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue({ id: "sub_1", customer: "cus_1", metadata: { userId: "u2" } });
+    expect((await POST(makeRequest())).status).toBe(403);
+    stripeMock.subscriptions.retrieve.mockResolvedValue({ id: "sub_1", customer: "cus_other", metadata: {} });
+    expect((await POST(makeRequest())).status).toBe(403);
     expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
     expect(prisma.user.update).not.toHaveBeenCalled();
   });

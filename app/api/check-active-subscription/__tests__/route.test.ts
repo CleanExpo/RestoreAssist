@@ -38,6 +38,7 @@ import { POST } from "../route";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
 
 function activeSub(id: string) {
   return {
@@ -170,6 +171,23 @@ describe("POST /api/check-active-subscription — monthly-usage reset (RA-6962)"
     const res = await POST(makeRequest());
     expect(res.status).toBe(404);
     expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("the lifetime fallback never grants a paid lifetime session that names another user", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ email: LIFETIME_PRICING_EMAIL, subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [] });
+    const lifetime = { mode: "payment", payment_status: "paid", metadata: { type: "lifetime", userId: "u2" } };
+    stripeMock.checkout.sessions.list.mockResolvedValue({ data: [lifetime] });
+    expect((await POST(makeRequest())).status).toBe(404);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+
+    // Positive control: the same session naming this user, or nobody, is granted.
+    stripeMock.checkout.sessions.list.mockResolvedValue({
+      data: [{ ...lifetime, metadata: { type: "lifetime" } }],
+    });
+    expect((await POST(makeRequest())).status).toBe(200);
   });
 
   it("does not activate a trialing add-on subscription as the plan", async () => {
