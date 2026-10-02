@@ -39,7 +39,7 @@ function mockFetch(importReply: Response) {
     if (u === "/api/integrations") {
       return jsonResponse({
         integrations: [
-          { provider: "SERVICEM8", name: "ServiceM8", status: "CONNECTED" },
+          { id: "servicem8_synthetic", provider: "SERVICEM8", name: "ServiceM8", status: "CONNECTED", hasOAuthCredentials: true },
         ],
       });
     }
@@ -136,5 +136,68 @@ describe("ImportModal reports what was actually imported (RA-7663)", () => {
       "Successfully imported 0 clients and 1 jobs",
     );
     expect(toast.error).not.toHaveBeenCalled();
+  });
+});
+
+const genuineXero = { id: "synthetic_xero", provider: "XERO", name: "Xero", status: "CONNECTED", tenantId: "synthetic-org", hasOAuthCredentials: true };
+function metadata(body: JsonBody, status = 200) {
+  global.fetch = vi.fn(async () => jsonResponse(body, status)) as typeof fetch;
+}
+describe("ImportModal provider boundaries", () => {
+  it("excludes both legacy AI providers even when their stored enum is XERO", async () => {
+    metadata({integrations: [
+      {id: "ai_1", name: "Anthropic Claude", provider: "XERO", status: "CONNECTED", icon: "[ra:ai]"},
+      {id: "ai_2", name: "OpenAI GPT", provider: "XERO", status: "CONNECTED", icon: "[ra:ai]"},
+    ]});
+    render(<ImportModal isOpen onClose={() => {}} />);
+    await screen.findByText("No integrations ready to import");
+    expect(screen.queryByRole("button", {name: "Xero"})).toBeNull();
+  });
+  it("excludes a Xero record without an organisation and a legacy Ascora record", async () => {
+    metadata({integrations: [{...genuineXero, tenantId: null}, {id: "ascora", name: "Ascora", provider: "ASCORA", status: "CONNECTED"}]});
+    render(<ImportModal isOpen onClose={() => {}} />);
+    await screen.findByText("No integrations ready to import");
+    expect(screen.queryByRole("button", {name: "Xero"})).toBeNull();
+    expect(screen.queryByRole("button", {name: "Ascora"})).toBeNull();
+  });
+  it("allows a genuine custom-named Xero connection", async () => {
+    metadata({integrations: [{...genuineXero, name: "Our accounts"}]});
+    render(<ImportModal isOpen onClose={() => {}} />);
+    expect(await screen.findByRole("button", {name: "Xero"})).toBeEnabled();
+  });
+  it.each([
+    [{integrations: [genuineXero], truncated: true}, 200],
+    [{integrations: [genuineXero]}, 503],
+    [{}, 200],
+  ])("treats incomplete or failed metadata as unavailable", async (body, status) => {
+    metadata(body, status);
+    render(<ImportModal isOpen onClose={() => {}} />);
+    expect(await screen.findByText("Integration status is unavailable. Retry before importing.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Xero"})).toBeNull();
+  });
+  it("clears previously loaded choices when a later metadata request fails", async () => {
+    metadata({integrations: [genuineXero]});
+    const view = render(<ImportModal isOpen onClose={() => {}} />);
+    await screen.findByRole("button", {name: "Xero"});
+    view.rerender(<ImportModal isOpen={false} onClose={() => {}} />);
+    metadata({}, 503);
+    view.rerender(<ImportModal isOpen onClose={() => {}} />);
+    await screen.findByText("Integration status is unavailable. Retry before importing.");
+    expect(screen.queryByRole("button", {name: "Xero"})).toBeNull();
+  });
+  it("shows unavailable data instead of claiming empty records after a failed provider read", async () => {
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/integrations"
+      ? jsonResponse({integrations: [genuineXero]}) : jsonResponse({}, 503)) as typeof fetch;
+    render(<ImportModal isOpen onClose={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", {name: "Xero"}));
+    await screen.findByText("Import data is unavailable. Retry before selecting items.");
+    expect(screen.queryByText("No new clients to import. Try syncing first.")).toBeNull();
+    expect(screen.getByRole("button", {name: "Import Selected"})).toBeDisabled();
+  });
+  it("refuses to choose between two genuine Xero connections", async () => {
+    metadata({integrations: [genuineXero, {...genuineXero, id: "other"}]});
+    render(<ImportModal isOpen onClose={() => {}} />);
+    expect(await screen.findByText(/Multiple workspace connections/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Xero"})).toBeNull();
   });
 });

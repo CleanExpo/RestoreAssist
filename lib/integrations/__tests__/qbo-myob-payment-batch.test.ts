@@ -78,7 +78,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   webhookEventUpdateMany.mockResolvedValue({ count: 1 });
   webhookEventUpdate.mockResolvedValue({});
-  integrationFindUnique.mockResolvedValue({ userId: "user-1" });
+  integrationFindUnique.mockResolvedValue({ userId: "user-1", provider: "QUICKBOOKS", name: "QuickBooks" });
   txInvoicePaymentFindFirst.mockResolvedValue(null); // no prior allocation by default
   txInvoicePaymentCreate.mockResolvedValue({ id: "pay-1" });
   txInvoiceUpdate.mockResolvedValue({
@@ -90,6 +90,15 @@ beforeEach(() => {
 });
 
 describe("processQboMyobPendingPayments", () => {
+  it.each([
+    { provider: "QUICKBOOKS", name: "Anthropic Claude", icon: "[ra:ai]" },
+    { provider: "XERO", name: "Xero" },
+  ])("does not claim or dispatch a QuickBooks event bound to $name", async identity => {
+    integrationFindUnique.mockResolvedValue(identity);
+    webhookEventFindMany.mockResolvedValue([{ id: "synthetic-event", provider: "QUICKBOOKS", integrationId: "synthetic-id", eventType: "payment.created", payload: { id: "synthetic-payment" }, retryCount: 0 }]);
+    expect(await processQboMyobPendingPayments()).toEqual({ processed: 0, failed: 0, skipped: 1 });
+    expect(webhookEventUpdateMany).not.toHaveBeenCalled(); expect(qboGetPayment).not.toHaveBeenCalled(); expect(invoiceFindFirst).not.toHaveBeenCalled();
+  });
   it("queries PENDING QUICKBOOKS/MYOB payment events with explicit select + take", async () => {
     webhookEventFindMany.mockResolvedValue([]);
 
@@ -153,6 +162,7 @@ describe("processQboMyobPendingPayments", () => {
   });
 
   it("skips an event that another worker already claimed (CAS race)", async () => {
+    integrationFindUnique.mockResolvedValue({ userId: "user-1", provider: "MYOB", name: "MYOB" });
     webhookEventFindMany.mockResolvedValue([
       {
         id: "evt-2",
@@ -264,6 +274,7 @@ describe("retryUnresolvedQboMyobPayments", () => {
   });
 
   it("resolves a retroactive MYOB stub and marks it COMPLETED", async () => {
+    integrationFindUnique.mockResolvedValue({ userId: "user-1", provider: "MYOB", name: "MYOB" });
     webhookEventFindMany.mockResolvedValue([
       {
         id: "evt-skip-1",
@@ -350,6 +361,7 @@ describe("retryUnresolvedQboMyobPayments", () => {
   // restored (which would keep re-selecting it forever); it gets SKIPPED with
   // its own reason instead, which falls outside the errorMessage `in` filter.
   it("marks the event SKIPPED with a reason (not the restored stub marker) when the owning integration was deleted", async () => {
+    integrationFindUnique.mockResolvedValue({ userId: "user-1", provider: "MYOB", name: "MYOB" });
     webhookEventFindMany.mockResolvedValue([
       {
         id: "evt-skip-gone",
@@ -390,6 +402,7 @@ describe("retryUnresolvedQboMyobPayments", () => {
   });
 
   it("transitions a retroactive event to FAILED (visible to monitoring) once retryCount reaches the bound", async () => {
+    integrationFindUnique.mockResolvedValue({ userId: "user-1", provider: "MYOB", name: "MYOB" });
     webhookEventFindMany.mockResolvedValue([
       {
         id: "evt-skip-3",

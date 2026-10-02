@@ -1,9 +1,13 @@
 /**
  * Subscription Guard for External Integrations
- * Requires an active paid subscription or persisted lifetime base access.
+ * Requires an active paid subscription, persisted lifetime access, or a
+ * current Founding Trial grant for the selected bookkeeping provider.
  */
 
 import { prisma } from "@/lib/prisma";
+import { COMPLIMENTARY_PRICE_ID } from "@/lib/billing/founding-trial-grant";
+import { BOOKKEEPING_SKU, isBookkeepingProvider } from "@/lib/billing/bookkeeping-addon";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { isIntegrationDevMode } from "./dev-mode";
 
 export interface SubscriptionCheckResult {
@@ -11,18 +15,25 @@ export interface SubscriptionCheckResult {
   userId: string;
   subscriptionStatus: string | null;
   subscriptionPlan: string | null;
+  /** Exact READY workspace that justified a complimentary trial allowance. */
+  foundingTrialWorkspaceId?: string;
   error?: string;
 }
 
 /**
- * Check persisted paid or lifetime base access; add-on gates remain separate.
+ * Check persisted paid or lifetime base access. A Founding Trial can use a
+ * bookkeeping provider only while its own complimentary grant and trial are
+ * both current; the add-on gate remains separate.
  * Required for accessing external integrations (Xero, QuickBooks, etc.)
  *
- * @param userId - The user ID to check
+ * @param userId - The authenticated user ID to check
+ * @param provider - Provider being accessed; omitted calls cannot use the
+ *   Founding Trial exception.
  * @returns SubscriptionCheckResult with access decision and details
  */
 export async function checkIntegrationAccess(
   userId: string,
+  provider?: string,
 ): Promise<SubscriptionCheckResult> {
   // Bypass subscription check in development mode
   if (isIntegrationDevMode()) {
@@ -34,15 +45,19 @@ export async function checkIntegrationAccess(
     };
   }
 
+  const select = {
+    id: true,
+    role: true,
+    organization: { select: { ownerId: true } },
+    subscriptionStatus: true,
+    subscriptionPlan: true,
+    subscriptionEndsAt: true,
+    trialEndsAt: true,
+    lifetimeAccess: true,
+  } as const;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      id: true,
-      subscriptionStatus: true,
-      subscriptionPlan: true,
-      subscriptionEndsAt: true,
-      lifetimeAccess: true,
-    },
+    select,
   });
 
   if (!user) {
@@ -55,17 +70,43 @@ export async function checkIntegrationAccess(
     };
   }
 
-  // Lifetime access is a persisted base grant, not a subscription plan label.
-  // Ordinary TRIAL users still cannot access external integrations.
+  // Preserve the existing persisted actor check for paid and lifetime plans.
+  // Only the Founding Trial path inherits the organisation owner's trial.
   const hasLifetimeAccess = user.lifetimeAccess === true;
-  const allowedStatuses = ["ACTIVE"];
-  const isAllowed = hasLifetimeAccess || allowedStatuses.includes(user.subscriptionStatus || "");
-
-  // Also check if subscription hasn't expired
   const isExpired =
     user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) < new Date();
+  const hasPaidAccess = user.subscriptionStatus === "ACTIVE" && !isExpired;
 
-  if (isExpired && !hasLifetimeAccess) {
+  let hasCurrentFoundingTrial = false;
+  let foundingTrialWorkspaceId: string | undefined;
+  if (!hasLifetimeAccess && !hasPaidAccess && isBookkeepingProvider(provider?.toUpperCase() ?? "")) {
+    // The actor must actively belong to the READY workspace carrying the
+    // grant. Its persisted owner must be this organisation's owner.
+    const ownerId = user.role === "ADMIN" ? user.id : user.organization?.ownerId ?? user.id;
+    const owner = ownerId === user.id ? user : await prisma.user.findUnique({ where: { id: ownerId }, select });
+    const trialEnd = owner?.trialEndsAt?.getTime();
+    if (owner?.subscriptionStatus === "TRIAL" && typeof trialEnd === "number" &&
+        Number.isFinite(trialEnd) && trialEnd > Date.now()) {
+      const workspace = await getWorkspaceForUser(userId);
+      if (workspace) {
+        const grant = await prisma.featureEntitlement.findUnique({
+          where: { workspaceId_sku: { workspaceId: workspace.id, sku: BOOKKEEPING_SKU } },
+          select: {
+            active: true, stripePriceId: true,
+            workspace: { select: { ownerId: true, status: true } },
+          },
+        });
+        hasCurrentFoundingTrial = grant?.active === true &&
+          grant.stripePriceId === COMPLIMENTARY_PRICE_ID &&
+          grant.workspace?.ownerId === ownerId && grant.workspace?.status === "READY";
+        if (hasCurrentFoundingTrial) foundingTrialWorkspaceId = workspace.id;
+      }
+    }
+  }
+
+  const isAllowed = hasLifetimeAccess || hasPaidAccess || hasCurrentFoundingTrial;
+
+  if (isExpired && !hasLifetimeAccess && !hasCurrentFoundingTrial) {
     return {
       isAllowed: false,
       userId,
@@ -89,8 +130,9 @@ export async function checkIntegrationAccess(
   return {
     isAllowed: true,
     userId,
-    subscriptionStatus: user.subscriptionStatus,
+    subscriptionStatus: hasCurrentFoundingTrial ? "TRIAL" : user.subscriptionStatus,
     subscriptionPlan: user.subscriptionPlan,
+    foundingTrialWorkspaceId,
   };
 }
 

@@ -3,31 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
-import { IntegrationProvider } from "@prisma/client";
-
-// RA-1345 — explicit allowlist of safe-to-return fields. Previously both
-// GET (list) and POST (create) returned the full Integration row, leaking
-// `apiKey`, `accessToken`, `refreshToken`, and raw `config` to the client.
-// Sibling /[id]/route.ts already has this guard; this closes the matching
-// gap on the list/create endpoints.
-const INTEGRATION_PUBLIC_SELECT = {
-  id: true,
-  userId: true,
-  workspaceId: true,
-  provider: true,
-  name: true,
-  description: true,
-  icon: true,
-  status: true,
-  tokenExpiresAt: true,
-  tenantId: true,
-  realmId: true,
-  companyId: true,
-  lastSyncAt: true,
-  syncError: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
+import { getOrganizationOwner } from "@/lib/organization-credits";
+import { listConfiguredAiConnections } from "@/lib/services/integrations/ai-connections";
+import { INTEGRATION_METADATA_SELECT, integrationPublicMetadata } from "@/lib/services/integrations/public-metadata";
+import { classifyIntegrationIdentity } from "@/lib/integrations/identity";
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,19 +20,30 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // RA-1376: bounded list query (CLAUDE.md rule 4).
-    const integrations = await prisma.integration.findMany({
-      where: {
-        userId: session.user.id,
-      },
-      select: INTEGRATION_PUBLIC_SELECT,
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: 50,
+    const effectiveOwner = await getOrganizationOwner(session.user.id) || session.user.id;
+    const [rows, canonical] = await Promise.all([
+      prisma.integration.findMany({
+        where: { userId: { in: [...new Set([session.user.id, effectiveOwner])] } },
+        select: { ...INTEGRATION_METADATA_SELECT, config: true },
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 101,
+      }),
+      listConfiguredAiConnections(effectiveOwner),
+    ]);
+    // Shared AI settings use the effective owner; OAuth remains actor-owned.
+    const visible = rows.slice(0, 100).filter(row => {
+      const identity = classifyIntegrationIdentity(row);
+      return identity.kind === "AI" ? row.userId === effectiveOwner : row.userId === session.user.id;
     });
-
-    return NextResponse.json({ integrations });
+    const credentialIds = visible.length ? await prisma.integration.findMany({
+      where: { id: { in: visible.map(row => row.id) }, userId: session.user.id, accessToken: { not: null, notIn: [""] } },
+      select: { id: true }, take: 100,
+    }) : [];
+    const configured = new Set(credentialIds.map(row => row.id));
+    return NextResponse.json({
+      integrations: visible.map(row => integrationPublicMetadata(row, configured.has(row.id))),
+      aiConnections: canonical.connections, workspaceId: canonical.workspaceId,
+      truncated: rows.length > 100,
+    });
   } catch (error) {
     return fromException(request, error, { stage: "list" });
   }
@@ -71,72 +61,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const body = await request.json();
-    const { name, description, icon, apiKey, config, provider } = body;
-
-    if (!name) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "Name is required",
-        status: 400,
-      });
-    }
-
-    // Determine provider from name if not provided
-    let integrationProvider = provider;
-    if (!integrationProvider) {
-      const nameLower = name.toLowerCase();
-      if (nameLower.includes("xero")) {
-        integrationProvider = "XERO";
-      } else if (nameLower.includes("quickbook")) {
-        integrationProvider = "QUICKBOOKS";
-      } else if (nameLower.includes("myob")) {
-        integrationProvider = "MYOB";
-      } else if (
-        nameLower.includes("servicem8") ||
-        nameLower.includes("service m8")
-      ) {
-        integrationProvider = "SERVICEM8";
-      } else if (nameLower.includes("ascora")) {
-        integrationProvider = "ASCORA";
-      } else {
-        // Default to XERO if cannot be determined (for backwards compatibility)
-        // Note: Anthropic Claude and other non-accounting services should provide provider explicitly
-        integrationProvider = "XERO";
-      }
-    }
-
-    // Validate provider is a valid enum value
-    const validProviders = [
-      "XERO",
-      "QUICKBOOKS",
-      "MYOB",
-      "SERVICEM8",
-      "ASCORA",
-    ];
-    if (!validProviders.includes(integrationProvider)) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: `Invalid provider. Must be one of: ${validProviders.join(", ")}`,
-        status: 400,
-      });
-    }
-
-    const integration = await prisma.integration.create({
-      data: {
-        name,
-        description,
-        icon,
-        apiKey,
-        config: config ? JSON.stringify(config) : null,
-        status: apiKey ? "CONNECTED" : "DISCONNECTED",
-        provider: integrationProvider as IntegrationProvider,
-        userId: session.user.id,
-      },
-      select: INTEGRATION_PUBLIC_SELECT,
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Configure AI providers in workspace provider connections, or use the provider's OAuth Connect action.",
+      status: 400,
     });
-
-    return NextResponse.json(integration);
   } catch (error) {
     return fromException(request, error, { stage: "create" });
   }

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const integrationFindUnique = vi.fn();
 const integrationUpdate = vi.fn();
+const integrationUpdateMany = vi.fn();
 const oauthStateCreate = vi.fn();
 const oauthStateFindUnique = vi.fn();
 const oauthStateUpdateMany = vi.fn();
@@ -12,6 +13,7 @@ vi.mock("@/lib/prisma", () => ({
     integration: {
       findUnique: (...args: unknown[]) => integrationFindUnique(...args),
       update: (...args: unknown[]) => integrationUpdate(...args),
+      updateMany: (...args: unknown[]) => integrationUpdateMany(...args),
     },
     oAuthStateNonce: {
       create: (...args: unknown[]) => oauthStateCreate(...args),
@@ -37,6 +39,8 @@ beforeEach(() => {
   integrationFindUnique.mockReset();
   integrationUpdate.mockReset();
   integrationUpdate.mockResolvedValue({});
+  integrationUpdateMany.mockReset();
+  integrationUpdateMany.mockResolvedValue({ count: 1 });
   oauthStateCreate.mockReset();
   oauthStateCreate.mockResolvedValue({});
   oauthStateFindUnique.mockReset();
@@ -87,6 +91,37 @@ describe("OAuth state callback context", () => {
       codeVerifier: "verifier-1",
     });
   });
+
+  const storedState = (overrides: Record<string, unknown> = {}) => ({
+    userId: "u1", provider: "XERO", integrationId: "integration_1", redirectUri: null,
+    codeVerifier: "verifier-1", expiresAt: new Date(Date.now() + 60_000), usedAt: null, ...overrides,
+  });
+
+  it("refuses a state that was already used", async () => {
+    oauthStateFindUnique.mockResolvedValue(storedState({ usedAt: new Date() }));
+    oauthStateUpdateMany.mockResolvedValue({ count: 1 });
+
+    await expect(validateOAuthState("state-1")).resolves.toBeNull();
+    expect(oauthStateUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses a state another callback consumed first", async () => {
+    oauthStateFindUnique.mockResolvedValue(storedState());
+    oauthStateUpdateMany.mockResolvedValue({ count: 0 });
+
+    await expect(validateOAuthState("state-1")).resolves.toBeNull();
+    expect(oauthStateUpdateMany).toHaveBeenCalledWith({
+      where: { nonce: "state-1", usedAt: null },
+      data: { usedAt: expect.any(Date) },
+    });
+  });
+
+  it("refuses an expired state", async () => {
+    oauthStateFindUnique.mockResolvedValue(storedState({ expiresAt: new Date(Date.now() - 1) }));
+    oauthStateUpdateMany.mockResolvedValue({ count: 1 });
+
+    await expect(validateOAuthState("state-1")).resolves.toBeNull();
+  });
 });
 
 afterEach(() => {
@@ -96,6 +131,7 @@ afterEach(() => {
 describe("disconnectIntegration", () => {
   it("nulls all token fields locally (works even for a CANCELED/lapsed user)", async () => {
     integrationFindUnique.mockResolvedValue({
+      name: "MYOB",
       provider: "MYOB", // no revoke endpoint — exercises the "skip revoke" path
       accessToken: "encrypted:access-1",
       refreshToken: "encrypted:refresh-1",
@@ -122,7 +158,9 @@ describe("disconnectIntegration", () => {
     process.env.XERO_CLIENT_ID = "client-id";
     process.env.XERO_CLIENT_SECRET = "client-secret";
     integrationFindUnique.mockResolvedValue({
+      id: "integration_1", userId: "synthetic-owner", workspaceId: null, updatedAt: new Date("2026-10-01"),
       provider: "XERO",
+      name: "Xero",
       accessToken: "encrypted:access-1",
       refreshToken: "encrypted:refresh-1",
     });
@@ -137,14 +175,16 @@ describe("disconnectIntegration", () => {
     );
     // Called once per token (refresh + access).
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(integrationUpdate).toHaveBeenCalled();
+    expect(integrationUpdateMany).toHaveBeenCalled();
   });
 
   it("still clears local tokens even if the provider revoke call throws", async () => {
     process.env.XERO_CLIENT_ID = "client-id";
     process.env.XERO_CLIENT_SECRET = "client-secret";
     integrationFindUnique.mockResolvedValue({
+      id: "integration_1", userId: "synthetic-owner", workspaceId: null, updatedAt: new Date("2026-10-01"),
       provider: "XERO",
+      name: "Xero",
       accessToken: "encrypted:access-1",
       refreshToken: null,
     });
@@ -154,7 +194,7 @@ describe("disconnectIntegration", () => {
     );
 
     await expect(disconnectIntegration("integration_1")).resolves.not.toThrow();
-    expect(integrationUpdate).toHaveBeenCalledWith(
+    expect(integrationUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ accessToken: null }),
       }),
@@ -163,7 +203,9 @@ describe("disconnectIntegration", () => {
 
   it("still clears local tokens even if the stored token can't be decrypted (post key-rotation / corrupt token)", async () => {
     integrationFindUnique.mockResolvedValue({
+      id: "integration_1", userId: "synthetic-owner", workspaceId: null, updatedAt: new Date("2026-10-01"),
       provider: "XERO",
+      name: "Xero",
       accessToken: "encrypted:access-1",
       refreshToken: "encrypted:refresh-1",
     });
@@ -178,8 +220,8 @@ describe("disconnectIntegration", () => {
     // Undecryptable token means we can't revoke it at the provider — must
     // skip the revoke call rather than throw.
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(integrationUpdate).toHaveBeenCalledWith({
-      where: { id: "integration_1" },
+    expect(integrationUpdateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "integration_1", provider: "XERO", userId: "synthetic-owner", workspaceId: null }),
       data: expect.objectContaining({
         status: "DISCONNECTED",
         accessToken: null,

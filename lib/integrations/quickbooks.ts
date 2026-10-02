@@ -13,6 +13,20 @@
 import { Integration } from "@prisma/client";
 import { getValidQuickBooksAccessToken } from "@/lib/services/quickbooks/credentials";
 import { type Country, getGstTreatment } from "../gst-rules";
+import { isOAuthIntegration } from "./identity";
+
+async function withQuickBooksCredentials(integration: Integration): Promise<Integration> {
+  if (!isOAuthIntegration(integration, "QUICKBOOKS")) {
+    throw new Error("Invalid QuickBooks integration identity");
+  }
+  if (!integration.realmId) throw new Error("No realm ID (company ID) available for QuickBooks");
+  const result = await getValidQuickBooksAccessToken(integration.id);
+  if (!result.ok) {
+    throw new Error(`QuickBooks credentials unavailable: ${result.reason}`, { cause: result.cause });
+  }
+  // Keep the owner-scoped ID and realm; never mutate or transmit stored ciphertext.
+  return { ...integration, accessToken: result.data };
+}
 
 interface QuickBooksInvoice {
   Id?: string; // Present on update path
@@ -94,7 +108,7 @@ async function throwClassifiedQuickBooksError(
     console.warn(
       `[QuickBooks] Token error (${response.status}) on integration ${integration.id} — refreshing token for next retry`,
     );
-    const credResult = await getValidQuickBooksAccessToken(integration.id);
+    const credResult = await getValidQuickBooksAccessToken(integration.id, { forceRefresh: true });
     if (!credResult.ok) {
       throw new Error(
         `QuickBooks token refresh failed (integration ${integration.id}): ${credResult.reason}${
@@ -165,6 +179,7 @@ export async function syncInvoiceToQuickBooks(
   integration: Integration,
   country: Country,
 ) {
+  integration = await withQuickBooksCredentials(integration);
   const gst = getGstTreatment(country);
   if (!integration.accessToken) {
     throw new Error("No access token available for QuickBooks");
@@ -482,6 +497,7 @@ export async function getQuickBooksInvoice(
   externalInvoiceId: string,
   integration: Integration,
 ) {
+  integration = await withQuickBooksCredentials(integration);
   if (!integration.accessToken || !integration.realmId) {
     throw new Error("Missing QuickBooks credentials");
   }
