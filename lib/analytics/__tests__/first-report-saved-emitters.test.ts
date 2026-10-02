@@ -66,7 +66,7 @@ const h = vi.hoisted(() => {
     scopeItem: { create: fn(), createMany: fn() },
     costEstimate: { createMany: fn() },
     moistureReading: { create: fn() },
-    integration: { findFirst: fn() },
+    integration: { findFirst: fn(), findMany: fn() },
     externalJob: { findMany: fn(), update: fn() },
     externalClient: { findFirst: fn() },
     organization: { findFirst: fn(), update: fn() },
@@ -492,6 +492,9 @@ describe("counted: POST /api/integrations/oauth/[provider]/jobs (import from a c
 
   beforeEach(() => {
     h.db.integration.findFirst.mockResolvedValue({ id: "integration-1" });
+    h.db.integration.findMany.mockResolvedValue([{ id: "integration-1", userId: "u-import", workspaceId: null,
+      provider: "XERO", name: "Xero", icon: null, config: null, status: "CONNECTED", tenantId: "org",
+      realmId: null, companyId: null, tokenExpiresAt: null }]);
     h.db.externalJob.update.mockResolvedValue({});
   });
 
