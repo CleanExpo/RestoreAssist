@@ -40,17 +40,17 @@ const migrations = [
   { name: B, sql: "DROP INDEX CONCURRENTLY IF EXISTS b;" },
   { name: "20260103_plain", sql: "ALTER TABLE t ADD COLUMN y INT;" },
 ];
-const six = (names: string[]) => Array.from({ length: 6 }, () => names);
+const seven = (names: string[]) => Array.from({ length: 7 }, () => names);
 
 describe("CONCURRENTLY pre-resolve lists (RA-7502)", () => {
-  it("accepts six agreeing copies of every form", () => {
-    const result = checkPreresolve({ files: fixture(six([A, B])), migrations });
-    expect(result.sites).toHaveLength(6);
+  it("accepts seven agreeing copies of every form", () => {
+    const result = checkPreresolve({ files: fixture(seven([A, B])), migrations });
+    expect(result.sites).toHaveLength(7);
     expect(result.problems).toEqual([]);
   });
 
   it("names the one copy that is missing an entry", () => {
-    const copies = six([A, B]);
+    const copies = seven([A, B]);
     copies[4] = [A];
     const { problems } = checkPreresolve({ files: fixture(copies), migrations });
     expect(problems.join("\n")).toContain("pre-resolve copies disagree");
@@ -59,8 +59,8 @@ describe("CONCURRENTLY pre-resolve lists (RA-7502)", () => {
 
   it("flags a CONCURRENTLY migration on disk that no copy lists", () => {
     const extra = [...migrations, { name: "20260104_c", sql: "CREATE UNIQUE INDEX CONCURRENTLY c ON t (z);" }];
-    const { problems } = checkPreresolve({ files: fixture(six([A, B])), migrations: extra });
-    expect(problems).toHaveLength(6);
+    const { problems } = checkPreresolve({ files: fixture(seven([A, B])), migrations: extra });
+    expect(problems).toHaveLength(7);
     expect(problems[0]).toContain("omits 20260104_c");
   });
 
@@ -74,7 +74,7 @@ describe("CONCURRENTLY pre-resolve lists (RA-7502)", () => {
     };
     expect(requiredMigrations([commentOnly])).toEqual([]);
     const { problems } = checkPreresolve({
-      files: fixture(six([A, B])),
+      files: fixture(seven([A, B])),
       migrations: [...migrations, commentOnly],
     });
     expect(problems).toEqual([]);
@@ -136,7 +136,7 @@ describe("CONCURRENTLY pre-resolve lists (RA-7502)", () => {
 
   it("flags a listed migration that is not on disk", () => {
     const { problems } = checkPreresolve({
-      files: fixture(six([A, B, "zz_not_a_real_migration"])),
+      files: fixture(seven([A, B, "zz_not_a_real_migration"])),
       migrations,
     });
     expect(problems).toContain(
@@ -144,16 +144,16 @@ describe("CONCURRENTLY pre-resolve lists (RA-7502)", () => {
     );
   });
 
-  it("fails when a seventh copy appears or one disappears", () => {
-    expect(checkPreresolve({ files: fixture([...six([A, B]), [A, B]]), migrations }).problems[0]).toContain(
-      "found 7 pre-resolve sites, expected 6",
+  it("fails when an eighth copy appears or one disappears", () => {
+    expect(checkPreresolve({ files: fixture([...seven([A, B]), [A, B]]), migrations }).problems[0]).toContain(
+      "found 8 pre-resolve sites, expected 7",
     );
-    expect(checkPreresolve({ files: fixture(six([A, B]).slice(1)), migrations }).problems[0]).toContain(
-      "found 5 pre-resolve sites, expected 6",
+    expect(checkPreresolve({ files: fixture(seven([A, B]).slice(1)), migrations }).problems[0]).toContain(
+      "found 6 pre-resolve sites, expected 7",
     );
   });
 
-  it("holds on the real repository: six copies, all equal to the migrations that run CONCURRENTLY", () => {
+  it("holds on the real repository: seven copies, all equal to the migrations that run CONCURRENTLY", () => {
     const { sites, required, problems } = checkPreresolve(readRepo(process.cwd()));
     expect(problems).toEqual([]);
     expect(sites).toHaveLength(EXPECTED_SITE_COUNT);
