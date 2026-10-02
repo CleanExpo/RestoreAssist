@@ -143,6 +143,35 @@ describe("POST /api/check-active-subscription — monthly-usage reset (RA-6962)"
     expect(data.subscriptionId).toBe("sub_f");
   });
 
+  it("never adopts another user's Stripe customer or subscription found by billing email", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ stripeCustomerId: null, subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+    stripeMock.customers.list.mockResolvedValue({
+      data: [{ id: "cus_other", metadata: { userId: "u2" } }],
+    });
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ ...activeSub("sub_other"), status: "trialing", metadata: { userId: "u2" } }],
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(404);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("ignores a subscription that names another user even on the caller's own customer", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ ...activeSub("sub_other"), metadata: { userId: "u2" } }],
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(404);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
   it("does not activate a trialing add-on subscription as the plan", async () => {
     const addon = activeSub("sub_addon");
     addon.items.data[0].price = { id: "price_technician_seats", recurring: { interval: "month" } } as any;

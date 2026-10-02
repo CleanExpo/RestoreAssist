@@ -92,7 +92,10 @@ export async function POST(request: NextRequest) {
           email: user.email!,
           limit: 1,
         });
-        if (customers.data.length > 0) {
+        // A billing-email match never adopts a customer that names another
+        // user (same explicit-owner rule as verify-subscription).
+        const owner = customers.data[0]?.metadata?.userId;
+        if (customers.data.length > 0 && (!owner || owner === user.id)) {
           customerId = customers.data[0].id;
           // Update user with customer ID
           await prisma.user.update({
@@ -124,6 +127,8 @@ export async function POST(request: NextRequest) {
       // Find the most recent active subscription
       const activeSubscription = subscriptions.data
         .filter(isLiveBaseSubscription)
+        // A subscription naming another user is never applied to this one.
+        .filter((sub) => !sub.metadata?.userId || sub.metadata.userId === user.id)
         .sort((a, b) => b.created - a.created)[0];
 
       // Live = active, or a trialing BASE plan (Founding Trial early upgrade,
