@@ -108,12 +108,12 @@ describe("POST /api/reactivate-subscription", () => {
     } as never);
     stripeMock.customers.list.mockResolvedValue({ data: [{ id: "cus_other", metadata: { userId: "u2" } }] });
     stripeMock.subscriptions.list.mockResolvedValue({ data: [{ id: "sub_other", metadata: {} }] });
-    expect((await POST(makeRequest())).status).toBe(404);
+    expect((await POST(makeRequest())).status).toBe(403);
 
     // An unowned customer whose subscription names another user is refused as well.
     stripeMock.customers.list.mockResolvedValue({ data: [{ id: "cus_x", metadata: {} }] });
     stripeMock.subscriptions.list.mockResolvedValue({ data: [{ id: "sub_other", metadata: { userId: "u2" } }] });
-    expect((await POST(makeRequest())).status).toBe(404);
+    expect((await POST(makeRequest())).status).toBe(403);
 
     expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
     expect(prisma.user.update).not.toHaveBeenCalled();

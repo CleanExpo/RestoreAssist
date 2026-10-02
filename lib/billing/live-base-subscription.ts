@@ -18,3 +18,16 @@ export function isLiveBaseSubscription(sub: Stripe.Subscription): boolean {
     (item) => item.price?.id === PRICING_CONFIG.prices.monthly,
   );
 }
+
+/**
+ * A Stripe object (customer, subscription, session) may name its owner in
+ * metadata.userId (create-checkout-session sets it). One that names another
+ * user is never applied to this one; one that names nobody may be.
+ */
+export function ownerAllows(
+  obj: { metadata?: Stripe.Metadata | null } | null | undefined,
+  userId: string,
+): boolean {
+  const owner = obj?.metadata?.userId;
+  return !owner || owner === userId;
+}

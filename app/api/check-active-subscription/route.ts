@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
-import { isLiveBaseSubscription } from "@/lib/billing/live-base-subscription";
+import { isLiveBaseSubscription, ownerAllows } from "@/lib/billing/live-base-subscription";
 
 function subPeriodEnd(sub: import("stripe").Stripe.Subscription): number {
   return (
@@ -94,8 +94,7 @@ export async function POST(request: NextRequest) {
         });
         // A billing-email match never adopts a customer that names another
         // user (same explicit-owner rule as verify-subscription).
-        const owner = customers.data[0]?.metadata?.userId;
-        if (customers.data.length > 0 && (!owner || owner === user.id)) {
+        if (customers.data.length > 0 && ownerAllows(customers.data[0], user.id)) {
           customerId = customers.data[0].id;
           // Update user with customer ID
           await prisma.user.update({
@@ -128,7 +127,7 @@ export async function POST(request: NextRequest) {
       const activeSubscription = subscriptions.data
         .filter(isLiveBaseSubscription)
         // A subscription naming another user is never applied to this one.
-        .filter((sub) => !sub.metadata?.userId || sub.metadata.userId === user.id)
+        .filter((sub) => ownerAllows(sub, user.id))
         .sort((a, b) => b.created - a.created)[0];
 
       // Live = active, or a trialing BASE plan (Founding Trial early upgrade,

@@ -213,8 +213,14 @@ export async function POST(request: NextRequest) {
           );
           const subscriptionPlan = derivePlanNameFromSubscription(subscription);
 
+          // A subscription that names its owner activates that user only, never
+          // another holder of the same customer id.
+          const owner = subscription.metadata?.userId;
           const renewResult = await prisma.user.updateMany({
-            where: { stripeCustomerId: subscription.customer as string },
+            where: {
+              stripeCustomerId: subscription.customer as string,
+              ...(owner ? { id: owner } : {}),
+            },
             data: {
               subscriptionStatus: "ACTIVE",
               subscriptionId: subscription.id,

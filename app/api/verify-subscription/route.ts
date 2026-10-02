@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { fulfillLifetimeFromSession } from "@/lib/billing/fulfill-one-time";
 import { apiError, fromException } from "@/lib/api-errors";
-import { isLiveBaseSubscription } from "@/lib/billing/live-base-subscription";
+import { isLiveBaseSubscription, ownerAllows } from "@/lib/billing/live-base-subscription";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -155,6 +155,16 @@ export async function POST(request: NextRequest) {
             code: "VALIDATION",
             message: "Subscription is not active",
             status: 400,
+          });
+        }
+
+        // A session admitted by billing email names no owner; the subscription
+        // it points at still may, and one naming another user is never adopted.
+        if (!ownerAllows(stripeSubscription, session.user.id)) {
+          return apiError(request, {
+            code: "FORBIDDEN",
+            message: "Invalid session",
+            status: 403,
           });
         }
 
