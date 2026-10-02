@@ -91,6 +91,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Whichever way it was resolved (stored id or customer list), the
+    // subscription must belong to this customer and must not name another user
+    // before Stripe is asked to resume billing on it.
+    const resolved = await stripe.subscriptions.retrieve(subscriptionId);
+    const resolvedCustomer =
+      typeof resolved.customer === "string" ? resolved.customer : resolved.customer?.id;
+    if (resolvedCustomer !== customerId || !ownerAllows(resolved, session.user.id)) {
+      return notYours(request);
+    }
+
     await stripe.subscriptions.update(subscriptionId, {
       cancel_at_period_end: false,
     });

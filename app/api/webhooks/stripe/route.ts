@@ -18,6 +18,7 @@ import {
 } from "@/lib/billing/fulfill-recurring-addon";
 import { apiError } from "@/lib/api-errors";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { ownerAllows } from "@/lib/billing/live-base-subscription";
 
 /**
  * Best-effort human-readable plan name from a Stripe Subscription.
@@ -953,6 +954,9 @@ export async function handleSubscriptionUpdated(
 
   const mapped = stripeStatusToOurs(stripeStatus);
   if (mapped === null || mapped === user.subscriptionStatus) return;
+  // A subscription naming another owner never restores this holder's access;
+  // a downgrade still applies to whoever holds it.
+  if (mapped === "ACTIVE" && !ownerAllows(sub, user.id)) return;
 
   const recorded = await recordSubscriptionEvent({
     userId: user.id,

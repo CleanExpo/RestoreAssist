@@ -207,7 +207,8 @@ export async function POST(request: NextRequest) {
               (s) =>
                 s.mode === "payment" &&
                 s.metadata?.type === "lifetime" &&
-                s.payment_status === "paid",
+                s.payment_status === "paid" &&
+                ownerAllows(s, user.id),
             );
             if (lifetimePaid) {
               await prisma.user.update({
