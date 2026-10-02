@@ -176,14 +176,17 @@ export async function checkAndUpdateTrialStatus(
   const trialEndsAt = user.trialEndsAt ? new Date(user.trialEndsAt) : null;
 
   if (trialEndsAt && now > trialEndsAt) {
-    await prisma.user.update({
-      where: { id: userId },
+    // Conditional write: a founding-trial grant (or any extension) that commits
+    // after the read above moves trialEndsAt, so this no longer matches and the
+    // new trial survives instead of being overwritten with EXPIRED.
+    const { count } = await prisma.user.updateMany({
+      where: { id: userId, subscriptionStatus: "TRIAL", trialEndsAt },
       data: {
         subscriptionStatus: "EXPIRED",
         creditsRemaining: 0,
       },
     });
-    return true; // Trial was expired
+    return count > 0; // Trial was expired
   }
 
   return false; // Trial still active
