@@ -114,6 +114,7 @@
     "verifier:ledger": "node scripts/verifier-ledger.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
+    "db:migrate:local": "bash scripts/dev-local-migrate.sh",
     "db:studio": "prisma studio",
     "db:seed:ceo": "npx tsx prisma/seed-ceo.ts",
     "script:linear-query": "tsx scripts/linear-query.ts",

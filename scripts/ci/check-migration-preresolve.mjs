@@ -22,7 +22,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
-export const EXPECTED_SITE_COUNT = 6;
+export const EXPECTED_SITE_COUNT = 7;
 
 const SCAN_DIRS = [".github", "scripts"];
 const APPLIED_RE = /migrate\s+resolve\s+--applied\s+(\S+)/;
