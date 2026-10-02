@@ -6,9 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { fulfillLifetimeFromSession } from "@/lib/billing/fulfill-one-time";
 import { apiError, fromException } from "@/lib/api-errors";
-
-// Stripe statuses that mean the subscription is live and may activate the account.
-const LIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+import { isLiveBaseSubscription } from "@/lib/billing/live-base-subscription";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -86,8 +84,11 @@ export async function POST(request: NextRequest) {
         // Check if payment was successful. A completed subscription Checkout
         // with a trial (Founding Trial early upgrade, first charge on day 60)
         // is "no_payment_required"; the live-subscription check below still
-        // decides whether it may activate the account.
+        // decides whether it may activate the account. Unlike a paid session,
+        // a no-payment session must name this user explicitly: a billing-email
+        // match alone never transfers someone else's free trial onto this account.
         const trialCheckoutComplete =
+          checkoutSession.metadata?.userId === session.user.id &&
           checkoutSession.mode === "subscription" &&
           checkoutSession.status === "complete" &&
           checkoutSession.payment_status === "no_payment_required";
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
         // "trialing" is live too: a Founding Trial customer who subscribes early
         // starts trialing until day 60 (create-checkout-session trial_end), and
         // the webhook already maps trialing -> ACTIVE (stripeStatusToOurs).
-        if (!LIVE_SUBSCRIPTION_STATUSES.has(stripeSubscription.status)) {
+        if (!isLiveBaseSubscription(stripeSubscription)) {
           return apiError(request, {
             code: "VALIDATION",
             message: "Subscription is not active",
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
               storedSubscriptionId,
             );
             storedIsCurrent =
-              LIVE_SUBSCRIPTION_STATUSES.has(storedSubscription.status) &&
+              isLiveBaseSubscription(storedSubscription) &&
               (storedSubscription.created ?? 0) >
                 (stripeSubscription.created ?? 0);
           } catch (storedLookupError: unknown) {

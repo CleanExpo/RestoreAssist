@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isLiveBaseSubscription } from "@/lib/billing/live-base-subscription";
 
 function subPeriodEnd(sub: import("stripe").Stripe.Subscription): number {
   return (
@@ -122,12 +123,11 @@ export async function POST(request: NextRequest) {
 
       // Find the most recent active subscription
       const activeSubscription = subscriptions.data
-        .filter((sub) => sub.status === "active" || sub.status === "trialing")
+        .filter(isLiveBaseSubscription)
         .sort((a, b) => b.created - a.created)[0];
 
-      // A trialing subscription is live: a Founding Trial customer who
-      // subscribes early is trialing until day 60, and the webhook maps
-      // trialing -> ACTIVE (stripeStatusToOurs).
+      // Live = active, or a trialing BASE plan (Founding Trial early upgrade,
+      // trialing until day 60). A trialing add-on is excluded above.
       if (activeSubscription) {
         // Determine subscription plan from price
         let subscriptionPlan = "Monthly Plan"; // Default

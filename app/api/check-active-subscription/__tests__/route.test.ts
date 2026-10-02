@@ -37,6 +37,7 @@ vi.mock("@/lib/prisma", () => ({
 import { POST } from "../route";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 function activeSub(id: string) {
   return {
@@ -46,7 +47,7 @@ function activeSub(id: string) {
     items: {
       data: [
         {
-          price: { recurring: { interval: "month" } },
+          price: { id: PRICING_CONFIG.prices.monthly, recurring: { interval: "month" } },
           current_period_end: 2_000_000_000,
           current_period_start: 1_990_000_000,
         },
@@ -140,5 +141,20 @@ describe("POST /api/check-active-subscription — monthly-usage reset (RA-6962)"
     >;
     expect(data.subscriptionStatus).toBe("ACTIVE");
     expect(data.subscriptionId).toBe("sub_f");
+  });
+
+  it("does not activate a trialing add-on subscription as the plan", async () => {
+    const addon = activeSub("sub_addon");
+    addon.items.data[0].price = { id: "price_technician_seats", recurring: { interval: "month" } } as any;
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ ...addon, status: "trialing", created: 2000 }],
+    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      baseUser({ subscriptionStatus: "TRIAL", subscriptionId: null }) as never,
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(404);
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });

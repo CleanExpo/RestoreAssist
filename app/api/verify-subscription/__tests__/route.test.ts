@@ -29,6 +29,7 @@ import { POST } from "../route";
 import { getServerSession } from "next-auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 function makeRequest(body: unknown) {
   return new Request("http://localhost/api/verify-subscription", {
@@ -140,7 +141,7 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
           {
             current_period_end: periodEnd,
             current_period_start: periodStart,
-            price: { recurring: { interval: "month" } },
+            price: { id: PRICING_CONFIG.prices.monthly, recurring: { interval: "month" } },
           },
         ],
       },
@@ -219,6 +220,43 @@ describe("POST /api/verify-subscription — subscription activation (RA-6962)", 
       payment_status: "no_payment_required",
     } as any);
     expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(400);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a trialing subscription that is not the base plan (an add-on cannot become the plan)", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      status: "complete",
+      payment_status: "no_payment_required",
+    } as any);
+    const sub = stripeSub(2_000_000_000, 1_990_000_000);
+    sub.items.data[0].price = { id: "price_technician_seats", recurring: { interval: "month" } } as any;
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({ ...sub, status: "trialing" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      subscriptionId: null,
+    } as any);
+
+    expect((await POST(makeRequest({ sessionId: "cs_sub_1" }))).status).toBe(400);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a no-payment trial Checkout owned by another user even when the billing email matches", async () => {
+    vi.mocked(stripe.checkout.sessions.retrieve).mockResolvedValue({
+      ...subSession(),
+      status: "complete",
+      payment_status: "no_payment_required",
+      metadata: { userId: "u2" },
+      customer: "cus_other",
+      customer_details: { email: "owner@example.com" },
+    } as any);
+    vi.mocked(stripe.subscriptions.retrieve).mockResolvedValue({
+      ...stripeSub(2_000_000_000, 1_990_000_000),
+      status: "trialing",
+    } as any);
+
+    const res = await POST(makeRequest({ sessionId: "cs_sub_1" }));
+    expect(res.status).toBeGreaterThanOrEqual(400);
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
@@ -382,7 +420,7 @@ describe("POST /api/verify-subscription — stored-subscription retrieve failure
           {
             current_period_end: periodEnd,
             current_period_start: periodStart,
-            price: { recurring: { interval: "month" } },
+            price: { id: PRICING_CONFIG.prices.monthly, recurring: { interval: "month" } },
           },
         ],
       },
