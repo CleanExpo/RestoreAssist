@@ -21,6 +21,7 @@ const IMG_H = CELL_H - CAPTION_H;
 
 const INK = rgb(0.1, 0.12, 0.16);
 const MUTED = rgb(0.4, 0.42, 0.46);
+const WARN = rgb(0.62, 0.16, 0.1);
 
 /** Truncate a caption to fit the cell width at the given font size. */
 function fit(text: string, font: PDFFont, size: number, maxW: number): string {
@@ -45,37 +46,51 @@ function fit(text: string, font: PDFFont, size: number, maxW: number): string {
 export async function appendPhotoPages(
   reportPdfBytes: Uint8Array,
   photos: ReportPhoto[],
-  options: { propertyAddress?: string; reportNumber?: string } = {},
+  options: {
+    propertyAddress?: string;
+    reportNumber?: string;
+    /** Photos the caller could not fetch; stated on the first photo page. */
+    missingCount?: number;
+  } = {},
 ): Promise<Uint8Array> {
-  if (!photos.length) return reportPdfBytes;
+  const missingBefore = Math.max(0, options.missingCount ?? 0);
+  if (!photos.length && missingBefore === 0) return reportPdfBytes;
 
   const doc = await PDFDocument.load(reportPdfBytes);
   const helv = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
 
+  const addGridPage = (): PDFPage => {
+    const p = doc.addPage([PAGE_W, PAGE_H]);
+    p.drawText("Photographic Evidence", {
+      x: MARGIN,
+      y: PAGE_H - MARGIN - 4,
+      size: 13,
+      font: bold,
+      color: INK,
+    });
+    if (options.reportNumber) {
+      const label = `Report ${options.reportNumber}`;
+      p.drawText(label, {
+        x: PAGE_W - MARGIN - helv.widthOfTextAtSize(label, 9),
+        y: PAGE_H - MARGIN - 2,
+        size: 9,
+        font: helv,
+        color: MUTED,
+      });
+    }
+    return p;
+  };
+
   let page: PDFPage | null = null;
+  let firstPage: PDFPage | null = null;
+  let undecodable = 0;
 
   for (let i = 0; i < photos.length; i++) {
     const slot = i % PER_PAGE;
     if (slot === 0) {
-      page = doc.addPage([PAGE_W, PAGE_H]);
-      page.drawText("Photographic Evidence", {
-        x: MARGIN,
-        y: PAGE_H - MARGIN - 4,
-        size: 13,
-        font: bold,
-        color: INK,
-      });
-      if (options.reportNumber) {
-        const label = `Report ${options.reportNumber}`;
-        page.drawText(label, {
-          x: PAGE_W - MARGIN - helv.widthOfTextAtSize(label, 9),
-          y: PAGE_H - MARGIN - 2,
-          size: 9,
-          font: helv,
-          color: MUTED,
-        });
-      }
+      page = addGridPage();
+      firstPage ??= page;
     }
 
     const photo = photos[i];
@@ -85,7 +100,9 @@ export async function appendPhotoPages(
         ? await doc.embedPng(photo.bytes)
         : await doc.embedJpg(photo.bytes);
     } catch {
-      // Un-decodable image — skip this cell rather than fail the report.
+      // Un-decodable image — skip this cell rather than fail the report, and
+      // count it so the page says so.
+      undecodable++;
       continue;
     }
 
@@ -115,5 +132,28 @@ export async function appendPhotoPages(
     }
   }
 
+  if (undecodable > 0) {
+    console.error("[report-photos] photos could not be decoded", {
+      reportNumber: options.reportNumber ?? null,
+      undecodable,
+    });
+  }
+  const notice = missingPhotosNotice(missingBefore + undecodable);
+  if (notice) {
+    (firstPage ?? addGridPage()).drawText(fit(notice, helv, 8, GRID_W), {
+      x: MARGIN,
+      y: PAGE_H - MARGIN - 18,
+      size: 8,
+      font: helv,
+      color: WARN,
+    });
+  }
+
   return doc.save();
+}
+
+/** The sentence a report prints when photos could not be included. */
+export function missingPhotosNotice(count: number): string | null {
+  if (count <= 0) return null;
+  return `${count} photo${count === 1 ? "" : "s"} could not be included in this PDF. The originals remain on the inspection record.`;
 }

@@ -56,8 +56,8 @@ describe("inspectionPhotosToImages", () => {
     const imgs = await inspectionPhotosToImages(photos, fetchImpl as never);
 
     expect(imgs).toHaveLength(1);
-    expect(fetchImpl).toHaveBeenCalledWith("https://x/thumb.jpg");
-    expect(fetchImpl).not.toHaveBeenCalledWith("https://x/full.jpg");
+    expect(fetchImpl).toHaveBeenCalledWith("https://x/thumb.jpg", expect.anything());
+    expect(fetchImpl).not.toHaveBeenCalledWith("https://x/full.jpg", expect.anything());
   });
 
   it("resolves caption description → location → roomType → empty", async () => {

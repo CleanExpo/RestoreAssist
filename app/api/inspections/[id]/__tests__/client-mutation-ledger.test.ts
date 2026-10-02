@@ -45,6 +45,15 @@ const mocks = vi.hoisted(() => {
         idempotencyRecords.set(where.cacheKey, updated);
         return updated;
       },
+      // Completion updates only its own PENDING reservation for the same fingerprint.
+      async updateMany({ where, data }: { where: { cacheKey: string; id?: string; status?: string; fingerprint?: string }; data: any }) {
+        const record = idempotencyRecords.get(where.cacheKey);
+        if (!record || (where.id && record.id !== where.id) ||
+            (where.status && record.status !== where.status) ||
+            (where.fingerprint && record.fingerprint !== where.fingerprint)) return { count: 0 };
+        idempotencyRecords.set(where.cacheKey, { ...record, ...data });
+        return { count: 1 };
+      },
       async deleteMany() {
         return { count: 0 };
       },

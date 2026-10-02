@@ -6,7 +6,10 @@ import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { resolveOrgBrandTheme } from "@/lib/clients/brand";
 import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
-import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
+import {
+  photoOwnerFolders,
+  prepareReportPhotos,
+} from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
@@ -116,6 +119,12 @@ export async function GET(
         // into the report. Only floors with a rendered PNG can be drawn.
         inspection: {
           select: {
+            id: true,
+            // The folders genuine photo uploads use (photoOwnerFolders).
+            userId: true,
+            workspaceId: true,
+            user: { select: { organizationId: true } },
+            _count: { select: { photos: true } },
             // RA-7006 Gap 6: uploaded floor-plan image, appended to the PDF.
             claimSketches: {
               select: {
@@ -161,6 +170,7 @@ export async function GET(
             photos: {
               select: {
                 id: true,
+                inspectionId: true,
                 url: true,
                 thumbnailUrl: true,
                 description: true,
@@ -169,6 +179,9 @@ export async function GET(
                 mimeType: true,
               },
               orderBy: { timestamp: "asc" },
+              // Bounded so one large job cannot exhaust memory; photos past
+              // the limit are counted and stated in the PDF.
+              take: 500,
             },
           },
         },
@@ -237,15 +250,24 @@ export async function GET(
     });
 
     // RA-120 (PR3): append the inspection's evidence photos as a captioned
-    // grid. A broken image is skipped — it must never block the download.
-    const photos = await inspectionPhotosToImages(
+    // grid. A broken image never blocks the download, and the PDF states how
+    // many photos it could not include.
+    const { photos, missing } = await prepareReportPhotos(
       report.inspection?.photos ?? [],
-      fetch,
-      labelsByPhotoId,
+      {
+        evidenceLabelsByPhotoId: labelsByPhotoId,
+        inspectionId: report.inspection?.id,
+        ownerFolders: report.inspection
+          ? photoOwnerFolders(report.inspection)
+          : [],
+        reportId: report.id,
+        totalCount: report.inspection?._count?.photos,
+      },
     );
     pdfBytes = await appendPhotoPages(pdfBytes, photos, {
       propertyAddress: report.propertyAddress ?? undefined,
       reportNumber: report.reportNumber ?? undefined,
+      missingCount: missing,
     });
 
     // RA-1331: guard against OOM on very large reports (embedded photos can

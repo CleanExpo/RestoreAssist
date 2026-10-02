@@ -6,6 +6,8 @@ import { PG_POOL_CONNECTION_TIMEOUT_MS } from "./prisma-pool-config";
 declare global {
   var prisma: PrismaClient | undefined;
   var pgPool: Pool | undefined;
+  // Installed by config/vitest.db-guard.ts only; absent outside tests.
+  var __testDbGuard: ((connectionString: string) => void) | undefined;
 }
 
 /**
@@ -13,6 +15,9 @@ declare global {
  * Prisma 7 uses a `pg` Pool via driver adapter (URL `connection_limit` is ignored).
  */
 function createPool(connectionString: string): Pool {
+  // Under tests, refuse a non-local URL before the pool exists. The hook is
+  // installed only by the vitest setup file, so this does nothing elsewhere.
+  globalThis.__testDbGuard?.(connectionString);
   return new Pool({
     connectionString,
     max: 5,

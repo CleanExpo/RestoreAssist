@@ -75,6 +75,17 @@ afterEach(() => {
 });
 
 describe("compressImageForUpload", () => {
+  it("keeps a browser PNG fallback and reports its real format", async () => {
+    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(fakeBitmap(1024, 768)));
+    const pngFallback = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: "image/png" });
+    stubOffscreenCanvas(pngFallback);
+    const input = new Blob([plainJpegBytes()], { type: "image/jpeg" });
+    const result = await compressImageForUpload(input);
+    expect(result.skipped).toBe(false);
+    expect(result.blob).toBe(pngFallback);
+    expect(result.format).toBe("image/png");
+  });
+
   it("downscales to the 2048px long edge and converts to WebP", async () => {
     vi.stubGlobal(
       "createImageBitmap",

@@ -9,6 +9,8 @@ export default {
   test: {
     globals: true,
     environment: "node",
+    // Refuses a non-local Postgres and checks every connection (slice 2a).
+    setupFiles: [resolve(repoRoot, "config/vitest.db-guard.ts")],
     // Serialize test files — prevents concurrent DB mutations (e.g. backfill
     // deleteMany) from racing against tests that hold long-lived DB fixtures.
     // Default 5s is a flakiness cliff for PDF/SWMS suites (RA-7444).

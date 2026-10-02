@@ -69,6 +69,15 @@ vi.mock("@/lib/prisma", () => ({
         Object.assign(rec, data);
         return rec;
       }),
+      // Completion updates only its own PENDING reservation for the same fingerprint.
+      updateMany: vi.fn(async ({ where, data }: any) => {
+        const rec = idemStore.get(where.cacheKey);
+        if (!rec || (where.id && rec.id !== where.id) ||
+            (where.status && rec.status !== where.status) ||
+            (where.fingerprint && rec.fingerprint !== where.fingerprint)) return { count: 0 };
+        Object.assign(rec, data);
+        return { count: 1 };
+      }),
       deleteMany: vi.fn(async ({ where }: any) => {
         if (where?.cacheKey) {
           idemStore.delete(where.cacheKey);

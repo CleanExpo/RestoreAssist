@@ -46,57 +46,10 @@ export default function InspectionReportViewer({
   const [visualData, setVisualData] = useState<any>(null);
   const [structuredReportData, setStructuredReportData] = useState<any>(null);
   const [isBasicReport, setIsBasicReport] = useState(false);
-  const [hasAttemptedAutoGenerate, setHasAttemptedAutoGenerate] =
-    useState(false);
 
   useEffect(() => {
     fetchReport();
   }, [reportId]);
-
-  // Auto-generate Basic Report if it doesn't exist (only once)
-  useEffect(() => {
-    const autoGenerateBasicReport = async () => {
-      // Only auto-generate if:
-      // 1. Report is loaded
-      // 2. No report content exists
-      // 3. Report type is Basic (or reportDepthLevel is Basic)
-      // 4. Not currently generating
-      // 5. Haven't already attempted auto-generation
-      if (
-        report &&
-        !reportContent &&
-        !structuredReportData &&
-        !visualData &&
-        !generating &&
-        !hasAttemptedAutoGenerate
-      ) {
-        const isBasicReport =
-          report.reportDepthLevel === "Basic" ||
-          report.reportDepthLevel === "basic" ||
-          (!report.reportDepthLevel && !report.detailedReport);
-
-        if (isBasicReport) {
-          setHasAttemptedAutoGenerate(true);
-          // Small delay to ensure UI is ready
-          setTimeout(() => {
-            handleGenerateReport("basic");
-          }, 500);
-        }
-      }
-    };
-
-    if (report && !loading && !hasAttemptedAutoGenerate) {
-      autoGenerateBasicReport();
-    }
-  }, [
-    report,
-    reportContent,
-    structuredReportData,
-    visualData,
-    generating,
-    loading,
-    hasAttemptedAutoGenerate,
-  ]);
 
   // Preprocess report content to ensure proper markdown heading formatting
   const preprocessReportContent = (content: string): string => {

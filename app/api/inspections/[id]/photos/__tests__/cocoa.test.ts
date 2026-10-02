@@ -37,6 +37,18 @@ const idempotencyRecordUpdate = vi.fn(
     return updated;
   },
 );
+// Completion is conditional (lib/idempotency.ts): it updates only the
+// reservation it holds, still PENDING, for the same request fingerprint.
+const idempotencyRecordUpdateMany = vi.fn(
+  async ({ where, data }: { where: { cacheKey: string; id?: string; status?: string; fingerprint?: string }; data: any }) => {
+    const record = idempotencyRecords.get(where.cacheKey);
+    if (!record || (where.id && record.id !== where.id) ||
+        (where.status && record.status !== where.status) ||
+        (where.fingerprint && record.fingerprint !== where.fingerprint)) return { count: 0 };
+    idempotencyRecords.set(where.cacheKey, { ...record, ...data });
+    return { count: 1 };
+  },
+);
 const idempotencyRecordDeleteMany = vi.fn(async (args?: any) => {
   if (!args?.where) {
     const count = idempotencyRecords.size;
@@ -77,6 +89,7 @@ vi.mock("@/lib/prisma", () => ({
       create: (...a: unknown[]) => idempotencyRecordCreate(...a),
       findUnique: (...a: unknown[]) => idempotencyRecordFindUnique(...a),
       update: (...a: unknown[]) => idempotencyRecordUpdate(...a),
+      updateMany: (...a: unknown[]) => idempotencyRecordUpdateMany(...a),
       deleteMany: (...a: unknown[]) => idempotencyRecordDeleteMany(...a),
     },
   },
@@ -142,6 +155,7 @@ beforeEach(() => {
   idempotencyRecordCreate.mockClear();
   idempotencyRecordFindUnique.mockClear();
   idempotencyRecordUpdate.mockClear();
+  idempotencyRecordUpdateMany.mockClear();
   idempotencyRecordDeleteMany.mockClear();
   getServerSession.mockResolvedValue({
     user: { id: "u_1", image: "https://example.com/me.jpg" },

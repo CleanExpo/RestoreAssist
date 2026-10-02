@@ -236,7 +236,7 @@ ${exactAssessment === undefined ? "" : `\nEXACT GENERATED ASSESSMENT UNDER REVIE
 Inspection: ${inspection.inspectionNumber}
 Address: ${inspection.propertyAddress} (postcode: ${inspection.propertyPostcode})
 Status: ${inspection.status}
-Date: ${inspection.inspectionDate.toISOString().split("T")[0]}
+Date: ${inspection.inspectionDate?.toISOString().split("T")[0] ?? "Unknown"}
 
 MAKE-SAFE / STABILISATION (ICA Code of Practice §6)
 Complete: ${makeSafeComplete ? "YES" : "NO"}

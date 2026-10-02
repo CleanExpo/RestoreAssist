@@ -5,7 +5,7 @@
 // before transitioning status to SUBMITTED/COMPLETED.
 
 import { prisma } from "@/lib/prisma";
-import { MAKE_SAFE_ACTIONS } from "@/app/api/inspections/[id]/make-safe/route";
+import { MAKE_SAFE_ACTIONS } from "@/lib/compliance/make-safe-actions";
 import {
   makeSafeCompliance,
   type MakeSafeComplianceItem,
