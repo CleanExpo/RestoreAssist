@@ -129,6 +129,41 @@ describe("the write token reaches only the steps that need it", () => {
     );
   });
 
+  it("has only the reviewed shape, so no key can wrap or extend a step", () => {
+    // `shell:` on a step, or `defaults.run.shell` on the job, runs extra code
+    // around a pinned script; `container`, `services` and job `env` add other
+    // ways in. Rather than ban each key, the shape itself is fixed: a new key
+    // anywhere is a reviewed edit to this test.
+    const wf = workflow() as unknown as Record<string, unknown> & {
+      jobs: Record<string, Record<string, unknown>>;
+    };
+    expect(Object.keys(wf).sort()).toEqual(["concurrency", "jobs", "name", "on", "permissions"]);
+    expect(Object.keys(wf.jobs)).toEqual(["mint"]);
+    expect(Object.keys(wf.jobs.mint).sort()).toEqual(["environment", "if", "runs-on", "steps"]);
+    const allowed = new Set(["name", "uses", "with", "run", "env", "if", "id"]);
+    for (const s of steps()) {
+      for (const key of Object.keys(s)) {
+        expect(allowed.has(key), `${s.name ?? s.uses}: key \`${key}\``).toBe(true);
+      }
+    }
+    // The two steps that hold the token have exactly these keys and env names.
+    for (const name of ["Measure and sign", "Commit the receipt"]) {
+      const step = steps().find((s) => s.name === name) ?? {};
+      expect(Object.keys(step).sort(), name).toEqual(["env", "name", "run"]);
+    }
+    expect(Object.keys(steps().find((s) => s.name === "Measure and sign")?.env ?? {}).sort()).toEqual([
+      "A1_PLAYWRIGHT_REPORT", "DATABASE_URL", "GITHUB_TOKEN", "GITLEAKS_BINARY", "LINEAR_API_KEY",
+      "RELEASE_RECEIPT_PRIVATE_KEY", "STRIPE_SECRET_KEY", "STRIPE_TEST_SECRET_KEY",
+    ]);
+    expect(Object.keys(steps().find((s) => s.name === "Commit the receipt")?.env ?? {})).toEqual(["GH_TOKEN"]);
+    // What this does NOT prove: code that runs earlier in the job (npm ci's
+    // install scripts, the A1 step) can append to $GITHUB_ENV, e.g. BASH_ENV,
+    // and so run inside the signer's shell where GITHUB_TOKEN is set. A file
+    // test cannot close that; a separate signing job can (slice 2d). What this
+    // change does guarantee is that no step before the signer has the token,
+    // on disk or in env.
+  });
+
   it("uses only the pinned actions it was reviewed with, and pushes last", () => {
     // A new `uses:` action can read github.token through its default inputs,
     // so adding one is a reviewed change to this list, not a silent one. The
