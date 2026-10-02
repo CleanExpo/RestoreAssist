@@ -71,7 +71,7 @@ describe("POST /api/integrations/oauth/[provider]/disconnect", () => {
 
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(disconnectIntegration).toHaveBeenCalledWith("integration_1");
+    expect(disconnectIntegration).toHaveBeenCalledWith("integration_1", "XERO");
   });
 
   it("still 404s when the user has no integration of that provider", async () => {
@@ -82,4 +82,14 @@ describe("POST /api/integrations/oauth/[provider]/disconnect", () => {
     expect(response.status).toBe(404);
     expect(disconnectIntegration).not.toHaveBeenCalled();
   });
+});
+
+// These tests cover route policy/import behaviour; provider identity has dedicated real-service regressions.
+vi.mock("@/lib/services/integrations/select-oauth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/services/integrations/select-oauth")>();
+  return { ...actual, selectOAuthIntegration: vi.fn(async (input: { prisma: any; userId: string; provider: string; requireReady?: boolean }) => {
+    const row = await input.prisma.integration.findFirst({ where: { userId: input.userId, provider: input.provider,
+      ...(input.requireReady ? { status: { in: ["CONNECTED", "ERROR", "SYNCING"] } } : {}) } });
+    return row ? { ok: true, data: row } : { ok: false, reason: "NOT_FOUND" };
+  }) };
 });

@@ -12,9 +12,63 @@
  */
 
 import { createHmac, timingSafeEqual } from "crypto";
+import type { Integration } from "@prisma/client";
+import { isOAuthIntegration } from "@/lib/integrations/identity";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
+
+/** Identity metadata only. Legacy config stays internal: never log or serialize it. */
+export const XERO_WEBHOOK_INTEGRATION_SELECT = {
+  id: true,
+  userId: true,
+  workspaceId: true,
+  provider: true,
+  name: true,
+  icon: true,
+  config: true,
+  tenantId: true,
+  status: true,
+} as const;
+
+export const MAX_XERO_WEBHOOK_TENANT_CANDIDATES = 100;
+
+type XeroWebhookIntegration = Pick<Integration, keyof typeof XERO_WEBHOOK_INTEGRATION_SELECT>;
+export type XeroWebhookBindingResult =
+  | { ok: true; data: XeroWebhookIntegration }
+  | { ok: false; reason: "UNKNOWN_TENANT" | "AMBIGUOUS_TENANT" };
+
+function matchesTenant(integration: XeroWebhookIntegration, tenantId: unknown): boolean {
+  return typeof tenantId === "string" && tenantId.trim().length > 0 &&
+    integration.tenantId === tenantId && integration.status === "CONNECTED" &&
+    isOAuthIntegration(integration, "XERO");
+}
+
+/** Resolve one event's tenant without choosing an arbitrary local account. */
+export async function resolveXeroWebhookBinding(
+  tenantId: string,
+  findCandidates: (tenantId: string) => Promise<XeroWebhookIntegration[]>,
+): Promise<XeroWebhookBindingResult> {
+  const rows = await findCandidates(tenantId);
+  // A capped query must not hide another legitimate owner after its last row.
+  if (rows.length > MAX_XERO_WEBHOOK_TENANT_CANDIDATES) {
+    return { ok: false, reason: "AMBIGUOUS_TENANT" };
+  }
+  const candidates = rows.filter(row => matchesTenant(row, tenantId));
+  if (candidates.length === 0) return { ok: false, reason: "UNKNOWN_TENANT" };
+  if (candidates.length !== 1) return { ok: false, reason: "AMBIGUOUS_TENANT" };
+  return { ok: true, data: candidates[0] };
+}
+
+function invoiceScope(integration: XeroWebhookIntegration, externalInvoiceId: string) {
+  return {
+    externalInvoiceId,
+    externalSyncProvider: { in: ["XERO", "xero"] },
+    userId: integration.userId,
+    // Null is a scope too. Omitting it could match a different workspace.
+    workspaceId: integration.workspaceId,
+  };
+}
 
 /**
  * RA-871: Verify a Xero webhook HMAC-SHA256 signature (timing-safe).
@@ -75,7 +129,7 @@ export async function processXeroWebhookBatch(
     },
     take: maxEvents,
     orderBy: { createdAt: "asc" },
-    include: { integration: true },
+    select: { id: true, integrationId: true, eventType: true, payload: true },
   });
 
   for (const event of events) {
@@ -97,14 +151,23 @@ export async function processXeroWebhookBatch(
     try {
       const payload = event.payload as XeroWebhookPayload;
       const eventType = event.eventType; // normalised in webhook route
+      // The queued event may predate a disconnect, tenant change, or identity
+      // correction. Re-read its binding immediately before dispatch, without tokens.
+      const integration = await prisma.integration.findUnique({
+        where: { id: event.integrationId },
+        select: XERO_WEBHOOK_INTEGRATION_SELECT,
+      });
+      if (!integration || !matchesTenant(integration, payload?.tenantId)) {
+        throw new Error("Xero webhook tenant/integration binding is no longer valid");
+      }
 
       if (eventType === "invoice.updated" || eventType === "invoice.created") {
-        await handleInvoiceUpdated(payload, event.integrationId);
+        await handleInvoiceUpdated(payload, integration);
       } else if (
         eventType === "invoice.paid" ||
         eventType === "payment.created"
       ) {
-        await handleInvoicePaid(payload, event.integrationId);
+        await handleInvoicePaid(payload, integration);
       } else {
         // Unrecognised event type — skip cleanly, no retry needed
         await prisma.webhookEvent.update({
@@ -139,7 +202,7 @@ export async function processXeroWebhookBatch(
  */
 async function handleInvoiceUpdated(
   payload: XeroWebhookPayload,
-  _integrationId: string,
+  integration: XeroWebhookIntegration,
 ): Promise<void> {
   const xeroInvoiceId = payload.resourceId;
   if (!xeroInvoiceId) {
@@ -150,7 +213,7 @@ async function handleInvoiceUpdated(
 
   // Find the local invoice by its externalInvoiceId (set when originally synced to Xero)
   const invoice = await prisma.invoice.findFirst({
-    where: { externalInvoiceId: xeroInvoiceId },
+    where: invoiceScope(integration, xeroInvoiceId),
     select: { id: true, userId: true },
   });
 
@@ -175,7 +238,7 @@ async function handleInvoiceUpdated(
  */
 async function handleInvoicePaid(
   payload: XeroWebhookPayload,
-  integrationId: string,
+  integration: XeroWebhookIntegration,
 ): Promise<void> {
   // RA-1277: payment.created events ALWAYS have a resourceId (it's the
   // PaymentID, not the InvoiceID). The old gate `if (!resourceId)` never
@@ -184,7 +247,7 @@ async function handleInvoicePaid(
   // externalInvoiceId — which silently no-op'd (no match) or, worse,
   // matched the wrong invoice. Dispatch by resourceType instead.
   if (payload.resourceType === "PAYMENT") {
-    await handlePaymentCreated(payload, integrationId);
+    await handlePaymentCreated(payload, integration);
     return;
   }
 
@@ -194,7 +257,7 @@ async function handleInvoicePaid(
   }
 
   const invoice = await prisma.invoice.findFirst({
-    where: { externalInvoiceId: xeroInvoiceId },
+    where: invoiceScope(integration, xeroInvoiceId),
     select: { id: true, status: true, totalIncGST: true },
   });
 
@@ -212,7 +275,7 @@ async function handleInvoicePaid(
 
   // RA-855: invoice.paid means fully settled — set amountPaid = totalIncGST, amountDue = 0
   await prisma.invoice.update({
-    where: { id: invoice.id },
+    where: { id: invoice.id, ...invoiceScope(integration, xeroInvoiceId) },
     data: {
       status: "PAID",
       paidDate: new Date(payload.eventDateUtc ?? Date.now()),
@@ -232,7 +295,7 @@ async function handleInvoicePaid(
  */
 async function handlePaymentCreated(
   payload: XeroWebhookPayload,
-  integrationId: string,
+  integration: XeroWebhookIntegration,
 ): Promise<void> {
   const paymentId = payload.resourceId;
   if (!paymentId) {
@@ -241,17 +304,14 @@ async function handlePaymentCreated(
     );
   }
 
-  const integration = await prisma.integration.findUnique({
-    where: { id: integrationId },
-  });
-
-  if (!integration?.tenantId) {
+  const integrationId = integration.id;
+  if (!integration.tenantId) {
     throw new Error(`Integration ${integrationId} missing tenantId`);
   }
 
   // Service-layer credentials result — preserve throw-based contract so the
   // outer batch loop marks the event FAILED (with the detail in errorMessage).
-  const credResult = await getValidXeroAccessToken(integrationId);
+  const credResult = await getValidXeroAccessToken(integrationId, { expectedTenantId: integration.tenantId, expectedUserId: integration.userId, expectedWorkspaceId: integration.workspaceId });
   if (!credResult.ok) {
     console.error("[XeroWebhookProcessor]", {
       integrationId,
@@ -299,7 +359,7 @@ async function handlePaymentCreated(
   );
 
   const invoice = await prisma.invoice.findFirst({
-    where: { externalInvoiceId: xeroInvoiceId },
+    where: invoiceScope(integration, xeroInvoiceId),
     select: { id: true, status: true, totalIncGST: true },
   });
 
@@ -314,7 +374,7 @@ async function handlePaymentCreated(
   const isPaid = amountDueCents === 0;
 
   await prisma.invoice.update({
-    where: { id: invoice.id },
+    where: { id: invoice.id, ...invoiceScope(integration, xeroInvoiceId) },
     data: {
       amountPaid: newAmountPaid,
       amountDue: amountDueCents,

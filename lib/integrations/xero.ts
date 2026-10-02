@@ -9,6 +9,23 @@ import { Integration } from "@prisma/client";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { type Country, getGstTreatment } from "../gst-rules";
 import { getGSTTreatment } from "../gst-treatment-rules";
+import { isOAuthIntegration } from "./identity";
+
+async function getInvoiceAccessToken(integration: Integration): Promise<string> {
+  if (!isOAuthIntegration(integration, "XERO")) {
+    throw new Error("Invalid Xero integration identity");
+  }
+  if (!integration.tenantId) {
+    throw new Error("No tenant ID available for Xero");
+  }
+  // The supplied, owner-scoped integration ID stays authoritative. Stored token
+  // columns are encrypted; only the credential service can decrypt/refresh them.
+  const result = await getValidXeroAccessToken(integration.id, { expectedTenantId: integration.tenantId, expectedUserId: integration.userId, expectedWorkspaceId: integration.workspaceId });
+  if (!result.ok) {
+    throw new Error(`Xero credentials unavailable: ${result.reason}`, { cause: result.cause });
+  }
+  return result.data;
+}
 
 interface XeroInvoice {
   Type: "ACCREC"; // Accounts Receivable (customer invoice)
@@ -58,14 +75,12 @@ export async function syncInvoiceToXero(
   integration: Integration,
   country: Country,
 ) {
+  if (typeof invoice.userId === "string" && invoice.userId !== integration.userId ||
+      Object.hasOwn(invoice, "workspaceId") && invoice.workspaceId !== integration.workspaceId) {
+    throw new Error("Xero invoice and integration ownership do not match");
+  }
   const gst = getGstTreatment(country);
-  if (!integration.accessToken) {
-    throw new Error("No access token available for Xero");
-  }
-
-  if (!integration.tenantId) {
-    throw new Error("No tenant ID available for Xero");
-  }
+  const accessToken = await getInvoiceAccessToken(integration);
 
   // Map invoice status to Xero status
   const xeroStatus = mapInvoiceStatusToXero(invoice.status);
@@ -145,8 +160,8 @@ export async function syncInvoiceToXero(
   const response = await fetch("https://api.xero.com/api.xro/2.0/Invoices", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${integration.accessToken}`,
-      "Xero-tenant-id": integration.tenantId,
+      Authorization: `Bearer ${accessToken}`,
+      "Xero-tenant-id": integration.tenantId!,
       "Content-Type": "application/json",
       Accept: "application/json",
     },
@@ -177,7 +192,7 @@ export async function syncInvoiceToXero(
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${integration.accessToken}`,
+              Authorization: `Bearer ${accessToken}`,
               "Xero-tenant-id": integration.tenantId!,
               "Content-Type": "application/json",
               Accept: "application/json",
@@ -224,7 +239,7 @@ export async function syncInvoiceToXero(
       console.warn(
         `[Xero] Token error (${response.status}) on integration ${integration.id} — refreshing token for next retry`,
       );
-      const credResult = await getValidXeroAccessToken(integration.id);
+      const credResult = await getValidXeroAccessToken(integration.id, { forceRefresh: true, expectedTenantId: integration.tenantId ?? undefined, expectedUserId: integration.userId, expectedWorkspaceId: integration.workspaceId });
       if (!credResult.ok) {
         throw new Error(
           `Xero token refresh failed (integration ${integration.id}): ${credResult.reason}${
@@ -286,20 +301,14 @@ export async function getXeroInvoice(
   externalInvoiceId: string,
   integration: Integration,
 ) {
-  if (!integration.accessToken) {
-    throw new Error("No access token available for Xero");
-  }
-
-  if (!integration.tenantId) {
-    throw new Error("No tenant ID available for Xero");
-  }
+  const accessToken = await getInvoiceAccessToken(integration);
 
   const response = await fetch(
     `https://api.xero.com/api.xro/2.0/Invoices/${externalInvoiceId}`,
     {
       headers: {
-        Authorization: `Bearer ${integration.accessToken}`,
-        "Xero-tenant-id": integration.tenantId,
+        Authorization: `Bearer ${accessToken}`,
+        "Xero-tenant-id": integration.tenantId!,
         Accept: "application/json",
       },
     },
@@ -324,21 +333,15 @@ export async function updateXeroInvoiceStatus(
   status: "AUTHORISED" | "PAID" | "VOIDED",
   integration: Integration,
 ) {
-  if (!integration.accessToken) {
-    throw new Error("No access token available for Xero");
-  }
-
-  if (!integration.tenantId) {
-    throw new Error("No tenant ID available for Xero");
-  }
+  const accessToken = await getInvoiceAccessToken(integration);
 
   const response = await fetch(
     `https://api.xero.com/api.xro/2.0/Invoices/${externalInvoiceId}`,
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${integration.accessToken}`,
-        "Xero-tenant-id": integration.tenantId,
+        Authorization: `Bearer ${accessToken}`,
+        "Xero-tenant-id": integration.tenantId!,
         "Content-Type": "application/json",
         Accept: "application/json",
       },

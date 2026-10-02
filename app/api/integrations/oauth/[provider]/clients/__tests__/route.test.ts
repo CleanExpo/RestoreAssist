@@ -94,13 +94,14 @@ describe("POST /api/integrations/oauth/[provider]/clients", () => {
     expect(clientUpsert).toHaveBeenCalledTimes(1);
     expect(clientUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId_email: { userId: "user_1", email: "jane@example.com" } },
+        where: { userId_email: { userId: "user_1", email: "jane@example.com" }, workspaceId: null },
+        create: expect.objectContaining({ workspaceId: null }),
       }),
     );
 
     // Link is written back onto ExternalClient.contactId (no `as any` needed).
     expect(externalClientUpdate).toHaveBeenCalledWith({
-      where: { id: "ext_1" },
+      where: { id: "ext_1", integrationId: "integration_1" },
       data: { contactId: "client_1" },
     });
   });
@@ -151,6 +152,7 @@ describe("POST /api/integrations/oauth/[provider]/clients", () => {
     expect(clientUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          workspaceId: null,
           userId_email: {
             userId: "user_1",
             email: "ext-integration_1-xero-2@client.local",
@@ -183,7 +185,7 @@ describe("POST /api/integrations/oauth/[provider]/clients", () => {
     expect(body.imported).toBe(1);
     expect(clientUpsert).toHaveBeenCalledTimes(1);
     expect(externalClientUpdate).toHaveBeenCalledWith({
-      where: { id: "ext_1" },
+      where: { id: "ext_1", integrationId: "integration_1" },
       data: { contactId: "client_new" },
     });
   });
@@ -249,6 +251,45 @@ describe("POST /api/integrations/oauth/[provider]/clients", () => {
     });
   });
 
+  it("persists the selected workspace and scopes linked-contact reuse and email upserts", async () => {
+    checkIntegrationAccess.mockResolvedValue({ isAllowed: true, foundingTrialWorkspaceId: "workspace-a" });
+    integrationFindFirst.mockResolvedValue({ id: "integration_1", workspaceId: "workspace-a" });
+    externalClientFindMany.mockResolvedValue([{ id: "ext_a", externalId: "contact-a", name: "Scoped Contact",
+      email: "shared@example.com", phone: null, address: null, contactId: "foreign-contact" }]);
+    clientFindFirst.mockResolvedValue(null);
+    clientUpsert.mockResolvedValue({ id: "contact-a" });
+    externalClientUpdate.mockResolvedValue({});
+
+    const response = await POST(postRequest({ clientIds: ["contact-a"] }), routeContext());
+    expect(response.status).toBe(200);
+    expect(clientFindFirst).toHaveBeenCalledWith({
+      where: { id: "foreign-contact", userId: "user_1", workspaceId: "workspace-a" }, select: { id: true },
+    });
+    expect(clientUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId_email: { userId: "user_1", email: "shared@example.com" }, workspaceId: "workspace-a" },
+      create: expect.objectContaining({ userId: "user_1", workspaceId: "workspace-a" }),
+    }));
+    expect(externalClientUpdate).toHaveBeenCalledWith({
+      where: { id: "ext_a", integrationId: "integration_1" }, data: { contactId: "contact-a" },
+    });
+  });
+
+  it("fails closed when a same-email Client exists in another workspace", async () => {
+    integrationFindFirst.mockResolvedValue({ id: "integration_1", workspaceId: "workspace-a" });
+    externalClientFindMany.mockResolvedValue([{ id: "ext_a", externalId: "contact-a", name: "Foreign Collision",
+      email: "shared@example.com", phone: null, address: null, contactId: null }]);
+    clientFindFirst.mockResolvedValue({ workspaceId: "workspace-b" });
+
+    const response = await POST(postRequest({ clientIds: ["contact-a"] }), routeContext());
+    expect(response.status).toBe(422);
+    expect((await response.json()).imported).toBe(0);
+    expect(clientFindFirst).toHaveBeenCalledWith({
+      where: { userId: "user_1", email: "shared@example.com" }, select: { workspaceId: true },
+    });
+    expect(clientUpsert).not.toHaveBeenCalled();
+    expect(externalClientUpdate).not.toHaveBeenCalled();
+  });
+
   it("answers 422, success: false when every client fails to import (RA-7663)", async () => {
     externalClientFindMany.mockResolvedValue([
       {
@@ -275,4 +316,14 @@ describe("POST /api/integrations/oauth/[provider]/clients", () => {
     expect(body.failed).toBe(1);
     expect(body.errors).toEqual([{ id: "xero-9", error: expect.any(String) }]);
   });
+});
+
+// These tests cover route policy/import behaviour; provider identity has dedicated real-service regressions.
+vi.mock("@/lib/services/integrations/select-oauth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/services/integrations/select-oauth")>();
+  return { ...actual, selectOAuthIntegration: vi.fn(async (input: { prisma: any; userId: string; provider: string; requireReady?: boolean }) => {
+    const row = await input.prisma.integration.findFirst({ where: { userId: input.userId, provider: input.provider,
+      ...(input.requireReady ? { status: { in: ["CONNECTED", "ERROR", "SYNCING"] } } : {}) } });
+    return row ? { ok: true, data: row } : { ok: false, reason: "NOT_FOUND" };
+  }) };
 });

@@ -12,14 +12,12 @@ import {
   getClientSecret,
 } from "../base-client";
 import {
-  getTokens,
-  storeTokens,
-  markIntegrationError,
-  disconnectIntegration,
-  generatePKCE,
-  PROVIDER_CONFIG,
+  assertOAuthIntegration,
 } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
+import { encrypt } from "@/lib/credential-vault";
+import { readXeroBinding, readReadyXeroBinding, updateXeroBinding, type XeroBindingExpectation, type XeroBinding, sameXeroGrant } from "@/lib/services/xero/binding";
+import { isOAuthIntegration } from "../identity";
 import { isXeroTimeoutError } from "./upstream-errors";
 
 /** Modest page size so each Xero call finishes inside the 15s AbortSignal budget. */
@@ -110,6 +108,7 @@ interface XeroTenantConnection {
 
 export class XeroClient extends BaseIntegrationClient {
   private tenantId: string | null = null;
+  private binding: XeroBinding | null = null;
 
   constructor(integrationId: string, tenantId?: string) {
     super(integrationId, "XERO");
@@ -149,6 +148,8 @@ export class XeroClient extends BaseIntegrationClient {
     redirectUri: string,
     codeVerifier?: string,
   ): Promise<TokenResponse> {
+    const original = await readXeroBinding(this.integrationId);
+    if (!original.ok) throw new Error(original.detail);
     const clientId = getClientId("XERO");
     const clientSecret = getClientSecret("XERO");
 
@@ -173,51 +174,80 @@ export class XeroClient extends BaseIntegrationClient {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Token exchange failed: ${error}`);
+      throw new Error(`Xero token exchange failed (${response.status})`);
     }
 
     const tokenResponse: TokenResponse = await response.json();
-    await this.handleTokenResponse(tokenResponse);
-
-    // Fetch tenant connections and store the first one
-    await this.fetchAndStoreTenant();
-
+    let tenantId: string;
+    try {
+      if (typeof tokenResponse.access_token !== "string" || !tokenResponse.access_token.trim()) {
+        throw new Error("Xero token exchange returned invalid credentials");
+      }
+      tenantId = await this.discoverTenant(tokenResponse.access_token, original.data.tenantId);
+    } catch (error) {
+      // Failed/stale attempts must never change a newer completed connection.
+      await updateXeroBinding(original.data, {
+        tenantId: null, status: "ERROR",
+        syncError: error instanceof Error ? error.message : "Xero organisation lookup failed",
+      });
+      throw error;
+    }
+    const committed = await updateXeroBinding(original.data, {
+      accessToken: encrypt(tokenResponse.access_token),
+      refreshToken: tokenResponse.refresh_token ? encrypt(tokenResponse.refresh_token) : null,
+      tokenExpiresAt: tokenResponse.expires_in ? new Date(Date.now() + tokenResponse.expires_in * 1000) : null,
+      tenantId, status: "CONNECTED", syncError: null,
+    });
+    if (!committed.ok) throw new Error(committed.detail);
+    this.tenantId = tenantId;
+    this.binding = committed.data;
     return tokenResponse;
   }
 
-  /**
-   * Fetch and store Xero tenant information
-   */
-  private async fetchAndStoreTenant(): Promise<void> {
-    const tokens = await getTokens(this.integrationId);
-    if (!tokens.accessToken) return;
-
+  /** Discover using only the in-memory grant that will be committed with it. */
+  private async discoverTenant(accessToken: string, previousTenantId: string | null): Promise<string> {
     const response = await fetch("https://api.xero.com/connections", {
       headers: {
-        Authorization: `Bearer ${tokens.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
-    });
-
-    if (response.ok) {
-      const connections: XeroTenantConnection[] = await response.json();
-      if (connections.length > 0) {
-        this.tenantId = connections[0].tenantId;
-        await prisma.integration.update({
-          where: { id: this.integrationId },
-          data: { tenantId: connections[0].tenantId },
-        });
-      }
+      signal: AbortSignal.timeout(XERO_REQUEST_TIMEOUT_MS),
+    }).catch(() => { throw new Error("Xero organisation lookup was interrupted. Try connecting again."); });
+    if (!response.ok) {
+      throw new Error(`Xero organisation lookup failed (${response.status}). Try connecting again.`);
     }
+    const connections: unknown = await response.json().catch(() => {
+      throw new Error("Xero organisation lookup returned an invalid connection list");
+    });
+    if (!Array.isArray(connections) || connections.some(connection =>
+      !connection || typeof connection.tenantId !== "string" || !connection.tenantId.trim())) {
+      throw new Error("Xero organisation lookup returned an invalid connection list");
+    }
+    const tenantIds = [...new Set((connections as XeroTenantConnection[]).map(connection => connection.tenantId))];
+    const selected = previousTenantId
+      ? tenantIds.includes(previousTenantId) ? previousTenantId : null
+      : tenantIds.length === 1 ? tenantIds[0] : null;
+    if (!selected) {
+      throw new Error(previousTenantId
+        ? "The previously connected Xero organisation is no longer authorised. Select the intended organisation before reconnecting."
+        : tenantIds.length === 0
+        ? "No Xero organisation is authorised for this connection. Connect Xero and select an organisation."
+        : "Multiple Xero organisations are authorised. Connect Xero with one organisation or retain the existing authorised organisation.");
+    }
+    return selected;
   }
 
   /**
    * Refresh access token
    */
-  async refreshAccessToken(): Promise<void> {
-    const tokens = await getTokens(this.integrationId);
-
-    if (!tokens.refreshToken) {
+  async refreshAccessToken(expected: XeroBindingExpectation = {}): Promise<void> {
+    if (this.tenantId && expected.expectedTenantId !== undefined && expected.expectedTenantId !== this.tenantId) {
+      throw new Error("Xero connection binding changed; retry with the current connection");
+    }
+    const current = await readReadyXeroBinding(this.integrationId, { ...expected, ...(this.tenantId ? { expectedTenantId: this.tenantId } : {}) });
+    if (!current.ok) throw new Error(current.detail);
+    const { binding, refreshToken } = current.data;
+    if (this.binding && !sameXeroGrant(this.binding, binding)) throw new Error("Xero connection binding changed during sync");
+    if (!refreshToken) {
       throw new Error("No refresh token available");
     }
 
@@ -236,7 +266,7 @@ export class XeroClient extends BaseIntegrationClient {
         },
         body: new URLSearchParams({
           grant_type: "refresh_token",
-          refresh_token: tokens.refreshToken,
+          refresh_token: refreshToken,
         }),
         signal: AbortSignal.timeout(XERO_REQUEST_TIMEOUT_MS),
       });
@@ -262,24 +292,26 @@ export class XeroClient extends BaseIntegrationClient {
         response.status === 401 ||
         response.status === 403 ||
         (response.status === 400 && /invalid_grant/i.test(error));
-      if (isTerminal) {
-        await disconnectIntegration(this.integrationId);
-      } else {
-        await markIntegrationError(
-          this.integrationId,
-          `Token refresh failed: ${error}`,
-        );
-      }
-      throw new Error(`Token refresh failed: ${error}`);
+      const message = `Xero token refresh failed (${response.status}); ${isTerminal ? "reconnect required" : "try again"}`;
+      await updateXeroBinding(binding, isTerminal ? {
+        status: "DISCONNECTED", accessToken: null, refreshToken: null,
+        tokenExpiresAt: null, tenantId: null, syncError: message,
+      } : { status: "ERROR", syncError: message });
+      throw new Error(message);
     }
 
     const tokenResponse: TokenResponse = await response.json();
-    await storeTokens(
-      this.integrationId,
-      tokenResponse.access_token,
-      tokenResponse.refresh_token || tokens.refreshToken,
-      tokenResponse.expires_in,
-    );
+    if (typeof tokenResponse.access_token !== "string" || !tokenResponse.access_token.trim()) {
+      throw new Error("Xero refresh returned invalid credentials");
+    }
+    const committed = await updateXeroBinding(binding, {
+      accessToken: encrypt(tokenResponse.access_token),
+      refreshToken: encrypt(tokenResponse.refresh_token || refreshToken),
+      tokenExpiresAt: tokenResponse.expires_in ? new Date(Date.now() + tokenResponse.expires_in * 1000) : null,
+      status: "CONNECTED", syncError: null,
+    });
+    if (!committed.ok) throw new Error(committed.detail);
+    this.binding = committed.data;
   }
 
   /**
@@ -289,44 +321,30 @@ export class XeroClient extends BaseIntegrationClient {
     endpoint: string,
     options: RequestInit = {},
   ): Promise<T> {
-    // Ensure we have tenant ID
-    if (!this.tenantId) {
-      const integration = await prisma.integration.findUnique({
-        where: { id: this.integrationId },
-        select: { tenantId: true },
+    let current = await readReadyXeroBinding(this.integrationId, this.tenantId ? { expectedTenantId: this.tenantId } : {});
+    if (!current.ok) throw new Error(current.detail);
+    const original = current.data.binding;
+    if (this.binding && !sameXeroGrant(this.binding, original)) throw new Error("Xero connection binding changed during sync");
+    this.binding = original;
+    this.tenantId = current.data.tenantId;
+    if (original.tokenExpiresAt && original.tokenExpiresAt.getTime() - Date.now() < 5 * 60 * 1000) {
+      await this.refreshAccessToken({ expectedUserId: original.userId, expectedWorkspaceId: original.workspaceId });
+      current = await readReadyXeroBinding(this.integrationId, {
+        expectedTenantId: this.tenantId, expectedUserId: original.userId,
+        expectedWorkspaceId: original.workspaceId,
       });
-      this.tenantId = integration?.tenantId || null;
+      if (!current.ok) throw new Error(current.detail);
     }
-
-    if (!this.tenantId) {
-      throw new Error("No Xero tenant connected");
+    const { binding, accessToken, tenantId } = current.data;
+    if (this.binding && !sameXeroGrant(this.binding, binding)) {
+      throw new Error("Xero connection binding changed during sync");
     }
-
-    let tokens = await getTokens(this.integrationId);
-    if (!tokens.accessToken) {
-      throw new Error("No access token available");
-    }
-
-    // Proactive refresh (same 5-minute window as BaseIntegrationClient / RA-1220)
-    // so sync does not race an almost-expired token into a 401.
-    const FIVE_MINUTES_MS = 5 * 60 * 1000;
-    const needsRefresh =
-      tokens.isExpired ||
-      (tokens.tokenExpiresAt != null &&
-        tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
-    if (needsRefresh && tokens.refreshToken) {
-      await this.refreshAccessToken();
-      // Re-fetch tokens after refresh so the request uses the NEW access token
-      tokens = await getTokens(this.integrationId);
-      if (!tokens.accessToken) {
-        throw new Error("Token refresh failed — no access token after refresh");
-      }
-    }
+    this.binding = binding;
 
     const url = `${this.config.apiBaseUrl}${endpoint}`;
     const headers = new Headers(options.headers);
-    headers.set("Authorization", `Bearer ${tokens.accessToken}`);
-    headers.set("xero-tenant-id", this.tenantId);
+    headers.set("Authorization", `Bearer ${accessToken}`);
+    headers.set("xero-tenant-id", tenantId);
     headers.set("Accept", "application/json");
 
     // RA-6942 — bound the outbound provider call so a hung connection cannot
@@ -351,19 +369,63 @@ export class XeroClient extends BaseIntegrationClient {
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      await markIntegrationError(
-        this.integrationId,
-        `API Error ${response.status}: ${errorText}`,
-      );
+      await updateXeroBinding(binding, { status: "ERROR", syncError: `Xero API request failed (${response.status})` });
       const apiErr = new Error(
-        `API request failed: ${response.status} ${errorText}`,
+        `Xero API request failed (${response.status})`,
       );
       (apiErr as { status?: number }).status = response.status;
       throw apiErr;
     }
 
-    return response.json();
+    const payload = await response.json();
+    await this.currentSyncBinding();
+    return payload;
+  }
+
+  private async currentSyncBinding(): Promise<XeroBinding> {
+    if (!this.binding) throw new Error("Xero sync has no validated binding");
+    const current = await readXeroBinding(this.integrationId);
+    if (!current.ok || !sameXeroGrant(this.binding, current.data) || !["CONNECTED", "SYNCING", "ERROR"].includes(current.data.status)) {
+      throw new Error("Xero connection binding changed during sync");
+    }
+    return current.data;
+  }
+
+  protected async logSyncResult(syncType: "CLIENTS" | "JOBS" | "FULL", processed: number, failed = 0, error?: string): Promise<void> {
+    // Rejected stale clients must not annotate a replacement connection.
+    let current: XeroBinding;
+    try { current = await this.currentSyncBinding(); } catch { return; }
+    const logged = await updateXeroBinding(current, { lastSyncAt: new Date(), syncError: error || null });
+    if (!logged.ok) return;
+    this.binding = logged.data;
+    await prisma.integrationSyncLog.create({ select: { id: true }, data: {
+      integrationId: this.integrationId, syncType,
+      status: error ? "FAILED" : failed > 0 ? "PARTIAL" : "SUCCESS",
+      recordsProcessed: processed, recordsFailed: failed, errorMessage: error, completedAt: new Date(),
+    } });
+  }
+
+  /** Own the lifecycle so only this run's grant can receive terminal status. */
+  async syncWithLifecycle(options: { syncClients: boolean; syncJobs: boolean }, expected: XeroBindingExpectation) {
+    const ready = await readReadyXeroBinding(this.integrationId, expected);
+    if (!ready.ok) throw new Error(ready.detail);
+    const started = await updateXeroBinding(ready.data.binding, { status: "SYNCING", syncError: null });
+    if (!started.ok) throw new Error(started.detail);
+    this.binding = started.data;
+    this.tenantId = started.data.tenantId;
+    try {
+      const clientsCount = options.syncClients ? await this.syncClients() : 0;
+      const jobsCount = options.syncJobs ? await this.syncJobs() : 0;
+      const finished = await updateXeroBinding(await this.currentSyncBinding(), { status: "CONNECTED", syncError: null, lastSyncAt: new Date() });
+      if (!finished.ok) throw new Error(finished.detail);
+      this.binding = finished.data;
+      return { clientsCount, jobsCount };
+    } catch (error) {
+      try {
+        await updateXeroBinding(await this.currentSyncBinding(), { status: "ERROR", syncError: "Xero sync failed; retry or reconnect" });
+      } catch { /* The replacement connection belongs to another operation. */ }
+      throw error;
+    }
   }
 
   /**
@@ -374,6 +436,7 @@ export class XeroClient extends BaseIntegrationClient {
    * Paginate unfiltered and keep customers client-side.
    */
   async fetchClients(): Promise<ExternalClientData[]> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     try {
       const allClients: ExternalClientData[] = [];
       let page = 1;
@@ -387,7 +450,10 @@ export class XeroClient extends BaseIntegrationClient {
           `/Contacts?summaryOnly=true&page=${page}&pageSize=${XERO_PAGE_SIZE}`,
         );
 
-        const contacts = response.Contacts ?? [];
+        if (!response || !Array.isArray(response.Contacts)) {
+          throw new Error("Invalid Xero contacts response: Contacts must be an array");
+        }
+        const contacts = response.Contacts;
         for (const contact of contacts) {
           if (!isCustomerContact(contact)) continue;
           allClients.push({
@@ -426,6 +492,7 @@ export class XeroClient extends BaseIntegrationClient {
    * summaryOnly flag"). Paginate unfiltered without order.
    */
   async fetchJobs(): Promise<ExternalJobData[]> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     try {
       const allJobs: ExternalJobData[] = [];
       let page = 1;
@@ -436,7 +503,10 @@ export class XeroClient extends BaseIntegrationClient {
           `/Invoices?summaryOnly=true&page=${page}&pageSize=${XERO_PAGE_SIZE}`,
         );
 
-        const invoices = response.Invoices ?? [];
+        if (!response || !Array.isArray(response.Invoices)) {
+          throw new Error("Invalid Xero invoices response: Invoices must be an array");
+        }
+        const invoices = response.Invoices;
         for (const invoice of invoices) {
           if (!isSalesInvoice(invoice)) continue;
           allJobs.push({
@@ -485,33 +555,42 @@ export class XeroClient extends BaseIntegrationClient {
     const clients = await this.fetchClients();
     let synced = 0;
 
-    for (const client of clients) {
-      await prisma.externalClient.upsert({
-        where: {
-          integrationId_externalId: {
-            integrationId: this.integrationId,
-            externalId: client.externalId,
-          },
-        },
-        create: {
-          integrationId: this.integrationId,
-          externalId: client.externalId,
-          name: client.name,
-          email: client.email,
-          phone: client.phone,
-          address: client.address,
-          rawData: client.rawData as any,
-        },
-        update: {
-          name: client.name,
-          email: client.email,
-          phone: client.phone,
-          address: client.address,
-          rawData: client.rawData as any,
-          lastSyncedAt: new Date(),
-        },
-      });
-      synced++;
+    for (let offset = 0; offset < clients.length; offset += 100) {
+      const original = await this.currentSyncBinding();
+      await prisma.$transaction(async tx => {
+        const claimed = await updateXeroBinding(original, {}, tx);
+        if (!claimed.ok) throw new Error(claimed.detail);
+        for (const client of clients.slice(offset, offset + 100)) {
+          await tx.externalClient.upsert({
+            select: { id: true },
+            where: {
+              integrationId_externalId: {
+                integrationId: this.integrationId,
+                externalId: client.externalId,
+              },
+            },
+            create: {
+              integrationId: this.integrationId,
+              externalId: client.externalId,
+              name: client.name,
+              email: client.email,
+              phone: client.phone,
+              address: client.address,
+              rawData: client.rawData as any,
+            },
+            update: {
+              name: client.name,
+              email: client.email,
+              phone: client.phone,
+              address: client.address,
+              rawData: client.rawData as any,
+              lastSyncedAt: new Date(),
+            },
+          });
+          synced++;
+        }
+        this.binding = claimed.data;
+      }, { timeout: 15_000 });
     }
 
     return synced;
@@ -524,33 +603,42 @@ export class XeroClient extends BaseIntegrationClient {
     const jobs = await this.fetchJobs();
     let synced = 0;
 
-    for (const job of jobs) {
-      await prisma.externalJob.upsert({
-        where: {
-          integrationId_externalId: {
-            integrationId: this.integrationId,
-            externalId: job.externalId,
-          },
-        },
-        create: {
-          integrationId: this.integrationId,
-          externalId: job.externalId,
-          title: job.title,
-          status: job.status,
-          clientExternalId: job.clientExternalId,
-          description: job.description,
-          rawData: job.rawData as any,
-        },
-        update: {
-          title: job.title,
-          status: job.status,
-          clientExternalId: job.clientExternalId,
-          description: job.description,
-          rawData: job.rawData as any,
-          lastSyncedAt: new Date(),
-        },
-      });
-      synced++;
+    for (let offset = 0; offset < jobs.length; offset += 100) {
+      const original = await this.currentSyncBinding();
+      await prisma.$transaction(async tx => {
+        const claimed = await updateXeroBinding(original, {}, tx);
+        if (!claimed.ok) throw new Error(claimed.detail);
+        for (const job of jobs.slice(offset, offset + 100)) {
+          await tx.externalJob.upsert({
+            select: { id: true },
+            where: {
+              integrationId_externalId: {
+                integrationId: this.integrationId,
+                externalId: job.externalId,
+              },
+            },
+            create: {
+              integrationId: this.integrationId,
+              externalId: job.externalId,
+              title: job.title,
+              status: job.status,
+              clientExternalId: job.clientExternalId,
+              description: job.description,
+              rawData: job.rawData as any,
+            },
+            update: {
+              title: job.title,
+              status: job.status,
+              clientExternalId: job.clientExternalId,
+              description: job.description,
+              rawData: job.rawData as any,
+              lastSyncedAt: new Date(),
+            },
+          });
+          synced++;
+        }
+        this.binding = claimed.data;
+      }, { timeout: 15_000 });
     }
 
     return synced;
@@ -597,9 +685,10 @@ export async function createXeroClient(
 ): Promise<XeroClient> {
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
+    select: { provider: true, name: true, icon: true, config: true, tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true },
   });
 
-  if (!integration || integration.provider !== "XERO") {
+  if (!integration || !isOAuthIntegration(integration, "XERO")) {
     throw new Error("Invalid Xero integration");
   }
 

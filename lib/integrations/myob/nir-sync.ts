@@ -76,26 +76,26 @@ export async function syncNIRJobToMYOB(
   integrationId: string,
   job: NIRJobPayload,
 ): Promise<{ myobSaleId: string }> {
-  const tokens = await getTokens(integrationId);
+  const tokens = await getTokens(integrationId, "MYOB");
   if (!tokens.accessToken) throw new Error("MYOB not connected");
 
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
-    select: { companyId: true },
+    select: { tenantId: true },
   });
-  if (!integration?.companyId)
+  if (!integration?.tenantId)
     throw new Error("MYOB company file ID missing. Re-connect.");
 
   let accessToken = tokens.accessToken;
   if (tokens.isExpired && tokens.refreshToken) {
     const client = new MYOBClient(integrationId);
     await client.refreshAccessToken();
-    const freshTokens = await getTokens(integrationId);
+    const freshTokens = await getTokens(integrationId, "MYOB");
     if (!freshTokens.accessToken) throw new Error("MYOB token refresh failed");
     accessToken = freshTokens.accessToken;
   }
 
-  const companyFileUrl = `https://api.myob.com/accountright/${integration.companyId}`;
+  const companyFileUrl = `https://api.myob.com/accountright/${integration.tenantId}`;
   const accountDisplayId = getAccountDisplayId(job.damageType);
   const jurisdiction = getGstTreatment(job.country);
   const customerId = await findOrCreateCustomer(
@@ -168,7 +168,7 @@ export async function syncNIRJobToMYOB(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    await markIntegrationError(integrationId, `MYOB error: ${res.statusText}`);
+    await markIntegrationError(integrationId, `MYOB error: ${res.statusText}`, "MYOB");
     throw new Error(
       `MYOB API error: ${res.statusText} — ${JSON.stringify(err)}`,
     );
@@ -176,6 +176,6 @@ export async function syncNIRJobToMYOB(
 
   const myobSaleId =
     (res.headers.get("Location") || "").split("/").pop() || "unknown";
-  await logSync(integrationId, "FULL", "SUCCESS", 1, 0);
+  await logSync(integrationId, "FULL", "SUCCESS", 1, 0, undefined, "MYOB");
   return { myobSaleId };
 }

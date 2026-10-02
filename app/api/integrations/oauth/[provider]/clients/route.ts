@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
 import {
   PROVIDER_CONFIG,
   type IntegrationProvider,
@@ -36,7 +37,7 @@ export async function GET(
     }
 
     // Check subscription status - external integrations require paid subscription
-    const subscriptionCheck = await checkIntegrationAccess(session.user.id);
+    const subscriptionCheck = await checkIntegrationAccess(session.user.id, (await params).provider);
     if (!subscriptionCheck.isAllowed) {
       return NextResponse.json(
         createSubscriptionRequiredResponse(subscriptionCheck),
@@ -57,12 +58,22 @@ export async function GET(
     }
 
     // Find integration
-    const integration = await prisma.integration.findFirst({
-      where: {
-        userId: session.user.id,
-        provider,
-      },
+    const selection = await selectOAuthIntegration({
+      prisma, userId: session.user.id, provider, requireReady: false,
+      workspaceId: subscriptionCheck.foundingTrialWorkspaceId,
     });
+    if (!selection.ok && selection.reason !== "NOT_FOUND") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: selection.reason === "AMBIGUOUS"
+          ? "Multiple connections require an explicit workspace selection."
+          : selection.reason === "NOT_READY"
+            ? "This connection needs valid credentials and an authorised organisation before syncing."
+            : "This provider is not supported by the OAuth integration route.",
+        status: selection.reason === "INVALID_PROVIDER" ? 400 : 409,
+      });
+    }
+    const integration = selection.ok ? selection.data : null;
 
     if (!integration) {
       return apiError(request, {
@@ -71,7 +82,6 @@ export async function GET(
         status: 404,
       });
     }
-
     // Get synced clients
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -129,7 +139,7 @@ export async function POST(
     }
 
     // Check subscription status - external integrations require paid subscription
-    const subscriptionCheck = await checkIntegrationAccess(session.user.id);
+    const subscriptionCheck = await checkIntegrationAccess(session.user.id, (await params).provider);
     if (!subscriptionCheck.isAllowed) {
       return NextResponse.json(
         createSubscriptionRequiredResponse(subscriptionCheck),
@@ -150,12 +160,22 @@ export async function POST(
     }
 
     // Find integration
-    const integration = await prisma.integration.findFirst({
-      where: {
-        userId: session.user.id,
-        provider,
-      },
+    const selection = await selectOAuthIntegration({
+      prisma, userId: session.user.id, provider, requireReady: false,
+      workspaceId: subscriptionCheck.foundingTrialWorkspaceId,
     });
+    if (!selection.ok && selection.reason !== "NOT_FOUND") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: selection.reason === "AMBIGUOUS"
+          ? "Multiple connections require an explicit workspace selection."
+          : selection.reason === "NOT_READY"
+            ? "This connection needs valid credentials and an authorised organisation before syncing."
+            : "This provider is not supported by the OAuth integration route.",
+        status: selection.reason === "INVALID_PROVIDER" ? 400 : 409,
+      });
+    }
+    const integration = selection.ok ? selection.data : null;
 
     if (!integration) {
       return apiError(request, {
@@ -165,6 +185,7 @@ export async function POST(
       });
     }
 
+    const workspaceId = integration.workspaceId ?? null;
     const body = await request.json();
     const { clientIds } = body;
 
@@ -203,7 +224,7 @@ export async function POST(
         // a Client that still exists, don't create another one.
         if (externalClient.contactId) {
           const existingLink = await prisma.client.findFirst({
-            where: { id: externalClient.contactId, userId: session.user.id },
+            where: { id: externalClient.contactId, userId: session.user.id, workspaceId },
             select: { id: true },
           });
           if (existingLink) {
@@ -220,6 +241,17 @@ export async function POST(
             ? externalClient.email.trim()
             : `ext-${integration.id}-${externalClient.externalId}@client.local`;
 
+        // Email is unique for the user across all workspaces. Refuse a
+        // same-email row owned by another workspace before any update; the
+        // scoped upsert below also protects a collision created after this read.
+        const sameEmail = await prisma.client.findFirst({
+          where: { userId: session.user.id, email },
+          select: { workspaceId: true },
+        });
+        if (sameEmail && sameEmail.workspaceId !== workspaceId) {
+          throw new Error("Client email belongs to another workspace");
+        }
+
         // Find-or-create so re-syncing the same external contact (by email)
         // links back to the same Client rather than duplicating it. When the
         // upsert adopts a pre-existing Client the user created, preserve their
@@ -228,7 +260,10 @@ export async function POST(
         // existing convention in app/api/reports/initial-entry/route.ts).
         // `name` is always supplied (ExternalClient.name is required).
         const client = await prisma.client.upsert({
-          where: { userId_email: { userId: session.user.id, email } },
+          // The global (userId, email) key can point at another workspace.
+          // Include the source scope so that collision fails closed instead
+          // of updating that other workspace's contact.
+          where: { userId_email: { userId: session.user.id, email }, workspaceId },
           update: {
             name: externalClient.name,
             phone: externalClient.phone ?? undefined,
@@ -236,6 +271,7 @@ export async function POST(
           },
           create: {
             userId: session.user.id,
+            workspaceId,
             name: externalClient.name,
             email,
             phone: externalClient.phone,
@@ -245,7 +281,7 @@ export async function POST(
 
         // Link external client to the client record
         await prisma.externalClient.update({
-          where: { id: externalClient.id },
+          where: { id: externalClient.id, integrationId: integration.id },
           data: { contactId: client.id },
         });
 

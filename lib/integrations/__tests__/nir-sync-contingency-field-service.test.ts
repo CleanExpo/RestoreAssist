@@ -108,24 +108,8 @@ describe.each(["AU", "NZ"] as const)("RA-7736 contingency export (%s)", (country
     expect(exGst).toBe(EX_GST_CENTS);
   });
 
-  it("Ascora: one Contingency line in the scope summary, lines equal the ex-GST total sent", async () => {
-    await syncNIRJobToAscora("integ_ascora", payload(country));
-    const job = posted.find((p) => p.url.includes("/Jobs/Job/"))!.body;
-
-    const lines: string[] = job.jobDescription
-      .split("\n")
-      .filter((l: string) => /^\d+\. /.test(l));
-    const contingency = lines.filter((l) => /Contingency/.test(l));
-    expect(contingency).toHaveLength(1);
-
-    const amount = (l: string) => {
-      const m = l.match(/— ([\d.]+) \S+ @ \$([\d.]+)$/)!;
-      return Math.round(Number(m[1]) * toCents(Number(m[2])));
-    };
-    expect(amount(contingency[0])).toBe(CONTINGENCY_CENTS);
-
-    const exGst = lines.reduce((s, l) => s + amount(l), 0);
-    expect(exGst).toBe(EX_GST_CENTS);
-    expect(toCents(job.totalExTax)).toBe(exGst);
+  it("retired generic Ascora dispatch is rejected without posting a job", async () => {
+    await expect(syncNIRJobToAscora("integ_ascora", payload(country))).rejects.toThrow(/unsupported/);
+    expect(posted).toEqual([]);
   });
 });

@@ -13,16 +13,21 @@
 
 import { prisma } from "@/lib/prisma";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
+import { isOAuthIntegration } from "@/lib/integrations/identity";
 
-export type XeroTenantReason = "TENANT_MISSING";
+export type XeroTenantReason = "TENANT_MISSING" | "INVALID_INTEGRATION";
 
 export async function getXeroTenantId(
   integrationId: string,
 ): Promise<ServiceResult<string, XeroTenantReason>> {
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
-    select: { tenantId: true },
+    select: { tenantId: true, provider: true, name: true, icon: true, config: true, tokenExpiresAt: true },
   });
+
+  if (!integration || !isOAuthIntegration(integration, "XERO")) {
+    return fail("INVALID_INTEGRATION", { detail: "Invalid Xero integration identity" });
+  }
 
   if (!integration?.tenantId) {
     return fail("TENANT_MISSING", {

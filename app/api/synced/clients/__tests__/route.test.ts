@@ -3,6 +3,9 @@ import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
 const integrationFindFirst = vi.fn();
+const integrationFindMany = vi.fn();
+const XERO_ROW = { id: "int_1", userId: "user_1", workspaceId: null, provider: "XERO", name: "Xero", icon: null,
+  config: null, status: "CONNECTED", tenantId: "org", realmId: null, companyId: null, tokenExpiresAt: null };
 const externalClientFindMany = vi.fn();
 const externalClientCount = vi.fn();
 const ascoraIntegrationFindUnique = vi.fn();
@@ -16,6 +19,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     integration: {
       findFirst: (...args: unknown[]) => integrationFindFirst(...args),
+      findMany: (...args: unknown[]) => integrationFindMany(...args),
     },
     externalClient: {
       findMany: (...args: unknown[]) => externalClientFindMany(...args),
@@ -39,6 +43,7 @@ function getRequest(query: string) {
 beforeEach(() => {
   getServerSession.mockReset();
   integrationFindFirst.mockReset();
+  integrationFindMany.mockReset();
   externalClientFindMany.mockReset();
   externalClientCount.mockReset();
   ascoraIntegrationFindUnique.mockReset();
@@ -59,6 +64,7 @@ describe("GET /api/synced/clients", () => {
   });
 
   it("lists Xero ExternalClient rows when connected", async () => {
+    integrationFindMany.mockResolvedValue([XERO_ROW]);
     integrationFindFirst.mockResolvedValue({ id: "int_1" });
     externalClientFindMany.mockResolvedValue([
       {
@@ -96,6 +102,7 @@ describe("GET /api/synced/clients", () => {
   });
 
   it("honors page + pageSize and returns pagination totals", async () => {
+    integrationFindMany.mockResolvedValue([XERO_ROW]);
     integrationFindFirst.mockResolvedValue({ id: "int_1" });
     externalClientFindMany.mockResolvedValue([
       {
@@ -131,6 +138,7 @@ describe("GET /api/synced/clients", () => {
   });
 
   it("accepts legacy limit query param as pageSize alias", async () => {
+    integrationFindMany.mockResolvedValue([XERO_ROW]);
     integrationFindFirst.mockResolvedValue({ id: "int_1" });
     externalClientFindMany.mockResolvedValue([]);
     externalClientCount.mockResolvedValue(0);
@@ -146,6 +154,7 @@ describe("GET /api/synced/clients", () => {
   });
 
   it("returns connected=false when Xero integration missing", async () => {
+    integrationFindMany.mockResolvedValue([]);
     integrationFindFirst.mockResolvedValue(null);
     const res = await GET(getRequest("source=xero"));
     const body = await res.json();

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { OAUTH_CANDIDATE_WHERE } from "@/lib/services/integrations/select-oauth";
+import { isOAuthIntegration } from "@/lib/integrations/identity";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { verifyCronAuth } from "@/lib/cron/auth";
 import { runCronJob } from "@/lib/cron/runner";
@@ -42,16 +44,19 @@ export async function POST(request: NextRequest) {
 async function syncInvoicesOnce() {
   const integrations = await prisma.integration.findMany({
     where: {
+      ...OAUTH_CANDIDATE_WHERE,
       status: "CONNECTED",
       provider: {
         in: ["XERO", "QUICKBOOKS", "MYOB"],
       },
     },
     select: {
+      name: true, icon: true, config: true, workspaceId: true,
+      tokenExpiresAt: true, realmId: true, companyId: true,
       id: true,
       provider: true,
       userId: true,
-      lastSyncAt: true,
+      tenantId: true, lastSyncAt: true,
     },
     orderBy: { createdAt: "asc" },
     take: MAX_INTEGRATIONS_PER_CRON_RUN,
@@ -71,6 +76,7 @@ async function syncInvoicesOnce() {
   let totalQueued = 0;
 
   for (const integration of integrations) {
+    if (!isOAuthIntegration(integration)) continue;
     try {
       const syncWindow =
         integration.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -78,6 +84,7 @@ async function syncInvoicesOnce() {
       const invoices = await prisma.invoice.findMany({
         where: {
           userId: integration.userId,
+          workspaceId: integration.workspaceId,
           status: {
             not: "DRAFT",
           },

@@ -3,6 +3,9 @@ import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
 const integrationFindFirst = vi.fn();
+const integrationFindMany = vi.fn();
+const XERO_ROW = { id: "int_1", userId: "user_1", workspaceId: null, provider: "XERO", name: "Xero", icon: null,
+  config: null, status: "CONNECTED", tenantId: "org", realmId: null, companyId: null, tokenExpiresAt: null };
 const externalJobFindMany = vi.fn();
 const externalJobCount = vi.fn();
 const externalClientFindMany = vi.fn();
@@ -20,6 +23,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     integration: {
       findFirst: (...args: unknown[]) => integrationFindFirst(...args),
+      findMany: (...args: unknown[]) => integrationFindMany(...args),
     },
     externalJob: {
       findMany: (...args: unknown[]) => externalJobFindMany(...args),
@@ -51,6 +55,7 @@ function getRequest(query: string) {
 beforeEach(() => {
   getServerSession.mockReset();
   integrationFindFirst.mockReset();
+  integrationFindMany.mockReset();
   externalJobFindMany.mockReset();
   externalJobCount.mockReset();
   externalClientFindMany.mockReset();
@@ -69,6 +74,7 @@ describe("GET /api/synced/jobs", () => {
   });
 
   it("lists Xero ExternalJob rows with resolved client names", async () => {
+    integrationFindMany.mockResolvedValue([XERO_ROW]);
     integrationFindFirst.mockResolvedValue({ id: "int_1" });
     externalJobFindMany.mockResolvedValue([
       {
@@ -108,6 +114,7 @@ describe("GET /api/synced/jobs", () => {
   });
 
   it("honors page + pageSize for Xero jobs", async () => {
+    integrationFindMany.mockResolvedValue([XERO_ROW]);
     integrationFindFirst.mockResolvedValue({ id: "int_1" });
     externalJobFindMany.mockResolvedValue([]);
     externalJobCount.mockResolvedValue(42);
