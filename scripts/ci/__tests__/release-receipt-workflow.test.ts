@@ -66,20 +66,34 @@ describe("the write token is not left on disk for the steps that hold the key", 
   it("checks out without persisting the token", () => {
     // The workflow holds contents: write. A persisted checkout writes that
     // token into .git/config, where `npm ci` and every producer can read it.
-    const checkout = steps().find((s) =>
+    const checkouts = steps().filter((s) =>
       String(s.uses ?? "").startsWith("actions/checkout"),
     );
-    expect(checkout?.with?.["persist-credentials"]).toBe(false);
+    expect(checkouts.length).toBeGreaterThan(0);
+    for (const c of checkouts) expect(c.with?.["persist-credentials"]).toBe(false);
   });
 
-  it("gives the commit step its own credential, through the environment", () => {
-    // With nothing persisted, the push needs a credential of its own. It is
-    // passed as a one-command git config through env, not argv and not
-    // .git/config, so no earlier step could have read it.
+  it("has no step that writes a git credential to disk", () => {
+    // persist-credentials: false is worthless if a later step puts the token
+    // back: a git config extraheader or credential helper, a .netrc, a
+    // .git-credentials file, or `gh auth setup-git`.
+    const writesCredential =
+      /git\s+(?:-C\s+\S+\s+)?config\b[^\n]*(?:extraheader|credential|insteadof)|git\s+credential\s+(?:approve|store)|\.netrc|\.git-credentials|gh\s+auth\s+setup-git/i;
+    for (const s of steps()) {
+      expect(s.run ?? "", s.name ?? s.uses ?? "step").not.toMatch(writesCredential);
+    }
+  });
+
+  it("gives the push alone its credential, through the environment", () => {
+    // The credential is a git config passed as env on the push command line
+    // itself: not argv, not .git/config, not exported to later commands.
     const commit = steps().find((s) => s.name === "Commit the receipt");
     expect(commit?.env?.GH_TOKEN).toBe("${{ github.token }}");
-    expect(commit?.run).toContain("GIT_CONFIG_VALUE_0");
-    expect(commit?.run).not.toMatch(/-c\s+["']?http\./);
+    const run = commit?.run ?? "";
+    expect(run).toMatch(
+      /GIT_CONFIG_COUNT=1 \\\n\s*GIT_CONFIG_KEY_0='http\.https:\/\/github\.com\/\.extraheader' \\\n\s*GIT_CONFIG_VALUE_0="[^"\n]*" \\\n\s*git push origin main\s*$/,
+    );
+    expect(run).not.toMatch(/export\s+GIT_CONFIG|-c\s+["']?http\./);
   });
 });
 
