@@ -20,7 +20,6 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { getOrganizationOwner } from "@/lib/organization-credits";
 import { isAddonSku, type AddonSku } from "./types";
 
@@ -107,10 +106,10 @@ function addonRequiredResponse(
  *
  * Resolution: the organisation owner (`getOrganizationOwner`, which already
  * scopes MANAGER/USER to their own organisation's owner), falling back to the
- * user themselves when they have no organisation; then that user's READY
- * workspace via `getWorkspaceForUser`. A user removed from the organisation
+ * user themselves when they have no organisation; then the oldest READY
+ * workspace that user OWNS. A user removed from the organisation
  * (organizationId null) falls back to themselves and so gets only what they
- * own.
+ * own — never a lingering WorkspaceMember row.
  *
  * NOT for writes. `getWorkspaceForUser` is deliberately left keyed on the
  * caller: its other callers write provider API keys, and widening it would
@@ -120,7 +119,17 @@ export async function getEntitlementWorkspaceForUser(
   userId: string,
 ): Promise<{ id: string; name: string } | null> {
   const ownerId = (await getOrganizationOwner(userId)) ?? userId;
-  return getWorkspaceForUser(ownerId);
+  // OWNED workspaces only. getWorkspaceForUser's WorkspaceMember fallback is
+  // deliberately not used here: a membership row can point into another
+  // organisation's workspace (an owner who is also a member elsewhere), or
+  // outlive the user's removal from the organisation. Either would carry an
+  // add-on across a tenant boundary. Workspace has no organisation column,
+  // so ownership by the resolved owner is the binding.
+  return prisma.workspace.findFirst({
+    where: { ownerId, status: "READY" },
+    select: { id: true, name: true },
+    orderBy: { createdAt: "asc" },
+  });
 }
 
 /**

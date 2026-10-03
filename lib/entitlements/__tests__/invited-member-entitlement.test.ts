@@ -171,6 +171,36 @@ describe("requireAddon — invited members (RA-7893)", () => {
   });
 });
 
+describe("requireAddon — membership rows never carry an add-on across tenants (RA-7893 review P1s)", () => {
+  it("P1-CROSS-TENANT-ADDON: org A's owner being a member of org B's workspace does not lend org B's add-on", async () => {
+    // Org A's own workspace is not READY; its owner holds an ACTIVE
+    // membership in org B's workspace, which has CLIENT_COMMS.
+    db.workspaces[0].status = "DISABLED";
+    db.members = [{ userId: "owner-a", workspaceId: "ws-b", status: "ACTIVE" }];
+    db.entitlements.push({
+      id: "fe-b1",
+      workspaceId: "ws-b",
+      sku: "CLIENT_COMMS",
+      active: true,
+    });
+
+    const result = await requireAddon("tech-a", "CLIENT_COMMS");
+    expect(result.allowed).toBe(false);
+    await expect(getEntitlementWorkspaceForUser("tech-a")).resolves.toBeNull();
+  });
+
+  it("P1-REMOVED-MEMBER-ADDON: a removed user's lingering membership in the former org's workspace grants nothing", async () => {
+    db.members = [{ userId: "removed", workspaceId: "ws-a", status: "ACTIVE" }];
+
+    const result = await requireAddon("removed", "CLIENT_COMMS");
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) expect(result.response.status).toBe(402);
+    await expect(
+      isAddonEntitledForUser("removed", "CLIENT_EDUCATION"),
+    ).resolves.toBe(false);
+  });
+});
+
 describe("getEntitlementWorkspaceForUser (RA-7893)", () => {
   it("resolves an invited technician to the owner's workspace", async () => {
     await expect(getEntitlementWorkspaceForUser("tech-a")).resolves.toEqual({

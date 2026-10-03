@@ -18,15 +18,15 @@ vi.mock("@/lib/prisma", () => ({
     user: {
       findUnique: vi.fn(async () => null),
     },
+    // RA-7893: the entitlement workspace is the READY workspace the resolved
+    // owner OWNS (no membership fallback).
+    workspace: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
-vi.mock("@/lib/workspace/provider-connections", () => ({
-  getWorkspaceForUser: vi.fn(),
-}));
-
 import { prisma } from "@/lib/prisma";
-import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import {
   requireAddon,
   requireAddonForWorkspace,
@@ -38,7 +38,9 @@ import { AddonSku as PrismaAddonSku } from "@prisma/client";
 
 const mockFindUnique = prisma.featureEntitlement
   .findUnique as ReturnType<typeof vi.fn>;
-const mockGetWorkspaceForUser = getWorkspaceForUser as ReturnType<typeof vi.fn>;
+const mockGetWorkspaceForUser = prisma.workspace.findFirst as ReturnType<
+  typeof vi.fn
+>;
 
 const WORKSPACE = { id: "ws_123", name: "Acme Restoration" };
 
@@ -259,7 +261,9 @@ describe("requireAddonForWorkspace", () => {
 
     await requireAddon("user_1", "AI_COPILOT");
 
-    expect(mockGetWorkspaceForUser).toHaveBeenCalledWith("user_1");
+    expect(mockGetWorkspaceForUser).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { ownerId: "user_1", status: "READY" } }),
+    );
     expect(mockFindUnique).toHaveBeenCalledWith({
       where: {
         workspaceId_sku: { workspaceId: WORKSPACE.id, sku: "AI_COPILOT" },
