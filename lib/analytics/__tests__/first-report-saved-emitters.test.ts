@@ -140,6 +140,7 @@ vi.mock("@/lib/report-limits", () => ({
 vi.mock("@/lib/organization-credits", () => ({
   getEffectiveSubscription: vi.fn(async () => ({
     subscriptionStatus: "TRIAL",
+    trialEndsAt: new Date(Date.now() + 7 * 86_400_000),
     creditsRemaining: 5,
   })),
 }));
