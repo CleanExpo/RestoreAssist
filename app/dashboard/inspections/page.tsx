@@ -565,7 +565,7 @@ export default function InspectionsPage() {
                           `/dashboard/reports/new?inspectionId=${insp.id}`,
                         );
                       }}
-                      className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
+                      className="flex whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
                       title={`Generate report from ${insp.inspectionNumber}`}
                     >
                       <FileText size={14} />
