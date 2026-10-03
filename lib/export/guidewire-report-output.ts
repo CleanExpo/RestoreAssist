@@ -324,11 +324,18 @@ export function buildNirReportOutput(
     certificationMet: false, // Human certification required — see nir-content-gate.ts
   };
 
+  // Attendance is nullable: a job nobody has attended has no date. Substituting
+  // the wall clock published a fabricated attendance date to the insurer, so a
+  // caller must refuse the export before it gets here (the route returns 422).
+  if (!inspection.inspectionDate) {
+    throw new Error(
+      "Guidewire export requires a recorded inspection attendance date",
+    );
+  }
+
   return {
     reportId: inspection.id,
-    inspectionDate: inspection.inspectionDate
-      ? new Date(inspection.inspectionDate).toISOString()
-      : new Date().toISOString(),
+    inspectionDate: new Date(inspection.inspectionDate).toISOString(),
     submittedAt: inspection.submittedAt
       ? new Date(inspection.submittedAt as Date).toISOString()
       : new Date().toISOString(),

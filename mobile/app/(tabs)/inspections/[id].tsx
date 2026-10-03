@@ -62,7 +62,8 @@ const MONO = Platform.select({
   default: "monospace",
 });
 
-function formatDate(d: string) {
+function formatDate(d: string | null) {
+  if (!d) return "Attendance date unknown";
   try {
     return new Date(d).toLocaleDateString("en-AU", {
       day: "numeric",

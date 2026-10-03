@@ -93,7 +93,8 @@ describe("MeterPhotoCapture — moisture photo to logged reading", () => {
       .mockResolvedValueOnce(
         jsonResponse(201, { moistureReading: { id: "mr_1" } }),
       ) // moisture
-      .mockResolvedValueOnce(jsonResponse(201, {})); // photo upload
+      .mockResolvedValueOnce(jsonResponse(201, { photo: { id: "photo-1" } })) // photo upload
+      .mockResolvedValueOnce(jsonResponse(200, { photos: [{ id: "photo-1", url: "signed-url" }] })); // owner readback
 
     render(<MeterPhotoCapture inspectionId="insp_1" mode="moisture" />);
     await attachMeterPhoto();
@@ -146,6 +147,32 @@ describe("MeterPhotoCapture — moisture photo to logged reading", () => {
       source: "ocr",
     });
     expect(saved.notes).toContain("18.5% WME");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(fetchMock.mock.calls[2][1].headers["Idempotency-Key"]).toBeTruthy();
+    expect(fetchMock.mock.calls[3][0]).toBe("/api/inspections/insp_1/photos");
+  });
+
+  it("keeps the meter photo after a failed attachment without posting the saved reading twice", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { reading: READING }))
+      .mockResolvedValueOnce(jsonResponse(201, { moistureReading: { id: "mr_1" } }))
+      .mockResolvedValueOnce(jsonResponse(500, { error: "photo store unavailable" }))
+      .mockResolvedValueOnce(jsonResponse(201, { photo: { id: "photo-1" } }))
+      .mockResolvedValueOnce(jsonResponse(200, { photos: [{ id: "photo-1", url: "signed-url" }] }));
+
+    render(<MeterPhotoCapture inspectionId="insp_1" mode="moisture" />);
+    await attachMeterPhoto();
+    clickRead();
+    await screen.findByText(/Confirm Moisture Reading/i);
+    fireEvent.change(screen.getByPlaceholderText(/Master bedroom — east wall/i), { target: { value: "Bedroom 4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Reading" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Reading saved; photo not attached/);
+    expect(screen.getByRole("button", { name: "Save original meter photo copy" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry meter photo" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/moisture"))).toHaveLength(1);
+    expect(fetchMock.mock.calls[2][1].headers["Idempotency-Key"]).toBe(fetchMock.mock.calls[3][1].headers["Idempotency-Key"]);
   });
 
   it("never posts to the analyze-photo route that does not exist", async () => {

@@ -789,7 +789,7 @@ async function draftSave(extra: Record<string, unknown>) {
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify({ baseIds: { moistureReadings: [] },
           environmentalData: {
             ambientTemperature: 22,
             humidityLevel: 55,

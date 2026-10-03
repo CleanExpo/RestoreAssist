@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useFetch } from "@/lib/hooks/useFetch";
+import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRefresh";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
@@ -101,7 +102,13 @@ export default function InspectionsPage() {
     loading,
     error: fetchError,
     refetch: refetchInspections,
+    refresh: refreshInspections,
   } = useFetch<{ inspections: Inspection[] }>("/api/inspections");
+  useMobilePullRefreshHandler(async () =>
+    await refreshInspections()
+      ? { kind: "updated", message: "Inspections updated" }
+      : { kind: "error", message: "Could not refresh inspections. Try again." },
+  );
   const inspections = inspectionsData?.inspections ?? [];
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");

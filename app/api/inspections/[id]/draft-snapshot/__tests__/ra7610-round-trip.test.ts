@@ -16,7 +16,7 @@ const {
   tx,
 } = vi.hoisted(() => {
   const tx = {
-    inspection: { update: vi.fn() },
+    inspection: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     environmentalData: { deleteMany: vi.fn(), create: vi.fn() },
     moistureReading: { deleteMany: vi.fn(), createMany: vi.fn() },
     affectedArea: { deleteMany: vi.fn(), createMany: vi.fn() },
@@ -95,7 +95,7 @@ describe("PUT inspection draft snapshot — RA-7610 room-link round trip", () =>
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ baseIds: { moistureReadings: [] }, ...body }),
         },
       ),
       { params: Promise.resolve({ id: "insp_1" }) },

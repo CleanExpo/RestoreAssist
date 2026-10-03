@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 
 const notification = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+vi.mock("next-auth/react", () => ({ useSession: () => ({ data: { user: { id: "synthetic-owner" } } }) }));
 vi.mock("react-hot-toast", () => ({ default: notification }));
 
 // RA-7740: GET /api/inspections?reportId= returns environmentalData as an
@@ -111,6 +112,39 @@ async function renderLoaded(environmentalData: unknown) {
 }
 
 describe("NIRTechnicianInputForm environmental hydration (RA-7740)", () => {
+  it("creates a client draft with an unknown date and reuses its retry key", async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    let attempts = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      if (url === "/api/inspections") {
+        attempts++;
+        return attempts === 1
+          ? { ok: false, json: async () => ({ error: "Try again" }) }
+          : { ok: true, json: async () => ({ inspection: { id: "new-job" } }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    }));
+    await act(async () => {
+      render(<NIRTechnicianInputForm initialData={{
+        propertyAddress: "2 Test St", propertyPostcode: "4000", clientId: "client-1",
+      }} />);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Pick Water" }));
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save Draft" })); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save Draft" })); });
+    const creates = calls.filter((call) => call.url === "/api/inspections");
+    expect(creates).toHaveLength(2);
+    expect(creates[0].init?.headers).toEqual(creates[1].init?.headers);
+    expect(JSON.parse(String(creates[0].init?.body))).toMatchObject({
+      clientId: "client-1", claimType: "WATER", inspectionDate: null,
+    });
+    const snapshot = calls.find((call) => call.url.endsWith("/draft-snapshot"));
+    expect(JSON.parse(String(snapshot?.init?.body))).toMatchObject({
+      inspectionDate: null, moistureReadings: [], affectedAreas: [],
+      environmentalData: null,
+    });
+  });
   it("fills the fields from the LATEST reading in the list", async () => {
     await renderLoaded(READINGS);
     await waitFor(() =>

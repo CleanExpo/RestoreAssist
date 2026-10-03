@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 import { pinPixelPosition, toNormalized } from "@/lib/sketch/pin-coords";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
@@ -163,7 +164,11 @@ export function SketchEvidenceLayer({
       e.target.value = "";
       pendingClick.current = null;
       if (!file || !click) return;
-      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      const supportedMime = /^image\/(jpeg|png|gif|webp|heic|heif)$/i.test(file.type);
+      const supportedUnnamedMime = (!file.type || file.type === "application/octet-stream") &&
+        /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(file.name);
+      if (!supportedMime && !supportedUnnamedMime) {
+        toast.error("Choose a JPEG, PNG, GIF, WebP, HEIC or HEIF photo for this floor pin");
         return;
       }
       const { nx, ny } = toNormalized(click.x, click.y, width, height);
@@ -226,7 +231,7 @@ export function SketchEvidenceLayer({
       <input
         ref={fileRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*,.heic,.heif"
         capture="environment"
         className="hidden"
         onChange={handleFile}

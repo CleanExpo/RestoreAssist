@@ -289,11 +289,17 @@ async function drainVoiceNoteQueueImpl(): Promise<number> {
     if (!ownsOfflineEntry(entry) || entry.status !== "pending") continue;
 
     if (entry.retryCount >= MAX_RETRY_COUNT) {
-      await putEntry(db, {
-        ...entry,
-        status: "error",
-        error: "Transcription failed after repeated retries",
-      });
+      try {
+        await putEntry(db, {
+          ...entry,
+          status: "error",
+          error: "Transcription failed after repeated retries",
+        });
+      } catch (err) {
+        // One note's failed write must not stop the rest of the queue.
+        // The note stays pending and is retried on the next drain.
+        console.warn("[VoiceNote] Could not mark note as failed:", err);
+      }
       continue;
     }
 
@@ -434,6 +440,7 @@ function removeEntry(db: IDBDatabase, id: string): Promise<void> {
     const req = tx.objectStore(STORE).delete(id);
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
+    tx.onabort = () => reject(tx.error ?? new Error("Queue update was not saved"));
   });
 }
 
@@ -443,5 +450,6 @@ function putEntry(db: IDBDatabase, entry: VoiceNoteQueueEntry): Promise<void> {
     const req = tx.objectStore(STORE).put(entry);
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
+    tx.onabort = () => reject(tx.error ?? new Error("Queue update was not saved"));
   });
 }

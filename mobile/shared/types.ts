@@ -99,7 +99,7 @@ export interface Inspection {
   inspectionNumber: string;
   propertyAddress: string;
   propertyPostcode: string;
-  inspectionDate: string;
+  inspectionDate: string | null;
   technicianName: string | null;
   technicianId: string | null;
   status: InspectionStatus;
@@ -126,6 +126,19 @@ export interface Inspection {
   scopeItems?: ScopeItem[];
   photos?: Array<{ id: string; url?: string | null; location?: string | null }>;
 }
+
+export type InspectionListItem = Pick<
+  Inspection,
+  | "id"
+  | "reportId"
+  | "inspectionNumber"
+  | "propertyAddress"
+  | "propertyPostcode"
+  | "inspectionDate"
+  | "status"
+  | "createdAt"
+  | "updatedAt"
+>;
 
 export type ReportStatus =
   | "DRAFT"

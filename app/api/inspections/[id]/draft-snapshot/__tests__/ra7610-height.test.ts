@@ -11,7 +11,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 const { resolveInspectionWrite, inspectionFindUnique, transaction, tx } =
   vi.hoisted(() => {
     const tx = {
-      inspection: { update: vi.fn() },
+      inspection: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       environmentalData: { deleteMany: vi.fn(), create: vi.fn() },
       moistureReading: { deleteMany: vi.fn(), createMany: vi.fn() },
       affectedArea: { deleteMany: vi.fn(), createMany: vi.fn() },
@@ -69,7 +69,7 @@ function request() {
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ baseIds: { moistureReadings: [] }, ...payload }),
     },
   );
 }
@@ -139,7 +139,7 @@ describe("PUT inspection draft snapshot — RA-7610 room height", () => {
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
+            body: JSON.stringify({ baseIds: { moistureReadings: [] }, ...body }),
           },
         ),
         { params: Promise.resolve({ id: "insp_1" }) },

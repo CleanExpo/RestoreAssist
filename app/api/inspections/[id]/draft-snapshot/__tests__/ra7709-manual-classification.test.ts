@@ -14,7 +14,7 @@ const { resolveInspectionWrite, inspectionFindUnique, transaction, tx, rows } =
   vi.hoisted(() => {
     const rows: Array<Record<string, unknown>> = [];
     const tx = {
-      inspection: { update: vi.fn() },
+      inspection: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       environmentalData: { deleteMany: vi.fn(), create: vi.fn() },
       moistureReading: { deleteMany: vi.fn(), createMany: vi.fn() },
       affectedArea: { deleteMany: vi.fn(), createMany: vi.fn() },
@@ -101,7 +101,7 @@ function put(manualClassification: { category: string; class: string } | null) {
     new NextRequest("http://localhost/api/inspections/insp_1/draft-snapshot", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...basePayload, manualClassification }),
+      body: JSON.stringify({ baseIds: { moistureReadings: [] }, ...basePayload, manualClassification }),
     }),
     { params: Promise.resolve({ id: "insp_1" }) },
   );

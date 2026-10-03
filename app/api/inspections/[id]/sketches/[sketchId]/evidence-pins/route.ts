@@ -9,6 +9,7 @@ import {
   resolveEvidenceRoomLink,
 } from "@/lib/sketch/sync-room-graph";
 import { toNormalized } from "@/lib/sketch/pin-coords";
+import { withIdempotency } from "@/lib/idempotency";
 import { signEvidencePinUrls } from "./sign-response";
 import {
   inspectionStorageRef,
@@ -69,10 +70,28 @@ export async function GET(
       });
     }
 
+    const query = request.nextUrl.searchParams;
+    const photoId = query.get("inspectionPhotoId");
+    const xText = query.get("x");
+    const yText = query.get("y");
+    const isLookup = photoId !== null || xText !== null || yText !== null;
+    const x = Number(xText);
+    const y = Number(yText);
+    if (isLookup && (!photoId || photoId.length > 200 || xText === null || yText === null ||
+      xText.trim() === "" || yText.trim() === "" || !Number.isFinite(x) || !Number.isFinite(y))) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "inspectionPhotoId, x, and y are required for pin lookup",
+        status: 400,
+      });
+    }
+
     const pins = await prisma.evidencePin.findMany({
-      where: { sketchId },
+      where: isLookup
+        ? { sketchId, inspectionPhotoId: photoId!, x: { gt: x - 0.001, lt: x + 0.001 }, y: { gt: y - 0.001, lt: y + 0.001 } }
+        : { sketchId },
       orderBy: { createdAt: "asc" },
-      take: 1000,
+      take: isLookup ? 10 : 1000,
       select: {
         id: true,
         sketchId: true,
@@ -141,7 +160,8 @@ export async function POST(
       });
     }
 
-    const body = (await request.json()) as {
+    return await withIdempotency(request, session.user.id, async (rawBody) => {
+    const body = JSON.parse(rawBody) as {
       kind?: string;
       x?: number;
       y?: number;
@@ -327,6 +347,7 @@ export async function POST(
     });
 
     return NextResponse.json({ pin: responsePin }, { status: 201 });
+    });
   } catch (error) {
     return fromException(request, error, { stage: "evidence-pins:create" });
   }

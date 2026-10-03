@@ -32,10 +32,12 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { useSession } from "next-auth/react";
 import { clearOfflineContext, getOfflineOwner, setOfflineSession, refreshOfflineOwner, listenForOfflineInvalidation, OFFLINE_CONTEXT_EVENT } from "@/lib/offline/account-boundary";
+import { SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline/sync-status-event";
 
 import {
   getSyncStatus,
@@ -64,7 +66,11 @@ interface NirOfflineContextValue {
   pendingEvidenceUploads: number;
   /** Count of voice notes queued/transcribed/errored, not yet consumed — RA-1609 */
   pendingVoiceNotes: number;
-  /** Manually trigger a sync drain (e.g. on pull-to-refresh) */
+  statusCheckFailed: boolean;
+  /** An authenticated session needs a server-verified offline owner before a green status is trustworthy. */
+  ownerVerificationRequired: boolean;
+  ownerVerified: boolean;
+  /** Manually trigger a sync drain of queued writes. */
   triggerSync: () => Promise<void>;
 }
 
@@ -74,6 +80,9 @@ const NirOfflineContext = createContext<NirOfflineContextValue>({
   isServiceWorkerReady: false,
   pendingEvidenceUploads: 0,
   pendingVoiceNotes: 0,
+  statusCheckFailed: false,
+  ownerVerificationRequired: false,
+  ownerVerified: false,
   triggerSync: async () => {},
 });
 
@@ -114,11 +123,22 @@ const STATUS_CONFIG: Record<
  * Satisfies OFFLINE_REQUIREMENTS.syncStatusIndicator: "Always visible — persistent status bar element"
  */
 export function NirSyncStatusBadge() {
-  const { syncStatus, queueStats, pendingEvidenceUploads, pendingVoiceNotes } =
+  const { syncStatus, queueStats, pendingEvidenceUploads, pendingVoiceNotes, statusCheckFailed, ownerVerificationRequired, ownerVerified } =
     useNirOffline();
-  const config = STATUS_CONFIG[syncStatus];
-  const totalPending =
+  const unverifiedOwner = ownerVerificationRequired && !ownerVerified;
+  const totalPending = unverifiedOwner ? 0 :
     queueStats.pending + pendingEvidenceUploads + pendingVoiceNotes;
+  const config = statusCheckFailed || (unverifiedOwner && typeof navigator !== "undefined" && navigator.onLine)
+    ? { label: "Sync status unavailable", className: STATUS_CONFIG.PENDING_SYNC.className, dot: STATUS_CONFIG.PENDING_SYNC.dot }
+    : queueStats.failed > 0
+      ? { label: "Sync needs attention", className: STATUS_CONFIG.SYNC_CONFLICT.className, dot: STATUS_CONFIG.SYNC_CONFLICT.dot }
+      : syncStatus === "SYNC_CONFLICT" || queueStats.conflicts > 0
+        ? STATUS_CONFIG.SYNC_CONFLICT
+        : syncStatus === "OFFLINE"
+          ? STATUS_CONFIG.OFFLINE
+          : totalPending > 0
+            ? STATUS_CONFIG.PENDING_SYNC
+            : STATUS_CONFIG[syncStatus];
 
   return (
     <div
@@ -158,25 +178,32 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   const [isServiceWorkerReady, setIsServiceWorkerReady] = useState(false);
   const [pendingEvidenceUploads, setPendingEvidenceUploads] = useState(0);
   const [pendingVoiceNotes, setPendingVoiceNotes] = useState(0);
+  const [statusCheckFailed, setStatusCheckFailed] = useState(false);
+  const [ownerVerified, setOwnerVerified] = useState(false);
+  const statusReadVersion = useRef(0);
 
   const refreshStatus = useCallback(async () => {
+    const version = ++statusReadVersion.current;
     const owner = getOfflineOwner();
     try {
       const [status, stats, evidenceCount, voiceNoteCount] = await Promise.all([
         getSyncStatus(),
         getQueueStats(),
-        getQueuedEvidenceCount(),
-        getQueuedVoiceNoteCount(),
+        getQueuedEvidenceCount(true),
+        getQueuedVoiceNoteCount(true),
       ]);
-      if (owner !== getOfflineOwner()) return;
+      if (version !== statusReadVersion.current || owner !== getOfflineOwner()) return;
       setSyncStatus(status);
       setQueueStats(stats);
       setPendingEvidenceUploads(evidenceCount);
       setPendingVoiceNotes(voiceNoteCount);
+      setStatusCheckFailed(false);
+      setOwnerVerified(getOfflineOwner() !== null);
     } catch (err) {
-      // Leave the badge at its last known-good values rather than
-      // producing a recurring unhandled rejection every 30s.
+      // Preserve the counts, but mark the result unavailable rather than
+      // claiming queued work is synced after a failed read.
       console.warn("[NIR Offline] Failed to refresh sync status:", err);
+      if (version === statusReadVersion.current) setStatusCheckFailed(true);
     }
   }, []);
 
@@ -191,6 +218,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
 
   useEffect(() => {
     setOfflineSession(sessionUserId);
+    setOwnerVerified(getOfflineOwner() !== null);
     const stopListening = listenForOfflineInvalidation();
     let disposed = false;
     const verify = async () => {
@@ -202,14 +230,18 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
     void verify();
     window.addEventListener("online", verify);
     window.addEventListener("focus", verify);
-    window.addEventListener(OFFLINE_CONTEXT_EVENT, refreshStatus);
+    const onOfflineContextChange = () => {
+      setOwnerVerified(getOfflineOwner() !== null);
+      void refreshStatus();
+    };
+    window.addEventListener(OFFLINE_CONTEXT_EVENT, onOfflineContextChange);
     return () => {
       disposed = true;
       clearOfflineContext(false);
       stopListening();
       window.removeEventListener("online", verify);
       window.removeEventListener("focus", verify);
-      window.removeEventListener(OFFLINE_CONTEXT_EVENT, refreshStatus);
+      window.removeEventListener(OFFLINE_CONTEXT_EVENT, onOfflineContextChange);
     };
   }, [sessionUserId, triggerSync, refreshStatus]);
 
@@ -263,10 +295,14 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
 
     // 5. Update status on online/offline events
     const onlineHandler = () => refreshStatus();
-    const offlineHandler = () => setSyncStatus("OFFLINE");
+    const offlineHandler = () => {
+      statusReadVersion.current++;
+      setSyncStatus("OFFLINE");
+    };
 
     window.addEventListener("online", onlineHandler);
     window.addEventListener("offline", offlineHandler);
+    window.addEventListener(SYNC_QUEUE_CHANGED_EVENT, refreshStatus);
 
     // 6. Listen for SW sync messages
     const swMessageHandler = (event: MessageEvent) => {
@@ -286,6 +322,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
       clearInterval(interval);
       window.removeEventListener("online", onlineHandler);
       window.removeEventListener("offline", offlineHandler);
+      window.removeEventListener(SYNC_QUEUE_CHANGED_EVENT, refreshStatus);
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.removeEventListener(
           "message",
@@ -303,6 +340,9 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
         isServiceWorkerReady,
         pendingEvidenceUploads,
         pendingVoiceNotes,
+        statusCheckFailed,
+        ownerVerificationRequired: sessionStatus === "authenticated",
+        ownerVerified,
         triggerSync,
       }}
     >

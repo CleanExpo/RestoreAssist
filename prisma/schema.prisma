@@ -2061,7 +2061,8 @@ model Inspection {
   inspectionNumber String   @unique // NIR-YYYY-MM-XXXX format
   propertyAddress  String
   propertyPostcode String // Required for state detection
-  inspectionDate   DateTime @default(now())
+  // Attendance is unknown on an intake draft until a technician records it.
+  inspectionDate   DateTime?
   technicianName   String?
   technicianId     String? // Link to technician user if available
 

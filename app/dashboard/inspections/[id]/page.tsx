@@ -14,6 +14,8 @@ import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
 import { MobileNav } from "@/components/mobile/MobileNav";
 import { CapturePhotoFab } from "@/components/inspection/CapturePhotoFab";
+import { InspectionPhotoUploadControl } from "@/components/inspection/InspectionPhotoUploadControl";
+import { EvidenceQueueRecovery } from "@/components/inspection/EvidenceQueueRecovery";
 import InspectionEvidenceReadinessPanel, {
   type InspectionEvidenceTab,
 } from "@/components/inspection/InspectionEvidenceReadinessPanel";
@@ -409,7 +411,6 @@ export default function InspectionDetailPage({
     }
   }, [inspection?.claimType, activeTab]);
 
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [scopeItems, setScopeItems] = useState<Inspection["scopeItems"]>([]);
   const [showAddScope, setShowAddScope] = useState(false);
   const [editingScopeItem, setEditingScopeItem] = useState<string | null>(null);
@@ -497,7 +498,6 @@ export default function InspectionDetailPage({
   const [generatingCosts, setGeneratingCosts] = useState(false);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoCaptionDraft, setPhotoCaptionDraft] = useState("");
-  const photoInputRef = useRef<HTMLInputElement>(null);
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
   const [selectedChecklistId, setSelectedChecklistId] = useState<string>("");
   const [applyingChecklist, setApplyingChecklist] = useState(false);
@@ -625,32 +625,21 @@ export default function InspectionDetailPage({
     }
   };
 
-  const handlePhotoUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setUploadingPhoto(true);
+  const refreshPhotos = async () => {
     try {
-      for (const file of Array.from(files)) {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch(`/api/inspections/${inspection!.id}/photos`, {
-          method: "POST",
-          body: formData,
-        });
-        if (!res.ok) {
-          toast.error("Failed to upload photo");
-          continue;
-        }
-        const data = await res.json();
-        setInspection((prev) =>
-          prev ? { ...prev, photos: [...prev.photos, data.photo] } : prev,
-        );
-      }
-      toast.success("Photo(s) uploaded");
-    } finally {
-      setUploadingPhoto(false);
-      if (photoInputRef.current) photoInputRef.current.value = "";
+      const response = await fetch(`/api/inspections/${id}/photos`, { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!Array.isArray(data.photos)) return;
+      setInspection((prev) => prev?.id === id ? { ...prev, photos: data.photos } : prev);
+    } catch {
+      // The queued copy remains available for another read or manual retry.
     }
   };
+
+  useEffect(() => {
+    if (activeTab === "photos" && !loading) void refreshPhotos();
+  }, [activeTab, id, loading]);
 
   const handleDeletePhoto = async (photoId: string) => {
     const ok = await confirm.ask({
@@ -3478,32 +3467,18 @@ export default function InspectionDetailPage({
                   <Camera size={14} />
                   Evidence Screen
                 </Link>
-                <button
-                  onClick={() => photoInputRef.current?.click()}
-                  disabled={uploadingPhoto}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
-                >
-                  {uploadingPhoto ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Upload size={16} />
-                  )}
-                  {uploadingPhoto ? "Uploading..." : "Upload Photo"}
-                </button>
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/*"
+                <InspectionPhotoUploadControl
+                  inspectionId={inspection.id}
                   multiple
-                  aria-label="Upload inspection photos"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                  className="hidden"
-                  onChange={(e) => handlePhotoUpload(e.target.files)}
+                  onVerified={(photo) => setInspection((prev) => prev ? {
+                    ...prev,
+                    photos: [...prev.photos, photo as unknown as Inspection["photos"][number]],
+                  } : prev)}
                 />
               </div>
               {/* end button group — RA-448 */}
             </div>
+            <EvidenceQueueRecovery inspectionId={inspection.id} onSynced={() => void refreshPhotos()} />
             {inspection.photos.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {inspection.photos.map((photo) => (
@@ -3587,13 +3562,7 @@ export default function InspectionDetailPage({
               <div className="text-center py-12 space-y-3 text-neutral-400">
                 <p>No photos uploaded</p>
                 <div className="flex flex-wrap justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => photoInputRef.current?.click()}
-                    className="text-sm font-medium text-cyan-600 hover:underline"
-                  >
-                    Upload from device →
-                  </button>
+                  <span className="text-sm">Use Upload Photo above to choose a file.</span>
                   <Link
                     href={`/dashboard/inspections/${inspection.id}/capture`}
                     className="text-sm font-medium text-cyan-600 hover:underline"
@@ -3617,7 +3586,12 @@ export default function InspectionDetailPage({
         <CapturePhotoFab
           inspectionId={inspection.id}
           inspectionStatus={inspection.status}
-          onUploaded={fetchInspection}
+          onUploaded={(photo) => setInspection((prev) => prev ? {
+            ...prev,
+            photos: prev.photos.some((row) => row.id === photo.id)
+              ? prev.photos
+              : [...prev.photos, photo as unknown as Inspection["photos"][number]],
+          } : prev)}
         />
       )}
 

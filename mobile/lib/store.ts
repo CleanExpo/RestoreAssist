@@ -1,11 +1,11 @@
 import { create } from "zustand";
-import type { Inspection } from "@/shared/types";
+import type { InspectionListItem } from "@/shared/types";
 import type { SyncStatus } from "@/lib/sync/engine";
 
 interface AppStore {
   // Inspection list
-  inspections: Inspection[];
-  setInspections: (inspections: Inspection[]) => void;
+  inspections: InspectionListItem[];
+  setInspections: (inspections: InspectionListItem[]) => void;
   selectedInspectionId: string | null;
   setSelectedInspection: (id: string | null) => void;
 
