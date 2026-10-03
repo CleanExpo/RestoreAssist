@@ -288,11 +288,9 @@ describe("getResourceTenantOwner — removed member (RA-7893 P1-REMOVED-MEMBER-O
     await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBeNull();
   });
 
-  it("gives the user a job they made before ever joining an organisation", async () => {
+  it("fails closed on a job made before the last join (an earlier membership may have been erased)", async () => {
     db.invites[0].usedAt = new Date("2026-07-01T00:00:00Z");
-    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBe(
-      "tech-a",
-    );
+    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBeNull();
   });
 
   it("gives a user who never accepted an invite their own job", async () => {
@@ -377,10 +375,10 @@ describe("getResourceTenantOwner — which organisation was left (RA-7893 P1-OWN
     await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBeNull();
   });
 
-  it("job before joining A (A's invite is later): the creator", async () => {
+  it("job before joining A (A's invite is later): null", async () => {
     leftOrgA();
     db.invites = [{ ...inviteA, usedAt: new Date("2026-07-15T00:00:00Z") }];
-    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBe("tech-a");
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBeNull();
   });
 
   it("job after leaving A: the creator", async () => {
@@ -428,6 +426,32 @@ describe("getResourceTenantOwner — only the last membership interval is truste
     // (the first A interval) is not recorded well enough to place it.
     await expect(
       getResourceTenantOwner("tech-a", new Date("2026-07-01T00:00:00Z")),
+    ).resolves.toBeNull();
+  });
+});
+
+describe("getResourceTenantOwner — erased earlier membership (RA-7893 P1-ERASED-EARLIER-INVITE-LENDS-PERSONAL-ADDON)", () => {
+  it("Codex's history: B joined in May, B job 01/06, B's owner deleted (invites erased), joined A 01/08, left 01/10 — null, never the creator", async () => {
+    db.users["tech-a"] = {
+      id: "tech-a",
+      role: "USER",
+      organizationId: null,
+      email: "tech-a@example.com",
+      ownerId: null,
+      organizationLeftAt: new Date("2026-10-01T00:00:00Z"),
+      organizationLeftId: "org-a",
+    };
+    // Only the A invite survives; B's invite went with B.
+    db.invites = [
+      {
+        organizationId: "org-a",
+        acceptedUserId: "tech-a",
+        email: "tech-a@example.com",
+        usedAt: new Date("2026-08-01T00:00:00Z"),
+      },
+    ];
+    await expect(
+      getResourceTenantOwner("tech-a", new Date("2026-06-01T00:00:00Z")),
     ).resolves.toBeNull();
   });
 });

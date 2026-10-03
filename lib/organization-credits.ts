@@ -157,9 +157,9 @@ export async function getEffectiveSubscription(userId: string): Promise<{
  *   - Resource before organizationLeftAt: only the LAST recorded
  *     membership interval is trusted, from the latest invite accepted into
  *     organizationLeftId (lastJoin) to organizationLeftAt. Inside it: that
- *     organisation's owner. Before lastJoin: the creator only if they had
- *     accepted no invite into any organisation by then, else null (an
- *     earlier membership cannot be placed). No invite into
+ *     organisation's owner. Before lastJoin: null, always (an earlier
+ *     membership may have been erased with its owner's account, so no
+ *     missing invite proves nothing). No invite into
  *     organizationLeftId left (erased by the owner deleting their account),
  *     or no organizationLeftId: null.
  */
@@ -249,17 +249,12 @@ async function removedMemberTenantOwner(
   });
   // No invite into it survives (erased by the owner deleting their account).
   if (!lastJoin?.usedAt) return null;
-  if (lastJoin.usedAt.getTime() <= resourceCreatedAt.getTime()) {
-    return lastJoin.organization?.ownerId ?? null;
-  }
-  // Before the last join: the creator's only if they had joined nothing at
-  // all by then. An earlier membership cannot be placed, so otherwise null.
-  const joinedBefore = await acceptedInviteAtOrBefore(
-    creatorId,
-    creator.email,
-    resourceCreatedAt,
-  );
-  return joinedBefore ? null : creatorId;
+  // Before the last join: null, always. An earlier membership may have had
+  // its invites erased by an owner deleting their account, so finding no
+  // invite before the resource is not evidence the creator made it alone.
+  return lastJoin.usedAt.getTime() <= resourceCreatedAt.getTime()
+    ? (lastJoin.organization?.ownerId ?? null)
+    : null;
 }
 
 /** Whether the user had accepted any invite, into any organisation, by `at`. */
