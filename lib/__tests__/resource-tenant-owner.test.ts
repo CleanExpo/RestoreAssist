@@ -25,9 +25,14 @@ const db = vi.hoisted(() => ({
       organizationId: string | null;
       email: string;
       ownerId: string | null;
+      organizationLeftAt?: Date | null;
     }
   >,
   invites: [] as Invite[],
+  orgOwners: { "org-a": "owner-a", "org-b": "owner-b" } as Record<
+    string,
+    string
+  >,
 }));
 
 type EmailFilter = { equals: string; mode?: "insensitive" | "default" };
@@ -69,16 +74,19 @@ vi.mock("@/lib/prisma", () => ({
         orderBy,
       }: {
         where: {
-          organizationId: string;
-          usedAt?: { not: null };
+          organizationId?: string;
+          usedAt?: { not: null; lte?: Date };
           OR: Branch[];
         };
         orderBy?: { usedAt: "asc" | "desc" };
       }) => {
+        const lte = where.usedAt?.lte;
         const rows = db.invites.filter(
           (i) =>
-            i.organizationId === where.organizationId &&
+            (where.organizationId === undefined ||
+              i.organizationId === where.organizationId) &&
             (!where.usedAt || i.usedAt !== null) &&
+            (!lte || (i.usedAt !== null && i.usedAt <= lte)) &&
             where.OR.some((b) => matchesBranch(i, b)),
         );
         if (orderBy?.usedAt === "desc") {
@@ -86,7 +94,13 @@ vi.mock("@/lib/prisma", () => ({
             (a, b) => (b.usedAt?.getTime() ?? 0) - (a.usedAt?.getTime() ?? 0),
           );
         }
-        return rows[0] ? { usedAt: rows[0].usedAt } : null;
+        return rows[0]
+          ? {
+              usedAt: rows[0].usedAt,
+              organizationId: rows[0].organizationId,
+              organization: { ownerId: db.orgOwners[rows[0].organizationId] },
+            }
+          : null;
       },
     },
   },
@@ -230,5 +244,60 @@ describe("resourceBillsToCaller — the one rule for logged-in charges on a reso
       createdAt: new Date("2026-07-02T00:00:00Z"),
     };
     await expect(resourceBillsToCaller("owner-a", later)).resolves.toBe(false);
+  });
+});
+
+describe("getResourceTenantOwner — removed member (RA-7893 P1-REMOVED-MEMBER-OLD-JOB-USES-PERSONAL-ADDON)", () => {
+  // tech-a joined org A on 1 May, created a job on 1 June, and was removed
+  // from org A on 1 August (organizationId cleared).
+  beforeEach(() => {
+    db.users["tech-a"] = {
+      id: "tech-a",
+      role: "USER",
+      organizationId: null,
+      email: "tech-a@example.com",
+      ownerId: null,
+      organizationLeftAt: new Date("2026-08-01T00:00:00Z"),
+    };
+    db.invites = [
+      {
+        organizationId: "org-a",
+        acceptedUserId: "tech-a",
+        email: "tech-a@example.com",
+        usedAt: new Date("2026-05-01T00:00:00Z"),
+      },
+    ];
+  });
+
+  it("bills a job made while in org A to org A's owner, not the ex-member", async () => {
+    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBe(
+      "owner-a",
+    );
+  });
+
+  it("gives the ex-member a job they made after leaving", async () => {
+    await expect(
+      getResourceTenantOwner("tech-a", new Date("2026-09-01T00:00:00Z")),
+    ).resolves.toBe("tech-a");
+  });
+
+  it("fails closed for a removal with no leave date on record", async () => {
+    db.users["tech-a"].organizationLeftAt = null;
+    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBeNull();
+  });
+
+  it("gives the user a job they made before ever joining an organisation", async () => {
+    db.invites[0].usedAt = new Date("2026-07-01T00:00:00Z");
+    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBe(
+      "tech-a",
+    );
+  });
+
+  it("gives a user who never accepted an invite their own job", async () => {
+    db.invites = [];
+    db.users["tech-a"].organizationLeftAt = null;
+    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBe(
+      "tech-a",
+    );
   });
 });

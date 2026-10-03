@@ -24,6 +24,7 @@ const db = vi.hoisted(() => ({
       role: string;
       organizationId: string | null;
       email: string;
+      organizationLeftAt?: Date | null;
     }
   >,
   orgOwners: { "org-a": "owner-a", "org-b": "owner-b" } as Record<
@@ -67,19 +68,29 @@ vi.mock("@/lib/prisma", () => ({
         where,
       }: {
         where: {
-          organizationId: string;
+          organizationId?: string;
+          usedAt?: { not: null; lte?: Date };
           OR: Array<{ acceptedUserId?: string | null }>;
         };
       }) => {
         const userId = where.OR[0].acceptedUserId;
+        const lte = where.usedAt?.lte;
         const latest = db.invites
           .filter(
             (i) =>
-              i.organizationId === where.organizationId &&
+              (where.organizationId === undefined ||
+                i.organizationId === where.organizationId) &&
+              (!lte || i.usedAt <= lte) &&
               i.acceptedUserId === userId,
           )
           .sort((a, b) => b.usedAt.getTime() - a.usedAt.getTime())[0];
-        return latest ? { usedAt: latest.usedAt } : null;
+        return latest
+          ? {
+              usedAt: latest.usedAt,
+              organizationId: latest.organizationId,
+              organization: { ownerId: db.orgOwners[latest.organizationId] },
+            }
+          : null;
       },
     },
     workspace: {
@@ -88,7 +99,9 @@ vi.mock("@/lib/prisma", () => ({
           ? { id: "ws-a", name: "A" }
           : where.ownerId === "owner-b"
             ? { id: "ws-b", name: "B" }
-            : null,
+            : where.ownerId === "tech-a"
+              ? { id: "ws-tech-a", name: "Personal" }
+              : null,
     },
     workspaceMember: { findFirst: async () => null },
     featureEntitlement: {
@@ -211,5 +224,31 @@ describe("portal learn page — technician who moved organisations (RA-7893 P1-M
   it("falls back to the free set when the invited creator has no accepted invite on record", async () => {
     db.invites = [];
     expect(await renderFor("tech-a")).toEqual({ includeAddonContent: false });
+  });
+});
+
+describe("portal learn page — technician removed from org A (RA-7893 P1-REMOVED-MEMBER-OLD-JOB-USES-PERSONAL-ADDON)", () => {
+  function removeTechFromOrgA(leftAt: Date | null) {
+    // tech-a was removed from org A (organizationId cleared) and has a
+    // personal READY workspace with CLIENT_EDUCATION. Org A does not.
+    db.users["tech-a"].organizationId = null;
+    db.users["tech-a"].organizationLeftAt = leftAt;
+    db.entitlements = [{ workspaceId: "ws-tech-a", active: true }];
+  }
+
+  it("does not serve the ex-member's personal add-on on an org A job's portal", async () => {
+    removeTechFromOrgA(new Date("2026-08-01T00:00:00Z"));
+    expect(await renderFor("tech-a")).toEqual({ includeAddonContent: false });
+  });
+
+  it("falls back to the free set for an old job when the removal has no leave date", async () => {
+    removeTechFromOrgA(null);
+    expect(await renderFor("tech-a")).toEqual({ includeAddonContent: false });
+  });
+
+  it("serves the ex-member's own add-on on a job they created after leaving", async () => {
+    removeTechFromOrgA(new Date("2026-08-01T00:00:00Z"));
+    db.inspectionCreatedAt = new Date("2026-09-01T00:00:00Z");
+    expect(await renderFor("tech-a")).toEqual({ includeAddonContent: true });
   });
 });

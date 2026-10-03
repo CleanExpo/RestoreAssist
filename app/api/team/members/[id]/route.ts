@@ -245,6 +245,9 @@ export async function DELETE(
       data: {
         organizationId: null,
         managedById: null, // Also remove management relationship
+        // RA-7893: the leave date tells an old job made in this organisation
+        // apart from one the user makes after leaving.
+        organizationLeftAt: new Date(),
       },
     });
 

@@ -147,31 +147,39 @@ export async function getEffectiveSubscription(userId: string): Promise<{
  *   no acceptedUserId and are matched on the invite email.
  * - No such invite: null. The caller refuses; nobody is billed and no add-on
  *   is lent.
+ * - The creator is in no organisation now (removed by DELETE
+ *   /api/team/members/[id], which stamps organizationLeftAt): find the
+ *   latest invite they accepted at or before the resource was created.
+ *   - None: the creator. They made it on their own, as before.
+ *   - One, and the resource predates organizationLeftAt: that
+ *     organisation's owner. An old org A job stays org A's.
+ *   - One, and the resource is at or after organizationLeftAt: the creator.
+ *   - One, but no leave date (a removal from before the column existed):
+ *     null, fail closed.
  */
 export async function getResourceTenantOwner(
   creatorId: string,
   resourceCreatedAt: Date,
 ): Promise<string | null> {
   const ownerId = await getOrganizationOwner(creatorId);
-  if (!ownerId || ownerId === creatorId) return creatorId;
+  if (ownerId === creatorId) return creatorId;
 
   const creator = await prisma.user.findUnique({
     where: { id: creatorId },
-    select: { organizationId: true, email: true },
+    select: { organizationId: true, email: true, organizationLeftAt: true },
   });
+  if (!ownerId) {
+    // Unknown user, or an organisation row with no owner: unchanged.
+    if (!creator || creator.organizationId) return creatorId;
+    return removedMemberTenantOwner(creatorId, creator, resourceCreatedAt);
+  }
   if (!creator?.organizationId) return null;
 
   const joined = await prisma.userInvite.findFirst({
     where: {
       organizationId: creator.organizationId,
       usedAt: { not: null },
-      OR: [
-        { acceptedUserId: creatorId },
-        {
-          acceptedUserId: null,
-          email: { equals: creator.email, mode: "insensitive" },
-        },
-      ],
+      OR: acceptedBy(creatorId, creator.email),
     },
     select: { usedAt: true },
     orderBy: { usedAt: "desc" },
@@ -180,6 +188,38 @@ export async function getResourceTenantOwner(
   return joined.usedAt.getTime() <= resourceCreatedAt.getTime()
     ? ownerId
     : null;
+}
+
+/** Invites this user accepted: by receipt, or (pre-receipt) by email. */
+function acceptedBy(userId: string, email: string) {
+  return [
+    { acceptedUserId: userId },
+    {
+      acceptedUserId: null,
+      email: { equals: email, mode: "insensitive" as const },
+    },
+  ];
+}
+
+async function removedMemberTenantOwner(
+  creatorId: string,
+  creator: { email: string; organizationLeftAt: Date | null },
+  resourceCreatedAt: Date,
+): Promise<string | null> {
+  const joined = await prisma.userInvite.findFirst({
+    where: {
+      usedAt: { not: null, lte: resourceCreatedAt },
+      OR: acceptedBy(creatorId, creator.email),
+    },
+    select: { usedAt: true, organization: { select: { ownerId: true } } },
+    orderBy: { usedAt: "desc" },
+  });
+  if (!joined) return creatorId;
+  const leftAt = creator.organizationLeftAt;
+  if (!leftAt) return null;
+  return resourceCreatedAt.getTime() < leftAt.getTime()
+    ? joined.organization.ownerId
+    : creatorId;
 }
 
 /**
