@@ -11,7 +11,10 @@
  */
 import { prisma } from "@/lib/prisma";
 import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
-import { getEffectiveSubscriptionForResource } from "@/lib/organization-credits";
+import {
+  getEffectiveSubscriptionForResource,
+  resourceBillsToCaller,
+} from "@/lib/organization-credits";
 
 export type LifecycleHookFailure = {
   ok: false;
@@ -80,11 +83,19 @@ export async function runLifecycleHook<TInput, TDraft>(
   // the business owner's plan, and a trial charge lands on the owner's
   // balance (`effective.id`), not on the technician's null credits. The
   // business is the INSPECTION's: a technician who has since moved
-  // organisation never bills the new owner for an old job.
-  const effective = await getEffectiveSubscriptionForResource(
-    spec.resource.creatorId,
-    spec.resource.createdAt,
-  );
+  // organisation never bills the new owner for an old job. The caller
+  // (spec.userId) may be a colleague, not the creator: the inspection's
+  // business must also be the caller's (resourceBillsToCaller), or nobody is
+  // charged.
+  const effective = (await resourceBillsToCaller(spec.userId, {
+    userId: spec.resource.creatorId,
+    createdAt: spec.resource.createdAt,
+  }))
+    ? await getEffectiveSubscriptionForResource(
+        spec.resource.creatorId,
+        spec.resource.createdAt,
+      )
+    : null;
   const status = effective?.subscriptionStatus ?? null;
   if (!effective || !isEffectivePlanCurrent(effective)) {
     return {

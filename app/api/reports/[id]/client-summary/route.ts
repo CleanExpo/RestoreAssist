@@ -13,7 +13,10 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
-import { getEffectiveSubscriptionForResource } from "@/lib/organization-credits";
+import {
+  getEffectiveSubscriptionForResource,
+  resourceBillsToCaller,
+} from "@/lib/organization-credits";
 
 /**
  * RA-1461: POST /api/reports/[id]/client-summary
@@ -94,11 +97,15 @@ export async function POST(
     // RA-7893: the plan, and the balance a trial charge lands on
     // (effectiveSub.id), are those of the business the REPORT belongs to: the
     // owner of an invited technician's organisation, but never the owner of
-    // an organisation the technician joined after creating the report.
-    const effectiveSub = await getEffectiveSubscriptionForResource(
+    // an organisation the technician joined after creating the report. The
+    // report must also bill to the caller (resourceBillsToCaller), the one
+    // rule every logged-in charge on a resource uses.
+    const effectiveSub = (await resourceBillsToCaller(userId, {
       userId,
-      report.createdAt,
-    );
+      createdAt: report.createdAt,
+    }))
+      ? await getEffectiveSubscriptionForResource(userId, report.createdAt)
+      : null;
     if (!isEffectivePlanCurrent(effectiveSub)) {
       return NextResponse.json(
         {

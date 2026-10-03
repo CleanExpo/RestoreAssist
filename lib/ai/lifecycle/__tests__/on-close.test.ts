@@ -303,3 +303,125 @@ describe("buildCloseSummary — technician who moved organisations (RA-7893 move
     if (!out.ok) expect(out.code).toBe("SUBSCRIPTION_REQUIRED");
   });
 });
+
+describe("buildCloseSummary — caller is not the creator (RA-7893 colleague)", () => {
+  // tech-a joined org A on 1 May and tech-b joined org B on 1 July.
+  // owner-a and owner-b each have a current trial with credits.
+  const rows: Record<string, Record<string, unknown>> = {
+    "tech-a": {
+      id: "tech-a",
+      role: "USER",
+      organizationId: "org_a",
+      organization: { ownerId: "owner-a" },
+      email: "tech-a@example.com",
+    },
+    "tech-b": {
+      id: "tech-b",
+      role: "USER",
+      organizationId: "org_b",
+      organization: { ownerId: "owner-b" },
+      email: "tech-b@example.com",
+    },
+    "owner-a": {
+      id: "owner-a",
+      role: "ADMIN",
+      organizationId: "org_a",
+      organization: { ownerId: "owner-a" },
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2099-01-01"),
+      creditsRemaining: 5,
+    },
+    "owner-b": {
+      id: "owner-b",
+      role: "ADMIN",
+      organizationId: "org_b",
+      organization: { ownerId: "owner-b" },
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2099-01-01"),
+      creditsRemaining: 5,
+    },
+  };
+  const joined: Record<string, Date> = {
+    "org_a:tech-a": new Date("2026-05-01T00:00:00.000Z"),
+    "org_b:tech-b": new Date("2026-07-01T00:00:00.000Z"),
+  };
+
+  beforeEach(() => {
+    (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockImplementation(
+      async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
+    );
+    (
+      prisma.userInvite.findFirst as ReturnType<typeof vi.fn>
+    ).mockImplementation(
+      async ({
+        where,
+      }: {
+        where: {
+          organizationId: string;
+          OR: Array<{ acceptedUserId?: string | null }>;
+        };
+      }) => {
+        const at =
+          joined[`${where.organizationId}:${where.OR[0].acceptedUserId}`];
+        return at ? { usedAt: at } : null;
+      },
+    );
+    (prisma.user.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
+      count: 1,
+    });
+    (
+      prisma.providerConnection.findFirst as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(null);
+  });
+
+  function job(userId: string, createdAt: string) {
+    (
+      prisma.inspection.findUnique as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      ...inspectionFixture,
+      userId,
+      createdAt: new Date(createdAt),
+    });
+  }
+
+  it("does not charge anyone when owner-b closes a job tech-b created in org A before joining org B", async () => {
+    // tech-b's job predates tech-b joining org B.
+    job("tech-b", "2026-06-01T00:00:00.000Z");
+    const out = await buildCloseSummary({
+      inspectionId: "ins_1",
+      invoiceId: "inv_1",
+      userId: "owner-b",
+      orgId: null,
+    });
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(out.ok).toBe(false);
+  });
+
+  it("does not charge org A's owner when a caller from org B closes an org A job", async () => {
+    job("tech-a", "2026-06-01T00:00:00.000Z");
+    const out = await buildCloseSummary({
+      inspectionId: "ins_1",
+      invoiceId: "inv_1",
+      userId: "owner-b",
+      orgId: null,
+    });
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(out.ok).toBe(false);
+  });
+
+  it("charges owner-b once when owner-b closes a job tech-b created after joining org B", async () => {
+    job("tech-b", "2026-07-02T00:00:00.000Z");
+    const out = await buildCloseSummary({
+      inspectionId: "ins_1",
+      invoiceId: "inv_1",
+      userId: "owner-b",
+      orgId: null,
+    });
+    expect(out.ok).toBe(true);
+    expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
+    expect(
+      (prisma.user.updateMany as ReturnType<typeof vi.fn>).mock.calls[0][0]
+        .where,
+    ).toEqual({ id: "owner-b", creditsRemaining: { gte: 1 } });
+  });
+});

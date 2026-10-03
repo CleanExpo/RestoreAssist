@@ -98,10 +98,12 @@ beforeEach(() => {
   mockInviteFindFirst.mockResolvedValue(null);
   // Owns-the-inspection by default; individual tests override to simulate
   // a cross-tenant inspectionId.
-  mockAssertInspectionTenancy.mockResolvedValue({
-    ok: true,
-    data: { id: "insp-001", userId: "user-1", workspaceId: null },
-  });
+  mockAssertInspectionTenancy.mockImplementation(
+    async (session: { user: { id: string } }) => ({
+      ok: true,
+      data: { id: "insp-001", userId: session.user.id, workspaceId: null },
+    }),
+  );
 });
 
 describe("POST /api/pilot/adjuster-session", () => {
@@ -371,3 +373,65 @@ describe("POST /api/pilot/adjuster-session — RA-7893 moved technician", () => 
     expect(res.status).toBe(402);
   });
 });
+
+describe("POST /api/pilot/adjuster-session — RA-7893 colleague acting on a moved technician's job", () => {
+  // tech-a joined org B on 1 July. owner-b (ADMIN of org B) passes the
+  // tenancy check on tech-a's inspections because tech-a is in org B now.
+  const rows: Record<string, Record<string, unknown>> = {
+    "tech-a": {
+      id: "tech-a",
+      role: "USER",
+      organizationId: "org-b",
+      organization: { ownerId: "owner-b" },
+      email: "tech-a@example.com",
+      subscriptionStatus: null,
+    },
+    "owner-b": {
+      id: "owner-b",
+      role: "ADMIN",
+      organizationId: "org-b",
+      organization: { ownerId: "owner-b" },
+      subscriptionStatus: "ACTIVE",
+    },
+  };
+
+  beforeEach(() => {
+    mockFindUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
+    );
+    mockInviteFindFirst.mockResolvedValue({
+      usedAt: new Date("2026-07-01T00:00:00Z"),
+    });
+    mockAssertInspectionTenancy.mockResolvedValue({
+      ok: true,
+      data: { id: "insp-a", userId: "tech-a", workspaceId: null },
+    });
+  });
+
+  it("does not charge owner-b for an inspection tech-a created in org A before joining org B", async () => {
+    mockSession.mockResolvedValueOnce({ user: { id: "owner-b" } });
+    mockInspectionFindUnique.mockResolvedValue({
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+    });
+
+    const res = await POST(makeRequest({ inspectionId: "insp-a" }));
+
+    expect(mockDeductCredits).not.toHaveBeenCalled();
+    expect(mockRunAgent).not.toHaveBeenCalled();
+    expect(res.status).toBe(402);
+  });
+
+  it("charges owner-b once for a job tech-a created after joining org B", async () => {
+    mockSession.mockResolvedValueOnce({ user: { id: "owner-b" } });
+    mockInspectionFindUnique.mockResolvedValue({
+      createdAt: new Date("2026-07-02T00:00:00Z"),
+    });
+
+    const res = await POST(makeRequest({ inspectionId: "insp-a" }));
+
+    expect(res.status).toBe(200);
+    expect(mockDeductCredits).toHaveBeenCalledTimes(1);
+    expect(mockDeductCredits).toHaveBeenCalledWith("owner-b");
+  });
+});
+

@@ -183,22 +183,28 @@ export async function getResourceTenantOwner(
 }
 
 /**
- * RA-7893 — for a session route that charges or uses a paid add-on through
- * the CALLER's current business while acting on one resource: false when the
- * caller created the resource but it cannot be shown to belong to the
- * business they are in now (they created it before joining, e.g. in a
- * previous organisation). The caller's current owner would then pay for, or
- * lend an add-on to, another business's job.
+ * RA-7893 — the one rule for a logged-in route that charges, sends or uses a
+ * paid add-on while acting on one resource (job, report, invoice): true only
+ * when the business the RESOURCE belongs to (getResourceTenantOwner, from
+ * its creator and createdAt) is proven AND is the caller's billing business
+ * (their organisation owner, or themselves).
  *
- * A resource created by someone else is not judged here: who may act on it
- * is the tenancy check's question, and this branch does not change it.
+ * That covers the creator who has since moved (their old job resolves to no
+ * business, or to a different one) and the colleague: an admin of the
+ * organisation a technician joined later passes the tenancy check on that
+ * technician's older jobs, but those jobs do not bill to the admin.
  */
-export async function isOwnResourceFromCurrentBusiness(
+export async function resourceBillsToCaller(
   callerId: string,
   resource: { userId: string; createdAt: Date },
 ): Promise<boolean> {
-  if (resource.userId !== callerId) return true;
-  return (await getResourceTenantOwner(callerId, resource.createdAt)) !== null;
+  const resourceOwner = await getResourceTenantOwner(
+    resource.userId,
+    resource.createdAt,
+  );
+  if (!resourceOwner) return false;
+  const callerOwner = (await getOrganizationOwner(callerId)) ?? callerId;
+  return resourceOwner === callerOwner;
 }
 
 /**

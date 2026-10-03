@@ -92,7 +92,10 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { getResourceTenantOwner } from "../organization-credits";
+import {
+  getResourceTenantOwner,
+  resourceBillsToCaller,
+} from "../organization-credits";
 
 const CREATED = new Date("2026-06-01T00:00:00Z");
 
@@ -159,5 +162,73 @@ describe("getResourceTenantOwner — legacy invites without acceptedUserId (RA-7
       },
     ];
     await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBeNull();
+  });
+});
+
+describe("resourceBillsToCaller — the one rule for logged-in charges on a resource (RA-7893)", () => {
+  beforeEach(() => {
+    // tech-a joined org B on 1 July. owner-a and owner-b are each their own
+    // billing owner.
+    db.users["tech-a"] = {
+      id: "tech-a",
+      role: "USER",
+      organizationId: "org-b",
+      email: "tech-a@example.com",
+      ownerId: "owner-b",
+    };
+    db.users["owner-a"] = {
+      id: "owner-a",
+      role: "ADMIN",
+      organizationId: "org-a",
+      email: "owner-a@example.com",
+      ownerId: "owner-a",
+    };
+    db.users["owner-b"] = {
+      id: "owner-b",
+      role: "ADMIN",
+      organizationId: "org-b",
+      email: "owner-b@example.com",
+      ownerId: "owner-b",
+    };
+    db.invites = [
+      {
+        organizationId: "org-b",
+        acceptedUserId: "tech-a",
+        email: "tech-a@example.com",
+        usedAt: new Date("2026-07-01T00:00:00Z"),
+      },
+    ];
+  });
+
+  it("refuses the colleague: org B's admin on a job tech-a created before joining org B", async () => {
+    await expect(
+      resourceBillsToCaller("owner-b", {
+        userId: "tech-a",
+        createdAt: CREATED,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("refuses the creator on their own job from before joining org B", async () => {
+    await expect(
+      resourceBillsToCaller("tech-a", { userId: "tech-a", createdAt: CREATED }),
+    ).resolves.toBe(false);
+  });
+
+  it("allows org B's admin and the creator on a job tech-a created after joining org B", async () => {
+    const later = {
+      userId: "tech-a",
+      createdAt: new Date("2026-07-02T00:00:00Z"),
+    };
+    await expect(resourceBillsToCaller("owner-b", later)).resolves.toBe(true);
+    await expect(resourceBillsToCaller("tech-a", later)).resolves.toBe(true);
+  });
+
+  it("refuses a caller from another business even when the job's business is proven", async () => {
+    const later = {
+      userId: "tech-a",
+      createdAt: new Date("2026-07-02T00:00:00Z"),
+    };
+    await expect(resourceBillsToCaller("owner-a", later)).resolves.toBe(false);
   });
 });
