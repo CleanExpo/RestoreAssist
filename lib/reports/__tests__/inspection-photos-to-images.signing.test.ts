@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // The photo bucket is private. A report must fetch the re-signed URL, never
 // the stored one: an unsigned fetch fails, and a failed photo is skipped, so
@@ -11,7 +11,16 @@ vi.mock("@/lib/storage/sign-stored-url", async (importOriginal) => ({
   signStoredMediaUrl: (u: string | null | undefined) => signStoredMediaUrl(u),
 }));
 
-import { inspectionPhotosToImages } from "../inspection-photos-to-images";
+import { prepareReportPhotos } from "../inspection-photos-to-images";
+
+const HOST = "https://abc.supabase.co";
+const obj = (name: string) =>
+  `${HOST}/storage/v1/object/public/evidence-optimised/org-1/insp-1/${name}`;
+const binding = { inspectionId: "insp-1", ownerFolders: ["org-1"] };
+
+beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", HOST);
+});
 
 const JPG_SIG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
 
@@ -28,22 +37,22 @@ function privateBucketFetch() {
   });
 }
 
-describe("inspectionPhotosToImages signs private photo URLs", () => {
+describe("prepareReportPhotos signs private photo URLs", () => {
   it("embeds a photo whose stored URL only works once signed", async () => {
     const fetchImpl = privateBucketFetch();
-    const out = await inspectionPhotosToImages(
+    const { photos: out } = await prepareReportPhotos(
       [
         {
           id: "p1",
-          url: "https://store.example/object/optimised/a.jpg",
-          thumbnailUrl: "https://store.example/object/optimised/a_thumb.jpg",
+          url: obj("a.jpg"),
+          thumbnailUrl: obj("a_thumb.jpg"),
           description: "Bedroom 4 ceiling",
         },
       ],
-      fetchImpl as unknown as typeof fetch,
+      { ...binding, fetchImpl: fetchImpl as unknown as typeof fetch },
     );
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://store.example/object/optimised/a_thumb.jpg?token=signed",
+      `${obj("a_thumb.jpg")}?token=signed`,
       expect.anything(),
     );
     expect(out).toHaveLength(1);
@@ -52,12 +61,12 @@ describe("inspectionPhotosToImages signs private photo URLs", () => {
 
   it("falls back to the full image URL, signed, when there is no thumbnail", async () => {
     const fetchImpl = privateBucketFetch();
-    const out = await inspectionPhotosToImages(
-      [{ url: "https://store.example/object/optimised/b.jpg" }],
-      fetchImpl as unknown as typeof fetch,
+    const { photos: out } = await prepareReportPhotos(
+      [{ url: obj("b.jpg") }],
+      { ...binding, fetchImpl: fetchImpl as unknown as typeof fetch },
     );
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://store.example/object/optimised/b.jpg?token=signed",
+      `${obj("b.jpg")}?token=signed`,
       expect.anything(),
     );
     expect(out).toHaveLength(1);

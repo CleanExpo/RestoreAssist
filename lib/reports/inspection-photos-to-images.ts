@@ -47,6 +47,7 @@ function captionOf(p: InspectionPhotoRow): string {
 /** Why a photo could not be included in a report. */
 export type PhotoOmissionReason =
   | "no_url"
+  | "not_storage"
   | "foreign_path"
   | "sign_failed"
   | "fetch_failed"
@@ -78,7 +79,7 @@ function storagePathBelongsTo(
   } catch {
     return false; // a path that cannot be decoded cannot be shown to belong
   }
-  if (!ref) return true; // not a storage object: the signer passes it through
+  if (!ref) return false; // not a storage object: never fetched (RA-7879)
   if (!inspectionId) return false;
   const segments = ref.path.split("/");
   const unclean = (s: string) =>
@@ -107,6 +108,22 @@ export function photoOwnerFolders(inspection: {
     "no-org",
   ];
   return [...new Set(folders.filter((f): f is string => Boolean(f)))];
+}
+
+/**
+ * Whether a stored URL names one of our storage objects. Anything else (a
+ * legacy host, an internal address, a data URI) is never fetched: the report
+ * route fetches from the server, so fetching a row's URL as given would let a
+ * stored address reach internal services (RA-7879). A storage URL whose path
+ * cannot be decoded counts as storage here and is refused by
+ * {@link storagePathBelongsTo}.
+ */
+function isStorageObject(stored: string): boolean {
+  try {
+    return parseSupabaseStorageUrl(stored) !== null;
+  } catch {
+    return true;
+  }
 }
 
 class PhotoTimeout extends Error {}
@@ -179,6 +196,14 @@ export async function prepareReportPhotos(
   ): Promise<ReportPhoto | PhotoOmissionReason> => {
     const stored = p.thumbnailUrl?.trim() || p.url?.trim();
     if (!stored) return "no_url";
+    if (!isStorageObject(stored)) {
+      // Never routine: genuine uploads are always storage objects.
+      console.error(
+        "[report-photos] refused a photo URL that is not a storage object",
+        { ...context, photoId: p.id ?? null },
+      );
+      return "not_storage";
+    }
     const rowElsewhere =
       Boolean(options.inspectionId) &&
       Boolean(p.inspectionId) &&
@@ -278,16 +303,4 @@ export async function prepareReportPhotos(
     });
   }
   return { photos: included, missing, reasons };
-}
-
-/** Embeddable photos only; prefer {@link prepareReportPhotos}, which also
- *  reports how many could not be included. */
-export async function inspectionPhotosToImages(
-  photos: InspectionPhotoRow[],
-  fetchImpl: typeof fetch = fetch,
-  evidenceLabelsByPhotoId: ReadonlyMap<string, string[]> = new Map(),
-): Promise<ReportPhoto[]> {
-  return (
-    await prepareReportPhotos(photos, { fetchImpl, evidenceLabelsByPhotoId })
-  ).photos;
 }

@@ -1,5 +1,40 @@
-import { describe, it, expect, vi } from "vitest";
-import { inspectionPhotosToImages } from "../inspection-photos-to-images";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Signing is covered by the signing and binding tests; keep the URL here so
+// each fetch can be matched to its stored object.
+vi.mock("@/lib/storage/sign-stored-url", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/storage/sign-stored-url")>()),
+  signStoredMediaUrl: async (u: string | null | undefined) => u,
+}));
+
+import {
+  prepareReportPhotos,
+  type InspectionPhotoRow,
+} from "../inspection-photos-to-images";
+
+// Only storage objects under the report's own inspection are fetched (RA-7879).
+const HOST = "https://abc.supabase.co";
+const u = (name: string) =>
+  `${HOST}/storage/v1/object/public/evidence-optimised/org-1/insp-1/${name}`;
+
+beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", HOST);
+});
+
+async function embedPhotos(
+  photos: InspectionPhotoRow[],
+  fetchImpl: typeof fetch,
+  evidenceLabelsByPhotoId?: ReadonlyMap<string, string[]>,
+) {
+  return (
+    await prepareReportPhotos(photos, {
+      inspectionId: "insp-1",
+      ownerFolders: ["org-1"],
+      fetchImpl,
+      evidenceLabelsByPhotoId,
+    })
+  ).photos;
+}
 
 const PNG_SIG = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -20,26 +55,26 @@ function fakeFetch(map: Record<string, Uint8Array | "fail">) {
   });
 }
 
-describe("inspectionPhotosToImages", () => {
+describe("prepareReportPhotos embedding", () => {
   it("fetches each photo and detects PNG vs JPG from the bytes", async () => {
     const photos = [
       {
-        url: "https://x/a.png",
+        url: u("a.png"),
         mimeType: "image/png",
         description: "Kitchen leak",
       },
       {
-        url: "https://x/b.jpg",
+        url: u("b.jpg"),
         mimeType: "image/jpeg",
         description: "Ceiling stain",
       },
     ];
     const fetchImpl = fakeFetch({
-      "https://x/a.png": PNG_SIG,
-      "https://x/b.jpg": JPG_SIG,
+      [u("a.png")]: PNG_SIG,
+      [u("b.jpg")]: JPG_SIG,
     });
 
-    const imgs = await inspectionPhotosToImages(photos, fetchImpl as never);
+    const imgs = await embedPhotos(photos, fetchImpl as never);
 
     expect(imgs).toHaveLength(2);
     expect(imgs[0].isPng).toBe(true);
@@ -49,30 +84,30 @@ describe("inspectionPhotosToImages", () => {
 
   it("prefers thumbnailUrl over url to bound embedded size", async () => {
     const photos = [
-      { url: "https://x/full.jpg", thumbnailUrl: "https://x/thumb.jpg" },
+      { url: u("full.jpg"), thumbnailUrl: u("thumb.jpg") },
     ];
-    const fetchImpl = fakeFetch({ "https://x/thumb.jpg": JPG_SIG });
+    const fetchImpl = fakeFetch({ [u("thumb.jpg")]: JPG_SIG });
 
-    const imgs = await inspectionPhotosToImages(photos, fetchImpl as never);
+    const imgs = await embedPhotos(photos, fetchImpl as never);
 
     expect(imgs).toHaveLength(1);
-    expect(fetchImpl).toHaveBeenCalledWith("https://x/thumb.jpg", expect.anything());
-    expect(fetchImpl).not.toHaveBeenCalledWith("https://x/full.jpg", expect.anything());
+    expect(fetchImpl).toHaveBeenCalledWith(u("thumb.jpg"), expect.anything());
+    expect(fetchImpl).not.toHaveBeenCalledWith(u("full.jpg"), expect.anything());
   });
 
   it("resolves caption description → location → roomType → empty", async () => {
     const photos = [
-      { url: "https://x/1", location: "Master bedroom" },
-      { url: "https://x/2", roomType: "BATHROOM" },
-      { url: "https://x/3" },
+      { url: u("1"), location: "Master bedroom" },
+      { url: u("2"), roomType: "BATHROOM" },
+      { url: u("3") },
     ];
     const fetchImpl = fakeFetch({
-      "https://x/1": JPG_SIG,
-      "https://x/2": JPG_SIG,
-      "https://x/3": JPG_SIG,
+      [u("1")]: JPG_SIG,
+      [u("2")]: JPG_SIG,
+      [u("3")]: JPG_SIG,
     });
 
-    const imgs = await inspectionPhotosToImages(photos, fetchImpl as never);
+    const imgs = await embedPhotos(photos, fetchImpl as never);
 
     expect(imgs.map((i) => i.caption)).toEqual([
       "Master bedroom",
@@ -84,21 +119,21 @@ describe("inspectionPhotosToImages", () => {
   it("skips a photo with no usable url and one whose fetch fails", async () => {
     const photos = [
       { url: "" },
-      { url: "https://x/ok", description: "good" },
-      { url: "https://x/broken", description: "bad" },
+      { url: u("ok"), description: "good" },
+      { url: u("broken"), description: "bad" },
     ];
     const fetchImpl = fakeFetch({
-      "https://x/ok": PNG_SIG,
-      "https://x/broken": "fail",
+      [u("ok")]: PNG_SIG,
+      [u("broken")]: "fail",
     });
 
-    const imgs = await inspectionPhotosToImages(photos, fetchImpl as never);
+    const imgs = await embedPhotos(photos, fetchImpl as never);
 
     expect(imgs.map((i) => i.caption)).toEqual(["good"]);
   });
 
   it("returns [] for empty input", async () => {
-    expect(await inspectionPhotosToImages([], fakeFetch({}) as never)).toEqual(
+    expect(await embedPhotos([], fakeFetch({}) as never)).toEqual(
       [],
     );
   });
@@ -107,21 +142,21 @@ describe("inspectionPhotosToImages", () => {
     const photos = [
       {
         id: "photo-1",
-        url: "https://x/1",
+        url: u("1"),
         description: "Kitchen leak",
       },
-      { id: "photo-2", url: "https://x/2" },
+      { id: "photo-2", url: u("2") },
     ];
     const fetchImpl = fakeFetch({
-      "https://x/1": JPG_SIG,
-      "https://x/2": JPG_SIG,
+      [u("1")]: JPG_SIG,
+      [u("2")]: JPG_SIG,
     });
     const labels = new Map([
       ["photo-1", ["E1", "E3"]],
       ["photo-2", ["E2"]],
     ]);
 
-    const imgs = await inspectionPhotosToImages(
+    const imgs = await embedPhotos(
       photos,
       fetchImpl as never,
       labels,
