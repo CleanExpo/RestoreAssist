@@ -67,14 +67,17 @@ describe("prepareReportPhotos binds signing to the photo's own inspection", () =
     expect(out.missing).toBe(1);
   });
 
-  it("still passes a legacy non-storage host through the signer unchanged", async () => {
+  it("never fetches a non-storage host and counts it missing (RA-7879)", async () => {
     const fetchImpl = okFetch();
     const out = await prepareReportPhotos(
       [{ id: "p1", inspectionId: "insp-1", url: "https://res.cloudinary.com/x/a.jpg" }],
       { ownerFolders: ["org-1"], fetchImpl: fetchImpl as unknown as typeof fetch },
     );
-    expect(out.photos).toHaveLength(1);
-    expect(out.missing).toBe(0);
+    expect(signStoredMediaUrl).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(out.photos).toHaveLength(0);
+    expect(out.missing).toBe(1);
+    expect(out.reasons).toEqual({ not_storage: 1 });
   });
 });
 
