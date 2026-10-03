@@ -8,6 +8,7 @@ import { getGstTreatment, type Country } from "@/lib/gst-rules";
 import {
   calculateInvoiceTotals,
   dollarsToCents,
+  lineAmountsCents,
   lineSubtotalCents,
 } from "@/lib/invoices/calc";
 
@@ -96,6 +97,48 @@ export function quoteGstAsInvoiced(
   return {
     gst: totals.gstAmount / 100,
     totalIncGST: totals.totalIncGST / 100,
+  };
+}
+
+/** One quote row's two customer prices, in AUD dollars (RA-7896). */
+export interface QuoteLinePrice {
+  exGST: number;
+  incGST: number;
+}
+
+/**
+ * Each quote row's price ex GST and inc GST, worked out per line exactly as
+ * the AR invoice drafted from the quote will work them out (RA-7896, RA-7705):
+ * the line rounded to cents, then GST on that rounded line.
+ *
+ * `lines` lines up one-to-one with `quote.lineItems`. When the minimum charge
+ * padded the subtotal, `minimumChargeLine` is the top-up row the invoice draft
+ * carries, so the quote shows it as its own row. Summed, the rows' inc-GST
+ * prices equal `quoteGstAsInvoiced(...).totalIncGST`.
+ */
+export function quoteLinePricesAsInvoiced(
+  quote: {
+    lineItems: Array<{ description: string; qty: number; rate: number }>;
+    subtotalExGST: number;
+  },
+  country: Country,
+): {
+  lines: QuoteLinePrice[];
+  minimumChargeLine: (QuoteLinePrice & { description: string }) | null;
+} {
+  const ratePercent = getGstTreatment(country).ratePercent;
+  const invoiceLines = quoteToInvoiceLineItems(quote, ratePercent);
+  const priced = invoiceLines.map((li) => {
+    const cents = lineAmountsCents(li.quantity, li.unitPrice, li.gstRate);
+    return { exGST: cents.subtotal / 100, incGST: cents.total / 100 };
+  });
+  const n = quote.lineItems.length;
+  return {
+    lines: priced.slice(0, n),
+    minimumChargeLine:
+      invoiceLines.length > n
+        ? { description: invoiceLines[n].description, ...priced[n] }
+        : null,
   };
 }
 
