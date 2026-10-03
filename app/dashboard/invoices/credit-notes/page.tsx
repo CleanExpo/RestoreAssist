@@ -240,11 +240,14 @@ function ExpandedDetailRow({ creditNote }: ExpandedRowProps) {
                       <th className="text-right px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Qty
                       </th>
-                      <th className="text-right px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <th className="hidden sm:table-cell text-right px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Unit Price
                       </th>
                       <th className="text-right px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Total
+                        Ex GST
+                      </th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Inc GST
                       </th>
                     </tr>
                   </thead>
@@ -257,8 +260,12 @@ function ExpandedDetailRow({ creditNote }: ExpandedRowProps) {
                         <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400">
                           {item.quantity}
                         </td>
-                        <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400">
+                        <td className="hidden sm:table-cell px-4 py-2 text-right text-slate-600 dark:text-slate-400">
                           {formatCurrencyCents(item.unitPrice)}
+                        </td>
+                        {/* RA-7896: the stored line ex GST and inc GST. */}
+                        <td className="px-4 py-2 text-right text-slate-700 dark:text-slate-300">
+                          {formatCurrencyCents(item.subtotal)}
                         </td>
                         <td className="px-4 py-2 text-right font-medium text-slate-700 dark:text-slate-300">
                           {formatCurrencyCents(item.total)}

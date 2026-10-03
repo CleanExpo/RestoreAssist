@@ -645,6 +645,14 @@ async function renderInvoiceDetails(
   return yPosition - boxHeight;
 }
 
+// Line-table column offsets, measured from the right margin (RA-7896).
+const COL_QTY = 300;
+const COL_RATE = 250;
+const COL_EX_GST = 190;
+const COL_GST = 130;
+const COL_INC_GST = 70;
+const DESCRIPTION_WIDTH = 220;
+
 /**
  * Render line items table
  */
@@ -687,37 +695,24 @@ async function renderLineItemsTable(
     color: colors.white,
   });
 
-  page.drawText("QTY", {
-    x: width - margin - 240,
-    y: headerY,
-    size: 9,
-    font: helveticaBold,
-    color: colors.white,
-  });
-
-  page.drawText("RATE", {
-    x: width - margin - 180,
-    y: headerY,
-    size: 9,
-    font: helveticaBold,
-    color: colors.white,
-  });
-
-  page.drawText("GST", {
-    x: width - margin - 120,
-    y: headerY,
-    size: 9,
-    font: helveticaBold,
-    color: colors.white,
-  });
-
-  page.drawText("AMOUNT", {
-    x: width - margin - 70,
-    y: headerY,
-    size: 9,
-    font: helveticaBold,
-    color: colors.white,
-  });
+  // RA-7896: every line shows its price ex GST and inc GST (the stored
+  // line subtotal and total), with the line's GST between them.
+  const headers: Array<[string, number]> = [
+    ["QTY", COL_QTY],
+    ["RATE", COL_RATE],
+    ["EX GST", COL_EX_GST],
+    ["GST", COL_GST],
+    ["INC GST", COL_INC_GST],
+  ];
+  for (const [label, offset] of headers) {
+    page.drawText(label, {
+      x: width - margin - offset,
+      y: headerY,
+      size: 9,
+      font: helveticaBold,
+      color: colors.white,
+    });
+  }
 
   yPosition -= rowHeight + 5;
 
@@ -740,7 +735,12 @@ async function renderLineItemsTable(
     const itemY = yPosition - 12;
 
     // Description
-    const descLines = wrapText(item.description, 280, helvetica, 9);
+    const descLines = wrapText(
+      item.description,
+      DESCRIPTION_WIDTH,
+      helvetica,
+      9,
+    );
     descLines.slice(0, 2).forEach((line, i) => {
       page.drawText(sanitizeTextForPDF(line), {
         x: margin + 10,
@@ -751,41 +751,22 @@ async function renderLineItemsTable(
       });
     });
 
-    // Quantity
-    page.drawText(item.quantity.toString(), {
-      x: width - margin - 240,
-      y: itemY,
-      size: 9,
-      font: helvetica,
-      color: colors.black,
-    });
-
-    // Unit Price
-    page.drawText(formatCurrency(item.unitPrice), {
-      x: width - margin - 180,
-      y: itemY,
-      size: 9,
-      font: helvetica,
-      color: colors.black,
-    });
-
-    // GST
-    page.drawText(formatCurrency(item.gstAmount), {
-      x: width - margin - 120,
-      y: itemY,
-      size: 9,
-      font: helvetica,
-      color: colors.black,
-    });
-
-    // Total
-    page.drawText(formatCurrency(item.total), {
-      x: width - margin - 70,
-      y: itemY,
-      size: 9,
-      font: helveticaBold,
-      color: colors.black,
-    });
+    const cells: Array<[string, number, PDFFont]> = [
+      [item.quantity.toString(), COL_QTY, helvetica],
+      [formatCurrency(item.unitPrice), COL_RATE, helvetica],
+      [formatCurrency(item.subtotal), COL_EX_GST, helvetica],
+      [formatCurrency(item.gstAmount), COL_GST, helvetica],
+      [formatCurrency(item.total), COL_INC_GST, helveticaBold],
+    ];
+    for (const [text, offset, font] of cells) {
+      page.drawText(text, {
+        x: width - margin - offset,
+        y: itemY,
+        size: 9,
+        font,
+        color: colors.black,
+      });
+    }
 
     yPosition -= itemRowHeight;
 

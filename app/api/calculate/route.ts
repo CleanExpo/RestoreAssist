@@ -11,6 +11,7 @@ import {
   QuoteRequestSchema,
   applyMinimumCharge,
   quoteGstAsInvoiced,
+  quoteLinePricesAsInvoiced,
   wholeCentRate,
 } from "@/lib/quotes/quote-calc";
 import { lineTotal } from "@/lib/estimate-lines";
@@ -381,6 +382,11 @@ export async function POST(request: NextRequest) {
       { lineItems, subtotalExGST },
       country,
     );
+    // RA-7896: every row shows its price ex GST and inc GST, per line.
+    const linePrices = quoteLinePricesAsInvoiced(
+      { lineItems, subtotalExGST },
+      country,
+    );
 
     // Reconcile the priced equipment against the RA-7005 safety plan.
     //
@@ -433,7 +439,11 @@ export async function POST(request: NextRequest) {
         phone: input.clientPhone ?? "",
         email: input.clientEmail ?? "",
       },
-      lineItems,
+      lineItems: lineItems.map((item, i) => ({
+        ...item,
+        ...linePrices.lines[i],
+      })),
+      minimumChargeLine: linePrices.minimumChargeLine,
       subtotalExGST,
       gst,
       totalIncGST,
