@@ -142,6 +142,53 @@ describe("drainVoiceNoteQueue", () => {
     await expect(queue.getQueuedVoiceNoteCount()).resolves.toBe(1);
   });
 
+  it("keeps draining the other notes when one note's queue write aborts", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ transcript: "Second note still transcribed" }),
+    });
+    const stuckId = await queue.queueVoiceNote(makeBlob(), { inspectionId: "insp-1", fieldLabel: "a" });
+    const healthyId = await queue.queueVoiceNote(makeBlob(), { inspectionId: "insp-1", fieldLabel: "b" });
+
+    const db = await new Promise<any>((resolve) => {
+      const req = (globalThis as any).indexedDB.open("ra-voice-note-queue", 1);
+      req.onsuccess = () => resolve(req.result);
+    });
+    // Push the first note past the retry limit with a real write.
+    const stuck = await new Promise<any>((resolve) => {
+      const req = db.transaction("notes", "readonly").objectStore("notes").get(stuckId);
+      req.onsuccess = () => resolve(req.result);
+    });
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction("notes", "readwrite");
+      tx.objectStore("notes").put({ ...stuck, retryCount: 99 });
+      tx.oncomplete = () => resolve();
+    });
+
+    // From now on, writing the stuck note aborts its transaction.
+    const txProto = Object.getPrototypeOf(db.transaction("notes", "readwrite"));
+    const realObjectStore = txProto.objectStore;
+    vi.spyOn(txProto, "objectStore").mockImplementation(function (this: any, name: string) {
+      const store = realObjectStore.call(this, name);
+      const realPut = store.put.bind(store);
+      store.put = (value: { id: string }) => {
+        if (value.id !== stuckId) return realPut(value);
+        queueMicrotask(() => this.abort());
+        return {};
+      };
+      return store;
+    });
+
+    await expect(queue.drainVoiceNoteQueue()).resolves.toBe(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const entries = await queue.getPendingTranscripts();
+    expect(entries.find((e) => e.id === healthyId)).toMatchObject({
+      status: "done",
+      transcript: "Second note still transcribed",
+    });
+  });
+
   it("preserves an unconfirmed recording after a 5xx without replaying it", async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,
