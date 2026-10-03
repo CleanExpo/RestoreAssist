@@ -15,7 +15,8 @@ import {
   wholeCentRate,
 } from "@/lib/quotes/quote-calc";
 import { lineTotal } from "@/lib/estimate-lines";
-import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
+import { getEffectiveSubscription } from "@/lib/organization-credits";
 
 /** Default pricing config (mirrors getDefaultPricingConfig in pricing-config route). */
 function getDefaultRates() {
@@ -93,7 +94,8 @@ export async function POST(request: NextRequest) {
 
     // Subscription gate — CANCELED/PAST_DUE users must not run billable calculations.
     // RA-7893: an invited technician uses the business owner's plan.
-    if (!(await hasActiveSubscription(session.user.id))) {
+    const effective = await getEffectiveSubscription(session.user.id);
+    if (!effective || !isEffectivePlanCurrent(effective)) {
       return NextResponse.json(
         {
           error: "Active subscription required to calculate quotes",
@@ -117,7 +119,11 @@ export async function POST(request: NextRequest) {
     const input = parsed.data;
 
     // Fetch contractor's pricing config (org config is SSOT; or use defaults)
-    const config = await resolveEffectivePricing(prisma, session.user.id);
+    // RA-7893: the quote is priced as the business that pays for it — the
+    // legacy fallback is the plan owner's, not an invited member's own row.
+    const config = await resolveEffectivePricing(prisma, session.user.id, {
+      legacyUserId: effective.id,
+    });
     const storedRates: Record<string, number> = config
       ? {
           masterQualifiedNormalHours: config.masterQualifiedNormalHours,

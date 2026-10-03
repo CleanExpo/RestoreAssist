@@ -21,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { getServerSession } from "next-auth";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -116,6 +117,40 @@ describe("POST /api/calculate", () => {
     const json = await res.json();
     expect(json.gst).toBe(412.5);
     expect(json.totalIncGST).toBe(3162.5);
+  });
+
+  it("prices an invited member's quote as the plan owner's business (RA-7893)", async () => {
+    userFindUnique.mockReset();
+    userFindUnique
+      .mockResolvedValueOnce({
+        role: "USER",
+        organizationId: "org_a",
+        organization: { ownerId: "owner_a" },
+      })
+      .mockResolvedValueOnce({
+        id: "owner_a",
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: null,
+      })
+      .mockResolvedValueOnce({
+        businessName: "Test Co",
+        businessABN: "53 004 085 616",
+        businessAddress: "1 St",
+        businessPhone: null,
+        businessEmail: "a@test.com",
+        businessLogo: null,
+        organization: { country: "AU" },
+      });
+
+    const res = await POST(calcReq(validBody));
+    expect(res.status).toBe(200);
+    expect(resolveEffectivePricing).toHaveBeenCalledWith(
+      expect.anything(),
+      "user_abcd",
+      { legacyUserId: "owner_a" },
+    );
+    const json = await res.json();
+    expect(json.lineItems.every((li: { incGST?: number }) => typeof li.incGST === "number")).toBe(true);
   });
 
   it("fails closed when the organisation country is missing", async () => {
