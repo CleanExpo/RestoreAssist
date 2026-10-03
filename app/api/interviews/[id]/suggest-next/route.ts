@@ -13,6 +13,7 @@ import {
   type RemainingQuestion,
 } from "@/lib/services/ai/suggest-next-interview-question";
 import { apiError } from "@/lib/api-errors";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 /**
  * RA-1199 — POST /api/interviews/[id]/suggest-next
@@ -31,7 +32,6 @@ import { apiError } from "@/lib/api-errors";
  *    (RA-6963) — never spends the platform ANTHROPIC_API_KEY
  */
 
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 const MIN_ANSWERS_REQUIRED = 3;
 
 interface SuggestRequestBody {
@@ -110,9 +110,7 @@ export async function POST(
         status: 404,
       });
     }
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
+    if (!(await hasActiveSubscription(userId))) {
       return apiError(request, {
         code: "PAYMENT_REQUIRED",
         message: "Active subscription required",

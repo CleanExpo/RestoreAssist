@@ -31,7 +31,7 @@ describe("requireActiveSubscription", () => {
   // proved nothing. Lifetime is covered by its own describe block below.
   for (const status of ["TRIAL", "ACTIVE"]) {
     it(`allows ${status}`, async () => {
-      userFindUnique.mockResolvedValueOnce({
+      userFindUnique.mockResolvedValue({
         subscriptionStatus: status,
         lifetimeAccess: false,
       });
@@ -41,7 +41,7 @@ describe("requireActiveSubscription", () => {
 
   for (const status of ["CANCELED", "PAST_DUE", "EXPIRED", null]) {
     it(`blocks ${status ?? "null"} with 402`, async () => {
-      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+      userFindUnique.mockResolvedValue({ subscriptionStatus: status });
       const res = await requireActiveSubscription("u1");
       expect(res?.status).toBe(402);
       expect(await res?.json()).toEqual({
@@ -52,7 +52,7 @@ describe("requireActiveSubscription", () => {
   }
 
   it("blocks unknown users with 402", async () => {
-    userFindUnique.mockResolvedValueOnce(null);
+    userFindUnique.mockResolvedValue(null);
     const res = await requireActiveSubscription("ghost");
     expect(res?.status).toBe(402);
   });
@@ -71,7 +71,7 @@ describe("requireActiveSubscription", () => {
 describe("requireActiveSubscription — lifetime access", () => {
   for (const status of ["CANCELED", "EXPIRED", "PAST_DUE", null]) {
     it(`allows lifetimeAccess=true even when status is ${status ?? "null"}`, async () => {
-      userFindUnique.mockResolvedValueOnce({
+      userFindUnique.mockResolvedValue({
         subscriptionStatus: status,
         lifetimeAccess: true,
       });
@@ -80,7 +80,7 @@ describe("requireActiveSubscription — lifetime access", () => {
   }
 
   it("still blocks a non-lifetime user with a dead status", async () => {
-    userFindUnique.mockResolvedValueOnce({
+    userFindUnique.mockResolvedValue({
       subscriptionStatus: "CANCELED",
       lifetimeAccess: false,
     });
@@ -94,13 +94,17 @@ describe("requireActiveSubscription — lifetime access", () => {
   });
 
   it("reads lifetimeAccess from the database — not just subscriptionStatus", async () => {
-    userFindUnique.mockResolvedValueOnce({
+    userFindUnique.mockResolvedValue({
       subscriptionStatus: "ACTIVE",
       lifetimeAccess: false,
     });
     await requireActiveSubscription("u1");
-    const select = userFindUnique.mock.calls[0][0].select;
-    expect(select).toMatchObject({ subscriptionStatus: true, lifetimeAccess: true });
+    // RA-7893: the gate now resolves the organisation owner first, so the
+    // status read is not necessarily the first query.
+    const selects = userFindUnique.mock.calls.map((c) => c[0].select);
+    expect(selects).toContainEqual(
+      expect.objectContaining({ subscriptionStatus: true, lifetimeAccess: true }),
+    );
   });
 
   it("allowlists only values the SubscriptionStatus enum can actually produce", async () => {

@@ -31,8 +31,7 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { apiError, fromException } from "@/lib/api-errors";
-
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 type GroupResponse = {
   groups: Array<{
@@ -72,14 +71,9 @@ export async function POST(
     });
     if (rateLimited) return rateLimited;
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { subscriptionStatus: true },
-    });
-    if (
-      !user ||
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
+    // RA-7893: an invited technician uses the business owner's plan; an
+    // unknown user reads as no plan.
+    if (!(await hasActiveSubscription(userId))) {
       return apiError(request, {
         code: "PAYMENT_REQUIRED",
         message: "Active subscription required",

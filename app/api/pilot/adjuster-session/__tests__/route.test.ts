@@ -73,6 +73,9 @@ const sampleRecommendation = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // RA-7893: the gate reads the user row more than once; persistent values
+  // need a reset between tests.
+  mockFindUnique.mockReset();
   mockRateLimit.mockResolvedValue(null);
   mockDeductCredits.mockResolvedValue(undefined);
   mockRefundCredits.mockResolvedValue({ refunded: true });
@@ -104,7 +107,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("happy path — returns recommendation", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-1" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-1",
       subscriptionStatus: "ACTIVE",
     });
@@ -126,7 +129,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("cross-tenant inspectionId (RA-6961) — tenancy denied → 404, mutates nothing", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-9" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-9",
       subscriptionStatus: "ACTIVE",
     });
@@ -161,7 +164,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("canceled subscription → 402", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-2" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-2",
       subscriptionStatus: "CANCELED",
     });
@@ -175,7 +178,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("no credits remaining → 402", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-3" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-3",
       subscriptionStatus: "TRIAL",
     });
@@ -190,7 +193,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("RA-6981: a deduct 'not found' error is NOT mislabelled 404 'Inspection not found'", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-11" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-11",
       subscriptionStatus: "ACTIVE",
     });
@@ -213,7 +216,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("missing inspectionId → 400", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-4" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-4",
       subscriptionStatus: "ACTIVE",
     });
@@ -227,7 +230,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("inspection not found → 404", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-5" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-5",
       subscriptionStatus: "ACTIVE",
     });
@@ -247,9 +250,12 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("LIFETIME subscription → allowed through gate", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-6" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-6",
-      subscriptionStatus: "LIFETIME",
+      // RA-7893: "LIFETIME" is not a SubscriptionStatus enum member; a real
+      // lifetime buyer carries lifetimeAccess=true with a CANCELED/null status.
+      subscriptionStatus: "CANCELED",
+      lifetimeAccess: true,
     });
 
     const res = await POST(makeRequest({ inspectionId: "insp-001" }));
@@ -272,7 +278,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("AI agent throws unexpected error → 500, no error.message exposed", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-8" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-8",
       subscriptionStatus: "ACTIVE",
     });
@@ -293,7 +299,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("agent failure refund is best-effort — a failed refund does not change the surfaced error", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-10" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-10",
       subscriptionStatus: "ACTIVE",
     });

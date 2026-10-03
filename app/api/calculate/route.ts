@@ -14,6 +14,7 @@ import {
   wholeCentRate,
 } from "@/lib/quotes/quote-calc";
 import { lineTotal } from "@/lib/estimate-lines";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 /** Default pricing config (mirrors getDefaultPricingConfig in pricing-config route). */
 function getDefaultRates() {
@@ -89,15 +90,9 @@ export async function POST(request: NextRequest) {
     });
     if (rateLimited) return rateLimited;
 
-    // Subscription gate — CANCELED/PAST_DUE users must not run billable calculations
-    const subUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { subscriptionStatus: true },
-    });
-    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(subUser?.subscriptionStatus ?? "")
-    ) {
+    // Subscription gate — CANCELED/PAST_DUE users must not run billable calculations.
+    // RA-7893: an invited technician uses the business owner's plan.
+    if (!(await hasActiveSubscription(session.user.id))) {
       return NextResponse.json(
         {
           error: "Active subscription required to calculate quotes",

@@ -27,8 +27,7 @@ import {
 import { apiError } from "@/lib/api-errors";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { validateCsrf } from "@/lib/csrf";
-
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"] as const;
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,11 +65,7 @@ export async function POST(request: NextRequest) {
         status: 404,
       });
     }
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(
-        user.subscriptionStatus as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
-      )
-    ) {
+    if (!(await hasActiveSubscription(userId))) {
       return apiError(request, {
         code: "PAYMENT_REQUIRED",
         message: "Active subscription required",

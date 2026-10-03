@@ -13,6 +13,8 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import type { Prisma } from "@prisma/client";
+import { isAllowedSubscriptionStatus } from "@/lib/billing/subscription-gate";
+import { getEffectiveSubscription } from "@/lib/organization-credits";
 
 class InspectionLinkConflictError extends Error {}
 class IdempotencyReservationLostError extends Error {}
@@ -117,10 +119,9 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-      if (
-        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-      ) {
+      // RA-7893: an invited technician uses the business owner's plan.
+      const effectiveSub = await getEffectiveSubscription(userId);
+      if (!isAllowedSubscriptionStatus(effectiveSub?.subscriptionStatus)) {
         return apiError(request, {
           code: "FORBIDDEN",
           message: "Active subscription required",
@@ -554,7 +555,7 @@ export async function POST(request: NextRequest) {
       // via signup spam. TRIAL users still get standards at report-generation
       // time (on demand) so feature parity is maintained.
       const isUpgradedAccount = ["ACTIVE", "LIFETIME"].includes(
-        user.subscriptionStatus ?? "",
+        effectiveSub?.subscriptionStatus ?? "",
       );
       if (isUpgradedAccount) try {
         const { retrieveRelevantStandards } =

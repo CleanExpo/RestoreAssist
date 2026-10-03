@@ -7,6 +7,7 @@ import { buildScopeOfWorksData } from "@/lib/restoration/scope-of-works-builder"
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -68,10 +69,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
-      const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-      if (
-        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-      ) {
+      if (!(await hasActiveSubscription(userId))) {
         return NextResponse.json(
           {
             error: "Active subscription required to generate reports",

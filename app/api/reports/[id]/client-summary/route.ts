@@ -12,6 +12,8 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { isAllowedSubscriptionStatus } from "@/lib/billing/subscription-gate";
+import { getEffectiveSubscription } from "@/lib/organization-credits";
 
 /**
  * RA-1461: POST /api/reports/[id]/client-summary
@@ -29,7 +31,6 @@ import {
  *   - ?refresh=1 forces regeneration even within the 5-minute window.
  */
 
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 const CACHE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function POST(
@@ -61,13 +62,11 @@ export async function POST(
     if (rateLimited) return rateLimited;
 
     // Rule 8 — subscription gate before any AI call.
-    const subUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { subscriptionStatus: true },
-    });
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(subUser?.subscriptionStatus ?? "")
-    ) {
+    // RA-7893: an invited technician uses the business owner's plan, and a
+    // trial charge lands on the owner's balance (effectiveSub.id), never on
+    // the technician's null credits.
+    const effectiveSub = await getEffectiveSubscription(userId);
+    if (!isAllowedSubscriptionStatus(effectiveSub?.subscriptionStatus)) {
       return NextResponse.json(
         {
           error: "Active subscription required to generate client summaries",
@@ -145,9 +144,9 @@ export async function POST(
     // Rule 9 — atomic credit deduction for TRIAL users.
     // ACTIVE/LIFETIME users are not charged per-summary (same pattern as
     // the rest of the AI endpoints in this repo).
-    if (subUser?.subscriptionStatus === "TRIAL") {
+    if (effectiveSub?.subscriptionStatus === "TRIAL") {
       const result = await prisma.user.updateMany({
-        where: { id: userId, creditsRemaining: { gte: 1 } },
+        where: { id: effectiveSub.id, creditsRemaining: { gte: 1 } },
         data: {
           creditsRemaining: { decrement: 1 },
           totalCreditsUsed: { increment: 1 },

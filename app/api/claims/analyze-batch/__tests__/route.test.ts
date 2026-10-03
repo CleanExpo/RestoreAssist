@@ -68,7 +68,7 @@ describe("POST /api/claims/analyze-batch — Rule 5 subscription gate", () => {
   it.each(["CANCELED", "PAST_DUE"])(
     "returns 402 and makes no AI call for %s subscriptions",
     async (status) => {
-      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+      userFindUnique.mockResolvedValue({ subscriptionStatus: status });
 
       const res = await POST(makeRequest({ folderId: "folder-1" }));
       const body = await res.json();
@@ -82,10 +82,19 @@ describe("POST /api/claims/analyze-batch — Rule 5 subscription gate", () => {
     },
   );
 
-  it.each(["TRIAL", "ACTIVE", "LIFETIME"])(
-    "allows %s subscriptions past the gate",
-    async (status) => {
-      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+  // RA-7893: "LIFETIME" is not a SubscriptionStatus enum member; a real
+  // lifetime buyer carries lifetimeAccess=true with a CANCELED/null status.
+  it.each([
+    ["TRIAL", false],
+    ["ACTIVE", false],
+    ["CANCELED", true],
+  ] as const)(
+    "allows %s (lifetimeAccess=%s) subscriptions past the gate",
+    async (status, lifetimeAccess) => {
+      userFindUnique.mockResolvedValue({
+        subscriptionStatus: status,
+        lifetimeAccess,
+      });
 
       // No PDFs → the route returns 400 AFTER passing the gate, proving the
       // subscription check let this status through.

@@ -8,6 +8,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getGstTreatment } from "@/lib/gst-rules";
 import { buildCostEstimationData } from "@/lib/restoration/cost-estimation-builder";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
@@ -80,10 +81,7 @@ export async function POST(request: NextRequest) {
       const gstTreatment = getGstTreatment(country);
 
       // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
-      const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-      if (
-        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-      ) {
+      if (!(await hasActiveSubscription(userId))) {
         return apiError(request, {
           code: "FORBIDDEN",
           message: "Active subscription required",

@@ -99,3 +99,46 @@ describe("POST /api/reports/[id]/client-summary", () => {
     expect(body).toEqual({ error: "API_ERROR" });
   });
 });
+
+describe("POST /api/reports/[id]/client-summary — RA-7893 invited technician", () => {
+  it("charges the trial credit to the business owner, not the technician", async () => {
+    const rows: Record<string, Record<string, unknown>> = {
+      user_1: {
+        id: "user_1",
+        role: "USER",
+        organizationId: "org_1",
+        organization: { ownerId: "owner_1" },
+        subscriptionStatus: null,
+        creditsRemaining: null,
+      },
+      owner_1: {
+        id: "owner_1",
+        role: "ADMIN",
+        organizationId: "org_1",
+        organization: { ownerId: "owner_1" },
+        subscriptionStatus: "TRIAL",
+        creditsRemaining: 5,
+      },
+    };
+    userFindUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
+    );
+    userUpdateMany.mockResolvedValue({ count: 1 });
+    generateClientSummaryService.mockResolvedValueOnce({
+      ok: false,
+      reason: "API_ERROR",
+      detail: "stop after the charge",
+    });
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ id: "report_1" }),
+    });
+
+    expect(response.status).not.toBe(402);
+    expect(userUpdateMany).toHaveBeenCalledTimes(1);
+    expect(userUpdateMany.mock.calls[0][0].where).toEqual({
+      id: "owner_1",
+      creditsRemaining: { gte: 1 },
+    });
+  });
+});

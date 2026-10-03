@@ -10,9 +10,8 @@
  * Spec ref: docs/superpowers/specs/2026-05-14-signin-jobclose-audit-design.md §5.
  */
 import { prisma } from "@/lib/prisma";
-
-/** Subscription statuses that grant AI access. Per CLAUDE.md rule 8. */
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE"] as const;
+import { isAllowedSubscriptionStatus } from "@/lib/billing/subscription-gate";
+import { getEffectiveSubscription } from "@/lib/organization-credits";
 
 export type LifecycleHookFailure = {
   ok: false;
@@ -61,7 +60,7 @@ export async function runLifecycleHook<TInput, TDraft>(
   // 1. Subscription gate.
   const user = await prisma.user.findUnique({
     where: { id: spec.userId },
-    select: { subscriptionStatus: true, organizationId: true },
+    select: { organizationId: true },
   });
   if (!user) {
     return {
@@ -70,13 +69,12 @@ export async function runLifecycleHook<TInput, TDraft>(
       message: "User not found",
     };
   }
-  const status = user.subscriptionStatus;
-  if (
-    !status ||
-    !ALLOWED_SUBSCRIPTION_STATUSES.includes(
-      status as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
-    )
-  ) {
+  // RA-7893: an invited technician (subscriptionStatus null by design) uses
+  // the business owner's plan, and a trial charge lands on the owner's
+  // balance (`effective.id`), not on the technician's null credits.
+  const effective = await getEffectiveSubscription(spec.userId);
+  const status = effective?.subscriptionStatus ?? null;
+  if (!effective || !isAllowedSubscriptionStatus(status)) {
     return {
       ok: false,
       code: "SUBSCRIPTION_REQUIRED",
@@ -91,7 +89,7 @@ export async function runLifecycleHook<TInput, TDraft>(
   // 3. Atomic credit deduction (platform path only).
   if (!useByok && status === "TRIAL") {
     const result = await prisma.user.updateMany({
-      where: { id: spec.userId, creditsRemaining: { gte: 1 } },
+      where: { id: effective.id, creditsRemaining: { gte: 1 } },
       data: {
         creditsRemaining: { decrement: 1 },
         totalCreditsUsed: { increment: 1 },

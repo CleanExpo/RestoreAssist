@@ -16,7 +16,7 @@ export const TRIAL_EXPIRED_PAY_ROUTE = `${TRIAL_EXPIRED_PAY_PATH}?reason=${TRIAL
 export const TRIAL_EXPIRED_REFUSAL_CODE = "TRIAL_EXPIRED" as const;
 
 export const TRIAL_EXPIRED_REFUSAL_REASON =
-  "Your 15-day free trial has expired. Please subscribe to continue using RestoreAssist.";
+  "Your free trial has ended. Please subscribe to continue using RestoreAssist.";
 
 /** Existing credits / monthly-limit wall. Unchanged for in-period trials. */
 export const REPORT_CREATION_CREDITS_ROUTE = "/dashboard/pricing";

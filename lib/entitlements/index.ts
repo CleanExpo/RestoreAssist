@@ -12,6 +12,8 @@ export {
   requireAddon,
   requireAddonForWorkspace,
   requireAddonOrThrow,
+  getEntitlementWorkspaceForUser,
+  isAddonEntitledForUser,
   AddonNotEntitledError,
   type AddonDenyReason,
   type AddonGateAllowed,

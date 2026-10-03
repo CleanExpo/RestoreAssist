@@ -30,6 +30,8 @@ beforeEach(() => {
   userFindUnique.mockReset();
   mockSession.mockResolvedValue({ user: { id: "user_abcd" } });
   userFindUnique
+    // RA-7893: the gate reads the organisation link, then the effective plan.
+    .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
     .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
     .mockResolvedValueOnce({
       businessName: "Test Co",
@@ -96,6 +98,8 @@ describe("POST /api/calculate", () => {
   it("uses the organisation country for NZ GST", async () => {
     userFindUnique.mockReset();
     userFindUnique
+      // RA-7893: the gate reads the organisation link, then the effective plan.
+      .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
       .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
       .mockResolvedValueOnce({
         businessName: "NZ Test Co",
@@ -117,6 +121,8 @@ describe("POST /api/calculate", () => {
   it("fails closed when the organisation country is missing", async () => {
     userFindUnique.mockReset();
     userFindUnique
+      // RA-7893: the gate reads the organisation link, then the effective plan.
+      .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
       .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
       .mockResolvedValueOnce({
         businessName: "Incomplete Co",

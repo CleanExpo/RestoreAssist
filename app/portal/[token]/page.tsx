@@ -13,8 +13,7 @@ import {
   PortalContentSections,
 } from "@/components/portal/PortalContentHub";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
-import { requireAddonForWorkspace } from "@/lib/entitlements";
-import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { isAddonEntitledForUser } from "@/lib/entitlements";
 import { CLIENT_EDUCATION_SKU } from "@/lib/billing/client-education-addon";
 import { fetchTechnicianIdentity } from "@/lib/portal/fetch-technician-identity";
 import { TechnicianIdentityCard } from "@/components/portal/TechnicianIdentityCard";
@@ -98,19 +97,13 @@ export default async function ClientPortalPage({ params }: PageProps) {
   //
   // An unentitled client sees the free explainers and no upsell: they are not
   // the buyer, and a 402 about their restorer's billing is not their problem.
-  const educationEntitled = await (async () => {
-    try {
-      const workspace = await getWorkspaceForUser(inspection.userId);
-      if (!workspace) return false;
-      const gate = await requireAddonForWorkspace(
-        workspace.id,
-        CLIENT_EDUCATION_SKU,
-      );
-      return gate.allowed;
-    } catch {
-      return false;
-    }
-  })();
+  //
+  // RA-7893: inspection.userId may be an invited technician, who has no
+  // workspace of their own; isAddonEntitledForUser reads the business owner's.
+  const educationEntitled = await isAddonEntitledForUser(
+    inspection.userId,
+    CLIENT_EDUCATION_SKU,
+  );
 
   const portalArticles = await fetchPublishedPortalContent("customer", {
     includeAddonContent: educationEntitled,

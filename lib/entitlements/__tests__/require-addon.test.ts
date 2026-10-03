@@ -13,6 +13,11 @@ vi.mock("@/lib/prisma", () => ({
     featureEntitlement: {
       findUnique: vi.fn(),
     },
+    // RA-7893: requireAddon resolves the organisation owner first. No user
+    // row means "no organisation", so the caller's own workspace is used.
+    user: {
+      findUnique: vi.fn(async () => null),
+    },
   },
 }));
 

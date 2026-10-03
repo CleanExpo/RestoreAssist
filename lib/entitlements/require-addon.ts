@@ -21,6 +21,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { getOrganizationOwner } from "@/lib/organization-credits";
 import { isAddonSku, type AddonSku } from "./types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -92,6 +93,56 @@ function addonRequiredResponse(
   );
 }
 
+// ─── Entitlement workspace ────────────────────────────────────────────────────
+
+/**
+ * RA-7893 — the workspace whose add-ons apply to this user, for READING an
+ * entitlement only.
+ *
+ * Add-ons are bought by the business owner and belong to the owner's
+ * workspace. Invite acceptance gives a technician or manager an
+ * organizationId and no WorkspaceMember row, so resolving through the
+ * member's own id found nothing and every add-on read as "subscription
+ * required".
+ *
+ * Resolution: the organisation owner (`getOrganizationOwner`, which already
+ * scopes MANAGER/USER to their own organisation's owner), falling back to the
+ * user themselves when they have no organisation; then that user's READY
+ * workspace via `getWorkspaceForUser`. A user removed from the organisation
+ * (organizationId null) falls back to themselves and so gets only what they
+ * own.
+ *
+ * NOT for writes. `getWorkspaceForUser` is deliberately left keyed on the
+ * caller: its other callers write provider API keys, and widening it would
+ * let a technician write into the owner's workspace.
+ */
+export async function getEntitlementWorkspaceForUser(
+  userId: string,
+): Promise<{ id: string; name: string } | null> {
+  const ownerId = (await getOrganizationOwner(userId)) ?? userId;
+  return getWorkspaceForUser(ownerId);
+}
+
+/**
+ * RA-7893 — fail-closed boolean read of an add-on for the business a user
+ * belongs to. For surfaces with no session user (the client portal) that
+ * resolve the job's creator: any error reads as "not entitled", never as paid
+ * content.
+ */
+export async function isAddonEntitledForUser(
+  userId: string,
+  sku: string,
+): Promise<boolean> {
+  try {
+    const workspace = await getEntitlementWorkspaceForUser(userId);
+    if (!workspace) return false;
+    const gate = await requireAddonForWorkspace(workspace.id, sku);
+    return gate.allowed;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Guard ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -115,7 +166,7 @@ export async function requireAddon(
     };
   }
 
-  const workspace = await getWorkspaceForUser(userId);
+  const workspace = await getEntitlementWorkspaceForUser(userId);
   if (!workspace) {
     return {
       allowed: false,

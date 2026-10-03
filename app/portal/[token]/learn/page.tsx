@@ -7,8 +7,7 @@ import { PortalTokenAccessFallback } from "@/components/portal/PortalTokenAccess
 import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
 import { fetchTechnicianIdentity } from "@/lib/portal/fetch-technician-identity";
-import { requireAddonForWorkspace } from "@/lib/entitlements";
-import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { isAddonEntitledForUser } from "@/lib/entitlements";
 import { CLIENT_EDUCATION_SKU } from "@/lib/billing/client-education-addon";
 import { PortalContentSections } from "@/components/portal/PortalContentHub";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
@@ -65,19 +64,12 @@ export default async function ClientLearnKioskPage({ params }: PageProps) {
   });
   if (!inspection) return <PortalLinkExpired />;
 
-  const educationEntitled = await (async () => {
-    try {
-      const workspace = await getWorkspaceForUser(inspection.userId);
-      if (!workspace) return false;
-      const gate = await requireAddonForWorkspace(
-        workspace.id,
-        CLIENT_EDUCATION_SKU,
-      );
-      return gate.allowed;
-    } catch {
-      return false;
-    }
-  })();
+  // RA-7893: the job's creator may be an invited technician; the add-on is
+  // the business owner's. Fails closed to the free set.
+  const educationEntitled = await isAddonEntitledForUser(
+    inspection.userId,
+    CLIENT_EDUCATION_SKU,
+  );
 
   const [articles, technician] = await Promise.all([
     fetchPublishedPortalContent("customer", {
