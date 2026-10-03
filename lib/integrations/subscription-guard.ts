@@ -7,7 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import { COMPLIMENTARY_PRICE_ID } from "@/lib/billing/founding-trial-grant";
 import { BOOKKEEPING_SKU, isBookkeepingProvider } from "@/lib/billing/bookkeeping-addon";
-import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { getReadyWorkspaceOwnedBy } from "@/lib/entitlements/require-addon";
 import { isIntegrationDevMode } from "./dev-mode";
 
 export interface SubscriptionCheckResult {
@@ -70,24 +70,37 @@ export async function checkIntegrationAccess(
     };
   }
 
-  // Preserve the existing persisted actor check for paid and lifetime plans.
-  // Only the Founding Trial path inherits the organisation owner's trial.
-  const hasLifetimeAccess = user.lifetimeAccess === true;
+  // RA-7893: the plan that counts is the business owner's. An invited
+  // MANAGER/USER carries subscriptionStatus null by design. A user with no
+  // organisation (including one removed from it) is judged on their own row.
+  // A missing owner row fails closed.
+  const ownerId = user.role === "ADMIN" ? user.id : user.organization?.ownerId ?? user.id;
+  const owner = ownerId === user.id ? user : await prisma.user.findUnique({ where: { id: ownerId }, select });
+  if (!owner) {
+    return {
+      isAllowed: false,
+      userId,
+      subscriptionStatus: null,
+      subscriptionPlan: null,
+      error:
+        "Active subscription required. Upgrade to access external integrations.",
+    };
+  }
+  const hasLifetimeAccess = owner.lifetimeAccess === true;
   const isExpired =
-    user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) < new Date();
-  const hasPaidAccess = user.subscriptionStatus === "ACTIVE" && !isExpired;
+    owner.subscriptionEndsAt && new Date(owner.subscriptionEndsAt) < new Date();
+  const hasPaidAccess = owner.subscriptionStatus === "ACTIVE" && !isExpired;
 
   let hasCurrentFoundingTrial = false;
   let foundingTrialWorkspaceId: string | undefined;
   if (!hasLifetimeAccess && !hasPaidAccess && isBookkeepingProvider(provider?.toUpperCase() ?? "")) {
-    // The actor must actively belong to the READY workspace carrying the
-    // grant. Its persisted owner must be this organisation's owner.
-    const ownerId = user.role === "ADMIN" ? user.id : user.organization?.ownerId ?? user.id;
-    const owner = ownerId === user.id ? user : await prisma.user.findUnique({ where: { id: ownerId }, select });
-    const trialEnd = owner?.trialEndsAt?.getTime();
-    if (owner?.subscriptionStatus === "TRIAL" && typeof trialEnd === "number" &&
+    // The grant must sit on the READY workspace the organisation's owner OWNS
+    // (invite acceptance never creates a WorkspaceMember row, so membership
+    // cannot be required). Its persisted owner must be this owner.
+    const trialEnd = owner.trialEndsAt?.getTime();
+    if (owner.subscriptionStatus === "TRIAL" && typeof trialEnd === "number" &&
         Number.isFinite(trialEnd) && trialEnd > Date.now()) {
-      const workspace = await getWorkspaceForUser(userId);
+      const workspace = await getReadyWorkspaceOwnedBy(ownerId);
       if (workspace) {
         const grant = await prisma.featureEntitlement.findUnique({
           where: { workspaceId_sku: { workspaceId: workspace.id, sku: BOOKKEEPING_SKU } },
@@ -110,8 +123,8 @@ export async function checkIntegrationAccess(
     return {
       isAllowed: false,
       userId,
-      subscriptionStatus: user.subscriptionStatus,
-      subscriptionPlan: user.subscriptionPlan,
+      subscriptionStatus: owner.subscriptionStatus,
+      subscriptionPlan: owner.subscriptionPlan,
       error: "Subscription has expired. Please renew to access integrations.",
     };
   }
@@ -120,8 +133,8 @@ export async function checkIntegrationAccess(
     return {
       isAllowed: false,
       userId,
-      subscriptionStatus: user.subscriptionStatus,
-      subscriptionPlan: user.subscriptionPlan,
+      subscriptionStatus: owner.subscriptionStatus,
+      subscriptionPlan: owner.subscriptionPlan,
       error:
         "Active subscription required. Upgrade to access external integrations.",
     };
@@ -130,8 +143,8 @@ export async function checkIntegrationAccess(
   return {
     isAllowed: true,
     userId,
-    subscriptionStatus: hasCurrentFoundingTrial ? "TRIAL" : user.subscriptionStatus,
-    subscriptionPlan: user.subscriptionPlan,
+    subscriptionStatus: hasCurrentFoundingTrial ? "TRIAL" : owner.subscriptionStatus,
+    subscriptionPlan: owner.subscriptionPlan,
     foundingTrialWorkspaceId,
   };
 }

@@ -4,6 +4,28 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { getEffectiveSubscription } from "@/lib/organization-credits";
+
+/**
+ * RA-7893 — Quick Fill follows the business owner's plan.
+ *
+ * Invited MANAGER/USER members used to get unlimited Quick Fill whatever the
+ * owner's plan said. The effective plan (getEffectiveSubscription: the owner's
+ * for an invited member, the user's own otherwise; lifetime reads as ACTIVE)
+ * now decides, and any metered credit is the billing account's. A missing
+ * owner row resolves to null, which the handlers refuse.
+ */
+async function resolveQuickFillAccount(userId: string) {
+  const effective = await getEffectiveSubscription(userId);
+  if (!effective) return null;
+  const isTrialWithinPeriod =
+    effective.subscriptionStatus === "TRIAL" &&
+    (!effective.trialEndsAt || new Date() <= new Date(effective.trialEndsAt));
+  return {
+    billingUserId: effective.id,
+    hasUnlimited: effective.subscriptionStatus === "ACTIVE" || isTrialWithinPeriod,
+  };
+}
 
 // GET - Check Quick Fill credits
 export async function GET(request: NextRequest) {
@@ -18,19 +40,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        quickFillCreditsRemaining: true,
-        totalQuickFillUsed: true,
-        subscriptionStatus: true,
-        organizationId: true,
-        role: true,
-        trialEndsAt: true,
-      },
-    });
+    const account = await resolveQuickFillAccount(session.user.id);
+    const user = account
+      ? await prisma.user.findUnique({
+          where: { id: account.billingUserId },
+          select: {
+            quickFillCreditsRemaining: true,
+            totalQuickFillUsed: true,
+          },
+        })
+      : null;
 
-    if (!user) {
+    if (!account || !user) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "User not found",
@@ -38,16 +59,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const isInvitedTeamMember =
-      !!user.organizationId &&
-      (user.role === "MANAGER" || user.role === "USER");
-    const isTrialWithinPeriod =
-      user.subscriptionStatus === "TRIAL" &&
-      (!user.trialEndsAt || new Date() <= new Date(user.trialEndsAt));
-    const hasUnlimited =
-      user.subscriptionStatus === "ACTIVE" ||
-      isInvitedTeamMember ||
-      isTrialWithinPeriod;
+    const { hasUnlimited } = account;
     const creditsRemaining = hasUnlimited
       ? null
       : (user.quickFillCreditsRemaining ?? 0);
@@ -80,19 +92,8 @@ export async function POST(request: NextRequest) {
   // idempotency would double-deduct.
   return withIdempotency(request, userId, async () => {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          quickFillCreditsRemaining: true,
-          totalQuickFillUsed: true,
-          subscriptionStatus: true,
-          organizationId: true,
-          role: true,
-          trialEndsAt: true,
-        },
-      });
-
-      if (!user) {
+      const account = await resolveQuickFillAccount(userId);
+      if (!account) {
         return apiError(request, {
           code: "NOT_FOUND",
           message: "User not found",
@@ -100,17 +101,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const isInvitedTeamMember =
-        !!user.organizationId &&
-        (user.role === "MANAGER" || user.role === "USER");
-      const isTrialWithinPeriod =
-        user.subscriptionStatus === "TRIAL" &&
-        (!user.trialEndsAt || new Date() <= new Date(user.trialEndsAt));
-      if (
-        user.subscriptionStatus === "ACTIVE" ||
-        isInvitedTeamMember ||
-        isTrialWithinPeriod
-      ) {
+      if (account.hasUnlimited) {
         return NextResponse.json({
           success: true,
           creditsRemaining: null,
@@ -121,7 +112,7 @@ export async function POST(request: NextRequest) {
       // Atomic: deduct credit only if remaining >= 1
       const r = await prisma.user.updateMany({
         where: {
-          id: userId,
+          id: account.billingUserId,
           quickFillCreditsRemaining: { gte: 1 },
         },
         data: {
@@ -146,7 +137,7 @@ export async function POST(request: NextRequest) {
 
       // Fetch updated state for response
       const updated = await prisma.user.findUnique({
-        where: { id: userId },
+        where: { id: account.billingUserId },
         select: {
           quickFillCreditsRemaining: true,
           totalQuickFillUsed: true,

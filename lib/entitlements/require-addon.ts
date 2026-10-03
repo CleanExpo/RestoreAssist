@@ -119,6 +119,17 @@ export async function getEntitlementWorkspaceForUser(
   userId: string,
 ): Promise<{ id: string; name: string } | null> {
   const ownerId = (await getOrganizationOwner(userId)) ?? userId;
+  return getReadyWorkspaceOwnedBy(ownerId);
+}
+
+/**
+ * The oldest READY workspace `ownerId` OWNS — the only workspace whose
+ * add-ons an entitlement read may use. For callers that have already resolved
+ * the organisation owner themselves.
+ */
+export async function getReadyWorkspaceOwnedBy(
+  ownerId: string,
+): Promise<{ id: string; name: string } | null> {
   // OWNED workspaces only. getWorkspaceForUser's WorkspaceMember fallback is
   // deliberately not used here: a membership row can point into another
   // organisation's workspace (an owner who is also a member elsewhere), or
