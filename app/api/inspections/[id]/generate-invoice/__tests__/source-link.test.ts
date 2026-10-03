@@ -20,6 +20,8 @@ vi.mock("@/lib/idempotency", () => ({
     fn(),
 }));
 vi.mock("@prisma/client", () => ({
+  // PUT /api/invoices/[id] builds its row lock with Prisma.sql.
+  Prisma: { sql: () => ({}) },
   InspectionStatus: {
     SUBMITTED: "SUBMITTED",
     IN_BILLING: "IN_BILLING",
@@ -47,6 +49,8 @@ const {
   writeLifecycleTransition,
   onNextAction,
   canTransition,
+  invoiceFindUnique,
+  txInvoiceUpdate,
 } = vi.hoisted(() => ({
   inspectionFindFirst: vi.fn(),
   estimateFindFirst: vi.fn(),
@@ -64,7 +68,11 @@ const {
   writeLifecycleTransition: vi.fn(),
   onNextAction: vi.fn(),
   canTransition: vi.fn(),
+  invoiceFindUnique: vi.fn(),
+  txInvoiceUpdate: vi.fn(),
 }));
+
+vi.mock("@/lib/audit-log", () => ({ recordMutationAudit: vi.fn() }));
 
 vi.mock("@/lib/lifecycle/inspection-state-machine", () => ({
   canTransition: (...args: unknown[]) => canTransition(...args),
@@ -81,7 +89,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: inspectionFindFirst },
     estimate: { findFirst: estimateFindFirst },
-    invoice: { findFirst: invoiceFindFirst },
+    invoice: { findFirst: invoiceFindFirst, findUnique: invoiceFindUnique },
     client: { findFirst: clientFindFirst },
     invoiceSequence: { upsert: vi.fn() },
     $transaction,
@@ -90,6 +98,8 @@ vi.mock("@/lib/prisma", () => ({
 
 import { getServerSession } from "next-auth";
 import { GET, POST } from "../route";
+import { PUT as PUT_INVOICE } from "@/app/api/invoices/[id]/route";
+import { dollarsToCents, lineSubtotalCents } from "@/lib/invoices/calc";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 
@@ -115,9 +125,12 @@ beforeEach(() => {
   $transaction.mockImplementation(async (cb: any) =>
     cb({
       invoiceSequence: { upsert: txSequenceUpsert },
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      invoiceLineItem: { deleteMany: vi.fn() },
       invoice: {
         findFirst: txInvoiceFindFirst,
         create: txInvoiceCreate,
+        update: txInvoiceUpdate,
       },
       estimate: { updateMany: txEstimateUpdateMany },
       inspection: { updateMany: txInspectionUpdateMany },
@@ -699,7 +712,14 @@ describe("inspection generate-invoice source link", () => {
     expect(data.totalIncGST).toBe(1_708);
   });
 
-  it("RA-7705: a stored subtotal that intentionally differs from qty x rate (weekly equipment pricing) is kept exactly", async () => {
+  // RA-7705: generate an invoice from one approved estimate line.
+  async function generateFromEstimateLine(line: {
+    description: string;
+    qty: number;
+    unit: string;
+    rate: number;
+    subtotal: number;
+  }) {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
       status: "SUBMITTED",
@@ -724,7 +744,7 @@ describe("inspection generate-invoice source link", () => {
       },
     });
     estimateFindFirst.mockResolvedValue({
-      id: "estimate_weekly",
+      id: "estimate_line",
       version: 1,
       overheads: 0,
       profit: 0,
@@ -733,23 +753,18 @@ describe("inspection generate-invoice source link", () => {
       totalIncGST: null,
       lineItems: [
         {
-          id: "line_weekly",
+          id: "line_1",
           code: null,
           category: "Equipment",
-          description: "Air movers, 2 weeks",
-          qty: 10,
-          unit: "day",
-          rate: 25,
-          // Weekly pricing: 2 x $112.505, not 10 x $25.
-          subtotal: 225.01,
           isPassThrough: false,
           taxType: "OUTPUT",
           xeroAccountCode: null,
+          ...line,
         },
       ],
     });
     txInvoiceCreate.mockImplementation(async ({ data }: any) => ({
-      id: "inv_weekly",
+      id: "inv_line",
       invoiceNumber: "RA-2026-0001",
       totalIncGST: data.totalIncGST,
       lineItems: [{ id: "li1" }],
@@ -759,15 +774,147 @@ describe("inspection generate-invoice source link", () => {
       new NextRequest("http://localhost/api/x", { method: "POST" }),
       { params: Promise.resolve({ id: "insp_1" }) },
     );
-
     expect(res.status).toBe(201);
-    const data = txInvoiceCreate.mock.calls[0][0].data;
-    expect(data.lineItems.create[0]).toMatchObject({
-      unitPrice: 2_500,
-      subtotal: 22_501,
+    return txInvoiceCreate.mock.calls[0][0].data;
+  }
+
+  // RA-7705: save the generated invoice unchanged through PUT
+  // /api/invoices/[id], exactly as the edit page sends it (unit price loaded
+  // as dollars, sent back through dollarsToCents).
+  async function resaveUnchanged(created: any) {
+    invoiceFindUnique.mockResolvedValue({
+      id: "inv_line",
+      userId: "u_1",
+      status: "DRAFT",
+      currency: "AUD",
+      invoiceNumber: created.invoiceNumber,
+      subtotalExGST: created.subtotalExGST,
     });
+    txInvoiceUpdate.mockImplementation(async (arg: any) => ({
+      id: "inv_line",
+      ...arg.data,
+      lineItems: [],
+    }));
+    const res = await PUT_INVOICE(
+      new NextRequest("http://localhost/api/invoices/inv_line", {
+        method: "PUT",
+        body: JSON.stringify({
+          lineItems: created.lineItems.create.map((li: any) => ({
+            description: li.description,
+            category: li.category,
+            quantity: li.quantity,
+            unitPrice: dollarsToCents(li.unitPrice / 100),
+            gstRate: li.gstRate,
+            estimateLineItemId: li.estimateLineItemId,
+          })),
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: "inv_line" }) },
+    );
+    expect(res.status).toBe(200);
+    return txInvoiceUpdate.mock.calls[0][0].data;
+  }
+
+  const expectLinesConsistent = (lines: any[]) => {
+    for (const li of lines) {
+      expect(lineSubtotalCents(li.quantity, li.unitPrice)).toBe(li.subtotal);
+    }
+  };
+
+  const weeklyLine = {
+    description: "Air movers, 2 weeks",
+    qty: 10,
+    unit: "day",
+    rate: 25,
+    // Weekly pricing: 2 x $112.505, not 10 x $25.
+    subtotal: 225.01,
+  };
+  const subCentRateLine = {
+    description: "Labour",
+    qty: 50,
+    unit: "hr",
+    rate: 65.005,
+    // As the estimates route stores it: 50 * 65.005 === 3250.25 in float.
+    subtotal: 50 * 65.005,
+  };
+  const floatNoiseLine = {
+    description: "Labour",
+    qty: 0.69,
+    unit: "hr",
+    rate: 22.5,
+    subtotal: 0.69 * 22.5,
+  };
+
+  it("RA-7705 case A: a weekly-priced line invoices the approved $225.01 as one unit, so qty x unit price equals the subtotal", async () => {
+    const data = await generateFromEstimateLine(weeklyLine);
+
+    expect(data.lineItems.create[0]).toMatchObject({
+      description: "Air movers, 2 weeks (10 day x $25)",
+      quantity: 1,
+      unit: "item",
+      unitPrice: 22_501,
+      subtotal: 22_501,
+      gstAmount: 2_250,
+      total: 24_751,
+    });
+    expectLinesConsistent(data.lineItems.create);
     expect(data.subtotalExGST).toBe(22_501);
+    expect(data.totalIncGST).toBe(24_751);
   });
+
+  it("RA-7705 case B: a $65.005 rate does not reprice the approved $3,250.25 to $3,250.50", async () => {
+    // Guard the premise: float equality cannot tell this line apart from a
+    // plain qty x rate line.
+    expect(subCentRateLine.subtotal).toBe(3250.25);
+
+    const data = await generateFromEstimateLine(subCentRateLine);
+
+    expect(data.lineItems.create[0]).toMatchObject({
+      description: "Labour (50 hr x $65.005)",
+      quantity: 1,
+      unitPrice: 325_025,
+      subtotal: 325_025,
+      gstAmount: 32_503,
+      total: 357_528,
+    });
+    expectLinesConsistent(data.lineItems.create);
+    expect(data.subtotalExGST).toBe(325_025);
+    expect(data.totalIncGST).toBe(357_528);
+  });
+
+  it("RA-7705: a line whose qty x whole-cent rate already equals the approved cents keeps its qty and rate", async () => {
+    const data = await generateFromEstimateLine(floatNoiseLine);
+
+    expect(data.lineItems.create[0]).toMatchObject({
+      description: "Labour",
+      quantity: 0.69,
+      unit: "hr",
+      unitPrice: 2_250,
+      subtotal: 1_553,
+    });
+  });
+
+  it.each([
+    ["weekly pricing", weeklyLine],
+    ["sub-cent rate", subCentRateLine],
+    ["float-noise subtotal", floatNoiseLine],
+  ])(
+    "RA-7705: an unchanged re-save through PUT /api/invoices/[id] keeps every line and total (%s)",
+    async (_name, line) => {
+      const created = await generateFromEstimateLine(line);
+      const saved = await resaveUnchanged(created);
+
+      expect(saved.subtotalExGST).toBe(created.subtotalExGST);
+      expect(saved.gstAmount).toBe(created.gstAmount);
+      expect(saved.totalIncGST).toBe(created.totalIncGST);
+      expect(
+        saved.lineItems.create.map((li: any) => [li.subtotal, li.gstAmount, li.total]),
+      ).toEqual(
+        created.lineItems.create.map((li: any) => [li.subtotal, li.gstAmount, li.total]),
+      );
+    },
+  );
 
   it("rejects a report client outside the inspection tenant", async () => {
     inspectionFindFirst.mockResolvedValue({
