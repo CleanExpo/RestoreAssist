@@ -154,14 +154,14 @@ export async function getEffectiveSubscription(userId: string): Promise<{
  *   - No leave date: the creator if they had accepted no invite by the
  *     resource's createdAt, else null (a removal from before the columns
  *     existed; fail closed).
- *   - Resource before organizationLeftAt: it can only be the left
- *     organisation's. The latest invite accepted by createdAt must be into
- *     organizationLeftId (and that organisation must still have an owner):
- *     its owner. Into another organisation: null, because earlier history
- *     is not recorded. None by createdAt but one into organizationLeftId
- *     later: the creator, who made it before joining. No such invite at all
- *     (erased by the owner deleting their account), or no
- *     organizationLeftId: null.
+ *   - Resource before organizationLeftAt: only the LAST recorded
+ *     membership interval is trusted, from the latest invite accepted into
+ *     organizationLeftId (lastJoin) to organizationLeftAt. Inside it: that
+ *     organisation's owner. Before lastJoin: the creator only if they had
+ *     accepted no invite into any organisation by then, else null (an
+ *     earlier membership cannot be placed). No invite into
+ *     organizationLeftId left (erased by the owner deleting their account),
+ *     or no organizationLeftId: null.
  */
 export async function getResourceTenantOwner(
   creatorId: string,
@@ -222,38 +222,60 @@ async function removedMemberTenantOwner(
   resourceCreatedAt: Date,
 ): Promise<string | null> {
   const leftAt = creator.organizationLeftAt;
-  if (leftAt && resourceCreatedAt.getTime() >= leftAt.getTime()) {
-    return creatorId;
+  if (!leftAt) {
+    // No leave on record: theirs if they had joined nothing by then, else a
+    // removal from before the columns existed (fail closed).
+    const joinedBefore = await acceptedInviteAtOrBefore(
+      creatorId,
+      creator.email,
+      resourceCreatedAt,
+    );
+    return joinedBefore ? null : creatorId;
   }
-  const joined = await prisma.userInvite.findFirst({
-    where: {
-      usedAt: { not: null, lte: resourceCreatedAt },
-      OR: acceptedBy(creatorId, creator.email),
-    },
-    select: {
-      organizationId: true,
-      organization: { select: { ownerId: true } },
-    },
-    orderBy: { usedAt: "desc" },
-  });
-  if (!leftAt) return joined ? null : creatorId;
+  if (resourceCreatedAt.getTime() >= leftAt.getTime()) return creatorId;
 
+  // Only the LAST membership interval is recorded: from the latest accepted
+  // invite into the organisation they left, to organizationLeftAt.
   const leftOrgId = creator.organizationLeftId;
   if (!leftOrgId) return null;
-  if (joined) {
-    return joined.organizationId === leftOrgId
-      ? (joined.organization?.ownerId ?? null)
-      : null;
-  }
-  const joinedLeftOrgLater = await prisma.userInvite.findFirst({
+  const lastJoin = await prisma.userInvite.findFirst({
     where: {
       organizationId: leftOrgId,
       usedAt: { not: null },
       OR: acceptedBy(creatorId, creator.email),
     },
+    select: { usedAt: true, organization: { select: { ownerId: true } } },
+    orderBy: { usedAt: "desc" },
+  });
+  // No invite into it survives (erased by the owner deleting their account).
+  if (!lastJoin?.usedAt) return null;
+  if (lastJoin.usedAt.getTime() <= resourceCreatedAt.getTime()) {
+    return lastJoin.organization?.ownerId ?? null;
+  }
+  // Before the last join: the creator's only if they had joined nothing at
+  // all by then. An earlier membership cannot be placed, so otherwise null.
+  const joinedBefore = await acceptedInviteAtOrBefore(
+    creatorId,
+    creator.email,
+    resourceCreatedAt,
+  );
+  return joinedBefore ? null : creatorId;
+}
+
+/** Whether the user had accepted any invite, into any organisation, by `at`. */
+async function acceptedInviteAtOrBefore(
+  userId: string,
+  email: string,
+  at: Date,
+): Promise<boolean> {
+  const invite = await prisma.userInvite.findFirst({
+    where: {
+      usedAt: { not: null, lte: at },
+      OR: acceptedBy(userId, email),
+    },
     select: { usedAt: true },
   });
-  return joinedLeftOrgLater ? creatorId : null;
+  return Boolean(invite);
 }
 
 /**

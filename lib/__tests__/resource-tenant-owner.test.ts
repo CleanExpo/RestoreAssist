@@ -398,3 +398,36 @@ describe("getResourceTenantOwner — which organisation was left (RA-7893 P1-OWN
     await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBeNull();
   });
 });
+
+describe("getResourceTenantOwner — only the last membership interval is trusted (RA-7893 P1-REJOINED-ORG-CLAIMS-PERSONAL-JOB)", () => {
+  it("Codex's rejoin history: joined A 01/05, left, personal job 01/07, rejoined A 01/08, left 01/09 — null, never owner-a", async () => {
+    db.users["tech-a"] = {
+      id: "tech-a",
+      role: "USER",
+      organizationId: null,
+      email: "tech-a@example.com",
+      ownerId: null,
+      organizationLeftAt: new Date("2026-09-01T00:00:00Z"),
+      organizationLeftId: "org-a",
+    };
+    db.invites = [
+      {
+        organizationId: "org-a",
+        acceptedUserId: "tech-a",
+        email: "tech-a@example.com",
+        usedAt: new Date("2026-05-01T00:00:00Z"),
+      },
+      {
+        organizationId: "org-a",
+        acceptedUserId: "tech-a",
+        email: "tech-a@example.com",
+        usedAt: new Date("2026-08-01T00:00:00Z"),
+      },
+    ];
+    // The job predates the last join into A, and an earlier membership
+    // (the first A interval) is not recorded well enough to place it.
+    await expect(
+      getResourceTenantOwner("tech-a", new Date("2026-07-01T00:00:00Z")),
+    ).resolves.toBeNull();
+  });
+});
