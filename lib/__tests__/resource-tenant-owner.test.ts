@@ -498,7 +498,9 @@ describe("getResourceTenantOwner — a same-organisation role change is not a jo
     acceptanceProvider: "credentials",
   };
   function audit(provider: string | null) {
-    const at = new Date("2026-07-01T00:00:00Z");
+    // After the direct-add era (lib/billing/invite-membership), so an
+    // unmarked instant row here is unambiguously a role change.
+    const at = new Date("2026-10-10T00:00:00Z");
     return {
       organizationId: "org-a",
       acceptedUserId: null,
@@ -515,7 +517,7 @@ describe("getResourceTenantOwner — a same-organisation role change is not a jo
       organizationId: null,
       email: "tech-a@example.com",
       ownerId: null,
-      organizationLeftAt: new Date("2026-08-01T00:00:00Z"),
+      organizationLeftAt: new Date("2026-10-20T00:00:00Z"),
       organizationLeftId: "org-a",
     };
     db.entitledWorkspaces = ["ws-a"];
@@ -563,7 +565,108 @@ describe("getResourceTenantOwner — a same-organisation role change is not a jo
     db.invites = [audit(null)];
     await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBeNull();
     await expect(
-      getResourceTenantOwner("tech-a", new Date("2026-07-02T00:00:00Z")),
+      getResourceTenantOwner("tech-a", new Date("2026-10-11T00:00:00Z")),
     ).resolves.toBe("owner-a");
+  });
+});
+
+describe("getResourceTenantOwner — unmarked instant rows from the direct-add era are ambiguous (RA-7893 P1-LEGACY-DIRECT-READD-MISCLASSIFIED-AS-AUDIT)", () => {
+  // Between d96d9f081 (2026-01-16) and production running 9352cbe38
+  // (proven live by 2026-10-03), POST /api/team/invites wrote the same
+  // instant, unreceipted row for a role change AND for directly adding or
+  // re-adding a member. Such a row may be a membership start.
+  const member = {
+    id: "tech-a",
+    role: "USER",
+    organizationId: "org-a",
+    email: "tech-a@example.com",
+    ownerId: "owner-a",
+  };
+  function instant(at: string) {
+    return {
+      organizationId: "org-a",
+      acceptedUserId: null,
+      email: "tech-a@example.com",
+      createdAt: new Date(at),
+      usedAt: new Date(at),
+      acceptanceProvider: null,
+    };
+  }
+
+  it("Codex's repro: legacy accept 02/01, removed, instant re-add 01/03; a 01/02 job in the gap is null, not owner-a", async () => {
+    db.users["tech-a"] = { ...member };
+    db.invites = [
+      {
+        organizationId: "org-a",
+        acceptedUserId: null,
+        email: "tech-a@example.com",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        usedAt: new Date("2026-01-02T00:00:00Z"),
+        acceptanceProvider: null,
+      },
+      instant("2026-03-01T00:00:00Z"),
+    ];
+    await expect(
+      getResourceTenantOwner("tech-a", new Date("2026-02-01T00:00:00Z")),
+    ).resolves.toBeNull();
+    // At or after the ambiguous row the user was a member either way.
+    await expect(
+      getResourceTenantOwner("tech-a", new Date("2026-03-02T00:00:00Z")),
+    ).resolves.toBe("owner-a");
+  });
+
+  it("inside the era, a role-change-shaped row fails closed for jobs before it", async () => {
+    db.users["tech-a"] = { ...member };
+    db.invites = [
+      {
+        organizationId: "org-a",
+        acceptedUserId: "tech-a",
+        email: "tech-a@example.com",
+        createdAt: new Date("2026-04-28T00:00:00Z"),
+        usedAt: new Date("2026-05-01T00:00:00Z"),
+        acceptanceProvider: "credentials",
+      },
+      instant("2026-07-01T00:00:00Z"),
+    ];
+    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBeNull();
+  });
+
+  it("after the era, the same row is a role change: the job stays org A's", async () => {
+    db.users["tech-a"] = { ...member };
+    db.invites = [
+      {
+        organizationId: "org-a",
+        acceptedUserId: "tech-a",
+        email: "tech-a@example.com",
+        createdAt: new Date("2026-04-28T00:00:00Z"),
+        usedAt: new Date("2026-05-01T00:00:00Z"),
+        acceptanceProvider: "credentials",
+      },
+      instant("2026-10-05T00:00:00Z"),
+    ];
+    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBe(
+      "owner-a",
+    );
+  });
+
+  it("a marked row inside the era is still a role change", async () => {
+    db.users["tech-a"] = { ...member };
+    db.invites = [
+      {
+        organizationId: "org-a",
+        acceptedUserId: "tech-a",
+        email: "tech-a@example.com",
+        createdAt: new Date("2026-04-28T00:00:00Z"),
+        usedAt: new Date("2026-05-01T00:00:00Z"),
+        acceptanceProvider: "credentials",
+      },
+      {
+        ...instant("2026-07-01T00:00:00Z"),
+        acceptanceProvider: "role-change-audit",
+      },
+    ];
+    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBe(
+      "owner-a",
+    );
   });
 });

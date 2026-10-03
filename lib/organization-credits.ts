@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  isInDirectAddEra,
   isInstantUnreceiptedInvite,
   isMarkedRoleChangeAudit,
 } from "@/lib/billing/invite-membership";
@@ -257,8 +258,9 @@ async function removedMemberTenantOwner(
  * The latest invite into `organizationId` that started the user's
  * membership: role-change audit rows are skipped (lib/billing/
  * invite-membership). A marked audit is always skipped. An unmarked instant
- * row is skipped when an earlier acceptance into the same organisation
- * exists; with none it is a historical direct add, so it is the join.
+ * row is skipped only when an earlier acceptance into the same organisation
+ * exists AND it was written after the direct-add era; otherwise it may be a
+ * (re-)add, so it is kept as the membership start.
  * Bounded: after MAX_MEMBERSHIP_ROWS audit rows it gives up (null, fail
  * closed).
  */
@@ -299,7 +301,10 @@ async function latestMembershipStart(
         },
         select: { usedAt: true },
       });
-      isAudit = Boolean(earlier);
+      // After an earlier acceptance it is a role change, unless it was
+      // written in the direct-add era: then it may be a re-add, and is
+      // kept as a membership start so jobs before it fail closed.
+      isAudit = Boolean(earlier) && !isInDirectAddEra(row.usedAt);
     }
     if (!isAudit) return row;
     before = row.usedAt;
