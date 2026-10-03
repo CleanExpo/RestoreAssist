@@ -44,6 +44,34 @@ export function lineSubtotalCents(
     .toNumber();
 }
 
+/**
+ * One line's ex-GST, GST and inc-GST amounts in cents, by the invoice rule:
+ * round the line to cents first, then take GST on the rounded line. Credit
+ * notes and recurring templates use this so they agree with invoices.
+ */
+export function lineAmountsCents(
+  quantity: number,
+  unitPriceCents: number,
+  gstRatePercent: number,
+): { subtotal: number; gstAmount: number; total: number } {
+  const subtotal = lineSubtotalCents(quantity, unitPriceCents);
+  const gstAmount = Math.round(subtotal * (gstRatePercent / 100));
+  return { subtotal, gstAmount, total: subtotal + gstAmount };
+}
+
+/**
+ * Dollars → integer cents, HALF_UP in decimal (1.005 → 101, not 100).
+ * The amount is read at 15 significant digits first, so binary noise from an
+ * upstream float product counts as the decimal it stands for: a stored
+ * 0.69 × 22.5 = 15.524999999999999 is $15.525 → 1553c, not 1552c.
+ */
+export function dollarsToCents(dollars: number): number {
+  return new Decimal(Number(dollars).toPrecision(15))
+    .mul(100)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toNumber();
+}
+
 export interface InvoiceCalcLineItem {
   quantity: number | string;
   unitPrice: number | string; // cents

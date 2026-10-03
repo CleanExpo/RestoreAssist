@@ -9,8 +9,9 @@ import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
+import { dollarsToCents } from "@/lib/invoices/calc";
 
-const toCents = (amount: number | null) => Math.round((amount ?? 0) * 100);
+const toCents = (amount: number | null) => dollarsToCents(amount ?? 0);
 
 const gstRateForTaxType = (taxType: string, tenantRate: number) =>
   taxType === "EXEMPT" || taxType === "EXEMPTOUTPUT" || taxType === "NONE"

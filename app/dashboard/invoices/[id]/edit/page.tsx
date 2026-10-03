@@ -7,6 +7,8 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 import {
   calculateInvoiceTotals,
+  dollarsToCents,
+  lineSubtotalCents,
   toLocalDateInputValue,
   addDaysLocalDateInputValue,
 } from "@/lib/invoices/calc";
@@ -289,19 +291,19 @@ export default function EditInvoicePage({
     const { subtotalExGST, gstAmount, totalIncGST } = calculateInvoiceTotals({
       lineItems: lineItems.map((item) => ({
         quantity: item.quantity,
-        unitPrice: Math.round(item.unitPrice * 100),
+        unitPrice: dollarsToCents(item.unitPrice),
         gstRate: item.gstRate,
       })),
       discountAmount:
         discountType === "amount" && discountAmount
-          ? Math.round(parseFloat(discountAmount) * 100)
+          ? dollarsToCents(parseFloat(discountAmount))
           : undefined,
       discountPercentage:
         discountType === "percentage" && discountPercentage
           ? parseFloat(discountPercentage)
           : undefined,
       shippingAmount: shippingAmount
-        ? Math.round(parseFloat(shippingAmount) * 100)
+        ? dollarsToCents(parseFloat(shippingAmount))
         : undefined,
       defaultGstRatePercent: defaultGstRate,
     });
@@ -348,7 +350,7 @@ export default function EditInvoicePage({
             description: item.description.trim(),
             category: item.category?.trim() || null,
             quantity: item.quantity,
-            unitPrice: Math.round(item.unitPrice * 100),
+            unitPrice: dollarsToCents(item.unitPrice),
             gstRate: item.gstRate,
           })),
         notes: notes.trim() || null,
@@ -356,12 +358,12 @@ export default function EditInvoicePage({
         footer: footer.trim() || null,
       };
       if (discountType === "amount" && discountAmount) {
-        payload.discountAmount = Math.round(parseFloat(discountAmount) * 100);
+        payload.discountAmount = dollarsToCents(parseFloat(discountAmount));
       } else if (discountType === "percentage" && discountPercentage) {
         payload.discountPercentage = parseFloat(discountPercentage);
       }
       if (shippingAmount) {
-        payload.shippingAmount = Math.round(parseFloat(shippingAmount) * 100);
+        payload.shippingAmount = dollarsToCents(parseFloat(shippingAmount));
       }
 
       const res = await fetch(`/api/invoices/${invoiceId}`, {
@@ -633,7 +635,12 @@ export default function EditInvoicePage({
                       Total
                     </label>
                     <div className="px-2 py-1.5 bg-slate-100 dark:bg-slate-600 rounded text-sm text-slate-900 dark:text-white">
-                      ${(item.quantity * item.unitPrice).toFixed(2)}
+                      ${(
+                        lineSubtotalCents(
+                          item.quantity,
+                          dollarsToCents(item.unitPrice),
+                        ) / 100
+                      ).toFixed(2)}
                     </div>
                   </div>
                   <div className="col-span-1 flex items-end justify-end">

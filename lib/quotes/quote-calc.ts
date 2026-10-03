@@ -3,10 +3,13 @@
  * Amounts are in AUD dollars (not cents) — matches the Quote Generator UI.
  */
 
-import Decimal from "decimal.js";
 import { z } from "zod";
 import { getGstTreatment, type Country } from "@/lib/gst-rules";
-import { calculateInvoiceTotals, lineSubtotalCents } from "@/lib/invoices/calc";
+import {
+  calculateInvoiceTotals,
+  dollarsToCents,
+  lineSubtotalCents,
+} from "@/lib/invoices/calc";
 
 /** Minimum charge enforced on all quotes (ex-GST), AUD dollars. */
 export const MINIMUM_CHARGE_EX_GST = 2750;
@@ -96,13 +99,8 @@ export function quoteGstAsInvoiced(
   };
 }
 
-/** Dollars → integer cents for AR Invoice persistence. */
-export function dollarsToCents(dollars: number): number {
-  return new Decimal(dollars)
-    .mul(100)
-    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
-    .toNumber();
-}
+/** Dollars → integer cents for AR Invoice persistence (shared with invoices). */
+export { dollarsToCents };
 
 /**
  * A stored rate rounded to whole cents. Pricing config keeps rates as Float

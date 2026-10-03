@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
+import { dollarsToCents, lineAmountsCents } from "@/lib/invoices/calc";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
 const FREQUENCIES = [
@@ -114,15 +115,17 @@ export default function NewRecurringInvoicePage() {
       prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)),
     );
 
-  const subtotal = lineItems.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice,
-    0,
+  // RA-7705: preview with the same per-line cents maths the server saves.
+  const previewLines = lineItems.map((item) =>
+    lineAmountsCents(
+      item.quantity,
+      dollarsToCents(item.unitPrice),
+      item.gstRate,
+    ),
   );
-  const gst = lineItems.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice * (item.gstRate / 100),
-    0,
-  );
-  const total = subtotal + gst;
+  const subtotal = previewLines.reduce((sum, l) => sum + l.subtotal, 0) / 100;
+  const gst = previewLines.reduce((sum, l) => sum + l.gstAmount, 0) / 100;
+  const total = previewLines.reduce((sum, l) => sum + l.total, 0) / 100;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +160,7 @@ export default function NewRecurringInvoicePage() {
           endDate: form.endDate || null,
           lineItems: lineItems.map((item) => ({
             ...item,
-            unitPrice: Math.round(item.unitPrice * 100),
+            unitPrice: dollarsToCents(item.unitPrice),
           })),
         }),
       });
