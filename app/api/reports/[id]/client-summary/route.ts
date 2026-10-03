@@ -13,7 +13,7 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
-import { getEffectiveSubscription } from "@/lib/organization-credits";
+import { getEffectiveSubscriptionForResource } from "@/lib/organization-credits";
 
 /**
  * RA-1461: POST /api/reports/[id]/client-summary
@@ -61,21 +61,6 @@ export async function POST(
     });
     if (rateLimited) return rateLimited;
 
-    // Rule 8 — subscription gate before any AI call.
-    // RA-7893: an invited technician uses the business owner's plan, and a
-    // trial charge lands on the owner's balance (effectiveSub.id), never on
-    // the technician's null credits.
-    const effectiveSub = await getEffectiveSubscription(userId);
-    if (!isEffectivePlanCurrent(effectiveSub)) {
-      return NextResponse.json(
-        {
-          error: "Active subscription required to generate client summaries",
-          upgradeRequired: true,
-        },
-        { status: 402 },
-      );
-    }
-
     // Ownership check + fetch the fields we'll summarise.
     const report = await prisma.report.findFirst({
       where: { id, userId },
@@ -93,6 +78,7 @@ export async function POST(
         scopeOfWorksDocument: true,
         clientSummaryCache: true,
         clientSummaryCachedAt: true,
+        createdAt: true,
       },
     });
 
@@ -102,6 +88,25 @@ export async function POST(
         message: "Report not found",
         status: 404,
       });
+    }
+
+    // Rule 8 — subscription gate before any AI call.
+    // RA-7893: the plan, and the balance a trial charge lands on
+    // (effectiveSub.id), are those of the business the REPORT belongs to: the
+    // owner of an invited technician's organisation, but never the owner of
+    // an organisation the technician joined after creating the report.
+    const effectiveSub = await getEffectiveSubscriptionForResource(
+      userId,
+      report.createdAt,
+    );
+    if (!isEffectivePlanCurrent(effectiveSub)) {
+      return NextResponse.json(
+        {
+          error: "Active subscription required to generate client summaries",
+          upgradeRequired: true,
+        },
+        { status: 402 },
+      );
     }
 
     const url = new URL(request.url);

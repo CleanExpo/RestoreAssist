@@ -123,3 +123,75 @@ export async function getEffectiveSubscription(userId: string): Promise<{
       }
     : null;
 }
+
+/**
+ * RA-7893 — the business owner a RESOURCE (report, inspection) belongs to,
+ * for billing work on it or reading its add-ons. Null when that cannot be
+ * proven.
+ *
+ * Reports and inspections carry no tenant binding the app sets (workspaceId
+ * is left null on every main creation path), so the tenant is inferred from
+ * the creator. The creator's CURRENT organisation is the resource's
+ * organisation only if the creator had already joined it when the resource
+ * was created. Otherwise a technician who moved from org A to org B would
+ * bill org B's owner for an org A job, and org A's portal would show org B's
+ * add-ons.
+ *
+ * - The creator is their own owner (an ADMIN, or no organisation): the
+ *   creator, exactly as getEffectiveSubscription resolves them.
+ * - The creator is an invited member: their current owner, but only if the
+ *   latest accepted invite into their current organisation was used at or
+ *   before the resource was created. Invite acceptance is the only product
+ *   path that puts a non-owner into an organisation, and it stamps usedAt.
+ *   Invites accepted before the acceptance receipt existed (2026-08-25) have
+ *   no acceptedUserId and are matched on the invite email.
+ * - No such invite: null. The caller refuses; nobody is billed and no add-on
+ *   is lent.
+ */
+export async function getResourceTenantOwner(
+  creatorId: string,
+  resourceCreatedAt: Date,
+): Promise<string | null> {
+  const ownerId = await getOrganizationOwner(creatorId);
+  if (!ownerId || ownerId === creatorId) return creatorId;
+
+  const creator = await prisma.user.findUnique({
+    where: { id: creatorId },
+    select: { organizationId: true, email: true },
+  });
+  if (!creator?.organizationId) return null;
+
+  const joined = await prisma.userInvite.findFirst({
+    where: {
+      organizationId: creator.organizationId,
+      usedAt: { not: null },
+      OR: [
+        { acceptedUserId: creatorId },
+        {
+          acceptedUserId: null,
+          email: { equals: creator.email, mode: "insensitive" },
+        },
+      ],
+    },
+    select: { usedAt: true },
+    orderBy: { usedAt: "desc" },
+  });
+  if (!joined?.usedAt) return null;
+  return joined.usedAt.getTime() <= resourceCreatedAt.getTime()
+    ? ownerId
+    : null;
+}
+
+/**
+ * RA-7893 — getEffectiveSubscription for work on a specific resource: the
+ * plan, and the balance a trial charge lands on, of the business the
+ * resource belongs to (getResourceTenantOwner). Null when that business
+ * cannot be proven, which callers treat as "no current plan".
+ */
+export async function getEffectiveSubscriptionForResource(
+  creatorId: string,
+  resourceCreatedAt: Date,
+): ReturnType<typeof getEffectiveSubscription> {
+  const ownerId = await getResourceTenantOwner(creatorId, resourceCreatedAt);
+  return ownerId ? getEffectiveSubscription(ownerId) : null;
+}

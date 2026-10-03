@@ -5,6 +5,7 @@ const getServerSession = vi.fn();
 const applyRateLimit = vi.fn();
 const userFindUnique = vi.fn();
 const userUpdateMany = vi.fn();
+const userInviteFindFirst = vi.fn();
 const reportFindFirst = vi.fn();
 const reportUpdate = vi.fn();
 const resolveWorkspaceAiKey = vi.fn();
@@ -22,6 +23,9 @@ vi.mock("@/lib/prisma", () => ({
     user: {
       findUnique: (...args: unknown[]) => userFindUnique(...args),
       updateMany: (...args: unknown[]) => userUpdateMany(...args),
+    },
+    userInvite: {
+      findFirst: (...args: unknown[]) => userInviteFindFirst(...args),
     },
     report: {
       findFirst: (...args: unknown[]) => reportFindFirst(...args),
@@ -46,6 +50,7 @@ beforeEach(() => {
   applyRateLimit.mockReset();
   userFindUnique.mockReset();
   userUpdateMany.mockReset();
+  userInviteFindFirst.mockReset().mockResolvedValue(null);
   reportFindFirst.mockReset();
   reportUpdate.mockReset();
   resolveWorkspaceAiKey.mockReset();
@@ -72,6 +77,7 @@ beforeEach(() => {
     scopeOfWorksDocument: "Dry affected area",
     clientSummaryCache: null,
     clientSummaryCachedAt: null,
+    createdAt: new Date("2026-06-01T00:00:00Z"),
   });
 });
 
@@ -124,6 +130,13 @@ describe("POST /api/reports/[id]/client-summary — RA-7893 invited technician",
     userFindUnique.mockImplementation(
       async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
     );
+    // user_1 joined org_1 before report_1 was created.
+    userInviteFindFirst.mockImplementation(
+      async ({ where }: { where: { organizationId: string } }) =>
+        where.organizationId === "org_1"
+          ? { usedAt: new Date("2026-05-01T00:00:00Z") }
+          : null,
+    );
     userUpdateMany.mockResolvedValue({ count: 1 });
     generateClientSummaryService.mockResolvedValueOnce({
       ok: false,
@@ -141,5 +154,51 @@ describe("POST /api/reports/[id]/client-summary — RA-7893 invited technician",
       id: "owner_1",
       creditsRemaining: { gte: 1 },
     });
+  });
+});
+
+describe("POST /api/reports/[id]/client-summary — RA-7893 P1-MOVED-MEMBER-CHARGES-NEW-OWNER", () => {
+  it("does not charge or gate on org B's owner for a report the technician created in org A before moving", async () => {
+    // report_1 (created 1 June) is still user_1's. user_1 has since left
+    // org A and accepted an invite into org B on 1 July; owner_b has a
+    // current trial with credits.
+    const rows: Record<string, Record<string, unknown>> = {
+      user_1: {
+        id: "user_1",
+        role: "USER",
+        organizationId: "org_b",
+        organization: { ownerId: "owner_b" },
+        email: "user_1@example.com",
+        subscriptionStatus: null,
+        creditsRemaining: null,
+      },
+      owner_b: {
+        id: "owner_b",
+        role: "ADMIN",
+        organizationId: "org_b",
+        organization: { ownerId: "owner_b" },
+        subscriptionStatus: "TRIAL",
+        trialEndsAt: new Date("2099-01-01"),
+        creditsRemaining: 5,
+      },
+    };
+    userFindUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
+    );
+    userInviteFindFirst.mockImplementation(
+      async ({ where }: { where: { organizationId: string } }) =>
+        where.organizationId === "org_b"
+          ? { usedAt: new Date("2026-07-01T00:00:00Z") }
+          : null,
+    );
+    userUpdateMany.mockResolvedValue({ count: 1 });
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ id: "report_1" }),
+    });
+
+    expect(userUpdateMany).not.toHaveBeenCalled();
+    expect(generateClientSummaryService).not.toHaveBeenCalled();
+    expect(response.status).toBe(402);
   });
 });

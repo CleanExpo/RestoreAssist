@@ -20,6 +20,9 @@ vi.mock("@/lib/prisma", () => {
         findUnique: vi.fn(),
         updateMany: vi.fn(),
       },
+      userInvite: {
+        findFirst: vi.fn(),
+      },
       providerConnection: {
         findFirst: vi.fn(),
       },
@@ -56,6 +59,8 @@ const inspectionFixture = {
   propertyAddress: "12 Main St, Brisbane QLD 4000",
   signedAt: new Date("2026-05-14T10:00:00.000Z"),
   claimType: "WATER" as const,
+  userId: "u_1",
+  createdAt: new Date("2026-05-10T00:00:00.000Z"),
   user: {
     organizationId: "org_1",
   },
@@ -247,5 +252,54 @@ describe("buildCloseSummary — ended trial (RA-7893 review P1)", () => {
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.code).toBe("SUBSCRIPTION_REQUIRED");
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildCloseSummary — technician who moved organisations (RA-7893 moved-member)", () => {
+  it("does not charge or gate on org B's owner for an inspection created in org A before the move", async () => {
+    // u_1 created ins_1 on 10 May in org A, then accepted an invite into
+    // org B on 1 July. owner_b has a current trial with credits.
+    const rows: Record<string, Record<string, unknown>> = {
+      u_1: {
+        id: "u_1",
+        role: "USER",
+        organizationId: "org_b",
+        organization: { ownerId: "owner_b" },
+        email: "u_1@example.com",
+        subscriptionStatus: null,
+      },
+      owner_b: {
+        id: "owner_b",
+        role: "ADMIN",
+        organizationId: "org_b",
+        organization: { ownerId: "owner_b" },
+        subscriptionStatus: "TRIAL",
+        trialEndsAt: new Date("2099-01-01"),
+        creditsRemaining: 5,
+      },
+    };
+    (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockImplementation(
+      async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
+    );
+    (prisma.userInvite.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
+      { usedAt: new Date("2026-07-01T00:00:00.000Z") },
+    );
+    (prisma.user.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
+      count: 1,
+    });
+    (
+      prisma.providerConnection.findFirst as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(null);
+
+    const out = await buildCloseSummary({
+      inspectionId: "ins_1",
+      invoiceId: "inv_1",
+      userId: "u_1",
+      orgId: null,
+    });
+
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.code).toBe("SUBSCRIPTION_REQUIRED");
   });
 });

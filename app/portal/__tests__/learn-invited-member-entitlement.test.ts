@@ -16,11 +16,27 @@ const fetchTechnicianIdentity = vi.fn();
 
 const db = vi.hoisted(() => ({
   inspectionUserId: "tech-a",
+  inspectionCreatedAt: new Date("2026-06-01T00:00:00Z"),
   users: {} as Record<
     string,
-    { id: string; role: string; organizationId: string | null }
+    {
+      id: string;
+      role: string;
+      organizationId: string | null;
+      email: string;
+    }
   >,
-  entitlementActive: true,
+  orgOwners: { "org-a": "owner-a", "org-b": "owner-b" } as Record<
+    string,
+    string
+  >,
+  // Accepted invites: who joined which organisation, and when.
+  invites: [] as Array<{
+    organizationId: string;
+    acceptedUserId: string;
+    usedAt: Date;
+  }>,
+  entitlements: [] as Array<{ workspaceId: string; active: boolean }>,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -28,6 +44,7 @@ vi.mock("@/lib/prisma", () => ({
     inspection: {
       findUnique: async () => ({
         userId: db.inspectionUserId,
+        createdAt: db.inspectionCreatedAt,
         technicianId: null,
         technicianName: "Sam",
         user: { organization: { name: "A Restorations", logoUrl: null } },
@@ -39,13 +56,39 @@ vi.mock("@/lib/prisma", () => ({
         if (!u) return null;
         return {
           ...u,
-          organization: u.organizationId ? { ownerId: "owner-a" } : null,
+          organization: u.organizationId
+            ? { ownerId: db.orgOwners[u.organizationId] }
+            : null,
         };
+      },
+    },
+    userInvite: {
+      findFirst: async ({
+        where,
+      }: {
+        where: {
+          organizationId: string;
+          OR: Array<{ acceptedUserId?: string | null }>;
+        };
+      }) => {
+        const userId = where.OR[0].acceptedUserId;
+        const latest = db.invites
+          .filter(
+            (i) =>
+              i.organizationId === where.organizationId &&
+              i.acceptedUserId === userId,
+          )
+          .sort((a, b) => b.usedAt.getTime() - a.usedAt.getTime())[0];
+        return latest ? { usedAt: latest.usedAt } : null;
       },
     },
     workspace: {
       findFirst: async ({ where }: { where: { ownerId: string } }) =>
-        where.ownerId === "owner-a" ? { id: "ws-a", name: "A" } : null,
+        where.ownerId === "owner-a"
+          ? { id: "ws-a", name: "A" }
+          : where.ownerId === "owner-b"
+            ? { id: "ws-b", name: "B" }
+            : null,
     },
     workspaceMember: { findFirst: async () => null },
     featureEntitlement: {
@@ -53,11 +96,13 @@ vi.mock("@/lib/prisma", () => ({
         where,
       }: {
         where: { workspaceId_sku: { workspaceId: string; sku: string } };
-      }) =>
-        where.workspaceId_sku.workspaceId === "ws-a" &&
-        where.workspaceId_sku.sku === "CLIENT_EDUCATION"
-          ? { id: "fe-1", active: db.entitlementActive }
-          : null,
+      }) => {
+        if (where.workspaceId_sku.sku !== "CLIENT_EDUCATION") return null;
+        const e = db.entitlements.find(
+          (x) => x.workspaceId === where.workspaceId_sku.workspaceId,
+        );
+        return e ? { id: `fe-${e.workspaceId}`, active: e.active } : null;
+      },
     },
   },
 }));
@@ -82,12 +127,36 @@ beforeEach(() => {
   fetchPublishedPortalContent.mockReset().mockResolvedValue([]);
   fetchTechnicianIdentity.mockReset().mockResolvedValue(null);
   db.inspectionUserId = "tech-a";
-  db.entitlementActive = true;
+  db.inspectionCreatedAt = new Date("2026-06-01T00:00:00Z");
+  db.entitlements = [{ workspaceId: "ws-a", active: true }];
   db.users = {
-    "owner-a": { id: "owner-a", role: "ADMIN", organizationId: "org-a" },
-    "tech-a": { id: "tech-a", role: "USER", organizationId: "org-a" },
-    removed: { id: "removed", role: "USER", organizationId: null },
+    "owner-a": {
+      id: "owner-a",
+      role: "ADMIN",
+      organizationId: "org-a",
+      email: "owner-a@example.com",
+    },
+    "tech-a": {
+      id: "tech-a",
+      role: "USER",
+      organizationId: "org-a",
+      email: "tech-a@example.com",
+    },
+    removed: {
+      id: "removed",
+      role: "USER",
+      organizationId: null,
+      email: "removed@example.com",
+    },
   };
+  // tech-a joined org A before the job was created.
+  db.invites = [
+    {
+      organizationId: "org-a",
+      acceptedUserId: "tech-a",
+      usedAt: new Date("2026-05-01T00:00:00Z"),
+    },
+  ];
 });
 
 async function renderFor(userId: string) {
@@ -106,11 +175,41 @@ describe("portal learn page — job created by an invited technician (RA-7893)",
   });
 
   it("falls back to the free set when the owner's add-on is inactive", async () => {
-    db.entitlementActive = false;
+    db.entitlements = [{ workspaceId: "ws-a", active: false }];
     expect(await renderFor("tech-a")).toEqual({ includeAddonContent: false });
   });
 
   it("falls back to the free set for a user no longer in the organisation", async () => {
     expect(await renderFor("removed")).toEqual({ includeAddonContent: false });
+  });
+});
+
+describe("portal learn page — technician who moved organisations (RA-7893 P1-MOVED-MEMBER-PORTAL-ENTITLEMENT)", () => {
+  function moveTechToOrgB() {
+    // tech-a left org A and accepted an invite into org B on 1 July.
+    db.users["tech-a"].organizationId = "org-b";
+    db.invites.push({
+      organizationId: "org-b",
+      acceptedUserId: "tech-a",
+      usedAt: new Date("2026-07-01T00:00:00Z"),
+    });
+    // Only org B holds CLIENT_EDUCATION.
+    db.entitlements = [{ workspaceId: "ws-b", active: true }];
+  }
+
+  it("does not lend org B's add-on to an org A job whose creator has since moved to org B", async () => {
+    moveTechToOrgB();
+    expect(await renderFor("tech-a")).toEqual({ includeAddonContent: false });
+  });
+
+  it("serves org B's add-on for a job the moved technician created after joining org B", async () => {
+    moveTechToOrgB();
+    db.inspectionCreatedAt = new Date("2026-07-02T00:00:00Z");
+    expect(await renderFor("tech-a")).toEqual({ includeAddonContent: true });
+  });
+
+  it("falls back to the free set when the invited creator has no accepted invite on record", async () => {
+    db.invites = [];
+    expect(await renderFor("tech-a")).toEqual({ includeAddonContent: false });
   });
 });

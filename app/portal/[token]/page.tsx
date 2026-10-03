@@ -13,7 +13,7 @@ import {
   PortalContentSections,
 } from "@/components/portal/PortalContentHub";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
-import { isAddonEntitledForUser } from "@/lib/entitlements";
+import { isAddonEntitledForResource } from "@/lib/entitlements";
 import { CLIENT_EDUCATION_SKU } from "@/lib/billing/client-education-addon";
 import { fetchTechnicianIdentity } from "@/lib/portal/fetch-technician-identity";
 import { TechnicianIdentityCard } from "@/components/portal/TechnicianIdentityCard";
@@ -99,9 +99,12 @@ export default async function ClientPortalPage({ params }: PageProps) {
   // the buyer, and a 402 about their restorer's billing is not their problem.
   //
   // RA-7893: inspection.userId may be an invited technician, who has no
-  // workspace of their own; isAddonEntitledForUser reads the business owner's.
-  const educationEntitled = await isAddonEntitledForUser(
+  // workspace of their own. isAddonEntitledForResource reads the add-ons of
+  // the business the JOB belongs to, not the creator's current one if they
+  // have since moved to another organisation.
+  const educationEntitled = await isAddonEntitledForResource(
     inspection.userId,
+    inspection.createdAt,
     CLIENT_EDUCATION_SKU,
   );
 

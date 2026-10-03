@@ -11,7 +11,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
-import { getEffectiveSubscription } from "@/lib/organization-credits";
+import { getEffectiveSubscriptionForResource } from "@/lib/organization-credits";
 
 export type LifecycleHookFailure = {
   ok: false;
@@ -44,6 +44,13 @@ export interface LifecycleHookSpec<TInput, TDraft> {
   fallback: (input: TInput) => TDraft;
   /** Inspection id to anchor the AuditLog row to. Required. */
   inspectionId: string;
+  /**
+   * RA-7893 — the inspection's creator and creation time. The plan, and the
+   * balance a trial charge lands on, are those of the business the
+   * inspection belongs to (getEffectiveSubscriptionForResource), not of
+   * whichever organisation the creator or the caller is in today.
+   */
+  resource: { creatorId: string; createdAt: Date };
 }
 
 /**
@@ -71,8 +78,13 @@ export async function runLifecycleHook<TInput, TDraft>(
   }
   // RA-7893: an invited technician (subscriptionStatus null by design) uses
   // the business owner's plan, and a trial charge lands on the owner's
-  // balance (`effective.id`), not on the technician's null credits.
-  const effective = await getEffectiveSubscription(spec.userId);
+  // balance (`effective.id`), not on the technician's null credits. The
+  // business is the INSPECTION's: a technician who has since moved
+  // organisation never bills the new owner for an old job.
+  const effective = await getEffectiveSubscriptionForResource(
+    spec.resource.creatorId,
+    spec.resource.createdAt,
+  );
   const status = effective?.subscriptionStatus ?? null;
   if (!effective || !isEffectivePlanCurrent(effective)) {
     return {

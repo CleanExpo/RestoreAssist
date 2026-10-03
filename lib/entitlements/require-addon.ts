@@ -20,7 +20,10 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOrganizationOwner } from "@/lib/organization-credits";
+import {
+  getOrganizationOwner,
+  getResourceTenantOwner,
+} from "@/lib/organization-credits";
 import { isAddonSku, type AddonSku } from "./types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -155,6 +158,29 @@ export async function isAddonEntitledForUser(
 ): Promise<boolean> {
   try {
     const workspace = await getEntitlementWorkspaceForUser(userId);
+    if (!workspace) return false;
+    const gate = await requireAddonForWorkspace(workspace.id, sku);
+    return gate.allowed;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * RA-7893 — fail-closed add-on read for a RESOURCE (an inspection behind a
+ * portal link): the add-ons of the business the resource belongs to
+ * (`getResourceTenantOwner`), not of whichever organisation its creator is in
+ * today. A job whose business cannot be proven reads as not entitled.
+ */
+export async function isAddonEntitledForResource(
+  creatorId: string,
+  resourceCreatedAt: Date,
+  sku: string,
+): Promise<boolean> {
+  try {
+    const ownerId = await getResourceTenantOwner(creatorId, resourceCreatedAt);
+    if (!ownerId) return false;
+    const workspace = await getReadyWorkspaceOwnedBy(ownerId);
     if (!workspace) return false;
     const gate = await requireAddonForWorkspace(workspace.id, sku);
     return gate.allowed;
