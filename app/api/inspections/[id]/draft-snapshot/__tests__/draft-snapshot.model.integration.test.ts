@@ -395,6 +395,35 @@ describe.skipIf(!HAS_DB)("draft snapshot vs field capture (generated schedules)"
     console.log(`[scenario-counts] ${JSON.stringify(counts)}`);
   };
 
+  it("moves the parent's updatedAt on a draft save, so submit's pinned CAS refuses the newer row", async () => {
+    // submit/route.ts pins `updatedAt` to the row it validated. That only
+    // works if this route's parent `updateMany` moves the real column.
+    const owner = await prisma.user.create({ data: { email: `${S}-cas@test.local` } });
+    const insp = await prisma.inspection.create({
+      data: {
+        inspectionNumber: `${S}-cas`,
+        propertyAddress: "1 Race St",
+        propertyPostcode: "4068",
+        userId: owner.id,
+        status: "DRAFT",
+      },
+    });
+    const read = await prisma.inspection.findUnique({ where: { id: insp.id } });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const saved = await prisma.inspection.updateMany({
+      where: { id: insp.id, status: "DRAFT" },
+      data: { lossDescription: "changed by a concurrent save" },
+    });
+    expect(saved.count).toBe(1);
+    const after = await prisma.inspection.findUnique({ where: { id: insp.id } });
+    expect(after!.updatedAt.getTime()).toBeGreaterThan(read!.updatedAt.getTime());
+    const submitted = await prisma.inspection.updateMany({
+      where: { id: insp.id, status: "DRAFT", updatedAt: read!.updatedAt },
+      data: { status: "SUBMITTED", submittedAt: new Date() },
+    });
+    expect(submitted.count).toBe(0);
+  });
+
   it("reads the photo list columns from the schema", () => {
     // If the parse breaks, list columns would be planted as plain strings.
     expect([...PHOTO_LISTS].sort()).toEqual(["affectedMaterial", "secondaryDamageIndicators"]);
