@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { PDFParse } from "pdf-parse";
 import { PDFDocument, StandardFonts } from "pdf-lib";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
+  LINE_TABLE_BOTTOM,
   LINE_TABLE_COLUMN_GAP,
   LINE_TABLE_COL_QTY,
   generateInvoicePDF,
@@ -119,4 +121,69 @@ describe("RA-7896 invoice PDF — line prices ex GST and inc GST", () => {
     expect(text).toContain("Drying equipment day 1 ");
     expect(text).toContain("Drying equipment day 40 ");
   });
+
+  it("splits a description taller than a page across pages without dropping text or entering the footer", async () => {
+    // Codex review P1-PDF-OVERSIZED-DESCRIPTION-OFF-PAGE: this one row ran to
+    // y=1.89 on its continuation page and END_SENTINEL was lost.
+    const description = `START_SENTINEL ${"long description ".repeat(180)}END_SENTINEL`;
+    const pdf = await generateInvoicePDF({
+      invoice: {
+        id: "inv_7896_huge",
+        invoiceNumber: "INV-7896-H",
+        status: "SENT",
+        invoiceDate: new Date("2026-10-03T00:00:00Z"),
+        dueDate: new Date("2026-10-17T00:00:00Z"),
+        customerName: "Mock Customer",
+        customerEmail: "mock@example.com",
+        ...MIXED_GST_TOTALS,
+        amountPaid: 0,
+        amountDue: MIXED_GST_TOTALS.totalIncGST,
+      },
+      lineItems: [{ ...MIXED_GST_LINES[0], description }, ...MIXED_GST_LINES.slice(1)],
+    });
+
+    const pages = await textItemsByPage(pdf);
+    const all = pages.flat();
+    const joined = all.map((t) => t.str).join(" ");
+    expect(joined).toContain("START_SENTINEL");
+    expect(joined).toContain("END_SENTINEL");
+    // Every word of the description is printed: 180 repeats, none dropped.
+    // (Counted per word: a page break can fall between "long" and "description".)
+    expect(joined.match(/\blong\b/g)?.length).toBe(180);
+    expect(joined.match(/\bdescription\b/g)?.length).toBe(180);
+
+    // The row's amounts print once, on its first chunk.
+    expect(all.filter((t) => t.str === "$17.08")).toHaveLength(1);
+    // Each page carrying table rows repeats the column headings.
+    const tablePages = pages.filter((p) => p.some((t) => /long description|START_|END_/.test(t.str)));
+    expect(tablePages.length).toBeGreaterThan(1);
+    for (const p of tablePages) expect(p.map((t) => t.str)).toContain("INC GST");
+
+    // Nothing but the footer prints below the line table's bottom.
+    const FOOTER = new Set(["Thank you for your business!", "Page 1 of 1"]);
+    const intoFooter = all.filter(
+      (t) => t.str.trim() !== "" && t.y < LINE_TABLE_BOTTOM && !FOOTER.has(t.str),
+    );
+    expect(intoFooter).toEqual([]);
+  });
 });
+
+async function textItemsByPage(
+  bytes: Uint8Array,
+): Promise<Array<Array<{ str: string; y: number }>>> {
+  const task = getDocument({ data: bytes.slice(), useSystemFonts: true });
+  const doc = await task.promise;
+  try {
+    const pages = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const content = await (await doc.getPage(n)).getTextContent();
+      pages.push(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        content.items.map((item: any) => ({ str: item.str as string, y: item.transform[5] as number })),
+      );
+    }
+    return pages;
+  } finally {
+    await task.destroy();
+  }
+}

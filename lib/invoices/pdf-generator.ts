@@ -663,7 +663,7 @@ const COL_INC_GST = 70;
 export const LINE_TABLE_COL_QTY = COL_QTY;
 export const LINE_TABLE_COLUMN_GAP = 8;
 /** Rows stop above the footer; the totals block needs this much room. */
-const LINE_TABLE_BOTTOM = 110;
+export const LINE_TABLE_BOTTOM = 110;
 const TOTALS_MIN_SPACE = 260;
 
 /**
@@ -751,76 +751,102 @@ async function renderLineItemsTable(
   drawTableHeader();
 
   // Line items
+  const descriptionX = margin + 10;
+  const LINE_HEIGHT = 11;
+  // Row height for n description lines: 12 above the first baseline, 7 below
+  // the last, never shorter than 30.
+  const rowHeightFor = (n: number) => Math.max(30, 12 + n * LINE_HEIGHT + 7);
+  // The most description lines that fit between yPosition and the table bottom.
+  const linesThatFit = () =>
+    Math.floor((yPosition - 19 - LINE_TABLE_BOTTOM) / LINE_HEIGHT);
+  const newTablePage = () => {
+    page = options.addPage();
+    yPosition = page.getSize().height - margin;
+    drawTableHeader();
+  };
+
   lineItems.forEach((item, index) => {
     const isEven = index % 2 === 0;
 
     // Description: every wrapped line is printed, and the row grows to fit
     // (RA-7896 review: a narrower column must not drop the end of a line).
-    const descLines = wrapText(
+    let remaining = wrapText(
       item.description,
       lineTableDescriptionWidth(width, margin),
       helvetica,
       9,
     );
-    const itemRowHeight = Math.max(30, 12 + descLines.length * 11 + 7);
 
     // A row that would run into the footer starts a new page, with the
-    // column headings repeated.
-    if (yPosition - itemRowHeight < LINE_TABLE_BOTTOM) {
-      page = options.addPage();
-      yPosition = page.getSize().height - margin;
-      drawTableHeader();
+    // column headings repeated. A row taller than a whole page is split:
+    // its description continues on the next page under repeated headings,
+    // and its amounts print once, on the first part (RA-7896 review P1).
+    if (yPosition - rowHeightFor(remaining.length) < LINE_TABLE_BOTTOM) {
+      newTablePage();
     }
 
-    // Alternating row background
-    if (isEven) {
-      page.drawRectangle({
-        x: margin,
-        y: yPosition - itemRowHeight,
-        width: tableWidth,
-        height: itemRowHeight,
-        color: colors.lightGray,
+    let firstChunk = true;
+    for (;;) {
+      const fits = yPosition - rowHeightFor(remaining.length) >= LINE_TABLE_BOTTOM;
+      const chunk = fits ? remaining : remaining.slice(0, linesThatFit());
+      const chunkHeight = rowHeightFor(chunk.length);
+
+      // Alternating row background
+      if (isEven) {
+        page.drawRectangle({
+          x: margin,
+          y: yPosition - chunkHeight,
+          width: tableWidth,
+          height: chunkHeight,
+          color: colors.lightGray,
+        });
+      }
+
+      const itemY = yPosition - 12;
+      chunk.forEach((line, i) => {
+        page.drawText(sanitizeTextForPDF(line), {
+          x: descriptionX,
+          y: itemY - i * LINE_HEIGHT,
+          size: 9,
+          font: helvetica,
+          color: colors.black,
+        });
       });
+
+      if (firstChunk) {
+        const cells: Array<[string, number, PDFFont]> = [
+          [item.quantity.toString(), COL_QTY, helvetica],
+          [formatCurrency(item.unitPrice), COL_RATE, helvetica],
+          [formatCurrency(item.subtotal), COL_EX_GST, helvetica],
+          [formatCurrency(item.gstAmount), COL_GST, helvetica],
+          [formatCurrency(item.total), COL_INC_GST, helveticaBold],
+        ];
+        for (const [text, offset, font] of cells) {
+          page.drawText(text, {
+            x: width - margin - offset,
+            y: itemY,
+            size: 9,
+            font,
+            color: colors.black,
+          });
+        }
+        firstChunk = false;
+      }
+
+      yPosition -= chunkHeight;
+
+      // Divider line
+      page.drawLine({
+        start: { x: margin, y: yPosition },
+        end: { x: width - margin, y: yPosition },
+        thickness: 0.5,
+        color: colors.dividerGray,
+      });
+
+      if (fits) break;
+      remaining = remaining.slice(chunk.length);
+      newTablePage();
     }
-
-    const itemY = yPosition - 12;
-
-    descLines.forEach((line, i) => {
-      page.drawText(sanitizeTextForPDF(line), {
-        x: margin + 10,
-        y: itemY - i * 11,
-        size: 9,
-        font: helvetica,
-        color: colors.black,
-      });
-    });
-
-    const cells: Array<[string, number, PDFFont]> = [
-      [item.quantity.toString(), COL_QTY, helvetica],
-      [formatCurrency(item.unitPrice), COL_RATE, helvetica],
-      [formatCurrency(item.subtotal), COL_EX_GST, helvetica],
-      [formatCurrency(item.gstAmount), COL_GST, helvetica],
-      [formatCurrency(item.total), COL_INC_GST, helveticaBold],
-    ];
-    for (const [text, offset, font] of cells) {
-      page.drawText(text, {
-        x: width - margin - offset,
-        y: itemY,
-        size: 9,
-        font,
-        color: colors.black,
-      });
-    }
-
-    yPosition -= itemRowHeight;
-
-    // Divider line
-    page.drawLine({
-      start: { x: margin, y: yPosition },
-      end: { x: width - margin, y: yPosition },
-      thickness: 0.5,
-      color: colors.dividerGray,
-    });
   });
 
   return { page, yPosition };
