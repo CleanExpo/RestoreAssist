@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateInvoiceTotals } from "@/lib/invoices/calc";
+import { calculateInvoiceTotals, lineSubtotalCents } from "@/lib/invoices/calc";
 import { getGstTreatmentForCurrency } from "@/lib/gst-rules";
 import {
   inheritGstRate,
@@ -380,7 +380,7 @@ export async function POST(
                 // hours and m² are normal on a restoration invoice), which would
                 // make the header disagree with the sum of its own lines.
                 const unitPriceCents = Math.round(item.unitPrice * 100);
-                const lineSubtotal = Math.round(item.quantity * unitPriceCents);
+                const lineSubtotal = lineSubtotalCents(item.quantity, unitPriceCents);
                 const gstRate = resolveLineGstRate(
                   item.gstRate,
                   inheritedGstRate,

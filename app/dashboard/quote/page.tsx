@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { dollarsToCents } from "@/lib/quotes/quote-calc";
+import { quoteToInvoiceLineItems } from "@/lib/quotes/quote-calc";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
@@ -265,28 +265,10 @@ export default function QuotePage() {
     try {
       const due = new Date();
       due.setDate(due.getDate() + 14);
-      const lineItems = quoteResult.lineItems.map((li) => ({
-        description: li.description,
-        category: "Quote",
-        quantity: li.qty,
-        unitPrice: dollarsToCents(li.rate),
-        gstRate: gstTreatment.ratePercent,
-      }));
-      // If minimum charge padded the subtotal without a matching line, add a top-up line
-      const linesEx = lineItems.reduce(
-        (sum, li) => sum + Math.round(li.quantity * li.unitPrice),
-        0,
+      const lineItems = quoteToInvoiceLineItems(
+        quoteResult,
+        gstTreatment.ratePercent,
       );
-      const targetEx = dollarsToCents(quoteResult.subtotalExGST);
-      if (targetEx > linesEx) {
-        lineItems.push({
-          description: "Minimum engagement charge (industry minimum)",
-          category: "Quote",
-          quantity: 1,
-          unitPrice: targetEx - linesEx,
-          gstRate: gstTreatment.ratePercent,
-        });
-      }
 
       const res = await fetch("/api/invoices", {
         method: "POST",

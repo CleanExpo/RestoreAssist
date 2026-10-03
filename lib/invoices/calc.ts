@@ -25,6 +25,24 @@
  *   - discountPercentage    : percent (number)
  *   - shippingAmount        : cents (integer)
  */
+import Decimal from "decimal.js";
+
+/**
+ * A line's ex-GST amount in cents: quantity × unit price (cents), rounded
+ * HALF_UP in decimal. `Math.round(quantity * unitPrice)` rounds in binary
+ * floating point and drops a cent on about 1 in 500 fractional-quantity
+ * lines: 0.69 hr × 2250c is 1552.4999… in a double, so it billed $15.52
+ * instead of $15.53 (RA-7705). Every invoice writer must use this.
+ */
+export function lineSubtotalCents(
+  quantity: number,
+  unitPriceCents: number,
+): number {
+  return new Decimal(quantity)
+    .mul(unitPriceCents)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toNumber();
+}
 
 export interface InvoiceCalcLineItem {
   quantity: number | string;
@@ -96,7 +114,7 @@ export function calculateInvoiceTotals(
         : item.unitPrice;
     if (!Number.isFinite(quantity) || !Number.isFinite(unitPrice)) continue;
 
-    const subtotal = Math.round(quantity * unitPrice);
+    const subtotal = lineSubtotalCents(quantity, unitPrice);
     const gstRate = item.gstRate ?? defaultGstRatePercent;
     const itemGst = Math.round(subtotal * (gstRate / 100));
 
