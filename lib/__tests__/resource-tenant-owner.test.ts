@@ -301,3 +301,29 @@ describe("getResourceTenantOwner — removed member (RA-7893 P1-REMOVED-MEMBER-O
     );
   });
 });
+
+describe("getResourceTenantOwner — owner account deleted (RA-7893 P1-OWNER-DELETION-ERASES-TENANT-RECEIPT)", () => {
+  // Deleting org A's owner cascaded org A and its invites and nulled
+  // tech-a's organizationId; account delete stamped the leave date (1 Aug).
+  beforeEach(() => {
+    db.users["tech-a"] = {
+      id: "tech-a",
+      role: "USER",
+      organizationId: null,
+      email: "tech-a@example.com",
+      ownerId: null,
+      organizationLeftAt: new Date("2026-08-01T00:00:00Z"),
+    };
+    db.invites = [];
+  });
+
+  it("fails closed for a job made before the leave date when the invite history is gone", async () => {
+    await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBeNull();
+  });
+
+  it("gives the user a job they made after the leave date", async () => {
+    await expect(
+      getResourceTenantOwner("tech-a", new Date("2026-09-01T00:00:00Z")),
+    ).resolves.toBe("tech-a");
+  });
+});

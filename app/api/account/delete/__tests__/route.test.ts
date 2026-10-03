@@ -65,7 +65,11 @@ vi.mock("@/lib/stripe", () => ({ stripe: stripeMock }));
 
 const prismaMock = vi.hoisted(() => {
   const mock: {
-    user: { findUnique: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
+    user: {
+      findUnique: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
+    };
     invoice: { updateMany: ReturnType<typeof vi.fn> };
     report: { updateMany: ReturnType<typeof vi.fn> };
     estimate: { updateMany: ReturnType<typeof vi.fn> };
@@ -74,7 +78,7 @@ const prismaMock = vi.hoisted(() => {
     invoicePayment: { updateMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   } = {
-    user: { findUnique: vi.fn(), delete: vi.fn() },
+    user: { findUnique: vi.fn(), delete: vi.fn(), updateMany: vi.fn() },
     invoice: { updateMany: vi.fn() },
     report: { updateMany: vi.fn() },
     estimate: { updateMany: vi.fn() },
@@ -132,6 +136,7 @@ describe("POST /api/account/delete — statutory-record retention", () => {
       count: 5,
     } as never);
     prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
+    prismaMock.user.updateMany.mockResolvedValue({ count: 2 } as never);
     prismaMock.$transaction.mockImplementation(
       async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
     );
@@ -206,5 +211,50 @@ describe("POST /api/account/delete — statutory-record retention", () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
     expect(prismaMock.invoice.updateMany).not.toHaveBeenCalled();
     expect(prismaMock.user.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/account/delete — RA-7893 members keep a leave date", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "user-1", email: "owner@example.com", name: "Owner" },
+    } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      stripeCustomerId: null,
+      subscriptionId: null,
+    } as never);
+    for (const d of STATUTORY_REASSIGNED_DELEGATES) {
+      updateManyOf(d).mockResolvedValue({ count: 0 } as never);
+    }
+    prismaMock.user.updateMany.mockResolvedValue({ count: 2 } as never);
+    prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
+    prismaMock.$transaction.mockImplementation(
+      async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
+    );
+  });
+
+  it("stamps organizationLeftAt on the owner's members, in the transaction, before the owner is deleted", async () => {
+    // Deleting the owner cascades the Organization and its UserInvites and
+    // nulls each member's organizationId. The leave date is the only record
+    // left that a member's older jobs belonged to that organisation.
+    const res = await POST(makeRequest(CONFIRMATION));
+    expect(res.status).toBe(200);
+
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: {
+        organization: { ownerId: "user-1" },
+        organizationLeftAt: null,
+      },
+      data: { organizationLeftAt: expect.any(Date) },
+    });
+    expect(
+      prismaMock.user.updateMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(prismaMock.user.delete.mock.invocationCallOrder[0]);
+    expect(
+      prismaMock.$transaction.mock.invocationCallOrder[0],
+    ).toBeLessThan(prismaMock.user.updateMany.mock.invocationCallOrder[0]);
   });
 });

@@ -252,3 +252,26 @@ describe("portal learn page — technician removed from org A (RA-7893 P1-REMOVE
     expect(await renderFor("tech-a")).toEqual({ includeAddonContent: true });
   });
 });
+
+describe("portal learn page — org A's owner deleted their account (RA-7893 P1-OWNER-DELETION-ERASES-TENANT-RECEIPT)", () => {
+  function ownerDeleted() {
+    // The cascade removed org A and its invites and cleared tech-a's
+    // organizationId; account delete stamped the leave date. tech-a has a
+    // personal READY workspace with CLIENT_EDUCATION.
+    db.users["tech-a"].organizationId = null;
+    db.users["tech-a"].organizationLeftAt = new Date("2026-08-01T00:00:00Z");
+    db.invites = [];
+    db.entitlements = [{ workspaceId: "ws-tech-a", active: true }];
+  }
+
+  it("does not serve the technician's personal add-on on an old org A job", async () => {
+    ownerDeleted();
+    expect(await renderFor("tech-a")).toEqual({ includeAddonContent: false });
+  });
+
+  it("serves it on a job the technician made after the leave date", async () => {
+    ownerDeleted();
+    db.inspectionCreatedAt = new Date("2026-09-01T00:00:00Z");
+    expect(await renderFor("tech-a")).toEqual({ includeAddonContent: true });
+  });
+});

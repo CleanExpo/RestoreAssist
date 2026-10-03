@@ -150,7 +150,11 @@ export async function getEffectiveSubscription(userId: string): Promise<{
  * - The creator is in no organisation now (removed by DELETE
  *   /api/team/members/[id], which stamps organizationLeftAt): find the
  *   latest invite they accepted at or before the resource was created.
- *   - None: the creator. They made it on their own, as before.
+ *   - None, but a leave date after the resource and no accepted invite on
+ *     record at all: null. Deleting the owner's account (which stamps the
+ *     members' leave date) cascaded the organisation's invites away, so the
+ *     resource's business cannot be proven.
+ *   - Otherwise none: the creator. They made it on their own, as before.
  *   - One, and the resource predates organizationLeftAt: that
  *     organisation's owner. An old org A job stays org A's.
  *   - One, and the resource is at or after organizationLeftAt: the creator.
@@ -214,8 +218,25 @@ async function removedMemberTenantOwner(
     select: { usedAt: true, organization: { select: { ownerId: true } } },
     orderBy: { usedAt: "desc" },
   });
-  if (!joined) return creatorId;
   const leftAt = creator.organizationLeftAt;
+  if (!joined) {
+    // Deleting an owner's account cascades their organisation and its
+    // invites, so a former member can have a leave date and no invite left.
+    // Then a resource from before the leave date has no provable business.
+    // With the invite history intact, no invite before the resource means
+    // the creator made it before joining: theirs, as before.
+    if (!leftAt || resourceCreatedAt.getTime() >= leftAt.getTime()) {
+      return creatorId;
+    }
+    const anyInvite = await prisma.userInvite.findFirst({
+      where: {
+        usedAt: { not: null },
+        OR: acceptedBy(creatorId, creator.email),
+      },
+      select: { usedAt: true },
+    });
+    return anyInvite ? creatorId : null;
+  }
   if (!leftAt) return null;
   return resourceCreatedAt.getTime() < leftAt.getTime()
     ? joined.organization.ownerId
