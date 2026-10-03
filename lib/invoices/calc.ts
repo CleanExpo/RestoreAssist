@@ -61,12 +61,12 @@ export function lineAmountsCents(
 
 /**
  * Dollars → integer cents, HALF_UP in decimal (1.005 → 101, not 100).
- * The amount is read at 15 significant digits first, so binary noise from an
- * upstream float product counts as the decimal it stands for: a stored
- * 0.69 × 22.5 = 15.524999999999999 is $15.525 → 1553c, not 1552c.
+ * Rounds exactly the number it is given (its shortest round-trip decimal):
+ * 65.00499999999999 is below half a cent, so it is 6500c. No denoising here;
+ * a caller that knows its input is a float product must handle that itself.
  */
 export function dollarsToCents(dollars: number): number {
-  return new Decimal(Number(dollars).toPrecision(15))
+  return new Decimal(String(Number(dollars)))
     .mul(100)
     .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
     .toNumber();

@@ -9,9 +9,22 @@ import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
-import { dollarsToCents } from "@/lib/invoices/calc";
+import { dollarsToCents, lineSubtotalCents } from "@/lib/invoices/calc";
 
 const toCents = (amount: number | null) => dollarsToCents(amount ?? 0);
+
+/**
+ * RA-7705: an estimate line's ex-GST cents. The estimates route stores
+ * `subtotal = qty * rate` computed in float (0.69 * 22.5 is stored as
+ * 15.524999999999999). When the stored subtotal is exactly that float
+ * product, the line IS qty x rate, so it is priced by the invoice rule
+ * (qty x the whole-cent rate, HALF_UP). Any other subtotal was set on
+ * purpose (day/week equipment pricing, a formula) and is kept exactly.
+ */
+const estimateLineCents = (qty: number, rate: number, subtotal: number) =>
+  subtotal === qty * rate
+    ? lineSubtotalCents(qty, dollarsToCents(rate))
+    : toCents(subtotal);
 
 const gstRateForTaxType = (taxType: string, tenantRate: number) =>
   taxType === "EXEMPT" || taxType === "EXEMPTOUTPUT" || taxType === "NONE"
@@ -405,7 +418,7 @@ export async function POST(
       const lineItemsData: Prisma.InvoiceLineItemCreateWithoutInvoiceInput[] =
         estimate.lineItems.map((item, index) => {
           const unitPrice = toCents(item.rate);
-          const subtotal = toCents(item.subtotal);
+          const subtotal = estimateLineCents(item.qty, item.rate, item.subtotal);
           const gstRate = gstRateForTaxType(
             item.taxType,
             gstTreatment.ratePercent,

@@ -569,6 +569,23 @@ describe("RA-7705 money oracle: quote → GST → invoice draft", () => {
     });
   });
 
+  // The literal 65.00499999999999 is the same double as 65.005 (test 7b), so
+  // no function can price it differently. 65.00499999999998 is a distinct
+  // double genuinely below half a cent; denoising to 15 digits rounded it up.
+  it("7c. a stored rate of 65.00499999999998 is below half a cent: priced at $65.00, not $65.01", async () => {
+    expect(Number("65.00499999999999")).toBe(65.005);
+    const [input, rates, country] = codexSubCentRate;
+    const q = await runQuote(
+      input,
+      { ...rates, qualifiedTechnicianNormalHours: 65.00499999999998 },
+      country,
+    );
+    const labour = q.lineItems.find((l) => l.description.startsWith("Labour"))!;
+    expect(labour.rate).toBe(65);
+    expect(labour.subtotal).toBe(3250);
+    expect(q.subtotalExGST).toBe(3250);
+  });
+
   it("8. a one-line quote: GST = rate x ex-GST to the cent, inc = ex + GST", () => {
     fc.assert(
       fc.property(

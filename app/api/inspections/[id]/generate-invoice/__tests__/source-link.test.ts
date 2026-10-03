@@ -699,6 +699,76 @@ describe("inspection generate-invoice source link", () => {
     expect(data.totalIncGST).toBe(1_708);
   });
 
+  it("RA-7705: a stored subtotal that intentionally differs from qty x rate (weekly equipment pricing) is kept exactly", async () => {
+    inspectionFindFirst.mockResolvedValue({
+      id: "insp_1",
+      status: "SUBMITTED",
+      signedAt: new Date("2026-08-09T00:00:00.000Z"),
+      reportId: "report_1",
+      inspectionNumber: "INS-100",
+      propertyAddress: "1 Inspection St",
+      report: {
+        id: "report_1",
+        userId: "u_1",
+        title: "Water restoration",
+        propertyAddress: "1 Inspection St",
+        clientId: "client_1",
+        client: {
+          id: "client_1",
+          userId: "u_1",
+          name: "Claim Client",
+          email: "claim@example.com",
+          phone: null,
+          address: "1 Inspection St",
+        },
+      },
+    });
+    estimateFindFirst.mockResolvedValue({
+      id: "estimate_weekly",
+      version: 1,
+      overheads: 0,
+      profit: 0,
+      contingency: 0,
+      escalation: 0,
+      totalIncGST: null,
+      lineItems: [
+        {
+          id: "line_weekly",
+          code: null,
+          category: "Equipment",
+          description: "Air movers, 2 weeks",
+          qty: 10,
+          unit: "day",
+          rate: 25,
+          // Weekly pricing: 2 x $112.505, not 10 x $25.
+          subtotal: 225.01,
+          isPassThrough: false,
+          taxType: "OUTPUT",
+          xeroAccountCode: null,
+        },
+      ],
+    });
+    txInvoiceCreate.mockImplementation(async ({ data }: any) => ({
+      id: "inv_weekly",
+      invoiceNumber: "RA-2026-0001",
+      totalIncGST: data.totalIncGST,
+      lineItems: [{ id: "li1" }],
+    }));
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/x", { method: "POST" }),
+      { params: Promise.resolve({ id: "insp_1" }) },
+    );
+
+    expect(res.status).toBe(201);
+    const data = txInvoiceCreate.mock.calls[0][0].data;
+    expect(data.lineItems.create[0]).toMatchObject({
+      unitPrice: 2_500,
+      subtotal: 22_501,
+    });
+    expect(data.subtotalExGST).toBe(22_501);
+  });
+
   it("rejects a report client outside the inspection tenant", async () => {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
