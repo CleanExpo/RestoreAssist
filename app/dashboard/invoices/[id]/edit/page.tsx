@@ -8,10 +8,11 @@ import Link from "next/link";
 import {
   calculateInvoiceTotals,
   dollarsToCents,
-  lineSubtotalCents,
+  lineAmountsCents,
   toLocalDateInputValue,
   addDaysLocalDateInputValue,
 } from "@/lib/invoices/calc";
+import { LineExIncPrices } from "@/components/invoices/LineExIncPrices";
 import {
   DEFAULT_GST_TREATMENT,
   getGstTreatmentForCurrency,
@@ -631,16 +632,16 @@ export default function EditInvoicePage({
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Total
-                    </label>
-                    <div className="px-2 py-1.5 bg-slate-100 dark:bg-slate-600 rounded text-sm text-slate-900 dark:text-white">
-                      ${(
-                        lineSubtotalCents(
+                    {/* RA-7896: the line ex GST and inc GST, per line, by the
+                        same rule the server saves. */}
+                    <div className="px-2 py-1.5 bg-slate-100 dark:bg-slate-600 rounded text-slate-900 dark:text-white">
+                      <LineExIncPrices
+                        amounts={lineAmountsCents(
                           item.quantity,
                           dollarsToCents(item.unitPrice),
-                        ) / 100
-                      ).toFixed(2)}
+                          item.gstRate,
+                        )}
+                      />
                     </div>
                   </div>
                   <div className="col-span-1 flex items-end justify-end">

@@ -50,8 +50,8 @@ function quoteResponse(email: string) {
     contractor: { businessName: "Test Co", abn: "", address: "", phone: "", email: "", logo: "" },
     client: { name: "Jane Client", address: "1 Test St", phone: "0400000000", email },
     lineItems: [
-      { description: "Labour", qty: 16, unit: "hr", rate: 110, subtotal: 1760 },
-      { description: "Air mover hire", qty: 4, unit: "day", rate: 60, subtotal: 240 },
+      { description: "Labour", qty: 16, unit: "hr", rate: 110, subtotal: 1760, exGST: 1760, incGST: 1936 },
+      { description: "Air mover hire", qty: 4, unit: "day", rate: 60, subtotal: 240, exGST: 240, incGST: 264 },
     ],
     subtotalExGST: 2822.5,
     gst: 282.25,

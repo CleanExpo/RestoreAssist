@@ -230,8 +230,9 @@ export default function PublicInvoicePage() {
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
                 <th className="py-2 pr-2">Description</th>
                 <th className="py-2 px-2 text-right">Qty</th>
-                <th className="py-2 px-2 text-right">Unit</th>
-                <th className="py-2 pl-2 text-right">Amount</th>
+                <th className="hidden sm:table-cell py-2 px-2 text-right">Unit</th>
+                <th className="py-2 px-2 text-right">Ex GST</th>
+                <th className="py-2 pl-2 text-right">Inc GST</th>
               </tr>
             </thead>
             <tbody>
@@ -241,11 +242,15 @@ export default function PublicInvoicePage() {
                   <td className="py-3 px-2 text-right text-slate-600">
                     {li.quantity}
                   </td>
-                  <td className="py-3 px-2 text-right text-slate-600">
+                  <td className="hidden sm:table-cell py-3 px-2 text-right text-slate-600">
                     {cents(li.unitPrice, currency)}
                   </td>
-                  <td className="py-3 pl-2 text-right font-medium text-slate-900">
+                  {/* RA-7896: the stored line ex GST and inc GST. */}
+                  <td className="py-3 px-2 text-right text-slate-900">
                     {cents(li.subtotal, currency)}
+                  </td>
+                  <td className="py-3 pl-2 text-right font-medium text-slate-900">
+                    {cents(li.total, currency)}
                   </td>
                 </tr>
               ))}

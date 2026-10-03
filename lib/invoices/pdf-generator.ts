@@ -152,6 +152,23 @@ export async function generateInvoicePDF(
     logoImage,
   });
 
+  // Footer on every page, numbered once all pages exist (RA-7896: the line
+  // table can now run over several pages).
+  const pages = pdfDoc.getPages();
+  for (let i = 0; i < pages.length; i++) {
+    await renderFooter(pages[i], {
+      helvetica,
+      helveticaBold,
+      colors,
+      businessInfo: data.businessInfo,
+      invoice: data.invoice,
+      width: pages[i].getSize().width,
+      margin: 50,
+      pageNumber: i + 1,
+      pageCount: pages.length,
+    });
+  }
+
   const pdfBytes = await pdfDoc.save();
   return pdfBytes;
 }
@@ -250,8 +267,9 @@ async function renderInvoicePage(
 
   yPosition -= 35;
 
-  // Line Items Table
-  yPosition = await renderLineItemsTable(page, {
+  // Line Items Table (continues onto further A4 pages when it is long)
+  const addPage = () => options.pdfDoc.addPage([width, height]);
+  const table = await renderLineItemsTable(page, {
     helvetica,
     helveticaBold,
     colors,
@@ -259,12 +277,25 @@ async function renderInvoicePage(
     yPosition,
     width,
     margin,
+    addPage,
   });
+  yPosition = table.yPosition - 30;
 
-  yPosition -= 30;
+  // Everything after the table goes on the table's last page, or on a new
+  // page when the totals (and payments) would reach the footer. The height is
+  // measured from what will be drawn, not guessed (RA-7896 review).
+  let lastPage = table.page;
+  const tailHeight = totalsAndPaymentsHeight(
+    data.invoice,
+    data.payments?.length ?? 0,
+  );
+  if (yPosition - tailHeight < FOOTER_CLEARANCE) {
+    lastPage = addPage();
+    yPosition = height - margin;
+  }
 
   // Totals Section
-  yPosition = await renderTotalsSection(page, {
+  yPosition = await renderTotalsSection(lastPage, {
     helvetica,
     helveticaBold,
     colors,
@@ -278,7 +309,7 @@ async function renderInvoicePage(
 
   // Payments Section (if any)
   if (data.payments && data.payments.length > 0) {
-    yPosition = await renderPaymentsSection(page, {
+    yPosition = await renderPaymentsSection(lastPage, {
       helvetica,
       helveticaBold,
       colors,
@@ -292,7 +323,7 @@ async function renderInvoicePage(
 
   // Notes & Terms
   if (data.invoice.notes || data.invoice.terms) {
-    await renderNotesAndTerms(page, {
+    await renderNotesAndTerms(lastPage, {
       helvetica,
       helveticaBold,
       colors,
@@ -300,19 +331,9 @@ async function renderInvoicePage(
       yPosition,
       width,
       margin,
+      addPage,
     });
   }
-
-  // Footer
-  await renderFooter(page, {
-    helvetica,
-    helveticaBold,
-    colors,
-    businessInfo: data.businessInfo,
-    invoice: data.invoice,
-    width,
-    margin,
-  });
 }
 
 /**
@@ -645,11 +666,64 @@ async function renderInvoiceDetails(
   return yPosition - boxHeight;
 }
 
+// Line-table column offsets, measured from the right margin (RA-7896).
+const COL_QTY = 300;
+const COL_RATE = 250;
+const COL_EX_GST = 190;
+const COL_GST = 130;
+const COL_INC_GST = 70;
+export const LINE_TABLE_COL_QTY = COL_QTY;
+export const LINE_TABLE_COLUMN_GAP = 8;
+/** Rows stop above the footer. */
+export const LINE_TABLE_BOTTOM = 110;
+/**
+ * The lowest baseline totals, payments, notes and terms may use. The footer
+ * divider is at y=60; this leaves room for descenders and a small gap.
+ */
+const FOOTER_CLEARANCE = 72;
+
+/**
+ * Distance from the first totals baseline ("Subtotal") down to the last
+ * baseline the totals block prints ("Amount Due"), plus the payments section
+ * when there are payments. Mirrors renderTotalsSection and
+ * renderPaymentsSection, and the gaps renderInvoicePage puts between them,
+ * step for step. The totals block draws no other optional rows.
+ */
+function totalsAndPaymentsHeight(
+  invoice: InvoiceData["invoice"],
+  paymentCount: number,
+): number {
+  let height = 18 + 18; // Subtotal, GST
+  if (invoice.discountAmount && invoice.discountAmount > 0) height += 18;
+  if (invoice.shippingAmount && invoice.shippingAmount > 0) height += 18;
+  height += 5 + 20 + 35; // divider, TOTAL box, gap
+  if (invoice.amountPaid > 0) height += 18; // Amount Paid
+  // `height` now reaches the Amount Due baseline.
+  if (paymentCount > 0) {
+    // totals return -10, gap -30, heading -20, then 15 per further payment
+    height += 10 + 30 + 20 + 15 * (paymentCount - 1);
+  }
+  return height;
+}
+
+/**
+ * The description wraps to end a gap before the QTY column, so a long
+ * description cannot run under the quantity on the same row.
+ */
+export function lineTableDescriptionWidth(
+  pageWidth: number,
+  margin: number,
+): number {
+  const descriptionX = margin + 10;
+  const qtyX = pageWidth - margin - COL_QTY;
+  return qtyX - descriptionX - LINE_TABLE_COLUMN_GAP;
+}
+
 /**
  * Render line items table
  */
 async function renderLineItemsTable(
-  page: PDFPage,
+  firstPage: PDFPage,
   options: {
     helvetica: PDFFont;
     helveticaBold: PDFFont;
@@ -658,15 +732,20 @@ async function renderLineItemsTable(
     yPosition: number;
     width: number;
     margin: number;
+    /** Starts a continuation page when the next row would not fit. */
+    addPage: () => PDFPage;
   },
-): Promise<number> {
+): Promise<{ page: PDFPage; yPosition: number }> {
   const { helvetica, helveticaBold, colors, lineItems, width, margin } =
     options;
+  let page = firstPage;
   let yPosition = options.yPosition;
 
   // Table header
   const tableWidth = width - 2 * margin;
   const rowHeight = 25;
+
+  const drawTableHeader = () => {
 
   // Header background
   page.drawRectangle({
@@ -687,118 +766,130 @@ async function renderLineItemsTable(
     color: colors.white,
   });
 
-  page.drawText("QTY", {
-    x: width - margin - 240,
-    y: headerY,
-    size: 9,
-    font: helveticaBold,
-    color: colors.white,
-  });
-
-  page.drawText("RATE", {
-    x: width - margin - 180,
-    y: headerY,
-    size: 9,
-    font: helveticaBold,
-    color: colors.white,
-  });
-
-  page.drawText("GST", {
-    x: width - margin - 120,
-    y: headerY,
-    size: 9,
-    font: helveticaBold,
-    color: colors.white,
-  });
-
-  page.drawText("AMOUNT", {
-    x: width - margin - 70,
-    y: headerY,
-    size: 9,
-    font: helveticaBold,
-    color: colors.white,
-  });
-
-  yPosition -= rowHeight + 5;
-
-  // Line items
-  lineItems.forEach((item, index) => {
-    const isEven = index % 2 === 0;
-    const itemRowHeight = 30;
-
-    // Alternating row background
-    if (isEven) {
-      page.drawRectangle({
-        x: margin,
-        y: yPosition - itemRowHeight,
-        width: tableWidth,
-        height: itemRowHeight,
-        color: colors.lightGray,
-      });
-    }
-
-    const itemY = yPosition - 12;
-
-    // Description
-    const descLines = wrapText(item.description, 280, helvetica, 9);
-    descLines.slice(0, 2).forEach((line, i) => {
-      page.drawText(sanitizeTextForPDF(line), {
-        x: margin + 10,
-        y: itemY - i * 11,
-        size: 9,
-        font: helvetica,
-        color: colors.black,
-      });
-    });
-
-    // Quantity
-    page.drawText(item.quantity.toString(), {
-      x: width - margin - 240,
-      y: itemY,
-      size: 9,
-      font: helvetica,
-      color: colors.black,
-    });
-
-    // Unit Price
-    page.drawText(formatCurrency(item.unitPrice), {
-      x: width - margin - 180,
-      y: itemY,
-      size: 9,
-      font: helvetica,
-      color: colors.black,
-    });
-
-    // GST
-    page.drawText(formatCurrency(item.gstAmount), {
-      x: width - margin - 120,
-      y: itemY,
-      size: 9,
-      font: helvetica,
-      color: colors.black,
-    });
-
-    // Total
-    page.drawText(formatCurrency(item.total), {
-      x: width - margin - 70,
-      y: itemY,
+  // RA-7896: every line shows its price ex GST and inc GST (the stored
+  // line subtotal and total), with the line's GST between them.
+  const headers: Array<[string, number]> = [
+    ["QTY", COL_QTY],
+    ["RATE", COL_RATE],
+    ["EX GST", COL_EX_GST],
+    ["GST", COL_GST],
+    ["INC GST", COL_INC_GST],
+  ];
+  for (const [label, offset] of headers) {
+    page.drawText(label, {
+      x: width - margin - offset,
+      y: headerY,
       size: 9,
       font: helveticaBold,
-      color: colors.black,
+      color: colors.white,
     });
+  }
 
-    yPosition -= itemRowHeight;
+  yPosition -= rowHeight + 5;
+  };
 
-    // Divider line
-    page.drawLine({
-      start: { x: margin, y: yPosition },
-      end: { x: width - margin, y: yPosition },
-      thickness: 0.5,
-      color: colors.dividerGray,
-    });
+  drawTableHeader();
+
+  // Line items
+  const descriptionX = margin + 10;
+  const LINE_HEIGHT = 11;
+  // Row height for n description lines: 12 above the first baseline, 7 below
+  // the last, never shorter than 30.
+  const rowHeightFor = (n: number) => Math.max(30, 12 + n * LINE_HEIGHT + 7);
+  // The most description lines that fit between yPosition and the table bottom.
+  const linesThatFit = () =>
+    Math.floor((yPosition - 19 - LINE_TABLE_BOTTOM) / LINE_HEIGHT);
+  const newTablePage = () => {
+    page = options.addPage();
+    yPosition = page.getSize().height - margin;
+    drawTableHeader();
+  };
+
+  lineItems.forEach((item, index) => {
+    const isEven = index % 2 === 0;
+
+    // Description: every wrapped line is printed, and the row grows to fit
+    // (RA-7896 review: a narrower column must not drop the end of a line).
+    let remaining = wrapText(
+      item.description,
+      lineTableDescriptionWidth(width, margin),
+      helvetica,
+      9,
+    );
+
+    // A row that would run into the footer starts a new page, with the
+    // column headings repeated. A row taller than a whole page is split:
+    // its description continues on the next page under repeated headings,
+    // and its amounts print once, on the first part (RA-7896 review P1).
+    if (yPosition - rowHeightFor(remaining.length) < LINE_TABLE_BOTTOM) {
+      newTablePage();
+    }
+
+    let firstChunk = true;
+    for (;;) {
+      const fits = yPosition - rowHeightFor(remaining.length) >= LINE_TABLE_BOTTOM;
+      const chunk = fits ? remaining : remaining.slice(0, linesThatFit());
+      const chunkHeight = rowHeightFor(chunk.length);
+
+      // Alternating row background
+      if (isEven) {
+        page.drawRectangle({
+          x: margin,
+          y: yPosition - chunkHeight,
+          width: tableWidth,
+          height: chunkHeight,
+          color: colors.lightGray,
+        });
+      }
+
+      const itemY = yPosition - 12;
+      chunk.forEach((line, i) => {
+        page.drawText(sanitizeTextForPDF(line), {
+          x: descriptionX,
+          y: itemY - i * LINE_HEIGHT,
+          size: 9,
+          font: helvetica,
+          color: colors.black,
+        });
+      });
+
+      if (firstChunk) {
+        const cells: Array<[string, number, PDFFont]> = [
+          [item.quantity.toString(), COL_QTY, helvetica],
+          [formatCurrency(item.unitPrice), COL_RATE, helvetica],
+          [formatCurrency(item.subtotal), COL_EX_GST, helvetica],
+          [formatCurrency(item.gstAmount), COL_GST, helvetica],
+          [formatCurrency(item.total), COL_INC_GST, helveticaBold],
+        ];
+        for (const [text, offset, font] of cells) {
+          page.drawText(text, {
+            x: width - margin - offset,
+            y: itemY,
+            size: 9,
+            font,
+            color: colors.black,
+          });
+        }
+        firstChunk = false;
+      }
+
+      yPosition -= chunkHeight;
+
+      // Divider line
+      page.drawLine({
+        start: { x: margin, y: yPosition },
+        end: { x: width - margin, y: yPosition },
+        thickness: 0.5,
+        color: colors.dividerGray,
+      });
+
+      if (fits) break;
+      remaining = remaining.slice(chunk.length);
+      newTablePage();
+    }
   });
 
-  return yPosition;
+  return { page, yPosition };
 }
 
 /**
@@ -1070,12 +1161,22 @@ async function renderNotesAndTerms(
     yPosition: number;
     width: number;
     margin: number;
+    /** Notes and terms continue on a new page rather than being cut. */
+    addPage: () => PDFPage;
   },
 ): Promise<number> {
   const { helvetica, helveticaBold, colors, invoice, width, margin } = options;
   let yPosition = options.yPosition;
+  // Before each line: start a new page when this one has reached the footer.
+  const ensureRoom = () => {
+    if (yPosition < FOOTER_CLEARANCE) {
+      page = options.addPage();
+      yPosition = page.getSize().height - margin;
+    }
+  };
 
   if (invoice.notes) {
+    ensureRoom();
     page.drawText("NOTES", {
       x: margin,
       y: yPosition,
@@ -1093,7 +1194,7 @@ async function renderNotesAndTerms(
       9,
     );
     notesLines.forEach((line) => {
-      if (yPosition < 100) return;
+      ensureRoom();
       page.drawText(sanitizeTextForPDF(line), {
         x: margin,
         y: yPosition,
@@ -1108,6 +1209,7 @@ async function renderNotesAndTerms(
   }
 
   if (invoice.terms) {
+    ensureRoom();
     page.drawText("PAYMENT TERMS", {
       x: margin,
       y: yPosition,
@@ -1125,7 +1227,7 @@ async function renderNotesAndTerms(
       9,
     );
     termsLines.forEach((line) => {
-      if (yPosition < 100) return;
+      ensureRoom();
       page.drawText(sanitizeTextForPDF(line), {
         x: margin,
         y: yPosition,
@@ -1153,10 +1255,11 @@ async function renderFooter(
     invoice: InvoiceData["invoice"];
     width: number;
     margin: number;
+    pageNumber: number;
+    pageCount: number;
   },
 ) {
   const { helvetica, colors, invoice, width, margin } = options;
-  const { height } = page.getSize();
 
   // Footer divider
   page.drawLine({
@@ -1188,7 +1291,7 @@ async function renderFooter(
   });
 
   // Page number
-  page.drawText("Page 1 of 1", {
+  page.drawText(`Page ${options.pageNumber} of ${options.pageCount}`, {
     x: width - margin - 60,
     y: 30,
     size: 8,

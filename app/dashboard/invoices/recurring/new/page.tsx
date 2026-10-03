@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import { dollarsToCents, lineAmountsCents } from "@/lib/invoices/calc";
+import { LineExIncPrices } from "@/components/invoices/LineExIncPrices";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
 const FREQUENCIES = [
@@ -477,6 +478,20 @@ export default function NewRecurringInvoicePage() {
                       <Trash2 size={14} />
                     </button>
                   )}
+                </div>
+                {/* RA-7896: the line ex GST and inc GST, per line. */}
+                <div className="col-span-12 flex justify-end">
+                  <LineExIncPrices
+                    amounts={previewLines[idx]}
+                    incGstPending={
+                      gstKnown
+                        ? undefined
+                        : gstFailed
+                          ? "Unavailable"
+                          : "Calculating..."
+                    }
+                    className="w-48 text-slate-300"
+                  />
                 </div>
               </div>
             ))}
