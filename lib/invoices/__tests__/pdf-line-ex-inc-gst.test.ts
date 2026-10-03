@@ -64,4 +64,59 @@ describe("RA-7896 invoice PDF — line prices ex GST and inc GST", () => {
     const description = "Emergency callout and initial moisture inspection";
     expect(helvetica.widthOfTextAtSize(description, 9)).toBeGreaterThan(descWidth);
   });
+
+  it("prints every wrapped line of a long description", async () => {
+    // Codex review P1: this wraps to three lines at the A4 description width,
+    // and only the first two used to be printed.
+    const description =
+      "Remove water damaged plasterboard from bathroom ceiling and dispose of contaminated material";
+    const pdf = await generateInvoicePDF({
+      invoice: {
+        id: "inv_7896_long",
+        invoiceNumber: "INV-7896-L",
+        status: "SENT",
+        invoiceDate: new Date("2026-10-03T00:00:00Z"),
+        dueDate: new Date("2026-10-17T00:00:00Z"),
+        customerName: "Mock Customer",
+        customerEmail: "mock@example.com",
+        ...MIXED_GST_TOTALS,
+        amountPaid: 0,
+        amountDue: MIXED_GST_TOTALS.totalIncGST,
+      },
+      lineItems: [{ ...MIXED_GST_LINES[0], description }, ...MIXED_GST_LINES.slice(1)],
+    });
+    const text = (await pdfText(pdf)).replace(/\s+/g, " ");
+
+    expect(text).toContain("contaminated material");
+    expect(text).toMatch(/Dehumidifier hire\s+3\s+\$19\.99/);
+  });
+
+  it("continues a long line table onto another page and keeps every line", async () => {
+    const lines = Array.from({ length: 40 }, (_, i) => ({
+      ...MIXED_GST_LINES[1],
+      id: `line_${i + 1}`,
+      description: `Drying equipment day ${i + 1}`,
+      sortOrder: i,
+    }));
+    const pdf = await generateInvoicePDF({
+      invoice: {
+        id: "inv_7896_pages",
+        invoiceNumber: "INV-7896-P",
+        status: "SENT",
+        invoiceDate: new Date("2026-10-03T00:00:00Z"),
+        dueDate: new Date("2026-10-17T00:00:00Z"),
+        customerName: "Mock Customer",
+        customerEmail: "mock@example.com",
+        ...MIXED_GST_TOTALS,
+        amountPaid: 0,
+        amountDue: MIXED_GST_TOTALS.totalIncGST,
+      },
+      lineItems: lines,
+    });
+
+    expect((await PDFDocument.load(pdf)).getPageCount()).toBeGreaterThan(1);
+    const text = (await pdfText(pdf)).replace(/\s+/g, " ");
+    expect(text).toContain("Drying equipment day 1 ");
+    expect(text).toContain("Drying equipment day 40 ");
+  });
 });

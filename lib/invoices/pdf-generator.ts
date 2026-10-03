@@ -250,8 +250,9 @@ async function renderInvoicePage(
 
   yPosition -= 35;
 
-  // Line Items Table
-  yPosition = await renderLineItemsTable(page, {
+  // Line Items Table (continues onto further A4 pages when it is long)
+  const addPage = () => options.pdfDoc.addPage([width, height]);
+  const table = await renderLineItemsTable(page, {
     helvetica,
     helveticaBold,
     colors,
@@ -259,12 +260,20 @@ async function renderInvoicePage(
     yPosition,
     width,
     margin,
+    addPage,
   });
+  yPosition = table.yPosition - 30;
 
-  yPosition -= 30;
+  // Everything after the table goes on the table's last page, or on a new
+  // page when the totals would not fit above the footer.
+  let lastPage = table.page;
+  if (yPosition < TOTALS_MIN_SPACE) {
+    lastPage = addPage();
+    yPosition = height - margin;
+  }
 
   // Totals Section
-  yPosition = await renderTotalsSection(page, {
+  yPosition = await renderTotalsSection(lastPage, {
     helvetica,
     helveticaBold,
     colors,
@@ -278,7 +287,7 @@ async function renderInvoicePage(
 
   // Payments Section (if any)
   if (data.payments && data.payments.length > 0) {
-    yPosition = await renderPaymentsSection(page, {
+    yPosition = await renderPaymentsSection(lastPage, {
       helvetica,
       helveticaBold,
       colors,
@@ -292,7 +301,7 @@ async function renderInvoicePage(
 
   // Notes & Terms
   if (data.invoice.notes || data.invoice.terms) {
-    await renderNotesAndTerms(page, {
+    await renderNotesAndTerms(lastPage, {
       helvetica,
       helveticaBold,
       colors,
@@ -304,7 +313,7 @@ async function renderInvoicePage(
   }
 
   // Footer
-  await renderFooter(page, {
+  await renderFooter(lastPage, {
     helvetica,
     helveticaBold,
     colors,
@@ -653,6 +662,9 @@ const COL_GST = 130;
 const COL_INC_GST = 70;
 export const LINE_TABLE_COL_QTY = COL_QTY;
 export const LINE_TABLE_COLUMN_GAP = 8;
+/** Rows stop above the footer; the totals block needs this much room. */
+const LINE_TABLE_BOTTOM = 110;
+const TOTALS_MIN_SPACE = 260;
 
 /**
  * The description wraps to end a gap before the QTY column, so a long
@@ -671,7 +683,7 @@ export function lineTableDescriptionWidth(
  * Render line items table
  */
 async function renderLineItemsTable(
-  page: PDFPage,
+  firstPage: PDFPage,
   options: {
     helvetica: PDFFont;
     helveticaBold: PDFFont;
@@ -680,15 +692,20 @@ async function renderLineItemsTable(
     yPosition: number;
     width: number;
     margin: number;
+    /** Starts a continuation page when the next row would not fit. */
+    addPage: () => PDFPage;
   },
-): Promise<number> {
+): Promise<{ page: PDFPage; yPosition: number }> {
   const { helvetica, helveticaBold, colors, lineItems, width, margin } =
     options;
+  let page = firstPage;
   let yPosition = options.yPosition;
 
   // Table header
   const tableWidth = width - 2 * margin;
   const rowHeight = 25;
+
+  const drawTableHeader = () => {
 
   // Header background
   page.drawRectangle({
@@ -729,11 +746,31 @@ async function renderLineItemsTable(
   }
 
   yPosition -= rowHeight + 5;
+  };
+
+  drawTableHeader();
 
   // Line items
   lineItems.forEach((item, index) => {
     const isEven = index % 2 === 0;
-    const itemRowHeight = 30;
+
+    // Description: every wrapped line is printed, and the row grows to fit
+    // (RA-7896 review: a narrower column must not drop the end of a line).
+    const descLines = wrapText(
+      item.description,
+      lineTableDescriptionWidth(width, margin),
+      helvetica,
+      9,
+    );
+    const itemRowHeight = Math.max(30, 12 + descLines.length * 11 + 7);
+
+    // A row that would run into the footer starts a new page, with the
+    // column headings repeated.
+    if (yPosition - itemRowHeight < LINE_TABLE_BOTTOM) {
+      page = options.addPage();
+      yPosition = page.getSize().height - margin;
+      drawTableHeader();
+    }
 
     // Alternating row background
     if (isEven) {
@@ -748,14 +785,7 @@ async function renderLineItemsTable(
 
     const itemY = yPosition - 12;
 
-    // Description
-    const descLines = wrapText(
-      item.description,
-      lineTableDescriptionWidth(width, margin),
-      helvetica,
-      9,
-    );
-    descLines.slice(0, 2).forEach((line, i) => {
+    descLines.forEach((line, i) => {
       page.drawText(sanitizeTextForPDF(line), {
         x: margin + 10,
         y: itemY - i * 11,
@@ -793,7 +823,7 @@ async function renderLineItemsTable(
     });
   });
 
-  return yPosition;
+  return { page, yPosition };
 }
 
 /**
