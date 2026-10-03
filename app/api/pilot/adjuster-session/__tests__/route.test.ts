@@ -12,7 +12,13 @@ import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    user: { findUnique: vi.fn() },
+    inspection: { findUnique: vi.fn() },
+    userInvite: { findFirst: vi.fn() },
+  },
+}));
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: vi.fn().mockResolvedValue(null),
 }));
@@ -38,6 +44,12 @@ import { POST } from "../route";
 
 const mockSession = getServerSession as ReturnType<typeof vi.fn>;
 const mockFindUnique = prisma.user.findUnique as ReturnType<typeof vi.fn>;
+const mockInspectionFindUnique = prisma.inspection.findUnique as ReturnType<
+  typeof vi.fn
+>;
+const mockInviteFindFirst = prisma.userInvite.findFirst as ReturnType<
+  typeof vi.fn
+>;
 const mockRateLimit = applyRateLimit as ReturnType<typeof vi.fn>;
 const mockDeductCredits = deductCreditsAndTrackUsage as ReturnType<
   typeof vi.fn
@@ -80,6 +92,10 @@ beforeEach(() => {
   mockDeductCredits.mockResolvedValue(undefined);
   mockRefundCredits.mockResolvedValue({ refunded: true });
   mockRunAgent.mockResolvedValue(sampleRecommendation);
+  mockInspectionFindUnique.mockResolvedValue({
+    createdAt: new Date("2026-06-01T00:00:00Z"),
+  });
+  mockInviteFindFirst.mockResolvedValue(null);
   // Owns-the-inspection by default; individual tests override to simulate
   // a cross-tenant inspectionId.
   mockAssertInspectionTenancy.mockResolvedValue({
@@ -314,5 +330,44 @@ describe("POST /api/pilot/adjuster-session", () => {
     expect(res.status).toBe(500);
     expect(mockRefundCredits).toHaveBeenCalledTimes(1);
     expect(mockRefundCredits).toHaveBeenCalledWith("user-10");
+  });
+});
+
+describe("POST /api/pilot/adjuster-session — RA-7893 moved technician", () => {
+  it("does not charge org B's owner for an inspection the technician created in org A before moving", async () => {
+    // user-1 created insp-001 on 1 June in org A, then accepted an invite
+    // into org B on 1 July. owner-b has a current trial.
+    const rows: Record<string, Record<string, unknown>> = {
+      "user-1": {
+        id: "user-1",
+        role: "USER",
+        organizationId: "org-b",
+        organization: { ownerId: "owner-b" },
+        email: "user-1@example.com",
+        subscriptionStatus: null,
+      },
+      "owner-b": {
+        id: "owner-b",
+        role: "ADMIN",
+        organizationId: "org-b",
+        organization: { ownerId: "owner-b" },
+        subscriptionStatus: "TRIAL",
+        trialEndsAt: new Date("2099-01-01"),
+        creditsRemaining: 5,
+      },
+    };
+    mockSession.mockResolvedValueOnce({ user: { id: "user-1" } });
+    mockFindUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
+    );
+    mockInviteFindFirst.mockResolvedValue({
+      usedAt: new Date("2026-07-01T00:00:00Z"),
+    });
+
+    const res = await POST(makeRequest({ inspectionId: "insp-001" }));
+
+    expect(mockDeductCredits).not.toHaveBeenCalled();
+    expect(mockRunAgent).not.toHaveBeenCalled();
+    expect(res.status).toBe(402);
   });
 });

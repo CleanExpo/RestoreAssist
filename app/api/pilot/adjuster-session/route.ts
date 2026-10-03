@@ -28,6 +28,7 @@ import { apiError } from "@/lib/api-errors";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { validateCsrf } from "@/lib/csrf";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { isOwnResourceFromCurrentBusiness } from "@/lib/organization-credits";
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,6 +95,29 @@ export async function POST(request: NextRequest) {
         { error: tenancy.reason },
         { status: tenancy.status },
       );
+    }
+
+    // ── 4c. RA-7893: the credit is charged to the caller's CURRENT business.
+    // A technician's own inspection from before they joined it (a previous
+    // organisation) must not be billed to it.
+    if (tenancy.data.userId === userId) {
+      const inspection = await prisma.inspection.findUnique({
+        where: { id: inspectionId },
+        select: { createdAt: true },
+      });
+      if (
+        !inspection ||
+        !(await isOwnResourceFromCurrentBusiness(userId, {
+          userId: tenancy.data.userId,
+          createdAt: inspection.createdAt,
+        }))
+      ) {
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: "Active subscription required",
+          status: 402,
+        });
+      }
     }
 
     // ── 5. Atomic credit deduction (rule 9) ───────────────────────────────────

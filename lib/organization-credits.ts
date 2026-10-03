@@ -183,6 +183,25 @@ export async function getResourceTenantOwner(
 }
 
 /**
+ * RA-7893 — for a session route that charges or uses a paid add-on through
+ * the CALLER's current business while acting on one resource: false when the
+ * caller created the resource but it cannot be shown to belong to the
+ * business they are in now (they created it before joining, e.g. in a
+ * previous organisation). The caller's current owner would then pay for, or
+ * lend an add-on to, another business's job.
+ *
+ * A resource created by someone else is not judged here: who may act on it
+ * is the tenancy check's question, and this branch does not change it.
+ */
+export async function isOwnResourceFromCurrentBusiness(
+  callerId: string,
+  resource: { userId: string; createdAt: Date },
+): Promise<boolean> {
+  if (resource.userId !== callerId) return true;
+  return (await getResourceTenantOwner(callerId, resource.createdAt)) !== null;
+}
+
+/**
  * RA-7893 — getEffectiveSubscription for work on a specific resource: the
  * plan, and the balance a trial charge lands on, of the business the
  * resource belongs to (getResourceTenantOwner). Null when that business

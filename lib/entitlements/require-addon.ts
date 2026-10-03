@@ -178,15 +178,48 @@ export async function isAddonEntitledForResource(
   sku: string,
 ): Promise<boolean> {
   try {
-    const ownerId = await getResourceTenantOwner(creatorId, resourceCreatedAt);
-    if (!ownerId) return false;
-    const workspace = await getReadyWorkspaceOwnedBy(ownerId);
-    if (!workspace) return false;
-    const gate = await requireAddonForWorkspace(workspace.id, sku);
+    const gate = await requireAddonForResource(
+      creatorId,
+      resourceCreatedAt,
+      sku,
+    );
     return gate.allowed;
   } catch {
     return false;
   }
+}
+
+/**
+ * RA-7893 — `requireAddon()` for work on a specific RESOURCE (a job, report
+ * or inspection): the add-on of the business the resource belongs to
+ * (`getResourceTenantOwner`), never of an organisation its creator joined
+ * after creating it. For senders with no session user (Pulse) and any path
+ * acting on someone's job. An unprovable business denies as NO_WORKSPACE.
+ */
+export async function requireAddonForResource(
+  creatorId: string,
+  resourceCreatedAt: Date,
+  sku: string,
+): Promise<AddonGateResult> {
+  if (!isAddonSku(sku)) {
+    return {
+      allowed: false,
+      reason: "UNKNOWN_SKU",
+      sku,
+      response: unknownSkuResponse(sku),
+    };
+  }
+  const ownerId = await getResourceTenantOwner(creatorId, resourceCreatedAt);
+  const workspace = ownerId ? await getReadyWorkspaceOwnedBy(ownerId) : null;
+  if (!workspace) {
+    return {
+      allowed: false,
+      reason: "NO_WORKSPACE",
+      sku,
+      response: addonRequiredResponse(sku, "NO_WORKSPACE"),
+    };
+  }
+  return requireAddonForWorkspace(workspace.id, sku);
 }
 
 // ─── Guard ─────────────────────────────────────────────────────────────────────
