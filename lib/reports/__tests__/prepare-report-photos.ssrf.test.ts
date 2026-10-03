@@ -84,3 +84,57 @@ describe("prepareReportPhotos never fetches a non-storage URL (RA-7879)", () => 
     expect(out.missing).toBe(1);
   });
 });
+
+// RA-7879 follow-up: genuine photos hosted on our own Cloudinary account must
+// still reach the report. Only https://res.cloudinary.com/<our cloud>/… is
+// allowed, fetched as-is (public), never through the storage signer.
+describe("prepareReportPhotos allows only our own Cloudinary photos", () => {
+  const CLOUD = "ra-cloud";
+  const ours = `https://res.cloudinary.com/${CLOUD}/image/upload/v1/inspection-photos/a.jpg`;
+
+  beforeEach(() => {
+    vi.stubEnv("CLOUDINARY_CLOUD_NAME", CLOUD);
+    vi.stubEnv("CLOUDINARY_URL", "");
+  });
+
+  const run = (url: string, fetchImpl = okFetch()) =>
+    prepareReportPhotos([{ id: "p1", inspectionId: "insp-1", url }], {
+      inspectionId: "insp-1",
+      ownerFolders: ["org-1"],
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    }).then((out) => ({ out, fetchImpl }));
+
+  it("includes a photo under our cloud name, fetched once as stored and unsigned", async () => {
+    const { out, fetchImpl } = await run(ours);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith(ours, expect.anything());
+    expect(signStoredMediaUrl).not.toHaveBeenCalled();
+    expect(out.photos).toHaveLength(1);
+    expect(out.missing).toBe(0);
+  });
+
+  it.each([
+    ["another cloud name", "https://res.cloudinary.com/other-cloud/image/upload/a.jpg"],
+    ["http", `http://res.cloudinary.com/${CLOUD}/image/upload/a.jpg`],
+    ["a port", `https://res.cloudinary.com:8443/${CLOUD}/image/upload/a.jpg`],
+    ["userinfo", `https://x@res.cloudinary.com/${CLOUD}/image/upload/a.jpg`],
+    ["a lookalike suffix host", `https://res.cloudinary.com.evil.com/${CLOUD}/image/upload/a.jpg`],
+    ["a lookalike prefix host", `https://evilres.cloudinary.com/${CLOUD}/image/upload/a.jpg`],
+    ["the metadata address", METADATA],
+    ["localhost", LOCAL_DB],
+  ])("omits %s without fetching it", async (_label, url) => {
+    const { out, fetchImpl } = await run(url);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(signStoredMediaUrl).not.toHaveBeenCalled();
+    expect(out.photos).toHaveLength(0);
+    expect(out.missing).toBe(1);
+  });
+
+  it("allows no Cloudinary URL when no cloud name is configured", async () => {
+    vi.stubEnv("CLOUDINARY_CLOUD_NAME", "");
+    const { out, fetchImpl } = await run(ours);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(out.photos).toHaveLength(0);
+    expect(out.missing).toBe(1);
+  });
+});

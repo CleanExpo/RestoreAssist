@@ -2,6 +2,7 @@ import {
   parseSupabaseStorageUrl,
   signStoredMediaUrl,
 } from "@/lib/storage/sign-stored-url";
+import { cloudName } from "@/lib/media/cloudinary-asset-url";
 
 /**
  * The subset of an `InspectionPhoto` row needed to embed it in a report.
@@ -112,7 +113,8 @@ export function photoOwnerFolders(inspection: {
 
 /**
  * Whether a stored URL names one of our storage objects. Anything else (a
- * legacy host, an internal address, a data URI) is never fetched: the report
+ * legacy host, an internal address, a data URI), apart from our own Cloudinary
+ * photos ({@link isOurCloudinaryUrl}), is never fetched: the report
  * route fetches from the server, so fetching a row's URL as given would let a
  * stored address reach internal services (RA-7879). A storage URL whose path
  * cannot be decoded counts as storage here and is refused by
@@ -124,6 +126,31 @@ function isStorageObject(stored: string): boolean {
   } catch {
     return true;
   }
+}
+
+/**
+ * Whether a stored URL is a photo on our own Cloudinary account: https, host
+ * exactly `res.cloudinary.com`, no userinfo or port, first path segment our
+ * configured cloud name. Older photos and live-teacher captures live there.
+ * No configured cloud name allows no Cloudinary URL.
+ */
+function isOurCloudinaryUrl(stored: string): boolean {
+  const cloud = cloudName();
+  if (!cloud) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(stored);
+  } catch {
+    return false;
+  }
+  return (
+    parsed.protocol === "https:" &&
+    parsed.hostname === "res.cloudinary.com" &&
+    parsed.port === "" &&
+    parsed.username === "" &&
+    parsed.password === "" &&
+    parsed.pathname.split("/")[1] === cloud
+  );
 }
 
 class PhotoTimeout extends Error {}
@@ -196,7 +223,8 @@ export async function prepareReportPhotos(
   ): Promise<ReportPhoto | PhotoOmissionReason> => {
     const stored = p.thumbnailUrl?.trim() || p.url?.trim();
     if (!stored) return "no_url";
-    if (!isStorageObject(stored)) {
+    const cloudinaryHosted = isOurCloudinaryUrl(stored);
+    if (!cloudinaryHosted && !isStorageObject(stored)) {
       // Never routine: genuine uploads are always storage objects.
       console.error(
         "[report-photos] refused a photo URL that is not a storage object",
@@ -210,11 +238,12 @@ export async function prepareReportPhotos(
       p.inspectionId !== options.inspectionId;
     if (
       rowElsewhere ||
-      !storagePathBelongsTo(
-        stored,
-        options.inspectionId ?? p.inspectionId,
-        options.ownerFolders ?? [],
-      )
+      (!cloudinaryHosted &&
+        !storagePathBelongsTo(
+          stored,
+          options.inspectionId ?? p.inspectionId,
+          options.ownerFolders ?? [],
+        ))
     ) {
       // Never routine: a row points at an object outside its inspection.
       console.error("[report-photos] refused a photo outside its inspection", {
@@ -227,12 +256,15 @@ export async function prepareReportPhotos(
       return await withTimeout(timeoutMs, async (signal) => {
         // The photo bucket is private: a stored URL is either a bare object
         // URL or an expired signature, and fetching it unsigned fails. Same
-        // re-sign as GET /api/inspections/[id]/photos.
-        let src: string;
-        try {
-          src = (await signStoredMediaUrl(stored)) ?? stored;
-        } catch {
-          return "sign_failed" as const;
+        // re-sign as GET /api/inspections/[id]/photos. Our Cloudinary
+        // photos are public and fetched as stored.
+        let src: string = stored;
+        if (!cloudinaryHosted) {
+          try {
+            src = (await signStoredMediaUrl(stored)) ?? stored;
+          } catch {
+            return "sign_failed" as const;
+          }
         }
         const res = await fetchImpl(src, { signal });
         if (!res.ok) return "fetch_failed" as const;
