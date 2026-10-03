@@ -160,7 +160,7 @@ export async function POST(
       });
     }
 
-    return withIdempotency(request, session.user.id, async (rawBody) => {
+    return await withIdempotency(request, session.user.id, async (rawBody) => {
     const body = JSON.parse(rawBody) as {
       kind?: string;
       x?: number;

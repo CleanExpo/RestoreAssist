@@ -609,6 +609,16 @@ export async function POST(request: NextRequest) {
           });
         }
         needsClientLink = Boolean(requestedClientId && !report.clientId);
+        // The client lookup above is caller-scoped, so linking would attach the
+        // caller's client to a colleague's report. Refuse that with the reason
+        // rather than letting the owner-scoped write fail as "client changed".
+        if (needsClientLink && report.userId !== userId) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "Only the report's creator can set its client",
+            status: 409,
+          });
+        }
         if (
           report.propertyAddress.trim().toLowerCase() !==
             body.propertyAddress.trim().toLowerCase() ||

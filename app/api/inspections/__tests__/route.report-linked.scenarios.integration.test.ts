@@ -217,6 +217,28 @@ describe.skipIf(!HAS_DB)("report-linked inspection create (recovery scenarios)",
     expect(audit?.userId).toBe(ids.managerA);
   });
 
+  it("tells an ADMIN plainly that only the creator can set a colleague's report client, with no write", async () => {
+    // The client picker only offers the caller's own clients, so linking one
+    // would attach the ADMIN's client to someone else's report. That stays
+    // refused, but up front with the reason, not as "client changed; reload".
+    const client = await prisma.client.create({
+      data: { name: `${S} admin client`, email: `${S}-client@test.local`, userId: ids.ownerA },
+    });
+    const report = await makeReport(ids.managerA, "admin-client");
+    const res = await createAs(ids.ownerA, {
+      ...address,
+      reportId: report.id,
+      clientId: client.id,
+      claimType: "WATER",
+    });
+    expect(res.status).toBe(409);
+    expect(res.json?.error?.message ?? res.json?.message).toMatch(/creator/i);
+    expect(await prisma.inspection.count({ where: { reportId: report.id } })).toBe(0);
+    const after = await prisma.report.findUnique({ where: { id: report.id }, select: { clientId: true } });
+    expect(after?.clientId).toBeNull();
+    await prisma.client.delete({ where: { id: client.id } });
+  });
+
   it("refuses a USER colleague in the same organisation, with no row", async () => {
     const report = await makeReport(ids.ownerA, "user");
     const res = await createAs(ids.techA, { ...address, reportId: report.id });

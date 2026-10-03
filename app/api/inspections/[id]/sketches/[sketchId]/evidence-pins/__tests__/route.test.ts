@@ -209,6 +209,15 @@ describe("POST evidence pin with an existing inspection photo", () => {
     });
   });
 
+  it("answers a database failure inside the idempotent handler with the route's error response", async () => {
+    db.inspectionPhoto.findFirst.mockRejectedValue(new Error("db down"));
+
+    const response = await POST(request("photo-1"), context);
+
+    expect(response.status).toBe(500);
+    expect(db.evidencePin.create).not.toHaveBeenCalled();
+  });
+
   it("rejects a photo that is not part of the inspection", async () => {
     db.inspectionPhoto.findFirst.mockResolvedValue(null);
 
