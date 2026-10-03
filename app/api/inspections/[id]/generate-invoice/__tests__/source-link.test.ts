@@ -639,7 +639,7 @@ describe("inspection generate-invoice source link", () => {
     ).toBe(data.totalIncGST);
   });
 
-  it("RA-7705: a stored float subtotal 0.69 x 22.5 = 15.524999999999999 invoices as 1553c, not 1552c", async () => {
+  it("RA-7705: a stored float subtotal 0.69 x 22.5 = 15.524999999999999 invoices the $15.52 the estimate displayed", async () => {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
       status: "SUBMITTED",
@@ -703,13 +703,14 @@ describe("inspection generate-invoice source link", () => {
     expect(res.status).toBe(201);
     const data = txInvoiceCreate.mock.calls[0][0].data;
     expect(data.lineItems.create[0]).toMatchObject({
-      unitPrice: 2_250,
-      subtotal: 1_553,
+      quantity: 1,
+      unitPrice: 1_552,
+      subtotal: 1_552,
       gstAmount: 155,
-      total: 1_708,
+      total: 1_707,
     });
-    expect(data.subtotalExGST).toBe(1_553);
-    expect(data.totalIncGST).toBe(1_708);
+    expect(data.subtotalExGST).toBe(1_552);
+    expect(data.totalIncGST).toBe(1_707);
   });
 
   // RA-7705: generate an invoice from one approved estimate line.
@@ -718,7 +719,7 @@ describe("inspection generate-invoice source link", () => {
     qty: number;
     unit: string;
     rate: number;
-    subtotal: number;
+    subtotal: number | null;
   }) {
     inspectionFindFirst.mockResolvedValue({
       id: "insp_1",
@@ -845,6 +846,21 @@ describe("inspection generate-invoice source link", () => {
     rate: 22.5,
     subtotal: 0.69 * 22.5,
   };
+  const explicitSubtotalLine = {
+    description: "Moisture mapping",
+    qty: 1,
+    unit: "item",
+    rate: 65,
+    // Supplied explicitly; the estimates route persists it as given.
+    subtotal: 65.00499999999998,
+  };
+  const matchingLine = {
+    description: "Labour",
+    qty: 2,
+    unit: "hr",
+    rate: 22.5,
+    subtotal: 2 * 22.5,
+  };
 
   it("RA-7705 case A: a weekly-priced line invoices the approved $225.01 as one unit, so qty x unit price equals the subtotal", async () => {
     const data = await generateFromEstimateLine(weeklyLine);
@@ -883,22 +899,77 @@ describe("inspection generate-invoice source link", () => {
     expect(data.totalIncGST).toBe(357_528);
   });
 
-  it("RA-7705: a line whose qty x whole-cent rate already equals the approved cents keeps its qty and rate", async () => {
+  it("RA-7705: a float-noise subtotal invoices the $15.52 the estimate displayed, as one unit, since 0.69 x 2250c is 1553c", async () => {
+    expect((0.69 * 22.5).toFixed(2)).toBe("15.52");
+
     const data = await generateFromEstimateLine(floatNoiseLine);
 
     expect(data.lineItems.create[0]).toMatchObject({
+      description: "Labour (0.69 hr x $22.5)",
+      quantity: 1,
+      unitPrice: 1_552,
+      subtotal: 1_552,
+    });
+    expectLinesConsistent(data.lineItems.create);
+  });
+
+  it("RA-7705: an explicitly supplied subtotal of 65.00499999999998 invoices the $65.00 the estimate displayed, not 6501c", async () => {
+    expect((65.00499999999998).toFixed(2)).toBe("65.00");
+
+    const data = await generateFromEstimateLine(explicitSubtotalLine);
+
+    expect(data.lineItems.create[0]).toMatchObject({
+      quantity: 1,
+      unitPrice: 6_500,
+      subtotal: 6_500,
+      gstAmount: 650,
+      total: 7_150,
+    });
+    expectLinesConsistent(data.lineItems.create);
+    expect(data.subtotalExGST).toBe(6_500);
+  });
+
+  it("RA-7705: a line whose qty x whole-cent rate equals the displayed subtotal keeps its qty and rate", async () => {
+    const data = await generateFromEstimateLine(matchingLine);
+
+    expect(data.lineItems.create[0]).toMatchObject({
       description: "Labour",
-      quantity: 0.69,
+      quantity: 2,
       unit: "hr",
       unitPrice: 2_250,
-      subtotal: 1_553,
+      subtotal: 4_500,
     });
   });
+
+  it.each([
+    ["null", null],
+    ["0", 0],
+  ])(
+    "RA-7705: a %s subtotal invoices qty x rate as the estimate engine displays it",
+    async (_name, subtotal) => {
+      const data = await generateFromEstimateLine({
+        description: "Dehumidifier",
+        qty: 3,
+        unit: "day",
+        rate: 19.99,
+        subtotal,
+      });
+
+      expect(data.lineItems.create[0]).toMatchObject({
+        description: "Dehumidifier",
+        quantity: 3,
+        unitPrice: 1_999,
+        subtotal: 5_997,
+      });
+    },
+  );
 
   it.each([
     ["weekly pricing", weeklyLine],
     ["sub-cent rate", subCentRateLine],
     ["float-noise subtotal", floatNoiseLine],
+    ["explicit sub-cent subtotal", explicitSubtotalLine],
+    ["matching line", matchingLine],
   ])(
     "RA-7705: an unchanged re-save through PUT /api/invoices/[id] keeps every line and total (%s)",
     async (_name, line) => {

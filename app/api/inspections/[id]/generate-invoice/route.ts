@@ -15,17 +15,26 @@ import { dollarsToCents, lineSubtotalCents } from "@/lib/invoices/calc";
 const toCents = (amount: number | null) => dollarsToCents(amount ?? 0);
 
 /**
- * RA-7705: the approved ex-GST cents of an estimate line, which is its
- * stored subtotal. The estimates route stores `subtotal = qty * rate` in
- * float, so the stored number can carry binary noise (0.69 * 22.5 is stored
- * as 15.524999999999999). It is read at 15 significant digits first, so the
- * noise counts as the decimal it stands for: $15.525 -> 1553c. The approved
- * amount is never re-derived from qty x rate.
+ * RA-7705: invoice what the estimate displayed. An estimate line's approved
+ * ex-GST cents are exactly the dollars the estimate screens showed the
+ * customer: EstimationEngine renders `(item.subtotal || item.qty * item.rate)
+ * .toFixed(2)`, and the viewers render the stored subtotal the same way.
+ * The cents are read from that string in decimal, with no float multiply.
+ *
+ * Why not "denoise" the stored double: it carries no provenance. A float
+ * product (0.69 * 22.5 = 15.524999999999999) and an explicitly supplied
+ * subtotal (65.00499999999998) are both just doubles, and any rule that
+ * rounds one "up to what it meant" rounds the other wrong. The displayed
+ * amount is the one the customer approved, so 15.524999999999999 is $15.52
+ * and 65.00499999999998 is $65.00.
  */
-const approvedLineCents = (subtotal: number | null) =>
-  new Decimal(Number(subtotal ?? 0).toPrecision(15))
+const approvedLineCents = (item: {
+  qty: number;
+  rate: number;
+  subtotal: number | null;
+}) =>
+  new Decimal((item.subtotal || item.qty * item.rate).toFixed(2))
     .mul(100)
-    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
     .toNumber();
 
 /**
@@ -33,7 +42,8 @@ const approvedLineCents = (subtotal: number | null) =>
  * `lineSubtotalCents(quantity, unitPrice) === subtotal`, or an unchanged
  * re-save through the edit page and PUT reprices it. When the estimate's
  * qty x whole-cent rate already gives the approved cents, the line keeps
- * them. Otherwise (day/week pricing, a sub-cent rate such as $65.005) it is
+ * them. Otherwise (day/week pricing, a sub-cent rate such as $65.005, a
+ * displayed subtotal that rounded differently from qty x rate) it is
  * invoiced as one unit at the approved cents, with the estimate's qty and
  * rate kept in the description. An adjustment line is not used: invoice
  * create/PUT and the edit page reject a negative unit price.
@@ -45,7 +55,7 @@ function estimateInvoiceLine(item: {
   rate: number;
   subtotal: number;
 }) {
-  const subtotal = approvedLineCents(item.subtotal);
+  const subtotal = approvedLineCents(item);
   const unitPrice = toCents(item.rate);
   if (lineSubtotalCents(item.qty, unitPrice) === subtotal) {
     return {
