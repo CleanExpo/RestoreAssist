@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateInvoiceTotals } from "@/lib/invoices/calc";
+import {
+  calculateInvoiceTotals,
+  dollarsToCents,
+  lineSubtotalCents,
+} from "@/lib/invoices/calc";
 import { getGstTreatmentForCurrency } from "@/lib/gst-rules";
 import {
   inheritGstRate,
@@ -264,14 +268,14 @@ export async function POST(
 
       const lineItemsForCalc = lineItems.map((item: any) => ({
         quantity: item.quantity,
-        unitPrice: Math.round(Number(item.unitPrice) * 100),
+        unitPrice: dollarsToCents(Number(item.unitPrice)),
         gstRate: resolveLineGstRate(item.gstRate, inheritedGstRate),
       }));
       const discountAmountCents = discountAmount
-        ? Math.round(parseFloat(discountAmount) * 100)
+        ? dollarsToCents(parseFloat(discountAmount))
         : null;
       const shippingAmountCents = shippingAmount
-        ? Math.round(parseFloat(shippingAmount) * 100)
+        ? dollarsToCents(parseFloat(shippingAmount))
         : null;
       const discountPercentageNum = discountPercentage
         ? parseFloat(discountPercentage)
@@ -280,7 +284,7 @@ export async function POST(
       // Pre-discount line subtotal for adjustment bounds (mirrors create route).
       const preDiscountSubtotal = lineItemsForCalc.reduce(
         (sum: number, item: { quantity: number; unitPrice: number }) =>
-          sum + Math.round(Number(item.quantity) * Number(item.unitPrice)),
+          sum + lineSubtotalCents(Number(item.quantity), Number(item.unitPrice)),
         0,
       );
       const adjustmentError = validateAdjustments(
@@ -323,13 +327,13 @@ export async function POST(
       dueDate.setDate(dueDate.getDate() + 30);
 
       const discountAmountPersisted = discountAmount
-        ? Math.round(parseFloat(discountAmount) * 100)
+        ? dollarsToCents(parseFloat(discountAmount))
         : 0;
       const discountPercentagePersisted = discountPercentage
         ? parseFloat(discountPercentage)
         : null;
       const shippingAmountPersisted = shippingAmount
-        ? Math.round(parseFloat(shippingAmount) * 100)
+        ? dollarsToCents(parseFloat(shippingAmount))
         : 0;
 
       const variation = await prisma.$transaction(async (tx) => {
@@ -379,8 +383,11 @@ export async function POST(
                 // quantity is fractional (InvoiceLineItem.quantity is Float —
                 // hours and m² are normal on a restoration invoice), which would
                 // make the header disagree with the sum of its own lines.
-                const unitPriceCents = Math.round(item.unitPrice * 100);
-                const lineSubtotal = Math.round(item.quantity * unitPriceCents);
+                const unitPriceCents = dollarsToCents(Number(item.unitPrice));
+                const lineSubtotal = lineSubtotalCents(
+                  Number(item.quantity),
+                  unitPriceCents,
+                );
                 const gstRate = resolveLineGstRate(
                   item.gstRate,
                   inheritedGstRate,

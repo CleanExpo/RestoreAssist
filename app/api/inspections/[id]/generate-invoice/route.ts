@@ -9,8 +9,72 @@ import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
+import Decimal from "decimal.js";
+import { dollarsToCents, lineSubtotalCents } from "@/lib/invoices/calc";
 
-const toCents = (amount: number | null) => Math.round((amount ?? 0) * 100);
+const toCents = (amount: number | null) => dollarsToCents(amount ?? 0);
+
+/**
+ * RA-7705: invoice what the estimate displayed. An estimate line's approved
+ * ex-GST cents are exactly the dollars the estimate screens showed the
+ * customer: EstimationEngine renders `(item.subtotal || item.qty * item.rate)
+ * .toFixed(2)`, and the viewers render the stored subtotal the same way.
+ * The cents are read from that string in decimal, with no float multiply.
+ *
+ * Why not "denoise" the stored double: it carries no provenance. A float
+ * product (0.69 * 22.5 = 15.524999999999999) and an explicitly supplied
+ * subtotal (65.00499999999998) are both just doubles, and any rule that
+ * rounds one "up to what it meant" rounds the other wrong. The displayed
+ * amount is the one the customer approved, so 15.524999999999999 is $15.52
+ * and 65.00499999999998 is $65.00.
+ */
+const approvedLineCents = (item: {
+  qty: number;
+  rate: number;
+  subtotal: number | null;
+}) =>
+  new Decimal((item.subtotal || item.qty * item.rate).toFixed(2))
+    .mul(100)
+    .toNumber();
+
+/**
+ * RA-7705: every invoice line must satisfy
+ * `lineSubtotalCents(quantity, unitPrice) === subtotal`, or an unchanged
+ * re-save through the edit page and PUT reprices it. When the estimate's
+ * qty x whole-cent rate already gives the approved cents, the line keeps
+ * them. Otherwise (day/week pricing, a sub-cent rate such as $65.005, a
+ * displayed subtotal that rounded differently from qty x rate) it is
+ * invoiced as one unit at the approved cents, with the estimate's qty and
+ * rate kept in the description. An adjustment line is not used: invoice
+ * create/PUT and the edit page reject a negative unit price.
+ */
+function estimateInvoiceLine(item: {
+  description: string;
+  qty: number;
+  unit: string | null;
+  rate: number;
+  subtotal: number;
+}) {
+  const subtotal = approvedLineCents(item);
+  const unitPrice = toCents(item.rate);
+  if (lineSubtotalCents(item.qty, unitPrice) === subtotal) {
+    return {
+      description: item.description,
+      quantity: item.qty,
+      unit: item.unit,
+      unitPrice,
+      subtotal,
+    };
+  }
+  const unitLabel = item.unit ? ` ${item.unit}` : "";
+  return {
+    description: `${item.description} (${item.qty}${unitLabel} x $${item.rate})`,
+    quantity: 1,
+    unit: "item",
+    unitPrice: subtotal,
+    subtotal,
+  };
+}
 
 const gstRateForTaxType = (taxType: string, tenantRate: number) =>
   taxType === "EXEMPT" || taxType === "EXEMPTOUTPUT" || taxType === "NONE"
@@ -403,8 +467,8 @@ export async function POST(
 
       const lineItemsData: Prisma.InvoiceLineItemCreateWithoutInvoiceInput[] =
         estimate.lineItems.map((item, index) => {
-          const unitPrice = toCents(item.rate);
-          const subtotal = toCents(item.subtotal);
+          const { description, quantity, unit, unitPrice, subtotal } =
+            estimateInvoiceLine(item);
           const gstRate = gstRateForTaxType(
             item.taxType,
             gstTreatment.ratePercent,
@@ -416,9 +480,9 @@ export async function POST(
           gstAmount += itemGst;
 
           return {
-            description: item.description,
+            description,
             category: item.category,
-            quantity: item.qty,
+            quantity,
             unitPrice,
             subtotal,
             gstRate,
@@ -427,7 +491,7 @@ export async function POST(
             sortOrder: index,
             estimateLineItemId: item.id,
             code: item.code,
-            unit: item.unit,
+            unit,
             isPassThrough: item.isPassThrough,
             taxType:
               gstRate === 0 ? item.taxType : gstTreatment.xeroTaxType,

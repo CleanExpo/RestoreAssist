@@ -5,6 +5,11 @@
 
 import { z } from "zod";
 import { getGstTreatment, type Country } from "@/lib/gst-rules";
+import {
+  calculateInvoiceTotals,
+  dollarsToCents,
+  lineSubtotalCents,
+} from "@/lib/invoices/calc";
 
 /** Minimum charge enforced on all quotes (ex-GST), AUD dollars. */
 export const MINIMUM_CHARGE_EX_GST = 2750;
@@ -64,20 +69,90 @@ export function applyMinimumCharge(subtotalExGST: number): {
   };
 }
 
-export function calcGstOnSubtotal(
-  subtotalExGST: number,
-  country: Country = "AU",
+/**
+ * The quote's GST and inc-GST total, computed exactly as the AR invoice
+ * drafted from it will compute them: GST per line, then summed.
+ *
+ * RA-7705: the quote used to take GST on the ex-GST total while the invoice
+ * draft takes it per line, so a $2,750 minimum-charge quote showed $275.00
+ * GST and its invoice draft charged $275.01. It also rounded in binary
+ * floating point ($2,750.85 → $275.08 GST, not $275.09).
+ */
+export function quoteGstAsInvoiced(
+  quote: {
+    lineItems: Array<{ description: string; qty: number; rate: number }>;
+    subtotalExGST: number;
+  },
+  country: Country,
 ): {
   gst: number;
   totalIncGST: number;
 } {
-  const gst =
-    Math.round(subtotalExGST * getGstTreatment(country).rate * 100) / 100;
-  const totalIncGST = Math.round((subtotalExGST + gst) * 100) / 100;
-  return { gst, totalIncGST };
+  const ratePercent = getGstTreatment(country).ratePercent;
+  const totals = calculateInvoiceTotals({
+    lineItems: quoteToInvoiceLineItems(quote, ratePercent),
+    defaultGstRatePercent: ratePercent,
+  });
+  return {
+    gst: totals.gstAmount / 100,
+    totalIncGST: totals.totalIncGST / 100,
+  };
 }
 
-/** Dollars → integer cents for AR Invoice persistence. */
-export function dollarsToCents(dollars: number): number {
-  return Math.round(dollars * 100);
+/** Dollars → integer cents for AR Invoice persistence (shared with invoices). */
+export { dollarsToCents };
+
+/**
+ * A stored rate rounded to whole cents. Pricing config keeps rates as Float
+ * and does not limit decimal places, so $65.005 is a valid stored rate; the
+ * invoice draft can only carry 6501c. The quote prices every line on this
+ * same whole-cent rate so its totals equal the draft's (RA-7705).
+ */
+export function wholeCentRate(rate: number): number {
+  return dollarsToCents(rate) / 100;
+}
+
+/** One POST /api/invoices line built from a quote (unitPrice in cents). */
+export interface QuoteInvoiceLineItem {
+  description: string;
+  category: string;
+  quantity: number;
+  unitPrice: number;
+  gstRate: number;
+}
+
+/**
+ * Turn a calculated quote into the line items of its AR invoice draft.
+ * If the minimum charge padded the subtotal without a matching line, a
+ * top-up line carries the difference.
+ */
+export function quoteToInvoiceLineItems(
+  quote: {
+    lineItems: Array<{ description: string; qty: number; rate: number }>;
+    subtotalExGST: number;
+  },
+  gstRatePercent: number,
+): QuoteInvoiceLineItem[] {
+  const lineItems: QuoteInvoiceLineItem[] = quote.lineItems.map((li) => ({
+    description: li.description,
+    category: "Quote",
+    quantity: li.qty,
+    unitPrice: dollarsToCents(li.rate),
+    gstRate: gstRatePercent,
+  }));
+  const linesEx = lineItems.reduce(
+    (sum, li) => sum + lineSubtotalCents(li.quantity, li.unitPrice),
+    0,
+  );
+  const targetEx = dollarsToCents(quote.subtotalExGST);
+  if (targetEx > linesEx) {
+    lineItems.push({
+      description: "Minimum engagement charge (industry minimum)",
+      category: "Quote",
+      quantity: 1,
+      unitPrice: targetEx - linesEx,
+      gstRate: gstRatePercent,
+    });
+  }
+  return lineItems;
 }

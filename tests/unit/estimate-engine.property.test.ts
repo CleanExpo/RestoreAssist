@@ -14,8 +14,25 @@ import fc from "fast-check";
 import Decimal from "decimal.js";
 
 // estimateCosts imports prisma for the company-rates lookup; every call here
-// passes pricingRates or no userId, so the DB is never reached.
-vi.mock("@/lib/prisma", () => ({ prisma: {} }));
+// passes pricingRates or no userId, so the DB is never reached. The quote
+// route (RA-7705 block below) reads the user twice: subscription, then org.
+const { userFindUnique, resolvePricing } = vi.hoisted(() => ({
+  userFindUnique: vi.fn(),
+  resolvePricing: vi.fn(),
+}));
+vi.mock("@/lib/prisma", () => ({
+  prisma: { user: { findUnique: userFindUnique } },
+}));
+vi.mock("next-auth", () => ({
+  getServerSession: vi.fn().mockResolvedValue({ user: { id: "user_abcd" } }),
+}));
+vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/rate-limiter", () => ({
+  applyRateLimit: vi.fn().mockResolvedValue(null),
+}));
+vi.mock("@/lib/pricing/effective-pricing", () => ({
+  resolveEffectivePricing: resolvePricing,
+}));
 
 import {
   estimateCosts,
@@ -25,6 +42,14 @@ import { buildEstimateLines, lineTotal } from "@/lib/estimate-lines";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { resolveAreaSqm } from "@/lib/units";
 import { formatNirCostLine } from "@/lib/nir-report-generation";
+import { NextRequest } from "next/server";
+import { POST as calculateQuote } from "@/app/api/calculate/route";
+import {
+  quoteGstAsInvoiced,
+  quoteToInvoiceLineItems,
+} from "@/lib/quotes/quote-calc";
+import { calculateInvoiceTotals } from "@/lib/invoices/calc";
+import { computeGstCents, getGstTreatment } from "@/lib/gst-rules";
 
 const expected = (qty: number, rate: number) =>
   new Decimal(qty).mul(rate).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
@@ -313,5 +338,325 @@ describe("RA-7708 money oracle: printed rows", () => {
         total: 379.216,
       }),
     ).toBe("Dehumidification: 5 day @ $65.00 AUD = $325.00 AUD");
+  });
+});
+
+/* ─── RA-7705 money oracle: quote → GST → invoice draft ─── */
+
+const SEED = 7705;
+const RUNS = 500;
+
+/** Integer cents, HALF_UP — the oracle every money number is checked against. */
+const halfUpCents = (d: Decimal) =>
+  d.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
+const dollarsAsCents = (dollars: number) => new Decimal(dollars).mul(100);
+const gstOracleCents = (exCents: number, ratePercent: number) =>
+  halfUpCents(new Decimal(exCents).mul(ratePercent).div(100));
+
+/** A 2dp money (or quantity) value in [min, max], as a user would type it. */
+const twoDp = (min: number, max: number) =>
+  fc
+    .integer({ min: Math.round(min * 100), max: Math.round(max * 100) })
+    .map((c) => c / 100);
+
+const RATE_KEYS = [
+  "masterQualifiedNormalHours",
+  "masterQualifiedSaturday",
+  "masterQualifiedSunday",
+  "qualifiedTechnicianNormalHours",
+  "qualifiedTechnicianSaturday",
+  "qualifiedTechnicianSunday",
+  "labourerNormalHours",
+  "labourerSaturday",
+  "labourerSunday",
+  "airMoverAxialDailyRate",
+  "airMoverCentrifugalDailyRate",
+  "dehumidifierLGRDailyRate",
+  "dehumidifierDesiccantDailyRate",
+  "afdUnitLargeDailyRate",
+  "extractionTruckMountedHourlyRate",
+  "extractionElectricHourlyRate",
+  "injectionDryingSystemDailyRate",
+  "antimicrobialTreatmentRate",
+  "mouldRemediationTreatmentRate",
+  "biohazardTreatmentRate",
+  "administrationFee",
+  "callOutFee",
+  "thermalCameraUseCostPerAssessment",
+] as const;
+
+/**
+ * Pricing config stores rates as Float and validates range, not decimal
+ * places, so a sub-cent rate such as $65.005 is a valid stored rate.
+ */
+const threeDp = (min: number, max: number) =>
+  fc
+    .integer({ min: Math.round(min * 1000), max: Math.round(max * 1000) })
+    .map((m) => m / 1000);
+
+const arbRates = fc.record(
+  Object.fromEntries(
+    RATE_KEYS.map((k) => [k, fc.oneof(twoDp(0.01, 5000), threeDp(0.001, 5000))]),
+  ) as Record<
+    (typeof RATE_KEYS)[number],
+    fc.Arbitrary<number>
+  >,
+);
+
+const arbQuoteInput = fc.record({
+  jobType: fc.constantFrom("water", "fire", "mould", "storm", "bioclean"),
+  affectedAreaM2: twoDp(1, 500),
+  numberOfRooms: fc.integer({ min: 1, max: 50 }),
+  dryingDays: fc.integer({ min: 1, max: 30 }),
+  labourHours: twoDp(0, 500),
+  labourTier: fc.constantFrom(
+    "masterQualified",
+    "qualifiedTechnician",
+    "labourer",
+  ),
+  labourPeriod: fc.constantFrom("NormalHours", "Saturday", "Sunday"),
+  airMoversAxial: fc.integer({ min: 0, max: 20 }),
+  airMoversCentrifugal: fc.integer({ min: 0, max: 20 }),
+  dehumidifiersLGR: fc.integer({ min: 0, max: 20 }),
+  dehumidifiersDesiccant: fc.integer({ min: 0, max: 20 }),
+  afdUnitsLarge: fc.integer({ min: 0, max: 10 }),
+  extractionTruckMountedHours: twoDp(0, 24),
+  extractionElectricHours: twoDp(0, 24),
+  injectionDryingDays: fc.integer({ min: 0, max: 30 }),
+  includeCallOut: fc.boolean(),
+  includeAdminFee: fc.boolean(),
+  includeThermalCamera: fc.boolean(),
+});
+
+interface QuoteJson {
+  lineItems: Array<{ description: string; qty: number; rate: number; subtotal: number }>;
+  subtotalExGST: number;
+  gst: number;
+  totalIncGST: number;
+  minimumApplied: boolean;
+}
+
+async function runQuote(
+  input: Record<string, unknown>,
+  rates: Record<string, number>,
+  country: "AU" | "NZ",
+): Promise<QuoteJson> {
+  resolvePricing.mockResolvedValueOnce(rates);
+  userFindUnique
+    .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
+    .mockResolvedValueOnce({ organization: { country } });
+  const res = await calculateQuote(
+    new NextRequest("http://localhost/api/calculate", {
+      method: "POST",
+      body: JSON.stringify(input),
+      headers: { "content-type": "application/json" },
+    }),
+  );
+  expect(res.status).toBe(200);
+  return (await res.json()) as QuoteJson;
+}
+
+/** Review finding P1 (3c72df87): 50 h at a valid stored rate of $65.005. */
+const codexSubCentRate: [
+  Record<string, unknown>,
+  Record<(typeof RATE_KEYS)[number], number>,
+  "AU" | "NZ",
+] = [
+  {
+    jobType: "water",
+    affectedAreaM2: 1,
+    numberOfRooms: 1,
+    dryingDays: 1,
+    labourHours: 50,
+    labourTier: "qualifiedTechnician",
+    labourPeriod: "NormalHours",
+    airMoversAxial: 0,
+    airMoversCentrifugal: 0,
+    dehumidifiersLGR: 0,
+    dehumidifiersDesiccant: 0,
+    afdUnitsLarge: 0,
+    extractionTruckMountedHours: 0,
+    extractionElectricHours: 0,
+    injectionDryingDays: 0,
+    includeCallOut: false,
+    includeAdminFee: false,
+    includeThermalCamera: false,
+  },
+  {
+    ...(Object.fromEntries(RATE_KEYS.map((k) => [k, 0.01])) as Record<
+      (typeof RATE_KEYS)[number],
+      number
+    >),
+    qualifiedTechnicianNormalHours: 65.005,
+    antimicrobialTreatmentRate: 0,
+  },
+  "AU",
+];
+
+describe("RA-7705 money oracle: quote → GST → invoice draft", () => {
+  it("7. quote: each line = qty x rate, ex-GST = Σ lines (or the minimum), GST = Σ per-line GST (the invoice rule), inc = ex + GST, and the invoice draft carries the same three amounts", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        arbQuoteInput,
+        arbRates,
+        fc.constantFrom<"AU" | "NZ">("AU", "NZ"),
+        async (input, rates, country) => {
+          const q = await runQuote(input, rates, country);
+          const ratePercent = getGstTreatment(country).ratePercent;
+
+          let sumLines = 0;
+          let gstCents = 0;
+          for (const l of q.lineItems) {
+            // The quote prices every line on a whole-cent unit rate, the
+            // same unit price its invoice draft carries.
+            expect(dollarsAsCents(l.rate).isInteger()).toBe(true);
+            const want = halfUpCents(new Decimal(l.qty).mul(l.rate).mul(100));
+            expect(dollarsAsCents(l.subtotal).toNumber()).toBe(want);
+            sumLines += want;
+            gstCents += gstOracleCents(want, ratePercent);
+          }
+          const exCents = Math.max(sumLines, 275000);
+          expect(q.minimumApplied).toBe(sumLines < 275000);
+          expect(dollarsAsCents(q.subtotalExGST).toNumber()).toBe(exCents);
+
+          // GST is taken per line, as the invoice does (the minimum-charge
+          // top-up is its own line), so it sits within half a cent per line
+          // of rate x ex-GST.
+          const draftLines = q.lineItems.length + (q.minimumApplied ? 1 : 0);
+          if (q.minimumApplied) {
+            gstCents += gstOracleCents(exCents - sumLines, ratePercent);
+          }
+          expect(
+            Math.abs(gstCents - (exCents * ratePercent) / 100),
+          ).toBeLessThanOrEqual(draftLines / 2);
+          expect(dollarsAsCents(q.gst).toNumber()).toBe(gstCents);
+          expect(dollarsAsCents(q.totalIncGST).toNumber()).toBe(
+            exCents + gstCents,
+          );
+
+          // Quote → AR invoice draft: the page posts these lines; the invoice
+          // API persists calculateInvoiceTotals of them.
+          const inv = calculateInvoiceTotals({
+            lineItems: quoteToInvoiceLineItems(q, ratePercent),
+            defaultGstRatePercent: ratePercent,
+          });
+          expect(inv.subtotalExGST).toBe(exCents);
+          expect(inv.gstAmount).toBe(gstCents);
+          expect(inv.totalIncGST).toBe(exCents + gstCents);
+        },
+      ),
+      { numRuns: RUNS, seed: SEED, examples: [codexSubCentRate] },
+    );
+  });
+
+  it("7b. 50 h at a stored $65.005 rate: quote and invoice draft both price $65.01 x 50 = $3,250.50", async () => {
+    const [input, rates, country] = codexSubCentRate;
+    const q = await runQuote(input, rates, country);
+    const labour = q.lineItems.find((l) => l.description.startsWith("Labour"))!;
+    expect(labour.rate).toBe(65.01);
+    expect(labour.subtotal).toBe(3250.5);
+    expect(q.subtotalExGST).toBe(3250.5);
+    expect(q.gst).toBe(325.05);
+    expect(q.totalIncGST).toBe(3575.55);
+    const inv = calculateInvoiceTotals({
+      lineItems: quoteToInvoiceLineItems(q, 10),
+      defaultGstRatePercent: 10,
+    });
+    expect(inv).toEqual({
+      subtotalExGST: 325050,
+      gstAmount: 32505,
+      totalIncGST: 357555,
+    });
+  });
+
+  // The literal 65.00499999999999 is the same double as 65.005 (test 7b), so
+  // no function can price it differently. 65.00499999999998 is a distinct
+  // double genuinely below half a cent; denoising to 15 digits rounded it up.
+  it("7c. a stored rate of 65.00499999999998 is below half a cent: priced at $65.00, not $65.01", async () => {
+    expect(Number("65.00499999999999")).toBe(65.005);
+    const [input, rates, country] = codexSubCentRate;
+    const q = await runQuote(
+      input,
+      { ...rates, qualifiedTechnicianNormalHours: 65.00499999999998 },
+      country,
+    );
+    const labour = q.lineItems.find((l) => l.description.startsWith("Labour"))!;
+    expect(labour.rate).toBe(65);
+    expect(labour.subtotal).toBe(3250);
+    expect(q.subtotalExGST).toBe(3250);
+  });
+
+  it("8. a one-line quote: GST = rate x ex-GST to the cent, inc = ex + GST", () => {
+    fc.assert(
+      fc.property(
+        twoDp(2750, 1_000_000),
+        fc.constantFrom<"AU" | "NZ">("AU", "NZ"),
+        (ex, country) => {
+          const exCents = dollarsAsCents(ex).toNumber();
+          const want = gstOracleCents(
+            exCents,
+            getGstTreatment(country).ratePercent,
+          );
+          const { gst, totalIncGST } = quoteGstAsInvoiced(
+            {
+              lineItems: [{ description: "Job", qty: 1, rate: ex }],
+              subtotalExGST: ex,
+            },
+            country,
+          );
+          expect(dollarsAsCents(gst).toNumber()).toBe(want);
+          expect(dollarsAsCents(totalIncGST).toNumber()).toBe(exCents + want);
+        },
+      ),
+      { numRuns: RUNS, seed: SEED, examples: [[2750.85, "AU"], [2750.7, "NZ"]] },
+    );
+  });
+
+  it("9. computeGstCents (accounting sync): GST = rate x ex-GST to the cent", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 100_000_000 }),
+        fc.constantFrom<"AU" | "NZ">("AU", "NZ"),
+        (exCents, country) => {
+          expect(computeGstCents(exCents, country)).toBe(
+            gstOracleCents(exCents, getGstTreatment(country).ratePercent),
+          );
+        },
+      ),
+      { numRuns: RUNS, seed: SEED },
+    );
+  });
+
+  it("10. invoice totals: each line = qty x unit price, per-line GST at its rate, inc = ex + GST; qty 0 adds nothing", () => {
+    const arbLine = fc.record({
+      quantity: twoDp(0, 500),
+      unitPrice: fc.integer({ min: 1, max: 500_000 }),
+      gstRate: fc.constantFrom(0, 10),
+    });
+    fc.assert(
+      fc.property(fc.array(arbLine, { minLength: 1, maxLength: 12 }), (lines) => {
+        let ex = 0;
+        let gst = 0;
+        for (const l of lines) {
+          const sub = halfUpCents(new Decimal(l.quantity).mul(l.unitPrice));
+          ex += sub;
+          gst += gstOracleCents(sub, l.gstRate);
+        }
+        const t = calculateInvoiceTotals({
+          lineItems: lines,
+          defaultGstRatePercent: 10,
+        });
+        expect(t.subtotalExGST).toBe(ex);
+        expect(t.gstAmount).toBe(gst);
+        expect(t.totalIncGST).toBe(t.subtotalExGST + t.gstAmount);
+
+        const zeroed = calculateInvoiceTotals({
+          lineItems: lines.map((l) => ({ ...l, quantity: 0 })),
+          defaultGstRatePercent: 10,
+        });
+        expect(zeroed).toEqual({ subtotalExGST: 0, gstAmount: 0, totalIncGST: 0 });
+      }),
+      { numRuns: RUNS, seed: SEED },
+    );
   });
 });

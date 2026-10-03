@@ -25,6 +25,52 @@
  *   - discountPercentage    : percent (number)
  *   - shippingAmount        : cents (integer)
  */
+import Decimal from "decimal.js";
+
+/**
+ * A line's ex-GST amount in cents: quantity × unit price (cents), rounded
+ * HALF_UP in decimal. `Math.round(quantity * unitPrice)` rounds in binary
+ * floating point and drops a cent on about 1 in 500 fractional-quantity
+ * lines: 0.69 hr × 2250c is 1552.4999… in a double, so it billed $15.52
+ * instead of $15.53 (RA-7705). Every invoice writer must use this.
+ */
+export function lineSubtotalCents(
+  quantity: number,
+  unitPriceCents: number,
+): number {
+  return new Decimal(quantity)
+    .mul(unitPriceCents)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toNumber();
+}
+
+/**
+ * One line's ex-GST, GST and inc-GST amounts in cents, by the invoice rule:
+ * round the line to cents first, then take GST on the rounded line. Credit
+ * notes and recurring templates use this so they agree with invoices.
+ */
+export function lineAmountsCents(
+  quantity: number,
+  unitPriceCents: number,
+  gstRatePercent: number,
+): { subtotal: number; gstAmount: number; total: number } {
+  const subtotal = lineSubtotalCents(quantity, unitPriceCents);
+  const gstAmount = Math.round(subtotal * (gstRatePercent / 100));
+  return { subtotal, gstAmount, total: subtotal + gstAmount };
+}
+
+/**
+ * Dollars → integer cents, HALF_UP in decimal (1.005 → 101, not 100).
+ * Rounds exactly the number it is given (its shortest round-trip decimal):
+ * 65.00499999999999 is below half a cent, so it is 6500c. No denoising here;
+ * a caller that knows its input is a float product must handle that itself.
+ */
+export function dollarsToCents(dollars: number): number {
+  return new Decimal(String(Number(dollars)))
+    .mul(100)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toNumber();
+}
 
 export interface InvoiceCalcLineItem {
   quantity: number | string;
@@ -96,7 +142,7 @@ export function calculateInvoiceTotals(
         : item.unitPrice;
     if (!Number.isFinite(quantity) || !Number.isFinite(unitPrice)) continue;
 
-    const subtotal = Math.round(quantity * unitPrice);
+    const subtotal = lineSubtotalCents(quantity, unitPrice);
     const gstRate = item.gstRate ?? defaultGstRatePercent;
     const itemGst = Math.round(subtotal * (gstRate / 100));
 
