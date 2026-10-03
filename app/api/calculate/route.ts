@@ -11,6 +11,7 @@ import {
   QuoteRequestSchema,
   applyMinimumCharge,
   quoteGstAsInvoiced,
+  wholeCentRate,
 } from "@/lib/quotes/quote-calc";
 import { lineTotal } from "@/lib/estimate-lines";
 
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch contractor's pricing config (org config is SSOT; or use defaults)
     const config = await resolveEffectivePricing(prisma, session.user.id);
-    const rates: Record<string, number> = config
+    const storedRates: Record<string, number> = config
       ? {
           masterQualifiedNormalHours: config.masterQualifiedNormalHours,
           masterQualifiedSaturday: config.masterQualifiedSaturday,
@@ -150,6 +151,10 @@ export async function POST(request: NextRequest) {
             config.thermalCameraUseCostPerAssessment,
         }
       : getDefaultRates();
+    // Price on whole-cent rates: the invoice draft can only carry cents.
+    const rates: Record<string, number> = Object.fromEntries(
+      Object.entries(storedRates).map(([k, v]) => [k, wholeCentRate(v)]),
+    );
 
     // Fetch contractor business info
     const user = await prisma.user.findUnique({

@@ -385,8 +385,19 @@ const RATE_KEYS = [
   "thermalCameraUseCostPerAssessment",
 ] as const;
 
+/**
+ * Pricing config stores rates as Float and validates range, not decimal
+ * places, so a sub-cent rate such as $65.005 is a valid stored rate.
+ */
+const threeDp = (min: number, max: number) =>
+  fc
+    .integer({ min: Math.round(min * 1000), max: Math.round(max * 1000) })
+    .map((m) => m / 1000);
+
 const arbRates = fc.record(
-  Object.fromEntries(RATE_KEYS.map((k) => [k, twoDp(0.01, 5000)])) as Record<
+  Object.fromEntries(
+    RATE_KEYS.map((k) => [k, fc.oneof(twoDp(0.01, 5000), threeDp(0.001, 5000))]),
+  ) as Record<
     (typeof RATE_KEYS)[number],
     fc.Arbitrary<number>
   >,
@@ -445,6 +456,43 @@ async function runQuote(
   return (await res.json()) as QuoteJson;
 }
 
+/** Review finding P1 (3c72df87): 50 h at a valid stored rate of $65.005. */
+const codexSubCentRate: [
+  Record<string, unknown>,
+  Record<(typeof RATE_KEYS)[number], number>,
+  "AU" | "NZ",
+] = [
+  {
+    jobType: "water",
+    affectedAreaM2: 1,
+    numberOfRooms: 1,
+    dryingDays: 1,
+    labourHours: 50,
+    labourTier: "qualifiedTechnician",
+    labourPeriod: "NormalHours",
+    airMoversAxial: 0,
+    airMoversCentrifugal: 0,
+    dehumidifiersLGR: 0,
+    dehumidifiersDesiccant: 0,
+    afdUnitsLarge: 0,
+    extractionTruckMountedHours: 0,
+    extractionElectricHours: 0,
+    injectionDryingDays: 0,
+    includeCallOut: false,
+    includeAdminFee: false,
+    includeThermalCamera: false,
+  },
+  {
+    ...(Object.fromEntries(RATE_KEYS.map((k) => [k, 0.01])) as Record<
+      (typeof RATE_KEYS)[number],
+      number
+    >),
+    qualifiedTechnicianNormalHours: 65.005,
+    antimicrobialTreatmentRate: 0,
+  },
+  "AU",
+];
+
 describe("RA-7705 money oracle: quote → GST → invoice draft", () => {
   it("7. quote: each line = qty x rate, ex-GST = Σ lines (or the minimum), GST = Σ per-line GST (the invoice rule), inc = ex + GST, and the invoice draft carries the same three amounts", async () => {
     await fc.assert(
@@ -459,6 +507,9 @@ describe("RA-7705 money oracle: quote → GST → invoice draft", () => {
           let sumLines = 0;
           let gstCents = 0;
           for (const l of q.lineItems) {
+            // The quote prices every line on a whole-cent unit rate, the
+            // same unit price its invoice draft carries.
+            expect(dollarsAsCents(l.rate).isInteger()).toBe(true);
             const want = halfUpCents(new Decimal(l.qty).mul(l.rate).mul(100));
             expect(dollarsAsCents(l.subtotal).toNumber()).toBe(want);
             sumLines += want;
@@ -494,8 +545,28 @@ describe("RA-7705 money oracle: quote → GST → invoice draft", () => {
           expect(inv.totalIncGST).toBe(exCents + gstCents);
         },
       ),
-      { numRuns: RUNS, seed: SEED },
+      { numRuns: RUNS, seed: SEED, examples: [codexSubCentRate] },
     );
+  });
+
+  it("7b. 50 h at a stored $65.005 rate: quote and invoice draft both price $65.01 x 50 = $3,250.50", async () => {
+    const [input, rates, country] = codexSubCentRate;
+    const q = await runQuote(input, rates, country);
+    const labour = q.lineItems.find((l) => l.description.startsWith("Labour"))!;
+    expect(labour.rate).toBe(65.01);
+    expect(labour.subtotal).toBe(3250.5);
+    expect(q.subtotalExGST).toBe(3250.5);
+    expect(q.gst).toBe(325.05);
+    expect(q.totalIncGST).toBe(3575.55);
+    const inv = calculateInvoiceTotals({
+      lineItems: quoteToInvoiceLineItems(q, 10),
+      defaultGstRatePercent: 10,
+    });
+    expect(inv).toEqual({
+      subtotalExGST: 325050,
+      gstAmount: 32505,
+      totalIncGST: 357555,
+    });
   });
 
   it("8. a one-line quote: GST = rate x ex-GST to the cent, inc = ex + GST", () => {

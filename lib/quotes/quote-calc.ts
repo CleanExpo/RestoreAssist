@@ -3,6 +3,7 @@
  * Amounts are in AUD dollars (not cents) — matches the Quote Generator UI.
  */
 
+import Decimal from "decimal.js";
 import { z } from "zod";
 import { getGstTreatment, type Country } from "@/lib/gst-rules";
 import { calculateInvoiceTotals, lineSubtotalCents } from "@/lib/invoices/calc";
@@ -97,7 +98,20 @@ export function quoteGstAsInvoiced(
 
 /** Dollars → integer cents for AR Invoice persistence. */
 export function dollarsToCents(dollars: number): number {
-  return Math.round(dollars * 100);
+  return new Decimal(dollars)
+    .mul(100)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toNumber();
+}
+
+/**
+ * A stored rate rounded to whole cents. Pricing config keeps rates as Float
+ * and does not limit decimal places, so $65.005 is a valid stored rate; the
+ * invoice draft can only carry 6501c. The quote prices every line on this
+ * same whole-cent rate so its totals equal the draft's (RA-7705).
+ */
+export function wholeCentRate(rate: number): number {
+  return dollarsToCents(rate) / 100;
 }
 
 /** One POST /api/invoices line built from a quote (unitPrice in cents). */
