@@ -134,6 +134,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import {
+  getResourceTenant,
   getResourceTenantOwner,
   resourceBillsToCaller,
 } from "../organization-credits";
@@ -668,5 +669,43 @@ describe("getResourceTenantOwner — unmarked instant rows from the direct-add e
     await expect(getResourceTenantOwner("tech-a", CREATED)).resolves.toBe(
       "owner-a",
     );
+  });
+});
+
+describe("getResourceTenant — names the proven organisation, not just its owner (RA-7893 P1-MULTI-ORG-OWNER-REPORT-PRICING)", () => {
+  it("a current member's job: their current organisation", async () => {
+    db.users["tech-a"] = { ...db.users["tech-a"], organizationId: "org-b", ownerId: "owner-b" };
+    db.invites = [
+      { organizationId: "org-b", acceptedUserId: "tech-a", email: "tech-a@example.com", usedAt: new Date("2026-05-01T00:00:00Z") },
+    ];
+    await expect(getResourceTenant("tech-a", CREATED)).resolves.toEqual({
+      ownerId: "owner-b",
+      organizationId: "org-b",
+    });
+  });
+
+  it("a removed member's job from inside the membership: the organisation they left", async () => {
+    db.users["tech-a"] = {
+      ...db.users["tech-a"],
+      organizationId: null,
+      ownerId: null,
+      organizationLeftAt: new Date("2026-08-01T00:00:00Z"),
+      organizationLeftId: "org-b",
+    };
+    db.invites = [
+      { organizationId: "org-b", acceptedUserId: "tech-a", email: "tech-a@example.com", usedAt: new Date("2026-05-01T00:00:00Z") },
+    ];
+    await expect(getResourceTenant("tech-a", CREATED)).resolves.toEqual({
+      ownerId: "owner-b",
+      organizationId: "org-b",
+    });
+  });
+
+  it("the creator's own job: the creator, no organisation", async () => {
+    db.users["owner-a"] = { id: "owner-a", role: "ADMIN", organizationId: "org-a", email: "o@example.com", ownerId: "owner-a" };
+    await expect(getResourceTenant("owner-a", CREATED)).resolves.toEqual({
+      ownerId: "owner-a",
+      organizationId: null,
+    });
   });
 });

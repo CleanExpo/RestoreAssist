@@ -172,8 +172,28 @@ export async function getResourceTenantOwner(
   creatorId: string,
   resourceCreatedAt: Date,
 ): Promise<string | null> {
+  return (await getResourceTenant(creatorId, resourceCreatedAt))?.ownerId ?? null;
+}
+
+/**
+ * The resource's tenant as getResourceTenantOwner resolves it, with the
+ * organisation that was proven for an invited member (their current one, or
+ * the one they left). One owner may own several organisations, so the owner
+ * alone does not name the resource's organisation. `organizationId` is null
+ * when the tenant is the creator themself.
+ */
+export interface ResourceTenant {
+  ownerId: string;
+  organizationId: string | null;
+}
+
+export async function getResourceTenant(
+  creatorId: string,
+  resourceCreatedAt: Date,
+): Promise<ResourceTenant | null> {
+  const self = { ownerId: creatorId, organizationId: null };
   const ownerId = await getOrganizationOwner(creatorId);
-  if (ownerId === creatorId) return creatorId;
+  if (ownerId === creatorId) return self;
 
   const creator = await prisma.user.findUnique({
     where: { id: creatorId },
@@ -186,8 +206,8 @@ export async function getResourceTenantOwner(
   });
   if (!ownerId) {
     // Unknown user, or an organisation row with no owner: unchanged.
-    if (!creator || creator.organizationId) return creatorId;
-    return removedMemberTenantOwner(creatorId, creator, resourceCreatedAt);
+    if (!creator || creator.organizationId) return self;
+    return removedMemberTenant(creatorId, creator, resourceCreatedAt);
   }
   if (!creator?.organizationId) return null;
 
@@ -198,7 +218,7 @@ export async function getResourceTenantOwner(
   );
   if (!joined?.usedAt) return null;
   return joined.usedAt.getTime() <= resourceCreatedAt.getTime()
-    ? ownerId
+    ? { ownerId, organizationId: creator.organizationId }
     : null;
 }
 
@@ -213,7 +233,7 @@ function acceptedBy(userId: string, email: string) {
   ];
 }
 
-async function removedMemberTenantOwner(
+async function removedMemberTenant(
   creatorId: string,
   creator: {
     email: string;
@@ -221,7 +241,8 @@ async function removedMemberTenantOwner(
     organizationLeftId: string | null;
   },
   resourceCreatedAt: Date,
-): Promise<string | null> {
+): Promise<ResourceTenant | null> {
+  const self = { ownerId: creatorId, organizationId: null };
   const leftAt = creator.organizationLeftAt;
   if (!leftAt) {
     // No leave on record: theirs if they had joined nothing by then, else a
@@ -231,9 +252,9 @@ async function removedMemberTenantOwner(
       creator.email,
       resourceCreatedAt,
     );
-    return joinedBefore ? null : creatorId;
+    return joinedBefore ? null : self;
   }
-  if (resourceCreatedAt.getTime() >= leftAt.getTime()) return creatorId;
+  if (resourceCreatedAt.getTime() >= leftAt.getTime()) return self;
 
   // Only the LAST membership interval is recorded: from the latest accepted
   // invite into the organisation they left, to organizationLeftAt.
@@ -249,8 +270,10 @@ async function removedMemberTenantOwner(
   // Before the last join: null, always. An earlier membership may have had
   // its invites erased by an owner deleting their account, so finding no
   // invite before the resource is not evidence the creator made it alone.
-  return lastJoin.usedAt.getTime() <= resourceCreatedAt.getTime()
-    ? (lastJoin.organization?.ownerId ?? null)
+  const leftOwnerId = lastJoin.organization?.ownerId;
+  return leftOwnerId &&
+    lastJoin.usedAt.getTime() <= resourceCreatedAt.getTime()
+    ? { ownerId: leftOwnerId, organizationId: leftOrgId }
     : null;
 }
 
