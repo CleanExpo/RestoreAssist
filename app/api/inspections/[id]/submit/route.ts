@@ -307,8 +307,14 @@ export async function POST(
       // CAS no longer scopes by userId — tenancy is verified above by
       // assertInspectionTenancy, which permits owner OR workspace-member
       // OR admin. Status-DRAFT predicate still serialises submits.
+      // `updatedAt` pins the row submit validated above: a draft save that
+      // committed in between bumps it, so stale children cannot be submitted.
       const submitGuard = await prisma.inspection.updateMany({
-        where: { ...tenancy.data.inspectionManyWhere, status: "DRAFT" },
+        where: {
+          ...tenancy.data.inspectionManyWhere,
+          status: "DRAFT",
+          updatedAt: inspection.updatedAt,
+        },
         data: { status: "SUBMITTED", submittedAt: new Date() },
       });
       // P1 #11.1 — fire-and-forget next-action nudge (CLAUDE.md rule #13).
@@ -321,7 +327,7 @@ export async function POST(
         return apiError(request, {
           code: "CONFLICT",
           message:
-            "Inspection has already been submitted or is not in DRAFT state.",
+            "Inspection changed or was already submitted; reload it and submit again.",
           status: 409,
         });
       }
