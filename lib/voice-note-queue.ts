@@ -434,6 +434,7 @@ function removeEntry(db: IDBDatabase, id: string): Promise<void> {
     const req = tx.objectStore(STORE).delete(id);
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
+    tx.onabort = () => reject(tx.error ?? new Error("Queue update was not saved"));
   });
 }
 
@@ -443,5 +444,6 @@ function putEntry(db: IDBDatabase, entry: VoiceNoteQueueEntry): Promise<void> {
     const req = tx.objectStore(STORE).put(entry);
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
+    tx.onabort = () => reject(tx.error ?? new Error("Queue update was not saved"));
   });
 }

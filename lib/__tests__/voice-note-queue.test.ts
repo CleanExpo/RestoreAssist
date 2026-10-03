@@ -189,6 +189,41 @@ describe("markTranscriptConsumed + pruneVoiceNoteQueue", () => {
     await expect(queue.getQueuedVoiceNoteCount()).resolves.toBe(0);
   });
 
+  it("rejects instead of hanging when a queue write transaction aborts", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ transcript: "Ready to consume" }),
+    });
+    const id = await queue.queueVoiceNote(makeBlob(), {
+      inspectionId: "insp-1",
+      fieldLabel: "kitchen-notes",
+    });
+    await queue.drainVoiceNoteQueue();
+    // Reach the same fake database the queue opened, then make its next put
+    // abort the transaction with no request error, as a commit-time abort does.
+    const db = await new Promise<any>((resolve) => {
+      const req = (globalThis as any).indexedDB.open("ra-voice-note-queue", 1);
+      req.onsuccess = () => resolve(req.result);
+    });
+    const txProto = Object.getPrototypeOf(db.transaction("notes", "readwrite"));
+    const realObjectStore = txProto.objectStore;
+    vi.spyOn(txProto, "objectStore").mockImplementation(function (this: any, name: string) {
+      const store = realObjectStore.call(this, name);
+      store.put = () => {
+        queueMicrotask(() => this.abort());
+        return {};
+      };
+      return store;
+    });
+
+    const outcome = await Promise.race([
+      queue.markTranscriptConsumed(id).then(() => "resolved", () => "rejected"),
+      new Promise((resolve) => setTimeout(() => resolve("hung"), 200)),
+    ]);
+    expect(outcome).toBe("rejected");
+  });
+
   it("prune leaves unconsumed, non-stale entries alone", async () => {
     await queue.queueVoiceNote(makeBlob(), {
       inspectionId: "insp-1",
