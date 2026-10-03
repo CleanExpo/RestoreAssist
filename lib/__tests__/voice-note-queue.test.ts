@@ -9,6 +9,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installFakeIndexedDB } from "./helpers/fake-indexeddb";
+import { SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline/sync-status-event";
 
 // These tests isolate the pre-existing audio/custody behaviour. The real
 // identity and replay boundary is exercised in offline-containment.test.ts.
@@ -55,6 +56,17 @@ describe("queueVoiceNote", () => {
     });
 
     await expect(queue.getQueuedVoiceNoteCount()).resolves.toBe(1);
+  });
+
+  it("wakes the sync badge after a recording is stored", async () => {
+    const changed = vi.fn();
+    window.addEventListener(SYNC_QUEUE_CHANGED_EVENT, changed);
+    try {
+      await queue.queueVoiceNote(makeBlob(), { inspectionId: "insp-1", fieldLabel: "kitchen-notes" });
+      await vi.waitFor(() => expect(changed).toHaveBeenCalled());
+    } finally {
+      window.removeEventListener(SYNC_QUEUE_CHANGED_EVENT, changed);
+    }
   });
 });
 

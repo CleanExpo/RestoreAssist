@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completedDeliveryResponse } from "../route";
+import { completedDeliveryResponse } from "../delivery-response";
 
 describe("completed authority form delivery state", () => {
   it("fails non-2xx when no recipient has confirmed delivery", async () => {

@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import { CLIENT_NOTES_MAX_LENGTH } from "@/lib/clients/notes";
 
 interface ClientFormData {
   name: string;
@@ -96,6 +98,10 @@ export default function ClientEditPage() {
       setSaveError("Email is required.");
       return;
     }
+    if (form.notes.length > CLIENT_NOTES_MAX_LENGTH) {
+      setSaveError(`Notes must be ${CLIENT_NOTES_MAX_LENGTH.toLocaleString("en-AU")} characters or fewer; nothing was saved.`);
+      return;
+    }
 
     try {
       setSaving(true);
@@ -106,8 +112,8 @@ export default function ClientEditPage() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        setSaveError(data.error ?? "Failed to save changes.");
+        const data = await response.json().catch(() => null);
+        setSaveError(apiErrorMessage(data) ?? "Failed to save changes.");
         return;
       }
 
@@ -324,6 +330,9 @@ export default function ClientEditPage() {
               placeholder="Any additional notes about this client..."
               className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors resize-none"
             />
+            <p className="text-xs text-slate-400">
+              {form.notes.length.toLocaleString("en-AU")} / {CLIENT_NOTES_MAX_LENGTH.toLocaleString("en-AU")} characters
+            </p>
           </div>
 
           {/* Save error */}

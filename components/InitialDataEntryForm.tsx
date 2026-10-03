@@ -60,6 +60,7 @@ import toast from "react-hot-toast";
 import type { InitialDataEntryFormProps } from "./initial-data-entry/types";
 import { normalizeDate } from "./initial-data-entry/normalize-date";
 import { shouldCreateReport } from "@/lib/reports/should-create-report";
+import { isRecentlyIssuedCreationKey } from "@/lib/creation-attempt-key";
 import { FormNavigation } from "./initial-data-entry/FormNavigation";
 import { ReportTypeSelection } from "./initial-data-entry/ReportTypeSelection";
 import { ReviewSection } from "./initial-data-entry/ReviewSection";
@@ -84,6 +85,12 @@ export default function InitialDataEntryForm({
   // RA-6799: race-safe guard so a create cannot fire twice concurrently
   // (double-click / impatient re-submit) before `reportId` state updates.
   const creatingReportRef = useRef(false);
+  const reportCreationAttemptRef = useRef<{ key: string; body: string } | null>(null);
+  const [creationRecovery, setCreationRecovery] = useState<"idle" | "checking" | "retryable" | "unresolved">("idle");
+  const [recoveryCheck, setRecoveryCheck] = useState(0);
+  const attemptStorageKey = session?.user?.id
+    ? `ra.initial-report-attempt:${session.user.id}:${inspectionId ?? "standalone"}`
+    : null;
   const isTrial =
     subscriptionStatus === "TRIAL" || subscriptionStatus === "trial";
   const [quickFillCredits, setQuickFillCredits] = useState<number | null>(null);
@@ -135,7 +142,7 @@ export default function InitialDataEntryForm({
     emergencyRepairPerformed: initialData?.emergencyRepairPerformed || "",
     // Hazard Profile
     insurerName: initialData?.insurerName || "",
-    methamphetamineScreen: initialData?.methamphetamineScreen || "NEGATIVE",
+    methamphetamineScreen: initialData?.methamphetamineScreen || "",
     methamphetamineTestCount: initialData?.methamphetamineTestCount || "",
     biologicalMouldDetected: initialData?.biologicalMouldDetected || false,
     biologicalMouldCategory: initialData?.biologicalMouldCategory || "",
@@ -161,6 +168,58 @@ export default function InitialDataEntryForm({
       setReportId(initialReportId);
     }
   }, [initialReportId]);
+
+  // Keep only the opaque key across a remount. The server verifies the
+  // owner and (for a job) its report link before returning an ID.
+  useEffect(() => {
+    if (!attemptStorageKey || initialReportId) return;
+    let key: string | null;
+    try {
+      key = sessionStorage.getItem(attemptStorageKey);
+    } catch {
+      setCreationRecovery("unresolved");
+      return;
+    }
+    if (!key) {
+      setCreationRecovery("idle");
+      return;
+    }
+    let cancelled = false;
+    setCreationRecovery("checking");
+    const recover = async () => {
+      try {
+        const query = inspectionId ? `?inspectionId=${encodeURIComponent(inspectionId)}` : "";
+        const response = await fetch(`/api/reports/initial-entry${query}`, {
+          headers: { "Idempotency-Key": key },
+        });
+        if (!response.ok) throw new Error("Recovery read failed");
+        const result = await response.json();
+        if (cancelled) return;
+        if (result.state === "complete" && typeof result.reportId === "string") {
+          setReportId(result.reportId);
+          onReportCreated?.(result.reportId);
+          try { sessionStorage.removeItem(attemptStorageKey); } catch { /* already verified */ }
+          setShowReview(true);
+          setCreationRecovery("idle");
+        } else if (result.state === "rejected") {
+          try {
+            sessionStorage.removeItem(attemptStorageKey);
+            setCreationRecovery("idle");
+          } catch {
+            setCreationRecovery("unresolved");
+          }
+        } else if (result.state === "retryable_missing") {
+          setCreationRecovery("retryable");
+        } else {
+          setCreationRecovery("unresolved");
+        }
+      } catch {
+        if (!cancelled) setCreationRecovery("unresolved");
+      }
+    };
+    void recover();
+    return () => { cancelled = true; };
+  }, [attemptStorageKey, initialReportId, inspectionId, onReportCreated, recoveryCheck]);
 
   // Review and Report Type Selection State
   const [showReview, setShowReview] = useState(false);
@@ -237,7 +296,7 @@ export default function InitialDataEntryForm({
       title: "Technician Report",
       icon: FileText,
       description: "Field report from the technician",
-      requiredFields: ["technicianFieldReport"],
+      requiredFields: [],
     },
     {
       id: 8,
@@ -407,6 +466,8 @@ export default function InitialDataEntryForm({
   const [durationDays, setDurationDays] = useState(
     initialData?.estimatedDryingDuration || 4,
   );
+  // Calculator defaults are examples, not site measurements or an approved plan.
+  const [includeEquipmentEstimate, setIncludeEquipmentEstimate] = useState(false);
 
   // NIR State (only used when reportType is 'nir')
   const [nirEnvironmentalData, setNirEnvironmentalData] = useState({
@@ -791,7 +852,7 @@ export default function InitialDataEntryForm({
         emergencyRepairPerformed: initialData.emergencyRepairPerformed || "",
         // Hazard Profile
         insurerName: initialData.insurerName || "",
-        methamphetamineScreen: initialData.methamphetamineScreen || "NEGATIVE",
+        methamphetamineScreen: initialData.methamphetamineScreen || "",
         methamphetamineTestCount: initialData.methamphetamineTestCount || "",
         biologicalMouldDetected: initialData.biologicalMouldDetected || false,
         biologicalMouldCategory: initialData.biologicalMouldCategory || "",
@@ -1336,13 +1397,6 @@ export default function InitialDataEntryForm({
       return;
     }
 
-    // Validate technician field report (required for all report types)
-    if (!formData.technicianFieldReport.trim()) {
-      toast.error("Technician field report is required");
-      setLoading(false);
-      return;
-    }
-
     // Validate assignee selection for Technicians and Managers
     const userRole = session?.user?.role;
     if (
@@ -1391,7 +1445,7 @@ export default function InitialDataEntryForm({
 
       // Prepare equipment data
       const equipmentData =
-        areas.length > 0 || equipmentSelections.length > 0
+        includeEquipmentEstimate && (areas.length > 0 || equipmentSelections.length > 0)
           ? {
               psychrometricAssessment: {
                 waterClass,
@@ -1440,12 +1494,23 @@ export default function InitialDataEntryForm({
         return;
       }
       creatingReportRef.current = true;
+      let storedAttempt: string | null = null;
+      let storageUnavailable = false;
+      try {
+        storedAttempt = attemptStorageKey ? sessionStorage.getItem(attemptStorageKey) : null;
+      } catch {
+        storageUnavailable = true;
+      }
+      if (!attemptStorageKey || storageUnavailable || creationRecovery === "checking" || creationRecovery === "unresolved" ||
+          (storedAttempt && !reportCreationAttemptRef.current && creationRecovery !== "retryable") ||
+          (storedAttempt && reportCreationAttemptRef.current && storedAttempt !== reportCreationAttemptRef.current.key) ||
+          (creationRecovery === "retryable" && !storedAttempt)) {
+        if (creationRecovery === "retryable") setCreationRecovery("unresolved");
+        toast.error("Report creation is unconfirmed. Check its status before submitting again.");
+        return;
+      }
 
-      // Single API call to save all data
-      const response = await fetch("/api/reports/initial-entry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const requestBody = JSON.stringify({
           ...formData,
           ...assigneeData, // Include assignee selection
           // RA-7726: link the new report back to the inspection it came from
@@ -1468,26 +1533,83 @@ export default function InitialDataEntryForm({
               : null,
           // Include equipment data if provided
           equipmentData: equipmentData,
-        }),
+      });
+      // A lost response may follow a committed charge/report. Keep the exact
+      // request and key for retries; a changed body must wait for a definite
+      // response before it can become a new request.
+      const pending = reportCreationAttemptRef.current;
+      if (pending && pending.body !== requestBody) {
+        toast.error("Report creation is unconfirmed. Restore the original details before retrying.");
+        return;
+      }
+      const attempt = pending ?? {
+        key: storedAttempt && creationRecovery === "retryable"
+          ? storedAttempt : `report-initial-${Date.now()}-${crypto.randomUUID()}`,
+        body: requestBody,
+      };
+      if (!isRecentlyIssuedCreationKey(attempt.key, "report-initial")) {
+        setCreationRecovery("unresolved");
+        toast.error("Report creation is unconfirmed. Check its status before submitting again.");
+        return;
+      }
+      if (!attemptStorageKey) throw new Error("Signed-in account unavailable");
+      sessionStorage.setItem(attemptStorageKey, attempt.key);
+      if (sessionStorage.getItem(attemptStorageKey) !== attempt.key) {
+        throw new Error("Report attempt key could not be verified in storage");
+      }
+      reportCreationAttemptRef.current = attempt;
+      const response = await fetch("/api/reports/initial-entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": attempt.key },
+        body: attempt.body,
       });
 
       if (response.ok) {
         const data = await response.json();
-        const newReportId = data.report.id;
+        if (inspectionId && data.inspectionLinked !== true) {
+          toast.error("Report was not linked to this inspection. Reload the job before continuing.");
+          return;
+        }
+        const newReportId = data?.report?.id;
+        if (typeof newReportId !== "string" || !newReportId) {
+          throw new Error("Report creation could not be verified");
+        }
+        reportCreationAttemptRef.current = null;
+        setCreationRecovery("idle");
         setReportId(newReportId);
         // RA-6799: notify the parent immediately so it persists the reportId and
         // never creates a duplicate on remount/refresh.
         onReportCreated?.(newReportId);
+        try { sessionStorage.removeItem(attemptStorageKey); } catch { /* verified success */ }
         toast.success("Report saved");
         if (data.clientLinkWarning) {
           toast.error(data.clientLinkWarning);
+        }
+        if (data.inspectionLinkWarning) {
+          toast.error(data.inspectionLinkWarning);
         }
 
         // Show review page first, then report type selection
         setShowReview(true);
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to save data");
+        const error = await response.json().catch(() => null);
+        const message = typeof error?.error === "string" ? error.error : "Failed to save data";
+        const pendingConflict = response.status === 409 && (
+          message.includes("already in progress") ||
+          message.includes("reused with a different request body") ||
+          message.includes("could not be verified")
+        );
+        if (response.status >= 400 && response.status < 500 &&
+            !pendingConflict && ![401, 403, 408, 425, 429].includes(response.status)) {
+          reportCreationAttemptRef.current = null;
+          try {
+            sessionStorage.removeItem(attemptStorageKey);
+            setCreationRecovery("idle");
+          } catch { setCreationRecovery("unresolved"); }
+        } else if (creationRecovery === "retryable" && pendingConflict) {
+          setCreationRecovery("unresolved");
+        }
+        toast.error(message);
       }
     } catch (error) {
       toast.error("Failed to save data");
@@ -2480,6 +2602,16 @@ export default function InitialDataEntryForm({
 
   return (
     <div className="max-w-full mx-auto">
+      {creationRecovery !== "idle" && !reportId && (
+        <div role="alert" className="mb-4 rounded border border-amber-500 p-3 text-sm">
+          {creationRecovery === "retryable"
+            ? "No saved request was found. Review the details and submit again using the same protected attempt."
+            : "Report creation is unconfirmed. Check its status before submitting again to avoid a duplicate charge."}
+          <button type="button" className="ml-3 underline" onClick={() => setRecoveryCheck((count) => count + 1)}>
+            Check again
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -3666,11 +3798,9 @@ export default function InitialDataEntryForm({
                   "text-neutral-700 dark:text-neutral-300",
                 )}
               >
-                Technician's Field Report{" "}
-                <span className="text-error-500 dark:text-error-400">*</span>
+                Technician's Field Report (if a technician has attended)
               </label>
               <textarea
-                required
                 value={formData.technicianFieldReport}
                 onChange={(e) =>
                   handleInputChange("technicianFieldReport", e.target.value)
@@ -3684,6 +3814,10 @@ export default function InitialDataEntryForm({
                 )}
                 placeholder="Paste or type the technician's field report here..."
               />
+              <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
+                Leave this blank until a technician has supplied observations.
+                A claim brief is not a technician's field report.
+              </p>
             </div>
           </div>
         )}
@@ -4189,6 +4323,7 @@ export default function InitialDataEntryForm({
                     "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50",
                   )}
                 >
+                  <option value="">Not assessed</option>
                   <option value="NEGATIVE">NEGATIVE</option>
                   <option value="POSITIVE">POSITIVE</option>
                 </select>
@@ -4238,9 +4373,13 @@ export default function InitialDataEntryForm({
                     }
                     className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
                   />
-                  Bio/Mould Detected
+                  Visible bio/mould growth recorded
                 </label>
               </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                Unchecked means no detection was recorded. It does not mean mould
+                was assessed and ruled out.
+              </p>
 
               {formData.biologicalMouldDetected && (
                 <div>
@@ -4439,6 +4578,18 @@ export default function InitialDataEntryForm({
               <Wrench className="w-5 h-5" />
               Equipment & Tools Selection
             </h3>
+            <p className="text-sm text-neutral-700 dark:text-neutral-300">
+              The starting values below are calculator examples, not recorded
+              site measurements or an approved drying plan.
+            </p>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={includeEquipmentEstimate}
+                onChange={(event) => setIncludeEquipmentEstimate(event.target.checked)}
+              />
+              Include this equipment estimate and its inputs in the saved draft
+            </label>
 
             {/* Psychrometric Assessment */}
             <div className="space-y-4">
@@ -4928,7 +5079,7 @@ export default function InitialDataEntryForm({
           formData={formData}
           nirMoistureReadings={nirMoistureReadings}
           nirAffectedAreas={nirAffectedAreas}
-          equipmentSelections={equipmentSelections}
+          equipmentSelections={includeEquipmentEstimate ? equipmentSelections : []}
           onBack={() => setShowReview(false)}
           onContinue={() => {
             setShowReview(false);

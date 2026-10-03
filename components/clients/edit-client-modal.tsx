@@ -13,6 +13,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import type { ClientFormValues } from "@/lib/clients/form";
+import { CLIENT_NOTES_MAX_LENGTH } from "@/lib/clients/notes";
 
 interface EditClientModalProps {
   open: boolean;
@@ -30,7 +31,7 @@ export function EditClientModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+    <div data-no-pull-refresh className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Edit Client</h2>
@@ -187,7 +188,7 @@ export function EditClientModal({
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes</FormLabel>
+                  <FormLabel>Notes (up to {CLIENT_NOTES_MAX_LENGTH.toLocaleString("en-AU")} characters)</FormLabel>
                   <FormControl>
                     <textarea
                       placeholder="Enter any additional notes"

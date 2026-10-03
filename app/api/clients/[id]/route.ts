@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
+import { validateClientNotes } from "@/lib/clients/notes";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   brandLogoUrlSchema,
@@ -104,8 +105,18 @@ export async function PUT(
     const address = sanitizeString(body.address, 500);
     const company = sanitizeString(body.company, 200);
     const contactPerson = sanitizeString(body.contactPerson, 200);
-    const notes = sanitizeString(body.notes, 5000);
+    const notesResult = validateClientNotes(body.notes);
     const status = body.status;
+
+    if (!notesResult.ok) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: notesResult.message,
+        status: 400,
+        fields: { notes: notesResult.message },
+      });
+    }
+    const notes = notesResult.value;
 
     if (!name || !email) {
       return apiError(request, {

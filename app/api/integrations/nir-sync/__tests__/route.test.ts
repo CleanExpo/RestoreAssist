@@ -21,9 +21,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 const syncAll = vi.fn();
+const syncSpecific = vi.fn();
 vi.mock("@/lib/integrations/nir-sync-orchestrator", () => ({
   syncNIRToAllConnectedIntegrations: (...a: unknown[]) => syncAll(...a),
-  syncNIRToSpecificIntegration: vi.fn(),
+  syncNIRToSpecificIntegration: (...a: unknown[]) => syncSpecific(...a),
 }));
 
 import { getServerSession } from "next-auth";
@@ -52,7 +53,7 @@ const costEstimates = [
   },
 ];
 
-function report() {
+function report(inspectionDate: Date | null = new Date("2026-09-22")) {
   return {
     id: "rep-1",
     userId: "u_1",
@@ -68,12 +69,13 @@ function report() {
     claimReferenceNumber: null,
     description: null,
     inspectionDate: null,
+    technicianAttendanceDate: null,
     createdAt: new Date("2026-09-23"),
     inspection: {
       scopeItems: [],
       costEstimates,
       classifications: [],
-      inspectionDate: new Date("2026-09-22"),
+      inspectionDate,
       technicianName: null,
     },
   };
@@ -91,6 +93,56 @@ beforeEach(() => {
   mockSession.mockResolvedValue({ user: { id: "u_1" } });
   reportFindUnique.mockResolvedValue(report());
   syncAll.mockResolvedValue([]);
+  syncSpecific.mockResolvedValue({ status: "success" });
+});
+
+describe("POST /api/integrations/nir-sync attendance date", () => {
+  it.each([undefined, "ascora-1"])(
+    "rejects unknown attendance before syncing (target %s)",
+    async (targetIntegrationId) => {
+      reportFindUnique.mockResolvedValue(report(null));
+
+      const res = await POST(new NextRequest("http://localhost/api/integrations/nir-sync", {
+        method: "POST",
+        body: JSON.stringify({ reportId: "rep-1", targetIntegrationId }),
+      }));
+
+      expect(res.status).toBe(422);
+      expect(JSON.stringify(await res.json())).toContain("attendance date");
+      expect(syncAll).not.toHaveBeenCalled();
+      expect(syncSpecific).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not trust a report date when its linked job has unknown attendance", async () => {
+    const unknown = report(null);
+    unknown.inspectionDate = new Date("2026-09-23");
+    reportFindUnique.mockResolvedValue(unknown);
+
+    const res = await POST(post());
+    expect(res.status).toBe(422);
+    expect(syncAll).not.toHaveBeenCalled();
+  });
+
+  it("passes the recorded inspection date rather than report creation time", async () => {
+    const known = report();
+    known.inspectionDate = new Date("2026-09-23");
+    reportFindUnique.mockResolvedValue(known);
+    mockGst.mockResolvedValue(getGstTreatment("AU"));
+    const res = await POST(post());
+    expect(res.status).toBe(200);
+    expect(syncAll.mock.calls[0][1].inspectionDate).toEqual(new Date("2026-09-22"));
+  });
+
+  it("allows a standalone report with a recorded attendance date", async () => {
+    const standalone = { ...report(), inspection: null, technicianAttendanceDate: new Date("2026-09-21") };
+    reportFindUnique.mockResolvedValue(standalone);
+    mockGst.mockResolvedValue(getGstTreatment("AU"));
+
+    const res = await POST(post());
+    expect(res.status).toBe(200);
+    expect(syncAll.mock.calls[0][1].inspectionDate).toEqual(new Date("2026-09-21"));
+  });
 });
 
 describe("POST /api/integrations/nir-sync totals (RA-7725)", () => {

@@ -22,15 +22,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyRateLimit } from "@/lib/rate-limiter";
 
-export async function GET(request?: NextRequest) {
-  if (request) {
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 60,
-      windowMs: 15 * 60 * 1000,
-      prefix: "property-scrape-health",
-    });
-    if (rateLimited) return rateLimited;
-  }
+export async function GET(request: NextRequest) {
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 60,
+    windowMs: 15 * 60 * 1000,
+    prefix: "property-scrape-health",
+  });
+  if (rateLimited) return rateLimited;
 
   // Two signals matter:
   //   1. Is anything in the scraper env reachable? Currently the route

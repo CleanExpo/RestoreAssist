@@ -14,7 +14,7 @@ import { describe, it, expect } from "vitest";
  * API amounts ALWAYS divide by 100. There is no mock-dollar path.
  */
 
-import { paymentAmountToDollars } from "@/app/dashboard/invoices/payments/page";
+import { paymentAmountToDollars } from "@/lib/invoices/payment-amount";
 
 // Mirror of the page's display formatter ($X.XX).
 const formatCurrency = (amount: number): string => `$${amount.toFixed(2)}`;

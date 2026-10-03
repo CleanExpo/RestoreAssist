@@ -20,6 +20,7 @@
  */
 
 import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineReplay, withOfflineDrainLock, type OfflineOwner } from "@/lib/offline/account-boundary";
+import { notifySyncQueueChanged } from "@/lib/offline/sync-status-event";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -157,9 +158,11 @@ export async function queueVoiceNote(
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const req = tx.objectStore(STORE).add(entry);
-    req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error ?? new Error("Recording was not saved"));
   });
+  notifySyncQueueChanged();
 
   // Request Background Sync if supported (Chromium / Edge / Android)
   if ("serviceWorker" in navigator && "SyncManager" in window) {
@@ -181,13 +184,14 @@ export async function queueVoiceNote(
 }
 
 /** Count unresolved voice notes (queued, transcribed, or errored) — drives the "N pending" badge. */
-export async function getQueuedVoiceNoteCount(): Promise<number> {
+export async function getQueuedVoiceNoteCount(strict = false): Promise<number> {
   if (typeof window === "undefined") return 0;
   try {
     const db = await openDatabase();
     const entries = await listAll(db);
     return entries.filter((e) => ownsOfflineEntry(e) && e.status !== "consumed").length;
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     return 0;
   }
 }
@@ -428,8 +432,8 @@ function removeEntry(db: IDBDatabase, id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const req = tx.objectStore(STORE).delete(id);
-    req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
+    tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
   });
 }
 
@@ -437,7 +441,7 @@ function putEntry(db: IDBDatabase, entry: VoiceNoteQueueEntry): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const req = tx.objectStore(STORE).put(entry);
-    req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
+    tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
   });
 }

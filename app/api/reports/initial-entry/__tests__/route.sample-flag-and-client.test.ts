@@ -19,8 +19,18 @@ const clientFindFirst = vi.fn();
 const clientCreate = vi.fn();
 const clientUpdate = vi.fn();
 const reportCreate = vi.fn();
+const idemComplete = vi.fn(async () => ({ count: 1 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $transaction: (callback: (tx: unknown) => Promise<unknown>) => callback({
+      report: { create: (...a: unknown[]) => reportCreate(...a) },
+      client: {
+        findFirst: (...a: unknown[]) => clientFindFirst(...a),
+        create: (...a: unknown[]) => clientCreate(...a),
+        update: (...a: unknown[]) => clientUpdate(...a),
+      },
+      idempotencyRecord: { updateMany: (...a: unknown[]) => idemComplete(...a) },
+    }),
     user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
     client: {
       findFirst: (...a: unknown[]) => clientFindFirst(...a),
@@ -32,6 +42,9 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: async () => null }));
 vi.mock("@/lib/idempotency", () => ({
+  getIdempotencyKey: (request: Request) => ({ ok: true, key: request.headers.get("Idempotency-Key") }),
+  completeIdempotentSuccessInTransaction: async (args: { tx: { idempotencyRecord: { updateMany: () => Promise<{ count: number }> } } }) =>
+    (await args.tx.idempotencyRecord.updateMany()).count === 1,
   withIdempotency: async (
     request: { text: () => Promise<string> },
     _userId: string,
@@ -68,7 +81,7 @@ function req(body: unknown) {
   return new NextRequest("http://localhost/api/reports/initial-entry", {
     method: "POST",
     body: JSON.stringify(body),
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "Idempotency-Key": "report-initial-synthetic-key" },
   });
 }
 
