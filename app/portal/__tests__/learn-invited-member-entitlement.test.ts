@@ -25,6 +25,7 @@ const db = vi.hoisted(() => ({
       organizationId: string | null;
       email: string;
       organizationLeftAt?: Date | null;
+      organizationLeftId?: string | null;
     }
   >,
   orgOwners: { "org-a": "owner-a", "org-b": "owner-b" } as Record<
@@ -233,6 +234,7 @@ describe("portal learn page — technician removed from org A (RA-7893 P1-REMOVE
     // personal READY workspace with CLIENT_EDUCATION. Org A does not.
     db.users["tech-a"].organizationId = null;
     db.users["tech-a"].organizationLeftAt = leftAt;
+    db.users["tech-a"].organizationLeftId = leftAt ? "org-a" : null;
     db.entitlements = [{ workspaceId: "ws-tech-a", active: true }];
   }
 
@@ -260,6 +262,7 @@ describe("portal learn page — org A's owner deleted their account (RA-7893 P1-
     // personal READY workspace with CLIENT_EDUCATION.
     db.users["tech-a"].organizationId = null;
     db.users["tech-a"].organizationLeftAt = new Date("2026-08-01T00:00:00Z");
+    db.users["tech-a"].organizationLeftId = "org-a";
     db.invites = [];
     db.entitlements = [{ workspaceId: "ws-tech-a", active: true }];
   }
@@ -273,5 +276,26 @@ describe("portal learn page — org A's owner deleted their account (RA-7893 P1-
     ownerDeleted();
     db.inspectionCreatedAt = new Date("2026-09-01T00:00:00Z");
     expect(await renderFor("tech-a")).toEqual({ includeAddonContent: true });
+  });
+});
+
+describe("portal learn page — earlier org B invite survives org A's owner deletion (RA-7893 P1-OWNER-DELETION-SURVIVING-INVITE-CROSS-TENANT)", () => {
+  it("does not serve org B's add-on on an org A job", async () => {
+    // tech-a joined B on 1 May, later joined A (invite erased when A's owner
+    // deleted their account on 1 Aug). The job is A's, from 1 July. Only
+    // org B holds CLIENT_EDUCATION.
+    db.users["tech-a"].organizationId = null;
+    db.users["tech-a"].organizationLeftAt = new Date("2026-08-01T00:00:00Z");
+    db.users["tech-a"].organizationLeftId = "org-a";
+    db.invites = [
+      {
+        organizationId: "org-b",
+        acceptedUserId: "tech-a",
+        usedAt: new Date("2026-05-01T00:00:00Z"),
+      },
+    ];
+    db.entitlements = [{ workspaceId: "ws-b", active: true }];
+    db.inspectionCreatedAt = new Date("2026-07-01T00:00:00Z");
+    expect(await renderFor("tech-a")).toEqual({ includeAddonContent: false });
   });
 });

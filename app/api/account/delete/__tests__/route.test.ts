@@ -70,6 +70,7 @@ const prismaMock = vi.hoisted(() => {
       delete: ReturnType<typeof vi.fn>;
       updateMany: ReturnType<typeof vi.fn>;
     };
+    organization: { findMany: ReturnType<typeof vi.fn> };
     invoice: { updateMany: ReturnType<typeof vi.fn> };
     report: { updateMany: ReturnType<typeof vi.fn> };
     estimate: { updateMany: ReturnType<typeof vi.fn> };
@@ -79,6 +80,7 @@ const prismaMock = vi.hoisted(() => {
     $transaction: ReturnType<typeof vi.fn>;
   } = {
     user: { findUnique: vi.fn(), delete: vi.fn(), updateMany: vi.fn() },
+    organization: { findMany: vi.fn(async () => []) },
     invoice: { updateMany: vi.fn() },
     report: { updateMany: vi.fn() },
     estimate: { updateMany: vi.fn() },
@@ -230,6 +232,9 @@ describe("POST /api/account/delete — RA-7893 members keep a leave date", () =>
       updateManyOf(d).mockResolvedValue({ count: 0 } as never);
     }
     prismaMock.user.updateMany.mockResolvedValue({ count: 2 } as never);
+    prismaMock.organization.findMany.mockResolvedValue([
+      { id: "org-a" },
+    ] as never);
     prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
     prismaMock.$transaction.mockImplementation(
       async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
@@ -243,12 +248,18 @@ describe("POST /api/account/delete — RA-7893 members keep a leave date", () =>
     const res = await POST(makeRequest(CONFIRMATION));
     expect(res.status).toBe(200);
 
+    // Every current member of each organisation the owner owns gets the
+    // leave date AND which organisation they left.
+    expect(prismaMock.organization.findMany).toHaveBeenCalledWith({
+      where: { ownerId: "user-1" },
+      select: { id: true },
+    });
     expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
-      where: {
-        organization: { ownerId: "user-1" },
-        organizationLeftAt: null,
+      where: { organizationId: "org-a" },
+      data: {
+        organizationLeftAt: expect.any(Date),
+        organizationLeftId: "org-a",
       },
-      data: { organizationLeftAt: expect.any(Date) },
     });
     expect(
       prismaMock.user.updateMany.mock.invocationCallOrder[0],

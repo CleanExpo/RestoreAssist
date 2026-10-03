@@ -26,6 +26,7 @@ const db = vi.hoisted(() => ({
       email: string;
       ownerId: string | null;
       organizationLeftAt?: Date | null;
+      organizationLeftId?: string | null;
     }
   >,
   invites: [] as Invite[],
@@ -258,6 +259,7 @@ describe("getResourceTenantOwner — removed member (RA-7893 P1-REMOVED-MEMBER-O
       email: "tech-a@example.com",
       ownerId: null,
       organizationLeftAt: new Date("2026-08-01T00:00:00Z"),
+      organizationLeftId: "org-a",
     };
     db.invites = [
       {
@@ -313,6 +315,7 @@ describe("getResourceTenantOwner — owner account deleted (RA-7893 P1-OWNER-DEL
       email: "tech-a@example.com",
       ownerId: null,
       organizationLeftAt: new Date("2026-08-01T00:00:00Z"),
+      organizationLeftId: "org-a",
     };
     db.invites = [];
   });
@@ -325,5 +328,73 @@ describe("getResourceTenantOwner — owner account deleted (RA-7893 P1-OWNER-DEL
     await expect(
       getResourceTenantOwner("tech-a", new Date("2026-09-01T00:00:00Z")),
     ).resolves.toBe("tech-a");
+  });
+});
+
+describe("getResourceTenantOwner — which organisation was left (RA-7893 P1-OWNER-DELETION-SURVIVING-INVITE-CROSS-TENANT)", () => {
+  const JOB = new Date("2026-07-01T00:00:00Z");
+  function leftOrgA() {
+    db.users["tech-a"] = {
+      id: "tech-a",
+      role: "USER",
+      organizationId: null,
+      email: "tech-a@example.com",
+      ownerId: null,
+      organizationLeftAt: new Date("2026-08-01T00:00:00Z"),
+      organizationLeftId: "org-a",
+    };
+  }
+  const inviteB = {
+    organizationId: "org-b",
+    acceptedUserId: "tech-a",
+    email: "tech-a@example.com",
+    usedAt: new Date("2026-05-01T00:00:00Z"),
+  };
+  const inviteA = {
+    organizationId: "org-a",
+    acceptedUserId: "tech-a",
+    email: "tech-a@example.com",
+    usedAt: new Date("2026-06-01T00:00:00Z"),
+  };
+
+  it("Codex's history: B earlier, A's invite erased by A's owner deleting, job in A — null, never owner-b", async () => {
+    leftOrgA();
+    db.invites = [inviteB];
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBeNull();
+  });
+
+  it("normal removal from A: owner-a", async () => {
+    leftOrgA();
+    db.invites = [inviteB, inviteA];
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBe(
+      "owner-a",
+    );
+  });
+
+  it("owner of A deleted, no invites left: null", async () => {
+    leftOrgA();
+    db.invites = [];
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBeNull();
+  });
+
+  it("job before joining A (A's invite is later): the creator", async () => {
+    leftOrgA();
+    db.invites = [{ ...inviteA, usedAt: new Date("2026-07-15T00:00:00Z") }];
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBe("tech-a");
+  });
+
+  it("job after leaving A: the creator", async () => {
+    leftOrgA();
+    db.invites = [inviteB, inviteA];
+    await expect(
+      getResourceTenantOwner("tech-a", new Date("2026-09-01T00:00:00Z")),
+    ).resolves.toBe("tech-a");
+  });
+
+  it("a leave date with no recorded organisation: null", async () => {
+    leftOrgA();
+    db.users["tech-a"].organizationLeftId = null;
+    db.invites = [inviteB, inviteA];
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBeNull();
   });
 });

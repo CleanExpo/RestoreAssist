@@ -147,19 +147,21 @@ export async function getEffectiveSubscription(userId: string): Promise<{
  *   no acceptedUserId and are matched on the invite email.
  * - No such invite: null. The caller refuses; nobody is billed and no add-on
  *   is lent.
- * - The creator is in no organisation now (removed by DELETE
- *   /api/team/members/[id], which stamps organizationLeftAt): find the
- *   latest invite they accepted at or before the resource was created.
- *   - None, but a leave date after the resource and no accepted invite on
- *     record at all: null. Deleting the owner's account (which stamps the
- *     members' leave date) cascaded the organisation's invites away, so the
- *     resource's business cannot be proven.
- *   - Otherwise none: the creator. They made it on their own, as before.
- *   - One, and the resource predates organizationLeftAt: that
- *     organisation's owner. An old org A job stays org A's.
- *   - One, and the resource is at or after organizationLeftAt: the creator.
- *   - One, but no leave date (a removal from before the column existed):
- *     null, fail closed.
+ * - The creator is in no organisation now. Member removal and the owner's
+ *   account deletion both stamp organizationLeftAt (when) and
+ *   organizationLeftId (which organisation); only the latest leave is kept.
+ *   - Resource at or after organizationLeftAt: the creator.
+ *   - No leave date: the creator if they had accepted no invite by the
+ *     resource's createdAt, else null (a removal from before the columns
+ *     existed; fail closed).
+ *   - Resource before organizationLeftAt: it can only be the left
+ *     organisation's. The latest invite accepted by createdAt must be into
+ *     organizationLeftId (and that organisation must still have an owner):
+ *     its owner. Into another organisation: null, because earlier history
+ *     is not recorded. None by createdAt but one into organizationLeftId
+ *     later: the creator, who made it before joining. No such invite at all
+ *     (erased by the owner deleting their account), or no
+ *     organizationLeftId: null.
  */
 export async function getResourceTenantOwner(
   creatorId: string,
@@ -170,7 +172,12 @@ export async function getResourceTenantOwner(
 
   const creator = await prisma.user.findUnique({
     where: { id: creatorId },
-    select: { organizationId: true, email: true, organizationLeftAt: true },
+    select: {
+      organizationId: true,
+      email: true,
+      organizationLeftAt: true,
+      organizationLeftId: true,
+    },
   });
   if (!ownerId) {
     // Unknown user, or an organisation row with no owner: unchanged.
@@ -207,40 +214,46 @@ function acceptedBy(userId: string, email: string) {
 
 async function removedMemberTenantOwner(
   creatorId: string,
-  creator: { email: string; organizationLeftAt: Date | null },
+  creator: {
+    email: string;
+    organizationLeftAt: Date | null;
+    organizationLeftId: string | null;
+  },
   resourceCreatedAt: Date,
 ): Promise<string | null> {
+  const leftAt = creator.organizationLeftAt;
+  if (leftAt && resourceCreatedAt.getTime() >= leftAt.getTime()) {
+    return creatorId;
+  }
   const joined = await prisma.userInvite.findFirst({
     where: {
       usedAt: { not: null, lte: resourceCreatedAt },
       OR: acceptedBy(creatorId, creator.email),
     },
-    select: { usedAt: true, organization: { select: { ownerId: true } } },
+    select: {
+      organizationId: true,
+      organization: { select: { ownerId: true } },
+    },
     orderBy: { usedAt: "desc" },
   });
-  const leftAt = creator.organizationLeftAt;
-  if (!joined) {
-    // Deleting an owner's account cascades their organisation and its
-    // invites, so a former member can have a leave date and no invite left.
-    // Then a resource from before the leave date has no provable business.
-    // With the invite history intact, no invite before the resource means
-    // the creator made it before joining: theirs, as before.
-    if (!leftAt || resourceCreatedAt.getTime() >= leftAt.getTime()) {
-      return creatorId;
-    }
-    const anyInvite = await prisma.userInvite.findFirst({
-      where: {
-        usedAt: { not: null },
-        OR: acceptedBy(creatorId, creator.email),
-      },
-      select: { usedAt: true },
-    });
-    return anyInvite ? creatorId : null;
+  if (!leftAt) return joined ? null : creatorId;
+
+  const leftOrgId = creator.organizationLeftId;
+  if (!leftOrgId) return null;
+  if (joined) {
+    return joined.organizationId === leftOrgId
+      ? (joined.organization?.ownerId ?? null)
+      : null;
   }
-  if (!leftAt) return null;
-  return resourceCreatedAt.getTime() < leftAt.getTime()
-    ? joined.organization.ownerId
-    : creatorId;
+  const joinedLeftOrgLater = await prisma.userInvite.findFirst({
+    where: {
+      organizationId: leftOrgId,
+      usedAt: { not: null },
+      OR: acceptedBy(creatorId, creator.email),
+    },
+    select: { usedAt: true },
+  });
+  return joinedLeftOrgLater ? creatorId : null;
 }
 
 /**

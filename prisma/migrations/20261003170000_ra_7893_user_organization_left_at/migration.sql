@@ -7,7 +7,10 @@
 --   old org A job read the ex-member's own add-ons.
 --
 -- WHAT IT ADDS
---   One nullable TIMESTAMP(3) column. The removal route stamps it. Existing
+--   Two nullable columns. organizationLeftAt (TIMESTAMP(3)) is when the
+--   member left; organizationLeftId (TEXT, deliberately no foreign key so it
+--   survives the organisation being deleted) is which organisation they
+--   left. Member removal and owner account deletion stamp both. Existing
 --   rows get NULL; nothing is backfilled. A removed member with no date
 --   fails closed for jobs made after they joined (lib/organization-credits
 --   getResourceTenantOwner).
@@ -16,6 +19,8 @@
 --   ALTER TABLE ... ADD COLUMN with a nullable type. No data changes.
 --
 -- REVERSIBLE
---   down.sql drops exactly this column.
+--   down.sql drops exactly these columns.
 
-ALTER TABLE "User" ADD COLUMN "organizationLeftAt" TIMESTAMP(3);
+ALTER TABLE "User"
+  ADD COLUMN "organizationLeftAt" TIMESTAMP(3),
+  ADD COLUMN "organizationLeftId" TEXT;

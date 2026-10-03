@@ -104,6 +104,7 @@ describe("team/members/[id] — org-scoped writes", () => {
           organizationId: null,
           managedById: null,
           organizationLeftAt: expect.any(Date),
+          organizationLeftId: "org1",
         },
       }),
     );

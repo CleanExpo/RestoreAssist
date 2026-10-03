@@ -162,16 +162,22 @@ export async function POST(request: NextRequest) {
       await prisma.$transaction(async (tx) => {
         // RA-7893: deleting this user cascades any organisation they own and
         // its UserInvites, and sets each member's organizationId to null.
-        // Stamp the members' leave date first: it is then the only record
-        // that their older jobs belonged to this organisation
-        // (lib/organization-credits getResourceTenantOwner).
-        await tx.user.updateMany({
-          where: {
-            organization: { ownerId: user.id },
-            organizationLeftAt: null,
-          },
-          data: { organizationLeftAt: new Date() },
+        // Stamp each member's leave date and the organisation they left
+        // first: with the invites gone, that is the only record that their
+        // older jobs belonged to it (lib/organization-credits
+        // getResourceTenantOwner). It overwrites any earlier leave: this is
+        // now their latest.
+        const leftAt = new Date();
+        const ownedOrganizations = await tx.organization.findMany({
+          where: { ownerId: user.id },
+          select: { id: true },
         });
+        for (const org of ownedOrganizations) {
+          await tx.user.updateMany({
+            where: { organizationId: org.id },
+            data: { organizationLeftAt: leftAt, organizationLeftId: org.id },
+          });
+        }
         await tx.invoice.updateMany(reassignToRetentionOwner);
         await tx.report.updateMany(reassignToRetentionOwner);
         await tx.estimate.updateMany(reassignToRetentionOwner);
