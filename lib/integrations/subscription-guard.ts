@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { COMPLIMENTARY_PRICE_ID } from "@/lib/billing/founding-trial-grant";
 import { BOOKKEEPING_SKU, isBookkeepingProvider } from "@/lib/billing/bookkeeping-addon";
 import { getReadyWorkspaceOwnedBy } from "@/lib/entitlements/require-addon";
+import { isCurrentTrial } from "@/lib/billing/trial-expired-pay-route";
 import { isIntegrationDevMode } from "./dev-mode";
 
 export interface SubscriptionCheckResult {
@@ -97,9 +98,8 @@ export async function checkIntegrationAccess(
     // The grant must sit on the READY workspace the organisation's owner OWNS
     // (invite acceptance never creates a WorkspaceMember row, so membership
     // cannot be required). Its persisted owner must be this owner.
-    const trialEnd = owner.trialEndsAt?.getTime();
-    if (owner.subscriptionStatus === "TRIAL" && typeof trialEnd === "number" &&
-        Number.isFinite(trialEnd) && trialEnd > Date.now()) {
+    // One definition of a current trial (fails closed on a missing date).
+    if (isCurrentTrial(owner.subscriptionStatus, owner.trialEndsAt)) {
       const workspace = await getReadyWorkspaceOwnedBy(ownerId);
       if (workspace) {
         const grant = await prisma.featureEntitlement.findUnique({

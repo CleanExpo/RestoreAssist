@@ -46,6 +46,7 @@ beforeEach(() => {
       organizationId: "org-a",
       organization: { ownerId: "owner-a" },
       subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2099-01-01"),
     },
     "tech-a": {
       ...base,

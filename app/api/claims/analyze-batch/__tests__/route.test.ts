@@ -94,6 +94,7 @@ describe("POST /api/claims/analyze-batch — Rule 5 subscription gate", () => {
       userFindUnique.mockResolvedValue({
         subscriptionStatus: status,
         lifetimeAccess,
+        trialEndsAt: new Date("2099-01-01"),
       });
 
       // No PDFs → the route returns 400 AFTER passing the gate, proving the

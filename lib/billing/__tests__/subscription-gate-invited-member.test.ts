@@ -13,6 +13,7 @@ type Row = {
   organizationId: string | null;
   subscriptionStatus: string | null;
   lifetimeAccess: boolean;
+  trialEndsAt?: Date | null;
 };
 
 const db = vi.hoisted(() => ({
@@ -33,6 +34,7 @@ vi.mock("@/lib/prisma", () => ({
           monthlyReportsUsed: 0,
           monthlyResetDate: null,
           trialEndsAt: null,
+          ...(u.trialEndsAt !== undefined ? { trialEndsAt: u.trialEndsAt } : {}),
           addonReports: 0,
           organization: u.organizationId
             ? { ownerId: db.orgs[u.organizationId]?.ownerId ?? null }
@@ -56,6 +58,9 @@ function seed(ownerStatus: string | null) {
       role: "ADMIN",
       organizationId: "org-a",
       subscriptionStatus: ownerStatus,
+      // Every real TRIAL row carries an end date (register, Google sign-in,
+      // Founding Trial grant all set one).
+      trialEndsAt: ownerStatus === "TRIAL" ? new Date("2099-01-01") : null,
       lifetimeAccess: false,
     },
     "tech-a": {
@@ -120,5 +125,27 @@ describe("requireActiveSubscription — invited members (RA-7893)", () => {
     seed("CANCELED");
     db.users["owner-a"].lifetimeAccess = true;
     await expect(requireActiveSubscription("tech-a")).resolves.toBeNull();
+  });
+});
+
+describe("requireActiveSubscription — ended trials (RA-7893 review P1-EXPIRED-OWNER-TRIAL-ACCESS)", () => {
+  it("refuses the technician when the owner is TRIAL but trialEndsAt has passed", async () => {
+    seed("TRIAL");
+    db.users["owner-a"].trialEndsAt = new Date("2000-01-01");
+    await expect(hasActiveSubscription("tech-a")).resolves.toBe(false);
+    const res = await requireActiveSubscription("tech-a");
+    expect(res?.status).toBe(402);
+  });
+
+  it("refuses the owner themselves on an ended, un-swept trial", async () => {
+    seed("TRIAL");
+    db.users["owner-a"].trialEndsAt = new Date("2000-01-01");
+    await expect(hasActiveSubscription("owner-a")).resolves.toBe(false);
+  });
+
+  it("fails closed on a TRIAL with no end date", async () => {
+    seed("TRIAL");
+    db.users["owner-a"].trialEndsAt = null;
+    await expect(hasActiveSubscription("tech-a")).resolves.toBe(false);
   });
 });

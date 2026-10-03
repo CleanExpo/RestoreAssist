@@ -34,6 +34,8 @@ describe("requireActiveSubscription", () => {
       userFindUnique.mockResolvedValue({
         subscriptionStatus: status,
         lifetimeAccess: false,
+        // RA-7893: a live TRIAL always carries an end date.
+        trialEndsAt: new Date("2099-01-01"),
       });
       await expect(requireActiveSubscription("u1")).resolves.toBeNull();
     });

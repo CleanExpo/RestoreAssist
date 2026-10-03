@@ -117,6 +117,7 @@ describe("POST /api/reports/[id]/client-summary — RA-7893 invited technician",
         organizationId: "org_1",
         organization: { ownerId: "owner_1" },
         subscriptionStatus: "TRIAL",
+        trialEndsAt: new Date("2099-01-01"),
         creditsRemaining: 5,
       },
     };

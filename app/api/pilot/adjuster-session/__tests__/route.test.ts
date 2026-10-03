@@ -181,6 +181,7 @@ describe("POST /api/pilot/adjuster-session", () => {
     mockFindUnique.mockResolvedValue({
       id: "user-3",
       subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2099-01-01"),
     });
     mockDeductCredits.mockRejectedValueOnce(new Error("INSUFFICIENT_CREDITS"));
 

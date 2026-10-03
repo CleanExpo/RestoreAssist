@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
+import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
 
 /**
  * RA-7893 — Quick Fill follows the business owner's plan.
@@ -18,12 +19,11 @@ import { getEffectiveSubscription } from "@/lib/organization-credits";
 async function resolveQuickFillAccount(userId: string) {
   const effective = await getEffectiveSubscription(userId);
   if (!effective) return null;
-  const isTrialWithinPeriod =
-    effective.subscriptionStatus === "TRIAL" &&
-    (!effective.trialEndsAt || new Date() <= new Date(effective.trialEndsAt));
   return {
     billingUserId: effective.id,
-    hasUnlimited: effective.subscriptionStatus === "ACTIVE" || isTrialWithinPeriod,
+    // ACTIVE (lifetime included) or a TRIAL whose end date has not passed;
+    // a TRIAL with no end date fails closed (isCurrentTrial).
+    hasUnlimited: isEffectivePlanCurrent(effective),
   };
 }
 

@@ -125,6 +125,18 @@ describe("checkIntegrationAccess — invited members (RA-7893)", () => {
     expect(res.foundingTrialWorkspaceId).toBe("ws-a");
   });
 
+  it("refuses the Founding Trial grant once the owner's trial has ended", async () => {
+    db.users["owner-a"].subscriptionStatus = "TRIAL";
+    db.users["owner-a"].trialEndsAt = PAST;
+    db.grant = {
+      active: true,
+      stripePriceId: "complimentary:founding-trial",
+      workspace: { ownerId: "owner-a", status: "READY" },
+    };
+    const res = await checkIntegrationAccess("tech-a", "xero");
+    expect(res.isAllowed).toBe(false);
+  });
+
   it("refuses a user removed from the organisation", async () => {
     const res = await checkIntegrationAccess("removed", "xero");
     expect(res.isAllowed).toBe(false);

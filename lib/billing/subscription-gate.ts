@@ -14,6 +14,7 @@
  */
 import { NextResponse } from "next/server";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
+import { isCurrentTrial } from "@/lib/billing/trial-expired-pay-route";
 
 // Every member must exist in `enum SubscriptionStatus` (prisma/schema.prisma).
 // "LIFETIME" used to sit here and is NOT an enum member, so it could never match
@@ -22,22 +23,39 @@ import { getEffectiveSubscription } from "@/lib/organization-credits";
 // reads the schema.
 export const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE"] as const;
 
-export function isAllowedSubscriptionStatus(
-  status: string | null | undefined,
+/**
+ * True when an effective plan (from getEffectiveSubscription, which maps
+ * lifetime access to ACTIVE) may run paid work: ACTIVE, or a TRIAL whose end
+ * date has not passed (`isCurrentTrial`, which fails closed on a missing end
+ * date). RA-7893 review: a TRIAL whose end date has passed but which the
+ * sweep has not yet flipped to EXPIRED is NOT current.
+ */
+export function isEffectivePlanCurrent(
+  effective:
+    | { subscriptionStatus: string | null; trialEndsAt: Date | null }
+    | null
+    | undefined,
 ): boolean {
-  return ALLOWED_SUBSCRIPTION_STATUSES.includes(
-    (status ?? "") as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
-  );
+  if (!effective) return false;
+  const status = effective.subscriptionStatus;
+  if (
+    !ALLOWED_SUBSCRIPTION_STATUSES.includes(
+      (status ?? "") as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
+    )
+  ) {
+    return false;
+  }
+  return status === "ACTIVE" || isCurrentTrial(status, effective.trialEndsAt);
 }
 
 /**
  * True when the user's effective plan (the organisation owner's for an
- * invited MANAGER/USER, their own otherwise) is TRIAL, ACTIVE or lifetime.
- * An unknown user, or an owner that cannot be found, is false.
+ * invited MANAGER/USER, their own otherwise) is current — see
+ * isEffectivePlanCurrent. An unknown user, or an owner that cannot be found,
+ * is false.
  */
 export async function hasActiveSubscription(userId: string): Promise<boolean> {
-  const effective = await getEffectiveSubscription(userId);
-  return isAllowedSubscriptionStatus(effective?.subscriptionStatus);
+  return isEffectivePlanCurrent(await getEffectiveSubscription(userId));
 }
 
 export async function requireActiveSubscription(

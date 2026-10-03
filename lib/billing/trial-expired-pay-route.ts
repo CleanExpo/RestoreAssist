@@ -63,6 +63,30 @@ export function isExpiredTrialWindow(
 }
 
 /**
+ * RA-7893 — is this a TRIAL that may still run paid work?
+ *
+ * Built on `isExpiredTrialWindow`, so "ended" has one definition. Unlike that
+ * function (which answers "show the ended-trial wall?" and so treats a missing
+ * or unparseable end date as not ended), this gate FAILS CLOSED: a TRIAL with
+ * no usable `trialEndsAt` is not current. Every app path that writes TRIAL
+ * also writes an end date (register, Google sign-in, native token exchange,
+ * profile onboarding, lib/auth, the Founding Trial grant).
+ */
+export function isCurrentTrial(
+  subscriptionStatus: string | null | undefined,
+  trialEndsAt: string | Date | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (subscriptionStatus !== "TRIAL" || trialEndsAt == null) return false;
+  const ends =
+    trialEndsAt instanceof Date
+      ? trialEndsAt.getTime()
+      : Date.parse(String(trialEndsAt));
+  if (Number.isNaN(ends)) return false;
+  return !isExpiredTrialWindow(subscriptionStatus, trialEndsAt, now);
+}
+
+/**
  * RA-7439 / RA-7462 — dashboard lockout.
  *
  * Expired trial (TRIAL past trialEndsAt, or EXPIRED after the sweep) keeps

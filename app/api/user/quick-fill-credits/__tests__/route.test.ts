@@ -114,6 +114,18 @@ describe("quick-fill credits — invited members (RA-7893)", () => {
     });
   });
 
+  it("RA-7893 review P1: is NOT unlimited when the owner's TRIAL has ended or has no end date", async () => {
+    db.users["owner-a"].subscriptionStatus = "TRIAL";
+    db.users["owner-a"].trialEndsAt = new Date("2000-01-01");
+    expect((await (await GET(req())).json()).hasUnlimited).toBe(false);
+
+    db.users["owner-a"].trialEndsAt = null;
+    expect((await (await GET(req())).json()).hasUnlimited).toBe(false);
+
+    db.users["owner-a"].trialEndsAt = new Date("2099-01-01");
+    expect((await (await GET(req())).json()).hasUnlimited).toBe(true);
+  });
+
   it("gives a removed user nothing unlimited", async () => {
     session.mockResolvedValue({ user: { id: "removed" } });
     const body = await (await GET(req())).json();

@@ -10,7 +10,7 @@
  * Spec ref: docs/superpowers/specs/2026-05-14-signin-jobclose-audit-design.md §5.
  */
 import { prisma } from "@/lib/prisma";
-import { isAllowedSubscriptionStatus } from "@/lib/billing/subscription-gate";
+import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
 
 export type LifecycleHookFailure = {
@@ -74,7 +74,7 @@ export async function runLifecycleHook<TInput, TDraft>(
   // balance (`effective.id`), not on the technician's null credits.
   const effective = await getEffectiveSubscription(spec.userId);
   const status = effective?.subscriptionStatus ?? null;
-  if (!effective || !isAllowedSubscriptionStatus(status)) {
+  if (!effective || !isEffectivePlanCurrent(effective)) {
     return {
       ok: false,
       code: "SUBSCRIPTION_REQUIRED",

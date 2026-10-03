@@ -13,7 +13,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import type { Prisma } from "@prisma/client";
-import { isAllowedSubscriptionStatus } from "@/lib/billing/subscription-gate";
+import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
 
 class InspectionLinkConflictError extends Error {}
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
       // RA-7893: an invited technician uses the business owner's plan.
       const effectiveSub = await getEffectiveSubscription(userId);
-      if (!isAllowedSubscriptionStatus(effectiveSub?.subscriptionStatus)) {
+      if (!isEffectivePlanCurrent(effectiveSub)) {
         return apiError(request, {
           code: "FORBIDDEN",
           message: "Active subscription required",

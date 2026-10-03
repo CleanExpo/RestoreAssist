@@ -441,6 +441,7 @@ describe("POST /api/reports/generate-enhanced — RA-7893 invited technician", (
         organizationId: "org-a",
         organization: { ownerId: "owner-1", country: "AU" },
         subscriptionStatus: ownerStatus,
+        trialEndsAt: new Date("2099-01-01"),
         lifetimeAccess: false,
         creditsRemaining: 30,
         totalCreditsUsed: 0,

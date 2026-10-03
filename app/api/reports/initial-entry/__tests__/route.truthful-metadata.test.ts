@@ -48,7 +48,7 @@ const request = (body: unknown, method = "POST") => new NextRequest("http://loca
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.session.mockResolvedValue({ user: { id: "synthetic-owner" } });
-  mocks.user.mockResolvedValue({ id: "synthetic-owner", subscriptionStatus: "TRIAL" });
+  mocks.user.mockResolvedValue({ id: "synthetic-owner", subscriptionStatus: "TRIAL", trialEndsAt: new Date("2099-01-01") });
   mocks.clientFind.mockResolvedValue(null);
   mocks.clientCreate.mockResolvedValue({ id: "synthetic-client" });
   mocks.create.mockResolvedValue({ id: "synthetic-report" });

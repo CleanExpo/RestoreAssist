@@ -107,6 +107,7 @@ describe("buildCloseSummary — happy path", () => {
   it("returns AI draft on TRIAL with credits", async () => {
     (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2099-01-01"),
       organizationId: "org_1",
     });
     (prisma.user.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -136,6 +137,7 @@ describe("buildCloseSummary — zero credits", () => {
   it("returns fallback template (NOT an error) when credits exhausted on TRIAL", async () => {
     (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2099-01-01"),
       organizationId: "org_1",
     });
     (prisma.user.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -165,6 +167,7 @@ describe("buildCloseSummary — BYOK", () => {
   it("routes through BYOK when org has an ACTIVE ProviderConnection — no credit charge", async () => {
     (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2099-01-01"),
       organizationId: "org_1",
     });
     (
@@ -191,6 +194,7 @@ describe("buildCloseSummary — IICRC citation guard", () => {
   it("appends a stock IICRC citation when missing AND claim type is WATER", async () => {
     (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2099-01-01"),
       organizationId: "org_1",
     });
     (prisma.user.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -222,5 +226,26 @@ describe("buildCloseSummary — IICRC citation guard", () => {
       // Citation guard must append S500 reference for water claims.
       expect(out.draft.text).toContain("S500:2021");
     }
+  });
+});
+
+describe("buildCloseSummary — ended trial (RA-7893 review P1)", () => {
+  it("returns SUBSCRIPTION_REQUIRED when the TRIAL end date has passed", async () => {
+    (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2000-01-01"),
+      organizationId: "org_1",
+    });
+
+    const out = await buildCloseSummary({
+      inspectionId: "ins_1",
+      invoiceId: "inv_1",
+      userId: "u_1",
+      orgId: "org_1",
+    });
+
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.code).toBe("SUBSCRIPTION_REQUIRED");
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
 });

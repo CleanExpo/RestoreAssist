@@ -12,7 +12,7 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
-import { isAllowedSubscriptionStatus } from "@/lib/billing/subscription-gate";
+import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
 
 /**
@@ -66,7 +66,7 @@ export async function POST(
     // trial charge lands on the owner's balance (effectiveSub.id), never on
     // the technician's null credits.
     const effectiveSub = await getEffectiveSubscription(userId);
-    if (!isAllowedSubscriptionStatus(effectiveSub?.subscriptionStatus)) {
+    if (!isEffectivePlanCurrent(effectiveSub)) {
       return NextResponse.json(
         {
           error: "Active subscription required to generate client summaries",
