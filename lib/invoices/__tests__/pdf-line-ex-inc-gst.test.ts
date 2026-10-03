@@ -225,6 +225,89 @@ describe("RA-7896 invoice PDF — footer and page numbers on every page", () => 
   });
 });
 
+describe("RA-7896 invoice PDF — totals, payments and notes stay above the footer", () => {
+  const invoice = {
+    id: "inv_7896_totals",
+    invoiceNumber: "INV-7896-T",
+    status: "SENT",
+    invoiceDate: new Date("2026-10-03T00:00:00Z"),
+    dueDate: new Date("2026-10-17T00:00:00Z"),
+    customerName: "Mock Customer",
+    customerEmail: "mock@example.com",
+    ...MIXED_GST_TOTALS,
+    amountPaid: 0,
+    amountDue: MIXED_GST_TOTALS.totalIncGST,
+  };
+  // The footer divider is at y=60; nothing else may print at or below this.
+  const FOOTER_ZONE_TOP = 62;
+  const isFooter = (s: string) =>
+    s === "Thank you for your business!" || /^Page \d+ of \d+$/.test(s);
+  const pageOf = (pages: Array<Array<{ str: string }>>, str: string) =>
+    pages.findIndex((p) => p.some((t) => t.str === str));
+  const intoFooter = (pages: Array<Array<{ str: string; y: number }>>) =>
+    pages.flatMap((p, i) =>
+      p
+        .filter((t) => t.str.trim() !== "" && !isFooter(t.str) && t.y < FOOTER_ZONE_TOP)
+        .map((t) => `p${i + 1} ${t.str}@${t.y.toFixed(1)}`),
+    );
+
+  it("keeps a three-line invoice on one page, totals included", async () => {
+    const pages = await textItemsByPage(
+      await generateInvoicePDF({ invoice, lineItems: MIXED_GST_LINES }),
+    );
+    expect(pages).toHaveLength(1);
+    expect(pageOf(pages, "TOTAL (Inc GST):")).toBe(0);
+    expect(pageOf(pages, "Amount Due:")).toBe(0);
+  });
+
+  it("moves totals and payments to a new page only when they would reach the footer", async () => {
+    const payments = [1, 2, 3].map((n) => ({
+      paymentDate: new Date(`2026-10-0${n}T00:00:00Z`),
+      amount: 1000,
+      paymentMethod: "Bank transfer",
+      reference: `REF-${n}`,
+    }));
+    let movedToNewPage = 0;
+    // Sweep table lengths so the table ends at every height on page 1 and 2.
+    for (let n = 1; n <= 45; n++) {
+      const lines = Array.from({ length: n }, (_, i) => ({
+        ...MIXED_GST_LINES[1],
+        id: `line_${i + 1}`,
+        description: `Drying equipment day ${i + 1}`,
+      }));
+      const pages = await textItemsByPage(
+        await generateInvoicePDF({
+          invoice: { ...invoice, amountPaid: 3000, amountDue: invoice.totalIncGST - 3000 },
+          lineItems: lines,
+          payments,
+        }),
+      );
+      expect(intoFooter(pages), `${n} lines`).toEqual([]);
+      const totalsPage = pageOf(pages, "TOTAL (Inc GST):");
+      expect(pageOf(pages, "REF-3"), `${n} lines`).toBe(totalsPage);
+      const lastRowPage = pageOf(pages, `Drying equipment day ${n}`);
+      if (totalsPage > lastRowPage) movedToNewPage++;
+    }
+    // Some table lengths genuinely leave no room, and those move.
+    expect(movedToNewPage).toBeGreaterThan(0);
+  });
+
+  it("continues long notes and terms onto a new page instead of cutting them", async () => {
+    const notes = `NOTES_START ${"site note ".repeat(600)}NOTES_END`;
+    const terms = `TERMS_START ${"payment term ".repeat(120)}TERMS_END`;
+    const pages = await textItemsByPage(
+      await generateInvoicePDF({ invoice: { ...invoice, notes, terms }, lineItems: MIXED_GST_LINES }),
+    );
+    const joined = pages.flat().map((t) => t.str).join(" ");
+    for (const s of ["NOTES_START", "NOTES_END", "TERMS_START", "TERMS_END"]) {
+      expect(joined).toContain(s);
+    }
+    expect(joined.match(/\bsite\b/g)?.length).toBe(600);
+    expect(joined.match(/\bterm\b/g)?.length).toBe(120);
+    expect(intoFooter(pages)).toEqual([]);
+  });
+});
+
 async function textItemsByPage(
   bytes: Uint8Array,
 ): Promise<Array<Array<{ str: string; y: number }>>> {

@@ -282,9 +282,14 @@ async function renderInvoicePage(
   yPosition = table.yPosition - 30;
 
   // Everything after the table goes on the table's last page, or on a new
-  // page when the totals would not fit above the footer.
+  // page when the totals (and payments) would reach the footer. The height is
+  // measured from what will be drawn, not guessed (RA-7896 review).
   let lastPage = table.page;
-  if (yPosition < TOTALS_MIN_SPACE) {
+  const tailHeight = totalsAndPaymentsHeight(
+    data.invoice,
+    data.payments?.length ?? 0,
+  );
+  if (yPosition - tailHeight < FOOTER_CLEARANCE) {
     lastPage = addPage();
     yPosition = height - margin;
   }
@@ -326,6 +331,7 @@ async function renderInvoicePage(
       yPosition,
       width,
       margin,
+      addPage,
     });
   }
 }
@@ -668,9 +674,37 @@ const COL_GST = 130;
 const COL_INC_GST = 70;
 export const LINE_TABLE_COL_QTY = COL_QTY;
 export const LINE_TABLE_COLUMN_GAP = 8;
-/** Rows stop above the footer; the totals block needs this much room. */
+/** Rows stop above the footer. */
 export const LINE_TABLE_BOTTOM = 110;
-const TOTALS_MIN_SPACE = 260;
+/**
+ * The lowest baseline totals, payments, notes and terms may use. The footer
+ * divider is at y=60; this leaves room for descenders and a small gap.
+ */
+const FOOTER_CLEARANCE = 72;
+
+/**
+ * Distance from the first totals baseline ("Subtotal") down to the last
+ * baseline the totals block prints ("Amount Due"), plus the payments section
+ * when there are payments. Mirrors renderTotalsSection and
+ * renderPaymentsSection, and the gaps renderInvoicePage puts between them,
+ * step for step. The totals block draws no other optional rows.
+ */
+function totalsAndPaymentsHeight(
+  invoice: InvoiceData["invoice"],
+  paymentCount: number,
+): number {
+  let height = 18 + 18; // Subtotal, GST
+  if (invoice.discountAmount && invoice.discountAmount > 0) height += 18;
+  if (invoice.shippingAmount && invoice.shippingAmount > 0) height += 18;
+  height += 5 + 20 + 35; // divider, TOTAL box, gap
+  if (invoice.amountPaid > 0) height += 18; // Amount Paid
+  // `height` now reaches the Amount Due baseline.
+  if (paymentCount > 0) {
+    // totals return -10, gap -30, heading -20, then 15 per further payment
+    height += 10 + 30 + 20 + 15 * (paymentCount - 1);
+  }
+  return height;
+}
 
 /**
  * The description wraps to end a gap before the QTY column, so a long
@@ -1127,12 +1161,22 @@ async function renderNotesAndTerms(
     yPosition: number;
     width: number;
     margin: number;
+    /** Notes and terms continue on a new page rather than being cut. */
+    addPage: () => PDFPage;
   },
 ): Promise<number> {
   const { helvetica, helveticaBold, colors, invoice, width, margin } = options;
   let yPosition = options.yPosition;
+  // Before each line: start a new page when this one has reached the footer.
+  const ensureRoom = () => {
+    if (yPosition < FOOTER_CLEARANCE) {
+      page = options.addPage();
+      yPosition = page.getSize().height - margin;
+    }
+  };
 
   if (invoice.notes) {
+    ensureRoom();
     page.drawText("NOTES", {
       x: margin,
       y: yPosition,
@@ -1150,7 +1194,7 @@ async function renderNotesAndTerms(
       9,
     );
     notesLines.forEach((line) => {
-      if (yPosition < 100) return;
+      ensureRoom();
       page.drawText(sanitizeTextForPDF(line), {
         x: margin,
         y: yPosition,
@@ -1165,6 +1209,7 @@ async function renderNotesAndTerms(
   }
 
   if (invoice.terms) {
+    ensureRoom();
     page.drawText("PAYMENT TERMS", {
       x: margin,
       y: yPosition,
@@ -1182,7 +1227,7 @@ async function renderNotesAndTerms(
       9,
     );
     termsLines.forEach((line) => {
-      if (yPosition < 100) return;
+      ensureRoom();
       page.drawText(sanitizeTextForPDF(line), {
         x: margin,
         y: yPosition,
