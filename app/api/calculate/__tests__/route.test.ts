@@ -79,7 +79,10 @@ describe("POST /api/calculate", () => {
 
   it("402 when subscription inactive", async () => {
     userFindUnique.mockReset();
-    userFindUnique.mockResolvedValueOnce({ subscriptionStatus: "CANCELED" });
+    userFindUnique
+      // The organisation link (an owner), then their plan: CANCELED.
+      .mockResolvedValueOnce({ role: "ADMIN" })
+      .mockResolvedValueOnce({ id: "user_abcd", subscriptionStatus: "CANCELED" });
     const res = await POST(calcReq(validBody));
     expect(res.status).toBe(402);
   });

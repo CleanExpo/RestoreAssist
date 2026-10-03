@@ -9,6 +9,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { getGstTreatment } from "@/lib/gst-rules";
 import { buildCostEstimationData } from "@/lib/restoration/cost-estimation-builder";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
@@ -165,7 +166,21 @@ export async function POST(request: NextRequest) {
       const scopeAreas = report.scopeAreas ? JSON.parse(report.scopeAreas) : [];
 
       // Get pricing configuration
-      const pricingConfig = user.pricingConfig;
+      // RA-7893: an invited member's report is priced at the pricing of the
+      // business it belongs to, never at the member's own row.
+      const reportPricing = await resolveReportPricing(
+        user.id,
+        user.pricingConfig,
+        report.createdAt,
+      );
+      if (!reportPricing.ok) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "This report's business could not be confirmed.",
+          status: 403,
+        });
+      }
+      const pricingConfig = reportPricing.pricingConfig;
 
       if (!pricingConfig) {
         return apiError(request, {
