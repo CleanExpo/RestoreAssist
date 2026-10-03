@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import {
+  isInstantUnreceiptedInvite,
+  isMarkedRoleChangeAudit,
+} from "@/lib/billing/invite-membership";
 
 /**
  * Get the organization owner (Admin) for a user
@@ -186,15 +190,11 @@ export async function getResourceTenantOwner(
   }
   if (!creator?.organizationId) return null;
 
-  const joined = await prisma.userInvite.findFirst({
-    where: {
-      organizationId: creator.organizationId,
-      usedAt: { not: null },
-      OR: acceptedBy(creatorId, creator.email),
-    },
-    select: { usedAt: true },
-    orderBy: { usedAt: "desc" },
-  });
+  const joined = await latestMembershipStart(
+    creatorId,
+    creator.email,
+    creator.organizationId,
+  );
   if (!joined?.usedAt) return null;
   return joined.usedAt.getTime() <= resourceCreatedAt.getTime()
     ? ownerId
@@ -238,15 +238,11 @@ async function removedMemberTenantOwner(
   // invite into the organisation they left, to organizationLeftAt.
   const leftOrgId = creator.organizationLeftId;
   if (!leftOrgId) return null;
-  const lastJoin = await prisma.userInvite.findFirst({
-    where: {
-      organizationId: leftOrgId,
-      usedAt: { not: null },
-      OR: acceptedBy(creatorId, creator.email),
-    },
-    select: { usedAt: true, organization: { select: { ownerId: true } } },
-    orderBy: { usedAt: "desc" },
-  });
+  const lastJoin = await latestMembershipStart(
+    creatorId,
+    creator.email,
+    leftOrgId,
+  );
   // No invite into it survives (erased by the owner deleting their account).
   if (!lastJoin?.usedAt) return null;
   // Before the last join: null, always. An earlier membership may have had
@@ -255,6 +251,60 @@ async function removedMemberTenantOwner(
   return lastJoin.usedAt.getTime() <= resourceCreatedAt.getTime()
     ? (lastJoin.organization?.ownerId ?? null)
     : null;
+}
+
+/**
+ * The latest invite into `organizationId` that started the user's
+ * membership: role-change audit rows are skipped (lib/billing/
+ * invite-membership). A marked audit is always skipped. An unmarked instant
+ * row is skipped when an earlier acceptance into the same organisation
+ * exists; with none it is a historical direct add, so it is the join.
+ * Bounded: after MAX_MEMBERSHIP_ROWS audit rows it gives up (null, fail
+ * closed).
+ */
+const MAX_MEMBERSHIP_ROWS = 25;
+async function latestMembershipStart(
+  userId: string,
+  email: string,
+  organizationId: string,
+): Promise<{
+  usedAt: Date | null;
+  organization: { ownerId: string } | null;
+} | null> {
+  let before: Date | undefined;
+  for (let i = 0; i < MAX_MEMBERSHIP_ROWS; i++) {
+    const row = await prisma.userInvite.findFirst({
+      where: {
+        organizationId,
+        usedAt: before ? { not: null, lt: before } : { not: null },
+        OR: acceptedBy(userId, email),
+      },
+      select: {
+        usedAt: true,
+        createdAt: true,
+        acceptedUserId: true,
+        acceptanceProvider: true,
+        organization: { select: { ownerId: true } },
+      },
+      orderBy: { usedAt: "desc" },
+    });
+    if (!row?.usedAt) return null;
+    let isAudit = isMarkedRoleChangeAudit(row);
+    if (!isAudit && isInstantUnreceiptedInvite(row)) {
+      const earlier = await prisma.userInvite.findFirst({
+        where: {
+          organizationId,
+          usedAt: { not: null, lt: row.usedAt },
+          OR: acceptedBy(userId, email),
+        },
+        select: { usedAt: true },
+      });
+      isAudit = Boolean(earlier);
+    }
+    if (!isAudit) return row;
+    before = row.usedAt;
+  }
+  return null;
 }
 
 /** Whether the user had accepted any invite, into any organisation, by `at`. */

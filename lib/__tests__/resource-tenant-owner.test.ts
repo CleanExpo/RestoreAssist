@@ -14,6 +14,8 @@ type Invite = {
   acceptedUserId: string | null;
   email: string;
   usedAt: Date | null;
+  createdAt?: Date;
+  acceptanceProvider?: string | null;
 };
 
 const db = vi.hoisted(() => ({
@@ -34,6 +36,7 @@ const db = vi.hoisted(() => ({
     string,
     string
   >,
+  entitledWorkspaces: [] as string[],
 }));
 
 type EmailFilter = { equals: string; mode?: "insensitive" | "default" };
@@ -76,18 +79,20 @@ vi.mock("@/lib/prisma", () => ({
       }: {
         where: {
           organizationId?: string;
-          usedAt?: { not: null; lte?: Date };
+          usedAt?: { not: null; lte?: Date; lt?: Date };
           OR: Branch[];
         };
         orderBy?: { usedAt: "asc" | "desc" };
       }) => {
         const lte = where.usedAt?.lte;
+        const lt = where.usedAt?.lt;
         const rows = db.invites.filter(
           (i) =>
             (where.organizationId === undefined ||
               i.organizationId === where.organizationId) &&
             (!where.usedAt || i.usedAt !== null) &&
             (!lte || (i.usedAt !== null && i.usedAt <= lte)) &&
+            (!lt || (i.usedAt !== null && i.usedAt < lt)) &&
             where.OR.some((b) => matchesBranch(i, b)),
         );
         if (orderBy?.usedAt === "desc") {
@@ -98,11 +103,32 @@ vi.mock("@/lib/prisma", () => ({
         return rows[0]
           ? {
               usedAt: rows[0].usedAt,
+              createdAt: rows[0].createdAt,
+              acceptedUserId: rows[0].acceptedUserId,
+              acceptanceProvider: rows[0].acceptanceProvider ?? null,
               organizationId: rows[0].organizationId,
               organization: { ownerId: db.orgOwners[rows[0].organizationId] },
             }
           : null;
       },
+    },
+    workspace: {
+      findFirst: async ({ where }: { where: { ownerId: string } }) =>
+        where.ownerId === "owner-a"
+          ? { id: "ws-a", name: "A" }
+          : where.ownerId === "owner-b"
+            ? { id: "ws-b", name: "B" }
+            : null,
+    },
+    featureEntitlement: {
+      findUnique: async ({
+        where,
+      }: {
+        where: { workspaceId_sku: { workspaceId: string; sku: string } };
+      }) =>
+        db.entitledWorkspaces.includes(where.workspaceId_sku.workspaceId)
+          ? { id: "fe", active: true }
+          : null,
     },
   },
 }));
@@ -111,6 +137,7 @@ import {
   getResourceTenantOwner,
   resourceBillsToCaller,
 } from "../organization-credits";
+import { isAddonEntitledForResource } from "@/lib/entitlements";
 
 const CREATED = new Date("2026-06-01T00:00:00Z");
 
@@ -453,5 +480,90 @@ describe("getResourceTenantOwner — erased earlier membership (RA-7893 P1-ERASE
     await expect(
       getResourceTenantOwner("tech-a", new Date("2026-06-01T00:00:00Z")),
     ).resolves.toBeNull();
+  });
+});
+
+describe("getResourceTenantOwner — a same-organisation role change is not a join (RA-7893 P1-ROLE-CHANGE-AUDIT-INVITE-RESETS-JOIN)", () => {
+  // tech-a accepted org A's invite on 01/05, made a job on 01/06, had their
+  // role changed inside A on 01/07 (POST /api/team/invites writes an audit
+  // UserInvite with usedAt = createdAt and no acceptedUserId), and was
+  // removed from A on 01/08.
+  const JOB = new Date("2026-06-01T00:00:00Z");
+  const accepted = {
+    organizationId: "org-a",
+    acceptedUserId: "tech-a",
+    email: "tech-a@example.com",
+    createdAt: new Date("2026-04-28T00:00:00Z"),
+    usedAt: new Date("2026-05-01T00:00:00Z"),
+    acceptanceProvider: "credentials",
+  };
+  function audit(provider: string | null) {
+    const at = new Date("2026-07-01T00:00:00Z");
+    return {
+      organizationId: "org-a",
+      acceptedUserId: null,
+      email: "tech-a@example.com",
+      createdAt: at,
+      usedAt: at,
+      acceptanceProvider: provider,
+    };
+  }
+  beforeEach(() => {
+    db.users["tech-a"] = {
+      id: "tech-a",
+      role: "USER",
+      organizationId: null,
+      email: "tech-a@example.com",
+      ownerId: null,
+      organizationLeftAt: new Date("2026-08-01T00:00:00Z"),
+      organizationLeftId: "org-a",
+    };
+    db.entitledWorkspaces = ["ws-a"];
+  });
+
+  it("Codex's history with an audit row written before the marker existed: owner-a", async () => {
+    db.invites = [accepted, audit(null)];
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBe(
+      "owner-a",
+    );
+  });
+
+  it("the same history with a marked audit row: owner-a", async () => {
+    db.invites = [accepted, audit("role-change-audit")];
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBe(
+      "owner-a",
+    );
+  });
+
+  it("the job keeps org A's add-on through the entitlement path", async () => {
+    db.invites = [accepted, audit(null)];
+    await expect(
+      isAddonEntitledForResource("tech-a", JOB, "CLIENT_EDUCATION"),
+    ).resolves.toBe(true);
+  });
+
+  it("a current member's older job still resolves to the owner after a role change", async () => {
+    db.users["tech-a"] = {
+      id: "tech-a",
+      role: "USER",
+      organizationId: "org-a",
+      email: "tech-a@example.com",
+      ownerId: "owner-a",
+    };
+    db.invites = [accepted, audit(null)];
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBe(
+      "owner-a",
+    );
+  });
+
+  it("an instant row with no earlier acceptance is a direct add, so it is the join", async () => {
+    // Before April 2026 the route also created members directly and wrote
+    // an already-used invite in the same insert. With nothing earlier, that
+    // row is the membership start: the job before it is not org A's.
+    db.invites = [audit(null)];
+    await expect(getResourceTenantOwner("tech-a", JOB)).resolves.toBeNull();
+    await expect(
+      getResourceTenantOwner("tech-a", new Date("2026-07-02T00:00:00Z")),
+    ).resolves.toBe("owner-a");
   });
 });
