@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { PDFParse } from "pdf-parse";
-import { generateInvoicePDF } from "../pdf-generator";
+import { PDFDocument, StandardFonts } from "pdf-lib";
+import {
+  LINE_TABLE_COLUMN_GAP,
+  LINE_TABLE_COL_QTY,
+  generateInvoicePDF,
+  lineTableDescriptionWidth,
+} from "../pdf-generator";
 import { MIXED_GST_LINES, MIXED_GST_TOTALS } from "./fixtures/mixed-gst-lines";
 
 /**
@@ -39,5 +45,23 @@ describe("RA-7896 invoice PDF — line prices ex GST and inc GST", () => {
     expect(text).toMatch(
       /Council permit \(GST-free\)\s+1\s+\$120\.00\s+\$120\.00\s+\$0\.00\s+\$120\.00/,
     );
+  });
+
+  it("wraps a description before it reaches the QTY column on A4", async () => {
+    // A4 width and the generator's margin; the description starts at margin + 10.
+    const pageWidth = 595.28;
+    const margin = 50;
+    const descriptionX = margin + 10;
+    const qtyX = pageWidth - margin - LINE_TABLE_COL_QTY;
+    const descWidth = lineTableDescriptionWidth(pageWidth, margin);
+
+    expect(descriptionX + descWidth + LINE_TABLE_COLUMN_GAP).toBeLessThanOrEqual(qtyX);
+
+    // Codex review P1: this one-line description used to end at x=254.6,
+    // under the quantity at x=245.3. It must now be too wide to stay on one line.
+    const doc = await PDFDocument.create();
+    const helvetica = await doc.embedFont(StandardFonts.Helvetica);
+    const description = "Emergency callout and initial moisture inspection";
+    expect(helvetica.widthOfTextAtSize(description, 9)).toBeGreaterThan(descWidth);
   });
 });

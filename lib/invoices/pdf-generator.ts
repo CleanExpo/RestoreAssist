@@ -651,7 +651,21 @@ const COL_RATE = 250;
 const COL_EX_GST = 190;
 const COL_GST = 130;
 const COL_INC_GST = 70;
-const DESCRIPTION_WIDTH = 220;
+export const LINE_TABLE_COL_QTY = COL_QTY;
+export const LINE_TABLE_COLUMN_GAP = 8;
+
+/**
+ * The description wraps to end a gap before the QTY column, so a long
+ * description cannot run under the quantity on the same row.
+ */
+export function lineTableDescriptionWidth(
+  pageWidth: number,
+  margin: number,
+): number {
+  const descriptionX = margin + 10;
+  const qtyX = pageWidth - margin - COL_QTY;
+  return qtyX - descriptionX - LINE_TABLE_COLUMN_GAP;
+}
 
 /**
  * Render line items table
@@ -737,7 +751,7 @@ async function renderLineItemsTable(
     // Description
     const descLines = wrapText(
       item.description,
-      DESCRIPTION_WIDTH,
+      lineTableDescriptionWidth(width, margin),
       helvetica,
       9,
     );
