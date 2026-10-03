@@ -1120,6 +1120,11 @@ function readEnvExample(): string {
   return fs.readFileSync(path.join(repoRoot, ENV_EXAMPLE_REL), "utf8");
 }
 
+// These three tests read and parse every runtime source file once (the scan is
+// cached). That takes ~7 s locally but passed 20 s on a loaded CI runner, so
+// they carry their own budget rather than the 20 s suite default.
+const REPO_SCAN_TIMEOUT_MS = 120_000;
+
 describe("runtime env names are documented in .env.example (RA-7477)", () => {
   it("reads dot, quoted bracket, optional, and destructure access", () => {
     const result = scanSourceText(
@@ -1343,7 +1348,7 @@ describe("runtime env names are documented in .env.example (RA-7477)", () => {
         .map((root) => `  ${root}`)
         .join("\n")}`,
     ).toEqual([]);
-  });
+  }, REPO_SCAN_TIMEOUT_MS);
 
   it("fails closed when a scanned file reads process.env in a shape that has no name", () => {
     const unresolved = INCLUDE_ROOTS.flatMap((root) => scanRoot(root.path).unresolved);
@@ -1353,7 +1358,7 @@ describe("runtime env names are documented in .env.example (RA-7477)", () => {
         .map((line) => `  ${line}`)
         .join("\n")}`,
     ).toEqual([]);
-  });
+  }, REPO_SCAN_TIMEOUT_MS);
 
   it("every runtime process.env name is in .env.example or the built-in allow-list", () => {
     const documented = documentedEnvNames(readEnvExample());
@@ -1375,5 +1380,5 @@ describe("runtime env names are documented in .env.example (RA-7477)", () => {
         .map((name) => `  ${sites.get(name)}: ${name}`)
         .join("\n")}`,
     ).toEqual([]);
-  });
+  }, REPO_SCAN_TIMEOUT_MS);
 });
