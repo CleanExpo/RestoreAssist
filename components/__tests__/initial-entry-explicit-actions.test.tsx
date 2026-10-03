@@ -26,6 +26,7 @@ const entryKeys: string[] = [];
 const calls: string[] = [];
 let inspectionWarning: string | null = null;
 let saveFailures = 0;
+let nextEntryResponse: Response | null = null;
 function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -38,6 +39,7 @@ beforeEach(() => {
   calls.length = 0;
   inspectionWarning = null;
   saveFailures = 0;
+  nextEntryResponse = null;
   vi.stubGlobal("scrollTo", vi.fn());
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
@@ -48,6 +50,11 @@ beforeEach(() => {
       if (saveFailures > 0) {
         saveFailures -= 1;
         throw new Error("synthetic lost response");
+      }
+      if (nextEntryResponse) {
+        const response = nextEntryResponse;
+        nextEntryResponse = null;
+        return response;
       }
       return jsonResponse({ report: { id: "r1" }, inspectionLinkWarning: inspectionWarning });
     }
@@ -94,6 +101,32 @@ describe("initial entry requires an explicit save and generation action", () => 
     expect(entryKeys[0].length).toBeGreaterThanOrEqual(8);
     expect(entryKeys[1]).toBe(entryKeys[0]);
     expect(await screen.findByText("Review All Data")).toBeInTheDocument();
+  });
+
+  it("keeps the create key after an uncertain 409 in the apiError shape", async () => {
+    // The route answers a lost reservation with apiError's object envelope and
+    // the uncertainty header. Dropping the key here would let the next submit
+    // charge again if the first attempt committed.
+    const message = "Report creation could not be verified; check its status before retrying";
+    nextEntryResponse = new Response(
+      JSON.stringify({ error: { code: "CONFLICT", message, eventId: "e1" } }),
+      {
+        status: 409,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RestoreAssist-Idempotency-Uncertain": "true",
+        },
+      },
+    );
+    const toast = (await import("react-hot-toast")).default;
+    const { container } = render(<InitialDataEntryForm initialData={{
+      clientName: "Synthetic Client", propertyAddress: "1 Test Street", propertyPostcode: "4000",
+    }} />);
+    await act(async () => fireEvent.submit(container.querySelector("form")!));
+    await act(async () => fireEvent.submit(container.querySelector("form")!));
+    expect(entryKeys).toHaveLength(2);
+    expect(entryKeys[1]).toBe(entryKeys[0]);
+    expect(toast.error).toHaveBeenCalledWith(message);
   });
 
   it("moving to the last step does not submit the reused navigation button", () => {

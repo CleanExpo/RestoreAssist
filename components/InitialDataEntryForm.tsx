@@ -1593,8 +1593,14 @@ export default function InitialDataEntryForm({
         setShowReview(true);
       } else {
         const error = await response.json().catch(() => null);
-        const message = typeof error?.error === "string" ? error.error : "Failed to save data";
+        // Routes answer with either { error: "..." } or apiError's
+        // { error: { code, message } }; read both.
+        const message =
+          typeof error?.error === "string" ? error.error
+          : typeof error?.error?.message === "string" ? error.error.message
+          : "Failed to save data";
         const pendingConflict = response.status === 409 && (
+          response.headers.get("X-RestoreAssist-Idempotency-Uncertain") === "true" ||
           message.includes("already in progress") ||
           message.includes("reused with a different request body") ||
           message.includes("could not be verified")
