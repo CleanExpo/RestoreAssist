@@ -43,6 +43,7 @@ import {
   WORKSPACE_OWNER_SELECT,
   workspaceBusiness,
 } from "@/lib/reports/workspace-business";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -99,10 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
-    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
+    if (!(await hasActiveSubscription(session.user.id))) {
       return NextResponse.json(
         {
           error: "Active subscription required to generate reports",

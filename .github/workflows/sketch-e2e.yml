@@ -279,9 +279,14 @@ jobs:
       # route pulls in googleapis. with-mem-log.sh prints free memory into the step
       # log, the one record that survives a runner being killed.
       #
-      # Groups B and C run even when an earlier group fails (!cancelled()), so one red
+      # Split again into four on 2026-10-03: the old group 2 ended at 893MB free on main
+      # (508a5c25, run 37113269274) and was shut down at security.spec.ts on PR #2392
+      # (run 37125558233, 1014MB free), when one retry made it run a little longer.
+      # security.spec.ts and the setup specs now get their own `next dev`.
+      #
+      # Groups B to D run even when an earlier group fails (!cancelled()), so one red
       # spec does not hide the results of the rest. The job still fails.
-      - name: Run remaining E2E (1 of 3)
+      - name: Run remaining E2E (1 of 4)
         run: >-
           bash scripts/ci/with-mem-log.sh
           npx --no-install playwright test -c config/playwright.config.ts
@@ -300,7 +305,7 @@ jobs:
           e2e/invite-tech-already-used.spec.ts
           --project=chromium --reporter=line
 
-      - name: Run remaining E2E (2 of 3)
+      - name: Run remaining E2E (2 of 4)
         if: ${{ !cancelled() }}
         run: >-
           bash scripts/ci/with-mem-log.sh
@@ -314,6 +319,13 @@ jobs:
           e2e/navigation.spec.ts
           e2e/nir-routes-regression.spec.ts
           e2e/procurement.spec.ts
+          --project=chromium --reporter=line
+
+      - name: Run remaining E2E (3 of 4)
+        if: ${{ !cancelled() }}
+        run: >-
+          bash scripts/ci/with-mem-log.sh
+          npx --no-install playwright test -c config/playwright.config.ts
           e2e/security.spec.ts
           e2e/setup-abr-unreachable.spec.ts
           e2e/setup-no-abn.spec.ts
@@ -323,7 +335,7 @@ jobs:
           e2e/setup-website-failure.spec.ts
           --project=chromium --reporter=line
 
-      - name: Run remaining E2E (3 of 3)
+      - name: Run remaining E2E (4 of 4)
         if: ${{ !cancelled() }}
         run: >-
           bash scripts/ci/with-mem-log.sh

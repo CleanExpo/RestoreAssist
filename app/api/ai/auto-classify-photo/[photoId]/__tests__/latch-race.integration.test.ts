@@ -116,6 +116,7 @@ describe.skipIf(!process.env.DATABASE_URL)(
           email: `${S}-owner@test.local`,
           role: "ADMIN",
           subscriptionStatus: "TRIAL",
+          trialEndsAt: new Date(Date.now() + 86_400_000),
         },
       });
       ids.userId = user.id;

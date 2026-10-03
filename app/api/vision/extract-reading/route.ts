@@ -19,6 +19,7 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -44,7 +45,6 @@ export async function POST(request: NextRequest) {
   // on identical image input.
   return withIdempotency(request, userId, async (rawBody) => {
     try {
-      const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -59,9 +59,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      if (
-        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-      ) {
+      if (!(await hasActiveSubscription(userId))) {
         return apiError(request, {
           code: "PAYMENT_REQUIRED",
           message: "Active subscription required",

@@ -16,7 +16,7 @@ export const TRIAL_EXPIRED_PAY_ROUTE = `${TRIAL_EXPIRED_PAY_PATH}?reason=${TRIAL
 export const TRIAL_EXPIRED_REFUSAL_CODE = "TRIAL_EXPIRED" as const;
 
 export const TRIAL_EXPIRED_REFUSAL_REASON =
-  "Your 15-day free trial has expired. Please subscribe to continue using RestoreAssist.";
+  "Your free trial has ended. Please subscribe to continue using RestoreAssist.";
 
 /** Existing credits / monthly-limit wall. Unchanged for in-period trials. */
 export const REPORT_CREATION_CREDITS_ROUTE = "/dashboard/pricing";
@@ -60,6 +60,30 @@ export function isExpiredTrialWindow(
       : Date.parse(String(trialEndsAt));
   if (Number.isNaN(ends)) return false;
   return now > ends;
+}
+
+/**
+ * RA-7893 — is this a TRIAL that may still run paid work?
+ *
+ * Built on `isExpiredTrialWindow`, so "ended" has one definition. Unlike that
+ * function (which answers "show the ended-trial wall?" and so treats a missing
+ * or unparseable end date as not ended), this gate FAILS CLOSED: a TRIAL with
+ * no usable `trialEndsAt` is not current. Every app path that writes TRIAL
+ * also writes an end date (register, Google sign-in, native token exchange,
+ * profile onboarding, lib/auth, the Founding Trial grant).
+ */
+export function isCurrentTrial(
+  subscriptionStatus: string | null | undefined,
+  trialEndsAt: string | Date | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (subscriptionStatus !== "TRIAL" || trialEndsAt == null) return false;
+  const ends =
+    trialEndsAt instanceof Date
+      ? trialEndsAt.getTime()
+      : Date.parse(String(trialEndsAt));
+  if (Number.isNaN(ends)) return false;
+  return !isExpiredTrialWindow(subscriptionStatus, trialEndsAt, now);
 }
 
 /**

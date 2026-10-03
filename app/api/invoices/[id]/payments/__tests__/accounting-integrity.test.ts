@@ -27,6 +27,8 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    // RA-7893 pre-check outside the transaction; not what this file tests.
+    invoice: { findUnique: async () => null },
     $transaction: (...args: unknown[]) => transaction(...args),
   },
 }));

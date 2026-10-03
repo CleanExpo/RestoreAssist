@@ -22,7 +22,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 vi.mock("@/lib/entitlements", () => ({
-  requireAddon: (...args: unknown[]) => requireAddon(...args),
+  requireAddonForResource: (...args: unknown[]) => requireAddon(...args),
 }));
 
 // Keep the real templates (and escapeHtml) — only stub the network sender.
@@ -85,6 +85,8 @@ interface ClientOverrides {
   token?: string | null;
 }
 
+const JOB_CREATED_AT = new Date("2026-06-01T00:00:00Z");
+
 function jobFixture(
   opts: { pulseEnabled?: boolean; client?: ClientOverrides } = {},
 ) {
@@ -92,6 +94,7 @@ function jobFixture(
   return {
     id: "insp_1",
     userId: "user_1",
+    createdAt: JOB_CREATED_AT,
     pulseEnabled: opts.pulseEnabled ?? true,
     report: {
       client: {
@@ -374,7 +377,11 @@ describe("dispatchPulseNotification — CLIENT_COMMS entitlement gate (RA-6954)"
       reason: "NOT_ENTITLED",
     });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
-    expect(requireAddon).toHaveBeenCalledWith("user_1", "CLIENT_COMMS");
+    expect(requireAddon).toHaveBeenCalledWith(
+      "user_1",
+      JOB_CREATED_AT,
+      "CLIENT_COMMS",
+    );
   });
 
   it("sends once the workspace is entitled to CLIENT_COMMS", async () => {

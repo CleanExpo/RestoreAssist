@@ -12,7 +12,13 @@ import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    user: { findUnique: vi.fn() },
+    inspection: { findUnique: vi.fn() },
+    userInvite: { findFirst: vi.fn() },
+  },
+}));
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: vi.fn().mockResolvedValue(null),
 }));
@@ -38,6 +44,12 @@ import { POST } from "../route";
 
 const mockSession = getServerSession as ReturnType<typeof vi.fn>;
 const mockFindUnique = prisma.user.findUnique as ReturnType<typeof vi.fn>;
+const mockInspectionFindUnique = prisma.inspection.findUnique as ReturnType<
+  typeof vi.fn
+>;
+const mockInviteFindFirst = prisma.userInvite.findFirst as ReturnType<
+  typeof vi.fn
+>;
 const mockRateLimit = applyRateLimit as ReturnType<typeof vi.fn>;
 const mockDeductCredits = deductCreditsAndTrackUsage as ReturnType<
   typeof vi.fn
@@ -73,16 +85,25 @@ const sampleRecommendation = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // RA-7893: the gate reads the user row more than once; persistent values
+  // need a reset between tests.
+  mockFindUnique.mockReset();
   mockRateLimit.mockResolvedValue(null);
   mockDeductCredits.mockResolvedValue(undefined);
   mockRefundCredits.mockResolvedValue({ refunded: true });
   mockRunAgent.mockResolvedValue(sampleRecommendation);
+  mockInspectionFindUnique.mockResolvedValue({
+    createdAt: new Date("2026-06-01T00:00:00Z"),
+  });
+  mockInviteFindFirst.mockResolvedValue(null);
   // Owns-the-inspection by default; individual tests override to simulate
   // a cross-tenant inspectionId.
-  mockAssertInspectionTenancy.mockResolvedValue({
-    ok: true,
-    data: { id: "insp-001", userId: "user-1", workspaceId: null },
-  });
+  mockAssertInspectionTenancy.mockImplementation(
+    async (session: { user: { id: string } }) => ({
+      ok: true,
+      data: { id: "insp-001", userId: session.user.id, workspaceId: null },
+    }),
+  );
 });
 
 describe("POST /api/pilot/adjuster-session", () => {
@@ -104,7 +125,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("happy path — returns recommendation", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-1" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-1",
       subscriptionStatus: "ACTIVE",
     });
@@ -126,7 +147,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("cross-tenant inspectionId (RA-6961) — tenancy denied → 404, mutates nothing", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-9" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-9",
       subscriptionStatus: "ACTIVE",
     });
@@ -161,7 +182,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("canceled subscription → 402", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-2" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-2",
       subscriptionStatus: "CANCELED",
     });
@@ -175,9 +196,10 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("no credits remaining → 402", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-3" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-3",
       subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date("2099-01-01"),
     });
     mockDeductCredits.mockRejectedValueOnce(new Error("INSUFFICIENT_CREDITS"));
 
@@ -190,7 +212,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("RA-6981: a deduct 'not found' error is NOT mislabelled 404 'Inspection not found'", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-11" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-11",
       subscriptionStatus: "ACTIVE",
     });
@@ -213,7 +235,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("missing inspectionId → 400", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-4" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-4",
       subscriptionStatus: "ACTIVE",
     });
@@ -227,7 +249,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("inspection not found → 404", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-5" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-5",
       subscriptionStatus: "ACTIVE",
     });
@@ -247,9 +269,12 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("LIFETIME subscription → allowed through gate", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-6" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-6",
-      subscriptionStatus: "LIFETIME",
+      // RA-7893: "LIFETIME" is not a SubscriptionStatus enum member; a real
+      // lifetime buyer carries lifetimeAccess=true with a CANCELED/null status.
+      subscriptionStatus: "CANCELED",
+      lifetimeAccess: true,
     });
 
     const res = await POST(makeRequest({ inspectionId: "insp-001" }));
@@ -272,7 +297,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("AI agent throws unexpected error → 500, no error.message exposed", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-8" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-8",
       subscriptionStatus: "ACTIVE",
     });
@@ -293,7 +318,7 @@ describe("POST /api/pilot/adjuster-session", () => {
 
   it("agent failure refund is best-effort — a failed refund does not change the surfaced error", async () => {
     mockSession.mockResolvedValueOnce({ user: { id: "user-10" } });
-    mockFindUnique.mockResolvedValueOnce({
+    mockFindUnique.mockResolvedValue({
       id: "user-10",
       subscriptionStatus: "ACTIVE",
     });
@@ -309,3 +334,104 @@ describe("POST /api/pilot/adjuster-session", () => {
     expect(mockRefundCredits).toHaveBeenCalledWith("user-10");
   });
 });
+
+describe("POST /api/pilot/adjuster-session — RA-7893 moved technician", () => {
+  it("does not charge org B's owner for an inspection the technician created in org A before moving", async () => {
+    // user-1 created insp-001 on 1 June in org A, then accepted an invite
+    // into org B on 1 July. owner-b has a current trial.
+    const rows: Record<string, Record<string, unknown>> = {
+      "user-1": {
+        id: "user-1",
+        role: "USER",
+        organizationId: "org-b",
+        organization: { ownerId: "owner-b" },
+        email: "user-1@example.com",
+        subscriptionStatus: null,
+      },
+      "owner-b": {
+        id: "owner-b",
+        role: "ADMIN",
+        organizationId: "org-b",
+        organization: { ownerId: "owner-b" },
+        subscriptionStatus: "TRIAL",
+        trialEndsAt: new Date("2099-01-01"),
+        creditsRemaining: 5,
+      },
+    };
+    mockSession.mockResolvedValueOnce({ user: { id: "user-1" } });
+    mockFindUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
+    );
+    mockInviteFindFirst.mockResolvedValue({
+      usedAt: new Date("2026-07-01T00:00:00Z"),
+    });
+
+    const res = await POST(makeRequest({ inspectionId: "insp-001" }));
+
+    expect(mockDeductCredits).not.toHaveBeenCalled();
+    expect(mockRunAgent).not.toHaveBeenCalled();
+    expect(res.status).toBe(402);
+  });
+});
+
+describe("POST /api/pilot/adjuster-session — RA-7893 colleague acting on a moved technician's job", () => {
+  // tech-a joined org B on 1 July. owner-b (ADMIN of org B) passes the
+  // tenancy check on tech-a's inspections because tech-a is in org B now.
+  const rows: Record<string, Record<string, unknown>> = {
+    "tech-a": {
+      id: "tech-a",
+      role: "USER",
+      organizationId: "org-b",
+      organization: { ownerId: "owner-b" },
+      email: "tech-a@example.com",
+      subscriptionStatus: null,
+    },
+    "owner-b": {
+      id: "owner-b",
+      role: "ADMIN",
+      organizationId: "org-b",
+      organization: { ownerId: "owner-b" },
+      subscriptionStatus: "ACTIVE",
+    },
+  };
+
+  beforeEach(() => {
+    mockFindUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
+    );
+    mockInviteFindFirst.mockResolvedValue({
+      usedAt: new Date("2026-07-01T00:00:00Z"),
+    });
+    mockAssertInspectionTenancy.mockResolvedValue({
+      ok: true,
+      data: { id: "insp-a", userId: "tech-a", workspaceId: null },
+    });
+  });
+
+  it("does not charge owner-b for an inspection tech-a created in org A before joining org B", async () => {
+    mockSession.mockResolvedValueOnce({ user: { id: "owner-b" } });
+    mockInspectionFindUnique.mockResolvedValue({
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+    });
+
+    const res = await POST(makeRequest({ inspectionId: "insp-a" }));
+
+    expect(mockDeductCredits).not.toHaveBeenCalled();
+    expect(mockRunAgent).not.toHaveBeenCalled();
+    expect(res.status).toBe(402);
+  });
+
+  it("charges owner-b once for a job tech-a created after joining org B", async () => {
+    mockSession.mockResolvedValueOnce({ user: { id: "owner-b" } });
+    mockInspectionFindUnique.mockResolvedValue({
+      createdAt: new Date("2026-07-02T00:00:00Z"),
+    });
+
+    const res = await POST(makeRequest({ inspectionId: "insp-a" }));
+
+    expect(res.status).toBe(200);
+    expect(mockDeductCredits).toHaveBeenCalledTimes(1);
+    expect(mockDeductCredits).toHaveBeenCalledWith("owner-b");
+  });
+});
+

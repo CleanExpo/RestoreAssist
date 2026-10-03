@@ -6,6 +6,7 @@ import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 import { hasConfiguredAi } from "@/lib/services/integrations/ai-readiness";
+import { getEffectiveSubscription } from "@/lib/organization-credits";
 
 // GET - Retrieve pricing configuration for current user
 export async function GET(request: NextRequest) {
@@ -98,8 +99,12 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Lock pricing configuration for free users
-    if (user.subscriptionStatus === "TRIAL") {
+    // Lock pricing configuration for free users.
+    // RA-7893: read the business owner's plan (an invited technician carries
+    // status null and used to skip this lock), and fail closed: anything
+    // other than an active paid plan (lifetime included) stays locked.
+    const effectiveSub = await getEffectiveSubscription(user.id);
+    if (effectiveSub?.subscriptionStatus !== "ACTIVE") {
       return apiError(request, {
         code: "FORBIDDEN",
         message:

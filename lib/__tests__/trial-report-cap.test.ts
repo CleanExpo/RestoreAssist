@@ -108,7 +108,7 @@ describe("canCreateReport — trial 50-report cap", () => {
 
     const res = await canCreateReport("user-1");
     expect(res.allowed).toBe(false);
-    expect(res.reason).toMatch(/15-day free trial has expired/i);
+    expect(res.reason).toMatch(/free trial has ended/i);
     expect(res.code).toBe(TRIAL_EXPIRED_REFUSAL_CODE);
     expect(res.payRoute).toBe(TRIAL_EXPIRED_PAY_ROUTE);
   });
@@ -125,7 +125,7 @@ describe("canCreateReport — trial 50-report cap", () => {
     expect(res.allowed).toBe(false);
     expect(res.code).toBe(TRIAL_EXPIRED_REFUSAL_CODE);
     expect(res.payRoute).toBe(TRIAL_EXPIRED_PAY_ROUTE);
-    expect(res.reason).toMatch(/15-day free trial has expired/i);
+    expect(res.reason).toMatch(/free trial has ended/i);
   });
 
   it("does NOT send an in-period exhausted trial to the trial-expired pay route", async () => {

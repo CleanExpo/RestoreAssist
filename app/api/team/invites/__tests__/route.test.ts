@@ -274,6 +274,23 @@ describe("POST /api/team/invites — same-org role update (Case 1)", () => {
     expect(userInviteCreate).toHaveBeenCalled();
   });
 
+  it("RA-7893: marks the same-org role-change invite as an audit row, not a join", async () => {
+    await POST(
+      new NextRequest("http://localhost/api/team/invites", {
+        method: "POST",
+        body: JSON.stringify({ email: "e@x.com", role: "MANAGER" }),
+      }),
+    );
+    expect(userInviteCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          usedAt: expect.any(Date),
+          acceptanceProvider: "role-change-audit",
+        }),
+      }),
+    );
+  });
+
   it("keeps a new-invite delivery failure non-2xx after committing the invite", async () => {
     userFindFirst.mockResolvedValue(null);
     sendInviteEmail.mockRejectedValueOnce(new Error("provider unavailable"));

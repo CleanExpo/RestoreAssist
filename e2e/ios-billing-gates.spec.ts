@@ -21,6 +21,9 @@ test.describe("iOS billing gates", () => {
 
     await mockCapacitorIOS(page);
     await page.goto("/login");
+    // Wait for the form first: not.toBeVisible() passes at once on a page that
+    // has not rendered yet, which made this test.fail() pass by accident (PR #2392).
+    await expect(page.locator("#email")).toBeVisible();
     await expect(page.getByText("Sign up for free")).not.toBeVisible();
     await expect(page.getByText("Don't have an account")).not.toBeVisible();
   });
