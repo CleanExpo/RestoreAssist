@@ -152,6 +152,23 @@ export async function generateInvoicePDF(
     logoImage,
   });
 
+  // Footer on every page, numbered once all pages exist (RA-7896: the line
+  // table can now run over several pages).
+  const pages = pdfDoc.getPages();
+  for (let i = 0; i < pages.length; i++) {
+    await renderFooter(pages[i], {
+      helvetica,
+      helveticaBold,
+      colors,
+      businessInfo: data.businessInfo,
+      invoice: data.invoice,
+      width: pages[i].getSize().width,
+      margin: 50,
+      pageNumber: i + 1,
+      pageCount: pages.length,
+    });
+  }
+
   const pdfBytes = await pdfDoc.save();
   return pdfBytes;
 }
@@ -311,17 +328,6 @@ async function renderInvoicePage(
       margin,
     });
   }
-
-  // Footer
-  await renderFooter(lastPage, {
-    helvetica,
-    helveticaBold,
-    colors,
-    businessInfo: data.businessInfo,
-    invoice: data.invoice,
-    width,
-    margin,
-  });
 }
 
 /**
@@ -1204,10 +1210,11 @@ async function renderFooter(
     invoice: InvoiceData["invoice"];
     width: number;
     margin: number;
+    pageNumber: number;
+    pageCount: number;
   },
 ) {
   const { helvetica, colors, invoice, width, margin } = options;
-  const { height } = page.getSize();
 
   // Footer divider
   page.drawLine({
@@ -1239,7 +1246,7 @@ async function renderFooter(
   });
 
   // Page number
-  page.drawText("Page 1 of 1", {
+  page.drawText(`Page ${options.pageNumber} of ${options.pageCount}`, {
     x: width - margin - 60,
     y: 30,
     size: 8,

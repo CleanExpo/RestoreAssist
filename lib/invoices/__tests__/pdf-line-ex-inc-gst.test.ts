@@ -160,11 +160,68 @@ describe("RA-7896 invoice PDF — line prices ex GST and inc GST", () => {
     for (const p of tablePages) expect(p.map((t) => t.str)).toContain("INC GST");
 
     // Nothing but the footer prints below the line table's bottom.
-    const FOOTER = new Set(["Thank you for your business!", "Page 1 of 1"]);
+    const isFooter = (s: string) =>
+      s === "Thank you for your business!" || /^Page \d+ of \d+$/.test(s);
     const intoFooter = all.filter(
-      (t) => t.str.trim() !== "" && t.y < LINE_TABLE_BOTTOM && !FOOTER.has(t.str),
+      (t) => t.str.trim() !== "" && t.y < LINE_TABLE_BOTTOM && !isFooter(t.str),
     );
     expect(intoFooter).toEqual([]);
+  });
+});
+
+describe("RA-7896 invoice PDF — footer and page numbers on every page", () => {
+  const invoice = {
+    id: "inv_7896_footer",
+    invoiceNumber: "INV-7896-F",
+    status: "SENT",
+    invoiceDate: new Date("2026-10-03T00:00:00Z"),
+    dueDate: new Date("2026-10-17T00:00:00Z"),
+    customerName: "Mock Customer",
+    customerEmail: "mock@example.com",
+    ...MIXED_GST_TOTALS,
+    amountPaid: 0,
+    amountDue: MIXED_GST_TOTALS.totalIncGST,
+  };
+
+  /** Asserts each page carries the footer and its own "Page i of N". */
+  async function expectFooterOnEveryPage(pdf: Uint8Array, expectedPages?: number) {
+    const pages = await textItemsByPage(pdf);
+    if (expectedPages !== undefined) expect(pages).toHaveLength(expectedPages);
+    const n = pages.length;
+    pages.forEach((items, i) => {
+      const strs = items.map((t) => t.str);
+      expect(strs, `page ${i + 1}`).toContain("Thank you for your business!");
+      expect(strs.filter((s) => /^Page \d+ of \d+$/.test(s)), `page ${i + 1}`).toEqual([
+        `Page ${i + 1} of ${n}`,
+      ]);
+    });
+    return n;
+  }
+
+  it("numbers every page of a 40-line invoice and footers each one", async () => {
+    const lines = Array.from({ length: 40 }, (_, i) => ({
+      ...MIXED_GST_LINES[1],
+      id: `line_${i + 1}`,
+      description: `Drying equipment day ${i + 1}`,
+    }));
+    const pdf = await generateInvoicePDF({ invoice, lineItems: lines });
+    expect(await expectFooterOnEveryPage(pdf)).toBeGreaterThan(1);
+  });
+
+  it("numbers every page when one line is taller than a page", async () => {
+    const description = `START_SENTINEL ${"long description ".repeat(180)}END_SENTINEL`;
+    const pdf = await generateInvoicePDF({
+      invoice,
+      lineItems: [{ ...MIXED_GST_LINES[0], description }, ...MIXED_GST_LINES.slice(1)],
+    });
+    expect(await expectFooterOnEveryPage(pdf)).toBeGreaterThan(2);
+  });
+
+  it("still shows Page 1 of 1 on a one-page invoice", async () => {
+    // One line: at this head a three-line invoice already moves its totals
+    // to a second page (TOTALS_MIN_SPACE), so it is not a one-page invoice.
+    const pdf = await generateInvoicePDF({ invoice, lineItems: [MIXED_GST_LINES[0]] });
+    await expectFooterOnEveryPage(pdf, 1);
   });
 });
 
