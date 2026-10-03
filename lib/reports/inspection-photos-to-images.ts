@@ -153,6 +153,66 @@ function isOurCloudinaryUrl(stored: string): boolean {
   );
 }
 
+/** Where a stored photo URL may be fetched from, or why it may not. */
+export type PhotoSource =
+  | { kind: "storage"; stored: string }
+  | { kind: "cloudinary"; stored: string }
+  | { kind: "refused"; reason: "not_storage" | "foreign_path" };
+
+/**
+ * The one guard for every server-side fetch of a stored photo URL (RA-7879):
+ * reports and the close/handover ZIPs both decide here, so they cannot drift.
+ * Allowed: a storage object under the owning inspection (signed before
+ * fetching) or a photo on our own Cloudinary account (fetched as stored).
+ * Everything else is refused and must never be fetched.
+ */
+export function resolvePhotoSource(
+  stored: string,
+  binding: {
+    /** The inspection the export or report is for. */
+    inspectionId?: string;
+    /** The inspection the photo row itself names, when known. */
+    rowInspectionId?: string;
+    /** Allowed first folders ({@link photoOwnerFolders}). */
+    ownerFolders: readonly string[];
+  },
+): PhotoSource {
+  const cloudinaryHosted = isOurCloudinaryUrl(stored);
+  if (!cloudinaryHosted && !isStorageObject(stored)) {
+    return { kind: "refused", reason: "not_storage" };
+  }
+  const rowElsewhere =
+    Boolean(binding.inspectionId) &&
+    Boolean(binding.rowInspectionId) &&
+    binding.rowInspectionId !== binding.inspectionId;
+  if (rowElsewhere) return { kind: "refused", reason: "foreign_path" };
+  if (cloudinaryHosted) return { kind: "cloudinary", stored };
+  if (
+    !storagePathBelongsTo(
+      stored,
+      binding.inspectionId ?? binding.rowInspectionId,
+      binding.ownerFolders,
+    )
+  ) {
+    return { kind: "refused", reason: "foreign_path" };
+  }
+  return { kind: "storage", stored };
+}
+
+/**
+ * The URL to fetch for an allowed photo source. The photo bucket is private:
+ * a stored URL is either a bare object URL or an expired signature, and
+ * fetching it unsigned fails, so storage objects are re-signed (same as
+ * GET /api/inspections/[id]/photos). Our Cloudinary photos are public and
+ * fetched as stored. Throws when signing fails.
+ */
+export async function photoSourceFetchUrl(
+  source: Exclude<PhotoSource, { kind: "refused" }>,
+): Promise<string> {
+  if (source.kind === "cloudinary") return source.stored;
+  return (await signStoredMediaUrl(source.stored)) ?? source.stored;
+}
+
 class PhotoTimeout extends Error {}
 
 async function withTimeout<T>(
@@ -223,48 +283,29 @@ export async function prepareReportPhotos(
   ): Promise<ReportPhoto | PhotoOmissionReason> => {
     const stored = p.thumbnailUrl?.trim() || p.url?.trim();
     if (!stored) return "no_url";
-    const cloudinaryHosted = isOurCloudinaryUrl(stored);
-    if (!cloudinaryHosted && !isStorageObject(stored)) {
-      // Never routine: genuine uploads are always storage objects.
+    const source = resolvePhotoSource(stored, {
+      inspectionId: options.inspectionId,
+      rowInspectionId: p.inspectionId,
+      ownerFolders: options.ownerFolders ?? [],
+    });
+    if (source.kind === "refused") {
+      // Never routine: genuine uploads are always our storage objects or our
+      // own Cloudinary photos, under the row's own inspection.
       console.error(
-        "[report-photos] refused a photo URL that is not a storage object",
+        source.reason === "not_storage"
+          ? "[report-photos] refused a photo URL that is not a storage object"
+          : "[report-photos] refused a photo outside its inspection",
         { ...context, photoId: p.id ?? null },
       );
-      return "not_storage";
-    }
-    const rowElsewhere =
-      Boolean(options.inspectionId) &&
-      Boolean(p.inspectionId) &&
-      p.inspectionId !== options.inspectionId;
-    if (
-      rowElsewhere ||
-      (!cloudinaryHosted &&
-        !storagePathBelongsTo(
-          stored,
-          options.inspectionId ?? p.inspectionId,
-          options.ownerFolders ?? [],
-        ))
-    ) {
-      // Never routine: a row points at an object outside its inspection.
-      console.error("[report-photos] refused a photo outside its inspection", {
-        ...context,
-        photoId: p.id ?? null,
-      });
-      return "foreign_path";
+      return source.reason;
     }
     try {
       return await withTimeout(timeoutMs, async (signal) => {
-        // The photo bucket is private: a stored URL is either a bare object
-        // URL or an expired signature, and fetching it unsigned fails. Same
-        // re-sign as GET /api/inspections/[id]/photos. Our Cloudinary
-        // photos are public and fetched as stored.
-        let src: string = stored;
-        if (!cloudinaryHosted) {
-          try {
-            src = (await signStoredMediaUrl(stored)) ?? stored;
-          } catch {
-            return "sign_failed" as const;
-          }
+        let src: string;
+        try {
+          src = await photoSourceFetchUrl(source);
+        } catch {
+          return "sign_failed" as const;
         }
         const res = await fetchImpl(src, { signal });
         if (!res.ok) return "fetch_failed" as const;
