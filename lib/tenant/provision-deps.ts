@@ -18,6 +18,7 @@ import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
+import { pgPoolTls } from "@/lib/prisma-pool-config";
 import {
   isAllowlistedTenantDatabaseHost,
   validateConnectionString,
@@ -196,7 +197,7 @@ export async function verifyTenantSchemaTables(
   }
   const schema = parsed.searchParams.get("schema")?.trim() || "public";
   const { Pool } = await import("pg");
-  const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 5_000 });
+  const pool = new Pool({ ...pgPoolTls(connectionString), max: 1, connectionTimeoutMillis: 5_000 });
   try {
     const result = await pool.query<SchemaTableRow>(
       `SELECT table_schema, table_name
@@ -247,7 +248,7 @@ export async function testConnectivity(connectionString: string): Promise<boolea
     return false;
   }
   const { Pool } = await import("pg");
-  const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 5_000 });
+  const pool = new Pool({ ...pgPoolTls(connectionString), max: 1, connectionTimeoutMillis: 5_000 });
   try {
     await pool.query("SELECT 1");
     return true;

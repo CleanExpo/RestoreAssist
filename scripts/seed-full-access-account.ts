@@ -67,6 +67,7 @@ import { PrismaClient, AddonSku } from "@prisma/client";
 import type { IntegrationProvider } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { pgPoolTls } from "../lib/prisma-pool-config";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import { encrypt } from "../lib/credential-vault";
@@ -106,7 +107,7 @@ if (!looksLocal(connectionString) && process.env.ALLOW_NON_LOCAL_DB !== "1") {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg(new Pool({ connectionString, max: 2 })),
+  adapter: new PrismaPg(new Pool({ ...pgPoolTls(connectionString), max: 2 })),
 });
 
 const EMAIL = process.env.FULL_ACCESS_EMAIL ?? "qa-full-access@restoreassist.app";
