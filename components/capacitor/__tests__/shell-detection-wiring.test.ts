@@ -28,11 +28,21 @@ describe("iOS shell detection — cross-file wiring", () => {
   // Every segment that can render a BillingGate must resolve the platform on
   // the server. The read is deliberately NOT in the root layout — that opts
   // every route out of static rendering (measured 68 static -> 7).
+  // /login and /signup hide the web sign-up in the shell on the same verdict.
   const GATED_SEGMENT_LAYOUTS = [
     "app/dashboard/layout.tsx",
     "app/pricing/layout.tsx",
     "app/compliance/layout.tsx",
+    "app/login/layout.tsx",
+    "app/signup/layout.tsx",
   ];
+
+  it.each(["app/login/page.tsx", "app/signup/page.tsx"])(
+    "link 4: %s prefers the server verdict over its client read",
+    (file) => {
+      expect(read(file)).toMatch(/useServerIosShell\(\)\s*===\s*true\s*\|\|/u);
+    },
+  );
 
   it.each(GATED_SEGMENT_LAYOUTS)(
     "link 2: %s computes the verdict from the request user-agent",
