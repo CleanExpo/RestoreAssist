@@ -64,6 +64,15 @@ describe("pgPoolTls", () => {
     );
   });
 
+  it("reads the sslmode case-insensitively, as pg does", () => {
+    expect(effectiveSsl(`${BASE}?sslmode=REQUIRE`)).toEqual({
+      rejectUnauthorized: false,
+    });
+    expect(effectiveSsl(`${BASE}?sslmode=require&sslmode=Require`)).toEqual({
+      rejectUnauthorized: false,
+    });
+  });
+
   it("leaves sslmode=no-verify to pg, which already skips verification", () => {
     const url = `${BASE}?sslmode=no-verify`;
     expect(pgPoolTls(url)).toEqual({ connectionString: url, ssl: undefined });

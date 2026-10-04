@@ -110,6 +110,12 @@ describe("withRequireAsNoVerify", () => {
     ).toEqual({ rejectUnauthorized: false });
   });
 
+  it("reads the sslmode case-insensitively, as pg does", async () => {
+    expect(await effective(`${remote}?sslmode=REQUIRE`)).toEqual({
+      rejectUnauthorized: false,
+    });
+  });
+
   it("leaves a URL with no sslmode unchanged", () => {
     expect(withRequireAsNoVerify(remote)).toBe(remote);
   });

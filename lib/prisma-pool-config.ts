@@ -32,7 +32,8 @@ export function pgPoolTls(connectionString: string): {
   );
 
   // pg honours the last sslmode when one is repeated.
-  const requireMode = params.getAll("sslmode").at(-1) === "require";
+  const requireMode =
+    params.getAll("sslmode").at(-1)?.toLowerCase() === "require";
   if (!requireMode) {
     return {
       connectionString,
