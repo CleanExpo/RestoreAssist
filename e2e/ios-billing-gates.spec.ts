@@ -26,6 +26,14 @@ test.describe("iOS billing gates", () => {
     await expect(page.getByText("Don't have an account")).not.toBeVisible();
   });
 
+  test("launch page (/) sends the shell to login on iOS", async ({ page }) => {
+    // The shell's server.url is the site root, so this is its first screen.
+    await mockCapacitorIOS(page);
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/login/, { timeout: 8000 });
+    await expect(page.getByText("Start free")).toHaveCount(0);
+  });
+
   test("signup page redirects to login on iOS", async ({ page }) => {
     await mockCapacitorIOS(page);
     await page.goto("/signup");
