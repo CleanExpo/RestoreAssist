@@ -21,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { getServerSession } from "next-auth";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -30,6 +31,8 @@ beforeEach(() => {
   userFindUnique.mockReset();
   mockSession.mockResolvedValue({ user: { id: "user_abcd" } });
   userFindUnique
+    // RA-7893: the gate reads the organisation link, then the effective plan.
+    .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
     .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
     .mockResolvedValueOnce({
       businessName: "Test Co",
@@ -76,7 +79,10 @@ describe("POST /api/calculate", () => {
 
   it("402 when subscription inactive", async () => {
     userFindUnique.mockReset();
-    userFindUnique.mockResolvedValueOnce({ subscriptionStatus: "CANCELED" });
+    userFindUnique
+      // The organisation link (an owner), then their plan: CANCELED.
+      .mockResolvedValueOnce({ role: "ADMIN" })
+      .mockResolvedValueOnce({ id: "user_abcd", subscriptionStatus: "CANCELED" });
     const res = await POST(calcReq(validBody));
     expect(res.status).toBe(402);
   });
@@ -96,6 +102,8 @@ describe("POST /api/calculate", () => {
   it("uses the organisation country for NZ GST", async () => {
     userFindUnique.mockReset();
     userFindUnique
+      // RA-7893: the gate reads the organisation link, then the effective plan.
+      .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
       .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
       .mockResolvedValueOnce({
         businessName: "NZ Test Co",
@@ -114,9 +122,45 @@ describe("POST /api/calculate", () => {
     expect(json.totalIncGST).toBe(3162.5);
   });
 
+  it("prices an invited member's quote as the plan owner's business (RA-7893)", async () => {
+    userFindUnique.mockReset();
+    userFindUnique
+      .mockResolvedValueOnce({
+        role: "USER",
+        organizationId: "org_a",
+        organization: { ownerId: "owner_a" },
+      })
+      .mockResolvedValueOnce({
+        id: "owner_a",
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: null,
+      })
+      .mockResolvedValueOnce({
+        businessName: "Test Co",
+        businessABN: "53 004 085 616",
+        businessAddress: "1 St",
+        businessPhone: null,
+        businessEmail: "a@test.com",
+        businessLogo: null,
+        organization: { country: "AU" },
+      });
+
+    const res = await POST(calcReq(validBody));
+    expect(res.status).toBe(200);
+    expect(resolveEffectivePricing).toHaveBeenCalledWith(
+      expect.anything(),
+      "user_abcd",
+      { legacyUserId: "owner_a" },
+    );
+    const json = await res.json();
+    expect(json.lineItems.every((li: { incGST?: number }) => typeof li.incGST === "number")).toBe(true);
+  });
+
   it("fails closed when the organisation country is missing", async () => {
     userFindUnique.mockReset();
     userFindUnique
+      // RA-7893: the gate reads the organisation link, then the effective plan.
+      .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
       .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
       .mockResolvedValueOnce({
         businessName: "Incomplete Co",

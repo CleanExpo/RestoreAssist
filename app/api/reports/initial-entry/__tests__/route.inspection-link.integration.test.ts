@@ -83,6 +83,7 @@ describe.skipIf(!HAS_DB)(
             email: `${S}-${tag}@test.local`,
             role: "ADMIN",
             subscriptionStatus: "TRIAL",
+            trialEndsAt: new Date(Date.now() + 86_400_000),
           },
         });
       const ownerA = await user("ownerA");
@@ -125,6 +126,7 @@ describe.skipIf(!HAS_DB)(
           email: `${S}-tech@test.local`,
           role: "USER",
           subscriptionStatus: "TRIAL",
+          trialEndsAt: new Date(Date.now() + 86_400_000),
         },
       });
       ids.orgAdmin = orgAdmin.id;

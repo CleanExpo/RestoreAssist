@@ -91,6 +91,13 @@ model User {
   // Organisation & team hierarchy
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  // RA-7893: when, and from which organisation, this user last left one
+  // (member removal, or the owner deleting their account). Null for current
+  // members and for removals made before the columns existed.
+  // organizationLeftId has no relation on purpose: it must survive the
+  // organisation being deleted.
+  organizationLeftAt DateTime?
+  organizationLeftId String?
 
   // Organisations this user owns (Admin/Owner)
   ownedOrganizations Organization[] @relation("OrganizationOwner")

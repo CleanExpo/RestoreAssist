@@ -17,6 +17,7 @@ import {
   withMargotSocialRules,
 } from "@/lib/margot/margot-system-extensions";
 import { resolveSocialCommentChatGate } from "@/lib/margot/social-restoration-relevance";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 export async function GET(request: NextRequest) {
   try {
@@ -85,8 +86,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-
 export async function POST(request: NextRequest) {
   const session = await getApiSession(request);
 
@@ -127,9 +126,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      if (
-        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-      ) {
+      if (!(await hasActiveSubscription(userId))) {
         return apiError(request, {
           code: "FORBIDDEN",
           message: "Active subscription required",

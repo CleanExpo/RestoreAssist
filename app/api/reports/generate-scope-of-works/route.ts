@@ -7,6 +7,8 @@ import { buildScopeOfWorksData } from "@/lib/restoration/scope-of-works-builder"
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -68,10 +70,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
-      const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-      if (
-        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-      ) {
+      if (!(await hasActiveSubscription(userId))) {
         return NextResponse.json(
           {
             error: "Active subscription required to generate reports",
@@ -153,7 +152,21 @@ export async function POST(request: NextRequest) {
         ? JSON.parse(report.tier3Responses)
         : null;
 
-      const pricingConfig = user.pricingConfig;
+      // RA-7893: an invited member's report is priced at the pricing of the
+      // business it belongs to, never at the member's own row.
+      const reportPricing = await resolveReportPricing(
+        user.id,
+        user.pricingConfig,
+        report.createdAt,
+      );
+      if (!reportPricing.ok) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "This report's business could not be confirmed.",
+          status: 403,
+        });
+      }
+      const pricingConfig = reportPricing.pricingConfig;
 
       if (!pricingConfig) {
         return apiError(request, {

@@ -417,3 +417,76 @@ describe("POST /api/reports/generate-enhanced — RA-7599 jurisdiction", () => {
     expect(arg.input.stateInfo?.code).toBe("QLD");
   });
 });
+
+describe("POST /api/reports/generate-enhanced — RA-7893 invited technician", () => {
+  // Invite acceptance leaves the technician with subscriptionStatus null; the
+  // plan that pays for generation is the business owner's.
+  function seedOrg(ownerStatus: string, techOrgId: string | null = "org-a") {
+    const rows: Record<string, Record<string, unknown>> = {
+      "tech-1": {
+        id: "tech-1",
+        name: "Sam Tech",
+        email: "sam@example.com",
+        role: "USER",
+        organizationId: techOrgId,
+        organization: techOrgId ? { ownerId: "owner-1", country: "AU" } : null,
+        subscriptionStatus: null,
+        lifetimeAccess: false,
+        creditsRemaining: null,
+        totalCreditsUsed: 0,
+      },
+      "owner-1": {
+        id: "owner-1",
+        role: "ADMIN",
+        organizationId: "org-a",
+        organization: { ownerId: "owner-1", country: "AU" },
+        subscriptionStatus: ownerStatus,
+        trialEndsAt: new Date("2099-01-01"),
+        lifetimeAccess: false,
+        creditsRemaining: 30,
+        totalCreditsUsed: 0,
+      },
+    };
+    userFindUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => rows[where.id] ?? null,
+    );
+    getServerSession.mockResolvedValue({ user: { id: "tech-1" } });
+  }
+
+  it("a technician of a trialing owner passes the subscription gate and generates", async () => {
+    seedOrg("TRIAL");
+    generateEnhancedReport.mockResolvedValueOnce({
+      ok: true,
+      data: { enhancedReport: "Enhanced report body" },
+    });
+    reportCreate.mockResolvedValueOnce({ id: "new-tech" });
+
+    const res = await POST(
+      makeRequest({ technicianNotes: "Water damage to bedroom wall." }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(generateEnhancedReport).toHaveBeenCalledTimes(1);
+    // The charge is keyed on the caller; deductCreditsAndTrackUsage resolves
+    // the organisation owner and charges their balance.
+    expect(deductCreditsAndTrackUsage).toHaveBeenCalledWith("tech-1");
+  });
+
+  it("refuses the technician with 402 when the owner's trial has expired", async () => {
+    seedOrg("EXPIRED");
+    const res = await POST(
+      makeRequest({ technicianNotes: "Water damage to bedroom wall." }),
+    );
+    expect(res.status).toBe(402);
+    expect(generateEnhancedReport).not.toHaveBeenCalled();
+  });
+
+  it("refuses a technician removed from the organisation", async () => {
+    seedOrg("TRIAL", null);
+    const res = await POST(
+      makeRequest({ technicianNotes: "Water damage to bedroom wall." }),
+    );
+    expect(res.status).toBe(402);
+    expect(generateEnhancedReport).not.toHaveBeenCalled();
+  });
+});

@@ -88,7 +88,7 @@ function req(body: unknown) {
 beforeEach(() => {
   vi.clearAllMocks();
   getServerSession.mockResolvedValue({ user: { id: "u1" } });
-  userFindUnique.mockResolvedValue({ id: "u1", subscriptionStatus: "TRIAL" });
+  userFindUnique.mockResolvedValue({ id: "u1", subscriptionStatus: "TRIAL", trialEndsAt: new Date("2099-01-01") });
   clientFindFirst.mockResolvedValue(null);
   clientCreate.mockResolvedValue({ id: "c-new" });
   reportCreate.mockResolvedValue({ id: "r-new" });

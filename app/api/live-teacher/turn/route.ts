@@ -16,6 +16,7 @@ import {
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { requireAddon } from "@/lib/entitlements";
 import { AI_COPILOT_SKU } from "@/lib/billing/ai-copilot-addon";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 // POST — stream an SSE response for a user utterance turn
 // Rule 1: getServerSession required
@@ -106,14 +107,9 @@ export async function POST(request: NextRequest) {
   // RA-1280 / CLAUDE.md rule 8: subscription gate. Live Teacher is the
   // single most expensive AI path (streaming, long turns). Without this
   // gate, CANCELED / PAST_DUE users could drive uncapped Anthropic spend.
-  const subUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { subscriptionStatus: true, lifetimeAccess: true },
-  });
-  const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE"];
-  const hasAccess =
-    ALLOWED_SUBSCRIPTION_STATUSES.includes(subUser?.subscriptionStatus ?? "") ||
-    subUser?.lifetimeAccess === true;
+  // RA-7893: an invited technician uses the business owner's plan (lifetime
+  // access included).
+  const hasAccess = await hasActiveSubscription(session.user.id);
   if (!hasAccess) {
     // RA-1548 — left raw: rich 402 with `upgradeRequired` sibling the client
     // reads to drive the upgrade CTA; the envelope has no slot for it.

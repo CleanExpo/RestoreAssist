@@ -1,4 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import {
+  isInDirectAddEra,
+  isInstantUnreceiptedInvite,
+  isMarkedRoleChangeAudit,
+} from "@/lib/billing/invite-membership";
 
 /**
  * Get the organization owner (Admin) for a user
@@ -122,4 +127,265 @@ export async function getEffectiveSubscription(userId: string): Promise<{
         addonReports: owner.addonReports,
       }
     : null;
+}
+
+/**
+ * RA-7893 — the business owner a RESOURCE (report, inspection) belongs to,
+ * for billing work on it or reading its add-ons. Null when that cannot be
+ * proven.
+ *
+ * Reports and inspections carry no tenant binding the app sets (workspaceId
+ * is left null on every main creation path), so the tenant is inferred from
+ * the creator. The creator's CURRENT organisation is the resource's
+ * organisation only if the creator had already joined it when the resource
+ * was created. Otherwise a technician who moved from org A to org B would
+ * bill org B's owner for an org A job, and org A's portal would show org B's
+ * add-ons.
+ *
+ * - The creator is their own owner (an ADMIN, or no organisation): the
+ *   creator, exactly as getEffectiveSubscription resolves them.
+ * - The creator is an invited member: their current owner, but only if the
+ *   latest accepted invite into their current organisation was used at or
+ *   before the resource was created. Invite acceptance is the only product
+ *   path that puts a non-owner into an organisation, and it stamps usedAt.
+ *   Invites accepted before the acceptance receipt existed (2026-08-25) have
+ *   no acceptedUserId and are matched on the invite email.
+ * - No such invite: null. The caller refuses; nobody is billed and no add-on
+ *   is lent.
+ * - The creator is in no organisation now. Member removal and the owner's
+ *   account deletion both stamp organizationLeftAt (when) and
+ *   organizationLeftId (which organisation); only the latest leave is kept.
+ *   - Resource at or after organizationLeftAt: the creator.
+ *   - No leave date: the creator if they had accepted no invite by the
+ *     resource's createdAt, else null (a removal from before the columns
+ *     existed; fail closed).
+ *   - Resource before organizationLeftAt: only the LAST recorded
+ *     membership interval is trusted, from the latest invite accepted into
+ *     organizationLeftId (lastJoin) to organizationLeftAt. Inside it: that
+ *     organisation's owner. Before lastJoin: null, always (an earlier
+ *     membership may have been erased with its owner's account, so no
+ *     missing invite proves nothing). No invite into
+ *     organizationLeftId left (erased by the owner deleting their account),
+ *     or no organizationLeftId: null.
+ */
+export async function getResourceTenantOwner(
+  creatorId: string,
+  resourceCreatedAt: Date,
+): Promise<string | null> {
+  return (await getResourceTenant(creatorId, resourceCreatedAt))?.ownerId ?? null;
+}
+
+/**
+ * The resource's tenant as getResourceTenantOwner resolves it, with the
+ * organisation that was proven for an invited member (their current one, or
+ * the one they left). One owner may own several organisations, so the owner
+ * alone does not name the resource's organisation. `organizationId` is null
+ * when the tenant is the creator themself.
+ */
+export interface ResourceTenant {
+  ownerId: string;
+  organizationId: string | null;
+}
+
+export async function getResourceTenant(
+  creatorId: string,
+  resourceCreatedAt: Date,
+): Promise<ResourceTenant | null> {
+  const self = { ownerId: creatorId, organizationId: null };
+  const ownerId = await getOrganizationOwner(creatorId);
+  if (ownerId === creatorId) return self;
+
+  const creator = await prisma.user.findUnique({
+    where: { id: creatorId },
+    select: {
+      organizationId: true,
+      email: true,
+      organizationLeftAt: true,
+      organizationLeftId: true,
+    },
+  });
+  if (!ownerId) {
+    // Unknown user, or an organisation row with no owner: unchanged.
+    if (!creator || creator.organizationId) return self;
+    return removedMemberTenant(creatorId, creator, resourceCreatedAt);
+  }
+  if (!creator?.organizationId) return null;
+
+  const joined = await latestMembershipStart(
+    creatorId,
+    creator.email,
+    creator.organizationId,
+  );
+  if (!joined?.usedAt) return null;
+  return joined.usedAt.getTime() <= resourceCreatedAt.getTime()
+    ? { ownerId, organizationId: creator.organizationId }
+    : null;
+}
+
+/** Invites this user accepted: by receipt, or (pre-receipt) by email. */
+function acceptedBy(userId: string, email: string) {
+  return [
+    { acceptedUserId: userId },
+    {
+      acceptedUserId: null,
+      email: { equals: email, mode: "insensitive" as const },
+    },
+  ];
+}
+
+async function removedMemberTenant(
+  creatorId: string,
+  creator: {
+    email: string;
+    organizationLeftAt: Date | null;
+    organizationLeftId: string | null;
+  },
+  resourceCreatedAt: Date,
+): Promise<ResourceTenant | null> {
+  const self = { ownerId: creatorId, organizationId: null };
+  const leftAt = creator.organizationLeftAt;
+  if (!leftAt) {
+    // No leave on record: theirs if they had joined nothing by then, else a
+    // removal from before the columns existed (fail closed).
+    const joinedBefore = await acceptedInviteAtOrBefore(
+      creatorId,
+      creator.email,
+      resourceCreatedAt,
+    );
+    return joinedBefore ? null : self;
+  }
+  if (resourceCreatedAt.getTime() >= leftAt.getTime()) return self;
+
+  // Only the LAST membership interval is recorded: from the latest accepted
+  // invite into the organisation they left, to organizationLeftAt.
+  const leftOrgId = creator.organizationLeftId;
+  if (!leftOrgId) return null;
+  const lastJoin = await latestMembershipStart(
+    creatorId,
+    creator.email,
+    leftOrgId,
+  );
+  // No invite into it survives (erased by the owner deleting their account).
+  if (!lastJoin?.usedAt) return null;
+  // Before the last join: null, always. An earlier membership may have had
+  // its invites erased by an owner deleting their account, so finding no
+  // invite before the resource is not evidence the creator made it alone.
+  const leftOwnerId = lastJoin.organization?.ownerId;
+  return leftOwnerId &&
+    lastJoin.usedAt.getTime() <= resourceCreatedAt.getTime()
+    ? { ownerId: leftOwnerId, organizationId: leftOrgId }
+    : null;
+}
+
+/**
+ * The latest invite into `organizationId` that started the user's
+ * membership: role-change audit rows are skipped (lib/billing/
+ * invite-membership). A marked audit is always skipped. An unmarked instant
+ * row is skipped only when an earlier acceptance into the same organisation
+ * exists AND it was written after the direct-add era; otherwise it may be a
+ * (re-)add, so it is kept as the membership start.
+ * Bounded: after MAX_MEMBERSHIP_ROWS audit rows it gives up (null, fail
+ * closed).
+ */
+const MAX_MEMBERSHIP_ROWS = 25;
+async function latestMembershipStart(
+  userId: string,
+  email: string,
+  organizationId: string,
+): Promise<{
+  usedAt: Date | null;
+  organization: { ownerId: string } | null;
+} | null> {
+  let before: Date | undefined;
+  for (let i = 0; i < MAX_MEMBERSHIP_ROWS; i++) {
+    const row = await prisma.userInvite.findFirst({
+      where: {
+        organizationId,
+        usedAt: before ? { not: null, lt: before } : { not: null },
+        OR: acceptedBy(userId, email),
+      },
+      select: {
+        usedAt: true,
+        createdAt: true,
+        acceptedUserId: true,
+        acceptanceProvider: true,
+        organization: { select: { ownerId: true } },
+      },
+      orderBy: { usedAt: "desc" },
+    });
+    if (!row?.usedAt) return null;
+    let isAudit = isMarkedRoleChangeAudit(row);
+    if (!isAudit && isInstantUnreceiptedInvite(row)) {
+      const earlier = await prisma.userInvite.findFirst({
+        where: {
+          organizationId,
+          usedAt: { not: null, lt: row.usedAt },
+          OR: acceptedBy(userId, email),
+        },
+        select: { usedAt: true },
+      });
+      // After an earlier acceptance it is a role change, unless it was
+      // written in the direct-add era: then it may be a re-add, and is
+      // kept as a membership start so jobs before it fail closed.
+      isAudit = Boolean(earlier) && !isInDirectAddEra(row.usedAt);
+    }
+    if (!isAudit) return row;
+    before = row.usedAt;
+  }
+  return null;
+}
+
+/** Whether the user had accepted any invite, into any organisation, by `at`. */
+async function acceptedInviteAtOrBefore(
+  userId: string,
+  email: string,
+  at: Date,
+): Promise<boolean> {
+  const invite = await prisma.userInvite.findFirst({
+    where: {
+      usedAt: { not: null, lte: at },
+      OR: acceptedBy(userId, email),
+    },
+    select: { usedAt: true },
+  });
+  return Boolean(invite);
+}
+
+/**
+ * RA-7893 — the one rule for a logged-in route that charges, sends or uses a
+ * paid add-on while acting on one resource (job, report, invoice): true only
+ * when the business the RESOURCE belongs to (getResourceTenantOwner, from
+ * its creator and createdAt) is proven AND is the caller's billing business
+ * (their organisation owner, or themselves).
+ *
+ * That covers the creator who has since moved (their old job resolves to no
+ * business, or to a different one) and the colleague: an admin of the
+ * organisation a technician joined later passes the tenancy check on that
+ * technician's older jobs, but those jobs do not bill to the admin.
+ */
+export async function resourceBillsToCaller(
+  callerId: string,
+  resource: { userId: string; createdAt: Date },
+): Promise<boolean> {
+  const resourceOwner = await getResourceTenantOwner(
+    resource.userId,
+    resource.createdAt,
+  );
+  if (!resourceOwner) return false;
+  const callerOwner = (await getOrganizationOwner(callerId)) ?? callerId;
+  return resourceOwner === callerOwner;
+}
+
+/**
+ * RA-7893 — getEffectiveSubscription for work on a specific resource: the
+ * plan, and the balance a trial charge lands on, of the business the
+ * resource belongs to (getResourceTenantOwner). Null when that business
+ * cannot be proven, which callers treat as "no current plan".
+ */
+export async function getEffectiveSubscriptionForResource(
+  creatorId: string,
+  resourceCreatedAt: Date,
+): ReturnType<typeof getEffectiveSubscription> {
+  const ownerId = await getResourceTenantOwner(creatorId, resourceCreatedAt);
+  return ownerId ? getEffectiveSubscription(ownerId) : null;
 }
