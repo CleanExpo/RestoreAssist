@@ -1,9 +1,16 @@
 import { test, expect } from "@playwright/test";
 import { AUTH_FILE } from "./auth-paths";
 
-// Injects a mock window.Capacitor that reports platform as "ios".
-// isCapacitorIOS() checks cap.getPlatform() === "ios" first, so this
-// is sufficient to trigger all iOS billing gates without UA sniffing.
+// The real shell's user-agent (capacitor.config.ts ios.appendUserAgent). The
+// server verdict and isCapacitorIOS() both read it.
+const IOS_SHELL_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 RestoreAssistIOSShell";
+
+// Injects a mock window.Capacitor that reports platform as "ios". On its own
+// this is NOT enough: once @capacitor/core loads in a browser it reports
+// "web" (RA-7900), which is why the settings and subscription checks below
+// never reached their iOS state. The shell user-agent above is what drives
+// detection; the mock stays for code that reads window.Capacitor first.
 async function mockCapacitorIOS(page: import("@playwright/test").Page) {
   await page.addInitScript(() => {
     (window as unknown as Record<string, unknown>).Capacitor = {
@@ -14,7 +21,7 @@ async function mockCapacitorIOS(page: import("@playwright/test").Page) {
 }
 
 test.describe("iOS billing gates", () => {
-  test.use({ storageState: AUTH_FILE });
+  test.use({ storageState: AUTH_FILE, userAgent: IOS_SHELL_UA });
 
   test("login page hides Sign up link on iOS", async ({ page }) => {
     await mockCapacitorIOS(page);
@@ -43,31 +50,36 @@ test.describe("iOS billing gates", () => {
   });
 
   test("settings page hides Upgrade Package link on iOS", async ({ page }) => {
-    test.fixme(); // RA-7900: the iOS-only anchor below never renders in the E2E env, so this check never actually ran (it passed vacuously before the anchor was added)
     await mockCapacitorIOS(page);
     await page.goto("/dashboard/settings");
     // iOS-only control: proves the page rendered with the shell detected,
     // so the negative check below is not passing on an empty page.
     await expect(page.getByText("Require Face ID to unlock")).toBeVisible();
-    await expect(page.getByText("Upgrade Package")).not.toBeVisible();
+    await expect(page.getByText("Upgrade Package")).toHaveCount(0);
   });
 
   test("settings page hides Manage Subscription on iOS", async ({ page }) => {
-    test.fixme(); // RA-7900: see above
     await mockCapacitorIOS(page);
     await page.goto("/dashboard/settings");
     await expect(page.getByText("Require Face ID to unlock")).toBeVisible();
-    await expect(page.getByText("Manage Subscription")).not.toBeVisible();
+    await expect(page.getByText("Manage Subscription")).toHaveCount(0);
   });
 
   test("BillingGate shows no external link on iOS", async ({ page }) => {
-    test.fixme(); // RA-7900: BillingGate's iOS fallback never renders in the E2E env, so this check never actually ran
     await mockCapacitorIOS(page);
-    await page.goto("/dashboard/subscription");
-    // The iOS placeholder must be on screen before counting links in it.
-    await expect(page.getByText("Managed by your workspace")).toBeVisible();
+    // /dashboard/subscription is ADMIN-only and sends this USER-role account
+    // to /dashboard/field (RA-7900), so check the gate on /pricing, which is
+    // public and wrapped in the same BillingGate.
+    await page.goto("/pricing");
+    const fallback = page
+      .getByRole("status")
+      .filter({ hasText: "Managed by your workspace" });
+    await expect(fallback).toBeVisible();
     // The fallback must contain no href pointing to restoreassist.app
-    const externalLink = page.locator('a[href*="restoreassist.app"]');
-    await expect(externalLink).toHaveCount(0);
+    await expect(fallback.locator('a[href*="restoreassist.app"]')).toHaveCount(
+      0,
+    );
+    // and the pricing plans behind it must not render at all.
+    await expect(page.locator('a[href*="/signup"]')).toHaveCount(0);
   });
 });
