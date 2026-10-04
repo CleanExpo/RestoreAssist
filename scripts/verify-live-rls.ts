@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Pool } from "pg";
+import { pgPoolTls } from "../lib/prisma-pool-config";
 
 import {
   AUDIT_TABLES,
@@ -235,12 +236,9 @@ async function main(): Promise<number> {
   }
 
   const pool = new Pool({
-    connectionString,
+    ...pgPoolTls(connectionString),
     max: 1,
     connectionTimeoutMillis: 20_000,
-    ssl: connectionString.includes("supabase")
-      ? { rejectUnauthorized: false }
-      : undefined,
   });
   let rows: LiveRlsRow[];
   try {

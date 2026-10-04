@@ -43,13 +43,18 @@ async function readIdentity(connectionString) {
   const pg = await import("pg");
   const Pool = pg.Pool ?? pg.default?.Pool;
   if (!Pool) throw new Error("pg Pool implementation is unavailable");
+  // pg reads sslmode=require in the URL as verify-full and lets it override
+  // `ssl`; rewrite it the way the migrate scripts do (04/10/2026 outage).
+  const { withPgMigrateSsl, pgMigrateSslOption } = await import(
+    "./lib/pg-ssl-for-migrate.mjs"
+  );
+  const target = withPgMigrateSsl(connectionString) ?? connectionString;
+  const ssl = pgMigrateSslOption(target);
   const pool = new Pool({
-    connectionString,
+    connectionString: target,
     max: 1,
     connectionTimeoutMillis: 20_000,
-    ssl: connectionString.includes("supabase")
-      ? { rejectUnauthorized: false }
-      : undefined,
+    ...(ssl ? { ssl } : {}),
   });
   try {
     const result = await pool.query(`

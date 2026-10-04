@@ -7,6 +7,8 @@
  * 04/10/2026 prod outage a `?sslmode=require` URL resolved to a verifying
  * TLS config and every query failed with "self-signed certificate".
  */
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import ConnectionParameters from "pg/lib/connection-parameters";
 import { pgPoolTls } from "@/lib/prisma-pool-config";
@@ -60,5 +62,19 @@ describe("pgPoolTls", () => {
     expect(
       effectiveSsl("postgresql://u:p@db.abc.supabase.co:5432/postgres"),
     ).toEqual({ rejectUnauthorized: false });
+  });
+
+  it("is used by every TypeScript pg Pool built from a connection string", () => {
+    const files = execFileSync(
+      "git",
+      ["ls-files", "--", "app", "lib", "scripts", "prisma", "*.ts"],
+      { encoding: "utf8" },
+    )
+      .split("\n")
+      .filter((f) => f.endsWith(".ts") && !/__tests__|\.test\.ts$/.test(f));
+    const bare = files.filter((f) =>
+      /new Pool\(\{\s*connectionString\s*[,}]/.test(readFileSync(f, "utf8")),
+    );
+    expect(bare).toEqual([]);
   });
 });
