@@ -267,6 +267,25 @@ describe("submit route — RA-7893 business pricing", () => {
       fetchSpy.mockRestore();
     });
 
+    it("does not sync the linked report when pricing throws", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(new Response("{}"));
+      mockInspectionFindUnique.mockResolvedValue({
+        ...inspection,
+        reportId: "report-1",
+      });
+      mockResolveInspectionRates.mockRejectedValue(
+        new Error("pricing lookup failed"),
+      );
+      const { POST } = await import("../route");
+
+      expect((await POST(submit(), params)).status).toBe(200);
+      expect(mockCostEstimateCreateMany).not.toHaveBeenCalled();
+      expect(syncCalls(fetchSpy)).toHaveLength(0);
+      fetchSpy.mockRestore();
+    });
+
     it("still syncs the linked report once the inspection is priced", async () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
