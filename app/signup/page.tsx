@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { signInWithOAuth } from "@/lib/oauth-native";
 import { isCapacitorIOS } from "@/lib/capacitor";
+import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -52,6 +53,14 @@ export default function SignupPage() {
   useEffect(() => {
     setIsIOS(isCapacitorIOS());
   }, []);
+
+  // Apple 3.1.1: there is no web sign-up inside the iOS shell. The server
+  // verdict (request user-agent, see BillingGate) keeps the form from
+  // painting; the client read covers older shells and client navigation.
+  const iosShell = useServerIosShell() === true || isIOS;
+  useEffect(() => {
+    if (iosShell) window.location.replace("/login");
+  }, [iosShell]);
 
   useEffect(() => {
     if (shouldRedirect) {
@@ -170,6 +179,14 @@ export default function SignupPage() {
       setIsLoading(false);
     }
   };
+
+  if (iosShell) {
+    return (
+      <p className="py-20 text-center text-slate-600" role="status">
+        Taking you to sign in…
+      </p>
+    );
+  }
 
   return (
     <MarketingShell chrome={false}>

@@ -17,20 +17,16 @@ test.describe("iOS billing gates", () => {
   test.use({ storageState: AUTH_FILE });
 
   test("login page hides Sign up link on iOS", async ({ page }) => {
-    test.fail(); // NOT IMPLEMENTED: app/login/page.tsx computes isIOS but uses it only for the Apple button (line ~426); the Sign up block is ungated. Apple 3.1.1 exposure — see docs/e2e-36-spec-triage.md
-
     await mockCapacitorIOS(page);
     await page.goto("/login");
     // Wait for the form first: not.toBeVisible() passes at once on a page that
-    // has not rendered yet, which made this test.fail() pass by accident (PR #2392).
+    // has not rendered yet.
     await expect(page.locator("#email")).toBeVisible();
     await expect(page.getByText("Sign up for free")).not.toBeVisible();
     await expect(page.getByText("Don't have an account")).not.toBeVisible();
   });
 
   test("signup page redirects to login on iOS", async ({ page }) => {
-    test.fail(); // NOT IMPLEMENTED: app/signup/page.tsx uses isIOS only for the Apple button; no redirect exists
-
     await mockCapacitorIOS(page);
     await page.goto("/signup");
     await expect(page).toHaveURL(/\/login/, { timeout: 8000 });
@@ -39,18 +35,24 @@ test.describe("iOS billing gates", () => {
   test("settings page hides Upgrade Package link on iOS", async ({ page }) => {
     await mockCapacitorIOS(page);
     await page.goto("/dashboard/settings");
+    // iOS-only control: proves the page rendered with the shell detected,
+    // so the negative check below is not passing on an empty page.
+    await expect(page.getByText("Require Face ID to unlock")).toBeVisible();
     await expect(page.getByText("Upgrade Package")).not.toBeVisible();
   });
 
   test("settings page hides Manage Subscription on iOS", async ({ page }) => {
     await mockCapacitorIOS(page);
     await page.goto("/dashboard/settings");
+    await expect(page.getByText("Require Face ID to unlock")).toBeVisible();
     await expect(page.getByText("Manage Subscription")).not.toBeVisible();
   });
 
   test("BillingGate shows no external link on iOS", async ({ page }) => {
     await mockCapacitorIOS(page);
     await page.goto("/dashboard/subscription");
+    // The iOS placeholder must be on screen before counting links in it.
+    await expect(page.getByText("Managed by your workspace")).toBeVisible();
     // The fallback must contain no href pointing to restoreassist.app
     const externalLink = page.locator('a[href*="restoreassist.app"]');
     await expect(externalLink).toHaveCount(0);

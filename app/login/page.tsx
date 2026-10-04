@@ -5,6 +5,7 @@ import { signIn, getSession, useSession } from "next-auth/react";
 import { clearOfflineContext } from "@/lib/offline/account-boundary";
 import { signInWithOAuth } from "@/lib/oauth-native";
 import { isCapacitorIOS } from "@/lib/capacitor";
+import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
 import { useSearchParams } from "next/navigation";
 import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 import Link from "next/link";
@@ -34,6 +35,10 @@ function LoginForm() {
   //      APPLE_CLIENT_SECRET) but the native plugin only needs the
   //      bundle ID and verifies the JWT via Apple's JWKS directly.
   const [isIOS, setIsIOS] = useState(false);
+  // Apple 3.1.1: the iOS shell must not steer users to a web sign-up. The
+  // server verdict (request user-agent, see BillingGate) covers the first
+  // paint; the client read covers older shells and client navigation.
+  const hideSignUp = useServerIosShell() === true || isIOS;
   // RA-2076 (1.0.4) — Continue with Google is now native on iOS (via the
   // capgo plugin), so the 1.0.3 hide-on-iOS gate is removed. Apple
   // guideline 4.8 still satisfied because Apple Sign-In is shown as a
@@ -482,17 +487,19 @@ function LoginForm() {
                 Forgot password?
               </Link>
             </div>
-            <div>
-              <p className="text-slate-600">
-                Don't have an account?{" "}
-                <Link
-                  href="/signup"
-                  className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors font-medium"
-                >
-                  Sign up for free
-                </Link>
-              </p>
-            </div>
+            {!hideSignUp && (
+              <div>
+                <p className="text-slate-600">
+                  Don't have an account?{" "}
+                  <Link
+                    href="/signup"
+                    className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors font-medium"
+                  >
+                    Sign up for free
+                  </Link>
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-slate-600">
                 {CLIENT_PORTAL_PUBLIC_CTA.invitedLabel}{" "}
