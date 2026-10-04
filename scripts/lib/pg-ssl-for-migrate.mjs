@@ -58,9 +58,12 @@ export function withRequireAsNoVerify(connectionString) {
   }
   const modes = url.searchParams.getAll("sslmode").map((m) => m.toLowerCase());
   // pg honours the last sslmode when one is repeated.
-  return modes.at(-1) === "require"
-    ? withPgMigrateSsl(connectionString)
-    : connectionString;
+  if (modes.at(-1) !== "require") return connectionString;
+  if (LOCAL_HOSTS.has(url.hostname.toLowerCase())) return connectionString;
+  // Replace every sslmode, so no earlier one is left for pg to read.
+  url.searchParams.delete("sslmode");
+  url.searchParams.set("sslmode", "no-verify");
+  return url.toString();
 }
 
 /**

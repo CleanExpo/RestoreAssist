@@ -105,6 +105,9 @@ describe("withRequireAsNoVerify", () => {
     expect(
       await effective(`${remote}?sslmode=verify-full&sslmode=require`),
     ).toEqual({ rejectUnauthorized: false });
+    expect(
+      await effective(`${remote}?sslmode=no-verify&sslmode=require`),
+    ).toEqual({ rejectUnauthorized: false });
   });
 
   it("leaves a URL with no sslmode unchanged", () => {

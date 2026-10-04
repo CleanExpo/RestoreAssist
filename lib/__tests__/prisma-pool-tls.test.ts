@@ -55,7 +55,10 @@ describe("pgPoolTls", () => {
     expect(
       effectiveSsl(`${BASE}?sslmode=require&sslmode=verify-full`),
     ).not.toMatchObject({ rejectUnauthorized: false });
-    // Ends in require: treated like a plain require.
+    // Ends in require: treated like a plain require, whatever came first.
+    expect(effectiveSsl(`${BASE}?sslmode=no-verify&sslmode=require`)).toEqual({
+      rejectUnauthorized: false,
+    });
     expect(effectiveSsl(`${BASE}?sslmode=verify-full&sslmode=require`)).toEqual(
       { rejectUnauthorized: false },
     );
