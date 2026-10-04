@@ -94,6 +94,19 @@ describe("withRequireAsNoVerify", () => {
     );
   });
 
+  it("follows the sslmode pg actually uses when modes are mixed (the last one)", async () => {
+    for (const last of ["verify-full", "verify-ca"]) {
+      const url = `${remote}?sslmode=require&sslmode=${last}`;
+      expect(withRequireAsNoVerify(url)).toBe(url);
+    }
+    expect(
+      await effective(`${remote}?sslmode=require&sslmode=verify-full`),
+    ).not.toMatchObject({ rejectUnauthorized: false });
+    expect(
+      await effective(`${remote}?sslmode=verify-full&sslmode=require`),
+    ).toEqual({ rejectUnauthorized: false });
+  });
+
   it("leaves a URL with no sslmode unchanged", () => {
     expect(withRequireAsNoVerify(remote)).toBe(remote);
   });

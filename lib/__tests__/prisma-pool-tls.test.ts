@@ -46,6 +46,21 @@ describe("pgPoolTls", () => {
     });
   });
 
+  it("follows the sslmode pg actually uses when modes are mixed (the last one)", () => {
+    // Ends in verify-full: pg verifies, and so must we.
+    expect(pgPoolTls(`${BASE}?sslmode=require&sslmode=verify-full`)).toEqual({
+      connectionString: `${BASE}?sslmode=require&sslmode=verify-full`,
+      ssl: undefined,
+    });
+    expect(
+      effectiveSsl(`${BASE}?sslmode=require&sslmode=verify-full`),
+    ).not.toMatchObject({ rejectUnauthorized: false });
+    // Ends in require: treated like a plain require.
+    expect(effectiveSsl(`${BASE}?sslmode=verify-full&sslmode=require`)).toEqual(
+      { rejectUnauthorized: false },
+    );
+  });
+
   it("leaves sslmode=no-verify to pg, which already skips verification", () => {
     const url = `${BASE}?sslmode=no-verify`;
     expect(pgPoolTls(url)).toEqual({ connectionString: url, ssl: undefined });

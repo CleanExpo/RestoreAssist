@@ -31,7 +31,8 @@ export function pgPoolTls(connectionString: string): {
     queryAt === -1 ? "" : beforeHash.slice(queryAt + 1),
   );
 
-  const requireMode = params.getAll("sslmode").includes("require");
+  // pg honours the last sslmode when one is repeated.
+  const requireMode = params.getAll("sslmode").at(-1) === "require";
   if (!requireMode) {
     return {
       connectionString,
