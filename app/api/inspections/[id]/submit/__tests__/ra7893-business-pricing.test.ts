@@ -246,4 +246,44 @@ describe("submit route — RA-7893 business pricing", () => {
     expect(statusesWritten()).toContain("SCOPED");
     expect(statusesWritten()).not.toContain("ESTIMATED");
   });
+
+  describe("linked report sync", () => {
+    const syncCalls = (spy: ReturnType<typeof vi.spyOn>) =>
+      spy.mock.calls.filter(([url]) => String(url).includes("nir-sync"));
+
+    it("does not sync the linked report when nothing was priced", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(new Response("{}"));
+      mockInspectionFindUnique.mockResolvedValue({
+        ...inspection,
+        reportId: "report-1",
+      });
+      mockResolveInspectionRates.mockResolvedValue({ ok: false });
+      const { POST } = await import("../route");
+
+      expect((await POST(submit(), params)).status).toBe(200);
+      expect(syncCalls(fetchSpy)).toHaveLength(0);
+      fetchSpy.mockRestore();
+    });
+
+    it("still syncs the linked report once the inspection is priced", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(new Response("{}"));
+      mockInspectionFindUnique.mockResolvedValue({
+        ...inspection,
+        reportId: "report-1",
+      });
+      mockResolveInspectionRates.mockResolvedValue({
+        ok: true,
+        rates: BUSINESS_RATES,
+      });
+      const { POST } = await import("../route");
+
+      expect((await POST(submit(), params)).status).toBe(200);
+      expect(syncCalls(fetchSpy)).toHaveLength(1);
+      fetchSpy.mockRestore();
+    });
+  });
 });

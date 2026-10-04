@@ -405,8 +405,16 @@ export async function POST(
       // Only run if enough data is present — supplementary gaps may limit processing.
       // In production, this should be done asynchronously via a queue.
       // RA-7721 / D1: pricing and processing use the owner's configuration.
+      // RA-7893: an inspection whose business cannot be proven is not priced,
+      // and its linked report must not be synced with empty amounts.
+      let pricingRefused = false;
       try {
-        await processInspectionComplete(id, inspection, inspection.userId);
+        const outcome = await processInspectionComplete(
+          id,
+          inspection,
+          inspection.userId,
+        );
+        pricingRefused = "pricingRefused" in outcome;
       } catch (error) {
         console.error("Error processing inspection:", error);
         // Don't fail the submission, but log the error
@@ -423,6 +431,11 @@ export async function POST(
         console.warn("[nir-sync.skipped_assignee_submit]", {
           inspectionId: id,
           userId,
+          reportId: inspection.reportId,
+        });
+      } else if (inspection.reportId && pricingRefused) {
+        console.warn("[nir-sync.skipped_unpriced]", {
+          inspectionId: id,
           reportId: inspection.reportId,
         });
       } else if (inspection.reportId) {
@@ -672,7 +685,7 @@ async function processInspectionComplete(
     console.warn(
       `[submit] ${inspectionId}: business could not be confirmed; cost estimate skipped`,
     );
-    return;
+    return { pricingRefused: true as const };
   }
   const costEstimate = await estimateCosts(
     scopeItems,
