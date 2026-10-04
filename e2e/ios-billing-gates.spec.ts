@@ -24,6 +24,8 @@ test.describe("iOS billing gates", () => {
     await expect(page.locator("#email")).toBeVisible();
     await expect(page.getByText("Sign up for free")).not.toBeVisible();
     await expect(page.getByText("Don't have an account")).not.toBeVisible();
+    // No sign-up link anywhere on the page, including global widgets.
+    await expect(page.locator('a[href*="/signup"]')).toHaveCount(0);
   });
 
   test("launch page (/) sends the shell to login on iOS", async ({ page }) => {
