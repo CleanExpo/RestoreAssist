@@ -12,7 +12,10 @@ import {
   checkBuildingCodeTriggers,
 } from "@/lib/nir-building-codes";
 import { determineScopeItems } from "@/lib/nir-scope-determination";
-import { estimateCosts } from "@/lib/nir-cost-estimation";
+import {
+  estimateCosts,
+  resolveInspectionRates,
+} from "@/lib/nir-cost-estimation";
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
@@ -657,13 +660,25 @@ async function processInspectionComplete(
     console.error("[next-action] SCOPED nudge failed:", err),
   );
 
-  // Step 5: Estimate costs — pass userId so the engine loads the company's
-  // NRPG-validated pricing config. Falls back to NRPG midpoints if none saved.
+  // Step 5: Estimate costs at the pricing of the business the inspection
+  // belongs to (RA-7893). Falls back to NRPG midpoints if none saved. If
+  // that business cannot be proven, nothing is priced: the inspection stays
+  // SCOPED rather than being estimated on the wrong rates.
+  const pricing = await resolveInspectionRates(
+    inspectionOwnerId,
+    inspection.createdAt,
+  );
+  if (!pricing.ok) {
+    console.warn(
+      `[submit] ${inspectionId}: business could not be confirmed; cost estimate skipped`,
+    );
+    return;
+  }
   const costEstimate = await estimateCosts(
     scopeItems,
     buildingCodeRequirements?.state,
-    null, // pricingRates — let the engine fetch by userId
-    inspectionOwnerId,
+    pricing.rates,
+    null,
   );
 
   // Save cost estimates — rows built by the shared line helper (RA-7708).

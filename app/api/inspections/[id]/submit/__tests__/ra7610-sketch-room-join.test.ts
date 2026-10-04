@@ -80,6 +80,7 @@ vi.mock("@/lib/nir-building-codes", () => ({
 }));
 vi.mock("@/lib/nir-cost-estimation", () => ({
   estimateCosts: vi.fn().mockResolvedValue({ items: [], contingency: 0 }),
+  resolveInspectionRates: vi.fn().mockResolvedValue({ ok: true, rates: null }),
 }));
 
 const mockInspectionFindUnique = vi.fn();

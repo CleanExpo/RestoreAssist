@@ -1,16 +1,12 @@
 /**
- * RA-7609: ScopeItem.clauseRef is never written on inspection submit.
- * determineScopeItems already computes clauseRefs[]; the createMany payload
- * omits the column, so every auto-determined item is stored with clauseRef null.
- *
- * Found by reading the code, not by executing it. This test must fail on
- * current main before the write is added.
+ * RA-7893: a submitted inspection is estimated at the pricing of the
+ * business it belongs to (resolveInspectionRates, keyed by the creator and
+ * the creation time), never by a pricing lookup on the member's own id. When
+ * that business cannot be proven, nothing is priced.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { sqmToSqft } from "@/lib/units";
-import { determineScopeItems } from "@/lib/nir-scope-determination";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
@@ -43,7 +39,9 @@ vi.mock("@/lib/nir-tiered-completion", () => ({
   }),
 }));
 vi.mock("@/lib/compliance/make-safe-gate", () => ({
-  checkMakeSafeGate: vi.fn().mockResolvedValue({ canSubmit: true, blockers: [] }),
+  checkMakeSafeGate: vi
+    .fn()
+    .mockResolvedValue({ canSubmit: true, blockers: [] }),
 }));
 vi.mock("@/lib/compliance/seed-make-safe", () => ({
   ensureMakeSafeSeeded: vi.fn().mockResolvedValue(false),
@@ -78,25 +76,23 @@ vi.mock("@/lib/lifecycle/subscribers/next-action", () => ({
 vi.mock("@/lib/evidence/submission-gate", () => ({
   validateSubmission: vi.fn().mockResolvedValue({ completionPercentage: 80 }),
 }));
-
 vi.mock("@/lib/nir-building-codes", () => ({
   getBuildingCodeRequirements: vi.fn().mockResolvedValue(null),
   checkBuildingCodeTriggers: vi.fn().mockReturnValue(null),
 }));
+
+const mockEstimateCosts = vi.fn();
+const mockResolveInspectionRates = vi.fn();
 vi.mock("@/lib/nir-cost-estimation", () => ({
-  estimateCosts: vi.fn().mockResolvedValue({ items: [], contingency: 0 }),
-  resolveInspectionRates: vi.fn().mockResolvedValue({ ok: true, rates: null }),
+  estimateCosts: (...a: unknown[]) => mockEstimateCosts(...a),
+  resolveInspectionRates: (...a: unknown[]) => mockResolveInspectionRates(...a),
 }));
 
 const mockInspectionFindUnique = vi.fn();
 const mockInspectionUpdateMany = vi.fn();
 const mockInspectionUpdate = vi.fn().mockResolvedValue({});
 const mockLiveTeacherFindFirst = vi.fn().mockResolvedValue(null);
-const mockLiveTeacherUpdate = vi.fn();
-const mockPilotCreate = vi.fn().mockResolvedValue({});
-const mockAuditCreate = vi.fn().mockResolvedValue({});
 const mockClassificationCreate = vi.fn();
-const mockAffectedAreaUpdate = vi.fn().mockResolvedValue({});
 const mockScopeItemCreateMany = vi.fn().mockResolvedValue({ count: 0 });
 const mockCostEstimateCreateMany = vi.fn().mockResolvedValue({ count: 0 });
 
@@ -109,15 +105,14 @@ vi.mock("@/lib/prisma", () => ({
     },
     liveTeacherSession: {
       findFirst: (...a: unknown[]) => mockLiveTeacherFindFirst(...a),
-      update: (...a: unknown[]) => mockLiveTeacherUpdate(...a),
+      update: vi.fn(),
     },
-    pilotObservation: { create: (...a: unknown[]) => mockPilotCreate(...a) },
-    auditLog: { create: (...a: unknown[]) => mockAuditCreate(...a) },
+    pilotObservation: { create: vi.fn().mockResolvedValue({}) },
+    auditLog: { create: vi.fn().mockResolvedValue({}) },
     classification: {
       findFirst: async () => null,
       create: (...a: unknown[]) => mockClassificationCreate(...a),
     },
-    // RA-7709: the classification row is written inside a transaction.
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
         classification: {
@@ -125,10 +120,10 @@ vi.mock("@/lib/prisma", () => ({
           create: (...a: unknown[]) => mockClassificationCreate(...a),
         },
       }),
-    affectedArea: {
-      update: (...a: unknown[]) => mockAffectedAreaUpdate(...a),
+    affectedArea: { update: vi.fn().mockResolvedValue({}) },
+    scopeItem: {
+      createMany: (...a: unknown[]) => mockScopeItemCreateMany(...a),
     },
-    scopeItem: { createMany: (...a: unknown[]) => mockScopeItemCreateMany(...a) },
     costEstimate: {
       createMany: (...a: unknown[]) => mockCostEstimateCreateMany(...a),
     },
@@ -138,130 +133,117 @@ vi.mock("@/lib/prisma", () => ({
 import { getServerSession } from "next-auth";
 const mockGetServerSession = vi.mocked(getServerSession);
 
-const AREA_SQM = 22;
-const AREA_SQFT = sqmToSqft(AREA_SQM);
+const CREATED_AT = new Date("2026-09-01T00:00:00Z");
+const BUSINESS_RATES = { callOutFee: 150 };
 
-const livingRoomReading = {
-  id: "mr-1",
-  location: "Living Room North Wall",
-  surfaceType: "carpet",
-  moistureLevel: 10,
-  depth: "Surface",
-};
-
-const livingRoomArea = {
-  id: "area-1",
-  roomZoneId: "Living room",
-  affectedAreaSqm: AREA_SQM,
-  affectedSquareFootage: AREA_SQFT,
-  waterSource: "Grey water",
-  timeSinceLoss: 24,
-  category: null,
-  class: null,
-};
-
-const environmentalData = {
-  id: "env-1",
-  ambientTemperature: 22,
-  humidityLevel: 55,
-  dewPoint: 12,
-  airCirculation: false,
-};
-
-const ra7609Inspection = {
+const inspection = {
   id: "insp-1",
+  userId: "member-1",
+  createdAt: CREATED_AT,
   status: "DRAFT",
   claimType: "WATER",
   propertyAddress: "1 Test St",
   propertyPostcode: "4000",
   inspectionDate: new Date(),
   reportId: null,
-  environmentalData,
-  moistureReadings: [livingRoomReading],
-  affectedAreas: [livingRoomArea],
+  environmentalData: {
+    id: "env-1",
+    ambientTemperature: 22,
+    humidityLevel: 55,
+    dewPoint: 12,
+    airCirculation: false,
+  },
+  moistureReadings: [
+    {
+      id: "mr-1",
+      location: "Living room",
+      surfaceType: "carpet",
+      moistureLevel: 10,
+      depth: "Surface",
+    },
+  ],
+  affectedAreas: [
+    {
+      id: "area-1",
+      roomZoneId: "Living room",
+      affectedAreaSqm: 22,
+      affectedSquareFootage: 236.8,
+      waterSource: "Grey water",
+      timeSinceLoss: 24,
+      category: null,
+      class: null,
+    },
+  ],
   scopeItems: [],
   photos: [],
   waterDamageClassification: null,
 };
 
-function makeSubmitRequest(): NextRequest {
+const params = { params: Promise.resolve({ id: "insp-1" }) };
+
+function submit(): NextRequest {
   return new NextRequest("http://localhost/api/inspections/insp-1/submit", {
     method: "POST",
   });
 }
 
-const params = { params: Promise.resolve({ id: "insp-1" }) };
-
-type CreatedScopeItem = {
-  itemType: string;
-  justification: string | null;
-  clauseRef: string | null | undefined;
-};
-
-function createdScopeItems(): CreatedScopeItem[] {
-  const call = mockScopeItemCreateMany.mock.calls[0];
-  if (!call) return [];
-  return (call[0] as { data: CreatedScopeItem[] }).data;
+function statusesWritten(): string[] {
+  return mockInspectionUpdate.mock.calls.map(
+    (call) => (call[0] as { data: { status?: string } }).data.status ?? "",
+  );
 }
 
-function expectedDeterminedItems() {
-  return determineScopeItems({
-    category: "2",
-    class: "2",
-    waterSource: livingRoomArea.waterSource,
-    affectedAreas: [
-      {
-        roomZoneId: livingRoomArea.roomZoneId,
-        affectedSquareFootage: AREA_SQM,
-        surfaceType: livingRoomReading.surfaceType,
-        moistureLevel: livingRoomReading.moistureLevel,
-      },
-    ],
-    environmentalData,
-  });
-}
-
-describe("submit route — RA-7609 clauseRef persistence", () => {
+describe("submit route — RA-7893 business pricing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue({
-      user: { id: "user-1", email: "t@example.com" },
+      user: { id: "member-1", email: "m@example.com" },
     } as never);
-    mockInspectionFindUnique.mockResolvedValue({ ...ra7609Inspection });
+    mockInspectionFindUnique.mockResolvedValue({ ...inspection });
     mockInspectionUpdateMany.mockResolvedValue({ count: 1 });
     mockInspectionUpdate.mockResolvedValue({});
-    mockPilotCreate.mockResolvedValue({});
-    mockAuditCreate.mockResolvedValue({});
     mockClassificationCreate.mockImplementation(
       async ({ data }: { data: unknown }) => ({
         id: "class-1",
         ...(data as object),
       }),
     );
-    mockAffectedAreaUpdate.mockResolvedValue({});
     mockScopeItemCreateMany.mockResolvedValue({ count: 0 });
     mockCostEstimateCreateMany.mockResolvedValue({ count: 0 });
     mockLiveTeacherFindFirst.mockResolvedValue(null);
+    mockEstimateCosts.mockResolvedValue({ items: [], contingency: 0 });
   });
 
-  it("stores determineScopeItems clauseRefs[0] on each created ScopeItem", async () => {
-    const expected = expectedDeterminedItems();
-    const withClause = expected.filter((item) => item.clauseRefs?.[0]);
-    expect(withClause.length).toBeGreaterThan(0);
-
+  it("estimates at the business's rates, resolved from the creator and creation time", async () => {
+    mockResolveInspectionRates.mockResolvedValue({
+      ok: true,
+      rates: BUSINESS_RATES,
+    });
     const { POST } = await import("../route");
-    const res = await POST(makeSubmitRequest(), params);
+    const res = await POST(submit(), params);
     expect(res.status).toBe(200);
 
-    expect(mockScopeItemCreateMany).toHaveBeenCalled();
-    const items = createdScopeItems();
-    expect(items.length).toBe(expected.length);
+    expect(mockResolveInspectionRates).toHaveBeenCalledWith(
+      "member-1",
+      CREATED_AT,
+    );
+    expect(mockEstimateCosts).toHaveBeenCalledTimes(1);
+    const [, , rates, userId] = mockEstimateCosts.mock.calls[0];
+    expect(rates).toBe(BUSINESS_RATES);
+    // No id handed over, so estimateCosts cannot look pricing up by itself.
+    expect(userId).toBeNull();
+    expect(statusesWritten()).toContain("ESTIMATED");
+  });
 
-    for (const determined of withClause) {
-      const stored = items.find((item) => item.itemType === determined.itemType);
-      expect(stored, determined.itemType).toBeDefined();
-      expect(stored?.clauseRef).toBe(determined.clauseRefs?.[0]);
-      expect(stored?.justification).toBe(determined.justification);
-    }
+  it("prices nothing when the inspection's business cannot be proven", async () => {
+    mockResolveInspectionRates.mockResolvedValue({ ok: false });
+    const { POST } = await import("../route");
+    const res = await POST(submit(), params);
+    expect(res.status).toBe(200);
+
+    expect(mockEstimateCosts).not.toHaveBeenCalled();
+    expect(mockCostEstimateCreateMany).not.toHaveBeenCalled();
+    expect(statusesWritten()).toContain("SCOPED");
+    expect(statusesWritten()).not.toContain("ESTIMATED");
   });
 });
