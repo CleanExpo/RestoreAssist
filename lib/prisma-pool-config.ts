@@ -14,24 +14,36 @@ export const PG_POOL_CONNECTION_TIMEOUT_MS = 20_000;
  * option and reads `require` as verify-full, so the option alone did nothing:
  * the DigitalOcean console's `?sslmode=require` URL failed every query with
  * "self-signed certificate in certificate chain" (prod outage, 04/10/2026).
- * The `require` is therefore taken out of the URL when the option replaces it.
+ * Every `sslmode` is therefore taken out of the URL when the option replaces
+ * a `require`.
  */
 export function pgPoolTls(connectionString: string): {
   connectionString: string;
   ssl: { rejectUnauthorized: false } | undefined;
 } {
-  const requireMode = /[?&]sslmode=require(?=&|$)/;
-  if (
-    !connectionString.includes("supabase") &&
-    !requireMode.test(connectionString)
-  ) {
-    return { connectionString, ssl: undefined };
+  const hashAt = connectionString.indexOf("#");
+  const beforeHash =
+    hashAt === -1 ? connectionString : connectionString.slice(0, hashAt);
+  const hash = hashAt === -1 ? "" : connectionString.slice(hashAt);
+  const queryAt = beforeHash.indexOf("?");
+  const base = queryAt === -1 ? beforeHash : beforeHash.slice(0, queryAt);
+  const params = new URLSearchParams(
+    queryAt === -1 ? "" : beforeHash.slice(queryAt + 1),
+  );
+
+  const requireMode = params.getAll("sslmode").includes("require");
+  if (!requireMode) {
+    return {
+      connectionString,
+      ssl: connectionString.includes("supabase")
+        ? { rejectUnauthorized: false }
+        : undefined,
+    };
   }
+  params.delete("sslmode");
+  const query = params.toString();
   return {
-    connectionString: connectionString
-      .replace(requireMode, (match) => (match[0] === "?" ? "?" : ""))
-      .replace("?&", "?")
-      .replace(/\?$/, ""),
+    connectionString: `${base}${query ? `?${query}` : ""}${hash}`,
     ssl: { rejectUnauthorized: false },
   };
 }

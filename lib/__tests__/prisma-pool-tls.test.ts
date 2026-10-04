@@ -35,6 +35,15 @@ describe("pgPoolTls", () => {
     ).toBe(`${BASE}?application_name=ra&x=1`);
   });
 
+  it("does not verify when sslmode=require is repeated or followed by a fragment", () => {
+    expect(effectiveSsl(`${BASE}?sslmode=require&sslmode=require`)).toEqual({
+      rejectUnauthorized: false,
+    });
+    expect(effectiveSsl(`${BASE}?sslmode=require#primary`)).toEqual({
+      rejectUnauthorized: false,
+    });
+  });
+
   it("leaves sslmode=no-verify to pg, which already skips verification", () => {
     const url = `${BASE}?sslmode=no-verify`;
     expect(pgPoolTls(url)).toEqual({ connectionString: url, ssl: undefined });
