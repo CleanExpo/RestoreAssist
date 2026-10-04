@@ -254,6 +254,7 @@ vi.mock("@/lib/nir-scope-determination", () => ({
 }));
 vi.mock("@/lib/nir-cost-estimation", () => ({
   estimateCosts: vi.fn(async () => ({ items: [], contingency: 0 })),
+  resolveInspectionRates: vi.fn(async () => ({ ok: true, rates: null })),
 }));
 
 // ── The real route handlers under test ───────────────────────────────────────

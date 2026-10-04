@@ -95,6 +95,7 @@ vi.mock("@/lib/nir-scope-determination", () => ({
 }));
 vi.mock("@/lib/nir-cost-estimation", () => ({
   estimateCosts: vi.fn().mockResolvedValue({ items: [], contingency: 0 }),
+  resolveInspectionRates: vi.fn().mockResolvedValue({ ok: true, rates: null }),
 }));
 
 const mockValidateSubmission = vi.fn();

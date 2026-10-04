@@ -9,7 +9,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { estimateCosts } from "@/lib/nir-cost-estimation";
+import {
+  estimateCosts,
+  resolveInspectionRates,
+} from "@/lib/nir-cost-estimation";
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
@@ -78,6 +81,7 @@ export async function POST(
         id: true,
         status: true,
         propertyPostcode: true,
+        createdAt: true,
         scopeItems: {
           where: { isSelected: true },
           select: {
@@ -124,11 +128,23 @@ export async function POST(
         ? null // state not on Inspection; NRPG midpoints don't need it
         : null;
 
+    const pricing = await resolveInspectionRates(
+      session.user.id,
+      inspection.createdAt,
+    );
+    if (!pricing.ok) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "This inspection's business could not be confirmed.",
+        status: 403,
+      });
+    }
+
     const costEstimate = await estimateCosts(
       inspection.scopeItems,
       region,
+      pricing.rates,
       null,
-      session.user.id,
     );
 
     // Unpriced item types now come back as $0 warning lines (RA-7708), so

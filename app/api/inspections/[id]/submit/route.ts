@@ -12,7 +12,10 @@ import {
   checkBuildingCodeTriggers,
 } from "@/lib/nir-building-codes";
 import { determineScopeItems } from "@/lib/nir-scope-determination";
-import { estimateCosts } from "@/lib/nir-cost-estimation";
+import {
+  estimateCosts,
+  resolveInspectionRates,
+} from "@/lib/nir-cost-estimation";
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
@@ -402,8 +405,17 @@ export async function POST(
       // Only run if enough data is present — supplementary gaps may limit processing.
       // In production, this should be done asynchronously via a queue.
       // RA-7721 / D1: pricing and processing use the owner's configuration.
+      // RA-7893: the linked report is synced only once the inspection holds
+      // an estimate. A refused price (business not proven) or a processing
+      // error leaves it unpriced, and syncing would push empty amounts.
+      let estimated = false;
       try {
-        await processInspectionComplete(id, inspection, inspection.userId);
+        const outcome = await processInspectionComplete(
+          id,
+          inspection,
+          inspection.userId,
+        );
+        estimated = "costEstimate" in outcome;
       } catch (error) {
         console.error("Error processing inspection:", error);
         // Don't fail the submission, but log the error
@@ -420,6 +432,11 @@ export async function POST(
         console.warn("[nir-sync.skipped_assignee_submit]", {
           inspectionId: id,
           userId,
+          reportId: inspection.reportId,
+        });
+      } else if (inspection.reportId && !estimated) {
+        console.warn("[nir-sync.skipped_unpriced]", {
+          inspectionId: id,
           reportId: inspection.reportId,
         });
       } else if (inspection.reportId) {
@@ -657,13 +674,25 @@ async function processInspectionComplete(
     console.error("[next-action] SCOPED nudge failed:", err),
   );
 
-  // Step 5: Estimate costs — pass userId so the engine loads the company's
-  // NRPG-validated pricing config. Falls back to NRPG midpoints if none saved.
+  // Step 5: Estimate costs at the pricing of the business the inspection
+  // belongs to (RA-7893). Falls back to NRPG midpoints if none saved. If
+  // that business cannot be proven, nothing is priced: the inspection stays
+  // SCOPED rather than being estimated on the wrong rates.
+  const pricing = await resolveInspectionRates(
+    inspectionOwnerId,
+    inspection.createdAt,
+  );
+  if (!pricing.ok) {
+    console.warn(
+      `[submit] ${inspectionId}: business could not be confirmed; cost estimate skipped`,
+    );
+    return { pricingRefused: true as const };
+  }
   const costEstimate = await estimateCosts(
     scopeItems,
     buildingCodeRequirements?.state,
-    null, // pricingRates — let the engine fetch by userId
-    inspectionOwnerId,
+    pricing.rates,
+    null,
   );
 
   // Save cost estimates — rows built by the shared line helper (RA-7708).

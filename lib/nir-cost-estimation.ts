@@ -19,7 +19,11 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import {
+  resolveEffectivePricing,
+  type EffectivePricing,
+} from "@/lib/pricing/effective-pricing";
+import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 import {
   NRPG_RATE_RANGES,
   validateRateInRange,
@@ -541,33 +545,59 @@ async function fetchCompanyRates(
 ): Promise<CompanyPricingRates | null> {
   try {
     const config = await resolveEffectivePricing(prisma, userId);
-    if (!config) return null;
-
-    // Return only the fields CompanyPricingRates needs
-    return {
-      masterQualifiedNormalHours: config.masterQualifiedNormalHours,
-      qualifiedTechnicianNormalHours: config.qualifiedTechnicianNormalHours,
-      labourerNormalHours: config.labourerNormalHours,
-      airMoverAxialDailyRate: config.airMoverAxialDailyRate,
-      airMoverCentrifugalDailyRate: config.airMoverCentrifugalDailyRate,
-      dehumidifierLGRDailyRate: config.dehumidifierLGRDailyRate,
-      dehumidifierDesiccantDailyRate: config.dehumidifierDesiccantDailyRate,
-      afdUnitLargeDailyRate: config.afdUnitLargeDailyRate,
-      extractionTruckMountedHourlyRate: config.extractionTruckMountedHourlyRate,
-      extractionElectricHourlyRate: config.extractionElectricHourlyRate,
-      injectionDryingSystemDailyRate: config.injectionDryingSystemDailyRate,
-      antimicrobialTreatmentRate: config.antimicrobialTreatmentRate,
-      mouldRemediationTreatmentRate: config.mouldRemediationTreatmentRate,
-      biohazardTreatmentRate: config.biohazardTreatmentRate,
-      administrationFee: config.administrationFee,
-      callOutFee: config.callOutFee,
-      thermalCameraUseCostPerAssessment:
-        config.thermalCameraUseCostPerAssessment,
-    };
+    return config ? toCompanyRates(config) : null;
   } catch (err) {
     console.error("[NIR Cost] Failed to fetch company pricing config:", err);
     return null;
   }
+}
+
+/** Only the fields CompanyPricingRates needs. */
+function toCompanyRates(config: EffectivePricing): CompanyPricingRates {
+  return {
+    masterQualifiedNormalHours: config.masterQualifiedNormalHours,
+    qualifiedTechnicianNormalHours: config.qualifiedTechnicianNormalHours,
+    labourerNormalHours: config.labourerNormalHours,
+    airMoverAxialDailyRate: config.airMoverAxialDailyRate,
+    airMoverCentrifugalDailyRate: config.airMoverCentrifugalDailyRate,
+    dehumidifierLGRDailyRate: config.dehumidifierLGRDailyRate,
+    dehumidifierDesiccantDailyRate: config.dehumidifierDesiccantDailyRate,
+    afdUnitLargeDailyRate: config.afdUnitLargeDailyRate,
+    extractionTruckMountedHourlyRate: config.extractionTruckMountedHourlyRate,
+    extractionElectricHourlyRate: config.extractionElectricHourlyRate,
+    injectionDryingSystemDailyRate: config.injectionDryingSystemDailyRate,
+    antimicrobialTreatmentRate: config.antimicrobialTreatmentRate,
+    mouldRemediationTreatmentRate: config.mouldRemediationTreatmentRate,
+    biohazardTreatmentRate: config.biohazardTreatmentRate,
+    administrationFee: config.administrationFee,
+    callOutFee: config.callOutFee,
+    thermalCameraUseCostPerAssessment: config.thermalCameraUseCostPerAssessment,
+  };
+}
+
+/**
+ * RA-7893 — the rates an inspection is priced at: the business it belongs
+ * to, by the same rule as a report's documents (resolveReportPricing). An
+ * invited member's inspection is priced at the organisation's rates, then
+ * its owner's legacy rates, never the member's own. `rates: null` means the
+ * business has no saved pricing, so estimateCosts uses NRPG midpoints.
+ * `ok: false` means the inspection's business cannot be proven: price nothing.
+ */
+export async function resolveInspectionRates(
+  creatorId: string,
+  inspectionCreatedAt: Date,
+): Promise<{ ok: true; rates: CompanyPricingRates | null } | { ok: false }> {
+  const own = await resolveEffectivePricing(prisma, creatorId);
+  const pricing = await resolveReportPricing(
+    creatorId,
+    own,
+    inspectionCreatedAt,
+  );
+  if (!pricing.ok) return { ok: false };
+  return {
+    ok: true,
+    rates: pricing.pricingConfig ? toCompanyRates(pricing.pricingConfig) : null,
+  };
 }
 
 // ─── CONTINGENCY ──────────────────────────────────────────────────────────────
