@@ -77,6 +77,23 @@ describe("iOS shell launch (Apple 3.1.1)", () => {
     expect(res.headers.get("location")).toBe(`http://test/invite/${token}`);
   });
 
+  it.each(["/", "/signup"])(
+    "still refuses a wrong Host on %s before the shell redirect",
+    async (path) => {
+      const prev = process.env.ALLOWED_APP_HOSTS;
+      process.env.ALLOWED_APP_HOSTS = "allowed.example";
+      try {
+        const req = withUa(path, SHELL_UA);
+        req.headers.set("host", "evil.example");
+        const res = await proxy(req);
+        expect(res.status).toBe(421);
+      } finally {
+        if (prev === undefined) delete process.env.ALLOWED_APP_HOSTS;
+        else process.env.ALLOWED_APP_HOSTS = prev;
+      }
+    },
+  );
+
   it('matches "/" so the launch page reaches this check', async () => {
     const { config } = await import("../../proxy");
     expect(config.matcher).toContain("/");

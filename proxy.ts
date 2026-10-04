@@ -252,19 +252,6 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(url, 307);
   }
 
-  // Apple 3.1.1: the iOS shell (request user-agent token, see BillingGate)
-  // launches at "/", and must not land on the marketing home with its
-  // "Start free" links or on the web sign-up. Invite links above still pass.
-  if (
-    (pathname === "/" || pathname === "/signup") &&
-    isIosShellUserAgent(req.headers.get("user-agent"))
-  ) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.search = "";
-    return NextResponse.redirect(url, 307);
-  }
-
   // DigitalOcean also assigns a public origin hostname. When this deployment
   // explicitly configures ALLOWED_APP_HOSTS, refuse every other Host before
   // auth or rate-limit code runs; otherwise callers could bypass Cloudflare
@@ -280,6 +267,19 @@ export async function proxy(req: NextRequest) {
     if (!allowedHosts.includes(requestHost)) {
       return new NextResponse("Misdirected Request", { status: 421 });
     }
+  }
+
+  // Apple 3.1.1: the iOS shell (request user-agent token, see BillingGate)
+  // launches at "/", and must not land on the marketing home with its
+  // "Start free" links or on the web sign-up. Invite links above still pass.
+  if (
+    (pathname === "/" || pathname === "/signup") &&
+    isIosShellUserAgent(req.headers.get("user-agent"))
+  ) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    return NextResponse.redirect(url, 307);
   }
 
   // ── Setup wizard gate — FIRST check, flag-guarded (Phase 6, Task 18) ────────

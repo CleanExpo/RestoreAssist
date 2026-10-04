@@ -20,6 +20,7 @@ import { AnnouncerProvider } from "@/components/LiveRegion";
 import { ConvaiWidget } from "@/components/support/ConvaiWidget";
 import { PublicAssistantOrb } from "@/components/avatar";
 import { BotIdClient } from "botid/client";
+import { IOS_SHELL_LAUNCH_GUARD } from "@/lib/capacitor";
 import "@/lib/env-check";
 import "./globals.css";
 
@@ -146,6 +147,7 @@ export default function RootLayout({
             __html: `document.documentElement.classList.add("dark");`,
           }}
         />
+        <script dangerouslySetInnerHTML={{ __html: IOS_SHELL_LAUNCH_GUARD }} />
         <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
         {/* Dev-only: unregister leftover NIR SWs early. Do not force-reload —
             that races the Next router. SW v2.1 also self-destructs on localhost. */}
