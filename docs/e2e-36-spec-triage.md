@@ -95,8 +95,9 @@ build in TestFlight (RA-1842). Apple guideline 3.1.1 forbids steering users to
 external purchase paths, which is why the gate exists on `/dashboard/settings`
 at all. The pattern was applied there and not to the two auth pages.
 
-**Not implemented** is a founder decision, because closing it removes a signup
-path on iOS. It is flagged rather than fixed for that reason.
+**Implemented 04/10/2026** on the founder's approval: the iOS shell hides the
+sign-up link on `/login` and sends `/signup` to `/login`. Both tests now run
+without `test.fail()`.
 
 **Endpoint contract drift — the spec's expectation no longer matches the route**
 

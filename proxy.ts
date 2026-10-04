@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { applyRateLimitEdge } from "@/lib/rate-limiter-edge";
+import { isIosShellUserAgent } from "@/lib/capacitor";
 import {
   TRIAL_EXPIRED_PAY_PATH,
   TRIAL_EXPIRED_PAY_ROUTE,
@@ -268,6 +269,19 @@ export async function proxy(req: NextRequest) {
     }
   }
 
+  // Apple 3.1.1: the iOS shell (request user-agent token, see BillingGate)
+  // launches at "/", and must not land on the marketing home with its
+  // "Start free" links or on the web sign-up. Invite links above still pass.
+  if (
+    (pathname === "/" || pathname === "/signup") &&
+    isIosShellUserAgent(req.headers.get("user-agent"))
+  ) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    return NextResponse.redirect(url, 307);
+  }
+
   // ── Setup wizard gate — FIRST check, flag-guarded (Phase 6, Task 18) ────────
   // Safety lever: read env at request time so the flag can be toggled without
   // redeploying. If the flag is off, this entire block is completely inert.
@@ -376,6 +390,8 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
+    // Apple 3.1.1: the iOS shell launches at "/" and is sent to /login.
+    "/",
     // Authenticated surfaces — match BOTH the bare path AND `:path*` so the
     // middleware fires on /dashboard as well as /dashboard/foo. Next.js's
     // path-to-regexp does NOT treat `:path*` as zero-or-more for the

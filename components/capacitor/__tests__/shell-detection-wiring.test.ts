@@ -3,7 +3,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { IOS_SHELL_UA_TOKEN, isIosShellUserAgent } from "@/lib/capacitor";
+import { runInNewContext } from "node:vm";
+
+import {
+  IOS_SHELL_LAUNCH_GUARD,
+  IOS_SHELL_UA_TOKEN,
+  isIosShellUserAgent,
+} from "@/lib/capacitor";
 
 /**
  * The App Review 3.1.1 gate depends on a FOUR-LINK chain, and every link lives
@@ -28,11 +34,21 @@ describe("iOS shell detection — cross-file wiring", () => {
   // Every segment that can render a BillingGate must resolve the platform on
   // the server. The read is deliberately NOT in the root layout — that opts
   // every route out of static rendering (measured 68 static -> 7).
+  // /login and /signup hide the web sign-up in the shell on the same verdict.
   const GATED_SEGMENT_LAYOUTS = [
     "app/dashboard/layout.tsx",
     "app/pricing/layout.tsx",
     "app/compliance/layout.tsx",
+    "app/login/layout.tsx",
+    "app/signup/layout.tsx",
   ];
+
+  it.each(["app/login/page.tsx", "app/signup/page.tsx"])(
+    "link 4: %s prefers the server verdict over its client read",
+    (file) => {
+      expect(read(file)).toMatch(/useServerIosShell\(\)\s*===\s*true\s*\|\|/u);
+    },
+  );
 
   it.each(GATED_SEGMENT_LAYOUTS)(
     "link 2: %s computes the verdict from the request user-agent",
@@ -175,5 +191,48 @@ describe("iOS shell detection — cross-file wiring", () => {
         `${file} renders a BillingGate and must not be force-static`,
       ).not.toMatch(/dynamic\s*=\s*["']force-static["']/u);
     }
+  });
+});
+
+describe("iOS shell launch guard (older shells, Apple 3.1.1)", () => {
+  const SAFARI =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1";
+  const LEGACY_SHELL =
+    "Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 Capacitor iOS";
+
+  function run(pathname: string, userAgent: string, platform?: string) {
+    const replaced: string[] = [];
+    const style: Record<string, string> = {};
+    runInNewContext(IOS_SHELL_LAUNCH_GUARD, {
+      location: { pathname, replace: (u: string) => replaced.push(u) },
+      navigator: { userAgent },
+      window: platform ? { Capacitor: { getPlatform: () => platform } } : {},
+      document: { documentElement: { style } },
+    });
+    return { replaced, hidden: style.visibility === "hidden" };
+  }
+
+  it.each(["/", "/signup"])(
+    "sends a shell on %s to /login before anything paints",
+    (path) => {
+      expect(run(path, SAFARI, "ios")).toEqual({
+        replaced: ["/login"],
+        hidden: true,
+      });
+      expect(run(path, LEGACY_SHELL).replaced).toEqual(["/login"]);
+    },
+  );
+
+  it("leaves browsers, Android and other pages alone", () => {
+    expect(run("/", SAFARI).replaced).toEqual([]);
+    expect(run("/", SAFARI, "android").replaced).toEqual([]);
+    expect(run("/pricing", LEGACY_SHELL).replaced).toEqual([]);
+  });
+
+  it("is inlined in the root layout <head>", () => {
+    const root = read("app/layout.tsx");
+    expect(root).toMatch(
+      /<head>[\s\S]*__html:\s*IOS_SHELL_LAUNCH_GUARD[\s\S]*<\/head>/u,
+    );
   });
 });
