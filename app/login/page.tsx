@@ -35,10 +35,12 @@ function LoginForm() {
   //      APPLE_CLIENT_SECRET) but the native plugin only needs the
   //      bundle ID and verifies the JWT via Apple's JWKS directly.
   const [isIOS, setIsIOS] = useState(false);
+  const [shellChecked, setShellChecked] = useState(false);
   // Apple 3.1.1: the iOS shell must not steer users to a web sign-up. The
-  // server verdict (request user-agent, see BillingGate) covers the first
-  // paint; the client read covers older shells and client navigation.
-  const hideSignUp = useServerIosShell() === true || isIOS;
+  // server verdict (request user-agent, see BillingGate) covers current
+  // shells. Older shells send no token, so the link is also held back until
+  // the client check has run: it is never in the server HTML.
+  const hideSignUp = useServerIosShell() === true || !shellChecked || isIOS;
   // RA-2076 (1.0.4) — Continue with Google is now native on iOS (via the
   // capgo plugin), so the 1.0.3 hide-on-iOS gate is removed. Apple
   // guideline 4.8 still satisfied because Apple Sign-In is shown as a
@@ -93,6 +95,7 @@ function LoginForm() {
   useEffect(() => {
     const onIos = isCapacitorIOS();
     setIsIOS(onIos);
+    setShellChecked(true);
     // RA-2074 — default rememberMe TRUE on iOS shell so field techs
     // get a 90-day session by default. Web users opt in via checkbox.
     setRememberMe(onIos);

@@ -49,14 +49,17 @@ export default function SignupPage() {
   // need NEXT_PUBLIC_APPLE_SIGNIN_ENABLED because the native plugin
   // verifies via Apple's JWKS, not the web Service ID + .p8 secret).
   const [isIOS, setIsIOS] = useState(false);
+  const [shellChecked, setShellChecked] = useState(false);
 
   useEffect(() => {
     setIsIOS(isCapacitorIOS());
+    setShellChecked(true);
   }, []);
 
   // Apple 3.1.1: there is no web sign-up inside the iOS shell. The server
-  // verdict (request user-agent, see BillingGate) keeps the form from
-  // painting; the client read covers older shells and client navigation.
+  // verdict (request user-agent, see BillingGate) covers current shells.
+  // Older shells send no token, so the form also waits for the client
+  // check: it is never in the server HTML.
   const iosShell = useServerIosShell() === true || isIOS;
   useEffect(() => {
     if (iosShell) window.location.replace("/login");
@@ -180,10 +183,10 @@ export default function SignupPage() {
     }
   };
 
-  if (iosShell) {
+  if (iosShell || !shellChecked) {
     return (
       <p className="py-20 text-center text-slate-600" role="status">
-        Taking you to sign in…
+        {iosShell ? "Taking you to sign in…" : "Loading…"}
       </p>
     );
   }
