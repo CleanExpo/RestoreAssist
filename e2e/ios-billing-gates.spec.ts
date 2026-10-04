@@ -52,16 +52,17 @@ test.describe("iOS billing gates", () => {
   test("settings page hides Upgrade Package link on iOS", async ({ page }) => {
     await mockCapacitorIOS(page);
     await page.goto("/dashboard/settings");
-    // iOS-only control: proves the page rendered with the shell detected,
-    // so the negative check below is not passing on an empty page.
-    await expect(page.getByText("Require Face ID to unlock")).toBeVisible();
+    // "Refresh" renders with the profile, beside the billing buttons, so the
+    // count below runs on the loaded page, not the loading spinner. In a
+    // browser those buttons are on this page (RA-7900 diagnostic run).
+    await expect(page.getByRole("button", { name: "Refresh" })).toBeVisible();
     await expect(page.getByText("Upgrade Package")).toHaveCount(0);
   });
 
   test("settings page hides Manage Subscription on iOS", async ({ page }) => {
     await mockCapacitorIOS(page);
     await page.goto("/dashboard/settings");
-    await expect(page.getByText("Require Face ID to unlock")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Refresh" })).toBeVisible();
     await expect(page.getByText("Manage Subscription")).toHaveCount(0);
   });
 
@@ -81,5 +82,20 @@ test.describe("iOS billing gates", () => {
     );
     // and the pricing plans behind it must not render at all.
     await expect(page.locator('a[href*="/signup"]')).toHaveCount(0);
+  });
+});
+
+// Control for the checks above: the same account in a normal browser DOES see
+// the billing button, so "count 0" in the shell is the gate working, not a
+// page that never showed it.
+test.describe("iOS billing gates — browser control", () => {
+  test.use({ storageState: AUTH_FILE });
+
+  test("settings page shows Manage Subscription in a browser", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/settings");
+    await expect(page.getByRole("button", { name: "Refresh" })).toBeVisible();
+    await expect(page.getByText("Manage Subscription").first()).toBeVisible();
   });
 });
