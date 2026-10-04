@@ -6,6 +6,16 @@
  */
 export const PG_POOL_CONNECTION_TIMEOUT_MS = 20_000;
 
+/** URL parameters besides sslmode that pg-connection-string turns into TLS settings. */
+export const PG_URL_TLS_PARAMS = [
+  "ssl",
+  "sslcert",
+  "sslkey",
+  "sslrootcert",
+  "sslnegotiation",
+  "uselibpqcompat",
+] as const;
+
 /**
  * The connection string and TLS options for the `pg` pool.
  *
@@ -16,6 +26,10 @@ export const PG_POOL_CONNECTION_TIMEOUT_MS = 20_000;
  * "self-signed certificate in certificate chain" (prod outage, 04/10/2026).
  * Every `sslmode` is therefore taken out of the URL when the option replaces
  * a `require`.
+ *
+ * Only a plain require is rewritten. A URL that also sets another TLS
+ * parameter (`ssl`, a certificate file, `uselibpqcompat`, ...) has asked for
+ * something specific, so it is left exactly as pg reads it.
  */
 export function pgPoolTls(connectionString: string): {
   connectionString: string;
@@ -33,7 +47,8 @@ export function pgPoolTls(connectionString: string): {
 
   // pg honours the last sslmode when one is repeated.
   const requireMode =
-    params.getAll("sslmode").at(-1)?.toLowerCase() === "require";
+    params.getAll("sslmode").at(-1)?.toLowerCase() === "require" &&
+    !PG_URL_TLS_PARAMS.some((key) => params.has(key));
   if (!requireMode) {
     return {
       connectionString,

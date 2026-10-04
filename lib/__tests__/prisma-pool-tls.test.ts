@@ -64,6 +64,22 @@ describe("pgPoolTls", () => {
     );
   });
 
+  it.each([
+    "ssl=true",
+    "ssl=0",
+    "sslrootcert=/dev/null",
+    "sslcert=/dev/null",
+    "sslkey=/dev/null",
+    "sslnegotiation=direct",
+    "uselibpqcompat=true",
+  ])("leaves require with %s exactly as pg reads it", (extra) => {
+    const url = `${BASE}?sslmode=require&${extra}`;
+    expect(pgPoolTls(url).connectionString).toBe(url);
+    expect(effectiveSsl(url)).toEqual(
+      new ConnectionParameters({ connectionString: url }).ssl,
+    );
+  });
+
   it("reads the sslmode case-insensitively, as pg does", () => {
     expect(effectiveSsl(`${BASE}?sslmode=REQUIRE`)).toEqual({
       rejectUnauthorized: false,
@@ -99,9 +115,31 @@ describe("pgPoolTls", () => {
     )
       .split("\n")
       .filter((f) => f.endsWith(".ts") && !/__tests__|\.test\.ts$/.test(f));
-    const bare = files.filter((f) =>
-      /new Pool\(\{\s*connectionString\s*[,}]/.test(readFileSync(f, "utf8")),
-    );
+    // The argument text of every `new Pool(...)` call, parentheses balanced.
+    const poolArgs = (src: string) => {
+      const args: string[] = [];
+      for (let at = src.indexOf("new Pool("); at !== -1;) {
+        let depth = 0;
+        let end = at + "new Pool".length;
+        do {
+          if (src[end] === "(") depth++;
+          if (src[end] === ")") depth--;
+          end++;
+        } while (depth > 0 && end < src.length);
+        args.push(src.slice(at, end));
+        at = src.indexOf("new Pool(", end);
+      }
+      return args;
+    };
+    const bare = files.filter((f) => {
+      const src = readFileSync(f, "utf8");
+      // Migrate-style scripts rewrite the URL with withRequireAsNoVerify.
+      if (src.includes("withRequireAsNoVerify(")) return false;
+      return poolArgs(src).some(
+        (arg) =>
+          /\bconnectionString\b/.test(arg) && !arg.includes("pgPoolTls("),
+      );
+    });
     expect(bare).toEqual([]);
   });
 });

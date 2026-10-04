@@ -110,6 +110,32 @@ describe("withRequireAsNoVerify", () => {
     ).toEqual({ rejectUnauthorized: false });
   });
 
+  it("leaves require with another TLS parameter exactly as pg reads it", async () => {
+    const { default: ConnectionParameters } = await import(
+      "pg/lib/connection-parameters"
+    );
+    for (const extra of [
+      "uselibpqcompat=true",
+      "ssl=true",
+      "sslrootcert=/dev/null",
+    ]) {
+      const url = `${remote}?sslmode=require&${extra}`;
+      expect(withRequireAsNoVerify(url)).toBe(url);
+    }
+    const libpq = `${remote}?sslmode=require&uselibpqcompat=true`;
+    expect(await effective(libpq)).toEqual(
+      new ConnectionParameters({ connectionString: libpq }).ssl,
+    );
+  });
+
+  it("rewrites a local URL whose host parameter points at a remote server", async () => {
+    expect(
+      await effective(
+        "postgresql://u:p@localhost/d?host=db.example.com&sslmode=require",
+      ),
+    ).toEqual({ rejectUnauthorized: false });
+  });
+
   it("reads the sslmode case-insensitively, as pg does", async () => {
     expect(await effective(`${remote}?sslmode=REQUIRE`)).toEqual({
       rejectUnauthorized: false,
