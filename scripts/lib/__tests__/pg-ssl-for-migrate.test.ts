@@ -3,6 +3,7 @@ import {
   applyMigrateSslToEnv,
   pgMigrateSslOption,
   withPgMigrateSsl,
+  withRequireAsNoVerify,
 } from "../pg-ssl-for-migrate.mjs";
 
 describe("withPgMigrateSsl", () => {
@@ -55,5 +56,45 @@ describe("pgMigrateSslOption", () => {
 
   it("returns undefined for localhost", () => {
     expect(pgMigrateSslOption("postgresql://u:p@localhost:5432/db")).toBeUndefined();
+  });
+});
+
+describe("withRequireAsNoVerify", () => {
+  // Effective TLS as pg's Pool resolves it, with the option the scripts pass.
+  const effective = async (url: string) => {
+    const { default: ConnectionParameters } = await import(
+      "pg/lib/connection-parameters"
+    );
+    const target = withRequireAsNoVerify(url) ?? url;
+    return new ConnectionParameters({
+      connectionString: target,
+      ssl: pgMigrateSslOption(target),
+    }).ssl;
+  };
+  const remote = "postgresql://u:p@db.example.com:25060/defaultdb";
+
+  it("stops sslmode=require (and a repeat of it) from verifying", async () => {
+    expect(await effective(`${remote}?sslmode=require`)).toEqual({
+      rejectUnauthorized: false,
+    });
+    expect(
+      await effective(`${remote}?sslmode=require&sslmode=require`),
+    ).toEqual({ rejectUnauthorized: false });
+  });
+
+  it("keeps an explicit verify-full or verify-ca verifying", async () => {
+    expect(withRequireAsNoVerify(`${remote}?sslmode=verify-full`)).toBe(
+      `${remote}?sslmode=verify-full`,
+    );
+    expect(await effective(`${remote}?sslmode=verify-full`)).not.toMatchObject(
+      { rejectUnauthorized: false },
+    );
+    expect(withRequireAsNoVerify(`${remote}?sslmode=verify-ca`)).toBe(
+      `${remote}?sslmode=verify-ca`,
+    );
+  });
+
+  it("leaves a URL with no sslmode unchanged", () => {
+    expect(withRequireAsNoVerify(remote)).toBe(remote);
   });
 });

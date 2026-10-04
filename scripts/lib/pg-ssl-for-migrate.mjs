@@ -41,6 +41,28 @@ export function withPgMigrateSsl(connectionString) {
 }
 
 /**
+ * Narrower than withPgMigrateSsl, for non-migrate pools: rewrites the URL
+ * only when it asks for `sslmode=require` (which pg reads as verify-full and
+ * lets override the `ssl` option — the 04/10/2026 outage). An explicit
+ * verify-full / verify-ca keeps its certificate check.
+ * @param {string | undefined | null} connectionString
+ * @returns {string | undefined | null}
+ */
+export function withRequireAsNoVerify(connectionString) {
+  if (!connectionString) return connectionString;
+  let url;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    return connectionString;
+  }
+  const modes = url.searchParams.getAll("sslmode").map((m) => m.toLowerCase());
+  return modes.includes("require")
+    ? withPgMigrateSsl(connectionString)
+    : connectionString;
+}
+
+/**
  * Mutate DATABASE_URL / DIRECT_URL on `env` for Prisma CLI + pg clients.
  * @param {NodeJS.ProcessEnv} [env]
  */
