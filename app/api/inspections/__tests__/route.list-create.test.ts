@@ -68,7 +68,7 @@ vi.mock("@/lib/prisma", () => ({
     client: { findFirst: (...a: unknown[]) => clientFindFirst(...a) },
     auditLog: { create: (...a: unknown[]) => auditCreate(...a) },
     idempotencyRecord: { findUnique: (...a: unknown[]) => idempotencyRecordFindUnique(...a) },
-    user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
+    user: { findUnique: (...a: unknown[]) => userFindUnique(...a), findMany: async () => [] },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
       transactionDepth++;
       try {

@@ -222,6 +222,20 @@ export async function getResourceTenant(
     : null;
 }
 
+/**
+ * When the user's membership of `organizationId` started: the latest invite
+ * accepted into it, role-change audit rows skipped. Null when no invite
+ * survives (erased with the owner's account) or the history is too long to
+ * trust, so callers fail closed.
+ */
+export async function getMembershipStart(
+  userId: string,
+  email: string,
+  organizationId: string,
+): Promise<Date | null> {
+  return (await latestMembershipStart(userId, email, organizationId))?.usedAt ?? null;
+}
+
 /** Invites this user accepted: by receipt, or (pre-receipt) by email. */
 function acceptedBy(userId: string, email: string) {
   return [

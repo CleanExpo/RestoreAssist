@@ -29,7 +29,7 @@ vi.mock("@/lib/rate-limiter", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     report: { findUnique: vi.fn() },
-    user: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 vi.mock("@/lib/progress/document-generators", () => ({
