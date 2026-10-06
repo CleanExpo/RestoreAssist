@@ -1,9 +1,9 @@
 ---
 type: index
 name: session-handoffs
-description: OKF index — 16 concepts, 0 subfolders
+description: OKF index — 17 concepts, 0 subfolders
 okf_version: "0.1"
-updated: 2026-09-02
+updated: 2026-10-06
 ---
 
 <!-- okf:generated -->
@@ -29,3 +29,4 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 - [[handoff-20260830T172338Z]] — Two masking layers came off the production alarm, and what was underneath is one real fault and one bad test
 - [[handoff-20260831T020627Z]] — Every release-gate criterion got a producer, and then the pipeline turned out to be unable to earn a point
 - [[handoff-20260902T091553Z]] — The playbook audit found two dead controls, and building its documents found a legal deadline that was invented
+- [[handoff-20261006T094316Z]] — The release gate scored for the first time, and a CARSI cross-sell exposed two near-misses in my own verification
