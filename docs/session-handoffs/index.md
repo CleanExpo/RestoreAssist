@@ -1,7 +1,7 @@
 ---
 type: index
 name: session-handoffs
-description: OKF index — 17 concepts, 0 subfolders
+description: OKF index — 18 concepts, 0 subfolders
 okf_version: "0.1"
 updated: 2026-10-06
 ---
@@ -13,6 +13,7 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 
 ## Concepts
 
+- [[handoff-20261006T112921Z]] — A CI guard that was never checked turned out to be hiding live pricing drift, and the ledger loop meant the PR merged without CI ever finishing
 - [[handoff-20260829T085950Z]] — Session Handoff — A Linear MCP fallback, seven defects found by leaving the mock behind, and two hooks that pointed at nothing (PRs #2079, #2080, #2081)
 - [[handoff-20260829T073028Z]] — Session Handoff — Feature-enablement audit, and a Linear MCP fallback that two live-data defects nearly shipped with (PR #2079)
 - [[handoff-20260826T101451Z]] — Session Handoff — Five merged fixes, the Job Continuity reconciliation, and BMAD (PRs #2054–#2061)
