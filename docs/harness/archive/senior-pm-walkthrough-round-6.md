@@ -37,17 +37,71 @@ that list), not a blocker. None of them is a reason to hold a pilot.
 
 1. **Pricing page: GST / AUD / tax-invoice copy.** **FIXED.**
 2. **Status / incident page.** **FIXED** — `app/status/page.tsx`.
-3. **Trust signals on marketing.** **CODE SHIPPED, DATA NOT SET.** Both footers
-   render the ABN and address conditionally (`components/landing/Footer.tsx:128`
-   and `:129`, `components/landing/home/LandingFooter.tsx:95`), and `security@`
-   renders unconditionally because `lib/brand.ts:35` carries a default. The ABN
-   and address do **not**: `lib/brand.ts:26` and `:31` fall back to `""`, so
-   until `NEXT_PUBLIC_COMPANY_ABN` and `NEXT_PUBLIC_COMPANY_ADDRESS` are set in
-   Vercel the footer shows neither. `docs/compliance/LAUNCH-CHECKLIST.md:29` is
-   the box for exactly this and is still unticked. Round 5 also asked for a
-   security *page*; a `security@` footer link ships instead, and there is no
-   `app/security/page.tsx`.
+3. **Trust signals on marketing.** **NOT CLOSEABLE BY AN ENV VAR — needs a code
+   change first.** Both footers render the ABN and address conditionally
+   (`components/landing/Footer.tsx:128` and `:129`,
+   `components/landing/home/LandingFooter.tsx:95`), and `security@` renders
+   unconditionally because `lib/brand.ts:35` carries a default. The ABN and
+   address do **not**: `lib/brand.ts:26` and `:31` fall back to `""`. See the
+   section below — the remedy is not the one the launch checklist states.
+   Round 5 also asked for a security *page*; a `security@` footer link ships
+   instead, and there is no `app/security/page.tsx`.
 4. **Pricing drift lint / source-of-truth test.** **FIXED THIS ROUND** — below.
+
+---
+
+## Blocker 3 is misdiagnosed, in the launch checklist and in round 5
+
+Round 5, round 6 as first written, and `docs/compliance/LAUNCH-CHECKLIST.md:29`
+all say the same thing: set `NEXT_PUBLIC_COMPANY_ABN` and friends **in Vercel
+project settings** and the footer fills in. That is wrong twice over.
+
+**First, production is not Vercel.** `.do/app.yaml` is the production app spec:
+`restoreassist.app` is a DigitalOcean app in `syd`, running a sha256-digest-
+pinned image from GHCR. `build-production-image.yml` builds and publishes that
+image and deliberately holds no DigitalOcean token;
+`deploy-production.yml` is the separate `workflow_dispatch` step that takes a
+digest. Vercel serves only `restoreassist-sandbox` — the preview, and the
+`B4-smoke-sandbox` target. There is even a test,
+`app/__tests__/no-vercel-analytics.test.tsx`, asserting Vercel Analytics is not
+used. So a value typed into Vercel's dashboard would never reach
+`restoreassist.app`.
+
+**Second, and the part that matters: setting it in DigitalOcean would not work
+either.** These are `NEXT_PUBLIC_*` variables, which Next inlines into the
+client bundle at **build time** — the checklist says so itself, "Footer reads
+them at build time (RA-1582)". The bundle is built in GitHub Actions and
+published to GHCR *before* DigitalOcean ever sees it, so a DigitalOcean runtime
+env var cannot retro-fit a value Next has already inlined.
+
+Exactly one `NEXT_PUBLIC_*` variable does reach the production bundle today, and
+it needs three coordinated pieces:
+
+| Piece | For `NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID` | For the four company vars |
+| --- | --- | --- |
+| `Dockerfile` `ARG` + `ENV` | `:63`–`:65` | **absent** |
+| `build-production-image.yml` `--build-arg` | `:182` | **absent** |
+| `.do/app.yaml` `envs` entry | `:40`, `RUN_AND_BUILD_TIME` | **absent** |
+
+So blocker 3 is not one unticked box awaiting an owner. The footer code is
+complete and correct; the **build path has no way to carry the values**, and
+nobody would discover that by setting them in a dashboard — the footer would
+simply stay blank and look like a code bug.
+
+**The patch**, mirroring the Google client ID exactly: add
+`ARG`/`ENV` lines for the four variables to `Dockerfile` beside `:63`, add four
+`--build-arg` lines to `build-production-image.yml` beside `:182` sourcing from
+repository variables, and add the four to `.do/app.yaml` `envs` as
+`RUN_AND_BUILD_TIME` so server-side reads see them too. `NEXT_PUBLIC_SUPPORT_EMAIL`
+and `NEXT_PUBLIC_SECURITY_EMAIL` have defaults in `lib/brand.ts`, so only the
+ABN and address actually change rendered output — but all four should travel the
+same path rather than two of them silently depending on a fallback.
+
+Not done here. It changes the production image build and the production app
+spec, which is well outside a pricing-copy PR, and the values themselves are the
+owner's. `LAUNCH-CHECKLIST.md:29` is corrected in this PR, because an
+instruction that sends the owner to the wrong console is worse than no
+instruction.
 
 ---
 
@@ -154,9 +208,11 @@ also reformat lines this change never touched, so it was not run.
 
 ## Still open
 
-1. **Set `NEXT_PUBLIC_COMPANY_ABN` and `NEXT_PUBLIC_COMPANY_ADDRESS`** in Vercel
-   and tick `docs/compliance/LAUNCH-CHECKLIST.md:29`. Until then blocker 3 is
-   not closed, however complete the code path is. Owner action.
+1. **Wire the company env vars into the production image build** (the three-file
+   patch in the section above), then set their values and tick
+   `docs/compliance/LAUNCH-CHECKLIST.md:29`. Until then blocker 3 is not closed,
+   however complete the footer code is. The code part is not owner-gated; the
+   values are.
 2. **Dispatch `release-gate.yml` against `main`** to confirm the projected
    45/85. That number is arithmetic from #2067, never a measurement.
 3. **Decide whether `app/security/page.tsx` is wanted** or whether the
