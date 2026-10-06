@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
     report: { findUnique: vi.fn(), findFirst: vi.fn() },
     inspection: { findUnique: vi.fn(), findFirst: vi.fn() },
   },
