@@ -7,6 +7,8 @@ name: Route Safety Guard
 # NEW findings not present in scripts/security/route-safety-baseline.json.
 
 on:
+  push:
+    branches: [codex/field-runtime-policy]
   pull_request:
     branches: [main, sandbox]
     types: [opened, synchronize, reopened]

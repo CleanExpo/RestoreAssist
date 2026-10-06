@@ -46,7 +46,7 @@ on:
       - "prisma/migrations/**"
   # RA-7721: every merged main SHA gets its own run.
   push:
-    branches: [main]
+    branches: [main, codex/field-runtime-policy]
   workflow_dispatch:
 
 permissions:
