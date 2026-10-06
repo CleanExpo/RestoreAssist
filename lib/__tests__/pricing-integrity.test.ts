@@ -12,6 +12,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
+import { HOME } from "@/components/landing/home/homeContent";
 
 const repoRoot = join(__dirname, "..", "..");
 const readSrc = (rel: string) => readFileSync(join(repoRoot, rel), "utf8");
@@ -221,5 +223,84 @@ describe("free-trial honesty — grant matches advertised copy", () => {
     expect(src).toContain("grantAllAddons");
     expect(src).toContain("ADDON_SKUS");
     expect(src).not.toMatch(/subscriptionStatus:\s*"TRIAL"/);
+  });
+});
+
+/**
+ * Round-5 launch blocker 4 — the hardcoded-price drift guard.
+ *
+ * The invariant assertions above protect `PRICING_CONFIG` itself, and the
+ * free-trial block checks that the *trial* numbers are interpolated. Neither
+ * catches a dollar figure typed straight into buyer-facing copy, and one had
+ * already drifted: the marketing home said "Add-ons are $11/month each" while
+ * `floorplan-underlay-addon.ts` charges $9.95 and the pricing page's own
+ * `TierComparison` said "from $9.95" — two live surfaces quoting different
+ * numbers for the same thing.
+ *
+ * So on every surface that quotes a subscription price to a buyer, the figure
+ * must be interpolated from the SSOT rather than typed. `$0` is exempt: the
+ * free tier's amount is structurally zero and cannot drift.
+ */
+describe("blocker 4 — no hardcoded subscription prices in buyer-facing copy", () => {
+  /**
+   * Each of these quotes the plan, pack or add-on price to a buyer. Comment
+   * blocks are stripped before scanning, so the doc comments that record *why*
+   * a number is what it is (and the "NEVER claim flat pricing" warning in
+   * homeContent) stay readable.
+   */
+  const PRICE_QUOTING_SURFACES = [
+    "components/landing/home/homeContent.ts",
+    "app/billing/upgrade/CheckoutCTA.tsx",
+    "app/pricing/layout.tsx",
+    "app/features/page.tsx",
+  ] as const;
+
+  const stripComments = (src: string) =>
+    src
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .split("\n")
+      .filter((line) => {
+        const t = line.trim();
+        return !t.startsWith("//") && !t.startsWith("*");
+      })
+      .join("\n");
+
+  // `\$\d` cannot match `${expr}`, so interpolation is unaffected.
+  const TYPED_PRICE = /\$\d[\d,]*(?:\.\d+)?/g;
+
+  for (const rel of PRICE_QUOTING_SURFACES) {
+    it(`${rel} interpolates its prices instead of typing them`, () => {
+      const typed = (stripComments(readSrc(rel)).match(TYPED_PRICE) ?? [])
+        // The free tier is $0 by construction — not a drift risk.
+        .filter((m) => m !== "$0");
+      expect(
+        typed,
+        `${rel} hardcodes ${typed.join(", ")}; derive from PRICING_CONFIG / RECURRING_ADDONS instead`,
+      ).toEqual([]);
+    });
+  }
+
+  it("marketing home quotes the real plan price and the real cheapest add-on price", () => {
+    const monthly = PRICING_CONFIG.pricing.monthly;
+    const cheapestAddon = Math.min(
+      ...Object.values(RECURRING_ADDONS).map((a) => a.amount),
+    );
+    const money = (n: number) =>
+      n % 1 === 0 ? `$${n}` : `$${n.toFixed(2)}`;
+
+    const pricingPillar = HOME.stance.pillars.find((p) =>
+      /priced/i.test(p.title),
+    );
+    expect(pricingPillar, "home stance strip should carry a pricing pillar")
+      .toBeDefined();
+    const body = pricingPillar!.body;
+
+    expect(body).toContain(money(monthly.amount));
+    expect(body).toContain(String(monthly.reportLimit));
+    // The claim that broke: every add-on is NOT the same price.
+    expect(
+      body,
+      `home copy must quote the real cheapest add-on price (${money(cheapestAddon)})`,
+    ).toContain(money(cheapestAddon));
   });
 });
