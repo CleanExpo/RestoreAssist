@@ -1,8 +1,43 @@
 import { BRAND } from "@/lib/brand";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
 
 const trialDays = PRICING_CONFIG.free.trialDays;
 const trialReports = PRICING_CONFIG.free.trialReportCredits;
+
+/**
+ * Prices quoted in the stance strip, derived rather than typed.
+ *
+ * Round-5 blocker 4 asked for a drift guard because this file had no reason to
+ * stay in step with the billing SSOT, and it had already fallen out: the copy
+ * claimed every add-on was $11 while FLOORPLAN_UNDERLAY_ADDON charged $9.95.
+ * That outlier was levelled to $11 (founder decision 06/10/2026), so the claim
+ * is true again -- but it is now derived, so it cannot quietly stop being true
+ * a second time. Same formatting idiom as TierComparison so the two surfaces
+ * render the figure identically.
+ */
+const money = (amount: number) =>
+  amount % 1 === 0 ? `$${amount}` : `$${amount.toFixed(2)}`;
+const monthlyPlan = PRICING_CONFIG.pricing.monthly;
+const planPrice = money(monthlyPlan.amount);
+const planReports = monthlyPlan.reportLimit;
+const perReportPrice = money(monthlyPlan.amount / planReports);
+/**
+ * The add-on claim, phrased from the registry rather than asserted.
+ *
+ * While every recurring add-on is the same price, "are $11 a month each" is
+ * the honest sentence. Add one cheaper or dearer and the same expression says
+ * "from $X a month each" instead, because "each" would then be a lie. Do not
+ * hardcode either wording: the last time this read "are $11/month each" it had
+ * to be corrected on a live site.
+ */
+const addonAmounts = Object.values(RECURRING_ADDONS).map((a) => a.amount);
+const cheapestAddonPrice = money(Math.min(...addonAmounts));
+const addonsAreUniform =
+  Math.min(...addonAmounts) === Math.max(...addonAmounts);
+const addonClaim = addonsAreUniform
+  ? `are ${cheapestAddonPrice} a month each`
+  : `from ${cheapestAddonPrice} a month each`;
 
 /** Shared marketing home copy — same words on Home 1 / 2 / 3; only layout changes. */
 export const HOME = {
@@ -46,9 +81,10 @@ export const HOME = {
    * Every line here is checked against shipped behaviour before it goes out:
    * capture (lib/capture), evidence honesty (lib/evidence/qa-scorer.ts flags
    * "GPS location not recorded" rather than inventing one), and pricing
-   * (lib/pricing.ts — $99 AUD/month, reportLimit 50, signupBonus 10, so
-   * $1.98/report; lib/billing/*-addon.ts — six $11 flat unlocks plus
-   * TECHNICIAN_SEATS, which is perSeat: true and bills $11 x seat count).
+   * (lib/pricing.ts and lib/billing/addon-registry.ts, read through the
+   * derived constants above — never typed here. TECHNICIAN_SEATS is
+   * perSeat: true, so it bills its amount x seat count even while every
+   * add-on's headline amount is the same).
    * NEVER claim "flat", "no per-seat", or "whole team" pricing here.
    */
   stance: {
@@ -64,7 +100,7 @@ export const HOME = {
       },
       {
         title: "Priced for Australian businesses",
-        body: "$99 a month, 50 inspection reports — $1.98 a report, in Australian dollars. Basic reports on the free trial work without pasting an API key. Provider charges apply only if you add your own key — they bill you directly and we take no margin. Add-ons are $11/month each, field technician seats per seat, all itemised on the pricing page.",
+        body: `${planPrice} a month, ${planReports} inspection reports — ${perReportPrice} a report, in Australian dollars. Basic reports on the free trial work without pasting an API key. Provider charges apply only if you add your own key — they bill you directly and we take no margin. Add-ons ${addonClaim}, field technician seats per seat, all itemised on the pricing page.`,
       },
     ] as const,
   },

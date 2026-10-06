@@ -3,6 +3,18 @@
 import { useState } from "react";
 import { RAIcon } from "@/components/brand/RAIcon";
 import { ChromeRefresh } from "@/components/brand/chrome-icons";
+import { PRICING_CONFIG } from "@/lib/pricing";
+
+/**
+ * The price on this button is the last number a buyer reads before Stripe
+ * charges them, so it is derived from the catalog the checkout route resolves
+ * against rather than typed. Blocker 4 (round-5 PM walkthrough).
+ */
+const monthlyPlan = PRICING_CONFIG.pricing.monthly;
+const planPrice =
+  monthlyPlan.amount % 1 === 0
+    ? `$${monthlyPlan.amount}`
+    : `$${monthlyPlan.amount.toFixed(2)}`;
 
 /**
  * RA-6929/6930/6931 — the expired-trial hard-paywall CTA sells the single
@@ -54,7 +66,9 @@ export default function CheckoutCTA() {
         disabled={loading}
         className="w-full rounded-xl bg-brand-navy px-8 py-3.5 text-base font-semibold text-white shadow-md shadow-brand-navy/25 transition-[background-color,opacity,transform] hover:bg-brand-navy-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-50 min-h-12 active:scale-[0.99]"
       >
-        {loading ? "Redirecting to secure checkout…" : "Subscribe — $99/month"}
+        {loading
+          ? "Redirecting to secure checkout…"
+          : `Subscribe — ${planPrice}/${monthlyPlan.interval}`}
       </button>
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2">

@@ -34,12 +34,24 @@ import type { ScrapedPropertyData } from "@/lib/property-data-parser";
 import { prepareUnderlayFile } from "@/lib/sketch/prepare-underlay-file";
 import { commitUnderlayImport } from "@/lib/sketch/commit-underlay-import";
 import { isUnderlayUrlImportEnabled } from "@/lib/sketch/underlay-import-flag";
-import { FLOORPLAN_UNDERLAY_SKU } from "@/lib/billing/floorplan-underlay-addon";
+import {
+  FLOORPLAN_UNDERLAY_SKU,
+  FLOORPLAN_UNDERLAY_ADDON,
+} from "@/lib/billing/floorplan-underlay-addon";
 import {
   evaluateUnderlayAttestation,
   UNDERLAY_RIGHTS_STATEMENT,
   type UnderlaySource,
 } from "@/lib/sketch/underlay-attestation";
+
+/**
+ * Add-on price as shown in the upgrade CTA, derived from the add-on's own SSOT.
+ * Same formatting idiom as TierComparison and the marketing home.
+ */
+const ADDON_PRICE =
+  FLOORPLAN_UNDERLAY_ADDON.amount % 1 === 0
+    ? `$${FLOORPLAN_UNDERLAY_ADDON.amount}`
+    : `$${FLOORPLAN_UNDERLAY_ADDON.amount.toFixed(2)}`;
 
 function listingSourceLabel(data: ScrapedPropertyData): string {
   try {
@@ -330,7 +342,7 @@ export function FloorPlanUnderlayLoader({
     if (e.key === "Enter") fetchListing();
   };
 
-  // RA-6922: start the recurring $9.95/mo Floor Plan Underlay add-on checkout and
+  // RA-6922: start the recurring Floor Plan Underlay add-on checkout and
   // redirect to Stripe. Mirrors app/dashboard/pricing/page.tsx's redirect flow.
   const handleUpgrade = useCallback(async () => {
     setUpgrading(true);
@@ -580,16 +592,18 @@ export function FloorPlanUnderlayLoader({
           )}
 
           {/* RA-6922 — the scrape returned 402 (no active Floor Plan Underlay
-              add-on). Offer the recurring $9.95/mo upgrade; manual upload below
-              still works without it. */}
+              add-on). Offer the recurring upgrade; manual upload below still
+              works without it. The price is derived, never typed: this copy
+              quoted $9.95 for the life of the $9.95 era and would have gone
+              stale the moment the amount moved. */}
           {upgradeRequired && (
             <div className="flex flex-col gap-2 p-3 rounded-lg bg-cyan-500/10 border border-cyan-400/30 text-xs">
               <p className="font-medium text-neutral-700 dark:text-slate-200">
                 Automatic floor plan fetch needs the Floor Plan Underlay add-on
               </p>
               <p className="text-neutral-500 dark:text-slate-400">
-                Add it for $9.95/month (GST inclusive), or upload a floor plan
-                image manually below.
+                Add it for {ADDON_PRICE}/{FLOORPLAN_UNDERLAY_ADDON.interval} (GST
+                inclusive), or upload a floor plan image manually below.
               </p>
               <button
                 type="button"
