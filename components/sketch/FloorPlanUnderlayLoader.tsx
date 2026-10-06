@@ -8,6 +8,7 @@
  * semi-transparent underlay on the Fabric.js canvas for tracing.
  */
 
+import { apiErrorMessage } from "@/lib/api-error-message";
 import {
   useState,
   useRef,
@@ -345,7 +346,10 @@ export function FloorPlanUnderlayLoader({
         window.location.href = json.url as string;
         return;
       }
-      setError(json?.error ?? "Couldn't start the upgrade — please try again.");
+      setError(
+        apiErrorMessage(json) ??
+          "Couldn't start the upgrade — please try again.",
+      );
     } catch {
       setError("Couldn't start the upgrade — check your connection.");
     } finally {

@@ -42,7 +42,7 @@ const ids = { owner: "", manager: "", tech: "", solo: "", org: "" };
 const routes: [string, (r: NextRequest) => Promise<Response>, object][] = [
   ["subscription/portal", portal, {}],
   ["create-checkout-session", checkout, {}],
-  ["addons/checkout", addons, { sku: "FIELD_TECHNICIAN_SEAT" }],
+  ["addons/checkout", addons, { addonKey: "TECHNICIAN_SEATS" }],
   ["cancel-subscription", cancel, {}],
   ["reactivate-subscription", reactivate, {}],
 ];
@@ -65,7 +65,12 @@ async function call(
       },
     }),
   );
-  return res.status;
+  const json = await res.clone().json().catch(() => null);
+  return {
+    status: res.status,
+    code: json?.error?.code ?? json?.code ?? null,
+    message: String(json?.error?.message ?? json?.error ?? ""),
+  };
 }
 
 describe.skipIf(!HAS_DB)("billing is owner-only (WP-06)", () => {
@@ -99,18 +104,33 @@ describe.skipIf(!HAS_DB)("billing is owner-only (WP-06)", () => {
 
   for (const [name, fn, body] of routes) {
     it(`${name}: a technician is refused before Stripe is reached`, async () => {
-      expect(await call(fn, body, ids.tech)).toBe(403);
+      const r = await call(fn, body, ids.tech);
+      expect(r).toMatchObject({ status: 403, code: "FORBIDDEN" });
+      expect(r.message).toMatch(/business owner/i);
       expect(stripeCalls).toEqual([]);
     });
 
     it(`${name}: a manager is refused before Stripe is reached`, async () => {
-      expect(await call(fn, body, ids.manager)).toBe(403);
+      const r = await call(fn, body, ids.manager);
+      expect(r).toMatchObject({ status: 403, code: "FORBIDDEN" });
+      expect(r.message).toMatch(/business owner/i);
       expect(stripeCalls).toEqual([]);
     });
 
     it(`${name}: the owner and a solo operator are not refused`, async () => {
-      expect(await call(fn, body, ids.owner)).not.toBe(403);
-      expect(await call(fn, body, ids.solo)).not.toBe(403);
+      // A route may still refuse for its own reasons (a plan requirement); what
+      // must never stop the owner or a solo operator is the owner-only refusal.
+      for (const who of [ids.owner, ids.solo]) {
+        const r = await call(fn, body, who);
+        expect(r.message).not.toMatch(/business owner/i);
+      }
     });
   }
+
+  // Positive control: without it, "Stripe was never reached" could be a
+  // recorder that records nothing.
+  it("the recorder sees Stripe being reached when the owner opens the portal", async () => {
+    await call(portal, {}, ids.owner);
+    expect(stripeCalls.length).toBeGreaterThan(0);
+  });
 });

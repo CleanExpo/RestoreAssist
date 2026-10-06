@@ -152,7 +152,13 @@ export async function dispatchPulseNotification(
               email: true,
               pulseOptOut: true,
               portalAccounts: {
-                where: { revokedAt: null },
+                // This job's link, or one issued before binding existed. The
+                // filter sits in the query so `take` can never cut off the
+                // bound link behind newer links for other jobs.
+                where: {
+                  revokedAt: null,
+                  OR: [{ inspectionId }, { inspectionId: null }],
+                },
                 orderBy: { createdAt: "desc" },
                 take: 25,
                 select: { token: true, inspectionId: true, createdAt: true },
