@@ -20,6 +20,7 @@ import { GET } from "../route";
 
 const HAS_DB = !!process.env.DATABASE_URL;
 const S = `wp01-${Date.now().toString(36)}`;
+const savedAllowlist = process.env.PLATFORM_SUPPORT_USER_IDS;
 const ids = { adminA: "", memberA: "", adminB: "", soloAdmin: "", orgA: "", orgB: "" };
 
 async function inbox(userId: string, inboxMode = true) {
@@ -78,6 +79,8 @@ describe.skipIf(!HAS_DB)("feedback inbox tenancy (WP-01)", () => {
   });
 
   afterAll(async () => {
+    if (savedAllowlist === undefined) delete process.env.PLATFORM_SUPPORT_USER_IDS;
+    else process.env.PLATFORM_SUPPORT_USER_IDS = savedAllowlist;
     const all = [ids.adminA, ids.memberA, ids.adminB, ids.soloAdmin];
     const swallow = (p: Promise<unknown>) => p.catch(() => {});
     await swallow(prisma.feedback.deleteMany({ where: { userId: { in: all } } }));
