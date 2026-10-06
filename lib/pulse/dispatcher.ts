@@ -21,6 +21,7 @@
  * notification.
  */
 
+import { pickPortalToken } from "@/lib/pulse/pick-portal-token";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
@@ -153,8 +154,8 @@ export async function dispatchPulseNotification(
               portalAccounts: {
                 where: { revokedAt: null },
                 orderBy: { createdAt: "desc" },
-                take: 1,
-                select: { token: true },
+                take: 25,
+                select: { token: true, inspectionId: true, createdAt: true },
               },
             },
           },
@@ -169,7 +170,7 @@ export async function dispatchPulseNotification(
 
   const client = job.report?.client ?? null;
   const recipient = client?.email ?? "";
-  const token = client?.portalAccounts?.[0]?.token ?? null;
+  const token = pickPortalToken(client?.portalAccounts ?? [], inspectionId);
   const rendered = render(event, buildPortalUrl(token));
   const logicalKey = `${inspectionId}:${event.type}:${eventFingerprint(event)}`;
 

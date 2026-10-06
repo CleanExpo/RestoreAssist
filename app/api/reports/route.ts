@@ -357,19 +357,9 @@ export async function POST(request: NextRequest) {
         // Continue without detailed report - don't fail the entire process
       }
 
-      // Find client by name to set clientId (for linking updated client info)
-      let clientId = body.clientId || null;
-      if (body.clientName && !clientId) {
-        const client = await prisma.client.findFirst({
-          where: {
-            name: body.clientName,
-            userId,
-          },
-        });
-        if (client) {
-          clientId = client.id;
-        }
-      }
+      // WP-02: a client is linked only by an explicit, already-verified
+      // clientId. A name is not an identity, so it is never looked up here.
+      const clientId = body.clientId || null;
 
       const report = await prisma.report.create({
         data: {
