@@ -21,6 +21,7 @@
  *      transaction (see the delete block for the full rationale).
  */
 
+import { businessWorkBlocksDeletion } from "@/lib/account/business-work-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -102,6 +103,15 @@ export async function POST(request: NextRequest) {
           code: "NOT_FOUND",
           message: "User not found",
           status: 404,
+        });
+      }
+
+      if (await businessWorkBlocksDeletion(user.id)) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Your jobs and clients belong to the business you work for, so this account can't be deleted yet. Ask your business owner to arrange the hand-over, or contact support.",
+          status: 409,
         });
       }
 
