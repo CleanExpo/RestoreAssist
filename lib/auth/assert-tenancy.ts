@@ -139,9 +139,9 @@ async function resolveTenantScope(
 
   // WP-04. A removed member keeps `{ userId }` reach over everything they
   // made, which includes the business's work. Take back what was made while
-  // they belonged. An unproven window (no surviving invite) removes nothing:
-  // the owner's side fails closed instead, so the record is reachable by
-  // neither rather than by both.
+  // they belonged. An unproven window (no surviving invite) fails closed on
+  // both sides: the ex-employee loses everything made before they left, and
+  // the owner's side drops the same records, so nobody reaches them by guess.
   const leftWindow = await ownLeftWindow(sessionUserId, user);
 
   // Cross-tenant support is an ADMIN-only allowlist, for reads and writes
@@ -205,21 +205,49 @@ async function ownLeftWindow(
     user.email,
     user.organizationLeftId,
   );
-  return from ? { from, until: user.organizationLeftAt } : undefined;
+  // No provable start: treat the whole history before the leave as the
+  // organisation's, never as theirs (same stance as getResourceTenant).
+  return { from: from ?? new Date(0), until: user.organizationLeftAt };
 }
 
-/** People removed from the organisation, with the window their work belongs to it. */
-async function removedMembersOf(organizationId: string): Promise<RemovedMember[]> {
+const REMOVED_MEMBERS_TTL_MS = 30_000;
+const removedMembersCache = new Map<
+  string,
+  { at: number; value: Promise<RemovedMember[]> }
+>();
+
+/**
+ * People removed from the organisation, with the window their work belongs to
+ * it. Cached for a few seconds per organisation: every tenancy check resolves
+ * this, and each member costs invite lookups. A removal reaches the owner's
+ * view within the TTL; the removed member's own loss of access is not cached.
+ */
+function removedMembersOf(organizationId: string): Promise<RemovedMember[]> {
+  const hit = removedMembersCache.get(organizationId);
+  if (hit && Date.now() - hit.at < REMOVED_MEMBERS_TTL_MS) return hit.value;
+  const value = loadRemovedMembers(organizationId).catch((err) => {
+    removedMembersCache.delete(organizationId);
+    throw err;
+  });
+  removedMembersCache.set(organizationId, { at: Date.now(), value });
+  return value;
+}
+
+async function loadRemovedMembers(organizationId: string): Promise<RemovedMember[]> {
   const left = await prisma.user.findMany({
     where: { organizationLeftId: organizationId, organizationLeftAt: { not: null } },
     select: { id: true, email: true, organizationLeftAt: true },
     orderBy: { organizationLeftAt: "desc" },
     take: MAX_REMOVED_MEMBERS,
   });
+  if (left.length === MAX_REMOVED_MEMBERS) {
+    console.warn("[tenancy.removed_members_truncated]", { organizationId });
+  }
   const windows = await Promise.all(
     left.map(async (u) => {
       const from = await getMembershipStart(u.id, u.email, organizationId);
-      return from && u.organizationLeftAt
+      // Unproven start: leave the work unreachable by the organisation too.
+      return from && u.organizationLeftAt && from < u.organizationLeftAt
         ? { userId: u.id, from, until: u.organizationLeftAt }
         : null;
     }),

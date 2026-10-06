@@ -32,7 +32,10 @@ const ids = {
   owner: "",
   colleague: "",
   tech: "",
+  ghost: "",
   org: "",
+  inspGhostBefore: "",
+  inspGhostAfter: "",
   inspBeforeJoin: "",
   inspInside: "",
   inspAfterLeave: "",
@@ -58,6 +61,12 @@ describe.skipIf(!HAS_DB)("removed team member tenancy (WP-04)", () => {
     const tech = await prisma.user.create({
       data: { email: `${S}-tech@test.local`, organizationId: org.id },
     });
+    // Removed with NO surviving invite (erased with an owner's account, or the
+    // history is too long to trust): the join date cannot be proven.
+    const ghost = await prisma.user.create({
+      data: { email: `${S}-ghost@test.local` },
+    });
+    ids.ghost = ghost.id;
     Object.assign(ids, {
       owner: owner.id,
       colleague: colleague.id,
@@ -94,6 +103,23 @@ describe.skipIf(!HAS_DB)("removed team member tenancy (WP-04)", () => {
     ids.inspInside = (await make("in", day(15))).id;
     ids.inspAfterLeave = (await make("post", day(25))).id;
 
+    const makeFor = (userId: string, suffix: string, createdAt: Date) =>
+      prisma.inspection.create({
+        data: {
+          inspectionNumber: `${S}-${suffix}`,
+          propertyAddress: "1 St",
+          propertyPostcode: "4000",
+          userId,
+          createdAt,
+        },
+      });
+    ids.inspGhostBefore = (await makeFor(ghost.id, "gb", day(15))).id;
+    ids.inspGhostAfter = (await makeFor(ghost.id, "ga", day(25))).id;
+    await prisma.user.update({
+      where: { id: ghost.id },
+      data: { organizationLeftAt: LEFT, organizationLeftId: org.id },
+    });
+
     // Exactly what app/api/team/members/[id]/route.ts writes on removal.
     await prisma.user.update({
       where: { id: tech.id },
@@ -116,14 +142,14 @@ describe.skipIf(!HAS_DB)("removed team member tenancy (WP-04)", () => {
     await swallow(prisma.userInvite.deleteMany({ where: { token: `${S}-tok` } }));
     await swallow(
       prisma.user.updateMany({
-        where: { id: { in: [ids.owner, ids.colleague, ids.tech] } },
+        where: { id: { in: [ids.owner, ids.colleague, ids.tech, ids.ghost] } },
         data: { organizationId: null },
       }),
     );
     await swallow(prisma.organization.deleteMany({ where: { id: ids.org } }));
     await swallow(
       prisma.user.deleteMany({
-        where: { id: { in: [ids.owner, ids.colleague, ids.tech] } },
+        where: { id: { in: [ids.owner, ids.colleague, ids.tech, ids.ghost] } },
       }),
     );
     await prisma.$disconnect();
@@ -191,5 +217,24 @@ describe.skipIf(!HAS_DB)("removed team member tenancy (WP-04)", () => {
       const r = await assertInspectionTenancy(session(ids.owner), id);
       expect(r.ok).toBe(false);
     }
+  });
+
+  it("an unproven join date fails closed: the ex-employee loses pre-leave work, keeps later work", async () => {
+    const before = await assertInspectionTenancy(
+      session(ids.ghost),
+      ids.inspGhostBefore,
+    );
+    expect(before.ok).toBe(false);
+    const after = await assertInspectionTenancy(
+      session(ids.ghost),
+      ids.inspGhostAfter,
+    );
+    expect(after.ok).toBe(true);
+    // And the owner does not gain it by guesswork either.
+    const owner = await assertInspectionTenancy(
+      session(ids.owner),
+      ids.inspGhostBefore,
+    );
+    expect(owner.ok).toBe(false);
   });
 });

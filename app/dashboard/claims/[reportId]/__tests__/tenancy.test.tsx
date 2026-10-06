@@ -33,7 +33,7 @@ const reportFindUnique = vi.fn();
 const claimProgressFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
+    user: { findUnique: (...a: unknown[]) => userFindUnique(...a), findMany: async () => [] },
     report: { findUnique: (...a: unknown[]) => reportFindUnique(...a) },
     claimProgress: {
       findUnique: (...a: unknown[]) => claimProgressFindUnique(...a),
