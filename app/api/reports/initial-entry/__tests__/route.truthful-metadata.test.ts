@@ -123,7 +123,8 @@ describe("truthful initial-entry metadata", () => {
   it("does not create a colliding blank-email client and clearly reports the missing link", async () => {
     const response = await POST(request(base));
     expect(response.status).toBe(200);
-    expect(mocks.clientFind.mock.calls[0][0].where.OR).toEqual([{ name: "Synthetic Client" }]);
+    // WP-02: no email means no lookup at all. A name is never an identity.
+    expect(mocks.clientFind).not.toHaveBeenCalled();
     expect(mocks.clientCreate).not.toHaveBeenCalled();
     expect(mocks.create.mock.calls[0][0].data.clientId).toBeNull();
     expect((await response.json()).clientLinkWarning).toMatch(/without a client link/);
@@ -136,18 +137,19 @@ describe("truthful initial-entry metadata", () => {
     expect(mocks.clientCreate).not.toHaveBeenCalled();
     expect(mocks.create).toHaveBeenCalledTimes(2);
   });
-  it("uses a provided client email for the existing name-or-email lookup", async () => {
+  it("looks an existing client up by email only, never by name (WP-02)", async () => {
     await saved({ clientContactDetails: "Contact known@example.test" });
-    expect(mocks.clientFind.mock.calls[0][0].where.OR).toEqual([
-      { name: "Synthetic Client" }, { email: "known@example.test" },
-    ]);
+    const where = mocks.clientFind.mock.calls[0][0].where;
+    expect(where.OR).toBeUndefined();
+    expect(where.name).toBeUndefined();
+    expect(where.email).toEqual({ equals: "known@example.test", mode: "insensitive" });
     expect(mocks.clientCreate.mock.calls[0][0].data.email).toBe("known@example.test");
   });
-  it("retains a matched client's real email when intake provides none", async () => {
-    mocks.clientFind.mockResolvedValue({ id: "known-client", email: "known@example.test", phone: null, address: null });
-    const data = await saved();
-    expect(mocks.clientUpdate.mock.calls[0][0].data.email).toBe("known@example.test");
+  it("links a client matched by email and never rewrites its email or address (WP-02)", async () => {
+    mocks.clientFind.mockResolvedValue({ id: "known-client", phone: "0400 111 222" });
+    const data = await saved({ clientContactDetails: "known@example.test" });
     expect(data.clientId).toBe("known-client");
+    expect(mocks.clientUpdate).not.toHaveBeenCalled();
     expect(mocks.clientCreate).not.toHaveBeenCalled();
   });
   it("rolls back the whole report transaction if client creation fails", async () => {
@@ -158,9 +160,9 @@ describe("truthful initial-entry metadata", () => {
     expect(mocks.transaction).toHaveBeenCalledOnce();
   });
   it("rolls back the whole report transaction if client detail update fails", async () => {
-    mocks.clientFind.mockResolvedValue({ id: "known-client", email: "known@example.test", phone: null, address: null });
+    mocks.clientFind.mockResolvedValue({ id: "known-client", phone: null });
     mocks.clientUpdate.mockRejectedValue(new Error("synthetic update failure"));
-    const response = await POST(request(base));
+    const response = await POST(request({ ...base, clientContactDetails: "known@example.test 0412 345 678" }));
     expect(response.status).toBe(500);
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.transaction).toHaveBeenCalledOnce();
@@ -206,7 +208,7 @@ describe("truthful initial-entry metadata", () => {
     expect((await POST(request({ ...base, inspectionId: "synthetic-inspection" }))).status).toBe(409);
     expect(mocks.deduct).toHaveBeenCalledOnce();
     expect(mocks.create).toHaveBeenCalledOnce();
-    expect(mocks.clientFind).toHaveBeenCalledOnce();
+    expect(mocks.clientFind).not.toHaveBeenCalled();
     expect(mocks.inspectionUpdate.mock.calls[0][0].where.AND[1]).toEqual({
       userId: "synthetic-owner", reportId: null,
       propertyAddress: "1 Test Street", propertyPostcode: "4000",
