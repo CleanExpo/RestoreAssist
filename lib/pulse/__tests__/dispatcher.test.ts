@@ -101,7 +101,7 @@ function jobFixture(
         email: c.email ?? "home@owner.test",
         pulseOptOut: c.pulseOptOut ?? false,
         portalAccounts:
-          c.token === null ? [] : [{ token: c.token ?? "tok_abc" }],
+          c.token === null ? [] : [{ token: c.token ?? "tok_abc", inspectionId: null, createdAt: new Date() }],
       },
     },
   };

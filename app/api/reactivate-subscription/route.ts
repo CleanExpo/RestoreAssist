@@ -1,3 +1,4 @@
+import { refuseNonOwner } from "@/lib/billing/require-billing-owner";
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
         status: 401,
       });
     }
+
+    const notOwner = await refuseNonOwner(request, session.user.id);
+    if (notOwner) return notOwner;
 
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 5,

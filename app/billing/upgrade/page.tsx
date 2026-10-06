@@ -7,6 +7,8 @@ import TierGrid from "./TierGrid";
 import UpgradeFaq from "./UpgradeFaq";
 import CancelledCheckoutNotice from "./CancelledCheckoutNotice";
 import BillingGate from "@/components/capacitor/BillingGate";
+import OwnerOnlyBillingNotice from "./OwnerOnlyBillingNotice";
+import { getOrganizationOwner } from "@/lib/organization-credits";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,13 @@ export default async function UpgradePage({
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login?callbackUrl=/billing/upgrade");
+
+  // WP-06: billing belongs to the business owner. Staff resolve to the owner's
+  // plan and the checkout routes refuse them, so show them a note, not a pay button.
+  const ownerId = await getOrganizationOwner(session.user.id);
+  if (ownerId !== null && ownerId !== session.user.id) {
+    return <OwnerOnlyBillingNotice />;
+  }
 
   const params = await searchParams;
   const reason = parseReason(params.reason);

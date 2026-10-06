@@ -70,8 +70,11 @@ export async function POST(
     // (re)set a 30-day expiry on send — the link authorises signing, so it must
     // not be an unbounded-lifetime bearer token (security review must-fix).
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    // WP-02: one link per client AND job, so a link sent for one job never
+    // follows the client to a newer one. An older link with no job recorded is
+    // not adopted: it would keep opening whichever job is newest.
     const existing = await prisma.clientPortalAccount.findFirst({
-      where: { clientId: client.id, revokedAt: null },
+      where: { clientId: client.id, inspectionId: id, revokedAt: null },
       select: { id: true, token: true },
     });
     let token: string;
@@ -84,7 +87,12 @@ export async function POST(
     } else {
       token = (
         await prisma.clientPortalAccount.create({
-          data: { clientId: client.id, token: mintToken(), expiresAt },
+          data: {
+            clientId: client.id,
+            inspectionId: id,
+            token: mintToken(),
+            expiresAt,
+          },
           select: { token: true },
         })
       ).token;

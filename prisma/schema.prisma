@@ -462,9 +462,14 @@ model ClientPortalAccount {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   lastAccessedAt DateTime?
+  // WP-02: the job this link was sent for. Null = a link issued before the
+  // column existed, which keeps resolving to the client's newest job. Plain
+  // string, no relation: a deleted job must not delete or re-point a link.
+  inspectionId   String?
 
   @@index([clientId])
   @@index([token])
+  @@index([inspectionId])
 }
 
 model PortalInvitation {

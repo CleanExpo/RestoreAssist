@@ -21,6 +21,7 @@
  * notification.
  */
 
+import { pickPortalToken } from "@/lib/pulse/pick-portal-token";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
@@ -151,10 +152,16 @@ export async function dispatchPulseNotification(
               email: true,
               pulseOptOut: true,
               portalAccounts: {
-                where: { revokedAt: null },
+                // This job's link, or one issued before binding existed. The
+                // filter sits in the query so `take` can never cut off the
+                // bound link behind newer links for other jobs.
+                where: {
+                  revokedAt: null,
+                  OR: [{ inspectionId }, { inspectionId: null }],
+                },
                 orderBy: { createdAt: "desc" },
-                take: 1,
-                select: { token: true },
+                take: 25,
+                select: { token: true, inspectionId: true, createdAt: true },
               },
             },
           },
@@ -169,7 +176,7 @@ export async function dispatchPulseNotification(
 
   const client = job.report?.client ?? null;
   const recipient = client?.email ?? "";
-  const token = client?.portalAccounts?.[0]?.token ?? null;
+  const token = pickPortalToken(client?.portalAccounts ?? [], inspectionId);
   const rendered = render(event, buildPortalUrl(token));
   const logicalKey = `${inspectionId}:${event.type}:${eventFingerprint(event)}`;
 

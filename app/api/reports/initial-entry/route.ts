@@ -1,3 +1,4 @@
+import { matchClientForReport } from "@/lib/clients/match-client-for-report";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -438,46 +439,14 @@ export async function POST(request: NextRequest) {
       try {
         const result = await prisma.$transaction(async (tx) => {
           await deductCreditsAndTrackUsage(user.id, tx);
-          let linkedClientId: string | null = null;
-          const existingClient = await tx.client.findFirst({
-            where: {
-              userId: user.id,
-              isSample: false,
-              OR: [
-                { name: data.clientName.trim() },
-                ...(clientEmail ? [{ email: clientEmail }] : []),
-              ],
-            },
-            select: { id: true, email: true, phone: true, address: true },
+          const match = await matchClientForReport(tx, user.id, {
+            name: data.clientName,
+            email: clientEmail || null,
+            phone: clientPhone || null,
+            address: data.propertyAddress,
           });
-          if (existingClient) {
-            linkedClientId = existingClient.id;
-            await tx.client.update({
-              where: { id: existingClient.id, userId: user.id },
-              data: {
-                phone: clientPhone || existingClient.phone,
-                address: data.propertyAddress.trim() || existingClient.address,
-                email: clientEmail || existingClient.email,
-              },
-            });
-          } else if (clientEmail) {
-            const newClient = await tx.client.create({
-              data: {
-                name: data.clientName.trim(),
-                email: clientEmail,
-                phone: clientPhone || null,
-                address: data.propertyAddress.trim() || null,
-                status: "ACTIVE",
-                userId: user.id,
-              },
-              select: { id: true },
-            });
-            linkedClientId = newClient.id;
-          } else {
-            // Client.email is required; never fabricate a recipient address.
-            clientLinkWarning =
-              "Report saved without a client link. Add the client's email to create their client record.";
-          }
+          const linkedClientId = match.clientId;
+          if (match.warning) clientLinkWarning = match.warning;
           const created = await tx.report.create({
             data: { ...reportData, clientId: linkedClientId },
           });

@@ -49,7 +49,7 @@ vi.mock("@/lib/prisma", () => ({
           client: {
             email: "home@owner.test",
             pulseOptOut: false,
-            portalAccounts: [{ token: "tok_a" }],
+            portalAccounts: [{ token: "tok_a", inspectionId: null, createdAt: new Date() }],
           },
         },
         workspace: {

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { useEffect, useState } from "react";
 import { Clock, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -52,7 +53,10 @@ export function CancellationCountdownBanner() {
       const res = await fetch("/api/reactivate-subscription", {
         method: "POST",
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(apiErrorMessage(body) ?? `Reactivate failed (${res.status})`);
+      }
       toast.success("Subscription reactivated");
       window.location.reload();
     } catch (err) {

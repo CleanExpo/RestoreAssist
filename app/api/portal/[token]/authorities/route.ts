@@ -57,7 +57,13 @@ export async function GET(
     // the portal must list all outstanding forms.
     const instances = await prisma.authorityFormInstance.findMany({
       where: {
-        report: { clientId: account.clientId },
+        // A link sent for one job lists that job's forms only (WP-02).
+        report: {
+          clientId: account.clientId,
+          ...(account.inspectionId
+            ? { inspection: { is: { id: account.inspectionId } } }
+            : {}),
+        },
         status: { in: [...OPEN_STATUSES] },
         signatures: {
           some: { signatoryRole: { in: [...CLIENT_ROLES] }, signedAt: null },
