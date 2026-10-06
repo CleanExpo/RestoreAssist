@@ -233,9 +233,11 @@ describe("free-trial honesty — grant matches advertised copy", () => {
  * free-trial block checks that the *trial* numbers are interpolated. Neither
  * catches a dollar figure typed straight into buyer-facing copy, and one had
  * already drifted: the marketing home said "Add-ons are $11/month each" while
- * `floorplan-underlay-addon.ts` charges $9.95 and the pricing page's own
+ * `floorplan-underlay-addon.ts` charged $9.95 and the pricing page's own
  * `TierComparison` said "from $9.95" — two live surfaces quoting different
- * numbers for the same thing.
+ * numbers for the same thing. The outlier was levelled to $11 on 06/10/2026,
+ * matching byok-monetisation-spec §2, so the claim is true again; these
+ * assertions exist so it cannot quietly stop being true a second time.
  *
  * So on every surface that quotes a subscription price to a buyer, the figure
  * must be interpolated from the SSOT rather than typed. `$0` is exempt: the
@@ -253,6 +255,11 @@ describe("blocker 4 — no hardcoded subscription prices in buyer-facing copy", 
     "app/billing/upgrade/CheckoutCTA.tsx",
     "app/pricing/layout.tsx",
     "app/features/page.tsx",
+    // Added after the $9.95 -> $11 levelling: this in-app upgrade CTA had the
+    // price typed into it and would have gone on quoting $9.95 while Stripe
+    // charged $11 — a worse failure than the marketing copy, because the buyer
+    // reads it immediately before being charged.
+    "components/sketch/FloorPlanUnderlayLoader.tsx",
   ] as const;
 
   const stripComments = (src: string) =>
@@ -297,10 +304,27 @@ describe("blocker 4 — no hardcoded subscription prices in buyer-facing copy", 
 
     expect(body).toContain(money(monthly.amount));
     expect(body).toContain(String(monthly.reportLimit));
-    // The claim that broke: every add-on is NOT the same price.
     expect(
       body,
       `home copy must quote the real cheapest add-on price (${money(cheapestAddon)})`,
     ).toContain(money(cheapestAddon));
+
+    // The claim that broke, and the shape of the fix. "each" is only honest
+    // while every add-on costs the same; the moment one differs the copy has
+    // to say "from". Asserting the rendered string both ways means adding a
+    // cheaper add-on fails HERE rather than on the live site.
+    const amounts = Object.values(RECURRING_ADDONS).map((a) => a.amount);
+    const uniform = Math.min(...amounts) === Math.max(...amounts);
+    if (uniform) {
+      expect(
+        body,
+        "every add-on is the same price, so the copy may say they ARE that price each",
+      ).toMatch(/add-ons are \$/i);
+    } else {
+      expect(
+        body,
+        `add-ons range ${money(Math.min(...amounts))}-${money(Math.max(...amounts))}, so the copy must say FROM, not "are ... each"`,
+      ).toMatch(/add-ons from \$/i);
+    }
   });
 });

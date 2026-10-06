@@ -1,9 +1,11 @@
 /**
  * RA-6922 (P1) — Feature entitlement types for the BYOK monetisation add-ons.
  *
- * The base plan ($99/month AUD) covers the core CRM. Recurring add-ons are
- * mostly $11/month; Floor Plan Underlay is $9.95/month (byok-monetisation-spec
- * §2). Whether a workspace has an add-on is stored per-workspace in the
+ * The base plan ($99/month AUD) covers the core CRM, plus recurring add-ons at
+ * $11/month each — the model byok-monetisation-spec §2 states. Floor Plan
+ * Underlay shipped at $9.95 under RA-6922, which the spec never sanctioned;
+ * it was levelled to $11 on 06/10/2026, so code and spec now agree.
+ * Whether a workspace has an add-on is stored per-workspace in the
  * `FeatureEntitlement` table and gated at each add-on's surface by
  * `requireAddon()`.
  *
@@ -33,7 +35,7 @@ export const ADDON_SKUS = [
   "SERVICE_CRM",
   /** Payments Collection — Stripe Connect on the client's own account. */
   "PAYMENTS",
-  /** RA-6922: Floor Plan Underlay — recurring $9.95/mo internet-floorplan-overlay. */
+  /** RA-6922: Floor Plan Underlay — recurring $11/mo internet-floorplan-overlay. */
   "FLOORPLAN_UNDERLAY",
   /** RA-6954: Restoration Pulse client-comms — recurring $11/mo client-facing email updates. */
   "CLIENT_COMMS",
