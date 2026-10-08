@@ -8,11 +8,9 @@ import {
   afdUnits,
   airMovers,
   calculateTotalAmps,
-  calculateTotalCost,
-  calculateTotalDailyCost,
   desiccantDehumidifiers,
-  getEquipmentDailyRate,
   getEquipmentGroupById,
+  getEquipmentPricingField,
   lgrDehumidifiers,
   type EquipmentSelection,
 } from "@/lib/equipment-matrix";
@@ -564,9 +562,11 @@ export default function InitialDataEntryForm({
         const response = await fetch("/api/pricing-config");
         if (response.ok) {
           const data = await response.json();
-          // Use pricingConfig if available, otherwise use defaults (for free users)
-          const config = data.pricingConfig || data.defaults || data;
-          if (config) {
+          // Only the organisation's actual rate card prices a preview. Defaults
+          // are not this contractor's prices, and USER/MANAGER get a 403 here:
+          // their previews stay unknown and the server prices on save.
+          const config = data?.pricingConfig;
+          if (config && typeof config === "object" && !Array.isArray(config)) {
             setPricingConfig(config);
           }
         }
@@ -972,19 +972,19 @@ export default function InitialDataEntryForm({
             }
           }
 
-          if (matchedGroupId && pricingConfig) {
-            const dailyRate =
-              eq.dailyRate ||
-              getEquipmentDailyRate(matchedGroupId, pricingConfig);
+          if (matchedGroupId) {
+            // The save accepts whole units and whole days only; extracted
+            // values are rounded here where the user can see and edit them.
+            const quantity = Math.round(Number(eq.quantity));
             equipmentSelectionsFromPDF.push({
               groupId: matchedGroupId,
-              quantity: eq.quantity || 1,
-              dailyRate: dailyRate,
+              quantity: Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 1,
             });
 
             // Use duration from equipment deployment if available
-            if (eq.duration && eq.duration > 0) {
-              setDurationDays(eq.duration);
+            const duration = Math.round(Number(eq.duration));
+            if (Number.isSafeInteger(duration) && duration > 0) {
+              setDurationDays(duration);
             }
           }
         });
@@ -1025,7 +1025,6 @@ export default function InitialDataEntryForm({
     const humidityToUse = humidity || initialData?.psychrometricHumidity || 60;
 
     const shouldAutoSelect =
-      pricingConfig &&
       areasToUse.length > 0 &&
       waterClassToUse &&
       tempToUse !== undefined &&
@@ -1069,11 +1068,9 @@ export default function InitialDataEntryForm({
 
         const needed = Math.ceil(remainingCapacity / capacity);
         if (needed > 0) {
-          const rate = getEquipmentDailyRate(group.id, pricingConfig);
           selections.push({
             groupId: group.id,
             quantity: needed,
-            dailyRate: rate,
           });
           remainingCapacity -= capacity * needed;
         }
@@ -1087,11 +1084,9 @@ export default function InitialDataEntryForm({
             : totalAffectedArea > 30
               ? "airmover-1500"
               : "airmover-800";
-        const rate = getEquipmentDailyRate(preferredAirMover, pricingConfig);
         selections.push({
           groupId: preferredAirMover,
           quantity: airMoversRequired,
-          dailyRate: rate,
         });
       }
 
@@ -1157,15 +1152,29 @@ export default function InitialDataEntryForm({
   const gpoCircuitsRequired =
     calculateCircuitRequirements(totalAmps).find((c) => c.ratingA === 10)
       ?.circuitsRequired ?? 0;
-  const totalDailyCost = calculateTotalDailyCost(
-    equipmentSelections,
-    pricingConfig,
+  // A preview price exists only when the actual rate card has a finite,
+  // non-negative rate for the group. Zero is a real configured price.
+  const knownDailyRate = (groupId: string): number | null => {
+    const field = getEquipmentPricingField(groupId);
+    const rate = field && pricingConfig ? pricingConfig[field] : undefined;
+    return typeof rate === "number" && Number.isFinite(rate) && rate >= 0
+      ? rate
+      : null;
+  };
+  const selectionRates = equipmentSelections.map((sel) =>
+    knownDailyRate(sel.groupId),
   );
-  const totalCost = calculateTotalCost(
-    equipmentSelections,
-    durationDays,
-    pricingConfig,
-  );
+  const totalCost = selectionRates.every((rate) => rate !== null)
+    ? equipmentSelections.reduce(
+        (total, sel, i) =>
+          total + (selectionRates[i] as number) * sel.quantity * durationDays,
+        0,
+      )
+    : null;
+  const dailyRateLabel = (groupId: string) => {
+    const rate = knownDailyRate(groupId);
+    return rate === null ? "Priced on save" : `$${rate.toFixed(2)}/day`;
+  };
 
   const totalEquipmentCapacity = equipmentSelections.reduce((total, sel) => {
     const group = getEquipmentGroupById(sel.groupId);
@@ -1239,16 +1248,11 @@ export default function InitialDataEntryForm({
           s.groupId === groupId ? { ...s, quantity: newQuantity } : s,
         );
       } else if (delta > 0) {
-        const group = getEquipmentGroupById(groupId);
-        const rate = pricingConfig
-          ? getEquipmentDailyRate(groupId, pricingConfig)
-          : 0;
         return [
           ...prev,
           {
             groupId,
             quantity: 1,
-            dailyRate: rate,
           },
         ];
       }
@@ -1274,13 +1278,9 @@ export default function InitialDataEntryForm({
 
       const needed = Math.ceil(remainingCapacity / capacity);
       if (needed > 0) {
-        const rate = pricingConfig
-          ? getEquipmentDailyRate(group.id, pricingConfig)
-          : 0;
         selections.push({
           groupId: group.id,
           quantity: needed,
-          dailyRate: rate,
         });
         remainingCapacity -= capacity * needed;
       }
@@ -1294,26 +1294,18 @@ export default function InitialDataEntryForm({
           : totalAffectedArea > 30
             ? "airmover-1500"
             : "airmover-800";
-      const rate = pricingConfig
-        ? getEquipmentDailyRate(preferredAirMover, pricingConfig)
-        : 0;
       selections.push({
         groupId: preferredAirMover,
         quantity: airMoversRequired,
-        dailyRate: rate,
       });
     }
 
     // AFD units (HEPA / air scrubbers) - only when contamination/mould indicators require it
     if (afdUnitsRequired > 0) {
       const afdGroupId = afdUnits[0]?.id || "afd-500";
-      const rate = pricingConfig
-        ? getEquipmentDailyRate(afdGroupId, pricingConfig)
-        : 0;
       selections.push({
         groupId: afdGroupId,
         quantity: afdUnitsRequired,
-        dailyRate: rate,
       });
     }
     setEquipmentSelections(selections);
@@ -1455,8 +1447,11 @@ export default function InitialDataEntryForm({
                 dryingPotential,
               },
               scopeAreas: areas,
-              equipmentSelection: equipmentSelections,
-              equipmentCostTotal: totalCost,
+              // Selections and duration only: the server prices them from the
+              // organisation's rate card and ignores any client money.
+              equipmentSelection: equipmentSelections.map(
+                ({ groupId, quantity }) => ({ groupId, quantity }),
+              ),
               estimatedDryingDuration: durationDays,
               metrics: {
                 totalVolume,
@@ -1464,7 +1459,6 @@ export default function InitialDataEntryForm({
                 waterRemovalTarget,
                 airMoversRequired,
                 totalAmps,
-                totalDailyCost,
               },
             }
           : null;
@@ -2515,16 +2509,14 @@ export default function InitialDataEntryForm({
     // Set Duration Days
     setDurationDays(useCase.durationDays);
 
-    // Set Equipment Selections with updated rates
-    const equipmentSelectionsWithRates = useCase.equipmentSelections.map(
-      (sel) => ({
-        ...sel,
-        dailyRate: pricingConfig
-          ? getEquipmentDailyRate(sel.groupId, pricingConfig)
-          : sel.dailyRate,
-      }),
+    // Set Equipment Selections. The sample rates are not this contractor's
+    // prices, so only group and quantity are kept.
+    setEquipmentSelections(
+      useCase.equipmentSelections.map(({ groupId, quantity }) => ({
+        groupId,
+        quantity,
+      })),
     );
-    setEquipmentSelections(equipmentSelectionsWithRates);
 
     toast.success(`Form filled with "${useCase.name}" use case data`);
     setShowUseCaseModal(false);
@@ -4813,8 +4805,17 @@ export default function InitialDataEntryForm({
                       ESTIMATED CONSUMPTION
                     </h5>
                     <div className="text-2xl font-bold mb-2 text-slate-900 dark:text-white">
-                      ${totalCost.toFixed(2)}
+                      {totalCost === null
+                        ? "Priced on save"
+                        : `$${totalCost.toFixed(2)}`}
                     </div>
+                    {totalCost === null && (
+                      <p className="text-xs mb-2 text-slate-600 dark:text-neutral-400">
+                        Your organisation&apos;s equipment rates apply when this
+                        report is saved. If a rate is missing, an administrator
+                        sets it in Pricing settings.
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 mb-2">
                       <input
                         type="number"
@@ -4877,17 +4878,7 @@ export default function InitialDataEntryForm({
                                   {group.capacity}
                                 </div>
                                 <div className="text-xs text-slate-600 dark:text-neutral-400">
-                                  $
-                                  {(
-                                    selection?.dailyRate ||
-                                    (pricingConfig
-                                      ? getEquipmentDailyRate(
-                                          group.id,
-                                          pricingConfig,
-                                        )
-                                      : 0)
-                                  ).toFixed(2)}
-                                  /day
+                                  {dailyRateLabel(group.id)}
                                 </div>
                               </div>
                               {quantity > 0 && (
@@ -4945,17 +4936,7 @@ export default function InitialDataEntryForm({
                                   {group.capacity}
                                 </div>
                                 <div className="text-xs text-slate-600 dark:text-neutral-400">
-                                  $
-                                  {(
-                                    selection?.dailyRate ||
-                                    (pricingConfig
-                                      ? getEquipmentDailyRate(
-                                          group.id,
-                                          pricingConfig,
-                                        )
-                                      : 0)
-                                  ).toFixed(2)}
-                                  /day
+                                  {dailyRateLabel(group.id)}
                                 </div>
                               </div>
                               {quantity > 0 && (
@@ -5017,17 +4998,7 @@ export default function InitialDataEntryForm({
                                   {group.capacity}
                                 </div>
                                 <div className="text-xs text-neutral-600 dark:text-neutral-400">
-                                  $
-                                  {(
-                                    selection?.dailyRate ||
-                                    (pricingConfig
-                                      ? getEquipmentDailyRate(
-                                          group.id,
-                                          pricingConfig,
-                                        )
-                                      : 0)
-                                  ).toFixed(2)}
-                                  /day
+                                  {dailyRateLabel(group.id)}
                                 </div>
                               </div>
                               {quantity > 0 && (
