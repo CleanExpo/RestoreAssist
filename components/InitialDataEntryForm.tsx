@@ -997,13 +997,13 @@ export default function InitialDataEntryForm({
     }
   }, [initialData, pricingConfig]);
 
-  // Auto-select equipment when areas are set and pricing config is loaded
+  // Auto-select equipment when areas are set. Selections carry no prices,
+  // so this does not wait for a rate card.
   useEffect(() => {
     // Only auto-select if:
-    // 1. pricingConfig is loaded
-    // 2. We have areas (either from state or initialData)
-    // 3. We have psychrometric data
-    // 4. We haven't already auto-selected equipment
+    // 1. We have areas (either from state or initialData)
+    // 2. We have psychrometric data
+    // 3. We haven't already auto-selected equipment
     const areasToUse =
       areas.length > 0
         ? areas
