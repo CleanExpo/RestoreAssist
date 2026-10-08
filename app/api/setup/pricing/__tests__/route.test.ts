@@ -8,19 +8,39 @@ import { getServerSession } from 'next-auth';
 describe.skipIf(!process.env.DATABASE_URL)('PATCH /api/setup/pricing', () => {
   let testUserId = '';
   let testOrgId = '';
+  // A persisted USER who still owns an unfinished setup but carries a stale
+  // ADMIN JWT. verifyAdminFromDb must deny it from the database role.
+  let demotedUserId = '';
+  let demotedOrgId = '';
 
   beforeAll(async () => {
-    const u = await prisma.user.create({ data: { email: `pricing-${Date.now()}@test.com` } });
+    // The real owner is ADMIN in the database, not only in the mocked JWT:
+    // Prisma defaults role to USER, and verifyAdminFromDb re-reads it.
+    const u = await prisma.user.create({
+      data: { email: `pricing-${Date.now()}@test.com`, role: 'ADMIN' },
+    });
     testUserId = u.id;
     const o = await prisma.organization.create({ data: { name: 'Pricing Test Co', ownerId: u.id } });
     testOrgId = o.id;
     await prisma.user.update({ where: { id: u.id }, data: { organizationId: o.id } });
+
+    const d = await prisma.user.create({
+      data: { email: `pricing-demoted-${Date.now()}@test.com`, role: 'USER' },
+    });
+    demotedUserId = d.id;
+    const dOrg = await prisma.organization.create({ data: { name: 'Demoted Pricing Co', ownerId: d.id } });
+    demotedOrgId = dOrg.id;
+    await prisma.user.update({ where: { id: d.id }, data: { organizationId: dOrg.id } });
   });
 
   afterAll(async () => {
-    await prisma.organizationPricingConfig.deleteMany({ where: { organizationId: testOrgId } });
+    await prisma.organizationPricingConfig.deleteMany({
+      where: { organizationId: { in: [testOrgId, demotedOrgId] } },
+    });
     await prisma.organization.delete({ where: { id: testOrgId } }).catch(() => {});
+    await prisma.organization.delete({ where: { id: demotedOrgId } }).catch(() => {});
     await prisma.user.delete({ where: { id: testUserId } }).catch(() => {});
+    await prisma.user.delete({ where: { id: demotedUserId } }).catch(() => {});
     await prisma.$disconnect();
   });
 
@@ -47,6 +67,18 @@ describe.skipIf(!process.env.DATABASE_URL)('PATCH /api/setup/pricing', () => {
     (getServerSession as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     const res = await PATCH(mkReq({ administrationFee: 200 }));
     expect(res.status).toBe(401);
+  });
+
+  it('returns 403 and writes nothing for a DB USER holding a stale ADMIN JWT', async () => {
+    (getServerSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+      user: { id: demotedUserId, email: 'd@t.com', role: 'ADMIN' },
+    });
+    const res = await PATCH(mkReq({ administrationFee: 200 }));
+    expect(res.status).toBe(403);
+    const written = await prisma.organizationPricingConfig.findUnique({
+      where: { organizationId: demotedOrgId },
+    });
+    expect(written).toBeNull();
   });
 
   it('returns 400 when no patchable fields are present', async () => {

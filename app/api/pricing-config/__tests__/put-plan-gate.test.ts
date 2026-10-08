@@ -18,6 +18,10 @@ const db = vi.hoisted(() => ({
   users: {} as Record<string, Record<string, unknown>>,
 }));
 const session = vi.hoisted(() => vi.fn());
+const writes = vi.hoisted(() => ({
+  company: vi.fn(),
+  organization: vi.fn(),
+}));
 
 vi.mock("next-auth", () => ({ getServerSession: session }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
@@ -31,12 +35,14 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: async ({ where }: { where: { id: string } }) =>
         db.users[where.id] ?? null,
     },
+    companyPricingConfig: { upsert: writes.company },
+    organizationPricingConfig: { upsert: writes.organization },
   },
 }));
 
 import { PUT } from "../route";
 
-function seed(ownerStatus: string) {
+function seed(ownerStatus: string | null) {
   const base = {
     creditsRemaining: null,
     subscriptionPlan: null,
@@ -78,6 +84,43 @@ const put = () =>
 
 beforeEach(() => {
   session.mockReset().mockResolvedValue({ user: { id: "tech-a", role: "USER" } });
+  writes.company.mockReset();
+  writes.organization.mockReset();
+});
+
+const asOwner = () =>
+  session.mockResolvedValue({ user: { id: "owner-a", role: "ADMIN" } });
+
+// The role lock is a bare 403 { error: "Forbidden" }; only the plan lock
+// carries this message, so it proves which lock answered.
+const expectPlanLocked = async () => {
+  const res = await put();
+  expect(res.status).toBe(403);
+  expect((await res.json()).error?.message).toMatch(/locked for free users/);
+  expect(writes.company).not.toHaveBeenCalled();
+  expect(writes.organization).not.toHaveBeenCalled();
+};
+
+// The owner passes the DB role check, so these reach the paid-plan lock
+// itself. Without the lock an empty body would fall through to 400.
+describe("PUT /api/pricing-config — paid-plan lock for an ADMIN owner", () => {
+  it("locks an owner on a TRIAL", async () => {
+    seed("TRIAL");
+    asOwner();
+    await expectPlanLocked();
+  });
+
+  it("locks an owner whose plan is CANCELED", async () => {
+    seed("CANCELED");
+    asOwner();
+    await expectPlanLocked();
+  });
+
+  it("locks an owner with no plan at all", async () => {
+    seed(null);
+    asOwner();
+    await expectPlanLocked();
+  });
 });
 
 describe("PUT /api/pricing-config — plan lock (RA-7893)", () => {
