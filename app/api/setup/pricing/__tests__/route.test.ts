@@ -27,7 +27,7 @@ describe.skipIf(!process.env.DATABASE_URL)('PATCH /api/setup/pricing', () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
     (getServerSession as ReturnType<typeof vi.fn>).mockResolvedValue({
-      user: { id: testUserId, email: 't@t.com' },
+      user: { id: testUserId, email: 't@t.com', role: 'ADMIN' },
     });
     await prisma.organization.update({
       where: { id: testOrgId },

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-errors";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 
 // Whitelist of fields the wizard is allowed to patch on OrganizationPricingConfig.
 // Names match the actual Prisma schema field names (snake_case converted to camelCase).
@@ -78,14 +79,13 @@ const REQUIRED_DEFAULTS: Record<string, number> = {
 };
 
 export async function PATCH(req: Request) {
+  // RA-paid-client tranche 1: re-validate the role from the database on
+  // every setup write. A demoted technician with a stale ADMIN JWT must
+  // not be able to keep writing organization pricing during setup.
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return apiError(undefined, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
-    });
-  }
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
+  const userId = auth.user!.id;
 
   let body: Record<string, unknown>;
   try {
@@ -99,7 +99,7 @@ export async function PATCH(req: Request) {
   }
 
   const org = await prisma.organization.findFirst({
-    where: { ownerId: session.user.id },
+    where: { ownerId: userId },
     select: { id: true, setupCompletedAt: true },
   });
   if (!org) {

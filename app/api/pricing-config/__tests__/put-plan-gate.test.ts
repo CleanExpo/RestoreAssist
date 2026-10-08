@@ -5,6 +5,11 @@
  * technician has status null, so they skipped the lock even when the business
  * was on a trial or had cancelled (fail open). The effective plan now decides,
  * and anything other than an active paid plan stays locked.
+ *
+ * RA-paid-client tranche 1 — the role check (`verifyAdminFromDb`) runs
+ * before the subscription lock: a non-admin (e.g. an invited technician)
+ * never reaches the plan lock, so the technician-of-ACTIVE test below
+ * now expects 403 (role) rather than 400 (validation, post-lock).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
@@ -61,7 +66,8 @@ function seed(ownerStatus: string) {
   };
 }
 
-// An empty body fails validation (400) only AFTER the plan lock has passed.
+// An empty body fails validation (400) only AFTER both the role check and
+// the plan lock have passed.
 const put = () =>
   PUT(
     new NextRequest("http://localhost/api/pricing-config", {
@@ -71,12 +77,14 @@ const put = () =>
   );
 
 beforeEach(() => {
-  session.mockReset().mockResolvedValue({ user: { id: "tech-a" } });
+  session.mockReset().mockResolvedValue({ user: { id: "tech-a", role: "USER" } });
 });
 
 describe("PUT /api/pricing-config — plan lock (RA-7893)", () => {
   it("locks a technician whose business is on a TRIAL", async () => {
     seed("TRIAL");
+    // Non-admin role is rejected before the plan lock runs — status is
+    // still 403, just from a different lock than the original test.
     expect((await put()).status).toBe(403);
   });
 
@@ -85,14 +93,17 @@ describe("PUT /api/pricing-config — plan lock (RA-7893)", () => {
     expect((await put()).status).toBe(403);
   });
 
-  it("lets a technician of an ACTIVE business past the lock", async () => {
+  it("rejects a technician even when their business is ACTIVE (RA-paid-client tranche 1)", async () => {
+    // The role check now runs before the plan lock. A non-admin
+    // (invited technician) is rejected regardless of subscription
+    // state, so the prior 400 outcome no longer applies.
     seed("ACTIVE");
-    expect((await put()).status).toBe(400);
+    expect((await put()).status).toBe(403);
   });
 
-  it("lets an ACTIVE owner past the lock", async () => {
+  it("lets an ACTIVE owner past both locks (validation 400 on empty body)", async () => {
     seed("ACTIVE");
-    session.mockResolvedValue({ user: { id: "owner-a" } });
+    session.mockResolvedValue({ user: { id: "owner-a", role: "ADMIN" } });
     expect((await put()).status).toBe(400);
   });
 });
