@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   user: vi.fn(),
   organisation: vi.fn(),
+  tenant: vi.fn(),
   company: vi.fn(),
   integration: vi.fn(),
   aiConfigured: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/lib/services/integrations/ai-readiness", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: mocks.user },
+    organization: { findUnique: mocks.tenant },
     organizationPricingConfig: { findUnique: mocks.organisation },
     companyPricingConfig: { findUnique: mocks.company },
     integration: { findFirst: mocks.integration },
@@ -38,12 +40,14 @@ const canonical = {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.session.mockResolvedValue({ user: { id: "signed-in-user" } });
+  mocks.session.mockResolvedValue({ user: { id: "signed-in-user", role: "ADMIN" } });
   mocks.user.mockResolvedValue({
     id: "signed-in-user",
     organizationId: "org-ours",
+    role: "ADMIN",
     pricingConfig: legacy,
   });
+  mocks.tenant.mockResolvedValue({ ownerId: "signed-in-user" });
   mocks.organisation.mockResolvedValue(canonical);
   mocks.company.mockResolvedValue(legacy);
   mocks.integration.mockResolvedValue(null);
@@ -79,7 +83,7 @@ describe("GET /api/pricing-config canonical rate card", () => {
   });
 
   it("shows setup's organisation rates even without a legacy card", async () => {
-    mocks.user.mockResolvedValue({ id: "signed-in-user", organizationId: "org-ours", pricingConfig: null });
+    mocks.user.mockResolvedValue({ id: "signed-in-user", organizationId: "org-ours", role: "ADMIN", pricingConfig: null });
     mocks.company.mockResolvedValue(null);
     const body = await (await get()).json();
     expect(body.pricingConfig?.id).toBe("canonical");
@@ -101,7 +105,7 @@ describe("GET /api/pricing-config canonical rate card", () => {
   });
 
   it("preserves the existing default response when neither store has a card", async () => {
-    mocks.user.mockResolvedValue({ id: "signed-in-user", organizationId: null, pricingConfig: null });
+    mocks.user.mockResolvedValue({ id: "signed-in-user", organizationId: null, role: "ADMIN", pricingConfig: null });
     mocks.company.mockResolvedValue(null);
     const body = await (await get()).json();
     expect(body.pricingConfig).toBeNull();
@@ -117,9 +121,23 @@ describe("GET /api/pricing-config canonical rate card", () => {
     expect(mocks.company).not.toHaveBeenCalled();
   });
 
-  it("does not resolve a card for a deleted session user", async () => {
+  it("refuses an ADMIN whose organisation is owned by someone else (RA-7647)", async () => {
+    mocks.tenant.mockResolvedValue({ ownerId: "a-different-owner" });
+    const res = await get();
+    expect(res.status).toBe(403);
+    expect(mocks.tenant).toHaveBeenCalledWith({ where: { id: "org-ours" }, select: { ownerId: true } });
+    expect(mocks.organisation).not.toHaveBeenCalled();
+    expect(mocks.company).not.toHaveBeenCalled();
+  });
+
+  it("refuses a card for a session user that no longer exists in the DB", async () => {
+    // RA-paid-client tranche 1: the role check re-queries the DB on
+    // every request. A user that the JWT still names but who has been
+    // removed from the DB is rejected at the gate — the route never
+    // reaches the pricing read.
     mocks.user.mockResolvedValue(null);
-    expect((await get()).status).toBe(404);
+    const res = await get();
+    expect(res.status).toBe(403);
     expect(mocks.organisation).not.toHaveBeenCalled();
     expect(mocks.company).not.toHaveBeenCalled();
   });
