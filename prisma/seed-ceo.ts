@@ -77,8 +77,22 @@ const CEO_ACCOUNTS: CeoAccount[] = [
 async function elevateAccount(account: CeoAccount): Promise<void> {
   const existing = await prisma.user.findUnique({
     where: { email: account.email },
-    select: { id: true, password: true },
+    select: {
+      id: true,
+      password: true,
+      organizationId: true,
+      organization: { select: { ownerId: true } },
+    },
   });
+
+  // Pricing and setup gate on verifyTenantAdmin (an ADMIN must own their
+  // organisation, RA-7647). Elevating a member of someone else's organisation
+  // would create an ADMIN locked out of those routes, so refuse instead.
+  if (existing?.organizationId && existing.organization?.ownerId !== existing.id) {
+    throw new Error(
+      `${account.email} is a member of an organisation owned by another user; move it out of that organisation before elevating it to ADMIN`,
+    );
+  }
 
   const elevatedFields = {
     role: "ADMIN" as const,

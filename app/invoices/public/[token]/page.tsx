@@ -31,7 +31,12 @@ interface PublicInvoice {
   amountPaid: number;
   amountDue: number;
   currency: string;
-  notes?: string | null;
+  // `notes` is internal (Prisma: `// Internal notes`,
+  // dashboard: "Internal notes (not visible to customer)") and MUST NOT
+  // appear on the public DTO. The narrow PUBLIC_INVOICE_SELECT in
+  // lib/invoices/public-invoice-dto.ts and the explicit allowlisted
+  // transformer in the API route ensure it never reaches the client;
+  // it is therefore not on this type.
   terms?: string | null;
   footer?: string | null;
   expiresAt?: string | null;
@@ -287,14 +292,8 @@ export default function PublicInvoicePage() {
           </div>
         </div>
 
-        {(invoice.terms || invoice.footer || invoice.notes) && (
+        {(invoice.terms || invoice.footer) && (
           <div className="border-t border-slate-100 px-6 py-5 sm:px-8 space-y-2 text-xs text-slate-500">
-            {invoice.notes && (
-              <p className="whitespace-pre-line">
-                <span className="font-semibold text-slate-600">Notes: </span>
-                {invoice.notes}
-              </p>
-            )}
             {invoice.terms && (
               <p>
                 <span className="font-semibold text-slate-600">Terms: </span>

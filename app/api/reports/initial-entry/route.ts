@@ -16,8 +16,17 @@ import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import type { Prisma } from "@prisma/client";
 import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { getEquipmentGroupById, getEquipmentPricingField } from "@/lib/equipment-matrix";
 
 class InspectionLinkConflictError extends Error {}
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+const isPositiveSafeInteger = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+// Report.estimatedDryingDuration is a Prisma Int (32-bit signed).
+const MAX_INT_COLUMN = 2_147_483_647;
 class IdempotencyReservationLostError extends Error {}
 
 // Read only the caller's own reserved result. This lets a remounted form
@@ -122,7 +131,7 @@ export async function POST(request: NextRequest) {
 
       // RA-7893: an invited technician uses the business owner's plan.
       const effectiveSub = await getEffectiveSubscription(userId);
-      if (!isEffectivePlanCurrent(effectiveSub)) {
+      if (!effectiveSub || !isEffectivePlanCurrent(effectiveSub)) {
         return apiError(request, {
           code: "FORBIDDEN",
           message: "Active subscription required",
@@ -281,21 +290,118 @@ export async function POST(request: NextRequest) {
       // Prepare equipment data if provided
       let psychrometricAssessmentJson = null;
       let scopeAreasJson = null;
-      let equipmentSelectionJson = null;
+      let equipmentSelectionJson: string | null = null;
+      let equipmentCostTotal: number | null = null;
+      let estimatedDryingDuration: number | null = null;
 
-      if (data.equipmentData) {
-        if (data.equipmentData.psychrometricAssessment) {
+      const equipmentData: unknown = data.equipmentData ?? null;
+      if (equipmentData !== null && !isPlainObject(equipmentData)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "equipmentData must be an object",
+          status: 400,
+        });
+      }
+
+      if (equipmentData) {
+        if (equipmentData.psychrometricAssessment) {
           psychrometricAssessmentJson = JSON.stringify(
-            data.equipmentData.psychrometricAssessment,
+            equipmentData.psychrometricAssessment,
           );
         }
-        if (data.equipmentData.scopeAreas) {
-          scopeAreasJson = JSON.stringify(data.equipmentData.scopeAreas);
+        if (equipmentData.scopeAreas) {
+          scopeAreasJson = JSON.stringify(equipmentData.scopeAreas);
         }
-        if (data.equipmentData.equipmentSelection) {
-          equipmentSelectionJson = JSON.stringify(
-            data.equipmentData.equipmentSelection,
-          );
+
+        // Equipment money is priced here from the organisation's own rate
+        // card. USER/MANAGER cannot read that card (GET /api/pricing-config is
+        // ADMIN-only), so any rate or total the browser sends is discarded.
+        // No selection means no estimate: nothing is priced or stored.
+        const selection = equipmentData.equipmentSelection ?? null;
+        if (selection !== null && !Array.isArray(selection)) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "equipmentSelection must be an array",
+            status: 400,
+          });
+        }
+        if (selection && selection.length > 0) {
+          const items: Array<{ groupId: string; quantity: number }> = [];
+          for (const entry of selection) {
+            if (!isPlainObject(entry) || typeof entry.groupId !== "string" ||
+                !getEquipmentGroupById(entry.groupId)) {
+              return apiError(request, {
+                code: "VALIDATION",
+                message: "Each equipment selection needs a known equipment group",
+                status: 400,
+              });
+            }
+            if (!isPositiveSafeInteger(entry.quantity)) {
+              return apiError(request, {
+                code: "VALIDATION",
+                message: "Equipment quantity must be a positive whole number",
+                status: 400,
+              });
+            }
+            items.push({ groupId: entry.groupId, quantity: entry.quantity });
+          }
+
+          // estimatedDryingDuration is an Int column (days); absent means one day,
+          // the same default the report builder applies.
+          const rawDuration = equipmentData.estimatedDryingDuration ?? null;
+          if (rawDuration !== null &&
+              (!isPositiveSafeInteger(rawDuration) || rawDuration > MAX_INT_COLUMN)) {
+            return apiError(request, {
+              code: "VALIDATION",
+              message: "Estimated drying duration must be a positive whole number of days",
+              status: 400,
+            });
+          }
+          const durationDays = rawDuration ?? 1;
+
+          // Organisation card first; the DB-derived plan owner's legacy card
+          // only when the organisation has no card at all.
+          const pricing = await resolveEffectivePricing(prisma, userId, {
+            legacyUserId: effectiveSub.id,
+          });
+          if (!pricing) {
+            return apiError(request, {
+              code: "VALIDATION",
+              message: "Equipment pricing is not configured. An administrator must set daily equipment rates in Pricing settings before an equipment estimate can be saved.",
+              status: 422,
+              fields: { equipmentSelection: "No pricing configuration for this organisation" },
+            });
+          }
+
+          const priced: Array<{ groupId: string; quantity: number; dailyRate: number; totalCost: number }> = [];
+          let total = 0;
+          for (const item of items) {
+            const field = getEquipmentPricingField(item.groupId) as string;
+            const dailyRate = (pricing as unknown as Record<string, unknown>)[field];
+            if (typeof dailyRate !== "number" || !Number.isFinite(dailyRate) || dailyRate < 0) {
+              return apiError(request, {
+                code: "VALIDATION",
+                message: "A selected equipment type has no usable daily rate. An administrator must set it in Pricing settings before this estimate can be saved.",
+                status: 422,
+                fields: { [field]: "Missing or invalid daily rate" },
+              });
+            }
+            const totalCost = dailyRate * item.quantity * durationDays;
+            total += totalCost;
+            if (!Number.isFinite(totalCost) || !Number.isFinite(total)) {
+              return apiError(request, {
+                code: "VALIDATION",
+                message: "Equipment estimate is too large to calculate",
+                status: 422,
+                fields: { equipmentSelection: "Estimate exceeds the calculable range" },
+              });
+            }
+            priced.push({ ...item, dailyRate, totalCost });
+          }
+
+          equipmentSelectionJson = JSON.stringify(priced);
+          equipmentCostTotal = total;
+          estimatedDryingDuration = durationDays;
         }
       }
 
@@ -383,9 +489,8 @@ export async function POST(request: NextRequest) {
         psychrometricAssessment: psychrometricAssessmentJson,
         scopeAreas: scopeAreasJson,
         equipmentSelection: equipmentSelectionJson,
-        equipmentCostTotal: data.equipmentData?.equipmentCostTotal || null,
-        estimatedDryingDuration:
-          data.equipmentData?.estimatedDryingDuration || null,
+        equipmentCostTotal,
+        estimatedDryingDuration,
         // Update related fields if equipment data provided
         waterClass:
           data.equipmentData?.psychrometricAssessment?.waterClass?.toString() ||

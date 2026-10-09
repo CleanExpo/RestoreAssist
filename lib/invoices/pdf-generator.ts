@@ -65,7 +65,12 @@ interface InvoiceData {
     amountDue: number;
 
     // Optional
-    notes?: string | null;
+    // `notes` is internal (Prisma: `// Internal notes`, dashboard:
+    // "Internal notes (not visible to customer)") and MUST NOT appear
+    // on customer-facing invoices. The customer-facing PDF generator
+    // therefore does not accept a `notes` field on the input contract;
+    // callers (e.g. the public PDF route, the authed PDF route) must
+    // not pass it. Only `terms` and `footer` are customer-facing.
     terms?: string | null;
     footer?: string | null;
 
@@ -321,9 +326,9 @@ async function renderInvoicePage(
     yPosition -= 20;
   }
 
-  // Notes & Terms
-  if (data.invoice.notes || data.invoice.terms) {
-    await renderNotesAndTerms(lastPage, {
+  // Terms (no notes — see InvoiceData.invoice above)
+  if (data.invoice.terms) {
+    await renderTerms(lastPage, {
       helvetica,
       helveticaBold,
       colors,
@@ -677,8 +682,9 @@ export const LINE_TABLE_COLUMN_GAP = 8;
 /** Rows stop above the footer. */
 export const LINE_TABLE_BOTTOM = 110;
 /**
- * The lowest baseline totals, payments, notes and terms may use. The footer
+ * The lowest baseline totals, payments, and terms may use. The footer
  * divider is at y=60; this leaves room for descenders and a small gap.
+ * (Notes are internal-only and not rendered in the customer PDF.)
  */
 const FOOTER_CLEARANCE = 72;
 
@@ -1149,9 +1155,15 @@ async function renderPaymentsSection(
 }
 
 /**
- * Render notes and terms
+ * Render payment terms.
+ *
+ * The customer-facing PDF does NOT render Invoice.notes — `notes` is
+ * internal (Prisma: `// Internal notes`; dashboard editor: "Internal
+ * notes (not visible to customer)"). Internal notes are staff-only and
+ * are out of scope for the customer PDF generator entirely. This
+ * function is the customer-facing terms block only.
  */
-async function renderNotesAndTerms(
+async function renderTerms(
   page: PDFPage,
   options: {
     helvetica: PDFFont;
@@ -1161,7 +1173,7 @@ async function renderNotesAndTerms(
     yPosition: number;
     width: number;
     margin: number;
-    /** Notes and terms continue on a new page rather than being cut. */
+    /** Terms continue on a new page rather than being cut. */
     addPage: () => PDFPage;
   },
 ): Promise<number> {
@@ -1174,39 +1186,6 @@ async function renderNotesAndTerms(
       yPosition = page.getSize().height - margin;
     }
   };
-
-  if (invoice.notes) {
-    ensureRoom();
-    page.drawText("NOTES", {
-      x: margin,
-      y: yPosition,
-      size: 10,
-      font: helveticaBold,
-      color: colors.darkGray,
-    });
-
-    yPosition -= 15;
-
-    const notesLines = wrapText(
-      invoice.notes,
-      width - 2 * margin,
-      helvetica,
-      9,
-    );
-    notesLines.forEach((line) => {
-      ensureRoom();
-      page.drawText(sanitizeTextForPDF(line), {
-        x: margin,
-        y: yPosition,
-        size: 9,
-        font: helvetica,
-        color: colors.black,
-      });
-      yPosition -= 12;
-    });
-
-    yPosition -= 10;
-  }
 
   if (invoice.terms) {
     ensureRoom();
