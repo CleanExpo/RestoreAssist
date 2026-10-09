@@ -7,7 +7,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 import { hasConfiguredAi } from "@/lib/services/integrations/ai-readiness";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { verifyTenantAdmin } from "@/lib/admin-auth";
 
 // GET - Retrieve pricing configuration for current user
 export async function GET(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     // demotion, and a demoted technician must not continue to read
     // admin-only rates.
     const session = await getServerSession(authOptions);
-    const auth = await verifyAdminFromDb(session);
+    const auth = await verifyTenantAdmin(session);
     if (auth.response) return auth.response;
     const userId = auth.user!.id;
 
@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest) {
     // RA-paid-client tranche 1: re-validate the role from the database
     // on every write. See GET for rationale.
     const session = await getServerSession(authOptions);
-    const auth = await verifyAdminFromDb(session);
+    const auth = await verifyTenantAdmin(session);
     if (auth.response) return auth.response;
     const userId = auth.user!.id;
 

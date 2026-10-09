@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-errors";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { verifyTenantAdmin } from "@/lib/admin-auth";
 
 // Whitelist of fields the wizard is allowed to patch on OrganizationPricingConfig.
 // Names match the actual Prisma schema field names (snake_case converted to camelCase).
@@ -83,7 +83,7 @@ export async function PATCH(req: Request) {
   // every setup write. A demoted technician with a stale ADMIN JWT must
   // not be able to keep writing organization pricing during setup.
   const session = await getServerSession(authOptions);
-  const auth = await verifyAdminFromDb(session);
+  const auth = await verifyTenantAdmin(session);
   if (auth.response) return auth.response;
   const userId = auth.user!.id;
 

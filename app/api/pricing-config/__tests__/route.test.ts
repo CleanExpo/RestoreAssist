@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   user: vi.fn(),
   organisation: vi.fn(),
+  tenant: vi.fn(),
   company: vi.fn(),
   integration: vi.fn(),
   aiConfigured: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/lib/services/integrations/ai-readiness", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: mocks.user },
+    organization: { findUnique: mocks.tenant },
     organizationPricingConfig: { findUnique: mocks.organisation },
     companyPricingConfig: { findUnique: mocks.company },
     integration: { findFirst: mocks.integration },
@@ -45,6 +47,7 @@ beforeEach(() => {
     role: "ADMIN",
     pricingConfig: legacy,
   });
+  mocks.tenant.mockResolvedValue({ ownerId: "signed-in-user" });
   mocks.organisation.mockResolvedValue(canonical);
   mocks.company.mockResolvedValue(legacy);
   mocks.integration.mockResolvedValue(null);
@@ -114,6 +117,15 @@ describe("GET /api/pricing-config canonical rate card", () => {
     mocks.session.mockResolvedValue(null);
     expect((await get()).status).toBe(401);
     expect(mocks.user).not.toHaveBeenCalled();
+    expect(mocks.organisation).not.toHaveBeenCalled();
+    expect(mocks.company).not.toHaveBeenCalled();
+  });
+
+  it("refuses an ADMIN whose organisation is owned by someone else (RA-7647)", async () => {
+    mocks.tenant.mockResolvedValue({ ownerId: "a-different-owner" });
+    const res = await get();
+    expect(res.status).toBe(403);
+    expect(mocks.tenant).toHaveBeenCalledWith({ where: { id: "org-ours" }, select: { ownerId: true } });
     expect(mocks.organisation).not.toHaveBeenCalled();
     expect(mocks.company).not.toHaveBeenCalled();
   });

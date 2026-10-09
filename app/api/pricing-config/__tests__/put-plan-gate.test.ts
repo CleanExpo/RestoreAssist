@@ -35,6 +35,10 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: async ({ where }: { where: { id: string } }) =>
         db.users[where.id] ?? null,
     },
+    organization: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        where.id === "org-a" ? { ownerId: "owner-a" } : null,
+    },
     companyPricingConfig: { upsert: writes.company },
     organizationPricingConfig: { upsert: writes.organization },
   },
