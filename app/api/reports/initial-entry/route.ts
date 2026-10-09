@@ -25,6 +25,8 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const isPositiveSafeInteger = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+// Report.estimatedDryingDuration is a Prisma Int (32-bit signed).
+const MAX_INT_COLUMN = 2_147_483_647;
 class IdempotencyReservationLostError extends Error {}
 
 // Read only the caller's own reserved result. This lets a remounted form
@@ -347,7 +349,8 @@ export async function POST(request: NextRequest) {
           // estimatedDryingDuration is an Int column (days); absent means one day,
           // the same default the report builder applies.
           const rawDuration = equipmentData.estimatedDryingDuration ?? null;
-          if (rawDuration !== null && !isPositiveSafeInteger(rawDuration)) {
+          if (rawDuration !== null &&
+              (!isPositiveSafeInteger(rawDuration) || rawDuration > MAX_INT_COLUMN)) {
             return apiError(request, {
               code: "VALIDATION",
               message: "Estimated drying duration must be a positive whole number of days",

@@ -65,6 +65,19 @@ import { ReviewSection } from "./initial-data-entry/ReviewSection";
 import { UseCaseModal } from "./initial-data-entry/UseCaseModal";
 import { jurisdictionLawLabels } from "@/lib/reports/viewer-compliance-prose";
 
+/**
+ * Durations the form takes from PDF extraction or a saved draft, as the whole
+ * days the save accepts (1 to the Int column maximum), or null when unusable.
+ */
+export function toWholeDays(value: unknown): number | null {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const days = Math.round(Number(value));
+  return Number.isSafeInteger(days) && days > 0 && days <= 2_147_483_647
+    ? days
+    : null;
+}
+
 export default function InitialDataEntryForm({
   onSuccess,
   onReportCreated,
@@ -462,7 +475,7 @@ export default function InitialDataEntryForm({
     EquipmentSelection[]
   >([]);
   const [durationDays, setDurationDays] = useState(
-    initialData?.estimatedDryingDuration || 4,
+    toWholeDays(initialData?.estimatedDryingDuration) ?? 4,
   );
   // Calculator defaults are examples, not site measurements or an approved plan.
   const [includeEquipmentEstimate, setIncludeEquipmentEstimate] = useState(false);
@@ -732,8 +745,9 @@ export default function InitialDataEntryForm({
             hasAutoSelectedEquipment.current = true; // Mark as already set to prevent auto-selection
           }
 
-          if (equipmentData.estimatedDryingDuration) {
-            setDurationDays(equipmentData.estimatedDryingDuration);
+          const savedDays = toWholeDays(equipmentData.estimatedDryingDuration);
+          if (savedDays !== null) {
+            setDurationDays(savedDays);
           }
         }
       } catch (error) {
@@ -902,8 +916,9 @@ export default function InitialDataEntryForm({
           }
         }, 100);
       }
-      if (initialData.estimatedDryingDuration) {
-        setDurationDays(initialData.estimatedDryingDuration);
+      const extractedDays = toWholeDays(initialData.estimatedDryingDuration);
+      if (extractedDays !== null) {
+        setDurationDays(extractedDays);
       }
 
       // Populate equipment from extracted equipment deployment data (from PDF)
@@ -982,8 +997,8 @@ export default function InitialDataEntryForm({
             });
 
             // Use duration from equipment deployment if available
-            const duration = Math.round(Number(eq.duration));
-            if (Number.isSafeInteger(duration) && duration > 0) {
+            const duration = toWholeDays(eq.duration);
+            if (duration !== null) {
               setDurationDays(duration);
             }
           }

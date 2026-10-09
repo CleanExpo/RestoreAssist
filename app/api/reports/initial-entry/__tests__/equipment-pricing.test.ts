@@ -319,7 +319,7 @@ describe("pricing source precedence", () => {
     orgCards[ORG] = card({ dehumidifierLGRDailyRate: 1e300 });
     await expectRefused(withEquipment({
       equipmentSelection: [{ groupId: "lgr-85", quantity: Number.MAX_SAFE_INTEGER }],
-      estimatedDryingDuration: Number.MAX_SAFE_INTEGER,
+      estimatedDryingDuration: 2_147_483_647,
     }), 422);
   });
 });
@@ -345,10 +345,19 @@ describe("request shape refusals happen before pricing and before any effect", (
 
   it.each([
     ["zero", 0], ["negative", -2], ["fractional", 1.5], ["a string", "3"], ["a boolean", true],
+    ["above the Int column maximum", 2_147_483_648],
   ])("refuses a duration that is %s", async (_label, estimatedDryingDuration) => {
     await expectRefused(withEquipment({
       equipmentSelection: [{ groupId: "lgr-85", quantity: 1 }], estimatedDryingDuration,
     }), 400);
+  });
+
+  it("accepts the largest duration the Int column can store", async () => {
+    const data = await savedRow(withEquipment({
+      equipmentSelection: [{ groupId: "lgr-85", quantity: 1 }], estimatedDryingDuration: 2_147_483_647,
+    }));
+    expect(data.estimatedDryingDuration).toBe(2_147_483_647);
+    expect(data.equipmentCostTotal).toBe(110 * 2_147_483_647);
   });
 
   it("refuses a non-finite duration from raw JSON", async () => {
