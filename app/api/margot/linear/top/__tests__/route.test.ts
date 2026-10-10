@@ -9,6 +9,10 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
+  // The route also requires a platform support operator (added on main after
+  // these tests were written). These tests cover the read path, so let the
+  // admin through; the operator gate has its own tests in lib/admin-auth.
+  verifyPlatformSupportOperator: (auth: unknown) => auth,
 }));
 
 import { GET } from "../route";

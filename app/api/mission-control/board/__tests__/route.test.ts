@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getServerSession = vi.fn();
 const verifyAdminFromDb = vi.fn();
+const verifyPlatformSupportOperator = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -9,6 +10,8 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
+  verifyPlatformSupportOperator: (...args: unknown[]) =>
+    verifyPlatformSupportOperator(...args),
 }));
 
 import { GET } from "../route";
@@ -59,11 +62,14 @@ function issue(id: string, stateId: string, extra: object = {}) {
 beforeEach(() => {
   getServerSession.mockReset();
   verifyAdminFromDb.mockReset();
+  verifyPlatformSupportOperator.mockReset();
   getServerSession.mockResolvedValue({ user: { id: "admin_user" } });
   verifyAdminFromDb.mockResolvedValue({
     response: null,
     user: { id: "admin_user", role: "ADMIN" },
   });
+  // Default: the admin is also a platform support operator.
+  verifyPlatformSupportOperator.mockImplementation((auth: unknown) => auth);
   process.env.LINEAR_API_KEY = "lin_api_test";
   vi.stubGlobal("fetch", vi.fn());
 });
@@ -72,6 +78,17 @@ describe("GET /api/mission-control/board — admin gate", () => {
   it("returns the auth response without reading Linear when not admin", async () => {
     verifyAdminFromDb.mockResolvedValue({
       response: Response.json({ error: "forbidden" }, { status: 403 }),
+    });
+
+    const res = await GET();
+
+    expect(res.status).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("refuses a tenant admin who is not a platform support operator", async () => {
+    verifyPlatformSupportOperator.mockReturnValue({
+      response: Response.json({ error: "Forbidden" }, { status: 403 }),
     });
 
     const res = await GET();

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getServerSession = vi.fn();
 const verifyAdminFromDb = vi.fn();
+const verifyPlatformSupportOperator = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -9,6 +10,8 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
+  verifyPlatformSupportOperator: (...args: unknown[]) =>
+    verifyPlatformSupportOperator(...args),
 }));
 
 import { GET } from "../route";
@@ -22,9 +25,13 @@ function jsonResponse(body: unknown, ok = true, status = 200) {
 beforeEach(() => {
   getServerSession.mockReset();
   verifyAdminFromDb.mockReset();
+  verifyPlatformSupportOperator.mockReset();
   getServerSession.mockResolvedValue({ user: { email: "admin@example.com" } });
   verifyAdminFromDb.mockResolvedValue({ response: null });
   vi.restoreAllMocks();
+  // Default: the admin is also a platform support operator. Set after
+  // restoreAllMocks so the implementation is not wiped.
+  verifyPlatformSupportOperator.mockImplementation((auth: unknown) => auth);
 });
 
 afterEach(() => {
@@ -39,6 +46,17 @@ describe("GET /api/mission-control/workers", () => {
     });
     const res = await GET();
     expect(res.status).toBe(403);
+  });
+
+  it("refuses a tenant admin who is not a platform support operator, probing nothing", async () => {
+    process.env.MISSION_CONTROL_WORKERS = "mini=https://mini.example";
+    verifyPlatformSupportOperator.mockReturnValue({
+      response: Response.json({ error: "Forbidden" }, { status: 403 }),
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const res = await GET();
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("fails closed and probes nothing when unconfigured", async () => {
