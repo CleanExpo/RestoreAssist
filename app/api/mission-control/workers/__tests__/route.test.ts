@@ -56,6 +56,7 @@ describe("GET /api/mission-control/workers", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const res = await GET();
     expect(res.status).toBe(403);
+    expect(verifyPlatformSupportOperator).toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 

@@ -94,6 +94,9 @@ describe("GET /api/mission-control/board — admin gate", () => {
     const res = await GET();
 
     expect(res.status).toBe(403);
+    expect(verifyPlatformSupportOperator).toHaveBeenCalledWith(
+      expect.objectContaining({ user: { id: "admin_user", role: "ADMIN" } }),
+    );
     expect(fetch).not.toHaveBeenCalled();
   });
 });
