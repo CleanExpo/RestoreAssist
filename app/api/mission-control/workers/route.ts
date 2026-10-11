@@ -71,6 +71,9 @@ async function probe(
   try {
     const res = await fetch(`${worker.url}/healthz`, {
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+      // A followed redirect would let the target (a login page, say) answer
+      // for the worker. A 3xx is not ok, so it fails closed below.
+      redirect: "manual",
     });
     // A configured-but-failing URL is not a reachable worker. Fail closed
     // before reading the body, so an error payload cannot supply facts.
@@ -84,18 +87,28 @@ async function probe(
         reason: `Worker returned HTTP ${res.status}`,
       };
     }
-    const body = (await res.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
+    // A 200 that is not a JSON object (an auth proxy or captive page in front
+    // of a dead worker) does not confirm the worker is up.
+    const body: unknown = await res.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return {
+        name: worker.name,
+        url: worker.url,
+        online: false,
+        lastHeartbeat: null,
+        stale: true,
+        reason: "Worker health response was not a JSON object",
+      };
+    }
+    const health = body as Record<string, unknown>;
     return {
       name: worker.name,
       url: worker.url,
       online: true,
       lastHeartbeat: fetchedAt,
       stale: false,
-      uptime: body.uptime ?? null,
-      version: body.version ?? null,
+      uptime: health.uptime ?? null,
+      version: health.version ?? null,
     };
   } catch {
     // The upstream message is deliberately not echoed: it can carry internal

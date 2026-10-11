@@ -118,4 +118,29 @@ describe("GET /api/margot/health", () => {
     const init = fetchSpy.mock.calls[0][1] as RequestInit;
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
+
+  it("never claims reachable when Hermes answers 200 with a non-JSON body", async () => {
+    // An auth proxy or captive page in front of a dead Hermes answers 200 HTML.
+    process.env.HERMES_BASE_URL = "https://hermes.example.com";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html>login</html>", { status: 200 }),
+    );
+    const body = await (await GET()).json();
+    expect(body.stale).toBe(true);
+    expect(body.data.online).toBe(false);
+    expect(body.data.lastHeartbeat).toBeNull();
+    expect(body.data.reason).toContain("JSON");
+  });
+
+  it("does not follow redirects, so a redirect target cannot answer for Hermes", async () => {
+    process.env.HERMES_BASE_URL = "https://hermes.example.com";
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse({}, false, 302));
+    const body = await (await GET()).json();
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(init.redirect).toBe("manual");
+    expect(body.data.online).toBe(false);
+    expect(body.data.reason).toContain("302");
+  });
 });

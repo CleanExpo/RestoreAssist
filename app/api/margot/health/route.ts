@@ -37,6 +37,9 @@ export async function GET() {
   try {
     const res = await fetch(`${hermesBase}/healthz`, {
       signal: AbortSignal.timeout(5_000),
+      // A followed redirect would let the target (a login page, say) answer
+      // for Hermes. A 3xx is not ok, so it fails closed below.
+      redirect: "manual",
     });
     // A configured-but-failing URL is not a reachable Hermes. Fail closed before
     // reading the body, so a 5xx payload can never supply uptime or version.
@@ -52,13 +55,28 @@ export async function GET() {
         stale: true,
       });
     }
-    const body = await res.json().catch(() => ({}));
+    // A 200 that is not a JSON object (an auth proxy or captive page in front
+    // of a dead Hermes) does not confirm Hermes is up.
+    const body: unknown = await res.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return Response.json({
+        data: {
+          online: false,
+          lastHeartbeat: null,
+          stale: true,
+          reason: "Hermes health response was not a JSON object",
+        },
+        fetchedAt,
+        stale: true,
+      });
+    }
+    const health = body as Record<string, unknown>;
     return Response.json({
       data: {
         online: true,
         lastHeartbeat: fetchedAt,
-        uptime: body.uptime ?? null,
-        version: body.version ?? null,
+        uptime: health.uptime ?? null,
+        version: health.version ?? null,
         stale: false,
       },
       fetchedAt,

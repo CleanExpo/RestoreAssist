@@ -176,4 +176,31 @@ describe("GET /api/mission-control/workers", () => {
     expect(JSON.stringify(body)).not.toContain("ECONNREFUSED");
     expect(JSON.stringify(body)).not.toContain("10.0.0.4");
   });
+
+  it("never claims reachable when a worker answers 200 with a non-JSON body", async () => {
+    // An auth proxy or captive page in front of a dead worker answers 200 HTML.
+    process.env.MISSION_CONTROL_WORKERS = "mini=https://mini.example.com";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html>login</html>", { status: 200 }),
+    );
+    const body = await (await GET()).json();
+    expect(body.stale).toBe(true);
+    const worker = body.data.workers[0];
+    expect(worker.online).toBe(false);
+    expect(worker.stale).toBe(true);
+    expect(worker.lastHeartbeat).toBeNull();
+    expect(worker.reason).toContain("JSON");
+  });
+
+  it("does not follow redirects, so a redirect target cannot answer for the worker", async () => {
+    process.env.MISSION_CONTROL_WORKERS = "mini=https://mini.example.com";
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse({}, false, 302));
+    const body = await (await GET()).json();
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(init.redirect).toBe("manual");
+    expect(body.data.workers[0].online).toBe(false);
+    expect(body.data.workers[0].reason).toContain("302");
+  });
 });
