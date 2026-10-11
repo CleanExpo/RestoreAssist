@@ -4,24 +4,35 @@
  * on restoreassist.app returned 500 (the ClientPortalAccount.inspectionId
  * migration had not been applied) while this smoke stayed green.
  *
- * An unknown token must be refused cleanly (404/401 or the expired-link page),
- * never a 500. Any schema drift on the portal lookup surfaces here, because
- * the lookup reads ClientPortalAccount before it can decide the token is bad.
+ * An unknown token must be refused cleanly, never a 500. The lookup reads
+ * ClientPortalAccount before it can decide the token is bad, so schema drift
+ * on that table surfaces here.
+ *
+ * A fresh token per run: the updates route rate-limits per token and fails
+ * closed to 429 when Upstash is unreachable. A fixed token would share one
+ * bucket across every 15-minute run, and a smoke failure rolls production
+ * back (deploy-production.yml). 429 is the limiter, not the portal, so it is
+ * accepted; only a 5xx fails.
  */
+import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 
-const UNKNOWN_TOKEN = "smoke-unknown-portal-token-000000000000";
-
 test.describe("@smoke homeowner portal refuses an unknown token without a server error", () => {
-  test("GET /portal/<unknown> is not a 5xx", async ({ request }) => {
-    const res = await request.get(`/portal/${UNKNOWN_TOKEN}`, {
-      maxRedirects: 0,
-    });
-    expect(res.status(), `status ${res.status()}`).toBeLessThan(500);
+  test("GET /portal/<unknown> renders the expired-link page", async ({
+    page,
+  }) => {
+    const res = await page.goto(`/portal/smoke-${randomUUID()}`);
+    expect(res, "navigation returned no response").not.toBeNull();
+    expect(res!.status(), `status ${res!.status()}`).toBeLessThan(500);
+    await expect(
+      page.getByRole("heading", { name: /this job link has expired/i }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("GET /api/portal/<unknown>/updates is 404", async ({ request }) => {
-    const res = await request.get(`/api/portal/${UNKNOWN_TOKEN}/updates`);
-    expect(res.status()).toBe(404);
+  test("GET /api/portal/<unknown>/updates is 404 (or 429 from the limiter)", async ({
+    request,
+  }) => {
+    const res = await request.get(`/api/portal/smoke-${randomUUID()}/updates`);
+    expect([404, 429], `status ${res.status()}`).toContain(res.status());
   });
 });
