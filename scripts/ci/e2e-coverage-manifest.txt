@@ -65,6 +65,7 @@ login-callback-url.spec.ts               workflow:sketch-e2e.yml
 navigation.spec.ts                       workflow:sketch-e2e.yml
 nir-routes-regression.spec.ts            workflow:sketch-e2e.yml
 pilot-workflow.spec.ts                   smoke
+portal-unknown-token.spec.ts             smoke
 procurement.spec.ts                      workflow:sketch-e2e.yml
 security.spec.ts                         workflow:sketch-e2e.yml
 setup-abr-unreachable.spec.ts            workflow:sketch-e2e.yml
