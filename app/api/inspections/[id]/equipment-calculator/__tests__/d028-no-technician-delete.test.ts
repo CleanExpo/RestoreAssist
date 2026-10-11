@@ -1,11 +1,13 @@
 /**
- * D-028 — the equipment calculator deletes only rows it created, for the
- * assigned technician.
+ * D-028 — on the assigned technician's path the equipment calculator is
+ * create-only.
  *
  * The owner's recalculation replaces every auto-determined equipment row, as
- * before. The technician's may replace only rows tagged as the calculator's
- * own; when untagged equipment rows exist (a Category 3 checklist's air
- * scrubber, lib/iicrc-checklists.ts), it refuses with 409 and writes nothing.
+ * before. The technician deletes nothing: when the job already has any scope
+ * row of the calculator's equipment types (the owner's earlier calculation,
+ * tagged or not, possibly edited since; a Category 3 checklist's air
+ * scrubber), it refuses with 409 and writes nothing. On a job with none, it
+ * creates the rows, tagged as the calculator's.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
@@ -42,6 +44,27 @@ vi.mock("@/lib/prisma", () => ({
 
 import { POST } from "../route";
 
+type Row = { inspectionId: string; itemType: string; autoDetermined: boolean; source: string | null };
+let rows: Row[] = [];
+
+function matches(r: Row, w: any): boolean {
+  if (w.inspectionId !== undefined && r.inspectionId !== w.inspectionId) return false;
+  if (w.autoDetermined !== undefined && r.autoDetermined !== w.autoDetermined) return false;
+  if (w.itemType?.in && !w.itemType.in.includes(r.itemType)) return false;
+  if (typeof w.source === "string" && r.source !== w.source) return false;
+  if (w.source === null && r.source !== null) return false;
+  if (w.source?.not !== undefined && (r.source === null || r.source === w.source.not)) return false;
+  if (Array.isArray(w.OR) && !w.OR.some((o: unknown) => matches(r, o))) return false;
+  return true;
+}
+
+const ownerEarlierRun: Row = {
+  inspectionId: "insp-1",
+  itemType: "air_mover",
+  autoDetermined: true,
+  source: "equipment_calculator",
+};
+
 const SCOPE = { id: "insp-1", technicianId: "tech-1", user: { organizationId: "org-1" } };
 
 function grant(viaAssignment: boolean) {
@@ -69,33 +92,44 @@ const calculate = () =>
 beforeEach(() => {
   vi.resetAllMocks();
   m.inspectionFindFirst.mockResolvedValue({ id: "insp-1", classifications: [] });
-  m.scopeItemCount.mockResolvedValue(0);
+  rows = [];
+  m.scopeItemCount.mockImplementation(async (args: { where: unknown }) =>
+    rows.filter((r) => matches(r, args.where)).length,
+  );
   m.txDeleteMany.mockResolvedValue({ count: 0 });
   m.txCreateMany.mockResolvedValue({ count: 1 });
 });
 
 describe("equipment-calculator POST deletes (D-028)", () => {
-  it("refuses the technician with 409 when untagged equipment rows exist, and writes nothing", async () => {
+  it("refuses the technician with 409 when the owner's earlier calculator rows exist, and deletes nothing", async () => {
     m.session.mockResolvedValue({ user: { id: "tech-1" } });
     grant(true);
-    m.scopeItemCount.mockResolvedValue(1);
+    rows = [ownerEarlierRun];
     const res = await calculate();
     expect(res.status, await res.clone().text()).toBe(409);
     expect(m.txDeleteMany).not.toHaveBeenCalled();
     expect(m.txCreateMany).not.toHaveBeenCalled();
   });
 
-  it("lets the technician replace only the calculator's own tagged rows", async () => {
+  it("refuses the technician with 409 when a checklist's untagged equipment row exists", async () => {
+    m.session.mockResolvedValue({ user: { id: "tech-1" } });
+    grant(true);
+    rows = [{ ...ownerEarlierRun, itemType: "air_scrubber", source: null }];
+    const res = await calculate();
+    expect(res.status).toBe(409);
+    expect(m.txDeleteMany).not.toHaveBeenCalled();
+    expect(m.txCreateMany).not.toHaveBeenCalled();
+  });
+
+  it("on a job with no equipment rows the technician creates tagged rows and deletes nothing", async () => {
     m.session.mockResolvedValue({ user: { id: "tech-1" } });
     grant(true);
     const res = await calculate();
     expect(res.status, await res.clone().text()).toBe(200);
-    expect(m.txDeleteMany).toHaveBeenCalledWith({
-      where: { inspectionId: "insp-1", source: "equipment_calculator" },
-    });
-    const rows = m.txCreateMany.mock.calls[0][0].data as Array<{ source: string }>;
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows.every((r) => r.source === "equipment_calculator")).toBe(true);
+    expect(m.txDeleteMany).not.toHaveBeenCalled();
+    const created = m.txCreateMany.mock.calls[0][0].data as Array<{ source: string }>;
+    expect(created.length).toBeGreaterThan(0);
+    expect(created.every((r) => r.source === "equipment_calculator")).toBe(true);
   });
 
   it("the owner's recalculation still replaces every auto-determined equipment row", async () => {

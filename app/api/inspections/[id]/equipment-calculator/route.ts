@@ -30,9 +30,9 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
 /**
- * D-028: marks the scope rows this calculator writes (ScopeItem.source, as
- * D-030 does for AI scope generation), so the assigned technician's
- * recalculation replaces only rows the calculator created.
+ * Marks the scope rows this calculator writes (ScopeItem.source, as D-030
+ * does for AI scope generation). It records the route, not who ran it, so it
+ * never licenses a delete (D-028).
  */
 const EQUIPMENT_CALCULATOR_SOURCE = "equipment_calculator";
 
@@ -168,16 +168,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           isSelected: true,
           source: EQUIPMENT_CALCULATOR_SOURCE,
         }));
-        // D-028: deletes stay with the owner's reach. The assigned technician
-        // may replace only rows this calculator created; if older equipment
-        // rows exist that it did not tag (a checklist's air scrubber, or a
-        // recalculation from before tagging), the owner recalculates.
+        // D-028: deletes stay with the owner's reach. On the assigned
+        // technician's path the calculator is create-only: if the job already
+        // has any scope row of these equipment types (the owner's earlier
+        // calculation, tagged or not and perhaps edited since, or a
+        // checklist's air scrubber), the owner or a manager recalculates.
         const ownerReach = !tenancy.data.viaAssignment;
         if (!ownerReach) {
-          const untagged = await prisma.scopeItem.count({
+          const existingEquipment = await prisma.scopeItem.count({
             where: {
               inspectionId,
-              autoDetermined: true,
               itemType: {
                 in: [
                   "air_mover",
@@ -187,17 +187,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                   "negative_air_machine",
                 ],
               },
-              OR: [
-                { source: null },
-                { source: { not: EQUIPMENT_CALCULATOR_SOURCE } },
-              ],
             },
           });
-          if (untagged > 0) {
+          if (existingEquipment > 0) {
             return apiError(request, {
               code: "CONFLICT",
               message:
-                "This job already has equipment rows the calculator did not create. The job owner or a manager recalculates them.",
+                "This job already has equipment rows. The job owner or a manager recalculates them.",
               status: 409,
             });
           }
@@ -226,12 +222,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                   },
                 },
               });
-            } else {
-              // Only the rows this calculator created (checked above).
-              await tx.scopeItem.deleteMany({
-                where: { inspectionId, source: EQUIPMENT_CALCULATOR_SOURCE },
-              });
             }
+            // Technician path: create only (no equipment rows exist; checked above).
             return tx.scopeItem.createMany({ data: equipmentPayloads });
           },
         );

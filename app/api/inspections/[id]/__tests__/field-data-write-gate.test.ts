@@ -174,10 +174,11 @@ const SCOPE_TOKENS = /\b(inspectionWhere|inspectionManyWhere|childInspectionFilt
 /**
  * The only deletes a technician-reachable handler may contain, keyed to the
  * exact `where` they run with (whitespace-insensitive). D-028 grants the
- * assigned technician no delete, so every entry is `ownerOnly` (the call must
- * sit inside `if (...ownerReach...)`, where `ownerReach` is
- * `!tenancy.data.viaAssignment`) unless the rows are ones the same handler
- * itself created and tagged.
+ * assigned technician no delete, so every entry is `ownerOnly`: the call must
+ * sit in the then-branch of an `if` whose condition has `ownerReach` as a
+ * plain `&&` operand, `ownerReach` must be `!tenancy.data.viaAssignment`
+ * wherever it is declared, and a helper parameter named `ownerReach` must be
+ * passed `ownerReach` at every call site.
  */
 type DeleteException = { model: string; where: string; ownerOnly: boolean; reason: string };
 const DELETES_ALLOWED: Record<string, DeleteException[]> = {
@@ -208,12 +209,6 @@ const DELETES_ALLOWED: Record<string, DeleteException[]> = {
         '{ inspectionId, autoDetermined: true, itemType: { in: [ "air_mover", "lgr_dehumidifier", "desiccant_dehumidifier", "air_scrubber", "negative_air_machine", ], }, }',
       ownerOnly: true,
       reason: "the owner's recalculation replaces auto equipment rows, as before D-028",
-    },
-    {
-      model: "scopeItem",
-      where: "{ inspectionId, source: EQUIPMENT_CALCULATOR_SOURCE }",
-      ownerOnly: false,
-      reason: "only rows the calculator itself created and tagged",
     },
   ],
   "water-damage-classification/route.ts": [
@@ -451,14 +446,52 @@ function isClient(id: ts.Identifier): boolean {
   return found;
 }
 
+/** `const { evidencePin: ep } = prisma`: the model an identifier was destructured as, if any. */
+function destructuredModel(id: ts.Identifier): string | null {
+  let model: string | null = null;
+  const visit = (n: ts.Node) => {
+    if (model) return;
+    if (
+      ts.isBindingElement(n) &&
+      ts.isIdentifier(n.name) &&
+      n.name.text === id.text &&
+      ts.isObjectBindingPattern(n.parent) &&
+      ts.isVariableDeclaration(n.parent.parent) &&
+      n.parent.parent.initializer
+    ) {
+      const init = unwrap(n.parent.parent.initializer);
+      if (ts.isIdentifier(init) && isClient(init)) {
+        model = n.propertyName ? n.propertyName.getText() : n.name.text;
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(id.getSourceFile());
+  return model;
+}
+
 function prismaWrite(call: ts.CallExpression): [string, string] | null {
   const callee = unwrap(call.expression);
   if (!ts.isPropertyAccessExpression(callee) || !WRITE_OPS.has(callee.name.text)) return null;
   const owner = unwrap(callee.expression);
-  if (!ts.isPropertyAccessExpression(owner)) return null;
-  const root = unwrap(owner.expression);
-  if (!ts.isIdentifier(root) || !isClient(root)) return null;
-  return [owner.name.text, callee.name.text];
+  // client.model.op(...)
+  if (ts.isPropertyAccessExpression(owner)) {
+    const root = unwrap(owner.expression);
+    if (!ts.isIdentifier(root) || !isClient(root)) return null;
+    return [owner.name.text, callee.name.text];
+  }
+  // client["model"].op(...)
+  if (ts.isElementAccessExpression(owner) && ts.isStringLiteralLike(owner.argumentExpression)) {
+    const root = unwrap(owner.expression);
+    if (!ts.isIdentifier(root) || !isClient(root)) return null;
+    return [owner.argumentExpression.text, callee.name.text];
+  }
+  // const { model: alias } = client; alias.op(...)
+  if (ts.isIdentifier(owner)) {
+    const model = destructuredModel(owner);
+    return model ? [model, callee.name.text] : null;
+  }
+  return null;
 }
 
 /**
@@ -522,12 +555,21 @@ function whereOf(call: ts.CallExpression): string | null {
 }
 
 /** The delete sits in the then-branch of an `if` whose condition requires ownerReach. */
+function andOperands(e: ts.Expression): ts.Expression[] {
+  const u = unwrap(e);
+  if (ts.isBinaryExpression(u) && u.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+    return [...andOperands(u.left), ...andOperands(u.right)];
+  }
+  return [u];
+}
+
 function underOwnerReach(call: ts.Node): boolean {
   for (let n: ts.Node = call; n.parent; n = n.parent) {
     const parent = n.parent;
     if (ts.isIfStatement(parent) && parent.thenStatement === n) {
-      const cond = codeText(parent.expression);
-      if (/(^|[^!\w.])ownerReach\b/.test(cond) && !/\|\|/.test(cond)) return true;
+      if (/\|\|/.test(codeText(parent.expression))) continue;
+      const ops = andOperands(parent.expression);
+      if (ops.some((o) => ts.isIdentifier(o) && o.text === "ownerReach")) return true;
     }
   }
   return false;
@@ -536,7 +578,22 @@ function underOwnerReach(call: ts.Node): boolean {
 /** Every `const ownerReach = ...` in the file is exactly `!tenancy.data.viaAssignment`. */
 function ownerReachIsSound(sf: ts.SourceFile): boolean {
   const inits = sourcesOf(sf, "ownerReach");
-  return inits.length > 0 && inits.every((e) => squash(codeText(e)) === "!tenancy.data.viaAssignment");
+  if (inits.length === 0) return false;
+  if (!inits.every((e) => squash(codeText(e)) === "!tenancy.data.viaAssignment")) return false;
+  // A top-level helper taking an `ownerReach` parameter must be handed the
+  // real `ownerReach` at every call site, never a literal.
+  for (const st of sf.statements) {
+    if (!ts.isFunctionDeclaration(st) || !st.name) continue;
+    const idx = st.parameters.findIndex((prm) => ts.isIdentifier(prm.name) && prm.name.text === "ownerReach");
+    if (idx === -1) continue;
+    const sites = callSites(sf, st.name.text);
+    if (sites.length === 0) return false;
+    for (const c of sites) {
+      const arg = c.arguments[idx];
+      if (!arg || !ts.isIdentifier(unwrap(arg)) || unwrap(arg).getText() !== "ownerReach") return false;
+    }
+  }
+  return true;
 }
 
 function deleteAllowed(call: ts.CallExpression, model: string, allowed: DeleteException[]): boolean {
@@ -956,6 +1013,67 @@ describe("D-028 guard analyser: positive and negative controls", () => {
     );
     expect(analyseFieldDataRoute(planted, ["PATCH"]).map((x) => x.problem).join("\n")).toMatch(
       /deletes rows \(line \d+: moistureReading\.deleteMany\)/,
+    );
+  });
+
+  it("PLANTED (review dc3aa0aa P1): a technician-path delete of the calculator's tagged rows is caught", () => {
+    const original = read("equipment-calculator/route.ts");
+    const planted = original.replace(
+      "            // Technician path: create only",
+      "            else {\n              await tx.scopeItem.deleteMany({\n                where: { inspectionId, source: EQUIPMENT_CALCULATOR_SOURCE },\n              });\n            }\n            // Technician path: create only",
+    );
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "equipment-calculator/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/deletes rows \(line \d+: scopeItem\.deleteMany\)/);
+  });
+
+  it("PLANTED (review S1): a helper's ownerReach parameter passed a literal is caught", () => {
+    const original = read("water-damage-classification/route.ts");
+    const planted = original.replace("        saved,\n        ownerReach,\n", "        saved,\n        true,\n");
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "water-damage-classification/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/classification\.deleteMany/);
+  });
+
+  it("PLANTED (review S2): `ownerReach !== undefined` as the condition is caught", () => {
+    const original = read("water-damage-classification/route.ts");
+    const planted = original.replace(
+      'status === "DRAFT" && ownerReach)',
+      'status === "DRAFT" && ownerReach !== undefined)',
+    );
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "water-damage-classification/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/classification\.deleteMany/);
+  });
+
+  it("PLANTED (review S5): a ternary that is always true as the condition is caught", () => {
+    const original = read("sketches/route.ts");
+    const planted = original.replace(
+      "if (deletableIds.length && ownerReach) {",
+      "if (deletableIds.length && (ownerReach ? true : true)) {",
+    );
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "sketches/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/sketchRoom\.deleteMany/);
+  });
+
+  it("PLANTED (review S3): a delete through prisma[\"model\"] is caught", () => {
+    const planted = clean.replace(
+      "await prisma.auditLog.create",
+      'await (prisma as any)["evidencePin"].deleteMany({ where: { id: readingId } });\n      await prisma.auditLog.create',
+    );
+    expect(analyseFieldDataRoute(planted, ["PATCH"]).map((x) => x.problem).join("\n")).toMatch(
+      /deletes rows \(line \d+: evidencePin\.deleteMany\)/,
+    );
+  });
+
+  it("PLANTED (review S4): a delete through a model destructured off the client is caught", () => {
+    const planted = clean.replace(
+      "await prisma.auditLog.create",
+      "const { evidencePin: ep } = prisma as any;\n      await ep.deleteMany({ where: { id: readingId } });\n      await prisma.auditLog.create",
+    );
+    expect(analyseFieldDataRoute(planted, ["PATCH"]).map((x) => x.problem).join("\n")).toMatch(
+      /deletes rows \(line \d+: evidencePin\.deleteMany\)/,
     );
   });
 
