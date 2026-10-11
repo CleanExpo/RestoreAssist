@@ -71,22 +71,22 @@ export async function GET(
     const { id } = await params;
 
     const inspection = await prisma.inspection.findFirst({
-    where: { id, userId: session.user.id },
-    select: {
-      id: true,
-      inspectionNumber: true,
-      propertyAddress: true,
-      contentsManifestDraft: true,
-      _count: {
-        select: {
-          photos: true,
-          evidenceItems: {
-            where: { evidenceClass: "AFFECTED_CONTENTS" },
+      where: { id, userId: session.user.id },
+      select: {
+        id: true,
+        inspectionNumber: true,
+        propertyAddress: true,
+        contentsManifestDraft: true,
+        _count: {
+          select: {
+            photos: true,
+            evidenceItems: {
+              where: { evidenceClass: "AFFECTED_CONTENTS" },
+            },
           },
         },
       },
-    },
-  });
+    });
 
     if (!inspection) {
       return apiError(request, {
@@ -266,43 +266,43 @@ export async function POST(
   return withIdempotency(request, userId, async () => {
     try {
       const inspection = await prisma.inspection.findFirst({
-      where: { id, userId },
-      include: {
-        evidenceItems: {
-          where: {
-            evidenceClass: {
-              in: [
-                "AFFECTED_CONTENTS",
-                "PHOTO_DAMAGE",
-                "PHOTO_EQUIPMENT",
-                "PHOTO_PROGRESS",
-                "PHOTO_COMPLETION",
-              ],
+        where: { id, userId },
+        include: {
+          evidenceItems: {
+            where: {
+              evidenceClass: {
+                in: [
+                  "AFFECTED_CONTENTS",
+                  "PHOTO_DAMAGE",
+                  "PHOTO_EQUIPMENT",
+                  "PHOTO_PROGRESS",
+                  "PHOTO_COMPLETION",
+                ],
+              },
+            },
+            select: {
+              id: true,
+              evidenceClass: true,
+              fileUrl: true,
+              fileName: true,
+              title: true,
+              description: true,
+              roomName: true,
             },
           },
-          select: {
-            id: true,
-            evidenceClass: true,
-            fileUrl: true,
-            fileName: true,
-            title: true,
-            description: true,
-            roomName: true,
+          photos: {
+            select: {
+              id: true,
+              url: true,
+              description: true,
+              location: true,
+              roomType: true,
+            },
+            take: 40,
+            orderBy: { uploadedAt: "desc" },
           },
         },
-        photos: {
-          select: {
-            id: true,
-            url: true,
-            description: true,
-            location: true,
-            roomType: true,
-          },
-          take: 40,
-          orderBy: { uploadedAt: "desc" },
-        },
-      },
-    });
+      });
 
       if (!inspection) {
         return apiError(request, {

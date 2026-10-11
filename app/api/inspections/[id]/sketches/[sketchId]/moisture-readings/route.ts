@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { evaluateDrying } from "@/lib/anz/dry-standard";
 
@@ -117,21 +120,35 @@ export async function POST(
         )?.id ?? null)
       : null;
 
-    const reading = await (prisma as any).sketchMoistureReading.create({
-      data: {
-        sketchId,
-        elementId: elementId ?? null,
-        sketchRoomId: sketchRoomId ?? null,
-        materialId,
-        waterCategory: waterCategory ?? null,
-        targetMc: dryEval.targetMc,
-        currentMc,
-        dryStandardMet: dryEval.dryStandardMet,
-        ...(readingDatetime
-          ? { readingDatetime: new Date(readingDatetime) }
-          : {}),
-      },
-    });
+    // D-028: re-check the caller's reach inside the write, so a
+    // reassignment between the check and the write changes 0 rows.
+    const reading = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { updatedAt: new Date() },
+      (tx) =>
+        tx.sketchMoistureReading.create({
+          data: {
+            sketchId,
+            elementId: elementId ?? null,
+            sketchRoomId: sketchRoomId ?? null,
+            materialId,
+            waterCategory: waterCategory ?? null,
+            targetMc: dryEval.targetMc,
+            currentMc,
+            dryStandardMet: dryEval.dryStandardMet,
+            ...(readingDatetime
+              ? { readingDatetime: new Date(readingDatetime) }
+              : {}),
+          },
+        }),
+    );
+    if (!reading) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json({ reading }, { status: 201 });
   } catch (error) {

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import {
   assertInspectionAssignedWrite,
   assertInspectionReadable,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { decomposeElements } from "@/lib/sketch/decompose-elements";
@@ -436,7 +437,12 @@ export async function POST(
     // it again. A graph failure therefore fails closed for report export.
     if (activeUnderlay) {
       await (prisma as any).sketchUnderlayReference.update({
-        where: { id: activeUnderlay.id },
+        where: {
+          id: activeUnderlay.id,
+          ...(tenancy.data.childInspectionFilter && {
+            inspection: tenancy.data.childInspectionFilter,
+          }),
+        },
         data: {
           verifiedByUserId: null,
           verifiedAt: null,
@@ -469,24 +475,39 @@ export async function POST(
             captureAdapter,
           },
         })
-      : await (prisma as any).claimSketch.create({
-          data: {
-            inspectionId: id,
-            floorNumber,
-            floorLabel,
-            sketchType,
-            sketchData: sketchDataToPersist,
-            renderedPngUrl: renderLocator,
-            backgroundImageOpacity: opacity,
-            backgroundImageScale: bgScale,
-            backgroundImageOffsetX: bgOffsetX,
-            backgroundImageOffsetY: bgOffsetY,
-            moisturePoints: moisturePoints ?? undefined,
-            equipmentPoints: equipmentPoints ?? undefined,
-            country: country ?? undefined,
-            captureAdapter,
-          },
-        });
+      : // D-028: a new floor is created inside a write that re-checks the
+        // caller's reach, so a reassignment between the check and the
+        // write changes 0 rows.
+        await writeWithinInspectionScope(
+          tenancy.data.inspectionManyWhere,
+          { updatedAt: new Date() },
+          (tx) =>
+            (tx as any).claimSketch.create({
+              data: {
+                inspectionId: id,
+                floorNumber,
+                floorLabel,
+                sketchType,
+                sketchData: sketchDataToPersist,
+                renderedPngUrl: renderLocator,
+                backgroundImageOpacity: opacity,
+                backgroundImageScale: bgScale,
+                backgroundImageOffsetX: bgOffsetX,
+                backgroundImageOffsetY: bgOffsetY,
+                moisturePoints: moisturePoints ?? undefined,
+                equipmentPoints: equipmentPoints ?? undefined,
+                country: country ?? undefined,
+                captureAdapter,
+              },
+            }),
+        );
+    if (!sketch) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     // RA Mapping V2 (spec §6.4): derive normalized SketchElement rows from the
     // authoritative Fabric blob. Non-fatal — the blob save is the source of truth,
@@ -697,7 +718,12 @@ export async function POST(
         };
         await (prisma as any).$transaction([
           (prisma as any).sketchUnderlayReference.update({
-            where: { id: activeUnderlay.id },
+            where: {
+              id: activeUnderlay.id,
+              ...(tenancy.data.childInspectionFilter && {
+                inspection: tenancy.data.childInspectionFilter,
+              }),
+            },
             data: {
               sketchId: sketch.id,
               verifiedByUserId: session.user.id,

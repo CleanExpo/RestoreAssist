@@ -191,13 +191,13 @@ export async function POST(
       });
     }
     const inspection = await prisma.inspection.findFirst({
-    where: tenancy.data.inspectionManyWhere,
-    select: {
-      id: true,
-      status: true,
-      _count: { select: { photos: true } },
-    },
-  });
+      where: tenancy.data.inspectionManyWhere,
+      select: {
+        id: true,
+        status: true,
+        _count: { select: { photos: true } },
+      },
+    });
 
     if (!inspection) {
       return apiError(req, {

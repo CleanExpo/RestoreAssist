@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -85,27 +88,41 @@ export async function POST(
         });
       }
 
-      const scopeItem = await prisma.scopeItem.create({
-        data: {
-          inspectionId: id,
-          itemType: body.itemType
-            ? String(body.itemType).slice(0, 100)
-            : "GENERAL",
-          description: String(body.description).slice(0, 2000),
-          areaId: body.areaId || null,
-          quantity: qty,
-          unit: body.unit ? String(body.unit).slice(0, 50) : null,
-          specification: body.specification
-            ? String(body.specification).slice(0, 2000)
-            : null,
-          autoDetermined: body.autoDetermined ?? false,
-          justification: body.justification
-            ? String(body.justification).slice(0, 2000)
-            : null,
-          isRequired: body.isRequired ?? true,
-          isSelected: body.isSelected ?? true,
-        },
-      });
+      // D-028: re-check the caller's reach inside the write, so a
+      // reassignment between the check and the write changes 0 rows.
+      const scopeItem = await writeWithinInspectionScope(
+        tenancy.data.inspectionManyWhere,
+        { updatedAt: new Date() },
+        (tx) =>
+          tx.scopeItem.create({
+            data: {
+              inspectionId: id,
+              itemType: body.itemType
+                ? String(body.itemType).slice(0, 100)
+                : "GENERAL",
+              description: String(body.description).slice(0, 2000),
+              areaId: body.areaId || null,
+              quantity: qty,
+              unit: body.unit ? String(body.unit).slice(0, 50) : null,
+              specification: body.specification
+                ? String(body.specification).slice(0, 2000)
+                : null,
+              autoDetermined: body.autoDetermined ?? false,
+              justification: body.justification
+                ? String(body.justification).slice(0, 2000)
+                : null,
+              isRequired: body.isRequired ?? true,
+              isSelected: body.isSelected ?? true,
+            },
+          }),
+      );
+      if (!scopeItem) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
 
       await prisma.auditLog.create({
         data: {

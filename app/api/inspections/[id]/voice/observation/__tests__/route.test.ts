@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 const gate = vi.hoisted(() => ({ refuse: false }));
@@ -17,6 +18,13 @@ vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 // D-028: every observation re-checks the job's write reach (owner, or the
 // technician assigned to the job).
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
   assertInspectionAssignedWrite: async () =>
     gate.refuse
       ? { ok: false, status: 404, reason: "Inspection not found" }

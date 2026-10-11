@@ -295,9 +295,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Verify ownership
     const ownership = await prisma.inspection.findFirst({
-    where: { id: inspectionId, userId: session.user.id },
-    select: { id: true },
-  });
+      where: { id: inspectionId, userId: session.user.id },
+      select: { id: true },
+    });
     if (!ownership) {
       return apiError(request, {
         code: "NOT_FOUND",

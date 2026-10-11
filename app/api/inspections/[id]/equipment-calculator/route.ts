@@ -17,7 +17,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import {
   calculateEquipment,
   type DamageCategory,
@@ -55,16 +58,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
       }
       const inspection = await prisma.inspection.findFirst({
-      where: tenancy.data.inspectionManyWhere,
-      select: {
-        id: true,
-        classifications: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { category: true, class: true },
+        where: tenancy.data.inspectionManyWhere,
+        select: {
+          id: true,
+          classifications: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { category: true, class: true },
+          },
         },
-      },
-    });
+      });
 
       if (!inspection) {
         return apiError(request, {
@@ -143,26 +146,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // Persist as ScopeItem records (autoDetermined)
       let savedScopeItems: string[] = [];
       if (saveScopeItems) {
-        // Remove any previous auto-determined equipment scope items
-        await prisma.scopeItem.deleteMany({
-          where: {
-            inspectionId,
-            autoDetermined: true,
-            itemType: {
-              in: [
-                "air_mover",
-                "lgr_dehumidifier",
-                "desiccant_dehumidifier",
-                "air_scrubber",
-                "negative_air_machine",
-              ],
-            },
-            ...(tenancy.data.childInspectionFilter && {
-              inspection: tenancy.data.childInspectionFilter,
-            }),
-          },
-        });
-
         const { randomUUID } = await import("crypto");
         const equipmentPayloads = result.equipmentList.map((item) => ({
           id: randomUUID(),
@@ -177,7 +160,39 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           isRequired: true,
           isSelected: true,
         }));
-        await prisma.scopeItem.createMany({ data: equipmentPayloads });
+        // D-028: replace the auto-determined equipment rows inside one write
+        // that re-checks the caller's reach, so a reassignment between the
+        // check and the write changes 0 rows.
+        const replaced = await writeWithinInspectionScope(
+          tenancy.data.inspectionManyWhere,
+          { updatedAt: new Date() },
+          async (tx) => {
+            // Remove any previous auto-determined equipment scope items
+            await tx.scopeItem.deleteMany({
+              where: {
+                inspectionId,
+                autoDetermined: true,
+                itemType: {
+                  in: [
+                    "air_mover",
+                    "lgr_dehumidifier",
+                    "desiccant_dehumidifier",
+                    "air_scrubber",
+                    "negative_air_machine",
+                  ],
+                },
+              },
+            });
+            return tx.scopeItem.createMany({ data: equipmentPayloads });
+          },
+        );
+        if (!replaced) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Inspection not found",
+            status: 404,
+          });
+        }
         savedScopeItems.push(...equipmentPayloads.map((p) => p.id));
       }
 

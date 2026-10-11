@@ -8,8 +8,11 @@
  * create), and must not narrow its write back to the job's creator with a
  * `where: { ..., userId }` filter: that filter matches 0 rows for the
  * technician, so the gate would admit them and the write would silently do
- * nothing. No DELETE in these files may reach that helper: deletes stay with
- * the owner's reach (RULES 21 chain of custody).
+ * nothing. Every write in those handlers must also re-check the caller's
+ * reach at write time (the helper's filters, or writeWithinInspectionScope),
+ * so a reassignment between the check and the write changes 0 rows. No
+ * DELETE, no excluded handler and nothing in OWNER_ONLY_FILES may reach that
+ * helper: deletes stay with the owner's reach (RULES 21 chain of custody).
  *
  * DB-free: the route files are parsed with the TypeScript compiler, never
  * imported. The behavioural proof (rows actually change; another business and
@@ -121,6 +124,49 @@ const EXCLUDED: Record<string, Record<string, string>> = {
   "voice/session/route.ts": { DELETE: NO_DELETE },
   "water-damage-classification/route.ts": { DELETE: NO_DELETE },
 };
+
+/**
+ * Route files that stay entirely with the owner's reach: money, lifecycle,
+ * administration, the inspection itself, and AI spend. No mutating export in
+ * them may reach a gate that admits the assigned technician.
+ */
+const OWNER_ONLY_FILES: Record<string, string> = {
+  "route.ts": "the inspection itself (PATCH, DELETE)",
+  "accept/route.ts": "lifecycle",
+  "capture-invite/route.ts": "administration",
+  "client-portal-link/route.ts": "administration",
+  "close/route.ts": "lifecycle",
+  "cost-estimates/route.ts": "money",
+  "dispute-pack/route.ts": "money",
+  "generate-invoice/route.ts": "money",
+  "guidewire/route.ts": "administration",
+  "handover/route.ts": "lifecycle",
+  "insurer-profile/route.ts": "administration",
+  "reopen/route.ts": "lifecycle",
+  "sign/route.ts": "lifecycle",
+  "generate-scope/route.ts": AI_SPEND,
+  "sketches/import-from-image/route.ts": AI_SPEND,
+  "assessments/[type]/generate/route.ts": AI_SPEND,
+};
+
+/**
+ * Writes that need no tenancy filter of their own: the audit trail records
+ * the actor, and the idempotency and client-mutation ledgers are keyed to
+ * the caller (RA-7586).
+ */
+const UNSCOPED_MODELS_OK = new Set(["auditLog", "idempotencyRecord", "clientMutation"]);
+
+/**
+ * Writes that re-derive rows of the sketch the handler has just saved through
+ * a scoped write, keyed on that sketch's id. Listed per file so a new unscoped
+ * write elsewhere still fails.
+ */
+const DERIVED_WRITES: Record<string, Set<string>> = {
+  "sketches/route.ts": new Set(["sketchElement", "sketchRoom", "sketchMoistureReading"]),
+};
+
+const WRITE_OPS = new Set(["create", "createMany", "update", "updateMany", "upsert", "delete", "deleteMany"]);
+const SCOPE_TOKENS = /\b(inspectionWhere|inspectionManyWhere|childInspectionFilter)\b/;
 
 type Violation = { handler: string; problem: string };
 
@@ -256,6 +302,88 @@ function creatorOnlyWheres(nodes: ts.Node[], bound: Set<string>): string[] {
   return hits;
 }
 
+function unwrap(e: ts.Expression): ts.Expression {
+  while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isNonNullExpression(e)) {
+    e = e.expression;
+  }
+  return e;
+}
+
+/** `prisma.model.op(...)` / `tx.model.op(...)`: returns [model, op] or null. */
+function prismaWrite(call: ts.CallExpression): [string, string] | null {
+  const callee = unwrap(call.expression);
+  if (!ts.isPropertyAccessExpression(callee) || !WRITE_OPS.has(callee.name.text)) return null;
+  const owner = unwrap(callee.expression);
+  if (!ts.isPropertyAccessExpression(owner)) return null;
+  const root = unwrap(owner.expression).getText();
+  if (root !== "prisma" && root !== "tx") return null;
+  return [owner.name.text, callee.name.text];
+}
+
+/**
+ * True when the write re-checks the caller's reach at write time: its own
+ * arguments use the helper's filters, or it runs inside a
+ * writeWithinInspectionScope callback, or inside a $transaction whose body
+ * also runs a write scoped by those filters (a scoped update that claims no
+ * row throws or is counted, and the whole transaction rolls back).
+ */
+function writeIsScoped(call: ts.CallExpression, seen = new Set<ts.Node>()): boolean {
+  if (call.arguments.some((a) => SCOPE_TOKENS.test(a.getText()))) return true;
+  for (let n: ts.Node = call.parent; n; n = n.parent) {
+    if (ts.isFunctionDeclaration(n) && n.name && ts.isSourceFile(n.parent) && !seen.has(n)) {
+      // A top-level helper: scoped only if every place that calls it is.
+      seen.add(n);
+      const sites = callSites(n.getSourceFile(), n.name.text);
+      return sites.length > 0 && sites.every((c) => writeIsScoped(c, seen));
+    }
+    if (ts.isCallExpression(n)) {
+      const callee = unwrap(n.expression);
+      const name = ts.isIdentifier(callee)
+        ? callee.text
+        : ts.isPropertyAccessExpression(callee)
+          ? callee.name.text
+          : "";
+      if (name === "writeWithinInspectionScope") {
+        // A literal scope such as `{ id: inspectionId }` re-checks nothing.
+        const scopeArg = n.arguments[0];
+        return scopeArg !== undefined && !ts.isObjectLiteralExpression(unwrap(scopeArg));
+      }
+      if (name === "$transaction" && n.arguments.some((a) => SCOPE_TOKENS.test(a.getText()))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function callSites(sf: ts.SourceFile, name: string): ts.CallExpression[] {
+  const out: ts.CallExpression[] = [];
+  const visit = (n: ts.Node) => {
+    if (ts.isCallExpression(n) && ts.isIdentifier(unwrap(n.expression)) && unwrap(n.expression).getText() === name) {
+      out.push(n);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return out;
+}
+
+function unscopedWrites(nodes: ts.Node[], derived: Set<string>): string[] {
+  const hits: string[] = [];
+  const visit = (n: ts.Node) => {
+    if (ts.isCallExpression(n)) {
+      const w = prismaWrite(n);
+      if (w && !UNSCOPED_MODELS_OK.has(w[0]) && !derived.has(w[0]) && !writeIsScoped(n)) {
+        const { line } = n.getSourceFile().getLineAndCharacterOfPosition(n.getStart());
+        hits.push(`line ${line + 1}: ${w[0]}.${w[1]}`);
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  nodes.forEach(visit);
+  return hits;
+}
+
 /** Pure analyser over source text, so a planted defect can be fed to it directly. */
 function analyseFieldDataRoute(
   source: string,
@@ -289,6 +417,12 @@ function analyseFieldDataRoute(
     for (const hit of creatorOnlyWheres(nodes, bound)) {
       violations.push({ handler: method, problem: `creator-only where filter (${hit})` });
     }
+    for (const hit of unscopedWrites(nodes, DERIVED_WRITES[fileName] ?? new Set())) {
+      violations.push({
+        handler: method,
+        problem: `write not re-checked at write time (${hit}); use the helper's filters or writeWithinInspectionScope`,
+      });
+    }
   }
   return violations;
 }
@@ -298,8 +432,13 @@ function analyseFieldDataRoute(
  * assigned technician. Returns the admitting gates it reaches (empty = ok).
  */
 function deleteAdmitsAssignee(source: string): string[] {
+  return handlerAdmitsAssignee(source, "DELETE");
+}
+
+/** The assignee-admitting gates a given exported handler reaches (empty = refuses the assignee). */
+function handlerAdmitsAssignee(source: string, method: string): string[] {
   const sf = ts.createSourceFile("route.ts", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  const handler = exportedHandlers(sf).get("DELETE");
+  const handler = exportedHandlers(sf).get(method);
   if (!handler) return [];
   const calls = calledNames(reachable(handler, localFunctions(sf)));
   return [...ADMITS_ASSIGNEE].filter((g) => calls.has(g));
@@ -321,6 +460,21 @@ describe("D-028: field-data writes admit the assigned technician", () => {
   it.each(Object.keys(GATED))("%s: DELETE does not admit the assigned technician", (rel) => {
     expect(deleteAdmitsAssignee(read(rel))).toEqual([]);
   });
+
+  it.each(
+    Object.entries(EXCLUDED).flatMap(([rel, m]) => Object.keys(m).map((method) => [rel, method])),
+  )("%s %s is excluded and does not admit the assigned technician", (rel, method) => {
+    expect(handlerAdmitsAssignee(read(rel), method)).toEqual([]);
+  });
+
+  it.each(Object.keys(OWNER_ONLY_FILES))(
+    "%s stays owner-only: no mutating export admits the assigned technician",
+    (rel) => {
+      const src = read(rel);
+      const leaks = mutatingExports(src).filter((m) => handlerAdmitsAssignee(src, m).length > 0);
+      expect(leaks).toEqual([]);
+    },
+  );
 
   it.each(Object.keys(GATED))("%s: every mutating export is classified", (rel) => {
     const classified = [...GATED[rel], ...Object.keys(EXCLUDED[rel] ?? {})].sort();
@@ -411,6 +565,81 @@ describe("D-028 guard analyser: positive and negative controls", () => {
       .replace("export async function PATCH", "export async function DELETE")
       .replace("assertInspectionAssignedWrite(session, id)", "resolveInspectionWrite(session, id)");
     expect(deleteAdmitsAssignee(owner)).toEqual([]);
+  });
+
+  it("PLANTED (review G1): a child update with the scope filter removed is caught", () => {
+    const planted = clean.replace(
+      "where: { id: readingId, inspection: tenancy.data.childInspectionFilter }",
+      "where: { id: readingId }",
+    );
+    expect(planted).not.toEqual(clean);
+    const v = analyseFieldDataRoute(planted, ["PATCH"]);
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/write not re-checked at write time/);
+  });
+
+  it("PLANTED: a create on the bare inspection id is caught", () => {
+    const planted = clean.replace(
+      "await prisma.auditLog.create",
+      "await prisma.environmentalData.create({ data: { inspectionId: id } });\n      await prisma.auditLog.create",
+    );
+    const v = analyseFieldDataRoute(planted, ["PATCH"]);
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/environmentalData\.create/);
+  });
+
+  it("a create inside writeWithinInspectionScope passes the scoped-write rule", () => {
+    const scoped = clean.replace(
+      "await prisma.auditLog.create",
+      "await writeWithinInspectionScope(tenancy.data.inspectionManyWhere, { updatedAt: new Date() }, (tx) => tx.environmentalData.create({ data: { inspectionId: id } }));\n      await prisma.auditLog.create",
+    );
+    expect(analyseFieldDataRoute(scoped, ["PATCH"])).toEqual([]);
+  });
+
+  it("PLANTED: writeWithinInspectionScope on a bare { id } scope is caught", () => {
+    const planted = clean.replace(
+      "await prisma.auditLog.create",
+      "await writeWithinInspectionScope({ id }, { updatedAt: new Date() }, (tx) => tx.environmentalData.create({ data: { inspectionId: id } }));\n      await prisma.auditLog.create",
+    );
+    const v = analyseFieldDataRoute(planted, ["PATCH"]);
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/environmentalData\.create/);
+  });
+
+  it("PLANTED (review G2): the inspection DELETE gated on the assignee helper is caught", () => {
+    const original = read("route.ts");
+    const i = original.indexOf("export async function DELETE(");
+    const planted =
+      original.slice(0, i) +
+      original
+        .slice(i)
+        .replace(
+          "where: { id, userId: session.user.id },",
+          "where: { id, userId: session.user.id, gate: await assertInspectionAssignedWrite(session, id) },",
+        );
+    expect(planted).not.toEqual(original);
+    expect(handlerAdmitsAssignee(planted, "DELETE")).toEqual(["assertInspectionAssignedWrite"]);
+  });
+
+  it("PLANTED (review G3): contents pack-out POST gated on the assignee helper is caught", () => {
+    const original = read("contents-pack-out/route.ts");
+    const i = original.indexOf("export async function POST(");
+    const planted =
+      original.slice(0, i) +
+      original.slice(i).replace("resolveInspectionWrite(", "assertInspectionAssignedWrite(");
+    expect(planted).not.toEqual(original);
+    expect(handlerAdmitsAssignee(planted, "POST")).toEqual(["assertInspectionAssignedWrite"]);
+  });
+
+  it("PLANTED: an AI-spend POST gated on the assignee helper is caught", () => {
+    const original = read("group-readings/route.ts");
+    const i = original.indexOf("export async function POST(");
+    const j = original.indexOf("export async function PATCH(");
+    const planted =
+      original.slice(0, i) +
+      original
+        .slice(i, j)
+        .replace("const inspection = await prisma.inspection.findFirst(", "await assertInspectionAssignedWrite(session, inspectionId);\n    const inspection = await prisma.inspection.findFirst(") +
+      original.slice(j);
+    expect(planted).not.toEqual(original);
+    expect(handlerAdmitsAssignee(planted, "POST")).toEqual(["assertInspectionAssignedWrite"]);
   });
 
   it("PLANTED: an unclassified mutating export is reported", () => {

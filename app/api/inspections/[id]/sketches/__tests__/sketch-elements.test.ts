@@ -3,12 +3,20 @@
  * normalized SketchElement rows from the Fabric blob (spec §6.4, T1.2).
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 // D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
   assertInspectionAssignedWrite: vi.fn(async () => ({
     ok: true,
     data: {

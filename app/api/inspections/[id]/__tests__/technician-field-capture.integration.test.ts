@@ -66,7 +66,7 @@ import { PATCH as patchGroupReadings } from "../group-readings/route";
 import { DELETE as deleteSketch } from "../sketches/[sketchId]/route";
 import { POST as postVoiceSession } from "../voice/session/route";
 import { POST as postEquipment } from "../equipment-calculator/route";
-import { POST as postDryingGoal } from "../drying-goal/route";
+import { POST as postDryingGoal, PUT as putDryingGoal } from "../drying-goal/route";
 
 const S = `ra7755-${Date.now().toString(36)}`;
 const ids = { owner: "", tech: "", outsider: "", inspectionId: "", orgs: [] as string[] };
@@ -1077,6 +1077,10 @@ const OWNER_ONLY_CASES: FieldCase[] = [
 describe.skipIf(!process.env.DATABASE_URL)(
   "D-028: the assigned technician writes field data on the job",
   () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     afterAll(async () => {
       if (made.inspections.length) {
         await prisma.auditLog.deleteMany({ where: { inspectionId: { in: made.inspections } } });
@@ -1160,5 +1164,137 @@ describe.skipIf(!process.env.DATABASE_URL)(
         expect(await c.changed(job, seeded)).toBe(true);
       },
     );
+
+    /**
+     * Deterministic race: the gate has already admitted T; the owner reassigns
+     * the job just before the handler's scoped write opens its transaction.
+     * `prisma` from @/lib/prisma is a Proxy over the real client cached on
+     * globalThis outside production, so the spy sits on that client.
+     */
+    async function reassignBeforeNextTransaction(jobId: string, to: string) {
+      const client = (globalThis as { prisma?: typeof prisma }).prisma;
+      if (!client) throw new Error("real Prisma client not initialised");
+      const realTransaction = client.$transaction.bind(client);
+      const state = { reassigned: false };
+      vi.spyOn(client, "$transaction").mockImplementationOnce((async (...args: unknown[]) => {
+        await client.inspection.update({ where: { id: jobId }, data: { technicianId: to } });
+        state.reassigned = true;
+        return (realTransaction as (...a: unknown[]) => unknown)(...args);
+      }) as typeof client.$transaction);
+      return state;
+    }
+
+    const RACE_CASES = FIELD_CASES.filter((c) =>
+      ["environmental POST", "scope-items POST", "make-safe PATCH", "affected-areas POST"].includes(c.name),
+    );
+
+    it.each(RACE_CASES.map((c) => [c.name, c] as const))(
+      "%s: a technician reassigned between the check and the write changes 0 rows",
+      async (_name, c) => {
+        const { w, job, seeded } = await fresh();
+        const race = await reassignBeforeNextTransaction(job.id, w.O);
+        as2(w.T);
+        const res = await c.call(job, seeded);
+        // Positive control first: the reassignment really ran inside this request.
+        expect(race.reassigned).toBe(true);
+        await expectStatus(res, 404);
+        expect(await c.changed(job, seeded)).toBe(false);
+      },
+    );
+
+    it("cross-job child id: the technician cannot edit a row of another job through their own job's URL", async () => {
+      const { w, job, seeded } = await fresh();
+      // A second job of the same owner, NOT assigned to T.
+      const other = await mkJob(w, { technicianId: null, workflow: false });
+      const otherArea = await prisma.affectedArea.findFirstOrThrow({
+        where: { inspectionId: other.id },
+        select: { id: true, description: true },
+      });
+      as2(w.T);
+      // Through T's own job URL, naming the other job's area id.
+      await expectStatus(
+        await h(patchArea)(
+          jsonReq(job.id, `affected-areas/${otherArea.id}`, "PATCH", { description: MARK }),
+          cx({ id: job.id, areaId: otherArea.id }),
+        ),
+        404,
+      );
+      // Through the other job's URL directly.
+      await expectStatus(
+        await h(patchArea)(
+          jsonReq(other.id, `affected-areas/${otherArea.id}`, "PATCH", { description: MARK }),
+          cx({ id: other.id, areaId: otherArea.id }),
+        ),
+        404,
+      );
+      expect(
+        (await prisma.affectedArea.findUnique({ where: { id: otherArea.id } }))?.description,
+      ).toBe(otherArea.description);
+      // Positive control: the same request on T's own area succeeds.
+      await expectStatus(
+        await h(patchArea)(
+          jsonReq(job.id, `affected-areas/${seeded.areaId}`, "PATCH", { description: MARK }),
+          cx({ id: job.id, areaId: seeded.areaId }),
+        ),
+        200,
+      );
+    });
+
+    it("cross-job child id: a moisture reading of another job cannot be moved through T's job", async () => {
+      const { w, job } = await fresh();
+      const other = await mkJob(w, { technicianId: null, workflow: false });
+      const otherReading = await prisma.moistureReading.findFirstOrThrow({
+        where: { inspectionId: other.id },
+        select: { id: true, mapX: true },
+      });
+      as2(w.T);
+      await expectStatus(
+        await h(patchReading)(
+          jsonReq(job.id, `moisture/${otherReading.id}`, "PATCH", { mapX: 0.5, mapY: 0.5 }),
+          cx({ id: job.id, readingId: otherReading.id }),
+        ),
+        404,
+      );
+      expect(
+        (await prisma.moistureReading.findUnique({ where: { id: otherReading.id } }))?.mapX,
+      ).toBe(otherReading.mapX);
+    });
+
+    it("drying goal: the technician evaluates but cannot certify; the owner certifies as themself", async () => {
+      const { w, job } = await fresh();
+      // The seeded reading (30 on drywall) is above target; make it dry.
+      await prisma.moistureReading.updateMany({
+        where: { inspectionId: job.id },
+        data: { moistureLevel: 1 },
+      });
+      as2(w.T);
+      await expectStatus(
+        await h(postDryingGoal)(
+          jsonReq(job.id, "drying-goal", "POST", { targetCategory: "Category 1", targetClass: "Class 2" }),
+          cx({ id: job.id }),
+        ),
+        200,
+      );
+      await expectStatus(
+        await h(putDryingGoal)(
+          jsonReq(job.id, "drying-goal", "PUT", { signedOffBy: "Not The Owner" }),
+          cx({ id: job.id }),
+        ),
+        403,
+      );
+      const db = prisma as any;
+      expect((await db.dryingGoalRecord.findUnique({ where: { inspectionId: job.id } })).goalAchieved).toBe(false);
+      as2(w.O);
+      await expectStatus(
+        await h(putDryingGoal)(
+          jsonReq(job.id, "drying-goal", "PUT", { signedOffBy: "Not The Owner" }),
+          cx({ id: job.id }),
+        ),
+        200,
+      );
+      const rec = await db.dryingGoalRecord.findUnique({ where: { inspectionId: job.id } });
+      expect(rec.goalAchieved).toBe(true);
+      expect(rec.signedOffBy).toBe(w.O);
+    });
   },
 );

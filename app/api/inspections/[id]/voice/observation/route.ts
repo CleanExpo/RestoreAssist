@@ -9,7 +9,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import {
   getSession,
   addObservation,
@@ -102,15 +105,33 @@ export async function POST(
         body.transcript,
       );
 
-      // Add observation to session
-      let observation = await addObservation(
-        body.sessionId,
-        type,
-        body.transcript,
-        parsed,
-        confidence,
-        needsConfirmation,
+      // Add observation to session. D-028: written while the scoped parent
+      // update holds the job's row, so a technician unassigned mid-request
+      // records nothing.
+      const sessionId = body.sessionId;
+      const transcript = body.transcript;
+      const added = await writeWithinInspectionScope(
+        tenancy.data.inspectionManyWhere,
+        { updatedAt: new Date() },
+        async () => ({
+          observation: await addObservation(
+            sessionId,
+            type,
+            transcript,
+            parsed,
+            confidence,
+            needsConfirmation,
+          ),
+        }),
       );
+      if (!added) {
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
+      let observation = added.observation;
 
       if (!observation) {
         return apiError(req, {

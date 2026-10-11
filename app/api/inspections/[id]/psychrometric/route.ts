@@ -14,7 +14,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
@@ -179,22 +182,36 @@ export async function POST(
           ) / 10;
       }
 
-      const record = await prisma.psychrometricReading.create({
-        data: {
-          inspectionId: id,
-          visitDate: new Date(data.visitDate),
-          visitNumber: data.visitNumber,
-          technicianId: data.technicianId ?? null,
-          dryBulbTempC: data.dryBulbTempC ?? null,
-          wetBulbTempC: data.wetBulbTempC ?? null,
-          relativeHumidity: data.relativeHumidity ?? null,
-          dewPointC,
-          grainsPerPound: data.grainsPerPound ?? null,
-          gramsPerKilogram: data.gramsPerKilogram ?? null,
-          equipmentRunning: data.equipmentRunning,
-          notes: data.notes ?? null,
-        },
-      });
+      // D-028: re-check the caller's reach inside the write, so a
+      // reassignment between the check and the write changes 0 rows.
+      const record = await writeWithinInspectionScope(
+        tenancy.data.inspectionManyWhere,
+        { updatedAt: new Date() },
+        (tx) =>
+          tx.psychrometricReading.create({
+            data: {
+              inspectionId: id,
+              visitDate: new Date(data.visitDate),
+              visitNumber: data.visitNumber,
+              technicianId: data.technicianId ?? null,
+              dryBulbTempC: data.dryBulbTempC ?? null,
+              wetBulbTempC: data.wetBulbTempC ?? null,
+              relativeHumidity: data.relativeHumidity ?? null,
+              dewPointC,
+              grainsPerPound: data.grainsPerPound ?? null,
+              gramsPerKilogram: data.gramsPerKilogram ?? null,
+              equipmentRunning: data.equipmentRunning,
+              notes: data.notes ?? null,
+            },
+          }),
+      );
+      if (!record) {
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
 
       return NextResponse.json(record, { status: 201 });
     } catch (error) {

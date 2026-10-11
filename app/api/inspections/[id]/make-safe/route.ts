@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
@@ -8,6 +9,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import {
   assertInspectionAssignedWrite,
   assertInspectionReadable,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { MAKE_SAFE_ACTIONS } from "@/lib/compliance/make-safe-actions";
 
@@ -45,10 +47,15 @@ async function authorise(
   });
   if (rateLimited) return { error: rateLimited };
 
-  const inspection =
-    intent === "read"
-      ? (await assertInspectionReadable(session, inspectionId)).ok
-      : (await assertInspectionAssignedWrite(session, inspectionId)).ok;
+  let writeScope: Prisma.InspectionWhereInput | undefined;
+  let inspection: boolean;
+  if (intent === "read") {
+    inspection = (await assertInspectionReadable(session, inspectionId)).ok;
+  } else {
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+    inspection = tenancy.ok;
+    writeScope = tenancy.ok ? tenancy.data.inspectionManyWhere : undefined;
+  }
   if (!inspection) {
     return {
       error: apiError(request, {
@@ -59,7 +66,7 @@ async function authorise(
     };
   }
 
-  return { userId: session.user.id };
+  return { userId: session.user.id, writeScope };
 }
 
 // ── GET — list all MakeSafeAction rows for this inspection ─────────────────
@@ -100,6 +107,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const auth = await authorise(request, id);
   if (auth.error) return auth.error;
   const userId = auth.userId!;
+  const writeScope = auth.writeScope!;
 
   // RA-1266: upserts a MakeSafeAction — retry without idempotency would
   // bump the same completed-transition counter twice.
@@ -143,37 +151,51 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       const nowCompleted = completed ?? wasCompleted;
       const transitioningToCompleted = !wasCompleted && nowCompleted;
 
-      const result = await prisma.makeSafeAction.upsert({
-        where: { inspectionId_action: { inspectionId: id, action } },
-        create: {
-          inspectionId: id,
-          action,
-          applicable: applicable ?? true,
-          completed: nowCompleted,
-          completedAt: nowCompleted ? new Date() : null,
-          completedByUserId: nowCompleted ? auth.userId : null,
-          notes: notes ?? null,
-        },
-        update: {
-          ...(applicable !== undefined && { applicable }),
-          ...(completed !== undefined && {
-            completed,
-            ...(transitioningToCompleted && {
-              completedAt: new Date(),
-              completedByUserId: auth.userId,
-            }),
+      // D-028: re-check the caller's reach inside the write, so a
+      // reassignment between the check and the write changes 0 rows.
+      const result = await writeWithinInspectionScope(
+        writeScope,
+        { updatedAt: new Date() },
+        (tx) =>
+          tx.makeSafeAction.upsert({
+            where: { inspectionId_action: { inspectionId: id, action } },
+            create: {
+              inspectionId: id,
+              action,
+              applicable: applicable ?? true,
+              completed: nowCompleted,
+              completedAt: nowCompleted ? new Date() : null,
+              completedByUserId: nowCompleted ? auth.userId : null,
+              notes: notes ?? null,
+            },
+            update: {
+              ...(applicable !== undefined && { applicable }),
+              ...(completed !== undefined && {
+                completed,
+                ...(transitioningToCompleted && {
+                  completedAt: new Date(),
+                  completedByUserId: auth.userId,
+                }),
+              }),
+              ...(notes !== undefined && { notes }),
+            },
+            select: {
+              id: true,
+              action: true,
+              applicable: true,
+              completed: true,
+              completedAt: true,
+              notes: true,
+            },
           }),
-          ...(notes !== undefined && { notes }),
-        },
-        select: {
-          id: true,
-          action: true,
-          applicable: true,
-          completed: true,
-          completedAt: true,
-          notes: true,
-        },
-      });
+      );
+      if (!result) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
 
       return NextResponse.json({ data: result }, { status: 200 });
     } catch (err) {
@@ -228,49 +250,63 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     });
     const existingMap = new Map(existing.map((r) => [r.action, r.completed]));
 
-    const results = await Promise.all(
-      actions.map((item) => {
-        const wasCompleted = existingMap.get(item.action) ?? false;
-        const nowCompleted = item.completed ?? wasCompleted;
-        const transitioningToCompleted = !wasCompleted && nowCompleted;
+    // D-028: every upsert runs inside one write that re-checks the caller's
+    // reach, so a reassignment between the check and the write changes 0 rows.
+    const results = await writeWithinInspectionScope(
+      auth.writeScope!,
+      { updatedAt: new Date() },
+      (tx) =>
+        Promise.all(
+          actions.map((item) => {
+            const wasCompleted = existingMap.get(item.action) ?? false;
+            const nowCompleted = item.completed ?? wasCompleted;
+            const transitioningToCompleted = !wasCompleted && nowCompleted;
 
-        return prisma.makeSafeAction.upsert({
-          where: {
-            inspectionId_action: { inspectionId: id, action: item.action },
-          },
-          create: {
-            inspectionId: id,
-            action: item.action,
-            applicable: item.applicable ?? true,
-            completed: nowCompleted,
-            completedAt: nowCompleted ? new Date() : null,
-            completedByUserId: nowCompleted ? auth.userId : null,
-            notes: item.notes ?? null,
-          },
-          update: {
-            ...(item.applicable !== undefined && {
-              applicable: item.applicable,
-            }),
-            ...(item.completed !== undefined && {
-              completed: item.completed,
-              ...(transitioningToCompleted && {
-                completedAt: new Date(),
-                completedByUserId: auth.userId,
-              }),
-            }),
-            ...(item.notes !== undefined && { notes: item.notes }),
-          },
-          select: {
-            id: true,
-            action: true,
-            applicable: true,
-            completed: true,
-            completedAt: true,
-            notes: true,
-          },
-        });
-      }),
+            return tx.makeSafeAction.upsert({
+              where: {
+                inspectionId_action: { inspectionId: id, action: item.action },
+              },
+              create: {
+                inspectionId: id,
+                action: item.action,
+                applicable: item.applicable ?? true,
+                completed: nowCompleted,
+                completedAt: nowCompleted ? new Date() : null,
+                completedByUserId: nowCompleted ? auth.userId : null,
+                notes: item.notes ?? null,
+              },
+              update: {
+                ...(item.applicable !== undefined && {
+                  applicable: item.applicable,
+                }),
+                ...(item.completed !== undefined && {
+                  completed: item.completed,
+                  ...(transitioningToCompleted && {
+                    completedAt: new Date(),
+                    completedByUserId: auth.userId,
+                  }),
+                }),
+                ...(item.notes !== undefined && { notes: item.notes }),
+              },
+              select: {
+                id: true,
+                action: true,
+                applicable: true,
+                completed: true,
+                completedAt: true,
+                notes: true,
+              },
+            });
+          }),
+        ),
     );
+    if (!results) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json({ data: results });
   } catch (err) {

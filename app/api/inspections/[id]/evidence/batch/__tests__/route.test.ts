@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { POST } from "../route";
 
@@ -17,6 +18,13 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
 // D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
   assertInspectionAssignedWrite: (...a: unknown[]) => assertInspectionAssignedWrite(...a),
 }));
 
@@ -78,7 +86,15 @@ beforeEach(() => {
   getServerSession.mockReset().mockResolvedValue({
     user: { id: "user_1", name: "Tester" },
   });
-  assertInspectionAssignedWrite.mockReset().mockResolvedValue({ ok: true });
+  assertInspectionAssignedWrite.mockReset().mockResolvedValue({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "inspection_1" },
+      inspectionManyWhere: { id: "inspection_1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
+  });
   userFindUnique.mockReset().mockResolvedValue({ organizationId: "org_1" });
   storageUpload.mockReset();
   signingKeyFindFirst.mockReset().mockResolvedValue(null);

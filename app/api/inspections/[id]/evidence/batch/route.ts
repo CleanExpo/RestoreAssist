@@ -16,7 +16,10 @@ import { EvidenceClass } from "@prisma/client";
 import { getStorageProvider } from "@/lib/storage";
 import { classifyByMimeType } from "@/lib/storage/compression";
 import type { UploadInput, UploadOutput } from "@/lib/storage";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
@@ -279,40 +282,50 @@ export async function POST(
           item.evidenceClassOverride,
         );
 
-        return prisma.evidenceItem.create({
-          data: {
-            inspectionId,
-            workflowStepId: workflowStepId || null,
-            evidenceClass,
-            title: item.input.filename,
-            capturedById: session.user.id,
-            capturedByName: session.user.name || "Unknown",
-            capturedAt: new Date(),
-            capturedLat: capturedLat ? parseFloat(String(capturedLat)) : null,
-            capturedLng: capturedLng ? parseFloat(String(capturedLng)) : null,
-            deviceType: "WEB_BROWSER",
-            fileUrl: uploaded.compressedUrl,
-            fileMimeType: file.type,
-            fileSizeBytes: uploaded.sizeBytes,
-            thumbnailUrl: uploaded.thumbnailUrl,
-            hashSha256: uploaded.sha256,
-            // Review round 1 (MUST-FIX 1): this writer accepts no client
-            // structuredData today, but it goes through the SAME shared
-            // sanitiser as the other two so the record is stamped
-            // signedManifestVerified:false explicitly — a future edit that
-            // starts accepting client metadata cannot silently reopen the
-            // "unsigned record presents as signed" hole.
-            structuredData: buildEvidenceStructuredData({
-              fileSha256: uploaded.sha256 ?? null,
-              downgradeReason: policy.downgradeReason,
-              storagePaths: {
-                originalStoragePath: uploaded.storagePath,
-                compressedStoragePath: uploaded.compressedPath,
-                thumbnailStoragePath: uploaded.thumbnailPath,
+        // D-028: each record is created inside a write that re-checks the
+        // caller's reach, so a technician unassigned while the files were
+        // uploading lands no evidence on the job.
+        const row = await writeWithinInspectionScope(
+          tenancy.data.inspectionManyWhere,
+          { updatedAt: new Date() },
+          (tx) =>
+            tx.evidenceItem.create({
+              data: {
+                inspectionId,
+                workflowStepId: workflowStepId || null,
+                evidenceClass,
+                title: item.input.filename,
+                capturedById: session.user.id,
+                capturedByName: session.user.name || "Unknown",
+                capturedAt: new Date(),
+                capturedLat: capturedLat ? parseFloat(String(capturedLat)) : null,
+                capturedLng: capturedLng ? parseFloat(String(capturedLng)) : null,
+                deviceType: "WEB_BROWSER",
+                fileUrl: uploaded.compressedUrl,
+                fileMimeType: file.type,
+                fileSizeBytes: uploaded.sizeBytes,
+                thumbnailUrl: uploaded.thumbnailUrl,
+                hashSha256: uploaded.sha256,
+                // Review round 1 (MUST-FIX 1): this writer accepts no client
+                // structuredData today, but it goes through the SAME shared
+                // sanitiser as the other two so the record is stamped
+                // signedManifestVerified:false explicitly — a future edit that
+                // starts accepting client metadata cannot silently reopen the
+                // "unsigned record presents as signed" hole.
+                structuredData: buildEvidenceStructuredData({
+                  fileSha256: uploaded.sha256 ?? null,
+                  downgradeReason: policy.downgradeReason,
+                  storagePaths: {
+                    originalStoragePath: uploaded.storagePath,
+                    compressedStoragePath: uploaded.compressedPath,
+                    thumbnailStoragePath: uploaded.thumbnailPath,
+                  },
+                }),
               },
             }),
-          },
-        });
+        );
+        if (!row) throw new Error("Inspection no longer in the caller's write scope");
+        return row;
       }),
     );
 

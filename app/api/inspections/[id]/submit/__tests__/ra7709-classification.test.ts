@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { sqmToSqft } from "@/lib/units";
 import { classifyIICRC } from "@/lib/nir-classification-engine";
@@ -31,6 +32,13 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
   // Submit (RA-7721), and draft-snapshot and water-damage-classification
   // (D-028), all gate on the assigned-write helper.
   assertInspectionAssignedWrite: vi.fn().mockResolvedValue({

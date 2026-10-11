@@ -10,6 +10,7 @@
  * and assert on the ledger rows it writes.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => {
@@ -75,6 +76,13 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
 // ./technician-field-capture.integration.test.ts. Here it
 // resolves through the existing inspection lookup mock.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
   assertInspectionCapturable: async (_s: unknown, id: string) => {
     const row = await mocks.inspectionFindFirst({ where: { id }, select: { id: true } });
     return row

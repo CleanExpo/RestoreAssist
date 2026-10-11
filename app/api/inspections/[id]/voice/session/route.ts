@@ -10,7 +10,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { createSession, endSession } from "@/lib/voice/session";
 import { checkCompletion, buildGreeting } from "@/lib/voice/completion-checker";
 import type { VoiceCopilotMode } from "@/lib/voice/types";
@@ -62,11 +65,22 @@ export async function POST(
     }
 
     const mode: VoiceCopilotMode = body.mode ?? "assisted";
-    const voiceSession = await createSession(
-      inspection.id,
-      session.user.id,
-      mode,
+    // D-028: the session is created while the scoped parent update holds the
+    // job's row, so a reassignment cannot commit between the check and the
+    // create. (createSession writes through the shared client; the row lock
+    // taken by the claim is what serialises it against the reassignment.)
+    const voiceSession = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { updatedAt: new Date() },
+      () => createSession(inspection.id, session.user.id, mode),
     );
+    if (!voiceSession) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     // Check what's missing
     const completionItems = await checkCompletion(inspection.id);

@@ -85,9 +85,9 @@ export async function POST(
     const { id: inspectionId } = await context.params;
 
     const inspection = await prisma.inspection.findFirst({
-    where: { id: inspectionId, userId },
-    select: { id: true },
-  });
+      where: { id: inspectionId, userId },
+      select: { id: true },
+    });
     if (!inspection) {
       return apiError(request, {
         code: "NOT_FOUND",

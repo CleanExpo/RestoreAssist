@@ -22,6 +22,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import {
   assertInspectionAssignedWrite,
   assertInspectionTenancy,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -203,18 +204,32 @@ export async function POST(
         data.circuitBreakerRating,
       );
 
-      const record = await prisma.circuitAssessment.create({
-        data: {
-          inspectionId: id,
-          circuitId: data.circuitId,
-          locationZone: data.locationZone,
-          equipmentList: data.equipmentList,
-          circuitBreakerRating: data.circuitBreakerRating,
-          rcdProtected: data.rcdProtected,
-          extensionCordGauge: data.extensionCordGauge ?? null,
-          ...safety,
-        },
-      });
+      // D-028: re-check the caller's reach inside the write, so a
+      // reassignment between the check and the write changes 0 rows.
+      const record = await writeWithinInspectionScope(
+        tenancy.data.inspectionManyWhere,
+        { updatedAt: new Date() },
+        (tx) =>
+          tx.circuitAssessment.create({
+            data: {
+              inspectionId: id,
+              circuitId: data.circuitId,
+              locationZone: data.locationZone,
+              equipmentList: data.equipmentList,
+              circuitBreakerRating: data.circuitBreakerRating,
+              rcdProtected: data.rcdProtected,
+              extensionCordGauge: data.extensionCordGauge ?? null,
+              ...safety,
+            },
+          }),
+      );
+      if (!record) {
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
 
       return NextResponse.json(record, { status: 201 });
     } catch (err) {

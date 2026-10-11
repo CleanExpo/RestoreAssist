@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import {
   assertInspectionAssignedWrite,
   assertInspectionTenancy,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
@@ -128,95 +129,111 @@ export async function POST(
     const record = buildUnderlayAttestationRecord(attestationInput, source);
     const now = new Date();
 
-    let saved: { sketchId: string; referenceId: string };
+    let saved: { sketchId: string; referenceId: string } | null;
     try {
-      saved = await (prisma as any).$transaction(async (tx: any) => {
-        let sketch = await tx.claimSketch.findFirst({
-          where: { inspectionId: id, floorNumber },
-          select: { id: true },
-        });
-        if (sketch) {
-          sketch = await tx.claimSketch.update({
-            // D-028: re-check the caller's reach inside the write itself.
-            where: {
-              id: sketch.id,
-              ...(tenancy.data.childInspectionFilter && {
-                inspection: tenancy.data.childInspectionFilter,
-              }),
-            },
-            data: {
-              backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
-              captureAdapter: "underlay_import",
-            },
+      // D-028: the scoped parent update claims the job first, so a
+      // reassignment between the check and the write changes 0 rows.
+      saved = await writeWithinInspectionScope(
+        tenancy.data.inspectionManyWhere,
+        { updatedAt: now },
+        async (tx: any) => {
+          let sketch = await tx.claimSketch.findFirst({
+            where: { inspectionId: id, floorNumber },
             select: { id: true },
           });
-        } else {
-          sketch = await tx.claimSketch.create({
-            data: {
+          if (sketch) {
+            sketch = await tx.claimSketch.update({
+              // D-028: re-check the caller's reach inside the write itself.
+              where: {
+                id: sketch.id,
+                ...(tenancy.data.childInspectionFilter && {
+                  inspection: tenancy.data.childInspectionFilter,
+                }),
+              },
+              data: {
+                backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
+                captureAdapter: "underlay_import",
+              },
+              select: { id: true },
+            });
+          } else {
+            sketch = await tx.claimSketch.create({
+              data: {
+                inspectionId: id,
+                floorNumber,
+                floorLabel:
+                  floorNumber === 0 ? "Ground Floor" : `Floor ${floorNumber + 1}`,
+                backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
+                captureAdapter: "underlay_import",
+              },
+              select: { id: true },
+            });
+          }
+
+          await tx.sketchUnderlayReference.updateMany({
+            where: {
               inspectionId: id,
               floorNumber,
-              floorLabel:
-                floorNumber === 0 ? "Ground Floor" : `Floor ${floorNumber + 1}`,
-              backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
-              captureAdapter: "underlay_import",
+              replacedAt: null,
+              removedAt: null,
+            },
+            data: { replacedAt: now },
+          });
+          const reference = await tx.sketchUnderlayReference.create({
+            data: {
+              inspectionId: id,
+              sketchId: sketch.id,
+              floorNumber,
+              storagePath: stored.storagePath,
+              sourceType: source,
+              sourcePageUrl,
+              sourceImageUrl,
+              contentSha256: prepared.contentSha256,
+              mimeType: prepared.mimeType,
+              sourceSizeBytes: prepared.sourceSizeBytes,
+              storedSizeBytes: prepared.bytes.length,
+              attestationVersion: record.version,
+              attestationStatement: record.statement,
+              holdsRights: true,
+              compliesWithSourceTerms: true,
+              attestedByUserId: session.user.id,
+              attestedAt: new Date(record.attestedAt),
             },
             select: { id: true },
           });
-        }
-
-        await tx.sketchUnderlayReference.updateMany({
-          where: {
-            inspectionId: id,
-            floorNumber,
-            replacedAt: null,
-            removedAt: null,
-          },
-          data: { replacedAt: now },
-        });
-        const reference = await tx.sketchUnderlayReference.create({
-          data: {
-            inspectionId: id,
-            sketchId: sketch.id,
-            floorNumber,
-            storagePath: stored.storagePath,
-            sourceType: source,
-            sourcePageUrl,
-            sourceImageUrl,
-            contentSha256: prepared.contentSha256,
-            mimeType: prepared.mimeType,
-            sourceSizeBytes: prepared.sourceSizeBytes,
-            storedSizeBytes: prepared.bytes.length,
-            attestationVersion: record.version,
-            attestationStatement: record.statement,
-            holdsRights: true,
-            compliesWithSourceTerms: true,
-            attestedByUserId: session.user.id,
-            attestedAt: new Date(record.attestedAt),
-          },
-          select: { id: true },
-        });
-        await tx.auditLog.create({
-          data: {
-            inspectionId: id,
-            action: "Reference floor plan imported",
-            entityType: "SketchUnderlayReference",
-            entityId: reference.id,
-            userId: session.user.id,
-            changes: JSON.stringify({
-              floorNumber,
-              source,
-              contentSha256: prepared.contentSha256,
-              exportPolicy: "reference_only_never_export",
-            }),
-          },
-        });
-        return { sketchId: sketch.id, referenceId: reference.id };
-      });
+          await tx.auditLog.create({
+            data: {
+              inspectionId: id,
+              action: "Reference floor plan imported",
+              entityType: "SketchUnderlayReference",
+              entityId: reference.id,
+              userId: session.user.id,
+              changes: JSON.stringify({
+                floorNumber,
+                source,
+                contentSha256: prepared.contentSha256,
+                exportPolicy: "reference_only_never_export",
+              }),
+            },
+          });
+          return { sketchId: sketch.id, referenceId: reference.id };
+        },
+      );
     } catch (error) {
       if (stored.created) {
         await removeStoredUnderlay(stored.storagePath).catch(() => undefined);
       }
       throw error;
+    }
+    if (!saved) {
+      if (stored.created) {
+        await removeStoredUnderlay(stored.storagePath).catch(() => undefined);
+      }
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json(
