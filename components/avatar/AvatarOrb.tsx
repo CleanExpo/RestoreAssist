@@ -550,7 +550,7 @@ export function AvatarOrb({
           </div>
 
           <div className="border-t border-slate-200 bg-white p-3">
-            <form
+            <form method="post"
               className="flex items-center gap-2"
               onSubmit={(e) => {
                 e.preventDefault();

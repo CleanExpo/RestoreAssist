@@ -391,7 +391,7 @@ export default function ClientPortalPage({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSend} className="space-y-4">
+          <form method="post" onSubmit={handleSend} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="inv-email">Email</Label>

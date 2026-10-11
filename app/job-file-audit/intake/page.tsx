@@ -95,7 +95,7 @@ export default function JobFileAuditIntakePage() {
             and relevant supporting documents.
           </p>
 
-          <form onSubmit={submitIntake} className="mt-10 space-y-5 rounded-3xl border border-brand-slate/25 p-6 md:p-8">
+          <form method="post" onSubmit={submitIntake} className="mt-10 space-y-5 rounded-3xl border border-brand-slate/25 p-6 md:p-8">
             <div className="grid gap-5 md:grid-cols-2">
               <label className={darkMode ? "text-brand-cloud" : "text-brand-navy"}>
                 <span className="mb-2 block text-sm font-semibold">Your name</span>

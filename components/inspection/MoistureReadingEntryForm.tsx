@@ -221,7 +221,7 @@ export function MoistureReadingEntryForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={cn("space-y-4", className)}>
+    <form method="post" onSubmit={handleSubmit} className={cn("space-y-4", className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

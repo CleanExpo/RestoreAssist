@@ -771,7 +771,7 @@ export default function TeamPage() {
             </CardHeader>
             <CardContent>
               <Form {...inviteForm}>
-                <form onSubmit={createInvite} noValidate>
+                <form method="post" onSubmit={createInvite} noValidate>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-2">
                       <FormField

@@ -1043,7 +1043,7 @@ export default function InvoiceDetailPage({
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
               Record Payment
             </h2>
-            <form onSubmit={handleRecordPayment} className="space-y-4">
+            <form method="post" onSubmit={handleRecordPayment} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Amount Due: ${(invoice.amountDue / 100).toFixed(2)}

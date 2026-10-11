@@ -166,7 +166,7 @@ export default function AccountTypeOnboardingPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form
+            <form method="post"
               onSubmit={form.handleSubmit(onSubmit)}
               className="space-y-5"
               noValidate

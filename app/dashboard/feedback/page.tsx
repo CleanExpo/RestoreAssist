@@ -143,7 +143,7 @@ export default function FeedbackPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form method="post" onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="rating" className="text-foreground">
                   How was your experience? (optional)

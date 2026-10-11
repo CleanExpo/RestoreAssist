@@ -403,7 +403,7 @@ export default function ScopeTemplatesPage() {
             </div>
 
             {/* Form */}
-            <form
+            <form method="post"
               onSubmit={handleSubmit}
               className="flex-1 overflow-y-auto p-6 space-y-5"
             >

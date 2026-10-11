@@ -75,7 +75,7 @@ export default function PortalRecoveryPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form method="post" onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
                 htmlFor="portal-recovery-email"

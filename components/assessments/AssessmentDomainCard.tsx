@@ -290,7 +290,7 @@ export default function AssessmentDomainCard({
         </code>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-2">
+      <form method="post" onSubmit={handleSubmit} className="space-y-2">
         {isWater ? (
           <p className="text-xs text-muted-foreground">
             Auto-derives Category + Class from the inspection&apos;s

@@ -43,7 +43,7 @@ export function EditClientModal({
           </button>
         </div>
         <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}

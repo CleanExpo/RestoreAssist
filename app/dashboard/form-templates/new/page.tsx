@@ -95,7 +95,7 @@ export default function NewFormTemplatePage() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form method="post" onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-5">
             {/* Name */}
             <div>

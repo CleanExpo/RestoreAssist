@@ -1,9 +1,13 @@
 /**
- * Issue #2406: a credential form submitted before React hydrates falls back to
- * the browser's native submit. Without `method="post"` that is a GET, which
- * puts `email=...&password=...` in the URL — browser history, server logs,
- * Referer headers. Every <form> in a file that renders a password input must
- * declare method="post" so the pre-hydration fallback can never leak.
+ * Issue #2406: a form submitted before React hydrates falls back to the
+ * browser's native submit. Without `method="post"` that is a GET, which puts
+ * every named field — email, password, contact details — in the URL, browser
+ * history, server logs and Referer headers.
+ *
+ * Detecting "forms that hold a password" is not enough: a password field can
+ * be a design-system <Input> or live in a child component in another file
+ * (independent review of 92c1fdae). So the rule is unconditional: every
+ * <form> under app/ and components/ declares method="post".
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -24,17 +28,11 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-function attr(
-  el: ts.JsxOpeningLikeElement,
-  name: string,
-): ts.JsxAttribute | undefined {
-  return el.attributes.properties.find(
+function methodValue(el: ts.JsxOpeningLikeElement): string | undefined {
+  const a = el.attributes.properties.find(
     (p): p is ts.JsxAttribute =>
-      ts.isJsxAttribute(p) && p.name.getText() === name,
+      ts.isJsxAttribute(p) && p.name.getText() === "method",
   );
-}
-
-function stringValue(a: ts.JsxAttribute | undefined): string | undefined {
   const init = a?.initializer;
   if (!init) return undefined;
   if (ts.isStringLiteral(init)) return init.text;
@@ -48,41 +46,6 @@ function stringValue(a: ts.JsxAttribute | undefined): string | undefined {
   return undefined;
 }
 
-/** True when the file renders an <input> whose type can be "password". */
-function rendersPasswordInput(src: ts.SourceFile): boolean {
-  let found = false;
-  const visit = (n: ts.Node) => {
-    if (found) return;
-    if (
-      (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) &&
-      n.tagName.getText() === "input"
-    ) {
-      const type = attr(n, "type");
-      if (type && type.getText().includes("password")) found = true;
-    }
-    ts.forEachChild(n, visit);
-  };
-  visit(src);
-  return found;
-}
-
-function formsMissingPost(src: ts.SourceFile): number[] {
-  const lines: number[] = [];
-  const visit = (n: ts.Node) => {
-    if (
-      (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) &&
-      n.tagName.getText() === "form"
-    ) {
-      if (stringValue(attr(n, "method"))?.toLowerCase() !== "post") {
-        lines.push(src.getLineAndCharacterOfPosition(n.getStart()).line + 1);
-      }
-    }
-    ts.forEachChild(n, visit);
-  };
-  visit(src);
-  return lines;
-}
-
 function parse(file: string, text = readFileSync(file, "utf8")): ts.SourceFile {
   return ts.createSourceFile(
     file,
@@ -93,32 +56,63 @@ function parse(file: string, text = readFileSync(file, "utf8")): ts.SourceFile {
   );
 }
 
-describe("credential forms never submit via GET (#2406)", () => {
-  const files = SCAN_DIRS.flatMap((d) => walk(join(ROOT, d)))
-    .map((f) => ({ f, src: parse(f) }))
-    .filter(({ src }) => rendersPasswordInput(src));
+/** Line numbers of every <form> whose method is not a literal "post". */
+function formsMissingPost(src: ts.SourceFile): number[] {
+  const lines: number[] = [];
+  const visit = (n: ts.Node) => {
+    if (
+      (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) &&
+      n.tagName.getText() === "form" &&
+      methodValue(n)?.toLowerCase() !== "post"
+    ) {
+      lines.push(src.getLineAndCharacterOfPosition(n.getStart()).line + 1);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(src);
+  return lines;
+}
 
-  it("finds the known credential forms (the scan is not vacuous)", () => {
-    const rel = files.map(({ f }) => relative(ROOT, f));
-    expect(rel).toEqual(
+describe("forms never submit via native GET (#2406)", () => {
+  const files = SCAN_DIRS.flatMap((d) => walk(join(ROOT, d))).map((f) => ({
+    f,
+    src: parse(f),
+  }));
+
+  it("scans the known credential forms (the scan is not vacuous)", () => {
+    const withForms = files
+      .filter(({ src }) => src.text.includes("<form"))
+      .map(({ f }) => relative(ROOT, f));
+    expect(withForms).toEqual(
       expect.arrayContaining([
         "app/login/page.tsx",
         "app/signup/page.tsx",
         "app/portal/login/page.tsx",
+        "app/dashboard/security/page.tsx",
       ]),
     );
   });
 
-  it("detects a form without method=post (positive control)", () => {
-    const planted = parse(
-      "planted.tsx",
-      `export const X = () => <form onSubmit={f}><input type="password" /></form>;`,
-    );
-    expect(rendersPasswordInput(planted)).toBe(true);
+  it.each([
+    ["no method", `<form onSubmit={f}><input type="password" /></form>`],
+    ["design-system input", `<form onSubmit={f}><Input type="password" /></form>`],
+    ["password in child component", `<form onSubmit={f}><PasswordStep /></form>`],
+    ["expression GET", `<form method={"GET"} onSubmit={f}><X /></form>`],
+    ["dynamic method", `<form method={m} onSubmit={f}><X /></form>`],
+  ])("flags a planted form: %s", (_label, jsx) => {
+    const planted = parse("planted.tsx", `export const X = () => ${jsx};`);
     expect(formsMissingPost(planted)).toEqual([1]);
   });
 
-  it('every <form> in a password-bearing file declares method="post"', () => {
+  it("accepts method=\"post\" and method={\"POST\"}", () => {
+    const ok = parse(
+      "ok.tsx",
+      `export const X = () => <><form method="post" /><form method={"POST"} /></>;`,
+    );
+    expect(formsMissingPost(ok)).toEqual([]);
+  });
+
+  it('every <form> under app/ and components/ declares method="post"', () => {
     const offenders = files.flatMap(({ f, src }) =>
       formsMissingPost(src).map((line) => `${relative(ROOT, f)}:${line}`),
     );
