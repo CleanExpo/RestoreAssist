@@ -1073,6 +1073,20 @@ describe.skipIf(!process.env.DATABASE_URL)(
         await prisma.auditLog.deleteMany({ where: { inspectionId: { in: made.inspections } } });
         await prisma.inspection.deleteMany({ where: { id: { in: made.inspections } } });
       }
+      // The RA-7721 block's afterAll has already run, so the users,
+      // organisations and rate-limit rows this block made are removed here.
+      if (made.users.length) {
+        await prisma.report.deleteMany({ where: { userId: { in: made.users } } });
+        await prisma.rateLimitHit.deleteMany({
+          where: { OR: made.users.map((u) => ({ key: { contains: u } })) },
+        });
+        await prisma.user.updateMany({
+          where: { id: { in: made.users } },
+          data: { organizationId: null },
+        });
+      }
+      await prisma.organization.deleteMany({ where: { id: { in: made.orgs } } });
+      await prisma.user.deleteMany({ where: { id: { in: made.users } } });
     });
 
     async function fresh() {
