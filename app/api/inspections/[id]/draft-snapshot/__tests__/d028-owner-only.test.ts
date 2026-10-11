@@ -16,6 +16,7 @@ const m = vi.hoisted(() => ({
   assertInspectionAssignedWrite: vi.fn(),
   inspectionFindUnique: vi.fn(),
   inspectionCount: vi.fn(),
+  userFindUnique: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -31,6 +32,7 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: m.inspectionFindUnique, count: m.inspectionCount },
+    user: { findUnique: m.userFindUnique },
     $transaction: m.transaction,
   },
 }));
@@ -74,6 +76,7 @@ beforeEach(() => {
   });
   m.inspectionFindUnique.mockResolvedValue({ id: "insp-1", status: "DRAFT" });
   m.inspectionCount.mockResolvedValue(1);
+  m.userFindUnique.mockResolvedValue({ organizationId: "org-1" });
   m.transaction.mockResolvedValue(undefined);
 });
 
@@ -83,6 +86,21 @@ describe("draft-snapshot PUT is owner/manager only (D-028)", () => {
     expect(res.status, await res.clone().text()).toBe(403);
     expect(m.transaction).not.toHaveBeenCalled();
     expect(m.assertInspectionAssignedWrite).not.toHaveBeenCalled();
+  });
+
+  it("checks the assignment against the caller's own organisation", async () => {
+    await put();
+    expect(m.inspectionCount).toHaveBeenCalledWith({
+      where: { id: "insp-1", technicianId: "tech-1", user: { organizationId: "org-1" } },
+    });
+  });
+
+  it("a technician removed from the team (no organisation) gets the opaque 404", async () => {
+    m.userFindUnique.mockResolvedValue({ organizationId: null });
+    const res = await put();
+    expect(res.status).toBe(404);
+    expect(m.inspectionCount).not.toHaveBeenCalled();
+    expect(m.transaction).not.toHaveBeenCalled();
   });
 
   it("anyone else outside the owner's reach still gets an opaque 404", async () => {

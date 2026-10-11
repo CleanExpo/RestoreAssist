@@ -172,21 +172,58 @@ const WRITE_OPS = new Set(["create", "createMany", "update", "updateMany", "upse
 const SCOPE_TOKENS = /\b(inspectionWhere|inspectionManyWhere|childInspectionFilter)\b/;
 
 /**
- * Deletes a technician-reachable handler may make, per file, because they only
- * replace rows the same handler derives (D-028 grants no delete of field data).
+ * The only deletes a technician-reachable handler may contain, keyed to the
+ * exact `where` they run with (whitespace-insensitive). D-028 grants the
+ * assigned technician no delete, so every entry is `ownerOnly` (the call must
+ * sit inside `if (...ownerReach...)`, where `ownerReach` is
+ * `!tenancy.data.viaAssignment`) unless the rows are ones the same handler
+ * itself created and tagged.
  */
-const DELETES_ALLOWED: Record<string, Record<string, string>> = {
-  "sketches/route.ts": {
-    sketchElement: "rebuilt from the sketch just saved",
-    sketchRoom: "rooms no longer in the saved sketch; evidence-bearing rooms are detached, not deleted",
-    sketchMoistureReading: "rebuilt from the sketch's moisture pins",
-  },
-  "equipment-calculator/route.ts": {
-    scopeItem: "replaces only the calculator's own autoDetermined equipment rows",
-  },
-  "water-damage-classification/route.ts": {
-    classification: "replaces the single technician-choice row the panel itself writes (RA-7709)",
-  },
+type DeleteException = { model: string; where: string; ownerOnly: boolean; reason: string };
+const DELETES_ALLOWED: Record<string, DeleteException[]> = {
+  "sketches/route.ts": [
+    {
+      model: "sketchElement",
+      where: "{ sketchId: sketch.id }",
+      ownerOnly: true,
+      reason: "rebuilds the sketch's geometry rows; hazards link to them, so not on the technician path",
+    },
+    {
+      model: "sketchRoom",
+      where: "{ id: { in: deletableIds } }",
+      ownerOnly: true,
+      reason: "evidence-free rooms gone from the canvas; the technician path detaches them instead",
+    },
+    {
+      model: "sketchMoistureReading",
+      where: '{ sketchId: sketch.id, source: "pin" }',
+      ownerOnly: true,
+      reason: "pin readings rebuilt from the overlay; the technician path only adds",
+    },
+  ],
+  "equipment-calculator/route.ts": [
+    {
+      model: "scopeItem",
+      where:
+        '{ inspectionId, autoDetermined: true, itemType: { in: [ "air_mover", "lgr_dehumidifier", "desiccant_dehumidifier", "air_scrubber", "negative_air_machine", ], }, }',
+      ownerOnly: true,
+      reason: "the owner's recalculation replaces auto equipment rows, as before D-028",
+    },
+    {
+      model: "scopeItem",
+      where: "{ inspectionId, source: EQUIPMENT_CALCULATOR_SOURCE }",
+      ownerOnly: false,
+      reason: "only rows the calculator itself created and tagged",
+    },
+  ],
+  "water-damage-classification/route.ts": [
+    {
+      model: "classification",
+      where: "{ inspectionId, reviewedBy: { not: null } }",
+      ownerOnly: true,
+      reason: "clearing a reviewed pick can remove the owner's row, so not on the technician path",
+    },
+  ],
 };
 
 /** Source text without comments, so a comment naming a filter is not a filter. */
@@ -385,13 +422,42 @@ function unwrap(e: ts.Expression): ts.Expression {
 }
 
 /** `prisma.model.op(...)` / `tx.model.op(...)`: returns [model, op] or null. */
+/**
+ * True when an identifier is a Prisma client: `prisma` itself, an alias of it
+ * (`const db = prisma`), `tx`, or the parameter of a callback handed to
+ * `$transaction` / `writeWithinInspectionScope`, whatever it is named.
+ */
+function isClient(id: ts.Identifier): boolean {
+  if (id.text === "prisma" || id.text === "tx") return true;
+  const sf = id.getSourceFile();
+  let found = false;
+  const visit = (n: ts.Node) => {
+    if (found) return;
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === id.text && n.initializer) {
+      const init = unwrap(n.initializer);
+      if (ts.isIdentifier(init) && (init.text === "prisma" || init.text === "tx")) found = true;
+    }
+    if (ts.isParameter(n) && ts.isIdentifier(n.name) && n.name.text === id.text) {
+      const fn = n.parent;
+      const call = fn.parent;
+      if (ts.isCallExpression(call) && (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) {
+        const name = nameOf(call.expression);
+        if (name === "$transaction" || name === "writeWithinInspectionScope") found = true;
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return found;
+}
+
 function prismaWrite(call: ts.CallExpression): [string, string] | null {
   const callee = unwrap(call.expression);
   if (!ts.isPropertyAccessExpression(callee) || !WRITE_OPS.has(callee.name.text)) return null;
   const owner = unwrap(callee.expression);
   if (!ts.isPropertyAccessExpression(owner)) return null;
-  const root = unwrap(owner.expression).getText();
-  if (root !== "prisma" && root !== "tx") return null;
+  const root = unwrap(owner.expression);
+  if (!ts.isIdentifier(root) || !isClient(root)) return null;
   return [owner.name.text, callee.name.text];
 }
 
@@ -444,12 +510,52 @@ function callSites(sf: ts.SourceFile, name: string): ts.CallExpression[] {
 }
 
 /** delete / deleteMany calls a technician-reachable handler makes, minus the allowlist. */
-function deletesIn(nodes: ts.Node[], allowed: Record<string, string>): string[] {
+const squash = (t: string) => t.replace(/\s+/g, "");
+
+function whereOf(call: ts.CallExpression): string | null {
+  const arg = call.arguments[0] && unwrap(call.arguments[0]);
+  if (!arg || !ts.isObjectLiteralExpression(arg)) return null;
+  for (const p of arg.properties) {
+    if (ts.isPropertyAssignment(p) && p.name.getText() === "where") return codeText(p.initializer);
+  }
+  return null;
+}
+
+/** The delete sits in the then-branch of an `if` whose condition requires ownerReach. */
+function underOwnerReach(call: ts.Node): boolean {
+  for (let n: ts.Node = call; n.parent; n = n.parent) {
+    const parent = n.parent;
+    if (ts.isIfStatement(parent) && parent.thenStatement === n) {
+      const cond = codeText(parent.expression);
+      if (/(^|[^!\w.])ownerReach\b/.test(cond) && !/\|\|/.test(cond)) return true;
+    }
+  }
+  return false;
+}
+
+/** Every `const ownerReach = ...` in the file is exactly `!tenancy.data.viaAssignment`. */
+function ownerReachIsSound(sf: ts.SourceFile): boolean {
+  const inits = sourcesOf(sf, "ownerReach");
+  return inits.length > 0 && inits.every((e) => squash(codeText(e)) === "!tenancy.data.viaAssignment");
+}
+
+function deleteAllowed(call: ts.CallExpression, model: string, allowed: DeleteException[]): boolean {
+  const where = whereOf(call);
+  if (where === null) return false;
+  return allowed.some(
+    (e) =>
+      e.model === model &&
+      squash(e.where) === squash(where) &&
+      (!e.ownerOnly || (underOwnerReach(call) && ownerReachIsSound(call.getSourceFile()))),
+  );
+}
+
+function deletesIn(nodes: ts.Node[], allowed: DeleteException[]): string[] {
   const hits: string[] = [];
   const visit = (n: ts.Node) => {
     if (ts.isCallExpression(n)) {
       const w = prismaWrite(n);
-      if (w && (w[1] === "delete" || w[1] === "deleteMany") && !(w[0] in allowed)) {
+      if (w && (w[1] === "delete" || w[1] === "deleteMany") && !deleteAllowed(n, w[0], allowed)) {
         const { line } = n.getSourceFile().getLineAndCharacterOfPosition(n.getStart());
         hits.push(`line ${line + 1}: ${w[0]}.${w[1]}`);
       }
@@ -509,7 +615,7 @@ function analyseFieldDataRoute(
     for (const hit of creatorOnlyWheres(nodes, bound)) {
       violations.push({ handler: method, problem: `creator-only where filter (${hit})` });
     }
-    for (const hit of deletesIn(nodes, DELETES_ALLOWED[fileName] ?? {})) {
+    for (const hit of deletesIn(nodes, DELETES_ALLOWED[fileName] ?? [])) {
       violations.push({
         handler: method,
         problem: `deletes rows (${hit}); D-028 grants the assigned technician create and update only`,
@@ -783,6 +889,74 @@ describe("D-028 guard analyser: positive and negative controls", () => {
     expect(planted).not.toEqual(original);
     const v = analyseFieldDataRoute(planted, ["PATCH"], "moisture/[readingId]/route.ts");
     expect(v.map((x) => x.problem).join("\n")).toMatch(/moistureReading\.update/);
+  });
+
+  it("PLANTED (review M1): the pin-reading delete without source: \"pin\" is caught", () => {
+    const original = read("sketches/route.ts");
+    const planted = original.replace("where: { sketchId: sketch.id, source: \"pin\" },", "where: { sketchId: sketch.id },");
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "sketches/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/deletes rows \(line \d+: sketchMoistureReading\.deleteMany\)/);
+  });
+
+  it("PLANTED (review M2): the classification delete without the reviewedBy filter is caught", () => {
+    const original = read("water-damage-classification/route.ts");
+    const planted = original.replace("where: { inspectionId, reviewedBy: { not: null } },", "where: { inspectionId },");
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "water-damage-classification/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/deletes rows \(line \d+: classification\.deleteMany\)/);
+  });
+
+  it("PLANTED (review M3): the equipment delete without the autoDetermined filter is caught", () => {
+    const original = read("equipment-calculator/route.ts");
+    const planted = original.replace("autoDetermined: true,\n                  itemType", "itemType");
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "equipment-calculator/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/deletes rows \(line \d+: scopeItem\.deleteMany\)/);
+  });
+
+  it("PLANTED (review M4): an inspection-wide sketchRoom delete is caught", () => {
+    const original = read("sketches/route.ts");
+    const planted = original.replace("const roomsForPins = await", "await (prisma as any).sketchRoom.deleteMany({ where: { sketch: { inspectionId: id } } });\n      const roomsForPins = await");
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "sketches/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/deletes rows \(line \d+: sketchRoom\.deleteMany\)/);
+  });
+
+  it("PLANTED: an owner-only delete with its ownerReach guard removed is caught", () => {
+    const original = read("water-damage-classification/route.ts");
+    const planted = original.replace("status === \"DRAFT\" && ownerReach", "status === \"DRAFT\"");
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "water-damage-classification/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/deletes rows \(line \d+: classification\.deleteMany\)/);
+  });
+
+  it("PLANTED: ownerReach redefined so the technician passes is caught", () => {
+    const original = read("sketches/route.ts");
+    const planted = original.replace("const ownerReach = !tenancy.data.viaAssignment;", "const ownerReach = true;");
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "sketches/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/deletes rows/);
+  });
+
+  it("PLANTED (review P2): a delete through a prisma alias is caught", () => {
+    const planted = clean.replace(
+      "await prisma.auditLog.create",
+      "const db = prisma;\n      await db.moistureReading.deleteMany({ where: { id: readingId } });\n      await prisma.auditLog.create",
+    );
+    expect(analyseFieldDataRoute(planted, ["PATCH"]).map((x) => x.problem).join("\n")).toMatch(
+      /deletes rows \(line \d+: moistureReading\.deleteMany\)/,
+    );
+  });
+
+  it("PLANTED (review P2): a delete through a transaction parameter not named tx is caught", () => {
+    const planted = clean.replace(
+      "await prisma.auditLog.create",
+      "await prisma.$transaction(async (t) => t.moistureReading.deleteMany({ where: { id: readingId } }));\n      await prisma.auditLog.create",
+    );
+    expect(analyseFieldDataRoute(planted, ["PATCH"]).map((x) => x.problem).join("\n")).toMatch(
+      /deletes rows \(line \d+: moistureReading\.deleteMany\)/,
+    );
   });
 
   it("PLANTED: an unclassified mutating export is reported", () => {

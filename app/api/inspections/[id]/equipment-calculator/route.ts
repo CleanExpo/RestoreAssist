@@ -29,6 +29,13 @@ import {
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
+/**
+ * D-028: marks the scope rows this calculator writes (ScopeItem.source, as
+ * D-030 does for AI scope generation), so the assigned technician's
+ * recalculation replaces only rows the calculator created.
+ */
+const EQUIPMENT_CALCULATOR_SOURCE = "equipment_calculator";
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -159,7 +166,42 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           justification: `${item.justification} — ${item.iicrcReference}`,
           isRequired: true,
           isSelected: true,
+          source: EQUIPMENT_CALCULATOR_SOURCE,
         }));
+        // D-028: deletes stay with the owner's reach. The assigned technician
+        // may replace only rows this calculator created; if older equipment
+        // rows exist that it did not tag (a checklist's air scrubber, or a
+        // recalculation from before tagging), the owner recalculates.
+        const ownerReach = !tenancy.data.viaAssignment;
+        if (!ownerReach) {
+          const untagged = await prisma.scopeItem.count({
+            where: {
+              inspectionId,
+              autoDetermined: true,
+              itemType: {
+                in: [
+                  "air_mover",
+                  "lgr_dehumidifier",
+                  "desiccant_dehumidifier",
+                  "air_scrubber",
+                  "negative_air_machine",
+                ],
+              },
+              OR: [
+                { source: null },
+                { source: { not: EQUIPMENT_CALCULATOR_SOURCE } },
+              ],
+            },
+          });
+          if (untagged > 0) {
+            return apiError(request, {
+              code: "CONFLICT",
+              message:
+                "This job already has equipment rows the calculator did not create. The job owner or a manager recalculates them.",
+              status: 409,
+            });
+          }
+        }
         // D-028: replace the auto-determined equipment rows inside one write
         // that re-checks the caller's reach, so a reassignment between the
         // check and the write changes 0 rows.
@@ -167,22 +209,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           tenancy.data.inspectionManyWhere,
           { updatedAt: new Date() },
           async (tx) => {
-            // Remove any previous auto-determined equipment scope items
-            await tx.scopeItem.deleteMany({
-              where: {
-                inspectionId,
-                autoDetermined: true,
-                itemType: {
-                  in: [
-                    "air_mover",
-                    "lgr_dehumidifier",
-                    "desiccant_dehumidifier",
-                    "air_scrubber",
-                    "negative_air_machine",
-                  ],
+            if (ownerReach) {
+              // Remove any previous auto-determined equipment scope items
+              await tx.scopeItem.deleteMany({
+                where: {
+                  inspectionId,
+                  autoDetermined: true,
+                  itemType: {
+                    in: [
+                      "air_mover",
+                      "lgr_dehumidifier",
+                      "desiccant_dehumidifier",
+                      "air_scrubber",
+                      "negative_air_machine",
+                    ],
+                  },
                 },
-              },
-            });
+              });
+            } else {
+              // Only the rows this calculator created (checked above).
+              await tx.scopeItem.deleteMany({
+                where: { inspectionId, source: EQUIPMENT_CALCULATOR_SOURCE },
+              });
+            }
             return tx.scopeItem.createMany({ data: equipmentPayloads });
           },
         );

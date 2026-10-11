@@ -149,10 +149,26 @@ export async function PUT(
     // owner's reach. The job's assigned technician is told so plainly; their
     // field edits go through the per-record routes. Anyone else gets the
     // opaque 404 below.
+    // The assigned-technician test mirrors assertInspectionAssignedWrite: the
+    // caller's organisation, read from the database, is non-empty and equal
+    // to the job owner's, so a technician removed from the team gets 404.
+    const callerOrg =
+      tenancy.status === 404
+        ? (
+            await prisma.user.findUnique({
+              where: { id: session.user.id },
+              select: { organizationId: true },
+            })
+          )?.organizationId
+        : null;
     if (
-      tenancy.status === 404 &&
+      callerOrg &&
       (await prisma.inspection.count({
-        where: { id, technicianId: session.user.id },
+        where: {
+          id,
+          technicianId: session.user.id,
+          user: { organizationId: callerOrg },
+        },
       })) > 0
     ) {
       return apiError(request, {

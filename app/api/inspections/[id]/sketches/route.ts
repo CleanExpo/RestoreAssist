@@ -128,7 +128,8 @@ export async function POST(
     const { id } = await params;
 
     // RA-1711 batch 4 — adopt shared tenancy helper.
-    // D-028 — the assigned technician saves the sketch too.
+    // D-028 — the assigned technician saves the sketch too, but deletes no
+    // rows: the derived rows below are rebuilt only for the owner's reach.
     const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
@@ -137,6 +138,7 @@ export async function POST(
         status: tenancy.status,
       });
     }
+    const ownerReach = !tenancy.data.viaAssignment;
 
     const body = await request.json();
     const {
@@ -536,28 +538,33 @@ export async function POST(
       );
       // RA-6762: delete + recreate the normalized rows atomically so a failure
       // can't leave them half-written (these were two un-transactioned calls).
-      const elementOps: unknown[] = [
-        (prisma as any).sketchElement.deleteMany({
-          where: { sketchId: sketch.id },
-        }),
-      ];
-      if (decomposed.length) {
-        elementOps.push(
-          (prisma as any).sketchElement.createMany({
-            data: decomposed.map((d) => ({
-              sketchId: sketch.id,
-              type: d.type,
-              geometryJson: d.geometryJson as unknown,
-              dimensionsM: d.dimensionsM as unknown,
-              materialId: d.materialSlug
-                ? (idBySlug.get(d.materialSlug) ?? null)
-                : null,
-              provenance: d.provenance,
-            })),
+      // D-028: hazards and readings link to these rows, so the rebuild (a
+      // delete) is the owner's; the technician's save leaves them for the
+      // owner's next save.
+      if (ownerReach) {
+        const elementOps: unknown[] = [
+          (prisma as any).sketchElement.deleteMany({
+            where: { sketchId: sketch.id },
           }),
-        );
+        ];
+        if (decomposed.length) {
+          elementOps.push(
+            (prisma as any).sketchElement.createMany({
+              data: decomposed.map((d) => ({
+                sketchId: sketch.id,
+                type: d.type,
+                geometryJson: d.geometryJson as unknown,
+                dimensionsM: d.dimensionsM as unknown,
+                materialId: d.materialSlug
+                  ? (idBySlug.get(d.materialSlug) ?? null)
+                  : null,
+                provenance: d.provenance,
+              })),
+            }),
+          );
+        }
+        await (prisma as any).$transaction(elementOps);
       }
-      await (prisma as any).$transaction(elementOps);
 
       // RoomGraph V1 — upsert rooms BEFORE moisture pin sync so pins can bind
       // to SketchRoom ids (EvidencePin / moisture / hazards join target).
@@ -649,9 +656,15 @@ export async function POST(
       const staleRooms = existingRooms.filter(
         (r: { fabricObjectId: string }) => !seenFabric.has(r.fabricObjectId),
       );
-      const { deletableIds, detachableIds } = partitionStaleRooms(staleRooms);
+      const partition = partitionStaleRooms(staleRooms);
+      const deletableIds = partition.deletableIds;
+      // D-028: the technician's save detaches every stale room (as it already
+      // does for rooms holding evidence) instead of deleting any.
+      const detachableIds = ownerReach
+        ? partition.detachableIds
+        : [...partition.detachableIds, ...partition.deletableIds];
 
-      if (deletableIds.length) {
+      if (deletableIds.length && ownerReach) {
         await (prisma as any).sketchRoom.deleteMany({
           where: { id: { in: deletableIds } },
         });
@@ -687,18 +700,43 @@ export async function POST(
         moisturePoints,
         roomsForPins,
       );
-      await (prisma as any).$transaction([
-        (prisma as any).sketchMoistureReading.deleteMany({
-          where: { sketchId: sketch.id, source: "pin" },
-        }),
-        ...(pinReadings.length
-          ? [
-              (prisma as any).sketchMoistureReading.createMany({
-                data: pinReadings,
-              }),
-            ]
-          : []),
-      ]);
+      if (ownerReach) {
+        await (prisma as any).$transaction([
+          (prisma as any).sketchMoistureReading.deleteMany({
+            where: { sketchId: sketch.id, source: "pin" },
+          }),
+          ...(pinReadings.length
+            ? [
+                (prisma as any).sketchMoistureReading.createMany({
+                  data: pinReadings,
+                }),
+              ]
+            : []),
+        ]);
+      } else {
+        // D-028: the technician's save only adds. A pin reading already on
+        // record (same value, same room) is kept; anything new is created;
+        // nothing is deleted, so a removed or changed pin leaves its earlier
+        // reading as history until the owner's next save.
+        const onRecord: Array<{ currentMc: number; sketchRoomId: string | null }> =
+          await (prisma as any).sketchMoistureReading.findMany({
+            where: { sketchId: sketch.id, source: "pin" },
+            select: { currentMc: true, sketchRoomId: true },
+            take: 1000,
+          });
+        const remaining = onRecord.map((r) => `${r.currentMc}|${r.sketchRoomId ?? ""}`);
+        const additions = pinReadings.filter((p) => {
+          const i = remaining.indexOf(`${p.currentMc}|${p.sketchRoomId ?? ""}`);
+          if (i === -1) return true;
+          remaining.splice(i, 1);
+          return false;
+        });
+        if (additions.length) {
+          await (prisma as any).sketchMoistureReading.createMany({
+            data: additions,
+          });
+        }
+      }
 
       if (
         activeUnderlay &&
