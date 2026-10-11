@@ -51,7 +51,7 @@ const GATED: Record<string, string[]> = {
   "contents-manifest/route.ts": ["PATCH"],
   "contents-pack-out/route.ts": [],
   "contents-pack-out/[itemId]/route.ts": [],
-  "draft-snapshot/route.ts": ["PUT"],
+  "draft-snapshot/route.ts": [],
   "drying-goal/route.ts": ["POST", "PUT"],
   "environmental/route.ts": ["POST"],
   "equipment-calculator/route.ts": ["POST"],
@@ -102,6 +102,9 @@ const EXCLUDED: Record<string, Record<string, string>> = {
     DELETE: NO_DELETE,
   },
   "contents-manifest/route.ts": { POST: AI_SPEND },
+  "draft-snapshot/route.ts": {
+    PUT: "a snapshot save deletes readings, areas, every scope item and the classification choice; deletes stay owner/manager",
+  },
   "contents-pack-out/route.ts": { POST: PACK_OUT_MONEY },
   "contents-pack-out/[itemId]/route.ts": { DELETE: PACK_OUT_MONEY },
   "group-readings/route.ts": { POST: AI_SPEND },
@@ -167,6 +170,78 @@ const DERIVED_WRITES: Record<string, Set<string>> = {
 
 const WRITE_OPS = new Set(["create", "createMany", "update", "updateMany", "upsert", "delete", "deleteMany"]);
 const SCOPE_TOKENS = /\b(inspectionWhere|inspectionManyWhere|childInspectionFilter)\b/;
+
+/**
+ * Deletes a technician-reachable handler may make, per file, because they only
+ * replace rows the same handler derives (D-028 grants no delete of field data).
+ */
+const DELETES_ALLOWED: Record<string, Record<string, string>> = {
+  "sketches/route.ts": {
+    sketchElement: "rebuilt from the sketch just saved",
+    sketchRoom: "rooms no longer in the saved sketch; evidence-bearing rooms are detached, not deleted",
+    sketchMoistureReading: "rebuilt from the sketch's moisture pins",
+  },
+  "equipment-calculator/route.ts": {
+    scopeItem: "replaces only the calculator's own autoDetermined equipment rows",
+  },
+  "water-damage-classification/route.ts": {
+    classification: "replaces the single technician-choice row the panel itself writes (RA-7709)",
+  },
+};
+
+/** Source text without comments, so a comment naming a filter is not a filter. */
+function codeText(n: ts.Node): string {
+  return n
+    .getText()
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
+function nameOf(e: ts.Expression): string | null {
+  const u = unwrap(e);
+  if (ts.isIdentifier(u)) return u.text;
+  if (ts.isPropertyAccessExpression(u)) return u.name.text;
+  return null;
+}
+
+/** Every expression the file assigns to `name` (declarations and assignments). */
+function sourcesOf(sf: ts.SourceFile, name: string): ts.Expression[] {
+  const out: ts.Expression[] = [];
+  const visit = (n: ts.Node) => {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name && n.initializer) {
+      out.push(n.initializer);
+    }
+    if (
+      ts.isBinaryExpression(n) &&
+      n.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      nameOf(n.left) === name
+    ) {
+      out.push(n.right);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return out;
+}
+
+/**
+ * True when a scope expression really carries the helper's filters: it names
+ * them, or it is a variable whose every assignment in the file does. A literal
+ * such as `{ id }` never does, however it is spelt or aliased.
+ */
+function scopeExprOk(e: ts.Expression, visiting = new Set<ts.Node>()): boolean {
+  const u = unwrap(e);
+  if (ts.isObjectLiteralExpression(u)) return false;
+  if (SCOPE_TOKENS.test(codeText(u))) return true;
+  const name = nameOf(u);
+  if (!name) return false;
+  const all = sourcesOf(u.getSourceFile(), name);
+  if (all.length === 0) return false;
+  // Assignments already being checked further up are judged there.
+  const sources = all.filter((s) => !visiting.has(s));
+  sources.forEach((s) => visiting.add(s));
+  return sources.every((s) => scopeExprOk(s, visiting));
+}
 
 type Violation = { handler: string; problem: string };
 
@@ -328,7 +403,7 @@ function prismaWrite(call: ts.CallExpression): [string, string] | null {
  * row throws or is counted, and the whole transaction rolls back).
  */
 function writeIsScoped(call: ts.CallExpression, seen = new Set<ts.Node>()): boolean {
-  if (call.arguments.some((a) => SCOPE_TOKENS.test(a.getText()))) return true;
+  if (call.arguments.some((a) => SCOPE_TOKENS.test(codeText(a)))) return true;
   for (let n: ts.Node = call.parent; n; n = n.parent) {
     if (ts.isFunctionDeclaration(n) && n.name && ts.isSourceFile(n.parent) && !seen.has(n)) {
       // A top-level helper: scoped only if every place that calls it is.
@@ -346,9 +421,9 @@ function writeIsScoped(call: ts.CallExpression, seen = new Set<ts.Node>()): bool
       if (name === "writeWithinInspectionScope") {
         // A literal scope such as `{ id: inspectionId }` re-checks nothing.
         const scopeArg = n.arguments[0];
-        return scopeArg !== undefined && !ts.isObjectLiteralExpression(unwrap(scopeArg));
+        return scopeArg !== undefined && scopeExprOk(scopeArg);
       }
-      if (name === "$transaction" && n.arguments.some((a) => SCOPE_TOKENS.test(a.getText()))) {
+      if (name === "$transaction" && n.arguments.some((a) => SCOPE_TOKENS.test(codeText(a)))) {
         return true;
       }
     }
@@ -366,6 +441,23 @@ function callSites(sf: ts.SourceFile, name: string): ts.CallExpression[] {
   };
   visit(sf);
   return out;
+}
+
+/** delete / deleteMany calls a technician-reachable handler makes, minus the allowlist. */
+function deletesIn(nodes: ts.Node[], allowed: Record<string, string>): string[] {
+  const hits: string[] = [];
+  const visit = (n: ts.Node) => {
+    if (ts.isCallExpression(n)) {
+      const w = prismaWrite(n);
+      if (w && (w[1] === "delete" || w[1] === "deleteMany") && !(w[0] in allowed)) {
+        const { line } = n.getSourceFile().getLineAndCharacterOfPosition(n.getStart());
+        hits.push(`line ${line + 1}: ${w[0]}.${w[1]}`);
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  nodes.forEach(visit);
+  return hits;
 }
 
 function unscopedWrites(nodes: ts.Node[], derived: Set<string>): string[] {
@@ -416,6 +508,12 @@ function analyseFieldDataRoute(
     }
     for (const hit of creatorOnlyWheres(nodes, bound)) {
       violations.push({ handler: method, problem: `creator-only where filter (${hit})` });
+    }
+    for (const hit of deletesIn(nodes, DELETES_ALLOWED[fileName] ?? {})) {
+      violations.push({
+        handler: method,
+        problem: `deletes rows (${hit}); D-028 grants the assigned technician create and update only`,
+      });
     }
     for (const hit of unscopedWrites(nodes, DERIVED_WRITES[fileName] ?? new Set())) {
       violations.push({
@@ -640,6 +738,51 @@ describe("D-028 guard analyser: positive and negative controls", () => {
       original.slice(j);
     expect(planted).not.toEqual(original);
     expect(handlerAdmitsAssignee(planted, "POST")).toEqual(["assertInspectionAssignedWrite"]);
+  });
+
+  it("PLANTED (review 4773ca1f P1): draft-snapshot PUT on the assignee helper is caught for its deletes", () => {
+    const original = read("draft-snapshot/route.ts");
+    const planted = original.replace(
+      "const tenancy = await resolveInspectionWrite(session, id);",
+      "const tenancy = await assertInspectionAssignedWrite(session, id);",
+    );
+    expect(planted).not.toEqual(original);
+    const problems = analyseFieldDataRoute(planted, ["PUT"], "draft-snapshot/route.ts").map((x) => x.problem);
+    expect(problems.join("\n")).toMatch(/deletes rows \(line \d+: moistureReading\.deleteMany\)/);
+    expect(problems.join("\n")).toMatch(/scopeItem\.deleteMany/);
+    // And the exclusion check catches it as well.
+    expect(handlerAdmitsAssignee(planted, "PUT")).toEqual(["assertInspectionAssignedWrite"]);
+  });
+
+  it("PLANTED: a delete inside a scoped write in a gated handler is still caught", () => {
+    const planted = clean.replace(
+      "await prisma.auditLog.create",
+      "await writeWithinInspectionScope(tenancy.data.inspectionManyWhere, {}, (tx) => tx.moistureReading.deleteMany({ where: { inspectionId: id } }));\n      await prisma.auditLog.create",
+    );
+    const v = analyseFieldDataRoute(planted, ["PATCH"]);
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/deletes rows \(line \d+: moistureReading\.deleteMany\)/);
+  });
+
+  it("PLANTED (review B1): a scope variable aliased to a bare { id } is caught", () => {
+    const original = read("environmental/route.ts");
+    const planted = original.replace(
+      "const scope = writeScope;",
+      "const scope: Prisma.InspectionWhereInput = { id };",
+    );
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["POST"], "environmental/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/environmentalData\.create/);
+  });
+
+  it("PLANTED (review B2): a filter replaced by a comment naming it is caught", () => {
+    const original = read("moisture/[readingId]/route.ts");
+    const planted = original.replace(
+      /\.\.\.\(tenancy\.data\.childInspectionFilter && \{\s*inspection: tenancy\.data\.childInspectionFilter,\s*\}\),/,
+      "/* childInspectionFilter */",
+    );
+    expect(planted).not.toEqual(original);
+    const v = analyseFieldDataRoute(planted, ["PATCH"], "moisture/[readingId]/route.ts");
+    expect(v.map((x) => x.problem).join("\n")).toMatch(/moistureReading\.update/);
   });
 
   it("PLANTED: an unclassified mutating export is reported", () => {

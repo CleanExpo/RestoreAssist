@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { apiError, fromException } from "@/lib/api-errors";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { parseInspectionDate } from "@/lib/parse-date";
@@ -142,8 +142,26 @@ export async function PUT(
   }
 
   const { id } = await params;
-  const tenancy = await assertInspectionAssignedWrite(session, id);
+  const tenancy = await resolveInspectionWrite(session, id);
   if (!tenancy.ok) {
+    // D-028: a snapshot save deletes rows (readings the form dropped, areas,
+    // every scope item, the classification choice), and deletes stay with the
+    // owner's reach. The job's assigned technician is told so plainly; their
+    // field edits go through the per-record routes. Anyone else gets the
+    // opaque 404 below.
+    if (
+      tenancy.status === 404 &&
+      (await prisma.inspection.count({
+        where: { id, technicianId: session.user.id },
+      })) > 0
+    ) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message:
+          "Saving the whole draft is for the job owner or a manager. Record field data on each screen instead.",
+        status: 403,
+      });
+    }
     return apiError(request, {
       code: tenancy.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
       message: tenancy.reason,

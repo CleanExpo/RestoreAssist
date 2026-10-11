@@ -39,8 +39,13 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
     _data: unknown,
     work: (tx: unknown) => unknown,
   ) => work(scopePrisma),
-  // Submit (RA-7721), and draft-snapshot and water-damage-classification
-  // (D-028), all gate on the assigned-write helper.
+  // draft-snapshot keeps the owner's write reach (D-028: it deletes rows).
+  resolveInspectionWrite: vi.fn().mockResolvedValue({
+    ok: true,
+    data: { inspectionManyWhere: { id: "insp-1" } },
+  }),
+  // Submit (RA-7721) and water-damage-classification (D-028) gate on the
+  // assigned-write helper.
   assertInspectionAssignedWrite: vi.fn().mockResolvedValue({
     ok: true,
     data: {
