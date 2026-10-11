@@ -15,6 +15,16 @@ vi.mock("@/lib/storage/sign-stored-url", () => ({
 }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  // D-028: POST gates on the assigned-write helper; GET keeps the tenancy read.
+  assertInspectionAssignedWrite: vi.fn(async () => ({
+      ok: true,
+      data: {
+        inspectionWhere: { id: "insp-1" },
+        inspectionManyWhere: { id: "insp-1" },
+        childInspectionFilter: undefined,
+        viaAssignment: false,
+      },
+    })),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {

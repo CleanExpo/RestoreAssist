@@ -17,9 +17,10 @@ const hoisted = vi.hoisted(() => ({
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: these handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(),
-  resolveInspectionWrite: vi.fn(),
+  assertInspectionAssignedWrite: vi.fn(),
   // The child write now runs inside the caller's tenancy scope. The real
   // helper gates on a scoped updateMany claiming a row; here we stand in for a
   // scope that still claims it, so this suite keeps testing the route's own
@@ -45,11 +46,11 @@ vi.mock("@/lib/prisma", () => ({
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { POST } from "../route";
 
 const mockSession = getServerSession as ReturnType<typeof vi.fn>;
-const mockResolveWrite = resolveInspectionWrite as ReturnType<typeof vi.fn>;
+const mockResolveWrite = assertInspectionAssignedWrite as ReturnType<typeof vi.fn>;
 const mockUpsert = prisma.carpetRestorationAssessment.upsert as ReturnType<
   typeof vi.fn
 >;

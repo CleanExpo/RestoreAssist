@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  resolveInspectionWrite,
+} from "@/lib/auth/assert-tenancy";
 
 export async function DELETE(
   request: NextRequest,
@@ -73,7 +76,7 @@ export async function DELETE(
  *
  * Body: { mapX: number, mapY: number } normalised 0-1 (clamped, as the
  * collection POST does), or { mapX: null, mapY: null } to unplace it. Writes
- * ONLY mapX/mapY. Scoped by resolveInspectionWrite so the update re-asserts
+ * ONLY mapX/mapY. Scoped by assertInspectionAssignedWrite so the update re-asserts
  * the caller's write reach atomically.
  */
 function parseCoordinate(value: unknown): number | null | undefined {
@@ -96,7 +99,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     const { id, readingId } = await params;
-    const tenancy = await resolveInspectionWrite(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code:

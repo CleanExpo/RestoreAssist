@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
 import { persistInspectionClassification } from "@/lib/nir-classification-persist";
@@ -50,34 +51,34 @@ export async function GET(
     const { id } = await params;
 
     const inspection = await prisma.inspection.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
-      include: {
-        classifications: {
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            inspectionId: true,
-            category: true,
-            class: true,
-            justification: true,
-            standardReference: true,
-            confidence: true,
-            inputData: true,
-            isFinal: true,
-            reviewedBy: true,
-            createdAt: true,
-            updatedAt: true,
-          },
+    where: {
+      id,
+      userId: session.user.id,
+    },
+    include: {
+      classifications: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          inspectionId: true,
+          category: true,
+          class: true,
+          justification: true,
+          standardReference: true,
+          confidence: true,
+          inputData: true,
+          isFinal: true,
+          reviewedBy: true,
+          createdAt: true,
+          updatedAt: true,
         },
-        affectedAreas: {
-          select: { id: true },
-        },
-        waterDamageClassification: true,
       },
-    });
+      affectedAreas: {
+        select: { id: true },
+      },
+      waterDamageClassification: true,
+    },
+  });
 
     if (!inspection) {
       return apiError(request, {
@@ -117,14 +118,23 @@ export async function POST(
     }
 
     const { id } = await params;
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: {
-        id: true,
-        claimType: true,
-        photos: { select: { id: true }, take: 20 },
-      },
-    });
+    where: tenancy.data.inspectionManyWhere,
+    select: {
+      id: true,
+      claimType: true,
+      photos: { select: { id: true }, take: 20 },
+    },
+  });
     if (!inspection) {
       return apiError(request, {
         code: "NOT_FOUND",
@@ -207,7 +217,7 @@ export async function POST(
       // Stamp claim type for water when unset so moisture gates activate.
       if (!inspection.claimType) {
         await tx.inspection.update({
-          where: { id },
+          where: tenancy.data.inspectionWhere,
           data: { claimType: "WATER" },
         });
       }

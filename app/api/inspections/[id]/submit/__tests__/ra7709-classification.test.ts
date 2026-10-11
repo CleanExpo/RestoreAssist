@@ -31,15 +31,16 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  // draft-snapshot still gates on resolveInspectionWrite; submit on the
-  // RA-7721 assigned-write helper.
-  resolveInspectionWrite: vi.fn().mockResolvedValue({
-    ok: true,
-    data: { inspectionManyWhere: { id: "insp-1" } },
-  }),
+  // Submit (RA-7721), and draft-snapshot and water-damage-classification
+  // (D-028), all gate on the assigned-write helper.
   assertInspectionAssignedWrite: vi.fn().mockResolvedValue({
     ok: true,
-    data: { inspectionManyWhere: { id: "insp-1" }, viaAssignment: false },
+    data: {
+      inspectionWhere: { id: "insp-1" },
+      inspectionManyWhere: { id: "insp-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
   }),
 }));
 
@@ -204,9 +205,17 @@ vi.mock("@/lib/prisma", () => {
       findUnique: vi.fn(async () =>
         db.inspection ? structuredClone(db.inspection) : null,
       ),
+      // D-028: water-damage-classification now reads through findFirst
+      // (scoped by the assigned-write helper), so the row carries the
+      // fixture's status and photo count as well.
       findFirst: vi.fn(async () =>
         db.inspection
-          ? { id: db.inspection.id, claimType: "WATER", photos: [] }
+          ? {
+              ...structuredClone(db.inspection),
+              id: db.inspection.id,
+              claimType: "WATER",
+              photos: [],
+            }
           : null,
       ),
       // CAS always wins: models a re-run of the pipeline (retry / re-submit).

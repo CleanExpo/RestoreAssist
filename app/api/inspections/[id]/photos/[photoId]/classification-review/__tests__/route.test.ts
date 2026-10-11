@@ -13,6 +13,22 @@ vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: the handler gates on the assigned-write helper; here it admits
+// whoever the inspection lookup mock returns a row for.
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionAssignedWrite: async (_s: unknown, id: string) =>
+    (await inspectionFindFirst({ where: { id } }))
+      ? {
+          ok: true,
+          data: {
+            inspectionWhere: { id },
+            inspectionManyWhere: { id },
+            childInspectionFilter: undefined,
+            viaAssignment: false,
+          },
+        }
+      : { ok: false, status: 404, reason: "Inspection not found" },
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {

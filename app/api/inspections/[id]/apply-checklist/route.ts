@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { IICRC_CHECKLISTS } from "@/lib/iicrc-checklists";
 import { withIdempotency } from "@/lib/idempotency";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
 // POST — apply an IICRC checklist template to an inspection's scope items
@@ -50,7 +50,7 @@ export async function POST(
       }
 
       // RA-1711 batch 4 — adopt shared tenancy helper.
-      const tenancy = await assertInspectionTenancy(session, id);
+      const tenancy = await assertInspectionAssignedWrite(session, id);
       if (!tenancy.ok) {
         return apiError(request, {
           code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",

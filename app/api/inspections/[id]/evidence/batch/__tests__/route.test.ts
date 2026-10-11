@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { POST } from "../route";
 
 const getServerSession = vi.fn();
-const assertInspectionTenancy = vi.fn();
+const assertInspectionAssignedWrite = vi.fn();
 const userFindUnique = vi.fn();
 const evidenceCreate = vi.fn();
 const storageUpload = vi.fn();
@@ -15,8 +15,9 @@ vi.mock("next-auth", () => ({
 
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
+// D-028: these handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: (...a: unknown[]) => assertInspectionTenancy(...a),
+  assertInspectionAssignedWrite: (...a: unknown[]) => assertInspectionAssignedWrite(...a),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -77,7 +78,7 @@ beforeEach(() => {
   getServerSession.mockReset().mockResolvedValue({
     user: { id: "user_1", name: "Tester" },
   });
-  assertInspectionTenancy.mockReset().mockResolvedValue({ ok: true });
+  assertInspectionAssignedWrite.mockReset().mockResolvedValue({ ok: true });
   userFindUnique.mockReset().mockResolvedValue({ organizationId: "org_1" });
   storageUpload.mockReset();
   signingKeyFindFirst.mockReset().mockResolvedValue(null);

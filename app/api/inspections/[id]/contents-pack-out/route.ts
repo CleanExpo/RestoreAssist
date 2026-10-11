@@ -19,7 +19,7 @@ import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
 import {
   assertInspectionTenancy,
-  resolveInspectionWrite,
+  assertInspectionAssignedWrite,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -146,7 +146,7 @@ export async function POST(
     try {
       // RA-1711 batch 3 — adopt shared tenancy helper.
       // RA-6800 — scope the write so ownership is re-asserted atomically.
-      const tenancy = await resolveInspectionWrite(session, id);
+      const tenancy = await assertInspectionAssignedWrite(session, id);
       if (!tenancy.ok) {
         return NextResponse.json(
           { error: tenancy.reason },

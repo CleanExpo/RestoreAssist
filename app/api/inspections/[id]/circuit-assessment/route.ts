@@ -19,7 +19,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionTenancy,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
 // ─── Equipment amp draw reference (IICRC S500 / AS/NZS 3012) ──────────────────
@@ -168,7 +171,7 @@ export async function POST(
   return withIdempotency(req, userId, async (rawBody) => {
     try {
       // RA-1711 batch 3 — adopt shared tenancy helper.
-      const tenancy = await assertInspectionTenancy(session, id);
+      const tenancy = await assertInspectionAssignedWrite(session, id);
       if (!tenancy.ok) {
         return NextResponse.json(
           { error: tenancy.reason },

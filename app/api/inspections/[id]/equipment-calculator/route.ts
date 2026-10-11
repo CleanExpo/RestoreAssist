@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import {
   calculateEquipment,
   type DamageCategory,
@@ -44,17 +45,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // RA-1266: saves ScopeItem records — retry creates duplicates.
   return withIdempotency(request, userId, async (rawBody) => {
     try {
+      // D-028: the owner's reach, plus the technician assigned to the job.
+      const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+      if (!tenancy.ok) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
       const inspection = await prisma.inspection.findFirst({
-        where: { id: inspectionId, userId },
-        select: {
-          id: true,
-          classifications: {
-            orderBy: { createdAt: "desc" },
-            take: 1,
-            select: { category: true, class: true },
-          },
+      where: tenancy.data.inspectionManyWhere,
+      select: {
+        id: true,
+        classifications: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { category: true, class: true },
         },
-      });
+      },
+    });
 
       if (!inspection) {
         return apiError(request, {
@@ -147,7 +157,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 "negative_air_machine",
               ],
             },
-            inspection: { userId },
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
           },
         });
 

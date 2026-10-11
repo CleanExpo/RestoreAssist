@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
@@ -124,8 +125,17 @@ export async function POST(
   // duplicate data points.
   return withIdempotency(req, userId, async (rawBody) => {
     try {
-      const inspection = await prisma.inspection.findUnique({
-        where: { id, userId },
+      // D-028: the owner's reach, plus the technician assigned to the job.
+      const tenancy = await assertInspectionAssignedWrite(session, id);
+      if (!tenancy.ok) {
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
+      const inspection = await prisma.inspection.findFirst({
+        where: tenancy.data.inspectionManyWhere,
         select: { id: true },
       });
       if (!inspection) {

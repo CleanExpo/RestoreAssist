@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { createSession, endSession } from "@/lib/voice/session";
 import { checkCompletion, buildGreeting } from "@/lib/voice/completion-checker";
 import type { VoiceCopilotMode } from "@/lib/voice/types";
@@ -30,9 +31,19 @@ export async function POST(
     }
 
     const { id } = await params;
-    const inspection = await prisma.inspection.findUnique({
-      where: { id },
-      select: { id: true, userId: true, propertyAddress: true, status: true },
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    // Anyone else gets 404, so a job id cannot be probed.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
+    const inspection = await prisma.inspection.findFirst({
+      where: tenancy.data.inspectionManyWhere,
+      select: { id: true, propertyAddress: true, status: true },
     });
 
     if (!inspection) {
@@ -40,14 +51,6 @@ export async function POST(
         code: "NOT_FOUND",
         message: "Inspection not found",
         status: 404,
-      });
-    }
-
-    if (inspection.userId !== session.user.id) {
-      return apiError(req, {
-        code: "FORBIDDEN",
-        message: "Forbidden",
-        status: 403,
       });
     }
 
@@ -116,6 +119,15 @@ export async function DELETE(
     }
 
     const { id: inspectionId } = await params;
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+    if (!tenancy.ok) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Session not found or already ended",
+        status: 404,
+      });
+    }
     const ended = await endSession(sessionId, session.user.id, inspectionId);
     if (!ended) {
       return apiError(req, {

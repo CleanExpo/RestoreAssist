@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { IICRC_DRY_STANDARDS, getDryStandard } from "@/lib/iicrc-dry-standards";
 import { computeTargetCurve } from "@/lib/drying/target-curve";
 import { withIdempotency } from "@/lib/idempotency";
@@ -48,9 +49,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Verify ownership
     const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      select: { id: true },
-    });
+    where: { id: inspectionId, userId: session.user.id },
+    select: { id: true },
+  });
     if (!inspection) {
       return apiError(request, {
         code: "NOT_FOUND",
@@ -197,8 +198,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // Verify ownership + get classification
+      // D-028: the owner's reach, plus the technician assigned to the job.
+      const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+      if (!tenancy.ok) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
       const inspection = await prisma.inspection.findFirst({
-        where: { id: inspectionId, userId },
+        where: tenancy.data.inspectionManyWhere,
         select: { id: true },
       });
       if (!inspection) {
@@ -262,24 +272,33 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { signedOffBy } = body as { signedOffBy?: string };
 
     // Verify ownership
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      include: {
-        moistureReadings: {
-          select: {
-            id: true,
-            location: true,
-            surfaceType: true,
-            moistureLevel: true,
-            isBaseline: true,
-            isMonitoringPoint: true,
-            invalidatedAt: true,
-            recordedAt: true,
-            createdAt: true,
-          },
+    where: tenancy.data.inspectionManyWhere,
+    include: {
+      moistureReadings: {
+        select: {
+          id: true,
+          location: true,
+          surfaceType: true,
+          moistureLevel: true,
+          isBaseline: true,
+          isMonitoringPoint: true,
+          invalidatedAt: true,
+          recordedAt: true,
+          createdAt: true,
         },
       },
-    });
+    },
+  });
     if (!inspection) {
       return apiError(request, {
         code: "NOT_FOUND",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   hasDisposalAuthorityForInspection,
@@ -24,8 +25,17 @@ export async function PATCH(
     const { id, itemId } = await params;
 
     // Verify inspection ownership
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok)
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
+      where: tenancy.data.inspectionManyWhere,
+      select: { id: true },
     });
     if (!inspection)
       return apiError(request, {
@@ -102,7 +112,12 @@ export async function PATCH(
     }
 
     const updated = await prisma.scopeItem.update({
-      where: { id: itemId, inspection: { userId: session.user.id } },
+      where: {
+        id: itemId,
+        ...(tenancy.data.childInspectionFilter && {
+          inspection: tenancy.data.childInspectionFilter,
+        }),
+      },
       data: {
         ...(body.description !== undefined && {
           description: String(body.description).slice(0, 2000),
@@ -150,8 +165,17 @@ export async function DELETE(
 
     const { id, itemId } = await params;
 
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok)
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
+      where: tenancy.data.inspectionManyWhere,
+      select: { id: true },
     });
     if (!inspection)
       return apiError(request, {
@@ -165,7 +189,9 @@ export async function DELETE(
       where: {
         id: itemId,
         inspectionId: id,
-        inspection: { userId: session.user.id },
+        ...(tenancy.data.childInspectionFilter && {
+          inspection: tenancy.data.childInspectionFilter,
+        }),
       },
     });
     if (deleted.count === 0)

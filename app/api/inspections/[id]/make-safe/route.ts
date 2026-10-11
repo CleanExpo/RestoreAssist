@@ -5,7 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
-import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionReadable,
+} from "@/lib/auth/assert-tenancy";
 import { MAKE_SAFE_ACTIONS } from "@/lib/compliance/make-safe-actions";
 
 // RA-1136a: Make-Safe compliance gate
@@ -15,8 +18,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 // ── Auth + ownership guard ─────────────────────────────────────────────────
 
-// RA-7755: GET reads with the organisation read reach; POST and PATCH change
-// rows and keep the owner-only check.
+// RA-7755: GET reads with the organisation read reach. D-028: POST and PATCH
+// change rows, so they take the owner's write reach plus the technician
+// assigned to the job; an unassigned colleague is still refused.
 async function authorise(
   request: NextRequest,
   inspectionId: string,
@@ -44,10 +48,7 @@ async function authorise(
   const inspection =
     intent === "read"
       ? (await assertInspectionReadable(session, inspectionId)).ok
-      : await prisma.inspection.findFirst({
-          where: { id: inspectionId, userId: session.user.id },
-          select: { id: true },
-        });
+      : (await assertInspectionAssignedWrite(session, inspectionId)).ok;
   if (!inspection) {
     return {
       error: apiError(request, {

@@ -8,7 +8,7 @@ import { NextRequest } from "next/server";
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
-const { resolveInspectionWrite, inspectionFindUnique, transaction, tx } =
+const { assertInspectionAssignedWrite, inspectionFindUnique, transaction, tx } =
   vi.hoisted(() => {
     const tx = {
       inspection: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
@@ -20,14 +20,15 @@ const { resolveInspectionWrite, inspectionFindUnique, transaction, tx } =
       auditLog: { create: vi.fn() },
     };
     return {
-      resolveInspectionWrite: vi.fn(),
+      assertInspectionAssignedWrite: vi.fn(),
       inspectionFindUnique: vi.fn(),
       transaction: vi.fn(),
       tx,
     };
   });
 
-vi.mock("@/lib/auth/assert-tenancy", () => ({ resolveInspectionWrite }));
+// D-028: these handlers gate on assertInspectionAssignedWrite.
+vi.mock("@/lib/auth/assert-tenancy", () => ({ assertInspectionAssignedWrite }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: inspectionFindUnique },
@@ -77,7 +78,7 @@ function request() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ user: { id: "user_1" } } as never);
-  resolveInspectionWrite.mockResolvedValue({
+  assertInspectionAssignedWrite.mockResolvedValue({
     ok: true,
     data: {
       inspectionWhere: { id: "insp_1" },
@@ -120,7 +121,7 @@ describe("PUT inspection draft snapshot — RA-7610 room height", () => {
     for (const body of [tooTall, tooShort]) {
       vi.clearAllMocks();
       mockSession.mockResolvedValue({ user: { id: "user_1" } } as never);
-      resolveInspectionWrite.mockResolvedValue({
+      assertInspectionAssignedWrite.mockResolvedValue({
         ok: true,
         data: {
           inspectionWhere: { id: "insp_1" },

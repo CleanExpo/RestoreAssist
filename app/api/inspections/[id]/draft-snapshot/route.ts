@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { parseInspectionDate } from "@/lib/parse-date";
@@ -142,7 +142,7 @@ export async function PUT(
   }
 
   const { id } = await params;
-  const tenancy = await resolveInspectionWrite(session, id);
+  const tenancy = await assertInspectionAssignedWrite(session, id);
   if (!tenancy.ok) {
     return apiError(request, {
       code: tenancy.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",

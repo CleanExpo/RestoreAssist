@@ -10,8 +10,17 @@ const requireAddon = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: these handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  assertInspectionAssignedWrite: vi.fn(async () => ({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "insp-1" },
+      inspectionManyWhere: { id: "insp-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
+  })),
 }));
 vi.mock("@/lib/sketch/server-underlay-import", () => ({
   prepareUnderlayBytes,
@@ -32,12 +41,12 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { getServerSession } from "next-auth";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { DELETE, POST } from "../route";
 
 const session = getServerSession as unknown as ReturnType<typeof vi.fn>;
-const tenancy = assertInspectionTenancy as unknown as ReturnType<typeof vi.fn>;
+const tenancy = assertInspectionAssignedWrite as unknown as ReturnType<typeof vi.fn>;
 const transaction = (
   prisma as unknown as { $transaction: ReturnType<typeof vi.fn> }
 ).$transaction;
@@ -81,7 +90,15 @@ function urlRequest(): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   session.mockResolvedValue({ user: { id: "user-1" } });
-  tenancy.mockResolvedValue({ ok: true });
+  tenancy.mockResolvedValue({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "inspection-1" },
+      inspectionManyWhere: { id: "inspection-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
+  });
   isUnderlayUrlImportEnabled.mockReturnValue(false);
   requireAddon.mockResolvedValue({ allowed: true });
   prepareUnderlayBytes.mockResolvedValue({

@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import {
   getSession,
   addObservation,
@@ -79,6 +80,17 @@ export async function POST(
           code: "FORBIDDEN",
           message: "Forbidden",
           status: 403,
+        });
+      }
+
+      // D-028: re-check the job's write reach on every observation, so a
+      // technician unassigned mid-session stops writing to the job.
+      const tenancy = await assertInspectionAssignedWrite(session, id);
+      if (!tenancy.ok) {
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
         });
       }
 

@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   DamageCategory,
@@ -175,8 +176,17 @@ export async function PATCH(
     const { id: inspectionId, photoId } = await params;
 
     // Workspace-scoped auth: inspection must belong to this user
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
+      where: tenancy.data.inspectionManyWhere,
       select: { id: true },
     });
     if (!inspection) {
@@ -355,7 +365,12 @@ export async function PATCH(
 
     // Persist
     const updatedPhoto = await prisma.inspectionPhoto.update({
-      where: { id: photoId, inspection: { userId: session.user.id } },
+      where: {
+        id: photoId,
+        ...(tenancy.data.childInspectionFilter && {
+          inspection: tenancy.data.childInspectionFilter,
+        }),
+      },
       data: updateData,
     });
 

@@ -7,8 +7,17 @@ import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: these handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  assertInspectionAssignedWrite: vi.fn(async () => ({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "insp-1" },
+      inspectionManyWhere: { id: "insp-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
+  })),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -22,10 +31,10 @@ vi.mock("@/lib/prisma", () => ({
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { POST } from "../route";
 
-const mockTenancy = assertInspectionTenancy as unknown as ReturnType<
+const mockTenancy = assertInspectionAssignedWrite as unknown as ReturnType<
   typeof vi.fn
 >;
 

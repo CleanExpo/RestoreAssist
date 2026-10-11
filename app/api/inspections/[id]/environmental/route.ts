@@ -6,6 +6,7 @@ import { sanitizeString } from "@/lib/sanitize";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 
 // POST - Add or update environmental data
 export async function POST(
@@ -27,10 +28,14 @@ export async function POST(
   let inspection;
   let workspace;
   try {
-    inspection = await prisma.inspection.findFirst({
-      where: { id, userId },
-      select: { id: true },
-    });
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    inspection = tenancy.ok
+      ? await prisma.inspection.findFirst({
+          where: tenancy.data.inspectionManyWhere,
+          select: { id: true },
+        })
+      : null;
     // RA-7586: the sync ledger is keyed to the caller's workspace, not
     // Inspection.workspaceId, which no create path writes.
     workspace = inspection ? await getWorkspaceForUser(userId) : null;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -36,8 +37,18 @@ export async function POST(
         });
       }
 
+      // D-028: the owner's reach, plus the technician assigned to the job.
+      const tenancy = await assertInspectionAssignedWrite(session, id);
+      if (!tenancy.ok) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
       const inspection = await prisma.inspection.findFirst({
-        where: { id, userId },
+        where: tenancy.data.inspectionManyWhere,
+        select: { id: true },
       });
 
       if (!inspection) {

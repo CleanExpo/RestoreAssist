@@ -81,6 +81,22 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
       ? { ok: true, data: { id: row.id, userId: "user_1", workspaceId: null } }
       : { ok: false, status: 404, reason: "Inspection not found" };
   },
+  // D-028: environmental and affected-areas gate on the assigned-write helper,
+  // resolved here through the same lookup mock.
+  assertInspectionAssignedWrite: async (_s: unknown, id: string) => {
+    const row = await mocks.inspectionFindFirst({ where: { id }, select: { id: true } });
+    return row
+      ? {
+          ok: true,
+          data: {
+            inspectionWhere: { id },
+            inspectionManyWhere: { id },
+            childInspectionFilter: undefined,
+            viaAssignment: false,
+          },
+        }
+      : { ok: false, status: 404, reason: "Inspection not found" };
+  },
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -186,7 +202,7 @@ beforeEach(() => {
 
 describe.each(ROUTES)(
   "POST /api/inspections/[id]/$name — client-mutation ledger (RA-7586)",
-  ({ name, segment, post, body, mutationType, okStatus }) => {
+  ({ segment, post, body, mutationType, okStatus }) => {
     it("records the ledger row under the signed-in user's workspace when the inspection has none", async () => {
       const res = await post(syncRequest(segment, body, "1"), params());
 
@@ -231,16 +247,11 @@ describe.each(ROUTES)(
 
       expect(res.status).toBe(404);
       expect(mocks.inspectionFindFirst).toHaveBeenCalledWith(
-        // Moisture goes through the capture gate (RA-7755), which looks the
-        // inspection up by id and is proven against a real database in
-        // technician-field-capture.integration.test.ts. The other routes keep
-        // the owner-only lookup, and this pins it.
-        expect.objectContaining({
-          where:
-            name === "moisture"
-              ? { id: "insp_1" }
-              : { id: "insp_1", userId: "user_1" },
-        }),
+        // Every route now goes through a gate that looks the inspection up by
+        // id: moisture the capture gate (RA-7755), environmental and
+        // affected-areas the assigned-write gate (D-028). Both are proven
+        // against a real database in technician-field-capture.integration.test.ts.
+        expect.objectContaining({ where: { id: "insp_1" } }),
       );
       expect(mocks.clientMutationCreate).not.toHaveBeenCalled();
     });

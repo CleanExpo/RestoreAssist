@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { workspaceRouteAiRequest } from "@/lib/ai/workspace-byok-dispatch";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { withIdempotency } from "@/lib/idempotency";
@@ -70,22 +71,22 @@ export async function GET(
     const { id } = await params;
 
     const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: {
-        id: true,
-        inspectionNumber: true,
-        propertyAddress: true,
-        contentsManifestDraft: true,
-        _count: {
-          select: {
-            photos: true,
-            evidenceItems: {
-              where: { evidenceClass: "AFFECTED_CONTENTS" },
-            },
+    where: { id, userId: session.user.id },
+    select: {
+      id: true,
+      inspectionNumber: true,
+      propertyAddress: true,
+      contentsManifestDraft: true,
+      _count: {
+        select: {
+          photos: true,
+          evidenceItems: {
+            where: { evidenceClass: "AFFECTED_CONTENTS" },
           },
         },
       },
-    });
+    },
+  });
 
     if (!inspection) {
       return apiError(request, {
@@ -143,8 +144,17 @@ export async function PATCH(
       });
     }
 
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
+      where: tenancy.data.inspectionManyWhere,
       select: { id: true, contentsManifestDraft: true },
     });
 
@@ -224,7 +234,7 @@ export async function PATCH(
     };
 
     await prisma.inspection.update({
-      where: { id, userId: session.user.id },
+      where: tenancy.data.inspectionWhere,
       data: { contentsManifestDraft: JSON.stringify(draft) },
     });
 
@@ -256,43 +266,43 @@ export async function POST(
   return withIdempotency(request, userId, async () => {
     try {
       const inspection = await prisma.inspection.findFirst({
-        where: { id, userId },
-        include: {
-          evidenceItems: {
-            where: {
-              evidenceClass: {
-                in: [
-                  "AFFECTED_CONTENTS",
-                  "PHOTO_DAMAGE",
-                  "PHOTO_EQUIPMENT",
-                  "PHOTO_PROGRESS",
-                  "PHOTO_COMPLETION",
-                ],
-              },
-            },
-            select: {
-              id: true,
-              evidenceClass: true,
-              fileUrl: true,
-              fileName: true,
-              title: true,
-              description: true,
-              roomName: true,
+      where: { id, userId },
+      include: {
+        evidenceItems: {
+          where: {
+            evidenceClass: {
+              in: [
+                "AFFECTED_CONTENTS",
+                "PHOTO_DAMAGE",
+                "PHOTO_EQUIPMENT",
+                "PHOTO_PROGRESS",
+                "PHOTO_COMPLETION",
+              ],
             },
           },
-          photos: {
-            select: {
-              id: true,
-              url: true,
-              description: true,
-              location: true,
-              roomType: true,
-            },
-            take: 40,
-            orderBy: { uploadedAt: "desc" },
+          select: {
+            id: true,
+            evidenceClass: true,
+            fileUrl: true,
+            fileName: true,
+            title: true,
+            description: true,
+            roomName: true,
           },
         },
-      });
+        photos: {
+          select: {
+            id: true,
+            url: true,
+            description: true,
+            location: true,
+            roomType: true,
+          },
+          take: 40,
+          orderBy: { uploadedAt: "desc" },
+        },
+      },
+    });
 
       if (!inspection) {
         return apiError(request, {

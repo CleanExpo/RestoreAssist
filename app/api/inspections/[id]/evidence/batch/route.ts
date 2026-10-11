@@ -16,7 +16,7 @@ import { EvidenceClass } from "@prisma/client";
 import { getStorageProvider } from "@/lib/storage";
 import { classifyByMimeType } from "@/lib/storage/compression";
 import type { UploadInput, UploadOutput } from "@/lib/storage";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
@@ -92,7 +92,7 @@ export async function POST(
 
   try {
     // RA-1711 batch 4 — adopt shared tenancy helper.
-    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },

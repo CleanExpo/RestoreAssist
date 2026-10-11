@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
 import type { Prisma } from "@prisma/client";
@@ -180,14 +181,23 @@ export async function POST(
 
     const { id } = await params;
 
-    const inspection = await prisma.inspection.findUnique({
-      where: { id, userId: session.user.id },
-      select: {
-        id: true,
-        status: true,
-        _count: { select: { photos: true } },
-      },
-    });
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
+    const inspection = await prisma.inspection.findFirst({
+    where: tenancy.data.inspectionManyWhere,
+    select: {
+      id: true,
+      status: true,
+      _count: { select: { photos: true } },
+    },
+  });
 
     if (!inspection) {
       return apiError(req, {
@@ -252,7 +262,7 @@ export async function POST(
         },
       });
       await tx.inspection.update({
-        where: { id, userId: session.user.id },
+        where: tenancy.data.inspectionWhere,
         data: { claimType: "WATER" },
       });
       await syncTechnicianChoice(
@@ -292,10 +302,19 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const inspection = await prisma.inspection.findUnique({
-      where: { id, userId: session.user.id },
-      select: { id: true, status: true },
-    });
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(_req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
+    const inspection = await prisma.inspection.findFirst({
+    where: tenancy.data.inspectionManyWhere,
+    select: { id: true, status: true },
+  });
 
     if (!inspection) {
       return apiError(_req, {
@@ -307,10 +326,15 @@ export async function DELETE(
 
     await prisma.$transaction(async (tx) => {
       await tx.waterDamageClassification.deleteMany({
-        where: { inspectionId: id, inspection: { userId: session.user.id } },
+        where: {
+          inspectionId: id,
+          ...(tenancy.data.childInspectionFilter && {
+            inspection: tenancy.data.childInspectionFilter,
+          }),
+        },
       });
       await tx.inspection.update({
-        where: { id, userId: session.user.id },
+        where: tenancy.data.inspectionWhere,
         data: { claimType: null },
       });
       // RA-7709: removing the panel record removes the pick it carried.

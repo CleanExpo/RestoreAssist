@@ -19,7 +19,7 @@ import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
 import {
   assertInspectionTenancy,
-  resolveInspectionWrite,
+  assertInspectionAssignedWrite,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -120,7 +120,7 @@ export async function POST(
     const { id } = await params;
 
     // RA-1711 batch 3 — adopt shared tenancy helper.
-    const tenancy = await resolveInspectionWrite(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(req, {
         code: tenancyCode(tenancy.status),
@@ -250,7 +250,7 @@ export async function DELETE(
     const { id } = await params;
 
     // RA-1711 batch 3 — adopt shared tenancy helper.
-    const tenancy = await resolveInspectionWrite(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(req, {
         code: tenancyCode(tenancy.status),

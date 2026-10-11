@@ -4,8 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
+  assertInspectionAssignedWrite,
   assertInspectionReadable,
-  assertInspectionTenancy,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { decomposeElements } from "@/lib/sketch/decompose-elements";
@@ -127,7 +127,8 @@ export async function POST(
     const { id } = await params;
 
     // RA-1711 batch 4 — adopt shared tenancy helper.
-    const tenancy = await assertInspectionTenancy(session, id);
+    // D-028 — the assigned technician saves the sketch too.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -447,7 +448,13 @@ export async function POST(
 
     const sketch = existing
       ? await (prisma as any).claimSketch.update({
-          where: { id: existing.id },
+          // D-028: re-check the caller's reach inside the write itself.
+          where: {
+            id: existing.id,
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
+          },
           data: {
             sketchType,
             sketchData: sketchDataToPersist,
