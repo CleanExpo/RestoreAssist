@@ -360,7 +360,7 @@ export default function SignupPage() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="bg-white border border-slate-200/90 rounded-2xl p-8 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form method="post" onSubmit={handleSubmit} className="space-y-6">
             {/* Name Field */}
             <div>
               <label

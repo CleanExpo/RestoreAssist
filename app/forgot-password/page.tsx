@@ -197,7 +197,7 @@ function ForgotPasswordForm() {
           className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8"
         >
           {step === "email" ? (
-            <form onSubmit={handleEmailSubmit} className="space-y-6">
+            <form method="post" onSubmit={handleEmailSubmit} className="space-y-6">
               <div>
                 <label
                   htmlFor="email"
@@ -252,7 +252,7 @@ function ForgotPasswordForm() {
               </motion.button>
             </form>
           ) : step === "code" ? (
-            <form
+            <form method="post"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (/^\d{6}$/.test(code)) {
@@ -338,7 +338,7 @@ function ForgotPasswordForm() {
               </button>
             </form>
           ) : (
-            <form onSubmit={handlePasswordSubmit} className="space-y-6">
+            <form method="post" onSubmit={handlePasswordSubmit} className="space-y-6">
               <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg flex items-center gap-2">
                 <ShieldCheck size={20} className="text-blue-300" />
                 <span className="text-blue-300 text-sm">

@@ -225,7 +225,7 @@ function LoginForm() {
               <a href="/dashboard" className="underline">Continue with this account</a>
             </div>
           )}
-          <form
+          <form method="post"
             onSubmit={handleSubmit}
             className="space-y-6"
             // 1.0.4 (RA-2076): on (was off) so iOS native AutoFill / iCloud
