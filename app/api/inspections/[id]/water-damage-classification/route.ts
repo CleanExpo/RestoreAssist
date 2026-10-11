@@ -302,19 +302,10 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // D-028: the owner's reach, plus the technician assigned to the job.
-    const tenancy = await assertInspectionAssignedWrite(session, id);
-    if (!tenancy.ok) {
-      return apiError(_req, {
-        code: "NOT_FOUND",
-        message: "Inspection not found",
-        status: 404,
-      });
-    }
-    const inspection = await prisma.inspection.findFirst({
-    where: tenancy.data.inspectionManyWhere,
-    select: { id: true, status: true },
-  });
+    const inspection = await prisma.inspection.findUnique({
+      where: { id, userId: session.user.id },
+      select: { id: true, status: true },
+    });
 
     if (!inspection) {
       return apiError(_req, {
@@ -326,15 +317,10 @@ export async function DELETE(
 
     await prisma.$transaction(async (tx) => {
       await tx.waterDamageClassification.deleteMany({
-        where: {
-          inspectionId: id,
-          ...(tenancy.data.childInspectionFilter && {
-            inspection: tenancy.data.childInspectionFilter,
-          }),
-        },
+        where: { inspectionId: id, inspection: { userId: session.user.id } },
       });
       await tx.inspection.update({
-        where: tenancy.data.inspectionWhere,
+        where: { id, userId: session.user.id },
         data: { claimType: null },
       });
       // RA-7709: removing the panel record removes the pick it carried.

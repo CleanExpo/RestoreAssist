@@ -15,7 +15,7 @@ vi.mock("next-auth", () => ({
 
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
-// D-028: these handlers gate on assertInspectionAssignedWrite.
+// D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionAssignedWrite: (...a: unknown[]) => assertInspectionAssignedWrite(...a),
 }));

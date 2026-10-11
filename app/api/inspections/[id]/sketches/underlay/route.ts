@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionTenancy,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import {
@@ -246,7 +249,7 @@ export async function DELETE(
       });
     }
     const { id } = await params;
-    const tenancy = await assertInspectionAssignedWrite(session, id);
+    const tenancy = await assertInspectionTenancy(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -267,14 +270,7 @@ export async function DELETE(
     const now = new Date();
     await (prisma as any).$transaction([
       (prisma as any).claimSketch.updateMany({
-        where: {
-          inspectionId: id,
-          floorNumber,
-          // D-028: re-check the caller's reach inside the write itself.
-          ...(tenancy.data.childInspectionFilter && {
-            inspection: tenancy.data.childInspectionFilter,
-          }),
-        },
+        where: { inspectionId: id, floorNumber },
         data: { backgroundImageUrl: null, renderedPngUrl: null },
       }),
       (prisma as any).sketchUnderlayReference.updateMany({
@@ -283,9 +279,6 @@ export async function DELETE(
           floorNumber,
           replacedAt: null,
           removedAt: null,
-          ...(tenancy.data.childInspectionFilter && {
-            inspection: tenancy.data.childInspectionFilter,
-          }),
         },
         data: { removedAt: now },
       }),

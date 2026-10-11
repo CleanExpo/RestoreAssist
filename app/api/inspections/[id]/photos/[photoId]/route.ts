@@ -162,17 +162,8 @@ export async function DELETE(
     }
 
     const { id, photoId } = await params;
-    // D-028: the owner's reach, plus the technician assigned to the job.
-    const tenancy = await assertInspectionAssignedWrite(session, id);
-    if (!tenancy.ok) {
-      return apiError(request, {
-        code: "NOT_FOUND",
-        message: "Inspection not found",
-        status: 404,
-      });
-    }
     const inspection = await prisma.inspection.findFirst({
-      where: tenancy.data.inspectionManyWhere,
+      where: { id, userId: session.user.id },
       select: { id: true },
     });
     if (!inspection) {
@@ -194,14 +185,7 @@ export async function DELETE(
       });
     }
 
-    await prisma.inspectionPhoto.delete({
-      where: {
-        id: photoId,
-        ...(tenancy.data.childInspectionFilter && {
-          inspection: tenancy.data.childInspectionFilter,
-        }),
-      },
-    });
+    await prisma.inspectionPhoto.delete({ where: { id: photoId } });
 
     // Best-effort storage cleanup — never fail the user-facing delete.
     try {

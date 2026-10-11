@@ -145,17 +145,8 @@ export async function DELETE(
     const { id: inspectionId, areaId } = await params;
 
     // Verify inspection belongs to user
-    // D-028: the owner's reach, plus the technician assigned to the job.
-    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
-    if (!tenancy.ok) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
-    }
     const inspection = await prisma.inspection.findFirst({
-      where: tenancy.data.inspectionManyWhere,
-      select: { id: true },
+      where: { id: inspectionId, userId: session.user.id },
     });
     if (!inspection) {
       return NextResponse.json(
@@ -173,12 +164,7 @@ export async function DELETE(
     }
 
     await prisma.affectedArea.delete({
-      where: {
-        id: areaId,
-        ...(tenancy.data.childInspectionFilter && {
-          inspection: tenancy.data.childInspectionFilter,
-        }),
-      },
+      where: { id: areaId, inspection: { userId: session.user.id } },
     });
 
     return NextResponse.json({ success: true });

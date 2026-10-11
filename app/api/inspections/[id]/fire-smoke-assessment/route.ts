@@ -23,6 +23,7 @@ import { z } from "zod";
 import {
   assertInspectionTenancy,
   assertInspectionAssignedWrite,
+  resolveInspectionWrite,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -288,7 +289,7 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const tenancy = await assertInspectionAssignedWrite(session, id);
+    const tenancy = await resolveInspectionWrite(session, id);
     if (!tenancy.ok) {
       return apiError(req, {
         code: tenancyCode(tenancy.status),

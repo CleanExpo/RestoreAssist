@@ -31,7 +31,7 @@ const { assertInspectionAssignedWrite, inspectionFindUnique, areaFindMany, sketc
     };
   });
 
-// D-028: these handlers gate on assertInspectionAssignedWrite.
+// D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({ assertInspectionAssignedWrite }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {

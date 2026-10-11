@@ -165,17 +165,8 @@ export async function DELETE(
 
     const { id, itemId } = await params;
 
-    // D-028: the owner's reach, plus the technician assigned to the job.
-    const tenancy = await assertInspectionAssignedWrite(session, id);
-    if (!tenancy.ok)
-      return apiError(request, {
-        code: "NOT_FOUND",
-        message: "Not found",
-        status: 404,
-      });
     const inspection = await prisma.inspection.findFirst({
-      where: tenancy.data.inspectionManyWhere,
-      select: { id: true },
+      where: { id, userId: session.user.id },
     });
     if (!inspection)
       return apiError(request, {
@@ -189,9 +180,7 @@ export async function DELETE(
       where: {
         id: itemId,
         inspectionId: id,
-        ...(tenancy.data.childInspectionFilter && {
-          inspection: tenancy.data.childInspectionFilter,
-        }),
+        inspection: { userId: session.user.id },
       },
     });
     if (deleted.count === 0)

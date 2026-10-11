@@ -1,13 +1,15 @@
 /**
  * D-028 — static guard: the job's ASSIGNED technician may write field data.
  *
- * Founder decision 2026-10-11 ("Yes, field data only"). Every mutating handler
- * on a field-data route under app/api/inspections/[id]/ must gate on
+ * Founder decision 2026-10-11 ("Yes, field data only"), narrowed by the
+ * coordinator ruling: create and update only. Every POST / PUT / PATCH
+ * handler on a field-data route under app/api/inspections/[id]/ must gate on
  * `assertInspectionAssignedWrite` (or `assertInspectionCapturable` for a pure
  * create), and must not narrow its write back to the job's creator with a
  * `where: { ..., userId }` filter: that filter matches 0 rows for the
  * technician, so the gate would admit them and the write would silently do
- * nothing.
+ * nothing. No DELETE in these files may reach that helper: deletes stay with
+ * the owner's reach (RULES 21 chain of custody).
  *
  * DB-free: the route files are parsed with the TypeScript compiler, never
  * imported. The behavioural proof (rows actually change; another business and
@@ -30,50 +32,54 @@ const ADMITS_ASSIGNEE = new Set([
 const REFUSES_ASSIGNEE = new Set(["assertInspectionTenancy", "resolveInspectionWrite"]);
 
 /** Field-data handlers the assigned technician must be able to reach. */
+/**
+ * Field-data handlers the assigned technician must be able to reach: create
+ * and update only (POST / PUT / PATCH). No DELETE is ever listed here.
+ */
 const GATED: Record<string, string[]> = {
   "affected-areas/route.ts": ["POST"],
-  "affected-areas/[areaId]/route.ts": ["PATCH", "DELETE"],
+  "affected-areas/[areaId]/route.ts": ["PATCH"],
   "apply-checklist/route.ts": ["POST"],
   "australian-compliance/route.ts": [],
-  "biohazard-assessment/route.ts": ["POST", "DELETE"],
-  "carpet-restoration/route.ts": ["POST", "DELETE"],
+  "biohazard-assessment/route.ts": ["POST"],
+  "carpet-restoration/route.ts": ["POST"],
   "circuit-assessment/route.ts": ["POST"],
   "classification/route.ts": ["POST"],
   "contents-manifest/route.ts": ["PATCH"],
-  "contents-pack-out/route.ts": ["POST"],
-  "contents-pack-out/[itemId]/route.ts": ["DELETE"],
+  "contents-pack-out/route.ts": [],
+  "contents-pack-out/[itemId]/route.ts": [],
   "draft-snapshot/route.ts": ["PUT"],
   "drying-goal/route.ts": ["POST", "PUT"],
   "environmental/route.ts": ["POST"],
   "equipment-calculator/route.ts": ["POST"],
   "evidence/batch/route.ts": ["POST"],
-  "fire-smoke-assessment/route.ts": ["POST", "DELETE"],
+  "fire-smoke-assessment/route.ts": ["POST"],
   "floor-plan/route.ts": ["POST", "PUT"],
   "group-readings/route.ts": ["PATCH"],
-  "hvac-assessment/route.ts": ["POST", "DELETE"],
+  "hvac-assessment/route.ts": ["POST"],
   "make-safe/route.ts": ["POST", "PATCH"],
-  "moisture/[readingId]/route.ts": ["PATCH", "DELETE"],
+  "moisture/[readingId]/route.ts": ["PATCH"],
   "monitoring-report/route.ts": ["POST"],
-  "mould-remediation/route.ts": ["POST", "DELETE"],
-  "photos/[photoId]/route.ts": ["PATCH", "DELETE"],
+  "mould-remediation/route.ts": ["POST"],
+  "photos/[photoId]/route.ts": ["PATCH"],
   "photos/[photoId]/labels/route.ts": ["PATCH"],
   "photos/[photoId]/classification-review/route.ts": ["POST"],
   "psychrometric/route.ts": ["POST"],
   "scope-items/route.ts": ["POST"],
-  "scope-items/[itemId]/route.ts": ["PATCH", "DELETE"],
+  "scope-items/[itemId]/route.ts": ["PATCH"],
   "sketches/route.ts": ["POST"],
-  "sketches/[sketchId]/route.ts": ["PUT", "DELETE"],
+  "sketches/[sketchId]/route.ts": ["PUT"],
   "sketches/[sketchId]/evidence-pins/route.ts": ["POST"],
-  "sketches/[sketchId]/evidence-pins/[pinId]/route.ts": ["PATCH", "DELETE"],
+  "sketches/[sketchId]/evidence-pins/[pinId]/route.ts": ["PATCH"],
   "sketches/[sketchId]/hazards/route.ts": ["POST"],
   "sketches/[sketchId]/insurance-context/route.ts": [],
   "sketches/[sketchId]/moisture-readings/route.ts": ["POST"],
   "sketches/promote-homeowner/route.ts": ["POST"],
-  "sketches/underlay/route.ts": ["POST", "DELETE"],
-  "storm-damage/route.ts": ["POST", "DELETE"],
+  "sketches/underlay/route.ts": ["POST"],
+  "storm-damage/route.ts": ["POST"],
   "voice/observation/route.ts": ["POST"],
-  "voice/session/route.ts": ["POST", "DELETE"],
-  "water-damage-classification/route.ts": ["POST", "DELETE"],
+  "voice/session/route.ts": ["POST"],
+  "water-damage-classification/route.ts": ["POST"],
 };
 
 /**
@@ -83,16 +89,37 @@ const GATED: Record<string, string[]> = {
  */
 const AI_SPEND =
   "AI call on the caller's BYOK key and subscription; spending the owner's key is a cost decision D-028 does not make";
+const NO_DELETE =
+  "D-028 grants create and update only; deletes stay with the owner's reach (RULES 21 chain of custody)";
+const PACK_OUT_MONEY =
+  "pack-out items carry replacementValueAud and restorationCostEstimate: money, owner/manager only";
 const EXCLUDED: Record<string, Record<string, string>> = {
   "australian-compliance/route.ts": {
     POST: "carries insurer, claim number, loss adjuster and an asbestos removal quote (AUD): claim administration and money, not field data",
-    DELETE: "same record as POST",
+    DELETE: NO_DELETE,
   },
   "contents-manifest/route.ts": { POST: AI_SPEND },
+  "contents-pack-out/route.ts": { POST: PACK_OUT_MONEY },
+  "contents-pack-out/[itemId]/route.ts": { DELETE: PACK_OUT_MONEY },
   "group-readings/route.ts": { POST: AI_SPEND },
   "sketches/[sketchId]/insurance-context/route.ts": {
     POST: "sets the claim's insurance pathway; insurer routing stays with the owner, as insurer-profile does",
   },
+  "affected-areas/[areaId]/route.ts": { DELETE: NO_DELETE },
+  "biohazard-assessment/route.ts": { DELETE: NO_DELETE },
+  "carpet-restoration/route.ts": { DELETE: NO_DELETE },
+  "fire-smoke-assessment/route.ts": { DELETE: NO_DELETE },
+  "hvac-assessment/route.ts": { DELETE: NO_DELETE },
+  "moisture/[readingId]/route.ts": { DELETE: NO_DELETE },
+  "mould-remediation/route.ts": { DELETE: NO_DELETE },
+  "photos/[photoId]/route.ts": { DELETE: NO_DELETE },
+  "scope-items/[itemId]/route.ts": { DELETE: NO_DELETE },
+  "sketches/[sketchId]/evidence-pins/[pinId]/route.ts": { DELETE: NO_DELETE },
+  "sketches/[sketchId]/route.ts": { DELETE: NO_DELETE },
+  "sketches/underlay/route.ts": { DELETE: NO_DELETE },
+  "storm-damage/route.ts": { DELETE: NO_DELETE },
+  "voice/session/route.ts": { DELETE: NO_DELETE },
+  "water-damage-classification/route.ts": { DELETE: NO_DELETE },
 };
 
 type Violation = { handler: string; problem: string };
@@ -266,6 +293,18 @@ function analyseFieldDataRoute(
   return violations;
 }
 
+/**
+ * D-028 DELETE rule: a DELETE handler must not reach a gate that admits the
+ * assigned technician. Returns the admitting gates it reaches (empty = ok).
+ */
+function deleteAdmitsAssignee(source: string): string[] {
+  const sf = ts.createSourceFile("route.ts", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const handler = exportedHandlers(sf).get("DELETE");
+  if (!handler) return [];
+  const calls = calledNames(reachable(handler, localFunctions(sf)));
+  return [...ADMITS_ASSIGNEE].filter((g) => calls.has(g));
+}
+
 function mutatingExports(source: string): string[] {
   const sf = ts.createSourceFile("route.ts", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   return [...exportedHandlers(sf).keys()].filter((m) => MUTATING.has(m)).sort();
@@ -277,6 +316,10 @@ describe("D-028: field-data writes admit the assigned technician", () => {
   it.each(Object.entries(GATED))("%s gates %j on the assigned-write helper", (rel, methods) => {
     const violations = analyseFieldDataRoute(read(rel), methods, rel);
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
+  });
+
+  it.each(Object.keys(GATED))("%s: DELETE does not admit the assigned technician", (rel) => {
+    expect(deleteAdmitsAssignee(read(rel))).toEqual([]);
   });
 
   it.each(Object.keys(GATED))("%s: every mutating export is classified", (rel) => {
@@ -348,6 +391,26 @@ describe("D-028 guard analyser: positive and negative controls", () => {
       "await prisma.companyPricingConfig.findUnique({ where: { userId: owner.userId } });\n      await prisma.auditLog",
     );
     expect(analyseFieldDataRoute(ownerKeyed, ["PATCH"])).toEqual([]);
+  });
+
+  it("PLANTED: a DELETE gated on the assigned-write helper is caught", () => {
+    const planted = clean.replace("export async function PATCH", "export async function DELETE");
+    expect(deleteAdmitsAssignee(planted)).toEqual(["assertInspectionAssignedWrite"]);
+  });
+
+  it("PLANTED: a DELETE reaching the helper through a local function is caught", () => {
+    const planted = `
+      async function gate(session, id) { return assertInspectionAssignedWrite(session, id); }
+      export async function DELETE(req) { const t = await gate(session, id); }
+    `;
+    expect(deleteAdmitsAssignee(planted)).toEqual(["assertInspectionAssignedWrite"]);
+  });
+
+  it("a DELETE on the owner's write reach passes the DELETE rule", () => {
+    const owner = clean
+      .replace("export async function PATCH", "export async function DELETE")
+      .replace("assertInspectionAssignedWrite(session, id)", "resolveInspectionWrite(session, id)");
+    expect(deleteAdmitsAssignee(owner)).toEqual([]);
   });
 
   it("PLANTED: an unclassified mutating export is reported", () => {

@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionTenancy,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { toNormalized } from "@/lib/sketch/pin-coords";
 import { resolveEvidenceRoomLink } from "@/lib/sketch/sync-room-graph";
@@ -195,7 +198,7 @@ export async function DELETE(
     }
 
     const { id, sketchId, pinId } = await params;
-    const tenancy = await assertInspectionAssignedWrite(session, id);
+    const tenancy = await assertInspectionTenancy(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -220,14 +223,7 @@ export async function DELETE(
       });
     }
 
-    await prisma.evidencePin.delete({
-      where: {
-        id: pinId,
-        ...(tenancy.data.childInspectionFilter && {
-          sketch: { inspection: tenancy.data.childInspectionFilter },
-        }),
-      },
-    });
+    await prisma.evidencePin.delete({ where: { id: pinId } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return fromException(request, error, { stage: "evidence-pins:delete" });

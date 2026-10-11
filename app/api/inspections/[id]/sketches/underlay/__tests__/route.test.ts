@@ -10,8 +10,10 @@ const requireAddon = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-// D-028: these handlers gate on assertInspectionAssignedWrite.
+// D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // DELETE keeps the owner's reach (D-028: create and update only).
+  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
   assertInspectionAssignedWrite: vi.fn(async () => ({
     ok: true,
     data: {

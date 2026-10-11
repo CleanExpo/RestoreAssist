@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionTenancy,
+} from "@/lib/auth/assert-tenancy";
 
 // PUT /api/inspections/[id]/sketches/[sketchId] — retired unsafe partial update
 export async function PUT(
@@ -59,7 +62,7 @@ export async function DELETE(
 
     const { id, sketchId } = await params;
 
-    const tenancy = await assertInspectionAssignedWrite(session, id);
+    const tenancy = await assertInspectionTenancy(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -80,15 +83,7 @@ export async function DELETE(
       });
     }
 
-    // D-028: re-check the caller's reach inside the delete itself.
-    await (prisma as any).claimSketch.delete({
-      where: {
-        id: sketchId,
-        ...(tenancy.data.childInspectionFilter && {
-          inspection: tenancy.data.childInspectionFilter,
-        }),
-      },
-    });
+    await (prisma as any).claimSketch.delete({ where: { id: sketchId } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return fromException(request, error, { stage: "sketch:delete" });

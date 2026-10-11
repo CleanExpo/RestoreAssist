@@ -119,15 +119,6 @@ export async function DELETE(
     }
 
     const { id: inspectionId } = await params;
-    // D-028: the owner's reach, plus the technician assigned to the job.
-    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
-    if (!tenancy.ok) {
-      return apiError(req, {
-        code: "NOT_FOUND",
-        message: "Session not found or already ended",
-        status: 404,
-      });
-    }
     const ended = await endSession(sessionId, session.user.id, inspectionId);
     if (!ended) {
       return apiError(req, {
