@@ -3,6 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  hasDisposalAuthorityForInspection,
+  scopeItemRequiresDisposalAuthority,
+} from "@/lib/compliance/disposal-authority-gate";
 
 export async function PATCH(
   request: NextRequest,
@@ -35,7 +39,7 @@ export async function PATCH(
     // Scope update to this inspection — prevents cross-inspection IDOR
     const item = await prisma.scopeItem.findFirst({
       where: { id: itemId, inspectionId: id },
-      select: { id: true },
+      select: { id: true, itemType: true, isSelected: true },
     });
     if (!item)
       return apiError(request, {
@@ -52,6 +56,25 @@ export async function PATCH(
           message:
             "quantity must be a non-negative finite number up to 100,000",
           status: 400,
+        });
+      }
+    }
+
+    const selectingDisposal =
+      body.isSelected === true &&
+      scopeItemRequiresDisposalAuthority(item.itemType);
+    if (selectingDisposal) {
+      const authorised = await hasDisposalAuthorityForInspection(
+        prisma,
+        id,
+      );
+      if (!authorised) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Disposal or strip-out scope requires a recorded disposal authority before selection.",
+          status: 409,
+          fields: { disposalAuthority: "Record authority via POST /disposal-authority" },
         });
       }
     }
