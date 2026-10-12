@@ -17,6 +17,7 @@ import { IICRC_DRY_STANDARDS, getDryStandard } from "@/lib/iicrc-dry-standards";
 import { computeTargetCurve } from "@/lib/drying/target-curve";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { latestMonitoringReadingsForDryingGoal } from "@/lib/moisture/latest-monitoring-readings";
 
 // Material EMC targets for the "Drying Goal: ACHIEVED" gate
 // These map the iicrc-dry-standards.ts values into the per-material target JSON
@@ -270,6 +271,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             location: true,
             surfaceType: true,
             moistureLevel: true,
+            isBaseline: true,
+            isMonitoringPoint: true,
+            invalidatedAt: true,
             recordedAt: true,
             createdAt: true,
           },
@@ -306,7 +310,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const materialTargets = record.materialTargets as Record<string, number>;
-    const readings = inspection.moistureReadings;
+    const readings = latestMonitoringReadingsForDryingGoal(
+      inspection.moistureReadings,
+    );
 
     if (readings.length === 0) {
       return NextResponse.json({
