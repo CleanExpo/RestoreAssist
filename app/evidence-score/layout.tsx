@@ -23,10 +23,12 @@ export const metadata: Metadata = {
   alternates: { canonical: "/evidence-score" },
 };
 
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
+
 export default function EvidenceScoreLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <MarketingShell>{children}</MarketingShell>;
 }

@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Header from "@/components/landing/Header";
-import Footer from "@/components/landing/Footer";
 
 type Answer = 0 | 0.5 | 1;
 
@@ -115,7 +113,7 @@ function scoreBand(score: number) {
 }
 
 export default function EvidenceScorePage() {
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = false;
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [showResult, setShowResult] = useState(false);
   const [lead, setLead] = useState({ name: "", email: "", website: "" });
@@ -220,10 +218,8 @@ export default function EvidenceScorePage() {
     <div
       className={`min-h-screen ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
     >
-      <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-
       <main>
-        <section className="px-6 pb-16 pt-40">
+        <section className="px-6 pb-16 pt-12">
           <div className="mx-auto max-w-5xl text-center">
             <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-brand-bronze">
               Free restoration documentation check
@@ -482,7 +478,6 @@ export default function EvidenceScorePage() {
         )}
       </main>
 
-      <Footer darkMode={darkMode} />
     </div>
   );
 }
