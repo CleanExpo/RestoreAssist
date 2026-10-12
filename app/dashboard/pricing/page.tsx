@@ -221,7 +221,7 @@ function PricingPageContent() {
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
                 <Clock className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
-                  24/7 Access
+                  Dashboard access
                 </h3>
                 <p className="text-slate-400 text-sm">
                   Access your reports and data anytime, anywhere with cloud

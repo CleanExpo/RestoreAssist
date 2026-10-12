@@ -825,7 +825,7 @@ function SubscriptionPageContent() {
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
                   <Clock className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
-                    24/7 Access
+                    Dashboard access
                   </h4>
                   <p className="text-slate-400 text-sm">
                     Access your data anytime, anywhere
