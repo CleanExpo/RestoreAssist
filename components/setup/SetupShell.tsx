@@ -40,6 +40,7 @@ interface InitialPayload extends SetupOrganization {
 export function SetupShell({ initial }: { initial: InitialPayload }) {
   const setOrg = useSetupStore((s) => s.setOrg);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
+  const setSectionError = useSetupStore((s) => s.setSectionError);
   const org = useSetupStore((s) => s.org);
   const { update: refreshSession } = useSession();
 
@@ -124,9 +125,17 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
         const jobs: Array<{
           kind: 'ABR' | 'WEBSITE' | 'PRICING';
           status: string;
+          errorMessage?: string | null;
         }> = JSON.parse(e.data);
         for (const job of jobs) {
-          setSectionStatus(jobKindToSectionKey(job.kind), jobStatusToHydrationState(job.status));
+          const section = jobKindToSectionKey(job.kind);
+          setSectionStatus(section, jobStatusToHydrationState(job.status));
+          if (job.kind === 'ABR') {
+            setSectionError(
+              section,
+              job.status === 'ERROR' ? job.errorMessage ?? 'UPSTREAM_ERROR' : null,
+            );
+          }
         }
         // The server ends the stream once all three jobs are terminal; close
         // here too, or EventSource reconnects for the rest of the wizard.
@@ -163,7 +172,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     es.onerror = (err) => console.error('[setup] SSE error:', err);
 
     return () => es.close();
-  }, [runningAtLoad, hydrationRun, setOrg, setSectionStatus]);
+  }, [runningAtLoad, hydrationRun, setOrg, setSectionStatus, setSectionError]);
 
   // Locked one-step-at-a-time flow (Phase 4). Business details is the hard
   // gate; the AI key is optional for funded trials (D-022). Optional steps

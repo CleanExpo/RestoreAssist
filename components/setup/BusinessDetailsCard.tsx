@@ -9,6 +9,7 @@ import { isValidAbn, normaliseAbn } from '@/lib/abn/checksum';
 import { normalizeNZBN, validateNZBN } from '@/lib/validation/nzbn-validator';
 import { DEFAULT_ORGANIZATION_TIMEZONE, ORGANIZATION_TIMEZONES } from '@/lib/locale/organization-locale';
 import { getGstTreatment } from '@/lib/gst-rules';
+import { abrHydrationUserMessage } from '@/lib/setup/abr-user-message';
 
 type SetupCountry = 'AU' | 'NZ';
 type ManualField = 'legalName' | 'abn' | 'nzbn' | 'state';
@@ -31,6 +32,7 @@ async function patchState(fields: Record<string, string | null>): Promise<{ ok: 
 
 export function BusinessDetailsCard() {
   const status = useSetupStore((s) => s.sections.businessDetails);
+  const abrError = useSetupStore((s) => s.sectionErrors.businessDetails);
   const org = useSetupStore((s) => s.org);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
   const startHydrationWatch = useSetupStore((s) => s.startHydrationWatch);
@@ -279,6 +281,13 @@ export function BusinessDetailsCard() {
         )}
 
         {status === 'ready' && org && (
+          <>
+            {country === 'AU' && org.legalName ? (
+              <p className="mb-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-100">
+                Pulled from the Australian Business Register — review legal name,
+                ACN, and GST details before you continue.
+              </p>
+            ) : null}
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
             <dt className="text-muted-foreground">Country</dt>
             <dd>{org.country === 'NZ' ? 'New Zealand' : 'Australia'}</dd>
@@ -307,6 +316,7 @@ export function BusinessDetailsCard() {
               {getGstTreatment(org.country).currency} · {getGstTreatment(org.country).percentLabel} GST
             </dd>
           </dl>
+          </>
         )}
 
         {(status === 'error' || status === 'manual') && (
@@ -314,7 +324,7 @@ export function BusinessDetailsCard() {
             {countryField}
             <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
               {country === 'AU'
-                ? "We couldn't reach the Business Register. Enter your details manually and we'll retry in the background."
+                ? abrHydrationUserMessage(abrError)
                 : 'Enter the registered details for your New Zealand business.'}
             </div>
             <div className="space-y-1">
