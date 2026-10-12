@@ -1,7 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 
-type Reason = "trial-expired" | "credits" | "feature" | "voluntary" | null;
+type Reason =
+  | "trial-expired"
+  | "credits"
+  | "feature"
+  | "voluntary"
+  | "canceled"
+  | "past-due"
+  | null;
 
 type HeroCopy = {
   headline: string;
@@ -34,6 +41,22 @@ function heroFor(reason: Reason, feature?: string): HeroCopy {
       reasonLabel: feature ? `Needs ${feature}` : "Feature access",
     };
   }
+  if (reason === "canceled") {
+    return {
+      headline: "Continue with RestoreAssist",
+      support:
+        "Your subscription was canceled. Resubscribe to restore inspections, reports, and exports.",
+      reasonLabel: "Subscription canceled",
+    };
+  }
+  if (reason === "past-due") {
+    return {
+      headline: "Continue with RestoreAssist",
+      support:
+        "We could not process your last payment. Update billing to keep your workspace active.",
+      reasonLabel: "Payment past due",
+    };
+  }
   return {
     headline: "Choose a plan",
     support: "One plan. Full product access. Cancel anytime.",
@@ -55,7 +78,11 @@ export default function UpgradeHeader({
 }) {
   const { headline, support, reasonLabel } = heroFor(reason, feature);
   const isHardPaywall =
-    reason === "trial-expired" || reason === "credits" || reason === "feature";
+    reason === "trial-expired" ||
+    reason === "credits" ||
+    reason === "feature" ||
+    reason === "canceled" ||
+    reason === "past-due";
 
   return (
     <header className="mb-10 sm:mb-12">
