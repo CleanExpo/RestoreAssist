@@ -27,6 +27,7 @@ const REQUIRED_VARS = [
 ] as const;
 
 const RECOMMENDED_VARS = [
+  "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY", // stable across DO instances — avoids failed-to-find-server-action after deploy
   "STRIPE_SECRET_KEY",
   "CLOUDINARY_URL",
   // TURNSTILE_SECRET_KEY removed — replaced by Vercel BotID (no env var needed).
