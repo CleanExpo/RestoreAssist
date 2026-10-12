@@ -11,6 +11,7 @@ import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { parseFrozenEstimateLines } from "@/lib/estimate/approval-snapshot";
 import { mirrorClaimProgressLifecycleState } from "@/lib/claim-progress/mirror-lifecycle-state";
+import { resolveCanonicalClientForInspection } from "@/lib/canonical/resolve-job-client";
 
 const toCents = (amount: number | null) => Math.round((amount ?? 0) * 100);
 
@@ -272,12 +273,16 @@ export async function POST(
       }
 
       const report = inspection.report;
-      const client = report.client;
-      if (!report.clientId || !client || client.userId !== userId) {
+      const canonicalClient = await resolveCanonicalClientForInspection(
+        prisma,
+        { inspectionId: id, ownerUserId: userId },
+      );
+      const client = canonicalClient ?? report.client;
+      if (!client || client.userId !== userId) {
         return apiError(request, {
           code: "CONFLICT",
           message:
-            "A client linked to the report is required before generating an invoice.",
+            "A client linked to the job (Inspection.clientId or report) is required before generating an invoice.",
           status: 409,
         });
       }
