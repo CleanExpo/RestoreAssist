@@ -411,7 +411,8 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
         <InboundJobAlert />
         <TechLicenceBanner />
         {(searchParams.get("welcome") === "1" ||
-          searchParams.get("firstRun") === "1") && (
+          searchParams.get("firstRun") === "1" ||
+          searchParams.get("firstRun") === "tech") && (
           <BasicReportWithoutKeyCta variant="dark" />
         )}
       </div>
