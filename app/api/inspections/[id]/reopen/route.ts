@@ -37,6 +37,7 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
+import { mirrorClaimProgressLifecycleState } from "@/lib/claim-progress/mirror-lifecycle-state";
 
 // Terminal states that can be reopened. DRAFT / SUBMITTED / PROCESSING /
 // CLASSIFIED / SCOPED / ESTIMATED are intermediate, so reopening them
@@ -185,13 +186,11 @@ export async function POST(
       prismaTx: tx,
     });
 
-    await tx.claimProgress.updateMany({
-      where: { inspectionId: id },
-      data: {
-        previousState: ClaimState.CLOSED,
-        currentState: ClaimState.INVOICE_ISSUED,
-        closedAt: null,
-      },
+    await mirrorClaimProgressLifecycleState(tx, {
+      inspectionId: id,
+      previousState: ClaimState.CLOSED,
+      currentState: ClaimState.INVOICE_ISSUED,
+      closedAt: null,
     });
 
     return {
