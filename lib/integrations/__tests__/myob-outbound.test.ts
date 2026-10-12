@@ -18,8 +18,10 @@ vi.mock("@/lib/services/myob/credentials", () => ({
 import { syncInvoiceToMYOB } from "../myob";
 
 const integration = {
+  provider: "MYOB",
+  name: "MYOB",
   id: "integ_myob",
-  accessToken: "myob-token",
+  accessToken: "encrypted:must-not-be-sent",
   tenantId: "cf_1", // MYOB company file Id lives here (set by the OAuth client)
 } as any;
 
@@ -63,6 +65,7 @@ const BASE = "https://api.myob.com/accountright"; // sandbox default
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getValidMYOBAccessToken.mockResolvedValue({ ok: true, data: "synthetic-decrypted-access" });
 });
 
 describe("syncInvoiceToMYOB — create", () => {
@@ -102,6 +105,10 @@ describe("syncInvoiceToMYOB — create", () => {
 
     expect(result.invoiceId).toBe("inv_1");
     expect(result.provider).toBe("myob");
+    for (const [, options] of vi.mocked(fetch).mock.calls) {
+      expect(new Headers(options?.headers).get("Authorization")).toBe("Bearer synthetic-decrypted-access");
+    }
+    expect(integration.accessToken).toBe("encrypted:must-not-be-sent");
 
     const invoicePost = calls.find(
       (c) => c.url === `${BASE}/cf_1/Sale/Invoice` && c.method === "POST",
@@ -253,6 +260,6 @@ describe("syncInvoiceToMYOB — error classification", () => {
     await expect(
       syncInvoiceToMYOB(baseInvoice(), integration),
     ).rejects.toThrow(/token refreshed, will retry/);
-    expect(getValidMYOBAccessToken).toHaveBeenCalledWith("integ_myob");
+    expect(getValidMYOBAccessToken).toHaveBeenLastCalledWith("integ_myob", { forceRefresh: true });
   });
 });

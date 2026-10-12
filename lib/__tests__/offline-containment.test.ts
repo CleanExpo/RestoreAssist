@@ -94,6 +94,7 @@ describe("offline ownership containment", () => {
     await expect(voice.queueVoiceNote(audio(), { inspectionId: "i", fieldLabel: "notes" })).rejects.toThrow(/verify your account/);
     await expect(nir.queueWrite({ type: "moisture-reading", endpoint: "/api/inspections/i/moisture", method: "POST", payload: {}, inspectionId: "i" })).rejects.toThrow(/verify your account/);
     await expect(photos.queueEvidenceUpload({ inspectionId: "i", blob: audio(), filename: "p", mimeType: "image/webp" })).rejects.toThrow(/verify your account/);
+    await expect(photos.getQueuedEvidenceForInspection("i")).rejects.toThrow(/Verify your account/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -152,6 +153,151 @@ describe("offline ownership containment", () => {
     expect(await queue.drainEvidenceQueue()).toBe(0);
     expect(replayCalls()).toHaveLength(0);
     expect(await rows("ra-evidence-queue", "uploads")).toHaveLength(3);
+  });
+
+  it("shows only this owner's queued photos for this job and retries an exhausted row without deleting it on failure", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    await queue.getQueuedEvidenceCount();
+    const photo = { id: "p", owner: A, inspectionId: "job-1", blob: audio(), filename: "room.webp", mimeType: "image/webp", queuedAt: "2020-01-01", retryCount: 5 };
+    await put("ra-evidence-queue", "uploads", photo);
+    await put("ra-evidence-queue", "uploads", { ...photo, id: "other-job", inspectionId: "job-2" });
+    await put("ra-evidence-queue", "uploads", { ...photo, id: "other-owner", owner: B });
+    await put("ra-evidence-queue", "uploads", { ...photo, id: "ownerless", owner: undefined });
+    expect((await queue.getQueuedEvidenceForInspection("job-1")).map((row) => row.id)).toEqual(["p"]);
+    await expect(queue.retryQueuedEvidence("other-owner", "job-1")).rejects.toThrow(/unavailable/);
+    uploadStatus = 400;
+    expect(await queue.retryQueuedEvidence("p", "job-1")).toBe(0);
+    expect(await rows("ra-evidence-queue", "uploads")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "p", retryCount: 1, lastStatus: 400 }),
+      expect.objectContaining({ id: "other-owner", retryCount: 5 }),
+      expect.objectContaining({ id: "ownerless", retryCount: 5 }),
+    ]));
+    await login(B);
+    expect((await queue.getQueuedEvidenceForInspection("job-1")).map((row) => row.id)).toEqual(["other-owner"]);
+  });
+
+  it("replays a lost-response direct POST with identical multipart bytes/key and keeps it until readback", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    const file = new File(["original synthetic bytes"], "room.jpg", { type: "image/jpeg" });
+    const key = "photo-test-retry-key";
+    expect(await queue.queueEvidenceUpload({
+      inspectionId: "job-1", blob: file, filename: file.name, mimeType: file.type, directRetryKey: key,
+    })).toBe(key);
+    const saved = (await rows("ra-evidence-queue", "uploads"))[0];
+    expect(saved).toMatchObject({ id: key, directRetry: true, filename: "room.jpg" });
+    expect(await saved.blob.text()).toBe(await file.text());
+
+    let readable = false;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => url === "/api/auth/offline-context"
+      ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+      : new Response(JSON.stringify(init?.method === "POST" ? { photo: { id: "persisted-photo" } } : { photos: readable ? [{ id: "persisted-photo" }] : [] }), { status: init?.method === "POST" || readable ? 200 : 500 }));
+    // First replay gets an uncertain server result; the local bytes remain.
+    expect(await queue.drainEvidenceQueue()).toBe(0);
+    expect((await rows("ra-evidence-queue", "uploads"))[0]).toMatchObject({ id: key });
+    readable = true;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => url === "/api/auth/offline-context"
+      ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+      : new Response(JSON.stringify(init?.method === "POST" ? { photo: { id: "persisted-photo" } } : { photos: [{ id: "persisted-photo", url: "https://synthetic.invalid/signed-photo" }] }), { status: 200 }));
+    expect(await queue.drainEvidenceQueue()).toBe(1);
+    const post = replayCalls().find(([, init]) => init?.method === "POST")!;
+    expect(post[1].headers.get("Idempotency-Key")).toBe(key);
+    const form = post[1].body as FormData;
+    expect([...form.keys()]).toEqual(["file"]);
+    expect(await (form.get("file") as File).text()).toBe(await file.text());
+    expect(await rows("ra-evidence-queue", "uploads")).toEqual([]);
+  });
+
+  it("replays meter and FAB direct uploads with their original ordered multipart fields", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    const photo = new File(["synthetic bytes"], "meter.jpg", { type: "image/jpeg" });
+    await queue.queueEvidenceUpload({ inspectionId: "job-1", blob: photo, filename: photo.name, mimeType: photo.type,
+      directRetryKey: "photo-meter-key", location: "Bedroom 4", caption: "Moisture meter", photoStage: "DURING_WORK" });
+    await queue.queueEvidenceUpload({ inspectionId: "job-1", blob: photo, filename: photo.name, mimeType: photo.type,
+      directRetryKey: "photo-fab-key", caption: "", directCocoaSha256: "abc123", capturedAtUtc: "2026-10-01T14:15:00Z", gps: { lat: -27, lng: 153 } });
+    fetchMock.mockImplementation(async (url: string) => url === "/api/auth/offline-context"
+      ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+      : new Response(JSON.stringify({ error: "synthetic rejection" }), { status: 400 }));
+    expect(await queue.drainEvidenceQueue()).toBe(0);
+    const posts = replayCalls().filter(([, init]) => init?.method === "POST");
+    const meter = posts.find(([, init]) => init!.headers.get("Idempotency-Key") === "photo-meter-key")!;
+    const fab = posts.find(([, init]) => init!.headers.get("Idempotency-Key") === "photo-fab-key")!;
+    expect([...(meter[1].body as FormData).keys()]).toEqual(["file", "location", "caption", "photoStage"]);
+    expect([...(fab[1].body as FormData).keys()]).toEqual(["file", "caption", "cocoaSha256", "capturedAtUtc", "gpsLat", "gpsLng"]);
+    expect(await ((meter[1].body as FormData).get("file") as File).text()).toBe(await photo.text());
+  });
+
+  it("keeps a queued offline capture when POST succeeds but the job listing lacks a usable photo URL", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    const id = await queue.queueEvidenceUpload({
+      inspectionId: "job-1", blob: new Blob(["synthetic image"], { type: "image/webp" }),
+      filename: "room.webp", mimeType: "image/webp",
+    });
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => url === "/api/auth/offline-context"
+      ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+      : new Response(JSON.stringify(init?.method === "POST" ? { photo: { id: "persisted-photo" } } : { photos: [{ id: "persisted-photo" }] }), { status: 200 }));
+    expect(await queue.drainEvidenceQueue()).toBe(0);
+    expect(await rows("ra-evidence-queue", "uploads")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id, inspectionId: "job-1", retryCount: 1 }),
+    ]));
+  });
+
+  it("records a failed owner readback separately from a rejected photo POST", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    const id = await queue.queueEvidenceUpload({
+      inspectionId: "job-1", blob: new Blob(["synthetic image"], { type: "image/webp" }),
+      filename: "room.webp", mimeType: "image/webp",
+    });
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => url === "/api/auth/offline-context"
+      ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+      : init?.method === "POST"
+        ? new Response(JSON.stringify({ photo: { id: "persisted-photo" } }), { status: 201 })
+        : new Response(JSON.stringify({ error: "not found" }), { status: 404 }));
+    expect(await queue.drainEvidenceQueue()).toBe(0);
+    expect(await rows("ra-evidence-queue", "uploads")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id, retryCount: 1, readbackPending: true, readbackStatus: 404, lastStatus: undefined }),
+    ]));
+  });
+
+  it("keeps an accepted-but-unverified photo status through a later failed replay", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    await queue.getQueuedEvidenceCount();
+    await put("ra-evidence-queue", "uploads", {
+      id: "photo-pending-readback", owner: A, inspectionId: "job-1",
+      blob: audio(), filename: "room.webp", mimeType: "image/webp",
+      queuedAt: "2026-10-01", retryCount: 1, readbackPending: true, readbackStatus: 404,
+    });
+    uploadStatus = 400;
+    expect(await queue.drainEvidenceQueue()).toBe(0);
+    expect(await rows("ra-evidence-queue", "uploads")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "photo-pending-readback", retryCount: 2, lastStatus: 400, readbackPending: true, readbackStatus: 404 }),
+    ]));
+  });
+
+  it("retains an unidentified 2xx row and continues syncing later photos", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    const file = new File(["synthetic bytes"], "room.jpg", { type: "image/jpeg" });
+    const first = await queue.queueEvidenceUpload({ inspectionId: "job-1", blob: file, filename: file.name, mimeType: file.type, directRetryKey: "photo-first-key" });
+    const second = await queue.queueEvidenceUpload({ inspectionId: "job-1", blob: file, filename: file.name, mimeType: file.type, directRetryKey: "photo-second-key" });
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === "/api/auth/offline-context") return new Response(JSON.stringify({ owner: serverOwner }), { status: 200 });
+      if (init?.method === "POST") {
+        const key = new Headers(init.headers).get("Idempotency-Key");
+        return new Response(JSON.stringify(key === first ? {} : { photo: { id: "second-photo" } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ photos: [{ id: "second-photo", url: "https://synthetic.invalid/signed-photo" }] }), { status: 200 });
+    });
+    expect(await queue.drainEvidenceQueue()).toBe(1);
+    expect(await rows("ra-evidence-queue", "uploads")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: first, retryCount: 1 }),
+    ]));
+    expect((await rows("ra-evidence-queue", "uploads")).some((row) => row.id === second)).toBe(false);
   });
 
   it.each(["foreign", "exhausted", "legacy"])("allows captures beside 50 preserved %s photos", async (kind) => {

@@ -108,6 +108,45 @@ function buildCacheKey(scope: string, key: string): string {
   return `idem:${scope}:${key}`;
 }
 
+function storedFingerprint(method: string, path: string, rawBody: string): string {
+  return fingerprintBody(method, path, fingerprintBody(method, path, rawBody));
+}
+
+/** Complete a reserved success in the same transaction as the business write. */
+export async function completeIdempotentSuccessInTransaction({
+  tx, scope, key, method, path, rawBody, responseBody, responseStatus = 200,
+}: {
+  tx: Prisma.TransactionClient;
+  scope: string;
+  key: string;
+  method: string;
+  path: string;
+  rawBody: string;
+  responseBody: string;
+  responseStatus?: number;
+}): Promise<boolean> {
+  if (responseBody.length > MAX_BODY_CACHE_BYTES) return false;
+  const now = new Date();
+  const updated = await tx.idempotencyRecord.updateMany({
+    where: {
+      cacheKey: buildCacheKey(scope, key),
+      scope,
+      key,
+      fingerprint: storedFingerprint(method, path, rawBody),
+      status: "PENDING",
+      expiresAt: { gt: now },
+    },
+    data: {
+      status: "COMPLETE",
+      responseStatus,
+      responseBody,
+      responseContentType: "application/json",
+      expiresAt: new Date(Date.now() + TTL_MS),
+    },
+  });
+  return updated.count === 1;
+}
+
 function responseFromCache(cached: CachedResponse): NextResponse {
   return new NextResponse(cached.body, {
     status: cached.status,
@@ -236,13 +275,13 @@ async function reserveIdempotencySlot({
   fingerprint: string;
   now: Date;
 }): Promise<
-  | { kind: "reserved" }
+  | { kind: "reserved"; recordId: string }
   | { kind: "replay"; response: CachedResponse }
   | { kind: "conflict" }
   | { kind: "pending" }
 > {
   try {
-    await prisma.idempotencyRecord.create({
+    const created = await prisma.idempotencyRecord.create({
       data: {
         cacheKey,
         scope,
@@ -251,8 +290,9 @@ async function reserveIdempotencySlot({
         status: "PENDING" satisfies IdempotencyStatus,
         expiresAt: new Date(now.getTime() + 60_000),
       },
+      select: { id: true },
     });
-    return { kind: "reserved" };
+    return { kind: "reserved", recordId: created.id };
   } catch (err) {
     if (!isUniqueViolation(err)) throw err;
   }
@@ -274,7 +314,7 @@ async function reserveIdempotencySlot({
   }
 
   if (existing.expiresAt < now) {
-    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey, expiresAt: { lt: now } } });
     return reserveIdempotencySlot({ cacheKey, scope, key, fingerprint, now });
   }
 
@@ -309,6 +349,7 @@ export async function withIdempotencyFingerprint({
   path,
   fingerprint,
   clientMutation,
+  successCompletedInHandler,
   handler,
 }: {
   scope: string;
@@ -317,6 +358,7 @@ export async function withIdempotencyFingerprint({
   path: string;
   fingerprint: string;
   clientMutation?: ClientMutationLedgerInput;
+  successCompletedInHandler?: boolean | "when-marked";
   handler: () => Promise<NextResponse>;
 }): Promise<NextResponse> {
   if (!key) return handler();
@@ -370,8 +412,10 @@ export async function withIdempotencyFingerprint({
   try {
     response = await handler();
   } catch (err) {
-    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
-    await failClientMutationLedger({
+    const cleared = await prisma.idempotencyRecord.deleteMany({ where: {
+      cacheKey, id: reservation.recordId, status: "PENDING",
+    } });
+    if (cleared.count > 0) await failClientMutationLedger({
       clientMutation,
       errorCode: "HANDLER_THROW",
     });
@@ -379,35 +423,63 @@ export async function withIdempotencyFingerprint({
   }
 
   if (response.status >= 500) {
-    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
-    await failClientMutationLedger({
+    const cleared = await prisma.idempotencyRecord.deleteMany({ where: {
+      cacheKey, id: reservation.recordId, status: "PENDING",
+    } });
+    if (cleared.count > 0) await failClientMutationLedger({
       clientMutation,
       errorCode: `HTTP_${response.status}`,
     });
     return response;
   }
 
+  if (response.headers.get("X-RestoreAssist-Idempotency-Uncertain") === "true") {
+    return response;
+  }
+
+  // Some monetary routes commit the successful response cache together with
+  // their business write. Avoid a second post-commit DB write that could fail
+  // and make a committed success look retryable.
+  if (response.ok && (successCompletedInHandler === true ||
+      (successCompletedInHandler === "when-marked" &&
+        response.headers.get("X-RestoreAssist-Idempotency-Completed-In-Transaction") === "true"))) {
+    return response;
+  }
+
   const clonedBody = await response.clone().text();
   if (clonedBody.length > MAX_BODY_CACHE_BYTES) {
-    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
-    await completeClientMutationLedger({
+    const cleared = await prisma.idempotencyRecord.deleteMany({ where: {
+      cacheKey, id: reservation.recordId, status: "PENDING",
+    } });
+    if (cleared.count > 0) await completeClientMutationLedger({
       clientMutation,
       responseStatus: response.status,
     });
     return response;
   }
 
-  await prisma.idempotencyRecord.update({
-    where: { cacheKey },
+  const completed = await prisma.idempotencyRecord.updateMany({
+    where: {
+      cacheKey,
+      id: reservation.recordId,
+      status: "PENDING",
+      fingerprint: requestFingerprint,
+    },
     data: {
       status: "COMPLETE" satisfies IdempotencyStatus,
       responseStatus: response.status,
       responseBody: clonedBody,
       responseContentType:
         response.headers.get("content-type") || "application/json",
-      expiresAt: new Date(now.getTime() + TTL_MS),
+      expiresAt: new Date(Date.now() + TTL_MS),
     },
   });
+  if (completed.count !== 1) {
+    return NextResponse.json({ error: "Request completion could not be verified; check its status before retrying" }, {
+      status: 409,
+      headers: { "X-RestoreAssist-Idempotency-Uncertain": "true" },
+    });
+  }
 
   await completeClientMutationLedger({
     clientMutation,
@@ -441,7 +513,10 @@ export async function withIdempotency(
   req: NextRequest,
   scope: string,
   handler: (parsedBody: string) => Promise<NextResponse>,
-  options: { clientMutation?: Omit<ClientMutationLedgerInput, "mutationId"> } = {},
+  options: {
+    clientMutation?: Omit<ClientMutationLedgerInput, "mutationId">;
+    successCompletedInHandler?: boolean | "when-marked";
+  } = {},
 ): Promise<NextResponse> {
   const keyResult = getIdempotencyKey(req);
   if (!keyResult.ok) {
@@ -480,6 +555,7 @@ export async function withIdempotency(
         }
       : undefined,
     handler: () => handler(bodyText),
+    successCompletedInHandler: options.successCompletedInHandler,
   });
 }
 

@@ -263,6 +263,9 @@ async function mkJob(
       inspectionNumber: `${S2}-insp-${++seq}`,
       propertyAddress: "1 Capture St",
       propertyPostcode: "4000",
+      // The attendance date the technician recorded. Submit refuses a job
+      // with none rather than inventing one (B13), so the fixture states it.
+      inspectionDate: new Date("2026-10-01T23:00:00.000Z"),
       userId: w.O,
       claimType: "WATER",
       technicianId: opts.technicianId === undefined ? w.T : opts.technicianId,

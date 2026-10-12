@@ -14,7 +14,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Camera,
-  Upload,
   AlertTriangle,
   ChevronDown,
   ChevronUp,
@@ -50,6 +49,8 @@ import {
 } from "@/types/inspection-photo-labels";
 import { readPhotoAiMetadata } from "@/lib/services/ai/photo-classification-review";
 import { classificationHasSuspectedAcm } from "@/lib/anz/photo-ai-whs";
+import { InspectionPhotoUploadControl } from "@/components/inspection/InspectionPhotoUploadControl";
+import { EvidenceQueueRecovery } from "@/components/inspection/EvidenceQueueRecovery";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1280,8 +1281,6 @@ export default function InspectionPhotosPage({ params }: PageProps) {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
 
   // Filter state
@@ -1329,29 +1328,6 @@ export default function InspectionPhotosPage({ params }: PageProps) {
     fetchData();
   }, [fetchData]);
 
-  async function handleUpload(file: File) {
-    setUploadError(null);
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch(`/api/inspections/${id}/photos`, {
-        method: "POST",
-        body: form,
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Upload failed");
-      }
-      const data = await res.json();
-      setPhotos((prev) => [data.photo, ...prev]);
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
   function handlePhotoUpdate(updated: Photo) {
     setPhotos((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setSelectedPhoto(updated);
@@ -1392,36 +1368,13 @@ export default function InspectionPhotosPage({ params }: PageProps) {
               </p>
             )}
           </div>
-          {/* Upload button */}
-          <label
-            className={cn(
-              "flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
-              "border-blue-700 bg-blue-900/40 text-blue-300 hover:bg-blue-900/70 transition",
-              uploading && "pointer-events-none opacity-50",
-            )}
-          >
-            {uploading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Upload className="h-3.5 w-3.5" />
-            )}
-            {uploading ? "Uploading…" : "Upload"}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleUpload(f);
-                e.target.value = "";
-              }}
-            />
-          </label>
+          <InspectionPhotoUploadControl inspectionId={id} label="Upload" onVerified={(photo) => {
+            setPhotos((prev) => [photo as unknown as Photo, ...prev.filter((row) => row.id !== photo.id)]);
+          }} />
         </div>
-        {uploadError && (
-          <p className="mt-2 text-xs text-destructive">{uploadError}</p>
-        )}
       </div>
+
+      <div className="px-4 pt-3"><EvidenceQueueRecovery inspectionId={id} onSynced={() => void fetchData()} /></div>
 
       {/* Asbestos stop-work banner */}
       <div className="pt-4">

@@ -299,7 +299,7 @@ export function DamageReportView({
                   Inspection date
                 </p>
                 <p className="font-medium text-brand-navy">
-                  {formatDate(report.inspectionDate ?? report.createdAt)}
+                  {report.inspectionDate ? formatDate(report.inspectionDate) : "Unknown"}
                 </p>
               </div>
               <div>
@@ -344,7 +344,7 @@ export function DamageReportView({
             <DetailRow label="Year built">{report.buildingAge}</DetailRow>
           )}
           <DetailRow label="Inspected on">
-            {formatDate(report.inspectionDate ?? report.createdAt)}
+            {report.inspectionDate ? formatDate(report.inspectionDate) : "Unknown"}
           </DetailRow>
           {report.accessNotes && (
             <DetailRow label="Access notes">{report.accessNotes}</DetailRow>
@@ -399,8 +399,9 @@ export function DamageReportView({
             or where it was taken.
           </p>
           <p className="mt-3 text-sm text-brand-slate">
-            Full photo evidence is attached to the server-generated PDF. If you
-            need the raw files, ask your restorer.
+            Photo evidence is included in the server-generated PDF, which
+            states any photo it could not include. If you need the raw files,
+            ask your restorer.
           </p>
         </Section>
 

@@ -238,7 +238,7 @@ export default function SecurityPage() {
               </div>
             </div>
 
-            <form onSubmit={handleVerify} className="space-y-3">
+            <form method="post" onSubmit={handleVerify} className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="verifyCode">
                   <strong>Step 2.</strong> Enter the 6-digit code the app shows:
@@ -289,7 +289,7 @@ export default function SecurityPage() {
         )}
 
         {twoFactorEnabled && (
-          <form onSubmit={handleDisable} className="space-y-3">
+          <form method="post" onSubmit={handleDisable} className="space-y-3">
             <Alert>
               <AlertDescription className="text-sm">
                 To turn 2FA off, confirm your current password. Losing your

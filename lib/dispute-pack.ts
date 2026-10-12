@@ -49,7 +49,7 @@ interface DisputePackData {
     propertyAddress: string;
     propertyPostcode: string;
     technicianName: string | null;
-    inspectionDate: Date;
+    inspectionDate: Date | null;
     status: string;
     createdAt: Date;
     submittedAt: Date | null;

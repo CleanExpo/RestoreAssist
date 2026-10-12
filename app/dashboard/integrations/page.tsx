@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus,
-  Trash2,
   Crown,
   RefreshCw,
   Loader2,
@@ -25,6 +24,8 @@ import BillingGate from "@/components/capacitor/BillingGate";
 import Image from "next/image";
 import ImportModal from "@/components/integrations/ImportModal";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
+import { describeOAuthCard, isIntegrationCount, mergeAiIntegrationCards, type AiIntegrationCard, type LegacyIntegrationMetadata } from "@/lib/services/integrations/display";
+import type { ConfiguredAiConnectionMetadata } from "@/lib/services/integrations/ai-connections";
 import { uiAiKeyTypeToProvider } from "@/lib/workspace/ai-key-type";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import {
@@ -57,18 +58,6 @@ import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/EmptyState";
 import { PRICING_CONFIG } from "@/lib/pricing";
 
-interface Integration {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  status: "CONNECTED" | "DISCONNECTED" | "ERROR";
-  apiKey?: string;
-  config?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 interface ExternalIntegration {
   provider: string;
   connected: boolean;
@@ -76,7 +65,7 @@ interface ExternalIntegration {
   // which is not the same as DISCONNECTED. It is per-provider on purpose: the
   // OAuth providers and Ascora are served by different endpoints, so one
   // outage must never speak for the other's cards.
-  status: "CONNECTED" | "DISCONNECTED" | "ERROR" | "SYNCING" | "UNAVAILABLE";
+  status: "CONNECTED" | "DISCONNECTED" | "ERROR" | "SYNCING" | "UNAVAILABLE" | "AMBIGUOUS" | "ATTENTION";
   lastSyncAt?: string;
   syncError?: string;
   counts?: {
@@ -173,19 +162,6 @@ function isProviderListed(slug: ProviderSlug): boolean {
 }
 
 /**
- * The legacy Integration table is shared bookkeeping: AI keys live there, and
- * so do external job/accounting providers. Its `provider` column cannot
- * discriminate them — an AI row can carry XERO — so categorise POSITIVELY by
- * the names this page itself writes in handleAddIntegration. Anything not on
- * this list is not an AI provider and must never render with AI key controls.
- */
-const AI_INTEGRATION_NAMES = new Set([
-  "anthropic claude",
-  "openai gpt",
-  "google gemini",
-]);
-
-/**
  * The OAuth providers' status lives in /api/integrations. Ascora's does not:
  * its canonical record is AscoraIntegration, read through GET
  * /api/ascora/connect (which never returns the key). A legacy Integration row
@@ -198,7 +174,8 @@ async function loadGenericIntegrationStatuses() {
     throw new Error("External integration status request failed");
   }
   const data = await response.json();
-  return Array.isArray(data?.integrations) ? data.integrations : [];
+  if (!Array.isArray(data?.integrations)) throw new Error("Invalid integration status response");
+  return { integrations: data.integrations as LegacyIntegrationMetadata[], truncated: data.truncated === true };
 }
 
 async function loadAscoraIntegrationStatus() {
@@ -210,27 +187,31 @@ async function loadAscoraIntegrationStatus() {
   return data?.integration ?? null;
 }
 
-interface SubscriptionStatus {
-  subscriptionStatus?: "TRIAL" | "ACTIVE" | "CANCELED" | "EXPIRED" | "PAST_DUE";
-  subscriptionPlan?: string;
+export default function IntegrationsPage() {
+  const { data: session, status } = useSession();
+  // A different account never inherits rows, typed keys, dialogs or pending UI.
+  return <AccountIntegrationsPage key={`${status}:${session?.user?.id ?? ""}`} sessionStatus={status} />;
 }
 
-export default function IntegrationsPage() {
+function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authenticated" | "unauthenticated" | "loading" }) {
   const confirm = useConfirmDialog();
   const router = useRouter();
-  const { status: sessionStatus } = useSession();
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
   const successMessage = searchParams.get("success");
   const errorMessage = searchParams.get("error");
-  const [integrations, setIntegrations] = useState<Integration[]>([]);
-  // Only rows this page recognises as AI providers render under "AI Providers"
-  // with AI key controls. Excluding the known external providers is not enough
-  // — any other row (a future provider, a hand-written record) would still
-  // reach the AI card and its "Update Key" button under a Claude icon.
-  const aiIntegrations = integrations.filter((i) =>
-    AI_INTEGRATION_NAMES.has((i.name ?? "").trim().toLowerCase()),
-  );
+  const [integrations, setIntegrations] = useState<LegacyIntegrationMetadata[]>([]);
+  const [aiConnections, setAiConnections] = useState<ConfiguredAiConnectionMetadata[]>([]);
+  const [aiLoadError, setAiLoadError] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const aiPending = useRef(false);
+  const connectPending = useRef(false);
+  const [connectingProvider, setConnectingProvider] = useState<ProviderSlug | null>(null);
+  const mounted = useRef(true);
+  const aiReadVersion = useRef(0);
+  const externalReadVersion = useRef(0);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const aiIntegrations = mergeAiIntegrationCards(integrations, aiConnections);
   const [externalIntegrations, setExternalIntegrations] = useState<
     Record<ProviderSlug, ExternalIntegration>
   >({} as Record<ProviderSlug, ExternalIntegration>);
@@ -247,14 +228,12 @@ export default function IntegrationsPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedIntegration, setSelectedIntegration] =
-    useState<Integration | null>(null);
+    useState<AiIntegrationCard | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [apiKeyType, setApiKeyType] = useState<
     "openai" | "anthropic" | "gemini"
   >("anthropic");
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(
-    null,
-  );
+
   const [newApiKeyType, setNewApiKeyType] = useState<
     "openai" | "anthropic" | "gemini"
   >("anthropic");
@@ -289,7 +268,8 @@ export default function IntegrationsPage() {
   const listedExternalIntegrations = EXTERNAL_INTEGRATIONS.filter(
     (integration) =>
       isProviderListed(integration.slug) ||
-      Boolean(externalIntegrations[integration.slug]?.connected),
+      Boolean(externalIntegrations[integration.slug]?.connected) ||
+      ["ATTENTION", "AMBIGUOUS"].includes(externalIntegrations[integration.slug]?.status ?? ""),
   );
   // RA-7714: NRPG appears nowhere until the founder switches it on — not
   // even for an account that already has it connected (founder ruling). The
@@ -309,39 +289,17 @@ export default function IntegrationsPage() {
     }
   }, [successMessage, errorMessage, router]);
 
-  // Fetch integrations and subscription status once authenticated — avoids
+  // Fetch integration status once authenticated — avoids
   // noisy 401s during the NextAuth loading → authenticated race on mount.
   useEffect(() => {
     if (sessionStatus !== "authenticated") return;
     fetchIntegrations();
     fetchExternalIntegrations();
-    fetchSubscriptionStatus();
     fetchDrNrpg();
   }, [sessionStatus]);
 
-  const fetchSubscriptionStatus = async () => {
-    try {
-      const response = await fetch("/api/user/profile", {
-        credentials: "include",
-      });
-      if (response.status === 401) return;
-      if (response.ok) {
-        const data = await response.json();
-        setSubscription({
-          subscriptionStatus: data.profile?.subscriptionStatus,
-          subscriptionPlan: data.profile?.subscriptionPlan,
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching subscription status:", error);
-    }
-  };
-
-  const hasActiveSubscription = () => {
-    return subscription?.subscriptionStatus === "ACTIVE";
-  };
-
   const fetchExternalIntegrations = async () => {
+    const version = ++externalReadVersion.current;
     setExternalIntegrationsLoading(true);
     setExternalIntegrationsError(null);
     try {
@@ -357,6 +315,7 @@ export default function IntegrationsPage() {
         loadAscoraIntegrationStatus(),
       ]);
 
+      if (!mounted.current || version !== externalReadVersion.current) return;
       if (genericResult.status === "rejected") {
         console.error(
           "Error fetching external integrations:",
@@ -398,31 +357,10 @@ export default function IntegrationsPage() {
           continue;
         }
 
-        const found = genericResult.value.find(
-          (i: { provider: string }) =>
-            i.provider === integration.slug.toUpperCase(),
-        );
-        if (found) {
-          // ERROR/SYNCING still have OAuth tokens — treat as connected so Sync
-          // and Disconnect remain available (retry clears ERROR → CONNECTED).
-          const hasLink =
-            found.status === "CONNECTED" ||
-            found.status === "ERROR" ||
-            found.status === "SYNCING";
-          results[integration.slug] = {
-            provider: integration.name,
-            connected: hasLink,
-            status: found.status,
-            lastSyncAt: found.lastSyncAt,
-            syncError: found.syncError,
-          };
-        } else {
-          results[integration.slug] = {
-            provider: integration.name,
-            connected: false,
-            status: "DISCONNECTED",
-          };
-        }
+        results[integration.slug] = {
+          provider: integration.name,
+          ...describeOAuthCard(genericResult.value.integrations, integration.slug.toUpperCase(), genericResult.value.truncated),
+        };
       }
 
       setExternalIntegrations(results);
@@ -433,7 +371,8 @@ export default function IntegrationsPage() {
       const listed = EXTERNAL_INTEGRATIONS.filter(
         (integration) =>
           isProviderListed(integration.slug) ||
-          results[integration.slug].connected,
+          results[integration.slug].connected ||
+          ["ATTENTION", "AMBIGUOUS"].includes(results[integration.slug].status),
       );
       const unavailable = listed
         .filter(
@@ -472,40 +411,32 @@ export default function IntegrationsPage() {
         "Integration status is unavailable. Retry before connecting or disconnecting.",
       );
     } finally {
-      setExternalIntegrationsLoading(false);
+      if (mounted.current && version === externalReadVersion.current) setExternalIntegrationsLoading(false);
     }
   };
 
   // OAuth providers only. Ascora is static-API-key and connects through
   // handleConnectAscora, which collects the key and drives /api/ascora/connect.
   const handleConnectExternal = async (slug: ProviderSlug) => {
+    if (connectPending.current || slug === "ascora") return;
+    connectPending.current = true;
+    setConnectingProvider(slug);
     try {
-      const response = await fetch(`/api/integrations/oauth/${slug}/connect`, {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.authUrl) {
-          window.location.href = data.authUrl;
-        }
-      } else if (response.status === 403) {
-        // Subscription required - show upgrade modal
-        const errorData = await response.json();
-        if (errorData.upgradeRequired) {
-          setShowUpgradeModal(true);
-        } else {
-          toast.error(apiErrorMessage(errorData) ?? "Access denied");
-        }
+      const response = await fetch(`/api/integrations/oauth/${slug}/connect`, { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!mounted.current) return;
+      if (response.ok && typeof data.authUrl === "string" && data.authUrl) {
+        window.location.href = data.authUrl;
+      } else if (response.status === 403 && data.upgradeRequired) {
+        setShowUpgradeModal(true);
       } else {
-        const errorData = await response.json();
-        toast.error(
-          apiErrorMessage(errorData) ?? "Failed to initiate connection",
-        );
+        toast.error(apiErrorMessage(data) ?? "Failed to initiate connection");
       }
-    } catch (error) {
-      console.error("Error connecting:", error);
-      toast.error("Failed to initiate connection");
+    } catch {
+      if (mounted.current) toast.error("Failed to initiate connection");
+    } finally {
+      connectPending.current = false;
+      if (mounted.current) setConnectingProvider(null);
     }
   };
 
@@ -608,9 +539,11 @@ export default function IntegrationsPage() {
               : `Imported ${data.jobsImported ?? 0} jobs, ${data.lineItemsForImport ?? 0} line items and ${data.rateCardPartsUpserted ?? 0} rate card parts`,
           );
         } else {
-          const clientsCount = data.clientsSynced || 0;
-          const jobsCount = data.jobsSynced || 0;
-          toast.success(`Synced ${clientsCount} clients and ${jobsCount} jobs`);
+          if (!isIntegrationCount(data.clientsSynced) || !isIntegrationCount(data.jobsSynced)) {
+            toast.error("Sync returned an incomplete result. Refresh its status before retrying.");
+            return;
+          }
+          toast.success(`Synced ${data.clientsSynced} clients and ${data.jobsSynced} jobs`);
         }
         fetchExternalIntegrations();
       } else if (response.status === 403) {
@@ -712,112 +645,48 @@ export default function IntegrationsPage() {
   };
 
   const fetchIntegrations = async () => {
+    const version = ++aiReadVersion.current;
+    setLoading(true);
+    setAiLoadError(false);
     try {
-      setLoading(true);
-      const response = await fetch("/api/integrations");
-      if (response.ok) {
-        const data = await response.json();
-        setIntegrations(data.integrations);
-      } else {
-        toast.error("Failed to fetch integrations");
-      }
-    } catch (error) {
-      console.error("Error fetching integrations:", error);
-      toast.error("Failed to fetch integrations");
+      const response = await fetch("/api/integrations", { cache: "no-store" });
+      if (!response.ok) throw new Error("Integration metadata unavailable");
+      const data = await response.json();
+      if (!Array.isArray(data.integrations)) throw new Error("Invalid integration metadata");
+      if (!mounted.current || version !== aiReadVersion.current) return;
+      setIntegrations(data.integrations);
+      setAiConnections(Array.isArray(data.aiConnections) ? data.aiConnections : []);
+      setAiLoadError(data.truncated === true);
+    } catch {
+      if (!mounted.current || version !== aiReadVersion.current) return;
+      setIntegrations([]);
+      setAiConnections([]);
+      setAiLoadError(true);
     } finally {
-      setLoading(false);
+      if (mounted.current && version === aiReadVersion.current) setLoading(false);
     }
   };
 
-  const handleConnect = (integration: Integration) => {
-    if (!hasActiveSubscription()) {
-      setShowUpgradeModal(true);
+  const handleConnect = (integration: AiIntegrationCard) => {
+    if (!integration.keyType) {
+      router.push(`/dashboard/settings/ai-providers?provider=${integration.provider}`);
       return;
     }
-
     setSelectedIntegration(integration);
     setApiKey("");
-    if (integration.config) {
-      try {
-        const config = JSON.parse(integration.config);
-        if (
-          config.apiKeyType &&
-          ["openai", "anthropic", "gemini"].includes(config.apiKeyType)
-        ) {
-          setApiKeyType(config.apiKeyType);
-        }
-      } catch {
-        // Use default
-      }
-    }
+    setApiKeyType(integration.keyType);
     setShowApiModal(true);
   };
 
-  const handleSaveConnection = async () => {
-    if (!selectedIntegration) return;
-
-    if (!apiKey) {
-      toast.error("API key is required");
-      return;
-    }
-
-    try {
-      const providerRes = await fetch("/api/workspace/provider-connections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: uiAiKeyTypeToProvider(apiKeyType),
-          apiKey,
-        }),
-      });
-
-      if (!providerRes.ok) {
-        const err = await providerRes.json().catch(() => ({}));
-        // apiErrorMessage covers both `error` shapes; this route can also
-        // answer with a bare top-level `message`, so that fallback is kept.
-        toast.error(
-          apiErrorMessage(err) ??
-            (typeof err.message === "string"
-              ? err.message
-              : "Failed to save API key"),
-        );
-        return;
-      }
-
-      const config = {
-        apiKeyType: apiKeyType,
-      };
-
-      const response = await fetch(
-        `/api/integrations/${selectedIntegration.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...selectedIntegration,
-            apiKey,
-            config: JSON.stringify(config),
-            status: "CONNECTED",
-          }),
-        },
-      );
-
-      if (response.ok) {
-        const updatedIntegration = await response.json();
-        setIntegrations(
-          integrations.map((int) =>
-            int.id === selectedIntegration.id ? updatedIntegration : int,
-          ),
-        );
-        setShowApiModal(false);
-        toast.success("Integration updated successfully");
-
+  const continueAfterAiSave = async () => {
         if (isOnboarding) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
+          if (!mounted.current) return;
           const onboardingResponse = await fetch("/api/onboarding/status");
           if (onboardingResponse.ok) {
             const onboardingData = await onboardingResponse.json();
+            if (!mounted.current) return;
             if (onboardingData.nextStep) {
               const nextStepRoute =
                 onboardingData.steps[onboardingData.nextStep]?.route;
@@ -826,7 +695,7 @@ export default function IntegrationsPage() {
                   duration: 2000,
                 });
                 setTimeout(() => {
-                  router.push(`${nextStepRoute}?onboarding=true`);
+                  if (mounted.current) router.push(`${nextStepRoute}?onboarding=true`);
                 }, 2000);
                 return;
               }
@@ -835,205 +704,83 @@ export default function IntegrationsPage() {
                 duration: 2000,
               });
               setTimeout(() => {
-                router.push("/dashboard/reports/new");
+                if (mounted.current) router.push("/dashboard/reports/new");
               }, 2000);
               return;
             }
           }
         }
 
+        if (!mounted.current) return;
         const pricingResponse = await fetch("/api/pricing-config");
         if (pricingResponse.ok) {
           const pricingData = await pricingResponse.json();
+          if (!mounted.current) return;
           if (!pricingData.pricingConfig) {
             toast("Redirecting to pricing configuration...");
             setTimeout(() => {
-              router.push("/dashboard/pricing-config");
+              if (mounted.current) router.push("/dashboard/pricing-config");
             }, 500);
           }
         }
-      } else {
-        toast.success(
-          "AI key saved. Open Settings → AI Providers to manage keys.",
-        );
-        setShowApiModal(false);
-      }
-    } catch (error) {
-      console.error("Error updating integration:", error);
-      toast.error("Failed to update integration");
-    }
   };
 
-  const handleDisconnect = async (id: string) => {
+  const saveAiKey = async (key: string, type: "anthropic" | "openai" | "gemini") => {
+    if (aiPending.current) return;
+    if (!key.trim()) { toast.error("API key is required"); return; }
+    aiPending.current = true;
+    setAiBusy(true);
     try {
-      const response = await fetch(`/api/integrations/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "DISCONNECTED",
-          apiKey: null,
-        }),
+      const response = await fetch("/api/workspace/provider-connections", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: uiAiKeyTypeToProvider(type), apiKey: key.trim() }),
       });
-
-      if (response.ok) {
-        const updatedIntegration = await response.json();
-        setIntegrations(
-          integrations.map((int) => (int.id === id ? updatedIntegration : int)),
-        );
-        toast.success("Integration disconnected");
-      } else {
-        toast.error("Failed to disconnect integration");
+      if (!mounted.current) return;
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        toast.error(apiErrorMessage(error) ?? (typeof error.message === "string" ? error.message : "Failed to save API key"));
+        return;
       }
-    } catch (error) {
-      console.error("Error disconnecting integration:", error);
-      toast.error("Failed to disconnect integration");
+      setShowApiModal(false);
+      setShowAddModal(false);
+      toast.success("AI key configured. Provider availability has not been checked.");
+      await fetchIntegrations();
+      if (mounted.current) await continueAfterAiSave();
+    } catch {
+      if (mounted.current) toast.error("Failed to save API key");
+    } finally {
+      aiPending.current = false;
+      if (mounted.current) { setAiBusy(false); setApiKey(""); setNewApiKey(""); }
     }
   };
+  const handleSaveConnection = () => selectedIntegration && saveAiKey(apiKey, apiKeyType);
+  const handleAddIntegration = () => saveAiKey(newApiKey, newApiKeyType);
 
-  const handleAddIntegration = async () => {
-    if (!newApiKey) {
-      toast.error("API key is required");
-      return;
-    }
-
+  const handleDisconnect = async (integration: AiIntegrationCard) => {
+    if (aiPending.current) return;
+    aiPending.current = true;
+    setAiBusy(true);
     try {
-      const providerRes = await fetch("/api/workspace/provider-connections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: uiAiKeyTypeToProvider(newApiKeyType),
-          apiKey: newApiKey,
-        }),
+      // Explicit canonical disable also covers a legacy card or an initially
+      // empty workspace, without deleting legacy keys or changing their state.
+      const response = await fetch("/api/workspace/provider-connections", {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: integration.provider }),
       });
-
-      if (!providerRes.ok) {
-        const err = await providerRes.json().catch(() => ({}));
-        // Same normalisation as handleSaveConnection: structured envelope
-        // first, legacy top-level `message` second, static fallback last.
-        toast.error(
-          apiErrorMessage(err) ??
-            (typeof err.message === "string"
-              ? err.message
-              : "Failed to save API key"),
-        );
+      if (!mounted.current) return;
+      if (!response.ok) {
+        toast.error(apiErrorMessage(await response.json().catch(() => ({}))) ?? "Failed to disconnect AI provider");
         return;
       }
 
-      const integrationData = {
-        name:
-          newApiKeyType === "anthropic"
-            ? "Anthropic Claude"
-            : newApiKeyType === "openai"
-              ? "OpenAI GPT"
-              : "Google Gemini",
-        description:
-          newApiKeyType === "anthropic"
-            ? "AI-powered report generation with Claude"
-            : newApiKeyType === "openai"
-              ? "AI-powered report generation with GPT"
-              : "AI-powered report generation with Gemini",
-        icon:
-          newApiKeyType === "anthropic"
-            ? "[ra:ai]"
-            : newApiKeyType === "openai"
-              ? "[ra:ai]"
-              : "[ra:ai]",
-        apiKey: newApiKey,
-        config: JSON.stringify({ apiKeyType: newApiKeyType }),
-        status: "CONNECTED",
-      };
-
-      const response = await fetch("/api/integrations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(integrationData),
-      });
-
-      if (response.ok) {
-        const newIntegration = await response.json();
-        setIntegrations([newIntegration, ...integrations]);
-        setNewApiKey("");
-        setNewApiKeyType("anthropic");
-        setShowAddModal(false);
-        toast.success("Integration added successfully");
-
-        if (isOnboarding) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-
-          const onboardingResponse = await fetch("/api/onboarding/status");
-          if (onboardingResponse.ok) {
-            const onboardingData = await onboardingResponse.json();
-            if (onboardingData.nextStep) {
-              const nextStepRoute =
-                onboardingData.steps[onboardingData.nextStep]?.route;
-              if (nextStepRoute) {
-                toast.success("Step 2 complete! Redirecting to next step...", {
-                  duration: 2000,
-                });
-                setTimeout(() => {
-                  router.push(`${nextStepRoute}?onboarding=true`);
-                }, 2000);
-                return;
-              }
-            } else {
-              toast.success("Onboarding complete! Redirecting to reports...", {
-                duration: 2000,
-              });
-              setTimeout(() => {
-                router.push("/dashboard/reports/new");
-              }, 2000);
-              return;
-            }
-          }
-        }
-
-        const pricingResponse = await fetch("/api/pricing-config");
-        if (pricingResponse.ok) {
-          const pricingData = await pricingResponse.json();
-          if (!pricingData.pricingConfig) {
-            toast("Redirecting to pricing configuration...");
-            setTimeout(() => {
-              router.push("/dashboard/pricing-config");
-            }, 500);
-          }
-        }
-      } else {
-        toast.success(
-          "AI key saved. Open Settings → AI Providers to manage keys.",
-        );
-        setNewApiKey("");
-        setNewApiKeyType("anthropic");
-        setShowAddModal(false);
-      }
-    } catch (error) {
-      console.error("Error adding integration:", error);
-      toast.error("Failed to add integration");
-    }
-  };
-
-  const handleDeleteIntegration = async (id: string) => {
-    const ok = await confirm.ask({
-      title: "Delete integration?",
-      description: "Are you sure you want to delete this integration?",
-      confirmLabel: "Delete",
-      destructive: true,
-    });
-    if (!ok) return;
-
-    try {
-      const response = await fetch(`/api/integrations/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        setIntegrations(integrations.filter((int) => int.id !== id));
-        toast.success("Integration deleted successfully");
-      } else {
-        toast.error("Failed to delete integration");
-      }
-    } catch (error) {
-      console.error("Error deleting integration:", error);
-      toast.error("Failed to delete integration");
+      if (!mounted.current) return;
+      toast.success("AI provider disabled");
+      await fetchIntegrations();
+    } catch {
+      if (mounted.current) toast.error("Could not finish disabling the AI provider. Reload its status before retrying.");
+    } finally {
+      aiPending.current = false;
+      if (mounted.current) setAiBusy(false);
     }
   };
 
@@ -1067,6 +814,7 @@ export default function IntegrationsPage() {
             size="sm"
             className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
             onClick={() => setShowAddModal(true)}
+            disabled={loading || aiLoadError || aiBusy}
           >
             <Plus />
             Add Integration
@@ -1101,7 +849,12 @@ export default function IntegrationsPage() {
             </div>
             <Separator className="mt-4 mb-5" />
 
-            {aiIntegrations.length === 0 ? (
+            {aiLoadError ? (
+              <div role="alert" className="space-y-3 text-sm">
+                <p>AI provider status is unavailable. Retry before changing keys.</p>
+                <Button variant="outline" onClick={() => void fetchIntegrations()}>Retry AI status</Button>
+              </div>
+            ) : aiIntegrations.length === 0 ? (
               <EmptyState
                 icon={<Zap size={32} aria-hidden />}
                 title="No AI integrations yet"
@@ -1134,18 +887,9 @@ export default function IntegrationsPage() {
                             <CardTitle className="text-sm">
                               {integration.name}
                             </CardTitle>
-                            {integration.status === "CONNECTED" ? (
-                              <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
-                                Connected
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="secondary"
-                                className="shrink-0 text-xs"
-                              >
-                                Disconnected
-                              </Badge>
-                            )}
+                            <Badge variant="secondary" className="shrink-0 text-xs">
+                              {integration.status === "ACTIVE" ? "Configured" : integration.status === "FAILED" ? "Needs attention" : "Disabled"}
+                            </Badge>
                           </div>
                           <CardDescription className="mt-0.5 text-xs">
                             {integration.description}
@@ -1154,53 +898,13 @@ export default function IntegrationsPage() {
                       </div>
                     </CardHeader>
                     <CardFooter className="pt-0 gap-2">
-                      {integration.status === "CONNECTED" ? (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => handleConnect(integration)}
-                          >
-                            Update Key
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive-subtle-foreground border-destructive-subtle-foreground/30 hover:bg-destructive-subtle dark:hover:bg-rose-500/10"
-                            onClick={() => handleDisconnect(integration.id)}
-                          >
-                            Disconnect
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() =>
-                              handleDeleteIntegration(integration.id)
-                            }
-                          >
-                            <Trash2 className="text-destructive size-3.5" />
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            size="sm"
-                            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
-                            onClick={() => handleConnect(integration)}
-                          >
-                            Connect
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() =>
-                              handleDeleteIntegration(integration.id)
-                            }
-                          >
-                            <Trash2 className="text-destructive size-3.5" />
-                          </Button>
-                        </>
+                      <Button variant="outline" size="sm" className="flex-1" disabled={aiBusy}
+                        onClick={() => handleConnect(integration)}>
+                        {integration.keyType ? "Update Key" : "Manage Provider"}
+                      </Button>
+                      {integration.status !== "DISABLED" && (
+                        <Button variant="outline" size="sm" disabled={aiBusy}
+                          onClick={() => handleDisconnect(integration)}>Disconnect</Button>
                       )}
                     </CardFooter>
                   </Card>
@@ -1263,7 +967,7 @@ export default function IntegrationsPage() {
                 const isSyncing =
                   syncingProvider === integration.slug ||
                   status?.status === "SYNCING";
-                const hasError = status?.status === "ERROR";
+                const hasError = status?.status === "ERROR" || status?.status === "ATTENTION" || status?.status === "AMBIGUOUS";
                 return (
                   <Card
                     key={integration.slug}
@@ -1295,7 +999,7 @@ export default function IntegrationsPage() {
                                 variant="destructive"
                                 className="shrink-0 text-xs"
                               >
-                                Error
+                                {status?.status === "AMBIGUOUS" ? "Multiple connections" : "Needs attention"}
                               </Badge>
                             )}
                             {integration.comingSoon && !isConnected && (
@@ -1362,6 +1066,18 @@ export default function IntegrationsPage() {
                             ? "Checking status…"
                             : "Status unavailable"}
                         </Button>
+                      ) : status?.status === "AMBIGUOUS" ? (
+                        <Button variant="secondary" size="sm" className="w-full" disabled>Choose a workspace connection</Button>
+                      ) : status?.status === "ATTENTION" ? (
+                        <>
+                          <Button variant="outline" size="sm" className="flex-1"
+                            disabled={connectingProvider !== null}
+                            onClick={() => handleConnectExternal(integration.slug)}>
+                            {connectingProvider === integration.slug ? "Connecting…" : "Reconnect"}
+                          </Button>
+                          <Button variant="outline" size="sm" disabled={connectingProvider !== null}
+                            onClick={() => handleDisconnectExternal(integration.slug)}>Disconnect</Button>
+                        </>
                       ) : isConnected ? (
                         <>
                           <Button
@@ -1408,12 +1124,11 @@ export default function IntegrationsPage() {
                         <Button
                           size="sm"
                           className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
-                          onClick={() =>
-                            handleConnectExternal(integration.slug)
-                          }
+                          disabled={connectingProvider !== null}
+                          onClick={() => handleConnectExternal(integration.slug)}
                         >
                           <ExternalLink />
-                          Connect
+                          {connectingProvider === integration.slug ? "Connecting…" : "Connect"}
                         </Button>
                       )}
                     </CardFooter>
@@ -1460,7 +1175,7 @@ export default function IntegrationsPage() {
                 const isSyncing =
                   syncingProvider === integration.slug ||
                   status?.status === "SYNCING";
-                const hasError = status?.status === "ERROR";
+                const hasError = status?.status === "ERROR" || status?.status === "ATTENTION" || status?.status === "AMBIGUOUS";
                 return (
                   <Card
                     key={integration.slug}
@@ -1492,7 +1207,7 @@ export default function IntegrationsPage() {
                                 variant="destructive"
                                 className="shrink-0 text-xs"
                               >
-                                Error
+                                {status?.status === "AMBIGUOUS" ? "Multiple connections" : "Needs attention"}
                               </Badge>
                             )}
                             {integration.comingSoon && !isConnected && (
@@ -1559,6 +1274,18 @@ export default function IntegrationsPage() {
                             ? "Checking status…"
                             : "Status unavailable"}
                         </Button>
+                      ) : status?.status === "AMBIGUOUS" ? (
+                        <Button variant="secondary" size="sm" className="w-full" disabled>Choose a workspace connection</Button>
+                      ) : status?.status === "ATTENTION" ? (
+                        <>
+                          <Button variant="outline" size="sm" className="flex-1"
+                            disabled={connectingProvider !== null}
+                            onClick={() => handleConnectExternal(integration.slug)}>
+                            {connectingProvider === integration.slug ? "Connecting…" : "Reconnect"}
+                          </Button>
+                          <Button variant="outline" size="sm" disabled={connectingProvider !== null}
+                            onClick={() => handleDisconnectExternal(integration.slug)}>Disconnect</Button>
+                        </>
                       ) : isConnected ? (
                         <>
                           <Button
@@ -1605,6 +1332,7 @@ export default function IntegrationsPage() {
                         <Button
                           size="sm"
                           className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                          disabled={connectingProvider !== null && integration.slug !== "ascora"}
                           onClick={() =>
                             // Ascora needs an API key, so it opens a dialog
                             // rather than starting an OAuth redirect.
@@ -1945,7 +1673,7 @@ export default function IntegrationsPage() {
       </Dialog>
 
       {/* ── API Key Modal ──────────────────────────── */}
-      <Dialog open={showApiModal} onOpenChange={setShowApiModal}>
+      <Dialog open={showApiModal} onOpenChange={(open) => { setShowApiModal(open); if (!open) setApiKey(""); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{selectedIntegration?.name}</DialogTitle>
@@ -1960,6 +1688,7 @@ export default function IntegrationsPage() {
               </label>
               <select
                 value={apiKeyType}
+                disabled
                 onChange={(e) => {
                   setApiKeyType(
                     e.target.value as "openai" | "anthropic" | "gemini",
@@ -1995,6 +1724,7 @@ export default function IntegrationsPage() {
             </Button>
             <Button
               onClick={handleSaveConnection}
+              disabled={aiBusy || !apiKey.trim()}
               className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
             >
               Save Connection
@@ -2111,6 +1841,7 @@ export default function IntegrationsPage() {
             </Button>
             <Button
               onClick={handleAddIntegration}
+              disabled={aiBusy || !newApiKey.trim()}
               className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
             >
               Add Integration

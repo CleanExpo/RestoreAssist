@@ -6,6 +6,8 @@ import Link from "next/link";
 import { ArrowLeft, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
+import { dollarsToCents, lineAmountsCents } from "@/lib/invoices/calc";
+import { LineExIncPrices } from "@/components/invoices/LineExIncPrices";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
 const REASONS = [
@@ -104,15 +106,17 @@ export default function NewCreditNotePage() {
       prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)),
     );
 
-  const subtotal = lineItems.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice,
-    0,
+  // RA-7705: preview with the same per-line cents maths the server saves.
+  const previewLines = lineItems.map((item) =>
+    lineAmountsCents(
+      item.quantity,
+      dollarsToCents(item.unitPrice),
+      item.gstRate,
+    ),
   );
-  const gst = lineItems.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice * (item.gstRate / 100),
-    0,
-  );
-  const total = subtotal + gst;
+  const subtotal = previewLines.reduce((sum, l) => sum + l.subtotal, 0) / 100;
+  const gst = previewLines.reduce((sum, l) => sum + l.gstAmount, 0) / 100;
+  const total = previewLines.reduce((sum, l) => sum + l.total, 0) / 100;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,7 +145,7 @@ export default function NewCreditNotePage() {
           ...form,
           lineItems: lineItems.map((item) => ({
             ...item,
-            unitPrice: Math.round(item.unitPrice * 100),
+            unitPrice: dollarsToCents(item.unitPrice),
           })),
         }),
       });
@@ -177,7 +181,7 @@ export default function NewCreditNotePage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form method="post" onSubmit={handleSubmit} className="space-y-6">
           {/* Invoice & Reason */}
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-5">
             <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
@@ -355,6 +359,20 @@ export default function NewCreditNotePage() {
                       <Trash2 size={14} />
                     </button>
                   )}
+                </div>
+                {/* RA-7896: the line ex GST and inc GST, per line. */}
+                <div className="col-span-12 flex justify-end">
+                  <LineExIncPrices
+                    amounts={previewLines[idx]}
+                    incGstPending={
+                      gstKnown
+                        ? undefined
+                        : gstFailed
+                          ? "Unavailable"
+                          : "Calculating..."
+                    }
+                    className="w-48 text-slate-300"
+                  />
                 </div>
               </div>
             ))}

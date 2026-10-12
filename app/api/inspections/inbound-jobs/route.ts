@@ -20,7 +20,7 @@ export interface InboundJobSummary {
   id: string;
   inspectionNumber: string;
   propertyAddress: string;
-  inspectionDate: string;
+  inspectionDate: string | null;
   claimType: string | null;
   // From the linked DrNrpgJobSync — null if the link was broken/cleared
   insurer: string | null;
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
         id: r.id,
         inspectionNumber: r.inspectionNumber,
         propertyAddress: r.propertyAddress,
-        inspectionDate: r.inspectionDate.toISOString(),
+        inspectionDate: r.inspectionDate?.toISOString() ?? null,
         claimType: (r.claimType as string | null) ?? null,
         insurer: sync?.insurer ?? null,
         policyHolder: sync?.policyHolder ?? null,

@@ -37,4 +37,21 @@ describe("buildMoistureReadingDraftPayload — RA-7610 room link", () => {
 
     expect(payload.sketchRoomId).toBeNull();
   });
+
+  it("retains unaffected baseline and monitoring flags on draft save", () => {
+    const payload = buildMoistureReadingDraftPayload({
+      location: "Kitchen dry standard",
+      surfaceType: "drywall",
+      moistureLevel: 12,
+      depth: "Surface",
+      sketchRoomId: "sr-kitchen",
+      isBaseline: true,
+      isMonitoringPoint: true,
+    }, null);
+    expect(payload).toMatchObject({
+      sketchRoomId: "sr-kitchen",
+      isBaseline: true,
+      isMonitoringPoint: true,
+    });
+  });
 });

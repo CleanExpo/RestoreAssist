@@ -15,8 +15,8 @@ import { syncNIRJobToXero } from "./xero/nir-sync";
 import { syncNIRJobToQuickBooks } from "./quickbooks/nir-sync";
 import { syncNIRJobToMYOB } from "./myob/nir-sync";
 import { syncNIRJobToServiceM8 } from "./servicem8/nir-sync";
-import { syncNIRJobToAscora } from "./ascora/nir-sync";
 import { runInclusionCheck } from "@/lib/iicrc-inclusion-check";
+import { isOAuthIntegration } from "./identity";
 
 export type { NIRJobPayload } from "./xero/nir-sync";
 
@@ -33,9 +33,15 @@ export async function syncNIRToAllConnectedIntegrations(
   userId: string,
   payload: import("./xero/nir-sync").NIRJobPayload,
 ): Promise<NIRSyncResult[]> {
+  const report = await prisma.report.findFirst({
+    where: { id: payload.reportId, userId },
+    select: { id: true, userId: true, workspaceId: true },
+  });
+  if (!report) return [];
   const integrations = await prisma.integration.findMany({
-    where: { userId, status: "CONNECTED" },
-    select: { id: true, provider: true },
+    where: { userId, workspaceId: report.workspaceId ?? null, status: "CONNECTED" },
+    select: { id: true, provider: true, name: true, icon: true, config: true, tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true },
+    take: 250,
   });
   if (integrations.length === 0) return [];
 
@@ -53,7 +59,7 @@ export async function syncNIRToAllConnectedIntegrations(
   }
 
   return Promise.all(
-    integrations.map((i) =>
+    integrations.filter(i => isOAuthIntegration(i)).map((i) =>
       syncNIRToSpecificIntegration(userId, i.id, payload, i.provider),
     ),
   );
@@ -65,9 +71,16 @@ export async function syncNIRToSpecificIntegration(
   payload: import("./xero/nir-sync").NIRJobPayload,
   providerHint?: string,
 ): Promise<NIRSyncResult> {
+  const report = await prisma.report.findFirst({
+    where: { id: payload.reportId, userId },
+    select: { id: true, userId: true, workspaceId: true },
+  });
+  if (!report) {
+    return { integrationId, provider: providerHint || "UNKNOWN", status: "error", error: "Source report not found" };
+  }
   const integration = await prisma.integration.findFirst({
-    where: { id: integrationId, userId },
-    select: { id: true, provider: true, status: true },
+    where: { id: integrationId, userId, workspaceId: report.workspaceId ?? null },
+    select: { id: true, provider: true, status: true, name: true, icon: true, config: true, tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true },
   });
   if (!integration)
     return {
@@ -76,6 +89,10 @@ export async function syncNIRToSpecificIntegration(
       status: "error",
       error: "Integration not found",
     };
+  if (!isOAuthIntegration(integration, providerHint)) {
+    return { integrationId, provider: providerHint || integration.provider,
+      status: "skipped", error: "Invalid OAuth integration identity or provider" };
+  }
   if (integration.status !== "CONNECTED")
     return {
       integrationId,
@@ -123,16 +140,6 @@ export async function syncNIRToSpecificIntegration(
           status: "success",
           externalId: r.sm8JobUuid,
           externalReference: r.sm8JobNumber,
-        };
-      }
-      case "ASCORA": {
-        const r = await syncNIRJobToAscora(integrationId, payload);
-        return {
-          integrationId,
-          provider: "ASCORA",
-          status: "success",
-          externalId: r.ascoraJobId,
-          externalReference: r.ascoraJobNumber,
         };
       }
       default:

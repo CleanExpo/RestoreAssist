@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AvatarOrb } from "./AvatarOrb";
 import { MARGOT_WELCOME } from "@/lib/margot-surface";
+import { isCapacitorIOS } from "@/lib/capacitor";
 
 /** Routes where the floating public assistant should stay hidden. */
 const HIDDEN_PREFIXES = [
@@ -28,12 +29,16 @@ const HIDDEN_PREFIXES = [
 export function PublicAssistantOrb() {
   const pathname = usePathname() || "/";
   const [mounted, setMounted] = useState(false);
+  const [iosShell, setIosShell] = useState(false);
 
   useEffect(() => {
+    setIosShell(isCapacitorIOS());
     setMounted(true);
   }, []);
 
-  if (!mounted) return null;
+  // Apple 3.1.1: its chat offers "Get Started" (/signup), which the iOS
+  // shell must not show. Mount-gated, so it never paints before this check.
+  if (!mounted || iosShell) return null;
 
   const hidden = HIDDEN_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),

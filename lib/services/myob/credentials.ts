@@ -20,8 +20,11 @@ import {
 } from "@/lib/integrations/oauth-handler";
 import { MYOBClient } from "@/lib/integrations/myob/client";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
+import { prisma } from "@/lib/prisma";
+import { isOAuthIntegration } from "@/lib/integrations/identity";
 
 export type MYOBCredentialsReason =
+  | "INVALID_INTEGRATION"
   | "DISCONNECTED"
   | "RECONNECT_REQUIRED"
   | "REFRESH_FAILED";
@@ -30,8 +33,16 @@ const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
 export async function getValidMYOBAccessToken(
   integrationId: string,
+  options: { forceRefresh?: boolean } = {},
 ): Promise<ServiceResult<string, MYOBCredentialsReason>> {
-  const tokens = await getTokens(integrationId);
+  const integration = await prisma.integration.findUnique({
+    where: { id: integrationId },
+    select: { provider: true, name: true, icon: true, config: true, tenantId: true, tokenExpiresAt: true },
+  });
+  if (!integration || !isOAuthIntegration(integration, "MYOB")) {
+    return fail("INVALID_INTEGRATION", { detail: "Invalid MYOB integration identity" });
+  }
+  const tokens = await getTokens(integrationId, "MYOB");
 
   if (!tokens.accessToken) {
     return fail("DISCONNECTED", {
@@ -40,6 +51,7 @@ export async function getValidMYOBAccessToken(
   }
 
   const needsRefresh =
+    options.forceRefresh ||
     tokens.isExpired ||
     (tokens.tokenExpiresAt != null &&
       tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
@@ -52,6 +64,7 @@ export async function getValidMYOBAccessToken(
     await markIntegrationError(
       integrationId,
       "MYOB token expired and no refresh token — user must re-connect",
+      "MYOB",
     );
     return fail("RECONNECT_REQUIRED", {
       detail: "Token expired and no refresh token available",
@@ -61,7 +74,7 @@ export async function getValidMYOBAccessToken(
   try {
     const client = new MYOBClient(integrationId);
     await client.refreshAccessToken();
-    const fresh = await getTokens(integrationId);
+    const fresh = await getTokens(integrationId, "MYOB");
     if (!fresh.accessToken) {
       return fail("REFRESH_FAILED", {
         detail: "Refresh completed but token still missing",

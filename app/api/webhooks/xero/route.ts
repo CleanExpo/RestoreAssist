@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyXeroWebhookSignature } from "@/lib/integrations/xero/webhook-processor";
+import {
+  verifyXeroWebhookSignature,
+  resolveXeroWebhookBinding,
+  XERO_WEBHOOK_INTEGRATION_SELECT,
+  MAX_XERO_WEBHOOK_TENANT_CANDIDATES,
+} from "@/lib/integrations/xero/webhook-processor";
 import {
   deriveExternalEventId,
   isUniqueConstraintError,
@@ -62,6 +67,16 @@ export async function POST(request: NextRequest) {
 
     // Xero sends array of events
     const events = payload.events || [];
+    if (!Array.isArray(events) || events.some(event =>
+      !event || typeof event !== "object" ||
+      typeof event.tenantId !== "string" || !event.tenantId.trim()
+    )) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Missing or invalid tenantId",
+        status: 400,
+      });
+    }
 
     // Timestamp freshness check — reject stale replays, not genuine provider
     // retries. RA-6968: this was previously 5 minutes, which silently
@@ -98,40 +113,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, processed: 0 });
     }
 
-    // Find integration by tenantId (Xero's organization ID)
-    const firstEvent = events[0];
-    const tenantId = firstEvent.tenantId;
-
-    if (!tenantId) {
-      console.error("[Xero Webhook] Missing tenantId in event");
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "Missing tenantId",
-        status: 400,
-      });
-    }
-
-    // Find the integration for this tenant
-    const integration = await prisma.integration.findFirst({
-      where: {
-        provider: "XERO",
-        tenantId: tenantId,
-        status: "CONNECTED",
-      },
-    });
-
-    if (!integration) {
-      console.warn(
-        `[Xero Webhook] No active integration found for tenant ${tenantId}`,
-      );
-      // Return 200 to prevent Xero from retrying
-      return NextResponse.json({ success: true, processed: 0 });
-    }
-
     // Queue webhook events for async processing
     const queuedEvents = [];
 
     for (const event of events) {
+      // Xero may send events for several organisations in one signed request.
+      // Bind each event independently; unknown tenants remain acknowledged.
+      const binding = await resolveXeroWebhookBinding(event.tenantId, tenantId =>
+        prisma.integration.findMany({
+          where: { provider: "XERO", tenantId, status: "CONNECTED" },
+          select: XERO_WEBHOOK_INTEGRATION_SELECT,
+          take: MAX_XERO_WEBHOOK_TENANT_CANDIDATES + 1,
+        }),
+      );
+      if (!binding.ok) {
+        console.warn(`[Xero Webhook] Event not queued: ${binding.reason}`);
+        continue;
+      }
+      const integration = binding.data;
       try {
         // Map Xero event types to our standard event types
         let eventType = event.eventType;

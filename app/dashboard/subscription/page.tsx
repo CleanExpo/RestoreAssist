@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { useState, useEffect } from "react";
 import {
   Check,
@@ -265,7 +266,10 @@ function SubscriptionPageContent() {
         toast.success("Subscription reactivated successfully");
         fetchSubscription();
       } else {
-        toast.error("Failed to reactivate subscription");
+        const data = await response.json().catch(() => null);
+        toast.error(
+          apiErrorMessage(data) ?? "Failed to reactivate subscription",
+        );
       }
     } catch (error) {
       console.error("Error reactivating subscription:", error);
@@ -305,7 +309,9 @@ function SubscriptionPageContent() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create checkout session");
+        throw new Error(
+          apiErrorMessage(errorData) ?? "Failed to create checkout session",
+        );
       }
 
       const { sessionId, url } = await response.json();

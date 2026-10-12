@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildScopeOfWorksData } from "../route";
+import { buildScopeOfWorksData } from "@/lib/restoration/scope-of-works-builder";
 
 /**
  * The mould flag on the PRICED document must not be narrower than the one the

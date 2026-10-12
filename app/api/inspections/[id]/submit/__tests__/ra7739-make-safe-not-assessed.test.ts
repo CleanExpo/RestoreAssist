@@ -95,6 +95,7 @@ vi.mock("@/lib/nir-scope-determination", () => ({
 }));
 vi.mock("@/lib/nir-cost-estimation", () => ({
   estimateCosts: vi.fn().mockResolvedValue({ items: [], contingency: 0 }),
+  resolveInspectionRates: vi.fn().mockResolvedValue({ ok: true, rates: null }),
 }));
 
 const mockValidateSubmission = vi.fn();
@@ -211,5 +212,28 @@ describe("submit route — RA-7739 all-N/A Stabilisation checklist", () => {
     const { POST } = await import("../route");
     const res = await POST(makeSubmitRequest(), params);
     expect(res.status).toBe(200);
+  });
+
+  it("refuses to submit a draft that a concurrent save changed after it was validated", async () => {
+    // Submit validated the rows it read at `readAt`. A draft save then
+    // committed and bumped the row to `savedAt` while it was still DRAFT.
+    // The status CAS must not accept the newer row.
+    const readAt = new Date("2026-10-03T00:00:00.000Z");
+    const savedAt = new Date("2026-10-03T00:00:05.000Z");
+    mockInspectionFindUnique.mockResolvedValue({ ...baseInspection, updatedAt: readAt });
+    mockMakeSafeFindMany.mockResolvedValue(
+      ALL_ACTIONS.map((action) => ({
+        action,
+        applicable: action === "occupant_briefing",
+        completed: action === "occupant_briefing",
+      })),
+    );
+    mockInspectionUpdateMany.mockImplementation(async ({ where }: { where: { updatedAt?: Date } }) => ({
+      count: where.updatedAt && where.updatedAt.getTime() !== savedAt.getTime() ? 0 : 1,
+    }));
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(409);
+    expect(mockInspectionUpdate).not.toHaveBeenCalled();
   });
 });

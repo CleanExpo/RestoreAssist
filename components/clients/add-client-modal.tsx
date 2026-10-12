@@ -13,6 +13,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import type { ClientFormValues } from "@/lib/clients/form";
+import { CLIENT_NOTES_MAX_LENGTH } from "@/lib/clients/notes";
 
 interface AddClientModalProps {
   open: boolean;
@@ -30,7 +31,7 @@ export function AddClientModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+    <div data-no-pull-refresh className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
       <div
         className={cn(
           "rounded-lg border max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto",
@@ -60,7 +61,7 @@ export function AddClientModal({
           </button>
         </div>
         <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -240,7 +241,7 @@ export function AddClientModal({
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes</FormLabel>
+                  <FormLabel>Notes (up to {CLIENT_NOTES_MAX_LENGTH.toLocaleString("en-AU")} characters)</FormLabel>
                   <FormControl>
                     <textarea
                       placeholder="Enter any additional notes"

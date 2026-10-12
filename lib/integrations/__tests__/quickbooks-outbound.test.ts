@@ -18,8 +18,10 @@ vi.mock("@/lib/services/quickbooks/credentials", () => ({
 import { syncInvoiceToQuickBooks } from "../quickbooks";
 
 const integration = {
+  provider: "QUICKBOOKS",
+  name: "QuickBooks",
   id: "integ_qbo",
-  accessToken: "qbo-token",
+  accessToken: "encrypted:must-not-be-sent",
   realmId: "realm_1",
 } as any;
 
@@ -59,6 +61,7 @@ const SANDBOX = "https://sandbox-quickbooks.api.intuit.com";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getValidQuickBooksAccessToken.mockResolvedValue({ ok: true, data: "synthetic-decrypted-access" });
 });
 
 describe("syncInvoiceToQuickBooks — create", () => {
@@ -96,6 +99,10 @@ describe("syncInvoiceToQuickBooks — create", () => {
 
     expect(result.invoiceId).toBe("inv_1");
     expect(result.provider).toBe("quickbooks");
+    for (const [, options] of vi.mocked(fetch).mock.calls) {
+      expect(new Headers(options?.headers).get("Authorization")).toBe("Bearer synthetic-decrypted-access");
+    }
+    expect(integration.accessToken).toBe("encrypted:must-not-be-sent");
 
     const invoicePost = calls.find(
       (c) => c.url === `${SANDBOX}/v3/company/realm_1/invoice` && c.method === "POST",
@@ -238,7 +245,7 @@ describe("syncInvoiceToQuickBooks — error classification", () => {
     await expect(
       syncInvoiceToQuickBooks(baseInvoice(), integration),
     ).rejects.toThrow(/token refreshed, will retry/);
-    expect(getValidQuickBooksAccessToken).toHaveBeenCalledWith("integ_qbo");
+    expect(getValidQuickBooksAccessToken).toHaveBeenLastCalledWith("integ_qbo", { forceRefresh: true });
   });
 
   it("throws a non-recoverable error on a 400 that is not a duplicate", async () => {
@@ -265,7 +272,8 @@ describe("syncInvoiceToQuickBooks — error classification", () => {
     await expect(
       syncInvoiceToQuickBooks(baseInvoice(), integration),
     ).rejects.toThrow(/non-recoverable/);
-    expect(getValidQuickBooksAccessToken).not.toHaveBeenCalled();
+    // One initial credential read is required; a payload error must not trigger another.
+    expect(getValidQuickBooksAccessToken).toHaveBeenCalledExactlyOnceWith("integ_qbo");
   });
 
   it("recovers a duplicate DocNumber (6140) to the update path", async () => {

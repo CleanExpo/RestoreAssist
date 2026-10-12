@@ -13,7 +13,7 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(),
 }));
 
-import { buildNirReportOutput } from "../guidewire/route";
+import { buildNirReportOutput } from "@/lib/export/guidewire-report-output";
 
 // Minimal inspection shape matching fetchInspectionForGuidewire's projection.
 function makeInspection(overrides: Record<string, unknown> = {}) {
@@ -160,5 +160,51 @@ describe("Guidewire photo manifest", () => {
     // data. `??` (not `||`) is what keeps this true.
     expect(photo.latitude).toBe(0);
     expect(photo.longitude).toBe(0);
+  });
+});
+
+// Inspection.inspectionDate is nullable: a job nobody attended has no date.
+// The builder used to substitute the wall clock, publishing a fabricated
+// attendance date to the insurer.
+describe("Guidewire attendance date", () => {
+  it("never invents an attendance date when none is recorded", () => {
+    const inspection = makeInspection({ inspectionDate: null });
+
+    expect(() => buildNirReportOutput(inspection, "Tech", "user_1")).toThrow(
+      /attendance date/,
+    );
+  });
+
+  it("exports the recorded attendance date unchanged", () => {
+    const out = buildNirReportOutput(makeInspection(), "Tech", "user_1");
+
+    expect(out.inspectionDate).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("the route refuses with 422 instead of exporting a null attendance", async () => {
+    const { getServerSession } = await import("next-auth");
+    const { prisma } = await import("@/lib/prisma");
+    const { assertInspectionTenancy } = await import(
+      "@/lib/auth/assert-tenancy"
+    );
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "user_1", name: "Tech" },
+    } as never);
+    vi.mocked(assertInspectionTenancy).mockResolvedValue({ ok: true } as never);
+    vi.mocked(prisma.inspection.findUnique).mockResolvedValue(
+      makeInspection({ inspectionDate: null }) as never,
+    );
+    const { GET } = await import("../guidewire/route");
+    const { NextRequest } = await import("next/server");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/inspections/insp_1/guidewire"),
+      { params: Promise.resolve({ id: "insp_1" }) },
+    );
+
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(JSON.stringify(body)).toMatch(/attendance date/);
+    expect(JSON.stringify(body)).not.toMatch(/claimPayload/);
   });
 });

@@ -15,6 +15,7 @@
 import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { pgPoolTls } from "../lib/prisma-pool-config";
 import { PrismaClient } from "@prisma/client";
 
 export const REPLAY_INDEX_MIGRATION =
@@ -72,7 +73,7 @@ function createClient(): PrismaClient {
   }
   assertLocalDatabaseUrl(connectionString);
   return new PrismaClient({
-    adapter: new PrismaPg(new Pool({ connectionString, max: 2 })),
+    adapter: new PrismaPg(new Pool({ ...pgPoolTls(connectionString), max: 2 })),
   });
 }
 

@@ -59,7 +59,7 @@ describe("accountingCheck — multi-provider day-1 readiness", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           status: "CONNECTED",
-          provider: { in: ["XERO", "QUICKBOOKS", "MYOB"] },
+          provider: "XERO",
         }),
       }),
     );
@@ -111,3 +111,13 @@ describe("accountingCheck — multi-provider day-1 readiness", () => {
     expect(r.note).toMatch(/token rejected/i);
   });
 });
+
+// Probe tests stub the owned identity selector; its real scope rules have dedicated controls.
+vi.mock("@/lib/services/integrations/select-oauth", () => ({
+  selectOAuthIntegration: vi.fn(async (input: { prisma: any; userId: string; provider: string }) => {
+    const row = await input.prisma.integration.findFirst({ where: { userId: input.userId, provider: input.provider, status: "CONNECTED" } });
+    return row && (!row.provider || row.provider === input.provider)
+      ? { ok: true, data: { ...row, provider: row.provider || input.provider, tenantId: "synthetic-org", workspaceId: null } }
+      : { ok: false, reason: "NOT_FOUND" };
+  }),
+}));

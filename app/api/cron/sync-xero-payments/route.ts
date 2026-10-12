@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { OAUTH_CANDIDATE_WHERE } from "@/lib/services/integrations/select-oauth";
+import { isOAuthIntegration } from "@/lib/integrations/identity";
 import { verifyCronAuth } from "@/lib/cron/auth";
 import { runCronJob } from "@/lib/cron/runner";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
@@ -57,6 +59,7 @@ async function syncXeroPaymentsOnce() {
     invoicesPolled: 0,
     invoicesMarkedPaid: 0,
     integrationErrors: 0,
+    invoiceErrors: 0,
   };
 
   // ── Phase 1: Drain pending webhook events ────────────────────────────────
@@ -73,12 +76,15 @@ async function syncXeroPaymentsOnce() {
   // ── Phase 2: Fallback polling — find AUTHORISED invoices and check if paid ─
   const xeroIntegrations = await prisma.integration.findMany({
     where: {
+      ...OAUTH_CANDIDATE_WHERE,
       provider: "XERO",
       status: "CONNECTED",
     },
     select: {
+      name: true, icon: true, config: true, workspaceId: true,
+      tokenExpiresAt: true, realmId: true, companyId: true,
       id: true,
-      tenantId: true,
+      provider: true, tenantId: true,
       userId: true,
     },
     orderBy: { createdAt: "asc" },
@@ -86,12 +92,12 @@ async function syncXeroPaymentsOnce() {
   });
 
   for (const integration of xeroIntegrations) {
-    if (!integration.tenantId) continue;
+    if (!isOAuthIntegration(integration, "XERO") || !integration.tenantId) continue;
 
     try {
       // Service-layer credentials result — log + continue on failure so a single
       // disconnected integration doesn't abort the rest of the cron run.
-      const credResult = await getValidXeroAccessToken(integration.id);
+      const credResult = await getValidXeroAccessToken(integration.id, { expectedTenantId: integration.tenantId ?? undefined, expectedUserId: integration.userId, expectedWorkspaceId: integration.workspaceId });
       if (!credResult.ok) {
         stats.integrationErrors++;
         console.error("[CronSyncXeroPayments]", {
@@ -108,9 +114,10 @@ async function syncXeroPaymentsOnce() {
       const pendingInvoices = await prisma.invoice.findMany({
         where: {
           userId: integration.userId,
+          workspaceId: integration.workspaceId,
           status: { in: ["SENT", "OVERDUE", "PARTIALLY_PAID"] },
           externalInvoiceId: { not: null },
-          externalSyncProvider: "XERO",
+          externalSyncProvider: { in: ["XERO", "xero"] },
         },
         select: {
           id: true,
@@ -152,9 +159,10 @@ async function syncXeroPaymentsOnce() {
           }
 
           const data = await res.json();
-          const xeroInvoice = data?.Invoices?.[0];
-
-          if (!xeroInvoice) continue;
+          if (!Array.isArray(data?.Invoices) || data.Invoices.length !== 1 || !data.Invoices[0]) {
+            throw new Error("Xero returned an invalid invoice response");
+          }
+          const xeroInvoice = data.Invoices[0];
 
           // Xero status PAID or AmountDue === 0 means fully settled
           if (xeroInvoice.Status === "PAID" || xeroInvoice.AmountDue === 0) {
@@ -163,7 +171,7 @@ async function syncXeroPaymentsOnce() {
             // the amount actually paid may be less than the total.
             const amountPaid = xeroDollarsToCents(xeroInvoice.AmountPaid);
             await prisma.invoice.update({
-              where: { id: invoice.id },
+              where: { id: invoice.id, userId: integration.userId, workspaceId: integration.workspaceId, externalInvoiceId: invoice.externalInvoiceId, externalSyncProvider: { in: ["XERO", "xero"] } },
               data: {
                 status: "PAID",
                 paidDate: xeroInvoice.FullyPaidOnDate
@@ -179,6 +187,7 @@ async function syncXeroPaymentsOnce() {
             );
           }
         } catch (invoiceErr) {
+          stats.invoiceErrors++;
           // Single-invoice error — log and continue; do not abort the integration run
           console.error(
             `[Xero Payment Sync] Error checking invoice ${invoice.id}:`,

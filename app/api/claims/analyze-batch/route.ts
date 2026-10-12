@@ -19,6 +19,7 @@ import {
 import type { GapAnalysisResult } from "@/lib/gap-analysis";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 const CATEGORY_MAP: Record<
   string,
@@ -83,17 +84,9 @@ export async function POST(request: NextRequest) {
     // Rule 5 — subscription gate before any AI call. Both the standards
     // retrieval (retrieveRelevantStandards) and the per-file Anthropic calls
     // below incur real API cost; CANCELED/PAST_DUE users must not reach them.
-    // Allowlist mirrors the generate-enhanced report route.
-    const gateUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { subscriptionStatus: true },
-    });
-    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(
-        gateUser?.subscriptionStatus ?? "",
-      )
-    ) {
+    // Allowlist mirrors the generate-enhanced report route. RA-7893: an
+    // invited technician uses the business owner's plan.
+    if (!(await hasActiveSubscription(session.user.id))) {
       return NextResponse.json(
         {
           error: "Active subscription required to analyze claims",

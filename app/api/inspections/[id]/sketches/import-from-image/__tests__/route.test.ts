@@ -132,7 +132,7 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
   it.each(["CANCELED", "PAST_DUE"])(
     "returns 402 with no Vision call for %s subscriptions",
     async (status) => {
-      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+      userFindUnique.mockResolvedValue({ subscriptionStatus: status });
       const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x00]);
 
       const res = await POST(makeRequest(bytes, "image/jpeg"), ctx());

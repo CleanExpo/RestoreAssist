@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { PDFDocument } from "pdf-lib";
-import { appendPhotoPages } from "../append-photo-pages";
+import { describe, it, expect, vi } from "vitest";
+import { PDFDocument, PDFPage } from "pdf-lib";
+import { appendPhotoPages, missingPhotosNotice } from "../append-photo-pages";
 import type { ReportPhoto } from "../inspection-photos-to-images";
 
 const PNG_1x1 =
@@ -57,5 +57,45 @@ describe("appendPhotoPages", () => {
 
     const doc = await PDFDocument.load(out);
     expect(doc.getPageCount()).toBe(2); // base + 1 grid page, no crash
+  });
+
+  // Review 35e2911a P1: a photo that could not be included must be stated in
+  // the PDF, never dropped silently, including when none could be included.
+  it("adds a notice page when every photo was missing", async () => {
+    const base = await basePdf(1);
+    const out = await appendPhotoPages(base, [], { missingCount: 3 });
+    expect((await PDFDocument.load(out)).getPageCount()).toBe(2);
+  });
+
+  // Cursor re-review of 5b812a99 (P0): the notice was only pinned when every
+  // photo was missing. The common case is some photos embed and some do not.
+  it("prints the notice when some photos embed and some are missing", async () => {
+    const drawn: string[] = [];
+    const spy = vi
+      .spyOn(PDFPage.prototype, "drawText")
+      .mockImplementation(function (this: PDFPage, text: string) {
+        drawn.push(text);
+      });
+    const base = await basePdf(1);
+    await appendPhotoPages(
+      base,
+      [
+        photo(true, "good"),
+        { bytes: new Uint8Array([1, 2, 3, 4]), isPng: true, caption: "corrupt" },
+      ],
+      { missingCount: 2 },
+    );
+    spy.mockRestore();
+    expect(drawn).toContain(missingPhotosNotice(3));
+  });
+
+  it("states how many photos are missing, counting un-embeddable ones", () => {
+    expect(missingPhotosNotice(0)).toBeNull();
+    expect(missingPhotosNotice(1)).toBe(
+      "1 photo could not be included in this PDF. The originals remain on the inspection record.",
+    );
+    expect(missingPhotosNotice(4)).toBe(
+      "4 photos could not be included in this PDF. The originals remain on the inspection record.",
+    );
   });
 });

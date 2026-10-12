@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
 import {
   PROVIDER_CONFIG,
   type IntegrationProvider,
@@ -37,7 +38,7 @@ export async function GET(
     }
 
     // Check subscription status - external integrations require paid subscription
-    const subscriptionCheck = await checkIntegrationAccess(session.user.id);
+    const subscriptionCheck = await checkIntegrationAccess(session.user.id, (await params).provider);
     if (!subscriptionCheck.isAllowed) {
       return NextResponse.json(
         createSubscriptionRequiredResponse(subscriptionCheck),
@@ -58,12 +59,22 @@ export async function GET(
     }
 
     // Find integration
-    const integration = await prisma.integration.findFirst({
-      where: {
-        userId: session.user.id,
-        provider,
-      },
+    const selection = await selectOAuthIntegration({
+      prisma, userId: session.user.id, provider, requireReady: false,
+      workspaceId: subscriptionCheck.foundingTrialWorkspaceId,
     });
+    if (!selection.ok && selection.reason !== "NOT_FOUND") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: selection.reason === "AMBIGUOUS"
+          ? "Multiple connections require an explicit workspace selection."
+          : selection.reason === "NOT_READY"
+            ? "This connection needs valid credentials and an authorised organisation before syncing."
+            : "This provider is not supported by the OAuth integration route.",
+        status: selection.reason === "INVALID_PROVIDER" ? 400 : 409,
+      });
+    }
+    const integration = selection.ok ? selection.data : null;
 
     if (!integration) {
       return apiError(request, {
@@ -72,7 +83,6 @@ export async function GET(
         status: 404,
       });
     }
-
     // Get synced jobs
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -135,7 +145,7 @@ export async function POST(
     }
 
     // Check subscription status - external integrations require paid subscription
-    const subscriptionCheck = await checkIntegrationAccess(session.user.id);
+    const subscriptionCheck = await checkIntegrationAccess(session.user.id, (await params).provider);
     if (!subscriptionCheck.isAllowed) {
       return NextResponse.json(
         createSubscriptionRequiredResponse(subscriptionCheck),
@@ -156,12 +166,22 @@ export async function POST(
     }
 
     // Find integration
-    const integration = await prisma.integration.findFirst({
-      where: {
-        userId: session.user.id,
-        provider,
-      },
+    const selection = await selectOAuthIntegration({
+      prisma, userId: session.user.id, provider, requireReady: false,
+      workspaceId: subscriptionCheck.foundingTrialWorkspaceId,
     });
+    if (!selection.ok && selection.reason !== "NOT_FOUND") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: selection.reason === "AMBIGUOUS"
+          ? "Multiple connections require an explicit workspace selection."
+          : selection.reason === "NOT_READY"
+            ? "This connection needs valid credentials and an authorised organisation before syncing."
+            : "This provider is not supported by the OAuth integration route.",
+        status: selection.reason === "INVALID_PROVIDER" ? 400 : 409,
+      });
+    }
+    const integration = selection.ok ? selection.data : null;
 
     if (!integration) {
       return apiError(request, {
@@ -171,6 +191,7 @@ export async function POST(
       });
     }
 
+    const workspaceId = integration.workspaceId ?? null;
     const body = await request.json();
     const { jobIds } = body;
 
@@ -212,7 +233,7 @@ export async function POST(
         // every time).
         if (externalJob.claimId) {
           const existingReport = await prisma.report.findFirst({
-            where: { id: externalJob.claimId, userId: session.user.id },
+            where: { id: externalJob.claimId, userId: session.user.id, workspaceId },
             select: { id: true },
           });
           if (existingReport) {
@@ -230,13 +251,21 @@ export async function POST(
               externalId: externalJob.clientExternalId,
             },
           });
-          clientId = linkedClient?.contactId || undefined;
+          if (linkedClient?.contactId) {
+            const scopedClient = await prisma.client.findFirst({
+              where: { id: linkedClient.contactId, userId: session.user.id, workspaceId },
+              select: { id: true },
+            });
+            if (!scopedClient) throw new Error("External client link is outside the integration workspace");
+            clientId = scopedClient.id;
+          }
         }
 
         // Create a report for this job
         const report = await prisma.report.create({
           data: {
             userId: session.user.id,
+            workspaceId,
             clientId,
             title: externalJob.title,
             description: externalJob.description || "",
@@ -251,7 +280,7 @@ export async function POST(
         await prisma.externalJob.update({
           where: {
             id: externalJob.id,
-            integration: { userId: session.user.id },
+            integration: { id: integration.id, userId: session.user.id, workspaceId },
           },
           data: { claimId: report.id },
         });

@@ -91,6 +91,13 @@ model User {
   // Organisation & team hierarchy
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  // RA-7893: when, and from which organisation, this user last left one
+  // (member removal, or the owner deleting their account). Null for current
+  // members and for removals made before the columns existed.
+  // organizationLeftId has no relation on purpose: it must survive the
+  // organisation being deleted.
+  organizationLeftAt DateTime?
+  organizationLeftId String?
 
   // Organisations this user owns (Admin/Owner)
   ownedOrganizations Organization[] @relation("OrganizationOwner")
@@ -459,9 +466,14 @@ model ClientPortalAccount {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   lastAccessedAt DateTime?
+  // WP-02: the job this link was sent for. Null = a link issued before the
+  // column existed, which keeps resolving to the client's newest job. Plain
+  // string, no relation: a deleted job must not delete or re-point a link.
+  inspectionId   String?
 
   @@index([clientId])
   @@index([token])
+  @@index([inspectionId])
 }
 
 model PortalInvitation {
@@ -2099,7 +2111,8 @@ model Inspection {
   inspectionNumber String   @unique // NIR-YYYY-MM-XXXX format
   propertyAddress  String
   propertyPostcode String // Required for state detection
-  inspectionDate   DateTime @default(now())
+  // Attendance is unknown on an intake draft until a technician records it.
+  inspectionDate   DateTime?
   technicianName   String?
   technicianId     String? // Link to technician user if available
 
@@ -6481,7 +6494,7 @@ enum AddonSku {
   BOOKKEEPING // Online Bookkeeping Connection (Xero / QuickBooks / MYOB)
   SERVICE_CRM // Service CRM Connection (Ascora / DR-NRPG)
   PAYMENTS // Payments Collection (Stripe Connect on the client's own account)
-  FLOORPLAN_UNDERLAY // RA-6922: Floor Plan Underlay — recurring $9.95/mo internet-floorplan-overlay entitlement
+  FLOORPLAN_UNDERLAY // RA-6922: Floor Plan Underlay — recurring $11/mo internet-floorplan-overlay entitlement
   CLIENT_COMMS // RA-6954: Restoration Pulse client-comms — recurring $11/mo client-facing email updates entitlement
   CLIENT_EDUCATION // Client education library + /learn kiosk on the client portal — recurring $11/mo
   AI_COPILOT // Margot technician co-pilot (the live-teacher routes) — recurring $11/mo

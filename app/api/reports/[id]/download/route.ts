@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 /**
  * GET /api/reports/[id]/download
@@ -31,7 +32,6 @@ export async function GET(
       });
     }
 
-    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
     const sessionUser = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { id: true, subscriptionStatus: true },
@@ -43,11 +43,7 @@ export async function GET(
         status: 404,
       });
     }
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(
-        sessionUser.subscriptionStatus ?? "",
-      )
-    ) {
+    if (!(await hasActiveSubscription(session.user.id))) {
       return apiError(request, {
         code: "FORBIDDEN",
         message: "Active subscription required",

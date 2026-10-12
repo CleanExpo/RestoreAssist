@@ -20,7 +20,7 @@ import {
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
-export const EVENTS = [
+const EVENTS = [
   "inspection_submitted",
   "scope_ready",
   "invoice_generated",

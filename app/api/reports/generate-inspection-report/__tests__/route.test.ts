@@ -93,6 +93,7 @@ function sessionUser(subscriptionStatus: "TRIAL" | "ACTIVE") {
     businessPhone: null,
     businessEmail: null,
     subscriptionStatus,
+    trialEndsAt: new Date("2099-01-01"),
     pricingConfig: null,
   };
 }

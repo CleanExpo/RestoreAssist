@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { deriveDeviceKeyId } from "./derive-key-id";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -28,19 +29,6 @@ const MAX_LIVE_KEYS_PER_USER = 20;
 
 function normalisePem(pem: string): string {
   return pem.replace(/\r\n/g, "\n").trim();
-}
-
-/**
- * Review round 1 (MUST-FIX 3): the key id is DERIVED from the key material,
- * server-side. It used to be client-supplied, which broke revocation: a
- * revoked key could be re-registered under a fresh alias and go straight
- * back to signing accepted manifests, and two accounts could register the
- * same public key under different aliases. Deriving the id makes a revoked
- * key collide with its own revoked record, so revocation is permanent.
- */
-export function deriveDeviceKeyId(publicKey: crypto.KeyObject): string {
-  const spkiDer = publicKey.export({ format: "der", type: "spki" });
-  return crypto.createHash("sha256").update(spkiDer).digest("hex").slice(0, 16);
 }
 
 export async function POST(request: NextRequest) {

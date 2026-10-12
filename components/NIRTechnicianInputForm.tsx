@@ -16,6 +16,7 @@ import {
   Sparkles,
   ClipboardCheck,
   Trash2,
+  Pencil,
   Upload,
   FileImage,
   Map,
@@ -25,9 +26,21 @@ import {
   Locate,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useSession } from "next-auth/react";
+import { isRecentlyIssuedCreationKey } from "@/lib/creation-attempt-key";
+import { prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
-import { buildAffectedAreaPayload } from "@/lib/forms/affected-area-payload";
+import {
+  buildAffectedAreaPayload,
+  hydrateAffectedAreaDraft,
+} from "@/lib/forms/affected-area-payload";
+import {
+  ROOM_TYPES,
+  formatRoomZoneLabel,
+  newRoomEntryId,
+  nextRoomName,
+} from "@/lib/forms/room-identity";
 import { buildMoistureReadingDraftPayload } from "@/lib/forms/moisture-reading-draft-payload";
 import {
   calculateClassificationPreview as computeClassificationPreview,
@@ -39,6 +52,7 @@ import {
   toNormalizedMoistureMapPoint,
 } from "@/lib/nir-moisture-map-coordinates";
 import { latestEnvironmentalReading } from "@/lib/inspections/latest-environmental-reading";
+import { linkedReadingsAreaConflict, unlinkedReadingsAreaAmbiguity } from "@/lib/moisture/reading-room-join";
 import {
   isCapacitorIOS,
   getCurrentLocation,
@@ -88,26 +102,6 @@ const SURFACE_TYPES = [
 
 // Water source types (dropdown only)
 const WATER_SOURCES = ["Clean Water", "Grey Water", "Black Water"];
-
-// Common room types for room picker
-const ROOM_TYPES = [
-  "Master Bedroom",
-  "Bedroom",
-  "Bathroom",
-  "Ensuite",
-  "Kitchen",
-  "Living Room",
-  "Family Room",
-  "Dining Room",
-  "Laundry",
-  "Hallway",
-  "Garage",
-  "Attic",
-  "Basement",
-  "Office",
-  "Study",
-  "Other",
-];
 
 // Material types for affected areas
 const MATERIAL_TYPES = [
@@ -214,9 +208,131 @@ export default function NIRTechnicianInputForm({
   onComplete,
   onCancel,
 }: NIRTechnicianInputFormProps) {
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [inspectionId, setInspectionId] = useState<string | null>(null);
+  const [creatingInspection, setCreatingInspection] = useState(false);
+  const inspectionIdRef = useRef<string | null>(null);
+  const inspectionCreationRef = useRef<{
+    key: string;
+    body: string;
+    inFlight: Promise<string | null> | null;
+  } | null>(null);
+  const legacyUnresolvedKeyRef = useRef<string | null>(null);
+  const [creationRecovery, setCreationRecovery] = useState<"idle" | "checking" | "retryable" | "legacy_missing" | "unresolved">("idle");
+  const [recoveryCheck, setRecoveryCheck] = useState(0);
+  const clientIdForCreation = typeof initialData?.clientId === "string" ? initialData.clientId : null;
+  const legacyAttemptStorageKey = `ra.nir-inspection-attempt:${reportId ?? "standalone"}:${clientIdForCreation ?? "unlinked"}`;
+  const attemptStorageKey = session?.user?.id
+    ? `ra.nir-inspection-attempt:${session.user.id}:${reportId ?? "standalone"}:${clientIdForCreation ?? "unlinked"}`
+    : null;
+  const legacyDismissedStorageKey = attemptStorageKey ? `${attemptStorageKey}:legacy-dismissed` : null;
+
+  // A remount has lost the original request body. Recover only its opaque
+  // key from storage, then ask the server for an owner-scoped committed ID.
+  useEffect(() => {
+    if (!attemptStorageKey) {
+      setCreationRecovery("checking");
+      return;
+    }
+    let key: string | null;
+    let usingLegacy = false;
+    try {
+      key = sessionStorage.getItem(attemptStorageKey);
+      // Older builds stored the opaque key without a user ID. Read it only
+      // when this user has no scoped key; never copy an unverified key into
+      // another signed-in user's namespace.
+      if (!key) {
+        const legacyKey = sessionStorage.getItem(legacyAttemptStorageKey);
+        if (legacyKey && legacyKey !== sessionStorage.getItem(legacyDismissedStorageKey!)) {
+          key = legacyKey;
+          usingLegacy = true;
+        }
+      }
+    } catch {
+      setCreationRecovery("unresolved");
+      return;
+    }
+    if (!key) {
+      legacyUnresolvedKeyRef.current = null;
+      setCreationRecovery("idle");
+      return;
+    }
+    let cancelled = false;
+    setCreationRecovery("checking");
+    const recover = async () => {
+      try {
+        const query = new URLSearchParams({ creationStatus: "1" });
+        if (reportId) query.set("reportId", reportId);
+        if (clientIdForCreation) query.set("clientId", clientIdForCreation);
+        const response = await fetch(`/api/inspections?${query}`, {
+          headers: { "Idempotency-Key": key },
+        });
+        if (!response.ok) throw new Error("Inspection recovery read failed");
+        const result = await response.json();
+        if (cancelled) return;
+        const saved = result.inspection;
+        const savedClaimType = asIicrcClaimType(saved?.claimType);
+        if (result.state === "complete" && typeof saved?.id === "string" &&
+            savedClaimType && typeof saved.propertyAddress === "string" &&
+            typeof saved.propertyPostcode === "string") {
+          setClaimType(savedClaimType);
+          setPropertyAddress(saved.propertyAddress);
+          setPropertyPostcode(saved.propertyPostcode);
+          setInspectionDate(typeof saved.inspectionDate === "string" ? saved.inspectionDate.slice(0, 10) : "");
+          setDamageDescription(typeof saved.lossDescription === "string" ? saved.lossDescription : "");
+          setTechnicianName(typeof saved.technicianName === "string" ? saved.technicianName : "");
+          inspectionIdRef.current = saved.id;
+          setInspectionId(saved.id);
+          try { sessionStorage.removeItem(attemptStorageKey); } catch { /* saved ID is verified */ }
+          try {
+            if (sessionStorage.getItem(legacyAttemptStorageKey) === key) sessionStorage.removeItem(legacyAttemptStorageKey);
+          } catch { /* saved ID is verified */ }
+          setCreationRecovery("idle");
+        } else if (result.state === "rejected") {
+          try {
+            sessionStorage.removeItem(attemptStorageKey);
+            if (sessionStorage.getItem(legacyAttemptStorageKey) === key) sessionStorage.removeItem(legacyAttemptStorageKey);
+            setCreationRecovery("idle");
+          } catch {
+            setCreationRecovery("unresolved");
+          }
+        } else if (usingLegacy && (result.state === "retryable_missing" || result.state === "missing")) {
+          legacyUnresolvedKeyRef.current = key;
+          setCreationRecovery("legacy_missing");
+        } else if (result.state === "retryable_missing") {
+          setCreationRecovery("retryable");
+        } else {
+          setCreationRecovery("unresolved");
+        }
+      } catch {
+        if (!cancelled) setCreationRecovery("unresolved");
+      }
+    };
+    void recover();
+    return () => { cancelled = true; };
+  }, [attemptStorageKey, legacyAttemptStorageKey, legacyDismissedStorageKey, reportId, clientIdForCreation, recoveryCheck]);
+
+  const dismissUnverifiedLegacyAttempt = () => {
+    const legacyKey = legacyUnresolvedKeyRef.current;
+    if (!legacyKey || !attemptStorageKey || !legacyDismissedStorageKey) return;
+    if (!window.confirm("Check your existing inspections first. A previous draft may have been saved. Start a new draft only if you found no matching job. Continue?")) return;
+    try {
+      if (sessionStorage.getItem(legacyAttemptStorageKey) !== legacyKey ||
+          sessionStorage.getItem(attemptStorageKey)) {
+        setRecoveryCheck((value) => value + 1);
+        return;
+      }
+      // Keep the old pointer intact for the original user of a shared tab.
+      sessionStorage.setItem(legacyDismissedStorageKey, legacyKey);
+      if (sessionStorage.getItem(legacyDismissedStorageKey) !== legacyKey) throw new Error("Reset was not retained");
+      legacyUnresolvedKeyRef.current = null;
+      setCreationRecovery("idle");
+    } catch {
+      setCreationRecovery("unresolved");
+    }
+  };
 
   // Environmental Data
   const [environmentalData, setEnvironmentalData] = useState<{
@@ -256,11 +372,18 @@ export default function NIRTechnicianInputForm({
       moistureLevel: number;
       depth: "Surface" | "Subsurface";
       sketchRoomId?: string | null;
+      isBaseline?: boolean;
+      isMonitoringPoint?: boolean;
       // Loaded with the reading so the classification preview can match a
       // linked reading to its room, as submit does (RA-7610).
       sketchRoom?: { id: string; name: string } | null;
     }>
   >([]);
+  // B23: the reading and environmental rows this form loaded or has saved.
+  // Draft save deletes only these, so a reading captured on another screen
+  // after the form opened is never erased.
+  const savedReadingIds = useRef<Set<string>>(new Set());
+  const savedEnvironmentalId = useRef<string | null>(null);
 
   // Moisture Mapping (Visual Floor Plan)
   const [moistureMapPoints, setMoistureMapPoints] = useState<
@@ -302,20 +425,26 @@ export default function NIRTechnicianInputForm({
       affectedSquareFootage: number;
       materials: string[];
       waterSource: string;
-      timeSinceLoss: number;
+      timeSinceLoss: number | null;
+      originalDescription?: string | null;
+      detailsKnown?: boolean;
     }>
   >([]);
 
+  const [editingAffectedAreaId, setEditingAffectedAreaId] = useState<string | null>(null);
+  const [recalculateAffectedArea, setRecalculateAffectedArea] = useState(false);
+
   const [newAffectedArea, setNewAffectedArea] = useState({
-    roomType: ROOM_TYPES[0],
-    customRoomName: "",
+    roomType: ROOM_TYPES[0] as string,
+    roomName: "",
     length: 0,
     width: 0,
     height: 2.7, // Default ceiling height
     affectedSquareFootage: 0,
     materials: [] as string[],
     waterSource: WATER_SOURCES[0],
-    timeSinceLoss: 0,
+    timeSinceLoss: 0 as number | null,
+    originalDescription: null as string | null,
   });
 
   // Scope Items (checklist)
@@ -369,9 +498,23 @@ export default function NIRTechnicianInputForm({
 
   // Photos - Store uploaded photo URLs from Cloudinary
   const [photos, setPhotos] = useState<
-    Array<{ id: string; url: string; file: File | null; uploading?: boolean }>
+    Array<{
+      id: string;
+      url: string;
+      file: File | null;
+      originalFile?: File | null;
+      uploading?: boolean;
+      prepared?: boolean;
+      retryKey?: string;
+      error?: string | null;
+    }>
   >([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const photoWorkCount = useRef(0);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const verifiedPhotoCount = photos.filter((photo) =>
+    Boolean(photo.url) && !photo.uploading && !photo.error && photo.id !== deletingPhotoId,
+  ).length;
 
   // Claim type — IICRC standard that governs this job. Picked BEFORE evidence
   // capture starts so the correct field surface renders (RA-1029 P1 #7).
@@ -380,6 +523,7 @@ export default function NIRTechnicianInputForm({
   // Property Address (required)
   const [propertyAddress, setPropertyAddress] = useState("");
   const [propertyPostcode, setPropertyPostcode] = useState("");
+  const [inspectionDate, setInspectionDate] = useState("");
 
   // RA-1842 — Native iOS only: surface "Use my current location" button so
   // App Review can observe meaningful native functionality (Guideline 4.2).
@@ -521,7 +665,7 @@ export default function NIRTechnicianInputForm({
           ],
           affectedAreas: [
             {
-              id: Date.now().toString(),
+              id: newRoomEntryId(),
               roomZoneId: "Master Bedroom",
               roomType: "Master Bedroom",
               length: 5.5,
@@ -533,7 +677,7 @@ export default function NIRTechnicianInputForm({
               timeSinceLoss: 24,
             },
             {
-              id: (Date.now() + 1).toString(),
+              id: newRoomEntryId(),
               roomZoneId: "Ensuite",
               roomType: "Ensuite",
               length: 3.0,
@@ -601,7 +745,7 @@ export default function NIRTechnicianInputForm({
           ],
           affectedAreas: [
             {
-              id: Date.now().toString(),
+              id: newRoomEntryId(),
               roomZoneId: "3rd Floor - Office Area",
               roomType: "Other",
               customRoomName: "3rd Floor - Office Area",
@@ -669,7 +813,7 @@ export default function NIRTechnicianInputForm({
           ],
           affectedAreas: [
             {
-              id: Date.now().toString(),
+              id: newRoomEntryId(),
               roomZoneId: "Bathroom",
               roomType: "Bathroom",
               length: 3.5,
@@ -713,7 +857,12 @@ export default function NIRTechnicianInputForm({
     if (useCaseData.environmentalData)
       setEnvironmentalData(useCaseData.environmentalData);
     if (useCaseData.moistureReadings)
-      setMoistureReadings(useCaseData.moistureReadings);
+      setMoistureReadings(
+        useCaseData.moistureReadings.map((reading: { id: string }) => ({
+          ...reading,
+          id: crypto.randomUUID(),
+        })),
+      );
     if (useCaseData.affectedAreas) setAffectedAreas(useCaseData.affectedAreas);
     if (useCaseData.selectedScopeItems)
       setSelectedScopeItems(useCaseData.selectedScopeItems);
@@ -748,6 +897,14 @@ export default function NIRTechnicianInputForm({
       setPropertyAddress(initialData.propertyAddress);
     if (typeof initialData.propertyPostcode === "string")
       setPropertyPostcode(initialData.propertyPostcode);
+    if (typeof initialData.inspectionDate === "string")
+      setInspectionDate(initialData.inspectionDate.slice(0, 10));
+    if (typeof initialData.damageDescription === "string")
+      setDamageDescription(initialData.damageDescription);
+    const initialClaim = asIicrcClaimType(
+      typeof initialData.claimType === "string" ? initialData.claimType : null,
+    );
+    if (initialClaim) setClaimType(initialClaim);
     if (typeof initialData.technicianName === "string")
       setTechnicianName(initialData.technicianName);
     // Ambient temperature: interview sends ambientTemperature (from mapping) or temperatureCurrent
@@ -838,6 +995,7 @@ export default function NIRTechnicianInputForm({
       if (response.ok) {
         const data = await response.json();
         if (data.inspection) {
+          inspectionIdRef.current = data.inspection.id;
           setInspectionId(data.inspection.id);
           // Load existing data
           // RA-7740: the API returns environmentalData as a LIST of readings
@@ -845,6 +1003,12 @@ export default function NIRTechnicianInputForm({
           // latest; an empty list keeps measurements unknown.
           const latestReading = latestEnvironmentalReading(
             data.inspection.environmentalData,
+          );
+          savedEnvironmentalId.current = latestReading?.id ?? null;
+          savedReadingIds.current = new Set(
+            (data.inspection.moistureReadings ?? []).map(
+              (reading: { id: string }) => reading.id,
+            ),
           );
           if (latestReading) {
             // RA-7744: a recorded dew point stays as recorded. Remember the
@@ -909,7 +1073,9 @@ export default function NIRTechnicianInputForm({
             setPhotos(loadedPhotos);
           }
           if (data.inspection.affectedAreas) {
-            setAffectedAreas(data.inspection.affectedAreas);
+            setAffectedAreas(
+              data.inspection.affectedAreas.map(hydrateAffectedAreaDraft),
+            );
           }
           if (data.inspection.scopeItems) {
             const selected = new Set<string>(
@@ -928,6 +1094,8 @@ export default function NIRTechnicianInputForm({
           if (data.inspection.technicianName) {
             setTechnicianName(data.inspection.technicianName);
           }
+          setInspectionDate(data.inspection.inspectionDate?.slice(0, 10) ?? "");
+          setDamageDescription(data.inspection.lossDescription ?? "");
           const resumedChoice = resumedManualClassification(data.inspection);
           if (resumedChoice) {
             setManualClassification(resumedChoice);
@@ -944,6 +1112,9 @@ export default function NIRTechnicianInputForm({
       setLoading(false);
     }
   };
+
+  const linkedAreaConflict = linkedReadingsAreaConflict(moistureReadings, affectedAreas);
+  const unlinkedAreaAmbiguity = unlinkedReadingsAreaAmbiguity(moistureReadings, affectedAreas);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -974,15 +1145,30 @@ export default function NIRTechnicianInputForm({
       );
       if (areasWithoutMaterials.length > 0) {
         errors.affectedAreas =
-          "All affected areas must have at least one material selected";
+          "All affected areas must have materials recorded. Edit any area with missing details.";
+      } else if (affectedAreas.some((a) => a.length <= 0 || a.width <= 0 || a.height <= 0)) {
+        errors.affectedAreas =
+          "All affected areas need dimensions. Edit any area with missing details.";
       }
+    }
+    if (linkedAreaConflict) {
+      errors.affectedAreas ??=
+        "Each drawn room with linked moisture readings must match its own affected area. Review room links and make area names unique before submitting.";
+    }
+    if (unlinkedAreaAmbiguity) {
+      errors.affectedAreas ??=
+        "A location-only moisture reading may refer to a renamed area. Review its location and the affected area name before submitting.";
     }
 
     // Photos are optional during initial save, but will be validated before final submission
     // Validate that all photos are uploaded (not still uploading) if any photos exist
-    const stillUploading = photos.some((p) => p.uploading);
-    if (stillUploading) {
+    const stillUploading = uploadingPhotos || photos.some((p) => p.uploading);
+    if (deletingPhotoId) {
+      errors.photos = "Please wait for photo removal to finish";
+    } else if (stillUploading) {
       errors.photos = "Please wait for all photos to finish uploading";
+    } else if (photos.some((photo) => photo.file && photo.error)) {
+      errors.photos = "Retry or remove failed photos before submitting";
     }
 
     // Validate environmental data ranges
@@ -1026,7 +1212,7 @@ export default function NIRTechnicianInputForm({
     setMoistureReadings([
       ...moistureReadings,
       {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         ...newMoistureReading,
       },
     ]);
@@ -1082,18 +1268,46 @@ export default function NIRTechnicianInputForm({
   }, [newAffectedArea.length, newAffectedArea.width]);
 
   const handleAddAffectedArea = () => {
-    const roomName =
-      newAffectedArea.roomType === "Other"
-        ? newAffectedArea.customRoomName.trim()
-        : newAffectedArea.roomType;
+    const editingArea = editingAffectedAreaId
+      ? affectedAreas.find((area) => area.id === editingAffectedAreaId)
+      : undefined;
+    if (editingAffectedAreaId && !editingArea) {
+      toast.error("The area being edited is no longer available");
+      return;
+    }
+    const roomName = formatRoomZoneLabel(
+      newAffectedArea.roomType,
+      newAffectedArea.roomName,
+    );
 
     if (!roomName) {
       toast.error("Please select or enter a room name");
       return;
     }
+    if (roomName.length > 200) {
+      toast.error("Room name must be 200 characters or fewer");
+      return;
+    }
+
+    if (
+      affectedAreas.some(
+        (area) =>
+          area.id !== editingAffectedAreaId &&
+          area.roomZoneId.trim().toLocaleLowerCase() ===
+          roomName.toLocaleLowerCase(),
+      )
+    ) {
+      toast.error("This room name already exists. Enter a distinct name or number.");
+      return;
+    }
 
     if (newAffectedArea.length <= 0 || newAffectedArea.width <= 0) {
       toast.error("Please enter valid length and width dimensions");
+      return;
+    }
+
+    if (newAffectedArea.height <= 0) {
+      toast.error("Please enter a valid height dimension");
       return;
     }
 
@@ -1107,29 +1321,40 @@ export default function NIRTechnicianInputForm({
       newAffectedArea.width,
     );
 
-    setAffectedAreas([
-      ...affectedAreas,
-      {
-        id: Date.now().toString(),
-        roomZoneId: roomName,
-        roomType: newAffectedArea.roomType,
-        customRoomName:
-          newAffectedArea.roomType === "Other"
-            ? newAffectedArea.customRoomName
-            : undefined,
-        length: newAffectedArea.length,
-        width: newAffectedArea.width,
-        height: newAffectedArea.height,
-        affectedSquareFootage: calculatedArea,
-        materials: [...newAffectedArea.materials],
-        waterSource: newAffectedArea.waterSource,
-        timeSinceLoss: newAffectedArea.timeSinceLoss,
-      },
-    ]);
+    const savedArea = {
+      ...editingArea,
+      id: editingArea?.id ?? newRoomEntryId(),
+      roomZoneId: roomName,
+      roomType: newAffectedArea.roomType,
+      customRoomName: newAffectedArea.roomName.trim() || undefined,
+      length: newAffectedArea.length,
+      width: newAffectedArea.width,
+      height: newAffectedArea.height,
+      affectedSquareFootage: editingArea && !recalculateAffectedArea
+        ? editingArea.affectedSquareFootage
+        : calculatedArea,
+      materials: [...newAffectedArea.materials],
+      waterSource: newAffectedArea.waterSource,
+      timeSinceLoss: newAffectedArea.timeSinceLoss,
+      originalDescription: newAffectedArea.originalDescription,
+      detailsKnown: true,
+    };
+    if ((buildAffectedAreaPayload(savedArea).description?.length ?? 0) > 2000) {
+      toast.error("Existing area note is too long with dimensions. Shorten it in the note field before updating.");
+      return;
+    }
+    setAffectedAreas(editingArea
+      ? affectedAreas.map((area) => area.id === editingArea.id ? savedArea : area)
+      : [...affectedAreas, savedArea]);
+    setEditingAffectedAreaId(null);
+    setRecalculateAffectedArea(false);
 
     setNewAffectedArea({
       roomType: ROOM_TYPES[0],
-      customRoomName: "",
+      roomName: nextRoomName(
+        ROOM_TYPES[0],
+        [...affectedAreas.map((area) => area.roomZoneId), roomName],
+      ),
       length: 0,
       width: 0,
       height: 2.7,
@@ -1137,12 +1362,57 @@ export default function NIRTechnicianInputForm({
       materials: [],
       waterSource: WATER_SOURCES[0],
       timeSinceLoss: 0,
+      originalDescription: null,
     });
 
-    toast.success("Affected area added");
+    toast.success(editingArea ? "Affected area updated" : "Affected area added");
+  };
+
+  const handleEditAffectedArea = (area: (typeof affectedAreas)[number]) => {
+    setEditingAffectedAreaId(area.id);
+    // A form-authored room whose recorded size already equals L×W should keep
+    // recalculating when dimensions change. Historical or smaller affected
+    // footprints stay unchanged until the technician explicitly opts in.
+    setRecalculateAffectedArea(
+      area.detailsKnown !== false &&
+      area.length > 0 &&
+      area.width > 0 &&
+      Math.abs(area.affectedSquareFootage - area.length * area.width) < 0.01,
+    );
+    setNewAffectedArea({
+      roomType: area.roomType,
+      roomName: area.customRoomName ?? area.roomZoneId,
+      length: area.length,
+      width: area.width,
+      height: area.height,
+      affectedSquareFootage: area.affectedSquareFootage,
+      materials: [...area.materials],
+      waterSource: area.waterSource,
+      timeSinceLoss: area.timeSinceLoss,
+      originalDescription: area.originalDescription ?? null,
+    });
+    document.getElementById("affected-area-room-name")?.focus();
+  };
+
+  const handleCancelAffectedAreaEdit = () => {
+    setEditingAffectedAreaId(null);
+    setRecalculateAffectedArea(false);
+    setNewAffectedArea({
+      roomType: ROOM_TYPES[0],
+      roomName: nextRoomName(ROOM_TYPES[0], affectedAreas.map((area) => area.roomZoneId)),
+      length: 0,
+      width: 0,
+      height: 2.7,
+      affectedSquareFootage: 0,
+      materials: [],
+      waterSource: WATER_SOURCES[0],
+      timeSinceLoss: 0,
+      originalDescription: null,
+    });
   };
 
   const handleRemoveAffectedArea = (id: string) => {
+    if (editingAffectedAreaId === id) handleCancelAffectedAreaEdit();
     setAffectedAreas(affectedAreas.filter((a) => a.id !== id));
     toast.success("Affected area removed");
   };
@@ -1159,6 +1429,42 @@ export default function NIRTechnicianInputForm({
       newSelected.add(itemId);
     }
     setSelectedScopeItems(newSelected);
+  };
+
+  const uploadSelectedPhoto = async (
+    entry: (typeof photos)[number],
+    currentInspectionId: string,
+  ): Promise<boolean> => {
+    if (!entry.file || !entry.retryKey) return false;
+    let file = entry.file;
+    let prepared = entry.prepared === true;
+    setPhotos((prev) => prev.map((photo) =>
+      photo.id === entry.id ? { ...photo, uploading: true, error: null } : photo,
+    ));
+    try {
+      if (!prepared) {
+        file = await prepareInspectionPhoto(file);
+        prepared = true;
+        setPhotos((prev) => prev.map((photo) =>
+          photo.id === entry.id ? { ...photo, file, prepared } : photo,
+        ));
+      }
+      const saved = await uploadInspectionPhoto(currentInspectionId, file, entry.retryKey);
+      setPhotos((prev) => prev.map((photo) =>
+        photo.id === entry.id
+          ? { id: saved.id, url: saved.url, file: null, uploading: false }
+          : photo,
+      ));
+      return true;
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Photo upload failed";
+      setPhotos((prev) => prev.map((photo) =>
+        photo.id === entry.id
+          ? { ...photo, file, prepared, uploading: false, error: message }
+          : photo,
+      ));
+      return false;
+    }
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1180,94 +1486,116 @@ export default function NIRTechnicianInputForm({
       return;
     }
 
-    // Auto-create inspection if it doesn't exist
-    let currentInspectionId = inspectionId;
-    if (!currentInspectionId) {
-      currentInspectionId = await ensureInspectionExists(true); // Show toast
+    const entries = files.map((file) => {
+      const key = `nir-photo-${crypto.randomUUID()}`;
+      return {
+        id: `pending-${key}`,
+        url: "",
+        file,
+        originalFile: file,
+        uploading: true,
+        prepared: false,
+        retryKey: key,
+        error: null,
+      };
+    });
+    setPhotos((prev) => [...prev, ...entries]);
+    photoWorkCount.current++;
+    setUploadingPhotos(true);
+    try {
+      const currentInspectionId = await ensureInspectionExists(true);
       if (!currentInspectionId) {
-        toast.error("Couldn’t create the inspection — check claim type, address, and postcode");
-        resetInput();
+        const ids = new Set(entries.map((entry) => entry.id));
+        setPhotos((prev) => prev.map((photo) => ids.has(photo.id)
+          ? { ...photo, uploading: false, error: "Inspection creation is unconfirmed. Retry this photo to check the same request." }
+          : photo,
+        ));
         return;
       }
-    }
-
-    setUploadingPhotos(true);
-
-    try {
-      const uploadPromises = files.map(async (file) => {
-        const tempId =
-          Date.now().toString() + Math.random().toString(36).substr(2, 9);
-
-        // Add to photos list with uploading state
-        setPhotos((prev) => [
-          ...prev,
-          { id: tempId, url: "", file, uploading: true },
-        ]);
-
-        try {
-          const formData = new FormData();
-          formData.append("file", file);
-
-          const response = await fetch(
-            `/api/inspections/${currentInspectionId}/photos`,
-            {
-              method: "POST",
-              body: formData,
-            },
-          );
-
-          if (!response.ok) {
-            const body = await response.json().catch(() => null);
-            const message =
-              (typeof body?.error === "string" && body.error) ||
-              body?.error?.message ||
-              `Upload failed (${response.status})`;
-            throw new Error(message);
-          }
-
-          const data = await response.json();
-
-          // Update photo with Cloudinary URL
-          setPhotos((prev) =>
-            prev.map((p) =>
-              p.id === tempId
-                ? {
-                    id: data.photo.id,
-                    url: data.photo.url,
-                    file: null,
-                    uploading: false,
-                  }
-                : p,
-            ),
-          );
-
-          return data.photo;
-        } catch (error) {
-          // Remove failed upload
-          setPhotos((prev) => prev.filter((p) => p.id !== tempId));
-          throw error;
-        }
-      });
-
-      await Promise.all(uploadPromises);
-      toast.success(`${files.length} photo(s) uploaded successfully`);
-    } catch (error) {
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : "Failed to upload some photos";
-      toast.error(message);
+      let savedCount = 0;
+      for (const entry of entries) {
+        if (await uploadSelectedPhoto(entry, currentInspectionId)) savedCount++;
+      }
+      if (savedCount > 0) toast.success(`${savedCount} photo(s) uploaded successfully`);
+      if (savedCount < entries.length) toast.error("Some photos need retry. Your selected files are still here.");
     } finally {
-      setUploadingPhotos(false);
+      photoWorkCount.current--;
+      setUploadingPhotos(photoWorkCount.current > 0);
       resetInput();
     }
   };
 
-  const handleRemovePhoto = async (photoId: string, index: number) => {
-    // Remove from local state
-    setPhotos(photos.filter((_, i) => i !== index));
-    toast.success("Photo removed");
-    // Note: In production, you might want to delete from Cloudinary/DB via API
+  const handleRetryPhoto = async (entry: (typeof photos)[number]) => {
+    photoWorkCount.current++;
+    setUploadingPhotos(true);
+    try {
+      const currentInspectionId = await ensureInspectionExists(true);
+      if (!currentInspectionId) return;
+      const saved = await uploadSelectedPhoto(entry, currentInspectionId);
+      if (saved) toast.success("Photo attached and verified");
+      else toast.error("Photo still needs retry. Your selected file is still here.");
+    } finally {
+      photoWorkCount.current--;
+      setUploadingPhotos(photoWorkCount.current > 0);
+    }
+  };
+
+  const handleSaveOriginalPhoto = (entry: (typeof photos)[number]) => {
+    const original = entry.originalFile ?? entry.file;
+    if (!original) return;
+    const url = URL.createObjectURL(original);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = original.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
+  const handleRemoveFailedPhoto = (entry: (typeof photos)[number]) => {
+    if (!window.confirm(
+      "This upload may have reached the inspection, but attachment was not verified. Save the original photo first. Remove this local selection?",
+    )) return;
+    setPhotos((prev) => prev.filter((photo) => photo.id !== entry.id));
+  };
+
+  const handleRemovePhoto = async (photoId: string) => {
+    if (!inspectionId || deletingPhotoId) return;
+    if (!window.confirm("Permanently remove this photo from this inspection?")) return;
+    setDeletingPhotoId(photoId);
+    const path = `/api/inspections/${encodeURIComponent(inspectionId)}/photos`;
+    try {
+      let removed = false;
+      try {
+        const response = await fetch(`${path}/${encodeURIComponent(photoId)}`, { method: "DELETE" });
+        removed = response.ok;
+      } catch {
+        // The server may have committed deletion before the response was lost.
+      }
+      if (!removed) {
+        try {
+          const readback = await fetch(path, { cache: "no-store" });
+          if (readback.ok) {
+            const data = await readback.json();
+            // GET returns at most 500; absence from a full page does not
+            // establish that an older photo was deleted.
+            removed = Array.isArray(data?.photos) && data.photos.length < 500 &&
+              !data.photos.some((photo: { id?: string }) => photo.id === photoId);
+          }
+        } catch {
+          // Keep the local row when attachment state cannot be verified.
+        }
+      }
+      if (removed) {
+        setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
+        toast.success("Photo removed");
+      } else {
+        toast.error("Could not verify photo removal. The photo remains visible; please try again.");
+      }
+    } finally {
+      setDeletingPhotoId(null);
+    }
   };
 
   // Calculate expected classification preview
@@ -1283,12 +1611,17 @@ export default function NIRTechnicianInputForm({
     // Additional validation for review - require photos
     const reviewErrors: Record<string, string> = {};
 
-    if (photos.length === 0) {
+    if (deletingPhotoId) {
+      reviewErrors.photos = "Please wait for photo removal to finish";
+    } else if (verifiedPhotoCount === 0) {
       reviewErrors.photos = "At least one photo is required before submitting";
+    }
+    if (photos.some((photo) => photo.error)) {
+      reviewErrors.photos = "Retry or remove photos that have not been verified";
     }
 
     // Validate that all photos are uploaded (not still uploading)
-    const stillUploading = photos.some((p) => p.uploading);
+    const stillUploading = uploadingPhotos || photos.some((p) => p.uploading);
     if (stillUploading) {
       reviewErrors.photos = "Please wait for all photos to finish uploading";
     }
@@ -1307,64 +1640,154 @@ export default function NIRTechnicianInputForm({
   };
 
   // Auto-create inspection when property info is entered
-  const ensureInspectionExists = async (showToast = false) => {
-    if (inspectionId) {
-      return inspectionId;
+  const ensureInspectionExists = (showToast = false): Promise<string | null> => {
+    // This ref is updated before React renders, so overlapping actions share
+    // one creation request and continue against the same saved inspection.
+    const knownId = inspectionIdRef.current || inspectionId;
+    if (knownId) return Promise.resolve(knownId);
+    const pending = inspectionCreationRef.current;
+    if (pending?.inFlight) return pending.inFlight;
+    if (!attemptStorageKey) {
+      setCreationRecovery("unresolved");
+      if (showToast) toast.error("Signed-in account unavailable for inspection creation.");
+      return Promise.resolve(null);
     }
-
-    if (!claimType || !propertyAddress.trim() || !propertyPostcode.trim()) {
-      return null;
-    }
-
+    let storedKey: string | null;
     try {
-      const response = await fetch("/api/inspections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportId,
-          clientId:
-            typeof initialData?.clientId === "string"
-              ? initialData.clientId
-              : undefined,
-          propertyAddress,
-          propertyPostcode,
-          technicianName: technicianName || undefined,
-          claimType: claimType || undefined,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setInspectionId(data.inspection.id);
-        if (showToast) {
-          toast.success(
-            "Inspection created. You can now upload photos and floor plan.",
-          );
-        }
-        return data.inspection.id;
-      } else {
-        const error = await response.json();
-        if (showToast) {
-          const message =
-            (typeof error.error === "string" && error.error) ||
-            error.error?.message ||
-            "Failed to create inspection";
-          toast.error(message);
-        }
-      }
-    } catch (error) {
-      if (showToast) {
-        toast.error("Failed to create inspection");
-      }
+      storedKey = sessionStorage.getItem(attemptStorageKey);
+    } catch {
+      setCreationRecovery("unresolved");
+      if (showToast) toast.error("Inspection creation cannot be verified while browser storage is unavailable.");
+      return Promise.resolve(null);
+    }
+    if (creationRecovery === "checking" || creationRecovery === "unresolved" || creationRecovery === "legacy_missing" ||
+        (storedKey && !pending && creationRecovery !== "retryable") ||
+        (storedKey && pending && storedKey !== pending.key) ||
+        (creationRecovery === "retryable" && !storedKey)) {
+      if (creationRecovery !== "legacy_missing") setCreationRecovery("unresolved");
+      if (showToast) toast.error("Inspection creation is unconfirmed. Check its status before trying again.");
+      return Promise.resolve(null);
+    }
+    if (!claimType || !propertyAddress.trim() || !propertyPostcode.trim()) {
+      return Promise.resolve(null);
     }
 
-    return null;
+    const body = JSON.stringify({
+      reportId,
+      clientId: clientIdForCreation ?? undefined,
+      propertyAddress,
+      propertyPostcode,
+      inspectionDate: inspectionDate || null,
+      lossDescription: damageDescription.trim() || undefined,
+      technicianName: technicianName || undefined,
+      claimType,
+    });
+    if (pending && pending.body !== body) {
+      if (showToast) toast.error(
+        "Inspection creation is unconfirmed. Restore the original claim type, address, postcode, attendance, description and technician before retrying.",
+      );
+      return Promise.resolve(null);
+    }
+    const attempt = pending ?? {
+      key: storedKey && creationRecovery === "retryable"
+        ? storedKey : `nir-inspection-${Date.now()}-${crypto.randomUUID()}`,
+      body,
+      inFlight: null,
+    };
+    if (!isRecentlyIssuedCreationKey(attempt.key, "nir-inspection")) {
+      setCreationRecovery("unresolved");
+      if (showToast) toast.error("Inspection creation is unconfirmed. Check its status before trying again.");
+      return Promise.resolve(null);
+    }
+    try {
+      sessionStorage.setItem(attemptStorageKey, attempt.key);
+      if (sessionStorage.getItem(attemptStorageKey) !== attempt.key) {
+        throw new Error("Inspection attempt key was not retained");
+      }
+    } catch {
+      setCreationRecovery("unresolved");
+      if (showToast) toast.error("Inspection creation cannot be verified while browser storage is unavailable.");
+      return Promise.resolve(null);
+    }
+    inspectionCreationRef.current = attempt;
+    setCreatingInspection(true);
+
+    const inFlight = (async (): Promise<string | null> => {
+      try {
+        const response = await fetch("/api/inspections", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": attempt.key,
+          },
+          // Keep the exact body with this key if the server committed but its
+          // response was lost. POST /api/inspections uses withIdempotency.
+          body: attempt.body,
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const savedId = data?.inspection?.id;
+          if (typeof savedId !== "string" || !savedId) {
+            throw new Error("Inspection creation could not be verified");
+          }
+          inspectionIdRef.current = savedId;
+          setInspectionId(savedId);
+          inspectionCreationRef.current = null;
+          setCreationRecovery("idle");
+          try { sessionStorage.removeItem(attemptStorageKey); } catch { /* saved ID is verified */ }
+          try {
+            if (sessionStorage.getItem(legacyAttemptStorageKey) === attempt.key) sessionStorage.removeItem(legacyAttemptStorageKey);
+          } catch { /* saved ID is verified */ }
+          if (showToast) toast.success("Inspection created. You can now upload photos and floor plan.");
+          return savedId;
+        }
+        const error = await response.json().catch(() => null);
+        const message = (typeof error?.error === "string" && error.error) ||
+          error?.error?.message || "Failed to create inspection";
+        // Only a pending idempotency reservation, timeout, rate limit, or
+        // server failure may have committed without a usable response.
+        // Report/client/property conflicts are definite 409s: rotate the key
+        // so a corrected form can be submitted without a cached rejection.
+        const pendingConflict = response.status === 409 &&
+          (message === "A request with this Idempotency-Key is already in progress. Retry shortly." ||
+            message.includes("could not be verified") ||
+            message.includes("reused with a different request body"));
+        if (response.status >= 400 && response.status < 500 &&
+            !pendingConflict && ![401, 403, 408, 425, 429].includes(response.status)) {
+          inspectionCreationRef.current = null;
+          try {
+            sessionStorage.removeItem(attemptStorageKey);
+            setCreationRecovery("idle");
+          } catch { setCreationRecovery("unresolved"); }
+        } else if (creationRecovery === "retryable" && pendingConflict) {
+          setCreationRecovery("unresolved");
+        }
+        if (showToast) toast.error(message);
+      } catch {
+        if (showToast) toast.error("Inspection creation could not be verified. Retry to check the same request.");
+      } finally {
+        if (inspectionCreationRef.current === attempt) attempt.inFlight = null;
+        setCreatingInspection(false);
+      }
+      return null;
+    })();
+    attempt.inFlight = inFlight;
+    return inFlight;
   };
 
   const saveDraftSnapshot = async (currentInspectionId: string) => {
     if (hasPartialEnvironmentalData) {
       throw new Error(partialEnvironmentalMessage);
     }
+    // B23: every row carries its id, and baseIds names the rows this form
+    // loaded or sent. The server deletes only those the form no longer holds.
+    // Ids are recorded before sending: if the reply is lost after the save
+    // committed, the next save still knows these rows are the form's own.
+    const readingIds = moistureReadings.map((reading) => reading.id);
+    for (const readingId of readingIds) savedReadingIds.current.add(readingId);
+    const environmentalId = measuredEnvironmentalData
+      ? (savedEnvironmentalId.current ??= crypto.randomUUID())
+      : null;
     const response = await fetch(
       `/api/inspections/${currentInspectionId}/draft-snapshot`,
       {
@@ -1372,8 +1795,18 @@ export default function NIRTechnicianInputForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lossDescription: damageDescription.trim(),
+          inspectionDate: inspectionDate || null,
           technicianName: technicianName.trim(),
-          environmentalData: measuredEnvironmentalData,
+          environmentalData: measuredEnvironmentalData && {
+            ...measuredEnvironmentalData,
+            id: environmentalId,
+          },
+          baseIds: {
+            moistureReadings: [...savedReadingIds.current],
+            environmentalData: savedEnvironmentalId.current
+              ? [savedEnvironmentalId.current]
+              : [],
+          },
           moistureReadings: moistureReadings.map((reading) => {
             const mapPoint = moistureMapPoints.find(
               (point) => point.id === reading.id,
@@ -1410,11 +1843,19 @@ export default function NIRTechnicianInputForm({
         apiErrorMessage(data) ?? "Failed to synchronise inspection draft",
       );
     }
+    // Confirmed: rows the form removed are gone, so stop naming them.
+    savedReadingIds.current = new Set(readingIds);
+    savedEnvironmentalId.current = environmentalId;
   };
 
   const handleSubmit = async () => {
     // Validate photos are required for final submission
-    if (photos.length === 0) {
+    if (deletingPhotoId) {
+      setValidationErrors({ photos: "Please wait for photo removal to finish" });
+      toast.error("Please wait for photo removal to finish");
+      return;
+    }
+    if (verifiedPhotoCount === 0) {
       setValidationErrors({
         photos: "At least one photo is required before submitting",
       });
@@ -1422,7 +1863,13 @@ export default function NIRTechnicianInputForm({
       return;
     }
 
-    const stillUploading = photos.some((p) => p.uploading);
+    if (photos.some((photo) => photo.error)) {
+      setValidationErrors({ photos: "Retry or remove photos that have not been verified" });
+      toast.error("Retry or remove unverified photos before submitting");
+      return;
+    }
+
+    const stillUploading = uploadingPhotos || photos.some((p) => p.uploading);
     if (stillUploading) {
       setValidationErrors({
         photos: "Please wait for all photos to finish uploading",
@@ -1866,7 +2313,9 @@ export default function NIRTechnicianInputForm({
                           "text-neutral-600 dark:text-slate-400",
                         )}
                       >
-                        {area.length}m × {area.width}m × {area.height}m
+                        {area.length > 0 && area.width > 0
+                          ? `${area.length}m × ${area.width}m × ${area.height}m`
+                          : "Dimensions need re-entry"}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -1889,6 +2338,7 @@ export default function NIRTechnicianInputForm({
                           {material}
                         </span>
                       ))}
+                      {area.materials.length === 0 && <span>Needs re-entry</span>}
                     </div>
                     <div
                       className={cn(
@@ -1904,7 +2354,7 @@ export default function NIRTechnicianInputForm({
                           {area.waterSource}
                         </span>
                       </span>
-                      <span>Time Since Loss: {area.timeSinceLoss} hrs</span>
+                      <span>Time Since Loss: {area.timeSinceLoss == null ? "Unknown" : `${area.timeSinceLoss} hrs`}</span>
                     </div>
                   </div>
                 </div>
@@ -2164,7 +2614,7 @@ export default function NIRTechnicianInputForm({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || deletingPhotoId !== null}
             className="flex items-center gap-2 px-6 py-2 bg-brand-navy rounded-lg font-medium hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
           >
             {saving ? (
@@ -2294,8 +2744,28 @@ export default function NIRTechnicianInputForm({
           }
         }}
         error={validationErrors.claimType}
-        disabled={!!inspectionId}
+        disabled={!!inspectionId || creatingInspection}
       />
+      {creationRecovery !== "idle" && !inspectionId && (
+        <div role="alert" className="rounded-lg border border-amber-400 p-3 text-sm">
+          <p>{creationRecovery === "checking"
+            ? "Checking whether this inspection was saved..."
+            : creationRecovery === "retryable"
+              ? "No saved request was found. Review the details and retry the same protected attempt."
+              : creationRecovery === "legacy_missing"
+                ? "An older inspection attempt could not be verified. Check existing jobs before starting a new draft."
+              : "Inspection creation is unconfirmed. Check its status before starting another job."}</p>
+          <button type="button" onClick={() => setRecoveryCheck((value) => value + 1)}
+            className="mt-2 underline">
+            Check status
+          </button>
+          {creationRecovery === "legacy_missing" && (
+            <button type="button" onClick={dismissUnverifiedLegacyAttempt} className="ml-3 underline">
+              I checked jobs; start fresh
+            </button>
+          )}
+        </div>
+      )}
       {claimType && !inspectionId && (
         <p className="text-sm text-neutral-600 dark:text-slate-400">
           Save Draft or upload a floor plan to create the inspection before
@@ -2360,6 +2830,7 @@ export default function NIRTechnicianInputForm({
             <input
               type="text"
               required
+              disabled={creatingInspection}
               value={propertyAddress}
               onChange={(e) => setPropertyAddress(e.target.value)}
               className={cn(
@@ -2373,7 +2844,7 @@ export default function NIRTechnicianInputForm({
               <button
                 type="button"
                 onClick={handleUseCurrentLocation}
-                disabled={locating}
+                disabled={locating || creatingInspection}
                 className={cn(
                   "mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs",
                   "bg-cyan-600 hover:bg-cyan-700 text-white transition-colors",
@@ -2407,6 +2878,7 @@ export default function NIRTechnicianInputForm({
             <input
               type="text"
               required
+              disabled={creatingInspection}
               maxLength={4}
               value={propertyPostcode}
               onChange={(e) =>
@@ -2426,6 +2898,22 @@ export default function NIRTechnicianInputForm({
             )}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-1 text-neutral-700 dark:text-slate-300">
+              Inspection attendance date (optional)
+            </label>
+            <input
+              type="date"
+              disabled={creatingInspection}
+              value={inspectionDate}
+              onChange={(e) => setInspectionDate(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 dark:border-slate-600 dark:bg-slate-700/50 dark:text-white"
+            />
+            <p className="mt-1 text-xs text-neutral-600 dark:text-slate-400">
+              Leave blank until someone has attended the property.
+            </p>
+          </div>
+
           <div className="md:col-span-2">
             <label
               className={cn(
@@ -2437,6 +2925,7 @@ export default function NIRTechnicianInputForm({
             </label>
             <input
               type="text"
+              disabled={creatingInspection}
               value={technicianName}
               onChange={(e) => setTechnicianName(e.target.value)}
               className={cn(
@@ -2931,6 +3420,19 @@ export default function NIRTechnicianInputForm({
             </p>
           </div>
         )}
+        {linkedAreaConflict && (
+          <p role="alert" className="mb-4 text-sm text-destructive">
+            Each drawn room with linked moisture readings must match its own
+            affected area. Review room links and make area names unique before
+            submitting. Numbered and custom names must match in both places.
+          </p>
+        )}
+        {unlinkedAreaAmbiguity && (
+          <p role="alert" className="mb-4 text-sm text-destructive">
+            A location-only moisture reading may refer to a renamed area.
+            Review its location and the affected area name before submitting.
+          </p>
+        )}
 
         {/* Add New Affected Area */}
         <div
@@ -2939,6 +3441,11 @@ export default function NIRTechnicianInputForm({
             "bg-neutral-100 dark:bg-slate-900/50",
           )}
         >
+          {editingAffectedAreaId && (
+            <p className="text-sm text-cyan-700 dark:text-cyan-300">
+              Editing an existing area. Its ID and attached records stay with this area.
+            </p>
+          )}
           {/* Room Picker */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -2957,7 +3464,10 @@ export default function NIRTechnicianInputForm({
                   setNewAffectedArea((prev) => ({
                     ...prev,
                     roomType: e.target.value,
-                    customRoomName: "",
+                    roomName: nextRoomName(
+                      e.target.value,
+                      affectedAreas.map((area) => area.roomZoneId),
+                    ),
                   }))
                 }
                 className={cn(
@@ -2974,7 +3484,6 @@ export default function NIRTechnicianInputForm({
               </select>
             </div>
 
-            {newAffectedArea.roomType === "Other" && (
               <div>
                 <label
                   className={cn(
@@ -2982,28 +3491,57 @@ export default function NIRTechnicianInputForm({
                     "text-neutral-600 dark:text-slate-400",
                   )}
                 >
-                  Custom Room Name{" "}
-                  <span className="text-destructive">*</span>
+                  Room name or number{" "}
+                  {newAffectedArea.roomType === "Other" && (
+                    <span className="text-destructive">*</span>
+                  )}
                 </label>
                 <input
+                  id="affected-area-room-name"
                   type="text"
-                  value={newAffectedArea.customRoomName}
+                  value={newAffectedArea.roomName}
                   onChange={(e) =>
                     setNewAffectedArea((prev) => ({
                       ...prev,
-                      customRoomName: e.target.value,
+                      roomName: e.target.value,
                     }))
                   }
+                  maxLength={200}
                   className={cn(
                     "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
                     "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                     "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                   )}
-                  placeholder="Enter room name"
+                  placeholder="e.g. 4 or Rear Lounge"
                 />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Saved as: {formatRoomZoneLabel(newAffectedArea.roomType, newAffectedArea.roomName) || "Enter a room name"}
+                </p>
               </div>
-            )}
           </div>
+
+          {editingAffectedAreaId && (
+            <div>
+              <label htmlFor="existing-area-note" className="block text-xs font-medium mb-1">
+                Existing area note
+              </label>
+              <textarea
+                id="existing-area-note"
+                value={newAffectedArea.originalDescription ?? ""}
+                onChange={(event) => setNewAffectedArea((prev) => ({
+                  ...prev,
+                  originalDescription: event.target.value || null,
+                }))}
+                maxLength={2000}
+                rows={3}
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700/50"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                This note stays with the area. If it is too long to fit with
+                dimensions, shorten it here before updating.
+              </p>
+            </div>
+          )}
 
           {/* Dimensions for Area Calculation */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -3084,7 +3622,7 @@ export default function NIRTechnicianInputForm({
                 onChange={(e) =>
                   setNewAffectedArea((prev) => ({
                     ...prev,
-                    height: parseFloat(e.target.value) || 2.7,
+                    height: parseFloat(e.target.value) || 0,
                   }))
                 }
                 className={cn(
@@ -3103,7 +3641,7 @@ export default function NIRTechnicianInputForm({
                   "text-neutral-600 dark:text-slate-400",
                 )}
               >
-                Calculated Area (m²)
+                Length × Width (m²)
               </label>
               <input
                 type="number"
@@ -3125,6 +3663,20 @@ export default function NIRTechnicianInputForm({
               </p>
             </div>
           </div>
+
+          {editingAffectedAreaId && (
+            <label className="flex items-start gap-2 text-sm text-neutral-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={recalculateAffectedArea}
+                onChange={(event) => setRecalculateAffectedArea(event.target.checked)}
+              />
+              <span>
+                Replace the recorded affected area with length × width.
+                Otherwise its current size stays unchanged.
+              </span>
+            </label>
+          )}
 
           {/* Materials Selection */}
           <div>
@@ -3198,6 +3750,11 @@ export default function NIRTechnicianInputForm({
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
               >
+                {!WATER_SOURCES.includes(newAffectedArea.waterSource) && (
+                  <option value={newAffectedArea.waterSource}>
+                    {newAffectedArea.waterSource}
+                  </option>
+                )}
                 {WATER_SOURCES.map((source) => (
                   <option key={source} value={source}>
                     {source}
@@ -3219,11 +3776,11 @@ export default function NIRTechnicianInputForm({
                 type="number"
                 min="0"
                 step="0.1"
-                value={newAffectedArea.timeSinceLoss}
+                value={newAffectedArea.timeSinceLoss ?? ""}
                 onChange={(e) =>
                   setNewAffectedArea((prev) => ({
                     ...prev,
-                    timeSinceLoss: parseFloat(e.target.value) || 0,
+                    timeSinceLoss: e.target.value === "" ? null : parseFloat(e.target.value) || 0,
                   }))
                 }
                 className={cn(
@@ -3241,8 +3798,17 @@ export default function NIRTechnicianInputForm({
                 className="w-full px-4 py-2 bg-brand-navy text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] group"
               >
                 <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
-                <span className="font-medium">Add Area</span>
+                <span className="font-medium">{editingAffectedAreaId ? "Update Area" : "Add Area"}</span>
               </button>
+              {editingAffectedAreaId && (
+                <button
+                  type="button"
+                  onClick={handleCancelAffectedAreaEdit}
+                  className="mt-2 w-full rounded border border-neutral-300 px-4 py-2 text-sm dark:border-slate-600"
+                >
+                  Cancel edit
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -3283,7 +3849,9 @@ export default function NIRTechnicianInputForm({
                           "text-neutral-600 dark:text-slate-400",
                         )}
                       >
-                        {area.length}m × {area.width}m × {area.height}m
+                        {area.length > 0 && area.width > 0
+                          ? `${area.length}m × ${area.width}m × ${area.height}m`
+                          : "Dimensions need re-entry"}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -3303,6 +3871,7 @@ export default function NIRTechnicianInputForm({
                           {material}
                         </span>
                       ))}
+                      {area.materials.length === 0 && <span>Needs re-entry</span>}
                     </div>
                     <div
                       className={cn(
@@ -3311,20 +3880,31 @@ export default function NIRTechnicianInputForm({
                       )}
                     >
                       <span>Source: {area.waterSource}</span>
-                      <span>Time: {area.timeSinceLoss} hrs</span>
+                      <span>Time: {area.timeSinceLoss == null ? "Unknown" : `${area.timeSinceLoss} hrs`}</span>
                     </div>
                   </div>
+                  <div className="ml-4 flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleEditAffectedArea(area)}
+                    className="p-1.5 rounded-md text-cyan-700 hover:bg-cyan-500/10 dark:text-cyan-300"
+                    title="Edit area"
+                    aria-label={`Edit ${area.roomZoneId}`}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleRemoveAffectedArea(area.id)}
                     className={cn(
-                      "p-1.5 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group ml-4",
+                      "p-1.5 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group",
                       "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10",
                     )}
                     title="Remove area"
                   >
                     <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
                   </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -3369,6 +3949,7 @@ export default function NIRTechnicianInputForm({
           </label>
           <textarea
             rows={3}
+            disabled={creatingInspection}
             value={damageDescription}
             onChange={(e) => setDamageDescription(e.target.value)}
             className={cn(
@@ -3835,6 +4416,23 @@ export default function NIRTechnicianInputForm({
                 >
                   <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
                 </div>
+              ) : photo.error && photo.file ? (
+                <div role="status" className="min-h-32 rounded-lg border border-amber-500/50 p-2 text-xs">
+                  <p className="font-medium break-all">{photo.originalFile?.name ?? photo.file.name}</p>
+                  <p className="mt-1 text-amber-700 dark:text-amber-300">{photo.error}</p>
+                  <p className="mt-1 text-amber-700 dark:text-amber-300">The upload may have reached this inspection. Retry with the same file, or save your original before removing this selection.</p>
+                  <div className="mt-2 flex gap-2">
+                    <button type="button" disabled={uploadingPhotos} onClick={() => void handleRetryPhoto(photo)} className="rounded border px-2 py-1 disabled:opacity-50">
+                      Retry this photo
+                    </button>
+                    <button type="button" onClick={() => handleSaveOriginalPhoto(photo)} className="rounded border px-2 py-1">
+                      Save original copy
+                    </button>
+                    <button type="button" onClick={() => handleRemoveFailedPhoto(photo)} className="rounded border px-2 py-1">
+                      Remove selection
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <>
                   <img
@@ -3850,7 +4448,8 @@ export default function NIRTechnicianInputForm({
                   />
                   <button
                     type="button"
-                    onClick={() => handleRemovePhoto(photo.id, index)}
+                    onClick={() => void handleRemovePhoto(photo.id)}
+                    disabled={deletingPhotoId !== null}
                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 hover:scale-110 active:scale-95 transition-all duration-200 shadow-md hover:shadow-lg group"
                     title="Remove photo"
                   >
@@ -3996,7 +4595,7 @@ export default function NIRTechnicianInputForm({
             }
           }}
           disabled={
-            saving || !propertyAddress.trim() || !propertyPostcode.trim()
+            saving || deletingPhotoId !== null || !propertyAddress.trim() || !propertyPostcode.trim()
           }
           className="px-6 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 hover:border-slate-500 transition-all duration-200 text-white hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -4005,7 +4604,7 @@ export default function NIRTechnicianInputForm({
         <button
           type="button"
           onClick={handleReview}
-          disabled={saving}
+          disabled={saving || deletingPhotoId !== null}
           className="flex items-center gap-2 px-6 py-2 bg-brand-navy rounded-lg font-medium hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
         >
           <ClipboardCheck className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />

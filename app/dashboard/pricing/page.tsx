@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { useState } from "react";
 import {
   Check,
@@ -33,7 +34,9 @@ function PricingPageContent() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create checkout session");
+        throw new Error(
+          apiErrorMessage(errorData) ?? "Failed to create checkout session",
+        );
       }
 
       const { sessionId, url } = await response.json();

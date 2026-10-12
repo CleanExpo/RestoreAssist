@@ -13,6 +13,13 @@ export default function NewInspectionPage() {
   const sessionId = searchParams.get("sessionId");
   const interviewDataParam = searchParams.get("interviewData");
   const clientIdParam = searchParams.get("clientId");
+  const reportIdParam = searchParams.get("reportId");
+  const [reportPrefill, setReportPrefill] = useState<Record<string, unknown> | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [loadingReport, setLoadingReport] = useState(!!reportIdParam);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const [loadingClient, setLoadingClient] = useState(!!clientIdParam);
+  const [reportClientUnlinked, setReportClientUnlinked] = useState(false);
   const [clientPrefill, setClientPrefill] = useState<Record<
     string,
     unknown
@@ -36,12 +43,22 @@ export default function NewInspectionPage() {
   }, [interviewDataParam]);
 
   useEffect(() => {
-    if (!clientIdParam) return;
+    if (!clientIdParam) {
+      setLoadingClient(false);
+      setClientPrefill(null);
+      return;
+    }
     let cancelled = false;
-    fetch(`/api/clients/${clientIdParam}`)
+    setLoadingClient(true);
+    setClientError(null);
+    fetch(`/api/clients/${encodeURIComponent(clientIdParam)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !data) return;
+        if (cancelled) return;
+        if (!data) {
+          setClientError("Client not found or unavailable.");
+          return;
+        }
         const c = data.client ?? data;
         setClientPrefill({
           propertyAddress:
@@ -57,15 +74,53 @@ export default function NewInspectionPage() {
                 ? c.postalCode
                 : undefined,
           clientId: clientIdParam,
+          clientName: c.name,
         });
       })
       .catch(() => {
-        /* non-blocking — form still works without prefill */
+        if (!cancelled) setClientError("Could not verify the selected client.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingClient(false);
       });
     return () => {
       cancelled = true;
     };
   }, [clientIdParam]);
+
+  useEffect(() => {
+    if (!reportIdParam) return;
+    let cancelled = false;
+    setLoadingReport(true);
+    setReportError(null);
+    fetch(`/api/reports/${encodeURIComponent(reportIdParam)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Report not found or unavailable");
+        return res.json();
+      })
+      .then((report) => {
+        if (cancelled) return;
+        if (clientIdParam && report.clientId && report.clientId !== clientIdParam) {
+          setReportError("This report is not linked to the selected client.");
+          return;
+        }
+        setReportClientUnlinked(Boolean(clientIdParam && !report.clientId));
+        setReportPrefill({
+          propertyAddress: report.propertyAddress,
+          propertyPostcode: report.propertyPostcode,
+          clientId: report.clientId ?? clientIdParam ?? undefined,
+          damageDescription: report.description ?? "",
+          inspectionDate: report.technicianAttendanceDate ?? undefined,
+        });
+      })
+      .catch((error) => {
+        if (!cancelled) setReportError(error.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingReport(false);
+      });
+    return () => { cancelled = true; };
+  }, [reportIdParam, clientIdParam]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -104,13 +159,14 @@ export default function NewInspectionPage() {
       initialDataFromApi !== undefined
         ? (initialDataFromApi ?? undefined)
         : initialDataFromUrl;
-    if (!clientPrefill && !clientIdParam) return base;
+    if (!clientPrefill && !clientIdParam && !reportPrefill) return base;
     return {
       ...(base ?? {}),
       ...(clientPrefill ?? {}),
       ...(clientIdParam ? { clientId: clientIdParam } : {}),
+      ...(reportPrefill ?? {}),
     };
-  }, [initialDataFromApi, initialDataFromUrl, clientPrefill, clientIdParam]);
+  }, [initialDataFromApi, initialDataFromUrl, clientPrefill, clientIdParam, reportPrefill]);
 
   return (
     <div
@@ -146,7 +202,10 @@ export default function NewInspectionPage() {
         </div>
       </div>
 
-      {loadingPrefill ? (
+      {reportError || clientError ? (
+        <p role="alert" className="text-destructive">{reportError ?? clientError}</p>
+      ) : loadingPrefill || loadingReport || loadingClient ||
+          (clientIdParam && clientPrefill?.clientId !== clientIdParam) ? (
         <div
           className={cn(
             "flex items-center justify-center py-20 gap-3 rounded-xl border",
@@ -156,16 +215,25 @@ export default function NewInspectionPage() {
         >
           <Loader2 className="animate-spin text-cyan-500" size={28} />
           <span className={cn("text-neutral-600 dark:text-slate-400")}>
-            Loading interview data...
+            Loading draft details...
           </span>
         </div>
       ) : (
+        <>
+        {reportIdParam && (
+          <p className="rounded-lg border border-cyan-300 p-3 text-sm">
+            This draft will use the existing report.
+            {reportClientUnlinked && " Saving it will link that report to the selected client without changing its contact details."}
+          </p>
+        )}
         <NIRTechnicianInputForm
+          reportId={reportIdParam ?? undefined}
           initialData={initialData ?? undefined}
           onComplete={(inspectionId: string) => {
             router.push(`/dashboard/inspections/${inspectionId}`);
           }}
         />
+        </>
       )}
     </div>
   );

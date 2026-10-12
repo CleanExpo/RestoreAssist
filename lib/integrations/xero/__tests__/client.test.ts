@@ -15,6 +15,7 @@ const logSync = vi.fn();
 vi.mock("@/lib/integrations/oauth-handler", () => ({
   getTokens: (...args: unknown[]) => getTokens(...args),
   storeTokens: vi.fn(),
+  assertOAuthIntegration: vi.fn().mockResolvedValue(undefined),
   markIntegrationError: (...args: unknown[]) => markIntegrationError(...args),
   disconnectIntegration: vi.fn(),
   logSync: (...args: unknown[]) => logSync(...args),
@@ -30,6 +31,18 @@ vi.mock("@/lib/integrations/oauth-handler", () => ({
   },
 }));
 
+// Pagination/shape tests use a synthetic ready snapshot; race tests exercise the real binding service.
+vi.mock("@/lib/services/xero/binding", () => ({
+  readReadyXeroBinding: vi.fn(async () => {
+    const tokens = await getTokens();
+    return { ok: true, data: { ...tokens, tenantId: "tenant_1", binding: { tokenExpiresAt: tokens.tokenExpiresAt, userId: "synthetic-owner", workspaceId: null } } };
+  }),
+  readXeroBinding: vi.fn(async () => ({ ok: true, data: { status: "CONNECTED" } })),
+  sameXeroGrant: vi.fn(() => true),
+  updateXeroBinding: vi.fn(async binding => ({ ok: true, data: binding })),
+}));
+vi.mock("@/lib/credential-vault", () => ({ encrypt: (value: string) => `encrypted:${value}` }));
+
 vi.mock("@/lib/integrations/dev-mode", () => ({
   isIntegrationDevMode: () => false,
   MOCK_CREDENTIALS: {},
@@ -40,6 +53,7 @@ vi.mock("@/lib/integrations/mock-data", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    integrationSyncLog: { create: vi.fn() },
     integration: {
       findUnique: vi.fn().mockResolvedValue({ tenantId: "tenant_1" }),
       update: vi.fn(),
@@ -190,6 +204,25 @@ describe("XeroClient.fetchJobs", () => {
     );
     expect(markIntegrationError).not.toHaveBeenCalled();
 
+    fetchSpy.mockRestore();
+  });
+});
+
+describe("Xero response shape is not an empty-data success", () => {
+  it.each([
+    ["clients", {}], ["clients", { Contacts: null }], ["clients", { Contacts: {} }],
+    ["jobs", {}], ["jobs", { Invoices: null }], ["jobs", { Invoices: {} }],
+  ] as const)("rejects malformed 200 JSON for %s", async (kind, body) => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify(body)));
+    const client = new XeroClient("integ_1", "tenant_1");
+    await expect(kind === "clients" ? client.fetchClients() : client.fetchJobs()).rejects.toThrow(/invalid Xero .* response/i);
+    expect(logSync).not.toHaveBeenCalledWith("integ_1", expect.any(String), "SUCCESS", 0, 0, undefined, "XERO");
+    fetchSpy.mockRestore();
+  });
+  it.each(["clients", "jobs"] as const)("accepts an explicit empty %s array", async kind => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify(kind === "clients" ? { Contacts: [] } : { Invoices: [] })));
+    const client = new XeroClient("integ_1", "tenant_1");
+    await expect(kind === "clients" ? client.fetchClients() : client.fetchJobs()).resolves.toEqual([]);
     fetchSpy.mockRestore();
   });
 });

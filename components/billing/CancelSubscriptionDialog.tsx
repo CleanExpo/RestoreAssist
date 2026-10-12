@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { useState } from "react";
 import {
   Dialog,
@@ -71,7 +72,9 @@ export function CancelSubscriptionDialog({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `Cancel failed (${res.status})`);
+        throw new Error(
+          apiErrorMessage(body) ?? `Cancel failed (${res.status})`,
+        );
       }
       toast.success(
         "Subscription cancelled. You'll keep access until the end of your billing period.",

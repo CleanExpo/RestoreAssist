@@ -50,8 +50,8 @@ export async function getWeatherContextForInspection(
   const postcode = inspection.propertyPostcode;
   const lossDate = inspection.inspectionDate;
 
-  if (!postcode) {
-    console.warn(`[weather] No postcode for inspection ${inspectionId}`);
+  if (!postcode || !lossDate) {
+    console.warn(`[weather] No postcode or inspection date for inspection ${inspectionId}`);
     return { source: "UNAVAILABLE" };
   }
 

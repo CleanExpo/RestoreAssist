@@ -80,6 +80,20 @@ export async function POST(request: NextRequest) {
       });
 
     const inspection = report.inspection;
+    // Connected field-service systems record this as a completed job date.
+    // For a linked job the inspection's attendance is authoritative: older
+    // reports may carry a generated inspectionDate even when nobody attended.
+    // A report without a linked job may use its explicitly recorded dates.
+    const inspectionDate = inspection
+      ? inspection.inspectionDate
+      : report.technicianAttendanceDate ?? report.inspectionDate;
+    if (!inspectionDate) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Record the inspection attendance date before syncing this job",
+        status: 422,
+      });
+    }
     const classification = inspection?.classifications?.[0];
     const costEstimates = inspection?.costEstimates ?? [];
 
@@ -144,8 +158,7 @@ export async function POST(request: NextRequest) {
       totalExGST,
       gstAmount,
       totalIncGST,
-      inspectionDate:
-        report.inspectionDate ?? inspection?.inspectionDate ?? report.createdAt,
+      inspectionDate,
       reportDate: report.createdAt,
       technician:
         report.technicianName ?? inspection?.technicianName ?? undefined,

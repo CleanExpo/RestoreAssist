@@ -19,6 +19,7 @@
 import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineReplay, withOfflineDrainLock, type OfflineOwner } from "@/lib/offline/account-boundary";
 
 import { sameOfflineOwner } from "@/lib/offline/ownership";
+import { notifySyncQueueChanged } from "@/lib/offline/sync-status-event";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -210,9 +211,10 @@ export async function queueWrite(
             /* SW not yet active, online listener will handle it */
           });
       }
-      resolve(id);
     };
     req.onerror = () => reject(req.error);
+    tx.oncomplete = () => { notifySyncQueueChanged(); resolve(id); };
+    tx.onabort = () => reject(tx.error ?? new Error("Queued work was not saved"));
   });
 }
 
@@ -310,7 +312,7 @@ export async function enqueueSketchSave(
     cursorReq.onerror = () => reject(cursorReq.error);
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error ?? new Error("Offline account changed; work was not overwritten"));
-    tx.oncomplete = () => resolve(id);
+    tx.oncomplete = () => { notifySyncQueueChanged(); resolve(id); };
   });
 }
 
@@ -662,8 +664,8 @@ async function removeEntry(db: IDBDatabase, id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readwrite");
     const req = tx.objectStore(QUEUE_STORE).delete(id);
-    req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
+    tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
   });
 }
 
@@ -678,8 +680,8 @@ async function markEntryFailed(db: IDBDatabase, id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readwrite");
     const req = tx.objectStore(QUEUE_STORE).put({ ...entry, status: "failed" });
-    req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
+    tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
   });
 }
 

@@ -7,6 +7,7 @@ export interface UseFetchResult<T> {
   loading: boolean;
   error: string | null;
   refetch: () => void;
+  refresh: () => Promise<boolean>;
 }
 
 /**
@@ -70,16 +71,18 @@ export function useFetch<T>(
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  const refetch = useCallback(() => {
+  const runFetch = useCallback((complete?: (ok: boolean) => void) => {
     const opts = optionsRef.current;
 
     if (!url || opts?.skip) {
       setLoading(false);
+      complete?.(false);
       return;
     }
 
     // Deduplication: skip if another instance is already fetching this URL
     if (opts?.dedupe && _inFlightUrls.has(url)) {
+      complete?.(false);
       return;
     }
 
@@ -126,10 +129,12 @@ export function useFetch<T>(
           setData(json);
           setLoading(false);
           if (opts?.dedupe) _inFlightUrls.delete(url);
+          complete?.(true);
         })
         .catch((err: unknown) => {
           if (err instanceof Error && err.name === "AbortError") {
             if (opts?.dedupe) _inFlightUrls.delete(url);
+            complete?.(false);
             return;
           }
 
@@ -150,11 +155,18 @@ export function useFetch<T>(
           const message = err instanceof Error ? err.message : "Request failed";
           setError(message);
           setLoading(false);
+          complete?.(false);
         });
     };
 
     attemptFetch(0);
   }, [url]); // re-runs when URL changes (e.g. search params update)
+
+  const refetch = useCallback(() => runFetch(), [runFetch]);
+  const refresh = useCallback(
+    () => new Promise<boolean>((resolve) => runFetch(resolve)),
+    [runFetch],
+  );
 
   useEffect(() => {
     refetch();
@@ -163,5 +175,5 @@ export function useFetch<T>(
     };
   }, [refetch]);
 
-  return { data, loading, error, refetch };
+  return { data, loading, error, refetch, refresh };
 }

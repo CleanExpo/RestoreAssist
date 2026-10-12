@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { dollarsToCents } from "@/lib/quotes/quote-calc";
+import { quoteToInvoiceLineItems } from "@/lib/quotes/quote-calc";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
 
@@ -29,6 +29,9 @@ interface QuoteLineItem {
   unit: string;
   rate: number;
   subtotal: number;
+  /** RA-7896: the line ex GST and inc GST, worked out per line by the server. */
+  exGST: number;
+  incGST: number;
 }
 
 interface QuoteResponse {
@@ -52,6 +55,12 @@ interface QuoteResponse {
   };
   client: { name: string; address: string; phone: string; email: string };
   lineItems: QuoteLineItem[];
+  /** The minimum-charge top-up row the invoice draft carries, if any. */
+  minimumChargeLine?: {
+    description: string;
+    exGST: number;
+    incGST: number;
+  } | null;
   subtotalExGST: number;
   gst: number;
   totalIncGST: number;
@@ -265,28 +274,10 @@ export default function QuotePage() {
     try {
       const due = new Date();
       due.setDate(due.getDate() + 14);
-      const lineItems = quoteResult.lineItems.map((li) => ({
-        description: li.description,
-        category: "Quote",
-        quantity: li.qty,
-        unitPrice: dollarsToCents(li.rate),
-        gstRate: gstTreatment.ratePercent,
-      }));
-      // If minimum charge padded the subtotal without a matching line, add a top-up line
-      const linesEx = lineItems.reduce(
-        (sum, li) => sum + Math.round(li.quantity * li.unitPrice),
-        0,
+      const lineItems = quoteToInvoiceLineItems(
+        quoteResult,
+        gstTreatment.ratePercent,
       );
-      const targetEx = dollarsToCents(quoteResult.subtotalExGST);
-      if (targetEx > linesEx) {
-        lineItems.push({
-          description: "Minimum engagement charge (industry minimum)",
-          category: "Quote",
-          quantity: 1,
-          unitPrice: targetEx - linesEx,
-          gstRate: gstTreatment.ratePercent,
-        });
-      }
 
       const res = await fetch("/api/invoices", {
         method: "POST",
@@ -861,14 +852,17 @@ export default function QuotePage() {
                     <th className="text-right py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-16">
                       Qty
                     </th>
-                    <th className="text-center py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-20">
+                    <th className="hidden sm:table-cell text-center py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-20">
                       Unit
                     </th>
                     <th className="text-right py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-24">
                       Rate
                     </th>
+                    <th className="text-right py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-28">
+                      Ex GST
+                    </th>
                     <th className="text-right py-2 pl-2 font-semibold text-slate-700 dark:text-slate-300 w-28">
-                      Subtotal
+                      Inc GST
                     </th>
                   </tr>
                 </thead>
@@ -884,17 +878,39 @@ export default function QuotePage() {
                       <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">
                         {item.qty}
                       </td>
-                      <td className="py-2 px-2 text-center text-slate-600 dark:text-slate-400">
+                      <td className="hidden sm:table-cell py-2 px-2 text-center text-slate-600 dark:text-slate-400">
                         {item.unit}
                       </td>
                       <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">
                         {fmt(item.rate)}
                       </td>
+                      <td className="py-2 px-2 text-right text-slate-800 dark:text-slate-200">
+                        {fmt(item.exGST)}
+                      </td>
                       <td className="py-2 pl-2 text-right font-medium text-slate-800 dark:text-slate-200">
-                        {fmt(item.subtotal)}
+                        {fmt(item.incGST)}
                       </td>
                     </tr>
                   ))}
+                  {/* RA-7896: the minimum-charge top-up is its own row, priced
+                      per line like the invoice draft line it becomes, so the
+                      rows add up to the totals below. */}
+                  {quoteResult.minimumChargeLine && (
+                    <tr className="border-b border-slate-100 dark:border-slate-700/50">
+                      <td className="py-2 pr-4 text-slate-800 dark:text-slate-200">
+                        {quoteResult.minimumChargeLine.description}
+                      </td>
+                      <td className="py-2 px-2" />
+                      <td className="hidden sm:table-cell py-2 px-2" />
+                      <td className="py-2 px-2" />
+                      <td className="py-2 px-2 text-right text-slate-800 dark:text-slate-200">
+                        {fmt(quoteResult.minimumChargeLine.exGST)}
+                      </td>
+                      <td className="py-2 pl-2 text-right font-medium text-slate-800 dark:text-slate-200">
+                        {fmt(quoteResult.minimumChargeLine.incGST)}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

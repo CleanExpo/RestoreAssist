@@ -86,7 +86,7 @@ interface MonitoringReport {
   inspectionNumber: string;
   propertyAddress: string;
   technicianName: string | null;
-  inspectionDate: string;
+  inspectionDate: string | null;
   iicrcReference: string;
   affectedAreas: Array<{
     roomZoneId: string;
@@ -263,8 +263,7 @@ async function buildReport(
     inspectionNumber: inspection.inspectionNumber,
     propertyAddress: inspection.propertyAddress,
     technicianName: inspection.technicianName,
-    inspectionDate:
-      inspection.inspectionDate?.toISOString() ?? new Date().toISOString(),
+    inspectionDate: inspection.inspectionDate?.toISOString() ?? null,
     iicrcReference: "IICRC S500:2021 §11.4",
     affectedAreas: inspection.affectedAreas,
     totalDaysMonitored: dailyLogs.length,

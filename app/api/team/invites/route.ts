@@ -14,6 +14,7 @@ import {
   TECHNICIAN_SEAT_REQUIRED_MESSAGE,
 } from "@/lib/billing/technician-seats";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
+import { ROLE_CHANGE_AUDIT_PROVIDER } from "@/lib/billing/invite-membership";
 import { getIdempotencyKey, withIdempotency } from "@/lib/idempotency";
 import { deliverEmailOnce, EmailDeliveryPending } from "@/lib/email-delivery-ledger";
 
@@ -275,6 +276,9 @@ export async function POST(req: NextRequest) {
               managedById: dbUser?.role === "MANAGER" ? session.user.id : null,
               expiresAt,
               usedAt: new Date(),
+              // RA-7893: an audit of a role change, not a join. The tenant
+              // resolver skips rows carrying this marker.
+              acceptanceProvider: ROLE_CHANGE_AUDIT_PROVIDER,
             },
           });
           return { updatedUser, invite };

@@ -5,6 +5,28 @@ import { describe, expect, it, vi } from "vitest";
 import { SketchEvidenceLayer } from "../SketchEvidenceLayer";
 
 describe("SketchEvidenceLayer existing-photo placement", () => {
+  it("passes blank-MIME HEIC to conversion and does not offer unsupported video", async () => {
+    const onPlace = vi.fn().mockResolvedValue(undefined);
+    const { container } = render(
+      <SketchEvidenceLayer pins={[]} active width={800} height={600} onPlace={onPlace}
+        onMove={() => {}} onRemove={() => {}} />,
+    );
+    const layer = screen.getByLabelText("Evidence pin layer");
+    vi.spyOn(layer, "getBoundingClientRect").mockReturnValue({
+      left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600,
+      x: 0, y: 0, toJSON: () => ({}),
+    });
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input.accept).toBe("image/*,.heic,.heif");
+    fireEvent.click(layer, { clientX: 400, clientY: 300 });
+    fireEvent.change(input, { target: { files: [new File(["synthetic"], "room.heic", { type: "" })] } });
+    await waitFor(() => expect(onPlace).toHaveBeenCalledTimes(1));
+    expect(onPlace.mock.calls[0][0].file.name).toBe("room.heic");
+    fireEvent.click(layer, { clientX: 400, clientY: 300 });
+    fireEvent.change(input, { target: { files: [new File(["synthetic"], "room.mp4", { type: "video/mp4" })] } });
+    expect(onPlace).toHaveBeenCalledTimes(1);
+  });
+
   it("links an earlier inspection photo at the selected plan coordinates", async () => {
     const onPlaceExisting = vi.fn().mockResolvedValue(undefined);
     render(

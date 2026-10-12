@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
+import type { Integration } from "@prisma/client";
 import { isDraft } from "@/lib/invoice-status";
 import { syncInvoiceToXero } from "@/lib/integrations/xero";
 import { syncInvoiceToQuickBooks } from "@/lib/integrations/quickbooks";
@@ -114,12 +116,11 @@ export async function POST(
       }
 
       // Check if integration is connected
-      const integration = await prisma.integration.findFirst({
-        where: {
-          userId: userId,
-          provider: provider.toUpperCase(),
-        },
+      const selection = await selectOAuthIntegration({
+        prisma, userId, provider: provider.toUpperCase(),
+        workspaceId: invoice.workspaceId ?? null, requireReady: true,
       });
+      const integration = selection.ok ? selection.data : null;
 
       if (!integration) {
         return apiError(request, {
@@ -154,7 +155,7 @@ export async function POST(
         where: { id, userId },
         data: {
           externalSyncStatus: "PENDING",
-          externalSyncProvider: provider.toLowerCase(),
+          externalSyncProvider: provider.toUpperCase(),
           externalSyncError: null,
         },
       });
@@ -182,7 +183,7 @@ export async function POST(
           case "xero":
             syncResult = await syncInvoiceToXero(
               invoice,
-              integration,
+              integration as Integration,
               gstTreatment.country,
             );
             externalInvoiceId = syncResult.invoiceId;
@@ -191,7 +192,7 @@ export async function POST(
           case "quickbooks":
             syncResult = await syncInvoiceToQuickBooks(
               invoice,
-              integration,
+              integration as Integration,
               gstTreatment.country,
             );
             externalInvoiceId = syncResult.invoiceId;
@@ -200,7 +201,7 @@ export async function POST(
           case "myob":
             syncResult = await syncInvoiceToMYOB(
               invoice,
-              integration,
+              integration as Integration,
               gstTreatment.country,
             );
             externalInvoiceId = syncResult.invoiceId;

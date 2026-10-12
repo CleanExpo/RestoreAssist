@@ -100,7 +100,12 @@ describe("team/members/[id] — org-scoped writes", () => {
     expect(userUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "member1", organizationId: "org1" },
-        data: { organizationId: null, managedById: null },
+        data: {
+          organizationId: null,
+          managedById: null,
+          organizationLeftAt: expect.any(Date),
+          organizationLeftId: "org1",
+        },
       }),
     );
   });

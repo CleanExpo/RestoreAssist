@@ -10,8 +10,13 @@ import { apiError, fromException } from "@/lib/api-errors";
 import {
   QuoteRequestSchema,
   applyMinimumCharge,
-  calcGstOnSubtotal,
+  quoteGstAsInvoiced,
+  quoteLinePricesAsInvoiced,
+  wholeCentRate,
 } from "@/lib/quotes/quote-calc";
+import { lineTotal } from "@/lib/estimate-lines";
+import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
+import { getEffectiveSubscription } from "@/lib/organization-credits";
 
 /** Default pricing config (mirrors getDefaultPricingConfig in pricing-config route). */
 function getDefaultRates() {
@@ -87,15 +92,10 @@ export async function POST(request: NextRequest) {
     });
     if (rateLimited) return rateLimited;
 
-    // Subscription gate — CANCELED/PAST_DUE users must not run billable calculations
-    const subUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { subscriptionStatus: true },
-    });
-    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(subUser?.subscriptionStatus ?? "")
-    ) {
+    // Subscription gate — CANCELED/PAST_DUE users must not run billable calculations.
+    // RA-7893: an invited technician uses the business owner's plan.
+    const effective = await getEffectiveSubscription(session.user.id);
+    if (!effective || !isEffectivePlanCurrent(effective)) {
       return NextResponse.json(
         {
           error: "Active subscription required to calculate quotes",
@@ -119,8 +119,12 @@ export async function POST(request: NextRequest) {
     const input = parsed.data;
 
     // Fetch contractor's pricing config (org config is SSOT; or use defaults)
-    const config = await resolveEffectivePricing(prisma, session.user.id);
-    const rates: Record<string, number> = config
+    // RA-7893: the quote is priced as the business that pays for it — the
+    // legacy fallback is the plan owner's, not an invited member's own row.
+    const config = await resolveEffectivePricing(prisma, session.user.id, {
+      legacyUserId: effective.id,
+    });
+    const storedRates: Record<string, number> = config
       ? {
           masterQualifiedNormalHours: config.masterQualifiedNormalHours,
           masterQualifiedSaturday: config.masterQualifiedSaturday,
@@ -149,6 +153,10 @@ export async function POST(request: NextRequest) {
             config.thermalCameraUseCostPerAssessment,
         }
       : getDefaultRates();
+    // Price on whole-cent rates: the invoice draft can only carry cents.
+    const rates: Record<string, number> = Object.fromEntries(
+      Object.entries(storedRates).map(([k, v]) => [k, wholeCentRate(v)]),
+    );
 
     // Fetch contractor business info
     const user = await prisma.user.findUnique({
@@ -204,7 +212,7 @@ export async function POST(request: NextRequest) {
         qty: input.labourHours,
         unit: "hr",
         rate: labourRate,
-        subtotal: Math.round(input.labourHours * labourRate * 100) / 100,
+        subtotal: lineTotal(input.labourHours, labourRate),
       });
     }
 
@@ -217,7 +225,7 @@ export async function POST(request: NextRequest) {
         unit: "unit-day",
         rate: rates.airMoverAxialDailyRate,
         subtotal:
-          Math.round(totalUnitDays * rates.airMoverAxialDailyRate * 100) / 100,
+          lineTotal(totalUnitDays, rates.airMoverAxialDailyRate),
       });
     }
 
@@ -230,8 +238,7 @@ export async function POST(request: NextRequest) {
         unit: "unit-day",
         rate: rates.airMoverCentrifugalDailyRate,
         subtotal:
-          Math.round(totalUnitDays * rates.airMoverCentrifugalDailyRate * 100) /
-          100,
+          lineTotal(totalUnitDays, rates.airMoverCentrifugalDailyRate),
       });
     }
 
@@ -244,8 +251,7 @@ export async function POST(request: NextRequest) {
         unit: "unit-day",
         rate: rates.dehumidifierLGRDailyRate,
         subtotal:
-          Math.round(totalUnitDays * rates.dehumidifierLGRDailyRate * 100) /
-          100,
+          lineTotal(totalUnitDays, rates.dehumidifierLGRDailyRate),
       });
     }
 
@@ -258,9 +264,7 @@ export async function POST(request: NextRequest) {
         unit: "unit-day",
         rate: rates.dehumidifierDesiccantDailyRate,
         subtotal:
-          Math.round(
-            totalUnitDays * rates.dehumidifierDesiccantDailyRate * 100,
-          ) / 100,
+          lineTotal(totalUnitDays, rates.dehumidifierDesiccantDailyRate),
       });
     }
 
@@ -273,7 +277,7 @@ export async function POST(request: NextRequest) {
         unit: "unit-day",
         rate: rates.afdUnitLargeDailyRate,
         subtotal:
-          Math.round(totalUnitDays * rates.afdUnitLargeDailyRate * 100) / 100,
+          lineTotal(totalUnitDays, rates.afdUnitLargeDailyRate),
       });
     }
 
@@ -285,11 +289,10 @@ export async function POST(request: NextRequest) {
         unit: "hr",
         rate: rates.extractionTruckMountedHourlyRate,
         subtotal:
-          Math.round(
-            input.extractionTruckMountedHours *
-              rates.extractionTruckMountedHourlyRate *
-              100,
-          ) / 100,
+          lineTotal(
+            input.extractionTruckMountedHours,
+            rates.extractionTruckMountedHourlyRate,
+          ),
       });
     }
 
@@ -301,11 +304,10 @@ export async function POST(request: NextRequest) {
         unit: "hr",
         rate: rates.extractionElectricHourlyRate,
         subtotal:
-          Math.round(
-            input.extractionElectricHours *
-              rates.extractionElectricHourlyRate *
-              100,
-          ) / 100,
+          lineTotal(
+            input.extractionElectricHours,
+            rates.extractionElectricHourlyRate,
+          ),
       });
     }
 
@@ -317,11 +319,10 @@ export async function POST(request: NextRequest) {
         unit: "day",
         rate: rates.injectionDryingSystemDailyRate,
         subtotal:
-          Math.round(
-            input.injectionDryingDays *
-              rates.injectionDryingSystemDailyRate *
-              100,
-          ) / 100,
+          lineTotal(
+            input.injectionDryingDays,
+            rates.injectionDryingSystemDailyRate,
+          ),
       });
     }
 
@@ -335,7 +336,7 @@ export async function POST(request: NextRequest) {
         qty: input.affectedAreaM2,
         unit: "m²",
         rate: chemicalRate,
-        subtotal: Math.round(input.affectedAreaM2 * chemicalRate * 100) / 100,
+        subtotal: lineTotal(input.affectedAreaM2, chemicalRate),
       });
     }
 
@@ -378,7 +379,15 @@ export async function POST(request: NextRequest) {
         status: 422,
       });
     }
-    const { gst, totalIncGST } = calcGstOnSubtotal(subtotalExGST, country);
+    const { gst, totalIncGST } = quoteGstAsInvoiced(
+      { lineItems, subtotalExGST },
+      country,
+    );
+    // RA-7896: every row shows its price ex GST and inc GST, per line.
+    const linePrices = quoteLinePricesAsInvoiced(
+      { lineItems, subtotalExGST },
+      country,
+    );
 
     // Reconcile the priced equipment against the RA-7005 safety plan.
     //
@@ -431,7 +440,11 @@ export async function POST(request: NextRequest) {
         phone: input.clientPhone ?? "",
         email: input.clientEmail ?? "",
       },
-      lineItems,
+      lineItems: lineItems.map((item, i) => ({
+        ...item,
+        ...linePrices.lines[i],
+      })),
+      minimumChargeLine: linePrices.minimumChargeLine,
       subtotalExGST,
       gst,
       totalIncGST,

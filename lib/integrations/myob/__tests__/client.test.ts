@@ -111,6 +111,7 @@ describe("MYOBClient.getCustomerPayment", () => {
     expect(markIntegrationError).toHaveBeenCalledWith(
       "integ_1",
       expect.stringContaining("404"),
+      "MYOB",
     );
 
     fetchSpy.mockRestore();

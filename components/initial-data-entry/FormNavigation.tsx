@@ -82,7 +82,12 @@ export function FormNavigation({
         ) : (
           <button
             type="button"
-            onClick={onNext}
+            onClick={(event) => {
+              // React can reuse this button as the final submit button while the
+              // click is still dispatching. Cancel the click's form default now.
+              event.preventDefault();
+              onNext();
+            }}
             disabled={!isValid}
             className={cn(
               "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",

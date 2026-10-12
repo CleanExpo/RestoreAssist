@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useFetchWithError } from "@/lib/client/useFetchWithError";
+import { useFetch } from "@/lib/hooks/useFetch";
+import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRefresh";
 import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
+import type { ParsedApiError } from "@/lib/client/parse-api-error";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -103,7 +105,16 @@ export default function InspectionsPage() {
     loading,
     error: fetchError,
     refetch: refetchInspections,
-  } = useFetchWithError<{ inspections: Inspection[] }>("/api/inspections");
+    refresh: refreshInspections,
+  } = useFetch<{ inspections: Inspection[] }>("/api/inspections");
+  useMobilePullRefreshHandler(async () =>
+    (await refreshInspections())
+      ? { kind: "updated", message: "Inspections updated" }
+      : { kind: "error", message: "Could not refresh inspections. Try again." },
+  );
+  const listError: ParsedApiError | null = fetchError
+    ? { code: "UNKNOWN", message: fetchError, status: 0 }
+    : null;
   const inspections = inspectionsData?.inspections ?? [];
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -412,16 +423,16 @@ export default function InspectionsPage() {
       )}
 
       {/* Fetch error */}
-      {fetchError && !loading && (
+      {listError && !loading && (
         <DashboardListErrorBanner
           resourceLabel="inspections"
-          error={fetchError}
+          error={listError}
           onRetry={refetchInspections}
         />
       )}
 
       {/* Results */}
-      {fetchError && !loading ? null : loading ? (
+      {listError && !loading ? null : loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-cyan-500" size={32} />
         </div>
@@ -562,7 +573,7 @@ export default function InspectionsPage() {
                           `/dashboard/reports/new?inspectionId=${insp.id}`,
                         );
                       }}
-                      className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
+                      className="flex whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
                       title={`Generate report from ${insp.inspectionNumber}`}
                     >
                       <FileText size={14} />

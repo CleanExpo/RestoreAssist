@@ -20,7 +20,7 @@ import { prisma } from "@/lib/prisma";
 import {
   buildNirReportOutput,
   fetchTechnicianCertifications,
-} from "../guidewire/route";
+} from "@/lib/export/guidewire-report-output";
 
 const mockedProfileFindUnique = vi.mocked(prisma.contractorProfile.findUnique);
 

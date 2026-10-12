@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useFetchWithError } from "@/lib/client/useFetchWithError";
+import { useFetch } from "@/lib/hooks/useFetch";
+import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRefresh";
 import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
+import type { ParsedApiError } from "@/lib/client/parse-api-error";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -63,9 +65,19 @@ export default function ReportsPage() {
     loading,
     error: fetchError,
     refetch: refetchReports,
-  } = useFetchWithError<{ reports: ReportWithSessionData[] }>(
+    refresh: refreshReports,
+  } = useFetch<{ reports: ReportWithSessionData[] }>(
     dataSource === "native" ? "/api/reports" : null,
   );
+  const listError: ParsedApiError | null = fetchError
+    ? { code: "UNKNOWN", message: fetchError, status: 0 }
+    : null;
+  useMobilePullRefreshHandler(async () => {
+    if (dataSource !== "native") return { kind: "cancelled", message: "Use the synced jobs panel to refresh this source." };
+    return await refreshReports()
+      ? { kind: "updated", message: "Reports updated" }
+      : { kind: "error", message: "Could not refresh reports. Try again." };
+  });
   const reports = reportsData?.reports ?? [];
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -622,16 +634,16 @@ export default function ReportsPage() {
       )}
 
       {/* Fetch error */}
-      {fetchError && !loading && (
+      {listError && !loading && (
         <DashboardListErrorBanner
           resourceLabel="reports"
-          error={fetchError}
+          error={listError}
           onRetry={refetchReports}
         />
       )}
 
       {/* Reports Table */}
-      {!fetchError && (
+      {!listError && (
       <>
       <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden mb-4">
         {loading ? (

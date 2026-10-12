@@ -87,7 +87,7 @@ export interface EnvironmentalInput {
 
 export interface ScopeNarrativeInput {
   propertyAddress: string;
-  inspectionDate: string;
+  inspectionDate: string | null;
   damageCategory: string; // "CAT_1" | "CAT_2" | "CAT_3"
   damageClass: string; // "CLASS_1" | "CLASS_2" | "CLASS_3" | "CLASS_4"
   lossSourceIdentified: boolean;
@@ -153,7 +153,7 @@ export function buildScopeUserMessage(input: ScopeNarrativeInput): string {
   lines.push(``);
   lines.push(`**Property:** ${propertyAddress}`);
   lines.push(
-    `**Inspection Date:** ${new Date(inspectionDate).toLocaleDateString("en-AU")}`,
+    `**Inspection Date:** ${inspectionDate ? new Date(inspectionDate).toLocaleDateString("en-AU") : "Unknown"}`,
   );
   lines.push(
     `**IICRC Classification:** ${formatCategory(damageCategory)} · ${formatClass(damageClass)}`,

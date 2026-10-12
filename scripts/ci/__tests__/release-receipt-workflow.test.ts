@@ -53,6 +53,141 @@ describe("the receipt workflow cannot be reached from a pull request", () => {
   });
 });
 
+describe("the write token reaches only the steps that need it", () => {
+  type Step = {
+    name?: string;
+    uses?: string;
+    run?: string;
+    with?: Record<string, unknown>;
+    env?: Record<string, string>;
+  };
+  const steps = () => workflow().jobs.mint.steps as Step[];
+
+  it("checks out without persisting the token", () => {
+    // The workflow holds contents: write. A persisted checkout writes that
+    // token into .git/config, where `npm ci` and every producer can read it.
+    const checkouts = steps().filter((s) =>
+      String(s.uses ?? "").startsWith("actions/checkout"),
+    );
+    expect(checkouts.length).toBeGreaterThan(0);
+    for (const c of checkouts) expect(c.with?.["persist-credentials"]).toBe(false);
+  });
+
+  it("hands the write token only to the two steps that need it", () => {
+    // A blocklist of ways to write a credential cannot be complete (printf
+    // into .git/config, gh auth login, an askpass helper...). The control is
+    // that a step which never receives the token cannot store it anywhere.
+    // So: no workflow- or job-level env, and every `${{ }}` expression is on
+    // an allowlist tied to the step that may use it. `github.token` reaches
+    // only the signer (the F1 producer reads workflow runs) and the push.
+    const wf = workflow() as unknown as {
+      env?: unknown;
+      jobs: { mint: { env?: unknown } };
+    };
+    expect(wf.env).toBeUndefined();
+    expect(wf.jobs.mint.env).toBeUndefined();
+    const SIGN = "Measure and sign";
+    const anywhere = new Set(["inputs.criterion", "env.A1_PLAYWRIGHT_REPORT"]);
+    const onlyIn: Record<string, string[]> = {
+      "github.token": [SIGN, "Commit the receipt"],
+      "vars.RELEASE_RECEIPT_PUBLIC_KEYS || secrets.RELEASE_RECEIPT_PUBLIC_KEYS": [
+        "Verify the receipt the way the scorer will",
+      ],
+    };
+    // Every other `secrets.*` expression belongs to the signer alone.
+    const allowedIn = (expr: string) =>
+      onlyIn[expr] ?? (/^secrets\.[A-Z0-9_]+$/.test(expr) ? [SIGN] : undefined);
+    for (const step of steps()) {
+      const where = step.name ?? step.uses ?? "unnamed step";
+      for (const m of JSON.stringify(step).matchAll(/\$\{\{\s*(.*?)\s*\}\}/g)) {
+        const expr = m[1];
+        if (anywhere.has(expr)) continue;
+        expect(allowedIn(expr), `${where}: \${{ ${expr} }} is not allowlisted`).toBeDefined();
+        expect(allowedIn(expr), `${where}: \${{ ${expr} }}`).toContain(where);
+      }
+    }
+    // Each recipient name belongs to exactly one step, so a decoy step cannot
+    // borrow a recipient's allowance by copying its name.
+    for (const name of [SIGN, "Commit the receipt"]) {
+      expect(steps().filter((s) => s.name === name), name).toHaveLength(1);
+    }
+    // Within those two steps exactly one env entry carries the token, and no
+    // script text names it.
+    const tokenKeys = (name: string) =>
+      Object.entries(steps().find((s) => s.name === name)?.env ?? {})
+        .filter(([, v]) => String(v).includes("github.token"))
+        .map(([k]) => k);
+    expect(tokenKeys(SIGN)).toEqual(["GITHUB_TOKEN"]);
+    expect(tokenKeys("Commit the receipt")).toEqual(["GH_TOKEN"]);
+    for (const s of steps()) expect(s.run ?? "").not.toContain("github.token");
+    // The signer's script is fixed, so the workflow cannot forward the token
+    // to a file, $GITHUB_ENV or a git config from that step. (The push step is
+    // last, so nothing runs after it.) Residual, not tested here: repo code the
+    // signer runs can read GITHUB_TOKEN; it is code from main only.
+    expect(steps().find((s) => s.name === SIGN)?.run).toBe(
+      "npx --no-install tsx scripts/ci/sign-release-receipt.ts \\\n  --criterion='${{ inputs.criterion }}'\n",
+    );
+  });
+
+  it("has only the reviewed shape, so no key can wrap or extend a step", () => {
+    // `shell:` on a step, or `defaults.run.shell` on the job, runs extra code
+    // around a pinned script; `container`, `services` and job `env` add other
+    // ways in. Rather than ban each key, the shape itself is fixed: a new key
+    // anywhere is a reviewed edit to this test.
+    const wf = workflow() as unknown as Record<string, unknown> & {
+      jobs: Record<string, Record<string, unknown>>;
+    };
+    expect(Object.keys(wf).sort()).toEqual(["concurrency", "jobs", "name", "on", "permissions"]);
+    expect(Object.keys(wf.jobs)).toEqual(["mint"]);
+    expect(Object.keys(wf.jobs.mint).sort()).toEqual(["environment", "if", "runs-on", "steps"]);
+    const allowed = new Set(["name", "uses", "with", "run", "env", "if", "id"]);
+    for (const s of steps()) {
+      for (const key of Object.keys(s)) {
+        expect(allowed.has(key), `${s.name ?? s.uses}: key \`${key}\``).toBe(true);
+      }
+    }
+    // The two steps that hold the token have exactly these keys and env names.
+    for (const name of ["Measure and sign", "Commit the receipt"]) {
+      const step = steps().find((s) => s.name === name) ?? {};
+      expect(Object.keys(step).sort(), name).toEqual(["env", "name", "run"]);
+    }
+    expect(Object.keys(steps().find((s) => s.name === "Measure and sign")?.env ?? {}).sort()).toEqual([
+      "A1_PLAYWRIGHT_REPORT", "DATABASE_URL", "GITHUB_TOKEN", "GITLEAKS_BINARY", "LINEAR_API_KEY",
+      "RELEASE_RECEIPT_PRIVATE_KEY", "STRIPE_SECRET_KEY", "STRIPE_TEST_SECRET_KEY",
+    ]);
+    expect(Object.keys(steps().find((s) => s.name === "Commit the receipt")?.env ?? {})).toEqual(["GH_TOKEN"]);
+    // What this does NOT prove: code that runs earlier in the job (npm ci's
+    // install scripts, the A1 step) can append to $GITHUB_ENV, e.g. BASH_ENV,
+    // and so run inside the signer's shell where GITHUB_TOKEN is set. A file
+    // test cannot close that; a separate signing job can (slice 2d). What this
+    // change does guarantee is that no step before the signer has the token,
+    // on disk or in env.
+  });
+
+  it("uses only the pinned actions it was reviewed with, and pushes last", () => {
+    // A new `uses:` action can read github.token through its default inputs,
+    // so adding one is a reviewed change to this list, not a silent one. The
+    // push is the final step, so nothing runs after the credential is used.
+    expect(steps().filter((s) => s.uses).map((s) => s.uses)).toEqual([
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    ]);
+    expect(steps().at(-1)?.name).toBe("Commit the receipt");
+  });
+
+  it("gives the push its credential on the push command line only", () => {
+    // Passed as env on the push itself: not argv, not .git/config, not
+    // exported to later commands in the same script.
+    const commit = steps().find((s) => s.name === "Commit the receipt");
+    expect(commit?.env?.GH_TOKEN).toBe("${{ github.token }}");
+    const run = commit?.run ?? "";
+    expect(run).toMatch(
+      /GIT_CONFIG_COUNT=1 \\\n\s*GIT_CONFIG_KEY_0='http\.https:\/\/github\.com\/\.extraheader' \\\n\s*GIT_CONFIG_VALUE_0="[^"\n]*" \\\n\s*git push origin main\s*$/,
+    );
+    expect(run).not.toMatch(/export\s+GIT_CONFIG|-c\s+["']?http\./);
+  });
+});
+
 describe("the workflow never hand-feeds measurements", () => {
   it("does not pass --measurements to the signer", () => {
     // If this ever reappears, the P1 is back: the signer would be certifying

@@ -27,6 +27,7 @@ import Stripe from "stripe";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { pgPoolTls } from "../lib/prisma-pool-config";
 import { STRIPE_API_VERSION } from "../lib/stripe";
 import {
   FoundingTrialGrantError,
@@ -59,7 +60,7 @@ if (!organizationId || (apply && (!confirmedAbn || !confirmedName))) {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg(new Pool({ connectionString, max: 2 })),
+  adapter: new PrismaPg(new Pool({ ...pgPoolTls(connectionString), max: 2 })),
 });
 const stripe = new Stripe(stripeKey, {
   apiVersion: STRIPE_API_VERSION,

@@ -7,6 +7,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { requireAddon } from "@/lib/entitlements";
 import { PAYMENTS_SKU } from "@/lib/billing/payments-addon";
+import { resourceBillsToCaller } from "@/lib/organization-credits";
 
 const MAX_SERIALIZABLE_ATTEMPTS = 3;
 
@@ -71,6 +72,23 @@ export async function POST(
           code: "VALIDATION",
           message: "Payment method is required",
           status: 400,
+        });
+      }
+
+      // RA-7893: the PAYMENTS gate above reads the caller's CURRENT business,
+      // so the invoice must belong to that business (resourceBillsToCaller):
+      // never one its creator made before joining it.
+      // userId and createdAt never change, so this read can sit outside the
+      // payment transaction. A missing invoice falls through to its 404.
+      const owned = await prisma.invoice.findUnique({
+        where: { id, userId },
+        select: { userId: true, createdAt: true },
+      });
+      if (owned && !(await resourceBillsToCaller(userId, owned))) {
+        return apiError(request, {
+          code: "PAYMENT_REQUIRED",
+          message: `The "${PAYMENTS_SKU}" add-on is required for this feature`,
+          status: 402,
         });
       }
 

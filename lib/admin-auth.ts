@@ -134,6 +134,36 @@ export function verifyPlatformSupportOperator(
 }
 
 /**
+ * Business-owner work on the caller's own organisation (pricing, setup).
+ * `verifyAdminFromDb` alone means "owner of ANY business" (RA-7647); this also
+ * proves the DB-verified ADMIN owns the organisation they belong to. Invites
+ * only grant MANAGER/USER, so in a working tenant the ADMIN is the owner; an
+ * ADMIN in an organisation someone else owns, or whose organisation row is
+ * missing, is refused. An org-less ADMIN is their own tenant.
+ */
+export async function verifyTenantAdmin(
+  session: Session | null,
+): Promise<AdminAuthResult> {
+  const auth = await verifyAdminFromDb(session);
+  if (!auth.user) return auth;
+
+  const { id, organizationId } = auth.user;
+  if (typeof organizationId === "string" && organizationId.length > 0) {
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { ownerId: true },
+    });
+    if (organization?.ownerId !== id) {
+      return {
+        response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      };
+    }
+  }
+
+  return auth;
+}
+
+/**
  * The users a tenant ADMIN may list or manage, as a Prisma `User` filter.
  *
  * A null organisation must never match another null organisation (the rule in

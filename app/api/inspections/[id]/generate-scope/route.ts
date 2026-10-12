@@ -267,7 +267,7 @@ export async function POST(
     // Construct user message
     const userMessage = buildScopeUserMessage({
       propertyAddress: inspection.propertyAddress,
-      inspectionDate: inspection.inspectionDate.toISOString(),
+      inspectionDate: inspection.inspectionDate?.toISOString() ?? null,
       damageCategory: `CAT_${classification.category}`,
       damageClass: `CLASS_${classification.class}`,
       lossSourceIdentified: lossSourceDescription !== undefined,

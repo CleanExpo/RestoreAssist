@@ -62,7 +62,7 @@ export async function syncNIRJobToQuickBooks(
   integrationId: string,
   job: NIRJobPayload,
 ): Promise<{ qboInvoiceId: string; qboDocNumber: string; status: string }> {
-  const tokens = await getTokens(integrationId);
+  const tokens = await getTokens(integrationId, "QUICKBOOKS");
   if (!tokens.accessToken) throw new Error("QuickBooks not connected");
 
   const integration = await prisma.integration.findUnique({
@@ -76,7 +76,7 @@ export async function syncNIRJobToQuickBooks(
   if (tokens.isExpired && tokens.refreshToken) {
     const client = new QuickBooksClient(integrationId, integration.realmId);
     await client.refreshAccessToken();
-    const freshTokens = await getTokens(integrationId);
+    const freshTokens = await getTokens(integrationId, "QUICKBOOKS");
     if (!freshTokens.accessToken)
       throw new Error("QuickBooks token refresh failed");
     accessToken = freshTokens.accessToken;
@@ -152,14 +152,14 @@ export async function syncNIRJobToQuickBooks(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    await markIntegrationError(integrationId, `QBO error: ${res.statusText}`);
+    await markIntegrationError(integrationId, `QBO error: ${res.statusText}`, "QUICKBOOKS");
     throw new Error(
       `QBO API error: ${res.statusText} — ${JSON.stringify(err)}`,
     );
   }
 
   const data = await res.json();
-  await logSync(integrationId, "FULL", "SUCCESS", 1, 0);
+  await logSync(integrationId, "FULL", "SUCCESS", 1, 0, undefined, "QUICKBOOKS");
   return {
     qboInvoiceId: data.Invoice.Id,
     qboDocNumber: data.Invoice.DocNumber,

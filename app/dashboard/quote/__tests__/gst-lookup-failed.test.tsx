@@ -33,7 +33,10 @@ const QUOTE = {
   safety: { mouldActive: false, airMoverQty: 4, advisories: [] },
   contractor: { businessName: "Synthetic Co", abn: "", address: "", phone: "", email: "", logo: "" },
   client: { name: "Synthetic Client", address: "1 Test St", phone: "", email: "client@example.com" },
-  lineItems: [{ description: "Labour", qty: 10, unit: "hr", rate: 100, subtotal: 1000 }],
+  lineItems: [
+    { description: "Labour", qty: 10, unit: "hr", rate: 100, subtotal: 1000, exGST: 1000, incGST: 1150 },
+  ],
+  minimumChargeLine: null,
   subtotalExGST: 1000,
   gst: 150,
   totalIncGST: 1150,

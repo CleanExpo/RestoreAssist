@@ -43,3 +43,35 @@ describe("generateForensicReportPDF — terms summary", () => {
     expect(text).not.toContain("Rensdialen");
   });
 });
+
+// The summary paragraph used to print "screening: NEGATIVE" for any screen that
+// was not POSITIVE, while the badge on the same page said "Not assessed".
+describe("generateForensicReportPDF — methamphetamine summary", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(new Uint8Array([1]))));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const summaryOf = async (methamphetamineScreen?: string) => {
+    const data = baseData("");
+    const pdf = await generateForensicReportPDF({
+      ...data,
+      report: { ...data.report, methamphetamineScreen },
+    });
+    return (await extractPdfText(pdf)).replace(/\s+/g, " ");
+  };
+
+  it("does not report an unassessed screen as NEGATIVE", async () => {
+    const text = await summaryOf(undefined);
+
+    expect(text).not.toMatch(/screening: NEGATIVE/);
+    expect(text).toMatch(/screening: not assessed/);
+  });
+
+  it("reports a recorded NEGATIVE as NEGATIVE", async () => {
+    expect(await summaryOf("NEGATIVE")).toMatch(/screening: NEGATIVE/);
+  });
+});

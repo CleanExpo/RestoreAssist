@@ -74,9 +74,14 @@ export async function GET(
       });
     }
 
+    // The full version history can hold invalidated draft snapshots. It is
+    // available only through the creator-scoped version-history route, not
+    // through this organisation-readable report detail response.
+    const { versionHistory: _internalVersionHistory, ...publicReport } = report;
+
     // Parse JSON fields back to objects for frontend use
     const parsedReport = {
-      ...report,
+      ...publicReport,
       psychrometricReadings: report.psychrometricReadings
         ? JSON.parse(report.psychrometricReadings)
         : null,

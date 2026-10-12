@@ -88,6 +88,21 @@ beforeEach(() => {
 });
 
 describe("byokKeysCheck — operating key gate", () => {
+  it.each(["DISABLED", "FAILED"])("funded trial with %s Anthropic describes the configured connection instead of promising trial credentials", async (status) => {
+    mockListProviderConnections.mockResolvedValue([{ provider: "ANTHROPIC", status }]);
+    mockDescribeCoverage.mockResolvedValue({
+      fundedTrial: true,
+      platformKeyPresent: true,
+      canUsePlatformTrial: false,
+      platformProviderStatus: status,
+    });
+    const result = await byokKeysCheck(FAKE_ORG_ID);
+    expect(result.status).toBe("yellow");
+    expect(result.note).toMatch(status === "DISABLED" ? /disabled/i : /failed/i);
+    expect(result.note).not.toMatch(/will power report generation/i);
+    expect(mockValidateProviderKey).not.toHaveBeenCalled();
+  });
+
   it("returns RED when there are zero connections (no BYOK key added)", async () => {
     mockListProviderConnections.mockResolvedValue([]);
 

@@ -25,6 +25,11 @@ import {
 } from "@/lib/documents/render-authority-form";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import type { ClientBrandTheme } from "@/lib/clients/brand";
+import {
+  photoOwnerFolders,
+  photoSourceFetchUrl,
+  resolvePhotoSource,
+} from "@/lib/reports/inspection-photos-to-images";
 
 interface BuildResult {
   /** Buffer of the final ZIP — assembled in memory. Acceptable for v1
@@ -61,6 +66,8 @@ export async function buildJobPackageStream(
       id: true,
       inspectionNumber: true,
       userId: true,
+      workspaceId: true,
+      user: { select: { organizationId: true } },
       reportId: true,
       photos: {
         select: {
@@ -213,9 +220,24 @@ export async function buildJobPackageStream(
   }
 
   // ── /photos/<filename> ─────────────────────────────────────────────────
+  // RA-7879: the same photo URL guard as reports. A refused URL is left out
+  // and logged, never fetched; private storage objects are signed first.
+  const ownerFolders = photoOwnerFolders(inspection);
   for (const photo of inspection.photos) {
+    const source = resolvePhotoSource(photo.url?.trim() ?? "", {
+      inspectionId: inspection.id,
+      ownerFolders,
+    });
+    if (source.kind === "refused") {
+      console.error("[Job Package] refused a photo URL", {
+        inspectionId: inspection.id,
+        photoId: photo.id,
+        reason: source.reason,
+      });
+      continue;
+    }
     try {
-      const response = await fetch(photo.url);
+      const response = await fetch(await photoSourceFetchUrl(source));
       if (!response.ok) {
         console.error(
           `[Job Package] photo ${photo.id} fetch failed: ${response.status}`,

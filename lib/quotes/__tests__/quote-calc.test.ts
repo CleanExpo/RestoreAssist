@@ -3,8 +3,8 @@ import {
   MINIMUM_CHARGE_EX_GST,
   QuoteRequestSchema,
   applyMinimumCharge,
-  calcGstOnSubtotal,
   dollarsToCents,
+  quoteGstAsInvoiced,
 } from "../quote-calc";
 
 describe("QuoteRequestSchema", () => {
@@ -56,9 +56,12 @@ describe("applyMinimumCharge", () => {
   });
 });
 
-describe("calcGstOnSubtotal", () => {
+describe("quoteGstAsInvoiced", () => {
   it("applies 10% GST with cent rounding", () => {
-    const { gst, totalIncGST } = calcGstOnSubtotal(2750);
+    const { gst, totalIncGST } = quoteGstAsInvoiced(
+      { lineItems: [{ description: "Job", qty: 1, rate: 2750 }], subtotalExGST: 2750 },
+      "AU",
+    );
     expect(gst).toBe(275);
     expect(totalIncGST).toBe(3025);
   });

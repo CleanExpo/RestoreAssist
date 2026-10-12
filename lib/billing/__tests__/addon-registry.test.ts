@@ -32,11 +32,11 @@ describe("RECURRING_ADDONS — BOOKKEEPING", () => {
     expect(descriptor?.sku).toBe("BOOKKEEPING");
   });
 
-  it("still resolves the pre-existing FLOORPLAN_UNDERLAY entry at $9.95", () => {
+  it("still resolves the pre-existing FLOORPLAN_UNDERLAY entry, now at $11", () => {
     const descriptor = getRecurringAddon("FLOORPLAN_UNDERLAY");
 
     expect(descriptor?.sku).toBe("FLOORPLAN_UNDERLAY");
-    expect(descriptor?.amount).toBe(9.95);
+    expect(descriptor?.amount).toBe(11);
   });
 });
 

@@ -21,8 +21,10 @@ import {
 import { QuickBooksClient } from "@/lib/integrations/quickbooks/client";
 import { prisma } from "@/lib/prisma";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
+import { isOAuthIntegration } from "@/lib/integrations/identity";
 
 export type QuickBooksCredentialsReason =
+  | "INVALID_INTEGRATION"
   | "DISCONNECTED"
   | "RECONNECT_REQUIRED"
   | "REFRESH_FAILED";
@@ -31,8 +33,16 @@ const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
 export async function getValidQuickBooksAccessToken(
   integrationId: string,
+  options: { forceRefresh?: boolean } = {},
 ): Promise<ServiceResult<string, QuickBooksCredentialsReason>> {
-  const tokens = await getTokens(integrationId);
+  const integration = await prisma.integration.findUnique({
+    where: { id: integrationId },
+    select: { provider: true, name: true, icon: true, config: true, realmId: true, tokenExpiresAt: true },
+  });
+  if (!integration || !isOAuthIntegration(integration, "QUICKBOOKS")) {
+    return fail("INVALID_INTEGRATION", { detail: "Invalid QuickBooks integration identity" });
+  }
+  const tokens = await getTokens(integrationId, "QUICKBOOKS");
 
   if (!tokens.accessToken) {
     return fail("DISCONNECTED", {
@@ -41,6 +51,7 @@ export async function getValidQuickBooksAccessToken(
   }
 
   const needsRefresh =
+    options.forceRefresh ||
     tokens.isExpired ||
     (tokens.tokenExpiresAt != null &&
       tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
@@ -53,6 +64,7 @@ export async function getValidQuickBooksAccessToken(
     await markIntegrationError(
       integrationId,
       "QuickBooks token expired and no refresh token — user must re-connect",
+      "QUICKBOOKS",
     );
     return fail("RECONNECT_REQUIRED", {
       detail: "Token expired and no refresh token available",
@@ -60,16 +72,12 @@ export async function getValidQuickBooksAccessToken(
   }
 
   try {
-    const integration = await prisma.integration.findUnique({
-      where: { id: integrationId },
-      select: { realmId: true },
-    });
     const client = new QuickBooksClient(
       integrationId,
       integration?.realmId ?? undefined,
     );
     await client.refreshAccessToken();
-    const fresh = await getTokens(integrationId);
+    const fresh = await getTokens(integrationId, "QUICKBOOKS");
     if (!fresh.accessToken) {
       return fail("REFRESH_FAILED", {
         detail: "Refresh completed but token still missing",

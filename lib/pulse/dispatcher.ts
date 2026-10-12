@@ -21,11 +21,12 @@
  * notification.
  */
 
+import { pickPortalToken } from "@/lib/pulse/pick-portal-token";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
 import { sendPulseUpdateEmail } from "@/lib/email";
-import { requireAddon } from "@/lib/entitlements";
+import { requireAddonForResource } from "@/lib/entitlements";
 import {
   renderCodeOfPracticeUpdateEmail,
   renderDailyDigestEmail,
@@ -142,6 +143,7 @@ export async function dispatchPulseNotification(
     select: {
       id: true,
       userId: true,
+      createdAt: true,
       pulseEnabled: true,
       report: {
         select: {
@@ -150,10 +152,16 @@ export async function dispatchPulseNotification(
               email: true,
               pulseOptOut: true,
               portalAccounts: {
-                where: { revokedAt: null },
+                // This job's link, or one issued before binding existed. The
+                // filter sits in the query so `take` can never cut off the
+                // bound link behind newer links for other jobs.
+                where: {
+                  revokedAt: null,
+                  OR: [{ inspectionId }, { inspectionId: null }],
+                },
                 orderBy: { createdAt: "desc" },
-                take: 1,
-                select: { token: true },
+                take: 25,
+                select: { token: true, inspectionId: true, createdAt: true },
               },
             },
           },
@@ -168,7 +176,7 @@ export async function dispatchPulseNotification(
 
   const client = job.report?.client ?? null;
   const recipient = client?.email ?? "";
-  const token = client?.portalAccounts?.[0]?.token ?? null;
+  const token = pickPortalToken(client?.portalAccounts ?? [], inspectionId);
   const rendered = render(event, buildPortalUrl(token));
   const logicalKey = `${inspectionId}:${event.type}:${eventFingerprint(event)}`;
 
@@ -201,7 +209,13 @@ export async function dispatchPulseNotification(
   // RA-6954 — client-comms send requires the CLIENT_COMMS entitlement.
   // Internal status reads (the portal feed itself) are never gated — only
   // this SEND path is.
-  const addonGate = await requireAddon(job.userId, "CLIENT_COMMS");
+  // RA-7893: the CLIENT_COMMS of the business the JOB belongs to — not of an
+  // organisation its creator joined after creating it.
+  const addonGate = await requireAddonForResource(
+    job.userId,
+    job.createdAt,
+    "CLIENT_COMMS",
+  );
   if (!addonGate.allowed) return suppress("NOT_ENTITLED");
   if (!pulseEnvConfigured()) {
     reportError(

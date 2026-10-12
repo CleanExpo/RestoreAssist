@@ -19,14 +19,14 @@ export async function syncNIRJobToServiceM8(
   integrationId: string,
   job: NIRJobPayload,
 ): Promise<{ sm8JobUuid: string; sm8JobNumber?: string }> {
-  const tokens = await getTokens(integrationId);
+  const tokens = await getTokens(integrationId, "SERVICEM8");
   if (!tokens.accessToken) throw new Error("ServiceM8 not connected");
 
   let accessToken = tokens.accessToken;
   if (tokens.isExpired && tokens.refreshToken) {
     const client = new ServiceM8Client(integrationId);
     await client.refreshAccessToken();
-    const freshTokens = await getTokens(integrationId);
+    const freshTokens = await getTokens(integrationId, "SERVICEM8");
     if (!freshTokens.accessToken)
       throw new Error("ServiceM8 token refresh failed");
     accessToken = freshTokens.accessToken;
@@ -65,6 +65,7 @@ export async function syncNIRJobToServiceM8(
     await markIntegrationError(
       integrationId,
       `ServiceM8 job create failed: ${jobRes.statusText}`,
+      "SERVICEM8",
     );
     throw new Error(`ServiceM8 error: ${jobRes.statusText}`);
   }
@@ -130,6 +131,6 @@ export async function syncNIRJobToServiceM8(
     }),
   }).catch(() => {}); // note failure is non-fatal
 
-  await logSync(integrationId, "FULL", "SUCCESS", 1, 0);
+  await logSync(integrationId, "FULL", "SUCCESS", 1, 0, undefined, "SERVICEM8");
   return { sm8JobUuid: jobUuid, sm8JobNumber: jobData?.generated_job_id };
 }

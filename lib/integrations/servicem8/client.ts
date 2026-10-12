@@ -13,12 +13,14 @@ import {
 } from "../base-client";
 import {
   getTokens,
+  assertOAuthIntegration,
   storeTokens,
   markIntegrationError,
   disconnectIntegration,
   PROVIDER_CONFIG,
 } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
+import { isOAuthIntegration } from "../identity";
 
 interface ServiceM8ClientRecord {
   uuid: string;
@@ -85,6 +87,7 @@ export class ServiceM8Client extends BaseIntegrationClient {
     code: string,
     redirectUri: string,
   ): Promise<TokenResponse> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     const clientId = getClientId("SERVICEM8");
     const clientSecret = getClientSecret("SERVICEM8");
 
@@ -117,7 +120,7 @@ export class ServiceM8Client extends BaseIntegrationClient {
    * Refresh access token using refresh token
    */
   async refreshAccessToken(): Promise<void> {
-    const tokens = await getTokens(this.integrationId);
+    const tokens = await getTokens(this.integrationId, this.provider);
 
     if (!tokens.refreshToken) {
       throw new Error("No refresh token available");
@@ -148,11 +151,12 @@ export class ServiceM8Client extends BaseIntegrationClient {
         response.status === 403 ||
         (response.status === 400 && /invalid_grant/i.test(error));
       if (isTerminal) {
-        await disconnectIntegration(this.integrationId);
+        await disconnectIntegration(this.integrationId, this.provider);
       } else {
         await markIntegrationError(
           this.integrationId,
           `Token refresh failed: ${error}`,
+          this.provider,
         );
       }
       throw new Error(`Token refresh failed: ${error}`);
@@ -164,6 +168,7 @@ export class ServiceM8Client extends BaseIntegrationClient {
       tokenResponse.access_token,
       tokenResponse.refresh_token || tokens.refreshToken,
       tokenResponse.expires_in,
+      this.provider,
     );
   }
 
@@ -171,6 +176,7 @@ export class ServiceM8Client extends BaseIntegrationClient {
    * Fetch clients from ServiceM8
    */
   async fetchClients(): Promise<ExternalClientData[]> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     try {
       const clients = await this.makeRequest<ServiceM8ClientRecord[]>(
         "/client.json?%24filter=active%20eq%201",
@@ -199,6 +205,7 @@ export class ServiceM8Client extends BaseIntegrationClient {
    * Fetch jobs from ServiceM8
    */
   async fetchJobs(): Promise<ExternalJobData[]> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     try {
       const jobs = await this.makeRequest<ServiceM8Job[]>(
         "/job.json?%24filter=active%20eq%201",
@@ -342,9 +349,10 @@ export async function createServiceM8Client(
 ): Promise<ServiceM8Client> {
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
+    select: { provider: true, name: true, icon: true, config: true, tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true },
   });
 
-  if (!integration || integration.provider !== "SERVICEM8") {
+  if (!integration || !isOAuthIntegration(integration, "SERVICEM8")) {
     throw new Error("Invalid ServiceM8 integration");
   }
 

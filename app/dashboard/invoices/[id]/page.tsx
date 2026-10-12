@@ -718,10 +718,13 @@ export default function InvoiceDetailPage({
                       Unit Price
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
+                      Ex GST
+                    </th>
+                    <th className="hidden sm:table-cell px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
                       GST
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
-                      Total
+                      Inc GST
                     </th>
                   </tr>
                 </thead>
@@ -744,7 +747,11 @@ export default function InvoiceDetailPage({
                       <td className="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
                         ${(item.unitPrice / 100).toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">
+                      {/* RA-7896: the stored line ex GST and inc GST. */}
+                      <td className="px-6 py-4 text-right text-sm text-slate-900 dark:text-white">
+                        ${(item.subtotal / 100).toFixed(2)}
+                      </td>
+                      <td className="hidden sm:table-cell px-6 py-4 text-right text-sm text-slate-600 dark:text-slate-400">
                         ${(item.gstAmount / 100).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 text-right text-sm font-medium text-slate-900 dark:text-white">
@@ -1041,7 +1048,7 @@ export default function InvoiceDetailPage({
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
               Record Payment
             </h2>
-            <form onSubmit={handleRecordPayment} className="space-y-4">
+            <form method="post" onSubmit={handleRecordPayment} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Amount Due: ${(invoice.amountDue / 100).toFixed(2)}

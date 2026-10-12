@@ -10,6 +10,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 
+const xero = vi.hoisted(() => ({ create: vi.fn(), sync: vi.fn() }));
+vi.mock("@/lib/integrations/xero/client", () => ({ createXeroClient: xero.create }));
+
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/integrations/subscription-guard", () => ({
@@ -59,12 +62,16 @@ function ctx(provider: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  xero.create.mockResolvedValue({ syncWithLifecycle: xero.sync });
+  xero.sync.mockReset().mockResolvedValue({ clientsCount: 3, jobsCount: 5 });
   mockSession.mockResolvedValue({ user: { id: "u_test" } });
   mockFindFirst.mockResolvedValue({
     id: "integration_1",
     userId: "u_test",
     provider: "XERO",
     status: "CONNECTED",
+    tenantId: "synthetic-tenant",
+    workspaceId: "ws_1",
   });
 });
 
@@ -86,6 +93,8 @@ describe("RA-6920 B3 — BOOKKEEPING add-on gate on sync", () => {
     expect(mockRequireAddon).toHaveBeenCalledWith("u_test", "BOOKKEEPING");
     // Gated before the integration lookup / sync ever runs.
     expect(mockFindFirst).not.toHaveBeenCalled();
+    expect(xero.create).not.toHaveBeenCalled();
+    expect(xero.sync).not.toHaveBeenCalled();
   });
 
   it("returns 402 when not entitled to sync QuickBooks", async () => {
@@ -132,6 +141,11 @@ describe("RA-6920 B3 — BOOKKEEPING add-on gate on sync", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
+    expect(body).toMatchObject({ clientsSynced: 3, jobsSynced: 5 });
+    expect(xero.sync).toHaveBeenCalledWith(
+      { syncClients: true, syncJobs: true },
+      { expectedTenantId: "synthetic-tenant", expectedUserId: "u_test", expectedWorkspaceId: "ws_1" },
+    );
     expect(mockRequireAddon).toHaveBeenCalledWith("u_test", "BOOKKEEPING");
   });
 
@@ -158,19 +172,9 @@ describe("Xero sync upstream error mapping", () => {
       workspaceId: "ws_1",
     });
 
-    const { createClientForIntegration } = await import("@/lib/integrations");
-    (
-      createClientForIntegration as unknown as ReturnType<typeof vi.fn>
-    ).mockResolvedValueOnce({
-      syncClients: vi.fn(async () => {
-        const err = new DOMException(
-          "The operation was aborted due to timeout",
-          "TimeoutError",
-        );
-        throw err;
-      }),
-      syncJobs: vi.fn(async () => 0),
-    });
+    xero.sync.mockRejectedValueOnce(new DOMException(
+      "The operation was aborted due to timeout", "TimeoutError",
+    ));
 
     const res = await POST(makeRequest(), ctx("xero"));
 
@@ -187,15 +191,7 @@ describe("Xero sync upstream error mapping", () => {
       workspaceId: "ws_1",
     });
 
-    const { createClientForIntegration } = await import("@/lib/integrations");
-    (
-      createClientForIntegration as unknown as ReturnType<typeof vi.fn>
-    ).mockResolvedValueOnce({
-      syncClients: vi.fn(async () => {
-        throw new Error("XERO_CLIENT_SECRET is not configured");
-      }),
-      syncJobs: vi.fn(async () => 0),
-    });
+    xero.sync.mockRejectedValueOnce(new Error("XERO_CLIENT_SECRET is not configured"));
 
     const res = await POST(makeRequest(), ctx("xero"));
 
@@ -204,7 +200,7 @@ describe("Xero sync upstream error mapping", () => {
     expect(body.error?.message).toMatch(/XERO_CLIENT_SECRET/);
   });
 
-  it("allows retry when integration is already in ERROR and restores CONNECTED", async () => {
+  it("allows retry in ERROR and delegates the guarded lifecycle with the selected scope", async () => {
     mockRequireAddon.mockResolvedValue({
       allowed: true,
       sku: "BOOKKEEPING",
@@ -215,6 +211,8 @@ describe("Xero sync upstream error mapping", () => {
       userId: "u_test",
       provider: "XERO",
       status: "ERROR",
+      tenantId: "synthetic-tenant",
+      workspaceId: "ws_1",
     });
 
     const mockUpdate = (
@@ -233,13 +231,22 @@ describe("Xero sync upstream error mapping", () => {
         }),
       }),
     );
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: "CONNECTED",
-          syncError: null,
-        }),
-      }),
+    expect(xero.sync).toHaveBeenCalledWith(
+      { syncClients: true, syncJobs: true },
+      { expectedTenantId: "synthetic-tenant", expectedUserId: "u_test", expectedWorkspaceId: "ws_1" },
     );
+    // Actual lifecycle transitions and delayed reconnects are exercised by
+    // binding-concurrency.test.ts; the route must not overwrite them by id.
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
+});
+
+// These tests cover route policy/import behaviour; provider identity has dedicated real-service regressions.
+vi.mock("@/lib/services/integrations/select-oauth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/services/integrations/select-oauth")>();
+  return { ...actual, selectOAuthIntegration: vi.fn(async (input: { prisma: any; userId: string; provider: string; requireReady?: boolean }) => {
+    const row = await input.prisma.integration.findFirst({ where: { userId: input.userId, provider: input.provider,
+      ...(input.requireReady ? { status: { in: ["CONNECTED", "ERROR", "SYNCING"] } } : {}) } });
+    return row ? { ok: true, data: row } : { ok: false, reason: "NOT_FOUND" };
+  }) };
 });

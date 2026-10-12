@@ -67,14 +67,14 @@ describe("GET /api/reports/[id]/download", () => {
 
   it("returns 402 when the subscription is not active", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
-    userFindUnique.mockResolvedValueOnce({ id: "u_1", subscriptionStatus: "EXPIRED" });
+    userFindUnique.mockResolvedValue({ id: "u_1", subscriptionStatus: "EXPIRED" });
     const res = await GET(req(), ctx);
     expect(res.status).toBe(402);
   });
 
   it("returns 404 (tenant-scoped) when the report is not the caller's", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
-    userFindUnique.mockResolvedValueOnce({ id: "u_1", subscriptionStatus: "ACTIVE" });
+    userFindUnique.mockResolvedValue({ id: "u_1", subscriptionStatus: "ACTIVE" });
     reportFindFirst.mockResolvedValueOnce(null);
     const res = await GET(req(), ctx);
     expect(res.status).toBe(404);

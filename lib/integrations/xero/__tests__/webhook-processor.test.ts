@@ -6,7 +6,7 @@
  * idempotency, error handling, unrecognised event skip.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createHmac } from "crypto";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -38,6 +38,7 @@ vi.mock("@/lib/services/xero/credentials", () => ({
     .mockResolvedValue({ ok: true, data: "test-token" }),
 }));
 
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import {
@@ -58,9 +59,18 @@ const mockFindUniqueIntegration = prisma.integration.findUnique as ReturnType<
 >;
 const mockQueueInvoiceSync = queueInvoiceSync as ReturnType<typeof vi.fn>;
 
+const binding = {
+  id: "integ-1", userId: "u-1", workspaceId: "workspace-1", provider: "XERO",
+  name: "Custom bookkeeping connection", icon: null, tenantId: "tenant-abc", status: "CONNECTED",
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(global, "fetch").mockRejectedValue(new Error("External network prohibited in synthetic webhook tests"));
+  mockFindUniqueIntegration.mockResolvedValue(binding);
+  vi.mocked(prisma.webhookEvent.updateMany).mockResolvedValue({ count: 1 });
 });
+afterEach(() => { vi.restoreAllMocks(); });
 
 // ─── Signature verification ───────────────────────────────────────────────────
 
@@ -124,7 +134,7 @@ describe("processXeroWebhookBatch — invoice.updated", () => {
         status: "PENDING",
         eventType: "invoice.updated",
         integrationId: "integ-1",
-        payload: { resourceId: "xero-inv-123", resourceType: "INVOICE" },
+        payload: { tenantId: "tenant-abc", resourceId: "xero-inv-123", resourceType: "INVOICE" },
         integration: { id: "integ-1" },
       },
     ]);
@@ -159,7 +169,7 @@ describe("processXeroWebhookBatch — invoice.updated", () => {
         status: "PENDING",
         eventType: "invoice.updated",
         integrationId: "integ-1",
-        payload: { resourceId: "xero-unknown", resourceType: "INVOICE" },
+        payload: { tenantId: "tenant-abc", resourceId: "xero-unknown", resourceType: "INVOICE" },
         integration: { id: "integ-1" },
       },
     ]);
@@ -185,7 +195,7 @@ describe("processXeroWebhookBatch — invoice.paid", () => {
         status: "PENDING",
         eventType: "invoice.paid",
         integrationId: "integ-1",
-        payload: {
+        payload: { tenantId: "tenant-abc",
           resourceId: "xero-inv-paid-1",
           resourceType: "INVOICE",
           eventDateUtc: eventDate,
@@ -204,7 +214,7 @@ describe("processXeroWebhookBatch — invoice.paid", () => {
     expect(result.processed).toBe(1);
     expect(mockUpdateInvoice).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "local-inv-2" },
+        where: expect.objectContaining({ id: "local-inv-2", userId: "u-1", workspaceId: "workspace-1", externalSyncProvider: { in: ["XERO", "xero"] } }),
         data: expect.objectContaining({
           status: "PAID",
           amountPaid: 110000,
@@ -222,7 +232,7 @@ describe("processXeroWebhookBatch — invoice.paid", () => {
         status: "PENDING",
         eventType: "invoice.paid",
         integrationId: "integ-1",
-        payload: { resourceId: "xero-inv-3", resourceType: "INVOICE" },
+        payload: { tenantId: "tenant-abc", resourceId: "xero-inv-3", resourceType: "INVOICE" },
         integration: { id: "integ-1" },
       },
     ]);
@@ -250,7 +260,7 @@ describe("processXeroWebhookBatch — payment.created", () => {
         status: "PENDING",
         eventType: "payment.created",
         integrationId: "integ-1",
-        payload: {
+        payload: { tenantId: "tenant-abc",
           resourceId: "xero-payment-abc",
           resourceType: "PAYMENT",
           eventDateUtc: eventDate,
@@ -258,10 +268,7 @@ describe("processXeroWebhookBatch — payment.created", () => {
         integration: { id: "integ-1" },
       },
     ]);
-    mockFindUniqueIntegration.mockResolvedValue({
-      id: "integ-1",
-      tenantId: "tenant-abc",
-    });
+    mockFindUniqueIntegration.mockResolvedValue(binding);
     mockFindFirstInvoice.mockResolvedValue({
       id: "local-inv-pc-1",
       status: "SENT",
@@ -292,7 +299,7 @@ describe("processXeroWebhookBatch — payment.created", () => {
     expect(result.processed).toBe(1);
     expect(mockUpdateInvoice).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "local-inv-pc-1" },
+        where: expect.objectContaining({ id: "local-inv-pc-1", userId: "u-1", workspaceId: "workspace-1", externalSyncProvider: { in: ["XERO", "xero"] } }),
         data: expect.objectContaining({
           status: "PAID",
           amountPaid: 110000,
@@ -312,17 +319,14 @@ describe("processXeroWebhookBatch — payment.created", () => {
         status: "PENDING",
         eventType: "payment.created",
         integrationId: "integ-1",
-        payload: {
+        payload: { tenantId: "tenant-abc",
           resourceId: "xero-payment-standalone",
           resourceType: "PAYMENT",
         },
         integration: { id: "integ-1" },
       },
     ]);
-    mockFindUniqueIntegration.mockResolvedValue({
-      id: "integ-1",
-      tenantId: "tenant-abc",
-    });
+    mockFindUniqueIntegration.mockResolvedValue(binding);
     const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -358,7 +362,7 @@ describe("processXeroWebhookBatch — edge cases", () => {
         status: "PENDING",
         eventType: "contact.updated",
         integrationId: "integ-1",
-        payload: { resourceId: "xero-contact-1", resourceType: "CONTACT" },
+        payload: { tenantId: "tenant-abc", resourceId: "xero-contact-1", resourceType: "CONTACT" },
         integration: { id: "integ-1" },
       },
     ]);
@@ -382,7 +386,7 @@ describe("processXeroWebhookBatch — edge cases", () => {
         status: "PENDING",
         eventType: "invoice.updated",
         integrationId: "integ-1",
-        payload: { resourceId: null, resourceType: "INVOICE" }, // missing resourceId
+        payload: { tenantId: "tenant-abc", resourceId: null, resourceType: "INVOICE" }, // missing resourceId
         integration: { id: "integ-1" },
       },
     ]);
@@ -421,5 +425,103 @@ describe("processXeroWebhookBatch — edge cases", () => {
     mockFindManyEvents.mockResolvedValue([]);
     const result = await processXeroWebhookBatch();
     expect(result).toEqual({ processed: 0, failed: 0, skipped: 0 });
+  });
+});
+
+
+function pendingEvent(eventType = "invoice.paid", overrides: Record<string, unknown> = {}) {
+  return { id: "scoped-event", provider: "XERO", status: "PENDING", eventType,
+    integrationId: "integ-1", integration: binding,
+    payload: { tenantId: "tenant-abc", resourceId: "shared-id", resourceType: eventType === "payment.created" ? "PAYMENT" : "INVOICE" },
+    ...overrides };
+}
+
+describe("Xero webhook dispatch isolation", () => {
+  it.each([
+    null,
+    { ...binding, tenantId: "other-tenant" },
+    { ...binding, tenantId: null },
+    { ...binding, status: "DISCONNECTED" },
+    { ...binding, provider: "QUICKBOOKS" },
+    { ...binding, provider: "ASCORA" },
+    { ...binding, name: "OpenAI GPT", icon: "[ra:ai]" },
+    { ...binding, name: "Anthropic Claude", icon: null },
+  ])("rejects a stale/invalid integration before credentials, fetch or invoice writes: %j", async (currentBinding) => {
+    // The included relation deliberately still looks valid: dispatch must re-read.
+    mockFindManyEvents.mockResolvedValue([pendingEvent("payment.created")]);
+    mockFindUniqueIntegration.mockResolvedValue(currentBinding);
+    const fetchSpy = vi.spyOn(global, "fetch").mockRejectedValue(new Error("unexpected provider call"));
+    expect(await processXeroWebhookBatch()).toEqual({ processed: 0, failed: 1, skipped: 0 });
+    expect(getValidXeroAccessToken).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockFindFirstInvoice).not.toHaveBeenCalled();
+    expect(mockUpdateInvoice).not.toHaveBeenCalled();
+    expect(mockQueueInvoiceSync).not.toHaveBeenCalled();
+  });
+
+  it.each([null, {}, { resourceId: "shared-id", resourceType: "INVOICE" }, { tenantId: 42 }])("fails closed for malformed queued payload %j", async payload => {
+    mockFindManyEvents.mockResolvedValue([pendingEvent("invoice.updated", { payload })]);
+    expect(await processXeroWebhookBatch()).toEqual({ processed: 0, failed: 1, skipped: 0 });
+    expect(mockFindFirstInvoice).not.toHaveBeenCalled();
+    expect(mockQueueInvoiceSync).not.toHaveBeenCalled();
+  });
+
+  it.each(["invoice.updated", "invoice.paid", "payment.created"])("isolates %s when external IDs overlap between owners/workspaces/providers", async eventType => {
+    mockFindManyEvents.mockResolvedValue([pendingEvent(eventType)]);
+    // A realistic query-dependent fake: an unscoped lookup picks the other owner's row.
+    const candidates = [
+      { id: "foreign-owner", userId: "u-2", workspaceId: "workspace-1", externalSyncProvider: "XERO", externalInvoiceId: "shared-id" },
+      { id: "foreign-workspace", userId: "u-1", workspaceId: "workspace-2", externalSyncProvider: "XERO", externalInvoiceId: "shared-id" },
+      { id: "foreign-provider", userId: "u-1", workspaceId: "workspace-1", externalSyncProvider: "QUICKBOOKS", externalInvoiceId: "shared-id" },
+      { id: "correct-invoice", userId: "u-1", workspaceId: "workspace-1", externalSyncProvider: "XERO", externalInvoiceId: "shared-id" },
+    ];
+    mockFindFirstInvoice.mockImplementation(({ where }) => candidates.find(candidate => Object.entries(where).every(([key, value]) => (typeof value === "object" && value !== null && "in" in value ? (value.in as string[]).includes(candidate[key as keyof typeof candidate]) : candidate[key as keyof typeof candidate] === value))) ?? null);
+    vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ Payments: [{ Invoice: { InvoiceID: "shared-id", AmountDue: 0 } }] }), { status: 200 }));
+    expect(await processXeroWebhookBatch()).toEqual({ processed: 1, failed: 0, skipped: 0 });
+    expect(mockFindFirstInvoice).toHaveBeenCalledWith(expect.objectContaining({ where: { externalInvoiceId: "shared-id", externalSyncProvider: { in: ["XERO", "xero"] }, userId: "u-1", workspaceId: "workspace-1" } }));
+    if (eventType === "invoice.updated") {
+      expect(mockQueueInvoiceSync).toHaveBeenCalledWith("correct-invoice", "XERO", "NORMAL");
+    } else {
+      expect(mockUpdateInvoice).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "correct-invoice" }) }));
+    }
+  });
+
+  it("includes explicit workspaceId null for personal invoices", async () => {
+    mockFindManyEvents.mockResolvedValue([pendingEvent("invoice.updated")]);
+    mockFindUniqueIntegration.mockResolvedValue({ ...binding, workspaceId: null });
+    mockFindFirstInvoice.mockResolvedValue(null);
+    await processXeroWebhookBatch();
+    expect(mockFindFirstInvoice).toHaveBeenCalledWith(expect.objectContaining({ where: { externalInvoiceId: "shared-id", externalSyncProvider: { in: ["XERO", "xero"] }, userId: "u-1", workspaceId: null } }));
+  });
+
+  it("does not dispatch an event already claimed by another worker", async () => {
+    mockFindManyEvents.mockResolvedValue([pendingEvent()]);
+    vi.mocked(prisma.webhookEvent.updateMany).mockResolvedValue({ count: 0 });
+    expect(await processXeroWebhookBatch()).toEqual({ processed: 0, failed: 0, skipped: 1 });
+    expect(mockFindUniqueIntegration).not.toHaveBeenCalled();
+    expect(mockUpdateInvoice).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("Xero webhook legacy identity compatibility", () => {
+  it("rejects config-only AI evidence before provider credentials are read", async () => {
+    mockFindManyEvents.mockResolvedValue([pendingEvent("payment.created")]);
+    const row = { ...binding, config: JSON.stringify({ apiKeyType: "OPENAI" }) };
+    mockFindUniqueIntegration.mockImplementation(({ select }) => Object.fromEntries(Object.keys(select).map(key => [key, row[key as keyof typeof row]])));
+    expect(await processXeroWebhookBatch()).toEqual({ processed: 0, failed: 1, skipped: 0 });
+    expect(getValidXeroAccessToken).not.toHaveBeenCalled();
+    expect(mockUpdateInvoice).not.toHaveBeenCalled();
+  });
+
+  it("accepts an explicitly legacy lowercase xero invoice without loosening owner/workspace scope", async () => {
+    mockFindManyEvents.mockResolvedValue([pendingEvent()]);
+    mockFindFirstInvoice.mockImplementation(({ where }) =>
+      where.externalSyncProvider?.in?.includes("xero") && where.userId === "u-1" && where.workspaceId === "workspace-1"
+        ? { id: "legacy-invoice", status: "SENT", totalIncGST: 10000 } : null);
+    expect(await processXeroWebhookBatch()).toEqual({ processed: 1, failed: 0, skipped: 0 });
+    expect(mockUpdateInvoice).toHaveBeenCalledWith(expect.objectContaining({ where: {
+      id: "legacy-invoice", externalInvoiceId: "shared-id", externalSyncProvider: { in: ["XERO", "xero"] }, userId: "u-1", workspaceId: "workspace-1",
+    } }));
   });
 });

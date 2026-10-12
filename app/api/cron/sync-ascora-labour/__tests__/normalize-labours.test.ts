@@ -3,7 +3,7 @@ import {
   normalizeJobLabours,
   findLabourRows,
   describeShape,
-} from "../route";
+} from "../labour-parser";
 
 /**
  * RA-7026 regression: the importer read `data.jobLabours`, a key Ascora never

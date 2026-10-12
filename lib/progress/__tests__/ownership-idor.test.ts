@@ -31,7 +31,7 @@ vi.mock("@/lib/prisma", () => {
       report: { findUnique: vi.fn() },
       claimProgress: { findUnique: vi.fn(), updateMany: vi.fn() },
       progressTransition: { findMany: vi.fn(), create: vi.fn() },
-      user: { findUnique: vi.fn() },
+      user: { findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
       $transaction: vi.fn(),
     },
   };

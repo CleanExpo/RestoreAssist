@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
 import type {
   ExternalDataSource,
   SyncedClientRow,
@@ -41,10 +42,8 @@ function formatAscoraAddress(parts: {
 async function listXeroClients(
   params: SyncedListParams,
 ): Promise<SyncedListResult<SyncedClientRow>> {
-  const integration = await prisma.integration.findFirst({
-    where: { userId: params.userId, provider: "XERO" },
-    select: { id: true },
-  });
+  const selection = await selectOAuthIntegration({ prisma, userId: params.userId, provider: "XERO", requireReady: true });
+  const integration = selection.ok ? selection.data : null;
 
   if (!integration) {
     return {
@@ -209,10 +208,8 @@ async function listAscoraClients(
 async function listXeroJobs(
   params: SyncedListParams,
 ): Promise<SyncedListResult<SyncedJobRow>> {
-  const integration = await prisma.integration.findFirst({
-    where: { userId: params.userId, provider: "XERO" },
-    select: { id: true },
-  });
+  const selection = await selectOAuthIntegration({ prisma, userId: params.userId, provider: "XERO", requireReady: true });
+  const integration = selection.ok ? selection.data : null;
 
   if (!integration) {
     return {

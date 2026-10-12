@@ -6,23 +6,25 @@ import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
 import { hasConfiguredAi } from "@/lib/services/integrations/ai-readiness";
+import { getEffectiveSubscription } from "@/lib/organization-credits";
+import { verifyTenantAdmin } from "@/lib/admin-auth";
 
 // GET - Retrieve pricing configuration for current user
 export async function GET(request: NextRequest) {
   try {
+    // RA-paid-client tranche 1: pricing configuration is protected.
+    // Re-validate the role from the database on every read — the JWT
+    // `session.user.role` claim can be stale for up to 90 days after a
+    // demotion, and a demoted technician must not continue to read
+    // admin-only rates.
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
-      });
-    }
+    const auth = await verifyTenantAdmin(session);
+    if (auth.response) return auth.response;
+    const userId = auth.user!.id;
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { id: true },
+      where: { id: userId },
+      select: { id: true, organizationId: true },
     });
 
     if (!user) {
@@ -76,18 +78,15 @@ export async function GET(request: NextRequest) {
 // PUT - Create or update pricing configuration
 export async function PUT(request: NextRequest) {
   try {
+    // RA-paid-client tranche 1: re-validate the role from the database
+    // on every write. See GET for rationale.
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
-      });
-    }
+    const auth = await verifyTenantAdmin(session);
+    if (auth.response) return auth.response;
+    const userId = auth.user!.id;
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -98,8 +97,12 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Lock pricing configuration for free users
-    if (user.subscriptionStatus === "TRIAL") {
+    // Lock pricing configuration for free users.
+    // RA-7893: read the business owner's plan (an invited technician carries
+    // status null and used to skip this lock), and fail closed: anything
+    // other than an active paid plan (lifetime included) stays locked.
+    const effectiveSub = await getEffectiveSubscription(user.id);
+    if (effectiveSub?.subscriptionStatus !== "ACTIVE") {
       return apiError(request, {
         code: "FORBIDDEN",
         message:

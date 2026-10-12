@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getGstTreatment } from "@/lib/gst-rules";
-import { buildCostEstimationData } from "../route";
+import { buildCostEstimationData } from "@/lib/restoration/cost-estimation-builder";
 
 /**
  * Same invariant as the scope of works, on the document that carries the money.

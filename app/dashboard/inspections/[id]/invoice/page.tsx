@@ -336,10 +336,13 @@ export default function InspectionInvoicePage({
                       Unit Price
                     </th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                      Ex GST
+                    </th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                       GST
                     </th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                      Total
+                      Inc GST
                     </th>
                   </tr>
                 </thead>
@@ -365,6 +368,10 @@ export default function InspectionInvoicePage({
                       <td className="px-4 py-3 text-right text-neutral-600 dark:text-slate-300">
                         {centsToAud(item.unitPrice)}
                       </td>
+                      {/* RA-7896: the stored line ex GST and inc GST. */}
+                      <td className="px-4 py-3 text-right text-neutral-600 dark:text-slate-300">
+                        {centsToAud(item.subtotal)}
+                      </td>
                       <td className="px-4 py-3 text-right text-neutral-500 dark:text-slate-400">
                         {centsToAud(item.gstAmount)}
                       </td>
@@ -377,7 +384,7 @@ export default function InspectionInvoicePage({
                 <tfoot className="bg-neutral-50 dark:bg-slate-800/50 border-t border-neutral-200 dark:border-slate-700">
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="px-4 py-3 text-right text-sm font-semibold text-neutral-600 dark:text-slate-300"
                     >
                       Total inc. GST

@@ -22,6 +22,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { getMembershipStart } from "@/lib/organization-credits";
 import type { Prisma } from "@prisma/client";
 
 export type TenancyResult<T> =
@@ -44,9 +45,32 @@ export interface SessionLike {
  *   platform  every tenant — RestoreAssist support only
  */
 export type TenantScope =
-  | { kind: "self" }
-  | { kind: "org"; organizationId: string }
+  | { kind: "self"; leftWindow?: MembershipWindow }
+  | {
+      kind: "org";
+      organizationId: string;
+      leftWindow?: MembershipWindow;
+      removedMembers: RemovedMember[];
+    }
   | { kind: "platform" };
+
+/**
+ * The interval a person belonged to an organisation: from the invite they
+ * accepted to the day they were removed. A record created inside it belongs to
+ * the business; one created before joining or after leaving belongs to the
+ * person. Same rule as `getResourceTenant` (lib/organization-credits).
+ */
+export interface MembershipWindow {
+  from: Date;
+  until: Date;
+}
+
+export interface RemovedMember extends MembershipWindow {
+  userId: string;
+}
+
+/** Bounds the removed-member clauses a single filter can carry. */
+const MAX_REMOVED_MEMBERS = 50;
 
 /**
  * Cross-tenant support access, allowlisted by stable `User.id` in server
@@ -103,9 +127,22 @@ async function resolveTenantScope(
 
   const user = await prisma.user.findUnique({
     where: { id: sessionUserId },
-    select: { role: true, organizationId: true },
+    select: {
+      role: true,
+      organizationId: true,
+      email: true,
+      organizationLeftAt: true,
+      organizationLeftId: true,
+    },
   });
   if (!user) return { kind: "self" };
+
+  // WP-04. A removed member keeps `{ userId }` reach over everything they
+  // made, which includes the business's work. Take back what was made while
+  // they belonged. An unproven window (no surviving invite) fails closed on
+  // both sides: the ex-employee loses everything made before they left, and
+  // the owner's side drops the same records, so nobody reaches them by guess.
+  const leftWindow = await ownLeftWindow(sessionUserId, user);
 
   // Cross-tenant support is an ADMIN-only allowlist, for reads and writes
   // alike. The allowlist widens an admin's scope; it is not a role of its own.
@@ -116,7 +153,9 @@ async function resolveTenantScope(
   // Writing beyond your own records remains an ADMIN privilege. Reading a JOB
   // does not: a MANAGER or USER is a colleague, and the invite flow never
   // assigns ADMIN (app/api/invites/[token]/route.ts:43).
-  if (intent === "write" && user.role !== "ADMIN") return { kind: "self" };
+  if (intent === "write" && user.role !== "ADMIN") {
+    return { kind: "self", leftWindow };
+  }
 
   // Money is not a job. `/api/invoices` returns the firm's whole receivables
   // ledger — line-item pricing, `xeroAccountCode`, and Stripe payment-intent
@@ -132,7 +171,7 @@ async function resolveTenantScope(
     user.role !== "MANAGER" &&
     user.role !== "ADMIN"
   ) {
-    return { kind: "self" };
+    return { kind: "self", leftWindow };
   }
 
   // A null organisation must never match another null organisation, or every
@@ -142,9 +181,78 @@ async function resolveTenantScope(
   // `{ user: {} }`, which matches every row on the platform.
   const organizationId = user.organizationId;
   if (typeof organizationId !== "string" || organizationId.length === 0) {
-    return { kind: "self" };
+    return { kind: "self", leftWindow };
   }
-  return { kind: "org", organizationId };
+  return {
+    kind: "org",
+    organizationId,
+    leftWindow,
+    removedMembers: await removedMembersOf(organizationId),
+  };
+}
+
+async function ownLeftWindow(
+  userId: string,
+  user: {
+    email: string;
+    organizationLeftAt: Date | null;
+    organizationLeftId: string | null;
+  },
+): Promise<MembershipWindow | undefined> {
+  if (!user.organizationLeftAt || !user.organizationLeftId) return undefined;
+  const from = await getMembershipStart(
+    userId,
+    user.email,
+    user.organizationLeftId,
+  );
+  // No provable start: treat the whole history before the leave as the
+  // organisation's, never as theirs (same stance as getResourceTenant).
+  return { from: from ?? new Date(0), until: user.organizationLeftAt };
+}
+
+const REMOVED_MEMBERS_TTL_MS = 30_000;
+const removedMembersCache = new Map<
+  string,
+  { at: number; value: Promise<RemovedMember[]> }
+>();
+
+/**
+ * People removed from the organisation, with the window their work belongs to
+ * it. Cached for a few seconds per organisation: every tenancy check resolves
+ * this, and each member costs invite lookups. A removal reaches the owner's
+ * view within the TTL; the removed member's own loss of access is not cached.
+ */
+function removedMembersOf(organizationId: string): Promise<RemovedMember[]> {
+  const hit = removedMembersCache.get(organizationId);
+  if (hit && Date.now() - hit.at < REMOVED_MEMBERS_TTL_MS) return hit.value;
+  const value = loadRemovedMembers(organizationId).catch((err) => {
+    removedMembersCache.delete(organizationId);
+    throw err;
+  });
+  removedMembersCache.set(organizationId, { at: Date.now(), value });
+  return value;
+}
+
+async function loadRemovedMembers(organizationId: string): Promise<RemovedMember[]> {
+  const left = await prisma.user.findMany({
+    where: { organizationLeftId: organizationId, organizationLeftAt: { not: null } },
+    select: { id: true, email: true, organizationLeftAt: true },
+    orderBy: { organizationLeftAt: "desc" },
+    take: MAX_REMOVED_MEMBERS,
+  });
+  if (left.length === MAX_REMOVED_MEMBERS) {
+    console.warn("[tenancy.removed_members_truncated]", { organizationId });
+  }
+  const windows = await Promise.all(
+    left.map(async (u) => {
+      const from = await getMembershipStart(u.id, u.email, organizationId);
+      // Unproven start: leave the work unreachable by the organisation too.
+      return from && u.organizationLeftAt && from < u.organizationLeftAt
+        ? { userId: u.id, from, until: u.organizationLeftAt }
+        : null;
+    }),
+  );
+  return windows.filter((w): w is RemovedMember => w !== null);
 }
 
 /**
@@ -156,7 +264,14 @@ function ownershipClauses(
   scope: TenantScope,
 ): NonNullable<Prisma.InspectionWhereInput["OR"]> {
   const clauses: NonNullable<Prisma.InspectionWhereInput["OR"]> = [
-    { userId },
+    scope.kind !== "platform" && scope.leftWindow
+      ? {
+          userId,
+          NOT: {
+            createdAt: { gte: scope.leftWindow.from, lt: scope.leftWindow.until },
+          },
+        }
+      : { userId },
     { workspace: { members: { some: { userId, status: "ACTIVE" } } } },
   ];
   if (scope.kind === "org") {
@@ -173,6 +288,14 @@ function ownershipClauses(
       );
     }
     clauses.push({ user: { organizationId: scope.organizationId } });
+    // WP-04: work a removed member made while they belonged stays with the
+    // organisation, even though their own organisationId is now null.
+    for (const m of scope.removedMembers) {
+      clauses.push({
+        userId: m.userId,
+        createdAt: { gte: m.from, lt: m.until },
+      });
+    }
   }
   return clauses;
 }
@@ -183,6 +306,96 @@ function ownershipClauses(
  * (unify "not yours" and "doesn't exist" so attackers cannot enumerate
  * IDs across tenants).
  */
+/**
+ * Who may create the job linked to someone else's report: an ADMIN or a
+ * MANAGER of the report creator's organisation (founder decision 02/10/2026,
+ * RA-7869), or an allowlisted platform support ADMIN. Only report-linked job
+ * creation uses this. Every other report write keeps `assertReportTenancy`,
+ * where reaching beyond your own records stays ADMIN-only.
+ */
+const REPORT_LINK_ROLES: readonly string[] = ["ADMIN", "MANAGER"];
+
+function canLinkColleagueReport(
+  userId: string,
+  role: string,
+  organizationId: string | null,
+  reportOrganizationId: string | null | undefined,
+): boolean {
+  if (role === "ADMIN" && isPlatformSupportOperator(userId)) return true;
+  if (!REPORT_LINK_ROLES.includes(role)) return false;
+  // Compared against a non-null organisationId, so two org-less accounts
+  // never match each other.
+  return (
+    typeof organizationId === "string" &&
+    organizationId.length > 0 &&
+    reportOrganizationId === organizationId
+  );
+}
+
+/**
+ * Report-link reach before the write: the report's creator, or a caller
+ * `canLinkColleagueReport` allows. Unreachable reports answer 404, so a
+ * refusal never reveals that the report exists.
+ */
+export async function assertReportLinkable(
+  session: SessionLike | null,
+  reportId: string,
+): Promise<TenancyResult<{ id: string; userId: string }>> {
+  if (!session?.user?.id) {
+    return { ok: false, status: 401, reason: "Unauthorized" };
+  }
+  const userId = session.user.id;
+  const [actor, report] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, organizationId: true },
+    }),
+    prisma.report.findUnique({
+      where: { id: reportId },
+      select: { id: true, userId: true, user: { select: { organizationId: true } } },
+    }),
+  ]);
+  if (!report) return { ok: false, status: 404, reason: "Report not found" };
+  const reachable =
+    report.userId === userId ||
+    (actor !== null &&
+      canLinkColleagueReport(
+        userId,
+        String(actor.role),
+        actor.organizationId,
+        report.user?.organizationId,
+      ));
+  if (!reachable) return { ok: false, status: 404, reason: "Report not found" };
+  return { ok: true, data: { id: report.id, userId: report.userId } };
+}
+
+/**
+ * Report-link reach, re-decided INSIDE the caller's write transaction.
+ *
+ * `assertReportLinkable` reads the caller's role before the transaction opens,
+ * so a demotion or organisation removal committed in between was not seen by
+ * the write (review of 62c97497, P1). This takes the caller's User row
+ * `FOR SHARE`, which blocks a concurrent role or organisation change until
+ * this transaction commits, then applies the same rule.
+ */
+export async function reportLinkableInTx(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  reportId: string,
+): Promise<boolean> {
+  const actor = await tx.$queryRaw<
+    { role: string; organizationId: string | null }[]
+  >`SELECT "role"::text AS "role", "organizationId" FROM "User" WHERE "id" = ${userId} FOR SHARE`;
+  const report = await tx.report.findUnique({
+    where: { id: reportId },
+    select: { userId: true, user: { select: { organizationId: true } } },
+  });
+  if (actor.length !== 1 || !report) return false;
+  if (report.userId === userId) return true;
+  const { role, organizationId } = actor[0];
+  return canLinkColleagueReport(userId, role, organizationId, report.user?.organizationId);
+}
+
 export async function assertReportTenancy(
   session: SessionLike | null,
   reportId: string,

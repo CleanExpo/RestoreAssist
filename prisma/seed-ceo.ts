@@ -42,6 +42,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { pgPoolTls } from "../lib/prisma-pool-config";
 
 // Prisma 7 needs the pg driver adapter at construction; a bare
 // `new PrismaClient()` throws before the first query (RA-7772). Mirrors
@@ -50,7 +51,7 @@ const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required.");
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg(new Pool({ connectionString, max: 2 })),
+  adapter: new PrismaPg(new Pool({ ...pgPoolTls(connectionString), max: 2 })),
 });
 
 interface CeoAccount {
@@ -76,8 +77,22 @@ const CEO_ACCOUNTS: CeoAccount[] = [
 async function elevateAccount(account: CeoAccount): Promise<void> {
   const existing = await prisma.user.findUnique({
     where: { email: account.email },
-    select: { id: true, password: true },
+    select: {
+      id: true,
+      password: true,
+      organizationId: true,
+      organization: { select: { ownerId: true } },
+    },
   });
+
+  // Pricing and setup gate on verifyTenantAdmin (an ADMIN must own their
+  // organisation, RA-7647). Elevating a member of someone else's organisation
+  // would create an ADMIN locked out of those routes, so refuse instead.
+  if (existing?.organizationId && existing.organization?.ownerId !== existing.id) {
+    throw new Error(
+      `${account.email} is a member of an organisation owned by another user; move it out of that organisation before elevating it to ADMIN`,
+    );
+  }
 
   const elevatedFields = {
     role: "ADMIN" as const,

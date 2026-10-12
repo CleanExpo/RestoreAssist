@@ -55,3 +55,14 @@ executed its SQL. The gate now runs that migration file after the column exists,
 checks that the unique index is valid and ready, and attempts a duplicate insert
 inside a rolled-back transaction. A migration receipt is not green unless that
 mutation probe rejects the duplicate fulfilment key.
+
+## 2026-10-02 — iPhone photo attachment feedback and picker completion
+
+| Field | Record |
+| --- | --- |
+| Defect class | False success feedback; unsupported iPhone library format; picker completion inferred from focus; invisible exhausted device queue |
+| Observed report | Indooroopilly iPhone photos captured or picked did not attach to the job. The exact failing native route and physical-device reproduction remain unverified. |
+| Source-confirmed failures | Main Photos tab toasted success after non-2xx uploads. The photo API rejects HEIC/HEIF magic bytes. Guided web picker rejected a file change delivered over 300 ms after focus. Exhausted IndexedDB photos had no job-level recovery UI. |
+| Repair | Convert decodable HEIC/HEIF in the browser before hashing and upload; require same-job GET readback before showing attachment; preserve uncertain direct uploads with the original request key/bytes/fields; expose owner-scoped queued photos with retry and backup actions; settle the web picker only on change, native cancel, or explicit cancellation. |
+| Prevention controls | `lib/__tests__/inspection-photo-upload.test.ts`, `lib/evidence/__tests__/ios-picker.test.ts`, `lib/__tests__/offline-containment.test.ts`, component caller tests, and `tests/browser/inspection-photo-upload.spec.ts`. Integrate the source and physical-device obligations into the existing authored interaction registry. |
+| Remaining proof | Physical iPhone camera/library and installed Capacitor/PWA journeys, production same-job readback, exact combined SHA review, merge, and live verification. |

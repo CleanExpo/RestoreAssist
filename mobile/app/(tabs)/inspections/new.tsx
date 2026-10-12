@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -44,6 +44,7 @@ export default function NewInspectionScreen() {
 
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const creationKey = useRef(`mobile-inspection-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   function validate(): boolean {
     let valid = true;
@@ -74,7 +75,7 @@ export default function NewInspectionScreen() {
         propertyAddress: address.value.trim(),
         propertyPostcode: postcode.value.trim(),
         technicianName: technician.value.trim() || undefined,
-      });
+      }, creationKey.current);
 
       triggerRefresh();
       router.replace(`/(tabs)/inspections/${inspection.id}`);

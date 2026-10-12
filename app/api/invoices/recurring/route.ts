@@ -6,6 +6,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
+import { lineAmountsCents } from "@/lib/invoices/calc";
 import { canLinkRecord } from "@/lib/auth/assert-tenancy";
 
 function nextDateFromFrequency(start: Date, frequency: string): Date {
@@ -153,20 +154,17 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const subtotalExGST = items.reduce(
-        (sum, item) => sum + Math.round(item.quantity * item.unitPrice),
-        0,
+      // RA-7705: the invoice rule — each line rounded to cents in decimal,
+      // GST on the rounded line.
+      const lines = items.map((item) =>
+        lineAmountsCents(
+          Number(item.quantity),
+          Math.round(Number(item.unitPrice)),
+          resolveLineGstRatePercent(item.gstRate, gstTreatment),
+        ),
       );
-      const gstAmount = items.reduce(
-        (sum, item) =>
-          sum +
-          Math.round(
-            item.quantity *
-              item.unitPrice *
-              (resolveLineGstRatePercent(item.gstRate, gstTreatment) / 100),
-          ),
-        0,
-      );
+      const subtotalExGST = lines.reduce((sum, l) => sum + l.subtotal, 0);
+      const gstAmount = lines.reduce((sum, l) => sum + l.gstAmount, 0);
       const totalIncGST = subtotalExGST + gstAmount;
 
       const recurringInvoice = await prisma.recurringInvoice.create({

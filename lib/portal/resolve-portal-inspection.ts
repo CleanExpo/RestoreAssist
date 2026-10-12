@@ -1,3 +1,4 @@
+import { portalInspectionWhere } from "@/lib/portal/portal-inspection-scope";
 import { verifyPortalToken } from "@/lib/portal-token";
 import {
   lookupPortalAccount,
@@ -44,7 +45,7 @@ export async function resolvePortalAccess(
   const portalAccount = await lookupPortalAccount(token);
   if (portalAccount) {
     const latest = await prisma.inspection.findFirst({
-      where: { report: { clientId: portalAccount.clientId } },
+      where: portalInspectionWhere(portalAccount),
       orderBy: { createdAt: "desc" },
       select: { id: true },
     });

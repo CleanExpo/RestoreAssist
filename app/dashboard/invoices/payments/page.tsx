@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { paymentAmountToDollars } from "@/lib/invoices/payment-amount";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,17 +85,6 @@ function methodLabel(method: string): string {
 
 function methodColour(method: string): string {
   return METHOD_COLOURS[method] ?? "bg-slate-100 text-slate-800";
-}
-
-/**
- * Normalise API payment amounts (integer cents) to dollars for display.
- *
- * The payments API returns `InvoicePayment.amount` as `Int // Amount in cents`.
- * Always divide by 100 — the previous `> 1000` heuristic skipped that division
- * for real payments under $10.00 (e.g. 950 cents rendered as "$950.00").
- */
-export function paymentAmountToDollars(amountCents: number): number {
-  return amountCents / 100;
 }
 
 const PAGE_SIZE = 25;

@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { format } from "date-fns";
+import { versionHistoryForExport } from "@/lib/reports/version-history-export";
 
 /**
  * Professional Excel export utilities for RestoreAssist reports
@@ -147,7 +148,10 @@ export async function generateSingleReportExcel(
   const scopeAreas = safeParse(report.scopeAreas);
   const equipmentSelection = safeParse(report.equipmentSelection);
   const geographicIntelligence = safeParse(report.geographicIntelligence);
-  const versionHistory = safeParse(report.versionHistory);
+  const parsedVersionHistory = safeParse(report.versionHistory);
+  const versionHistory = Array.isArray(parsedVersionHistory)
+    ? versionHistoryForExport(parsedVersionHistory)
+    : parsedVersionHistory;
   const validationWarnings = safeParse(report.validationWarnings);
   const validationErrors = safeParse(report.validationErrors);
   const propertyCover = safeParse(report.propertyCover);
@@ -604,7 +608,7 @@ export async function generateSingleReportExcel(
     },
     {
       field: "Biological Mould Detected",
-      value: report.biologicalMouldDetected ? "Yes" : "No",
+      value: report.biologicalMouldDetected ? "Yes" : "No detection recorded / assessment unknown",
     },
     {
       field: "Biological Mould Category",

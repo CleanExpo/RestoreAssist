@@ -6,19 +6,10 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
+import { MAKE_SAFE_ACTIONS } from "@/lib/compliance/make-safe-actions";
 
 // RA-1136a: Make-Safe compliance gate
 // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
-
-export const MAKE_SAFE_ACTIONS = [
-  "power_isolated",
-  "gas_isolated",
-  "mould_containment",
-  "water_stopped",
-  "occupant_briefing",
-] as const;
-
-export type MakeSafeActionName = (typeof MAKE_SAFE_ACTIONS)[number];
 
 type RouteContext = { params: Promise<{ id: string }> };
 

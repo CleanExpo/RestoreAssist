@@ -16,6 +16,7 @@ import {
 // is recalculated only once the technician changes temperature or humidity.
 
 // Heavy canvas / panel children are irrelevant to environmental hydration.
+vi.mock("next-auth/react", () => ({ useSession: () => ({ data: { user: { id: "synthetic-owner" } } }) }));
 vi.mock("@/components/inspection/MoistureMappingCanvas", () => ({
   default: () => null,
 }));

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Printer, Save, Loader2, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
+import { dollarsToCents, lineAmountsCents } from "@/lib/invoices/calc";
 
 export interface RestorationInvoiceFormData {
   invoiceTypeId: string;
@@ -116,10 +117,6 @@ const defaultFormData: RestorationInvoiceFormData = {
     reference: "[Invoice Number]",
   },
 };
-
-function round2(n: number) {
-  return Math.round(n * 100) / 100;
-}
 
 export default function RestorationInvoiceForm({
   documentId,
@@ -302,12 +299,19 @@ export default function RestorationInvoiceForm({
     }));
   }, []);
 
-  const subtotal = data.lineItems.reduce(
-    (sum, i) => sum + (parseFloat(i.qty) || 0) * (parseFloat(i.rate) || 0),
-    0,
+  // RA-7896: each line is priced ex GST and inc GST in integer cents by the
+  // invoice rule (round the line, then GST on that line), and the totals are
+  // the sums of the lines, so the inc-GST column adds up to the total.
+  const lineCents = data.lineItems.map((i) =>
+    lineAmountsCents(
+      parseFloat(i.qty) || 0,
+      dollarsToCents(parseFloat(i.rate) || 0),
+      DEFAULT_GST_TREATMENT.ratePercent,
+    ),
   );
-  const gst = round2(subtotal * DEFAULT_GST_TREATMENT.rate);
-  const total = round2(subtotal + gst);
+  const subtotal = lineCents.reduce((sum, l) => sum + l.subtotal, 0) / 100;
+  const gst = lineCents.reduce((sum, l) => sum + l.gstAmount, 0) / 100;
+  const total = lineCents.reduce((sum, l) => sum + l.total, 0) / 100;
   const excess = parseFloat(data.excessAmt) || 0;
   const netReimburse = Math.max(0, total - excess);
 
@@ -693,16 +697,17 @@ export default function RestorationInvoiceForm({
                   Rate (ex GST)
                 </th>
                 <th className="border border-neutral-200 px-2 py-2 text-right text-xs font-bold uppercase text-neutral-600 dark:border-slate-600 dark:text-slate-300">
-                  Amount (ex GST)
+                  Ex GST
+                </th>
+                <th className="border border-neutral-200 px-2 py-2 text-right text-xs font-bold uppercase text-neutral-600 dark:border-slate-600 dark:text-slate-300">
+                  Inc GST
                 </th>
                 <th className="w-8 border border-neutral-200 px-1 print:hidden" />
               </tr>
             </thead>
             <tbody>
               {data.lineItems.map((item, idx) => {
-                const qty = parseFloat(item.qty) || 0;
-                const rate = parseFloat(item.rate) || 0;
-                const amt = round2(qty * rate);
+                const amt = lineCents[idx];
                 return (
                   <tr key={idx} className="dark:border-slate-600">
                     <td className="border border-neutral-200 px-2 py-1.5 text-center text-neutral-500 dark:border-slate-600">
@@ -751,8 +756,11 @@ export default function RestorationInvoiceForm({
                         className="w-20 border-0 border-b border-dashed bg-transparent text-right focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
                       />
                     </td>
+                    <td className="border border-neutral-200 px-2 py-1.5 text-right dark:border-slate-600">
+                      ${(amt.subtotal / 100).toFixed(2)}
+                    </td>
                     <td className="border border-neutral-200 px-2 py-1.5 text-right font-medium dark:border-slate-600">
-                      ${amt.toFixed(2)}
+                      ${(amt.total / 100).toFixed(2)}
                     </td>
                     <td className="border border-neutral-200 px-1 print:hidden dark:border-slate-600">
                       <button

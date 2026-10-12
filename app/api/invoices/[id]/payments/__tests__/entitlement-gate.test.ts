@@ -13,6 +13,9 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 
 const invoiceFindUnique = vi.hoisted(() => vi.fn());
+const userFindUnique = vi.hoisted(() => vi.fn());
+const inviteFindFirst = vi.hoisted(() => vi.fn());
+const transaction = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
@@ -28,9 +31,9 @@ vi.mock("@/lib/idempotency", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     invoice: { findUnique: invoiceFindUnique },
-    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({ invoice: { findUnique: invoiceFindUnique } }),
-    ),
+    user: { findUnique: userFindUnique },
+    userInvite: { findFirst: inviteFindFirst },
+    $transaction: transaction,
   },
 }));
 vi.mock("@/lib/entitlements", () => ({
@@ -48,6 +51,10 @@ const mockFindUnique = invoiceFindUnique;
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ user: { id: "u_test" } });
+  transaction.mockImplementation(
+    async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({ invoice: { findUnique: invoiceFindUnique } }),
+  );
 });
 
 function makePost(body: object): NextRequest {
@@ -114,5 +121,44 @@ describe("RA-6920 B4 — PAYMENTS add-on gate", () => {
 
     expect(res.status).toBe(404);
     expect(mockRequireAddon).toHaveBeenCalledWith("u_test", "PAYMENTS");
+  });
+});
+
+describe("RA-7893 — PAYMENTS on an invoice from the technician's previous organisation", () => {
+  it("refuses to record a payment on org B's add-on for an invoice created in org A before the move", async () => {
+    // u_test created inv_1 on 1 June in org A, then accepted an invite into
+    // org B on 1 July. The caller-keyed gate passes on org B's PAYMENTS.
+    mockRequireAddon.mockResolvedValue({
+      allowed: true,
+      sku: "PAYMENTS",
+      workspaceId: "ws_b",
+    });
+    mockFindUnique.mockResolvedValue({
+      userId: "u_test",
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+    });
+    userFindUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) =>
+        where.id === "u_test"
+          ? {
+              id: "u_test",
+              role: "USER",
+              organizationId: "org_b",
+              organization: { ownerId: "owner_b" },
+              email: "u_test@example.com",
+            }
+          : null,
+    );
+    inviteFindFirst.mockResolvedValue({
+      usedAt: new Date("2026-07-01T00:00:00Z"),
+    });
+
+    const res = await POST(
+      makePost({ amount: 1000, paymentMethod: "BANK_TRANSFER" }),
+      makeParams(),
+    );
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(res.status).toBe(402);
   });
 });

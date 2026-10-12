@@ -51,6 +51,8 @@ export async function buildCloseSummary(
       propertyAddress: true,
       signedAt: true,
       claimType: true,
+      userId: true,
+      createdAt: true,
     },
   });
   if (!inspection) {
@@ -77,6 +79,7 @@ export async function buildCloseSummary(
     userId: args.userId,
     orgId: args.orgId,
     inspectionId: args.inspectionId,
+    resource: { creatorId: inspection.userId, createdAt: inspection.createdAt },
     input,
     build: async ({ input: i }) => {
       const prompt = buildPrompt(i);

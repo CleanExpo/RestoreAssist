@@ -46,8 +46,19 @@ vi.mock("@/lib/api-errors", () => ({
   fromException: () => new Response("e", { status: 500 }),
 }));
 
+// The private bucket is signed at read time; keep the URL so the fetch stub
+// sees the stored object.
+vi.mock("@/lib/storage/sign-stored-url", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/storage/sign-stored-url")>()),
+  signStoredMediaUrl: async (u: string | null | undefined) => u,
+}));
+
 // Real photo pipeline (no mock on inspection-photos-to-images / append-photo-pages).
 import { GET } from "../route";
+
+const HOST = "https://abc.supabase.co";
+const obj = (path: string) =>
+  `${HOST}/storage/v1/object/public/evidence-optimised/${path}`;
 
 const PNG_1x1 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -96,6 +107,7 @@ beforeEach(async () => {
   getServerSession.mockResolvedValue({ user: { id: "u1" } });
   reportFindFirst.mockResolvedValue({ id: "r1" });
 
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", HOST);
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => ({ ok: true, arrayBuffer: async () => pngBytes().buffer })),
@@ -106,10 +118,14 @@ describe("GET /api/reports/[id]/pdf — photo embedding", () => {
   it("appends a grid page when the inspection has photos", async () => {
     reportFindUnique.mockResolvedValueOnce(
       reportBase({
+        id: "insp-1",
+        userId: "u1",
+        workspaceId: null,
+        user: { organizationId: "org-1" },
         claimSketches: [],
         photos: [
-          { url: "https://x/1.png", mimeType: "image/png", description: "Kitchen" },
-          { url: "https://x/2.png", mimeType: "image/png", description: "Bathroom" },
+          { url: obj("org-1/insp-1/1.png"), mimeType: "image/png", description: "Kitchen" },
+          { url: obj("org-1/insp-1/2.png"), mimeType: "image/png", description: "Bathroom" },
         ],
       }),
     );
@@ -117,6 +133,8 @@ describe("GET /api/reports/[id]/pdf — photo embedding", () => {
     const res = await GET(req(), ctx);
     expect(res.status).toBe(200);
     expect(await pageCountOf(res)).toBe(2); // 1 base + 1 photo grid page
+    expect(fetch).toHaveBeenCalledWith(obj("org-1/insp-1/1.png"), expect.anything());
+    expect(fetch).toHaveBeenCalledWith(obj("org-1/insp-1/2.png"), expect.anything());
   });
 
   it("leaves the report unchanged when there are no photos", async () => {

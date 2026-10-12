@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import dns from "node:dns";
 import { generateAssessmentReportPDF } from "../generate-assessment-report-pdf";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 // SSRF regression: the assessment PDF embeds a tenant-controlled `businessLogo`
 // URL. The generator must only server-side-fetch public http(s) URLs — a
@@ -63,5 +64,40 @@ describe("generateAssessmentReportPDF — logo SSRF guard", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledWith("https://cdn.example.com/logo.png");
     expect(bytes).toBeInstanceOf(Uint8Array);
+  });
+});
+
+describe("assessment PDF keeps unassessed hazards unknown", () => {
+  async function pdfText(data: unknown) {
+    const bytes = await generateAssessmentReportPDF(data as any);
+    const loadingTask = getDocument({ data: bytes, useSystemFonts: true });
+    const pdf = await loadingTask.promise;
+    try {
+      const page = await pdf.getPage(1);
+      const content = await page.getTextContent();
+      return content.items.map((item: any) => item.str).join(" ");
+    } finally {
+      await loadingTask.destroy();
+    }
+  }
+
+  it("does not turn a suspected hazard into a positive screen or water Cat 3 into mould Cat 3", async () => {
+    const data = baseData("");
+    data.report = {
+      ...data.report,
+      waterCategory: "Category 3",
+      biologicalMouldDetected: true,
+    } as any;
+    data.tier1 = { T1_Q7_hazards: ["Meth suspected"] };
+    const text = await pdfText(data);
+    expect(text).toContain("METH: Not assessed");
+    expect(text).toContain("BIO/MOULD: POSITIVE");
+    expect(text).not.toContain("BIO/MOULD: POSITIVE - CAT 3");
+  });
+
+  it("preserves an explicitly recorded negative screen", async () => {
+    const data = baseData("");
+    data.report = { ...data.report, methamphetamineScreen: "NEGATIVE" } as any;
+    expect(await pdfText(data)).toContain("METH: NEGATIVE");
   });
 });

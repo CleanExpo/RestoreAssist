@@ -24,6 +24,7 @@
 # Format:  <path><TAB or spaces><run | elsewhere:<workflow> | skip:<reason>>
 
 scripts/ci/__tests__/assert-direct-database-url.test.mjs          run
+scripts/ci/__tests__/assert-local-test-db.test.mjs                run
 scripts/ci/__tests__/assert-migration-health.test.mjs             run
 scripts/ci/__tests__/assert-production-smoke-origin.test.mjs      run
 scripts/ci/__tests__/check-release-bootstrap.test.mjs             run
@@ -33,6 +34,7 @@ scripts/ci/__tests__/run-mjs-tests.test.mjs                       run
 scripts/ci/__tests__/production-deployment-blocked.test.mjs       run
 scripts/ci/__tests__/smoke-skip-policy.test.mjs                   run
 scripts/ci/__tests__/render-production-app-spec.test.mjs          run
+scripts/ci/__tests__/test-with-db-guard.test.mjs                  run
 scripts/ci/__tests__/verify-database-identity.test.mjs            run
 scripts/ci/__tests__/verify-production-environment.test.mjs       run
 scripts/ci/__tests__/verify-release-gate-run.test.mjs             run

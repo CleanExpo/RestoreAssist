@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { INTEGRATION_METADATA_SELECT, integrationPublicMetadata } from "@/lib/services/integrations/public-metadata";
+import { classifyIntegrationIdentity } from "@/lib/integrations/identity";
 import { recordMutationAudit } from "@/lib/audit-log";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -27,16 +29,7 @@ export async function GET(
         id,
         userId: session.user.id,
       },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        icon: true,
-        provider: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: { ...INTEGRATION_METADATA_SELECT, config: true },
     });
 
     if (!integration) {
@@ -47,7 +40,7 @@ export async function GET(
       });
     }
 
-    return NextResponse.json(integration);
+    return NextResponse.json(integrationPublicMetadata(integration));
   } catch (error) {
     return fromException(request, error, { stage: "integration-get" });
   }
@@ -78,6 +71,7 @@ export async function PUT(
         id,
         userId: session.user.id,
       },
+      select: { ...INTEGRATION_METADATA_SELECT, config: true },
     });
 
     if (!existingIntegration) {
@@ -88,16 +82,29 @@ export async function PUT(
       });
     }
 
+    const identity = classifyIntegrationIdentity(existingIntegration);
+    const nextIdentity = classifyIntegrationIdentity({ ...existingIntegration, name: name ?? existingIntegration.name, icon: icon ?? existingIntegration.icon });
+    if (apiKey !== undefined || config !== undefined || identity.kind !== "AI" ||
+        (name !== undefined && name !== existingIntegration.name) ||
+        (icon !== undefined && icon !== existingIntegration.icon) ||
+        existingIntegration.tenantId || existingIntegration.realmId || existingIntegration.companyId || existingIntegration.tokenExpiresAt ||
+        nextIdentity.kind !== identity.kind || nextIdentity.provider !== identity.provider ||
+        (status !== undefined && status !== "DISCONNECTED")) {
+      return apiError(request, { code: "VALIDATION", status: 400,
+        message: "Use workspace provider connections to configure AI, or the provider OAuth controls to change a connection." });
+    }
+    const oauthCredential = await prisma.integration.findFirst({
+      where: { id, userId: session.user.id, accessToken: { not: null, notIn: [""] } },
+      select: { id: true },
+    });
+    if (oauthCredential) {
+      return apiError(request, { code: "VALIDATION", status: 409,
+        message: "This record has conflicting integration identity. Review its provider connection before changing it." });
+    }
     const integration = await prisma.integration.update({
       where: { id, userId: session.user.id },
-      data: {
-        name,
-        description,
-        icon,
-        apiKey,
-        config: config ? JSON.stringify(config) : null,
-        status: status || (apiKey ? "CONNECTED" : "DISCONNECTED"),
-      },
+      data: { name, description, icon, ...(status ? { status: "DISCONNECTED" } : {}) },
+      select: { ...INTEGRATION_METADATA_SELECT, config: true },
     });
 
     await recordMutationAudit({
@@ -114,7 +121,7 @@ export async function PUT(
       request,
     });
 
-    return NextResponse.json(integration);
+    return NextResponse.json(integrationPublicMetadata(integration));
   } catch (error) {
     return fromException(request, error, { stage: "integration-put" });
   }
@@ -143,6 +150,7 @@ export async function DELETE(
         id,
         userId: session.user.id,
       },
+      select: { ...INTEGRATION_METADATA_SELECT, config: true },
     });
 
     if (!existingIntegration) {

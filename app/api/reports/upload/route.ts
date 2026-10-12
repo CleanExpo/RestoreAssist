@@ -8,6 +8,7 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 // Configuration constants
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -168,7 +169,6 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
 
-    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
     const sessionUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, subscriptionStatus: true },
@@ -180,11 +180,7 @@ export async function POST(request: NextRequest) {
         status: 404,
       });
     }
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(
-        sessionUser.subscriptionStatus ?? "",
-      )
-    ) {
+    if (!(await hasActiveSubscription(userId))) {
       return apiError(request, {
         code: "FORBIDDEN",
         message: "Active subscription required",

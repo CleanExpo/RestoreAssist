@@ -10,7 +10,10 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { apiError, fromException } from "@/lib/api-errors";
 import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
-import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
+import {
+  photoOwnerFolders,
+  prepareReportPhotos,
+} from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
 import { buildReportPackageZip } from "@/lib/exports/report-package-zip";
 import { buildReportDocx } from "@/lib/exports/report-docx";
@@ -20,6 +23,7 @@ import {
 } from "@/lib/reports/ai-ownership";
 import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
 import { aiOwnershipExportMeta } from "@/lib/reports/ai-ownership-export-meta";
+import { versionHistoryForExport } from "@/lib/reports/version-history-export";
 
 /**
  * RA-7003: the "complete package" previously contained only the three text
@@ -44,6 +48,12 @@ async function appendArtifactsToPackage(
   const inspection = await prisma.inspection.findFirst({
     where: { reportId: report.id },
     select: {
+      id: true,
+      // The folders genuine photo uploads use (photoOwnerFolders).
+      userId: true,
+      workspaceId: true,
+      user: { select: { organizationId: true } },
+      _count: { select: { photos: true } },
       claimSketches: {
         select: {
           floorNumber: true,
@@ -73,6 +83,8 @@ async function appendArtifactsToPackage(
       },
       photos: {
         select: {
+          id: true,
+          inspectionId: true,
           url: true,
           thumbnailUrl: true,
           description: true,
@@ -93,10 +105,21 @@ async function appendArtifactsToPackage(
       console.error("[export-package] sketch pages skipped:", err);
     }
     try {
-      const photos = await inspectionPhotosToImages(inspection.photos);
-      bytes = await appendPhotoPages(bytes, photos, pageOpts);
+      const { photos, missing } = await prepareReportPhotos(inspection.photos, {
+        inspectionId: inspection.id,
+        ownerFolders: photoOwnerFolders(inspection),
+        reportId: report.id,
+        totalCount: inspection._count?.photos,
+      });
+      bytes = await appendPhotoPages(bytes, photos, {
+        ...pageOpts,
+        missingCount: missing,
+      });
     } catch (err) {
-      console.error("[export-package] photo pages skipped:", err);
+      console.error("[export-package] photo pages skipped:", {
+        reportId: report.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -200,9 +223,10 @@ export async function GET(
     }
 
     // Build version history
-    const versionHistory = report.versionHistory
+    const storedVersionHistory = report.versionHistory
       ? JSON.parse(report.versionHistory)
       : [{ version: 1, date: report.createdAt, action: "Initial creation" }];
+    const versionHistory = versionHistoryForExport(storedVersionHistory);
 
     // Build raw data export
     const rawDataExport = {

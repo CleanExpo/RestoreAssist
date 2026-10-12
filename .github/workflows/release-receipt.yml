@@ -76,6 +76,11 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          # This workflow holds contents: write. A persisted checkout leaves
+          # that token in .git/config for `npm ci` and every producer to read.
+          # Nothing before the commit step needs it: the signer and producers
+          # only run local git. The commit step brings its own credential.
+          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -192,6 +197,8 @@ jobs:
           "
 
       - name: Commit the receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git config user.name  'github-actions[bot]'
@@ -202,4 +209,11 @@ jobs:
             exit 0
           fi
           git commit -m "chore(release-gate): receipt for ${{ inputs.criterion }} (run ${GITHUB_RUN_ID})"
-          git push origin main
+          # The checkout persisted no credential, so supply one for this one
+          # command only, through env (not argv, not .git/config).
+          AUTH="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 | tr -d '\n')"
+          echo "::add-mask::${AUTH}"
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0='http.https://github.com/.extraheader' \
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${AUTH}" \
+            git push origin main

@@ -20,9 +20,9 @@ import { ServiceM8Client } from "./servicem8/client";
 import { XeroClient } from "./xero/client";
 import { QuickBooksClient } from "./quickbooks/client";
 import { MYOBClient } from "./myob/client";
-import { AscoraClient } from "./ascora/client";
 import { prisma } from "@/lib/prisma";
 import type { IntegrationProvider } from "./oauth-handler";
+import { isOAuthIntegration } from "./identity";
 
 /**
  * Create a client for any provider based on integration ID
@@ -30,11 +30,11 @@ import type { IntegrationProvider } from "./oauth-handler";
 export async function createClientForIntegration(integrationId: string) {
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
-    select: { provider: true, tenantId: true, realmId: true, companyId: true },
+    select: { provider: true, name: true, icon: true, config: true, tokenExpiresAt: true, tenantId: true, realmId: true, companyId: true },
   });
 
-  if (!integration) {
-    throw new Error("Integration not found");
+  if (!integration || !isOAuthIntegration(integration)) {
+    throw new Error("Invalid OAuth integration identity or provider");
   }
 
   switch (integration.provider) {
@@ -49,11 +49,6 @@ export async function createClientForIntegration(integrationId: string) {
       );
     case "MYOB":
       return new MYOBClient(integrationId);
-    case "ASCORA":
-      return new AscoraClient(
-        integrationId,
-        integration.companyId || undefined,
-      );
     default:
       throw new Error(`Unsupported provider: ${integration.provider}`);
   }
@@ -82,8 +77,6 @@ export function getProviderAuthUrl(
       return new QuickBooksClient(integrationId).getAuthUrl(redirectUri, state);
     case "MYOB":
       return new MYOBClient(integrationId).getAuthUrl(redirectUri, state);
-    case "ASCORA":
-      return new AscoraClient(integrationId).getAuthUrl(redirectUri, state);
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }

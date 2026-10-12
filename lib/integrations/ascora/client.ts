@@ -9,8 +9,9 @@ import {
   type ExternalJobData,
   type TokenResponse,
 } from "../base-client";
-import { getTokens, storeTokens, markIntegrationError } from "../oauth-handler";
+import { getTokens, storeTokens, markIntegrationError, assertOAuthIntegration } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
+import { isOAuthIntegration } from "../identity";
 import { fetchAscoraWithRetry } from "./fetch-with-retry";
 
 interface AscoraCustomer {
@@ -104,6 +105,7 @@ export class AscoraClient extends BaseIntegrationClient {
     code: string,
     redirectUri: string,
   ): Promise<TokenResponse> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     const apiKey = getAscoraApiKey();
     const apiSecret = getAscoraApiSecret();
 
@@ -141,7 +143,7 @@ export class AscoraClient extends BaseIntegrationClient {
    */
   private async fetchAndStoreCompanyId(): Promise<void> {
     try {
-      const tokens = await getTokens(this.integrationId);
+      const tokens = await getTokens(this.integrationId, this.provider);
       if (!tokens.accessToken) return;
 
       const response = await fetch(`${this.config.apiBaseUrl}/me`, {
@@ -170,7 +172,7 @@ export class AscoraClient extends BaseIntegrationClient {
    * Refresh access token
    */
   async refreshAccessToken(): Promise<void> {
-    const tokens = await getTokens(this.integrationId);
+    const tokens = await getTokens(this.integrationId, this.provider);
 
     if (!tokens.refreshToken) {
       throw new Error("No refresh token available");
@@ -198,6 +200,7 @@ export class AscoraClient extends BaseIntegrationClient {
       await markIntegrationError(
         this.integrationId,
         `Token refresh failed: ${error}`,
+        this.provider,
       );
       throw new Error(`Token refresh failed: ${error}`);
     }
@@ -208,6 +211,7 @@ export class AscoraClient extends BaseIntegrationClient {
       tokenResponse.access_token,
       tokenResponse.refresh_token || tokens.refreshToken,
       tokenResponse.expires_in,
+      this.provider,
     );
   }
 
@@ -218,7 +222,7 @@ export class AscoraClient extends BaseIntegrationClient {
     endpoint: string,
     options: RequestInit = {},
   ): Promise<T> {
-    let tokens = await getTokens(this.integrationId);
+    let tokens = await getTokens(this.integrationId, this.provider);
     if (!tokens.accessToken) {
       throw new Error("No access token available");
     }
@@ -227,7 +231,7 @@ export class AscoraClient extends BaseIntegrationClient {
       await this.refreshAccessToken();
       // Re-fetch tokens after refresh so the request uses the NEW access token
       // (mirrors base-client.ts:98-106 pattern)
-      tokens = await getTokens(this.integrationId);
+      tokens = await getTokens(this.integrationId, this.provider);
       if (!tokens.accessToken) {
         throw new Error("Token refresh failed — no access token after refresh");
       }
@@ -253,7 +257,7 @@ export class AscoraClient extends BaseIntegrationClient {
       return await response.json();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await markIntegrationError(this.integrationId, message);
+      await markIntegrationError(this.integrationId, message, this.provider);
       throw error;
     }
   }
@@ -262,6 +266,7 @@ export class AscoraClient extends BaseIntegrationClient {
    * Fetch customers from Ascora
    */
   async fetchClients(): Promise<ExternalClientData[]> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     try {
       const allClients: ExternalClientData[] = [];
       let page = 1;
@@ -300,6 +305,7 @@ export class AscoraClient extends BaseIntegrationClient {
    * Fetch work orders from Ascora
    */
   async fetchJobs(): Promise<ExternalJobData[]> {
+    await assertOAuthIntegration(this.integrationId, this.provider);
     try {
       const allJobs: ExternalJobData[] = [];
       let page = 1;
@@ -446,9 +452,10 @@ export async function createAscoraClient(
 ): Promise<AscoraClient> {
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
+    select: { provider: true, name: true, icon: true, config: true, tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true },
   });
 
-  if (!integration || integration.provider !== "ASCORA") {
+  if (!integration || !isOAuthIntegration(integration, "ASCORA")) {
     throw new Error("Invalid Ascora integration");
   }
 

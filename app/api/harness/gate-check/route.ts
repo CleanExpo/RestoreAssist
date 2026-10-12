@@ -21,6 +21,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { runGateCheck } from "@/lib/harness/gate-check";
 import { apiError, fromException } from "@/lib/api-errors";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -35,13 +36,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Subscription gate
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { subscriptionStatus: true },
-    });
-    const allowed = ["TRIAL", "ACTIVE", "LIFETIME"];
-    if (!user || !allowed.includes(user.subscriptionStatus ?? "")) {
+    // Subscription gate. RA-7893: shared, owner-aware gate — an invited
+    // technician uses the business owner's plan; unknown users are refused.
+    if (!(await hasActiveSubscription(session.user.id))) {
       return apiError(request, {
         code: "PAYMENT_REQUIRED",
         message: "Active subscription required",

@@ -13,10 +13,12 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isCapacitorIOS } from "@/lib/capacitor";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRefresh";
 import { useForm, type Resolver, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -128,6 +130,7 @@ export default function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [duplicating, setDuplicating] = useState<string | null>(null);
+  const clientsRequest = useRef<{ promise: Promise<boolean>; controller: AbortController } | null>(null);
 
   // RA-1215 — shared form instance for Add + Edit modals so validation
   // errors render inline against the offending field instead of a toast.
@@ -147,27 +150,49 @@ export default function ClientsPage() {
     }
   }, [dataSource]);
 
-  const fetchClients = async () => {
-    try {
-      setLoading(true);
-      setLoadError(null);
-      const response = await fetch("/api/clients");
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data.clients);
+  const fetchClients = (force = false): Promise<boolean> => {
+    if (clientsRequest.current && !force) return clientsRequest.current.promise;
+    if (force) clientsRequest.current?.controller.abort();
+    const controller = new AbortController();
+    const request = (async () => {
+      try {
+        setLoading(true);
         setLoadError(null);
-      } else {
-        setClients([]);
+        const response = await fetch("/api/clients", { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("Failed to load clients");
+        const data = await response.json();
+        if (controller.signal.aborted) return false;
+        if (!Array.isArray(data.clients)) throw new Error("Invalid clients response");
+        setClients(data.clients);
+        return true;
+      } catch (error) {
+        if (controller.signal.aborted) return false;
+        console.error("Error fetching clients:", error);
+        // Keep the last successful list visible while the error banner explains it is stale.
         setLoadError("Failed to load clients");
+        return false;
+      } finally {
+        if (clientsRequest.current?.controller === controller) {
+          setLoading(false);
+          clientsRequest.current = null;
+        }
       }
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      setClients([]);
-      setLoadError("Failed to load clients");
-    } finally {
-      setLoading(false);
-    }
+    })();
+    clientsRequest.current = { promise: request, controller };
+    return request;
   };
+
+  useMobilePullRefreshHandler(async () => {
+    if (showAddModal || showEditModal || showDeleteModal || showBulkDeleteModal || showUpgradeModal || form.formState.isSubmitting) {
+      return { kind: "cancelled", message: "Finish or close the client form before refreshing." };
+    }
+    if (dataSource !== "native") {
+      return { kind: "cancelled", message: "Use the connected clients panel to refresh this source." };
+    }
+    return await fetchClients(true)
+      ? { kind: "updated", message: "Clients updated" }
+      : { kind: "error", message: "Could not refresh clients. Showing the last loaded list." };
+  });
 
   const filteredClients = useMemo(() => {
     return clients.filter((client) => {
@@ -214,7 +239,7 @@ export default function ClientsPage() {
         form.reset(CLIENT_FORM_DEFAULTS);
         setShowAddModal(false);
         toast.success("Client added successfully");
-        fetchClients(); // Refresh to get updated list
+        void fetchClients(true); // Refresh to get updated list
         return;
       }
 
@@ -225,13 +250,13 @@ export default function ClientsPage() {
         return;
       }
       if (response.status >= 400 && response.status < 500) {
-        const message = error?.error || "Failed to add client";
+        const message = apiErrorMessage(error) ?? "Failed to add client";
         if (!applyServerFieldError(form, message)) {
           form.setError("root", { type: "server", message });
         }
         return;
       }
-      toast.error(error?.error || "Failed to add client");
+      toast.error(apiErrorMessage(error) ?? "Failed to add client");
     } catch (error) {
       console.error("Error adding client:", error);
       toast.error("Failed to add client");
@@ -263,13 +288,13 @@ export default function ClientsPage() {
 
       const error = await response.json().catch(() => ({}));
       if (response.status >= 400 && response.status < 500) {
-        const message = error?.error || "Failed to update client";
+        const message = apiErrorMessage(error) ?? "Failed to update client";
         if (!applyServerFieldError(form, message)) {
           form.setError("root", { type: "server", message });
         }
         return;
       }
-      toast.error(error?.error || "Failed to update client");
+      toast.error(apiErrorMessage(error) ?? "Failed to update client");
     } catch (error) {
       console.error("Error updating client:", error);
       toast.error("Failed to update client");
@@ -302,7 +327,7 @@ export default function ClientsPage() {
         setShowDeleteModal(false);
         setSelectedClient(null);
         toast.success("Client deleted successfully");
-        fetchClients(); // Refresh to get updated list
+        void fetchClients(true); // Refresh to get updated list
       } else {
         const error = await response.json();
         toast.error(error.error || "Failed to delete client");
@@ -492,7 +517,7 @@ export default function ClientsPage() {
           <button
             type="button"
             className="ml-3 underline"
-            onClick={() => void fetchClients()}
+            onClick={() => void fetchClients(true)}
           >
             Retry
           </button>

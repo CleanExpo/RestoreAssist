@@ -21,6 +21,7 @@
  *      transaction (see the delete block for the full rationale).
  */
 
+import { businessWorkBlocksDeletion } from "@/lib/account/business-work-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -105,6 +106,15 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      if (await businessWorkBlocksDeletion(user.id)) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Your jobs and clients belong to the business you work for, so this account can't be deleted yet. Ask your business owner to arrange the hand-over, or contact support.",
+          status: 409,
+        });
+      }
+
       if (user.subscriptionId) {
         try {
           await stripe.subscriptions.cancel(user.subscriptionId);
@@ -160,6 +170,24 @@ export async function POST(request: NextRequest) {
         data: { userId: RETENTION_OWNER_USER_ID },
       };
       await prisma.$transaction(async (tx) => {
+        // RA-7893: deleting this user cascades any organisation they own and
+        // its UserInvites, and sets each member's organizationId to null.
+        // Stamp each member's leave date and the organisation they left
+        // first: with the invites gone, that is the only record that their
+        // older jobs belonged to it (lib/organization-credits
+        // getResourceTenantOwner). It overwrites any earlier leave: this is
+        // now their latest.
+        const leftAt = new Date();
+        const ownedOrganizations = await tx.organization.findMany({
+          where: { ownerId: user.id },
+          select: { id: true },
+        });
+        for (const org of ownedOrganizations) {
+          await tx.user.updateMany({
+            where: { organizationId: org.id },
+            data: { organizationLeftAt: leftAt, organizationLeftId: org.id },
+          });
+        }
         await tx.invoice.updateMany(reassignToRetentionOwner);
         await tx.report.updateMany(reassignToRetentionOwner);
         await tx.estimate.updateMany(reassignToRetentionOwner);

@@ -16,6 +16,20 @@
 import { Integration } from "@prisma/client";
 import { getValidMYOBAccessToken } from "@/lib/services/myob/credentials";
 import { type Country, getGstTreatment } from "../gst-rules";
+import { isOAuthIntegration } from "./identity";
+
+async function withMYOBCredentials(integration: Integration): Promise<Integration> {
+  if (!isOAuthIntegration(integration, "MYOB")) {
+    throw new Error("Invalid MYOB integration identity");
+  }
+  getMyobCompanyFileId(integration);
+  const result = await getValidMYOBAccessToken(integration.id);
+  if (!result.ok) {
+    throw new Error(`MYOB credentials unavailable: ${result.reason}`, { cause: result.cause });
+  }
+  // Keep the owner-scoped ID and company; never mutate or transmit stored ciphertext.
+  return { ...integration, accessToken: result.data };
+}
 
 interface MYOBInvoice {
   UID?: string; // Present on update path
@@ -123,7 +137,7 @@ async function throwClassifiedMYOBError(
     console.warn(
       `[MYOB] Token error (${response.status}) on integration ${integration.id} — refreshing token for next retry`,
     );
-    const credResult = await getValidMYOBAccessToken(integration.id);
+    const credResult = await getValidMYOBAccessToken(integration.id, { forceRefresh: true });
     if (!credResult.ok) {
       throw new Error(
         `MYOB token refresh failed (integration ${integration.id}): ${credResult.reason}${
@@ -169,6 +183,7 @@ export async function syncInvoiceToMYOB(
   integration: Integration,
   country: Country,
 ) {
+  integration = await withMYOBCredentials(integration);
   const gst = getGstTreatment(country);
   if (!integration.accessToken) {
     throw new Error("No access token available for MYOB");
@@ -467,6 +482,7 @@ export async function getMYOBInvoice(
   uid: string,
   integration: Integration,
 ): Promise<MYOBInvoiceResponse> {
+  integration = await withMYOBCredentials(integration);
   if (!integration.accessToken) {
     throw new Error("Missing MYOB credentials");
   }
@@ -498,6 +514,7 @@ export async function updateMYOBInvoiceStatus(
   status: "Open" | "Closed",
   integration: Integration,
 ) {
+  integration = await withMYOBCredentials(integration);
   if (!integration.accessToken) {
     throw new Error("Missing MYOB credentials");
   }

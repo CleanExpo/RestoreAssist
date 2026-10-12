@@ -26,6 +26,7 @@ import { prisma } from "@/lib/prisma";
 export interface PortalAccountLookupResult {
   id: string;
   clientId: string;
+  inspectionId: string | null;
   createdAt: Date;
   tokenRotatedAt: Date | null;
   expiresAt: Date | null;
@@ -48,6 +49,7 @@ export async function lookupPortalAccount(
     select: {
       id: true,
       clientId: true,
+      inspectionId: true,
       createdAt: true,
       tokenRotatedAt: true,
       expiresAt: true,

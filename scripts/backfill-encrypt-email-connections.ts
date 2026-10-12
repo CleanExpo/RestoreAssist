@@ -22,7 +22,10 @@ import {
 } from "@/lib/email/email-connection-tokens";
 import { assertDirectDatabaseUrl } from "./assert-direct-database-url.mjs";
 import { assertExpectedLogicalIdentity } from "./verify-database-identity.mjs";
-import { pgMigrateSslOption } from "./lib/pg-ssl-for-migrate.mjs";
+import {
+  pgMigrateSslOption,
+  withRequireAsNoVerify,
+} from "./lib/pg-ssl-for-migrate.mjs";
 
 const ACCESS_CONSTRAINT = '"EmailConnection_accessToken_ciphertext_check"';
 const REFRESH_CONSTRAINT = '"EmailConnection_refreshToken_ciphertext_check"';
@@ -151,10 +154,13 @@ function assertDedicatedVaultKey(): void {
   }
 }
 
-async function assertDatabaseIdentity(connectionString: string): Promise<void> {
-  const ssl = pgMigrateSslOption(connectionString);
+async function assertDatabaseIdentity(url: string): Promise<void> {
+  // pg reads sslmode=require in the URL as verify-full and lets it override
+  // `ssl`; rewrite it the way the migrate scripts do (04/10/2026 outage).
+  const target = withRequireAsNoVerify(url) ?? url;
+  const ssl = pgMigrateSslOption(target);
   const pool = new Pool({
-    connectionString,
+    connectionString: target,
     max: 1,
     connectionTimeoutMillis: 20_000,
     ...(ssl ? { ssl } : {}),
@@ -200,9 +206,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (mode === "apply") assertDedicatedVaultKey();
     await assertDatabaseIdentity(directUrl);
 
-    const ssl = pgMigrateSslOption(directUrl);
+    const target = withRequireAsNoVerify(directUrl) ?? directUrl;
+    const ssl = pgMigrateSslOption(target);
     const pool = new Pool({
-      connectionString: directUrl,
+      connectionString: target,
       max: 1,
       connectionTimeoutMillis: 20_000,
       ...(ssl ? { ssl } : {}),

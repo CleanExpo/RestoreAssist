@@ -118,6 +118,7 @@ describe("QuickBooksClient.getPayment", () => {
     expect(markIntegrationError).toHaveBeenCalledWith(
       "integ_1",
       expect.stringContaining("404"),
+      "QUICKBOOKS",
     );
 
     fetchSpy.mockRestore();

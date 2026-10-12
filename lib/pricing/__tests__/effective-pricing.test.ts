@@ -59,6 +59,19 @@ describe("resolveEffectivePricing", () => {
     expect(orgFind).not.toHaveBeenCalled();
   });
 
+  it("reads the legacy fallback for legacyUserId, the org config for the member (RA-7893)", async () => {
+    const { client, orgFind, companyFind } = stub({
+      organizationId: "org_1",
+      orgConfig: null,
+      companyConfig: USER_ROW,
+    });
+    await resolveEffectivePricing(client, "member_1", {
+      legacyUserId: "owner_1",
+    });
+    expect(orgFind).toHaveBeenCalledWith({ where: { organizationId: "org_1" } });
+    expect(companyFind).toHaveBeenCalledWith({ where: { userId: "owner_1" } });
+  });
+
   it("returns null when neither config exists (caller keeps its own fallback)", async () => {
     const { client } = stub({ organizationId: "org_1", orgConfig: null });
     expect(await resolveEffectivePricing(client, "user_1")).toBeNull();

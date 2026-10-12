@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, shadows } from "@/constants/theme";
 import { useAppStore } from "@/lib/store";
 import { api } from "@/lib/api/client";
-import type { Inspection } from "@/shared/types";
+import type { InspectionListItem } from "@/shared/types";
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: colors.muted,
@@ -38,7 +38,8 @@ const STATUS_LABELS: Record<string, string> = {
   REJECTED: "Rejected",
 };
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return "Attendance date unknown";
   try {
     return new Date(dateStr).toLocaleDateString("en-AU", {
       day: "numeric",
@@ -85,7 +86,7 @@ export default function InspectionsListScreen() {
     fetchInspections();
   }, [fetchInspections]);
 
-  const renderItem = ({ item }: { item: Inspection }) => {
+  const renderItem = ({ item }: { item: InspectionListItem }) => {
     const statusColor = STATUS_COLORS[item.status] ?? colors.muted;
     return (
       <TouchableOpacity

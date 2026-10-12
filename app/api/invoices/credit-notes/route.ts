@@ -8,6 +8,7 @@ import {
   getGstTreatmentForCurrency,
   resolveLineGstRatePercent,
 } from "@/lib/gst-rules";
+import { lineAmountsCents } from "@/lib/invoices/calc";
 
 export async function GET(request: NextRequest) {
   try {
@@ -138,20 +139,20 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const subtotalExGST = items.reduce(
-        (sum, item) => sum + Math.round(item.quantity * item.unitPrice),
-        0,
-      );
-      const gstAmount = items.reduce(
-        (sum, item) =>
-          sum +
-          Math.round(
-            item.quantity *
-              item.unitPrice *
-              (resolveLineGstRatePercent(item.gstRate, gstTreatment) / 100),
-          ),
-        0,
-      );
+      // RA-7705: the invoice rule — each line rounded to cents in decimal,
+      // GST on the rounded line, header = sum of the lines.
+      const lines = items.map((item) => {
+        const unitPrice = Math.round(Number(item.unitPrice));
+        const gstRate = resolveLineGstRatePercent(item.gstRate, gstTreatment);
+        return {
+          item,
+          unitPrice,
+          gstRate,
+          ...lineAmountsCents(Number(item.quantity), unitPrice, gstRate),
+        };
+      });
+      const subtotalExGST = lines.reduce((sum, l) => sum + l.subtotal, 0);
+      const gstAmount = lines.reduce((sum, l) => sum + l.gstAmount, 0);
       const totalIncGST = subtotalExGST + gstAmount;
 
       const creditNote = await prisma.creditNote.create({
@@ -169,23 +170,14 @@ export async function POST(request: NextRequest) {
           refundReference: refundReference || null,
           status: "DRAFT",
           lineItems: {
-            create: items.map((item, idx) => ({
-              description: item.description,
-              quantity: item.quantity,
-              unitPrice: Math.round(item.unitPrice),
-              gstRate: resolveLineGstRatePercent(item.gstRate, gstTreatment),
-              subtotal: Math.round(item.quantity * item.unitPrice),
-              gstAmount: Math.round(
-                item.quantity *
-                  item.unitPrice *
-                  (resolveLineGstRatePercent(item.gstRate, gstTreatment) / 100),
-              ),
-              total: Math.round(
-                item.quantity *
-                  item.unitPrice *
-                  (1 +
-                    resolveLineGstRatePercent(item.gstRate, gstTreatment) / 100),
-              ),
+            create: lines.map((l, idx) => ({
+              description: l.item.description,
+              quantity: l.item.quantity,
+              unitPrice: l.unitPrice,
+              gstRate: l.gstRate,
+              subtotal: l.subtotal,
+              gstAmount: l.gstAmount,
+              total: l.total,
               sortOrder: idx,
             })),
           },

@@ -100,6 +100,7 @@ vi.mock("@/lib/nir-building-codes", () => ({
 }));
 vi.mock("@/lib/nir-cost-estimation", () => ({
   estimateCosts: vi.fn().mockResolvedValue({ items: [], contingency: 0 }),
+  resolveInspectionRates: vi.fn().mockResolvedValue({ ok: true, rates: null }),
 }));
 
 // ── Stateful in-memory Classification table ─────────────────────────────────
@@ -789,7 +790,7 @@ async function draftSave(extra: Record<string, unknown>) {
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify({ baseIds: { moistureReadings: [] },
           environmentalData: {
             ambientTemperature: 22,
             humidityLevel: 55,

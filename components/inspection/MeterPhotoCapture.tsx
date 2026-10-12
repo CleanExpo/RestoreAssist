@@ -35,6 +35,8 @@ import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { fireHaptic } from "@/lib/capacitor";
 import type { MeterReadingResult } from "@/lib/vision/meter-prompts";
 import { queueWrite } from "@/lib/nir-sync-queue";
+import { prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
+import { queueEvidenceUpload, retryQueuedEvidence } from "@/lib/evidence-upload-queue";
 
 // ── Vision extraction plumbing ────────────────────────────────────────────────
 
@@ -191,6 +193,7 @@ function Field({
   step,
   min,
   max,
+  disabled,
 }: {
   label: string;
   value: string;
@@ -201,6 +204,7 @@ function Field({
   step?: string;
   min?: string;
   max?: string;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -215,36 +219,38 @@ function Field({
         step={step}
         min={min}
         max={max}
+        disabled={disabled}
         className="w-full mt-1 px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-colors"
       />
     </div>
   );
 }
 
-/** Persist the meter photo to Cloudinary so OCR evidence is not metadata-only. */
+/** Persist and read back the meter photo before describing it as attached. */
 async function uploadMeterPhoto(
   inspectionId: string,
-  file: File | null,
-  location: string,
-  caption: string,
+  file: File,
+  idempotencyKey: string,
+  fields: Record<string, string>,
 ) {
-  if (!file) return;
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("location", location);
-    formData.append("caption", caption);
-    formData.append("photoStage", "DURING_WORK");
-    const res = await fetch(`/api/inspections/${inspectionId}/photos`, {
-      method: "POST",
-      body: formData,
-    });
-    if (!res.ok) {
-      console.warn("[MeterPhotoCapture] photo upload failed", res.status);
-    }
-  } catch (err) {
-    console.warn("[MeterPhotoCapture] photo upload error", err);
-  }
+  return uploadInspectionPhoto(inspectionId, file, idempotencyKey, fetch, fields);
+}
+
+async function queueMeterPhoto(inspectionId: string, file: File, key: string, fields: Record<string, string>) {
+  return queueEvidenceUpload({
+    inspectionId, blob: file, filename: file.name, mimeType: file.type,
+    location: fields.location, caption: fields.caption, directRetryKey: key,
+    photoStage: fields.photoStage,
+  });
+}
+
+function saveOriginalCopy(file: File) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 // ── Moisture confirm form ─────────────────────────────────────────────────────
@@ -253,12 +259,14 @@ function MoistureConfirm({
   extraction,
   inspectionId,
   file,
+  preparedFile,
   onSaved,
   onCancel,
 }: {
   extraction: Extract<OcrExtraction, { type: "moisture" }>;
   inspectionId: string;
   file: File | null;
+  preparedFile?: File | null;
   onSaved: (opts?: { queuedLocally?: boolean }) => void;
   onCancel: () => void;
 }) {
@@ -271,6 +279,37 @@ function MoistureConfirm({
   const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [readingSaved, setReadingSaved] = useState(false);
+  const [readingQueuedLocally, setReadingQueuedLocally] = useState(false);
+  const preparedPhotoRef = useRef<File | null>(preparedFile ?? null);
+  const photoKeyRef = useRef<string | null>(null);
+  const photoFieldsRef = useRef<Record<string, string> | null>(null);
+
+  const attachPhoto = async () => {
+    if (!file) return;
+    preparedPhotoRef.current ??= await prepareInspectionPhoto(file);
+    photoKeyRef.current ??= globalThis.crypto.randomUUID();
+    photoFieldsRef.current ??= {
+      location,
+      caption: `Moisture meter OCR — ${parseFloat(moisture)}% (${surfaceType || "unknown"})`,
+      photoStage: "DURING_WORK",
+    };
+    await uploadMeterPhoto(
+      inspectionId, preparedPhotoRef.current, photoKeyRef.current, photoFieldsRef.current,
+    );
+  };
+
+  const queuePhoto = async () => {
+    if (!file) return;
+    preparedPhotoRef.current ??= await prepareInspectionPhoto(file);
+    photoKeyRef.current ??= globalThis.crypto.randomUUID();
+    photoFieldsRef.current ??= {
+      location,
+      caption: `Moisture meter OCR — ${parseFloat(moisture)}% (${surfaceType || "unknown"})`,
+      photoStage: "DURING_WORK",
+    };
+    return queueMeterPhoto(inspectionId, preparedPhotoRef.current, photoKeyRef.current, photoFieldsRef.current);
+  };
 
   const save = async () => {
     if (!location.trim()) {
@@ -285,6 +324,26 @@ function MoistureConfirm({
 
     setSaving(true);
     setError(null);
+
+    if (readingSaved) {
+      try {
+        if (readingQueuedLocally || (typeof navigator !== "undefined" && !navigator.onLine)) {
+          const queuedId = await queuePhoto();
+          if (navigator.onLine && queuedId) await retryQueuedEvidence(queuedId, inspectionId).catch(() => 0);
+          toast.success("Reading and photo saved on this device. Check pending sync and the job photo list.");
+          onSaved({ queuedLocally: true });
+        } else {
+          await attachPhoto();
+          toast.success("Meter photo attached to saved reading");
+          onSaved();
+        }
+      } catch (cause) {
+        setError(`Reading saved; photo not attached. Retry the photo or save its original copy. ${cause instanceof Error ? cause.message : ""}`);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
 
     const payload = {
       location,
@@ -315,8 +374,16 @@ function MoistureConfirm({
         payload,
         inspectionId,
       });
+      setReadingSaved(true);
+      setReadingQueuedLocally(true);
+      try {
+        await queuePhoto();
+      } catch (cause) {
+        setError(`Reading saved on this device; photo not saved. Retry photo or save its original copy. ${cause instanceof Error ? cause.message : ""}`);
+        return;
+      }
       void fireHaptic("success");
-      toast.success("Saved on this device — will sync");
+      toast.success("Reading and photo saved on this device — will sync");
       onSaved({ queuedLocally: true });
     };
 
@@ -351,12 +418,14 @@ function MoistureConfirm({
       }
 
       if (res.ok) {
-        await uploadMeterPhoto(
-          inspectionId,
-          file,
-          location,
-          `Moisture meter OCR — ${val}% (${surfaceType || "unknown"})`,
-        );
+        setReadingSaved(true);
+        setReadingQueuedLocally(false);
+        try {
+          await attachPhoto();
+        } catch (cause) {
+          setError(`Reading saved; photo not attached. Retry the photo or save its original copy. ${cause instanceof Error ? cause.message : ""}`);
+          return;
+        }
         void fireHaptic("success");
         toast.success("Moisture reading saved");
         onSaved();
@@ -406,12 +475,14 @@ function MoistureConfirm({
           min="0"
           max="100"
           required
+          disabled={readingSaved}
         />
         <Field
           label="Surface / Material"
           value={surfaceType}
           onChange={setSurfaceType}
           placeholder="e.g. concrete, timber"
+          disabled={readingSaved}
         />
         <div className="col-span-2">
           <Field
@@ -420,6 +491,7 @@ function MoistureConfirm({
             onChange={setLocation}
             placeholder="e.g. Master bedroom — east wall, 300mm from floor"
             required
+            disabled={readingSaved}
           />
         </div>
       </div>
@@ -428,6 +500,10 @@ function MoistureConfirm({
         <p role="alert" className="text-xs text-destructive">
           {error}
         </p>
+      )}
+
+      {readingSaved && file && (
+        <button type="button" onClick={() => saveOriginalCopy(file)} className="text-xs underline text-cyan-700">Save original meter photo copy</button>
       )}
 
       <div className="flex gap-2 pt-1">
@@ -448,7 +524,7 @@ function MoistureConfirm({
           ) : (
             <CheckCircle2 size={14} />
           )}
-          Save Reading
+          {readingSaved ? "Retry meter photo" : "Save Reading"}
         </button>
       </div>
     </div>
@@ -461,12 +537,14 @@ function EnvironmentalConfirm({
   extraction,
   inspectionId,
   file,
+  preparedFile,
   onSaved,
   onCancel,
 }: {
   extraction: Extract<OcrExtraction, { type: "environmental" }>;
   inspectionId: string;
   file: File | null;
+  preparedFile?: File | null;
   onSaved: (opts?: { queuedLocally?: boolean }) => void;
   onCancel: () => void;
 }) {
@@ -487,6 +565,41 @@ function EnvironmentalConfirm({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [readingSaved, setReadingSaved] = useState(false);
+  const [readingQueuedLocally, setReadingQueuedLocally] = useState(false);
+  const preparedPhotoRef = useRef<File | null>(preparedFile ?? null);
+  const photoKeyRef = useRef<string | null>(null);
+  const photoFieldsRef = useRef<Record<string, string> | null>(null);
+
+  const attachPhoto = async () => {
+    if (!file) return;
+    preparedPhotoRef.current ??= await prepareInspectionPhoto(file);
+    photoKeyRef.current ??= globalThis.crypto.randomUUID();
+    photoFieldsRef.current ??= {
+      location: "Ambient conditions",
+      caption: extraction.rawText?.trim()
+        ? `Thermo-hygrometer OCR — ${temp}°C / ${rh}% RH`
+        : `Thermo-hygrometer — ${temp}°C / ${rh}% RH`,
+      photoStage: "DURING_WORK",
+    };
+    await uploadMeterPhoto(
+      inspectionId, preparedPhotoRef.current, photoKeyRef.current, photoFieldsRef.current,
+    );
+  };
+
+  const queuePhoto = async () => {
+    if (!file) return;
+    preparedPhotoRef.current ??= await prepareInspectionPhoto(file);
+    photoKeyRef.current ??= globalThis.crypto.randomUUID();
+    photoFieldsRef.current ??= {
+      location: "Ambient conditions",
+      caption: extraction.rawText?.trim()
+        ? `Thermo-hygrometer OCR — ${temp}°C / ${rh}% RH`
+        : `Thermo-hygrometer — ${temp}°C / ${rh}% RH`,
+      photoStage: "DURING_WORK",
+    };
+    return queueMeterPhoto(inspectionId, preparedPhotoRef.current, photoKeyRef.current, photoFieldsRef.current);
+  };
 
   const save = async () => {
     const tempNum = parseOptionalNumber(temp);
@@ -518,6 +631,26 @@ function EnvironmentalConfirm({
     setSaving(true);
     setError(null);
 
+    if (readingSaved) {
+      try {
+        if (readingQueuedLocally || (typeof navigator !== "undefined" && !navigator.onLine)) {
+          const queuedId = await queuePhoto();
+          if (navigator.onLine && queuedId) await retryQueuedEvidence(queuedId, inspectionId).catch(() => 0);
+          toast.success("Environmental data and photo saved on this device. Check pending sync and the job photo list.");
+          onSaved({ queuedLocally: true });
+        } else {
+          await attachPhoto();
+          toast.success("Meter photo attached to saved environmental data");
+          onSaved();
+        }
+      } catch (cause) {
+        setError(`Environmental data saved; photo not attached. Retry the photo or save its original copy. ${cause instanceof Error ? cause.message : ""}`);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const payload = {
       ambientTemperature: tempNum,
       humidityLevel: rhNum,
@@ -543,8 +676,16 @@ function EnvironmentalConfirm({
         payload,
         inspectionId,
       });
+      setReadingSaved(true);
+      setReadingQueuedLocally(true);
+      try {
+        await queuePhoto();
+      } catch (cause) {
+        setError(`Environmental data saved on this device; photo not saved. Retry photo or save its original copy. ${cause instanceof Error ? cause.message : ""}`);
+        return;
+      }
       void fireHaptic("success");
-      toast.success("Saved on this device — will sync");
+      toast.success("Environmental data and photo saved on this device — will sync");
       onSaved({ queuedLocally: true });
     };
 
@@ -579,14 +720,14 @@ function EnvironmentalConfirm({
       }
 
       if (res.ok) {
-        await uploadMeterPhoto(
-          inspectionId,
-          file,
-          "Ambient conditions",
-          extraction.rawText?.trim()
-            ? `Thermo-hygrometer OCR — ${temp}°C / ${rh}% RH`
-            : `Thermo-hygrometer — ${temp}°C / ${rh}% RH`,
-        );
+        setReadingSaved(true);
+        setReadingQueuedLocally(false);
+        try {
+          await attachPhoto();
+        } catch (cause) {
+          setError(`Environmental data saved; photo not attached. Retry the photo or save its original copy. ${cause instanceof Error ? cause.message : ""}`);
+          return;
+        }
         void fireHaptic("success");
         toast.success("Environmental data applied to inspection");
         onSaved();
@@ -641,6 +782,7 @@ function EnvironmentalConfirm({
           type="number"
           step="0.1"
           required
+          disabled={readingSaved}
         />
         <Field
           label="RH (%)"
@@ -651,6 +793,7 @@ function EnvironmentalConfirm({
           min="0"
           max="100"
           required
+          disabled={readingSaved}
         />
         <Field
           label="Dew Point (°C)"
@@ -658,6 +801,7 @@ function EnvironmentalConfirm({
           onChange={setDew}
           type="number"
           step="0.1"
+          disabled={readingSaved}
         />
       </div>
 
@@ -665,6 +809,10 @@ function EnvironmentalConfirm({
         <p role="alert" className="text-xs text-destructive">
           {error}
         </p>
+      )}
+
+      {readingSaved && file && (
+        <button type="button" onClick={() => saveOriginalCopy(file)} className="text-xs underline text-cyan-700">Save original meter photo copy</button>
       )}
 
       <div className="flex gap-2 pt-1">
@@ -685,7 +833,7 @@ function EnvironmentalConfirm({
           ) : (
             <CheckCircle2 size={14} />
           )}
-          Apply to Inspection
+          {readingSaved ? "Retry meter photo" : "Apply to Inspection"}
         </button>
       </div>
     </div>
@@ -806,6 +954,7 @@ export function MeterPhotoCapture({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const preparedVisionFileRef = useRef<File | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [extraction, setExtraction] = useState<OcrExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -817,6 +966,7 @@ export function MeterPhotoCapture({
   // Handle a selected/captured file
   const handleFileSelect = (f: File) => {
     setFile(f);
+    preparedVisionFileRef.current = null;
     setExtraction(null);
     setError(null);
 
@@ -926,13 +1076,15 @@ export function MeterPhotoCapture({
     setError(null);
 
     try {
-      const image = await fileToBase64(file);
+      preparedVisionFileRef.current ??= await prepareInspectionPhoto(file);
+      const visionFile = preparedVisionFileRef.current;
+      const image = await fileToBase64(visionFile);
       const res = await fetch("/api/vision/extract-reading", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           image,
-          mediaType: toVisionMediaType(file.type),
+          mediaType: toVisionMediaType(visionFile.type),
         }),
       });
 
@@ -959,6 +1111,7 @@ export function MeterPhotoCapture({
   const reset = () => {
     setPreview(null);
     setFile(null);
+    preparedVisionFileRef.current = null;
     setExtraction(null);
     setError(null);
   };
@@ -1117,6 +1270,7 @@ export function MeterPhotoCapture({
               extraction={extraction}
               inspectionId={inspectionId}
               file={file}
+              preparedFile={preparedVisionFileRef.current}
               onSaved={handleSaved}
               onCancel={reset}
             />
@@ -1126,6 +1280,7 @@ export function MeterPhotoCapture({
               extraction={extraction}
               inspectionId={inspectionId}
               file={file}
+              preparedFile={preparedVisionFileRef.current}
               onSaved={handleSaved}
               onCancel={reset}
             />

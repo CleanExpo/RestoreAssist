@@ -81,7 +81,9 @@ export async function compressImageForUpload(
     const blob = await renderToWebp(bitmap, orientation);
     bitmap.close();
 
-    if (!blob || blob.size === 0) {
+    // Safari may silently encode PNG when WebP is requested. Keep that valid
+    // conversion and report its real MIME so callers use a .png filename.
+    if (!blob || blob.size === 0 || ![WEBP_MIME, "image/png"].includes(blob.type.toLowerCase())) {
       return original;
     }
 
@@ -89,7 +91,7 @@ export async function compressImageForUpload(
       blob,
       originalSize,
       compressedSize: blob.size,
-      format: WEBP_MIME,
+      format: blob.type.toLowerCase(),
       skipped: false,
     };
   } catch {

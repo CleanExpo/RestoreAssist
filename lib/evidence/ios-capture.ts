@@ -2,6 +2,7 @@
 
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { getCurrentLocation } from "@/lib/capacitor";
+import { prepareInspectionPhoto } from "@/lib/inspection-photo-upload";
 
 export interface IOSCaptureManifest {
   capturedAt: string;
@@ -78,6 +79,9 @@ export async function evidencePhotoFromFile(
   file: File | Blob,
   filenameHint?: string,
 ): Promise<IOSCaptureResult> {
+  // Web/installed PWA library picks can return HEIC, which the evidence API's
+  // signature check rejects. Hash the converted bytes we actually upload.
+  if (file instanceof File) file = await prepareInspectionPhoto(file);
   const mimeType =
     file.type ||
     (file instanceof File && file.type) ||
@@ -106,12 +110,13 @@ export async function evidencePhotoFromFile(
   };
 }
 
-/**
- * Open a file picker (camera-preferring on mobile) for web evidence capture.
- * Rejects if the user cancels without selecting a file.
- */
+let pickerOpen = false;
+
+/** Open one web picker at a time. Only change, native cancel, or an explicit
+ * caller abort settles it. Focus/visibility are not selection outcomes. */
 export function pickEvidencePhotoFile(options?: {
   accept?: string;
+  signal?: AbortSignal;
 }): Promise<File> {
   const accept =
     options?.accept ??
@@ -122,36 +127,54 @@ export function pickEvidencePhotoFile(options?: {
       reject(new Error("File picker is only available in the browser"));
       return;
     }
+    if (pickerOpen) {
+      reject(new Error("A photo picker is already open"));
+      return;
+    }
+    if (options?.signal?.aborted) {
+      reject(new Error("Capture cancelled"));
+      return;
+    }
+    pickerOpen = true;
     const input = document.createElement("input");
     input.type = "file";
     input.accept = accept;
     input.setAttribute("capture", "environment");
+    input.style.display = "none";
     let settled = false;
     const finish = (fn: () => void) => {
       if (settled) return;
       settled = true;
-      window.removeEventListener("focus", onFocus);
+      pickerOpen = false;
+      input.removeEventListener("change", onChange);
+      input.removeEventListener("cancel", onCancel);
+      options?.signal?.removeEventListener("abort", onAbort);
+      input.remove();
       fn();
     };
-    const onFocus = () => {
-      // After the OS picker closes, window regains focus. If onchange did not
-      // fire with a file, treat as cancel (Chrome/Safari without cancel event).
-      window.setTimeout(() => {
-        finish(() => reject(new Error("Capture cancelled")));
-      }, 300);
-    };
-    input.onchange = () => {
+    const onChange = () => {
       const f = input.files?.[0];
       finish(() => {
         if (!f) reject(new Error("No file selected"));
         else resolve(f);
       });
     };
-    input.addEventListener("cancel", () => {
-      finish(() => reject(new Error("Capture cancelled")));
-    });
-    window.addEventListener("focus", onFocus, { once: true });
-    input.click();
+    const onCancel = () => finish(() => reject(new Error("Capture cancelled")));
+    const onAbort = () => {
+      // A browser can populate files before dispatching change. If the user
+      // tries to close a seemingly stuck picker then, keep the selected file.
+      const selected = input.files?.[0];
+      finish(() => selected ? resolve(selected) : reject(new Error("Capture cancelled")));
+    };
+    input.addEventListener("change", onChange);
+    input.addEventListener("cancel", onCancel);
+    options?.signal?.addEventListener("abort", onAbort, { once: true });
+    document.body.appendChild(input);
+    try {
+      input.click();
+    } catch (error) {
+      finish(() => reject(error));
+    }
   });
 }
 

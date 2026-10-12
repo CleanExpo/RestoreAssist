@@ -10,8 +10,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const HERMES_BASE = (process.env.HERMES_BASE_URL ?? "").replace(/\/$/, "");
-
 export async function GET() {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
@@ -21,8 +19,9 @@ export async function GET() {
   if (operator.response) return operator.response;
 
   const fetchedAt = new Date().toISOString();
+  const hermesBase = (process.env.HERMES_BASE_URL ?? "").replace(/\/$/, "");
 
-  if (!HERMES_BASE) {
+  if (!hermesBase) {
     return Response.json({
       data: {
         online: false,
@@ -36,16 +35,48 @@ export async function GET() {
   }
 
   try {
-    const res = await fetch(`${HERMES_BASE}/healthz`, {
+    const res = await fetch(`${hermesBase}/healthz`, {
       signal: AbortSignal.timeout(5_000),
+      // A followed redirect would let the target (a login page, say) answer
+      // for Hermes. A 3xx is not ok, so it fails closed below.
+      redirect: "manual",
     });
-    const body = await res.json().catch(() => ({}));
+    // A configured-but-failing URL is not a reachable Hermes. Fail closed before
+    // reading the body, so a 5xx payload can never supply uptime or version.
+    if (!res.ok) {
+      return Response.json({
+        data: {
+          online: false,
+          lastHeartbeat: null,
+          stale: true,
+          reason: `Hermes returned HTTP ${res.status}`,
+        },
+        fetchedAt,
+        stale: true,
+      });
+    }
+    // A 200 that is not a JSON object (an auth proxy or captive page in front
+    // of a dead Hermes) does not confirm Hermes is up.
+    const body: unknown = await res.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return Response.json({
+        data: {
+          online: false,
+          lastHeartbeat: null,
+          stale: true,
+          reason: "Hermes health response was not a JSON object",
+        },
+        fetchedAt,
+        stale: true,
+      });
+    }
+    const health = body as Record<string, unknown>;
     return Response.json({
       data: {
-        online: res.ok,
+        online: true,
         lastHeartbeat: fetchedAt,
-        uptime: body.uptime ?? null,
-        version: body.version ?? null,
+        uptime: health.uptime ?? null,
+        version: health.version ?? null,
         stale: false,
       },
       fetchedAt,

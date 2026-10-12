@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const idempotencyDb = vi.hoisted(() => {
   type RecordValue = {
+    id: string;
     cacheKey: string;
     scope: string;
     key: string;
@@ -31,17 +32,19 @@ const idempotencyDb = vi.hoisted(() => {
 
   const records = new Map<string, RecordValue>();
   const clientMutations = new Map<string, ClientMutationValue>();
+  let nextRecordId = 1;
 
   return {
     records,
     clientMutations,
     idempotencyRecord: {
-      async create({ data }: { data: RecordValue }) {
+      async create({ data }: { data: Omit<RecordValue, "id"> }) {
         if (records.has(data.cacheKey)) {
           throw { code: "P2002" };
         }
         records.set(data.cacheKey, {
           ...data,
+          id: `reservation-${nextRecordId++}`,
           responseStatus: data.responseStatus ?? null,
           responseBody: data.responseBody ?? null,
           responseContentType: data.responseContentType ?? null,
@@ -69,8 +72,21 @@ const idempotencyDb = vi.hoisted(() => {
         records.set(where.cacheKey, updated);
         return updated;
       },
+      async updateMany({ where, data }: {
+        where: { cacheKey: string; id?: string; scope?: string; key?: string; fingerprint?: string; status?: string; expiresAt?: { gt: Date } };
+        data: Partial<RecordValue>;
+      }) {
+        const existing = records.get(where.cacheKey);
+        if (!existing || (where.id && existing.id !== where.id) ||
+            (where.scope && existing.scope !== where.scope) || (where.key && existing.key !== where.key) ||
+            (where.fingerprint && existing.fingerprint !== where.fingerprint) ||
+            (where.status && existing.status !== where.status) ||
+            (where.expiresAt?.gt && existing.expiresAt <= where.expiresAt.gt)) return { count: 0 };
+        records.set(where.cacheKey, { ...existing, ...data });
+        return { count: 1 };
+      },
       async deleteMany(args?: {
-        where?: { cacheKey?: string; expiresAt?: { lt: Date } };
+        where?: { cacheKey?: string; id?: string; status?: string; expiresAt?: { lt: Date } };
       }) {
         if (!args?.where) {
           const count = records.size;
@@ -79,6 +95,13 @@ const idempotencyDb = vi.hoisted(() => {
         }
 
         if (args.where.cacheKey) {
+          const record = records.get(args.where.cacheKey);
+          if (!record ||
+              (args.where.id && record.id !== args.where.id) ||
+              (args.where.status && record.status !== args.where.status) ||
+              (args.where.expiresAt?.lt && record.expiresAt >= args.where.expiresAt.lt)) {
+            return { count: 0 };
+          }
           const deleted = records.delete(args.where.cacheKey);
           return { count: deleted ? 1 : 0 };
         }
@@ -138,10 +161,26 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   withIdempotency,
+  completeIdempotentSuccessInTransaction,
   getIdempotencyKey,
   getClientMutationId,
   __resetIdempotencyStore,
 } from "../idempotency";
+import { isRecentlyIssuedCreationKey } from "../creation-attempt-key";
+
+describe("creation key retry age", () => {
+  const uuid = "123e4567-e89b-42d3-a456-426614174000";
+  it("permits overnight timestamped keys only well inside the 24-hour cache lifetime", () => {
+    const now = Date.now();
+    expect(isRecentlyIssuedCreationKey(`report-initial-${now - 30_000}-${uuid}`, "report-initial", now)).toBe(true);
+    expect(isRecentlyIssuedCreationKey(`report-initial-${now - 12 * 60 * 60 * 1000}-${uuid}`, "report-initial", now)).toBe(true);
+    expect(isRecentlyIssuedCreationKey(`report-initial-${now - 21 * 60 * 60 * 1000}-${uuid}`, "report-initial", now)).toBe(false);
+    expect(isRecentlyIssuedCreationKey(`report-initial-${now - 24 * 60 * 60 * 1000}-${uuid}`, "report-initial", now)).toBe(false);
+    expect(isRecentlyIssuedCreationKey(`report-initial-${now + 1000}-${uuid}`, "report-initial", now)).toBe(false);
+    expect(isRecentlyIssuedCreationKey(`report-initial-${uuid}`, "report-initial", now)).toBe(false);
+    expect(isRecentlyIssuedCreationKey(`nir-inspection-${now}-${uuid}`, "report-initial", now)).toBe(false);
+  });
+});
 
 function makeReq(
   body: unknown,
@@ -246,6 +285,194 @@ describe("withIdempotency", () => {
     expect(await r1.json()).toEqual({ id: 1 });
     expect(await r2.json()).toEqual({ id: 1 });
     expect(r2.headers.get("idempotent-replayed")).toBe("true");
+  });
+  it("replays an atomically completed charge and report after the response is lost", async () => {
+    let chargedCredits = 0;
+    let reportRows = 0;
+    const headers = { "idempotency-key": "report-initial-atomic-test" };
+    const make = (body: unknown) => makeReq(body, headers, "/api/reports/initial-entry");
+    const handler = async (rawBody: string) => {
+      const payload = JSON.stringify({ report: { id: "single-report" } });
+      const completed = await completeIdempotentSuccessInTransaction({
+        tx: { idempotencyRecord: idempotencyDb.idempotencyRecord } as never,
+        scope: "owner-a", key: headers["idempotency-key"], method: "POST",
+        path: "/api/reports/initial-entry", rawBody, responseBody: payload,
+      });
+      if (!completed) throw new Error("reservation lost");
+      chargedCredits++;
+      reportRows++;
+      return NextResponse.json({ report: { id: "single-report" } });
+    };
+    const first = await withIdempotency(make({ client: "A" }), "owner-a", handler, { successCompletedInHandler: true });
+    expect(first.status).toBe(200); // client loses this committed response
+    const replay = await withIdempotency(make({ client: "A" }), "owner-a", handler, { successCompletedInHandler: true });
+    expect(replay.status).toBe(200);
+    expect(replay.headers.get("Idempotent-Replayed")).toBe("true");
+    expect((await replay.json()).report.id).toBe("single-report");
+    expect(chargedCredits).toBe(1);
+    expect(reportRows).toBe(1);
+    expect((await withIdempotency(make({ client: "B" }), "owner-a", handler, { successCompletedInHandler: true })).status).toBe(409);
+    expect(chargedCredits).toBe(1);
+    expect(reportRows).toBe(1);
+  });
+  it.each(["throws", "returns 500"] as const)("preserves an atomic completion when its handler %s afterwards", async (failure) => {
+    const key = `report-postcommit-${failure.replace(" ", "-")}`;
+    const path = "/api/reports/initial-entry";
+    const make = () => makeReq({ client: "A" }, { "idempotency-key": key }, path);
+    let committed = 0;
+    const handler = async (rawBody: string) => {
+      const completed = await completeIdempotentSuccessInTransaction({
+        tx: { idempotencyRecord: idempotencyDb.idempotencyRecord } as never,
+        scope: "owner-a", key, method: "POST", path, rawBody,
+        responseBody: JSON.stringify({ report: { id: "committed-report" } }),
+      });
+      expect(completed).toBe(true);
+      committed++;
+      if (failure === "throws") throw new Error("synthetic postcommit response failure");
+      return NextResponse.json({ error: "synthetic postcommit response failure" }, { status: 500 });
+    };
+    if (failure === "throws") {
+      await expect(withIdempotency(make(), "owner-a", handler, { successCompletedInHandler: true }))
+        .rejects.toThrow("synthetic postcommit response failure");
+    } else {
+      expect((await withIdempotency(make(), "owner-a", handler, { successCompletedInHandler: true })).status).toBe(500);
+    }
+    const replay = await withIdempotency(make(), "owner-a", handler, { successCompletedInHandler: true });
+    expect(replay.status).toBe(200);
+    expect(replay.headers.get("Idempotent-Replayed")).toBe("true");
+    expect((await replay.json()).report.id).toBe("committed-report");
+    expect(committed).toBe(1);
+  });
+  it("does not let an expired first handler delete a replacement reservation", async () => {
+    const key = "reservation-owner-race";
+    const make = () => makeReq({ client: "A" }, { "idempotency-key": key });
+    let firstStarted!: () => void;
+    let finishFirst!: () => void;
+    let secondStarted!: () => void;
+    let finishSecond!: () => void;
+    const enteredFirst = new Promise<void>((resolve) => { firstStarted = resolve; });
+    const firstGate = new Promise<void>((resolve) => { finishFirst = resolve; });
+    const enteredSecond = new Promise<void>((resolve) => { secondStarted = resolve; });
+    const secondGate = new Promise<void>((resolve) => { finishSecond = resolve; });
+    const first = withIdempotency(make(), "owner-a", async () => {
+      firstStarted();
+      await firstGate;
+      throw new Error("first handler timed out");
+    });
+    await enteredFirst;
+    const oldRecord = [...idempotencyDb.records.values()][0];
+    oldRecord.expiresAt = new Date(Date.now() - 1000);
+    const second = withIdempotency(make(), "owner-a", async () => {
+      secondStarted();
+      await secondGate;
+      return NextResponse.json({ id: "replacement" });
+    });
+    await enteredSecond;
+    finishFirst();
+    await expect(first).rejects.toThrow("first handler timed out");
+    expect(idempotencyDb.records.get(oldRecord.cacheKey)?.id).not.toBe(oldRecord.id);
+    expect((await withIdempotency(make(), "owner-a", async () => NextResponse.json({ id: "unexpected" }))).status).toBe(409);
+    finishSecond();
+    expect((await second).status).toBe(200);
+    expect((await (await withIdempotency(make(), "owner-a", async () => NextResponse.json({ id: "unexpected" }))).json()).id)
+      .toBe("replacement");
+  });
+  it("does not let a late generic success overwrite a replacement reservation with a different fingerprint", async () => {
+    const key = "reservation-success-race";
+    const make = (body: string) => makeReq({ client: body }, { "idempotency-key": key });
+    let firstStarted!: () => void;
+    let finishFirst!: () => void;
+    let secondStarted!: () => void;
+    let finishSecond!: () => void;
+    const enteredFirst = new Promise<void>((resolve) => { firstStarted = resolve; });
+    const firstGate = new Promise<void>((resolve) => { finishFirst = resolve; });
+    const enteredSecond = new Promise<void>((resolve) => { secondStarted = resolve; });
+    const secondGate = new Promise<void>((resolve) => { finishSecond = resolve; });
+    const first = withIdempotency(make("A"), "owner-a", async () => {
+      firstStarted();
+      await firstGate;
+      return NextResponse.json({ id: "stale-A" });
+    });
+    await enteredFirst;
+    const oldRecord = [...idempotencyDb.records.values()][0];
+    oldRecord.expiresAt = new Date(Date.now() - 1000);
+    const second = withIdempotency(make("B"), "owner-a", async () => {
+      secondStarted();
+      await secondGate;
+      return NextResponse.json({ id: "current-B" });
+    });
+    await enteredSecond;
+    finishFirst();
+    const staleResult = await first;
+    expect(staleResult.status).toBe(409);
+    expect(staleResult.headers.get("X-RestoreAssist-Idempotency-Uncertain")).toBe("true");
+    expect(idempotencyDb.records.get(oldRecord.cacheKey)?.status).toBe("PENDING");
+    finishSecond();
+    expect((await second).status).toBe(200);
+    const replay = await withIdempotency(make("B"), "owner-a", async () => NextResponse.json({ id: "unexpected" }));
+    expect((await replay.json()).id).toBe("current-B");
+    expect((await withIdempotency(make("A"), "owner-a", async () => NextResponse.json({ id: "unexpected" }))).status).toBe(409);
+  });
+  it("replays an atomically completed 201 while still caching unmarked successes", async () => {
+    let created = 0;
+    const key = "inspection-atomic-test";
+    const path = "/api/inspections";
+    const make = () => makeReq({ clientId: "c1" }, { "idempotency-key": key }, path);
+    const first = await withIdempotency(make(), "owner-a", async (rawBody) => {
+      const payload = JSON.stringify({ inspection: { id: "job-1" } });
+      expect(await completeIdempotentSuccessInTransaction({
+        tx: { idempotencyRecord: idempotencyDb.idempotencyRecord } as never,
+        scope: "owner-a", key, method: "POST", path, rawBody,
+        responseBody: payload, responseStatus: 201,
+      })).toBe(true);
+      created++;
+      return NextResponse.json({ inspection: { id: "job-1" } }, {
+        status: 201,
+        headers: { "X-RestoreAssist-Idempotency-Completed-In-Transaction": "true" },
+      });
+    }, { successCompletedInHandler: "when-marked" });
+    expect(first.status).toBe(201);
+    const replay = await withIdempotency(make(), "owner-a", async () => {
+      throw new Error("must replay the committed inspection");
+    }, { successCompletedInHandler: "when-marked" });
+    expect(replay.status).toBe(201);
+    expect((await replay.json()).inspection.id).toBe("job-1");
+    expect(created).toBe(1);
+
+    let existingCalls = 0;
+    const existing = () => makeReq({ reportId: "r1" }, { "idempotency-key": "inspection-existing-test" }, path);
+    await withIdempotency(existing(), "owner-a", async () => {
+      existingCalls++;
+      return NextResponse.json({ inspection: { id: "old-job" } });
+    }, { successCompletedInHandler: "when-marked" });
+    const existingReplay = await withIdempotency(existing(), "owner-a", async () => {
+      existingCalls++;
+      return NextResponse.json({ inspection: { id: "wrong-job" } });
+    }, { successCompletedInHandler: "when-marked" });
+    expect((await existingReplay.json()).inspection.id).toBe("old-job");
+    expect(existingCalls).toBe(1);
+  });
+  it("does not overwrite another completed result with a stale reservation conflict", async () => {
+    const headers = { "idempotency-key": "report-initial-race-test" };
+    const make = () => makeReq({ client: "A" }, headers, "/api/reports/initial-entry");
+    const first = await withIdempotency(make(), "owner-a", async (rawBody) => {
+      expect(await completeIdempotentSuccessInTransaction({
+        tx: { idempotencyRecord: idempotencyDb.idempotencyRecord } as never,
+        scope: "owner-a", key: headers["idempotency-key"], method: "POST",
+        path: "/api/reports/initial-entry", rawBody,
+        responseBody: JSON.stringify({ report: { id: "winner" } }),
+      })).toBe(true);
+      return NextResponse.json({ error: "reservation lost" }, {
+        status: 409,
+        headers: { "X-RestoreAssist-Idempotency-Uncertain": "true" },
+      });
+    }, { successCompletedInHandler: true });
+    expect(first.status).toBe(409);
+    const replay = await withIdempotency(make(), "owner-a", async () => {
+      throw new Error("should replay winner");
+    }, { successCompletedInHandler: true });
+    expect(replay.status).toBe(200);
+    expect((await replay.json()).report.id).toBe("winner");
   });
 
   it("returns 409 when same key has different body", async () => {

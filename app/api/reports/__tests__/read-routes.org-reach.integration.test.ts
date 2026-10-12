@@ -109,16 +109,16 @@ describe.skipIf(!process.env.DATABASE_URL)(
   () => {
     beforeAll(async () => {
       const owner = await prisma.user.create({
-        data: { email: `${S}-owner@test.local`, role: "ADMIN", subscriptionStatus: "TRIAL" },
+        data: { email: `${S}-owner@test.local`, role: "ADMIN", subscriptionStatus: "TRIAL", trialEndsAt: new Date(Date.now() + 86_400_000) },
       });
       const tech = await prisma.user.create({
-        data: { email: `${S}-tech@test.local`, role: "USER", subscriptionStatus: "TRIAL" },
+        data: { email: `${S}-tech@test.local`, role: "USER", subscriptionStatus: "TRIAL", trialEndsAt: new Date(Date.now() + 86_400_000) },
       });
       const outsider = await prisma.user.create({
-        data: { email: `${S}-out@test.local`, role: "ADMIN", subscriptionStatus: "TRIAL" },
+        data: { email: `${S}-out@test.local`, role: "ADMIN", subscriptionStatus: "TRIAL", trialEndsAt: new Date(Date.now() + 86_400_000) },
       });
       const colleague = await prisma.user.create({
-        data: { email: `${S}-colleague@test.local`, role: "USER", subscriptionStatus: "TRIAL" },
+        data: { email: `${S}-colleague@test.local`, role: "USER", subscriptionStatus: "TRIAL", trialEndsAt: new Date(Date.now() + 86_400_000) },
       });
       ids.owner = owner.id;
       ids.tech = tech.id;

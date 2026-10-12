@@ -25,6 +25,8 @@ interface Props {
   gps: { lat: number; lng: number } | null;
   onCancel: () => void;
   onSubmit: (payload: CaptureSubmitPayload) => void;
+  uploading?: boolean;
+  lockedCaption?: string | null;
 }
 
 export function CapturePhotoTagModal({
@@ -33,6 +35,8 @@ export function CapturePhotoTagModal({
   gps,
   onCancel,
   onSubmit,
+  uploading = false,
+  lockedCaption = null,
 }: Props) {
   const [caption, setCaption] = useState("");
   const previewUrl = useMemo(
@@ -46,12 +50,16 @@ export function CapturePhotoTagModal({
     };
   }, [previewUrl]);
 
+  useEffect(() => {
+    if (!file) setCaption("");
+  }, [file]);
+
   if (!file) return null;
 
   const handleSubmit = () => {
     onSubmit({
       file,
-      caption: caption.trim(),
+      caption: lockedCaption ?? caption.trim(),
       sha256: sha256 ?? "",
       gps,
       capturedAtUtc: new Date().toISOString(),
@@ -92,19 +100,22 @@ export function CapturePhotoTagModal({
         </div>
         <Input
           placeholder="Description (optional, e.g. 'moisture in north wall behind dishwasher')"
-          value={caption}
+          value={lockedCaption ?? caption}
           onChange={(e) => setCaption(e.target.value)}
+          disabled={lockedCaption !== null}
           maxLength={500}
         />
+        {lockedCaption !== null && <p role="status" className="text-xs text-amber-700">This photo and caption are fixed while its earlier upload is unverified. Retry the same request, or cancel after saving an original copy and checking the job photo list.</p>}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onCancel} className="flex-1">
+          <Button variant="outline" onClick={onCancel} disabled={uploading} className="flex-1">
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
+            disabled={uploading || !sha256}
             className="flex-1 bg-brand-navy text-white"
           >
-            Save photo
+            {uploading ? "Saving…" : "Save photo"}
           </Button>
         </div>
       </DialogContent>

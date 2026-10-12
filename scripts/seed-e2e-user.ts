@@ -22,6 +22,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { pgPoolTls } from "../lib/prisma-pool-config";
 import bcrypt from "bcryptjs";
 
 // Prisma 7's pg driver adapter requires an explicit adapter at construction;
@@ -32,7 +33,7 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is required to seed the e2e user");
 }
 const prisma = new PrismaClient({
-  adapter: new PrismaPg(new Pool({ connectionString, max: 2 })),
+  adapter: new PrismaPg(new Pool({ ...pgPoolTls(connectionString), max: 2 })),
 });
 
 const EMAIL = process.env.E2E_USER_EMAIL ?? "test@restoreassist.app";

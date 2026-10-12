@@ -54,6 +54,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
       findUnique: (...args: unknown[]) => userFindUnique(...args),
+      findMany: async () => [],
     },
     report: {
       findUnique: (...args: unknown[]) => reportLookup(...args),

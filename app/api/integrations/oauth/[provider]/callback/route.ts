@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
 import {
   validateOAuthState,
   storeTokens,
@@ -66,13 +67,11 @@ export async function GET(
 
     // Find the exact integration bound to this one-time state. The fallback
     // keeps callbacks issued before the PKCE-context migration valid.
-    const integration = await prisma.integration.findFirst({
-      where: {
-        userId: stateData.userId,
-        provider,
-        ...(stateData.integrationId ? { id: stateData.integrationId } : {}),
-      },
+    const selection = await selectOAuthIntegration({
+      prisma, userId: stateData.userId, provider,
+      integrationId: stateData.integrationId ?? undefined,
     });
+    const integration = selection.ok ? selection.data : null;
 
     if (!integration) {
       return redirectWithError("Integration not found", providerParam);
@@ -86,6 +85,7 @@ export async function GET(
         `mock-access-token-${provider.toLowerCase()}`,
         `mock-refresh-token-${provider.toLowerCase()}`,
         3600,
+        provider,
       );
 
       // Update integration status to connected
@@ -157,6 +157,13 @@ export async function GET(
           data: { realmId },
         });
       }
+    }
+
+    const ready = await selectOAuthIntegration({
+      prisma, userId: stateData.userId, provider, integrationId: integration.id, requireReady: true,
+    });
+    if (!ready.ok) {
+      return redirectWithError("Connection needs valid credentials and an authorised organisation", providerParam);
     }
 
     // Clear config (remove stored state and code verifier)

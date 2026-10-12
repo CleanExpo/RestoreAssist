@@ -50,7 +50,7 @@ interface MonitoringReport {
   inspectionNumber: string;
   propertyAddress: string;
   technicianName: string | null;
-  inspectionDate: string;
+  inspectionDate: string | null;
   iicrcReference: string;
   affectedAreas: Array<{
     roomZoneId: string;

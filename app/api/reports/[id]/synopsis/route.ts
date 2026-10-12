@@ -10,6 +10,7 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 /**
  * RA-1192: POST /api/reports/[id]/synopsis
@@ -19,7 +20,6 @@ import {
  * to Report.aiSynopsis and caches for 24 hours to bound per-user spend.
  */
 
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 const CACHE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
 
 export async function POST(
@@ -49,13 +49,8 @@ export async function POST(
     if (rateLimited) return rateLimited;
 
     // CLAUDE.md rule 8 — subscription gate before any AI call.
-    const subUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { subscriptionStatus: true },
-    });
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(subUser?.subscriptionStatus ?? "")
-    ) {
+    // RA-7893: an invited technician uses the business owner's plan.
+    if (!(await hasActiveSubscription(userId))) {
       return NextResponse.json(
         {
           error: "Active subscription required to generate AI summaries",

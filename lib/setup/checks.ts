@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
 import { decrypt } from "@/lib/credential-vault";
 import { routeBasic } from "@/lib/ai/model-router";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
@@ -383,14 +384,14 @@ export const accountingCheck: Check = async (orgId) => {
   });
   if (!org) return notConnected;
 
-  const integration = await prisma.integration.findFirst({
-    where: {
-      userId: org.ownerId,
-      status: "CONNECTED",
-      provider: { in: [...ACCOUNTING_PROVIDERS] },
-    },
-    select: { id: true, provider: true },
-  });
+  const selections = await Promise.all(ACCOUNTING_PROVIDERS.map(provider =>
+    selectOAuthIntegration({ prisma, userId: org.ownerId, provider, requireReady: true }),
+  ));
+  if (selections.some(result => !result.ok && result.reason === "AMBIGUOUS")) {
+    return { capability, label, status: "yellow", note: "Choose an accounting workspace connection before checking it." };
+  }
+  const selected = selections.find(result => result.ok);
+  const integration = selected?.ok ? selected.data : null;
   if (!integration) return notConnected;
 
   const provider = integration.provider as AccountingProvider;
@@ -420,7 +421,7 @@ export const accountingCheck: Check = async (orgId) => {
   }
 
   // Xero: refresh the token, then probe the cheapest authenticated endpoint.
-  const credResult = await getValidXeroAccessToken(integration.id);
+  const credResult = await getValidXeroAccessToken(integration.id, { expectedTenantId: integration.tenantId ?? undefined, expectedUserId: integration.userId, expectedWorkspaceId: integration.workspaceId });
   if (!credResult.ok) {
     console.error("[SetupChecks/Xero]", {
       integrationId: integration.id,
@@ -491,15 +492,22 @@ function trialByokResult(
   // Missing / undefined coverage is the paid path: hard-require BYOK.
   // Live-probe mocks and a failed describe() must not throw here.
   if (!coverage?.fundedTrial) return null;
+  const providerNote = coverage.platformProviderStatus === "DISABLED"
+    ? "Anthropic connection disabled — review the connection before generating reports. Trial eligibility is unchanged."
+    : coverage.platformProviderStatus === "FAILED"
+      ? "Anthropic connection failed validation — review the connection before generating reports. Trial eligibility is unchanged."
+      : coverage.platformProviderStatus === "ACTIVE"
+        ? "Anthropic connection configured — platform trial credentials are not used as a fallback."
+        : null;
   return {
     capability: "byok_keys",
     label: "BYOK AI keys",
     status: "yellow",
     // RA-7569: missing platform key is still yellow — activation must not
     // hard-block a funded trial. Report gen stays fail-closed on the key.
-    note: coverage.canUsePlatformTrial
+    note: providerNote ?? (coverage.canUsePlatformTrial
       ? TRIAL_CREDITS_NOTE
-      : PLATFORM_KEY_MISSING_BODY,
+      : PLATFORM_KEY_MISSING_BODY),
   };
 }
 

@@ -71,7 +71,10 @@ export async function POST(
         });
       }
 
-      if (voiceSession.userId !== userId) {
+      // The stored session binds both the caller and the inspection. An
+      // owned session must not read another URL's checklist or change its
+      // own state using observations submitted under a different job.
+      if (voiceSession.userId !== userId || voiceSession.inspectionId !== id) {
         return apiError(req, {
           code: "FORBIDDEN",
           message: "Forbidden",

@@ -2,10 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 
 const userFindUnique = vi.hoisted(() => vi.fn());
+const organizationFindUnique = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: (...args: unknown[]) => userFindUnique(...args) },
+    organization: {
+      findUnique: (...args: unknown[]) => organizationFindUnique(...args),
+    },
   },
 }));
 
@@ -13,6 +17,7 @@ import {
   verifyAdminFromDb,
   verifyPlatformSupportOperator,
   verifyStorePublishingOperator,
+  verifyTenantAdmin,
   requireAdminPage,
 } from "@/lib/admin-auth";
 
@@ -40,6 +45,7 @@ import { getServerSession } from "next-auth";
 
 beforeEach(() => {
   userFindUnique.mockReset();
+  organizationFindUnique.mockReset();
   redirectMock.mockClear();
   userFindUnique.mockResolvedValue({
     id: "operator_1",
@@ -123,6 +129,77 @@ describe("verifyPlatformSupportOperator", () => {
       organizationId: "org_1",
     });
     expect(userFindUnique).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("verifyTenantAdmin", () => {
+  it("accepts the DB-verified ADMIN who owns their organisation", async () => {
+    organizationFindUnique.mockResolvedValue({ ownerId: "operator_1" });
+
+    const result = await verifyTenantAdmin(ADMIN_SESSION);
+
+    expect(result.response).toBeUndefined();
+    expect(result.user).toEqual({
+      id: "operator_1",
+      role: "ADMIN",
+      organizationId: "org_1",
+    });
+    expect(organizationFindUnique).toHaveBeenCalledWith({
+      where: { id: "org_1" },
+      select: { ownerId: true },
+    });
+  });
+
+  it("rejects an ADMIN inside an organisation someone else owns", async () => {
+    organizationFindUnique.mockResolvedValue({ ownerId: "someone_else" });
+
+    const result = await verifyTenantAdmin(ADMIN_SESSION);
+
+    expect(result.response?.status).toBe(403);
+    expect(result.user).toBeUndefined();
+  });
+
+  it("rejects when the organisation row is missing", async () => {
+    organizationFindUnique.mockResolvedValue(null);
+
+    const result = await verifyTenantAdmin(ADMIN_SESSION);
+
+    expect(result.response?.status).toBe(403);
+  });
+
+  it("accepts an org-less ADMIN, who is their own tenant", async () => {
+    userFindUnique.mockResolvedValue({
+      id: "operator_1",
+      role: "ADMIN",
+      organizationId: null,
+    });
+
+    const result = await verifyTenantAdmin(ADMIN_SESSION);
+
+    expect(result.response).toBeUndefined();
+    expect(organizationFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("keeps the DB role revalidation: a demoted ADMIN is refused before any org lookup", async () => {
+    userFindUnique.mockResolvedValue({
+      id: "operator_1",
+      role: "USER",
+      organizationId: "org_1",
+    });
+
+    const result = await verifyTenantAdmin(ADMIN_SESSION);
+
+    expect(result.response?.status).toBe(403);
+    expect(organizationFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("refuses a non-ADMIN JWT without touching the database", async () => {
+    const result = await verifyTenantAdmin({
+      user: { id: "u_tech", role: "USER" },
+    } as Session);
+
+    expect(result.response?.status).toBe(403);
+    expect(userFindUnique).not.toHaveBeenCalled();
   });
 });
 

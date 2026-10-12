@@ -188,6 +188,17 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
     expect(String((pending[0].payload as { notes?: string }).notes)).toContain(
       "18.5% WME",
     );
+    const { getQueuedEvidenceForInspection } = await import("@/lib/evidence-upload-queue");
+    const photos = await getQueuedEvidenceForInspection(INSPECTION_ID);
+    expect(photos).toHaveLength(1);
+    expect(photos[0]).toMatchObject({
+      owner: SYNTHETIC_OFFLINE_OWNER,
+      inspectionId: INSPECTION_ID,
+      filename: "meter.png",
+      mimeType: "image/png",
+      location: "Floor - lounge",
+      photoStage: "DURING_WORK",
+    });
 
     operationFetch.mockResolvedValue(
       jsonResponse(201, { moistureReading: { id: "mr-1" } }),
@@ -292,7 +303,10 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
       jsonResponse(201, { moistureReading: { id: "mr-online" } }),
     );
     operationFetch.mockResolvedValueOnce(
-      jsonResponse(201, {}),
+      jsonResponse(201, { photo: { id: "meter-photo" } }),
+    );
+    operationFetch.mockResolvedValueOnce(
+      jsonResponse(200, { photos: [{ id: "meter-photo", url: "signed-url" }] }),
     );
     confirmAndSave();
 

@@ -26,6 +26,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>RestoreAssist uses Bluetooth to connect to your moisture meters and thermo-hygrometers so readings go straight into your inspection report.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>RestoreAssist uses Bluetooth to read moisture meter and sensor readings.</string>
 	<key>NSCameraUsageDescription</key>
@@ -36,6 +38,8 @@
 	<string>RestoreAssist uses Face ID to protect your account when the app resumes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>RestoreAssist uses your location to auto-fill the property address on new inspections.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>RestoreAssist uses your microphone to record voice notes on a job, so you can capture site observations hands-free during an inspection.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>RestoreAssist saves inspection photos to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -30,6 +30,7 @@ export async function deriveRestorationIncident(
     select: {
       propertyPostcode: true,
       inspectionDate: true,
+      createdAt: true,
       completedAt: true,
       waterDamageClassification: {
         select: {
@@ -98,8 +99,9 @@ export async function deriveRestorationIncident(
   const floorAreaM2 = sawArea ? Math.round(areaSum / 10) * 10 : null;
 
   // Truncate to the first of the month (UTC) to reduce re-identification.
-  // inspectionDate is non-null on Inspection, so a basis always exists.
-  const basis = inspection.completedAt ?? inspection.inspectionDate ?? new Date();
+  // The month of an un-attended job uses its recorded creation timestamp,
+  // never an invented inspection date.
+  const basis = inspection.completedAt ?? inspection.inspectionDate ?? inspection.createdAt;
   const capturedAt = new Date(
     Date.UTC(basis.getUTCFullYear(), basis.getUTCMonth(), 1),
   );

@@ -3,6 +3,7 @@ import {
   applyMigrateSslToEnv,
   pgMigrateSslOption,
   withPgMigrateSsl,
+  withRequireAsNoVerify,
 } from "../pg-ssl-for-migrate.mjs";
 
 describe("withPgMigrateSsl", () => {
@@ -55,5 +56,93 @@ describe("pgMigrateSslOption", () => {
 
   it("returns undefined for localhost", () => {
     expect(pgMigrateSslOption("postgresql://u:p@localhost:5432/db")).toBeUndefined();
+  });
+});
+
+describe("withRequireAsNoVerify", () => {
+  // Effective TLS as pg's Pool resolves it, with the option the scripts pass.
+  const effective = async (url: string) => {
+    const { default: ConnectionParameters } = await import(
+      "pg/lib/connection-parameters"
+    );
+    const target = withRequireAsNoVerify(url) ?? url;
+    return new ConnectionParameters({
+      connectionString: target,
+      ssl: pgMigrateSslOption(target),
+    }).ssl;
+  };
+  const remote = "postgresql://u:p@db.example.com:25060/defaultdb";
+
+  it("stops sslmode=require (and a repeat of it) from verifying", async () => {
+    expect(await effective(`${remote}?sslmode=require`)).toEqual({
+      rejectUnauthorized: false,
+    });
+    expect(
+      await effective(`${remote}?sslmode=require&sslmode=require`),
+    ).toEqual({ rejectUnauthorized: false });
+  });
+
+  it("keeps an explicit verify-full or verify-ca verifying", async () => {
+    expect(withRequireAsNoVerify(`${remote}?sslmode=verify-full`)).toBe(
+      `${remote}?sslmode=verify-full`,
+    );
+    expect(await effective(`${remote}?sslmode=verify-full`)).not.toMatchObject(
+      { rejectUnauthorized: false },
+    );
+    expect(withRequireAsNoVerify(`${remote}?sslmode=verify-ca`)).toBe(
+      `${remote}?sslmode=verify-ca`,
+    );
+  });
+
+  it("follows the sslmode pg actually uses when modes are mixed (the last one)", async () => {
+    for (const last of ["verify-full", "verify-ca"]) {
+      const url = `${remote}?sslmode=require&sslmode=${last}`;
+      expect(withRequireAsNoVerify(url)).toBe(url);
+    }
+    expect(
+      await effective(`${remote}?sslmode=require&sslmode=verify-full`),
+    ).not.toMatchObject({ rejectUnauthorized: false });
+    expect(
+      await effective(`${remote}?sslmode=verify-full&sslmode=require`),
+    ).toEqual({ rejectUnauthorized: false });
+    expect(
+      await effective(`${remote}?sslmode=no-verify&sslmode=require`),
+    ).toEqual({ rejectUnauthorized: false });
+  });
+
+  it("leaves require with another TLS parameter exactly as pg reads it", async () => {
+    const { default: ConnectionParameters } = await import(
+      "pg/lib/connection-parameters"
+    );
+    for (const extra of [
+      "uselibpqcompat=true",
+      "ssl=true",
+      "sslrootcert=/dev/null",
+    ]) {
+      const url = `${remote}?sslmode=require&${extra}`;
+      expect(withRequireAsNoVerify(url)).toBe(url);
+    }
+    const libpq = `${remote}?sslmode=require&uselibpqcompat=true`;
+    expect(await effective(libpq)).toEqual(
+      new ConnectionParameters({ connectionString: libpq }).ssl,
+    );
+  });
+
+  it("rewrites a local URL whose host parameter points at a remote server", async () => {
+    expect(
+      await effective(
+        "postgresql://u:p@localhost/d?host=db.example.com&sslmode=require",
+      ),
+    ).toEqual({ rejectUnauthorized: false });
+  });
+
+  it("reads the sslmode case-insensitively, as pg does", async () => {
+    expect(await effective(`${remote}?sslmode=REQUIRE`)).toEqual({
+      rejectUnauthorized: false,
+    });
+  });
+
+  it("leaves a URL with no sslmode unchanged", () => {
+    expect(withRequireAsNoVerify(remote)).toBe(remote);
   });
 });

@@ -23,7 +23,7 @@ import {
 import {
   assertInspectionAssignedWrite,
   assertInspectionCapturable,
-  assertInspectionTenancy,
+  assertInspectionReadable,
 } from "@/lib/auth/assert-tenancy";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import {
@@ -51,8 +51,10 @@ export async function GET(
   const { id: inspectionId } = await params;
 
   try {
-    // RA-1711 batch 4 — adopt shared tenancy helper.
-    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    // Read-only, so the organisation read reach: the same reach POST uses to
+    // capture. With the narrower creator/workspace gate, a technician's
+    // guided-capture readback of their own save returned 404.
+    const tenancy = await assertInspectionReadable(session, inspectionId);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },

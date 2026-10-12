@@ -41,6 +41,15 @@ const mocks = vi.hoisted(() => {
         idempotencyRecords.set(where.cacheKey, updated);
         return updated;
       },
+      // Completion updates only its own PENDING reservation for the same fingerprint.
+      async updateMany({ where, data }: { where: { cacheKey: string; id?: string; status?: string; fingerprint?: string }; data: any }) {
+        const record = idempotencyRecords.get(where.cacheKey);
+        if (!record || (where.id && record.id !== where.id) ||
+            (where.status && record.status !== where.status) ||
+            (where.fingerprint && record.fingerprint !== where.fingerprint)) return { count: 0 };
+        idempotencyRecords.set(where.cacheKey, { ...record, ...data });
+        return { count: 1 };
+      },
       async deleteMany(args?: any) {
         if (!args?.where) {
           const count = idempotencyRecords.size;
@@ -94,6 +103,10 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
     mocks.assertInspectionTenancy(...args),
   // RA-7721: POST gates on the capture reach; same mock, same assertions.
   assertInspectionCapturable: (...args: unknown[]) =>
+    mocks.assertInspectionTenancy(...args),
+  // GET reads with the organisation read reach; its rules are proved against
+  // a real database in route.readback-reach.integration.test.ts.
+  assertInspectionReadable: (...args: unknown[]) =>
     mocks.assertInspectionTenancy(...args),
   assertInspectionAssignedWrite: vi.fn(),
 }));

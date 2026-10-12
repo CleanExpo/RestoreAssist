@@ -7,6 +7,7 @@ import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { recordMutationAudit } from "@/lib/audit-log";
 import { apiError, fromException } from "@/lib/api-errors";
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
+import { lineSubtotalCents } from "@/lib/invoices/calc";
 import {
   getGstTreatmentForCurrency,
   resolveLineGstRatePercent,
@@ -327,7 +328,7 @@ export async function PUT(
       const processedLineItems = lineItems.map((item: any, index: number) => {
         const quantity = parseFloat(item.quantity);
         const unitPrice = Math.round(parseFloat(item.unitPrice));
-        const subtotal = Math.round(quantity * unitPrice);
+        const subtotal = lineSubtotalCents(quantity, unitPrice);
         const gstRate = resolveLineGstRatePercent(item.gstRate, gstTreatment);
         const itemGst = Math.round(subtotal * (gstRate / 100));
         const total = subtotal + itemGst;

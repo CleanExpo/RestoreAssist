@@ -88,6 +88,10 @@ export async function GET(
     };
 
     // Generate PDF
+    // `notes` is internal (Prisma: `// Internal notes`; dashboard editor:
+    // "Internal notes (not visible to customer)") and MUST NOT be passed
+    // to the customer-facing PDF generator. The generator's input
+    // contract has no `notes` field by design.
     const pdfBytes = await generateInvoicePDF({
       invoice: {
         id: invoice.id,
@@ -106,7 +110,6 @@ export async function GET(
         totalIncGST: invoice.totalIncGST,
         amountPaid: invoice.amountPaid,
         amountDue: invoice.amountDue,
-        notes: invoice.notes,
         terms: invoice.terms,
         footer: invoice.footer,
         discountAmount: invoice.discountAmount,

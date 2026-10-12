@@ -120,8 +120,11 @@ async function viewerNote(
     });
     await act(async () => fireEvent.click(button));
   } else {
-    // A report with no content auto-starts basic generation.
     render(<InspectionReportViewer reportId="r1" />);
+    const button = await screen.findByRole("button", {
+      name: "Generate Basic Report",
+    });
+    await act(async () => fireEvent.click(button));
   }
   const note = await screen.findByText(/based on IICRC S500/, undefined, {
     timeout: 3000,

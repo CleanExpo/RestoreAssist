@@ -1,6 +1,8 @@
 name: Paid pilot preflight
 
 on:
+  push:
+    branches: [codex/field-runtime-policy]
   workflow_dispatch:
   pull_request:
     paths:

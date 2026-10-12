@@ -23,8 +23,8 @@ import {
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { generateAnalyticsNarrative } from "@/lib/services/ai/analytics-narrative";
 import { apiError, fromException } from "@/lib/api-errors";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"] as const;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 type Period = "month" | "quarter" | "year";
@@ -198,12 +198,7 @@ export async function GET(request: NextRequest) {
         status: 404,
       });
     }
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(
-        (user.subscriptionStatus ??
-          "") as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
-      )
-    ) {
+    if (!(await hasActiveSubscription(userId))) {
       return apiError(request, {
         code: "PAYMENT_REQUIRED",
         message: "Active subscription required",

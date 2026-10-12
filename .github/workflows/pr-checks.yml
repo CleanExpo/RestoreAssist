@@ -1,6 +1,8 @@
 name: PR Quality Gates
 
 on:
+  push:
+    branches: [codex/field-runtime-policy]
   pull_request:
     branches: [main, sandbox]
     types: [opened, synchronize, reopened]

@@ -76,6 +76,8 @@ function stubFetch(overrides: Record<string, unknown>) {
                 name: "Xero",
                 provider: "XERO",
                 status: "CONNECTED",
+                tenantId: "synthetic-xero-org",
+                hasOAuthCredentials: true,
               },
             ],
           }),

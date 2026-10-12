@@ -1,3 +1,4 @@
+import { XERO_BINDING_SELECT, updateXeroBinding } from "@/lib/services/xero/binding";
 /**
  * OAuth Handler Utilities
  * Provides encryption, decryption, and token management for external integrations
@@ -6,6 +7,28 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { encrypt, decrypt } from "@/lib/credential-vault";
+import { isOAuthIntegration } from "./identity";
+
+/** Identity failures must never become provider calls or integration mutations. */
+export class InvalidOAuthIntegrationError extends Error {
+  constructor() {
+    super("Invalid OAuth integration identity or provider");
+    this.name = "InvalidOAuthIntegrationError";
+  }
+}
+
+export async function assertOAuthIntegration(
+  integrationId: string,
+  expectedProvider?: string,
+): Promise<void> {
+  const integration = await prisma.integration.findUnique({
+    where: { id: integrationId },
+    select: { provider: true, name: true, icon: true, config: true, tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true },
+  });
+  if (!integration || !isOAuthIntegration(integration, expectedProvider)) {
+    throw new InvalidOAuthIntegrationError();
+  }
+}
 
 /**
  * Encrypt a token for secure storage (delegates to credential vault)
@@ -29,7 +52,10 @@ export async function storeTokens(
   accessToken: string,
   refreshToken?: string,
   expiresIn?: number, // seconds until expiry
+  expectedProvider?: string,
+  options: { status?: "CONNECTED" | "DISCONNECTED"; clearTenantId?: boolean } = {},
 ): Promise<void> {
+  await assertOAuthIntegration(integrationId, expectedProvider);
   const encryptedAccess = encryptToken(accessToken);
   const encryptedRefresh = refreshToken ? encryptToken(refreshToken) : null;
 
@@ -43,7 +69,8 @@ export async function storeTokens(
       accessToken: encryptedAccess,
       refreshToken: encryptedRefresh,
       tokenExpiresAt,
-      status: "CONNECTED",
+      status: options.status ?? "CONNECTED",
+      ...(options.clearTenantId ? { tenantId: null } : {}),
       syncError: null,
     },
   });
@@ -52,7 +79,7 @@ export async function storeTokens(
 /**
  * Retrieve decrypted tokens for an integration
  */
-export async function getTokens(integrationId: string): Promise<{
+export async function getTokens(integrationId: string, expectedProvider?: string): Promise<{
   accessToken: string | null;
   refreshToken: string | null;
   tokenExpiresAt: Date | null;
@@ -61,14 +88,21 @@ export async function getTokens(integrationId: string): Promise<{
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
     select: {
+      provider: true,
+      name: true,
+      icon: true,
+      config: true,
+      tenantId: true,
+      realmId: true,
+      companyId: true,
       accessToken: true,
       refreshToken: true,
       tokenExpiresAt: true,
     },
   });
 
-  if (!integration) {
-    throw new Error("Integration not found");
+  if (!integration || !isOAuthIntegration(integration, expectedProvider)) {
+    throw new InvalidOAuthIntegrationError();
   }
 
   const accessToken = integration.accessToken
@@ -96,7 +130,9 @@ export async function getTokens(integrationId: string): Promise<{
 export async function markIntegrationError(
   integrationId: string,
   error: string,
+  expectedProvider?: string,
 ): Promise<void> {
+  await assertOAuthIntegration(integrationId, expectedProvider);
   await prisma.integration.update({
     where: { id: integrationId },
     data: {
@@ -227,11 +263,16 @@ async function revokeTokensAtProvider(
  */
 export async function disconnectIntegration(
   integrationId: string,
+  expectedProvider?: string,
 ): Promise<void> {
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
-    select: { provider: true, accessToken: true, refreshToken: true },
+    select: XERO_BINDING_SELECT,
   });
+
+  if (!integration || !isOAuthIntegration(integration, expectedProvider)) {
+    throw new InvalidOAuthIntegrationError();
+  }
 
   if (integration) {
     // Decrypt failures (post key-rotation, or a corrupt/legacy token) must
@@ -248,9 +289,7 @@ export async function disconnectIntegration(
     await revokeTokensAtProvider(integration.provider, accessToken, refreshToken);
   }
 
-  await prisma.integration.update({
-    where: { id: integrationId },
-    data: {
+  const data = {
       status: "DISCONNECTED",
       accessToken: null,
       refreshToken: null,
@@ -259,8 +298,13 @@ export async function disconnectIntegration(
       realmId: null,
       companyId: null,
       syncError: null,
-    },
-  });
+  } as const;
+  if (integration.provider === "XERO") {
+    const cleared = await updateXeroBinding(integration, data);
+    if (!cleared.ok) throw new Error(cleared.detail);
+  } else {
+    await prisma.integration.update({ where: { id: integrationId }, data });
+  }
 }
 
 /**
@@ -273,7 +317,9 @@ export async function logSync(
   recordsProcessed: number,
   recordsFailed: number = 0,
   errorMessage?: string,
+  expectedProvider?: string,
 ): Promise<void> {
+  await assertOAuthIntegration(integrationId, expectedProvider);
   await prisma.integrationSyncLog.create({
     data: {
       integrationId,

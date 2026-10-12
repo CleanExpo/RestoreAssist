@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import {
   getEffectiveSubscription,
   getOrganizationOwner,
@@ -412,13 +413,15 @@ export async function incrementReportUsage(userId: string): Promise<void> {
  */
 export async function deductCreditsAndTrackUsage(
   creatorUserId: string,
+  transactionClient?: Prisma.TransactionClient,
 ): Promise<void> {
+  const db = transactionClient ?? prisma;
   // Get the organization owner (Admin) - they own the subscription
   const ownerId = await getOrganizationOwner(creatorUserId);
   const adminId = ownerId || creatorUserId;
 
   // Get creator's info to check if they have a manager
-  const creator = await prisma.user.findUnique({
+  const creator = await db.user.findUnique({
     where: { id: creatorUserId },
     select: {
       role: true,
@@ -432,7 +435,7 @@ export async function deductCreditsAndTrackUsage(
   }
 
   // Get admin's subscription info
-  const admin = await prisma.user.findUnique({
+  const admin = await db.user.findUnique({
     where: { id: adminId },
     select: {
       subscriptionStatus: true,
@@ -454,7 +457,7 @@ export async function deductCreditsAndTrackUsage(
   // check and deduct a single atomic operation, preventing the TOCTOU race where
   // two concurrent requests both read balance > 0 and both succeed.
   if (admin.subscriptionStatus === "TRIAL") {
-    const result = await prisma.user.updateMany({
+    const result = await db.user.updateMany({
       where: { id: adminId, creditsRemaining: { gte: 1 } },
       data: {
         creditsRemaining: { decrement: 1 },
@@ -475,7 +478,7 @@ export async function deductCreditsAndTrackUsage(
     const baseLimit = resolveBaseReportLimit(admin.subscriptionPlan);
     let addonFromPurchases = 0;
     try {
-      const purchases = await prisma.addonPurchase.findMany({
+      const purchases = await db.addonPurchase.findMany({
         where: { userId: adminId, status: "COMPLETED" },
         select: { reportLimit: true },
         // Rule 3 — bound every findMany. Runs on the paid-report-creation hot
@@ -501,7 +504,7 @@ export async function deductCreditsAndTrackUsage(
     nextReset.setDate(1);
     nextReset.setHours(0, 0, 0, 0);
 
-    const resetResult = await prisma.user.updateMany({
+    const resetResult = await db.user.updateMany({
       where: {
         id: adminId,
         OR: [{ monthlyResetDate: null }, { monthlyResetDate: { lt: now } }],
@@ -517,7 +520,7 @@ export async function deductCreditsAndTrackUsage(
       // the cap (rule 6, never read-then-write). count === 0 means the limit is
       // already reached: block by throwing the shared INSUFFICIENT_CREDITS
       // sentinel every caller already maps to HTTP 402.
-      const incResult = await prisma.user.updateMany({
+      const incResult = await db.user.updateMany({
         where: { id: adminId, monthlyReportsUsed: { lt: totalLimit } },
         data: { monthlyReportsUsed: { increment: 1 } },
       });
@@ -529,7 +532,7 @@ export async function deductCreditsAndTrackUsage(
 
   // Track usage for manager (if technician is creating and has a manager)
   if (creator.role === "USER" && creator.managedById) {
-    await prisma.user.update({
+    await db.user.update({
       where: { id: creator.managedById },
       data: {
         totalCreditsUsed: {
@@ -542,7 +545,7 @@ export async function deductCreditsAndTrackUsage(
   // Track usage for the creator (only if creator is not the admin)
   // If creator is admin, their totalCreditsUsed was already incremented when deducting credits
   if (creatorUserId !== adminId) {
-    await prisma.user.update({
+    await db.user.update({
       where: { id: creatorUserId },
       data: {
         totalCreditsUsed: {

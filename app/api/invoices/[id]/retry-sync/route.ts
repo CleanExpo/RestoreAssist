@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { IntegrationProvider } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
@@ -80,13 +81,11 @@ export async function POST(
         });
       }
 
-      const integration = await prisma.integration.findFirst({
-        where: {
-          userId,
-          provider: provider as IntegrationProvider,
-          status: "CONNECTED",
-        },
+      const selection = await selectOAuthIntegration({
+        prisma, userId, provider: provider.toUpperCase(),
+        workspaceId: invoice.workspaceId ?? null, requireReady: true,
       });
+      const integration = selection.ok ? selection.data : null;
 
       if (!integration) {
         return apiError(request, {

@@ -14,7 +14,7 @@ export interface CachedJob {
   inspectionNumber: string;
   propertyAddress: string;
   status: string;
-  inspectionDate: string;
+  inspectionDate: string | null;
   moistureReadingCount: number;
   criticalMissing: number;
   readyToLeave: boolean;

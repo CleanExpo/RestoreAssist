@@ -9,6 +9,7 @@
  *   - yellow: no connection exists
  *   - red:    connection exists BUT token rejected
  */
+// Prisma, selectors, provider credentials and fetch are mocked; no database is needed.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
@@ -115,7 +116,7 @@ beforeEach(() => {
 
 // ─── cloud_storage ──────────────────────────────────────────────────────────
 
-describe.skipIf(!process.env.DATABASE_URL)("cloud_storage check", () => {
+describe("cloud_storage check", () => {
   // RA-6942: cloud_storage reads the Organization BYOK Drive fields
   // (storageProvider + storageProviderAccessToken), NOT the next-auth Account
   // row. `decrypt` is mocked to strip an "enc:" prefix so the Bearer value is
@@ -185,7 +186,7 @@ describe.skipIf(!process.env.DATABASE_URL)("cloud_storage check", () => {
 
 // ─── accounting ─────────────────────────────────────────────────────────────
 
-describe.skipIf(!process.env.DATABASE_URL)("accounting check", () => {
+describe("accounting check", () => {
   it("green when Xero integration is CONNECTED and /connections returns 200", async () => {
     mocks.integrationFindFirst.mockResolvedValueOnce({ id: "int1" });
     mocks.getValidXeroAccessToken.mockResolvedValueOnce({
@@ -251,7 +252,7 @@ describe.skipIf(!process.env.DATABASE_URL)("accounting check", () => {
 
 // ─── byok_keys ──────────────────────────────────────────────────────────────
 
-describe.skipIf(!process.env.DATABASE_URL)("byok_keys check", () => {
+describe("byok_keys check", () => {
   it("green when at least one ACTIVE provider validates successfully", async () => {
     mocks.getWorkspaceForUser.mockResolvedValueOnce({ id: "w1", name: "ws" });
     mocks.listProviderConnections.mockResolvedValueOnce([
@@ -345,3 +346,13 @@ describe.skipIf(!process.env.DATABASE_URL)("byok_keys check", () => {
     expect(mocks.validateProviderKey).not.toHaveBeenCalled();
   });
 });
+
+// Probe tests stub the owned identity selector; its real scope rules have dedicated controls.
+vi.mock("@/lib/services/integrations/select-oauth", () => ({
+  selectOAuthIntegration: vi.fn(async (input: { prisma: any; userId: string; provider: string }) => {
+    const row = await input.prisma.integration.findFirst({ where: { userId: input.userId, provider: input.provider, status: "CONNECTED" } });
+    return row && (!row.provider || row.provider === input.provider)
+      ? { ok: true, data: { ...row, provider: row.provider || input.provider, tenantId: "synthetic-org", workspaceId: null } }
+      : { ok: false, reason: "NOT_FOUND" };
+  }),
+}));

@@ -6,6 +6,7 @@ const checkIntegrationAccess = vi.fn();
 const integrationFindFirst = vi.fn();
 const externalJobFindMany = vi.fn();
 const externalClientFindFirst = vi.fn();
+const clientFindFirst = vi.fn();
 const reportCreate = vi.fn();
 const reportFindFirst = vi.fn();
 const externalJobUpdate = vi.fn();
@@ -33,6 +34,9 @@ vi.mock("@/lib/prisma", () => ({
     },
     externalClient: {
       findFirst: (...args: unknown[]) => externalClientFindFirst(...args),
+    },
+    client: {
+      findFirst: (...args: unknown[]) => clientFindFirst(...args),
     },
     report: {
       create: (...args: unknown[]) => reportCreate(...args),
@@ -63,6 +67,7 @@ beforeEach(() => {
   integrationFindFirst.mockReset();
   externalJobFindMany.mockReset();
   externalClientFindFirst.mockReset();
+  clientFindFirst.mockReset();
   reportCreate.mockReset();
   reportFindFirst.mockReset();
   externalJobUpdate.mockReset();
@@ -91,6 +96,7 @@ describe("POST /api/integrations/oauth/[provider]/jobs", () => {
       id: "extclient_1",
       contactId: "client_1",
     });
+    clientFindFirst.mockResolvedValue({ id: "client_1" });
 
     const response = await POST(postRequest({ jobIds: ["xero-job-1"] }), routeContext());
     const body = await response.json();
@@ -218,4 +224,48 @@ describe("POST /api/integrations/oauth/[provider]/jobs", () => {
       { id: "xero-job-6", error: expect.any(String) },
     ]);
   });
+
+  it("persists the selected workspace and scopes report and client links", async () => {
+    integrationFindFirst.mockResolvedValue({ id: "integration_1", workspaceId: "workspace-a" });
+    externalJobFindMany.mockResolvedValue([{ id: "job_a", externalId: "xero-job-a", title: "Scoped job",
+      status: null, clientExternalId: "client-a", address: null, description: null, claimId: "foreign-report" }]);
+    reportFindFirst.mockResolvedValue(null);
+    externalClientFindFirst.mockResolvedValue({ contactId: "client-a" });
+    clientFindFirst.mockResolvedValue({ id: "client-a" });
+
+    const response = await POST(postRequest({ jobIds: ["xero-job-a"] }), routeContext());
+    expect(response.status).toBe(200);
+    expect(reportFindFirst).toHaveBeenCalledWith({
+      where: { id: "foreign-report", userId: "user_1", workspaceId: "workspace-a" }, select: { id: true },
+    });
+    expect(clientFindFirst).toHaveBeenCalledWith({
+      where: { id: "client-a", userId: "user_1", workspaceId: "workspace-a" }, select: { id: true },
+    });
+    expect(reportCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ userId: "user_1", workspaceId: "workspace-a", clientId: "client-a" }),
+    }));
+  });
+
+  it("refuses a linked client from another workspace before creating a report", async () => {
+    integrationFindFirst.mockResolvedValue({ id: "integration_1", workspaceId: "workspace-a" });
+    externalJobFindMany.mockResolvedValue([{ id: "job_a", externalId: "xero-job-a", title: "Scoped job",
+      status: null, clientExternalId: "client-a", address: null, description: null }]);
+    externalClientFindFirst.mockResolvedValue({ contactId: "foreign-client" });
+    clientFindFirst.mockResolvedValue(null);
+
+    const response = await POST(postRequest({ jobIds: ["xero-job-a"] }), routeContext());
+    expect(response.status).toBe(422);
+    expect((await response.json()).imported).toBe(0);
+    expect(reportCreate).not.toHaveBeenCalled();
+  });
+});
+
+// These tests cover route policy/import behaviour; provider identity has dedicated real-service regressions.
+vi.mock("@/lib/services/integrations/select-oauth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/services/integrations/select-oauth")>();
+  return { ...actual, selectOAuthIntegration: vi.fn(async (input: { prisma: any; userId: string; provider: string; requireReady?: boolean }) => {
+    const row = await input.prisma.integration.findFirst({ where: { userId: input.userId, provider: input.provider,
+      ...(input.requireReady ? { status: { in: ["CONNECTED", "ERROR", "SYNCING"] } } : {}) } });
+    return row ? { ok: true, data: row } : { ok: false, reason: "NOT_FOUND" };
+  }) };
 });

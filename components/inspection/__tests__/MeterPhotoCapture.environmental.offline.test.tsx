@@ -289,7 +289,10 @@ describe("MeterPhotoCapture EnvironmentalConfirm — offline queue (RA-7605)", (
       jsonResponse(201, { environmentalData: { id: "env-online" } }),
     );
     operationFetch.mockResolvedValueOnce(
-      jsonResponse(201, {}),
+      jsonResponse(201, { photo: { id: "meter-photo" } }),
+    );
+    operationFetch.mockResolvedValueOnce(
+      jsonResponse(200, { photos: [{ id: "meter-photo", url: "signed-url" }] }),
     );
     confirmAndSave();
 

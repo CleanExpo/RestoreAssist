@@ -18,6 +18,7 @@ import {
   Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import InspectionReportViewer from "@/components/InspectionReportViewer";
 import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer";
 import CostEstimationViewer from "@/components/CostEstimationViewer";
@@ -54,6 +55,7 @@ export default function ReportDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
@@ -270,6 +272,14 @@ export default function ReportDetailPage({
 
       {/* Export / handoff actions */}
       <div className="flex items-center gap-2 flex-wrap">
+        {!report?.inspection?.id && reportId && report.userId === session?.user?.id && (
+          <button
+            onClick={() => router.push(`/dashboard/inspections/new?reportId=${encodeURIComponent(reportId)}`)}
+            className="px-3 py-2 rounded-lg bg-cyan-700 text-white hover:bg-cyan-600 text-sm"
+          >
+            Create inspection job
+          </button>
+        )}
         {/* Download IICRC PDF */}
         <button
           onClick={() => requestExport(handleDownloadPDF)}

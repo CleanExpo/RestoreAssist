@@ -36,7 +36,13 @@
 | 10  | **Testing Strategy**         | Test coverage for critical paths, edge cases considered, tests are deterministic, no flaky tests                                                               |
 | 11  | **Documentation**            | JSDoc on exported functions, inline comments on non-obvious logic, README updated if public API changed                                                        |
 | 13  | **Code Style & Conventions** | Naming matches project patterns (`camelCase` functions, `PascalCase` components), import order consistent, CLAUDE.md rules followed                            |
-| 18  | **UI/UX Consistency**        | Uses shadcn/ui components (not custom), brand colour palette (`#1C2E47`, `#8A6B4E`, `#D4A574`), responsive at mobile/tablet/desktop, loading skeletons present |
+| 18  | **UI/UX Consistency**        | Uses shadcn/ui components (not custom), brand colour palette (see note below), responsive at mobile/tablet/desktop, loading skeletons present |
+
+> **Palette — unresolved, do not fail a review on it (measured 2026-08-26).** Three sources disagree and none matches the app.
+> What actually ships, by occurrence across `app/` and `components/`: `#0b1f3a` (291), `#3b6d8c` (155), `#f3f5f7` (37), `#1c2e47` (36), `#8a6b4e` (25).
+> This file previously named `#1C2E47`/`#8A6B4E`/`#D4A574` as the palette — the first two ship but are minority colours, and `#D4A574` barely appears.
+> `.claude/DESIGN.md` names a green palette (`#00a854`, `#3FA34D`, `#C5E063`) that appears nowhere in the app.
+> The real primary, `#0b1f3a`, is documented in neither. Until an owner picks the canonical palette, flag colour drift as a question, never as a Critical or Important finding.
 
 ## Dimension Activation Matrix
 

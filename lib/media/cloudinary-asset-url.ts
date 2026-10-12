@@ -5,7 +5,7 @@
 
 import { cloudinaryUrl } from "@/lib/help/cloudinary";
 
-function cloudName(): string | null {
+export function cloudName(): string | null {
   if (process.env.CLOUDINARY_CLOUD_NAME?.trim()) {
     return process.env.CLOUDINARY_CLOUD_NAME.trim();
   }

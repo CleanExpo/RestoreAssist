@@ -9,6 +9,7 @@
  */
 
 export interface EnvironmentalReading {
+  id?: string;
   ambientTemperature: number | null;
   humidityLevel: number | null;
   dewPoint: number | null;
