@@ -28,6 +28,7 @@ import { exportClosedJobToBYOKStorage } from "@/lib/queue/exportClosedJobToBYOKS
 import { deriveRestorationIncident } from "@/lib/analytics/deriveRestorationIncident";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { dispatchReviewAskNotification } from "@/lib/pulse/review-ask";
+import { mirrorClaimProgressLifecycleState } from "@/lib/claim-progress/mirror-lifecycle-state";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   canPerformTransition,
@@ -189,18 +190,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Update ClaimProgress.currentState + closedAt to mirror the
         // inspection terminal state. This keeps the M-4 progress view
         // consistent with the inspection's lifecycle.
-        await tx.claimProgress.updateMany({
-          where: {
-            inspectionId,
-            ...(tenancy.data.childInspectionFilter && {
-              inspection: tenancy.data.childInspectionFilter,
-            }),
-          },
-          data: {
-            previousState: ClaimState.INVOICE_PAID,
-            currentState: ClaimState.CLOSED,
-            closedAt: completedAt,
-          },
+        await mirrorClaimProgressLifecycleState(tx, {
+          inspectionId,
+          childInspectionFilter: tenancy.data.childInspectionFilter,
+          previousState: ClaimState.INVOICE_PAID,
+          currentState: ClaimState.CLOSED,
+          closedAt: completedAt,
         });
 
         return {
