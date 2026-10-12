@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
+import { parseApiError } from "@/lib/client/parse-api-error";
 
 interface InboundJob {
   id: string;
@@ -27,17 +28,27 @@ export function InboundJobAlert() {
   const [jobs, setJobs] = useState<InboundJob[] | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const fetchJobs = useCallback(async () => {
+    setLoadFailed(false);
     try {
-      const res = await fetch("/api/inspections/inbound-jobs");
+      const res = await fetch("/api/inspections/inbound-jobs", {
+        credentials: "include",
+      });
       if (!res.ok) {
+        const parsed = await parseApiError(res);
+        setLoadFailed(true);
+        setError(parsed.message || "Could not load inbound jobs");
         setJobs([]);
         return;
       }
+      setError(null);
       const data = (await res.json()) as { jobs: InboundJob[] };
       setJobs(data.jobs ?? []);
     } catch {
+      setLoadFailed(true);
+      setError("Network error — could not load inbound jobs");
       setJobs([]);
     }
   }, []);
@@ -68,6 +79,28 @@ export function InboundJobAlert() {
   }, []);
 
   if (jobs === null) return null; // initial fetch in flight
+
+  if (loadFailed) {
+    return (
+      <div
+        role="alert"
+        className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100"
+      >
+        <p>{error ?? "Inbound jobs are temporarily unavailable."}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setJobs(null);
+            void fetchJobs();
+          }}
+          className="mt-2 text-sm font-medium underline underline-offset-2"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   if (jobs.length === 0) return null;
 
   return (
