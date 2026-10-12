@@ -31,7 +31,7 @@ export async function GET(
     }
 
     const readings = await prisma.moistureReading.findMany({
-      where: { inspectionId: id },
+      where: { inspectionId: id, invalidatedAt: null },
       select: {
         location: true,
         sketchRoomId: true,
