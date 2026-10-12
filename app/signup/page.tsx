@@ -190,6 +190,11 @@ export default function SignupPage() {
             RestoreAssist
           </motion.h1>
           <p className="text-slate-600">Create your account</p>
+          <p className="mt-2 text-sm text-slate-500">
+            {PRICING_CONFIG.free.trialDays}-day free trial ·{" "}
+            {PRICING_CONFIG.free.trialReportCredits} report credits · No credit
+            card required
+          </p>
         </div>
 
         {/* RA-7549 — Basic works without BYOK; provider charges are opt-in. */}

@@ -272,7 +272,7 @@ export const HOME = {
     reassurances: [
       `${trialDays}-day trial · ${trialReports} report credits`,
       "Basic reports without an API key",
-      "24/7 support",
+      "Email support during business hours",
     ] as const,
   },
 } as const;
