@@ -1,0 +1,16 @@
+{
+  "slug": "portfolio-what-upfront-means",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 56,
+  "whiteLabel": true,
+  "segments": [
+    { "text": "Upfront is a word every contractor uses. Here is what it has to mean.", "startSec": 0.5, "durationSec": 6.0 },
+    { "text": "Before work starts, you see the scope. Every room, every action, every line.", "startSec": 7.0, "durationSec": 7.0 },
+    { "text": "You see the quote set against that scope, before anybody lifts a tool.", "startSec": 14.5, "durationSec": 6.5 },
+    { "text": "While the work runs, updates come to you on a schedule. Not when you chase us.", "startSec": 21.5, "durationSec": 8.0 },
+    { "text": "Every reading, every photograph, every change to the scope is recorded, and visible to you.", "startSec": 30.0, "durationSec": 8.0 },
+    { "text": "If the scope changes, you hear it from us before it appears on an invoice.", "startSec": 38.5, "durationSec": 7.0 },
+    { "text": "And when it is finished, you are told it is finished, with the evidence that says so.", "startSec": 46.0, "durationSec": 7.0 },
+    { "text": "No surprises is not a promise. It is a process.", "startSec": 53.5, "durationSec": 2.5 }
+  ]
+}

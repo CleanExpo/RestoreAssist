@@ -1,0 +1,15 @@
+{
+  "slug": "works-itself",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 62,
+  "segments": [
+    { "text": "Set it up once. After that, the job moves itself.", "startSec": 0.5, "durationSec": 4.5 },
+    { "text": "A job comes in and becomes a record. Client, site, cause, scope of loss.", "startSec": 5.5, "durationSec": 6.5 },
+    { "text": "Your technician opens it on site. The record tells them what to capture, and files what they capture where it belongs.", "startSec": 12.5, "durationSec": 9.0 },
+    { "text": "Scoping builds from what was recorded. The estimate builds from the scope.", "startSec": 22.0, "durationSec": 6.5 },
+    { "text": "Documentation assembles from the same evidence, rather than from somebody's recollection a week later.", "startSec": 29.0, "durationSec": 8.5 },
+    { "text": "The client sees progress without ringing you. The invoice draws from the approved scope. Reconciliation matches what was billed against what was done.", "startSec": 38.0, "durationSec": 11.5 },
+    { "text": "Nobody retypes anything. Each stage inherits the one before it.", "startSec": 50.0, "durationSec": 5.5 },
+    { "text": "Set up one job type properly, then watch the next ten follow it.", "startSec": 56.0, "durationSec": 5.5 }
+  ]
+}

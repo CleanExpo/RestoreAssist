@@ -1,0 +1,16 @@
+{
+  "slug": "portfolio-iicrc-certification",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 52,
+  "whiteLabel": true,
+  "reviewRequired": "Verify IICRC organisational description against licensed source before publish",
+  "segments": [
+    { "text": "You will see four letters on our technicians' credentials. I I C R C.", "startSec": 0.5, "durationSec": 6.5 },
+    { "text": "It stands for the Institute of Inspection, Cleaning and Restoration Certification.", "startSec": 7.5, "durationSec": 6.0 },
+    { "text": "It certifies restoration technicians against industry standards.", "startSec": 14.0, "durationSec": 5.5 },
+    { "text": "What that means for you is straightforward. The person in your home has been trained and examined, not simply hired.", "startSec": 20.0, "durationSec": 9.0 },
+    { "text": "Restoration done poorly does not look wrong on the day. It looks wrong months later, inside the wall.", "startSec": 29.5, "durationSec": 9.0 },
+    { "text": "That is why the certification matters more than the van or the uniform.", "startSec": 39.0, "durationSec": 6.5 },
+    { "text": "Ask any contractor to show you their technicians' certification. Ask us first.", "startSec": 46.0, "durationSec": 6.0 }
+  ]
+}
