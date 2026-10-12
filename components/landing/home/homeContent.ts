@@ -25,7 +25,19 @@ export const HOME = {
     support:
       "The platforms that dominate this industry were built to serve the carrier. RestoreAssist was built for the contractor doing the work — and the homeowner living through it. Australian-built. Australian-priced.",
     primaryCta: `Start free — ${trialDays}-day trial`,
-    secondaryCta: "See how it works",
+    secondaryCta: "Watch product overview",
+  },
+
+  /** Honest trust signal — no fabricated logos or vanity metrics. */
+  proof: {
+    eyebrow: "Live today",
+    title: "Built for real restoration work on restoreassist.app",
+    body: "RestoreAssist is in active use with a transparent trial: no credit card to start, clear report-credit limits, and email support during Australian business hours.",
+    bullets: [
+      `${trialDays}-day trial · ${trialReports} inspection report credits`,
+      "No credit card required to sign up",
+      "IICRC-aligned reporting from field capture you control",
+    ] as const,
   },
 
   /**
