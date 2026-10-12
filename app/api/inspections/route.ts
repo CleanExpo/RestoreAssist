@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
       const where: Prisma.InspectionWhereInput = {
         userId: session.user.id,
-        reportId: { in: reportIds },
+        OR: [{ clientId }, { reportId: { in: reportIds } }],
       };
 
       const [total, inspections] = await Promise.all([
@@ -76,24 +76,16 @@ export async function GET(request: NextRequest) {
     }
 
     if (reportId) {
-      // Note: reportId column doesn't exist, so find by property address instead.
-      // RA-1711 — scope the lookup by userId so a probe with a foreign
-      // tenant's reportId returns null, not the report's address. Pre-fix
-      // the lookup was id-only, leaking propertyAddress + propertyPostcode
-      // of any report whose ID an attacker could enumerate.
       const report = await prisma.report.findFirst({
         where: { id: reportId, userId: session.user.id },
-        select: { propertyAddress: true, propertyPostcode: true },
+        select: { id: true },
       });
 
       if (report) {
         const inspection = await prisma.inspection.findFirst({
           where: {
             userId: session.user.id,
-            propertyAddress: report.propertyAddress,
-            ...(report.propertyPostcode
-              ? { propertyPostcode: report.propertyPostcode }
-              : {}),
+            reportId: report.id,
           },
           include: {
             // RA-7744: a stable order, so the latest reading is well defined.
@@ -486,6 +478,18 @@ export async function POST(request: NextRequest) {
       const sequence = randomBytes(3).toString("hex").toUpperCase(); // 6 hex chars
       const inspectionNumber = `NIR-${year}-${month}-${sequence}`;
 
+      let resolvedClientId: string | null =
+        typeof body.clientId === "string" && body.clientId.trim()
+          ? body.clientId.trim()
+          : null;
+      if (!resolvedClientId && reportId) {
+        const linkedReport = await prisma.report.findUnique({
+          where: { id: reportId },
+          select: { clientId: true },
+        });
+        resolvedClientId = linkedReport?.clientId ?? null;
+      }
+
       // Create inspection
       const inspection = await prisma.inspection.create({
         data: {
@@ -501,6 +505,7 @@ export async function POST(request: NextRequest) {
             } as any)),
           ...(pickedClaimType ? { claimType: pickedClaimType } : {}),
           reportId, // Link to report if provided or created via clientId
+          clientId: resolvedClientId,
           userId,
           status: "DRAFT",
         },
