@@ -10,14 +10,23 @@ import BillingGate from "@/components/capacitor/BillingGate";
 
 export const dynamic = "force-dynamic";
 
-type ReasonParam = "trial-expired" | "credits" | "feature" | "voluntary" | null;
+type ReasonParam =
+  | "trial-expired"
+  | "credits"
+  | "feature"
+  | "voluntary"
+  | "canceled"
+  | "past-due"
+  | null;
 
 function parseReason(input: string | undefined): ReasonParam {
   if (
     input === "trial-expired" ||
     input === "credits" ||
     input === "feature" ||
-    input === "voluntary"
+    input === "voluntary" ||
+    input === "canceled" ||
+    input === "past-due"
   ) {
     return input;
   }
