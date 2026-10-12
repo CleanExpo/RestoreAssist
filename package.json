@@ -115,6 +115,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "db:migrate:local": "bash scripts/dev-local-migrate.sh",
+    "ops:migrate:deploy": "bash scripts/ops/production-migrate-deploy.sh",
+    "email:test": "tsx scripts/ops/send-test-email.ts",
     "db:studio": "prisma studio",
     "db:seed:ceo": "npx tsx prisma/seed-ceo.ts",
     "script:linear-query": "tsx scripts/linear-query.ts",
