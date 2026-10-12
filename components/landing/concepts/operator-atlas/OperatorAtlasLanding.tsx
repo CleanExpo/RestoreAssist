@@ -136,28 +136,16 @@ export function OperatorAtlasLanding() {
               initial={reduce ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease: EASE_OUT, delay: 0.08 }}
-              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-[#0B1F3A] sm:text-base`}
+              className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]"
             >
-              {HOME.hero.brand}
+              {HOME.hero.eyebrow}
             </motion.p>
-
-            <motion.div
-              initial={reduce ? false : { opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, ease: EASE_OUT, delay: 0.16 }}
-              className="mt-5 flex items-center gap-3"
-            >
-              <span className="h-px w-12 bg-[#3B6D8C]" aria-hidden />
-              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
-                {HOME.hero.eyebrow}
-              </p>
-            </motion.div>
 
             <motion.h1
               initial={reduce ? false : { opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.75, ease: EASE_OUT, delay: 0.26 }}
-              className={`${FONT_DISPLAY} mt-6 text-[clamp(2.15rem,5.5vw,3.65rem)] font-bold leading-[1.05] tracking-[-0.04em] text-[#0B1F3A]`}
+              transition={{ duration: 0.75, ease: EASE_OUT, delay: 0.18 }}
+              className={`${FONT_DISPLAY} mt-5 text-[clamp(2.15rem,5.5vw,3.65rem)] font-bold leading-[1.08] tracking-[-0.04em] text-[#0B1F3A]`}
             >
               {HOME.hero.headline}
             </motion.h1>
@@ -165,26 +153,17 @@ export function OperatorAtlasLanding() {
             <motion.p
               initial={reduce ? false : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.4 }}
-              className={`${FONT_DISPLAY} mt-6 text-[1.15rem] font-medium leading-snug tracking-[-0.02em] text-[#16345A] sm:text-[1.35rem]`}
+              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.28 }}
+              className="mt-5 max-w-[32rem] text-[15px] leading-[1.7] text-slate-600 sm:text-[16px]"
             >
-              {HOME.hero.valueLine}
-            </motion.p>
-
-            <motion.p
-              initial={reduce ? false : { opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.48 }}
-              className="mt-5 max-w-[32rem] text-[15px] leading-[1.75] text-slate-600 sm:text-[16px]"
-            >
-              {HOME.hero.support}
+              {HOME.hero.lead}
             </motion.p>
 
             <motion.div
               initial={reduce ? false : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.56 }}
-              className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center"
+              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.38 }}
+              className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
             >
               <Link href={BRAND.cta.primary.href} className={CTA_PRIMARY}>
                 {HOME.hero.primaryCta}
@@ -193,6 +172,14 @@ export function OperatorAtlasLanding() {
                 {HOME.hero.secondaryCta}
               </Link>
             </motion.div>
+            <motion.p
+              initial={reduce ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.46 }}
+              className="mt-4 text-[13px] text-slate-500"
+            >
+              {HOME.hero.trialReassurance}
+            </motion.p>
           </motion.div>
         </div>
       </section>

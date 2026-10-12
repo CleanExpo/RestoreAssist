@@ -14,7 +14,7 @@ const trialDays = PRICING_CONFIG.free.trialDays;
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: `${BRAND.name} — Australian & NZ restoration CRM`,
+  title: `${BRAND.name} — Restoration Management Software`,
   description: HOME.hero.valueLine,
   keywords: [
     "restoration CRM",

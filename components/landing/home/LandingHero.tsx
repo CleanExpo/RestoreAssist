@@ -62,48 +62,28 @@ export function LandingHero() {
           >
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-white sm:text-base`}
+              className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#A8C5D8]"
             >
-              {HOME.hero.brand}
+              {HOME.hero.eyebrow}
             </motion.p>
-
-            <motion.div
-              variants={fadeUp}
-              className="mt-5 flex items-center gap-3"
-            >
-              <span
-                className="h-px w-10 shrink-0 bg-[#7BA3BD]/90"
-                aria-hidden
-              />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#A8C5D8]">
-                {HOME.hero.eyebrow}
-              </p>
-            </motion.div>
 
             <motion.h1
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5vw,3.35rem)] font-bold leading-[1.06] tracking-[-0.035em] text-white`}
+              className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,5vw,3.35rem)] font-bold leading-[1.08] tracking-[-0.035em] text-white`}
             >
               {HOME.hero.headline}
             </motion.h1>
 
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-6 text-[1.15rem] font-medium leading-snug tracking-[-0.02em] text-white/90 sm:text-[1.3rem]`}
+              className="mt-5 max-w-[30rem] text-[15px] leading-[1.7] text-white/85 sm:text-[16px]"
             >
-              {HOME.hero.valueLine}
-            </motion.p>
-
-            <motion.p
-              variants={fadeUp}
-              className="mt-5 max-w-[30rem] text-[15px] leading-[1.75] text-white/75 sm:text-[16px]"
-            >
-              {HOME.hero.support}
+              {HOME.hero.lead}
             </motion.p>
 
             <motion.div
               variants={fadeUp}
-              className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center"
+              className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
             >
               <Link
                 href={BRAND.cta.primary.href}
@@ -118,6 +98,12 @@ export function LandingHero() {
                 {HOME.hero.secondaryCta}
               </Link>
             </motion.div>
+            <motion.p
+              variants={fadeUpSoft}
+              className="mt-4 text-[13px] text-white/70"
+            >
+              {HOME.hero.trialReassurance}
+            </motion.p>
           </motion.div>
         </div>
       </div>

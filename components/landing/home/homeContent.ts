@@ -15,17 +15,15 @@ export const HOME = {
   ] as const,
 
   hero: {
-    eyebrow: BRAND.tagline,
-    // RA-7660 (One CRM): founder's headline and sub-line, verbatim.
-    headline:
-      "The CRM built for Australian and New Zealand restoration professionals. One product, not three.",
+    eyebrow: "Restoration management software",
+    headline: "Less paperwork. More time to run your restoration business.",
+    lead: "Capture site evidence, prepare IICRC-aligned reports, and manage scopes and invoices in one connected workspace.",
+    trialReassurance: `${trialDays} days free · No credit card required · ${trialReports} report credits`,
     brand: BRAND.name,
     valueLine:
-      "Inspections, reports, quotes, invoices, clients, team and compliance in one system — with optional add-ons you switch on only when they earn their keep.",
-    support:
-      "The platforms that dominate this industry were built to serve the carrier. RestoreAssist was built for the contractor doing the work — and the homeowner living through it. Australian-built. Australian-priced.",
-    primaryCta: `Start free — ${trialDays}-day trial`,
-    secondaryCta: "Watch product overview",
+      "RestoreAssist is restoration management software for contractors in Australia and New Zealand — field capture, IICRC-aligned reports, scopes, and invoices in one workspace.",
+    primaryCta: "Start your free trial",
+    secondaryCta: "See how it works",
   },
 
   /** Honest trust signal — no fabricated logos or vanity metrics. */
