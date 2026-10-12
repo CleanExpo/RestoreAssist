@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Header from "@/components/landing/Header";
-import Footer from "@/components/landing/Footer";
 import BillingGate from "@/components/capacitor/BillingGate";
 
 const fieldMappings = [
@@ -145,7 +143,7 @@ const reportSections = [
 ];
 
 export default function CompliancePage() {
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = false;
 
   const bg = darkMode ? "bg-brand-canvas" : "bg-brand-cloud";
   const text = darkMode ? "text-brand-cloud" : "text-brand-navy";
@@ -164,8 +162,6 @@ export default function CompliancePage() {
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${bg}`}>
-      <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-
       {/* Hero */}
       <section className="pt-48 pb-20 px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
@@ -358,7 +354,6 @@ export default function CompliancePage() {
         </div>
       </section>
 
-      <Footer darkMode={darkMode} />
     </div>
   );
 }
