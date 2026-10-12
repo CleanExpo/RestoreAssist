@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Header from "@/components/landing/Header";
-import Footer from "@/components/landing/Footer";
 
 type AuditPackage = "single" | "three";
 
@@ -24,7 +22,7 @@ const DELIVERABLES = [
 ];
 
 export default function JobFileAuditPage() {
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = false;
   const [loading, setLoading] = useState<AuditPackage | null>(null);
   const [error, setError] = useState("");
 
@@ -60,10 +58,8 @@ export default function JobFileAuditPage() {
 
   return (
     <div className={darkMode ? "min-h-screen bg-brand-navy" : "min-h-screen bg-brand-cloud"}>
-      <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-
       <main>
-        <section className="px-6 pb-20 pt-40">
+        <section className="px-6 pb-20 pt-12">
           <div className="mx-auto max-w-6xl">
             <div className="max-w-4xl">
               <p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-brand-gold">
@@ -204,7 +200,6 @@ export default function JobFileAuditPage() {
         </section>
       </main>
 
-      <Footer darkMode={darkMode} />
     </div>
   );
 }

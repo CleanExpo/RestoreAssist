@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
 
 export const metadata: Metadata = {
   title: "Restoration Job File Audit Australia | RestoreAssist",
@@ -29,5 +30,5 @@ export default function JobFileAuditLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <MarketingShell>{children}</MarketingShell>;
 }
