@@ -8706,10 +8706,10 @@ model InsurerProfile {
   isSystemProfile          Boolean             @default(false)
   createdAt                DateTime            @default(now())
   updatedAt                DateTime            @updatedAt
+  inspections              Inspection[]
 
   @@index([slug])
   @@index([isActive])
-  inspections Inspection[]
 }
 
 /// V1 Phase 5 — minimum scheduling model (P5-1)
