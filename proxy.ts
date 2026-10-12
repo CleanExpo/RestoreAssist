@@ -284,7 +284,9 @@ export async function proxy(req: NextRequest) {
     // OWNER branch dead code and the TECHNICIAN branch a 404 trap.
     if (token && !(token as any).setupCompletedAt) {
       const url = req.nextUrl.clone();
-      url.pathname = "/setup";
+      const role = (token as { role?: string }).role;
+      url.pathname =
+        role === "TECHNICIAN" ? "/onboarding/technician" : "/setup";
       url.search = "";
       return NextResponse.redirect(url, 307);
     }
