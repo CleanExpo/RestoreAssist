@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useFetch } from "@/lib/hooks/useFetch";
+import { useFetchWithError } from "@/lib/client/useFetchWithError";
+import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -62,7 +63,7 @@ export default function ReportsPage() {
     loading,
     error: fetchError,
     refetch: refetchReports,
-  } = useFetch<{ reports: ReportWithSessionData[] }>(
+  } = useFetchWithError<{ reports: ReportWithSessionData[] }>(
     dataSource === "native" ? "/api/reports" : null,
   );
   const reports = reportsData?.reports ?? [];
@@ -622,19 +623,15 @@ export default function ReportsPage() {
 
       {/* Fetch error */}
       {fetchError && !loading && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 mb-4">
-          <span className="text-sm">Failed to load reports — {fetchError}</span>
-          <button
-            type="button"
-            onClick={refetchReports}
-            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+        <DashboardListErrorBanner
+          resourceLabel="reports"
+          error={fetchError}
+          onRetry={refetchReports}
+        />
       )}
 
       {/* Reports Table */}
+      {!fetchError && (
       <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden mb-4">
         {loading ? (
           <div className="divide-y divide-slate-700/50">
@@ -1067,6 +1064,7 @@ export default function ReportsPage() {
         onPageChange={setCurrentPage}
         noun="reports"
       />
+      )}
 
       </>
       )}
