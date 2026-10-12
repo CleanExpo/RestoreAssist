@@ -3,7 +3,7 @@ import { getToken } from "next-auth/jwt";
 import { applyRateLimitEdge } from "@/lib/rate-limiter-edge";
 import {
   TRIAL_EXPIRED_PAY_PATH,
-  TRIAL_EXPIRED_PAY_ROUTE,
+  hardPaywallUpgradeRoute,
   shouldLockDashboardForSubscription,
 } from "@/lib/billing/trial-expired-pay-route";
 
@@ -212,7 +212,8 @@ function isHardPaywallWhitelisted(pathname: string): boolean {
   return (
     HARD_PAYWALL_WHITELIST.some((p) => pathname.startsWith(p)) ||
     pathname === "/dashboard/subscription" ||
-    pathname === "/dashboard/success"
+    pathname === "/dashboard/success" ||
+    pathname === "/dashboard/pricing"
   );
 }
 
@@ -364,9 +365,11 @@ export async function proxy(req: NextRequest) {
   ) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (token && shouldHardPaywall(token as any)) {
+      const target = hardPaywallUpgradeRoute(token as { subscriptionStatus?: string | null });
       const url = req.nextUrl.clone();
-      url.pathname = TRIAL_EXPIRED_PAY_PATH;
-      url.search = new URL(TRIAL_EXPIRED_PAY_ROUTE, "http://local").search;
+      const parsed = new URL(target, req.nextUrl.origin);
+      url.pathname = parsed.pathname;
+      url.search = parsed.search;
       return NextResponse.redirect(url, 307);
     }
   }
