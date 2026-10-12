@@ -9,6 +9,8 @@ import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
+import { parseFrozenEstimateLines } from "@/lib/estimate/approval-snapshot";
+import { mirrorClaimProgressLifecycleState } from "@/lib/claim-progress/mirror-lifecycle-state";
 
 const toCents = (amount: number | null) => Math.round((amount ?? 0) * 100);
 
@@ -106,12 +108,10 @@ async function advanceInspectionToBilling(
     prismaTx: tx,
   });
 
-  await tx.claimProgress.updateMany({
-    where: { inspectionId: args.inspectionId },
-    data: {
-      previousState: ClaimState.CLOSEOUT,
-      currentState: ClaimState.INVOICE_ISSUED,
-    },
+  await mirrorClaimProgressLifecycleState(tx, {
+    inspectionId: args.inspectionId,
+    previousState: ClaimState.CLOSEOUT,
+    currentState: ClaimState.INVOICE_ISSUED,
   });
 
   return "transitioned";
@@ -384,7 +384,42 @@ export async function POST(
         },
       });
 
-      if (!estimate || estimate.lineItems.length === 0) {
+      if (!estimate) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "An approved estimate with line items is required before generating an invoice.",
+          status: 409,
+        });
+      }
+
+      const frozenVersion = await prisma.estimateVersion.findUnique({
+        where: {
+          estimateId_version: {
+            estimateId: estimate.id,
+            version: estimate.version,
+          },
+        },
+        select: { snapshot: true },
+      });
+      const frozenLines = parseFrozenEstimateLines(frozenVersion?.snapshot);
+      const invoiceLines =
+        frozenLines ??
+        estimate.lineItems.map((item) => ({
+          description: item.description,
+          category: item.category,
+          qty: item.qty,
+          unit: item.unit,
+          rate: item.rate,
+          subtotal: item.subtotal,
+          taxType: item.taxType,
+          isPassThrough: item.isPassThrough,
+          xeroAccountCode: item.xeroAccountCode,
+          code: item.code,
+          id: item.id,
+        }));
+
+      if (invoiceLines.length === 0) {
         return apiError(request, {
           code: "CONFLICT",
           message:
@@ -402,11 +437,11 @@ export async function POST(
       let gstAmount = 0;
 
       const lineItemsData: Prisma.InvoiceLineItemCreateWithoutInvoiceInput[] =
-        estimate.lineItems.map((item, index) => {
+        invoiceLines.map((item, index) => {
           const unitPrice = toCents(item.rate);
           const subtotal = toCents(item.subtotal);
           const gstRate = gstRateForTaxType(
-            item.taxType,
+            item.taxType ?? "OUTPUT",
             gstTreatment.ratePercent,
           );
           const itemGst = Math.round(subtotal * (gstRate / 100));
@@ -425,13 +460,13 @@ export async function POST(
             gstAmount: itemGst,
             total,
             sortOrder: index,
-            estimateLineItemId: item.id,
-            code: item.code,
+            estimateLineItemId: "id" in item ? (item.id as string) : null,
+            code: item.code ?? null,
             unit: item.unit,
-            isPassThrough: item.isPassThrough,
+            isPassThrough: item.isPassThrough ?? false,
             taxType:
-              gstRate === 0 ? item.taxType : gstTreatment.xeroTaxType,
-            xeroAccountCode: item.xeroAccountCode,
+              gstRate === 0 ? (item.taxType ?? "OUTPUT") : gstTreatment.xeroTaxType,
+            xeroAccountCode: item.xeroAccountCode ?? null,
           };
         });
 
