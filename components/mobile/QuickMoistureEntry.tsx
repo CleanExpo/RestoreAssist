@@ -58,6 +58,8 @@ export function QuickMoistureEntry({
   const [saved, setSaved] = useState(false);
   const [queuedLocally, setQueuedLocally] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isBaseline, setIsBaseline] = useState(false);
+  const [isMonitoringPoint, setIsMonitoringPoint] = useState(false);
 
   const numericValue = parseFloat(value);
   const isValid =
@@ -102,6 +104,8 @@ export function QuickMoistureEntry({
       moistureLevel: numericValue,
       depth: "Surface",
       meterType: "pin",
+      isBaseline,
+      isMonitoringPoint,
     };
     const endpoint = `/api/inspections/${inspectionId}/moisture`;
     const mutationId =
@@ -246,6 +250,33 @@ export function QuickMoistureEntry({
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setIsBaseline((v) => !v)}
+          className={cn(
+            "px-3 py-2 rounded-xl text-sm font-medium transition-colors",
+            isBaseline
+              ? "bg-cyan-600 text-white"
+              : "bg-white/5 text-white/60 hover:bg-white/10",
+          )}
+        >
+          Baseline ref
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsMonitoringPoint((v) => !v)}
+          className={cn(
+            "px-3 py-2 rounded-xl text-sm font-medium transition-colors",
+            isMonitoringPoint
+              ? "bg-cyan-600 text-white"
+              : "bg-white/5 text-white/60 hover:bg-white/10",
+          )}
+        >
+          Monitoring point
+        </button>
       </div>
 
       {/* Number pad */}
