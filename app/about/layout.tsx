@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
 
 export const metadata: Metadata = {
   title: "About Us - Transforming Restoration Reporting",
@@ -29,5 +30,5 @@ export default function AboutLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <MarketingShell>{children}</MarketingShell>;
 }

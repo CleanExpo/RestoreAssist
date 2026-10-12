@@ -2,11 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import Header from "@/components/landing/Header";
-import Footer from "@/components/landing/Footer";
-
 export default function AboutPage() {
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = false;
 
   useEffect(() => {
     if (!document.getElementById("google-fonts-preconnect")) {
@@ -57,8 +54,6 @@ export default function AboutPage() {
     <div
       className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
     >
-      <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-
       {/* Hero Section */}
       <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-brand-mist/30 overflow-hidden">
         {/* Golden Decorative Shapes */}
@@ -233,7 +228,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <Footer darkMode={darkMode} />
     </div>
   );
 }
