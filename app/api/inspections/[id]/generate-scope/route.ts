@@ -44,6 +44,7 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { determineScopeItems } from "@/lib/nir-scope-determination";
+import { assessS500IntakeComplete } from "@/lib/compliance/s500-intake-gate";
 
 // D-030: marks the rows this route writes, the only rows a regenerate replaces.
 const AI_SCOPE_SOURCE = "ai_generate_scope";
@@ -199,6 +200,25 @@ export async function POST(
         message: "Inspection not found",
         status: 404,
       });
+    }
+
+    if (effectiveClaimTypes.includes("water_damage")) {
+      const intake = await assessS500IntakeComplete(
+        prisma,
+        inspectionId,
+        inspection.reportId,
+      );
+      if (!intake.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Complete water Category/Class and loss timeline on the report before generating scope (IICRC S500 intake).",
+          status: 422,
+          fields: Object.fromEntries(
+            intake.gaps.map((g) => [g, "Required before scope generation"]),
+          ),
+        });
+      }
     }
 
     const classification = inspection.classifications[0];
