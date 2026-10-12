@@ -83,6 +83,26 @@ export function shouldLockDashboardForSubscription(token: {
   return true;
 }
 
+export type HardPaywallReason =
+  | typeof TRIAL_EXPIRED_PAY_REASON
+  | "canceled"
+  | "past-due"
+  | "voluntary";
+
+/** Map JWT subscription status to /billing/upgrade?reason= for hard paywall redirects. */
+export function hardPaywallUpgradeRoute(token: {
+  subscriptionStatus?: string | null;
+}): string {
+  const status = token.subscriptionStatus;
+  if (status === "PAST_DUE") {
+    return `${TRIAL_EXPIRED_PAY_PATH}?reason=past-due`;
+  }
+  if (status === "CANCELED") {
+    return `${TRIAL_EXPIRED_PAY_PATH}?reason=canceled`;
+  }
+  return TRIAL_EXPIRED_PAY_ROUTE;
+}
+
 export function resolveReportCreationPayRoute(result: {
   payRoute?: string | null;
   code?: string | null;
