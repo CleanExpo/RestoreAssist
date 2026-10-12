@@ -40,6 +40,7 @@ interface Metrics {
     trialsStarted: number;
     activated: number;
     paid: number;
+    firstWinRate30d: number | null;
   };
 }
 
@@ -200,6 +201,14 @@ export default function BusinessMetricsPage() {
               submitted as an inspection or imported from a connected job
               system. Sample reports, demo data, copies and unsubmitted
               inspections are not counted.
+              {data.last30Days.firstWinRate30d !== null ? (
+                <p
+                  className="mt-2 font-medium text-foreground"
+                  data-metric="first-win-rate"
+                >
+                  First-win rate: {data.last30Days.firstWinRate30d}%
+                </p>
+              ) : null}
             </CardContent>
           </Card>
 

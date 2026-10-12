@@ -175,6 +175,12 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    const activatedCount = activatedUsers.length;
+    const firstWinRate30d =
+      trialsStarted > 0
+        ? Math.round((activatedCount / trialsStarted) * 1000) / 10
+        : null;
+
     return NextResponse.json({
       generatedAt: now.toISOString(),
       currency: "AUD",
@@ -190,8 +196,9 @@ export async function GET(request: NextRequest) {
       last30Days: {
         since: thirtyDaysAgo.toISOString(),
         trialsStarted,
-        activated: activatedUsers.length,
+        activated: activatedCount,
         paid: paidUsers.length,
+        firstWinRate30d,
       },
     });
   } catch (err) {

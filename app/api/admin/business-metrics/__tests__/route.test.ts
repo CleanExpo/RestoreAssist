@@ -164,7 +164,12 @@ describe("GET /api/admin/business-metrics", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.last30Days).toMatchObject({ trialsStarted: 7, activated: 3, paid: 1 });
+    expect(body.last30Days).toMatchObject({
+      trialsStarted: 7,
+      activated: 3,
+      paid: 1,
+      firstWinRate30d: 42.9,
+    });
 
     const trialsCall = userCount.mock.calls
       .map((call) => call[0] as { where: Record<string, unknown> })
