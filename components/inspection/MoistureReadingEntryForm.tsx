@@ -75,6 +75,8 @@ export function MoistureReadingEntryForm({
   const [error, setError] = useState<string | null>(null);
   // RA-1611: BLE meter integration — "ble" when value was pre-filled from a paired meter
   const [source, setSource] = useState<"manual" | "ble">("manual");
+  const [isBaseline, setIsBaseline] = useState(false);
+  const [isMonitoringPoint, setIsMonitoringPoint] = useState(false);
   const ble = useBluetoothMeter("testo-605");
 
   const std = getDryStandard(material);
@@ -119,6 +121,8 @@ export function MoistureReadingEntryForm({
       depth,
       notes: notes.trim() || null,
       source,
+      isBaseline,
+      isMonitoringPoint,
     };
     const endpoint = `/api/inspections/${inspectionId}/moisture`;
     const mutationId =
@@ -132,6 +136,8 @@ export function MoistureReadingEntryForm({
       setMoistureLevel("");
       setNotes("");
       setSource("manual");
+      setIsBaseline(false);
+      setIsMonitoringPoint(false);
     };
 
     const localReading = (id: string) => ({
@@ -340,6 +346,33 @@ export function MoistureReadingEntryForm({
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Baseline / monitoring (P2 claim integrity) */}
+      <div className="flex flex-col gap-2 rounded-lg border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/80 dark:bg-slate-900/40">
+        <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+          Reading role
+        </p>
+        <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isBaseline}
+            onChange={(e) => setIsBaseline(e.target.checked)}
+            className="mt-0.5 rounded border-slate-300"
+          />
+          <span>
+            Baseline (unaffected reference area — excluded from drying-goal pass/fail)
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isMonitoringPoint}
+            onChange={(e) => setIsMonitoringPoint(e.target.checked)}
+            className="mt-0.5 rounded border-slate-300"
+          />
+          <span>Fixed monitoring point (track this location across visits)</span>
+        </label>
       </div>
 
       {/* Meter type */}
