@@ -79,6 +79,28 @@ export async function PATCH(
       }
     }
 
+    if (
+      body.sketchRoomId !== undefined &&
+      body.sketchRoomId !== null &&
+      body.sketchRoomId !== ""
+    ) {
+      const sketchRoomId = String(body.sketchRoomId);
+      const room = await prisma.sketchRoom.findFirst({
+        where: {
+          id: sketchRoomId,
+          sketch: { inspectionId: id },
+        },
+        select: { id: true },
+      });
+      if (!room) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "sketchRoomId must belong to this job's sketch",
+          status: 422,
+        });
+      }
+    }
+
     const updated = await prisma.scopeItem.update({
       where: { id: itemId, inspection: { userId: session.user.id } },
       data: {
@@ -98,6 +120,12 @@ export async function PATCH(
           justification: body.justification
             ? String(body.justification).slice(0, 2000)
             : null,
+        }),
+        ...(body.sketchRoomId !== undefined && {
+          sketchRoomId:
+            body.sketchRoomId === null || body.sketchRoomId === ""
+              ? null
+              : String(body.sketchRoomId),
         }),
       },
     });
