@@ -1,24 +1,45 @@
 import { test, expect } from "@playwright/test";
+import { TEST_HEADSHOT_JPEG } from "./fixtures/headshot-jpeg";
 
-// TODO(setup-wizard sub-project #2): un-skip when the invited-technician
-// onboarding flow lands. Requires:
-//   - User.role = 'TECHNICIAN' invite flow
-//   - app/onboarding/technician/page.tsx
-//   - Middleware already routes TECHNICIAN role here (Phase 6 ships that)
-test.skip("invited technician → routes to /onboarding/technician, NOT /setup", async ({
-  page,
-}) => {
-  // This test would seed a technician user (via test fixture or invite acceptance)
-  // and verify the middleware redirects them to /onboarding/technician.
-  //
-  // Pseudocode (depends on invite mechanism being built):
-  //   1. Admin signs up + activates
-  //   2. Admin invites a technician via /api/team/invite or similar
-  //   3. Test extracts invite token (via test API or DB fixture)
-  //   4. Test follows invite link → signs up as technician
-  //   5. Test expects redirect to /onboarding/technician (not /setup)
+test.use({ viewport: { width: 393, height: 852 } });
 
-  // For now, the assertion is documentary:
-  await page.goto("/signup");
-  expect(true).toBe(true); // placeholder
+test.describe("RA-P1-1 — technician never hits owner setup wizard", () => {
+  test("invited technician lands on dashboard, not /setup", async ({
+    page,
+    request,
+  }) => {
+    test.skip(
+      process.env.ALLOW_TEST_HELPERS !== "true",
+      "Set ALLOW_TEST_HELPERS=true for invite seed route",
+    );
+
+    const seed = await request.post("/api/test/seed-org-with-manager", {
+      data: { managerEmail: `mgr-gate-${Date.now()}@test.com` },
+    });
+    expect(seed.ok()).toBeTruthy();
+    const { token } = await seed.json();
+
+    await page.goto(`/invite/${token}`);
+    await page.getByLabel("Your name").fill("Jamie Tradie");
+    await page.getByLabel("Mobile (used for SMS reminders)").fill("0412345678");
+    await page
+      .getByLabel("Set a password (min 12 chars)")
+      .fill("verysecurepassword12");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "headshot.jpg",
+      mimeType: "image/jpeg",
+      buffer: TEST_HEADSHOT_JPEG,
+    });
+    await expect(page.locator('img[alt="Headshot preview"]')).toBeVisible({
+      timeout: 5000,
+    });
+    await page.getByRole("button", { name: "Continue →" }).click();
+    await page.getByLabel(/Terms of Service/).check();
+    await page.getByLabel(/chain-of-custody/).check();
+    await page.getByRole("button", { name: /^Join / }).click();
+
+    await page.waitForURL(/\/dashboard(\?|$)/, { timeout: 30_000 });
+    expect(page.url()).not.toContain("/setup");
+    await expect(page).toHaveURL(/firstRun=tech|\/dashboard/);
+  });
 });

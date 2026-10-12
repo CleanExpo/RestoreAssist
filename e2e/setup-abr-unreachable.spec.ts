@@ -4,7 +4,10 @@ test("ABR unreachable → Business Details card falls back to manual entry", asy
   page,
   context,
 }) => {
-  test.fixme(); // never reaches the ABN field: the break is upstream in the real /signup flow this spec drives, not in the ABR fallback it names
+  test.skip(
+    process.env.SETUP_WIZARD_ENABLED !== "true",
+    "Enable SETUP_WIZARD_ENABLED=true to exercise /setup ABR fallback",
+  );
 
   const email = `e2e-abr-down-${Date.now()}@test.com`;
   const password = "test-password-12345!";
