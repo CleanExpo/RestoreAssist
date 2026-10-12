@@ -632,6 +632,7 @@ export default function ReportsPage() {
 
       {/* Reports Table */}
       {!fetchError && (
+      <>
       <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden mb-4">
         {loading ? (
           <div className="divide-y divide-slate-700/50">
@@ -1064,9 +1065,9 @@ export default function ReportsPage() {
         onPageChange={setCurrentPage}
         noun="reports"
       />
-      )}
-
       </>
+      )}
+        </>
       )}
 
       {/* RA-1191 — replaced custom bulk-delete modal with shared shadcn
