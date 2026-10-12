@@ -199,7 +199,7 @@ export default function NewRecurringInvoicePage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form method="post" onSubmit={handleSubmit} className="space-y-6">
           {/* Template & Schedule */}
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-5">
             <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">

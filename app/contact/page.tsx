@@ -211,7 +211,7 @@ export default function ContactPage() {
               </h2>
               {/* WebMCP annotations expose this form to in-browser AI agents per
                   the GEO standard (Pi-CEO skills/geo-optimization/SKILL.md §5). */}
-              <form
+              <form method="post"
                 className="space-y-4"
                 onSubmit={handleSubmit}
                 // @ts-expect-error WebMCP attributes are W3C-draft and not yet in React's type defs

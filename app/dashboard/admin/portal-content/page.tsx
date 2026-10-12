@@ -198,7 +198,7 @@ export default function PortalContentAdminPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleCreate} className="space-y-4">
+          <form method="post" onSubmit={handleCreate} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="slug">Slug</Label>

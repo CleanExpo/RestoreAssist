@@ -172,7 +172,7 @@ export default function ClientEditPage() {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit}>
+      <form method="post" onSubmit={handleSubmit}>
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-5">
           {/* Name */}
           <div className="space-y-1.5">

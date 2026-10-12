@@ -81,7 +81,7 @@ export default function PortalLoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form method="post" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="portal-email"

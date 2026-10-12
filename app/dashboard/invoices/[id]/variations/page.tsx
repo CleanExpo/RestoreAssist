@@ -320,7 +320,7 @@ export default function InvoiceVariationsPage({
               </div>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form method="post" onSubmit={handleSubmit} className="space-y-4">
                 {/* Reason */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">

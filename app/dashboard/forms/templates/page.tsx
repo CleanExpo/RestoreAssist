@@ -185,7 +185,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
   }
 
   return (
-    <form
+    <form method="post"
       onSubmit={handleSubmit}
       className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-5 space-y-4"
     >

@@ -381,7 +381,7 @@ export default function EvidenceScorePage() {
                     gaps, chronology, clarity and next actions.
                   </p>
 
-                  <form
+                  <form method="post"
                     className="mt-6 grid gap-3 md:grid-cols-2"
                     onSubmit={requestAudit}
                   >

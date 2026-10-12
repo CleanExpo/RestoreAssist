@@ -2785,7 +2785,7 @@ export default function InitialDataEntryForm({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form method="post" onSubmit={handleSubmit} className="space-y-4">
         {/* Step 0: Client Information Section */}
         {visibleSteps[currentStep]?.id === 0 && (
           <div
