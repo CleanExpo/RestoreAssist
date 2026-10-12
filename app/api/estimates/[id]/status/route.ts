@@ -32,6 +32,7 @@ import {
   isEstimateStatus,
   type EstimateStatus,
 } from "@/lib/estimate-status";
+import { freezeEstimateApprovalSnapshot } from "@/lib/estimate/approval-snapshot";
 
 export async function PATCH(
   request: NextRequest,
@@ -244,31 +245,51 @@ export async function PATCH(
       });
     }
 
-    // Non-gated transitions — update and return
-    const transitioned = await prisma.estimate.updateMany({
-      where: { id, userId: session.user.id, status: currentStatus },
-      data: {
-        status: body.status,
-        updatedBy: session.user.id,
-        ...(approvalEvidence
-          ? {
-              approvedAt: approvalEvidence.respondedAt,
-              approverName: "Client portal approval",
-              approverRole: "CLIENT",
-            }
-          : {}),
-      },
+    // Non-gated transitions — update and return (APPROVED freezes snapshot P2-2)
+    const updated = await prisma.$transaction(async (tx) => {
+      const transitioned = await tx.estimate.updateMany({
+        where: { id, userId: session.user.id, status: currentStatus },
+        data: {
+          status: body.status,
+          updatedBy: session.user.id,
+          ...(approvalEvidence
+            ? {
+                approvedAt: approvalEvidence.respondedAt,
+                approverName: "Client portal approval",
+                approverRole: "CLIENT",
+              }
+            : {}),
+        },
+      });
+
+      if (transitioned.count === 0) {
+        return null;
+      }
+
+      if (body.status === "APPROVED") {
+        const row = await tx.estimate.findUnique({
+          where: { id },
+          select: { version: true },
+        });
+        if (row) {
+          await freezeEstimateApprovalSnapshot(tx, {
+            estimateId: id,
+            userId: session.user.id,
+            version: row.version,
+          });
+        }
+      }
+
+      return tx.estimate.findUnique({ where: { id } });
     });
 
-    if (transitioned.count === 0) {
+    if (!updated) {
       return apiError(request, {
         code: "CONFLICT",
         message: "Estimate status changed before this transition completed",
         status: 409,
       });
     }
-
-    const updated = await prisma.estimate.findUnique({ where: { id } });
 
     await recordMutationAudit({
       resource: "estimate",
