@@ -7,6 +7,7 @@ import {
   TRIAL_EXPIRED_PAY_ROUTE,
   TRIAL_EXPIRED_REFUSAL_CODE,
   isExpiredTrialWindow,
+  hardPaywallUpgradeRoute,
   isTrialExpiredPayRoute,
   resolveReportCreationPayRoute,
   shouldLockDashboardForSubscription,
@@ -107,6 +108,18 @@ describe("trial-expired pay-route helper (RA-7462)", () => {
     expect(isTrialExpiredPayRoute(REPORT_CREATION_CREDITS_ROUTE)).toBe(false);
   });
 
+  it("maps canceled and past-due JWT status to distinct upgrade reasons", () => {
+    expect(
+      hardPaywallUpgradeRoute({ subscriptionStatus: "CANCELED" }),
+    ).toBe("/billing/upgrade?reason=canceled");
+    expect(
+      hardPaywallUpgradeRoute({ subscriptionStatus: "PAST_DUE" }),
+    ).toBe("/billing/upgrade?reason=past-due");
+    expect(
+      hardPaywallUpgradeRoute({ subscriptionStatus: "ACTIVE" }),
+    ).toBe(TRIAL_EXPIRED_PAY_ROUTE);
+  });
+
   it("wires the helper into the banner, sidebar, new-report page, and report-limit gate", () => {
     expect(readSrc("components/billing/TrialCountdownBanner.tsx")).toContain(
       "TRIAL_EXPIRED_PAY_ROUTE",
@@ -118,6 +131,6 @@ describe("trial-expired pay-route helper (RA-7462)", () => {
       "resolveReportCreationPayRoute",
     );
     expect(readSrc("lib/report-limits.ts")).toContain("trialExpiredRefusal");
-    expect(readSrc("proxy.ts")).toContain("shouldLockDashboardForSubscription");
+    expect(readSrc("proxy.ts")).toContain("hardPaywallUpgradeRoute");
   });
 });
