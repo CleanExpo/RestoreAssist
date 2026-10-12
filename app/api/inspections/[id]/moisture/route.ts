@@ -9,6 +9,13 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { assertInspectionCapturable } from "@/lib/auth/assert-tenancy";
 
+function parseMoistureFlag(value: unknown): boolean {
+  if (value === true || value === "true" || value === 1 || value === "1") {
+    return true;
+  }
+  return false;
+}
+
 // POST - Add moisture reading
 export async function POST(
   request: NextRequest,
@@ -137,6 +144,8 @@ export async function POST(
           source: ["ble", "cloud", "ocr", "manual"].includes(body.source)
             ? body.source
             : "manual",
+          isBaseline: parseMoistureFlag(body.isBaseline),
+          isMonitoringPoint: parseMoistureFlag(body.isMonitoringPoint),
         };
 
         const rawSketchRoomId =
@@ -198,6 +207,8 @@ export async function POST(
               location: moistureReading.location,
               surfaceType: moistureReading.surfaceType,
               moistureLevel: moistureReading.moistureLevel,
+              isBaseline: moistureReading.isBaseline,
+              isMonitoringPoint: moistureReading.isMonitoringPoint,
             }),
           },
         });
