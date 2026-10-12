@@ -182,6 +182,8 @@ model User {
   claimAnalysisBatches ClaimAnalysisBatch[]
   standardTemplates    StandardTemplate[]
   inspections          Inspection[]
+  jobAppointmentsCreated  JobAppointment[] @relation("JobAppointmentCreator")
+  jobAppointmentsAssigned JobAppointment[] @relation("JobAppointmentAssignee")
   chatMessages         ChatMessage[]
   usageEvents          UsageEvent[]          @relation("usageEvents")
   emailConnection      EmailConnection?
@@ -406,6 +408,7 @@ model Client {
   // Invoice relationships
   invoices          Invoice[]          @relation("ClientInvoices")
   recurringInvoices RecurringInvoice[] @relation("ClientRecurringInvoices")
+  inspections       Inspection[]       @relation("InspectionClient")
 
   @@unique([userId, email])
   @@index([search_vector], type: Gin)
@@ -2072,6 +2075,15 @@ model Inspection {
   reportId String? @unique // Link to existing Report if applicable
   report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
+  // V1 Phase 3 — canonical client / insurer spine (P3-2, P3-3)
+  clientId String?
+  client   Client? @relation("InspectionClient", fields: [clientId], references: [id], onDelete: SetNull)
+  insurerProfileId String?
+  insurerProfile   InsurerProfile? @relation(fields: [insurerProfileId], references: [id], onDelete: SetNull)
+  /// Template id from lib/insurer-profiles (e.g. iag) when persisted before DB row match
+  insurerTemplateId String?
+  claimNumber       String?
+
   // Homeowner self-capture tokens scoped to this inspection's sketch (spec §2).
   captureTokens             CaptureToken[]
   // Client-portal evidence submissions (quarantined until staff promote).
@@ -2264,6 +2276,7 @@ model Inspection {
   // RA-1381 (Board M-5): Progress framework back-relation
   claimProgress  ClaimProgress?
   authorisations Authorisation[]
+  jobAppointments JobAppointment[]
 
   // RA-261 NIR phase 1 — re-modelled here per issue #963.
   // Tables existed on prod (via repair hotfix #960) but had no Prisma models.
@@ -2293,6 +2306,9 @@ model Inspection {
   @@index([workspaceId])
   @@index([userId, createdAt])
   @@index([userId, status])
+  @@index([clientId])
+  @@index([insurerProfileId])
+  @@index([claimNumber])
 }
 
 enum InspectionStatus {
@@ -3108,6 +3124,9 @@ model ScopeItem {
   suggestedRate   Float?
   roomId          String?
   room            Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  // V1 P1-13 / P3-4 — canonical sketch twin (prefer over legacy Room)
+  sketchRoomId String?
+  sketchRoom   SketchRoom? @relation("ScopeItemSketchRoom", fields: [sketchRoomId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3116,6 +3135,7 @@ model ScopeItem {
   @@index([itemType])
   @@index([autoDetermined])
   @@index([roomId])
+  @@index([sketchRoomId])
 }
 
 // Cost Estimates (Line items with costs)
@@ -7078,6 +7098,7 @@ model SketchRoom {
   evidencePins         EvidencePin[]
   moistureReadings     SketchMoistureReading[]
   jobMoistureReadings  MoistureReading[]       @relation("JobMoistureReadings")
+  scopeItems           ScopeItem[]             @relation("ScopeItemSketchRoom")
   hazards              Hazard[]
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
@@ -8675,6 +8696,38 @@ model InsurerProfile {
 
   @@index([slug])
   @@index([isActive])
+  inspections Inspection[]
+}
+
+/// V1 Phase 5 — minimum scheduling model (P5-1)
+enum JobAppointmentStatus {
+  SCHEDULED
+  ACKNOWLEDGED
+  CANCELLED
+  COMPLETED
+}
+
+model JobAppointment {
+  id           String               @id @default(cuid())
+  inspectionId String
+  inspection   Inspection           @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  title        String               @default("Site visit")
+  startsAt     DateTime
+  endsAt       DateTime
+  status       JobAppointmentStatus @default(SCHEDULED)
+  notes        String?              @db.Text
+  assignedUserId String?
+  assignedUser   User?              @relation("JobAppointmentAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  acknowledgedAt DateTime?
+  cancelledAt    DateTime?
+  createdByUserId String
+  createdBy       User               @relation("JobAppointmentCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId, startsAt])
+  @@index([assignedUserId, startsAt])
+  @@index([status])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
