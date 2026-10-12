@@ -42,6 +42,11 @@ import {
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { StartClaimProgressButton } from "@/components/claims/StartClaimProgressButton";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
+import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 
 export default function ReportDetailPage({
   params,
@@ -51,7 +56,7 @@ export default function ReportDetailPage({
   const router = useRouter();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     "inspection" | "scope" | "cost" | "authority" | "approvals" | "package"
@@ -92,30 +97,36 @@ export default function ReportDetailPage({
     getParams();
   }, [params]);
 
+  const fetchReportData = async () => {
+    if (!reportId) return;
+    try {
+      setLoading(true);
+      setLoadError(null);
+      const reportResponse = await fetch(`/api/reports/${reportId}`);
+      if (reportResponse.ok) {
+        const reportData = await reportResponse.json();
+        setReport(reportData);
+      } else {
+        setReport(null);
+        setLoadError(await parseApiError(reportResponse));
+      }
+    } catch (err) {
+      setReport(null);
+      setLoadError({
+        code: "NETWORK",
+        message: "Could not reach the server. Check your connection and retry.",
+        status: 0,
+      });
+      console.error("Error fetching report:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!reportId) return;
-
-    const fetchReportData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch report
-        const reportResponse = await fetch(`/api/reports/${reportId}`);
-        if (reportResponse.ok) {
-          const reportData = await reportResponse.json();
-          setReport(reportData);
-        } else {
-          setError("Report not found");
-        }
-      } catch (err) {
-        setError("Failed to load report");
-        console.error("Error fetching report:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReportData();
+    void fetchReportData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when id changes only
   }, [reportId]);
 
   if (loading) {
@@ -126,23 +137,15 @@ export default function ReportDetailPage({
     );
   }
 
-  if (error || !report) {
+  if (!loading && (loadError || !report)) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Report Not Found</h2>
-          <p className="text-slate-400 mb-4">
-            {error || "The requested report could not be found."}
-          </p>
-          <button
-            onClick={() => router.push("/dashboard/reports")}
-            className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
-          >
-            Back to Reports
-          </button>
-        </div>
-      </div>
+      <DetailLoadErrorPanel
+        resourceLabel="report"
+        error={loadError}
+        backHref="/dashboard/reports"
+        backLabel="Back to reports"
+        onRetry={() => void fetchReportData()}
+      />
     );
   }
 
