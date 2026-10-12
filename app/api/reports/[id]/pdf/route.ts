@@ -18,6 +18,7 @@ import {
   WORKSPACE_OWNER_SELECT,
   workspaceBusiness,
 } from "@/lib/reports/workspace-business";
+import { relationalMoistureToPdfRows } from "@/lib/reports/pdf-moisture-readings";
 
 /**
  * GET /api/reports/[id]/pdf
@@ -116,6 +117,20 @@ export async function GET(
         // into the report. Only floors with a rendered PNG can be drawn.
         inspection: {
           select: {
+            moistureReadings: {
+              where: { invalidatedAt: null },
+              orderBy: { recordedAt: "asc" },
+              select: {
+                location: true,
+                surfaceType: true,
+                moistureLevel: true,
+                depth: true,
+                isBaseline: true,
+                isMonitoringPoint: true,
+                recordedAt: true,
+                createdAt: true,
+              },
+            },
             // RA-7006 Gap 6: uploaded floor-plan image, appended to the PDF.
             claimSketches: {
               select: {
@@ -198,9 +213,15 @@ export async function GET(
       detailedReport: report.detailedReport?.trimStart().startsWith("{")
         ? null
         : report.detailedReport,
-      moistureReadings: report.moistureReadings
-        ? JSON.parse(report.moistureReadings as string)
-        : null,
+      moistureReadings: (() => {
+        const relational = report.inspection?.moistureReadings?.length
+          ? relationalMoistureToPdfRows(report.inspection.moistureReadings)
+          : null;
+        if (relational && relational.length > 0) return relational;
+        return report.moistureReadings
+          ? JSON.parse(report.moistureReadings as string)
+          : null;
+      })(),
       psychrometricReadings: report.psychrometricReadings
         ? JSON.parse(report.psychrometricReadings as string)
         : null,
