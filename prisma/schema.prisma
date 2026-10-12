@@ -212,6 +212,7 @@ model User {
   // Reports assigned to this user (as Manager or Admin)
   assignedReportsAsManager Report[] @relation("ReportManager")
   assignedReportsAsAdmin   Report[] @relation("ReportAdmin")
+  reportShareAccessCreated ReportShareAccess[] @relation("ReportShareAccessCreatedBy")
 
   // In-app notifications
   notifications Notification[]
@@ -879,6 +880,7 @@ model Report {
   businessProfileId    String?
   equipmentDeployments EquipmentDeployment[]
   mobileInspections    MobileInspection[]
+  shareAccess          ReportShareAccess[]
 
   @@index([search_vector], type: Gin)
   @@index([userId, createdAt])
@@ -1106,6 +1108,30 @@ enum ReportStatus {
   APPROVED
   COMPLETED
   ARCHIVED
+}
+
+/// RA-P1-5 / V1 P0-2 — revocable opaque tokens for owner-view and insurer report links.
+enum ReportShareScope {
+  OWNER_VIEW
+  INSURER
+}
+
+model ReportShareAccess {
+  id              String           @id @default(cuid())
+  reportId        String
+  report          Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  token           String           @unique
+  scope           ReportShareScope
+  revokedAt       DateTime?
+  expiresAt       DateTime
+  createdByUserId String?
+  createdBy       User?            @relation("ReportShareAccessCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now())
+  lastAccessedAt  DateTime?
+
+  @@index([reportId])
+  @@index([reportId, scope])
+  @@index([revokedAt])
 }
 
 enum InvitationStatus {
