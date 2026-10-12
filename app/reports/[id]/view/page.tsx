@@ -15,7 +15,7 @@ import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyInsurerToken } from "@/lib/portal-token";
+import { verifyReportReaderToken } from "@/lib/report-share/access";
 import { DamageReportView } from "@/components/reports/damage-report-view";
 
 export const dynamic = "force-dynamic"; // token-based access shouldn't be cached
@@ -43,7 +43,7 @@ export default async function ReportViewPage({
   let authorised = false;
 
   if (token) {
-    const verified = verifyInsurerToken(token);
+    const verified = await verifyReportReaderToken(token);
     if (verified?.reportId === id) authorised = true;
   }
 

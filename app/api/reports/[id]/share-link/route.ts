@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  generateInsurerToken,
-  insurerTokenExpiresAt,
-} from "@/lib/portal-token";
+import { mintReportShareAccess } from "@/lib/report-share/access";
+import { ReportShareScope } from "@prisma/client";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 
@@ -59,7 +57,11 @@ export async function POST(
       });
     }
 
-    const token = generateInsurerToken(report.id);
+    const { token, expiresAt, id: accessId } = await mintReportShareAccess({
+      reportId: report.id,
+      scope: ReportShareScope.OWNER_VIEW,
+      createdByUserId: session.user.id,
+    });
     const baseUrl =
       process.env.NEXTAUTH_URL?.replace(/\/$/, "") ??
       "https://restoreassist.app";
@@ -68,7 +70,8 @@ export async function POST(
     return NextResponse.json({
       url,
       token,
-      expiresAt: insurerTokenExpiresAt(),
+      accessId,
+      expiresAt: expiresAt.toISOString(),
       reportNumber: report.reportNumber,
       propertyAddress: report.propertyAddress,
     });

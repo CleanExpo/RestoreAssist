@@ -1,4 +1,4 @@
-import { verifyInsurerToken } from "@/lib/portal-token";
+import { verifyReportReaderToken } from "@/lib/report-share/access";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
@@ -14,8 +14,11 @@ interface PageProps {
 export default async function InsurerPortalPage({ params }: PageProps) {
   const { token } = await params;
 
-  const verified = verifyInsurerToken(token);
-  if (!verified) {
+  const verified = await verifyReportReaderToken(token);
+  if (
+    !verified ||
+    (verified.scope !== "INSURER" && verified.scope !== "LEGACY_HMAC")
+  ) {
     return <ExpiredPage />;
   }
 

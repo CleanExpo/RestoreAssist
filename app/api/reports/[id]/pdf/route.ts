@@ -8,7 +8,7 @@ import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
 import { inspectionPhotosToImages } from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
-import { verifyInsurerToken } from "@/lib/portal-token";
+import { verifyReportReaderToken } from "@/lib/report-share/access";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
@@ -43,7 +43,7 @@ export async function GET(
 
     // Mode 1: insurer share token (no session required)
     if (shareToken) {
-      const verified = verifyInsurerToken(shareToken);
+      const verified = await verifyReportReaderToken(shareToken);
       if (verified?.reportId === id) {
         authorised = true;
       }
