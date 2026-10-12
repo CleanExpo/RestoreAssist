@@ -328,6 +328,7 @@ jobs:
         run: >-
           bash scripts/ci/with-mem-log.sh
           npx --no-install playwright test -c config/playwright.config.ts
+          e2e/first-tradie-flow.spec.ts
           e2e/storage-restore.spec.ts
           e2e/stripe-payment-intent-webhook.spec.ts
           e2e/tech-banner-auto-dismiss.spec.ts
