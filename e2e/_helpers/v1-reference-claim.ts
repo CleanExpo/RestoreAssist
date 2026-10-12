@@ -1,0 +1,45 @@
+import type { Page } from "@playwright/test";
+
+export type V1ReferenceSeed = {
+  inspectionId: string;
+  reportId: string;
+  clientId: string;
+  portalToken: string;
+  technicianUserId: string | null;
+  managerUserId: string | null;
+  gapInspectionId: string;
+  estimateId: string | null;
+  workspaceId: string | null;
+  scopeDisposalItemId: string | null;
+};
+
+export async function seedV1ReferenceClaim(
+  page: Page,
+  inspectionId?: string,
+): Promise<V1ReferenceSeed> {
+  const res = await page.request.post("/api/test/seed-v1-reference-claim", {
+    data: { inspectionId, syncTestColleagues: true },
+  });
+  if (!res.ok()) {
+    throw new Error(
+      `seed-v1-reference-claim failed: ${res.status()} ${await res.text().catch(() => "")}`,
+    );
+  }
+  const json = await res.json();
+  return json.data as V1ReferenceSeed;
+}
+
+export async function finalizeV1ReferenceExit(
+  page: Page,
+  args: { inspectionId: string; invoiceId: string },
+): Promise<void> {
+  const res = await page.request.post(
+    "/api/test/v1-reference-claim/finalize-exit",
+    { data: args },
+  );
+  if (!res.ok()) {
+    throw new Error(
+      `finalize-exit failed: ${res.status()} ${await res.text().catch(() => "")}`,
+    );
+  }
+}

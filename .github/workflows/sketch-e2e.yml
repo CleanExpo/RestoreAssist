@@ -40,6 +40,13 @@ on:
       - "lib/auth/dashboard-page-access.ts"
       - "lib/evidence/**"
       - "lib/compliance/**"
+      - "lib/completeness/**"
+      - "lib/margot/**"
+      - "lib/canonical/**"
+      - "lib/scheduling/**"
+      - "e2e/v1-reference-claim.spec.ts"
+      - "docs/operations/P3-CANONICAL-SPINE.md"
+      - "docs/operations/P6-RELEASE-READINESS.md"
       - "lib/nir-tiered-completion.ts"
       - "lib/services/inspection/validate-submission.ts"
       - "prisma/schema.prisma"
@@ -330,6 +337,7 @@ jobs:
           npx --no-install playwright test -c config/playwright.config.ts
           e2e/first-tradie-flow.spec.ts
           e2e/moisture-p2-claim-integrity.spec.ts
+          e2e/v1-reference-claim.spec.ts
           e2e/offline-moisture-sync.spec.ts
           e2e/nz-org-gst.spec.ts
           e2e/storage-restore.spec.ts
