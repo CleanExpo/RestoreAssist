@@ -32,6 +32,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RAIcon } from "@/components/brand/RAIcon";
 import toast from "react-hot-toast";
 import { useAsyncAction } from "@/lib/client/use-async-action";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
+import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 
 type EditStage = "inspection" | "scoping" | "estimation";
 
@@ -47,7 +52,7 @@ export default function EditReportPage({
   const [scope, setScope] = useState<any>(null);
   const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [clients, setClients] = useState<any[]>([]);
 
   // Inspection data
@@ -70,7 +75,7 @@ export default function EditReportPage({
       setReportId(resolvedParams.id);
       await fetchReportData(resolvedParams.id);
     };
-    getParams();
+    void getParams();
   }, [params]);
 
   // Load clients
@@ -84,6 +89,7 @@ export default function EditReportPage({
   const fetchReportData = async (reportId: string) => {
     try {
       setLoading(true);
+      setLoadError(null);
 
       // Fetch report
       const reportResponse = await fetch(`/api/reports/${reportId}`);
@@ -138,10 +144,16 @@ export default function EditReportPage({
           console.error("Failed to fetch estimate:", err);
         }
       } else {
-        setError("Report not found");
+        setReport(null);
+        setLoadError(await parseApiError(reportResponse));
       }
     } catch (err) {
-      setError("Failed to load report");
+      setReport(null);
+      setLoadError({
+        code: "NETWORK",
+        message: "Could not reach the server. Check your connection and retry.",
+        status: 0,
+      });
       console.error("Error fetching report:", err);
     } finally {
       setLoading(false);
@@ -212,25 +224,15 @@ export default function EditReportPage({
     );
   }
 
-  if (error || !report) {
+  if (!loading && (loadError || !report)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-        <div className="text-center">
-          <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-          <h2 className="text-xl font-semibold mb-2 text-white">
-            Report Not Found
-          </h2>
-          <p className="text-slate-400 mb-4">
-            {error || "The requested report could not be found."}
-          </p>
-          <button
-            onClick={() => router.push("/dashboard/reports")}
-            className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
-          >
-            Back to Reports
-          </button>
-        </div>
-      </div>
+      <DetailLoadErrorPanel
+        resourceLabel="report"
+        error={loadError}
+        backHref="/dashboard/reports"
+        backLabel="Back to reports"
+        onRetry={() => reportId && void fetchReportData(reportId)}
+      />
     );
   }
 
