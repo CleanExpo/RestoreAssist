@@ -2451,6 +2451,12 @@ model MoistureReading {
   isBaseline        Boolean @default(false)
   isMonitoringPoint Boolean @default(false)
 
+  // P2 / V1 P1-3 — controlled invalidation (reading retained for audit).
+  invalidatedAt        DateTime?
+  invalidatedByUserId  String?
+  invalidationReason   String?   @db.Text
+  replacementReadingId String?
+
   // RA-1196: AI-assigned affected-area grouping label (e.g. "Master Bedroom").
   // Lightweight text tag; deliberately not an FK to AffectedArea so grouping
   // works before the formal AffectedArea records exist on the inspection.
