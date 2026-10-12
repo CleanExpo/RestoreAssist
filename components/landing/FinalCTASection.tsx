@@ -15,8 +15,8 @@ const benefits = [
   },
   {
     icon: Shield,
-    title: "24/7 Support",
-    description: "Always here to help",
+    title: "Email support",
+    description: "Australian business hours",
   },
   {
     icon: Clock,
