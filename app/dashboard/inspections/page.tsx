@@ -2,7 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useFetch } from "@/lib/hooks/useFetch";
+import { useFetchWithError } from "@/lib/client/useFetchWithError";
+import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
@@ -101,7 +103,7 @@ export default function InspectionsPage() {
     loading,
     error: fetchError,
     refetch: refetchInspections,
-  } = useFetch<{ inspections: Inspection[] }>("/api/inspections");
+  } = useFetchWithError<{ inspections: Inspection[] }>("/api/inspections");
   const inspections = inspectionsData?.inspections ?? [];
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -196,7 +198,7 @@ export default function InspectionsPage() {
           refetchInspections();
         } else {
           const data = await res.json().catch(() => ({}));
-          toast.error(data.error || "Failed to delete inspection");
+          toast.error(apiErrorMessage(data) || "Failed to delete inspection");
         }
       } else if (deleteTarget.type === "bulk") {
         const res = await fetch("/api/inspections/bulk-delete", {
@@ -212,7 +214,7 @@ export default function InspectionsPage() {
           );
           refetchInspections();
         } else {
-          toast.error(data.error || "Failed to delete inspections");
+          toast.error(apiErrorMessage(data) || "Failed to delete inspections");
         }
       }
     } catch {
@@ -411,20 +413,15 @@ export default function InspectionsPage() {
 
       {/* Fetch error */}
       {fetchError && !loading && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
-          <span className="text-sm">Failed to load inspections — {fetchError}</span>
-          <button
-            type="button"
-            onClick={refetchInspections}
-            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+        <DashboardListErrorBanner
+          resourceLabel="inspections"
+          error={fetchError}
+          onRetry={refetchInspections}
+        />
       )}
 
       {/* Results */}
-      {loading ? (
+      {fetchError && !loading ? null : loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-cyan-500" size={32} />
         </div>
