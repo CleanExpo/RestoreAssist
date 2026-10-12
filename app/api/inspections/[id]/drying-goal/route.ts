@@ -16,6 +16,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   assertInspectionAssignedWrite,
+  assertInspectionReadable,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { IICRC_DRY_STANDARDS, getDryStandard } from "@/lib/iicrc-dry-standards";
@@ -51,12 +52,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id: inspectionId } = await params;
 
-    // Verify ownership
-    const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
+    // D-028 / D-023: the assigned technician reads back the goal they set.
+    const tenancy = await assertInspectionReadable(session, inspectionId);
+    if (!tenancy.ok) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Inspection not found",

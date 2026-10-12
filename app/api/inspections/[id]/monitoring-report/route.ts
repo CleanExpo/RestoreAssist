@@ -14,7 +14,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionReadable,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
 // ── IICRC S500:2021 §11.4 per-material dry MC% thresholds ───────────────────
@@ -293,12 +296,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id: inspectionId } = await params;
 
-    // Verify ownership
-    const ownership = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!ownership) {
+    // D-028 / D-023: the assigned technician reads back what they record.
+    const tenancy = await assertInspectionReadable(session, inspectionId);
+    if (!tenancy.ok) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Inspection not found",

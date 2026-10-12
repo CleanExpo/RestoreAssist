@@ -18,7 +18,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionReadable,
+} from "@/lib/auth/assert-tenancy";
 import { workspaceRouteAiRequest } from "@/lib/ai/workspace-byok-dispatch";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { withIdempotency } from "@/lib/idempotency";
@@ -70,8 +73,18 @@ export async function GET(
 
     const { id } = await params;
 
+    // D-028 / D-023: the assigned technician reads back the draft they edit.
+    const tenancy = await assertInspectionReadable(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
+
     const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id },
       select: {
         id: true,
         inspectionNumber: true,

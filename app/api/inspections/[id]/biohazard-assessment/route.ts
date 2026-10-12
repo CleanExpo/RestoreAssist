@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
 import {
-  assertInspectionTenancy,
+  assertInspectionReadable,
   assertInspectionAssignedWrite,
   resolveInspectionWrite,
   writeWithinInspectionScope,
@@ -77,7 +77,7 @@ export async function GET(
     // RA-1711 batch 2 — adopt shared tenancy helper. Adds workspace-member
     // path so workspace techs (not just owners) can read; admin bypass for
     // legitimate auditor access.
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return apiError(req, {
         code: tenancyCode(tenancy.status),

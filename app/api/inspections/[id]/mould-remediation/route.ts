@@ -20,7 +20,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import {
-  assertInspectionTenancy,
+  assertInspectionReadable,
   assertInspectionAssignedWrite,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
@@ -84,7 +84,7 @@ export async function GET(
     const { id } = await params;
 
     // RA-1711 batch 2 — shared tenancy helper (workspace-member + admin paths).
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },

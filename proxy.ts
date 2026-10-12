@@ -103,6 +103,11 @@ const SETUP_GATE_BYPASS = [
   "/signup",
   "/portal/login",
   "/portal/signup",
+  // An invitee joins someone else's workspace: they never complete /setup of
+  // their own, so the invite page and its token-scoped APIs must stay
+  // reachable for a signed-in (e.g. Google) invitee without setupCompletedAt.
+  "/invite/",
+  "/api/invites/",
   "/onboarding/",
   "/_next/",
   "/favicon",

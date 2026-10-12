@@ -10,6 +10,10 @@ import {
 } from "@/lib/nir-report-generation";
 import { generateVerificationChecklist } from "@/lib/nir-verification-checklist";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  assertInspectionReadable,
+  resolveInspectionFinancialReach,
+} from "@/lib/auth/assert-tenancy";
 import { resolveAreaSqm } from "@/lib/units";
 import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
@@ -59,8 +63,20 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const format = searchParams.get("format") ?? "json";
 
+    // D-028 / D-023: the assigned technician reads the report on the job they
+    // record. The cost estimate is withheld below unless the caller also has
+    // the financial reach.
+    const tenancy = await assertInspectionReadable(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
+
     const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id },
       include: {
         // Fields consumed via NirEnvironmentalData cast + Excel handler.
         // (Note: cast type uses *Celsius suffixed names that don't match DB
@@ -205,10 +221,23 @@ export async function GET(
       });
     }
 
+    // Money (rates, subtotals, totals) goes only to the job's owner or a
+    // MANAGER / ADMIN of the organisation (D-023 / RA-7771). Stripped before
+    // the JSON, PDF, Excel and checklist builders run: the checklist note
+    // quotes the total.
+    const financialReach = await resolveInspectionFinancialReach(session);
+    const canSeeMoney =
+      financialReach.ok &&
+      (await prisma.inspection.findFirst({
+        where: { id, ...financialReach.data },
+        select: { id: true },
+      })) !== null;
+
     // Shape the Prisma result into the typed NirReportInspectionData interface.
     // This single cast is the only place `any` escapes — the rest of the file is typed.
     const data = {
       ...inspection,
+      costEstimates: canSeeMoney ? inspection.costEstimates : [],
       report: inspection.report && {
         ...inspection.report,
         user: workspaceBusiness(inspection.report.user),
@@ -222,7 +251,7 @@ export async function GET(
         return generateExcelReport(data);
       case "json":
       default:
-        return generateJSONReport(data);
+        return generateJSONReport(data, canSeeMoney);
     }
   } catch (error) {
     return fromException(request, error, { stage: "inspection:report" });
@@ -231,7 +260,10 @@ export async function GET(
 
 // ─── JSON ─────────────────────────────────────────────────────────────────────
 
-function generateJSONReport(inspection: NirReportInspectionData) {
+function generateJSONReport(
+  inspection: NirReportInspectionData,
+  canSeeMoney: boolean,
+) {
   const checklist = generateVerificationChecklist({
     id: inspection.id,
     inspectionNumber: inspection.inspectionNumber,
@@ -292,13 +324,15 @@ function generateJSONReport(inspection: NirReportInspectionData) {
     affectedAreas: inspection.affectedAreas,
     classification: inspection.classifications[0] ?? null,
     scopeItems: inspection.scopeItems,
-    costEstimate: {
-      items: inspection.costEstimates,
-      subtotal,
-      contingency,
-      total,
-      currency: "AUD",
-    },
+    costEstimate: canSeeMoney
+      ? {
+          items: inspection.costEstimates,
+          subtotal,
+          contingency,
+          total,
+          currency: "AUD",
+        }
+      : null,
     photos: inspection.photos.map((photo) => ({
       url: photo.url,
       location: photo.location,

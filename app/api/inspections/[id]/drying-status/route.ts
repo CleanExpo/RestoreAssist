@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { assessDryingReadiness } from "@/lib/inspections/drying-readiness";
 import { dryingLocationForReading } from "@/lib/moisture/reading-room-join";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -22,7 +22,7 @@ export async function GET(
 
     const { id } = await params;
 
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },

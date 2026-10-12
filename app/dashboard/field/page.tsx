@@ -37,7 +37,7 @@ import {
   getCachedJobs,
   type CachedJob,
 } from "@/lib/offline/job-cache";
-import { fetchOfflineReplay, getOfflineOwner, ownsOfflineEntry, OFFLINE_CONTEXT_EVENT } from "@/lib/offline/account-boundary";
+import { fetchOfflineReplay, getOfflineOwner, ownsOfflineEntry, OFFLINE_CONTEXT_EVENT, refreshOfflineOwner } from "@/lib/offline/account-boundary";
 import { isCapacitor } from "@/lib/capacitor";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -119,7 +119,11 @@ export default function FieldDashboardPage() {
   }, []);
 
   async function loadInspections(): Promise<RefreshResult> {
-    const requestOwner = getOfflineOwner();
+    // The offline owner is set once the session has been verified. On a fresh
+    // load (or after it was cleared) verify it now rather than reporting a
+    // failed load; Retry comes back through here and verifies again. Offline,
+    // refreshOfflineOwner() resolves null and the reconnect message stands.
+    const requestOwner = getOfflineOwner() ?? (await refreshOfflineOwner());
     if (!requestOwner) {
       setInspections([]);
       setLoading(false);
