@@ -124,102 +124,104 @@ export function ClaimFolioLanding() {
           />
         </motion.div>
 
-        {/* Full-frame readability wash — photo stays edge-to-edge */}
+        {/* Asymmetric readability — photo unchanged; light sculpts left column + base */}
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0B1F3A]/90 via-[#0B1F3A]/50 to-[#0B1F3A]/20 sm:via-[#0B1F3A]/42 sm:to-transparent"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(108deg,rgba(11,31,58,0.94)_0%,rgba(11,31,58,0.88)_38%,rgba(11,31,58,0.45)_58%,rgba(11,31,58,0.08)_72%,transparent_88%)]"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1F3A]/70 via-transparent to-[#0B1F3A]/35"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1F3A]/85 via-transparent to-[#0B1F3A]/30"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 w-full max-w-[min(100%,52rem)] bg-gradient-to-r from-[#0B1F3A]/25 to-transparent lg:max-w-[46rem]"
           aria-hidden
         />
 
         <div
-          className={`${CONTAINER} relative flex min-h-[calc(100dvh-4.25rem)] items-center py-16 pb-28 sm:pb-16`}
+          className={`${CONTAINER} relative grid min-h-[calc(100dvh-4.25rem)] grid-cols-1 items-end pb-[5.5rem] pt-10 sm:pb-[5.25rem] sm:pt-12 lg:grid-cols-12 lg:items-end lg:pb-24 lg:pt-16`}
         >
-          <div className="max-w-[min(100%,36rem)] lg:max-w-[34rem]">
-            <motion.p
-              initial={motionHidden ? { opacity: 0, y: 16 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.08 }}
-              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-white sm:text-base`}
-            >
-              {HOME.hero.brand}
-            </motion.p>
+          <motion.div
+            initial={motionHidden ? { opacity: 0, y: 20 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.08 }}
+            className="relative z-10 lg:col-span-7 xl:col-span-6"
+          >
+            <div className="relative pl-5 sm:pl-6 lg:pl-10 lg:before:absolute lg:before:bottom-0 lg:before:left-0 lg:before:top-0 lg:before:w-px lg:before:bg-white/20 lg:before:content-['']">
+              <div className="flex items-baseline gap-4 lg:gap-5">
+                <span
+                  className={`${FONT_DISPLAY} hidden text-[11px] font-bold tabular-nums tracking-tight text-[#7BA3BD] sm:inline`}
+                  aria-hidden
+                >
+                  00
+                </span>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#A8C5D8]">
+                  {HOME.hero.eyebrow}
+                </p>
+              </div>
 
-            <motion.div
-              initial={motionHidden ? { opacity: 0, y: 16 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.16 }}
-              className="mt-5 flex items-center gap-3"
-            >
-              <span className="h-px w-12 bg-[#7BA3BD]" aria-hidden />
-              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#A8C5D8]">
-                {HOME.hero.eyebrow}
+              <h1
+                className={`${FONT_DISPLAY} mt-5 max-w-[19ch] text-balance text-[clamp(2.05rem,6.2vw,3.65rem)] font-bold leading-[1.04] tracking-[-0.045em] text-white sm:mt-6 sm:max-w-[22ch] lg:mt-7 lg:max-w-[16ch] lg:text-[clamp(2.5rem,3.6vw,3.75rem)] lg:leading-[1.03]`}
+              >
+                {HOME.hero.headline}
+              </h1>
+
+              <p className="mt-5 max-w-[34rem] text-[15px] leading-[1.68] text-white/86 sm:mt-6 sm:text-[16px] sm:leading-[1.72] lg:max-w-[28rem] lg:text-[17px]">
+                {HOME.hero.lead}
               </p>
-            </motion.div>
 
-            <motion.h1
-              initial={motionHidden ? { opacity: 0, y: 24 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.26 }}
-              className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5.2vw,3.4rem)] font-bold leading-[1.06] tracking-[-0.035em] text-white`}
-            >
-              {HOME.hero.headline}
-            </motion.h1>
+              <div className="mt-8 flex flex-col gap-4 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3">
+                <Link
+                  href={BRAND.cta.primary.href}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-white px-8 py-3.5 text-[15px] font-semibold tracking-tight text-[#0B1F3A] shadow-[0_12px_40px_rgba(11,31,58,0.35)] transition-[transform,box-shadow] duration-200 ease-out hover:shadow-[0_16px_48px_rgba(11,31,58,0.4)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A] sm:w-auto"
+                >
+                  {HOME.hero.primaryCta}
+                </Link>
+                <Link
+                  href={BRAND.cta.secondary.href}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-2 py-3.5 text-[15px] font-semibold tracking-tight text-white/95 underline decoration-white/35 underline-offset-[6px] transition-[color,decoration-color] duration-200 hover:decoration-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A] sm:w-auto sm:justify-start sm:px-0"
+                >
+                  {HOME.hero.secondaryCta}
+                  <span aria-hidden className="text-white/50">
+                    →
+                  </span>
+                </Link>
+              </div>
 
-            <motion.p
-              initial={motionHidden ? { opacity: 0, y: 16 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.38 }}
-              className={`${FONT_DISPLAY} mt-5 text-[1.1rem] font-medium text-white/90 sm:text-[1.25rem]`}
-            >
-              {HOME.hero.valueLine}
-            </motion.p>
+              <p className="mt-6 border-t border-white/15 pt-4 text-[12px] leading-relaxed tracking-wide text-white/58 sm:text-[13px] lg:max-w-[26rem]">
+                {HOME.hero.trialReassurance}
+              </p>
+            </div>
+          </motion.div>
 
-            <motion.p
-              initial={motionHidden ? { opacity: 0, y: 16 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.46 }}
-              className="mt-5 max-w-[28rem] text-[14.5px] leading-[1.75] text-white/75 sm:text-[15.5px]"
-            >
-              {HOME.hero.support}
-            </motion.p>
-
-            <motion.div
-              initial={motionHidden ? { opacity: 0, y: 16 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.54 }}
-              className="mt-9 flex flex-col gap-3 sm:flex-row"
-            >
-              <Link
-                href={BRAND.cta.primary.href}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-[#0B1F3A] shadow-[0_1px_2px_rgba(11,31,58,0.12),0_8px_24px_rgba(11,31,58,0.18)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-[#F0F3F6] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
-              >
-                {HOME.hero.primaryCta}
-              </Link>
-              <Link
-                href="#overview"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/55 bg-[#0B1F3A]/55 px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white backdrop-blur-sm transition-[background-color,border-color,transform] duration-200 ease-out hover:border-white/80 hover:bg-[#0B1F3A]/75 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
-              >
-                {HOME.hero.secondaryCta}
-              </Link>
-            </motion.div>
-          </div>
+          <div
+            className="pointer-events-none hidden lg:col-span-5 lg:block xl:col-span-6"
+            aria-hidden
+          />
         </div>
 
-        {/* Trust over the full photo */}
-        <div className="absolute right-0 bottom-0 left-0">
+        {/* Trust — spec strip, low visual weight */}
+        <div className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-[#0B1F3A]/35 backdrop-blur-[2px]">
           <ul
-            className={`${CONTAINER} flex flex-wrap gap-x-6 gap-y-2 py-5 sm:justify-start lg:justify-end`}
+            className={`${CONTAINER} flex flex-wrap items-center gap-x-3 gap-y-2 py-3.5 sm:gap-x-4 sm:py-4 lg:justify-end`}
             aria-label="Compliance standards and coverage"
           >
-            {HOME.trust.map((item) => (
+            {HOME.trust.map((item, i) => (
               <li
                 key={item}
-                className={`${FONT_DISPLAY} text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80`}
+                className="flex items-center gap-3 sm:gap-4"
               >
-                {item}
+                {i > 0 ? (
+                  <span
+                    className="hidden h-1 w-1 rounded-full bg-white/35 sm:inline"
+                    aria-hidden
+                  />
+                ) : null}
+                <span
+                  className={`${FONT_DISPLAY} text-[9px] font-semibold uppercase tracking-[0.14em] text-white/70 sm:text-[10px]`}
+                >
+                  {item}
+                </span>
               </li>
             ))}
           </ul>
