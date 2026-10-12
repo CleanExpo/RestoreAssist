@@ -17,10 +17,12 @@ Operational steps for **restoreassist.app**. Code deploy alone does not satisfy 
 - CI/CD or deploy runbook must run `prisma migrate deploy` before traffic shifts.
 - Developers: `npm run db:migrate:local` when P3009 blocks local deploy (see `scripts/dev-local-migrate.sh`).
 
-## A3 — Email delivers
+## A3 — Email delivers (Mailtrap Sending API)
 
-- Resend domain verified; SPF + DKIM aligned with sending domain.
-- Send one real message (invite or report) and confirm inbox delivery (not spam).
+- Set `MAILTRAP_API_KEY` + `SENDER_EMAIL` on the app; verify sending domain in Mailtrap (SPF/DKIM).
+- Run `npm run email:test -- you@example.com` or send one real invite/report.
+- Confirm delivery in Mailtrap activity + recipient inbox (not spam).
+- See `docs/operations/MAILTRAP-EMAIL.md`.
 
 ## A4 — Auth / session stable
 
@@ -45,8 +47,18 @@ Operational steps for **restoreassist.app**. Code deploy alone does not satisfy 
 
 Run the eight-step browser script in the P0 spec (signup → inspection → report → invoice → re-login). Pass = product truth for this phase.
 
-## Not in repo-only scope
+## Deploy runbooks
 
-- Private evidence bucket policy on Supabase (schedule immediately after A-layer if still public).
-- Stripe live webhook secret rotation (ops).
-- W11 team invite happy-path E2E (track as known limitation until green).
+- DigitalOcean migrate + Server Actions key: `docs/operations/DIGITALOCEAN-DEPLOY.md`
+- Phill browser script: `docs/operations/PHILL-P0-SMOKE-SCRIPT.md`
+- P0-1 private Supabase buckets: `docs/operations/P0-1-PRIVATE-BUCKETS.md`
+
+## W11 — Team invite
+
+- E2E: `e2e/invite-tech-happy-path.spec.ts` (requires `ALLOW_TEST_HELPERS=true` locally).
+- CI: enable test helpers on staging only; do not enable on production.
+
+## Other ops (not automated in repo)
+
+- Stripe live webhook secret rotation.
+- Apply `supabase/migrations/20260717000000_p0_1_private_evidence_sketch_buckets.sql` on prod Supabase after A1.
