@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { RAIcon } from "@/components/brand/RAIcon";
+
 export default function SolutionsPage() {
   const darkMode = false;
 
