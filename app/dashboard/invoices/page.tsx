@@ -23,6 +23,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
+import { useFetchWithError } from "@/lib/client/useFetchWithError";
+import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
 import { formatCurrencyCents, formatDate } from "@/lib/formatters";
 import {
   collectFailedLabels,
@@ -73,7 +75,7 @@ export default function InvoicesPage() {
     loading,
     error: fetchError,
     refetch: refetchInvoices,
-  } = useFetch<{ invoices: Invoice[] }>(invoiceUrl);
+  } = useFetchWithError<{ invoices: Invoice[] }>(invoiceUrl);
   const invoices = invoiceData?.invoices ?? [];
 
   const {
@@ -356,20 +358,15 @@ export default function InvoicesPage() {
 
       {/* Fetch error */}
       {fetchError && !loading && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 mb-4">
-          <span className="text-sm">Failed to load invoices — {fetchError}</span>
-          <button
-            type="button"
-            onClick={refetchInvoices}
-            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+        <DashboardListErrorBanner
+          resourceLabel="invoices"
+          error={fetchError}
+          onRetry={refetchInvoices}
+        />
       )}
 
       {/* Invoice Table */}
-      {loading ? (
+      {fetchError && !loading ? null : loading ? (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden divide-y divide-slate-200 dark:divide-slate-700">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-4 py-3">
