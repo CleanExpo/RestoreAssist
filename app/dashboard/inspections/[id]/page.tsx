@@ -4,6 +4,11 @@ import { useState, useEffect, use, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
+import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 import { AssignTechnician } from "@/components/inspection/AssignTechnician";
 import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 import { cn } from "@/lib/utils";
@@ -364,7 +369,7 @@ export default function InspectionDetailPage({
   const [licenceModalOpen, setLicenceModalOpen] = useState(false);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   // Deep-link from field evidence checklist: ?tab=areas (etc.).
@@ -584,6 +589,7 @@ export default function InspectionDetailPage({
   const fetchInspection = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await fetch(`/api/inspections/${id}`);
       if (response.ok) {
         const data = await response.json();
@@ -613,13 +619,17 @@ export default function InspectionDetailPage({
           });
         }
       } else {
-        toast.error("Inspection not found");
-        router.push("/dashboard/inspections");
+        setInspection(null);
+        setLoadError(await parseApiError(response));
       }
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Failed to load inspection");
-      setLoadError(true);
+      setInspection(null);
+      setLoadError({
+        code: "NETWORK",
+        message: "Could not reach the server. Check your connection and retry.",
+        status: 0,
+      });
     } finally {
       setLoading(false);
     }
@@ -1200,34 +1210,15 @@ export default function InspectionDetailPage({
     );
   }
 
-  if (!inspection) {
+  if (!loading && (loadError || !inspection)) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <XCircle className="text-destructive" size={40} />
-        <p className="text-slate-400 text-sm">
-          {loadError
-            ? "Could not load inspection. Check your connection and try again."
-            : "Inspection not found."}
-        </p>
-        {loadError && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setLoadError(false);
-              fetchInspection();
-            }}
-          >
-            Retry
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push("/dashboard/inspections")}
-        >
-          Back to inspections
-        </Button>
-      </div>
+      <DetailLoadErrorPanel
+        resourceLabel="inspection"
+        error={loadError}
+        backHref="/dashboard/inspections"
+        backLabel="Back to inspections"
+        onRetry={() => void fetchInspection()}
+      />
     );
   }
 
