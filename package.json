@@ -87,6 +87,8 @@
     "test:pilot-harness": "npm --prefix packages/pilot-tester test",
     "check:design-tokens": "node scripts/check-design-tokens.mjs",
     "check:gst-callers": "node scripts/check-gst-callers.mjs",
+    "check:p2-exit": "node scripts/ci/p2-exit-guards.mjs",
+    "check:p2-rates": "node scripts/ci/check-p2-hardcoded-rates.mjs",
     "check:floorplan-custody": "node scripts/check-floorplan-custody.mjs",
     "check:a11y": "eslint -c config/eslint.config.mjs app/portal components/portal components/setup components/settings/OrganizationLocaleSetting.tsx --quiet && node scripts/check-a11y-surface-contract.mjs && node scripts/check-a11y-contrast.mjs && vitest run --config config/vitest.config.js components/ui/__tests__/dialog-axe.test.tsx",
     "check:no-emoji": "node scripts/check-no-emoji.mjs",
