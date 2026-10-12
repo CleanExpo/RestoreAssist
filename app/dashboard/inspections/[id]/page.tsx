@@ -24,6 +24,9 @@ import InspectionEvidenceReadinessPanel, {
 } from "@/components/inspection/InspectionEvidenceReadinessPanel";
 import HandoverPackagePanel from "@/components/inspection/HandoverPackagePanel";
 import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
+import { ClaimContextBanner } from "@/components/inspection/ClaimContextBanner";
+import { JobAppointmentsPanel } from "@/components/inspection/JobAppointmentsPanel";
+import { FieldAssistPanel } from "@/components/inspection/FieldAssistPanel";
 import EnvironmentalSummary from "@/components/inspection/EnvironmentalSummary";
 import {
   latestEnvironmentalReading,
@@ -1514,6 +1517,12 @@ export default function InspectionDetailPage({
             </span>
           </div>
         </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <ClaimContextBanner inspectionId={inspection.id} />
+        <JobAppointmentsPanel inspectionId={inspection.id} />
+        <FieldAssistPanel inspectionId={inspection.id} />
       </div>
 
       {/* Status Timeline */}
