@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
 
 export const metadata: Metadata = {
   title: "Compliance Library - IICRC S500 & Standards Reference",
@@ -26,5 +27,5 @@ export default function ComplianceLibraryLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <MarketingShell>{children}</MarketingShell>;
 }

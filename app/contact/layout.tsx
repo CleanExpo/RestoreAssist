@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
 
 export const metadata: Metadata = {
   title: "Contact Restore Assist - Australian Restoration Software",
@@ -27,5 +28,5 @@ export default function ContactLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <MarketingShell>{children}</MarketingShell>;
 }

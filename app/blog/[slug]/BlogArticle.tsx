@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import Header from "@/components/landing/Header";
-import Footer from "@/components/landing/Footer";
 import type { Article } from "@/lib/blog/articles";
 
 const HEADING_FONT =
@@ -22,7 +20,7 @@ const BODY_FONT =
  * switch the rest of the marketing site already uses.
  */
 export default function BlogArticle({ article }: { article: Article }) {
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = false;
 
   useEffect(() => {
     if (!document.getElementById("google-fonts-preconnect")) {
@@ -50,8 +48,6 @@ export default function BlogArticle({ article }: { article: Article }) {
     <div
       className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
     >
-      <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-
       {/* Hero */}
       <section className="pt-40 pb-12 px-6 relative z-10 bg-brand-mist/30 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
@@ -244,7 +240,6 @@ export default function BlogArticle({ article }: { article: Article }) {
         </div>
       </article>
 
-      <Footer darkMode={darkMode} />
     </div>
   );
 }
