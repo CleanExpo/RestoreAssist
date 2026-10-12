@@ -31,6 +31,11 @@ import {
 } from "@/lib/invoice-status";
 import { getVariationAmountDisplay } from "@/lib/invoices/variation-amount";
 import { formatDate } from "@/lib/formatters";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
+import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 
 interface LineItem {
   id: string;
@@ -136,6 +141,7 @@ export default function InvoiceDetailPage({
   const router = useRouter();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [showRecordPayment, setShowRecordPayment] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -162,7 +168,8 @@ export default function InvoiceDetailPage({
 
   useEffect(() => {
     if (!invoiceId) return;
-    fetchInvoice();
+    void fetchInvoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when id changes only
   }, [invoiceId]);
 
   useEffect(() => {
@@ -189,17 +196,23 @@ export default function InvoiceDetailPage({
 
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await fetch(`/api/invoices/${invoiceId}`);
       if (response.ok) {
         const data = await response.json();
         setInvoice(data.invoice);
       } else {
-        toast.error("Invoice not found");
-        router.push("/dashboard/invoices");
+        setInvoice(null);
+        setLoadError(await parseApiError(response));
       }
     } catch (error) {
+      setInvoice(null);
+      setLoadError({
+        code: "NETWORK",
+        message: "Could not reach the server. Check your connection and retry.",
+        status: 0,
+      });
       console.error("Failed to fetch invoice:", error);
-      toast.error("Failed to load invoice");
     } finally {
       setLoading(false);
     }
@@ -404,21 +417,13 @@ export default function InvoiceDetailPage({
 
   if (!invoice) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
-          <h1 className="text-xl font-semibold mb-2">Invoice Not Found</h1>
-          <p className="text-slate-400 mb-4">
-            The requested invoice could not be found.
-          </p>
-          <button
-            onClick={() => router.push("/dashboard/invoices")}
-            className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
-          >
-            Back to Invoices
-          </button>
-        </div>
-      </div>
+      <DetailLoadErrorPanel
+        resourceLabel="invoice"
+        error={loadError}
+        backHref="/dashboard/invoices"
+        backLabel="Back to invoices"
+        onRetry={() => void fetchInvoice()}
+      />
     );
   }
 
