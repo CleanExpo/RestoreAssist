@@ -117,6 +117,7 @@ export default function DashboardShell({
   }, []);
   // NotificationBell manages its own open/close state
   const [profile, setProfile] = useState<{ userId: string; scopeKey: string; subscriptionStatus: string | null; businessName?: string | null; organizationId?: string | null } | null>(null);
+  const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const logoutInFlight = useRef(false);
 
@@ -148,6 +149,7 @@ export default function DashboardShell({
   useEffect(() => {
     let cancelled = false;
     setProfile(null);
+    setProfileLoadError(null);
     const fetchSubscriptionStatus = async () => {
       try {
         const response = await fetch("/api/user/profile", {
@@ -159,11 +161,22 @@ export default function DashboardShell({
           const data = await response.json();
           if (!cancelled && accountId && data.profile?.id === accountId &&
             (organizationId === undefined || (data.profile.organizationId ?? null) === organizationId)) {
+            setProfileLoadError(null);
             setProfile({ userId: accountId, scopeKey: profileScopeKey, subscriptionStatus: data.profile.subscriptionStatus ?? null, businessName: data.profile.businessName, organizationId: data.profile.organizationId });
           }
+        } else if (!cancelled) {
+          const parsed = await import("@/lib/client/parse-api-error").then((m) =>
+            m.parseApiError(response),
+          );
+          setProfileLoadError(parsed.message);
         }
       } catch (error) {
         console.error("Error fetching subscription status:", error);
+        if (!cancelled) {
+          setProfileLoadError(
+            "Could not load account details. Billing banners may be inaccurate until you retry.",
+          );
+        }
       }
     };
 
@@ -832,6 +845,47 @@ export default function DashboardShell({
           {/* Trial / demo sit under the search bar so a cream banner cannot
               open a white gap above the header (RA-7465 still keeps them
               in this offset column, not under the fixed sidebar). */}
+          {profileLoadError ? (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-500/30 bg-amber-950/80 px-4 py-2 text-sm text-amber-100"
+            >
+              <span>{profileLoadError}</span>
+              <button
+                type="button"
+                className="rounded-md border border-amber-400/50 px-2 py-0.5 text-xs font-medium hover:bg-amber-900/60"
+                onClick={() => {
+                  if (status === "authenticated" && accountId && scopeVerified) {
+                    void fetch("/api/user/profile", { credentials: "include" })
+                      .then(async (response) => {
+                        if (response.ok) {
+                          const data = await response.json();
+                          if (
+                            data.profile?.id === accountId &&
+                            (organizationId === undefined ||
+                              (data.profile.organizationId ?? null) ===
+                                organizationId)
+                          ) {
+                            setProfileLoadError(null);
+                            setProfile({
+                              userId: accountId,
+                              scopeKey: profileScopeKey,
+                              subscriptionStatus:
+                                data.profile.subscriptionStatus ?? null,
+                              businessName: data.profile.businessName,
+                              organizationId: data.profile.organizationId,
+                            });
+                          }
+                        }
+                      })
+                      .catch(() => {});
+                  }
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
           {!hideBillingNav && <TrialCountdownBanner />}
           {isDemoAccount && (
             <div
