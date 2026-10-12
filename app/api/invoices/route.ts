@@ -9,7 +9,11 @@ import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 import { lineSubtotalCents } from "@/lib/invoices/calc";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
-import { canLinkRecord, resolveInvoiceReach } from "@/lib/auth/assert-tenancy";
+import {
+  assertFinancialWriter,
+  canLinkRecord,
+  resolveInvoiceReach,
+} from "@/lib/auth/assert-tenancy";
 import { InvoiceStatus } from "@prisma/client";
 import {
   enumEqualityOrIn,
@@ -175,6 +179,16 @@ export async function POST(request: NextRequest) {
     });
   }
   const userId = session.user.id;
+  // Creating a money record is an owner or manager action. The role is read
+  // from the database (a JWT role can be stale), before the body is parsed.
+  const moneyGate = await assertFinancialWriter(session);
+  if (!moneyGate.ok) {
+    return apiError(request, {
+      code: moneyGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: moneyGate.reason,
+      status: moneyGate.status,
+    });
+  }
 
   // RA-1266: Idempotency-Key guard prevents duplicate invoice creation
   // when a client retries a POST it never saw a response for.

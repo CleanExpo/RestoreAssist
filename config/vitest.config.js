@@ -27,6 +27,7 @@ export default {
       "app/billing/**/__tests__/**/*.test.tsx",
       "app/capture/**/__tests__/**/*.test.tsx",
       "app/dashboard/**/__tests__/**/*.test.tsx",
+      "app/invite/**/__tests__/**/*.test.ts",
       "app/portal/**/__tests__/**/*.test.ts",
       "app/portal/**/__tests__/**/*.test.tsx",
       "app/__tests__/**/*.test.tsx",

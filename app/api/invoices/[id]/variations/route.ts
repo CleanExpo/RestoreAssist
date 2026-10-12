@@ -15,6 +15,7 @@ import {
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertFinancialWriter } from "@/lib/auth/assert-tenancy";
 
 // GET /api/invoices/[id]/variations - Get invoice variations
 export async function GET(
@@ -158,6 +159,16 @@ export async function POST(
     });
   }
   const userId = session.user.id;
+  // Creating a money record is an owner or manager action. The role is read
+  // from the database (a JWT role can be stale), before the body is parsed.
+  const moneyGate = await assertFinancialWriter(session);
+  if (!moneyGate.ok) {
+    return apiError(request, {
+      code: moneyGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: moneyGate.reason,
+      status: moneyGate.status,
+    });
+  }
   const { id } = await params;
 
   // RA-1266: Idempotency-Key prevents duplicate variation orders — a

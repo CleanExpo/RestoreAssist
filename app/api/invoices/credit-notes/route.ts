@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertFinancialWriter } from "@/lib/auth/assert-tenancy";
 import {
   getGstTreatmentForCurrency,
   resolveLineGstRatePercent,
@@ -63,6 +64,16 @@ export async function POST(request: NextRequest) {
     });
   }
   const userId = session.user.id;
+  // Creating a money record is an owner or manager action. The role is read
+  // from the database (a JWT role can be stale), before the body is parsed.
+  const moneyGate = await assertFinancialWriter(session);
+  if (!moneyGate.ok) {
+    return apiError(request, {
+      code: moneyGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: moneyGate.reason,
+      status: moneyGate.status,
+    });
+  }
 
   // RA-1266: Idempotency-Key guard prevents duplicate credit-note issuance
   // when a client retries a POST it never saw a response for.
