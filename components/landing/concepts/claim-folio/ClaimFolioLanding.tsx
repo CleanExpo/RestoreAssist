@@ -16,6 +16,7 @@ import {
   VIEWPORT,
 } from "@/components/landing/home/motion";
 import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
+import { useRevealArmed } from "@/components/landing/home/useRevealArmed";
 
 /**
  * Folio index. `label` is the visual numeral; `title` is the accessible name —
@@ -42,6 +43,8 @@ const SECTIONS = [
  */
 export function ClaimFolioLanding() {
   const reduce = useLandingReduceMotion();
+  const armed = useRevealArmed();
+  const motionHidden = armed && !reduce;
   const faqs = getHomeFaqs();
   const [faqOpen, setFaqOpen] = useState(0);
   const [active, setActive] = useState("overview");
@@ -106,7 +109,7 @@ export function ClaimFolioLanding() {
       {/* ── HERO: full-bleed water inspection photography ── */}
       <section className="relative min-h-[100dvh] overflow-hidden pt-[4.25rem]">
         <motion.div
-          initial={reduce ? false : { scale: 1.08, opacity: 0.55 }}
+          initial={motionHidden ? { scale: 1.08, opacity: 0.55 } : false}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 1.5, ease: EASE_OUT }}
           className="absolute inset-0"
@@ -136,7 +139,7 @@ export function ClaimFolioLanding() {
         >
           <div className="max-w-[min(100%,36rem)] lg:max-w-[34rem]">
             <motion.p
-              initial={reduce ? false : { opacity: 0, y: 16 }}
+              initial={motionHidden ? { opacity: 0, y: 16 } : false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.08 }}
               className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-white sm:text-base`}
@@ -145,7 +148,7 @@ export function ClaimFolioLanding() {
             </motion.p>
 
             <motion.div
-              initial={reduce ? false : { opacity: 0, y: 16 }}
+              initial={motionHidden ? { opacity: 0, y: 16 } : false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.16 }}
               className="mt-5 flex items-center gap-3"
@@ -157,7 +160,7 @@ export function ClaimFolioLanding() {
             </motion.div>
 
             <motion.h1
-              initial={reduce ? false : { opacity: 0, y: 24 }}
+              initial={motionHidden ? { opacity: 0, y: 24 } : false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.26 }}
               className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5.2vw,3.4rem)] font-bold leading-[1.06] tracking-[-0.035em] text-white`}
@@ -166,7 +169,7 @@ export function ClaimFolioLanding() {
             </motion.h1>
 
             <motion.p
-              initial={reduce ? false : { opacity: 0, y: 16 }}
+              initial={motionHidden ? { opacity: 0, y: 16 } : false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.38 }}
               className={`${FONT_DISPLAY} mt-5 text-[1.1rem] font-medium text-white/90 sm:text-[1.25rem]`}
@@ -175,7 +178,7 @@ export function ClaimFolioLanding() {
             </motion.p>
 
             <motion.p
-              initial={reduce ? false : { opacity: 0, y: 16 }}
+              initial={motionHidden ? { opacity: 0, y: 16 } : false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.46 }}
               className="mt-5 max-w-[28rem] text-[14.5px] leading-[1.75] text-white/75 sm:text-[15.5px]"
@@ -184,7 +187,7 @@ export function ClaimFolioLanding() {
             </motion.p>
 
             <motion.div
-              initial={reduce ? false : { opacity: 0, y: 16 }}
+              initial={motionHidden ? { opacity: 0, y: 16 } : false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.54 }}
               className="mt-9 flex flex-col gap-3 sm:flex-row"
@@ -248,6 +251,36 @@ export function ClaimFolioLanding() {
         </div>
       </section>
 
+      {/* ── PROOF: honest live-product signal (no vanity logos) ── */}
+      <section
+        id="proof"
+        className="scroll-mt-24 border-b border-[#0B1F3A]/10 bg-[#F3F5F7] py-16 sm:py-20"
+      >
+        <div className={`${CONTAINER} max-w-3xl`}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+            {HOME.proof.eyebrow}
+          </p>
+          <h2
+            className={`${FONT_DISPLAY} mt-4 text-[clamp(1.65rem,3.5vw,2.25rem)] font-semibold leading-[1.12] tracking-[-0.03em] text-[#0B1F3A]`}
+          >
+            {HOME.proof.title}
+          </h2>
+          <p className="mt-4 text-[15px] leading-[1.75] text-slate-600">
+            {HOME.proof.body}
+          </p>
+          <ul className="mt-6 space-y-2 text-[15px] text-slate-700">
+            {HOME.proof.bullets.map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-[#3B6D8C]" aria-hidden>
+                  ✓
+                </span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       {/* ── STANCE: the three commitments, ruled strip ── */}
       <section
         id="stance"
@@ -261,7 +294,7 @@ export function ClaimFolioLanding() {
             {HOME.stance.pillars.map((pillar, i) => (
               <motion.li
                 key={pillar.title}
-                initial={reduce ? false : { opacity: 0, y: 24 }}
+                initial={motionHidden ? { opacity: 0, y: 24 } : false}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={VIEWPORT}
                 transition={{
@@ -310,7 +343,7 @@ export function ClaimFolioLanding() {
             {HOME.workflow.steps.map((s, i) => (
               <motion.li
                 key={s.step}
-                initial={reduce ? false : { opacity: 0, y: 40 }}
+                initial={motionHidden ? { opacity: 0, y: 40 } : false}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={VIEWPORT}
                 transition={{
@@ -457,7 +490,7 @@ export function ClaimFolioLanding() {
               {HOME.platform.features.map((f, i) => (
                 <motion.li
                   key={f.title}
-                  initial={reduce ? false : { opacity: 0, x: 24 }}
+                  initial={motionHidden ? { opacity: 0, x: 24 } : false}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={VIEWPORT}
                   transition={{ duration: 0.55, ease: EASE_OUT }}
