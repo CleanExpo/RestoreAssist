@@ -48,6 +48,7 @@ on:
       - "components/dashboard/SimpleModeExploreBanner.tsx"
       - "e2e/v1-reference-claim.spec.ts"
       - "e2e/dashboard-connected-journey.spec.ts"
+      - "e2e/inspection-floor-plan-flow.spec.ts"
       - "lib/dashboard/**"
       - "app/dashboard/page.tsx"
       - "app/dashboard/nav-config.ts"
@@ -359,6 +360,7 @@ jobs:
           e2e/moisture-p2-claim-integrity.spec.ts
           e2e/v1-reference-claim.spec.ts
           e2e/dashboard-connected-journey.spec.ts
+          e2e/inspection-floor-plan-flow.spec.ts
           e2e/offline-moisture-sync.spec.ts
           e2e/nz-org-gst.spec.ts
           e2e/storage-restore.spec.ts
