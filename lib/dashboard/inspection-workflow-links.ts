@@ -34,6 +34,11 @@ export function buildInspectionWorkflowLinks(input: {
       emphasis: earlyCapture,
     },
     { label: "Field mode", href: "/dashboard/field" },
+    {
+      label: "Floor plan",
+      href: `/dashboard/inspections/${inspectionId}?tab=sketch`,
+      emphasis: earlyCapture,
+    },
   ];
 
   if (reportId) {

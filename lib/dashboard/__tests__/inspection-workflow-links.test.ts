@@ -22,6 +22,18 @@ describe("buildInspectionWorkflowLinks", () => {
     expect(links.some((l) => l.href.includes("/invoice"))).toBe(true);
   });
 
+  it("includes floor plan tab link", () => {
+    const links = buildInspectionWorkflowLinks({
+      inspectionId: "insp-1",
+      status: "DRAFT",
+      reportId: null,
+      clientId: null,
+    });
+    expect(
+      links.some((l) => l.href.includes("tab=sketch") && l.label === "Floor plan"),
+    ).toBe(true);
+  });
+
   it("emphasises guided capture on early statuses", () => {
     const links = buildInspectionWorkflowLinks({
       inspectionId: "insp-1",
