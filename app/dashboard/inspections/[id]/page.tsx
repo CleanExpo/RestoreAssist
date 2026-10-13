@@ -30,6 +30,8 @@ import { ClaimContextBanner } from "@/components/inspection/ClaimContextBanner";
 import { JobAppointmentsPanel } from "@/components/inspection/JobAppointmentsPanel";
 import { FieldAssistPanel } from "@/components/inspection/FieldAssistPanel";
 import { InspectionWorkflowStrip } from "@/components/inspection/InspectionWorkflowStrip";
+import { InspectionJourneyGuide } from "@/components/inspection/InspectionJourneyGuide";
+import { SketchRoomCoveragePanel } from "@/components/inspection/SketchRoomCoveragePanel";
 import EnvironmentalSummary from "@/components/inspection/EnvironmentalSummary";
 import {
   latestEnvironmentalReading,
@@ -185,6 +187,15 @@ type Tab =
   | "activity"
   | "insurer"
   | "live-teacher";
+
+const ADVANCED_INSPECTION_TABS: Tab[] = [
+  "environmental",
+  "moisture-map",
+  "areas",
+  "costs",
+  "activity",
+  "live-teacher",
+];
 
 interface Inspection {
   id: string;
@@ -379,13 +390,15 @@ export default function InspectionDetailPage({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [moreSectionsOpen, setMoreSectionsOpen] = useState(false);
 
   // Deep-link from field evidence checklist: ?tab=areas (etc.).
   // Re-read on job change so a previous inspection's Sketch tab does not
   // stick onto the next job (RA-7542 post-nav chrome).
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    const searchParams = new URLSearchParams(window.location.search);
+    const tabParam = searchParams.get("tab");
     const allowed: Tab[] = [
       "overview",
       "environmental",
@@ -403,6 +416,18 @@ export default function InspectionDetailPage({
     ];
     if (tabParam && allowed.includes(tabParam as Tab)) {
       setActiveTab(tabParam as Tab);
+      if (ADVANCED_INSPECTION_TABS.includes(tabParam as Tab)) {
+        setMoreSectionsOpen(true);
+      }
+      const sketchRoomId = searchParams.get("sketchRoomId");
+      const roomName = searchParams.get("roomName");
+      if (tabParam === "moisture" && sketchRoomId) {
+        setMoistureForm((f) => ({
+          ...f,
+          sketchRoomId,
+          location: roomName?.trim() || f.location,
+        }));
+      }
       return;
     }
     setActiveTab("overview");
@@ -529,6 +554,7 @@ export default function InspectionDetailPage({
   }, [id]);
 
   useEffect(() => {
+    if (activeTab !== "overview" && activeTab !== "sketch") return;
     let cancelled = false;
     (async () => {
       try {
@@ -553,7 +579,7 @@ export default function InspectionDetailPage({
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, activeTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1300,6 +1326,34 @@ export default function InspectionDetailPage({
       : []),
   ];
 
+  const PRIMARY_SECTION_TABS = new Set<Tab>([
+    "overview",
+    "sketch",
+    "photos",
+    "classification",
+    "scope",
+    "insurer",
+    ...(showMoistureTabs ? (["moisture"] as Tab[]) : []),
+  ]);
+  const ADVANCED_SECTION_TABS = new Set<Tab>([
+    "environmental",
+    "moisture-map",
+    "areas",
+    "costs",
+    "activity",
+    ...(isLiveTeacherEnabled() ? (["live-teacher"] as Tab[]) : []),
+  ]);
+
+  const visibleTabs = TABS.filter(
+    (tab) =>
+      PRIMARY_SECTION_TABS.has(tab.key) ||
+      moreSectionsOpen ||
+      tab.key === activeTab,
+  );
+
+  const isManagerOps =
+    session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
+
   return (
     <div className="space-y-6">
       <confirm.Mount />
@@ -1621,14 +1675,19 @@ export default function InspectionDetailPage({
         aria-label="Inspection sections"
         className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700"
       >
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             role="tab"
             aria-selected={activeTab === tab.key}
             aria-controls={`tabpanel-${tab.key}`}
             id={`tab-${tab.key}`}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => {
+              setActiveTab(tab.key);
+              if (ADVANCED_SECTION_TABS.has(tab.key)) {
+                setMoreSectionsOpen(true);
+              }
+            }}
             className={cn(
               "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none",
               activeTab === tab.key
@@ -1653,6 +1712,19 @@ export default function InspectionDetailPage({
             )}
           </button>
         ))}
+        {TABS.some((t) => ADVANCED_SECTION_TABS.has(t.key)) && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={false}
+            aria-expanded={moreSectionsOpen}
+            onClick={() => setMoreSectionsOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+          >
+            <ListChecks size={16} aria-hidden="true" />
+            {moreSectionsOpen ? "Fewer sections" : "More sections"}
+          </button>
+        )}
         <Link
           href={`/dashboard/inspections/${inspection.id}/contents`}
           role="tab"
@@ -1738,6 +1810,18 @@ export default function InspectionDetailPage({
                 {inspection.costEstimates.length} line items
               </div>
             </div>
+
+            <InspectionJourneyGuide
+              inspectionId={inspection.id}
+              status={inspection.status}
+              clientId={inspection.clientId}
+              reportId={inspection.reportId}
+              sketchRoomCount={sketchRooms.length}
+              photoCount={inspection.photos.length}
+              moistureCount={inspection.moistureReadings.length}
+              hasClassification={inspection.classifications.length > 0}
+              showCompletenessInbox={isManagerOps}
+            />
 
             {/* Classification Card */}
             {classification ? (
@@ -2365,6 +2449,17 @@ export default function InspectionDetailPage({
             autoFetchFloorPlan={autoFetchFloorPlan}
           />
           <div className="mt-3 space-y-3 flex-shrink-0">
+            <SketchRoomCoveragePanel
+              inspectionId={inspection.id}
+              rooms={sketchRooms}
+              moistureReadings={moistureReadings}
+              scopeItems={scopeItems.map((s) => ({
+                isSelected: s.isSelected,
+                roomZoneId: (s as { roomZoneId?: string }).roomZoneId,
+                sketchRoomId: (s as { sketchRoomId?: string | null })
+                  .sketchRoomId,
+              }))}
+            />
             <ClientPortalLinkButton inspectionId={inspection.id} />
             <ClientEvidenceReviewPanel inspectionId={inspection.id} />
             <HomeownerCapturePanel inspectionId={inspection.id} />

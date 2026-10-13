@@ -71,6 +71,18 @@ test.describe("Owner dashboard full path @smoke", () => {
       page.getByRole("navigation", { name: "Job workflow" }),
     ).toBeVisible({ timeout: 20_000 });
 
+    await page.goto(
+      `/dashboard/inspections/${inspectionId}?tab=sketch`,
+    );
+    await expect(
+      page.getByRole("tab", { name: /floor plan/i }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await page.goto(`/dashboard/inspections/${inspectionId}`);
+    await expect(
+      page.getByRole("region", { name: "Claim journey" }),
+    ).toBeVisible({ timeout: 15_000 });
+
     await page.getByRole("link", { name: "All jobs" }).click();
     await expect(page).toHaveURL(/\/dashboard\/inspections/);
 
