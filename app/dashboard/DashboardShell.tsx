@@ -42,6 +42,8 @@ import {
   Library,
   FolderKanban,
   Bot,
+  CalendarDays,
+  Inbox,
 } from "lucide-react";
 import { signOutAndConfirm } from "@/lib/oauth-native";
 import { useSession } from "next-auth/react";
@@ -71,9 +73,11 @@ import {
   buildAdvancedNavGroups,
   isAdvancedMode,
   ADMIN_NAV_HREFS,
+  MANAGER_NAV_HREFS,
   type ExperienceMode,
   type NavItem,
 } from "./nav-config";
+import { isNavItemActive } from "@/lib/dashboard/nav-active";
 import { resolveReportCreationPayRoute } from "@/lib/billing/trial-expired-pay-route";
 
 /** Icons for the six Admin destinations — shared by Advanced + Simple mode. */
@@ -269,6 +273,16 @@ export default function DashboardShell({
     session?.user?.role === "MANAGER" || session?.user?.role === "USER";
   const isTechnician = session?.user?.role === "USER";
   const isAdmin = (session?.user as { role?: string })?.role === "ADMIN";
+  const isManager =
+    isAdmin || (session?.user as { role?: string })?.role === "MANAGER";
+
+  const managerNavItems: NavItem[] = isManager
+    ? MANAGER_NAV_HREFS.map((item) => ({
+        icon: item.href.includes("schedule") ? CalendarDays : Inbox,
+        label: item.label,
+        href: item.href,
+      }))
+    : [];
 
   const adminNavItems: NavItem[] = isAdmin
     ? ADMIN_NAV_HREFS.map((item) => ({
@@ -294,6 +308,20 @@ export default function DashboardShell({
       label: "Inspections",
       href: "/dashboard/inspections",
     },
+    {
+      icon: CalendarDays,
+      label: "Job schedule",
+      href: "/dashboard/inspections/schedule",
+    },
+    ...(isManager
+      ? [
+          {
+            icon: Inbox,
+            label: "Completeness inbox",
+            href: "/dashboard/operations/completeness-inbox",
+          },
+        ]
+      : []),
     { icon: Users, label: "Clients", href: "/dashboard/clients" },
     { icon: Receipt, label: "Invoices", href: "/dashboard/invoices" },
     {
@@ -390,7 +418,7 @@ export default function DashboardShell({
     ? fieldTechNavItems
     : advanced
       ? fullNavItems
-      : [...simpleNavItems, ...adminNavItems];
+      : [...simpleNavItems, ...managerNavItems, ...adminNavItems];
 
   // Advanced mode renders the full nav grouped under section headers instead of
   // one flat 24-item list. Only computed when relevant. Simple mode with admin
@@ -498,19 +526,21 @@ export default function DashboardShell({
         </button>
       );
     }
+    const active = isNavItemActive(pathname, item.href);
     return (
       <Link
         key={item.href}
         href={item.href}
         onClick={() => setMobileMenuOpen(false)}
+        aria-current={active ? "page" : undefined}
         className={cn(
-          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
+          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-deep",
           item.adminOnly
             ? cn(
                 "text-neutral-500 dark:text-slate-500",
                 "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
-                pathname === item.href &&
-                  "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400",
+                active &&
+                  "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 font-medium",
                 "hover:scale-[1.02]",
               )
             : item.highlight
@@ -518,6 +548,8 @@ export default function DashboardShell({
               : cn(
                   "text-neutral-700 dark:text-slate-300",
                   "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                  active &&
+                    "bg-neutral-100 dark:bg-slate-800 font-medium text-neutral-900 dark:text-slate-50 ring-1 ring-inset ring-neutral-200 dark:ring-slate-700",
                   "hover:scale-[1.02] hover:shadow-md",
                 ),
         )}

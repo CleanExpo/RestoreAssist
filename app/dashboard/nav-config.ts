@@ -6,6 +6,8 @@ import {
   Receipt,
   CreditCard,
   HelpCircle,
+  LayoutDashboard,
+  ClipboardCheck,
 } from "lucide-react";
 
 /**
@@ -69,6 +71,8 @@ export function isAdvancedMode(
  * real, existing route under `app/dashboard/**`.
  */
 export const simpleNavItems: NavItem[] = [
+  { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
+  { icon: ClipboardCheck, label: "My Jobs", href: "/dashboard/inspections" },
   {
     icon: Plus,
     label: "Make a Report",
@@ -109,6 +113,15 @@ export const ADMIN_NAV_HREFS = [
   { label: "Margot", href: "/dashboard/margot/home" },
 ] as const;
 
+/** Manager/owner ops — appended in the shell (server routes enforce access). */
+export const MANAGER_NAV_HREFS = [
+  { label: "Job schedule", href: "/dashboard/inspections/schedule" },
+  {
+    label: "Completeness inbox",
+    href: "/dashboard/operations/completeness-inbox",
+  },
+] as const;
+
 /**
  * Build the ADVANCED-mode grouped nav from the flat list the layout already
  * computes (which carries role/billing/admin gating). Every item from the flat
@@ -138,6 +151,8 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/reports/new": "Jobs",
     "/dashboard/reports": "Jobs",
     "/dashboard/inspections": "Jobs",
+    "/dashboard/inspections/schedule": "Jobs",
+    "/dashboard/operations/completeness-inbox": "Jobs",
     "/dashboard/clients": "Jobs",
     "/dashboard/field": "Jobs",
     // Documents & Billing — Invoices, Restoration Documents, Quote Generator,

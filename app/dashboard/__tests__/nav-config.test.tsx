@@ -27,6 +27,11 @@ describe("dashboard nav — create-report gate href", () => {
     expect(makeReport?.label).toBe("Make a Report");
   });
 
+  it("Simple mode includes overview and jobs before the report CTA", () => {
+    expect(simpleNavItems[0]?.href).toBe("/dashboard");
+    expect(simpleNavItems[1]?.href).toBe("/dashboard/inspections");
+  });
+
   it("lists the six Admin destinations for Simple-mode admin append", () => {
     expect(ADMIN_NAV_HREFS.map((i) => i.href)).toEqual([
       "/dashboard/admin",
