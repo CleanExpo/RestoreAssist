@@ -674,4 +674,30 @@ describe("POST /api/inspections", () => {
     expect(res.status).toBe(409);
     expect(inspectionCreate).not.toHaveBeenCalled();
   });
+
+  it("returns an existing report-linked job even when the body address differs from the report", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "owner" } });
+    reportFindUnique.mockResolvedValueOnce({
+      id: "report-1", userId: "owner", clientId: null,
+      propertyAddress: "1 Demo Street", propertyPostcode: "2000",
+    });
+    inspectionFindUnique.mockResolvedValueOnce({
+      id: "job-existing",
+      userId: "owner",
+      reportId: "report-1",
+      environmentalData: [],
+      moistureReadings: [],
+      affectedAreas: [],
+      scopeItems: [],
+    });
+    const res = await POST(postReq({
+      reportId: "report-1",
+      claimType: "WATER",
+      propertyAddress: "1 Demo St",
+      propertyPostcode: "2000",
+    }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).inspection.id).toBe("job-existing");
+    expect(inspectionCreate).not.toHaveBeenCalled();
+  });
 });
