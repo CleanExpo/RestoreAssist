@@ -518,6 +518,8 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
         </ol>
       </section>
 
+      <ManagerOpsSummary session={session} />
+
       <section className="mt-6">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Do next
@@ -822,6 +824,80 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
         </Link>
       </nav>
     </div>
+  );
+}
+
+function ManagerOpsSummary({ session }: { session: Session }) {
+  const role = (session.user as { role?: string }).role;
+  const enabled = role === "ADMIN" || role === "MANAGER";
+  const { data, loading, error, refetch } = useFetchWithError<{
+    data: Array<{
+      inspectionId: string;
+      propertyAddress: string;
+      inspectionNumber: string | null;
+      blocking: string[];
+    }>;
+  }>(enabled ? "/api/operations/completeness-inbox" : null);
+
+  if (!enabled) return null;
+
+  const rows = data?.data ?? [];
+  const gapCount = rows.length;
+
+  return (
+    <DashboardPanel className="mt-6 border-brand-bronze/25 bg-brand-deep bg-gradient-to-br from-brand-surface to-brand-deep">
+      <DashboardPanelHeader
+        title="Team gaps"
+        description="Jobs missing required intake — from your organisation's active work."
+        action={
+          <Link
+            href="/dashboard/operations/completeness-inbox"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-brand-cta hover:underline"
+          >
+            Open inbox
+          </Link>
+        }
+      />
+      {loading ? (
+        <LineSkeleton className="h-10 w-full max-w-md" />
+      ) : error ? (
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>Could not load team gaps. {error.message}</p>
+          <button
+            type="button"
+            onClick={refetch}
+            className="min-h-11 rounded-[10px] border border-border px-4 font-medium text-foreground"
+          >
+            Retry
+          </button>
+        </div>
+      ) : gapCount === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No blocking gaps on active jobs right now.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {rows.slice(0, 4).map((row) => (
+            <li key={row.inspectionId}>
+              <Link
+                href={`/dashboard/inspections/${row.inspectionId}`}
+                className="flex min-h-12 items-center justify-between gap-3 py-2"
+              >
+                <span className="min-w-0 truncate text-sm font-medium">
+                  {row.propertyAddress ||
+                    row.inspectionNumber ||
+                    "Inspection"}
+                </span>
+                <span className="shrink-0 text-xs text-amber-700 dark:text-amber-300">
+                  {row.blocking.length} gap
+                  {row.blocking.length === 1 ? "" : "s"}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </DashboardPanel>
   );
 }
 

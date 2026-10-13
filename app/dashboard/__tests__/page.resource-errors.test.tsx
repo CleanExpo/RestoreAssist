@@ -42,6 +42,7 @@ beforeEach(() => {
   responses["/api/clients"] = () => json({ clients: [{ id: "c-a", name: "Synthetic Client" }] });
   responses["/api/inspections"] = () => json({ inspections: [] });
   responses["/api/invoices"] = () => json({ invoices: [invoice] });
+  responses["/api/operations/completeness-inbox"] = () => json({ data: [] });
   fetchMock = vi.fn((url: string) => {
     const path = url.split("?")[0];
     if (!responses[path]) throw new Error(`Unexpected synthetic request: ${path}`);
