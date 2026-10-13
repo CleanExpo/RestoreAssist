@@ -29,6 +29,7 @@ import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
 import { ClaimContextBanner } from "@/components/inspection/ClaimContextBanner";
 import { JobAppointmentsPanel } from "@/components/inspection/JobAppointmentsPanel";
 import { FieldAssistPanel } from "@/components/inspection/FieldAssistPanel";
+import { InspectionWorkflowStrip } from "@/components/inspection/InspectionWorkflowStrip";
 import EnvironmentalSummary from "@/components/inspection/EnvironmentalSummary";
 import {
   latestEnvironmentalReading,
@@ -208,6 +209,8 @@ interface Inspection {
   handoverPackageStorageKey: string | null;
   // RA-6949 — per-job Restoration Pulse notification toggle.
   pulseEnabled: boolean;
+  reportId?: string | null;
+  clientId?: string | null;
   // RA-7713: the API returns an array (time series since RA-1383); the demo
   // inspection returns a single object. Read it via latestEnvironmentalReading.
   environmentalData: EnvironmentalReading | EnvironmentalReading[] | null;
@@ -1507,6 +1510,13 @@ export default function InspectionDetailPage({
           </div>
         </div>
       </div>
+
+      <InspectionWorkflowStrip
+        inspectionId={inspection.id}
+        status={inspection.status}
+        reportId={inspection.reportId}
+        clientId={inspection.clientId}
+      />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <ClaimContextBanner inspectionId={inspection.id} />
