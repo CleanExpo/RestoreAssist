@@ -18,6 +18,7 @@ vi.mock("@/lib/prisma", () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
+    auditLog: { create: vi.fn(async () => ({ id: "audit_1" })) },
   },
 }));
 
@@ -37,6 +38,7 @@ const p = prisma as unknown as {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
+  auditLog: { create: ReturnType<typeof vi.fn> };
 };
 
 beforeEach(() => {
@@ -79,6 +81,19 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
     expect(mEmail).not.toHaveBeenCalled();
   });
 
+  it("uses inspection.client when report has no client (P3 spine)", async () => {
+    p.inspection.findUnique.mockResolvedValueOnce({
+      clientId: "c_spine",
+      client: { id: "c_spine", email: "spine@example.com" },
+      report: { client: null },
+    });
+    const res = await POST(req(), params);
+    expect(res.status).toBe(200);
+    expect(mEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "spine@example.com" }),
+    );
+  });
+
   it("mints a token, emails the /portal link, returns it", async () => {
     const res = await POST(req(), params);
     expect(res.status).toBe(200);
@@ -89,6 +104,13 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
     expect(body.data.expiresAt).toEqual(expect.any(String));
     expect(mEmail).toHaveBeenCalledWith(
       expect.objectContaining({ to: "client@x.com" }),
+    );
+    expect(p.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "CLIENT_PORTAL_LINK_EMAILED",
+        }),
+      }),
     );
   });
 

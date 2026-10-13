@@ -36,7 +36,7 @@ export function ClientPortalLinkButton({
       setMessage(
         body.data.emailed
           ? "Sent to the client by email. You can also copy the link below."
-          : "Link ready to share.",
+          : "Link ready to share. Email was not sent — check the client email and Mailtrap (MAILTRAP_API_KEY + SENDER_EMAIL) in Settings → Email.",
       );
     } catch (e) {
       setMessage(

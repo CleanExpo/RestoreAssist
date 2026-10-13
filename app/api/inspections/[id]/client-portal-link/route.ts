@@ -17,8 +17,8 @@ import { escapeHtml } from "@/lib/email";
  * return it for copy. The link is the client's single entry to their claim
  * (status now; evidence upload + authority approvals in later phases).
  *
- * Authed + tenancy-gated. Client is resolved via Report.clientId (Inspection has
- * no direct client). Token: 256-bit, stored verbatim (matches ClientPortalAccount).
+ * Authed + tenancy-gated. Client is resolved from Inspection.clientId first,
+ * then Report.client (P3 canonical spine). Token: 256-bit, stored verbatim.
  */
 
 export const dynamic = "force-dynamic";
@@ -53,10 +53,15 @@ export async function POST(
     const inspection = await prisma.inspection.findUnique({
       where: { id },
       select: {
+        clientId: true,
+        client: { select: { id: true, email: true } },
         report: { select: { client: { select: { id: true, email: true } } } },
       },
     });
-    const client = inspection?.report?.client;
+    const client =
+      inspection?.client ??
+      inspection?.report?.client ??
+      null;
     if (!client?.id || !client.email) {
       return apiError(request, {
         code: "VALIDATION",
@@ -112,6 +117,22 @@ export async function POST(
 <p><a href="${safeUrl}">${safeUrl}</a></p>
 <p>If you didn’t expect this, you can ignore this email.</p>`,
     });
+
+    if (messageId) {
+      await prisma.auditLog.create({
+        data: {
+          inspectionId: id,
+          userId: session.user.id,
+          action: "CLIENT_PORTAL_LINK_EMAILED",
+          entityType: "Client",
+          entityId: client.id,
+          changes: JSON.stringify({
+            channel: "email",
+            providerMessageId: messageId,
+          }),
+        },
+      });
+    }
 
     return NextResponse.json({
       data: {
