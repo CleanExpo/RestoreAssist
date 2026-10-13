@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import {
   CheckCircle2,
-  Circle,
   ArrowRight,
   Loader2,
   Sparkles,
@@ -16,6 +15,7 @@ import {
   type OnboardingDisplayStep,
 } from "@/lib/onboarding/steps";
 import { BasicReportWithoutKeyCta } from "@/components/onboarding/BasicReportWithoutKeyCta";
+import { dashboardSurfaceClass } from "@/app/dashboard/components/DashboardPanel";
 
 // Error-path fallback ONLY — aligned with GET /api/onboarding/status keys.
 const FALLBACK_STEPS: OnboardingDisplayStep[] = [
@@ -63,7 +63,7 @@ const FALLBACK_STEPS: OnboardingDisplayStep[] = [
 
 function ProgressRing({
   percentage,
-  size = 120,
+  size = 140,
 }: {
   percentage: number;
   size?: number;
@@ -76,26 +76,26 @@ function ProgressRing({
     percentage === 100
       ? "#10b981"
       : percentage >= 50
-        ? "#06b6d4"
-        : "#f59e0b";
+        ? "#d4a574"
+        : "#8a6b4e";
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          strokeWidth={8}
-          className="stroke-neutral-200 dark:stroke-slate-700"
+          strokeWidth={10}
+          className="stroke-neutral-200/80 dark:stroke-white/10"
         />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          strokeWidth={8}
+          strokeWidth={10}
           stroke={strokeColor}
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
@@ -106,8 +106,14 @@ function ProgressRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold" style={{ color: strokeColor }}>
+        <span
+          className="text-3xl font-bold tracking-tight tabular-nums"
+          style={{ color: strokeColor }}
+        >
           {percentage}%
+        </span>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-neutral-500 dark:text-slate-400">
+          complete
         </span>
       </div>
     </div>
@@ -155,10 +161,10 @@ export default function OnboardingClient() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-10 h-10 text-cyan-500 animate-spin mx-auto" />
-          <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
+      <div className="flex min-h-[60vh] w-full items-center justify-center">
+        <div className="space-y-4 text-center">
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-brand-bronze" />
+          <p className="text-sm text-neutral-600 dark:text-slate-400">
             Loading your workspace checklist…
           </p>
         </div>
@@ -167,224 +173,220 @@ export default function OnboardingClient() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-      <div>
-        <h1
-          className={cn(
-            "text-3xl font-bold tracking-tight",
-            "text-neutral-900 dark:text-slate-100",
-          )}
-        >
-          Get to your first job
-        </h1>
-        <p
-          className={cn(
-            "mt-1 text-base max-w-xl",
-            "text-neutral-600 dark:text-slate-400",
-          )}
-        >
-          Setup is complete. Finish the steps below to run a real inspection —
-          floor plan, moisture, report, and client delivery — on RestoreAssist.
-        </p>
-      </div>
-
-      <BasicReportWithoutKeyCta variant="light" />
-
-      {nextStep && !nextStep.completed && !isAllDone && (
+    <div className="w-full max-w-none space-y-8 pb-10 lg:space-y-10">
+      {/* Hero — full width of dashboard main */}
+      <header className="relative overflow-hidden rounded-2xl border border-brand-navy/20 bg-linear-to-br from-brand-navy via-brand-deep to-brand-navy px-6 py-8 sm:px-10 sm:py-10 lg:rounded-3xl lg:px-12 lg:py-12">
         <div
-          className={cn(
-            "rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center gap-3",
-            "border-cyan-200 dark:border-cyan-800/50",
-            "bg-cyan-50/80 dark:bg-cyan-950/30",
-          )}
-        >
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-800 dark:text-cyan-300">
-              Recommended next
-            </p>
-            <p className="text-sm font-medium text-neutral-900 dark:text-slate-100 mt-0.5">
-              {nextStep.title}
-            </p>
-            <p className="text-xs text-neutral-600 dark:text-slate-400 mt-0.5">
-              {nextStep.description}
-            </p>
-          </div>
-          <Link
-            href={nextStep.href}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-700 text-white shrink-0"
-          >
-            Continue
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-      )}
-
-      <div
-        className={cn(
-          "rounded-2xl border p-6 flex flex-col sm:flex-row items-center gap-6",
-          "bg-white/50 dark:bg-slate-800/50",
-          "border-neutral-200 dark:border-slate-700/50",
-          "shadow-sm",
-        )}
-      >
-        <ProgressRing percentage={percentage} size={128} />
-        <div className="flex-1 text-center sm:text-left">
-          {isAllDone ? (
-            <>
-              <p className={cn("text-lg font-semibold", "text-success")}>
-                Workspace ready
-              </p>
-              <p
-                className={cn(
-                  "text-sm mt-1",
-                  "text-neutral-600 dark:text-slate-400",
-                )}
-              >
-                Required configuration is complete. Head to the dashboard to
-                manage live jobs.
-              </p>
-            </>
-          ) : (
-            <>
-              <p
-                className={cn(
-                  "text-lg font-semibold",
-                  "text-neutral-900 dark:text-slate-100",
-                )}
-              >
-                {completedCount} of {totalCount} steps done
-              </p>
-              <p
-                className={cn(
-                  "text-sm mt-1",
-                  "text-neutral-600 dark:text-slate-400",
-                )}
-              >
-                Optional steps help quoting and integrations; required steps
-                unlock paid billing features.
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-
-      {isAllDone && (
+          aria-hidden
+          className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-brand-gold/15 blur-3xl"
+        />
         <div
-          className={cn(
-            "rounded-2xl border p-6 text-center space-y-3",
-            "bg-emerald-50 dark:bg-emerald-900/20",
-            "border-emerald-200 dark:border-emerald-700/50",
-          )}
-        >
-          <div className="flex justify-center">
-            <Sparkles className="w-10 h-10 text-success" />
-          </div>
-          <h2 className={cn("text-xl font-bold", "text-success")}>
-            You&apos;re all set
-          </h2>
-          <p className={cn("text-sm", "text-success")}>
-            Open the dashboard to create jobs, run inspections, and send
-            reports.
+          aria-hidden
+          className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-brand-bronze/20 blur-3xl"
+        />
+        <div className="relative max-w-3xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-gold">
+            Post-setup checklist
           </p>
-          <Link
-            href="/dashboard"
-            className={cn(
-              "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              "bg-emerald-600 hover:bg-emerald-700 text-white",
-            )}
-          >
-            Go to dashboard
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.5rem] lg:leading-tight">
+            Get to your first job
+          </h1>
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
+            Setup is complete. Finish the steps below to run a real inspection
+            — floor plan, moisture, report, and client delivery — on
+            RestoreAssist.
+          </p>
         </div>
-      )}
+      </header>
 
-      <div className="space-y-3">
-        {steps.map((step) => (
+      <BasicReportWithoutKeyCta variant="dark" layout="banner" />
+
+      <div className="grid gap-8 lg:grid-cols-12 lg:gap-10 xl:gap-12">
+        {/* Left rail — progress & CTAs */}
+        <aside className="space-y-6 lg:col-span-4 xl:col-span-4 lg:sticky lg:top-6 lg:self-start">
           <div
-            key={step.id}
             className={cn(
-              "rounded-xl border p-5 flex flex-col sm:flex-row sm:items-center gap-4 transition-all duration-200",
-              "bg-white/50 dark:bg-slate-800/50",
-              "border-neutral-200 dark:border-slate-700/50",
-              step.completed
-                ? "opacity-60"
-                : "hover:border-cyan-500/40 hover:shadow-sm",
-              step.id === nextStepId && !step.completed
-                ? "ring-1 ring-cyan-500/30"
-                : "",
+              "rounded-2xl p-6 sm:p-7",
+              dashboardSurfaceClass,
+              "shadow-sm",
             )}
           >
-            <div className="shrink-0">
-              {step.completed ? (
-                <CheckCircle2 className="w-6 h-6 text-success" />
-              ) : (
-                <Circle
-                  className={cn(
-                    "w-6 h-6",
-                    step.required
-                      ? "text-amber-400"
-                      : "text-neutral-400 dark:text-slate-500",
-                  )}
-                />
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className={cn(
-                    "font-medium text-sm",
-                    step.completed
-                      ? "line-through text-neutral-500 dark:text-slate-500"
-                      : "text-neutral-900 dark:text-slate-100",
-                  )}
-                >
-                  {step.title}
-                </span>
-                {step.required && !step.completed && (
-                  <span
-                    className={cn(
-                      "text-xs px-2 py-0.5 rounded-full font-medium",
-                      "bg-warning-subtle text-warning-subtle-foreground",
-                    )}
-                  >
-                    Required
-                  </span>
+            <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center lg:flex-col lg:items-stretch xl:flex-row xl:items-center">
+              <ProgressRing percentage={percentage} size={148} />
+              <div className="flex-1 text-center sm:text-left lg:text-center xl:text-left">
+                {isAllDone ? (
+                  <>
+                    <p className="text-lg font-semibold text-success">
+                      Workspace ready
+                    </p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-neutral-600 dark:text-slate-400">
+                      Required configuration is complete. Head to the dashboard
+                      to manage live jobs.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                      {completedCount} of {totalCount} steps done
+                    </p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-neutral-600 dark:text-slate-400">
+                      Optional steps help quoting and integrations; required
+                      steps unlock paid billing features.
+                    </p>
+                  </>
                 )}
               </div>
-              <p
-                className={cn(
-                  "text-xs mt-0.5",
-                  "text-neutral-500 dark:text-slate-400",
-                )}
-              >
-                {step.description}
-              </p>
-              <p
-                className={cn(
-                  "text-xs mt-1",
-                  "text-neutral-400 dark:text-slate-500",
-                )}
-              >
-                ~{step.time}
-              </p>
             </div>
 
-            {!step.completed && (
-              <Link
-                href={step.href}
-                className={cn(
-                  "shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
-                  "bg-cyan-600 hover:bg-cyan-700 text-white",
-                )}
-              >
-                {step.id === "first_inspection" ? "Start job" : "Open"}
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+            {isAllDone && (
+              <div className="mt-6 border-t border-neutral-200 pt-6 dark:border-slate-700/60">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <Sparkles className="h-8 w-8 text-success" aria-hidden />
+                  <p className="text-sm font-medium text-success">
+                    You&apos;re all set
+                  </p>
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-navy px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-navy/25 transition-colors hover:bg-brand-navy-hover sm:w-auto"
+                  >
+                    Go to dashboard
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
             )}
           </div>
-        ))}
+
+          {nextStep && !nextStep.completed && !isAllDone && (
+            <div
+              className={cn(
+                "rounded-2xl border p-5 sm:p-6",
+                "border-brand-bronze/30 bg-brand-gold/10 dark:border-brand-gold/25 dark:bg-brand-gold/5",
+              )}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-bronze dark:text-brand-gold">
+                Recommended next
+              </p>
+              <p className="mt-1 text-base font-semibold text-neutral-900 dark:text-slate-100">
+                {nextStep.title}
+              </p>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-slate-400">
+                {nextStep.description}
+              </p>
+              <Link
+                href={nextStep.href}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-navy px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover"
+              >
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          )}
+        </aside>
+
+        {/* Step list — wider column */}
+        <section className="min-w-0 lg:col-span-8 xl:col-span-8">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                Checklist
+              </h2>
+              <p className="mt-0.5 text-sm text-neutral-500 dark:text-slate-400">
+                Work through these at your pace — your progress saves
+                automatically.
+              </p>
+            </div>
+            <span className="hidden shrink-0 text-sm font-medium tabular-nums text-brand-slate sm:block">
+              {completedCount}/{totalCount}
+            </span>
+          </div>
+
+          <ul className="space-y-3 sm:space-y-4">
+            {steps.map((step, index) => {
+              const isNext = step.id === nextStepId && !step.completed;
+              return (
+                <li key={step.id}>
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-5 transition-all duration-200 sm:flex sm:items-center sm:gap-5 sm:p-6",
+                      dashboardSurfaceClass,
+                      step.completed
+                        ? "opacity-70"
+                        : "hover:border-brand-bronze/40 hover:shadow-md dark:hover:border-brand-gold/30",
+                      isNext && "ring-2 ring-brand-gold/40 ring-offset-2 ring-offset-background dark:ring-offset-brand-canvas",
+                    )}
+                  >
+                    <div className="flex min-w-0 flex-1 items-start gap-4 sm:items-center">
+                      <span
+                        className={cn(
+                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
+                          step.completed
+                            ? "bg-success-subtle text-success-subtle-foreground"
+                            : isNext
+                              ? "bg-brand-navy text-brand-gold"
+                              : "bg-neutral-100 text-neutral-600 dark:bg-slate-800 dark:text-slate-300",
+                        )}
+                        aria-hidden
+                      >
+                        {step.completed ? (
+                          <CheckCircle2 className="h-5 w-5 text-success" />
+                        ) : (
+                          index + 1
+                        )}
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={cn(
+                              "text-base font-medium",
+                              step.completed
+                                ? "text-neutral-500 line-through dark:text-slate-500"
+                                : "text-neutral-900 dark:text-slate-100",
+                            )}
+                          >
+                            {step.title}
+                          </span>
+                          {step.required && !step.completed && (
+                            <span className="rounded-full bg-warning-subtle px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-subtle-foreground">
+                              Required
+                            </span>
+                          )}
+                          {isNext && (
+                            <span className="rounded-full border border-brand-gold/50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-bronze dark:text-brand-gold">
+                              Up next
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm leading-relaxed text-neutral-600 dark:text-slate-400">
+                          {step.description}
+                        </p>
+                        <p className="mt-1.5 text-xs font-medium text-neutral-400 dark:text-slate-500">
+                          ~{step.time}
+                        </p>
+                      </div>
+                    </div>
+
+                    {!step.completed && (
+                      <Link
+                        href={step.href}
+                        className={cn(
+                          "mt-4 inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors sm:mt-0 sm:w-auto",
+                          isNext
+                            ? "bg-brand-navy text-white shadow-md shadow-brand-navy/20 hover:bg-brand-navy-hover"
+                            : "border border-brand-navy/20 bg-transparent text-brand-navy hover:bg-brand-navy/5 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800",
+                        )}
+                      >
+                        {step.id === "first_inspection" ? "Start job" : "Open"}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       </div>
     </div>
   );
