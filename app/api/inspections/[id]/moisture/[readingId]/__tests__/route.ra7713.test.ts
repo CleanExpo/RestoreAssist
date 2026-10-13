@@ -59,7 +59,13 @@ describe("PATCH moisture reading position (RA-7713 part 12)", () => {
     const res = await PATCH(patch({ mapX: 0.25, mapY: 0.5 }), { params });
     expect(res.status).toBe(200);
     expect(updateMany).toHaveBeenCalledWith({
-      where: { id: "r1", inspectionId: "insp_1", inspection: ownerFilter },
+      // An invalidated (soft-deleted) reading can no longer be moved.
+      where: {
+        id: "r1",
+        inspectionId: "insp_1",
+        invalidatedAt: null,
+        inspection: ownerFilter,
+      },
       data: { mapX: 0.25, mapY: 0.5 },
     });
     expect(await res.json()).toEqual({

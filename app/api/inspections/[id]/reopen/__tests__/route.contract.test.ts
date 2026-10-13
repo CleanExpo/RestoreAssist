@@ -34,7 +34,10 @@ const txClaimProgressUpdateMany = vi.fn();
 const $transaction = vi.fn(async (cb: (tx: unknown) => unknown) =>
   cb({
     inspection: { updateMany: (...a: unknown[]) => txInspectionUpdateMany(...a) },
-    claimProgress: { updateMany: (...a: unknown[]) => txClaimProgressUpdateMany(...a) },
+    claimProgress: {
+      findFirst: vi.fn().mockResolvedValue({ id: "cp1", version: 1 }),
+      updateMany: (...a: unknown[]) => txClaimProgressUpdateMany(...a),
+    },
   }),
 );
 vi.mock("@/lib/prisma", () => ({
