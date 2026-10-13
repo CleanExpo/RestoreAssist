@@ -36,6 +36,7 @@ function mkReq(pathname: string, search: string = "") {
   return {
     nextUrl: {
       pathname,
+      origin: "http://test",
       clone: () => new URL(`http://test${pathname}${search}`),
       search,
     },
@@ -128,7 +129,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).toBe(307);
     expect((res as any).headers.get("location")).toContain(
-      "/billing/upgrade?reason=trial-expired",
+      "/billing/upgrade?reason=canceled",
     );
   });
 
@@ -138,6 +139,9 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     );
     const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).toBe(307);
+    expect((res as any).headers.get("location")).toContain(
+      "/billing/upgrade?reason=past-due",
+    );
   });
 
   it("does NOT redirect whitelisted path /pricing even when blocked", async () => {

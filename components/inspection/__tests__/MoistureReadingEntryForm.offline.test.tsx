@@ -71,7 +71,7 @@ function setOnline(value: boolean) {
 }
 
 function enterReading(overrides?: { location?: string; moistureLevel?: string }) {
-  fireEvent.change(screen.getByLabelText(/Location/i), {
+  fireEvent.change(screen.getByLabelText(/^Location/i), {
     target: { value: overrides?.location ?? "Floor - lounge" },
   });
   fireEvent.change(screen.getByLabelText(/Moisture Reading/i), {
