@@ -59,6 +59,7 @@ import { CancellationCountdownBanner } from "@/components/billing/CancellationCo
 import TrialCountdownBanner from "@/components/billing/TrialCountdownBanner";
 import CreditExhaustModal from "@/components/billing/CreditExhaustModal";
 import { AiProviderBanner } from "@/components/dashboard/AiProviderBanner";
+import { SimpleModeExploreBanner } from "@/components/dashboard/SimpleModeExploreBanner";
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
@@ -961,6 +962,12 @@ export default function DashboardShell({
                 renders friendly text plus a short-hash fallback for
                 cuids so the trail never shows a raw 25-char id. */}
             <MobilePullToRefresh>
+              {!isTechnician && !advanced && (
+                <SimpleModeExploreBanner
+                  onSwitchToAdvanced={() => void toggleExperienceMode()}
+                  switching={savingMode}
+                />
+              )}
               <AutoBreadcrumbs className="text-xs" />
               {children}
             </MobilePullToRefresh>
