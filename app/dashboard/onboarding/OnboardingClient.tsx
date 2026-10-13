@@ -17,44 +17,45 @@ import {
 } from "@/lib/onboarding/steps";
 import { BasicReportWithoutKeyCta } from "@/components/onboarding/BasicReportWithoutKeyCta";
 
-// Error-path fallback ONLY — shown when the status API is unreachable. On a
-// successful fetch the checklist is derived entirely from the server's
-// canonical `steps` (via toOnboardingDisplaySteps), never merged with this,
-// so the two can't contradict.
+// Error-path fallback ONLY — aligned with GET /api/onboarding/status keys.
 const FALLBACK_STEPS: OnboardingDisplayStep[] = [
   {
     id: "business_profile",
-    title: "Complete business profile",
-    description: "Add your business name, ABN, address and contact details",
+    title: "Business profile",
+    description:
+      "Legal name, ABN, address and contacts on every report and invoice.",
     href: "/dashboard/settings",
-    time: "2 min",
+    time: "3 min",
     completed: false,
     required: true,
   },
   {
-    id: "pricing",
-    title: "Configure pricing",
-    description: "Set up your cost rates and pricing templates",
+    id: "pricing_config",
+    title: "Pricing & rate card",
+    description:
+      "Set labour and line-item rates once — estimates and invoices pull from here.",
     href: "/dashboard/pricing-config",
     time: "5 min",
     completed: false,
     required: true,
   },
   {
-    id: "first_report",
-    title: "Create your first report",
-    description: "Generate a compliance report for a restoration job",
-    href: "/dashboard/reports/new",
-    time: "10 min",
+    id: "first_inspection",
+    title: "Create your first job",
+    description:
+      "Add the property, capture evidence, and draw or import a floor plan.",
+    href: "/dashboard/inspections/new",
+    time: "5 min",
     completed: false,
     required: false,
   },
   {
-    id: "integration",
-    title: "Connect an integration",
-    description: "Link your accounting or job management software",
-    href: "/dashboard/integrations",
-    time: "5 min",
+    id: "first_report",
+    title: "Generate your first report",
+    description:
+      "Turn captured evidence into an IICRC S500:2021 draft for your review.",
+    href: "/dashboard/reports/new",
+    time: "10 min",
     completed: false,
     required: false,
   },
@@ -73,15 +74,14 @@ function ProgressRing({
 
   const strokeColor =
     percentage === 100
-      ? "#10b981" // green
+      ? "#10b981"
       : percentage >= 50
-        ? "#06b6d4" // cyan
-        : "#f59e0b"; // amber
+        ? "#06b6d4"
+        : "#f59e0b";
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        {/* Background track */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -90,7 +90,6 @@ function ProgressRing({
           strokeWidth={8}
           className="stroke-neutral-200 dark:stroke-slate-700"
         />
-        {/* Progress arc */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -119,6 +118,7 @@ export default function OnboardingClient() {
   const [loading, setLoading] = useState(true);
   const [steps, setSteps] = useState<OnboardingDisplayStep[]>([]);
   const [isAllDone, setIsAllDone] = useState(false);
+  const [nextStepId, setNextStepId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchStatus() {
@@ -129,14 +129,13 @@ export default function OnboardingClient() {
         }
         const data: OnboardingStatusResponse = await res.json();
 
-        // Render exactly the server's canonical steps — no client-side merge,
-        // so this checklist can never contradict any other onboarding surface.
         setSteps(toOnboardingDisplaySteps(data.steps));
         setIsAllDone(data.isComplete);
+        setNextStepId(data.nextStep);
       } catch {
-        // Only on a failed fetch do we show the static fallback list.
         setSteps(FALLBACK_STEPS);
         setIsAllDone(false);
+        setNextStepId("business_profile");
       } finally {
         setLoading(false);
       }
@@ -150,13 +149,17 @@ export default function OnboardingClient() {
   const percentage =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
+  const nextStep = nextStepId
+    ? steps.find((s) => s.id === nextStepId)
+    : steps.find((s) => !s.completed);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-4">
           <Loader2 className="w-10 h-10 text-cyan-500 animate-spin mx-auto" />
           <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
-            Loading setup guide...
+            Loading your workspace checklist…
           </p>
         </div>
       </div>
@@ -165,7 +168,6 @@ export default function OnboardingClient() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-      {/* Header */}
       <div>
         <h1
           className={cn(
@@ -173,21 +175,50 @@ export default function OnboardingClient() {
             "text-neutral-900 dark:text-slate-100",
           )}
         >
-          Setup Guide
+          Get to your first job
         </h1>
         <p
           className={cn(
-            "mt-1 text-base",
+            "mt-1 text-base max-w-xl",
             "text-neutral-600 dark:text-slate-400",
           )}
         >
-          {completedCount} of {totalCount} steps complete
+          Setup is complete. Finish the steps below to run a real inspection —
+          floor plan, moisture, report, and client delivery — on RestoreAssist.
         </p>
       </div>
 
       <BasicReportWithoutKeyCta variant="light" />
 
-      {/* Progress ring card */}
+      {nextStep && !nextStep.completed && !isAllDone && (
+        <div
+          className={cn(
+            "rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center gap-3",
+            "border-cyan-200 dark:border-cyan-800/50",
+            "bg-cyan-50/80 dark:bg-cyan-950/30",
+          )}
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-800 dark:text-cyan-300">
+              Recommended next
+            </p>
+            <p className="text-sm font-medium text-neutral-900 dark:text-slate-100 mt-0.5">
+              {nextStep.title}
+            </p>
+            <p className="text-xs text-neutral-600 dark:text-slate-400 mt-0.5">
+              {nextStep.description}
+            </p>
+          </div>
+          <Link
+            href={nextStep.href}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-700 text-white shrink-0"
+          >
+            Continue
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+
       <div
         className={cn(
           "rounded-2xl border p-6 flex flex-col sm:flex-row items-center gap-6",
@@ -200,13 +231,8 @@ export default function OnboardingClient() {
         <div className="flex-1 text-center sm:text-left">
           {isAllDone ? (
             <>
-              <p
-                className={cn(
-                  "text-lg font-semibold",
-                  "text-success",
-                )}
-              >
-                You&apos;re all set!
+              <p className={cn("text-lg font-semibold", "text-success")}>
+                Workspace ready
               </p>
               <p
                 className={cn(
@@ -214,7 +240,8 @@ export default function OnboardingClient() {
                   "text-neutral-600 dark:text-slate-400",
                 )}
               >
-                Your account is fully configured and ready to use.
+                Required configuration is complete. Head to the dashboard to
+                manage live jobs.
               </p>
             </>
           ) : (
@@ -225,11 +252,7 @@ export default function OnboardingClient() {
                   "text-neutral-900 dark:text-slate-100",
                 )}
               >
-                {percentage < 50
-                  ? "Getting started"
-                  : percentage < 100
-                    ? "Almost there"
-                    : "Completed!"}
+                {completedCount} of {totalCount} steps done
               </p>
               <p
                 className={cn(
@@ -237,14 +260,14 @@ export default function OnboardingClient() {
                   "text-neutral-600 dark:text-slate-400",
                 )}
               >
-                Complete the steps below to finish setting up your account.
+                Optional steps help quoting and integrations; required steps
+                unlock paid billing features.
               </p>
             </>
           )}
         </div>
       </div>
 
-      {/* All done banner */}
       {isAllDone && (
         <div
           className={cn(
@@ -256,19 +279,12 @@ export default function OnboardingClient() {
           <div className="flex justify-center">
             <Sparkles className="w-10 h-10 text-success" />
           </div>
-          <h2
-            className={cn(
-              "text-xl font-bold",
-              "text-success",
-            )}
-          >
-            You&apos;re all set!
+          <h2 className={cn("text-xl font-bold", "text-success")}>
+            You&apos;re all set
           </h2>
-          <p
-            className={cn("text-sm", "text-success")}
-          >
-            Your account is fully configured. You&apos;re ready to create
-            reports and manage your restoration business.
+          <p className={cn("text-sm", "text-success")}>
+            Open the dashboard to create jobs, run inspections, and send
+            reports.
           </p>
           <Link
             href="/dashboard"
@@ -277,13 +293,12 @@ export default function OnboardingClient() {
               "bg-emerald-600 hover:bg-emerald-700 text-white",
             )}
           >
-            Go to Dashboard
+            Go to dashboard
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       )}
 
-      {/* Steps checklist */}
       <div className="space-y-3">
         {steps.map((step) => (
           <div
@@ -295,9 +310,11 @@ export default function OnboardingClient() {
               step.completed
                 ? "opacity-60"
                 : "hover:border-cyan-500/40 hover:shadow-sm",
+              step.id === nextStepId && !step.completed
+                ? "ring-1 ring-cyan-500/30"
+                : "",
             )}
           >
-            {/* Icon */}
             <div className="shrink-0">
               {step.completed ? (
                 <CheckCircle2 className="w-6 h-6 text-success" />
@@ -313,7 +330,6 @@ export default function OnboardingClient() {
               )}
             </div>
 
-            {/* Content */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span
@@ -355,7 +371,6 @@ export default function OnboardingClient() {
               </p>
             </div>
 
-            {/* Action button */}
             {!step.completed && (
               <Link
                 href={step.href}
@@ -364,7 +379,7 @@ export default function OnboardingClient() {
                   "bg-cyan-600 hover:bg-cyan-700 text-white",
                 )}
               >
-                Complete
+                {step.id === "first_inspection" ? "Start job" : "Open"}
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             )}

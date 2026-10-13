@@ -107,8 +107,9 @@ export async function GET(
     const steps: FirstRunStep[] = [
       {
         id: "create_inspection",
-        title: "Create your first inspection",
-        description: "Capture field data for a water damage job",
+        title: "Create your first job",
+        description:
+          "Add the property, photos, moisture, and a floor plan on one inspection",
         href: "/dashboard/inspections/new",
         completed: inspectionCount > 0,
       },

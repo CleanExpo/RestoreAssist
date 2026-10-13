@@ -270,7 +270,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
             </span>
             <h3 className="mt-4 text-xl font-semibold tracking-tight">You&apos;re ready to go</h3>
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-white/70">
-              Use the button below to generate your first report. You can always come back and finish the optional steps later from your dashboard.
+              Finish setup, then we&apos;ll guide you through your first job — inspection, floor plan, and report — from the dashboard.
             </p>
           </div>
           <ul className="divide-y divide-brand-navy/5 px-6 py-2 sm:px-10">
@@ -339,7 +339,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     }
 
     await refreshSession();
-    window.location.assign('/dashboard/reports/new');
+    window.location.assign('/dashboard/onboarding?welcome=1');
   };
 
   // RA-7427 — leave the wizard with one tap. Same three-step discipline as

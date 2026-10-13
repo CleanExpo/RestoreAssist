@@ -100,7 +100,7 @@ export default function AccountTypeOnboardingPage() {
       const fresh = await getSession();
       if (cancelled) return;
       if (fresh?.user && !fresh.user.needsOnboarding) {
-        router.replace("/dashboard");
+        router.replace("/setup?welcome=1");
       }
     })();
     return () => {

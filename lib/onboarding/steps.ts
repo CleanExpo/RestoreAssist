@@ -51,12 +51,22 @@ export interface OnboardingDisplayStep {
   required: boolean;
 }
 
+/** Restoration-first display order (matches setup wizard → first job → report). */
+export const ONBOARDING_STEP_ORDER = [
+  "ai_provider",
+  "business_profile",
+  "first_inspection",
+  "first_report",
+  "pricing_config",
+  "property_data",
+] as const;
+
 /** Human time estimate per canonical step id. */
 export const ONBOARDING_STEP_TIME: Record<string, string> = {
   ai_provider: "2 min",
-  business_profile: "2 min",
+  business_profile: "3 min",
   pricing_config: "5 min",
-  first_inspection: "8 min",
+  first_inspection: "5 min",
   first_report: "10 min",
   property_data: "5 min",
 };
@@ -72,15 +82,24 @@ export function toOnboardingDisplaySteps(
   steps: Record<string, OnboardingApiStep> | null | undefined,
 ): OnboardingDisplayStep[] {
   if (!steps) return [];
-  return Object.entries(steps).map(([id, step]) => ({
-    id,
-    title: step.title,
-    description: step.description,
-    href: step.route,
-    time: ONBOARDING_STEP_TIME[id] ?? DEFAULT_STEP_TIME,
-    completed: step.completed,
-    required: step.required,
-  }));
+  const order = new Map(
+    ONBOARDING_STEP_ORDER.map((id, index) => [id, index]),
+  );
+  return Object.entries(steps)
+    .sort(([a], [b]) => {
+      const ia = order.get(a) ?? 999;
+      const ib = order.get(b) ?? 999;
+      return ia - ib;
+    })
+    .map(([id, step]) => ({
+      id,
+      title: step.title,
+      description: step.description,
+      href: step.route,
+      time: ONBOARDING_STEP_TIME[id] ?? DEFAULT_STEP_TIME,
+      completed: step.completed,
+      required: step.required,
+    }));
 }
 
 /**
