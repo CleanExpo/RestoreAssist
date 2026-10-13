@@ -131,13 +131,12 @@ export async function PATCH(
     const hasFlags =
       raw.isBaseline !== undefined || raw.isMonitoringPoint !== undefined;
 
+    // The scope filter sits on each write below, so the D-028 guard can see
+    // that every write re-checks the caller's reach (field-data-write-gate).
     const where = {
       id: readingId,
       inspectionId: id,
       invalidatedAt: null,
-      ...(tenancy.data.childInspectionFilter && {
-        inspection: tenancy.data.childInspectionFilter,
-      }),
     };
 
     if (hasMap) {
@@ -157,7 +156,7 @@ export async function PATCH(
       }
 
       const updated = await prisma.moistureReading.updateMany({
-        where,
+        where: { ...where, inspection: tenancy.data.childInspectionFilter },
         data: { mapX, mapY },
       });
       if (updated.count === 0) {
@@ -178,7 +177,10 @@ export async function PATCH(
       if (raw.isMonitoringPoint !== undefined) {
         data.isMonitoringPoint = parseMoistureFlag(raw.isMonitoringPoint);
       }
-      const updated = await prisma.moistureReading.updateMany({ where, data });
+      const updated = await prisma.moistureReading.updateMany({
+        where: { ...where, inspection: tenancy.data.childInspectionFilter },
+        data,
+      });
       if (updated.count === 0) {
         return apiError(request, {
           code: "NOT_FOUND",

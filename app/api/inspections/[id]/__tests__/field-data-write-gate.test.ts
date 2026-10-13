@@ -940,8 +940,8 @@ describe("D-028 guard analyser: positive and negative controls", () => {
   it("PLANTED (review B2): a filter replaced by a comment naming it is caught", () => {
     const original = read("moisture/[readingId]/route.ts");
     const planted = original.replace(
-      /\.\.\.\(tenancy\.data\.childInspectionFilter && \{\s*inspection: tenancy\.data\.childInspectionFilter,\s*\}\),/,
-      "/* childInspectionFilter */",
+      "where: { ...where, inspection: tenancy.data.childInspectionFilter },",
+      "where: { ...where /* childInspectionFilter */ },",
     );
     expect(planted).not.toEqual(original);
     const v = analyseFieldDataRoute(planted, ["PATCH"], "moisture/[readingId]/route.ts");
