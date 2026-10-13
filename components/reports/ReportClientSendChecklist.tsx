@@ -13,6 +13,8 @@ type Props = {
   inspectionId: string | null;
   reportId: string;
   reportStatus: string;
+  /** When there is no inspection job, client email comes from the report record. */
+  clientEmailHint?: string | null;
   onSend?: () => void;
   sending?: boolean;
   canSend: boolean;
