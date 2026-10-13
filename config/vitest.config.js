@@ -9,6 +9,13 @@ export default {
   test: {
     globals: true,
     environment: "node",
+    environmentMatchGlobs: [
+      ["app/**/__tests__/**/*.test.tsx", "jsdom"],
+      ["app/billing/**/__tests__/**/*.test.tsx", "jsdom"],
+      ["app/capture/**/__tests__/**/*.test.tsx", "jsdom"],
+      ["app/__tests__/**/*.test.tsx", "jsdom"],
+      ["components/**/__tests__/**/*.test.tsx", "jsdom"],
+    ],
     // Refuses a non-local Postgres and checks every connection (slice 2a).
     setupFiles: [resolve(repoRoot, "config/vitest.db-guard.ts")],
     // Serialize test files — prevents concurrent DB mutations (e.g. backfill
