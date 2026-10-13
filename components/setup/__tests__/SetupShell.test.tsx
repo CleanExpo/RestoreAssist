@@ -314,7 +314,7 @@ describe("SetupShell — the finish CTA completes setup", () => {
       fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     }
     return screen.findByRole("button", {
-      name: /generate your first report/i,
+      name: /finish setup/i,
     });
   }
 
