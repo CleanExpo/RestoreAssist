@@ -278,6 +278,11 @@ export default function ReportDetailPage({
           inspectionId={
             report?.inspectionId ?? report?.inspection?.id ?? null
           }
+          clientEmailHint={
+            report?.client?.email ??
+            report?.clientEmail ??
+            null
+          }
           canSend={canEmailClient}
           sending={emailingClient}
           onSend={() => requestExport(handleEmailClient)}
