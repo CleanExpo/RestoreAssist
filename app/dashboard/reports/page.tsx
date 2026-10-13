@@ -405,6 +405,25 @@ export default function ReportsPage() {
           <p className="text-slate-300">
             Manage and view all restoration reports
           </p>
+          <nav
+            aria-label="Related pages"
+            className="mt-3 flex flex-wrap gap-2 text-sm"
+          >
+            {[
+              { href: "/dashboard", label: "Overview" },
+              { href: "/dashboard/inspections", label: "Jobs" },
+              { href: "/dashboard/clients", label: "Clients" },
+              { href: "/dashboard/invoices", label: "Invoices" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-3 font-medium text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
         <div className="flex items-center gap-3 flex-wrap justify-end">
           <DataSourceSwitcher

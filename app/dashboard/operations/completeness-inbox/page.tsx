@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 
 type Row = {
   inspectionId: string;
@@ -18,73 +19,119 @@ export default function CompletenessInboxPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/operations/completeness-inbox");
-        if (!res.ok) throw new Error("Could not load inbox");
-        const json = await res.json();
-        if (!cancelled) setRows(json.data ?? []);
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Load failed");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/operations/completeness-inbox", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const message =
+          body?.error?.message ??
+          (res.status === 403
+            ? "Only managers and owners can open this inbox."
+            : "Could not load the completeness inbox.");
+        throw new Error(message);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      const json = await res.json();
+      setRows(json.data ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Load failed");
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   return (
-    <div className="mx-auto max-w-4xl p-6 space-y-4">
-      <header>
-        <h1 className="text-xl font-semibold">Completeness inbox</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-          Open jobs with blocking intake gaps (read-only projections).
-        </p>
-      </header>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <DashboardListPageHeader
+        title="Completeness inbox"
+        description="Active jobs with blocking intake gaps — open the job to fix what's missing."
+        primaryAction={
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-neutral-200 px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800 sm:w-auto"
+          >
+            {loading ? "Refreshing…" : "Refresh list"}
+          </button>
+        }
+        secondaryLinks={[
+          { href: "/dashboard", label: "Overview" },
+          { href: "/dashboard/inspections", label: "All jobs" },
+          { href: "/dashboard/inspections/schedule", label: "Schedule" },
+        ]}
+      />
 
       {loading && (
-        <p className="text-sm flex items-center gap-2 text-slate-500">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+        <p className="flex items-center gap-2 text-sm text-slate-500" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Loading open jobs…
         </p>
       )}
+
       {error && (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="space-y-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:text-red-300"
+        >
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="min-h-11 rounded-lg border border-red-500/40 px-4 font-medium"
+          >
+            Try again
+          </button>
+        </div>
       )}
+
       {!loading && !error && rows.length === 0 && (
-        <p className="text-sm text-slate-500">No blocking gaps on active jobs.</p>
+        <p className="text-sm text-slate-500">
+          No blocking gaps on active jobs — your team is caught up.
+        </p>
       )}
 
       <ul className="space-y-3">
         {rows.map((row) => (
           <li
             key={row.inspectionId}
-            className="rounded-xl border border-slate-200 dark:border-slate-700 p-4"
+            className="rounded-xl border border-slate-200 p-4 dark:border-slate-700"
           >
             <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <AlertTriangle
+                className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
+                aria-hidden
+              />
               <div className="min-w-0 flex-1">
                 <Link
                   href={`/dashboard/inspections/${row.inspectionId}`}
-                  className="font-medium text-brand-navy hover:underline"
+                  className="font-medium text-brand-navy hover:underline dark:text-cyan-400"
                 >
-                  {row.inspectionNumber ?? row.inspectionId}
+                  {row.propertyAddress ||
+                    row.inspectionNumber ||
+                    "Open job"}
                 </Link>
-                <p className="text-xs text-slate-500 truncate">{row.propertyAddress}</p>
-                <p className="text-xs mt-1">
-                  {row.completionPercent}% complete · {row.status.replaceAll("_", " ")}
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {row.inspectionNumber} · {row.status} ·{" "}
+                  {row.completionPercent}% complete
                 </p>
-                <p className="text-xs mt-1 text-amber-800 dark:text-amber-200">
-                  Blocking: {row.blocking.join(", ")}
-                </p>
+                {row.blocking.length > 0 ? (
+                  <ul className="mt-2 list-disc pl-4 text-sm text-slate-600 dark:text-slate-400">
+                    {row.blocking.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             </div>
           </li>
