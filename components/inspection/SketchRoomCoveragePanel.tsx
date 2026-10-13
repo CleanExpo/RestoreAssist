@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Droplets, Layers } from "lucide-react";
+import { Droplets, Layers, MapPin } from "lucide-react";
 
 type RoomRow = {
   id: string;
@@ -64,14 +64,17 @@ export function SketchRoomCoveragePanel({
   const gaps = rows.filter((r) => r.moistureCount === 0 || !r.hasScope);
 
   return (
-    <div className="rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50/80 dark:bg-slate-900/40 p-3">
+    <div
+      className="rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50/80 dark:bg-slate-900/40 p-3"
+      data-testid="sketch-room-coverage-panel"
+    >
       <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-slate-300">
-        Room coverage
+        Room coverage (drying & scope)
       </h4>
       <p className="text-[11px] text-neutral-500 dark:text-slate-400 mt-0.5">
-        Link moisture and scope to each room on the plan.
+        Each affected room should have plan pins and a matching scope line.
       </p>
-      <ul className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
+      <ul className="mt-2 space-y-1.5 max-h-36 overflow-y-auto">
         {rows.map((room) => {
           const needsMoisture = room.moistureCount === 0;
           const needsScope = !room.hasScope;
@@ -85,13 +88,22 @@ export function SketchRoomCoveragePanel({
               </span>
               <span className="flex flex-wrap gap-2">
                 {needsMoisture ? (
-                  <Link
-                    href={`/dashboard/inspections/${inspectionId}?tab=moisture&sketchRoomId=${encodeURIComponent(room.id)}&roomName=${encodeURIComponent(room.name)}`}
-                    className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400 hover:underline"
-                  >
-                    <Droplets size={12} />
-                    Add moisture
-                  </Link>
+                  <>
+                    <Link
+                      href={`/dashboard/inspections/${inspectionId}?tab=sketch&sketchRoomId=${encodeURIComponent(room.id)}&mapMoisture=1`}
+                      className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400 hover:underline"
+                    >
+                      <MapPin size={12} />
+                      Pin on plan
+                    </Link>
+                    <Link
+                      href={`/dashboard/inspections/${inspectionId}?tab=moisture&sketchRoomId=${encodeURIComponent(room.id)}&roomName=${encodeURIComponent(room.name)}`}
+                      className="inline-flex items-center gap-1 text-cyan-600/80 dark:text-cyan-500 hover:underline"
+                    >
+                      <Droplets size={12} />
+                      Reading
+                    </Link>
+                  </>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400">
                     {room.moistureCount} reading
@@ -100,7 +112,7 @@ export function SketchRoomCoveragePanel({
                 )}
                 {needsScope && (
                   <Link
-                    href={`/dashboard/inspections/${inspectionId}?tab=scope`}
+                    href={`/dashboard/inspections/${inspectionId}?tab=scope&roomZone=${encodeURIComponent(room.name)}`}
                     className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline"
                   >
                     <Layers size={12} />

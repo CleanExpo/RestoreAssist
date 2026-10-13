@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useRef, useMemo } from "react";
+import { useState, useEffect, use, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -32,6 +32,7 @@ import { FieldAssistPanel } from "@/components/inspection/FieldAssistPanel";
 import { InspectionWorkflowStrip } from "@/components/inspection/InspectionWorkflowStrip";
 import { InspectionJourneyGuide } from "@/components/inspection/InspectionJourneyGuide";
 import { SketchRoomCoveragePanel } from "@/components/inspection/SketchRoomCoveragePanel";
+import { FloorPlanFieldGuide } from "@/components/inspection/FloorPlanFieldGuide";
 import EnvironmentalSummary from "@/components/inspection/EnvironmentalSummary";
 import {
   latestEnvironmentalReading,
@@ -391,6 +392,11 @@ export default function InspectionDetailPage({
   const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [moreSectionsOpen, setMoreSectionsOpen] = useState(false);
+  const [sketchFocusRoomId, setSketchFocusRoomId] = useState<string | null>(
+    null,
+  );
+  const [sketchMapMoisture, setSketchMapMoisture] = useState(false);
+  const [scopeRoomHint, setScopeRoomHint] = useState<string | null>(null);
 
   // Deep-link from field evidence checklist: ?tab=areas (etc.).
   // Re-read on job change so a previous inspection's Sketch tab does not
@@ -421,6 +427,9 @@ export default function InspectionDetailPage({
       }
       const sketchRoomId = searchParams.get("sketchRoomId");
       const roomName = searchParams.get("roomName");
+      setSketchFocusRoomId(sketchRoomId);
+      setSketchMapMoisture(searchParams.get("mapMoisture") === "1");
+      setScopeRoomHint(searchParams.get("roomZone"));
       if (tabParam === "moisture" && sketchRoomId) {
         setMoistureForm((f) => ({
           ...f,
@@ -430,6 +439,9 @@ export default function InspectionDetailPage({
       }
       return;
     }
+    setSketchFocusRoomId(null);
+    setSketchMapMoisture(false);
+    setScopeRoomHint(null);
     setActiveTab("overview");
   }, [id]);
 
@@ -553,33 +565,31 @@ export default function InspectionDetailPage({
     fetchInspection();
   }, [id]);
 
+  const refetchSketchRooms = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/inspections/${id}/sketches`);
+      if (!res.ok) return;
+      const json = (await res.json()) as {
+        sketches?: Array<{
+          rooms?: Array<{ id: string; name: string }>;
+        }>;
+      };
+      const rooms = (json.sketches ?? []).flatMap((sketch) =>
+        (sketch.rooms ?? []).map((room) => ({
+          id: room.id,
+          name: room.name,
+        })),
+      );
+      setSketchRooms(rooms);
+    } catch {
+      setSketchRooms([]);
+    }
+  }, [id]);
+
   useEffect(() => {
     if (activeTab !== "overview" && activeTab !== "sketch") return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/inspections/${id}/sketches`);
-        if (!res.ok) return;
-        const json = (await res.json()) as {
-          sketches?: Array<{
-            rooms?: Array<{ id: string; name: string }>;
-          }>;
-        };
-        const rooms = (json.sketches ?? []).flatMap((sketch) =>
-          (sketch.rooms ?? []).map((room) => ({
-            id: room.id,
-            name: room.name,
-          })),
-        );
-        if (!cancelled) setSketchRooms(rooms);
-      } catch {
-        if (!cancelled) setSketchRooms([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, activeTab]);
+    void refetchSketchRooms();
+  }, [id, activeTab, refetchSketchRooms]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2441,14 +2451,8 @@ export default function InspectionDetailPage({
           )}
           hidden={activeTab !== "sketch"}
         >
-          <SketchEditor
-            key={inspection.id}
-            inspectionId={inspection.id}
-            propertyAddress={inspection.propertyAddress ?? undefined}
-            propertyPostcode={inspection.propertyPostcode ?? undefined}
-            autoFetchFloorPlan={autoFetchFloorPlan}
-          />
-          <div className="mt-3 space-y-3 flex-shrink-0">
+          <div className="space-y-3 flex-shrink-0 mb-3">
+            <FloorPlanFieldGuide />
             <SketchRoomCoveragePanel
               inspectionId={inspection.id}
               rooms={sketchRooms}
@@ -2460,6 +2464,18 @@ export default function InspectionDetailPage({
                   .sketchRoomId,
               }))}
             />
+          </div>
+          <SketchEditor
+            key={inspection.id}
+            inspectionId={inspection.id}
+            propertyAddress={inspection.propertyAddress ?? undefined}
+            propertyPostcode={inspection.propertyPostcode ?? undefined}
+            autoFetchFloorPlan={autoFetchFloorPlan}
+            onSketchPersisted={() => void refetchSketchRooms()}
+            focusSketchRoomId={sketchFocusRoomId}
+            mapMoistureForRoom={sketchMapMoisture}
+          />
+          <div className="mt-3 space-y-3 flex-shrink-0">
             <ClientPortalLinkButton inspectionId={inspection.id} />
             <ClientEvidenceReviewPanel inspectionId={inspection.id} />
             <HomeownerCapturePanel inspectionId={inspection.id} />
@@ -2935,6 +2951,13 @@ export default function InspectionDetailPage({
         {/* Scope Items Tab */}
         {activeTab === "scope" && (
           <div className="space-y-3">
+            {scopeRoomHint && (
+              <p className="text-sm rounded-lg border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/30 px-3 py-2 text-indigo-900 dark:text-indigo-100">
+                Scope for room:{" "}
+                <span className="font-semibold">{scopeRoomHint}</span> — match
+                the line item zone to this name on the floor plan.
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setChecklistDialogOpen(true)}

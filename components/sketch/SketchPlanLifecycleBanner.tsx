@@ -105,7 +105,7 @@ export function SketchPlanLifecycleBanner({
             onClick={onConfirmPlan}
             className="min-h-9 px-3 rounded-lg bg-emerald-500/25 border border-emerald-400/40 text-emerald-50 text-xs font-medium hover:bg-emerald-500/35"
           >
-            Mark confirmed
+            Review rooms
           </button>
         )}
         {phase === "plan_ready" && onDismissPlanReady && (

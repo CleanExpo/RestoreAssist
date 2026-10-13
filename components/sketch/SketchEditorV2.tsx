@@ -61,7 +61,10 @@ import {
 } from "@/lib/sketch/roomplan-correction";
 import { commitRoomPanelEdit } from "@/lib/sketch/room-panel-commit";
 import { ROOM_COLORS } from "@/lib/sketch/room-colors";
-import { clearDetailsLostFromRoomData } from "@/lib/sketch/selected-object";
+import {
+  clearDetailsLostFromRoomData,
+  fabricObjectToSelected,
+} from "@/lib/sketch/selected-object";
 import { applyRoomModifiedGeometry } from "@/lib/sketch/room-modified-geometry";
 import { confirmAiSuggestedMeasurement } from "@/lib/sketch/ai-suggested-confirm";
 import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
@@ -239,6 +242,12 @@ export interface SketchEditorV2Props {
    * FLOORPLAN_UNDERLAY entitlement (not a Settings toggle).
    */
   autoFetchFloorPlan?: boolean;
+  /** After a durable online save — parent can refresh sketch room lists. */
+  onSketchPersisted?: () => void;
+  /** Deep-link: select a room on the active floor (Fabric room id). */
+  focusSketchRoomId?: string | null;
+  /** When true with focusSketchRoomId, open the room moisture map tool. */
+  mapMoistureForRoom?: boolean;
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -275,6 +284,9 @@ export function SketchEditorV2({
   width = 1200,
   height = 820,
   autoFetchFloorPlan = false,
+  onSketchPersisted,
+  focusSketchRoomId = null,
+  mapMoistureForRoom = false,
 }: SketchEditorV2Props) {
   const guided = mode === "guided";
   // Homeowner capture mode: save to the public token route; skip authed fetches.
@@ -810,6 +822,53 @@ export function SketchEditorV2({
     setToolMode((t) => coerceToolForMode(t, mode));
   }, []);
 
+  const selectRoomOnCanvas = useCallback(
+    (roomId: string): boolean => {
+      const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+        getObjects?: () => unknown[];
+        setActiveObject?: (o: unknown) => void;
+        renderAll?: () => void;
+      } | null;
+      const objects = fc?.getObjects?.() ?? [];
+      const obj = objects.find((o) => {
+        const d = (o as { data?: { id?: string; type?: string } }).data;
+        return d?.id === roomId && d?.type === "room";
+      }) as { data?: Record<string, unknown> } | undefined;
+      if (!obj) return false;
+      fc?.setActiveObject?.(obj);
+      fc?.renderAll?.();
+      const sel = fabricObjectToSelected(obj);
+      if (sel) setSelectedObj(sel);
+      return true;
+    },
+    [activeFloor?.canvasRef],
+  );
+
+  const focusFirstUnconfirmedRoom = useCallback(() => {
+    const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+      getObjects?: () => unknown[];
+    } | null;
+    const objects = fc?.getObjects?.() ?? [];
+    for (const o of objects) {
+      const data = (o as { data?: Record<string, unknown> }).data;
+      if (!data || data.type !== "room") continue;
+      if (
+        data.provenance === "underlay_reference" ||
+        data.provenance === "ai_suggested"
+      ) {
+        const id = data.id as string;
+        if (selectRoomOnCanvas(id)) {
+          toast(
+            "Confirm this room’s measurements in the panel, then repeat for each scanned room.",
+            { duration: 6000 },
+          );
+        }
+        return;
+      }
+    }
+    toast("No rooms waiting for confirm — you can add moisture pins.");
+  }, [activeFloor?.canvasRef, selectRoomOnCanvas]);
+
   const handleMapRoomMoisture = useCallback(
     (roomId: string) => {
       const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
@@ -860,6 +919,28 @@ export function SketchEditorV2({
     },
     [activeFloor, activeIdx, viewport.width, viewport.height],
   );
+
+  const focusRoomHandledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusSketchRoomId || !sketchesHydrated) return;
+    const key = `${inspectionId}:${focusSketchRoomId}:${mapMoistureForRoom}`;
+    if (focusRoomHandledRef.current === key) return;
+    focusRoomHandledRef.current = key;
+    if (mapMoistureForRoom) {
+      handleMapRoomMoisture(focusSketchRoomId);
+    } else if (selectRoomOnCanvas(focusSketchRoomId)) {
+      toast("Selected room on plan — confirm size, then add moisture.", {
+        duration: 4000,
+      });
+    }
+  }, [
+    focusSketchRoomId,
+    mapMoistureForRoom,
+    sketchesHydrated,
+    inspectionId,
+    handleMapRoomMoisture,
+    selectRoomOnCanvas,
+  ]);
 
   const handleExitRoomMoisture = useCallback(() => {
     setRoomMoistureSession(null);
@@ -1089,13 +1170,22 @@ export function SketchEditorV2({
       });
       if (indicator.markSaved) {
         setSavedAt(new Date(tickStartedAt));
+        onSketchPersisted?.();
       }
       // In capture mode a failed save is unrecoverable here (no offline queue),
       // so flag it whenever nothing saved online this tick.
       setCaptureSaveFailed(indicator.captureFailed);
       setSaving(false);
     },
-    [inspectionId, country, captureMode, captureToken, recordPersistedPendingFloor, uid],
+    [
+      inspectionId,
+      country,
+      captureMode,
+      captureToken,
+      recordPersistedPendingFloor,
+      uid,
+      onSketchPersisted,
+    ],
   );
 
   // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
@@ -2461,19 +2551,22 @@ export function SketchEditorV2({
                   <Loader2 size={11} className="animate-spin" /> Saving…
                 </span>
               ) : captureSaveFailed ? (
-                <span
+                <button
+                  type="button"
                   role="alert"
-                  className="flex items-center gap-1 justify-end text-destructive"
-                  title="Your last change could not be saved. Check your connection and try again."
+                  onClick={() => void flushSaveNow()}
+                  className="flex items-center gap-1 justify-end text-destructive hover:text-destructive/90 cursor-pointer"
+                  title="Tap to retry saving your last change"
                 >
-                  <AlertTriangle size={11} /> Not saved — retry
-                </span>
+                  <AlertTriangle size={11} /> Not saved — tap to retry
+                </button>
               ) : offlinePending > 0 ? (
                 <span
                   className="flex items-center gap-1 justify-end text-amber-400"
                   title="Saved locally — will sync when reconnected"
                 >
-                  <Save size={11} /> Offline: {offlinePending} pending
+                  <Save size={11} /> On device — syncs when online (
+                  {offlinePending})
                 </span>
               ) : savedAt ? (
                 <span className="flex items-center gap-1 justify-end text-success">
@@ -2676,6 +2769,10 @@ export function SketchEditorV2({
               : planPhase
           }
           onConfirmPlan={() => {
+            if (hasUnconfirmedRooms) {
+              focusFirstUnconfirmedRoom();
+              return;
+            }
             setPlanReadyAck(true);
             setPlanReadyBannerDismissed(false);
             toast.success("Plan marked ready — annotate in Quick edit");
