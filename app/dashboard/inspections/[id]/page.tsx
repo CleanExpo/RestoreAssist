@@ -1263,7 +1263,7 @@ export default function InspectionDetailPage({
     );
   }
 
-  if (!loading && (loadError || !inspection)) {
+  if (loadError || !inspection) {
     return (
       <DetailLoadErrorPanel
         resourceLabel="inspection"

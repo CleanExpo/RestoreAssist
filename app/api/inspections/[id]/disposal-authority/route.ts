@@ -61,14 +61,14 @@ export async function POST(
           recordedAt: new Date().toISOString(),
         }),
       },
-      select: { id: true, createdAt: true },
+      select: { id: true, timestamp: true },
     });
 
     return NextResponse.json({
       success: true,
       disposalAuthority: {
         auditLogId: audit.id,
-        recordedAt: audit.createdAt.toISOString(),
+        recordedAt: audit.timestamp.toISOString(),
       },
     });
   } catch (error) {
