@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import BillingGate from "@/components/capacitor/BillingGate";
 import { OrganizationLocaleSetting } from "@/components/settings/OrganizationLocaleSetting";
 import { BusinessDetailsSetting } from "@/components/settings/BusinessDetailsSetting";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 
 const SUBSCRIPTION_STATUS_TONES: Record<string, StatusTone> = {
   ACTIVE: "success",
@@ -300,36 +301,45 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Settings & Profile</h1>
-          <p className="text-slate-400">
-            Manage your account settings and subscription
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => fetchProfile(true)}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-            />
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </button>
-          {!hideBillingEntry && (
+      <DashboardListPageHeader
+        title="Settings & profile"
+        description="Account, business details, notifications, and workspace preferences."
+        icon={<User className="h-7 w-7 text-cyan-500" aria-hidden />}
+        primaryAction={
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <button
-              onClick={() => (window.location.href = "/dashboard/subscription")}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+              type="button"
+              onClick={() => fetchProfile(true)}
+              disabled={refreshing}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-600 px-4 py-2 hover:bg-slate-700/50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <CreditCard className="w-4 h-4" />
-              Manage Subscription
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                aria-hidden
+              />
+              {refreshing ? "Refreshing…" : "Refresh"}
             </button>
-          )}
-        </div>
-      </div>
+            {!hideBillingEntry && (
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/dashboard/subscription";
+                }}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-white hover:bg-cyan-700"
+              >
+                <CreditCard className="h-4 w-4" aria-hidden />
+                Manage subscription
+              </button>
+            )}
+          </div>
+        }
+        secondaryLinks={[
+          { href: "/dashboard", label: "Overview" },
+          { href: "/dashboard/integrations", label: "Integrations" },
+          { href: "/dashboard/team", label: "Team" },
+          { href: "/dashboard/help", label: "Help" },
+        ]}
+      />
 
       {/* RA-1206 — surface profile API failure instead of silently rendering stub */}
       {profileError && (

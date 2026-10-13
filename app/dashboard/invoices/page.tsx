@@ -34,6 +34,7 @@ import toast from "react-hot-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 
 interface Invoice {
   id: string;
@@ -195,19 +196,27 @@ export default function InvoicesPage() {
 
   return (
     <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-          Invoices
-        </h1>
-        <Link
-          href="/dashboard/invoices/new"
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:scale-[1.02] transition-transform"
-        >
-          <Plus className="h-5 w-5" />
-          New Invoice
-        </Link>
-      </div>
+      <DashboardListPageHeader
+        className="mb-6"
+        title="Invoices"
+        description="Bill completed work, track payments, and sync to accounting."
+        icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
+        primaryAction={
+          <Link
+            href="/dashboard/invoices/new"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2 font-medium text-white transition-transform hover:scale-[1.02] sm:w-auto"
+          >
+            <Plus className="h-5 w-5" aria-hidden />
+            New invoice
+          </Link>
+        }
+        secondaryLinks={[
+          { href: "/dashboard", label: "Overview" },
+          { href: "/dashboard/inspections", label: "Jobs" },
+          { href: "/dashboard/reports", label: "Reports" },
+          { href: "/dashboard/clients", label: "Clients" },
+        ]}
+      />
 
       {/* Stats Cards (amounts in cents, divide by 100 for display) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
