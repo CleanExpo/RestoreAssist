@@ -11,7 +11,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
 const mockAssertTenancy = vi.fn();
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: (...a: unknown[]) => mockAssertTenancy(...a),
+  assertInspectionReadable: (...a: unknown[]) => mockAssertTenancy(...a),
 }));
 
 const mockMoistureFindMany = vi.fn();
