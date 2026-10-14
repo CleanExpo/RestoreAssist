@@ -103,6 +103,8 @@ export interface SketchDockToolbarProps {
    */
   editorMode?: SketchEditorMode;
   onEditorModeChange?: (mode: SketchEditorMode) => void;
+  /** Compact row for desktop hub embed; comfortable keeps 56px touch targets. */
+  density?: "comfortable" | "compact";
   className?: string;
 }
 
@@ -191,8 +193,10 @@ export function SketchDockToolbar({
   guided = false,
   editorMode = "advanced",
   onEditorModeChange,
+  density = "comfortable",
   className,
 }: SketchDockToolbarProps) {
+  const compact = density === "compact";
   const tools = TOOLS.filter((t) => {
     if (guided && !GUIDED_TOOL_MODES.has(t.mode)) return false;
     if (!guided && !isToolAllowedInMode(t.mode, editorMode)) return false;
@@ -286,20 +290,37 @@ export function SketchDockToolbar({
 
   const containerCls = cn(
     // In-flow chrome — never sticky/fixed/absolute over the canvas (RA-7543).
-    "relative flex items-center gap-1 p-1.5 shrink-0",
-    "bg-brand-navy/90 backdrop-blur-sm",
-    "border border-white/10 shadow-2xl shadow-black/40",
-    "select-none",
+    "relative flex items-center shrink-0",
+    "bg-brand-navy/95 backdrop-blur-sm",
+    "border-white/10 select-none",
+    compact
+      ? "gap-0.5 p-1 border-t border-b-0 border-x-0 shadow-none"
+      : "gap-1 p-1.5 border shadow-2xl shadow-black/40",
     isVertical
-      ? "flex-col rounded-2xl self-center max-h-48 overflow-y-auto"
-      : "flex-row flex-wrap rounded-2xl justify-center w-full",
+      ? cn(
+          "flex-col self-center max-h-48 overflow-y-auto",
+          compact ? "rounded-lg" : "rounded-2xl",
+        )
+      : cn(
+          "flex-row flex-wrap w-full",
+          compact ? "rounded-none justify-start px-2" : "rounded-2xl justify-center",
+        ),
     isDragging && "opacity-70",
     className,
   );
 
   const dividerCls = isVertical
     ? "w-full h-px bg-white/10 my-0.5"
-    : "h-full w-px bg-white/10 mx-0.5";
+    : cn(
+        "w-px bg-white/10 mx-0.5",
+        compact ? "h-7 self-center" : "h-full",
+      );
+
+  const iconActionCls = cn(
+    "flex items-center justify-center transition-all duration-150",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+    compact ? "w-9 h-9 rounded-md" : "w-14 h-14 rounded-xl",
+  );
 
   return (
     <div
@@ -311,13 +332,19 @@ export function SketchDockToolbar({
       {/* Drag handle */}
       <button
         type="button"
-        className="text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing p-1 touch-none"
+        className={cn(
+          "text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing touch-none",
+          compact ? "p-0.5" : "p-1",
+        )}
         onPointerDown={onDragStart}
         onPointerMove={onDragMove}
         onPointerUp={onDragEnd}
         aria-label="Drag toolbar"
       >
-        <GripHorizontal size={14} className={isVertical ? "rotate-90" : ""} />
+        <GripHorizontal
+          size={compact ? 12 : 14}
+          className={isVertical ? "rotate-90" : ""}
+        />
       </button>
 
       <div className={dividerCls} />
@@ -340,7 +367,10 @@ export function SketchDockToolbar({
               title="Quick edit — select, label, measure"
               onClick={() => onEditorModeChange("quick")}
               className={cn(
-                "h-10 min-w-10 px-2 rounded-lg text-[10px] font-semibold tracking-wide transition-colors",
+                compact
+                  ? "h-8 min-w-[2.75rem] px-1.5 rounded-md text-[9px]"
+                  : "h-10 min-w-10 px-2 rounded-lg text-[10px]",
+                "font-semibold tracking-wide transition-colors",
                 editorMode === "quick"
                   ? "bg-brand-gold/25 text-brand-gold ring-1 ring-brand-gold/60"
                   : "text-white/50 hover:text-white/80 hover:bg-white/10",
@@ -355,7 +385,10 @@ export function SketchDockToolbar({
               title="Advanced draw — full tool dock"
               onClick={() => onEditorModeChange("advanced")}
               className={cn(
-                "h-10 min-w-10 px-2 rounded-lg text-[10px] font-semibold tracking-wide transition-colors",
+                compact
+                  ? "h-8 min-w-[2.75rem] px-1.5 rounded-md text-[9px]"
+                  : "h-10 min-w-10 px-2 rounded-lg text-[10px]",
+                "font-semibold tracking-wide transition-colors",
                 editorMode === "advanced"
                   ? "bg-brand-gold/25 text-brand-gold ring-1 ring-brand-gold/60"
                   : "text-white/50 hover:text-white/80 hover:bg-white/10",
@@ -373,6 +406,7 @@ export function SketchDockToolbar({
         tools.map(({ mode, Icon, label, shortcut }) => (
           <ToolBtn
             key={mode}
+            compact={compact}
             active={toolMode === mode}
             onClick={() => onToolChange(mode)}
             testId={`sketch-tool-${mode}`}
@@ -595,6 +629,7 @@ export function SketchDockToolbar({
 
       {readonly && (
         <ToolBtn
+          compact={compact}
           active={toolMode === "pan"}
           onClick={() => onToolChange("pan")}
           testId="sketch-tool-pan"
@@ -607,6 +642,7 @@ export function SketchDockToolbar({
         <>
           <div className={dividerCls} />
           <ToolBtn
+            compact={compact}
             active={false}
             onClick={onUndo}
             disabled={!canUndo}
@@ -614,6 +650,7 @@ export function SketchDockToolbar({
             Icon={Undo2}
           />
           <ToolBtn
+            compact={compact}
             active={false}
             onClick={onRedo}
             disabled={!canRedo}
@@ -626,6 +663,7 @@ export function SketchDockToolbar({
       <div className={dividerCls} />
 
       <ToolBtn
+        compact={compact}
         active={false}
         onClick={onZoomIn}
         testId="sketch-tool-zoom-in"
@@ -633,6 +671,7 @@ export function SketchDockToolbar({
         Icon={ZoomIn}
       />
       <ToolBtn
+        compact={compact}
         active={false}
         onClick={onZoomOut}
         testId="sketch-tool-zoom-out"
@@ -640,6 +679,7 @@ export function SketchDockToolbar({
         Icon={ZoomOut}
       />
       <ToolBtn
+        compact={compact}
         active={false}
         onClick={onZoomReset}
         testId="sketch-tool-zoom-reset"
@@ -651,6 +691,7 @@ export function SketchDockToolbar({
         <>
           <div className={dividerCls} />
           <ToolBtn
+            compact={compact}
             active={false}
             onClick={onClear}
             label="Clear Canvas"
@@ -688,16 +729,15 @@ export function SketchDockToolbar({
             disabled={isImporting || isScanning}
             onClick={() => fileInputRef.current?.click()}
             className={cn(
-              "w-14 h-14 flex items-center justify-center rounded-xl transition-all duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+              iconActionCls,
               "text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300",
               (isImporting || isScanning) && "opacity-50 cursor-not-allowed",
             )}
           >
             {isImporting ? (
-              <Loader2 size={20} className="animate-spin" />
+              <Loader2 size={compact ? 16 : 20} className="animate-spin" />
             ) : (
-              <Upload size={20} strokeWidth={1.8} />
+              <Upload size={compact ? 16 : 20} strokeWidth={1.8} />
             )}
           </button>
         </>
@@ -721,16 +761,15 @@ export function SketchDockToolbar({
               }
             }}
             className={cn(
-              "w-14 h-14 flex items-center justify-center rounded-xl transition-all duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+              iconActionCls,
               "text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300",
               (isScanning || isImporting) && "opacity-50 cursor-not-allowed",
             )}
           >
             {isScanning ? (
-              <Loader2 size={20} className="animate-spin" />
+              <Loader2 size={compact ? 16 : 20} className="animate-spin" />
             ) : (
-              <Scan size={20} strokeWidth={1.8} />
+              <Scan size={compact ? 16 : 20} strokeWidth={1.8} />
             )}
           </button>
         </>
@@ -749,6 +788,7 @@ interface ToolBtnProps {
   Icon: React.ElementType;
   danger?: boolean;
   testId?: string;
+  compact?: boolean;
 }
 
 function ToolBtn({
@@ -759,6 +799,7 @@ function ToolBtn({
   Icon,
   danger,
   testId,
+  compact = false,
 }: ToolBtnProps) {
   return (
     <button
@@ -770,18 +811,23 @@ function ToolBtn({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        // 56px touch targets (WCAG 2.5.5 + mobile UX)
-        "w-14 h-14 flex items-center justify-center rounded-xl transition-all duration-150",
+        "flex items-center justify-center transition-all duration-150",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+        compact ? "w-9 h-9 rounded-md" : "w-14 h-14 rounded-xl",
         active
-          ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
+          ? compact
+            ? "bg-cyan-500 text-white shadow-sm shadow-cyan-500/25"
+            : "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
           : danger
             ? "text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
             : "text-white/60 hover:bg-white/10 hover:text-white",
         disabled && "opacity-30 cursor-not-allowed",
       )}
     >
-      <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+      <Icon
+        size={compact ? 16 : 20}
+        strokeWidth={active ? 2.5 : 1.8}
+      />
     </button>
   );
 }
