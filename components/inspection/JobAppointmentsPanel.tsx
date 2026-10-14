@@ -88,7 +88,7 @@ export function JobAppointmentsPanel({ inspectionId }: { inspectionId: string })
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+    <section className="flex h-full min-h-[120px] flex-col rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 p-4 shadow-sm space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <Calendar className="h-4 w-4" />
@@ -98,7 +98,7 @@ export function JobAppointmentsPanel({ inspectionId }: { inspectionId: string })
           type="button"
           disabled={saving}
           onClick={() => void scheduleDefault()}
-          className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-brand-navy text-white text-xs font-medium px-3 py-2 disabled:opacity-50"
+          className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-800 text-xs font-medium px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-slate-700 disabled:opacity-50"
         >
           {saving ? (
             <Loader2 className="h-3 w-3 animate-spin" />
