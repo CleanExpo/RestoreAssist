@@ -42,6 +42,7 @@ import {
 } from "@/components/dashboard/ListPagination";
 import type { DataSource } from "@/lib/synced-data/types";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 // RA-1204 — Relative-time formatter for the "Last report: 3 days ago"
 // preview under each client name. Uses Intl.RelativeTimeFormat (native,
@@ -453,12 +454,9 @@ export default function ClientsPage() {
             </button>
           ) : null
         }
-        secondaryLinks={[
-          { href: "/dashboard", label: "Overview" },
-          { href: "/dashboard/inspections", label: "Jobs" },
-          { href: "/dashboard/reports", label: "Reports" },
-          { href: "/dashboard/invoices", label: "Invoices" },
-        ]}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/clients",
+        })}
       />
 
       <div className="flex items-center justify-end gap-3 flex-wrap">
