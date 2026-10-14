@@ -19,18 +19,20 @@ function linkClass(link: InspectionWorkflowLink, pathname: string) {
   const active =
     !link.current && pathname.replace(/\/$/, "") === link.href.replace(/\/$/, "");
   return cn(
-    "inline-flex min-h-11 shrink-0 items-center rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+    "inline-flex min-h-9 shrink-0 items-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
     link.current &&
-      "border-cyan-500/50 bg-cyan-500/10 text-cyan-800 dark:text-cyan-200 cursor-default pointer-events-none",
+      "border-cyan-500/40 bg-cyan-500/10 text-cyan-800 dark:text-cyan-200 cursor-default pointer-events-none font-semibold",
     !link.current &&
       link.emphasis &&
-      "border-cyan-600 bg-cyan-600 text-white hover:bg-cyan-700 dark:border-cyan-500",
+      "border-cyan-500/50 text-cyan-800 dark:text-cyan-200 bg-cyan-50/90 dark:bg-cyan-950/40 hover:bg-cyan-100/90 dark:hover:bg-cyan-950/60",
     !link.current &&
       !link.emphasis &&
       !active &&
-      "border-neutral-200 text-neutral-700 hover:bg-neutral-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800",
-    !link.current && !link.emphasis && active &&
-      "border-neutral-300 bg-neutral-100 font-semibold dark:border-slate-600 dark:bg-slate-800",
+      "border-transparent text-neutral-600 hover:bg-neutral-100 dark:text-slate-300 dark:hover:bg-slate-800/80",
+    !link.current &&
+      !link.emphasis &&
+      active &&
+      "border-neutral-200 bg-neutral-50 font-medium dark:border-slate-600 dark:bg-slate-800/80",
   );
 }
 
@@ -51,7 +53,7 @@ export function InspectionWorkflowStrip({
   return (
     <nav
       aria-label="Job workflow"
-      className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+      className="flex flex-wrap gap-1.5 sm:gap-2"
     >
       {links.map((link) =>
         link.current ? (
