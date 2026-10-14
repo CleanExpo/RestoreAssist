@@ -42,6 +42,7 @@ import {
 } from "@/components/dashboard/ListPagination";
 import type { DataSource } from "@/lib/synced-data/types";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 // RA-1204 — Relative-time formatter for the "Last report: 3 days ago"
@@ -434,8 +435,9 @@ export default function ClientsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
       <DashboardListPageHeader
+        eyebrow="Simple workspace"
         title="Clients"
         description="People and businesses you work for — linked to reports, jobs, and invoices."
         icon={<Users className="h-7 w-7 text-cyan-500" aria-hidden />}
@@ -1038,6 +1040,6 @@ export default function ClientsPage() {
           }
         }}
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }
