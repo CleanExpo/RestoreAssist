@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import {
+  isManagerOrAdminRole,
+  workspaceHubLinks,
+} from "@/lib/dashboard/workspace-secondary-links";
+import { useSession } from "next-auth/react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -195,6 +200,8 @@ function VisitChip({ visit, onClick }: VisitChipProps) {
 
 export default function InspectionSchedulePage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const showCompletenessInbox = isManagerOrAdminRole(session?.user?.role);
 
   // Hydration-safe "today": `new Date()` at render reads the SSR server clock,
   // which can differ from the client at month/timezone boundaries and cause a
@@ -333,14 +340,10 @@ export default function InspectionSchedulePage() {
             </button>
           </div>
         }
-        secondaryLinks={[
-          { href: "/dashboard", label: "Overview" },
-          { href: "/dashboard/inspections", label: "All jobs" },
-          {
-            href: "/dashboard/operations/completeness-inbox",
-            label: "Completeness inbox",
-          },
-        ]}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/inspections/schedule",
+          includeCompletenessInbox: showCompletenessInbox,
+        })}
       />
 
       {loadError && (
