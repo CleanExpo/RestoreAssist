@@ -35,6 +35,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 interface Invoice {
@@ -196,9 +197,10 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
       <DashboardListPageHeader
         className="mb-6"
+        eyebrow="Simple workspace"
         title="Invoices"
         description="Bill completed work, track payments, and sync to accounting."
         icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
@@ -571,6 +573,6 @@ export default function InvoicesPage() {
         itemCount={selectedCount}
         isLoading={deleting}
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }
