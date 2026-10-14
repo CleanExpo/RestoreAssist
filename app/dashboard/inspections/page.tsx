@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import {
   formatEnvironmentalValue,
   latestEnvironmentalReading,
@@ -267,8 +268,9 @@ export default function InspectionsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
       <DashboardListPageHeader
+        eyebrow="Simple workspace"
         title="Inspections"
         description="Capture the site, classify damage, and link each job to reports and billing."
         icon={<ClipboardCheck className="text-cyan-500" size={28} aria-hidden />}
@@ -630,6 +632,6 @@ export default function InspectionsPage() {
         itemCount={deleteTarget?.type === "bulk" ? selectedIds.size : undefined}
         isLoading={deleting}
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }
