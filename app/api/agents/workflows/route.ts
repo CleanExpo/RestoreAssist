@@ -3,7 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { prisma } from "@/lib/prisma";
-import { createWorkflow, quickAssessmentWorkflow } from "@/lib/agents";
+import {
+  createWorkflow,
+  liveLeaseSql,
+  quickAssessmentWorkflow,
+} from "@/lib/agents";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -117,7 +121,21 @@ export async function GET(request: NextRequest) {
       take: limit,
     });
 
-    return NextResponse.json({ workflows, count: workflows.length });
+    // RA-7999: read-only count of the caller's RUNNING tasks whose lease has
+    // expired (the sweep's predicate, on the database clock).
+    const [{ expired }] = await prisma.$queryRaw<Array<{ expired: number }>>`
+      SELECT count(*)::int AS expired
+      FROM "AgentTask" t
+      JOIN "AgentWorkflow" w ON w.id = t."workflowId"
+      WHERE w."userId" = ${session.user.id}
+        AND t.status = 'RUNNING'
+        AND NOT COALESCE(${liveLeaseSql("t")}, false)`;
+
+    return NextResponse.json({
+      workflows,
+      count: workflows.length,
+      expiredLeaseTasks: expired,
+    });
   } catch (error) {
     return fromException(request, error, { stage: "agents-workflow-list" });
   }

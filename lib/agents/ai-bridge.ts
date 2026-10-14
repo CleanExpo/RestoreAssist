@@ -22,7 +22,17 @@ export interface AIBridgeParams {
     maxTokens?: number;
     temperature?: number;
   };
+  /** The agent's executor timeout; the SDK request timeout is 5 s less. */
+  timeoutMs?: number;
+  /** The executor's abort signal; aborting it cancels the request. */
+  signal?: AbortSignal;
 }
+
+/** Used when a caller does not pass its agent's timeoutMs. */
+const DEFAULT_AGENT_TIMEOUT_MS = 60_000;
+/** The SDK request gives up this long before the executor's own timeout. */
+const SDK_TIMEOUT_HEADROOM_MS = 5_000;
+const MIN_SDK_TIMEOUT_MS = 1_000;
 
 export interface AIBridgeResult {
   text: string;
@@ -52,7 +62,13 @@ export async function callAI(params: AIBridgeParams): Promise<AIBridgeResult> {
   // workspace has no key; we let it propagate so the executor fails the task
   // (fail-closed) instead of silently billing the platform.
   const { apiKey } = await resolveWorkspaceAiKey(userId, "ANTHROPIC");
-  const client = new Anthropic({ apiKey });
+  // RA-7999: exactly one retry layer. The executor owns retries (one request
+  // per attempt, gated by the lease), so the SDK must not retry on its own.
+  const timeout = Math.max(
+    (params.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS) - SDK_TIMEOUT_HEADROOM_MS,
+    MIN_SDK_TIMEOUT_MS,
+  );
+  const client = new Anthropic({ apiKey, maxRetries: 0, timeout });
 
   const models = overrides?.model
     ? [{ name: overrides.model, maxTokens }]
@@ -70,6 +86,8 @@ export async function callAI(params: AIBridgeParams): Promise<AIBridgeResult> {
     {
       agentName: `Agent-${params.agentSlug}`,
       enableCacheMetrics: true,
+      fallbackOn: "notFound",
+      signal: params.signal,
     },
   );
 

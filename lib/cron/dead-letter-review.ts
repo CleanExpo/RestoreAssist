@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { logAgentEvent } from "@/lib/agents";
+import { unskipUpstreamFailed } from "@/lib/agents/lease";
 import type { CronJobResult } from "./runner";
 
 const BATCH_SIZE = 20;
@@ -37,26 +38,36 @@ export async function reviewDeadLetterTasks(): Promise<CronJobResult> {
     if (
       ["RUNNING", "PARTIALLY_FAILED", "FAILED"].includes(task.workflow.status)
     ) {
-      await prisma.agentTask.update({
-        where: { id: task.id },
-        data: {
-          status: "READY",
-          errorMessage: null,
-          errorCode: null,
-        },
-      });
-
-      // Ensure workflow is RUNNING
-      if (task.workflow.status !== "RUNNING") {
-        await prisma.agentWorkflow.update({
-          where: { id: task.workflowId },
+      // RA-7999: re-queue, un-skip the cascade's dependents and reopen the
+      // workflow in one transaction, so a resumed workflow cannot complete
+      // with steps missing.
+      const moved = await prisma.$transaction(async (tx) => {
+        const result = await tx.agentTask.updateMany({
+          where: { id: task.id, status: "DEAD_LETTER" },
           data: {
-            status: "RUNNING",
-            completedAt: null,
+            status: "READY",
             errorMessage: null,
+            errorCode: null,
           },
         });
-      }
+        if (result.count === 0) return false;
+
+        await unskipUpstreamFailed(tx, task.workflowId);
+
+        // Ensure workflow is RUNNING
+        if (task.workflow.status !== "RUNNING") {
+          await tx.agentWorkflow.update({
+            where: { id: task.workflowId },
+            data: {
+              status: "RUNNING",
+              completedAt: null,
+              errorMessage: null,
+            },
+          });
+        }
+        return true;
+      });
+      if (!moved) continue;
 
       await logAgentEvent(
         task.id,

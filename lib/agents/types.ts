@@ -95,7 +95,11 @@ export interface TaskOutput {
 
 export interface ExecutionResult {
   taskId: string;
-  status: "COMPLETED" | "FAILED" | "RETRY";
+  /**
+   * LEASE_LOST (RA-7999): this worker's claim was reclaimed before its write
+   * landed, so the write matched 0 rows and its outcome was discarded.
+   */
+  status: "COMPLETED" | "FAILED" | "RETRY" | "LEASE_LOST";
   output?: TaskOutput;
   error?: {
     code: string;
@@ -165,7 +169,18 @@ export interface TaskGraphJSON {
 // Agent handler function signature
 // ---------------------------------------------------------------------------
 
-export type AgentHandler = (input: TaskInput) => Promise<TaskOutput>;
+export interface AgentHandlerOptions {
+  /**
+   * Aborted by the executor when the task's timeout fires (RA-7999). Handlers
+   * pass it to their provider call so a timeout cancels the request.
+   */
+  signal?: AbortSignal;
+}
+
+export type AgentHandler = (
+  input: TaskInput,
+  options?: AgentHandlerOptions,
+) => Promise<TaskOutput>;
 
 // ---------------------------------------------------------------------------
 // Classified error (from error-handler)
