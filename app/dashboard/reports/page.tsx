@@ -27,6 +27,7 @@ import {
   FileText,
 } from "lucide-react";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import toast from "react-hot-toast";
 import {
@@ -400,9 +401,10 @@ export default function ReportsPage() {
   };
 
   return (
-    <div>
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
       <DashboardListPageHeader
         className="mb-4"
+        eyebrow="Simple workspace"
         title="My Reports"
         description="Manage and view all restoration reports"
         icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
@@ -1099,6 +1101,6 @@ export default function ReportsPage() {
         itemCount={selectedReports.length}
         itemName="report"
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }
