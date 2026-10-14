@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import {
+  completenessBlockerAction,
+  completenessBlockerHref,
+  completenessBlockerLabel,
+} from "@/lib/dashboard/completeness-blocker-links";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 type Row = {
   inspectionId: string;
@@ -65,11 +71,9 @@ export default function CompletenessInboxPage() {
             {loading ? "Refreshing…" : "Refresh list"}
           </button>
         }
-        secondaryLinks={[
-          { href: "/dashboard", label: "Overview" },
-          { href: "/dashboard/inspections", label: "All jobs" },
-          { href: "/dashboard/inspections/schedule", label: "Schedule" },
-        ]}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/operations/completeness-inbox",
+        })}
       />
 
       {loading && (
@@ -126,9 +130,23 @@ export default function CompletenessInboxPage() {
                   {row.completionPercent}% complete
                 </p>
                 {row.blocking.length > 0 ? (
-                  <ul className="mt-2 list-disc pl-4 text-sm text-slate-600 dark:text-slate-400">
+                  <ul className="mt-2 space-y-2">
                     {row.blocking.map((item) => (
-                      <li key={item}>{item}</li>
+                      <li
+                        key={item}
+                        className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600 dark:text-slate-400"
+                      >
+                        <span>{completenessBlockerLabel(item)}</span>
+                        <Link
+                          href={completenessBlockerHref(
+                            row.inspectionId,
+                            item,
+                          )}
+                          className="inline-flex min-h-9 items-center rounded-lg border border-cyan-500/40 px-3 text-xs font-medium text-cyan-700 hover:bg-cyan-500/10 dark:text-cyan-300"
+                        >
+                          {completenessBlockerAction(item)}
+                        </Link>
+                      </li>
                     ))}
                   </ul>
                 ) : null}
