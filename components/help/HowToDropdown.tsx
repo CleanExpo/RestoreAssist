@@ -3,28 +3,20 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
+  BookOpen,
+  ChevronDown,
+  HelpCircle,
+  PlayCircle,
+  Search,
+} from "lucide-react";
+import {
   HELP_CATEGORIES,
   HELP_CATEGORY_LABELS,
   type HelpCategory,
 } from "@/lib/help/types";
 import { CATEGORY_VIDEOS } from "@/lib/help/category-videos";
 import { VIDEO_REGISTRY } from "@/components/setup/video-registry";
-
-type MarkProps = { className?: string };
-function Mark({ className = "h-5 w-5", children }: MarkProps & { children: React.ReactNode }) {
-  return <span className={className} aria-hidden="true">{children}</span>;
-}
-
-const CATEGORY_ICONS: Record<HelpCategory, React.ReactNode> = {
-  "getting-started": <Mark>▤</Mark>,
-  inspections: <Mark>▣</Mark>,
-  reports: <Mark>▥</Mark>,
-  "clients-and-portal": <Mark>◉</Mark>,
-  billing: <Mark>▭</Mark>,
-  team: <Mark>⊕</Mark>,
-  integrations: <Mark>◇</Mark>,
-  compliance: <Mark>◆</Mark>,
-};
+import { cn } from "@/lib/utils";
 
 const CATEGORY_DESCRIPTIONS: Record<HelpCategory, string> = {
   "getting-started": "Signup, setup, first inspection",
@@ -43,22 +35,34 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function openHelpSearch() {
+  window.dispatchEvent(new CustomEvent("open-help-search"));
+}
+
 export default function HowToDropdown() {
   const [open, setOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<HelpCategory | null>(null);
+  const [activeCategory, setActiveCategory] = useState<HelpCategory | null>(
+    null,
+  );
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    function onEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     if (open) {
       document.addEventListener("mousedown", onClickOutside);
-      return () => document.removeEventListener("mousedown", onClickOutside);
+      document.addEventListener("keydown", onEscape);
+      return () => {
+        document.removeEventListener("mousedown", onClickOutside);
+        document.removeEventListener("keydown", onEscape);
+      };
     }
   }, [open]);
 
-  // Get videos for active category (or first category as default)
   const categoryToShow = activeCategory ?? HELP_CATEGORIES[0];
   const categoryVideoSlugs = CATEGORY_VIDEOS[categoryToShow] ?? [];
   const categoryVideos = categoryVideoSlugs
@@ -70,60 +74,103 @@ export default function HowToDropdown() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/90 hover:bg-white/5 min-h-[44px]"
+        className={cn(
+          "inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition sm:gap-2 sm:px-3",
+          open
+            ? "bg-white/12 text-white"
+            : "text-slate-200 hover:bg-white/10 hover:text-white",
+        )}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Help menu"
       >
-        How To
-        <span className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true">⌄</span>
+        <HelpCircle className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+        <span className="hidden sm:inline">Help</span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 opacity-70 transition-transform",
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 w-[640px] rounded-lg border border-white/10 bg-brand-surface p-4 shadow-xl shadow-black/50"
+          className="absolute right-0 top-full z-50 mt-2 w-[min(640px,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-4 shadow-2xl shadow-black/50"
         >
-          {/* Two-column layout: Categories + Videos */}
-          <div className="grid grid-cols-5 gap-4">
-            {/* Left: Categories (3 cols) */}
-            <div className="col-span-3 grid grid-cols-2 gap-2">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+            <p className="text-sm font-semibold text-white">How to &amp; guides</p>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                openHelpSearch();
+              }}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2.5 text-xs font-medium text-cyan-200 hover:bg-white/10"
+            >
+              <Search className="h-3.5 w-3.5" aria-hidden />
+              Search
+              <kbd className="rounded border border-white/20 px-1 text-[10px]">
+                ⌘K
+              </kbd>
+            </button>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-5">
+            <div className="lg:col-span-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {HELP_CATEGORIES.map((cat) => (
                 <Link
                   key={cat}
                   href={`/dashboard/help/${cat}`}
                   onClick={() => setOpen(false)}
                   onMouseEnter={() => setActiveCategory(cat)}
-                  className={`flex items-start gap-3 rounded-md p-3 min-h-[44px] transition-colors ${
-                    activeCategory === cat ? "bg-white/10" : "hover:bg-white/5"
-                  }`}
+                  onFocus={() => setActiveCategory(cat)}
+                  className={cn(
+                    "flex min-h-[44px] items-start gap-3 rounded-lg p-3 transition-colors",
+                    activeCategory === cat
+                      ? "bg-cyan-500/15 ring-1 ring-cyan-400/25"
+                      : "hover:bg-white/5",
+                  )}
                 >
-                  <div className="text-white/70">{CATEGORY_ICONS[cat]}</div>
-                  <div>
-                    <div className="text-sm font-medium text-white">{HELP_CATEGORY_LABELS[cat]}</div>
-                    <div className="text-xs text-white/60">{CATEGORY_DESCRIPTIONS[cat]}</div>
+                  <BookOpen
+                    className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300/80"
+                    aria-hidden
+                  />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-white">
+                      {HELP_CATEGORY_LABELS[cat]}
+                    </div>
+                    <div className="text-xs text-white/55">
+                      {CATEGORY_DESCRIPTIONS[cat]}
+                    </div>
                   </div>
                 </Link>
               ))}
             </div>
 
-            {/* Right: Video walkthroughs (2 cols) */}
-            <div className="col-span-2 border-l border-white/10 pl-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-bronze">
-                Video Walkthroughs
+            <div className="border-white/10 lg:col-span-2 lg:border-l lg:pl-4">
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+                <PlayCircle className="h-3.5 w-3.5" aria-hidden />
+                Video walkthroughs
               </div>
               {categoryVideos.length === 0 ? (
-                <p className="text-xs text-white/40">No videos for this category yet.</p>
+                <p className="text-xs text-white/45">No videos for this category yet.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {categoryVideos.slice(0, 4).map((video) => (
                     <Link
                       key={video.slug}
                       href={`/dashboard/learn?video=${video.slug}`}
                       onClick={() => setOpen(false)}
-                      className="flex items-center gap-2 rounded-md p-2 hover:bg-white/5 group"
+                      className="group flex items-center gap-2 rounded-lg p-2 hover:bg-white/5"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-brand-navy group-hover:bg-brand-bronze/20">
-                        <span className="h-3.5 w-3.5 text-brand-bronze group-hover:text-white" aria-hidden="true">▶</span>
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10 group-hover:bg-cyan-500/20">
+                        <PlayCircle
+                          className="h-4 w-4 text-cyan-300 group-hover:text-white"
+                          aria-hidden
+                        />
                       </div>
                       <div className="min-w-0">
                         <div className="truncate text-xs font-medium text-white/90 group-hover:text-white">
@@ -135,25 +182,23 @@ export default function HowToDropdown() {
                       </div>
                     </Link>
                   ))}
-                  {categoryVideos.length > 4 && (
-                    <Link
-                      href={`/dashboard/help/${categoryToShow}`}
-                      onClick={() => setOpen(false)}
-                      className="block text-center text-xs text-brand-gold hover:text-brand-gold-hover pt-1"
-                    >
-                      +{categoryVideos.length - 4} more videos →
-                    </Link>
-                  )}
                 </div>
               )}
             </div>
           </div>
 
-          <div className="mt-3 border-t border-white/10 pt-3 text-center">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3">
+            <Link
+              href="/dashboard/help/contact"
+              onClick={() => setOpen(false)}
+              className="text-xs font-medium text-white/70 hover:text-white"
+            >
+              Contact support
+            </Link>
             <Link
               href="/dashboard/help"
               onClick={() => setOpen(false)}
-              className="text-sm text-brand-gold hover:text-brand-gold-hover"
+              className="text-sm font-medium text-cyan-300 hover:text-cyan-200"
             >
               Browse all articles →
             </Link>
