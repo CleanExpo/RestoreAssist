@@ -80,14 +80,14 @@ export const PRODUCTION_ENABLED: readonly ProductionCron[] = [
 
 export const PRODUCTION_EXCLUDED: readonly ExcludedCron[] = [
   { path: "process-emails", reason: "no producer: no app code creates ScheduledEmail rows for it to send" },
-  { path: "advance-workflows", reason: "requires founder enablement: run dry-run count first; see durable-agents spec §5" },
+  { path: "advance-workflows", reason: "requires founder enablement: the executor has no subscription gate (G1 is route-local), so enable only after 1d-iii; run the dry-run count first; see durable-agents spec §5" },
   { path: "provision-tenant-db", reason: "its only producer (/api/onboarding/database) is off unless TENANT_DATABASE_PROVISIONING_ENABLED is true (pilot only)" },
   { path: "sync-qbo-myob-payments", reason: "QuickBooks and MYOB credentials are absent in production (22/09 audit), so no integration can connect" },
   { path: "cleanup-expired-files", reason: "its TTL list includes the \"attachment\" tag; automated deletion needs D-017 retention sign-off first" },
   { path: "cleanup", reason: "wave 2: deletes old logs, tokens and security events; review against live data before enabling" },
   { path: "media-cleanup", reason: "wave 2: retries failed deletes of invite headshots; review before enabling" },
   { path: "reconcile-stripe", reason: "review before enabling: it downgrades live subscriptions that Stripe reports cancelled" },
-  { path: "dead-letter-review", reason: "wave 2: re-queues dead-letter tasks; review what the live dead-letter queue holds first" },
+  { path: "dead-letter-review", reason: "wave 2: re-queues dead-letter tasks; review what the live dead-letter queue holds first; the executor has no subscription gate (G1 is route-local), so enable only after 1d-iii" },
   { path: "backfill-progress", reason: "wave 2: writes inferred ClaimProgress rows for existing reports; needs a live-data review" },
   { path: "google-token-refresh", reason: "wave 2: refreshes every stored Google token weekly; review before enabling" },
   { path: "dr-nrpg-liveness", reason: "wave 2: can mark DR-NRPG integrations inactive after auth failures; review before enabling" },
