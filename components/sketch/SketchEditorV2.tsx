@@ -248,6 +248,11 @@ export interface SketchEditorV2Props {
   focusSketchRoomId?: string | null;
   /** When true with focusSketchRoomId, open the room moisture map tool. */
   mapMoistureForRoom?: boolean;
+  /**
+   * `hub` — inspection tab embed with a stable min canvas height.
+   * `fullscreen` — legacy viewport-tall panel (capture / dedicated routes).
+   */
+  embedMode?: "hub" | "fullscreen";
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -287,7 +292,9 @@ export function SketchEditorV2({
   onSketchPersisted,
   focusSketchRoomId = null,
   mapMoistureForRoom = false,
+  embedMode = "fullscreen",
 }: SketchEditorV2Props) {
+  const hubEmbed = embedMode === "hub";
   const guided = mode === "guided";
   // Homeowner capture mode: save to the public token route; skip authed fetches.
   const captureMode = !!captureToken;
@@ -313,8 +320,9 @@ export function SketchEditorV2({
     if (!el) return;
 
     const applySize = () => {
+      const minCanvasH = hubEmbed ? 700 : 300;
       const w = Math.max(320, Math.floor(el.clientWidth));
-      const h = Math.max(320, Math.floor(el.clientHeight));
+      const h = Math.max(minCanvasH, Math.floor(el.clientHeight));
       if (w <= 0 || h <= 0) return;
       setViewport((prev) =>
         prev.width === w && prev.height === h ? prev : { width: w, height: h },
@@ -325,7 +333,7 @@ export function SketchEditorV2({
     const ro = new ResizeObserver(applySize);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [hubEmbed]);
 
   // ── Floor state ────────────────────────────────────────
   // Stable canvas key. Not derived from floorNumber: removing a floor does
@@ -2456,7 +2464,13 @@ export function SketchEditorV2({
 
   if (inspectionId && !captureMode && (pendingInspectionRef.current !== inspectionId || loadedInspectionId !== inspectionId || !sketchesHydrated)) {
     return (
-      <div className={cn("flex min-h-[480px] items-center justify-center rounded-2xl border border-white/10 bg-brand-canvas p-6", className)}>
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-2xl border border-white/10 bg-brand-canvas p-6",
+          hubEmbed ? "min-h-[760px]" : "min-h-[480px]",
+          className,
+        )}
+      >
         {sketchLoadError ? (
           <div role="alert" className="text-center text-sm text-white/80">
             <p>Could not load this job’s floor plan. No empty plan has been opened.</p>
@@ -2473,26 +2487,31 @@ export function SketchEditorV2({
     <div
       className={cn(
         "relative flex flex-col bg-brand-canvas rounded-2xl overflow-hidden",
-        "border border-white/10 shadow-2xl",
-        // Fill remaining viewport under dashboard chrome + inspection tabs.
-        // Canvas host is flex-1; underlay strip stays compact at the bottom.
-        "h-[calc(100dvh-16rem)] min-h-[480px]",
+        "border border-white/10 shadow-xl ring-1 ring-black/5",
+        hubEmbed
+          ? "min-h-[780px] h-[clamp(700px,78vh,980px)]"
+          : "h-[calc(100dvh-16rem)] min-h-[480px]",
         className,
       )}
     >
       {/* ── Top bar ────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 py-2 bg-brand-deep border-b border-white/10 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-white/40 uppercase tracking-widest">
-            Floor Plan
+      <div
+        className={cn(
+          "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 bg-gradient-to-r from-brand-deep to-brand-navy border-b border-white/10 flex-shrink-0",
+          hubEmbed ? "py-2" : "py-2.5",
+        )}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-[11px] font-semibold text-white/50 uppercase tracking-[0.2em] shrink-0">
+            Floor plan
           </span>
           {activeFloor?.scaleConfig && (
-            <span className="text-xs text-cyan-400/70">
+            <span className="text-xs text-cyan-300/80 truncate">
               {activeFloor.scaleConfig.description}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           {/* RA-6844 [A5]: grid + right-angle snap toggle */}
           {!readonly && (
             <button
@@ -2760,39 +2779,48 @@ export function SketchEditorV2({
         className="shrink-0"
       />
 
-      {!readonly && !guided && (
-        <SketchPlanLifecycleBanner
-          phase={
-            planPhase === "empty" ||
-            (planPhase === "plan_ready" && planReadyBannerDismissed)
-              ? "empty"
-              : planPhase
-          }
-          onConfirmPlan={() => {
-            if (hasUnconfirmedRooms) {
-              focusFirstUnconfirmedRoom();
-              return;
-            }
-            setPlanReadyAck(true);
-            setPlanReadyBannerDismissed(false);
-            toast.success("Plan marked ready — annotate in Quick edit");
-          }}
-          onDismissPlanReady={() => setPlanReadyBannerDismissed(true)}
-          onOpenAdvanced={() => {
-            setPlanReadyBannerDismissed(true);
-            handleEditorModeChange("advanced");
-          }}
-        />
-      )}
-
-      {/* ── Canvas + in-flow selection chrome (RA-7543) ────── */}
-      <div className="flex flex-1 min-h-0">
+      {/* ── Workbench: canvas + properties + dock (horizontal flow) ── */}
+      <div className="flex flex-1 min-h-0 flex-col">
+      <div
+        className={cn(
+          "flex flex-1 min-w-0",
+          hubEmbed ? "min-h-[700px]" : "min-h-[300px]",
+        )}
+      >
         <div
           ref={canvasHostRef}
-          className="relative flex-1 min-h-0 overflow-hidden"
+          className={cn(
+            "relative flex-1 min-w-0 overflow-hidden bg-[#0a0f12]",
+            hubEmbed ? "min-h-[700px]" : "min-h-[300px]",
+          )}
           data-testid="sketch-canvas-host"
           data-fabric-ready={fabricReady ? "true" : "false"}
         >
+        {!readonly && !guided && (
+          <SketchPlanLifecycleBanner
+            phase={
+              planPhase === "empty" ||
+              (planPhase === "plan_ready" && planReadyBannerDismissed)
+                ? "empty"
+                : planPhase
+            }
+            variant="floating"
+            onConfirmPlan={() => {
+              if (hasUnconfirmedRooms) {
+                focusFirstUnconfirmedRoom();
+                return;
+              }
+              setPlanReadyAck(true);
+              setPlanReadyBannerDismissed(false);
+              toast.success("Plan marked ready — annotate in Quick edit");
+            }}
+            onDismissPlanReady={() => setPlanReadyBannerDismissed(true)}
+            onOpenAdvanced={() => {
+              setPlanReadyBannerDismissed(true);
+              handleEditorModeChange("advanced");
+            }}
+          />
+        )}
         {!sketchesHydrated && (
           <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm gap-2">
             <Loader2 size={16} className="animate-spin" />
@@ -3051,6 +3079,7 @@ export function SketchEditorV2({
 
         {/* Selection panel — sibling of the canvas, not stacked on it */}
         <SketchSelectionPanel
+          className="w-60 shrink-0 self-stretch max-h-none rounded-none border-y-0 border-r-0 border-l border-white/10"
           selected={selectedObj}
           guided={guided}
           materials={materials}
@@ -3673,29 +3702,7 @@ export function SketchEditorV2({
         />
       </div>
 
-      {roomMoistureSession && !readonly && !guided && (
-        <div className="relative shrink-0 flex justify-center gap-2 py-2 px-3">
-          <button
-            type="button"
-            onClick={handleExportRoomMoisturePng}
-            className="min-h-10 px-3 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-50 text-xs font-medium hover:bg-cyan-500/30"
-          >
-            Export room moisture PNG
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setToolMode("damage");
-              setDamageKind("water");
-            }}
-            className="min-h-10 px-3 rounded-lg bg-white/10 border border-white/20 text-white/85 text-xs font-medium hover:bg-white/15"
-          >
-            Freehand water
-          </button>
-        </div>
-      )}
-
-      {/* In-flow dock toolbar — sibling of the canvas, not stacked on it */}
+      {/* In-flow dock — full-width horizontal toolbar under the canvas row */}
       <SketchDockToolbar
         toolMode={toolMode}
         guided={guided}
@@ -3765,7 +3772,32 @@ export function SketchEditorV2({
             : undefined
         }
         readonly={readonly}
+        density={hubEmbed ? "compact" : "comfortable"}
+        className="shrink-0 border-t border-white/10 bg-brand-deep/95"
       />
+      </div>
+
+      {roomMoistureSession && !readonly && !guided && (
+        <div className="relative shrink-0 flex justify-center gap-2 py-2 px-3">
+          <button
+            type="button"
+            onClick={handleExportRoomMoisturePng}
+            className="min-h-10 px-3 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-50 text-xs font-medium hover:bg-cyan-500/30"
+          >
+            Export room moisture PNG
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setToolMode("damage");
+              setDamageKind("water");
+            }}
+            className="min-h-10 px-3 rounded-lg bg-white/10 border border-white/20 text-white/85 text-xs font-medium hover:bg-white/15"
+          >
+            Freehand water
+          </button>
+        </div>
+      )}
 
       {/* ── Floor plan underlay panel ───────────────────────── */}
       {/* RA-6922: the scrape API (requireAddon → 402) is the authoritative gate,
