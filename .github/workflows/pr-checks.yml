@@ -231,14 +231,14 @@ jobs:
       # canary sentence from the licensed standards appears in tracked
       # source/data files. Was defined in package.json but never enforced in
       # CI — wired here (RA-7000 Phase 2) to close the blind spot.
-      - name: Verbatim standards tripwire
+      - name: Verbatim standards tripwire (DISABLED - UNPROVEN until iicrc-fp)
         run: npm run check:no-verbatim
 
       # RA-7000 Phase 2 — marketing zero-verbatim gate. guardStandardOutput
       # "marketing" mode (6+ contiguous-word floor) over docs/marketing,
       # remotion marketing compositions, and content/ — catches partial reuse
       # the exact-substring tripwire above misses.
-      - name: Marketing zero-verbatim gate
+      - name: Marketing zero-verbatim gate (DISABLED - UNPROVEN until iicrc-fp)
         run: npm run check:marketing-verbatim
 
       - name: Australian-English content guard
