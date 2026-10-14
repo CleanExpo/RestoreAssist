@@ -49,7 +49,6 @@ import { signOutAndConfirm } from "@/lib/oauth-native";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
-import { NotificationBell } from "@/components/notifications";
 import { NirSyncStatusBadge } from "@/components/nir-offline-provider";
 import { WhatsNewModal } from "@/components/releases/WhatsNewModal";
 import { ProductTour } from "@/components/onboarding/ProductTour";
@@ -63,18 +62,15 @@ import { SimpleModeExploreBanner } from "@/components/dashboard/SimpleModeExplor
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { AutoBreadcrumbs } from "@/components/AutoBreadcrumbs";
 import { MobilePullToRefresh } from "@/components/mobile/MobilePullToRefresh";
-import HowToDropdown from "@/components/help/HowToDropdown";
 import HelpSearchModal from "@/components/help/HelpSearchModal";
 import { cn } from "@/lib/utils";
 import {
-  simpleNavItems,
+  buildSimpleNavItems,
   buildAdvancedNavGroups,
   isAdvancedMode,
   ADMIN_NAV_HREFS,
-  MANAGER_NAV_HREFS,
   type ExperienceMode,
   type NavItem,
 } from "./nav-config";
@@ -121,7 +117,6 @@ export default function DashboardShell({
       setSidebarOpen(false);
     }
   }, []);
-  // NotificationBell manages its own open/close state
   const [profile, setProfile] = useState<{ userId: string; scopeKey: string; subscriptionStatus: string | null; businessName?: string | null; organizationId?: string | null } | null>(null);
   const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -277,14 +272,6 @@ export default function DashboardShell({
   const isManager =
     isAdmin || (session?.user as { role?: string })?.role === "MANAGER";
 
-  const managerNavItems: NavItem[] = isManager
-    ? MANAGER_NAV_HREFS.map((item) => ({
-        icon: item.href.includes("schedule") ? CalendarDays : Inbox,
-        label: item.label,
-        href: item.href,
-      }))
-    : [];
-
   const adminNavItems: NavItem[] = isAdmin
     ? ADMIN_NAV_HREFS.map((item) => ({
         icon: ADMIN_NAV_ICONS[item.label],
@@ -419,7 +406,7 @@ export default function DashboardShell({
     ? fieldTechNavItems
     : advanced
       ? fullNavItems
-      : [...simpleNavItems, ...managerNavItems, ...adminNavItems];
+      : [...buildSimpleNavItems({ isManager }), ...adminNavItems];
 
   // Advanced mode renders the full nav grouped under section headers instead of
   // one flat 24-item list. Only computed when relevant. Simple mode with admin
@@ -786,29 +773,26 @@ export default function DashboardShell({
           {/* Top Bar */}
           <header
             className={cn(
-              "h-16 flex items-center justify-between gap-2 overflow-hidden px-3 sm:px-4 md:px-6 sticky top-0 z-20",
-              "bg-brand-deep",
-              "border-b border-neutral-200 dark:border-slate-800",
+              "sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b px-3 sm:px-4 md:px-6",
+              "border-neutral-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95",
             )}
           >
-            {/* Mobile hamburger */}
             <button
               onClick={() => setMobileMenuOpen(true)}
               className={cn(
-                "min-h-11 min-w-11 p-2 rounded-lg md:hidden mr-1",
-                "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                "text-neutral-700 dark:text-slate-300",
+                "mr-1 min-h-11 min-w-11 rounded-lg p-2 md:hidden",
+                "text-neutral-700 hover:bg-neutral-100 dark:text-slate-300 dark:hover:bg-slate-800",
               )}
               aria-label="Open menu"
             >
               <Menu size={22} />
             </button>
 
-            <div className="min-w-0 flex-1 max-w-xs sm:max-w-md">
+            <div className="min-w-0 flex-1 max-w-md lg:max-w-xl">
               {isTechnician ? (
                 <Link
                   href="/dashboard/field"
-                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
                 >
                   <Smartphone className="h-4 w-4" />
                   Field Mode
@@ -818,49 +802,19 @@ export default function DashboardShell({
               )}
             </div>
 
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-4 ml-1 sm:ml-6">
-              {/* RA-1124 MVP — persistent sync-status pill. The offline
-                  infrastructure (service worker + IndexedDB queue +
-                  reconnect listeners) already ships via NirOfflineProvider,
-                  but the user-facing badge was never mounted, so a
-                  technician in the field had no signal that their save
-                  was queued vs. actually on the wire. */}
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <NirSyncStatusBadge />
-
-              {/* SP-8 T12 — How To dropdown (in-app Help Library entry point) */}
-              <div className="hidden sm:block">
-                {!isTechnician && <HowToDropdown />}
-              </div>
-
-              <div className="hidden sm:block">
-                {!isTechnician && <ThemeToggle />}
-              </div>
-
-              {/* Notifications */}
-              <NotificationBell />
-
-              {/* User Avatar & Dropdown */}
               <div
                 className={cn(
-                  "flex items-center gap-3 pl-2 sm:pl-4",
-                  "border-l border-neutral-200 dark:border-slate-700",
+                  "flex items-center gap-2 border-l pl-2 sm:gap-3 sm:pl-4",
+                  "border-neutral-200 dark:border-slate-700",
                 )}
               >
-                <div className="text-right hidden sm:block">
-                  <p
-                    className={cn(
-                      "text-sm font-medium",
-                      "text-neutral-900 dark:text-slate-50",
-                    )}
-                  >
+                <div className="hidden text-right sm:block">
+                  <p className="max-w-[11rem] truncate text-sm font-medium text-neutral-900 dark:text-slate-50 lg:max-w-[14rem]">
                     {session?.user?.name}
                   </p>
-                  <p
-                    className={cn(
-                      "text-xs",
-                      "text-neutral-600 dark:text-slate-400",
-                    )}
-                  >
+                  <p className="max-w-[11rem] truncate text-xs text-neutral-500 dark:text-slate-400 lg:max-w-[14rem]">
                     {session?.user?.email}
                   </p>
                 </div>
@@ -966,6 +920,7 @@ export default function DashboardShell({
                 <SimpleModeExploreBanner
                   onSwitchToAdvanced={() => void toggleExperienceMode()}
                   switching={savingMode}
+                  isManager={isManager}
                 />
               )}
               <AutoBreadcrumbs className="text-xs" />
