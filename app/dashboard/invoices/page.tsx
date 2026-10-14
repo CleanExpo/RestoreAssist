@@ -35,6 +35,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 interface Invoice {
   id: string;
@@ -210,12 +211,9 @@ export default function InvoicesPage() {
             New invoice
           </Link>
         }
-        secondaryLinks={[
-          { href: "/dashboard", label: "Overview" },
-          { href: "/dashboard/inspections", label: "Jobs" },
-          { href: "/dashboard/reports", label: "Reports" },
-          { href: "/dashboard/clients", label: "Clients" },
-        ]}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/invoices",
+        })}
       />
 
       {/* Stats Cards (amounts in cents, divide by 100 for display) */}
