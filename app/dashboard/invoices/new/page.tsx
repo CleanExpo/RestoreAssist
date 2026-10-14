@@ -22,6 +22,7 @@ import { LineExIncPrices } from "@/components/invoices/LineExIncPrices";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import Link from "next/link";
 
@@ -386,8 +387,9 @@ export default function NewInvoicePage() {
   const financials = calculateFinancials();
 
   return (
-    <div className="space-y-6 pb-12">
+    <SimpleDashboardPageFrame className="space-y-6 pb-12 pt-2">
       <DashboardListPageHeader
+        eyebrow="Simple workspace"
         title="Get a Bill Out"
         description="Create an invoice for a client or one-off customer. Opened from a job? Client and notes prefill when available."
         icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
@@ -898,6 +900,6 @@ export default function NewInvoicePage() {
           </div>
         </div>
       </form>
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }
