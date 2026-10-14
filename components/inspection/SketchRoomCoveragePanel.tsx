@@ -65,7 +65,7 @@ export function SketchRoomCoveragePanel({
 
   return (
     <div
-      className="rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50/80 dark:bg-slate-900/40 p-3"
+      className="rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-neutral-50/90 dark:bg-slate-900/50 p-3 shadow-sm"
       data-testid="sketch-room-coverage-panel"
     >
       <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-slate-300">
