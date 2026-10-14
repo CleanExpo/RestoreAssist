@@ -26,6 +26,7 @@ import { CancelSubscriptionDialog } from "@/components/billing/CancelSubscriptio
 import BillingGate from "@/components/capacitor/BillingGate";
 import Link from "next/link";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 interface Subscription {
@@ -349,7 +350,7 @@ function SubscriptionPageContent() {
     // RA-1212 — skeleton mirrors the final layout so slow connections
     // don't see a blank page after clicking Login → Subscription.
     return (
-      <div className="space-y-6">
+      <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <Skeleton className="h-9 w-40" />
@@ -363,14 +364,15 @@ function SubscriptionPageContent() {
           <Skeleton className="h-72 w-full rounded-xl" />
           <Skeleton className="h-72 w-full rounded-xl" />
         </div>
-      </div>
+      </SimpleDashboardPageFrame>
     );
   }
 
   return (
     <BillingGate>
-      <div className="space-y-6">
+      <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
         <DashboardListPageHeader
+          eyebrow="Simple workspace"
           title="Account & Billing"
           description="Manage your subscription, payment method, and plan allowances."
           icon={<CreditCard className="h-7 w-7 text-cyan-500" aria-hidden />}
@@ -855,7 +857,7 @@ function SubscriptionPageContent() {
           onOpenChange={setShowCancelDialog}
           onCancelled={() => fetchSubscription()}
         />
-      </div>
+      </SimpleDashboardPageFrame>
     </BillingGate>
   );
 }
