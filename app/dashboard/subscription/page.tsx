@@ -25,6 +25,8 @@ import { notifyError } from "@/lib/notify";
 import { CancelSubscriptionDialog } from "@/components/billing/CancelSubscriptionDialog";
 import BillingGate from "@/components/capacitor/BillingGate";
 import Link from "next/link";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 interface Subscription {
   id: string;
@@ -368,37 +370,42 @@ function SubscriptionPageContent() {
   return (
     <BillingGate>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold mb-2">Subscription</h1>
-            <p className="text-slate-400">
-              Manage your subscription and billing
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => fetchSubscription(true)}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-              />
-              {refreshing ? "Refreshing..." : "Refresh"}
-            </button>
-            <button
-              onClick={checkSubscription}
-              disabled={checking}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <CheckCircle
-                className={`w-4 h-4 ${checking ? "animate-spin" : ""}`}
-              />
-              {checking ? "Checking..." : "Check Subscription"}
-            </button>
-          </div>
-        </div>
+        <DashboardListPageHeader
+          title="Account & Billing"
+          description="Manage your subscription, payment method, and plan allowances."
+          icon={<CreditCard className="h-7 w-7 text-cyan-500" aria-hidden />}
+          secondaryLinks={workspaceHubLinks({
+            omitHref: "/dashboard/subscription",
+          })}
+          primaryAction={
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => fetchSubscription(true)}
+                disabled={refreshing}
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-700/50 sm:flex-none"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                  aria-hidden
+                />
+                {refreshing ? "Refreshing…" : "Refresh"}
+              </button>
+              <button
+                type="button"
+                onClick={checkSubscription}
+                disabled={checking}
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+              >
+                <CheckCircle
+                  className={`h-4 w-4 ${checking ? "animate-spin" : ""}`}
+                  aria-hidden
+                />
+                {checking ? "Checking…" : "Check subscription"}
+              </button>
+            </div>
+          }
+        />
 
         {loadError && (
           <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
