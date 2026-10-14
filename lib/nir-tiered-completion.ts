@@ -258,10 +258,14 @@ export function validateTieredCompletion(
   // RA-7003: per-stage photo coverage (advisory). The per-claim IICRC
   // checklists require photos at each work stage; a submission with only
   // pre-work shots documents the damage but not the completed work.
-  const stagedPhotos = (inspection.photos ?? []) as Array<{
-    photoStage?: string | null;
-  }>;
-  if (photoCount > 0 && stagedPhotos.some((p) => "photoStage" in p)) {
+  const stagedPhotos = (inspection.photos ?? []).flatMap((entry) => {
+    if (entry == null || typeof entry !== "object") return [];
+    return [entry as { photoStage?: string | null }];
+  });
+  const tracksPhotoStage = stagedPhotos.some((p) =>
+    Object.hasOwn(p, "photoStage"),
+  );
+  if (photoCount > 0 && tracksPhotoStage) {
     const stages = new Set(
       stagedPhotos.map((p) => p.photoStage).filter(Boolean),
     );
