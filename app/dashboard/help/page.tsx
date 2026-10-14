@@ -24,6 +24,7 @@ import {
   PlayCircle,
   Sparkles,
 } from "lucide-react";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 export const dynamic = "force-dynamic";
 
@@ -146,6 +147,20 @@ export default async function HelpIndexPage() {
             <ArrowRight className="h-4 w-4 text-muted-foreground" />
           </Link>
         </div>
+        <nav
+          aria-label="Workspace shortcuts"
+          className="relative mt-5 flex flex-wrap gap-2 border-t border-border/70 pt-5"
+        >
+          {workspaceHubLinks({ omitHref: "/dashboard/help" }).map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="inline-flex min-h-11 items-center rounded-lg border border-border/60 bg-background/50 px-3 text-sm font-medium text-foreground transition-colors hover:border-primary/30 hover:bg-primary/5"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
       </header>
 
       {/* Category rail — horizontal flex row */}
