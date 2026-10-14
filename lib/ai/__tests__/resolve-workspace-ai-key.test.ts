@@ -71,7 +71,7 @@ describe("resolveWorkspaceAiKey (RA-6921 P0)", () => {
 
     const result = await resolveWorkspaceAiKey("user_1", "OPENAI");
 
-    expect(result).toEqual({ workspaceId: "ws_1", apiKey: "sk-client-owned" });
+    expect(result).toEqual({ workspaceId: "ws_1", apiKey: "sk-client-owned", source: "byok" });
     expect(getProviderApiKey).toHaveBeenCalledWith("ws_1", "OPENAI");
   });
 
@@ -115,6 +115,7 @@ describe("resolveWorkspaceAiKey (RA-6921 P0)", () => {
     expect(result).toEqual({
       workspaceId: "ws_1",
       apiKey: "sk-ant-platform-trial",
+      source: "platform",
     });
     expect(tryPlatformTrialApiKey).toHaveBeenCalledWith("trial_user", "ANTHROPIC");
   });
