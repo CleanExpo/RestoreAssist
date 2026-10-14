@@ -15,6 +15,7 @@ import {
   DashboardPanel,
   DashboardPanelHeader,
 } from "@/app/dashboard/components/DashboardPanel";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import {
   WORKSPACE_LINKS,
   isManagerOrAdminRole,
@@ -139,29 +140,9 @@ function LineSkeleton({ className }: { className?: string }) {
   );
 }
 
-/** Shared width for the overview — matches other 8xl dashboard surfaces. */
-const DASHBOARD_PAGE_MAX = "max-w-9xl";
-
-function DashboardPageFrame({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className={cn(
-        "relative isolate mx-auto min-w-0 w-full px-4 sm:px-6 lg:px-8",
-        DASHBOARD_PAGE_MAX,
-      )}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[min(560px,75vh)] bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,hsl(var(--primary)/0.22),transparent_58%),radial-gradient(ellipse_55%_45%_at_100%_0%,rgba(6,182,212,0.14),transparent_55%),radial-gradient(ellipse_50%_40%_at_0%_15%,rgba(99,102,241,0.12),transparent_50%)] dark:bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,hsl(var(--primary)/0.28),transparent_58%),radial-gradient(ellipse_55%_45%_at_100%_0%,rgba(34,211,238,0.12),transparent_55%),radial-gradient(ellipse_50%_40%_at_0%_15%,rgba(129,140,248,0.14),transparent_50%)]"
-      />
-      {children}
-    </div>
-  );
-}
-
 function DashboardOverviewSkeleton() {
   return (
-    <DashboardPageFrame>
+    <SimpleDashboardPageFrame>
       <div className="space-y-6 py-6" role="status" aria-label="Loading dashboard">
         <LineSkeleton className="h-48 w-full rounded-2xl" />
         <LineSkeleton className="h-24 w-full rounded-xl" />
@@ -175,7 +156,7 @@ function DashboardOverviewSkeleton() {
           <LineSkeleton className="h-64 rounded-lg lg:col-span-2" />
         </div>
       </div>
-    </DashboardPageFrame>
+    </SimpleDashboardPageFrame>
   );
 }
 
@@ -217,7 +198,7 @@ export default function DashboardPage() {
   }
   if (status !== "authenticated" || !session?.user?.id) {
     return (
-      <DashboardPageFrame>
+      <SimpleDashboardPageFrame>
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 py-12 text-center">
           <p className="text-sm text-muted-foreground">
             Sign in to open your workspace overview.
@@ -229,12 +210,12 @@ export default function DashboardPage() {
             Sign in
           </Link>
         </div>
-      </DashboardPageFrame>
+      </SimpleDashboardPageFrame>
     );
   }
   if (session.user.organizationScopeVerified === false) {
     return (
-      <DashboardPageFrame>
+      <SimpleDashboardPageFrame>
         <div className="py-8">
           <DashboardInlineNotice
             tone="warning"
@@ -253,7 +234,7 @@ export default function DashboardPage() {
             }
           />
         </div>
-      </DashboardPageFrame>
+      </SimpleDashboardPageFrame>
     );
   }
 
@@ -287,7 +268,7 @@ function DashboardWorkspace({ session }: { session: Session }) {
 
   if (needsOnboarding) {
     return (
-      <DashboardPageFrame>
+      <SimpleDashboardPageFrame>
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 py-12 text-center">
           <p className="text-sm text-muted-foreground">
             Finish account setup to unlock the overview.
@@ -299,12 +280,12 @@ function DashboardWorkspace({ session }: { session: Session }) {
             Continue setup
           </Link>
         </div>
-      </DashboardPageFrame>
+      </SimpleDashboardPageFrame>
     );
   }
   if (error?.status === 401 || error?.status === 403) {
     return (
-      <DashboardPageFrame>
+      <SimpleDashboardPageFrame>
         <div className="py-8">
           <DashboardInlineNotice
             tone="danger"
@@ -319,7 +300,7 @@ function DashboardWorkspace({ session }: { session: Session }) {
             }
           />
         </div>
-      </DashboardPageFrame>
+      </SimpleDashboardPageFrame>
     );
   }
 
@@ -565,7 +546,7 @@ function DashboardContent({
   ] as const;
 
   return (
-    <DashboardPageFrame>
+    <SimpleDashboardPageFrame>
     <div className="min-w-0 space-y-8 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-2 sm:pt-4 md:pb-10">
       <div className="space-y-3">
         <InboundJobAlert />
@@ -1124,7 +1105,7 @@ function DashboardContent({
         </Link>
       </nav>
     </div>
-    </DashboardPageFrame>
+    </SimpleDashboardPageFrame>
   );
 }
 
