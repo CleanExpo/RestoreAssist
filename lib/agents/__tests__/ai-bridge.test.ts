@@ -6,10 +6,15 @@ const tryClaudeModels = vi.fn();
 const getClaudeModels = vi.fn();
 const anthropicCtor = vi.fn();
 
-vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
-  resolveWorkspaceAiKey: (...args: unknown[]) => resolveWorkspaceAiKey(...args),
-  NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
-}));
+// RA-8001: the real error classes, only the resolver function is replaced.
+vi.mock("@/lib/ai/resolve-workspace-ai-key", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/ai/resolve-workspace-ai-key")>();
+  return {
+    ...actual,
+    resolveWorkspaceAiKey: (...args: unknown[]) => resolveWorkspaceAiKey(...args),
+  };
+});
 vi.mock("@/lib/anthropic-models", () => ({
   tryClaudeModels: (...args: unknown[]) => tryClaudeModels(...args),
   getClaudeModels: (...args: unknown[]) => getClaudeModels(...args),
@@ -25,13 +30,14 @@ vi.mock("@anthropic-ai/sdk", () => ({
   },
 }));
 
-import { callAI } from "../ai-bridge";
+import { callAI, PlatformKeyRefusedError } from "../ai-bridge";
 
 const baseParams: AIBridgeParams = {
   userId: "user_1",
   agentSlug: "report-analysis",
   systemPrompt: "system",
   userPrompt: "prompt",
+  keyPolicy: "byok-only",
 };
 
 beforeEach(() => {
@@ -51,7 +57,7 @@ describe("callAI (agent AI bridge)", () => {
     );
 
     await expect(callAI(baseParams)).rejects.toBeInstanceOf(
-      NoWorkspaceKeyError,
+      PlatformKeyRefusedError,
     );
     // The platform-key path must never be reached — no client constructed, no
     // model call issued, so a keyless customer's workflow cannot bill the
@@ -64,6 +70,7 @@ describe("callAI (agent AI bridge)", () => {
     resolveWorkspaceAiKey.mockResolvedValueOnce({
       workspaceId: "ws_1",
       apiKey: "sk-ant-workspace",
+      source: "byok",
     });
     tryClaudeModels.mockResolvedValueOnce({
       content: [{ type: "text", text: "{}" }],

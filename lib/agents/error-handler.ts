@@ -8,11 +8,22 @@ import type { ClassifiedError } from "./types";
 import { logAgentEvent } from "./logger";
 import { skipDependentsOfFailedTask } from "./lease";
 import { refreshWorkflowProgress } from "./state-manager";
+import { PlatformKeyRefusedError } from "./ai-bridge";
+import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
 
 /**
  * Classify an unknown error into a structured error object with retry semantics.
  */
 export function classifyError(error: unknown): ClassifiedError {
+  // RA-8001: key refusals are decided by type, before any message heuristic,
+  // and never retry: only adding a key and resuming can change the outcome.
+  if (error instanceof PlatformKeyRefusedError) {
+    return { code: "AI_PLATFORM_KEY_REFUSED", message: error.message, retryable: false };
+  }
+  if (error instanceof NoWorkspaceKeyError) {
+    return { code: "AUTH_ERROR", message: error.message, retryable: false };
+  }
+
   if (error instanceof Error) {
     const msg = error.message.toLowerCase();
 

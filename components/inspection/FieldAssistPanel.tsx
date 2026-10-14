@@ -20,7 +20,8 @@ export function FieldAssistPanel({ inspectionId }: { inspectionId: string }) {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(json.message ?? "Assist unavailable");
+        // apiError envelope: { error: { code, message } } (RA-8001).
+        throw new Error(json.error?.message ?? "Assist unavailable");
       }
       setReply(json.data?.reply ?? json.data?.context?.completenessHint ?? null);
     } catch (e) {
