@@ -51,7 +51,7 @@ export function ClaimContextBanner({ inspectionId }: { inspectionId: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm text-slate-600">
+      <div className="flex h-full min-h-[120px] items-center gap-2 rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 shadow-sm">
         <Loader2 className="h-4 w-4 animate-spin" />
         Loading claim readiness…
       </div>
@@ -60,7 +60,7 @@ export function ClaimContextBanner({ inspectionId }: { inspectionId: string }) {
 
   if (error || !payload) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+      <div className="h-full min-h-[120px] rounded-xl border border-amber-200/80 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-900 dark:text-amber-100 shadow-sm">
         {error ?? "Claim context unavailable"}
       </div>
     );
@@ -71,10 +71,10 @@ export function ClaimContextBanner({ inspectionId }: { inspectionId: string }) {
 
   return (
     <div
-      className={`rounded-lg border px-3 py-2 text-sm ${
+      className={`h-full min-h-[120px] rounded-xl border px-4 py-3 text-sm shadow-sm ${
         blocked
-          ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-50"
-          : "border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-50"
+          ? "border-amber-300/80 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-50"
+          : "border-emerald-300/80 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-50"
       }`}
     >
       <div className="flex items-start gap-2">
