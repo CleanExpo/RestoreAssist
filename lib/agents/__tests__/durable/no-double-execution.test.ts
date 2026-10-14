@@ -8,7 +8,8 @@
  * LEASE_LOST and B's leaseOwner, status, attempts and output survive.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { executeTask, sweepExpiredLeases } from "@/lib/agents";
+import { prisma } from "@/lib/prisma";
+import { claimTask, executeTask, sweepExpiredLeases } from "@/lib/agents";
 import type { TaskOutput } from "@/lib/agents";
 import {
   cleanup,
@@ -69,6 +70,26 @@ describe.skipIf(!process.env.DATABASE_URL)("RA-7999 [AC2] no double execution", 
     const a = await task(ids.a);
     expect(a.status).toBe("COMPLETED");
     expect(a.attempts).toBe(1);
+  });
+
+  it("[AC2] the database rejects a non-RUNNING row that keeps a lease (CHECK), so a token match implies RUNNING", async () => {
+    const { ids } = await makeWorkflow([{ key: "a", agentSlug: slug }]);
+    const claim = await claimTask(ids.a, 15_000);
+    expect(claim).not.toBeNull();
+
+    const attempt = prisma.$executeRaw`
+      UPDATE "AgentTask" SET status = 'COMPLETED' WHERE id = ${ids.a}`;
+    await expect(attempt).rejects.toThrow(/AgentTask_lease_only_while_running|23514|check constraint/i);
+    const a = await task(ids.a);
+    expect(a.status).toBe("RUNNING");
+    expect(a.leaseOwner).toBe(claim!.leaseOwner);
+
+    // Clearing the lease in the same write is allowed.
+    await prisma.$executeRaw`
+      UPDATE "AgentTask"
+      SET status = 'COMPLETED', "leaseOwner" = NULL, "leaseExpiresAt" = NULL
+      WHERE id = ${ids.a}`;
+    expect((await task(ids.a)).status).toBe("COMPLETED");
   });
 
   /**
