@@ -20,6 +20,8 @@ export interface SketchPlanLifecycleBannerProps {
   onOpenAdvanced?: () => void;
   /** Dismiss the plan-ready banner without changing editor mode. */
   onDismissPlanReady?: () => void;
+  /** Floating pill over the canvas (does not consume layout height). */
+  variant?: "in-flow" | "floating";
   className?: string;
 }
 
@@ -50,9 +52,11 @@ export function SketchPlanLifecycleBanner({
   onConfirmPlan,
   onOpenAdvanced,
   onDismissPlanReady,
+  variant = "in-flow",
   className,
 }: SketchPlanLifecycleBannerProps) {
   if (phase === "empty") return null;
+  const floating = variant === "floating";
   const copy = COPY[phase];
   const Icon =
     phase === "scanning"
@@ -66,18 +70,24 @@ export function SketchPlanLifecycleBanner({
   return (
     <div
       className={cn(
-        // In-flow chrome — never sticky/fixed/absolute over the canvas (RA-7543).
-        "relative shrink-0 mx-auto max-w-lg w-[calc(100%-1.5rem)] my-2",
-        "rounded-xl border border-white/15 bg-brand-navy/92 backdrop-blur-md shadow-lg",
-        "px-3 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3",
+        floating
+          ? "pointer-events-none absolute left-3 right-3 top-3 z-20 flex justify-center"
+          : "relative shrink-0 mx-auto max-w-lg w-[calc(100%-1.5rem)] my-2",
         className,
       )}
       role="status"
       aria-live="polite"
       data-plan-phase={phase}
       data-testid="sketch-plan-lifecycle-banner"
-      data-sketch-chrome="in-flow"
+      data-sketch-chrome={floating ? "floating" : "in-flow"}
     >
+      <div
+        className={cn(
+          "pointer-events-auto w-full max-w-2xl",
+          "rounded-xl border border-white/15 bg-brand-navy/92 backdrop-blur-md shadow-lg",
+          "px-3 py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3",
+        )}
+      >
       <div className="flex items-start gap-2.5 min-w-0 flex-1">
         <Icon
           size={18}
@@ -127,6 +137,7 @@ export function SketchPlanLifecycleBanner({
               Advanced draw
             </button>
           )}
+      </div>
       </div>
     </div>
   );
