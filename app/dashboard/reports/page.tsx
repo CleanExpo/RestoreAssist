@@ -24,7 +24,10 @@ import {
   GitBranch,
   RefreshCw,
   Sparkles,
+  FileText,
 } from "lucide-react";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import toast from "react-hot-toast";
 import {
   EvaluatorScoreBadge,
@@ -398,34 +401,16 @@ export default function ReportsPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Reports</h1>
-          <p className="text-slate-300">
-            Manage and view all restoration reports
-          </p>
-          <nav
-            aria-label="Related pages"
-            className="mt-3 flex flex-wrap gap-2 text-sm"
-          >
-            {[
-              { href: "/dashboard", label: "Overview" },
-              { href: "/dashboard/inspections", label: "Jobs" },
-              { href: "/dashboard/clients", label: "Clients" },
-              { href: "/dashboard/invoices", label: "Invoices" },
-            ].map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-3 font-medium text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+      <DashboardListPageHeader
+        className="mb-4"
+        title="My Reports"
+        description="Manage and view all restoration reports"
+        icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/reports",
+        })}
+        primaryAction={
+        <div className="flex items-center gap-3 flex-wrap justify-end w-full sm:w-auto">
           <DataSourceSwitcher
             id="reports-data-source"
             value={dataSource}
@@ -466,7 +451,8 @@ export default function ReportsPage() {
             </Link>
           )}
         </div>
-      </div>
+        }
+      />
 
       {dataSource !== "native" ? (
         <>
