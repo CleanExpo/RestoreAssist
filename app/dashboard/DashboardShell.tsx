@@ -904,8 +904,8 @@ export default function DashboardShell({
           {/* Page Content */}
           <main
             className={cn(
-              "space-y-6 max-w-9xl mx-auto overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
-              "bg-slate-950",
+              "mx-auto max-w-9xl space-y-6 overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
+              "bg-background dark:bg-slate-950",
             )}
           >
             {/* RA-1569 adoption — auto-crumbs derived from the URL.
