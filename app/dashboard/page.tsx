@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useFetchWithError } from "@/lib/client/useFetchWithError";
@@ -15,6 +15,25 @@ import {
   DashboardPanel,
   DashboardPanelHeader,
 } from "@/app/dashboard/components/DashboardPanel";
+import {
+  WORKSPACE_LINKS,
+  isManagerOrAdminRole,
+  simpleWorkspaceHubLinks,
+  workspaceHubLinks,
+} from "@/lib/dashboard/workspace-secondary-links";
+import { isAdvancedMode, type ExperienceMode } from "@/app/dashboard/nav-config";
+import {
+  CalendarDays,
+  ClipboardCheck,
+  CreditCard,
+  FileText,
+  HelpCircle,
+  Loader2,
+  MapPin,
+  Receipt,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import type { ReportWithSessionData } from "@/lib/session-types";
 import {
   isActiveInspectionStatus,
@@ -68,21 +87,29 @@ const PRIMARY_ACTIONS = [
     href: "/dashboard/inspections/new",
     title: "New inspection",
     description: "Open a job on site",
+    icon: ClipboardCheck,
+    accent: "from-cyan-500/15 to-blue-600/10 text-cyan-700 dark:text-cyan-300",
   },
   {
     href: "/dashboard/field",
     title: "Field capture",
     description: "Photos, moisture, voice",
+    icon: MapPin,
+    accent: "from-emerald-500/15 to-teal-600/10 text-emerald-700 dark:text-emerald-300",
   },
   {
     href: "/dashboard/reports/new",
     title: "New report",
     description: "Write from what you captured",
+    icon: FileText,
+    accent: "from-violet-500/15 to-indigo-600/10 text-violet-700 dark:text-violet-300",
   },
   {
     href: "/dashboard/invoices/new",
     title: "Get a bill out",
     description: "Invoice the work",
+    icon: Receipt,
+    accent: "from-amber-500/15 to-orange-600/10 text-amber-800 dark:text-amber-300",
   },
 ] as const;
 
@@ -103,60 +130,6 @@ function ChevronMark({ className }: { className?: string }) {
   );
 }
 
-function JobsMark({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="square"
-      strokeLinejoin="miter"
-    >
-      <path d="M4 8h16v12H4z" />
-      <path d="M8 8V5h8v3" />
-    </svg>
-  );
-}
-
-function FieldMark({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="square"
-      strokeLinejoin="miter"
-    >
-      <path d="M12 4v16" />
-      <path d="M5 10l7-6 7 6" />
-    </svg>
-  );
-}
-
-function ReportMark({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="square"
-      strokeLinejoin="miter"
-    >
-      <path d="M7 3h8l5 5v13H7z" />
-      <path d="M15 3v5h5" />
-    </svg>
-  );
-}
-
 function LineSkeleton({ className }: { className?: string }) {
   return (
     <div
@@ -166,24 +139,121 @@ function LineSkeleton({ className }: { className?: string }) {
   );
 }
 
+/** Shared width for the overview — matches other 8xl dashboard surfaces. */
+const DASHBOARD_PAGE_MAX = "max-w-9xl";
+
+function DashboardPageFrame({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "relative isolate mx-auto min-w-0 w-full px-4 sm:px-6 lg:px-8",
+        DASHBOARD_PAGE_MAX,
+      )}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[min(560px,75vh)] bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,hsl(var(--primary)/0.22),transparent_58%),radial-gradient(ellipse_55%_45%_at_100%_0%,rgba(6,182,212,0.14),transparent_55%),radial-gradient(ellipse_50%_40%_at_0%_15%,rgba(99,102,241,0.12),transparent_50%)] dark:bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,hsl(var(--primary)/0.28),transparent_58%),radial-gradient(ellipse_55%_45%_at_100%_0%,rgba(34,211,238,0.12),transparent_55%),radial-gradient(ellipse_50%_40%_at_0%_15%,rgba(129,140,248,0.14),transparent_50%)]"
+      />
+      {children}
+    </div>
+  );
+}
+
+function DashboardOverviewSkeleton() {
+  return (
+    <DashboardPageFrame>
+      <div className="space-y-6 py-6" role="status" aria-label="Loading dashboard">
+        <LineSkeleton className="h-48 w-full rounded-2xl" />
+        <LineSkeleton className="h-24 w-full rounded-xl" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <LineSkeleton key={i} className="h-20 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-5">
+          <LineSkeleton className="h-64 rounded-lg lg:col-span-3" />
+          <LineSkeleton className="h-64 rounded-lg lg:col-span-2" />
+        </div>
+      </div>
+    </DashboardPageFrame>
+  );
+}
+
+function DashboardInlineNotice({
+  title,
+  body,
+  action,
+  tone = "default",
+}: {
+  title: string;
+  body: ReactNode;
+  action?: ReactNode;
+  tone?: "default" | "warning" | "danger";
+}) {
+  return (
+    <div
+      role="alert"
+      className={cn(
+        "rounded-xl border px-4 py-3 sm:px-5 sm:py-4",
+        tone === "danger" &&
+          "border-red-500/30 bg-red-500/10 text-red-900 dark:text-red-200",
+        tone === "warning" &&
+          "border-amber-500/35 bg-amber-500/10 text-amber-950 dark:text-amber-100",
+        tone === "default" &&
+          "border-border bg-muted/40 text-foreground",
+      )}
+    >
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-sm opacity-90">{body}</p>
+      {action ? <div className="mt-3">{action}</div> : null}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { data: session, status, update } = useSession();
   if (status === "loading") {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center" role="status">
-        Loading the workspace…
-      </div>
-    );
+    return <DashboardOverviewSkeleton />;
   }
   if (status !== "authenticated" || !session?.user?.id) {
-    return <Link href="/login">Sign in to load your workspace</Link>;
+    return (
+      <DashboardPageFrame>
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 py-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            Sign in to open your workspace overview.
+          </p>
+          <Link
+            href="/login?callbackUrl=/dashboard"
+            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground"
+          >
+            Sign in
+          </Link>
+        </div>
+      </DashboardPageFrame>
+    );
   }
   if (session.user.organizationScopeVerified === false) {
     return (
-      <div role="alert">
-        <p>We couldn’t verify your workspace. Your saved work is preserved.</p>
-        <button type="button" onClick={() => { void update(); }}>Retry workspace</button>
-      </div>
+      <DashboardPageFrame>
+        <div className="py-8">
+          <DashboardInlineNotice
+            tone="warning"
+            title="Workspace verification paused"
+            body="Your saved work is preserved. Retry to refresh your organisation scope."
+            action={
+              <button
+                type="button"
+                onClick={() => {
+                  void update();
+                }}
+                className="inline-flex min-h-11 items-center rounded-lg border border-border bg-background px-4 text-sm font-medium"
+              >
+                Retry workspace
+              </button>
+            }
+          />
+        </div>
+      </DashboardPageFrame>
     );
   }
 
@@ -216,41 +286,78 @@ function DashboardWorkspace({ session }: { session: Session }) {
   }, [needsOnboarding, router]);
 
   if (needsOnboarding) {
-    return <Link href="/onboarding/account-type">Complete your account setup to open the workspace</Link>;
+    return (
+      <DashboardPageFrame>
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 py-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            Finish account setup to unlock the overview.
+          </p>
+          <Link
+            href="/onboarding/account-type"
+            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground"
+          >
+            Continue setup
+          </Link>
+        </div>
+      </DashboardPageFrame>
+    );
   }
   if (error?.status === 401 || error?.status === 403) {
-    return <div role="alert">Workspace access could not be confirmed (HTTP {error.status}). <Link href="/login">Sign in again</Link></div>;
-  }
-  // Older OAuth accounts can have authorised User/Organisation records before
-  // a separate Workspace row exists. Metadata is not a new billing/access gate;
-  // each resource API continues to enforce its existing tenant permissions.
-  return (
-    <>
-      {loading && <p role="status">Loading workspace details…</p>}
-      {!loading && (error || !data?.hasWorkspace || data.status !== "READY") && (
-        <div role="alert" className="space-y-3 py-6">
-          <p>
-            {error
-              ? `Workspace details are unavailable (HTTP ${error.status || "unknown"}).`
-              : data?.status === "PROVISIONING"
-                ? "Workspace setup is still in progress."
-                : data?.status === "SUSPENDED"
-                  ? "Workspace status: suspended. Contact your workspace administrator."
-                  : "Workspace details are unavailable."}
-            {error?.eventId ? ` Error ID: ${error.eventId}` : ""}
-            {" "}Available account records are shown below.
-          </p>
-          <button type="button" onClick={refetch} className="min-h-11 rounded-[10px] border border-border px-4">
-            Retry workspace details
-          </button>
+    return (
+      <DashboardPageFrame>
+        <div className="py-8">
+          <DashboardInlineNotice
+            tone="danger"
+            title="Workspace access could not be confirmed"
+            body={
+              <>
+                HTTP {error.status}.{" "}
+                <Link href="/login" className="font-medium underline">
+                  Sign in again
+                </Link>
+              </>
+            }
+          />
         </div>
-      )}
-      <DashboardContent session={session} workspaceName={data?.workspaceName || data?.workspaceId} />
-    </>
+      </DashboardPageFrame>
+    );
+  }
+
+  const workspaceNotice =
+    !loading && (error || !data?.hasWorkspace || data.status !== "READY")
+      ? {
+          message: error
+            ? `Workspace details are unavailable (HTTP ${error.status || "unknown"}).${error.eventId ? ` Error ID: ${error.eventId}.` : ""}`
+            : data?.status === "PROVISIONING"
+              ? "Workspace setup is still in progress."
+              : data?.status === "SUSPENDED"
+                ? "This workspace is suspended. Contact your administrator."
+                : "Workspace details are unavailable.",
+          onRetry: refetch,
+        }
+      : null;
+
+  return (
+    <DashboardContent
+      session={session}
+      workspaceName={data?.workspaceName || data?.workspaceId}
+      workspaceLoading={loading}
+      workspaceNotice={workspaceNotice}
+    />
   );
 }
 
-function DashboardContent({ session, workspaceName }: { session: Session; workspaceName?: string }) {
+function DashboardContent({
+  session,
+  workspaceName,
+  workspaceLoading,
+  workspaceNotice,
+}: {
+  session: Session;
+  workspaceName?: string;
+  workspaceLoading?: boolean;
+  workspaceNotice?: { message: string; onRetry: () => void } | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
 
@@ -404,9 +511,62 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
   ]);
 
   const firstName = session.user?.name?.split(" ")[0] ?? "there";
+  const role = (session.user as { role?: string }).role;
+  const isManager = isManagerOrAdminRole(role);
+
+  const [experienceMode, setExperienceMode] = useState<ExperienceMode | null>(
+    null,
+  );
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/user/experience-mode", {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { experienceMode?: ExperienceMode };
+        if (!cancelled) {
+          setExperienceMode(data.experienceMode ?? "APPRENTICE");
+        }
+      } catch {
+        if (!cancelled) setExperienceMode("APPRENTICE");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const simpleMode = experienceMode !== null && !isAdvancedMode(experienceMode);
+  const hubLinks = simpleMode
+    ? simpleWorkspaceHubLinks({ omitHref: "/dashboard", isManager })
+    : workspaceHubLinks({ omitHref: "/dashboard", includeCompletenessInbox: isManager });
+
+  const supportTiles = [
+    {
+      href: WORKSPACE_LINKS.help.href,
+      title: WORKSPACE_LINKS.help.label,
+      description: "Guides, tutorials, and contact support",
+      icon: HelpCircle,
+    },
+    {
+      href: WORKSPACE_LINKS.billing.href,
+      title: WORKSPACE_LINKS.billing.label,
+      description: "Plan, payment method, and allowances",
+      icon: CreditCard,
+    },
+    {
+      href: WORKSPACE_LINKS.clients.href,
+      title: WORKSPACE_LINKS.clients.label,
+      description: "People linked to jobs and invoices",
+      icon: Users,
+    },
+  ] as const;
 
   return (
-    <div className="min-w-0 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+    <DashboardPageFrame>
+    <div className="min-w-0 space-y-8 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-2 sm:pt-4 md:pb-10">
       <div className="space-y-3">
         <InboundJobAlert />
         <TechLicenceBanner />
@@ -416,6 +576,37 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
           <BasicReportWithoutKeyCta variant="dark" />
         )}
       </div>
+
+      {workspaceLoading && (
+        <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Loading workspace details…
+        </p>
+      )}
+
+      {workspaceNotice && (
+        <div className="mt-4">
+          <DashboardInlineNotice
+            tone="warning"
+            title="Workspace metadata"
+            body={
+              <>
+                {workspaceNotice.message} Your jobs, reports, and invoices below
+                still load from your account APIs.
+              </>
+            }
+            action={
+              <button
+                type="button"
+                onClick={workspaceNotice.onRetry}
+                className="inline-flex min-h-11 items-center rounded-lg border border-border bg-background px-4 text-sm font-medium"
+              >
+                Retry workspace details
+              </button>
+            }
+          />
+        </div>
+      )}
 
       {model.loadFailed && (
         <div
@@ -446,41 +637,103 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
         </div>
       )}
 
-      <header className="mt-6 mb-6 grid gap-4 border-l-4 border-brand-cta pl-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div className="min-w-0">
-          <p className="text-sm text-brand-slate dark:text-slate-400">
-            Good to see you, {firstName}
-          </p>
-          {workspaceName && <p className="mt-1 break-words text-sm text-muted-foreground">Workspace: {workspaceName}</p>}
-          <h1 className="mt-1 text-pretty text-2xl font-semibold text-slate-50 sm:text-3xl">
-            {model.loadFailed ? "Workspace partially available" : model.loading ? "Loading the board…" : model.focus.title}
-          </h1>
-          <p className="mt-1 max-w-xl text-pretty text-sm text-muted-foreground">
-            {model.loadFailed
-              ? "Retry the unavailable sections to check all your work."
-              : model.loading
-                ? "Checking jobs, reports and invoices."
-                : model.focus.why}
-          </p>
+      <header className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-indigo-950 to-cyan-950 p-6 shadow-xl shadow-cyan-950/25 sm:p-8 dark:shadow-black/50">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.08)_0%,transparent_42%,rgba(34,211,238,0.06)_100%)]"
+        />
+        <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <div className="min-w-0 space-y-4">
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden />
+              Workspace overview
+            </p>
+            <div>
+              <p className="text-sm text-white/70">
+                Good to see you,{" "}
+                <span className="font-medium text-white">{firstName}</span>
+                {workspaceName ? (
+                  <>
+                    {" "}
+                    · <span className="break-words">{workspaceName}</span>
+                  </>
+                ) : null}
+              </p>
+              <h1 className="mt-2 text-pretty text-2xl font-semibold tracking-tight text-white sm:text-3xl lg:text-[2rem] lg:leading-tight">
+                {model.loadFailed
+                  ? "Workspace partially available"
+                  : model.loading
+                    ? "Loading your board…"
+                    : model.focus.title}
+              </h1>
+              <p className="mt-2 max-w-3xl text-pretty text-sm leading-relaxed text-white/65">
+                {model.loadFailed
+                  ? "Retry the unavailable sections to see your full picture."
+                  : model.loading
+                    ? "Checking jobs, reports, and invoices."
+                    : model.focus.why}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {model.loading ? (
+                <>
+                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-white/10" />
+                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-white/10" />
+                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-white/10" />
+                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-white/10" />
+                </>
+              ) : (
+                <>
+                  <StatChip
+                    variant="hero"
+                    label="Active jobs"
+                    value={model.activeInspections.length}
+                  />
+                  <StatChip
+                    variant="hero"
+                    label="Open reports"
+                    value={model.openReports.length}
+                  />
+                  <StatChip
+                    variant="hero"
+                    label="Awaiting payment"
+                    value={model.outstandingInvoices.length}
+                  />
+                  <StatChip variant="hero" label="Clients" value={model.clients.length} />
+                </>
+              )}
+            </div>
+          </div>
+          {!model.loadFailed && !model.loading && (
+            <Link
+              href={model.focus.href}
+              className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-8 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:brightness-105 xl:w-auto"
+            >
+              {model.focus.label}
+            </Link>
+          )}
         </div>
-        {!model.loadFailed && !model.loading && <Link
-          href={model.focus.href}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-[10px] bg-brand-cta px-5 text-sm font-medium text-white hover:bg-brand-cta-hover sm:w-auto"
+        <nav
+          aria-label="Workspace shortcuts"
+          className="relative mt-8 grid grid-cols-2 gap-2 border-t border-white/10 pt-6 sm:grid-cols-3"
         >
-          {model.focus.label}
-        </Link>}
+          {hubLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2.5 text-center text-xs font-medium text-white/85 backdrop-blur-sm transition hover:border-cyan-300/30 hover:bg-white/10 sm:text-sm"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
       </header>
 
-      <section aria-label="Job through invoice" className="mb-6">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          The book of work
-        </p>
-        <ol
-          className={cn(
-            "grid grid-cols-2 overflow-hidden rounded-[10px] border border-brand-bronze/30 bg-gradient-to-br from-brand-navy via-brand-deep to-brand-surface lg:grid-cols-4",
-          )}
-        >
+      <section aria-label="Job through invoice">
+        <SectionLabel>Pipeline</SectionLabel>
+        <ol className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-muted/40 via-card to-primary/[0.04] p-1 shadow-sm lg:grid-cols-4">
           <PipelineStep
+            index={0}
             href="/dashboard/inspections"
             label="Inspect"
             hint="Jobs still open"
@@ -489,71 +742,93 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
             unavailable={Boolean(inspectionsError)}
           />
           <PipelineStep
+            index={1}
             href="/dashboard/reports"
             label="Report"
             hint="Drafts and reviews"
             value={model.openReports.length}
             loading={reportsLoading}
             unavailable={Boolean(reportsError)}
-            connector
           />
           <PipelineStep
+            index={2}
             href="/dashboard/invoices"
             label="Invoice"
             hint="Waiting on payment"
             value={model.outstandingInvoices.length}
             loading={invoicesLoading}
             unavailable={Boolean(invoicesError)}
-            connector
           />
           <PipelineStep
+            index={3}
             href="/dashboard/clients"
             label="Clients"
             hint="People on file"
             value={model.clients.length}
             loading={clientsLoading}
             unavailable={Boolean(clientsError)}
-            connector
           />
         </ol>
       </section>
 
-      <ManagerOpsSummary session={session} />
-
-      <section className="mt-6">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Do next
-        </h2>
+      <section aria-label="Quick actions">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <SectionLabel className="mb-0">Quick actions</SectionLabel>
+          <Link
+            href="/dashboard/inspections/schedule"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-border/80 bg-gradient-to-r from-card to-primary/[0.04] px-3 text-sm font-medium text-primary shadow-sm transition hover:border-primary/30"
+          >
+            <CalendarDays className="h-4 w-4" aria-hidden />
+            Job schedule
+          </Link>
+        </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {PRIMARY_ACTIONS.map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className="flex min-h-16 items-center justify-between gap-3 rounded-[10px] border border-brand-bronze/25 bg-gradient-to-br from-brand-surface to-brand-deep px-4 py-3 text-left text-slate-50 hover:border-brand-gold/50"
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-slate-50">
-                  {action.title}
+          {PRIMARY_ACTIONS.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={cn(
+                  "group flex min-h-[4.75rem] items-start gap-3 rounded-xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.05] p-4 text-left shadow-sm transition hover:border-primary/25 hover:shadow-md",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br",
+                    action.accent,
+                  )}
+                >
+                  <Icon className="h-5 w-5" aria-hidden />
                 </span>
-                <span className="block text-sm text-slate-300">
-                  {action.description}
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="block text-sm font-semibold text-foreground">
+                      {action.title}
+                    </span>
+                    <ChevronMark className="h-4 w-4 shrink-0 text-muted-foreground opacity-60 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+                  </span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">
+                    {action.description}
+                  </span>
                 </span>
-              </span>
-              <ChevronMark className="h-4 w-4 shrink-0 text-brand-gold" />
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </section>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-5">
-        <DashboardPanel className="lg:col-span-3 border-brand-bronze/25 bg-brand-deep bg-gradient-to-br from-brand-surface to-brand-deep">
+      <ManagerOpsSummary session={session} />
+
+      <div className="grid gap-6 xl:grid-cols-12">
+        <DashboardPanel className="xl:col-span-7 bg-gradient-to-br from-card via-card to-cyan-500/[0.04]">
           <DashboardPanelHeader
             title="Needs attention"
             description="Open jobs and unfinished reports — one record each."
             action={
               <Link
                 href="/dashboard/inspections"
-                className="inline-flex min-h-11 items-center text-sm font-medium text-brand-cta hover:underline"
+                className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
               >
                 All jobs
               </Link>
@@ -595,7 +870,7 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
                     className="flex min-h-14 items-center justify-between gap-3 py-3"
                   >
                     <span className="min-w-0">
-                      <span className="mb-0.5 inline-block text-[11px] font-medium uppercase tracking-wide text-brand-slate">
+                      <span className="mb-0.5 inline-block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         Job
                       </span>
                       <span className="block truncate text-sm font-medium text-foreground">
@@ -626,7 +901,7 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
                     className="flex min-h-14 items-center justify-between gap-3 py-3"
                   >
                     <span className="min-w-0">
-                      <span className="mb-0.5 inline-block text-[11px] font-medium uppercase tracking-wide text-brand-slate">
+                      <span className="mb-0.5 inline-block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         Report
                       </span>
                       <span className="block truncate text-sm font-medium text-foreground">
@@ -652,14 +927,14 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
           )}
         </DashboardPanel>
 
-        <DashboardPanel className="lg:col-span-2 border-brand-bronze/25 bg-brand-deep bg-gradient-to-br from-brand-surface to-brand-deep">
+        <DashboardPanel className="xl:col-span-5 bg-gradient-to-br from-card via-card to-amber-500/[0.05]">
           <DashboardPanelHeader
             title="Unpaid invoices"
             description="Money still sitting with the client."
             action={
               <Link
                 href="/dashboard/invoices"
-                className="inline-flex min-h-11 items-center text-sm font-medium text-brand-cta hover:underline"
+                className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
               >
                 All invoices
               </Link>
@@ -708,14 +983,14 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
         </DashboardPanel>
       </div>
 
-      <DashboardPanel className="mt-6 border-brand-bronze/25 bg-brand-deep bg-gradient-to-br from-brand-surface to-brand-deep">
+      <DashboardPanel className="bg-gradient-to-br from-card via-card to-violet-500/[0.05]">
         <DashboardPanelHeader
           title="Recent reports"
           description="Documentation already on the job."
           action={
             <Link
               href="/dashboard/reports"
-              className="inline-flex min-h-11 items-center text-sm font-medium text-brand-cta hover:underline"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
             >
               View all
             </Link>
@@ -745,7 +1020,7 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
                 <Link
                   key={report.id}
                   href={`/dashboard/reports/${report.id}`}
-                  className="block min-w-0 rounded-[10px] border border-border bg-background p-4 hover:border-brand-bronze/50"
+                  className="block min-w-0 rounded-xl border border-border bg-background p-4 shadow-sm transition hover:border-primary/35 hover:shadow-md"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -784,7 +1059,7 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
                           title={p.label}
                           className={cn(
                             "h-1.5 flex-1 rounded-sm",
-                            p.completed ? "bg-brand-cta" : "bg-muted",
+                            p.completed ? "bg-primary" : "bg-muted",
                           )}
                         />
                       ))}
@@ -797,33 +1072,59 @@ function DashboardContent({ session, workspaceName }: { session: Session; worksp
         )}
       </DashboardPanel>
 
+      <section aria-label="Help and account">
+        <SectionLabel>Help &amp; account</SectionLabel>
+        <div className="grid gap-3 md:grid-cols-3">
+          {supportTiles.map(({ href, title, description, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className="flex gap-3 rounded-xl border border-border/80 bg-gradient-to-br from-card to-primary/[0.06] p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-cyan-500/10 text-primary">
+                <Icon className="h-5 w-5" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-foreground">
+                  {title}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {description}
+                </span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <nav
         aria-label="Field shortcuts"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-border bg-background/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-border bg-background/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur-md dark:shadow-[0_-4px_24px_rgba(0,0,0,0.35)] md:hidden"
       >
         <Link
           href="/dashboard/inspections"
-          className="flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-foreground"
+          className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium text-foreground active:bg-muted/60"
         >
-          <JobsMark className="h-5 w-5" />
+          <ClipboardCheck className="h-5 w-5 text-primary" aria-hidden />
           Jobs
         </Link>
         <Link
           href="/dashboard/field"
-          className="flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-foreground"
+          className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium text-foreground active:bg-muted/60"
         >
-          <FieldMark className="h-5 w-5" />
+          <MapPin className="h-5 w-5 text-primary" aria-hidden />
           Field
         </Link>
         <Link
           href="/dashboard/reports/new"
-          className="flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-foreground"
+          className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium text-foreground active:bg-muted/60"
         >
-          <ReportMark className="h-5 w-5" />
+          <FileText className="h-5 w-5 text-primary" aria-hidden />
           Report
         </Link>
       </nav>
     </div>
+    </DashboardPageFrame>
   );
 }
 
@@ -845,17 +1146,25 @@ function ManagerOpsSummary({ session }: { session: Session }) {
   const gapCount = rows.length;
 
   return (
-    <DashboardPanel className="mt-6 border-brand-bronze/25 bg-brand-deep bg-gradient-to-br from-brand-surface to-brand-deep">
+    <DashboardPanel className="bg-gradient-to-br from-card via-card to-amber-500/[0.06]">
       <DashboardPanelHeader
         title="Team gaps"
         description="Jobs missing required intake — from your organisation's active work."
         action={
-          <Link
-            href="/dashboard/operations/completeness-inbox"
-            className="inline-flex min-h-11 items-center text-sm font-medium text-brand-cta hover:underline"
-          >
-            Open inbox
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/dashboard/inspections/schedule"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground hover:text-primary hover:underline"
+            >
+              Job schedule
+            </Link>
+            <Link
+              href="/dashboard/operations/completeness-inbox"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
+            >
+              Open inbox
+            </Link>
+          </div>
         }
       />
       {loading ? (
@@ -901,6 +1210,61 @@ function ManagerOpsSummary({ session }: { session: Session }) {
   );
 }
 
+function SectionLabel({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <h2
+      className={cn(
+        "mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+        className,
+      )}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function StatChip({
+  label,
+  value,
+  variant = "default",
+}: {
+  label: string;
+  value: number;
+  variant?: "default" | "hero";
+}) {
+  if (variant === "hero") {
+    return (
+      <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-md">
+        <p className="text-2xl font-semibold tabular-nums leading-none text-white">
+          {value}
+        </p>
+        <p className="mt-1.5 text-xs text-white/60">{label}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border/60 bg-gradient-to-br from-background to-muted/30 px-3 py-2">
+      <span className="text-lg font-semibold tabular-nums text-foreground">
+        {value}
+      </span>
+      <span className="text-xs text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+const PIPELINE_SURFACE = [
+  "from-cyan-500/12 via-card to-card",
+  "from-violet-500/10 via-card to-card",
+  "from-amber-500/10 via-card to-card",
+  "from-emerald-500/10 via-card to-card",
+] as const;
+
 function PipelineStep({
   href,
   label,
@@ -908,7 +1272,7 @@ function PipelineStep({
   value,
   loading,
   unavailable,
-  connector,
+  index = 0,
 }: {
   href: string;
   label: string;
@@ -916,30 +1280,33 @@ function PipelineStep({
   value: number;
   loading: boolean;
   unavailable: boolean;
+  index?: number;
   connector?: boolean;
 }) {
+  const surface = PIPELINE_SURFACE[index % PIPELINE_SURFACE.length];
   return (
-    <li
-      className={cn(
-        "relative min-w-0",
-        connector &&
-          "border-white/10 max-lg:[&:nth-child(n+3)]:border-t lg:border-t-0 lg:border-l",
-      )}
-    >
+    <li className="relative min-w-0">
       <Link
         href={href}
-        className="flex min-h-18 items-center justify-between gap-3 px-4 py-3 lg:block lg:py-4"
+        className={cn(
+          "flex min-h-[5.25rem] flex-col justify-between gap-2 rounded-xl bg-gradient-to-br px-4 py-3.5 transition hover:brightness-[1.02]",
+          surface,
+        )}
       >
         <span className="min-w-0">
-          <span className="block text-xs font-semibold uppercase tracking-wider text-brand-gold">
+          <span className="block text-xs font-semibold uppercase tracking-wider text-primary">
             {label}
           </span>
-          <span className="mt-0.5 block text-sm text-slate-300">
-            {hint}
-          </span>
+          <span className="mt-0.5 block text-sm text-muted-foreground">{hint}</span>
         </span>
-        <span className="text-2xl font-semibold tabular-nums text-white lg:mt-2 lg:block">
-          {unavailable ? <span className="text-sm">Unavailable</span> : loading ? "—" : value}
+        <span className="text-2xl font-semibold tabular-nums leading-none text-foreground">
+          {unavailable ? (
+            <span className="text-sm font-medium">Unavailable</span>
+          ) : loading ? (
+            "—"
+          ) : (
+            value
+          )}
         </span>
       </Link>
     </li>
@@ -963,7 +1330,7 @@ function EmptyBlock({
       <p className="mt-1 max-w-md text-sm text-muted-foreground">{body}</p>
       <Link
         href={href}
-        className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-brand-cta"
+        className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
       >
         {label}
       </Link>
