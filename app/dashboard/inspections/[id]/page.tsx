@@ -30,6 +30,7 @@ import { ClaimContextBanner } from "@/components/inspection/ClaimContextBanner";
 import { JobAppointmentsPanel } from "@/components/inspection/JobAppointmentsPanel";
 import { FieldAssistPanel } from "@/components/inspection/FieldAssistPanel";
 import { InspectionWorkflowStrip } from "@/components/inspection/InspectionWorkflowStrip";
+import { InspectionWorkspaceLinks } from "@/components/inspection/InspectionWorkspaceLinks";
 import { InspectionJourneyGuide } from "@/components/inspection/InspectionJourneyGuide";
 import { SketchRoomCoveragePanel } from "@/components/inspection/SketchRoomCoveragePanel";
 import { FloorPlanFieldGuide } from "@/components/inspection/FloorPlanFieldGuide";
@@ -1601,8 +1602,8 @@ export default function InspectionDetailPage({
           </Dialog>
       </header>
 
-      <section className={cn(INSPECTION_HUB_CARD, "p-3 sm:p-4")}>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400 mb-2 px-0.5">
+      <section className={cn(INSPECTION_HUB_CARD, "p-3 sm:p-4 space-y-3")}>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400 px-0.5">
           Quick navigation
         </p>
         <InspectionWorkflowStrip
@@ -1610,6 +1611,12 @@ export default function InspectionDetailPage({
           status={inspection.status}
           reportId={inspection.reportId}
           clientId={inspection.clientId}
+        />
+        <InspectionWorkspaceLinks
+          inspectionId={inspection.id}
+          clientId={inspection.clientId}
+          reportId={inspection.reportId}
+          showCompletenessInbox={isManagerOps}
         />
       </section>
 
@@ -1959,7 +1966,7 @@ export default function InspectionDetailPage({
             <div className="lg:col-span-4 md:col-span-2">
               <PortalInvitePanel
                 inspectionId={inspection.id}
-                preselectedClientId={null}
+                preselectedClientId={inspection.clientId ?? null}
               />
             </div>
           </div>
