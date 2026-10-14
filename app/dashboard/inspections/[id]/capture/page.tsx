@@ -774,138 +774,175 @@ export default function CaptureWorkflowPage({
   // SETUP MODE — Choose job type + experience level
   // ============================================
   if (setupMode) {
-    return (
-      <div className="max-w-2xl mx-auto py-12 px-4">
-        <Link
-          href={`/dashboard/inspections/${inspectionId}`}
-          className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 mb-8"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back to inspection
-        </Link>
+    const workflowTemplate = getWorkflowTemplate(selectedJobType);
+    const mandatorySteps = workflowTemplate.steps.filter((s) => s.isMandatory);
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <Camera className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
-                Start Guided Capture
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {inspectionData?.inspectionNumber} —{" "}
-                {inspectionData?.propertyAddress}
-              </p>
+    return (
+      <div className="min-h-[calc(100vh-4rem)] w-full bg-slate-50 dark:bg-slate-950">
+        <header className="w-full border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex w-full flex-col gap-4 px-4 py-5 lg:px-8 lg:flex-row lg:items-center lg:justify-between">
+            <Link
+              href={`/dashboard/inspections/${inspectionId}`}
+              className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to inspection
+            </Link>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-navy/10 dark:bg-brand-navy/30">
+                <Camera className="h-5 w-5 text-brand-navy dark:text-slate-100" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-semibold text-slate-900 dark:text-white">
+                  Start Guided Capture
+                </h1>
+                <p className="truncate text-sm text-slate-500 dark:text-slate-400">
+                  {inspectionData?.inspectionNumber} ·{" "}
+                  {inspectionData?.propertyAddress}
+                </p>
+              </div>
             </div>
           </div>
+        </header>
 
-          <div className="space-y-6">
-            {/* Job Type */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Job Type
-              </label>
-              <Select
-                value={selectedJobType}
-                onValueChange={(v) => setSelectedJobType(v as JobType)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select job type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {JOB_TYPES.map((jt) => (
-                    <SelectItem key={jt} value={jt}>
-                      {JOB_TYPE_LABELS[jt]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                This determines which evidence steps are required for IICRC
-                S500:2021 compliance.
-              </p>
-            </div>
-
-            {/* Experience Level */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Experience Level
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setExperienceLevel("APPRENTICE")}
-                  className={cn(
-                    "p-4 rounded-lg border-2 text-left transition-all",
-                    experienceLevel === "APPRENTICE"
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300",
-                  )}
+        <div className="w-full px-4 py-8 lg:px-8 lg:py-10">
+          <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-8">
+            <section className="space-y-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:p-8 xl:col-span-7">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Job type
+                </label>
+                <Select
+                  value={selectedJobType}
+                  onValueChange={(v) => setSelectedJobType(v as JobType)}
                 >
-                  <div className="font-medium text-sm text-slate-900 dark:text-white">
-                    Apprentice
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Detailed guidance, sub-steps, confirming questions
-                  </div>
-                </button>
-                <button
-                  onClick={() => setExperienceLevel("EXPERIENCED")}
-                  className={cn(
-                    "p-4 rounded-lg border-2 text-left transition-all",
-                    experienceLevel === "EXPERIENCED"
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300",
-                  )}
-                >
-                  <div className="font-medium text-sm text-slate-900 dark:text-white">
-                    Experienced
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Minimal text, consolidated steps, exception-only prompts
-                  </div>
-                </button>
+                  <SelectTrigger className="h-11 w-full">
+                    <SelectValue placeholder="Select job type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JOB_TYPES.map((jt) => (
+                      <SelectItem key={jt} value={jt}>
+                        {JOB_TYPE_LABELS[jt]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  Defines required evidence steps for IICRC S500:2021 compliance.
+                </p>
               </div>
-            </div>
 
-            {/* Preview */}
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Workflow Preview
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                {getWorkflowTemplate(selectedJobType).description}
+              <div>
+                <label className="mb-3 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Experience level
+                </label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setExperienceLevel("APPRENTICE")}
+                    className={cn(
+                      "rounded-lg border-2 p-5 text-left transition-all",
+                      experienceLevel === "APPRENTICE"
+                        ? "border-brand-navy bg-brand-navy/5 dark:bg-brand-navy/20"
+                        : "border-slate-200 hover:border-slate-300 dark:border-slate-700",
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Apprentice
+                    </div>
+                    <div className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      Detailed guidance, sub-steps, and confirming questions at
+                      each stage.
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExperienceLevel("EXPERIENCED")}
+                    className={cn(
+                      "rounded-lg border-2 p-5 text-left transition-all",
+                      experienceLevel === "EXPERIENCED"
+                        ? "border-brand-navy bg-brand-navy/5 dark:bg-brand-navy/20"
+                        : "border-slate-200 hover:border-slate-300 dark:border-slate-700",
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Experienced
+                    </div>
+                    <div className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      Consolidated steps with minimal prompts; exceptions only
+                      when needed.
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <aside className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:p-8 xl:col-span-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Workflow preview
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                {workflowTemplate.description}
               </p>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                <span className="font-medium">
-                  {getWorkflowTemplate(selectedJobType).steps.length} steps
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {workflowTemplate.steps.length} steps
                 </span>
-                {" · "}
-                <span>
-                  {
-                    getWorkflowTemplate(selectedJobType).steps.filter(
-                      (s) => s.isMandatory,
-                    ).length
-                  }{" "}
-                  mandatory
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {mandatorySteps.length} mandatory
+                </span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {experienceLevel === "APPRENTICE"
+                    ? "Guided mode"
+                    : "Experienced mode"}
                 </span>
               </div>
-            </div>
+              <ol className="mt-6 flex-1 space-y-2 overflow-y-auto text-sm text-slate-600 dark:text-slate-300">
+                {workflowTemplate.steps.slice(0, 8).map((step, index) => (
+                  <li
+                    key={step.stepKey}
+                    className="flex gap-3 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800"
+                  >
+                    <span className="font-mono text-xs text-slate-400">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="flex-1">{step.stepTitle}</span>
+                    {step.isMandatory && (
+                      <span className="text-[10px] font-medium uppercase text-amber-600 dark:text-amber-400">
+                        Required
+                      </span>
+                    )}
+                  </li>
+                ))}
+                {workflowTemplate.steps.length > 8 && (
+                  <li className="px-3 py-1 text-xs text-slate-400">
+                    +{workflowTemplate.steps.length - 8} more steps
+                  </li>
+                )}
+              </ol>
+            </aside>
+          </div>
 
+          <div className="mt-8 flex w-full flex-col gap-4 border-t border-slate-200 pt-6 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+              Chain-of-custody and evidence class requirements apply to every
+              capture step. You can change experience level later from the
+              workflow sidebar.
+            </p>
             <Button
               onClick={handleCreateWorkflow}
               disabled={creating}
-              className="w-full"
               size="lg"
+              className="h-12 w-full bg-brand-navy hover:bg-brand-navy/90 sm:w-auto sm:min-w-[260px]"
             >
               {creating ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Creating workflow...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating workflow…
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Begin Guided Capture
+                  <Play className="mr-2 h-4 w-4" />
+                  Begin guided capture
                 </>
               )}
             </Button>
@@ -1087,7 +1124,7 @@ export default function CaptureWorkflowPage({
       {/* ============================================ */}
       <main className="flex-1 overflow-y-auto p-4 lg:p-8">
         {pendingCapture && (
-          <div role="alert" className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div role="alert" className="mx-auto mb-4 flex w-full max-w-6xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <span className="flex-1">Photo captured but its job attachment is not verified. Keep this page open and retry, or save the original file.</span>
             <button type="button" onClick={() => void retryPendingCapture()} disabled={uploadingEvidence} className="rounded border px-2 py-1 disabled:opacity-50">Retry pending photo</button>
             <button type="button" onClick={savePendingCaptureCopy} className="rounded border px-2 py-1">Save original copy</button>
@@ -1095,7 +1132,7 @@ export default function CaptureWorkflowPage({
           </div>
         )}
         {pendingRawFile && !pendingCapture && !uploadingEvidence && (
-          <div role="alert" className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div role="alert" className="mx-auto mb-4 flex w-full max-w-6xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <span className="flex-1">The selected photo could not be prepared or attached. It remains on this page. Retry or save the original file.</span>
             <button type="button" onClick={() => void retryPendingRawFile()} className="rounded border px-2 py-1">Retry selected photo</button>
             <button type="button" onClick={savePendingCaptureCopy} className="rounded border px-2 py-1">Save original copy</button>
@@ -1103,13 +1140,13 @@ export default function CaptureWorkflowPage({
           </div>
         )}
         {pickerPending && (
-          <div role="status" className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div role="status" className="mx-auto mb-4 flex w-full max-w-6xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <span className="flex-1">Waiting for your camera or file picker. If you closed it without choosing a photo, end this selection.</span>
             <button type="button" onClick={() => pickerAbortRef.current?.abort()} className="rounded border px-2 py-1">I did not choose a photo</button>
           </div>
         )}
         {/* Step header */}
-        <div className="max-w-3xl mx-auto">
+        <div className="mx-auto w-full max-w-6xl">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div
