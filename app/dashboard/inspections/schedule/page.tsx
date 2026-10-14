@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import {
   isManagerOrAdminRole,
   workspaceHubLinks,
@@ -316,8 +317,9 @@ export default function InspectionSchedulePage() {
   };
 
   return (
-    <div className="space-y-5">
+    <SimpleDashboardPageFrame className="space-y-5 pb-10 pt-2">
       <DashboardListPageHeader
+        eyebrow="Simple workspace"
         title="Job schedule"
         description="Scheduled site visits from each job’s appointments — add visits on the job detail page."
         icon={<CalendarDays className="text-cyan-500" size={26} aria-hidden />}
@@ -505,6 +507,6 @@ export default function InspectionSchedulePage() {
           </Badge>
         ))}
       </div>
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }
