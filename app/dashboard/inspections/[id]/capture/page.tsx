@@ -923,7 +923,7 @@ export default function CaptureWorkflowPage({
           </div>
 
           <div className="mt-8 flex w-full flex-col gap-4 border-t border-slate-200 pt-6 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+            <p className="max-w-9xl text-sm text-slate-500 dark:text-slate-400">
               Chain-of-custody and evidence class requirements apply to every
               capture step. You can change experience level later from the
               workflow sidebar.
@@ -1124,7 +1124,7 @@ export default function CaptureWorkflowPage({
       {/* ============================================ */}
       <main className="flex-1 overflow-y-auto p-4 lg:p-8">
         {pendingCapture && (
-          <div role="alert" className="mx-auto mb-4 flex w-full max-w-6xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div role="alert" className="mx-auto mb-4 flex w-full max-w-9xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <span className="flex-1">Photo captured but its job attachment is not verified. Keep this page open and retry, or save the original file.</span>
             <button type="button" onClick={() => void retryPendingCapture()} disabled={uploadingEvidence} className="rounded border px-2 py-1 disabled:opacity-50">Retry pending photo</button>
             <button type="button" onClick={savePendingCaptureCopy} className="rounded border px-2 py-1">Save original copy</button>
@@ -1132,7 +1132,7 @@ export default function CaptureWorkflowPage({
           </div>
         )}
         {pendingRawFile && !pendingCapture && !uploadingEvidence && (
-          <div role="alert" className="mx-auto mb-4 flex w-full max-w-6xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div role="alert" className="mx-auto mb-4 flex w-full max-w-9xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <span className="flex-1">The selected photo could not be prepared or attached. It remains on this page. Retry or save the original file.</span>
             <button type="button" onClick={() => void retryPendingRawFile()} className="rounded border px-2 py-1">Retry selected photo</button>
             <button type="button" onClick={savePendingCaptureCopy} className="rounded border px-2 py-1">Save original copy</button>
@@ -1140,13 +1140,13 @@ export default function CaptureWorkflowPage({
           </div>
         )}
         {pickerPending && (
-          <div role="status" className="mx-auto mb-4 flex w-full max-w-6xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div role="status" className="mx-auto mb-4 flex w-full max-w-9xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <span className="flex-1">Waiting for your camera or file picker. If you closed it without choosing a photo, end this selection.</span>
             <button type="button" onClick={() => pickerAbortRef.current?.abort()} className="rounded border px-2 py-1">I did not choose a photo</button>
           </div>
         )}
         {/* Step header */}
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="mx-auto w-full max-w-9xl">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div
