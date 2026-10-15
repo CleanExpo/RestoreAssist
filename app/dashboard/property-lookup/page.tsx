@@ -4,7 +4,7 @@ export const metadata = { title: "Property lookup — RestoreAssist" };
 
 export default function PropertyLookupPage() {
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6 max-w-9xl">
       <h1 className="text-lg font-semibold text-slate-900 mb-1">
         Property lookup
       </h1>
