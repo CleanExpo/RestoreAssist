@@ -431,7 +431,7 @@ export default function PilotReadinessDashboard() {
 
   if (error) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12 text-center space-y-3">
+      <div className="max-w-9xl mx-auto px-4 py-12 text-center space-y-3">
         <AlertTriangle className="mx-auto text-amber-500" size={36} />
         <p className="text-sm font-medium text-neutral-800 dark:text-slate-200">
           Could not load readiness data
@@ -450,7 +450,7 @@ export default function PilotReadinessDashboard() {
   const allClaims = [...report.readyToPromote, ...report.inProgress];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       <PilotReadinessCommandCentre
         snapshot={commandCentre}
         refreshing={refreshing}
