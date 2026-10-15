@@ -103,7 +103,7 @@ export default function BusinessMetricsPage() {
 
   if (hidden) {
     return (
-      <div className="mx-auto max-w-2xl p-6">
+      <div className="mx-auto max-w-9xl p-6">
         <Card>
           <CardHeader>
             <CardTitle>Business metrics are for RestoreAssist staff</CardTitle>
@@ -146,7 +146,7 @@ export default function BusinessMetricsPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
+    <div className="mx-auto max-w-9xl space-y-6 p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Business metrics</h1>
