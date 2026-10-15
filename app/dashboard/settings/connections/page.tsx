@@ -286,7 +286,7 @@ export default function ConnectionsSettingsPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="mx-auto max-w-9xl space-y-6 p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground mb-1">
