@@ -474,7 +474,7 @@ export default function FormTemplatesPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="px-6 py-8 max-w-6xl mx-auto space-y-6">
+    <div className="px-6 py-8 max-w-9xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
         <div className="flex items-center gap-3">
