@@ -647,7 +647,7 @@ function DashboardContent({
                     ? "Loading your board…"
                     : model.focus.title}
               </h1>
-              <p className="mt-2 max-w-3xl text-pretty text-sm leading-relaxed text-white/65">
+              <p className="mt-2 max-w-9xl text-pretty text-sm leading-relaxed text-white/65">
                 {model.loadFailed
                   ? "Retry the unavailable sections to see your full picture."
                   : model.loading
