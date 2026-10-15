@@ -36,6 +36,9 @@ import BillingGate from "@/components/capacitor/BillingGate";
 import { OrganizationLocaleSetting } from "@/components/settings/OrganizationLocaleSetting";
 import { BusinessDetailsSetting } from "@/components/settings/BusinessDetailsSetting";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 const SUBSCRIPTION_STATUS_TONES: Record<string, StatusTone> = {
   ACTIVE: "success",
@@ -300,11 +303,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <DashboardPageFrame className="space-y-6 pb-10 pt-2">
       <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Settings & profile"
         description="Account, business details, notifications, and workspace preferences."
         icon={<User className="h-7 w-7 text-cyan-500" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/settings" })}
         primaryAction={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <button
@@ -790,6 +795,6 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </DashboardPageFrame>
   );
 }
