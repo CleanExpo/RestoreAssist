@@ -305,18 +305,22 @@ function DashboardWorkspace({ session }: { session: Session }) {
   }
 
   const workspaceNotice =
-    !loading && (error || !data?.hasWorkspace || data.status !== "READY")
+    !loading && error
       ? {
-          message: error
-            ? `Workspace details are unavailable (HTTP ${error.status || "unknown"}).${error.eventId ? ` Error ID: ${error.eventId}.` : ""}`
-            : data?.status === "PROVISIONING"
-              ? "Workspace setup is still in progress."
-              : data?.status === "SUSPENDED"
-                ? "This workspace is suspended. Contact your administrator."
-                : "Workspace details are unavailable.",
+          message: `Workspace details are unavailable (HTTP ${error.status || "unknown"}).${error.eventId ? ` Error ID: ${error.eventId}.` : ""}`,
           onRetry: refetch,
         }
-      : null;
+      : !loading && data?.hasWorkspace && data.status !== "READY"
+        ? {
+            message:
+              data.status === "PROVISIONING"
+                ? "Workspace setup is still in progress."
+                : data.status === "SUSPENDED"
+                  ? "This workspace is suspended. Contact your administrator."
+                  : "Workspace details are unavailable.",
+            onRetry: refetch,
+          }
+        : null;
 
   return (
     <DashboardContent
