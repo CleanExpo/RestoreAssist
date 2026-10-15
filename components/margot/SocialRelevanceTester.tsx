@@ -76,6 +76,11 @@ export function SocialRelevanceTester() {
       });
       const json = await res.json();
       if (!res.ok) {
+        if (res.status === 403) {
+          throw new Error(
+            "Platform operator access required. Open /api/margot/access for your User.id, or set PLATFORM_SUPPORT_DEV_OPEN=true locally.",
+          );
+        }
         throw new Error(
           json?.error?.message || json?.error || `HTTP ${res.status}`,
         );
