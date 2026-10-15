@@ -199,7 +199,7 @@ function EnvironmentalConditions({
 
 function PrintSkeleton() {
   return (
-    <div className="max-w-4xl mx-auto p-8 space-y-6 animate-pulse">
+    <div className="max-w-9xl mx-auto p-8 space-y-6 animate-pulse">
       <div className="h-10 bg-neutral-200 rounded w-2/3" />
       <div className="h-4 bg-neutral-100 rounded w-1/3" />
       <div className="h-40 bg-neutral-100 rounded" />
@@ -342,7 +342,7 @@ export default function InspectionPrintPage({
       {gstFailed && (
         <div
           role="alert"
-          className="no-print max-w-4xl mx-auto mt-20 -mb-16 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800"
+          className="no-print max-w-9xl mx-auto mt-20 -mb-16 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800"
         >
           Could not load your organisation&apos;s GST rate, so GST and the
           grand total are not shown and printing is disabled. Check the
@@ -351,7 +351,7 @@ export default function InspectionPrintPage({
       )}
 
       {/* ── Report Body ──────────────────────────────────────────────────── */}
-      <div className="max-w-4xl mx-auto px-6 pb-16 pt-20 print:pt-0 print:px-0 space-y-8">
+      <div className="max-w-9xl mx-auto px-6 pb-16 pt-20 print:pt-0 print:px-0 space-y-8">
         {/* ── 1. Header ───────────────────────────────────────────────────── */}
         <div className="print-card rounded-xl border border-neutral-200 bg-white p-8">
           <div className="flex items-start justify-between gap-6 mb-6">
