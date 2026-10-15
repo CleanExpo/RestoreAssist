@@ -12,6 +12,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Package } from "lucide-react";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 interface CatalogAddon {
   sku: string;
@@ -151,19 +156,22 @@ export default function AddonsClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-      <header className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-brand-bronze dark:text-brand-gold">
-          Billing
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight text-brand-navy dark:text-foreground sm:text-3xl">
-          Add-on packs
-        </h1>
-        <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-          Extend RestoreAssist with optional packs, billed on top of your base
-          plan. Add what you need, when you need it.
-        </p>
-      </header>
+    <DashboardPageFrame className="w-full space-y-8 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Add-on packs"
+        description="Extend RestoreAssist with optional packs on top of your base plan — add what you need, when you need it."
+        icon={<Package className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/addons" })}
+        primaryAction={
+          <Link
+            href="/dashboard/subscription"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/20 bg-white/5 px-4 text-sm font-medium text-white hover:bg-white/10"
+          >
+            Subscription settings
+          </Link>
+        }
+      />
 
       {loading ? (
         <div
@@ -281,6 +289,6 @@ export default function AddonsClient() {
         Prices are GST-inclusive (AUD). Each pack is a separate subscription you
         can cancel anytime from Subscription settings.
       </p>
-    </div>
+    </DashboardPageFrame>
   );
 }
