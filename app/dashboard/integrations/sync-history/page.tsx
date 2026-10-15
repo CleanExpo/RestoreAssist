@@ -552,7 +552,7 @@ export default function SyncHistoryPage() {
   };
 
   return (
-    <div className="space-y-6 p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 p-6 max-w-9xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
