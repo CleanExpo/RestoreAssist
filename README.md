@@ -1,28 +1,32 @@
 # RestoreAssist
 
-TypeScript / Next.js 15 App Router compliance platform for Australian water damage restoration.
+Australian water-damage restoration platform — **Next.js App Router**, TypeScript, Prisma.
 
-## Layout
+## Root layout (what belongs here)
 
-```
-app/           Next.js App Router
-components/    UI
-lib/           Domain / server logic
-prisma/        Schema + migrations (deploy SSOT)
-public/        Static assets
-scripts/       Build / ops
-config/        ESLint, Vitest, Playwright, Lighthouse
-docs/          Long-form docs
-e2e/           Playwright end-to-end specs
-data/content/  Help, training, video scripts (runtime)
-tools/         Remotion video pipeline + local render output
-packages/      Workspace packages (pilot-tester)
-ops/           Release ops (fastlane metadata)
-mobile/        Expo
-ios/ android/  Capacitor shells
-```
+| Path | Role |
+|------|------|
+| `app/` | Routes, API handlers, layouts |
+| `components/` | React UI |
+| `lib/` | Domain logic, auth, integrations |
+| `hooks/` | Client hooks |
+| `types/` | Shared TypeScript types |
+| `prisma/` | Schema and migrations (deploy SSOT) |
+| `public/` | Static assets |
+| `data/content/` | Runtime help, training, nexus-hub (`@/content/*`) |
+| `config/` | ESLint, Vitest, Playwright, Lighthouse |
+| `scripts/` | Build, CI, ops, agent evals |
+| `e2e/` | Playwright end-to-end specs |
+| `docs/` | Specs, ADRs, project notes, intents |
+| `mobile/` · `ios/` · `android/` | Mobile shells (Expo / Capacitor) |
+| `packages/` | Workspace packages (e.g. pilot-tester) |
+| `tools/` | Remotion and local video output |
+| `ops/` | Store metadata (fastlane) |
+| `docker/` | Container build context |
 
-Playwright e2e lives under `e2e/` at the repo root.
+**Instruction files (root only):** `README.md`, `AGENTS.md` (Next.js agent rules), `CLAUDE.md` (engineering rules), `spec.md` (canonical product spec — CI guard).
+
+**Not at root:** long-form backlog, changelogs, review rubrics → `docs/project/`. New product intents → `docs/intent/`.
 
 Env template: `.env.example`.
 
@@ -31,14 +35,14 @@ Env template: `.env.example`.
 ```bash
 npm ci
 npm run dev
-npm run type-check   # authoritative
+npm run type-check
 npm run lint
 npm run test:unit
-npm run test:smoke
 npm run build
 ```
 
 ## Docs
 
-- Release gate: `docs/RELEASE_GATE.md`
-- Root cleanup: `docs/ROOT_CLEANUP_REPORT.md`
+- Release gate: [docs/RELEASE_GATE.md](docs/RELEASE_GATE.md)
+- Root cleanup history: [docs/ROOT_CLEANUP_REPORT.md](docs/ROOT_CLEANUP_REPORT.md)
+- Product backlog (moved from root): [docs/project/BACKLOG.md](docs/project/BACKLOG.md)

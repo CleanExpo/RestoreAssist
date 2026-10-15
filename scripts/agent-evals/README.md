@@ -29,7 +29,7 @@ One JSON file: a prompt, and checks that define an acceptable answer.
 }
 ```
 
-`evals/check.sh` applies the checks to the agent's output and reports pass or
+`scripts/agent-evals/check.sh` applies the checks to the agent's output and reports pass or
 fail per case. The checks are deterministic — regexes and file assertions, no
 model judging another model's answer — because a grader that is itself a model
 fails in correlated ways with the thing it is grading, and this suite exists to
@@ -57,13 +57,13 @@ point of running the command, which is exactly the moment worth encoding.
 ## Running them
 
 ```bash
-bash evals/check.sh                 # every case, against a recorded fixture
-bash evals/check.sh --live          # every case, calling the agent for real
-bash evals/check.sh --case <id>     # one case
+bash scripts/agent-evals/check.sh                 # every case, fixture
+bash scripts/agent-evals/check.sh --live          # every case, live agent
+bash scripts/agent-evals/check.sh --case <id>     # one case
 ```
 
 `--live` needs an agent to call and costs whatever that agent costs. Without it
-the suite runs against `evals/fixtures/<id>.txt`, which makes the CHECKS
+the suite runs against `scripts/agent-evals/fixtures/<id>.txt`, which makes the CHECKS
 testable without making the whole suite a network call — and a check that has
 never been observed failing has not been shown to guard anything.
 
@@ -86,5 +86,5 @@ usually accepts the bad one too.
 ## Where CI runs this
 
 `.github/workflows/agent-evals.yml`, on any change to `CLAUDE.md`, `AGENTS.md`,
-`REVIEW.md`, `.claude/**`, `evals/**`, or the workflow itself, and nightly. The fixture mode needs no API key and no network,
+`docs/project/REVIEW.md`, `.claude/**`, `scripts/agent-evals/**`, or the workflow itself, and nightly. The fixture mode needs no API key and no network,
 so it runs on every such pull request at no cost.

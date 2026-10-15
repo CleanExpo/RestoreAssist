@@ -107,3 +107,19 @@ Deleted workspace file. Kept `pnpm-lock.yaml`. Pilot package runs standalone und
 ## Pass 8 — remove `pnpm-lock.yaml` + package.json pnpm config
 
 Deleted root and `mobile/pnpm-lock.yaml`. Removed `pnpm.overrides` / `auditConfig` and `packageManager` from `package.json`. App `dependencies` / `devDependencies` kept.
+
+## Pass 9 — professional Next.js root (2026-10-15)
+
+| From | To |
+|------|-----|
+| `BACKLOG.md`, `CHANGELOG.md`, `ENHANCEMENT_REVIEW.md`, `RESTOREASSIST_FIRST_REVENUE_DIRECTIVE.md`, `REVIEW.md` | `docs/project/` |
+| `intent/` | `docs/intent/` |
+| `.planning/` | `docs/internal/planning/` |
+| `test/stubs/` | `tests/stubs/` |
+| `evals/` | `scripts/agent-evals/` |
+
+**Still at root (required):** `README.md`, `AGENTS.md`, `CLAUDE.md`, `spec.md` (CI spec-docs + encoding guards).
+
+**Updated:** review panel scripts, `agent-evals.yml`, Vitest `server-only` stub path, `intent-capture` skill, capacitor billing-gate test, README layout table.
+
+**Kept at root (product / tooling):** `_bmad/` (BMAD agent workflows — hard-coded in `.claude/skills`), `data/content/` (runtime `@/content` alias), `tests/unit`, `tests/browser`, `proxy.ts`, Capacitor `ios/` / `android/`.

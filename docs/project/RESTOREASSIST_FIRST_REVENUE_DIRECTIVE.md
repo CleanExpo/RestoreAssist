@@ -78,7 +78,7 @@ intervention and zero errors.
 ## Standing rules (these override everything)
 
 1. **Feature freeze.** No new features for 30 days. Any idea, including
-   multi-trade expansion, gets one line in `BACKLOG.md`. Then stop.
+   multi-trade expansion, gets one line in `docs/project/BACKLOG.md`. Then stop.
 2. **Spec-back before code.** No agent starts work until it has written back
    to Phill, in plain English: (a) one sentence of outcome, (b) the exact
    browser test Phill will personally run, (c) received his "GO". If you
@@ -162,7 +162,7 @@ Trial follow-up email set.
 
 ## Backlog (parked, not dead)
 
-See `BACKLOG.md`. The product earns the right to widen.
+See `docs/project/BACKLOG.md`. The product earns the right to widen.
 
 ## Open questions from the agent, 2 September
 

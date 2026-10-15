@@ -23,7 +23,7 @@ chain is the audit trail — who asked for what, when, and what was decided.
 ## The chain
 
 ```text
-intent/*.md  →  docs/superpowers/specs/*.md  →  docs/superpowers/plans/*.md  →  the diff, its tests, the PR
+docs/intent/*.md  →  docs/superpowers/specs/*.md  →  docs/superpowers/plans/*.md  →  the diff, its tests, the PR
    Stage 1              Stage 2                          Stage 3                        Stage 3–5
    what and why         what it must do                  how it will be built           what was built
 ```
@@ -38,7 +38,7 @@ You do not need Git, and you do not need to be an engineer.
 1. Describe the problem to Claude in your own words. What can you not do today?
    Who does it affect? What would better look like? What is out of scope?
 2. Let Claude ask the questions an analyst would ask, until the idea is concrete.
-3. Ask it to write the result as an `intent.md` using `intent/TEMPLATE.md`
+3. Ask it to write the result as an `intent.md` using `docs/intent/TEMPLATE.md`
    (the `intent-capture` skill does this).
 4. **Correct anything it misunderstood.** This step is the point of the exercise —
    the file is a record of what *you* meant, not of what Claude inferred.

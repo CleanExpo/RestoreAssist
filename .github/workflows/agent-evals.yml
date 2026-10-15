@@ -13,16 +13,16 @@ name: Agent evals
 #
 # The --live mode calls a real agent and does cost money, so it is not wired
 # here. Run it locally when you want to know what the agent actually does today:
-#   bash evals/check.sh --live
+#   bash scripts/agent-evals/check.sh --live
 
 on:
   pull_request:
     paths:
       - "CLAUDE.md"
       - "AGENTS.md"
-      - "REVIEW.md"
+      - "docs/project/REVIEW.md"
       - ".claude/**"
-      - "evals/**"
+      - "scripts/agent-evals/**"
       # Its own definition. A workflow-only edit can disable a step or widen
       # permissions without ever running the gate that would notice.
       - ".github/workflows/agent-evals.yml"
@@ -61,7 +61,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Run the eval suite
-        run: bash evals/check.sh
+        run: bash scripts/agent-evals/check.sh
 
       # The hook guards are configuration too, and they are the reason this
       # suite exists: both shipped inert, printing BLOCKED while allowing the

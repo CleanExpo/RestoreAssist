@@ -137,7 +137,7 @@ describe("iOS shell detection — cross-file wiring", () => {
       .filter((f) => !f.includes("__tests__"))
       .sort();
 
-    const listed = read(".planning/BILLING_GATE_ROUTES.txt")
+    const listed = read("docs/internal/planning/BILLING_GATE_ROUTES.txt")
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l && !l.startsWith("#"))
@@ -153,7 +153,7 @@ describe("iOS shell detection — cross-file wiring", () => {
   });
 
   it("every gated file resolves to a provider-covered segment", () => {
-    const listed = read(".planning/BILLING_GATE_ROUTES.txt")
+    const listed = read("docs/internal/planning/BILLING_GATE_ROUTES.txt")
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l && !l.startsWith("#"));
@@ -179,7 +179,7 @@ describe("iOS shell detection — cross-file wiring", () => {
   it("no BillingGate lives under a force-static route", () => {
     // force-static makes headers() return empty, so the server verdict
     // silently becomes false AND the fail-open response is CDN-cached.
-    const gateFiles = read(".planning/BILLING_GATE_ROUTES.txt")
+    const gateFiles = read("docs/internal/planning/BILLING_GATE_ROUTES.txt")
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l && !l.startsWith("#"));

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # check.sh — run the agent-configuration evals.
 #
-#   bash evals/check.sh                  every case, against recorded fixtures
-#   bash evals/check.sh --case <id>      one case
-#   bash evals/check.sh --live           call the agent for real (costs money)
+#   bash scripts/agent-evals/check.sh                  every case, fixtures
+#   bash scripts/agent-evals/check.sh --case <id>      one case
+#   bash scripts/agent-evals/check.sh --live           real agent (costs money)
 #
 # WHAT THIS TESTS. Not the model. The CONFIGURATION that steers it: the skills,
 # rules, CLAUDE.md and hooks under .claude/, which nothing else in this repo
-# covers. See evals/README.md.
+# covers. See scripts/agent-evals/README.md.
 #
 # THE DEAD-CHECK IS BUILT IN. Every case ships two fixtures: one answer that
 # should pass, and one exhibiting the original defect that MUST fail. Running
