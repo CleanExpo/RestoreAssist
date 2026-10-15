@@ -503,7 +503,7 @@ export default function WebhookLogsPage() {
         open={!!payloadEvent}
         onOpenChange={(open) => !open && setPayloadEvent(null)}
       >
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-9xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Eye size={16} />
