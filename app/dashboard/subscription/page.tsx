@@ -702,7 +702,7 @@ function SubscriptionPageContent() {
             })()}
 
             {/* Pricing Cards */}
-            <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <div className="grid md:grid-cols-3 gap-6 max-w-9xl mx-auto">
               {Object.entries(PRICING_CONFIG.pricing).map(([key, plan]) => (
                 <div
                   key={key}
@@ -805,7 +805,7 @@ function SubscriptionPageContent() {
             </div>
 
             {/* Features Comparison */}
-            <div className="mt-12 max-w-4xl mx-auto">
+            <div className="mt-12 max-w-9xl mx-auto">
               <h3 className="text-2xl font-bold text-white text-center mb-6">
                 All Plans Include
               </h3>
