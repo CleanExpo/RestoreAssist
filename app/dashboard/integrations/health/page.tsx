@@ -527,7 +527,7 @@ export default function IntegrationHealthPage() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 p-6 max-w-6xl mx-auto">
+    <div className="space-y-6 p-6 max-w-9xl mx-auto">
       {/* Back link + title row */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
