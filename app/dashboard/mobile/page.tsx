@@ -460,7 +460,7 @@ export default function MobileDashboardPage() {
   const progressPct = Math.round((doneCount / totalCount) * 100);
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-8 max-w-9xl">
       {/* Page header */}
       <div>
         <div className="flex items-center gap-3 mb-1">
