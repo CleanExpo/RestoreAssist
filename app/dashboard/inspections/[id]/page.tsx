@@ -1387,7 +1387,7 @@ export default function InspectionDetailPage({
     session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-5 pb-10">
+    <div className="mx-auto max-w-9xl space-y-5 pb-10">
       <confirm.Mount />
       {/* Header */}
       <header className={cn(INSPECTION_HUB_CARD, "p-4 sm:p-5 space-y-4")}>
@@ -1974,7 +1974,7 @@ export default function InspectionDetailPage({
 
         {/* Environmental Tab */}
         {activeTab === "environmental" && (
-          <div className="max-w-2xl space-y-4">
+          <div className="max-w-9xl space-y-4">
             {envData && !showEnvForm ? (
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
                 <div className="flex items-center justify-between">
@@ -2861,7 +2861,7 @@ export default function InspectionDetailPage({
 
         {/* Classification Tab */}
         {activeTab === "classification" && (
-          <div className="space-y-4 max-w-3xl">
+          <div className="space-y-4 max-w-9xl">
             <div className="p-5 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-4">
               <div>
                 <h3 className="font-semibold text-neutral-900 dark:text-white">
