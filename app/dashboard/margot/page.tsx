@@ -53,8 +53,28 @@ import {
   DashboardPanel,
   dashboardSurfaceClass,
 } from "@/app/dashboard/components/DashboardPanel";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { cn } from "@/lib/utils";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
 import { MARGOT_SOCIAL_TRAINING_CHECKS } from "@/lib/margot/social-role-prompt";
+import { MARGOT_DISPLAY_NAME } from "@/lib/margot-surface";
+
+function formatMargotChatError(message: string): string {
+  const trimmed = message.trim();
+  if (trimmed.includes("Forbidden") || trimmed.includes('"error"')) {
+    try {
+      const parsed = JSON.parse(trimmed) as { error?: string };
+      if (parsed.error === "Forbidden") {
+        return "Access denied — you need platform operator access for Margot chat. Check GET /api/margot/access for your User.id and .env setup.";
+      }
+    } catch {
+      if (/forbidden/i.test(trimmed)) {
+        return "Access denied — platform operator access required. See /api/margot/access for setup.";
+      }
+    }
+  }
+  return message;
+}
 
 const STARTER_PROMPTS = [
   {
@@ -80,10 +100,29 @@ export default function MargotDashboardPage() {
   );
 }
 
+type MargotAccess = {
+  allowed: boolean;
+  userId?: string;
+  hint?: string | null;
+  devOpen?: boolean;
+};
+
 function MargotChatWorkspace() {
   const searchParams = useSearchParams();
   const [toolsOpen, setToolsOpen] = useState(true);
+  const [access, setAccess] = useState<MargotAccess | null>(null);
   const autoSent = useRef<string | null>(null);
+
+  useEffect(() => {
+    void fetch("/api/margot/access")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json && typeof json.allowed === "boolean") {
+          setAccess(json as MargotAccess);
+        }
+      })
+      .catch(() => setAccess(null));
+  }, []);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: "/api/margot/chat" }),
@@ -134,38 +173,67 @@ function MargotChatWorkspace() {
   };
 
   const isBusy = chatStatus === "submitted" || chatStatus === "streaming";
+  const chatBlocked = access !== null && !access.allowed;
 
   return (
-    <div className="flex min-h-[calc(100dvh-14rem)] flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Ask for a briefing, or draft a social comment to train the
-          restoration gate.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setToolsOpen((v) => !v)}
-            aria-pressed={toolsOpen}
-          >
-            {toolsOpen ? (
-              <PanelRightClose className="mr-1.5 h-4 w-4" />
-            ) : (
-              <PanelRightOpen className="mr-1.5 h-4 w-4" />
-            )}
-            Social tools
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setMessages([])}
-            disabled={isBusy || messages.length === 0}
-          >
-            <PlusIcon className="mr-1.5 h-4 w-4" />
-            New chat
-          </Button>
+    <div className="flex min-h-[calc(100dvh-14rem)] flex-col gap-6">
+      <DashboardListPageHeader
+        eyebrow={`${ADVANCED_WORKSPACE_EYEBROW} · ${MARGOT_DISPLAY_NAME}`}
+        title="Chat"
+        description="Ops briefings, Linear tools, research, and social-comment drafts. The restoration gate applies to comment training."
+        icon={<Bot className="h-7 w-7 text-cyan-400" aria-hidden />}
+        primaryAction={
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setToolsOpen((v) => !v)}
+              aria-pressed={toolsOpen}
+            >
+              {toolsOpen ? (
+                <PanelRightClose className="mr-1.5 h-4 w-4" />
+              ) : (
+                <PanelRightOpen className="mr-1.5 h-4 w-4" />
+              )}
+              Social tools
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setMessages([])}
+              disabled={isBusy || messages.length === 0}
+            >
+              <PlusIcon className="mr-1.5 h-4 w-4" />
+              New chat
+            </Button>
+          </div>
+        }
+        secondaryLinks={[
+          { href: "/dashboard/margot/home", label: "Ops overview" },
+          { href: "/dashboard/margot/social", label: "Social training" },
+          { href: "/dashboard/mission-control", label: "Mission Control" },
+        ]}
+      />
+
+      {chatBlocked ? (
+        <div
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100"
+          role="status"
+        >
+          <p className="font-medium">Margot chat is locked for this account.</p>
+          <p className="mt-1 text-amber-900/90 dark:text-amber-50/90">
+            {access.hint ?? "Platform operator access required."}
+            {access.userId ? (
+              <>
+                {" "}
+                Your User.id:{" "}
+                <code className="rounded bg-black/10 px-1 py-0.5 text-xs">
+                  {access.userId}
+                </code>
+              </>
+            ) : null}
+          </p>
         </div>
-      </div>
+      ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:gap-4">
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -404,7 +472,8 @@ function MargotChatWorkspace() {
                     )}
                     {error ? (
                       <div className="mx-4 my-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                        Margot hit a snag: {error.message}
+                        Margot hit a snag:{" "}
+                        {formatMargotChatError(error.message)}
                       </div>
                     ) : null}
                   </ConversationContent>
@@ -414,7 +483,7 @@ function MargotChatWorkspace() {
 
               <div
                 className={cn(
-                  "shrink-0 border-t p-3 sm:p-4",
+                  "shrink-0 space-y-2 border-t p-3 sm:p-4",
                   "border-neutral-200 dark:border-slate-700/60",
                   "bg-neutral-50/80 dark:bg-slate-900/40",
                 )}
@@ -424,21 +493,26 @@ function MargotChatWorkspace() {
                   multiple
                   onSubmit={handleSubmit}
                   globalDrop
+                  className={cn(chatBlocked && "pointer-events-none opacity-60")}
                 >
                   <PromptInputBody>
-                    <Attachments />
-                    <PromptInputTextarea placeholder="Message Margot… Ask for a briefing, or draft a social comment to test the gate." />
-                    <PromptInputFooter>
-                      <p className="hidden text-xs text-muted-foreground sm:block">
-                        Admin-only · social gate applies to comment drafts
-                      </p>
-                      <div className="flex-1" />
-                      <PromptInputSubmit
-                        status={chatStatus}
-                        disabled={isBusy}
-                      />
-                    </PromptInputFooter>
+                    <Attachments className="ml-0 w-full max-w-none" />
+                    <PromptInputTextarea
+                      rows={3}
+                      disabled={chatBlocked}
+                      placeholder="Message Margot… briefing, research, or a social comment to test the gate."
+                      className="min-h-[4.5rem] w-full min-w-0 text-base leading-normal"
+                    />
                   </PromptInputBody>
+                  <PromptInputFooter className="border-t border-border/60 pt-2">
+                    <p className="hidden min-w-0 flex-1 text-xs text-muted-foreground sm:block">
+                      Platform operator · social gate on comment drafts
+                    </p>
+                    <PromptInputSubmit
+                      status={chatStatus}
+                      disabled={isBusy || chatBlocked}
+                    />
+                  </PromptInputFooter>
                 </PromptInput>
               </div>
             </DashboardPanel>
