@@ -67,10 +67,10 @@ export default async function HelpIndexPage() {
         <div aria-hidden className={simpleDashboardHeroShine} />
         <div className="relative space-y-5">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0 max-w-2xl">
+            <div className="min-w-0 max-w-9xl">
               <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
                 <Sparkles className="h-3.5 w-3.5" />
-                Simple workspace · Knowledge base
+                Workspace · Knowledge base
               </p>
               <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                 Help &amp; Support
