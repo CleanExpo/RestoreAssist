@@ -1,5 +1,9 @@
 import Image from "next/image";
-import Link from "next/link";
+import { cn } from "@/lib/utils";
+import {
+  simpleDashboardHeroShell,
+  simpleDashboardHeroShine,
+} from "@/lib/dashboard/simple-dashboard-theme";
 
 type Reason =
   | "trial-expired"
@@ -77,16 +81,24 @@ export default function UpgradeHeader({
   feature?: string;
 }) {
   const { headline, support, reasonLabel } = heroFor(reason, feature);
-  const isHardPaywall =
-    reason === "trial-expired" ||
-    reason === "credits" ||
-    reason === "feature" ||
-    reason === "canceled" ||
-    reason === "past-due";
 
   return (
-    <header className="mb-10 sm:mb-12">
-      <div className="mb-8 flex items-center justify-between gap-4">
+    <header
+      className={cn(
+        simpleDashboardHeroShell,
+        "overflow-hidden sm:p-8 lg:p-10",
+      )}
+    >
+      <div aria-hidden className={simpleDashboardHeroShine} />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-8 top-0 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 left-1/4 h-px w-[120%] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent"
+      />
+      <div className="relative space-y-5">
         <div className="inline-flex items-center gap-2.5">
           <Image
             src="/logo.png"
@@ -96,39 +108,28 @@ export default function UpgradeHeader({
             className="h-9 w-9 object-contain"
             priority
           />
-          <span className="text-base font-semibold tracking-tight text-foreground">
+          <span className="text-base font-semibold tracking-tight text-white">
             RestoreAssist
           </span>
         </div>
-        {isHardPaywall ? (
-          <Link
-            href="/login"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md px-1 py-0.5"
-          >
-            Switch account
-          </Link>
-        ) : (
-          <Link
-            href="/dashboard"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md px-1 py-0.5"
-          >
-            Back to account
-          </Link>
-        )}
-      </div>
 
-      <div className="mx-auto max-w-xl text-center sm:text-left">
-        {reasonLabel && (
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-brand-bronze dark:text-brand-gold">
-            {reasonLabel}
+        <div className="max-w-4xl lg:max-w-none">
+          {reasonLabel ? (
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+              {reasonLabel}
+            </p>
+          ) : (
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+              Billing · Upgrade
+            </p>
+          )}
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            {headline}
+          </h1>
+          <p className="mt-3 text-base leading-relaxed text-white/65 sm:text-lg">
+            {support}
           </p>
-        )}
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-          {headline}
-        </h1>
-        <p className="mt-3 text-base leading-relaxed text-muted-foreground sm:text-lg">
-          {support}
-        </p>
+        </div>
       </div>
     </header>
   );
