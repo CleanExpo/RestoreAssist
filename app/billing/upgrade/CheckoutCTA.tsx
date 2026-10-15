@@ -64,7 +64,7 @@ export default function CheckoutCTA() {
         type="button"
         onClick={go}
         disabled={loading}
-        className="w-full rounded-xl bg-brand-navy px-8 py-3.5 text-base font-semibold text-white shadow-md shadow-brand-navy/25 transition-[background-color,opacity,transform] hover:bg-brand-navy-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-50 min-h-12 active:scale-[0.99]"
+        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-cyan-950/40 transition-[opacity,transform] hover:from-blue-500 hover:to-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-50 min-h-12 active:scale-[0.99]"
       >
         {loading
           ? "Redirecting to secure checkout…"
@@ -72,17 +72,17 @@ export default function CheckoutCTA() {
       </button>
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2">
-        <li className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground sm:flex-col sm:gap-1.5">
+        <li className="flex items-center justify-center gap-2 text-center text-xs text-white/50 sm:flex-col sm:gap-1.5">
           <RAIcon name="shield" size={14} decorative />
           <span>Secured by Stripe</span>
         </li>
-        <li className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground sm:flex-col sm:gap-1.5">
+        <li className="flex items-center justify-center gap-2 text-center text-xs text-white/50 sm:flex-col sm:gap-1.5">
           <ChromeRefresh
-            className="h-3.5 w-3.5 shrink-0 text-foreground/70"
+            className="h-3.5 w-3.5 shrink-0 text-white/60"
           />
           <span>Cancel anytime</span>
         </li>
-        <li className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground sm:flex-col sm:gap-1.5">
+        <li className="flex items-center justify-center gap-2 text-center text-xs text-white/50 sm:flex-col sm:gap-1.5">
           <RAIcon name="invoice" size={14} decorative />
           <span>AUD incl. GST</span>
         </li>
