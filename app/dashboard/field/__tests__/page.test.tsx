@@ -23,6 +23,25 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/components/mobile/MobileNav", () => ({ MobileNav: () => null }));
+vi.mock("@/app/dashboard/components/DashboardListPageHeader", () => ({
+  DashboardListPageHeader: ({
+    title,
+    description,
+  }: {
+    title: string;
+    description?: string;
+  }) => (
+    <div>
+      <h1>{title}</h1>
+      {description ? <p>{description}</p> : null}
+    </div>
+  ),
+}));
+vi.mock("@/app/dashboard/components/DashboardPageFrame", () => ({
+  DashboardPageFrame: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
 vi.mock("@/lib/capacitor", () => ({ isCapacitor: () => false }));
 vi.mock("@/lib/offline/account-boundary", () => ({
   getOfflineOwner: () => ({ userId: "synthetic", organizationId: null, workspaceId: null, workspaceOwnerId: null }),
