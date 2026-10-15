@@ -61,4 +61,4 @@ Run the eight-step browser script in the P0 spec (signup → inspection → repo
 ## Other ops (not automated in repo)
 
 - Stripe live webhook secret rotation.
-- Apply `supabase/migrations/20260717000000_p0_1_private_evidence_sketch_buckets.sql` on prod Supabase after A1.
+- Apply `docs/ops/supabase-migrations-archive/20260717000000_p0_1_private_evidence_sketch_buckets.sql` on prod Supabase after A1.

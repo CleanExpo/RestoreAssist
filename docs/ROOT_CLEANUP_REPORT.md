@@ -122,4 +122,15 @@ Deleted root and `mobile/pnpm-lock.yaml`. Removed `pnpm.overrides` / `auditConfi
 
 **Updated:** review panel scripts, `agent-evals.yml`, Vitest `server-only` stub path, `intent-capture` skill, capacitor billing-gate test, README layout table.
 
-**Kept at root (product / tooling):** `_bmad/` (BMAD agent workflows — hard-coded in `.claude/skills`), `data/content/` (runtime `@/content` alias), `tests/unit`, `tests/browser`, `proxy.ts`, Capacitor `ios/` / `android/`.
+**Kept at root (product / tooling):** `data/content/` (runtime `@/content` alias), `tests/unit`, `proxy.ts`, Capacitor `ios/` / `android/`.
+
+## Pass 10 — leaner root (2026-10-15)
+
+| From | To |
+|------|-----|
+| `_bmad/` | `.claude/bmad/` (all `.claude/skills` paths updated) |
+| `supabase/migrations/*.sql` | `docs/ops/supabase-migrations-archive/` (root `supabase/` removed) |
+| `tests/browser/` | `e2e/browser/` |
+| `ops/fastlane/` | `mobile/fastlane/` (root `ops/` removed) |
+
+**Root listing target:** app, components, lib, config, scripts, docs, e2e, tests, data, mobile, packages, tools, prisma, public, hooks, types + standard Next.js config files and four instruction/spec markdown files only.

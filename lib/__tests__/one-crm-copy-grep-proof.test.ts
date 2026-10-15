@@ -4,7 +4,7 @@
  * The old homepage H1 and every user-facing NRPG sentence that was REMOVED
  * (not merely switched off) must appear nowhere in the code that reaches a
  * customer: app/, components/, lib/ (including lib/email-templates* and the
- * blog), public/ and the store listing under ops/fastlane. Tests are skipped,
+ * blog), public/ and the store listing under mobile/fastlane. Tests are skipped,
  * because they quote the old strings on purpose.
  *
  * Whitespace is collapsed before matching, so a sentence split across JSX
@@ -31,7 +31,7 @@ const ROOTS = [
   "components",
   "lib",
   "public",
-  "ops/fastlane",
+  "mobile/fastlane",
   "docs/distribution",
 ];
 // Store "What's New" text files carry no extension, so the EXT filter below
@@ -187,7 +187,7 @@ describe("grep proof — removed strings appear nowhere user-facing", () => {
   it("public/llms.txt and the store listing do not mention NRPG at all", () => {
     for (const file of [
       "public/llms.txt",
-      "ops/fastlane/metadata/android/en-AU/full_description.txt",
+      "mobile/fastlane/metadata/android/en-AU/full_description.txt",
     ]) {
       const entry = corpus.find((c) => c.file === file);
       expect(entry, `${file} was not scanned`).toBeDefined();
@@ -331,7 +331,7 @@ function claimIn(text: string): string | null {
  */
 function isPublicCopy(file: string): boolean {
   return (
-    file.startsWith("ops/fastlane/") ||
+    file.startsWith("mobile/fastlane/") ||
     file.startsWith("docs/distribution/app-store/") ||
     file.startsWith("components/landing/") ||
     [
@@ -389,7 +389,7 @@ describe("grep proof — the claim matcher can fire (controls)", () => {
   it("scans every public copy surface it names", () => {
     const scanned = new Set(publicCopy.map((c) => c.file));
     for (const f of [
-      "ops/fastlane/metadata/android/en-AU/full_description.txt",
+      "mobile/fastlane/metadata/android/en-AU/full_description.txt",
       "docs/distribution/app-store/store-listings.md",
       "docs/distribution/app-store/whatsnew/whatsnew-en-AU",
       "docs/distribution/app-store/whatsnew/whatsnew-en-US",

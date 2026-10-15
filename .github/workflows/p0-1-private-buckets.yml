@@ -34,7 +34,7 @@ on:
       - ".github/workflows/p0-1-private-buckets.yml"
       - "scripts/e2e/p0-1-private-buckets-acceptance.mjs"
       - "scripts/__tests__/p0-1-private-buckets-workflow.test.ts"
-      - "supabase/migrations/20260717000000_p0_1_private_evidence_sketch_buckets.sql"
+      - "docs/ops/supabase-migrations-archive/20260717000000_p0_1_private_evidence_sketch_buckets.sql"
       - "lib/storage/**"
 
 permissions:
