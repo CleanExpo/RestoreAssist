@@ -2707,6 +2707,7 @@ export default function NIRTechnicianInputForm({
 
           <div>
             <label
+              htmlFor="nir-property-postcode"
               className={cn(
                 "block text-sm font-medium mb-1",
                 "text-neutral-700 dark:text-slate-300",
@@ -2715,6 +2716,7 @@ export default function NIRTechnicianInputForm({
               Postcode <span className="text-destructive">*</span>
             </label>
             <input
+              id="nir-property-postcode"
               type="text"
               required
               disabled={creatingInspection}
@@ -2738,10 +2740,14 @@ export default function NIRTechnicianInputForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-neutral-700 dark:text-slate-300">
+            <label
+              htmlFor="nir-inspection-date"
+              className="block text-sm font-medium mb-1 text-neutral-700 dark:text-slate-300"
+            >
               Site attendance date
             </label>
             <input
+              id="nir-inspection-date"
               type="date"
               disabled={creatingInspection}
               value={inspectionDate}
