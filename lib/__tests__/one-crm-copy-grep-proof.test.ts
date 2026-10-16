@@ -152,11 +152,11 @@ describe("grep proof — positive controls (the scan can find things)", () => {
     }
   });
 
+  // Positive control for whereIs: the current homepage H1 (approved hero copy,
+  // 828c55b59) must be found where it lives.
   it("finds the new homepage H1", () => {
     expect(
-      whereIs(
-        "The CRM built for Australian and New Zealand restoration professionals. One product, not three.",
-      ),
+      whereIs("Less paperwork. More time to run your restoration business."),
     ).toContain("components/landing/home/homeContent.ts");
   });
 

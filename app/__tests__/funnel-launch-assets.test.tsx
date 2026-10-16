@@ -271,8 +271,9 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     it.each([
       "One System. Fewer Gaps. More Confidence.",
       "Office and Field. One System.",
-      "Inspections, reports, quotes, invoices, clients, team and compliance in one system — with optional add-ons you switch on only when they earn their keep.",
-      "The CRM built for Australian and New Zealand restoration professionals. One product, not three.",
+      // Hero copy approved 12/10/2026 (828c55b59), confirmed by the founder 16/10/2026.
+      "Less paperwork. More time to run your restoration business.",
+      "Capture site evidence, prepare IICRC-aligned reports, and manage scopes and invoices in one connected workspace.",
       "Who your software works for tells you everything.",
       "RestoreAssist has one customer: the restorer.",
       "If a location wasn't recorded, we say so",
@@ -349,10 +350,10 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
         expect(text).toContain("RestoreAssist");
         expect(text).toContain("Start free — 15-day trial");
         expect(text).toContain(
-          "The CRM built for Australian and New Zealand restoration professionals. One product, not three.",
+          "Less paperwork. More time to run your restoration business.",
         );
         expect(text).toContain(
-          "Inspections, reports, quotes, invoices, clients, team and compliance in one system — with optional add-ons you switch on only when they earn their keep.",
+          "Capture site evidence, prepare IICRC-aligned reports, and manage scopes and invoices in one connected workspace.",
         );
         expect(container.innerHTML).toContain(heroSrc);
         for (const pattern of AI_THEATRE_FORBIDDEN) {
