@@ -118,7 +118,7 @@ describe("Field Mode active jobs (RA-7711)", () => {
     render(<FieldDashboardPage />);
 
     expect(await screen.findByText("NIR-2026-09-F1C142")).toBeInTheDocument();
-    expect(screen.getByText("2 active jobs")).toBeInTheDocument();
+    expect(screen.getByText(/\b2 active jobs\b/)).toBeInTheDocument();
 
     const url = new URL(listUrl(), "http://localhost");
     expect(url.searchParams.get("status")?.split(",")).toEqual([
@@ -186,7 +186,7 @@ describe("Field Mode active jobs (RA-7711)", () => {
     expect(
       screen.getByRole("button", { name: /retry/i }),
     ).toBeVisible();
-    expect(screen.queryByText("0 active jobs")).not.toBeInTheDocument();
+    expect(screen.queryByText(/\b0 active jobs\b/)).not.toBeInTheDocument();
     expect(screen.queryByText("No active jobs")).not.toBeInTheDocument();
   });
 
@@ -199,7 +199,7 @@ describe("Field Mode active jobs (RA-7711)", () => {
 
     await screen.findByRole("alert");
     expect(screen.getByRole("button", { name: /retry/i })).toBeVisible();
-    expect(screen.queryByText("0 active jobs")).not.toBeInTheDocument();
+    expect(screen.queryByText(/\b0 active jobs\b/)).not.toBeInTheDocument();
   });
 
   it("Retry reloads and then lists the jobs", async () => {

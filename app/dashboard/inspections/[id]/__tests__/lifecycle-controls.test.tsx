@@ -32,8 +32,11 @@ describe("inspection lifecycle controls", () => {
     expect(source).toMatch(
       /const canGenerateInvoice =\s*\(inspection\.status === "SUBMITTED" && Boolean\(inspection\.signedAt\)\) \|\|\s*inspection\.status === "IN_BILLING"/,
     );
+    // 12b350bb8 wrapped the link in the design-system <Button asChild>. The
+    // gaps stay bounded (see the sign-off note above) so the match cannot run
+    // on to an ungated "Generate Invoice" elsewhere in the file.
     expect(source).toMatch(
-      /\{canGenerateInvoice && \(\s*<Link[\s\S]*?Generate Invoice/,
+      /\{canGenerateInvoice && \(\s*(?:<Button\b[^>]*>\s*)?<Link\b[^>]*>[\s\S]{0,200}?Generate Invoice/,
     );
   });
 
@@ -42,7 +45,7 @@ describe("inspection lifecycle controls", () => {
       /const canGenerateReport =\s*\["ESTIMATED", "SUBMITTED", "COMPLETED"\]\.includes\(\s*inspection\.status,?\s*\)/,
     );
     expect(source).toMatch(
-      /\{canGenerateReport && \(\s*<button[\s\S]*?Generate NIR Report/,
+      /\{canGenerateReport && \(\s*<(?:button|Button)\b[\s\S]{0,600}?Generate NIR Report/,
     );
   });
 });
