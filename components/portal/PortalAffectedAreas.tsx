@@ -1,4 +1,5 @@
 import type { PortalAffectedAreaItem } from "@/lib/portal/portal-affected-areas";
+import { clientPortalPanelPadding } from "@/lib/portal/client-portal-theme";
 
 /**
  * Client-safe list of rooms already on the job.
@@ -14,13 +15,10 @@ export function PortalAffectedAreas({
   if (areas.length === 0) return null;
 
   return (
-    <div
-      data-testid="portal-affected-areas"
-      className="bg-white rounded-xl border border-slate-200 p-4"
-    >
-      <h2 className="text-sm font-semibold text-slate-700 mb-3">
+    <div data-testid="portal-affected-areas" className={clientPortalPanelPadding}>
+      <h2 className="mb-3 text-sm font-semibold text-white/90">
         Affected Areas
-        <span className="ml-2 text-xs font-normal text-slate-400">
+        <span className="ml-2 text-xs font-normal text-slate-500">
           ({areas.length})
         </span>
       </h2>
@@ -29,9 +27,9 @@ export function PortalAffectedAreas({
           <li
             key={area.id}
             data-testid="portal-affected-area"
-            className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0"
+            className="flex items-center justify-between border-b border-white/5 py-1.5 last:border-0"
           >
-            <span className="text-sm text-slate-700">{area.label}</span>
+            <span className="text-sm text-slate-200">{area.label}</span>
             <span className="text-xs text-slate-500">
               Included in the restoration plan
             </span>
