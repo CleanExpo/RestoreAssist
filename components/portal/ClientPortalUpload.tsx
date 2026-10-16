@@ -1,14 +1,5 @@
 "use client";
 
-/**
- * Client-portal evidence upload (client portal Phase 2b).
- *
- * Lets the client add photos + a short description from their portal link and
- * send them to their assessor. Posts to the token-gated, quarantined route
- * (POST /api/portal/[token]/evidence) built in Phase 2 — submissions are held
- * for staff review, never auto-added to the report.
- */
-
 import { useState } from "react";
 import {
   clientPortalPanelPadding,
