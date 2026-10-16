@@ -1,12 +1,6 @@
 import type { PortalAffectedAreaItem } from "@/lib/portal/portal-affected-areas";
-import { clientPortalPanelPadding } from "@/lib/portal/client-portal-theme";
+import { ClientPortalPanel } from "@/components/portal/ClientPortalPanel";
 
-/**
- * Client-safe list of rooms already on the job.
- *
- * Empty input renders nothing. A blank label still occupies a row — omitting
- * it would hide an AffectedArea the database has (RA-7573 Critic/Scout bar).
- */
 export function PortalAffectedAreas({
   areas,
 }: {
@@ -15,7 +9,7 @@ export function PortalAffectedAreas({
   if (areas.length === 0) return null;
 
   return (
-    <div data-testid="portal-affected-areas" className={clientPortalPanelPadding}>
+    <ClientPortalPanel data-testid="portal-affected-areas">
       <h2 className="mb-3 text-sm font-semibold text-white/90">
         Affected Areas
         <span className="ml-2 text-xs font-normal text-slate-500">
@@ -36,6 +30,6 @@ export function PortalAffectedAreas({
           </li>
         ))}
       </ul>
-    </div>
+    </ClientPortalPanel>
   );
 }
