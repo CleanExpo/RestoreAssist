@@ -2,6 +2,7 @@ import {
   initialsFor,
   type PublicCertification,
 } from "@/lib/portal/technician-identity";
+import { clientPortalPanelPadding } from "@/lib/portal/client-portal-theme";
 
 export interface TechnicianIdentity {
   name: string;
@@ -33,12 +34,12 @@ export function TechnicianIdentityCard({
 
   return (
     <section
-      className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5"
+      className={clientPortalPanelPadding}
       aria-labelledby="technician-heading"
     >
       <h2
         id="technician-heading"
-        className="text-sm font-semibold text-slate-900 mb-3"
+        className="mb-3 text-sm font-semibold text-white/95"
       >
         Who is working on your property
       </h2>
@@ -65,21 +66,21 @@ export function TechnicianIdentityCard({
         )}
 
         <div className="min-w-0 flex-1">
-          <p className="text-base font-medium text-slate-900">{name}</p>
+          <p className="text-base font-medium text-white/95">{name}</p>
           {isVerified && (
-            <p className="text-xs text-emerald-700 mt-0.5">
+            <p className="mt-0.5 text-xs text-emerald-400">
               Credentials verified by RestoreAssist
             </p>
           )}
           {bio && (
-            <p className="text-sm text-slate-600 mt-2 leading-relaxed">{bio}</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-400">{bio}</p>
           )}
         </div>
       </div>
 
       {certifications.length > 0 && (
-        <div className="mt-4 border-t border-slate-100 pt-3">
-          <h3 className="text-xs font-semibold text-slate-700 mb-2">
+        <div className="mt-4 border-t border-white/10 pt-3">
+          <h3 className="mb-2 text-xs font-semibold text-slate-300">
             Current qualifications
           </h3>
           <ul className="space-y-2">
@@ -88,7 +89,7 @@ export function TechnicianIdentityCard({
                 key={`${c.issuingBody}-${c.certificationName}`}
                 className="text-sm"
               >
-                <span className="text-slate-800">{c.certificationName}</span>
+                <span className="text-slate-200">{c.certificationName}</span>
                 <span className="text-slate-500"> &middot; {c.issuingBody}</span>
                 {c.certificationNumber && (
                   <span className="block text-xs text-slate-500">
