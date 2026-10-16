@@ -11,13 +11,37 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sendMessage = vi.fn();
 let searchParams = new URLSearchParams();
+let chatMessages: unknown[] = [];
+
+// An assistant turn waiting on the operator to confirm a Linear write. Its
+// Confirm / Cancel buttons are not disabled by the lock, so send()'s own
+// access check is the only thing between them and Margot.
+const PENDING_LINEAR_WRITE = [
+  {
+    id: "m1",
+    role: "assistant",
+    parts: [
+      {
+        type: "tool-linear_create_issue",
+        toolCallId: "t1",
+        state: "output-available",
+        input: { title: "Probe issue" },
+        output: {
+          requiresConfirmation: true,
+          action: "linear_create_issue",
+          pending: { title: "Probe issue" },
+        },
+      },
+    ],
+  },
+];
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
 }));
 vi.mock("@ai-sdk/react", () => ({
   useChat: () => ({
-    messages: [],
+    messages: chatMessages,
     sendMessage,
     setMessages: vi.fn(),
     status: "ready",
@@ -25,7 +49,7 @@ vi.mock("@ai-sdk/react", () => ({
   }),
 }));
 vi.mock("@/components/margot/SocialRelevanceTester", () => ({
-  SocialRelevanceTester: () => null,
+  SocialRelevanceTester: () => <div data-testid="social-tester" />,
 }));
 
 import MargotDashboardPage from "../page";
@@ -57,6 +81,15 @@ function textarea() {
   return screen.getByPlaceholderText(/Message Margot/);
 }
 
+function socialTester() {
+  return screen.queryByTestId("social-tester");
+}
+
+async function clickConfirmOnPendingLinearWrite() {
+  fireEvent.click(screen.getByText("linear_create_issue"));
+  fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+}
+
 function briefingStarter() {
   return screen.getByRole("button", { name: /briefing/i });
 }
@@ -72,6 +105,7 @@ beforeEach(() => {
   fetchMock.mockReset();
   sendMessage.mockReset();
   searchParams = new URLSearchParams();
+  chatMessages = [];
   vi.stubGlobal("fetch", fetchMock);
   // jsdom has no ResizeObserver; the conversation scroll container needs one.
   vi.stubGlobal(
@@ -94,6 +128,7 @@ describe("Margot dashboard access probe", () => {
     render(<MargotDashboardPage />);
     expect(await screen.findByText(LOCKED)).toBeInTheDocument();
     expect(textarea()).toBeDisabled();
+    expect(socialTester()).not.toBeInTheDocument();
   });
 
   it("locks chat when the probe cannot be reached", async () => {
@@ -101,6 +136,7 @@ describe("Margot dashboard access probe", () => {
     render(<MargotDashboardPage />);
     expect(await screen.findByText(LOCKED)).toBeInTheDocument();
     expect(textarea()).toBeDisabled();
+    expect(socialTester()).not.toBeInTheDocument();
   });
 
   it("keeps chat closed while the probe is still pending", async () => {
@@ -110,6 +146,7 @@ describe("Margot dashboard access probe", () => {
     await settle();
     expect(textarea()).toBeDisabled();
     expect(briefingStarter()).toBeDisabled();
+    expect(socialTester()).not.toBeInTheDocument();
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
@@ -137,7 +174,26 @@ describe("Margot dashboard access probe", () => {
     await settle();
     expect(screen.queryByText(LOCKED)).not.toBeInTheDocument();
     expect(textarea()).not.toBeDisabled();
+    expect(socialTester()).toBeInTheDocument();
     fireEvent.click(briefingStarter());
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not send a Linear confirmation after a 403", async () => {
+    chatMessages = PENDING_LINEAR_WRITE;
+    probeAnswers(refused());
+    render(<MargotDashboardPage />);
+    await screen.findByText(LOCKED);
+    await clickConfirmOnPendingLinearWrite();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("sends the operator's Linear confirmation", async () => {
+    chatMessages = PENDING_LINEAR_WRITE;
+    probeAnswers(operator());
+    render(<MargotDashboardPage />);
+    await settle();
+    await clickConfirmOnPendingLinearWrite();
     expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
