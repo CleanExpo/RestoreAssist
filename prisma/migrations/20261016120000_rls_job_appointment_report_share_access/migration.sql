@@ -38,7 +38,7 @@ BEGIN
         SELECT 1
         FROM public."Inspection" i
         WHERE i.id = "JobAppointment"."inspectionId"
-          AND i."userId" = auth.uid()::text
+          AND i."userId" = (select auth.uid())::text
       )
     );
 END
