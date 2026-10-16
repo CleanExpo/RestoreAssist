@@ -1,15 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  FileText,
-  Users,
-  Receipt,
-  CreditCard,
-  HelpCircle,
-  CalendarDays,
-  Inbox,
-} from "lucide-react";
+import { ChromeCalendar, ChromeCard, ChromeFile, ChromeHelpCircle, ChromeInbox, ChromeReceipt, ChromeUsers } from "@/components/brand/chrome-icons";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -38,23 +30,23 @@ export function InspectionWorkspaceLinks({
     {
       href: reportId ? `/dashboard/reports/${reportId}` : "/dashboard/reports",
       label: reportId ? "This report" : "My Reports",
-      icon: FileText,
+      icon: ChromeFile,
     },
     {
       href: clientId ? `/dashboard/clients/${clientId}` : "/dashboard/clients",
       label: clientId ? "This client" : "My Clients",
-      icon: Users,
+      icon: ChromeUsers,
     },
-    { href: billHref, label: "Get a Bill Out", icon: Receipt },
-    { href: "/dashboard/subscription", label: "Account & Billing", icon: CreditCard },
-    { href: "/dashboard/help", label: "Help", icon: HelpCircle },
-    { href: "/dashboard/inspections/schedule", label: "Job schedule", icon: CalendarDays },
+    { href: billHref, label: "Get a Bill Out", icon: ChromeReceipt },
+    { href: "/dashboard/subscription", label: "Account & Billing", icon: ChromeCard },
+    { href: "/dashboard/help", label: "Help", icon: ChromeHelpCircle },
+    { href: "/dashboard/inspections/schedule", label: "Job schedule", icon: ChromeCalendar },
     ...(showCompletenessInbox
       ? [
           {
             href: "/dashboard/operations/completeness-inbox",
             label: "Completeness inbox",
-            icon: Inbox,
+            icon: ChromeInbox,
           },
         ]
       : []),

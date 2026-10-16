@@ -2,13 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import {
-  BookOpen,
-  ChevronDown,
-  HelpCircle,
-  PlayCircle,
-  Search,
-} from "lucide-react";
+import { ChromeBook, ChromeChevronDown, ChromeHelpCircle, ChromePlayCircle, ChromeSearch } from "@/components/brand/chrome-icons";
 import {
   HELP_CATEGORIES,
   HELP_CATEGORY_LABELS,
@@ -84,9 +78,9 @@ export default function HowToDropdown() {
         aria-haspopup="menu"
         aria-label="Help menu"
       >
-        <HelpCircle className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+        <ChromeHelpCircle className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
         <span className="hidden sm:inline">Help</span>
-        <ChevronDown
+        <ChromeChevronDown
           className={cn(
             "h-4 w-4 shrink-0 opacity-70 transition-transform",
             open && "rotate-180",
@@ -110,7 +104,7 @@ export default function HowToDropdown() {
               }}
               className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2.5 text-xs font-medium text-cyan-200 hover:bg-white/10"
             >
-              <Search className="h-3.5 w-3.5" aria-hidden />
+              <ChromeSearch className="h-3.5 w-3.5" aria-hidden />
               Search
               <kbd className="rounded border border-white/20 px-1 text-[10px]">
                 ⌘K
@@ -134,7 +128,7 @@ export default function HowToDropdown() {
                       : "hover:bg-white/5",
                   )}
                 >
-                  <BookOpen
+                  <ChromeBook
                     className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300/80"
                     aria-hidden
                   />
@@ -152,7 +146,7 @@ export default function HowToDropdown() {
 
             <div className="border-white/10 lg:col-span-2 lg:border-l lg:pl-4">
               <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
-                <PlayCircle className="h-3.5 w-3.5" aria-hidden />
+                <ChromePlayCircle className="h-3.5 w-3.5" aria-hidden />
                 Video walkthroughs
               </div>
               {categoryVideos.length === 0 ? (
@@ -167,7 +161,7 @@ export default function HowToDropdown() {
                       className="group flex items-center gap-2 rounded-lg p-2 hover:bg-white/5"
                     >
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10 group-hover:bg-cyan-500/20">
-                        <PlayCircle
+                        <ChromePlayCircle
                           className="h-4 w-4 text-cyan-300 group-hover:text-white"
                           aria-hidden
                         />
