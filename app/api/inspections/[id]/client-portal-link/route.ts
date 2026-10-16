@@ -9,18 +9,6 @@ import { sendEmail } from "@/lib/email-send";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/email";
 
-/**
- * The "single button" (Client portal Phase 1).
- *
- * Staff action on an inspection → ensure the claim's client has a portal token
- * (ClientPortalAccount, revocable), email them the one /portal/[token] link, and
- * return it for copy. The link is the client's single entry to their claim
- * (status now; evidence upload + authority approvals in later phases).
- *
- * Authed + tenancy-gated. Client is resolved from Inspection.clientId first,
- * then Report.client (P3 canonical spine). Token: 256-bit, stored verbatim.
- */
-
 export const dynamic = "force-dynamic";
 
 function mintToken(): string {
@@ -79,13 +67,7 @@ export async function POST(
       });
     }
 
-    // Reuse the client's active portal token if present; else mint one. Always
-    // (re)set a 30-day expiry on send — the link authorises signing, so it must
-    // not be an unbounded-lifetime bearer token (security review must-fix).
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    // WP-02: one link per client AND job, so a link sent for one job never
-    // follows the client to a newer one. An older link with no job recorded is
-    // not adopted: it would keep opening whichever job is newest.
     const existing = await prisma.clientPortalAccount.findFirst({
       where: { clientId: client.id, inspectionId: id, revokedAt: null },
       select: { id: true, token: true },
@@ -111,9 +93,6 @@ export async function POST(
       ).token;
     }
 
-    // RA-7634: build the emailed link from the configured app URL, never from
-    // the request's Origin header — a forged Origin must not steer where the
-    // client's link points.
     const url = `${getAppUrl()}/portal/${token}`;
     const safeUrl = escapeHtml(url);
 
