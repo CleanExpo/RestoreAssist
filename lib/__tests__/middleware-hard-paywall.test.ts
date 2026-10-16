@@ -139,7 +139,7 @@ describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
     );
     const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).toBe(307);
-    expect((res as any).headers.get("location")).toContain(
+    expect(res?.headers.get("location")).toContain(
       "/billing/upgrade?reason=past-due",
     );
   });
