@@ -12,16 +12,13 @@ export function PortalAccessExplainer({
       data-testid="portal-access-explainer"
       className={`${clientPortalPanelPadding} text-left`}
     >
-      <h2 className="text-base font-semibold text-white/95">
-        Two ways to open a job
-      </h2>
+      <h2 className="text-base font-semibold text-white/95">How access works</h2>
       <div className={`mt-3 grid gap-4 ${compact ? "" : "sm:grid-cols-2"}`}>
         <div>
           <h3 className="text-sm font-semibold text-slate-200">Job link</h3>
           <p className="mt-1 text-sm text-slate-400">
-            A long /portal/ address emailed by the contractor. Opens that job
-            without a password. The link expires. If it has expired, request a
-            new invite or ask the contractor for a fresh link.
+            Emailed by your restorer. Opens one job with no password. Links
+            expire — request a fresh link if yours stops working.
           </p>
         </div>
         <div>
@@ -29,9 +26,8 @@ export function PortalAccessExplainer({
             Portal account
           </h3>
           <p className="mt-1 text-sm text-slate-400">
-            Email and password created from an invitation. Opens every report
-            for that property after sign-in. Unused invitations expire.
-            Recovery is a new invitation, not a contractor login.
+            Email and password from an invitation. After sign-in you can open
+            reports shared with you. This is not the same login restorers use.
           </p>
         </div>
       </div>
