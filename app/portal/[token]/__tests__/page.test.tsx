@@ -144,7 +144,7 @@ describe("ClientPortalPage — view-only links (RA-7634)", () => {
     render(await ClientPortalPage({ params }));
 
     expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
-    expect(screen.getByText("Viewing only")).toBeInTheDocument();
+    expect(screen.getByText("View only")).toBeInTheDocument();
     expect(screen.queryByTestId("portal-authorities")).not.toBeInTheDocument();
     expect(screen.queryByTestId("portal-upload")).not.toBeInTheDocument();
   });
@@ -153,7 +153,7 @@ describe("ClientPortalPage — view-only links (RA-7634)", () => {
     render(await ClientPortalPage({ params }));
 
     expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
-    expect(screen.getByText("Viewing only")).toBeInTheDocument();
+    expect(screen.getByText("View only")).toBeInTheDocument();
     expect(screen.queryByTestId("portal-authorities")).not.toBeInTheDocument();
     expect(screen.queryByTestId("portal-upload")).not.toBeInTheDocument();
   });
@@ -165,7 +165,7 @@ describe("ClientPortalPage — view-only links (RA-7634)", () => {
 
     render(await ClientPortalPage({ params }));
 
-    expect(screen.queryByText("Viewing only")).not.toBeInTheDocument();
+    expect(screen.queryByText("View only")).not.toBeInTheDocument();
     expect(screen.getByTestId("portal-authorities")).toBeInTheDocument();
     expect(screen.getByTestId("portal-upload")).toBeInTheDocument();
   });

@@ -25,6 +25,7 @@ import {
   ClientPortalShell,
 } from "@/components/portal/ClientPortalShell";
 import { ClientPortalReportReady } from "@/components/portal/ClientPortalReportReady";
+import { ClientPortalPanel } from "@/components/portal/ClientPortalPanel";
 import { clientPortalPanelPadding } from "@/lib/portal/client-portal-theme";
 
 export const dynamic = "force-dynamic";
@@ -122,13 +123,13 @@ export default async function ClientPortalPage({ params }: PageProps) {
       <ClientPortalStatus token={token} reportPdfHref={reportReady ? `/api/portal/${encodeURIComponent(token)}/pdf` : undefined} />
 
       {!showInteractiveActions && (
-        <div role="status" className={clientPortalPanelPadding}>
-          <p className="text-sm font-semibold text-white/90">Viewing only</p>
+        <ClientPortalPanel role="status">
+          <p className="text-sm font-semibold text-white/90">View only</p>
           <p className="mt-1 text-sm text-slate-400">
-            Uploads and approvals are unavailable from this link. Please contact
-            your restoration team for a new secure link.
+            This link cannot be used to upload or sign. Ask your restoration
+            team for a new link if you need to respond on this job.
           </p>
-        </div>
+        </ClientPortalPanel>
       )}
 
       {showInteractiveActions && <ClientPortalAuthorities token={token} />}
