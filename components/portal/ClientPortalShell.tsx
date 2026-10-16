@@ -8,12 +8,12 @@ import {
   clientPortalHeroShell,
   clientPortalMeshGradient,
   clientPortalPageShell,
+  clientPortalTextLink,
 } from "@/lib/portal/client-portal-theme";
 import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 
 type Props = {
   children: ReactNode;
-  /** Restorer org name when known; otherwise product fallback. */
   brandName?: string | null;
   logoUrl?: string | null;
   inspectionNumber?: string;
@@ -109,21 +109,15 @@ export function ClientPortalShell({
               <span className="font-semibold text-cyan-400/90">RestoreAssist</span>
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              Questions about your job? Contact your restoration team directly.
+              For job questions, contact your restoration team.
             </p>
             <p className="mt-3 text-xs text-slate-500">
-              <Link
-                href={PORTAL_PATHS.help}
-                className="text-cyan-400/90 hover:text-cyan-300 hover:underline"
-              >
-                Client help
+              <Link href={PORTAL_PATHS.help} className={clientPortalTextLink}>
+                Help
               </Link>
               <span className="px-2 text-slate-600">·</span>
-              <Link
-                href={PORTAL_PATHS.login}
-                className="text-cyan-400/90 hover:text-cyan-300 hover:underline"
-              >
-                Portal account sign-in
+              <Link href={PORTAL_PATHS.login} className={clientPortalTextLink}>
+                Sign in
               </Link>
             </p>
           </>
@@ -133,7 +127,6 @@ export function ClientPortalShell({
   );
 }
 
-/** Hero strip for property / job context on token pages. */
 export function ClientPortalPropertyCard({
   address,
   technicianName,
