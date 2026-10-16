@@ -302,7 +302,7 @@ jobs:
       #
       # Groups B to D run even when an earlier group fails (!cancelled()), so one red
       # spec does not hide the results of the rest. The job still fails.
-      - name: Run remaining E2E (1 of 4)
+      - name: Run remaining E2E (1 of 5)
         run: >-
           bash scripts/ci/with-mem-log.sh
           npx --no-install playwright test -c config/playwright.config.ts
@@ -321,7 +321,7 @@ jobs:
           e2e/invite-tech-already-used.spec.ts
           --project=chromium --reporter=line
 
-      - name: Run remaining E2E (2 of 4)
+      - name: Run remaining E2E (2 of 5)
         if: ${{ !cancelled() }}
         run: >-
           bash scripts/ci/with-mem-log.sh
@@ -337,7 +337,7 @@ jobs:
           e2e/procurement.spec.ts
           --project=chromium --reporter=line
 
-      - name: Run remaining E2E (3 of 4)
+      - name: Run remaining E2E (3 of 5)
         if: ${{ !cancelled() }}
         run: >-
           bash scripts/ci/with-mem-log.sh
@@ -351,14 +351,13 @@ jobs:
           e2e/setup-website-failure.spec.ts
           --project=chromium --reporter=line
 
-      - name: Run remaining E2E (4 of 4)
+      - name: Run remaining E2E (4 of 5)
         if: ${{ !cancelled() }}
         run: >-
           bash scripts/ci/with-mem-log.sh
           npx --no-install playwright test -c config/playwright.config.ts
           e2e/first-tradie-flow.spec.ts
           e2e/moisture-p2-claim-integrity.spec.ts
-          e2e/v1-reference-claim.spec.ts
           e2e/dashboard-connected-journey.spec.ts
           e2e/inspection-floor-plan-flow.spec.ts
           e2e/offline-moisture-sync.spec.ts
@@ -369,6 +368,21 @@ jobs:
           e2e/tech-evidence-capture-no-modal.spec.ts
           e2e/tech-second-signoff-prefilled.spec.ts
           e2e/tech-signoff-modal-cancel.spec.ts
+          --project=chromium --reporter=line
+
+      # Split from the step above on 16/10/2026. Each playwright run boots its
+      # own `npm run dev`, and the dev server's memory grows with every route it
+      # compiles. With these three in the same run, v1-reference-claim (which
+      # compiles the estimate, invoice, payment, Xero and close routes) took the
+      # 16 GB runner to 173 MB free and GitHub killed it ("The runner has
+      # received a shutdown signal"), twice on main @ 95c5ca53b, with no test
+      # failing. A fresh server for the financial spine keeps both runs clear.
+      - name: Run remaining E2E (5 of 5)
+        if: ${{ !cancelled() }}
+        run: >-
+          bash scripts/ci/with-mem-log.sh
+          npx --no-install playwright test -c config/playwright.config.ts
+          e2e/v1-reference-claim.spec.ts
           e2e/warehouse.spec.ts
           e2e/workshop.spec.ts
           --project=chromium --reporter=line
