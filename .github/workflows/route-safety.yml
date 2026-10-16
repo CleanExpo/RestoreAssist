@@ -12,6 +12,9 @@ on:
   pull_request:
     branches: [main, sandbox]
     types: [opened, synchronize, reopened]
+  # Manual run on any ref, e.g. main after a direct push (RestoreAssist ships
+  # direct to main, and a push to main never triggered this guard).
+  workflow_dispatch:
 
 permissions:
   contents: read

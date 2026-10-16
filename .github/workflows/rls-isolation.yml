@@ -19,6 +19,14 @@ on:
     paths:
       - "**/migrations/**"
       - "scripts/rls-harness/**"
+  # Manual run on any ref (e.g. main after a direct push). base_ref is
+  # required: without it the initplan lint would diff main against itself,
+  # find no changed migrations and pass without checking anything.
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Commit or ref the lint diffs against (the pre-change base)"
+        required: true
 
 permissions:
   contents: read
@@ -46,7 +54,7 @@ jobs:
 
       - name: Lint new policy predicates for bare auth.*()
         env:
-          LINT_BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+          LINT_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.event.pull_request.base.ref) }}
         run: node scripts/lint-rls-policy-initplan.mjs
 
   rls-isolation:

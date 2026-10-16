@@ -19,6 +19,9 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".nvmrc"
+  # Manual run on any ref (e.g. main after a direct push); path filters do
+  # not apply to a dispatch, so it always runs.
+  workflow_dispatch:
 
 permissions:
   contents: read
