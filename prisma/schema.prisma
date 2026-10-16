@@ -89,8 +89,8 @@ model User {
   updatedAt                    DateTime       @updatedAt
 
   // Organisation & team hierarchy
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationId     String?
+  organization       Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   // RA-7893: when, and from which organisation, this user last left one
   // (member removal, or the owner deleting their account). Null for current
   // members and for removals made before the columns existed.
@@ -175,30 +175,30 @@ model User {
   // this state; event hooks must not infer it from mutable invite rows.
   pendingInviteIdentity Boolean @default(false)
 
-  accounts             Account[]
-  sessions             Session[]
-  reports              Report[]
-  clients              Client[]
-  integrations         Integration[]
-  costLibraries        CostLibrary[]
-  scopes               Scope[]
-  estimates            Estimate[]
-  pricingConfig        CompanyPricingConfig?
-  contractorProfile    ContractorProfile?
-  addonPurchases       AddonPurchase[]
-  claimAnalysisBatches ClaimAnalysisBatch[]
-  standardTemplates    StandardTemplate[]
-  inspections          Inspection[]
-  jobAppointmentsCreated  JobAppointment[] @relation("JobAppointmentCreator")
-  jobAppointmentsAssigned JobAppointment[] @relation("JobAppointmentAssignee")
-  chatMessages         ChatMessage[]
-  usageEvents          UsageEvent[]          @relation("usageEvents")
-  emailConnection      EmailConnection?
-  scheduledEmails      ScheduledEmail[]
-  emailAudits          EmailAudit[]
-  formTemplates        FormTemplate[]
-  formSubmissions      FormSubmission[]
-  xeroSyncStatuses     XeroSyncStatus[]
+  accounts                Account[]
+  sessions                Session[]
+  reports                 Report[]
+  clients                 Client[]
+  integrations            Integration[]
+  costLibraries           CostLibrary[]
+  scopes                  Scope[]
+  estimates               Estimate[]
+  pricingConfig           CompanyPricingConfig?
+  contractorProfile       ContractorProfile?
+  addonPurchases          AddonPurchase[]
+  claimAnalysisBatches    ClaimAnalysisBatch[]
+  standardTemplates       StandardTemplate[]
+  inspections             Inspection[]
+  jobAppointmentsCreated  JobAppointment[]      @relation("JobAppointmentCreator")
+  jobAppointmentsAssigned JobAppointment[]      @relation("JobAppointmentAssignee")
+  chatMessages            ChatMessage[]
+  usageEvents             UsageEvent[]          @relation("usageEvents")
+  emailConnection         EmailConnection?
+  scheduledEmails         ScheduledEmail[]
+  emailAudits             EmailAudit[]
+  formTemplates           FormTemplate[]
+  formSubmissions         FormSubmission[]
+  xeroSyncStatuses        XeroSyncStatus[]
 
   // AI Assistant Tier (Phase 1 - Metering)
   monthlyUsageCap Float? // Optional: cap usage to prevent runaway costs
@@ -219,8 +219,8 @@ model User {
   cancellationFeedback CancellationFeedback[]
 
   // Reports assigned to this user (as Manager or Admin)
-  assignedReportsAsManager Report[] @relation("ReportManager")
-  assignedReportsAsAdmin   Report[] @relation("ReportAdmin")
+  assignedReportsAsManager Report[]            @relation("ReportManager")
+  assignedReportsAsAdmin   Report[]            @relation("ReportAdmin")
   reportShareAccessCreated ReportShareAccess[] @relation("ReportShareAccessCreatedBy")
 
   // In-app notifications
@@ -957,12 +957,12 @@ enum HydrationStatus {
 }
 
 model Organization {
-  id      String       @id @default(cuid())
-  name    String
-  ownerId String
-  owner   User         @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members User[]
-  invites UserInvite[]
+  id                 String              @id @default(cuid())
+  name               String
+  ownerId            String
+  owner              User                @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members            User[]
+  invites            UserInvite[]
   // Text the Job In (S1)
   inboundJobMessages InboundJobMessage[]
 
@@ -2088,10 +2088,10 @@ model Inspection {
   report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   // V1 Phase 3 — canonical client / insurer spine (P3-2, P3-3)
-  clientId String?
-  client   Client? @relation("InspectionClient", fields: [clientId], references: [id], onDelete: SetNull)
-  insurerProfileId String?
-  insurerProfile   InsurerProfile? @relation(fields: [insurerProfileId], references: [id], onDelete: SetNull)
+  clientId          String?
+  client            Client?         @relation("InspectionClient", fields: [clientId], references: [id], onDelete: SetNull)
+  insurerProfileId  String?
+  insurerProfile    InsurerProfile? @relation(fields: [insurerProfileId], references: [id], onDelete: SetNull)
   /// Template id from lib/insurer-profiles (e.g. iag) when persisted before DB row match
   insurerTemplateId String?
   claimNumber       String?
@@ -2108,7 +2108,7 @@ model Inspection {
   clientInvites     ClientInvite[]
 
   // Inspection Metadata
-  inspectionNumber String   @unique // NIR-YYYY-MM-XXXX format
+  inspectionNumber String    @unique // NIR-YYYY-MM-XXXX format
   propertyAddress  String
   propertyPostcode String // Required for state detection
   // Attendance is unknown on an intake draft until a technician records it.
@@ -2196,7 +2196,6 @@ model Inspection {
   // RA-7493: AI runtime — receipts and suggestions land on the job record
   aiRunnerReceipts AiRunnerReceipt[] @relation("InspectionAiRunnerReceipts")
   aiJobSuggestions AiJobSuggestion[] @relation("InspectionAiJobSuggestions")
-
 
   // RA-1717 — Unified assessment-generation artefacts.
   assessmentGenerations AssessmentGeneration[] @relation("InspectionAssessmentGenerations")
@@ -2287,8 +2286,8 @@ model Inspection {
   swmsDraft SwmsDraft?
 
   // RA-1381 (Board M-5): Progress framework back-relation
-  claimProgress  ClaimProgress?
-  authorisations Authorisation[]
+  claimProgress   ClaimProgress?
+  authorisations  Authorisation[]
   jobAppointments JobAppointment[]
 
   // RA-261 NIR phase 1 — re-modelled here per issue #963.
@@ -3136,10 +3135,10 @@ model ScopeItem {
   rateSource      String?
   suggestedRate   Float?
   roomId          String?
-  room            Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  room            Room?       @relation(fields: [roomId], references: [id], onDelete: SetNull)
   // V1 P1-13 / P3-4 — canonical sketch twin (prefer over legacy Room)
-  sketchRoomId String?
-  sketchRoom   SketchRoom? @relation("ScopeItemSketchRoom", fields: [sketchRoomId], references: [id], onDelete: SetNull)
+  sketchRoomId    String?
+  sketchRoom      SketchRoom? @relation("ScopeItemSketchRoom", fields: [sketchRoomId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -6072,7 +6071,6 @@ model Workspace {
   aiJobSuggestions AiJobSuggestion[] @relation("WorkspaceAiJobSuggestions")
   aiStyleProfile   AiStyleProfile?   @relation("WorkspaceAiStyleProfile")
 
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -6757,7 +6755,7 @@ model AiRunnerBudget {
 
   /// The ceiling as granted, kept for reporting and for resetting the window.
   /// NEVER read as part of a spend decision.
-  maxMicroUsd BigInt
+  maxMicroUsd       BigInt
   /// The only field a deduction touches:
   ///   updateMany({ where: { id, remainingMicroUsd: { gte: cost } },
   ///                data:  { remainingMicroUsd: { decrement: cost } } })
@@ -6779,7 +6777,7 @@ model AiRunnerBudget {
   /// pair to be both null (no token ceiling) or both set. A null remaining
   /// against a non-null max would silently disable the token ceiling while the
   /// row still looked like it had one.
-  remainingTokens BigInt?
+  remainingTokens   BigInt?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -6886,7 +6884,7 @@ model AiJobSuggestion {
   runner AiRunner
   kind   String
   title  String
-  body   String @db.Text
+  body   String   @db.Text
 
   /// REFERENCES to job-record facts, never copies of them: field paths, chunk
   /// ids, document ids, inspection ids. A suggestion that cannot show its
@@ -7075,20 +7073,20 @@ model SketchUnderlayReference {
 // RoomGraph V1 — derived room nodes. Fabric sketchData remains render SSOT;
 // these rows are the stable Room IDs that photos/moisture/damage/scope join to.
 model SketchRoom {
-  id               String                  @id @default(cuid())
-  sketchId         String
-  sketch           ClaimSketch             @relation(fields: [sketchId], references: [id], onDelete: Cascade)
-  fabricObjectId   String
-  name             String                  @default("Room")
-  areaM2           Float?
-  perimeterM       Float?
-  heightM          Float?
-  floorNumber      Int                     @default(0)
-  materialSlug     String?
-  waterCategory    String? // CAT_1 | CAT_2 | CAT_3
-  dryingStatus     String                  @default("unknown") // unknown | wet | drying | dry
-  locked           Boolean                 @default(false)
-  hidden           Boolean                 @default(false)
+  id                   String                  @id @default(cuid())
+  sketchId             String
+  sketch               ClaimSketch             @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  fabricObjectId       String
+  name                 String                  @default("Room")
+  areaM2               Float?
+  perimeterM           Float?
+  heightM              Float?
+  floorNumber          Int                     @default(0)
+  materialSlug         String?
+  waterCategory        String? // CAT_1 | CAT_2 | CAT_3
+  dryingStatus         String                  @default("unknown") // unknown | wet | drying | dry
+  locked               Boolean                 @default(false)
+  hidden               Boolean                 @default(false)
   // Set when the room's fabricObjectId is no longer present in the saved
   // canvas but the row still carries evidence. The row is RETAINED rather
   // than deleted so its pins, moisture readings and hazards keep the room
@@ -7097,24 +7095,24 @@ model SketchRoom {
   // from pin hit-testing; it is history, not a placement target. Cleared if
   // the same fabricObjectId reappears. Distinct from `hidden`, which means an
   // operator hid a room that still exists.
-  detachedAt       DateTime?
-  geometryJson     Json?
+  detachedAt           DateTime?
+  geometryJson         Json?
   // operator_measured | underlay_reference | ai_suggested
-  provenance       String                  @default("operator_measured")
+  provenance           String                  @default("operator_measured")
   // RA-7611: confirmation lives on SketchRoom, not SketchElement (those
   // rows are deleted and recreated on every save). Null until Confirm.
-  confirmedAt      DateTime?
-  confirmedBy      String?
-  correctionHistory Json?
-  originalAreaM2   Float?
+  confirmedAt          DateTime?
+  confirmedBy          String?
+  correctionHistory    Json?
+  originalAreaM2       Float?
   originalGeometryJson Json?
   evidencePins         EvidencePin[]
   moistureReadings     SketchMoistureReading[]
   jobMoistureReadings  MoistureReading[]       @relation("JobMoistureReadings")
   scopeItems           ScopeItem[]             @relation("ScopeItemSketchRoom")
   hazards              Hazard[]
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
 
   @@unique([sketchId, fabricObjectId])
   @@index([sketchId])
@@ -8706,10 +8704,10 @@ model InsurerProfile {
   isSystemProfile          Boolean             @default(false)
   createdAt                DateTime            @default(now())
   updatedAt                DateTime            @updatedAt
+  inspections              Inspection[]
 
   @@index([slug])
   @@index([isActive])
-  inspections Inspection[]
 }
 
 /// V1 Phase 5 — minimum scheduling model (P5-1)
@@ -8721,22 +8719,22 @@ enum JobAppointmentStatus {
 }
 
 model JobAppointment {
-  id           String               @id @default(cuid())
-  inspectionId String
-  inspection   Inspection           @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  title        String               @default("Site visit")
-  startsAt     DateTime
-  endsAt       DateTime
-  status       JobAppointmentStatus @default(SCHEDULED)
-  notes        String?              @db.Text
-  assignedUserId String?
-  assignedUser   User?              @relation("JobAppointmentAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  acknowledgedAt DateTime?
-  cancelledAt    DateTime?
+  id              String               @id @default(cuid())
+  inspectionId    String
+  inspection      Inspection           @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  title           String               @default("Site visit")
+  startsAt        DateTime
+  endsAt          DateTime
+  status          JobAppointmentStatus @default(SCHEDULED)
+  notes           String?              @db.Text
+  assignedUserId  String?
+  assignedUser    User?                @relation("JobAppointmentAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  acknowledgedAt  DateTime?
+  cancelledAt     DateTime?
   createdByUserId String
-  createdBy       User               @relation("JobAppointmentCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdBy       User                 @relation("JobAppointmentCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@index([inspectionId, startsAt])
   @@index([assignedUserId, startsAt])
