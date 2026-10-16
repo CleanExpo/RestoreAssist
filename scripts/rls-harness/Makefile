@@ -10,7 +10,11 @@ PG_CONTAINER := ra-rls-pg
 PG_PORT      := 55432
 PG_PW        := ra_rls_pw
 DATABASE_URL := postgres://postgres:$(PG_PW)@localhost:$(PG_PORT)/postgres
-HERE         := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+# Relative, as given to -f, never $(abspath): make splits words on spaces, so an absolute
+# checkout path with spaces ("/Volumes/Mini Mini 2T Storage/...") became four words and
+# both run.sh and the rls-down cleanup failed (exit 127), leaving ra-rls-pg running.
+# Every recipe runs from the same directory make was started in, so the relative dir resolves.
+HERE         := $(dir $(lastword $(MAKEFILE_LIST)))
 
 .PHONY: rls-test rls-up rls-down
 
