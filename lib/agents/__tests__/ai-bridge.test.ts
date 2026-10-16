@@ -74,7 +74,13 @@ describe("callAI (agent AI bridge)", () => {
     const result = await callAI(baseParams);
 
     expect(resolveWorkspaceAiKey).toHaveBeenCalledWith("user_1", "ANTHROPIC");
-    expect(anthropicCtor).toHaveBeenCalledWith({ apiKey: "sk-ant-workspace" });
+    // RA-7999: one retry layer (the executor's), SDK timeout 5 s under the
+    // agent timeout (default 60 s).
+    expect(anthropicCtor).toHaveBeenCalledWith({
+      apiKey: "sk-ant-workspace",
+      maxRetries: 0,
+      timeout: 55_000,
+    });
     expect(result.text).toBe("{}");
     expect(result.provider).toBe("anthropic");
   });

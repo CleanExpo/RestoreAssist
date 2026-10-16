@@ -80,7 +80,7 @@ export const PRODUCTION_ENABLED: readonly ProductionCron[] = [
 
 export const PRODUCTION_EXCLUDED: readonly ExcludedCron[] = [
   { path: "process-emails", reason: "no producer: no app code creates ScheduledEmail rows for it to send" },
-  { path: "advance-workflows", reason: "no producer: AgentWorkflow rows are only created by lib/agents/orchestrator.ts, which no route calls" },
+  { path: "advance-workflows", reason: "requires founder enablement: run dry-run count first; see durable-agents spec §5" },
   { path: "provision-tenant-db", reason: "its only producer (/api/onboarding/database) is off unless TENANT_DATABASE_PROVISIONING_ENABLED is true (pilot only)" },
   { path: "sync-qbo-myob-payments", reason: "QuickBooks and MYOB credentials are absent in production (22/09 audit), so no integration can connect" },
   { path: "cleanup-expired-files", reason: "its TTL list includes the \"attachment\" tag; automated deletion needs D-017 retention sign-off first" },

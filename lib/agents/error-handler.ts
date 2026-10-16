@@ -6,6 +6,8 @@
 import { prisma } from "@/lib/prisma";
 import type { ClassifiedError } from "./types";
 import { logAgentEvent } from "./logger";
+import { skipDependentsOfFailedTask } from "./lease";
+import { refreshWorkflowProgress } from "./state-manager";
 
 /**
  * Classify an unknown error into a structured error object with retry semantics.
@@ -101,21 +103,50 @@ export function getRetryDelay(attempt: number, baseMs: number = 2000): number {
 
 /**
  * Move a task to DEAD_LETTER status after exhausting all retries.
+ *
+ * RA-7999: only the claim holding the lease may do this. The write matches
+ * `{id, status: RUNNING, leaseOwner}`, clears the lease, and skips the task's
+ * PENDING dependents in the same transaction. Returns false (and writes
+ * nothing) when the lease was lost.
  */
 export async function moveToDeadLetter(
   taskId: string,
+  leaseOwner: string,
   error: unknown,
-): Promise<void> {
+): Promise<boolean> {
   const classified = classifyError(error);
 
-  await prisma.agentTask.update({
-    where: { id: taskId },
-    data: {
-      status: "DEAD_LETTER",
-      errorMessage: classified.message,
-      errorCode: classified.code,
-    },
+  const moved = await prisma.$transaction(async (tx) => {
+    const task = await tx.agentTask.findUnique({
+      where: { id: taskId },
+      select: { workflowId: true },
+    });
+    if (!task) return false;
+    const result = await tx.agentTask.updateMany({
+      where: { id: taskId, status: "RUNNING", leaseOwner },
+      data: {
+        status: "DEAD_LETTER",
+        errorMessage: classified.message,
+        errorCode: classified.code,
+        leaseOwner: null,
+        leaseExpiresAt: null,
+      },
+    });
+    if (result.count === 0) return false;
+    await skipDependentsOfFailedTask(tx, task.workflowId, taskId);
+    await refreshWorkflowProgress(task.workflowId, tx);
+    return true;
   });
+
+  if (!moved) {
+    await logAgentEvent(
+      taskId,
+      "warn",
+      "Lease lost before the dead-letter write; outcome discarded",
+      { staleLeaseOwner: leaseOwner, tokensUsed: null, path: "dead-letter" },
+    );
+    return false;
+  }
 
   await logAgentEvent(
     taskId,
@@ -126,4 +157,5 @@ export async function moveToDeadLetter(
       errorMessage: classified.message,
     },
   );
+  return true;
 }

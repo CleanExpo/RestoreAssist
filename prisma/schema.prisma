@@ -4709,6 +4709,10 @@ model AgentTask {
   model            String?
   tokensUsed       Int?
   idempotencyKey   String?          @unique
+  /// RA-7999: fencing token of the current claim. A DB CHECK keeps it NULL unless status is RUNNING.
+  leaseOwner       String?
+  /// RA-7999: database-clock expiry of the current claim; the sweep reclaims RUNNING rows past it.
+  leaseExpiresAt   DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   logs             AgentTaskLog[]
@@ -4716,6 +4720,7 @@ model AgentTask {
   @@index([workflowId])
   @@index([agentSlug])
   @@index([status])
+  @@index([status, leaseExpiresAt])
   @@index([workflowId, status])
   @@index([workflowId, parallelGroup, sequenceOrder])
 }
