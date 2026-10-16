@@ -1,15 +1,5 @@
 "use client";
 
-/**
- * Client-portal Authorities panel (client portal Phase 3b).
- *
- * Lists every Authority the client must approve (GET /api/portal/[token]/authorities)
- * and lets them approve each in one place by typing their name. Signing posts to
- * the EXISTING authority-sign route (POST /api/authority-forms/sign/[signToken]),
- * which performs the legal capture (IP/UA, timestamp, atomic completion, PDF) —
- * this component only collects the typed signature.
- */
-
 import { useEffect, useState } from "react";
 import { typedSignatureDataUrl } from "@/lib/portal/typed-signature";
 import {
