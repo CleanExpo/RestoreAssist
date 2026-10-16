@@ -260,3 +260,80 @@ export function ChromeSpinner(props: GlyphProps) {
     </Glyph>
   );
 }
+
+export function ChromePlus(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M12 4.5v15" />
+      <path d="M4.5 12h15" />
+    </Glyph>
+  );
+}
+
+export function ChromeCalendar(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="1.8" />
+      <path d="M3.5 9.8h17" />
+      <path d="M8 3v3.6" />
+      <path d="M16 3v3.6" />
+    </Glyph>
+  );
+}
+
+export function ChromeLayers(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M12 3.5 3 8.1l9 4.6 9-4.6-9-4.6z" />
+      <path d="m3 12.4 9 4.6 9-4.6" />
+      <path d="m3 16.4 9 4.6 9-4.6" />
+    </Glyph>
+  );
+}
+
+export function ChromePen(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="m14.6 5.4 4 4L8.5 19.5H4.5v-4L14.6 5.4z" />
+      <path d="M12.7 20.4h6.8" />
+    </Glyph>
+  );
+}
+
+export function ChromeChat(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M20.4 15.1a1.8 1.8 0 0 1-1.8 1.8H8.2l-4.6 3.6V5.7A1.8 1.8 0 0 1 5.4 3.9h13.2a1.8 1.8 0 0 1 1.8 1.8v9.4z" />
+    </Glyph>
+  );
+}
+
+export function ChromeSparkle(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M11 3.6c.6 4.3 2 5.7 6.3 6.3-4.3.6-5.7 2-6.3 6.3-.6-4.3-2-5.7-6.3-6.3 4.3-.6 5.7-2 6.3-6.3z" />
+      <path d="M18.6 15.4v4.2" />
+      <path d="M16.5 17.5h4.2" />
+    </Glyph>
+  );
+}
+
+export function ChromePackage(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M3.6 7.6 12 3.6l8.4 4v8.8L12 20.4l-8.4-4V7.6z" />
+      <path d="M3.6 7.6 12 11.6l8.4-4" />
+      <path d="M12 11.6v8.8" />
+      <path d="m7.7 5.6 8.5 4.1" />
+    </Glyph>
+  );
+}
+
+export function ChromePlayCircle(props: GlyphProps) {
+  return (
+    <Glyph {...props}>
+      <circle cx="12" cy="12" r="9.25" />
+      <path d="M10.1 8.4v7.2l5.7-3.6-5.7-3.6z" />
+    </Glyph>
+  );
+}

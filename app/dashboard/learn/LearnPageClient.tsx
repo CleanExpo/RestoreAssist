@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { VideoExplainer } from "@/components/setup/VideoExplainer";
 import { VIDEO_REGISTRY, type VideoExplainerSlug } from "@/components/setup/video-registry";
 import { Input } from "@/components/ui/input";
-import { PlayCircle } from "lucide-react";
+import { ChromePlayCircle } from "@/components/brand/chrome-icons";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
 import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
@@ -139,7 +139,7 @@ export function LearnPageClient() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Tutorials"
         description={`Short walk-throughs of RestoreAssist — ${filtered.length} videos in the library.`}
-        icon={<PlayCircle className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<ChromePlayCircle className="h-7 w-7 text-cyan-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/learn" })}
       />
 
