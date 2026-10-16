@@ -25,9 +25,32 @@
  *  - Test runs cleanly against localhost (NODE_ENV !== "production" →
  *    BotID returns bypassed=true) or any Vercel preview/production URL.
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 test.setTimeout(90_000);
+
+/**
+ * The setup wizard is a one-step-at-a-time stepper (SetupStepper): it opens on
+ * "Welcome" and moves on with the footer's "Next" button. Advance until the
+ * step whose <h2> title matches, failing if Next is disabled on the way (a
+ * required step left incomplete) or the step never appears.
+ */
+async function advanceSetupTo(page: Page, title: RegExp): Promise<void> {
+  const current = page
+    .getByRole("main")
+    .getByRole("heading", { level: 2 })
+    .first();
+  for (let i = 0; i < 8; i++) {
+    if (title.test((await current.textContent()) ?? "")) return;
+    const next = page.getByRole("button", { name: /^next/i });
+    await expect(
+      next,
+      `Next must be enabled to leave "${await current.textContent()}"`,
+    ).toBeEnabled();
+    await next.click();
+  }
+  await expect(current).toHaveText(title);
+}
 
 /** Throw with the seam label baked in so the failure line is self-explaining. */
 async function assertSeam(
@@ -76,7 +99,13 @@ test("first tradie tomorrow: signup → setup → inspection → report → invo
     if (!page.url().includes("/setup")) {
       await page.goto("/setup");
     }
-    await expect(page.getByText(/let.s get you set up/i)).toBeVisible({
+    // By role, not getByText: /setup streams behind app/setup/loading.tsx, so
+    // for a moment React's not-yet-revealed copy of the wizard sits in a
+    // <div hidden id="S:0"> next to the live one. getByText counts that hidden
+    // copy (strict-mode violation); the accessibility tree does not.
+    await expect(
+      page.getByRole("heading", { name: /let.s get you set up/i }),
+    ).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -85,6 +114,7 @@ test("first tradie tomorrow: signup → setup → inspection → report → invo
   // Seam 3: ABR sandbox hydrates business details from ABN
   // ──────────────────────────────────────────────────────────────
   await assertSeam("/setup → ABR sandbox hydration", async () => {
+    await advanceSetupTo(page, /^business details$/i);
     await page.getByPlaceholder(/e\.g\. 53 004 085 616/i).fill("53004085616");
     await page.getByRole("button", { name: /start setup/i }).click();
     await expect(page.getByText(/B P AUSTRALIA|BHP|legal name/i)).toBeVisible({
