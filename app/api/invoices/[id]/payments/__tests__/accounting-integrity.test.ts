@@ -128,6 +128,21 @@ describe("POST /api/invoices/[id]/payments — accounting integrity", () => {
     });
   });
 
+  it("refuses an unknown payment method as the caller's input, before any ledger write", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/invoices/invoice_1/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: 5_000, paymentMethod: "EFT", reference: "BANK-123" }),
+      }),
+      params,
+    );
+
+    expect(response.status).toBe(400);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(tx.invoicePayment.create).not.toHaveBeenCalled();
+  });
+
   it("rejects an over-allocation before creating ledger rows", async () => {
     tx.invoice.findUnique.mockResolvedValueOnce(invoice(6_000, 4_000));
 

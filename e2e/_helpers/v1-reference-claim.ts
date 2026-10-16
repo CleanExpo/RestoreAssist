@@ -29,6 +29,25 @@ export async function seedV1ReferenceClaim(
   return json.data as V1ReferenceSeed;
 }
 
+/**
+ * Issue the generated invoice (DRAFT -> SENT) without the client email, which
+ * needs a provider this job does not have. Payments refuse a draft invoice.
+ */
+export async function issueV1ReferenceInvoice(
+  page: Page,
+  invoiceId: string,
+): Promise<void> {
+  const res = await page.request.post(
+    "/api/test/v1-reference-claim/issue-invoice",
+    { data: { invoiceId } },
+  );
+  if (!res.ok()) {
+    throw new Error(
+      `issue-invoice failed: ${res.status()} ${await res.text().catch(() => "")}`,
+    );
+  }
+}
+
 export async function finalizeV1ReferenceExit(
   page: Page,
   args: { inspectionId: string; invoiceId: string },
