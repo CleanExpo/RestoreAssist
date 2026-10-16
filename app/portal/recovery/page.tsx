@@ -4,6 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 import { PortalAccessExplainer } from "@/components/portal/PortalAccessExplainer";
+import { ClientPortalShell } from "@/components/portal/ClientPortalShell";
+import {
+  clientPortalPanelPadding,
+  clientPortalPrimaryLink,
+} from "@/lib/portal/client-portal-theme";
 
 export default function PortalRecoveryPage() {
   const [email, setEmail] = useState("");
@@ -27,7 +32,7 @@ export default function PortalRecoveryPage() {
         setError(
           typeof data?.error === "string"
             ? data.error
-            : data?.error?.message ?? "Enter a valid email address",
+            : (data?.error?.message ?? "Enter a valid email address"),
         );
         return;
       }
@@ -37,29 +42,31 @@ export default function PortalRecoveryPage() {
           : "If a matching invitation exists, a new link is on its way.",
       );
     } catch {
-      setError("Something went wrong. Try again, or ask the contractor to resend.");
+      setError(
+        "Something went wrong. Try again, or ask your restorer to resend.",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-brand-cloud px-4 py-12">
-      <div className="max-w-md mx-auto space-y-6">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <h1 className="text-2xl font-bold text-brand-navy mb-2">
+    <ClientPortalShell>
+      <div className="mx-auto max-w-md space-y-6 py-4">
+        <div className={clientPortalPanelPadding}>
+          <h1 className="mb-2 text-2xl font-bold text-white">
             Recover client portal access
           </h1>
-          <p className="text-sm text-brand-slate mb-6">
-            Request a new invitation for a portal account. Job links are
-            separate — ask the contractor for a fresh job link if that is what
-            expired. Password reset is not self-serve.
+          <p className="mb-6 text-sm text-slate-400">
+            Request a new invitation for a portal account. Job links from email
+            are separate — ask your restorer for a fresh job link if that
+            expired.
           </p>
 
           {error && (
             <div
               role="alert"
-              className="mb-4 p-3 bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-lg text-destructive-subtle-foreground text-sm"
+              className="mb-4 rounded-lg border border-red-500/30 bg-red-950/40 p-3 text-sm text-red-200"
             >
               {error}
             </div>
@@ -69,7 +76,7 @@ export default function PortalRecoveryPage() {
             <div
               role="status"
               data-testid="portal-recovery-result"
-              className="mb-4 p-3 bg-success-subtle text-success-subtle-foreground rounded-lg text-sm"
+              className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-950/30 p-3 text-sm text-emerald-200"
             >
               {result}
             </div>
@@ -79,7 +86,7 @@ export default function PortalRecoveryPage() {
             <div>
               <label
                 htmlFor="portal-recovery-email"
-                className="block text-sm font-medium text-brand-navy mb-1"
+                className="mb-1 block text-sm font-medium text-slate-200"
               >
                 Email on the invitation
               </label>
@@ -90,30 +97,36 @@ export default function PortalRecoveryPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze"
+                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-4 py-2.5 text-slate-100 focus:border-cyan-400/40 focus:outline-none focus:ring-1 focus:ring-cyan-400/40"
               />
             </div>
             <button
               type="submit"
               disabled={submitting}
-              className="w-full min-h-11 py-3 bg-brand-cta text-white rounded-lg font-medium hover:bg-brand-cta/90 disabled:opacity-50"
+              className={`${clientPortalPrimaryLink} w-full disabled:opacity-50`}
             >
               {submitting ? "Sending…" : "Request a new invite"}
             </button>
           </form>
 
-          <p className="mt-6 text-sm text-brand-slate">
-            <Link href={PORTAL_PATHS.login} className="text-brand-cta hover:underline">
+          <p className="mt-6 text-sm text-slate-400">
+            <Link
+              href={PORTAL_PATHS.login}
+              className="text-cyan-400/90 hover:underline"
+            >
               Sign in
             </Link>
-            <span className="px-2 text-brand-slate/50">·</span>
-            <Link href={PORTAL_PATHS.help} className="text-brand-cta hover:underline">
+            <span className="px-2 text-slate-600">·</span>
+            <Link
+              href={PORTAL_PATHS.help}
+              className="text-cyan-400/90 hover:underline"
+            >
               Client help
             </Link>
           </p>
         </div>
         <PortalAccessExplainer compact />
       </div>
-    </main>
+    </ClientPortalShell>
   );
 }
