@@ -9,7 +9,6 @@ import {
   clientPortalPageShell,
 } from "@/lib/portal/client-portal-theme";
 
-/** Layout for JWT-authenticated client portal routes (/portal, /portal/reports/*). */
 export function ClientPortalAccountLayout({
   children,
   className,
