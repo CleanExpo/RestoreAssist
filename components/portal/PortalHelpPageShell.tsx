@@ -4,7 +4,6 @@ import { ClientPortalShell } from "@/components/portal/ClientPortalShell";
 import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 import { clientPortalEyebrow } from "@/lib/portal/client-portal-theme";
 
-/** Help / recovery static pages — dashboard-aligned shell without job header. */
 export function PortalHelpPageShell({
   title,
   intro,
