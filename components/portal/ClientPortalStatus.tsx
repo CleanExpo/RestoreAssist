@@ -1,17 +1,5 @@
 "use client";
 
-/**
- * Client-portal live status display (client portal Phase 4 UI).
- *
- * Polls the client-safe updates feed (GET /api/portal/[token]/updates →
- * buildClientStatusFeed + buildDryingTimeline) so the client's claim view
- * auto-updates: current step, progress %, report-ready, any approvals still
- * owed, and a curated per-area drying timeline (RA-6950). Read-only. The
- * drying timeline only ever carries a curated on-track/needs-attention state
- * and an "estimate" label — never a raw moisture reading (drying logs are
- * legal exhibits).
- */
-
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -78,8 +66,7 @@ export function ClientPortalStatus({
       </div>
 
       <p className="text-xs text-slate-500">
-        The bar reflects your job stage. When your team is still collecting
-        photos and notes, a separate evidence score may differ — that is normal.
+        Progress reflects your job stage, not every photo uploaded.
       </p>
 
       <div
