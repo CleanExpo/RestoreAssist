@@ -62,6 +62,11 @@ function isTenantScopedExpression(expression: string | null): boolean {
     return disjuncts.every((disjunct) => isTenantScopedExpression(disjunct));
   }
   const normalised = normaliseExpression(expression);
+  if (/(?:^|[(=,])not(?:exists|\()/.test(normalised)) {
+    // A negated scope check (NOT EXISTS, NOT (...)) grants exactly the rows
+    // the anchor would refuse.
+    return false;
+  }
   if (
     /(?:auth\.uid\(\)|\))is(?:not)?null/.test(normalised) &&
     /auth\.uid\(\)|is_workspace_(?:owner|member)\(/.test(normalised)
@@ -85,6 +90,15 @@ function isTenantScopedExpression(expression: string | null): boolean {
   const workspaceHelper = /is_workspace_(owner|member)\(/.test(normalised);
   return uidIsCompared || workspaceHelper;
 }
+
+// Tables scoped through a parent row: the owner check must read the parent and
+// tie it to this row, or it grants every row to anyone who owns any parent.
+const CORRELATED_OWNER: Record<string, { parent: string; link: RegExp }> = {
+  JobAppointment: {
+    parent: "frominspection",
+    link: /[a-z0-9_]+\.id=jobappointment\.inspectionid|jobappointment\.inspectionid=[a-z0-9_]+\.id/,
+  },
+};
 
 function policyFindings(table: string, policies: LiveRlsPolicy[], readOnly: boolean): string[] {
   const findings: string[] = [];
@@ -120,6 +134,13 @@ function policyFindings(table: string, policies: LiveRlsPolicy[], readOnly: bool
     }
     if (["SELECT", "UPDATE", "DELETE"].includes(command) && !isTenantScopedExpression(policy.using_expression)) {
       findings.push(`${table}: ${command} policy ${policy.name} has no recognised tenant-scoped USING predicate`);
+    }
+    const correlated = CORRELATED_OWNER[table];
+    if (correlated && ["SELECT", "UPDATE", "DELETE"].includes(command)) {
+      const using = normaliseExpression(policy.using_expression);
+      if (!using.includes(correlated.parent) || !correlated.link.test(using)) {
+        findings.push(`${table}: ${command} policy ${policy.name} is not correlated to the row's inspection`);
+      }
     }
     if (["INSERT", "UPDATE"].includes(command) && !isTenantScopedExpression(policy.check_expression)) {
       findings.push(`${table}: ${command} policy ${policy.name} has no recognised tenant-scoped WITH CHECK predicate`);

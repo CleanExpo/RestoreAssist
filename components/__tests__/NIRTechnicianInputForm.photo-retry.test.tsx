@@ -139,9 +139,14 @@ describe("NIR photo attachment", () => {
     }));
     expect(screen.getByRole("button", { name: "Retry this photo" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Review & Submit" }));
+    // Let the whole review handler run (it is async), then require that the
+    // review screen never opened: the refusal must stop the flow, not just
+    // flash an error before it continues.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Review & Submit" })));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
     expect(screen.getByText("Retry or remove failed photos before submitting")).toBeInTheDocument();
     expect(screen.queryByText("At least one verified photo is required before submission")).not.toBeInTheDocument();
+    expect(screen.queryByText("Review & Submit Inspection")).not.toBeInTheDocument();
   });
 
   it("removes an uncertain local selection only after explicit confirmation", async () => {

@@ -161,6 +161,23 @@ describe("live RLS parity", () => {
     );
   });
 
+  // Codex 0e28a4cc4: an owner check that never ties the inspection to the
+  // appointment row grants every appointment to anyone who owns any inspection.
+  it("rejects an uncorrelated owner check on JobAppointment", () => {
+    const uncorrelated = `(EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE (i."userId" = (( SELECT auth.uid() AS uid))::text)))`;
+    expect(jobAppointment([ownerSelect(uncorrelated)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select is not correlated to the row's inspection",
+    );
+  });
+
+  it("rejects a negated owner check on JobAppointment", () => {
+    expect(jobAppointment([ownerSelect(`(NOT ${JOB_APPOINTMENT_OWNER})`)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select has no recognised tenant-scoped USING predicate",
+    );
+  });
+
   it("rejects a write arm on read-only JobAppointment", () => {
     expect(
       jobAppointment([

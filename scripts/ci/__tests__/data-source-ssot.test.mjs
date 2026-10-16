@@ -90,6 +90,60 @@ model OrgPlan {
   assert.match(r.stdout + r.stderr, /OrgPlan|UserPlan/);
 });
 
+const PLAN_FIELDS = `  labourRate    String
+  travelRate    String
+  currency      String
+  roundingMode  String
+  minimumCharge String`;
+
+test("a comment cannot fake relation metadata to hide a many-to-many drift pair", () => {
+  // Codex 0e28a4cc4: `// @relation(fields: [userId])` on the list line.
+  const r = run(`${PARENTS}
+model Tag {
+  id String @id
+}
+
+model UserPlan {
+  id     String @id
+  userId String @unique
+${PLAN_FIELDS}
+  tags   Tag[] // @relation(fields: [userId])
+}
+
+model OrgPlan {
+  id    String @id
+  orgId String @unique
+${PLAN_FIELDS}
+  tags  Tag[] // @relation(fields: [orgId])
+}
+`);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout + r.stderr, /OrgPlan|UserPlan/);
+});
+
+test("the same parent relation through differently named FKs still counts as shared", () => {
+  // Codex 0e28a4cc4: legacyClientId vs customerId, both `client Client`.
+  const r = run(`${PARENTS}
+model UserPricing {
+  id             String @id
+  userId         String @unique
+${PLAN_FIELDS}
+  legacyClientId String
+  client         Client @relation(fields: [legacyClientId], references: [id])
+}
+
+model OrgPricing {
+  id         String @id
+  orgId      String @unique
+${PLAN_FIELDS}
+  customerId String
+  client     Client @relation(fields: [customerId], references: [id])
+}
+`);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout + r.stderr, /OrgPricing|UserPricing/);
+});
+
 test("two models sharing only parent links and generic names are not flagged", () => {
   const r = run(`${PARENTS}
 model Invitation {

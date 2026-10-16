@@ -32,38 +32,65 @@ const BOILERPLATE = new Set(["id", "createdAt", "updatedAt", "deletedAt"]);
 const OVERLAP_RATIO = 0.6; // shared / smaller field-set
 const MIN_SHARED = 6; // absolute floor so tiny models don't false-positive
 
+/** A schema line without its `//` comment (a `//` inside a string literal stays). */
+function stripComment(line) {
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"' && line[i - 1] !== "\\") quoted = !quoted;
+    else if (!quoted && line[i] === "/" && line[i + 1] === "/") return line.slice(0, i);
+  }
+  return line;
+}
+
 function parseModels(src) {
   const models = [];
-  // A relation object declared with @relation(fields: [...]) is the same link
-  // as its foreign-key scalar, which is already counted; counting both doubled
-  // every shared parent (PortalInvitation vs Inspection, 16/10/2026). Only
-  // those are skipped: a relation with no FK scalar on this model (an implicit
-  // many-to-many list such as `tags Tag[]`) is persisted data and still counts.
   const modelNames = new Set([...src.matchAll(/^model\s+(\w+)/gm)].map((x) => x[1]));
-  const fkBacked = (line) => /@relation\([^)]*\bfields\s*:/.test(line);
   const re = /model\s+(\w+)\s*\{([\s\S]*?)\n\}/g;
   let m;
   while ((m = re.exec(src)) !== null) {
     const [, name, body] = m;
     const fields = new Set();
+    // relation object -> its FK scalar list ("a,b"), for @relation(fields: [...])
+    const relationFks = new Map();
     let uniqueKey = null;
     for (const raw of body.split("\n")) {
-      const line = raw.trim();
-      if (!line || line.startsWith("//") || line.startsWith("@@")) continue;
+      // Comments carry no schema meaning; stripping them first means a comment
+      // cannot fake relation metadata or a @unique key.
+      const line = stripComment(raw).trim();
+      if (!line || line.startsWith("@@")) continue;
       const [field, type = ""] = line.split(/\s+/);
       if (!/^[a-zA-Z_]\w*$/.test(field)) continue;
-      if (modelNames.has(type.replace(/[?[\]]/g, "")) && fkBacked(line)) continue;
       if (!BOILERPLATE.has(field)) fields.add(field);
       if (/@unique/.test(line)) uniqueKey = field;
+      const fk = line.match(/@relation\([^)]*\bfields\s*:\s*\[([^\]]*)\]/);
+      if (fk && modelNames.has(type.replace(/[?[\]]/g, ""))) {
+        relationFks.set(field, fk[1].split(",").map((s) => s.trim()).sort().join(","));
+      }
     }
-    models.push({ name, fields, uniqueKey });
+    models.push({ name, fields, relationFks, uniqueKey });
   }
   return models;
 }
 
+/**
+ * Shared field names, counting each shared parent link once. A relation
+ * object and its FK scalar are one link; when both models carry the same
+ * relation through the same, shared FK scalars, the pair counted it twice
+ * (PortalInvitation vs Inspection, 16/10/2026). Relations with no FK scalar
+ * (implicit many-to-many lists) and relations through differently named FKs
+ * are not deduplicated: they are still shared data.
+ */
 function shared(a, b) {
   let n = 0;
-  for (const f of a) if (b.has(f)) n++;
+  for (const f of a.fields) if (b.fields.has(f)) n++;
+  for (const [relation, fks] of a.relationFks) {
+    if (
+      b.relationFks.get(relation) === fks &&
+      fks.split(",").every((f) => a.fields.has(f) && b.fields.has(f))
+    ) {
+      n--;
+    }
+  }
   return n;
 }
 
@@ -75,7 +102,7 @@ for (let i = 0; i < models.length; i++) {
     const b = models[j];
     if (!a.uniqueKey || !b.uniqueKey) continue;
     if (a.uniqueKey === b.uniqueKey) continue; // same key → not tenancy drift
-    const s = shared(a.fields, b.fields);
+    const s = shared(a, b);
     const smaller = Math.min(a.fields.size, b.fields.size);
     if (smaller === 0) continue;
     if (s >= MIN_SHARED && s / smaller >= OVERLAP_RATIO) {
