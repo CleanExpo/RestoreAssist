@@ -13,6 +13,11 @@
  */
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  clientPortalPanelPadding,
+  clientPortalPrimaryLink,
+} from "@/lib/portal/client-portal-theme";
 
 interface AreaDryingState {
   areaId: string;
@@ -32,7 +37,13 @@ interface Feed {
 
 const POLL_MS = 30_000;
 
-export function ClientPortalStatus({ token }: { token: string }) {
+export function ClientPortalStatus({
+  token,
+  reportPdfHref,
+}: {
+  token: string;
+  reportPdfHref?: string;
+}) {
   const [feed, setFeed] = useState<Feed | null>(null);
 
   useEffect(() => {
@@ -58,16 +69,21 @@ export function ClientPortalStatus({ token }: { token: string }) {
   if (!feed) return null;
 
   return (
-    <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-900">Claim status</h2>
-        <span className="text-xs font-medium text-cyan-700">
+    <section className={`${clientPortalPanelPadding} space-y-3`}>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-white/95">Claim status</h2>
+        <span className="text-xs font-medium text-cyan-300">
           {feed.currentStep}
         </span>
       </div>
 
+      <p className="text-xs text-slate-500">
+        The bar reflects your job stage. When your team is still collecting
+        photos and notes, a separate evidence score may differ — that is normal.
+      </p>
+
       <div
-        className="h-2 w-full rounded-full bg-slate-100 overflow-hidden"
+        className="h-2 w-full overflow-hidden rounded-full bg-slate-800"
         role="progressbar"
         aria-valuenow={feed.progressPct}
         aria-valuemin={0}
@@ -75,7 +91,7 @@ export function ClientPortalStatus({ token }: { token: string }) {
         aria-label="Claim progress"
       >
         <div
-          className="h-full bg-cyan-500 transition-all"
+          className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 transition-all"
           style={{ width: `${feed.progressPct}%` }}
         />
       </div>
@@ -84,7 +100,7 @@ export function ClientPortalStatus({ token }: { token: string }) {
         {feed.steps.map((s) => (
           <li
             key={s.key}
-            className={s.done ? "text-cyan-700 font-medium" : "text-slate-400"}
+            className={s.done ? "font-medium text-cyan-300" : "text-slate-500"}
           >
             {s.done ? "●" : "○"} {s.label}
           </li>
@@ -92,27 +108,39 @@ export function ClientPortalStatus({ token }: { token: string }) {
       </ol>
 
       {feed.reportReady && (
-        <p className="text-xs text-success font-medium">
-          Your restoration report is ready.
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-medium text-emerald-400">
+            Your restoration report is ready.
+          </p>
+          {reportPdfHref && (
+            <Link
+              href={reportPdfHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${clientPortalPrimaryLink} !min-h-8 px-3 py-1.5 text-xs`}
+            >
+              Open PDF
+            </Link>
+          )}
+        </div>
       )}
 
       {feed.pendingApprovals.length > 0 && (
-        <p role="status" className="text-xs text-amber-700">
+        <p role="status" className="text-xs text-amber-300/90">
           Action needed: {feed.pendingApprovals.map((a) => a.label).join(", ")}.
         </p>
       )}
 
       {feed.dryingTimeline.length > 0 && (
-        <div className="pt-1 border-t border-slate-100">
-          <h3 className="text-xs font-semibold text-slate-700 mt-3 mb-2">
+        <div className="border-t border-white/10 pt-1">
+          <h3 className="mb-2 mt-3 text-xs font-semibold text-slate-300">
             Drying progress by area
           </h3>
           <ul className="space-y-2">
             {feed.dryingTimeline.map((area) => (
               <li key={area.areaId} className="space-y-0.5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-slate-700">
+                  <span className="text-xs text-slate-300">
                     {area.areaLabel}
                   </span>
                   <span
@@ -126,7 +154,7 @@ export function ClientPortalStatus({ token }: { token: string }) {
                     {area.status === "on-track" ? "On track" : "Needs attention"}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">{area.estimateLabel}</p>
+                <p className="text-xs text-slate-500">{area.estimateLabel}</p>
               </li>
             ))}
           </ul>
