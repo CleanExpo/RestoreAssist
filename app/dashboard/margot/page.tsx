@@ -143,18 +143,29 @@ function MargotChatWorkspace() {
     transport,
   });
 
+  // Nothing reaches Margot until the probe confirms access: a pending, refused
+  // or unreadable probe all keep chat closed. The chat API enforces the same
+  // staff gate; this keeps the UI from offering what it will refuse.
+  const chatAllowed = access?.allowed === true;
+  const accessDenied = access !== null && !access.allowed;
+  const send = (message: { text: string }) => {
+    if (!chatAllowed) return;
+    sendMessage(message);
+  };
+
   // Deep-link drills from /dashboard/margot/social? → ?q=
   useEffect(() => {
+    if (!chatAllowed) return;
     const q = searchParams?.get("q")?.trim();
     if (!q || autoSent.current === q) return;
     autoSent.current = q;
     sendMessage({ text: q });
-  }, [searchParams, sendMessage]);
+  }, [chatAllowed, searchParams, sendMessage]);
 
   const handleSubmit = (msg: PromptInputMessage) => {
     const text = msg.text?.trim();
     if (!text) return;
-    sendMessage({ text });
+    send({ text });
   };
 
   const confirmLinearAction = (
@@ -169,15 +180,15 @@ function MargotChatWorkspace() {
         : `Yes, post it. Call linear_comment_on_issue again with confirmed=true, issueId ${JSON.stringify(
             pending.issueId,
           )}.`;
-    sendMessage({ text: summary });
+    send({ text: summary });
   };
 
   const cancelLinearAction = () => {
-    sendMessage({ text: "Cancel that — don't file/post it." });
+    send({ text: "Cancel that — don't file/post it." });
   };
 
   const isBusy = chatStatus === "submitted" || chatStatus === "streaming";
-  const chatBlocked = access !== null && !access.allowed;
+  const chatBlocked = !chatAllowed;
 
   return (
     <div className="flex min-h-[calc(100dvh-14rem)] flex-col gap-6">
@@ -218,20 +229,20 @@ function MargotChatWorkspace() {
         ]}
       />
 
-      {chatBlocked ? (
+      {accessDenied ? (
         <div
           className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100"
           role="status"
         >
           <p className="font-medium">Margot chat is locked for this account.</p>
           <p className="mt-1 text-amber-900/90 dark:text-amber-50/90">
-            {access.hint ?? "Platform operator access required."}
-            {access.userId ? (
+            {access?.hint ?? "Platform operator access required."}
+            {access?.userId ? (
               <>
                 {" "}
                 Your User.id:{" "}
                 <code className="rounded bg-black/10 px-1 py-0.5 text-xs">
-                  {access.userId}
+                  {access?.userId}
                 </code>
               </>
             ) : null}
@@ -273,10 +284,8 @@ function MargotChatWorkspace() {
                               variant="outline"
                               size="sm"
                               className="h-auto max-w-full whitespace-normal px-3 py-2 text-left text-xs"
-                              disabled={isBusy}
-                              onClick={() =>
-                                sendMessage({ text: prompt.text })
-                              }
+                              disabled={isBusy || chatBlocked}
+                              onClick={() => send({ text: prompt.text })}
                             >
                               <Sparkles className="mr-1.5 h-3.5 w-3.5 shrink-0 text-brand-bronze" />
                               {prompt.label}
@@ -544,7 +553,7 @@ function MargotChatWorkspace() {
               teeth, furniture, and other false matches.
             </p>
             <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-              <SocialRelevanceTester />
+              {chatAllowed ? <SocialRelevanceTester /> : null}
             </div>
           </aside>
         ) : null}
