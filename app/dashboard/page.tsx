@@ -554,12 +554,12 @@ function DashboardContent({
     <div className="min-w-0 space-y-8 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-2 sm:pt-4 md:pb-10">
       <div className="space-y-3">
         <InboundJobAlert />
-        <TechLicenceBanner />
-        {(searchParams.get("welcome") === "1" ||
+      <TechLicenceBanner />
+      {(searchParams.get("welcome") === "1" ||
           searchParams.get("firstRun") === "1" ||
           searchParams.get("firstRun") === "tech") && (
-          <BasicReportWithoutKeyCta variant="dark" />
-        )}
+        <BasicReportWithoutKeyCta variant="dark" />
+      )}
       </div>
 
       {workspaceLoading && (
@@ -581,13 +581,13 @@ function DashboardContent({
               </>
             }
             action={
-              <button
-                type="button"
+          <button
+            type="button"
                 onClick={workspaceNotice.onRetry}
                 className="inline-flex min-h-11 items-center rounded-lg border border-border bg-background px-4 text-sm font-medium"
               >
                 Retry workspace details
-              </button>
+          </button>
             }
           />
         </div>
@@ -650,7 +650,7 @@ function DashboardContent({
                   : model.loading
                     ? "Loading your board…"
                     : model.focus.title}
-              </h1>
+            </h1>
               <p className="mt-2 max-w-9xl text-pretty text-sm leading-relaxed text-white/65">
                 {model.loadFailed
                   ? "Retry the unavailable sections to see your full picture."
@@ -658,7 +658,7 @@ function DashboardContent({
                     ? "Checking jobs, reports, and invoices."
                     : model.focus.why}
               </p>
-            </div>
+        </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {model.loading ? (
                 <>
@@ -687,7 +687,7 @@ function DashboardContent({
                   <StatChip variant="hero" label="Clients" value={model.clients.length} />
                 </>
               )}
-            </div>
+      </div>
           </div>
           {!model.loadFailed && !model.loading && (
             <Link
@@ -697,7 +697,7 @@ function DashboardContent({
               {model.focus.label}
             </Link>
           )}
-        </div>
+                </div>
         <nav
           aria-label="Workspace shortcuts"
           className="relative mt-8 grid grid-cols-2 gap-2 border-t border-white/10 pt-6 sm:grid-cols-3"
@@ -773,7 +773,7 @@ function DashboardContent({
             return (
               <Link
                 key={action.href}
-                href={action.href}
+                      href={action.href}
                 className={cn(
                   "group flex min-h-[4.75rem] items-start gap-3 rounded-xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.05] p-4 text-left shadow-sm transition hover:border-primary/25 hover:shadow-md",
                 )}
@@ -789,18 +789,18 @@ function DashboardContent({
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2">
                     <span className="block text-sm font-semibold text-foreground">
-                      {action.title}
+                            {action.title}
                     </span>
                     <ChevronMark className="h-4 w-4 shrink-0 text-muted-foreground opacity-60 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
                   </span>
                   <span className="mt-0.5 block text-sm text-muted-foreground">
-                    {action.description}
+                            {action.description}
                   </span>
                 </span>
               </Link>
             );
           })}
-        </div>
+                        </div>
       </section>
 
       <ManagerOpsSummary session={session} />
@@ -829,7 +829,7 @@ function DashboardContent({
               <LineSkeleton className="h-12 w-full" />
               <LineSkeleton className="h-12 w-full" />
               <LineSkeleton className="h-12 w-5/6" />
-            </div>
+                </div>
           ) : model.activeInspections.length === 0 &&
             model.openReports.length === 0 ? (
             reportsError || inspectionsError ? null : <EmptyBlock
@@ -868,14 +868,14 @@ function DashboardContent({
                         {timeAgo(new Date(job.createdAt))}
                       </span>
                     </span>
-                    <span
+                      <span
                       className={cn(
                         "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
                         statusTone(job.status),
                       )}
                     >
                       {job.status}
-                    </span>
+                      </span>
                   </Link>
                 </li>
               ))}
@@ -897,14 +897,14 @@ function DashboardContent({
                         {timeAgo(new Date(report.createdAt))}
                       </span>
                     </span>
-                    <span
+                      <span
                       className={cn(
                         "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
                         statusTone(report.status),
                       )}
                     >
                       {report.status}
-                    </span>
+                      </span>
                   </Link>
                 </li>
               ))}
@@ -929,7 +929,7 @@ function DashboardContent({
             <div className="space-y-3" aria-busy>
               <LineSkeleton className="h-10 w-full" />
               <LineSkeleton className="h-10 w-full" />
-            </div>
+                  </div>
           ) : invoicesError ? (
             <p className="text-sm text-muted-foreground">Invoices are unavailable. Payment status could not be checked.</p>
           ) : model.outstandingInvoices.length === 0 ? (
@@ -966,19 +966,19 @@ function DashboardContent({
             </ul>
           )}
         </DashboardPanel>
-      </div>
+            </div>
 
       <DashboardPanel className="bg-gradient-to-br from-card via-card to-violet-500/[0.05]">
         <DashboardPanelHeader
           title="Recent reports"
           description="Documentation already on the job."
           action={
-            <Link
-              href="/dashboard/reports"
+              <Link
+                href="/dashboard/reports"
               className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
-            >
-              View all
-            </Link>
+              >
+                View all
+              </Link>
           }
         />
         {reportsLoading ? (
@@ -986,75 +986,75 @@ function DashboardContent({
             {Array.from({ length: 3 }).map((_, i) => (
               <LineSkeleton key={i} className="h-28 w-full" />
             ))}
-          </div>
+            </div>
         ) : reportsError ? (
           <p className="text-sm text-muted-foreground">Reports are unavailable. Retry to check your records.</p>
         ) : model.recentReports.length === 0 ? (
           <EmptyBlock
             title="No reports yet"
             body="Write the first report from what you captured on site."
-            href="/dashboard/reports/new"
+                  href="/dashboard/reports/new"
             label="Create the first report"
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {model.recentReports.map((report) => {
-              const fanOutCount = report.fanOutSessions?.length ?? 0;
-              const retryCount = report.evaluatorScores?.retryCount ?? 0;
-              return (
-                <Link
-                  key={report.id}
-                  href={`/dashboard/reports/${report.id}`}
+                  const fanOutCount = report.fanOutSessions?.length ?? 0;
+                  const retryCount = report.evaluatorScores?.retryCount ?? 0;
+                  return (
+                    <Link
+                      key={report.id}
+                      href={`/dashboard/reports/${report.id}`}
                   className="block min-w-0 rounded-xl border border-border bg-background p-4 shadow-sm transition hover:border-primary/35 hover:shadow-md"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">
-                        {report.title}
-                      </p>
+                            {report.title}
+                          </p>
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {report.clientName}
-                      </p>
-                    </div>
-                    <span
+                            {report.clientName}
+                          </p>
+                        </div>
+                        <span
                       className={cn(
                         "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
                         statusTone(report.status),
                       )}
-                    >
-                      {report.status}
-                    </span>
-                  </div>
+                        >
+                          {report.status}
+                        </span>
+                      </div>
                   {(fanOutCount > 0 ||
                     retryCount > 0 ||
                     report.evaluatorScores) && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       {fanOutCount > 0 && <span>{fanOutCount} sessions</span>}
                       {retryCount > 0 && <span>{retryCount} retries</span>}
-                      {report.evaluatorScores != null && (
+                          {report.evaluatorScores != null && (
                         <EvaluatorScoreBadge scores={report.evaluatorScores} />
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
-                  {report.phases && report.phases.length > 0 && (
+                      {report.phases && report.phases.length > 0 && (
                     <div className="mt-3 flex gap-0.5">
-                      {report.phases.map((p) => (
-                        <div
-                          key={p.phase}
-                          title={p.label}
+                            {report.phases.map((p) => (
+                              <div
+                                key={p.phase}
+                                title={p.label}
                           className={cn(
                             "h-1.5 flex-1 rounded-sm",
                             p.completed ? "bg-primary" : "bg-muted",
                           )}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        )}
+                              />
+                            ))}
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
       </DashboardPanel>
 
       <section aria-label="Help and account">
