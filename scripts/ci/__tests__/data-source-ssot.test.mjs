@@ -57,6 +57,39 @@ ${fields}
   assert.match(r.stdout + r.stderr, /OrgPricing|UserPricing/);
 });
 
+test("a field-identical pair whose shared fields include a many-to-many relation (no FK scalar) is flagged", () => {
+  // Codex review af36483c0: skipping every relation object let this pair through.
+  const r = run(`${PARENTS}
+model Tag {
+  id String @id
+}
+
+model UserPlan {
+  id            String @id
+  userId        String @unique
+  labourRate    String
+  travelRate    String
+  currency      String
+  roundingMode  String
+  minimumCharge String
+  tags          Tag[]
+}
+
+model OrgPlan {
+  id            String @id
+  orgId         String @unique
+  labourRate    String
+  travelRate    String
+  currency      String
+  roundingMode  String
+  minimumCharge String
+  tags          Tag[]
+}
+`);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout + r.stderr, /OrgPlan|UserPlan/);
+});
+
 test("two models sharing only parent links and generic names are not flagged", () => {
   const r = run(`${PARENTS}
 model Invitation {

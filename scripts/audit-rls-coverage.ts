@@ -187,6 +187,9 @@ export const SERVICE_ONLY = new Set<string>([
   "PilotAdjusterReceipt",
   "PilotGenerationReceipt",
   "PilotNoChargeApproval",
+  // 20261016120000: rows carry bearer report-share tokens. Server-only, like
+  // UserInvite: RLS enabled with zero client policies.
+  "ReportShareAccess",
   // Durable delivery/cleanup/authentication ledgers are only consumed by
   // trusted server jobs and route handlers. No browser database role needs a
   // policy on these tables.

@@ -34,13 +34,19 @@ const READ_ONLY_TENANT = new Set([
   "Organization",
   "OrganizationPricingConfig",
   "AuthorityFormSignature",
+  // 20261016120000: owners read their inspections' appointments; writes are server-only.
+  "JobAppointment",
 ]);
 
 function normaliseExpression(expression: string | null): string {
   return (expression ?? "")
     .toLowerCase()
     .replace(/[\s"]/g, "")
-    .replace(/::text/g, "");
+    .replace(/::text/g, "")
+    // The initplan-safe form the RLS lint requires, `(select auth.uid())`,
+    // deparses as `( SELECT auth.uid() AS uid)`. It is the same value, so it
+    // reads as auth.uid() for every check below (including the rejections).
+    .replace(/\(selectauth\.uid\(\)(?:asuid)?\)/g, "auth.uid()");
 }
 
 function isTenantScopedExpression(expression: string | null): boolean {

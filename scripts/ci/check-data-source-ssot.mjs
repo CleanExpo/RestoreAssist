@@ -34,10 +34,13 @@ const MIN_SHARED = 6; // absolute floor so tiny models don't false-positive
 
 function parseModels(src) {
   const models = [];
-  // A field typed as another model is a relation object: the same link as its
-  // foreign key scalar, which is already counted. Counting both doubled every
-  // shared parent (PortalInvitation vs Inspection, 16/10/2026).
+  // A relation object declared with @relation(fields: [...]) is the same link
+  // as its foreign-key scalar, which is already counted; counting both doubled
+  // every shared parent (PortalInvitation vs Inspection, 16/10/2026). Only
+  // those are skipped: a relation with no FK scalar on this model (an implicit
+  // many-to-many list such as `tags Tag[]`) is persisted data and still counts.
   const modelNames = new Set([...src.matchAll(/^model\s+(\w+)/gm)].map((x) => x[1]));
+  const fkBacked = (line) => /@relation\([^)]*\bfields\s*:/.test(line);
   const re = /model\s+(\w+)\s*\{([\s\S]*?)\n\}/g;
   let m;
   while ((m = re.exec(src)) !== null) {
@@ -49,7 +52,7 @@ function parseModels(src) {
       if (!line || line.startsWith("//") || line.startsWith("@@")) continue;
       const [field, type = ""] = line.split(/\s+/);
       if (!/^[a-zA-Z_]\w*$/.test(field)) continue;
-      if (modelNames.has(type.replace(/[?[\]]/g, ""))) continue;
+      if (modelNames.has(type.replace(/[?[\]]/g, "")) && fkBacked(line)) continue;
       if (!BOILERPLATE.has(field)) fields.add(field);
       if (/@unique/.test(line)) uniqueKey = field;
     }

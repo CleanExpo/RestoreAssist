@@ -101,6 +101,7 @@ describe("live RLS parity", () => {
       "NativeAuthNonce",
       "PilotGenerationReceipt",
       "PilotNoChargeApproval",
+      "ReportShareAccess",
     ];
 
     for (const table of serviceOnlyTables) {
@@ -130,6 +131,43 @@ describe("live RLS parity", () => {
         `${table} must reject every client policy`,
       ).toContain(`${table}: default-deny table unexpectedly has a live policy`);
     }
+  });
+
+  // 20261016120000: JobAppointment is read-only for its inspection's owner, with
+  // the initplan-safe scalar subselect, as Postgres deparses it in pg_policies.
+  const JOB_APPOINTMENT_OWNER = `(EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE ((i.id = "JobAppointment"."inspectionId") AND (i."userId" = (( SELECT auth.uid() AS uid))::text))))`;
+  const jobAppointment = (policies: LiveRlsPolicy[]) =>
+    verifyRlsRows(new Map([["JobAppointment", "JobAppointment"]]), [
+      { table_name: "JobAppointment", rls_enabled: true, policies },
+    ]);
+  const ownerSelect = (using: string): LiveRlsPolicy => ({
+    name: "job_appointment_owner_select",
+    command: "SELECT",
+    permissive: "PERMISSIVE",
+    roles: ["authenticated"],
+    using_expression: using,
+    check_expression: null,
+  });
+
+  it("accepts JobAppointment's single owner-scoped SELECT policy (scalar-subselect auth.uid)", () => {
+    expect(jobAppointment([ownerSelect(JOB_APPOINTMENT_OWNER)])).toEqual([]);
+  });
+
+  it("still rejects the scalar-subselect form widened by OR true", () => {
+    expect(jobAppointment([ownerSelect(`(${JOB_APPOINTMENT_OWNER} OR true)`)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select has no recognised tenant-scoped USING predicate",
+    );
+  });
+
+  it("rejects a write arm on read-only JobAppointment", () => {
+    expect(
+      jobAppointment([
+        ownerSelect(JOB_APPOINTMENT_OWNER),
+        { ...ownerSelect(JOB_APPOINTMENT_OWNER), name: "job_appointment_insert", command: "INSERT", using_expression: null, check_expression: JOB_APPOINTMENT_OWNER },
+      ]),
+    ).toContain("JobAppointment: unexpected INSERT policy job_appointment_insert");
   });
 
   it("rejects a tenant-scoped table with RLS enabled but zero policies", () => {
