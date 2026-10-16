@@ -1,7 +1,3 @@
-/**
- * Client-portal report shapes — no pricing or internal cost fields (token + JWT surfaces).
- */
-
 export type ClientPortalApprovalDto = {
   id: string;
   approvalType: string;
