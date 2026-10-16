@@ -108,6 +108,7 @@ export function LandingNav() {
           <div className="hidden items-center gap-2 lg:flex">
             <Link
               href={CLIENT_PORTAL_PUBLIC_CTA.href}
+              title="Homeowners invited by their restorer — sign in or open your emailed link"
               className={`rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-slate-600 transition-colors hover:text-[#0B1F3A] ${FOCUS}`}
             >
               {CLIENT_PORTAL_PUBLIC_CTA.label}
