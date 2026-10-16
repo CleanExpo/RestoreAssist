@@ -7,6 +7,29 @@ const source = readFileSync(
   "utf8",
 );
 
+/**
+ * The JSX block a gate renders: from `{gate && (` to its matching `)`, found
+ * by bracket balance rather than a character window, so a harmless gated
+ * element followed by an ungated sibling cannot satisfy the assertion.
+ * Returns null when the gate is absent.
+ */
+function gatedBlock(gate: string): { block: string; rest: string } | null {
+  const open = `{${gate} && (`;
+  const start = source.indexOf(open);
+  if (start === -1) return null;
+  let depth = 0;
+  for (let i = start + open.length - 1; i < source.length; i++) {
+    if (source[i] === "(") depth++;
+    else if (source[i] === ")" && --depth === 0) {
+      return {
+        block: source.slice(start, i + 1),
+        rest: source.slice(0, start) + source.slice(i + 1),
+      };
+    }
+  }
+  return null;
+}
+
 describe("inspection lifecycle controls", () => {
   it("keeps sign-off visible from completed work through signed submission", () => {
     expect(source).toMatch(
@@ -32,20 +55,25 @@ describe("inspection lifecycle controls", () => {
     expect(source).toMatch(
       /const canGenerateInvoice =\s*\(inspection\.status === "SUBMITTED" && Boolean\(inspection\.signedAt\)\) \|\|\s*inspection\.status === "IN_BILLING"/,
     );
-    // 12b350bb8 wrapped the link in the design-system <Button asChild>. The
-    // gaps stay bounded (see the sign-off note above) so the match cannot run
-    // on to an ungated "Generate Invoice" elsewhere in the file.
-    expect(source).toMatch(
-      /\{canGenerateInvoice && \(\s*(?:<Button\b[^>]*>\s*)?<Link\b[^>]*>[\s\S]{0,200}?Generate Invoice/,
-    );
+    // The invoice action lives only inside the canGenerateInvoice block: present
+    // there, and nowhere else in the page (no ungated copy beside a gated one).
+    const gated = gatedBlock("canGenerateInvoice");
+    expect(gated, "canGenerateInvoice gate is missing").not.toBeNull();
+    expect(gated!.block).toContain("Generate Invoice");
+    expect(gated!.block).toMatch(/\/invoice`/);
+    expect(gated!.rest).not.toContain("Generate Invoice");
+    expect(gated!.rest).not.toMatch(/\/invoice`/);
   });
 
   it("exposes report generation for review-ready work without reopening billing", () => {
     expect(source).toMatch(
       /const canGenerateReport =\s*\["ESTIMATED", "SUBMITTED", "COMPLETED"\]\.includes\(\s*inspection\.status,?\s*\)/,
     );
-    expect(source).toMatch(
-      /\{canGenerateReport && \(\s*<(?:button|Button)\b[\s\S]{0,600}?Generate NIR Report/,
-    );
+    const gated = gatedBlock("canGenerateReport");
+    expect(gated, "canGenerateReport gate is missing").not.toBeNull();
+    expect(gated!.block).toContain("onClick={handleGenerateReport}");
+    expect(gated!.block).toContain("Generate NIR Report");
+    expect(gated!.rest).not.toContain("onClick={handleGenerateReport}");
+    expect(gated!.rest).not.toContain("Generate NIR Report");
   });
 });

@@ -79,8 +79,8 @@ describe("NIR photo attachment", () => {
     expect(screen.getByRole("button", { name: "Retry this photo" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Review & Submit" }));
-    // Review is still refused while the attachment is unverified; the
-    // validation summary wording changed in 7876bacc2.
+    // Review is refused (the failed-photo rule itself is pinned by the test
+    // below, where no other photo rule can mask it).
     expect(notification.error).toHaveBeenCalledWith(
       expect.stringMatching(/^Complete \d+ required items? before submitting/),
     );
@@ -108,6 +108,40 @@ describe("NIR photo attachment", () => {
     expect(fetchMock.mock.calls.filter(([url, init]) =>
       url === "/api/inspections/synthetic-inspection/photos/verified-photo" && init?.method === "DELETE",
     )).toHaveLength(2);
+  });
+
+  it("refuses review because of a failed photo even when another photo is verified", async () => {
+    // One verified photo is already attached, so "at least one verified photo"
+    // cannot be the reason; only the failed-photo rule can block review.
+    photoUpload.prepare.mockImplementation(async (file: File) => file);
+    photoUpload.upload.mockRejectedValue(new Error("Readback unavailable"));
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => url.startsWith("/api/inspections?reportId=")
+        ? { inspection: {
+            id: "synthetic-inspection",
+            propertyAddress: "1 Test Street",
+            propertyPostcode: "4000",
+            claimType: "WATER",
+            environmentalData: [],
+            moistureReadings: [],
+            photos: [{ id: "existing-photo", url: "https://example.test/existing.webp" }],
+            affectedAreas: [],
+            scopeItems: [],
+          } }
+        : { creditsRemaining: 0 },
+    })));
+    await act(async () => render(<NIRTechnicianInputForm reportId="synthetic-report" />));
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"][multiple]');
+    if (!fileInput) throw new Error("Missing NIR photo picker");
+    await act(async () => fireEvent.change(fileInput, {
+      target: { files: [new File(["jpeg bytes"], "kitchen.jpg", { type: "image/jpeg" })] },
+    }));
+    expect(screen.getByRole("button", { name: "Retry this photo" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Review & Submit" }));
+    expect(screen.getByText("Retry or remove failed photos before submitting")).toBeInTheDocument();
+    expect(screen.queryByText("At least one verified photo is required before submission")).not.toBeInTheDocument();
   });
 
   it("removes an uncertain local selection only after explicit confirmation", async () => {
