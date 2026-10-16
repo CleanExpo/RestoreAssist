@@ -114,14 +114,18 @@ function MargotChatWorkspace() {
   const autoSent = useRef<string | null>(null);
 
   useEffect(() => {
+    // Fail closed: the probe answers 403 to anyone who is not platform staff,
+    // and an unreadable answer is no better than a refusal.
+    const denied: MargotAccess = { allowed: false };
     void fetch("/api/margot/access")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (json && typeof json.allowed === "boolean") {
-          setAccess(json as MargotAccess);
-        }
+      .then(async (r) => {
+        const json = r.ok ? await r.json() : null;
+        return json && typeof json.allowed === "boolean"
+          ? (json as MargotAccess)
+          : denied;
       })
-      .catch(() => setAccess(null));
+      .catch(() => denied)
+      .then(setAccess);
   }, []);
 
   const transport = useMemo(
