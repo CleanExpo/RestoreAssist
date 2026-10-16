@@ -12,19 +12,6 @@ export interface TechnicianIdentity {
   certifications: PublicCertification[];
 }
 
-/**
- * "Who is in your home" — shown to the client on their portal.
- *
- * The portal already showed a bare technician NAME. That tells a homeowner
- * almost nothing when a stranger is standing at the door, which is the moment
- * this card is for. Photo, a short bio in the technician's own words, and the
- * credentials they actually hold — with the numbers a client can check on the
- * issuing body's register.
- *
- * Everything here has already been filtered by selectPublicCertifications():
- * unverified and lapsed credentials never reach this component, and insurance
- * policy numbers are redacted upstream. This renders; it does not decide.
- */
 export function TechnicianIdentityCard({
   technician,
 }: {
