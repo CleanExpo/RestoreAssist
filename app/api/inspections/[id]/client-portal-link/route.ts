@@ -54,8 +54,16 @@ export async function POST(
       where: { id },
       select: {
         clientId: true,
-        client: { select: { id: true, email: true } },
-        report: { select: { client: { select: { id: true, email: true } } } },
+        propertyAddress: true,
+        inspectionNumber: true,
+        client: { select: { id: true, email: true, name: true } },
+        report: { select: { client: { select: { id: true, email: true, name: true } } } },
+        user: {
+          select: {
+            businessName: true,
+            organization: { select: { name: true } },
+          },
+        },
       },
     });
     const client =
@@ -109,13 +117,30 @@ export async function POST(
     const url = `${getAppUrl()}/portal/${token}`;
     const safeUrl = escapeHtml(url);
 
+    const contractorName =
+      inspection.user?.organization?.name?.trim() ||
+      inspection.user?.businessName?.trim() ||
+      "Your restoration team";
+    const safeContractor = escapeHtml(contractorName);
+    const clientName = client.name?.trim();
+    const greeting = clientName
+      ? `<p>Hi ${escapeHtml(clientName)},</p>`
+      : "<p>Hello,</p>";
+    const jobLine = inspection.propertyAddress
+      ? `<p><strong>${escapeHtml(inspection.inspectionNumber ?? "Your job")}</strong> — ${escapeHtml(inspection.propertyAddress)}</p>`
+      : "";
+
     const messageId = await sendEmail({
       to: client.email,
-      subject: "Your RestoreAssist claim — view and respond",
-      html: `<p>Your assessor has shared your claim with you.</p>
-<p>Use this secure link to view your claim, add photos, and approve the authorities required:</p>
-<p><a href="${safeUrl}">${safeUrl}</a></p>
-<p>If you didn’t expect this, you can ignore this email.</p>`,
+      subject: `${contractorName} — your secure claim portal`,
+      html: `${greeting}
+<p>${safeContractor} has shared your restoration claim with you.</p>
+${jobLine}
+<p>Use this secure link to view progress, add photos for your assessor, and complete any approvals required:</p>
+<p><a href="${safeUrl}">Open your claim portal</a></p>
+<p style="word-break:break-all;color:#64748b;font-size:12px">${safeUrl}</p>
+<p>If you didn’t expect this email, you can ignore it.</p>
+<p style="color:#94a3b8;font-size:11px">Sent via RestoreAssist on behalf of ${safeContractor}.</p>`,
     });
 
     if (messageId) {
