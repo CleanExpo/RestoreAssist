@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { lookupAbn } from "@/lib/integrations/abr/client";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -9,7 +10,11 @@ import { apiError, fromException } from "@/lib/api-errors";
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id || !isPlatformSupportOperator(session.user.id)) {
+    // Re-read the role from the DB (a JWT claim outlives a demotion), then
+    // require the staff allowlist: tenant ADMIN is not RestoreAssist staff.
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
+    if (!auth.user || !isPlatformSupportOperator(auth.user.id)) {
       return apiError(request, {
         code: "FORBIDDEN",
         message: "Forbidden",

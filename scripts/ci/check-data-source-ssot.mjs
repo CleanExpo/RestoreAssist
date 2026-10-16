@@ -9,8 +9,10 @@
  * divergent). A hit is a candidate, not a proven bug: each MUST have ONE
  * documented resolver both readers call, or it is drift.
  *
- * Usage:  node scripts/ci/check-data-source-ssot.mjs
+ * Usage:  node scripts/ci/check-data-source-ssot.mjs [--strict] [--schema <path>]
  * Exit 0 always (advisory by default). Pass --strict to exit 1 on any hit.
+ * --schema reads another schema file (the tests use it); the allowlist is
+ * always this repo's.
  *
  * See .claude/skills/data-source-ssot/SKILL.md.
  */
@@ -19,7 +21,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const SCHEMA = join(ROOT, "prisma", "schema.prisma");
+const schemaFlag = process.argv.indexOf("--schema");
+const SCHEMA =
+  schemaFlag > -1 && process.argv[schemaFlag + 1]
+    ? process.argv[schemaFlag + 1]
+    : join(ROOT, "prisma", "schema.prisma");
 
 // Fields present on nearly every model — ignore them when measuring overlap.
 const BOILERPLATE = new Set(["id", "createdAt", "updatedAt", "deletedAt"]);
@@ -28,6 +34,10 @@ const MIN_SHARED = 6; // absolute floor so tiny models don't false-positive
 
 function parseModels(src) {
   const models = [];
+  // A field typed as another model is a relation object: the same link as its
+  // foreign key scalar, which is already counted. Counting both doubled every
+  // shared parent (PortalInvitation vs Inspection, 16/10/2026).
+  const modelNames = new Set([...src.matchAll(/^model\s+(\w+)/gm)].map((x) => x[1]));
   const re = /model\s+(\w+)\s*\{([\s\S]*?)\n\}/g;
   let m;
   while ((m = re.exec(src)) !== null) {
@@ -37,8 +47,9 @@ function parseModels(src) {
     for (const raw of body.split("\n")) {
       const line = raw.trim();
       if (!line || line.startsWith("//") || line.startsWith("@@")) continue;
-      const field = line.split(/\s+/)[0];
+      const [field, type = ""] = line.split(/\s+/);
       if (!/^[a-zA-Z_]\w*$/.test(field)) continue;
+      if (modelNames.has(type.replace(/[?[\]]/g, ""))) continue;
       if (!BOILERPLATE.has(field)) fields.add(field);
       if (/@unique/.test(line)) uniqueKey = field;
     }
