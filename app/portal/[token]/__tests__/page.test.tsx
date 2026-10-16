@@ -171,6 +171,17 @@ describe("ClientPortalPage — view-only links (RA-7634)", () => {
   });
 });
 
+describe("ClientPortalPage — scope copy (audit)", () => {
+  it("lists each scope item description instead of generic duplicate lines", async () => {
+    render(await ClientPortalPage({ params }));
+
+    expect(screen.getByText("Extract standing water")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Restoration work item included"),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("ClientPortalPage — no raw moisture exposure (RA-6995)", () => {
   it("never renders a raw NN%-style moisture value anywhere on the page", async () => {
     const jsx = await ClientPortalPage({ params });
@@ -282,7 +293,7 @@ describe("ClientPortalPage — affected areas from the job (RA-7573)", () => {
     render(jsx);
 
     expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
-    expect(screen.getByText("Scope of Works")).toBeInTheDocument();
+    expect(screen.getByText(/Scope of works/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /Affected Areas/ }),
     ).not.toBeInTheDocument();
