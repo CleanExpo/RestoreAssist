@@ -110,28 +110,62 @@ describe("NIR photo attachment", () => {
     )).toHaveLength(2);
   });
 
-  it("refuses review because of a failed photo even when another photo is verified", async () => {
-    // One verified photo is already attached, so "at least one verified photo"
-    // cannot be the reason; only the failed-photo rule can block review.
-    photoUpload.prepare.mockImplementation(async (file: File) => file);
-    photoUpload.upload.mockRejectedValue(new Error("Readback unavailable"));
+  // A saved inspection that satisfies every submission rule: a verified photo,
+  // a moisture reading, an affected area with dimensions, materials and a water
+  // source, and an attendance date. With it, a failed photo is the only thing
+  // left that can refuse review (Codex 6a50fd93f: an incomplete fixture let a
+  // handleReview that ignored photo errors still be refused).
+  const submittableInspection = {
+    id: "synthetic-inspection",
+    propertyAddress: "1 Test Street",
+    propertyPostcode: "4000",
+    claimType: "WATER",
+    inspectionDate: "2026-10-15T00:00:00.000Z",
+    environmentalData: [],
+    moistureReadings: [{
+      id: "synthetic-reading",
+      location: "Hallway",
+      surfaceType: "Drywall",
+      moistureLevel: 22,
+      depth: "Surface",
+    }],
+    photos: [{ id: "existing-photo", url: "https://example.test/existing.webp" }],
+    affectedAreas: [{
+      id: "synthetic-area",
+      roomZoneId: "Kitchen",
+      affectedAreaSqm: 12,
+      waterSource: "Burst pipe",
+      description: "Dimensions: 4m × 3m × 2.4m. Materials: Carpet",
+    }],
+    scopeItems: [],
+  };
+  const renderSubmittable = async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => ({
       ok: true,
       json: async () => url.startsWith("/api/inspections?reportId=")
-        ? { inspection: {
-            id: "synthetic-inspection",
-            propertyAddress: "1 Test Street",
-            propertyPostcode: "4000",
-            claimType: "WATER",
-            environmentalData: [],
-            moistureReadings: [],
-            photos: [{ id: "existing-photo", url: "https://example.test/existing.webp" }],
-            affectedAreas: [],
-            scopeItems: [],
-          } }
+        ? { inspection: submittableInspection }
         : { creditsRemaining: 0 },
     })));
     await act(async () => render(<NIRTechnicianInputForm reportId="synthetic-report" />));
+  };
+  const clickReview = async () => {
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Review & Submit" })));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+  };
+
+  it("opens review for the submittable fixture when no photo has failed (control)", async () => {
+    await renderSubmittable();
+    await clickReview();
+    expect(notification.error).not.toHaveBeenCalled();
+    expect(screen.getByText("Review & Submit Inspection")).toBeInTheDocument();
+  });
+
+  it("refuses review because of a failed photo even when another photo is verified", async () => {
+    // The fixture passes every other rule (see the control above), so only the
+    // failed-photo rule can block review.
+    photoUpload.prepare.mockImplementation(async (file: File) => file);
+    photoUpload.upload.mockRejectedValue(new Error("Readback unavailable"));
+    await renderSubmittable();
     const fileInput = document.querySelector<HTMLInputElement>('input[type="file"][multiple]');
     if (!fileInput) throw new Error("Missing NIR photo picker");
     await act(async () => fireEvent.change(fileInput, {
@@ -142,8 +176,8 @@ describe("NIR photo attachment", () => {
     // Let the whole review handler run (it is async), then require that the
     // review screen never opened: the refusal must stop the flow, not just
     // flash an error before it continues.
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Review & Submit" })));
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    await clickReview();
+    expect(notification.error).toHaveBeenCalledWith("Retry or remove failed photos before submitting");
     expect(screen.getByText("Retry or remove failed photos before submitting")).toBeInTheDocument();
     expect(screen.queryByText("At least one verified photo is required before submission")).not.toBeInTheDocument();
     expect(screen.queryByText("Review & Submit Inspection")).not.toBeInTheDocument();

@@ -175,6 +175,35 @@ ${links}
   assert.match(r.stdout + r.stderr, /OrgConfig|UserConfig/);
 });
 
+test("a six-field pricing pair whose shared fields include one parent link is flagged", () => {
+  // Codex 6a50fd93f: flooring the deduplicated count (5) let this through.
+  const r = run(`${PARENTS}
+model UserPricing {
+  id         String @id
+  userId     String @unique
+  markupPct  String
+  labourRate String
+  gstRate    String
+  currency   String
+  clientId   String
+  client     Client @relation(fields: [clientId], references: [id])
+}
+
+model OrgPricing {
+  id         String @id
+  orgId      String @unique
+  markupPct  String
+  labourRate String
+  gstRate    String
+  currency   String
+  clientId   String
+  client     Client @relation(fields: [clientId], references: [id])
+}
+`);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout + r.stderr, /OrgPricing|UserPricing/);
+});
+
 test("two models sharing only parent links and generic names are not flagged", () => {
   const r = run(`${PARENTS}
 model Invitation {

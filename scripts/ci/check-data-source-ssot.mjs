@@ -80,10 +80,14 @@ function parseModels(src) {
  * (implicit many-to-many lists) and relations through differently named FKs
  * are not deduplicated: they are still shared data.
  *
- * Returns the shared count and the size of the smaller model, both with the
- * same duplicate links removed. Deduplicating only the numerator let a
- * field-identical pair with many shared parents fall under the ratio
- * (Codex 570cd23f3: ten parents, 16/27).
+ * Returns the raw shared count (every field, as the detector always counted)
+ * and the shared count and smaller-model size with the same duplicate links
+ * removed. The ratio uses the deduplicated pair: deduplicating only the
+ * numerator let ten shared parents hide a field-identical pair (Codex
+ * 570cd23f3, 16/27). The MIN_SHARED floor stays on the raw count: applied to
+ * the deduplicated count it let a six-field pricing pair through on five
+ * (Codex 6a50fd93f). The raw count is never below the deduplicated one, so
+ * this flags every pair the fully deduplicated rule flagged.
  */
 function overlap(a, b) {
   let n = 0;
@@ -98,6 +102,7 @@ function overlap(a, b) {
     }
   }
   return {
+    raw: n,
     shared: n - duplicates,
     smaller: Math.min(a.fields.size, b.fields.size) - duplicates,
   };
@@ -111,9 +116,9 @@ for (let i = 0; i < models.length; i++) {
     const b = models[j];
     if (!a.uniqueKey || !b.uniqueKey) continue;
     if (a.uniqueKey === b.uniqueKey) continue; // same key → not tenancy drift
-    const { shared: s, smaller } = overlap(a, b);
+    const { raw, shared: s, smaller } = overlap(a, b);
     if (smaller === 0) continue;
-    if (s >= MIN_SHARED && s / smaller >= OVERLAP_RATIO) {
+    if (raw >= MIN_SHARED && s / smaller >= OVERLAP_RATIO) {
       hits.push({ a, b, s, ratio: (s / smaller) * 100 });
     }
   }

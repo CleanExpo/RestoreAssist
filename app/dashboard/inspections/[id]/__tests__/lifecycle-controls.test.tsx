@@ -15,30 +15,79 @@ const file = ts.createSourceFile(
   ts.ScriptKind.TSX,
 );
 
+// Stands in for a value only known at runtime, so text on either side of it
+// never joins into a needle by accident.
+const RUNTIME = "\u0000";
+
 /**
- * Every node of the parsed page that carries `needle`: JSX text, string and
- * template literal text, or an identifier reference. Read from the TSX syntax
- * tree, not the raw source, so a comment can neither hide an occurrence nor
- * stand in for a bracket (Codex 570cd23f3: brackets inside JSX comments let an
- * ungated link pass as part of the gated block).
+ * The constant text a node renders or evaluates to, with whitespace removed:
+ * string and template literals, `+` concatenations, JSX text and the children
+ * of a JSX element joined in order. Runtime values become a placeholder.
+ * Folding is what stops an action being spelt in pieces (Codex 6a50fd93f:
+ * `{"Generate" + " Invoice"}` and `"/in" + "voice"` matched no single node).
+ */
+const folded = new Map<ts.Node, string>();
+function fold(node: ts.Node): string {
+  let text = folded.get(node);
+  if (text === undefined) folded.set(node, (text = foldUncached(node)));
+  return text;
+}
+
+function foldUncached(node: ts.Node): string {
+  const squash = (text: string) => text.replace(/\s+/g, "");
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isJsxText(node)) {
+    return squash(node.text);
+  }
+  if (ts.isTemplateExpression(node)) {
+    return squash(node.head.text) +
+      node.templateSpans.map((span) => fold(span.expression) + squash(span.literal.text)).join("");
+  }
+  if (ts.isParenthesizedExpression(node)) return fold(node.expression);
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    return fold(node.left) + fold(node.right);
+  }
+  if (ts.isJsxExpression(node)) return node.expression ? fold(node.expression) : "";
+  if (ts.isJsxElement(node) || ts.isJsxFragment(node)) return node.children.map(fold).join("");
+  return RUNTIME;
+}
+
+/** The nodes whose fold() may contain a needle: the operands fold() reads. */
+function foldedParts(node: ts.Node): ts.Node[] {
+  if (ts.isTemplateExpression(node)) return node.templateSpans.map((span) => span.expression);
+  if (ts.isParenthesizedExpression(node)) return [node.expression];
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    return [node.left, node.right];
+  }
+  if (ts.isJsxExpression(node)) return node.expression ? [node.expression] : [];
+  if (ts.isJsxElement(node) || ts.isJsxFragment(node)) return [...node.children];
+  return [];
+}
+
+/**
+ * Every place in the parsed page that carries `needle`: the smallest node
+ * whose folded text contains it, an identifier reference, or (for `<Tag>`) a
+ * JSX element of that tag. Read from the TSX syntax tree, not the raw source,
+ * so comments can neither hide an occurrence nor stand in for a bracket
+ * (Codex 570cd23f3). Text computed only at runtime (a `.join()`, a lookup) is
+ * beyond a source check; this covers literal and constant-folded forms.
  */
 function occurrences(needle: string): ts.Node[] {
   const found: ts.Node[] = [];
+  const tag = /^<(\w+)>$/.exec(needle)?.[1];
+  const target = needle.replace(/\s+/g, "");
   const visit = (node: ts.Node) => {
-    if (
-      (ts.isJsxText(node) ||
-        ts.isStringLiteral(node) ||
-        ts.isNoSubstitutionTemplateLiteral(node) ||
-        ts.isTemplateHead(node) ||
-        ts.isTemplateMiddle(node) ||
-        ts.isTemplateTail(node)) &&
-      node.text.includes(needle)
-    ) {
-      found.push(node);
+    if (tag) {
+      if (
+        (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+        node.tagName.getText() === tag
+      ) {
+        found.push(node);
+      }
+    } else if (ts.isIdentifier(node)) {
+      if (node.text === needle && !ts.isFunctionDeclaration(node.parent)) found.push(node);
     } else if (
-      ts.isIdentifier(node) &&
-      node.text === needle &&
-      !ts.isFunctionDeclaration(node.parent)
+      fold(node).includes(target) &&
+      !foldedParts(node).some((part) => fold(part).includes(target))
     ) {
       found.push(node);
     }
@@ -102,6 +151,9 @@ describe("inspection lifecycle controls", () => {
     expect(source).toMatch(
       /\{canSignOff && \(\s*(?:<div[^>]*>\s*)?<InspectionSignOff/,
     );
+    // ...and no other copy renders outside it (Codex 6a50fd93f: a second,
+    // ungated <InspectionSignOff> passed while one gated copy existed).
+    expectOnlyUnderGate("canSignOff", ["<InspectionSignOff>"]);
   });
 
   it("only exposes invoice generation after sign-off or while already billing", () => {
