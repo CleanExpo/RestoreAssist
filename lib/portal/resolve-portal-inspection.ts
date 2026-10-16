@@ -44,15 +44,17 @@ export async function resolvePortalAccess(
 ): Promise<PortalAccessResolution> {
   const portalAccount = await lookupPortalAccount(token);
   if (portalAccount) {
-    const latest = await prisma.inspection.findFirst({
+    const inspection = await prisma.inspection.findFirst({
       where: portalInspectionWhere(portalAccount),
-      orderBy: { createdAt: "desc" },
+      ...(portalAccount.inspectionId
+        ? {}
+        : { orderBy: { createdAt: "desc" as const } }),
       select: { id: true },
     });
-    if (latest?.id) {
+    if (inspection?.id) {
       return {
         kind: "inspection",
-        inspectionId: latest.id,
+        inspectionId: inspection.id,
         accessMode: portalAccount.accessMode,
       };
     }
