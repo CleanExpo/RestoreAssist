@@ -46,7 +46,10 @@ beforeEach(() => {
   mSession.mockResolvedValue({ user: { id: "u_1" } });
   mTenancy.mockResolvedValue({ ok: true });
   p.inspection.findUnique.mockResolvedValue({
-    report: { client: { id: "c_1", email: "client@x.com" } },
+    propertyAddress: "12 Test St",
+    inspectionNumber: "INSP-1",
+    report: { client: { id: "c_1", email: "client@x.com", name: "Sam" } },
+    user: { businessName: "Acme Restore", organization: { name: "Acme Restore" } },
   });
   p.clientPortalAccount.findFirst.mockResolvedValue(null);
   p.clientPortalAccount.create.mockResolvedValue({ token: "NEWTOK" });
@@ -103,7 +106,10 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
     expect(body.data.emailed).toBe(true);
     expect(body.data.expiresAt).toEqual(expect.any(String));
     expect(mEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "client@x.com" }),
+      expect.objectContaining({
+        to: "client@x.com",
+        subject: expect.stringContaining("Acme Restore"),
+      }),
     );
     expect(p.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
