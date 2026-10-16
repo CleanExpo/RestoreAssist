@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import { verifyAdminFromDb, verifyPlatformSupportOperator } from "@/lib/admin-auth";
 import { lookupAbn } from "@/lib/integrations/abr/client";
-import { apiError, fromException } from "@/lib/api-errors";
+import { fromException } from "@/lib/api-errors";
 
 /** GET /api/admin/integrations/abr/ping — staff-only ABR configuration check. */
 export async function GET(request: NextRequest) {
@@ -14,13 +13,8 @@ export async function GET(request: NextRequest) {
     // require the staff allowlist: tenant ADMIN is not RestoreAssist staff.
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
-    if (!auth.user || !isPlatformSupportOperator(auth.user.id)) {
-      return apiError(request, {
-        code: "FORBIDDEN",
-        message: "Forbidden",
-        status: 403,
-      });
-    }
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     if (!process.env.ABR_API_GUID?.trim()) {
       return NextResponse.json({
