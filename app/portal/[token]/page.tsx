@@ -1,8 +1,6 @@
-import Link from "next/link";
 import { resolvePortalAccess } from "@/lib/portal/resolve-portal-inspection";
 import { PortalLinkExpired } from "@/components/portal/PortalLinkExpired";
 import { PortalTokenAccessFallback } from "@/components/portal/PortalTokenAccessFallback";
-import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 import { prisma } from "@/lib/prisma";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
@@ -22,10 +20,13 @@ import {
   PORTAL_AFFECTED_AREAS_INCLUDE,
   toPortalAffectedAreaItems,
 } from "@/lib/portal/portal-affected-areas";
+import {
+  ClientPortalPropertyCard,
+  ClientPortalShell,
+} from "@/components/portal/ClientPortalShell";
+import { ClientPortalReportReady } from "@/components/portal/ClientPortalReportReady";
+import { clientPortalPanelPadding } from "@/lib/portal/client-portal-theme";
 
-// Token pages must re-read the job on every request. Status/approvals already
-// poll force-dynamic routes; without this, a first visit before areas exist
-// can cache an empty list (walkthrough C2 / RA-7573).
 export const dynamic = "force-dynamic";
 
 interface PageProps {
@@ -35,18 +36,11 @@ interface PageProps {
 export default async function ClientPortalPage({ params }: PageProps) {
   const { token } = await params;
 
-  // Token -> inspection. The lookup order (ClientPortalAccount first, legacy
-  // HMAC tokens second) lives in resolvePortalAccess so the /learn kiosk
-  // resolves identically — see that file for why it is shared rather than
-  // copied. A live account with no inspection yet is not-ready, not expired
-  // (RA-7606). Only a genuinely expired or unrecognised token is LinkExpired.
   const resolved = await resolvePortalAccess(token);
   if (resolved.kind !== "inspection") {
     return <PortalTokenAccessFallback resolved={resolved} />;
   }
   const inspectionId = resolved.inspectionId;
-  // RA-7634: approvals and uploads only on an expiring (INTERACTIVE) link. A
-  // no-expiry or legacy link still shows the claim, read-only.
   const showInteractiveActions = resolved.accessMode === "INTERACTIVE";
 
   const inspection = await prisma.inspection.findUnique({
@@ -57,7 +51,9 @@ export default async function ClientPortalPage({ params }: PageProps) {
         where: { isSelected: true },
         select: {
           id: true,
+          description: true,
         },
+        orderBy: { createdAt: "asc" },
       },
       report: {
         select: { status: true, id: true },
@@ -82,26 +78,6 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
   const reportReady = inspection.report?.status === "COMPLETED";
 
-  // CLIENT_EDUCATION add-on gate.
-  //
-  // This page has NO session user — the homeowner opens it from a token link —
-  // so the user-keyed requireAddon() cannot be used, and reaching for the
-  // technician's id would be wrong anyway: the add-on belongs to the firm that
-  // owns the job, not to whoever is assigned to it. Resolve the entitlement the
-  // way the job itself is owned: token -> Inspection -> owner -> workspace.
-  //
-  // FAILS CLOSED. Any error here (no workspace, database blip) yields the FREE
-  // article set, never the paid one. The opposite direction would leak the
-  // add-on's content on a transient fault and nothing would look wrong on the
-  // page — it would simply be fuller than the firm had paid for.
-  //
-  // An unentitled client sees the free explainers and no upsell: they are not
-  // the buyer, and a 402 about their restorer's billing is not their problem.
-  //
-  // RA-7893: inspection.userId may be an invited technician, who has no
-  // workspace of their own. isAddonEntitledForResource reads the add-ons of
-  // the business the JOB belongs to, not the creator's current one if they
-  // have since moved to another organisation.
   const educationEntitled = await isAddonEntitledForResource(
     inspection.userId,
     inspection.createdAt,
@@ -112,10 +88,6 @@ export default async function ClientPortalPage({ params }: PageProps) {
     includeAddonContent: educationEntitled,
   }).catch(() => []);
 
-  // The identity card rides on the same add-on as the library. Nothing is taken
-  // away by gating it: the technician's NAME has always been shown above and
-  // still is, entitled or not, so a client is never left wondering who is at
-  // their door. The add-on adds the photo, biography and checkable credentials.
   const technician = educationEntitled
     ? await fetchTechnicianIdentity(
         inspection.technicianId,
@@ -136,183 +108,84 @@ export default async function ClientPortalPage({ params }: PageProps) {
   );
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <span className="text-lg font-bold text-cyan-600 tracking-tight">
-              RestoreAssist
+    <ClientPortalShell
+      brandName={org?.name}
+      logoUrl={org?.logoUrl}
+      inspectionNumber={inspection.inspectionNumber}
+      inspectionDate={inspectionDate}
+    >
+      <ClientPortalPropertyCard
+        address={inspection.propertyAddress}
+        technicianName={inspection.technicianName}
+      />
+
+      <ClientPortalStatus token={token} reportPdfHref={reportReady ? `/api/portal/${encodeURIComponent(token)}/pdf` : undefined} />
+
+      {!showInteractiveActions && (
+        <div role="status" className={clientPortalPanelPadding}>
+          <p className="text-sm font-semibold text-white/90">Viewing only</p>
+          <p className="mt-1 text-sm text-slate-400">
+            Uploads and approvals are unavailable from this link. Please contact
+            your restoration team for a new secure link.
+          </p>
+        </div>
+      )}
+
+      {showInteractiveActions && <ClientPortalAuthorities token={token} />}
+
+      <PortalAffectedAreas
+        areas={toPortalAffectedAreaItems(inspection.affectedAreas)}
+      />
+
+      {inspection.scopeItems.length > 0 && (
+        <div className={clientPortalPanelPadding}>
+          <h2 className="text-sm font-semibold text-white/90">
+            Scope of works
+            <span className="ml-2 text-xs font-normal text-slate-500">
+              ({inspection.scopeItems.length}{" "}
+              {inspection.scopeItems.length === 1 ? "item" : "items"})
             </span>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Client Job Status Portal
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-semibold text-slate-900">
-              {inspection.inspectionNumber}
-            </p>
-            <p className="text-xs text-slate-400">{inspectionDate}</p>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-        {/* Address card */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 bg-cyan-50 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg
-                className="w-4 h-4 text-cyan-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {inspection.scopeItems.map((item) => (
+              <li
+                key={item.id}
+                className="flex items-start gap-2 text-sm text-slate-300"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-900">
-                {inspection.propertyAddress}
-              </p>
-              {inspection.technicianName && (
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Technician: {inspection.technicianName}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Live claim status — polls the client-safe updates feed */}
-        <ClientPortalStatus token={token} />
-
-        {!showInteractiveActions && (
-          <div
-            role="status"
-            className="rounded-xl border border-slate-200 bg-white p-4"
-          >
-            <p className="text-sm font-semibold text-slate-700">Viewing only</p>
-            <p className="mt-1 text-sm text-slate-500">
-              Uploads and approvals are unavailable from this link. Please
-              contact your technician for a new link.
-            </p>
-          </div>
-        )}
-
-        {/* Approvals the client still needs to sign (hides itself when none) */}
-        {showInteractiveActions && <ClientPortalAuthorities token={token} />}
-
-        <PortalAffectedAreas
-          areas={toPortalAffectedAreaItems(inspection.affectedAreas)}
-        />
-
-        {/* Scope summary */}
-        {inspection.scopeItems.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">
-              Scope of Works
-              <span className="ml-2 text-xs font-normal text-slate-400">
-                ({inspection.scopeItems.length} items)
-              </span>
-            </h2>
-            <ul className="space-y-1.5">
-              {inspection.scopeItems.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-start gap-2 text-sm text-slate-700"
+                <svg
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-hidden
                 >
-                  <svg
-                    className="w-3.5 h-3.5 text-cyan-500 mt-0.5 flex-shrink-0"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Restoration work item included
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>{item.description?.trim() || "Restoration work item"}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-        {/* Report ready banner */}
-        {reportReady && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
-            <svg
-              className="w-5 h-5 text-success flex-shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <p className="text-sm text-success font-medium">
-              Your restoration report is ready.
-            </p>
-          </div>
-        )}
+      {reportReady && <ClientPortalReportReady token={token} />}
 
-        {/* Client evidence upload — photos + a note (quarantined for staff review) */}
-        {showInteractiveActions && <ClientPortalUpload token={token} />}
+      {showInteractiveActions && <ClientPortalUpload token={token} />}
 
-        {/* Who is in your home: the business's profile, saved by the
-            workspace owner (RA-7727). Falls back to the bare name above when
-            there is no profile, or the owner opted out of being shown
-            publicly. */}
-        {technician && <TechnicianIdentityCard technician={technician} />}
+      {technician && <TechnicianIdentityCard technician={technician} />}
 
-        <PortalAboutSection
-          logoUrl={org?.logoUrl}
-          aboutCopy={org?.aboutCopy}
-          orgName={org?.name}
-        />
+      <PortalAboutSection
+        logoUrl={org?.logoUrl}
+        aboutCopy={org?.aboutCopy}
+        orgName={org?.name}
+      />
 
-        <PortalContentSections articles={portalArticles} />
+      <PortalContentSections articles={portalArticles} />
 
-        {/* Understanding your claim — explainer videos */}
-        <ClientPortalVideos />
-      </div>
-
-      {/* Footer */}
-      <footer className="max-w-2xl mx-auto px-4 py-6 text-center border-t border-slate-100 mt-4">
-        <p className="text-xs text-slate-400">
-          Powered by{" "}
-          <span className="font-semibold text-cyan-600">RestoreAssist</span>
-        </p>
-        <p className="text-xs text-slate-400 mt-1">
-          For queries about the job, contact the technician directly.
-        </p>
-        <p className="text-xs text-slate-400 mt-2">
-          <Link href={PORTAL_PATHS.help} className="text-cyan-600 hover:underline">
-            Client help
-          </Link>
-          <span className="px-2">·</span>
-          <Link href={PORTAL_PATHS.login} className="text-cyan-600 hover:underline">
-            Portal account sign-in
-          </Link>
-        </p>
-      </footer>
-    </main>
+      <ClientPortalVideos />
+    </ClientPortalShell>
   );
 }
