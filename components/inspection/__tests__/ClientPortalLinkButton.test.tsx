@@ -17,7 +17,7 @@ describe("ClientPortalLinkButton", () => {
     vi.stubGlobal("fetch", f);
     render(<ClientPortalLinkButton inspectionId="i1" />);
     fireEvent.click(
-      screen.getByRole("button", { name: "Send claim portal to client" }),
+      screen.getByRole("button", { name: "Send portal link" }),
     );
     await waitFor(() =>
       expect(screen.getByLabelText("Client portal link")).toHaveValue(
@@ -41,7 +41,7 @@ describe("ClientPortalLinkButton", () => {
     );
     render(<ClientPortalLinkButton inspectionId="i1" />);
     fireEvent.click(
-      screen.getByRole("button", { name: "Send claim portal to client" }),
+      screen.getByRole("button", { name: "Send portal link" }),
     );
     await waitFor(() =>
       expect(screen.getByRole("status")).toHaveTextContent(/no client email/i),

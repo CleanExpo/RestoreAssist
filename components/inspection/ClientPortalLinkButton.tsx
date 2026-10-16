@@ -1,15 +1,11 @@
 "use client";
 
-/**
- * The "single button" (Client portal Phase 1).
- *
- * One staff button on an inspection that issues the client's portal link and
- * emails it to them — the client's single entry to their claim (view status now;
- * evidence upload + authority approvals land in later phases). Thin wrapper over
- * POST /api/inspections/[id]/client-portal-link.
- */
-
 import { useState } from "react";
+import {
+  clientPortalPanelPadding,
+  clientPortalPrimaryButton,
+  clientPortalMuted,
+} from "@/lib/portal/client-portal-theme";
 
 export function ClientPortalLinkButton({
   inspectionId,
@@ -35,14 +31,14 @@ export function ClientPortalLinkButton({
       setUrl(body.data.url);
       setMessage(
         body.data.emailed
-          ? "Sent to the client by email. You can also copy the link below."
-          : "Link ready to share. Email was not sent — check the client email and Mailtrap (MAILTRAP_API_KEY + SENDER_EMAIL) in Settings → Email.",
+          ? "Email sent. You can copy the link below if needed."
+          : "Link ready. Email was not sent — check the client email and mail settings.",
       );
     } catch (e) {
       setMessage(
         e instanceof Error && e.message !== "Request failed"
           ? e.message
-          : "Couldn’t send the client portal link. Try again.",
+          : "Could not send the portal link. Try again.",
       );
     } finally {
       setBusy(false);
@@ -50,23 +46,30 @@ export function ClientPortalLinkButton({
   }
 
   return (
-    <section className="rounded-xl border border-white/10 bg-brand-navy/60 p-3 space-y-2 text-white">
+    <section className={`${clientPortalPanelPadding} space-y-3`}>
+      <div>
+        <p className="text-sm font-semibold text-white/95">Client portal</p>
+        <p className={`mt-0.5 ${clientPortalMuted}`}>
+          Email a secure link so the client can view this job, upload photos, and
+          complete approvals.
+        </p>
+      </div>
       <button
         type="button"
         onClick={send}
         disabled={busy}
-        aria-label="Send claim portal to client"
-        className="min-h-11 px-4 py-2 rounded-lg text-sm font-medium border border-cyan-400/40 bg-cyan-500/20 text-cyan-50 hover:bg-cyan-500/30 transition-colors disabled:opacity-40"
+        aria-label="Send portal link"
+        className={`${clientPortalPrimaryButton} w-full sm:w-auto`}
       >
-        {busy ? "Sending…" : "Send claim portal to client"}
+        {busy ? "Sending…" : "Send portal link"}
       </button>
       {url && (
         <div className="space-y-1">
           <label
-            className="block text-xs text-white/50"
+            className="block text-xs text-slate-500"
             htmlFor="client-portal-url"
           >
-            Client portal link:
+            Link to copy
           </label>
           <input
             id="client-portal-url"
@@ -74,12 +77,12 @@ export function ClientPortalLinkButton({
             value={url}
             aria-label="Client portal link"
             onFocus={(e) => e.currentTarget.select()}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-xs text-white"
+            className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-slate-200"
           />
         </div>
       )}
       {message && (
-        <p role="status" className="text-xs text-white/70">
+        <p role="status" className={`text-xs ${clientPortalMuted}`}>
           {message}
         </p>
       )}
