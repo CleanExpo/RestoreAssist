@@ -65,11 +65,11 @@ function formatMargotChatError(message: string): string {
     try {
       const parsed = JSON.parse(trimmed) as { error?: string };
       if (parsed.error === "Forbidden") {
-        return "Access denied — you need platform operator access for Margot chat. Check GET /api/margot/access for your User.id and .env setup.";
+        return "Access denied — you need platform operator access for Margot chat.";
       }
     } catch {
       if (/forbidden/i.test(trimmed)) {
-        return "Access denied — platform operator access required. See /api/margot/access for setup.";
+        return "Access denied — platform operator access required.";
       }
     }
   }

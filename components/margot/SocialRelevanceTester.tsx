@@ -78,7 +78,7 @@ export function SocialRelevanceTester() {
       if (!res.ok) {
         if (res.status === 403) {
           throw new Error(
-            "Platform operator access required. Open /api/margot/access for your User.id, or set PLATFORM_SUPPORT_DEV_OPEN=true locally.",
+            "Platform operator access required.",
           );
         }
         throw new Error(
