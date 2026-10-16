@@ -4,10 +4,6 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 
-/**
- * DELETE /api/portal/invitations/[id] — revoke a pending portal invitation.
- * Accepted invitations cannot be revoked (client already has an account).
- */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
