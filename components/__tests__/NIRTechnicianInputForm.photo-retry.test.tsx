@@ -79,7 +79,11 @@ describe("NIR photo attachment", () => {
     expect(screen.getByRole("button", { name: "Retry this photo" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Review & Submit" }));
-    expect(notification.error).toHaveBeenCalledWith("Please fix validation errors before reviewing");
+    // Review is still refused while the attachment is unverified; the
+    // validation summary wording changed in 7876bacc2.
+    expect(notification.error).toHaveBeenCalledWith(
+      expect.stringMatching(/^Complete \d+ required items? before submitting/),
+    );
     expect(screen.getByRole("button", { name: "Retry this photo" })).toBeInTheDocument();
 
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Retry this photo" })));

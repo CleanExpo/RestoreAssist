@@ -1336,11 +1336,13 @@ export default function NIRTechnicianInputForm({
     photoWorkCount.current++;
     setUploadingPhotos(true);
     try {
-      const currentInspectionId = await ensureInspectionExists(false);
+      // showToast: an unconfirmed create must say so (and, on a changed retry,
+      // tell the user to restore the original details) - RA recovery #2386.
+      const currentInspectionId = await ensureInspectionExists(true);
       if (!currentInspectionId) {
         const ids = new Set(entries.map((entry) => entry.id));
         setPhotos((prev) => prev.map((photo) => ids.has(photo.id)
-          ? { ...photo, uploading: false, error: "Could not attach to the inspection draft. Retry this photo." }
+          ? { ...photo, uploading: false, error: "Inspection creation is unconfirmed. Retry this photo to check the same request." }
           : photo,
         ));
         return;
@@ -1365,7 +1367,7 @@ export default function NIRTechnicianInputForm({
     photoWorkCount.current++;
     setUploadingPhotos(true);
     try {
-      const currentInspectionId = await ensureInspectionExists(false);
+      const currentInspectionId = await ensureInspectionExists(true);
       if (!currentInspectionId) return;
       const saved = await uploadSelectedPhoto(entry, currentInspectionId);
       if (saved) toast.success("Photo attached to the inspection.");
