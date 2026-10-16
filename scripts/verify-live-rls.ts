@@ -91,14 +91,24 @@ function isTenantScopedExpression(expression: string | null): boolean {
   return uidIsCompared || workspaceHelper;
 }
 
-// Tables scoped through a parent row: the owner check must read the parent and
-// tie it to this row, or it grants every row to anyone who owns any parent.
-const CORRELATED_OWNER: Record<string, { parent: string; link: RegExp }> = {
-  JobAppointment: {
-    parent: "frominspection",
-    link: /[a-z0-9_]+\.id=jobappointment\.inspectionid|jobappointment\.inspectionid=[a-z0-9_]+\.id/,
-  },
-};
+// Tables scoped through a parent row. Their USING predicate must be exactly
+// one EXISTS over the parent whose single WHERE conjoins both comparisons on
+// the same parent alias: parent.id = this row's FK, and parent.userId =
+// auth.uid(). Anything else (an uncorrelated owner check, the two comparisons
+// split across separate EXISTS, a negated owner comparison, an extra arm)
+// fails. Matched against the normalised expression with parentheses removed;
+// with only AND and = permitted, parentheses cannot change its meaning.
+const CORRELATED_OWNER_SHAPE: Record<string, RegExp> = (() => {
+  const link = (a: string) =>
+    `(?:${a}\\.id=jobappointment\\.inspectionid|jobappointment\\.inspectionid=${a}\\.id)`;
+  const owner = (a: string) => `(?:${a}\\.userid=auth\\.uid|auth\\.uid=${a}\\.userid)`;
+  const a = "\\1";
+  return {
+    JobAppointment: new RegExp(
+      `^existsselect1frominspection([a-z_][a-z0-9_]*)where(?:${link(a)}and${owner(a)}|${owner(a)}and${link(a)})$`,
+    ),
+  };
+})();
 
 function policyFindings(table: string, policies: LiveRlsPolicy[], readOnly: boolean): string[] {
   const findings: string[] = [];
@@ -135,10 +145,10 @@ function policyFindings(table: string, policies: LiveRlsPolicy[], readOnly: bool
     if (["SELECT", "UPDATE", "DELETE"].includes(command) && !isTenantScopedExpression(policy.using_expression)) {
       findings.push(`${table}: ${command} policy ${policy.name} has no recognised tenant-scoped USING predicate`);
     }
-    const correlated = CORRELATED_OWNER[table];
-    if (correlated && ["SELECT", "UPDATE", "DELETE"].includes(command)) {
-      const using = normaliseExpression(policy.using_expression);
-      if (!using.includes(correlated.parent) || !correlated.link.test(using)) {
+    const shape = CORRELATED_OWNER_SHAPE[table];
+    if (shape && ["SELECT", "UPDATE", "DELETE"].includes(command)) {
+      const using = normaliseExpression(policy.using_expression).replace(/[()]/g, "");
+      if (!shape.test(using)) {
         findings.push(`${table}: ${command} policy ${policy.name} is not correlated to the row's inspection`);
       }
     }

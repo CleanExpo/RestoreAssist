@@ -1,33 +1,86 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import ts from "typescript";
 
 const source = readFileSync(
   join(process.cwd(), "app/dashboard/inspections/[id]/page.tsx"),
   "utf8",
 );
+const file = ts.createSourceFile(
+  "page.tsx",
+  source,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TSX,
+);
 
 /**
- * The JSX block a gate renders: from `{gate && (` to its matching `)`, found
- * by bracket balance rather than a character window, so a harmless gated
- * element followed by an ungated sibling cannot satisfy the assertion.
- * Returns null when the gate is absent.
+ * Every node of the parsed page that carries `needle`: JSX text, string and
+ * template literal text, or an identifier reference. Read from the TSX syntax
+ * tree, not the raw source, so a comment can neither hide an occurrence nor
+ * stand in for a bracket (Codex 570cd23f3: brackets inside JSX comments let an
+ * ungated link pass as part of the gated block).
  */
-function gatedBlock(gate: string): { block: string; rest: string } | null {
-  const open = `{${gate} && (`;
-  const start = source.indexOf(open);
-  if (start === -1) return null;
-  let depth = 0;
-  for (let i = start + open.length - 1; i < source.length; i++) {
-    if (source[i] === "(") depth++;
-    else if (source[i] === ")" && --depth === 0) {
-      return {
-        block: source.slice(start, i + 1),
-        rest: source.slice(0, start) + source.slice(i + 1),
-      };
+function occurrences(needle: string): ts.Node[] {
+  const found: ts.Node[] = [];
+  const visit = (node: ts.Node) => {
+    if (
+      (ts.isJsxText(node) ||
+        ts.isStringLiteral(node) ||
+        ts.isNoSubstitutionTemplateLiteral(node) ||
+        ts.isTemplateHead(node) ||
+        ts.isTemplateMiddle(node) ||
+        ts.isTemplateTail(node)) &&
+      node.text.includes(needle)
+    ) {
+      found.push(node);
+    } else if (
+      ts.isIdentifier(node) &&
+      node.text === needle &&
+      !ts.isFunctionDeclaration(node.parent)
+    ) {
+      found.push(node);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return found;
+}
+
+/** True when `node` sits on the right of a `gate && ...` whose left is exactly `gate`. */
+function isGatedBy(node: ts.Node, gate: string): boolean {
+  for (
+    let child: ts.Node = node, parent = node.parent;
+    parent;
+    child = parent, parent = parent.parent
+  ) {
+    if (
+      ts.isBinaryExpression(parent) &&
+      parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken &&
+      parent.right === child &&
+      ts.isIdentifier(parent.left) &&
+      parent.left.text === gate
+    ) {
+      return true;
     }
   }
-  return null;
+  return false;
+}
+
+/** The action is present, and every occurrence of it renders only under `gate`. */
+function expectOnlyUnderGate(gate: string, needles: string[]) {
+  for (const needle of needles) {
+    const nodes = occurrences(needle);
+    expect(nodes.length, `${needle} is missing`).toBeGreaterThan(0);
+    for (const node of nodes) {
+      const { line } = file.getLineAndCharacterOfPosition(node.getStart());
+      expect(
+        isGatedBy(node, gate),
+        `${needle} at page.tsx:${line + 1} is not under ${gate}`,
+      ).toBe(true);
+    }
+  }
 }
 
 describe("inspection lifecycle controls", () => {
@@ -55,25 +108,18 @@ describe("inspection lifecycle controls", () => {
     expect(source).toMatch(
       /const canGenerateInvoice =\s*\(inspection\.status === "SUBMITTED" && Boolean\(inspection\.signedAt\)\) \|\|\s*inspection\.status === "IN_BILLING"/,
     );
-    // The invoice action lives only inside the canGenerateInvoice block: present
-    // there, and nowhere else in the page (no ungated copy beside a gated one).
-    const gated = gatedBlock("canGenerateInvoice");
-    expect(gated, "canGenerateInvoice gate is missing").not.toBeNull();
-    expect(gated!.block).toContain("Generate Invoice");
-    expect(gated!.block).toMatch(/\/invoice`/);
-    expect(gated!.rest).not.toContain("Generate Invoice");
-    expect(gated!.rest).not.toMatch(/\/invoice`/);
+    // The invoice action renders only under canGenerateInvoice: no ungated
+    // copy beside a gated one.
+    expectOnlyUnderGate("canGenerateInvoice", ["Generate Invoice", "/invoice"]);
   });
 
   it("exposes report generation for review-ready work without reopening billing", () => {
     expect(source).toMatch(
       /const canGenerateReport =\s*\["ESTIMATED", "SUBMITTED", "COMPLETED"\]\.includes\(\s*inspection\.status,?\s*\)/,
     );
-    const gated = gatedBlock("canGenerateReport");
-    expect(gated, "canGenerateReport gate is missing").not.toBeNull();
-    expect(gated!.block).toContain("onClick={handleGenerateReport}");
-    expect(gated!.block).toContain("Generate NIR Report");
-    expect(gated!.rest).not.toContain("onClick={handleGenerateReport}");
-    expect(gated!.rest).not.toContain("Generate NIR Report");
+    expectOnlyUnderGate("canGenerateReport", [
+      "handleGenerateReport",
+      "Generate NIR Report",
+    ]);
   });
 });

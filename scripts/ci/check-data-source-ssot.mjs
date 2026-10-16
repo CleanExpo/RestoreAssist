@@ -79,19 +79,28 @@ function parseModels(src) {
  * (PortalInvitation vs Inspection, 16/10/2026). Relations with no FK scalar
  * (implicit many-to-many lists) and relations through differently named FKs
  * are not deduplicated: they are still shared data.
+ *
+ * Returns the shared count and the size of the smaller model, both with the
+ * same duplicate links removed. Deduplicating only the numerator let a
+ * field-identical pair with many shared parents fall under the ratio
+ * (Codex 570cd23f3: ten parents, 16/27).
  */
-function shared(a, b) {
+function overlap(a, b) {
   let n = 0;
   for (const f of a.fields) if (b.fields.has(f)) n++;
+  let duplicates = 0;
   for (const [relation, fks] of a.relationFks) {
     if (
       b.relationFks.get(relation) === fks &&
       fks.split(",").every((f) => a.fields.has(f) && b.fields.has(f))
     ) {
-      n--;
+      duplicates++;
     }
   }
-  return n;
+  return {
+    shared: n - duplicates,
+    smaller: Math.min(a.fields.size, b.fields.size) - duplicates,
+  };
 }
 
 const models = parseModels(readFileSync(SCHEMA, "utf8"));
@@ -102,8 +111,7 @@ for (let i = 0; i < models.length; i++) {
     const b = models[j];
     if (!a.uniqueKey || !b.uniqueKey) continue;
     if (a.uniqueKey === b.uniqueKey) continue; // same key → not tenancy drift
-    const s = shared(a, b);
-    const smaller = Math.min(a.fields.size, b.fields.size);
+    const { shared: s, smaller } = overlap(a, b);
     if (smaller === 0) continue;
     if (s >= MIN_SHARED && s / smaller >= OVERLAP_RATIO) {
       hits.push({ a, b, s, ratio: (s / smaller) * 100 });

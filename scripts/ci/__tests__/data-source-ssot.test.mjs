@@ -144,6 +144,37 @@ ${PLAN_FIELDS}
   assert.match(r.stdout + r.stderr, /OrgPricing|UserPricing/);
 });
 
+test("a field-identical pair with many shared parent links is still flagged", () => {
+  // Codex 570cd23f3: dropping duplicate links from the shared count but not
+  // from the model size took ten shared parents to 16/27, under the ratio.
+  const N = 10;
+  const parents = Array.from({ length: N }, (_, i) => `model Parent${i} {\n  id String @id\n}`).join("\n\n");
+  const links = Array.from(
+    { length: N },
+    (_, i) => `  parent${i}Id String\n  parent${i}   Parent${i} @relation(fields: [parent${i}Id], references: [id])`,
+  ).join("\n");
+  const r = run(`${parents}
+
+model UserConfig {
+  id        String @id
+  userId    String @unique
+${PLAN_FIELDS}
+  markupPct String
+${links}
+}
+
+model OrgConfig {
+  id        String @id
+  orgId     String @unique
+${PLAN_FIELDS}
+  markupPct String
+${links}
+}
+`);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout + r.stderr, /OrgConfig|UserConfig/);
+});
+
 test("two models sharing only parent links and generic names are not flagged", () => {
   const r = run(`${PARENTS}
 model Invitation {

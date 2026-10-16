@@ -172,6 +172,37 @@ describe("live RLS parity", () => {
     );
   });
 
+  // Codex 570cd23f3: both were accepted and, on Postgres, exposed another
+  // tenant's appointment (inverted: only theirs; disconnected: everyone's).
+  it("rejects a correlated policy whose owner comparison is negated", () => {
+    const inverted = `(EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE ((i.id = "JobAppointment"."inspectionId") AND (NOT (i."userId" = (( SELECT auth.uid() AS uid))::text)))))`;
+    expect(jobAppointment([ownerSelect(inverted)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select is not correlated to the row's inspection",
+    );
+  });
+
+  it("rejects an owner check and a row link split across separate EXISTS", () => {
+    const disconnected = `((EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE (i."userId" = (( SELECT auth.uid() AS uid))::text))) AND (EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE (i.id = "JobAppointment"."inspectionId"))))`;
+    expect(jobAppointment([ownerSelect(disconnected)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select is not correlated to the row's inspection",
+    );
+  });
+
+  it("rejects comparisons on two different parent aliases", () => {
+    const twoAliases = `(EXISTS ( SELECT 1
+   FROM "Inspection" i, "Inspection" j
+  WHERE ((i.id = "JobAppointment"."inspectionId") AND (j."userId" = (( SELECT auth.uid() AS uid))::text))))`;
+    expect(jobAppointment([ownerSelect(twoAliases)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select is not correlated to the row's inspection",
+    );
+  });
+
   it("rejects a negated owner check on JobAppointment", () => {
     expect(jobAppointment([ownerSelect(`(NOT ${JOB_APPOINTMENT_OWNER})`)])).toContain(
       "JobAppointment: SELECT policy job_appointment_owner_select has no recognised tenant-scoped USING predicate",
