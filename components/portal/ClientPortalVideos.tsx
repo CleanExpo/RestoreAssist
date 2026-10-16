@@ -1,10 +1,6 @@
 import { CLIENT_PORTAL_VIDEOS } from "@/lib/portal/client-videos";
 import { clientPortalPanelPadding } from "@/lib/portal/client-portal-theme";
 
-/**
- * "Understanding your claim" — explainer videos on the client portal.
- * Renders the config list (lib/portal/client-videos.ts) as opener links.
- */
 export function ClientPortalVideos() {
   if (CLIENT_PORTAL_VIDEOS.length === 0) return null;
   return (
