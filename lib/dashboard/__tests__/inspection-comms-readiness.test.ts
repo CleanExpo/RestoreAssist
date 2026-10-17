@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildClientPortalLinkChecklist,
   buildClientSendChecklist,
   isClientEmailJourneyComplete,
 } from "../inspection-comms-readiness";
@@ -12,6 +13,16 @@ describe("inspection comms readiness", () => {
         portalLinkEmailedAt: null,
       }),
     ).toBe(true);
+  });
+
+  it("portal link checklist omits PDF gate", () => {
+    const items = buildClientPortalLinkChecklist({
+      emailServiceConfigured: true,
+      clientHasEmail: true,
+      clientEmail: "a@b.com",
+    });
+    expect(items).toHaveLength(2);
+    expect(items.every((i) => i.ok)).toBe(true);
   });
 
   it("checklist flags missing Mailtrap", () => {
