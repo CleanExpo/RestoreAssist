@@ -21,6 +21,34 @@ export type InspectionCommsReadiness = {
   completenessBlockerCount: number;
 };
 
+/** Checklist for emailing a secure job link (PDF completion not required). */
+export function buildClientPortalLinkChecklist(
+  input: Pick<
+    InspectionCommsReadiness,
+    "emailServiceConfigured" | "clientHasEmail" | "clientEmail"
+  >,
+): ClientSendChecklistItem[] {
+  return [
+    {
+      id: "client-email",
+      label: "Client email on file",
+      ok: input.clientHasEmail,
+      hint: input.clientHasEmail
+        ? `Will send to ${input.clientEmail}`
+        : "Add the client's email on the client record or insurer tab.",
+    },
+    {
+      id: "mailtrap",
+      label: "Email provider (Mailtrap / platform)",
+      ok: input.emailServiceConfigured,
+      hint: input.emailServiceConfigured
+        ? "MAILTRAP_API_KEY + SENDER_EMAIL (or workspace BYOK) is configured."
+        : "Set MAILTRAP_API_KEY and SENDER_EMAIL in env, or configure Settings → Email (owners).",
+      href: "/dashboard/settings/email",
+    },
+  ];
+}
+
 export function buildClientSendChecklist(
   input: InspectionCommsReadiness,
 ): ClientSendChecklistItem[] {
