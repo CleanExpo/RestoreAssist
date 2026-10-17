@@ -20,8 +20,8 @@ vi.mock("@/lib/prisma", () => ({
     inspection: { findFirst: vi.fn(), findUnique: vi.fn() },
   },
 }));
-vi.mock("@/components/portal/ClientPortalStatus", () => ({
-  ClientPortalStatus: () => null,
+vi.mock("@/components/portal/ClientPortalLiveHub", () => ({
+  ClientPortalLiveHub: () => null,
 }));
 vi.mock("@/components/portal/ClientPortalAuthorities", () => ({
   ClientPortalAuthorities: () => <div data-testid="portal-authorities" />,
