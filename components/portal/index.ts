@@ -5,3 +5,4 @@ export {
   ClientPortalShell,
 } from "./ClientPortalShell";
 export { PortalHelpPageShell } from "./PortalHelpPageShell";
+export { ClientPortalLiveHub } from "./ClientPortalLiveHub";
