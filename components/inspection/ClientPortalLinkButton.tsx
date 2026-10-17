@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Check, Circle, Loader2 } from "lucide-react";
+import {
+  buildClientPortalLinkChecklist,
+  type InspectionCommsReadiness,
+} from "@/lib/dashboard/inspection-comms-readiness";
 import {
   clientPortalPanelPadding,
   clientPortalPrimaryButton,
   clientPortalMuted,
 } from "@/lib/portal/client-portal-theme";
+import { cn } from "@/lib/utils";
 
 export function ClientPortalLinkButton({
   inspectionId,
@@ -15,6 +22,38 @@ export function ClientPortalLinkButton({
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [readiness, setReadiness] = useState<InspectionCommsReadiness | null>(
+    null,
+  );
+  const [readinessLoading, setReadinessLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/inspections/${inspectionId}/comms-readiness`,
+        );
+        if (!res.ok) return;
+        const body = (await res.json()) as { data: InspectionCommsReadiness };
+        if (!cancelled) setReadiness(body.data);
+      } finally {
+        if (!cancelled) setReadinessLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inspectionId]);
+
+  const checklist = buildClientPortalLinkChecklist(
+    readiness ?? {
+      emailServiceConfigured: false,
+      clientHasEmail: false,
+      clientEmail: null,
+    },
+  );
+  const canSend = checklist.every((item) => item.ok);
 
   async function send() {
     setBusy(true);
@@ -50,19 +89,80 @@ export function ClientPortalLinkButton({
       <div>
         <p className="text-sm font-semibold text-white/95">Client portal</p>
         <p className={`mt-0.5 ${clientPortalMuted}`}>
-          Email a secure link so the client can view this job, upload photos, and
-          complete approvals.
+          One secure link for this job — view progress, upload photos, and
+          complete approvals. Same checklist as report delivery.
         </p>
+        {readiness?.portalLinkEmailedAt && (
+          <p className="mt-2 text-xs text-cyan-300/90">
+            Portal link emailed{" "}
+            {new Date(readiness.portalLinkEmailedAt).toLocaleString("en-AU", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
+            . Sending again refreshes the link expiry.
+          </p>
+        )}
       </div>
+
+      <ul className="space-y-2 rounded-lg border border-white/10 bg-slate-950/40 p-3">
+        {readinessLoading ? (
+          <li className="flex items-center gap-2 text-xs text-slate-400">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            Checking send readiness…
+          </li>
+        ) : (
+          checklist.map((item) => (
+            <li key={item.id} className="flex gap-2 text-xs">
+              {item.ok ? (
+                <Check
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400"
+                  aria-hidden
+                />
+              ) : (
+                <Circle
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500"
+                  aria-hidden
+                />
+              )}
+              <div>
+                <p
+                  className={cn(
+                    "font-medium",
+                    item.ok ? "text-slate-200" : "text-slate-400",
+                  )}
+                >
+                  {item.label}
+                </p>
+                <p className="text-slate-500">{item.hint}</p>
+                {item.href && !item.ok && (
+                  <Link
+                    href={item.href}
+                    className="text-cyan-400/90 underline-offset-2 hover:underline"
+                  >
+                    Open settings
+                  </Link>
+                )}
+              </div>
+            </li>
+          ))
+        )}
+      </ul>
+
       <button
         type="button"
         onClick={send}
-        disabled={busy}
+        disabled={busy || readinessLoading || !canSend}
         aria-label="Send portal link"
         className={`${clientPortalPrimaryButton} w-full sm:w-auto`}
       >
         {busy ? "Sending…" : "Send portal link"}
       </button>
+      {!readinessLoading && !canSend && (
+        <p className="text-xs text-amber-300/90">
+          Fix the items above before sending — the client won&apos;t receive a
+          link until email is on file and outbound mail is configured.
+        </p>
+      )}
       {url && (
         <div className="space-y-1">
           <label
