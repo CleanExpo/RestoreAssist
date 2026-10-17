@@ -548,11 +548,20 @@ export default function WorkflowMonitorPage() {
 
   // Summary counts (always computed from ALL workflows, ignoring filter)
   const [allWorkflows, setAllWorkflows] = useState<AgentWorkflow[]>([]);
+  // null = not loaded or the read failed; never shown as 0
+  const [expiredLeaseTasks, setExpiredLeaseTasks] = useState<number | null>(
+    null,
+  );
   useEffect(() => {
     if (!isAdmin) return;
     fetch("/api/agents/workflows?limit=50")
       .then((r) => r.json())
-      .then((d) => setAllWorkflows(d.workflows ?? []))
+      .then((d) => {
+        setAllWorkflows(d.workflows ?? []);
+        setExpiredLeaseTasks(
+          typeof d.expiredLeaseTasks === "number" ? d.expiredLeaseTasks : null,
+        );
+      })
       .catch(() => {});
   }, [isAdmin]);
 
@@ -693,6 +702,17 @@ export default function WorkflowMonitorPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* RA-7999: read-only count; the sweep reclaims these on the next poll or cron run */}
+      <p
+        className="text-sm text-neutral-500"
+        data-testid="expired-lease-count"
+      >
+        RUNNING tasks with an expired lease:{" "}
+        <span className="font-semibold text-neutral-900 dark:text-white">
+          {expiredLeaseTasks ?? "unavailable"}
+        </span>
+      </p>
 
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-neutral-200 dark:border-neutral-800">

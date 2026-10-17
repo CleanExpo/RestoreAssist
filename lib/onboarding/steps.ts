@@ -82,7 +82,7 @@ export function toOnboardingDisplaySteps(
   steps: Record<string, OnboardingApiStep> | null | undefined,
 ): OnboardingDisplayStep[] {
   if (!steps) return [];
-  const order = new Map(
+  const order = new Map<string, number>(
     ONBOARDING_STEP_ORDER.map((id, index) => [id, index]),
   );
   return Object.entries(steps)

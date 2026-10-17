@@ -1,11 +1,16 @@
 /**
- * GET /api/margot/access — whether the caller may use founder Margot surfaces.
- * Returns stable User.id for local PLATFORM_SUPPORT_USER_IDS setup.
+ * GET /api/margot/access — confirms the caller may use founder Margot surfaces.
+ *
+ * Platform-staff only. `role: "ADMIN"` is every self-registered business, so
+ * a non-operator gets 403 like every other Margot route, and the operator
+ * allowlist / dev-open configuration is never described to them.
  */
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +19,10 @@ export async function GET() {
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
 
-  const userId = auth.user!.id;
-  const allowed = isPlatformSupportOperator(userId);
+  // Platform-owned surface: tenant ADMIN is every self-registered owner.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
+
   const allowlistConfigured =
     (process.env.PLATFORM_SUPPORT_USER_IDS ?? "").trim().length > 0;
   const devOpen =
@@ -24,15 +31,9 @@ export async function GET() {
     !allowlistConfigured;
 
   return Response.json({
-    allowed,
-    userId,
+    allowed: true,
+    userId: auth.user!.id,
     role: auth.user!.role,
-    allowlistConfigured,
     devOpen,
-    hint: allowed
-      ? null
-      : allowlistConfigured
-        ? `Add ${userId} to PLATFORM_SUPPORT_USER_IDS in .env and restart the dev server.`
-        : "Set PLATFORM_SUPPORT_USER_IDS to your User.id, or PLATFORM_SUPPORT_DEV_OPEN=true for local dev (empty allowlist only).",
   });
 }

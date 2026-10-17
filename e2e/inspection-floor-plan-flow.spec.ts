@@ -27,20 +27,31 @@ test.describe("Inspection floor plan field flow @smoke", () => {
       page.getByRole("tab", { name: /floor plan/i }),
     ).toHaveAttribute("aria-selected", "true", { timeout: 20_000 });
 
+    // The hub renders the checklist twice on purpose (12b350bb8): an xl aside
+    // and an xl:hidden <details> for narrower screens. Exactly one of the pair
+    // may be visible at any width, so the strict locator is scoped to it.
     await expect(
-      page.getByLabel("Floor plan field checklist"),
+      page.getByLabel("Floor plan field checklist").filter({ visible: true }),
     ).toBeVisible();
 
     await expect(page.getByTestId("sketch-canvas-host")).toBeVisible({
       timeout: 25_000,
     });
 
-    await expect(
-      page.getByRole("navigation", { name: "Job workflow" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Floor plan" }),
-    ).toBeVisible();
+    const workflow = page.getByRole("navigation", { name: "Job workflow" });
+    await expect(workflow).toBeVisible();
+    // Scoped to the workflow strip: a page-wide substring match also hits the
+    // breadcrumb (the seeded job is titled "Floor Plan Flow …") and the
+    // "Capture Floor Plan" action, none of which is the link this asserts.
+    const floorPlanLink = workflow.getByRole("link", {
+      name: "Floor plan",
+      exact: true,
+    });
+    await expect(floorPlanLink).toBeVisible();
+    await expect(floorPlanLink).toHaveAttribute(
+      "href",
+      `/dashboard/inspections/${inspectionId}?tab=sketch`,
+    );
   });
 
   test("overview journey and more sections toggle", async ({ page }) => {

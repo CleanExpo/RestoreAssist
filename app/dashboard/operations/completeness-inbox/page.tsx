@@ -2,16 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  CalendarDays,
-  CheckCircle2,
-  ClipboardCheck,
-  Inbox,
-  Loader2,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+import { ChromeAlertTriangle, ChromeCalendar, ChromeCheckCircle, ChromeClipboardCheck, ChromeInbox, ChromeRefresh, ChromeSearch } from "@/components/brand/chrome-icons";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import {
@@ -158,14 +149,14 @@ export default function CompletenessInboxPage() {
         eyebrow="Simple workspace"
         title="Completeness inbox"
         description="Active jobs with blocking intake gaps — fix each item on the job or jump straight to the right tab."
-        icon={<Inbox className="h-7 w-7 text-cyan-500" aria-hidden />}
+        icon={<ChromeInbox className="h-7 w-7 text-cyan-500" aria-hidden />}
         primaryAction={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Link
               href="/dashboard/inspections/schedule"
               className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-neutral-200 px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800 sm:flex-none"
             >
-              <CalendarDays className="h-4 w-4" aria-hidden />
+              <ChromeCalendar className="h-4 w-4" aria-hidden />
               Job schedule
             </Link>
             <button
@@ -174,7 +165,7 @@ export default function CompletenessInboxPage() {
               disabled={loading}
               className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-95 disabled:opacity-50 sm:flex-none"
             >
-              <RefreshCw
+              <ChromeRefresh
                 className={cn("h-4 w-4", loading && "animate-spin")}
                 aria-hidden
               />
@@ -242,7 +233,7 @@ export default function CompletenessInboxPage() {
         <DashboardPanel className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="relative min-w-0 flex-1 max-w-xl">
-              <Search
+              <ChromeSearch
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden
               />
@@ -304,7 +295,7 @@ export default function CompletenessInboxPage() {
             dashboardSurfaceClass,
           )}
         >
-          <CheckCircle2
+          <ChromeCheckCircle
             className="mx-auto h-10 w-10 text-emerald-600 dark:text-emerald-400"
             aria-hidden
           />
@@ -318,7 +309,7 @@ export default function CompletenessInboxPage() {
             href="/dashboard/inspections"
             className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground"
           >
-            <ClipboardCheck className="h-4 w-4" aria-hidden />
+            <ChromeClipboardCheck className="h-4 w-4" aria-hidden />
             View all jobs
           </Link>
         </div>
@@ -348,7 +339,7 @@ export default function CompletenessInboxPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start gap-2">
-                      <AlertTriangle
+                      <ChromeAlertTriangle
                         className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
                         aria-hidden
                       />

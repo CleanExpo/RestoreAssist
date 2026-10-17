@@ -1,6 +1,13 @@
 /**
  * P2 / V1 P1-7 — lifecycle mirrors must use ClaimProgress.version CAS,
  * not blind updateMany without version checks.
+ *
+ * A ClaimProgress row exists only once someone starts claim progress (or the
+ * backfill cron reaches the job), so an inspection without one is normal. The
+ * blind updateMany this replaced was a no-op for such an inspection; the CAS
+ * version must be too, or invoice, close and reopen answer 500 for every job
+ * whose progress was never started. Version drift on a row that does exist
+ * still throws.
  */
 
 import type { Prisma, ClaimState } from "@prisma/client";
@@ -21,7 +28,7 @@ export async function mirrorClaimProgressLifecycleState(
     currentState: ClaimState;
     closedAt?: Date | null;
   },
-): Promise<{ version: number }> {
+): Promise<{ version: number | null }> {
   const row = await tx.claimProgress.findFirst({
     where: {
       inspectionId: args.inspectionId,
@@ -32,7 +39,8 @@ export async function mirrorClaimProgressLifecycleState(
     select: { id: true, version: true },
   });
   if (!row) {
-    throw new ClaimProgressMirrorConflict("ClaimProgress row missing");
+    // Nothing to mirror: progress tracking was never started for this job.
+    return { version: null };
   }
 
   const updated = await tx.claimProgress.updateMany({

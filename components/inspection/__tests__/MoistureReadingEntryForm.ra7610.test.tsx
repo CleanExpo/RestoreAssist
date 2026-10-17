@@ -61,7 +61,7 @@ describe("MoistureReadingEntryForm — RA-7610 room dropdown", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/Location/i), {
+    fireEvent.change(screen.getByLabelText(/^Location/i), {
       target: { value: "__not_on_plan__" },
     });
     fireEvent.change(screen.getByLabelText(/Room not on the plan/i), {
@@ -98,7 +98,7 @@ describe("MoistureReadingEntryForm — RA-7610 room dropdown", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/Location/i), {
+    fireEvent.change(screen.getByLabelText(/^Location/i), {
       target: { value: "sr-living" },
     });
     fireEvent.change(screen.getByLabelText(/Moisture Reading/i), {

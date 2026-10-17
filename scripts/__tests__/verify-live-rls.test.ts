@@ -101,6 +101,7 @@ describe("live RLS parity", () => {
       "NativeAuthNonce",
       "PilotGenerationReceipt",
       "PilotNoChargeApproval",
+      "ReportShareAccess",
     ];
 
     for (const table of serviceOnlyTables) {
@@ -130,6 +131,91 @@ describe("live RLS parity", () => {
         `${table} must reject every client policy`,
       ).toContain(`${table}: default-deny table unexpectedly has a live policy`);
     }
+  });
+
+  // 20261016120000: JobAppointment is read-only for its inspection's owner, with
+  // the initplan-safe scalar subselect, as Postgres deparses it in pg_policies.
+  const JOB_APPOINTMENT_OWNER = `(EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE ((i.id = "JobAppointment"."inspectionId") AND (i."userId" = (( SELECT auth.uid() AS uid))::text))))`;
+  const jobAppointment = (policies: LiveRlsPolicy[]) =>
+    verifyRlsRows(new Map([["JobAppointment", "JobAppointment"]]), [
+      { table_name: "JobAppointment", rls_enabled: true, policies },
+    ]);
+  const ownerSelect = (using: string): LiveRlsPolicy => ({
+    name: "job_appointment_owner_select",
+    command: "SELECT",
+    permissive: "PERMISSIVE",
+    roles: ["authenticated"],
+    using_expression: using,
+    check_expression: null,
+  });
+
+  it("accepts JobAppointment's single owner-scoped SELECT policy (scalar-subselect auth.uid)", () => {
+    expect(jobAppointment([ownerSelect(JOB_APPOINTMENT_OWNER)])).toEqual([]);
+  });
+
+  it("still rejects the scalar-subselect form widened by OR true", () => {
+    expect(jobAppointment([ownerSelect(`(${JOB_APPOINTMENT_OWNER} OR true)`)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select has no recognised tenant-scoped USING predicate",
+    );
+  });
+
+  // Codex 0e28a4cc4: an owner check that never ties the inspection to the
+  // appointment row grants every appointment to anyone who owns any inspection.
+  it("rejects an uncorrelated owner check on JobAppointment", () => {
+    const uncorrelated = `(EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE (i."userId" = (( SELECT auth.uid() AS uid))::text)))`;
+    expect(jobAppointment([ownerSelect(uncorrelated)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select is not correlated to the row's inspection",
+    );
+  });
+
+  // Codex 570cd23f3: both were accepted and, on Postgres, exposed another
+  // tenant's appointment (inverted: only theirs; disconnected: everyone's).
+  it("rejects a correlated policy whose owner comparison is negated", () => {
+    const inverted = `(EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE ((i.id = "JobAppointment"."inspectionId") AND (NOT (i."userId" = (( SELECT auth.uid() AS uid))::text)))))`;
+    expect(jobAppointment([ownerSelect(inverted)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select is not correlated to the row's inspection",
+    );
+  });
+
+  it("rejects an owner check and a row link split across separate EXISTS", () => {
+    const disconnected = `((EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE (i."userId" = (( SELECT auth.uid() AS uid))::text))) AND (EXISTS ( SELECT 1
+   FROM "Inspection" i
+  WHERE (i.id = "JobAppointment"."inspectionId"))))`;
+    expect(jobAppointment([ownerSelect(disconnected)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select is not correlated to the row's inspection",
+    );
+  });
+
+  it("rejects comparisons on two different parent aliases", () => {
+    const twoAliases = `(EXISTS ( SELECT 1
+   FROM "Inspection" i, "Inspection" j
+  WHERE ((i.id = "JobAppointment"."inspectionId") AND (j."userId" = (( SELECT auth.uid() AS uid))::text))))`;
+    expect(jobAppointment([ownerSelect(twoAliases)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select is not correlated to the row's inspection",
+    );
+  });
+
+  it("rejects a negated owner check on JobAppointment", () => {
+    expect(jobAppointment([ownerSelect(`(NOT ${JOB_APPOINTMENT_OWNER})`)])).toContain(
+      "JobAppointment: SELECT policy job_appointment_owner_select has no recognised tenant-scoped USING predicate",
+    );
+  });
+
+  it("rejects a write arm on read-only JobAppointment", () => {
+    expect(
+      jobAppointment([
+        ownerSelect(JOB_APPOINTMENT_OWNER),
+        { ...ownerSelect(JOB_APPOINTMENT_OWNER), name: "job_appointment_insert", command: "INSERT", using_expression: null, check_expression: JOB_APPOINTMENT_OWNER },
+      ]),
+    ).toContain("JobAppointment: unexpected INSERT policy job_appointment_insert");
   });
 
   it("rejects a tenant-scoped table with RLS enabled but zero policies", () => {

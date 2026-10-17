@@ -14,7 +14,12 @@ test.describe("RA-P1-1 — technician never hits owner setup wizard", () => {
     );
 
     const seed = await request.post("/api/test/seed-org-with-manager", {
-      data: { managerEmail: `mgr-gate-${Date.now()}@test.com` },
+      // One seat for the one seeded invite: technician seats are enforced at
+      // acceptance (7f7b703a5), and a seed with no seat answers 402 on "Join".
+      data: {
+        managerEmail: `mgr-gate-${Date.now()}@test.com`,
+        technicianSeats: 1,
+      },
     });
     expect(seed.ok()).toBeTruthy();
     const { token } = await seed.json();

@@ -1,6 +1,6 @@
 "use client";
 
-import { PenLine, Droplets, Ruler, Layers } from "lucide-react";
+import { ChromeDroplet, ChromeLayers, ChromePen, ChromeRuler } from "@/components/brand/chrome-icons";
 
 /**
  * IICRC-aligned on-site checklist — keeps techs on the drying documentation path.
@@ -16,19 +16,19 @@ export function FloorPlanFieldGuide() {
       </p>
       <ol className="mt-1.5 grid gap-1.5 text-[11px] text-neutral-600 dark:text-slate-300">
         <li className="flex items-center gap-1.5">
-          <PenLine size={12} aria-hidden />
+          <ChromePen size={12} aria-hidden />
           Import trace or draw rooms (affected + adjacent dry standard)
         </li>
         <li className="flex items-center gap-1.5">
-          <Ruler size={12} aria-hidden />
+          <ChromeRuler size={12} aria-hidden />
           Calibrate scale before quoting m²
         </li>
         <li className="flex items-center gap-1.5">
-          <Droplets size={12} aria-hidden />
+          <ChromeDroplet size={12} aria-hidden />
           Pin moisture per room — links to NIR & report
         </li>
         <li className="flex items-center gap-1.5">
-          <Layers size={12} aria-hidden />
+          <ChromeLayers size={12} aria-hidden />
           Match scope line items to room names on the plan
         </li>
       </ol>

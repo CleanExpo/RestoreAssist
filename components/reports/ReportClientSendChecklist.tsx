@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Circle, Loader2, Mail } from "lucide-react";
+import { ChromeCheck, ChromeCircle, ChromeMail, ChromeSpinner } from "@/components/brand/chrome-icons";
 import {
   buildClientSendChecklist,
   type InspectionCommsReadiness,
@@ -93,7 +93,7 @@ export function ReportClientSendChecklist({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-            <Mail size={16} aria-hidden />
+            <ChromeMail size={16} aria-hidden />
             Email the client
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -114,9 +114,9 @@ export function ReportClientSendChecklist({
             )}
           >
             {sending ? (
-              <Loader2 size={16} className="animate-spin" />
+              <ChromeSpinner size={16} className="animate-spin" />
             ) : (
-              <Mail size={16} />
+              <ChromeMail size={16} />
             )}
             Send to client
           </button>
@@ -125,7 +125,7 @@ export function ReportClientSendChecklist({
 
       {loading ? (
         <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
-          <Loader2 size={14} className="animate-spin" />
+          <ChromeSpinner size={14} className="animate-spin" />
           Checking email readiness…
         </div>
       ) : (
@@ -133,13 +133,13 @@ export function ReportClientSendChecklist({
           {items.map((item) => (
             <li key={item.id} className="flex gap-2 text-sm">
               {item.ok ? (
-                <Check
+                <ChromeCheck
                   size={16}
                   className="text-emerald-400 shrink-0 mt-0.5"
                   aria-hidden
                 />
               ) : (
-                <Circle
+                <ChromeCircle
                   size={16}
                   className="text-amber-400 shrink-0 mt-0.5"
                   aria-hidden

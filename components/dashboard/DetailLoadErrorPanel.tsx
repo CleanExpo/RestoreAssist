@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { ChromeAlertTriangle } from "@/components/brand/chrome-icons";
 import type { ParsedApiError } from "@/lib/client/parse-api-error";
 
 type Props = {
@@ -55,7 +55,7 @@ export function DetailLoadErrorPanel({
   return (
     <div className="flex min-h-[50vh] items-center justify-center px-4">
       <div className="max-w-md text-center">
-        <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-destructive" />
+        <ChromeAlertTriangle className="mx-auto mb-4 h-12 w-12 text-destructive" />
         <h2 className="mb-2 text-xl font-semibold">{copy.title}</h2>
         <p className="mb-2 text-muted-foreground">{copy.message}</p>
         {error?.eventId ? (

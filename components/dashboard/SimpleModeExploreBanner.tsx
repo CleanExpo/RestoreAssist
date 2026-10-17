@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Sparkles, X } from "lucide-react";
+import { ChromeSparkle, ChromeX } from "@/components/brand/chrome-icons";
 import { buildSimpleNavItems } from "@/app/dashboard/nav-config";
 
 const STORAGE_KEY = "ra-simple-mode-explore-dismissed";
@@ -46,7 +46,7 @@ export function SimpleModeExploreBanner({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-300">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+            <ChromeSparkle className="h-3.5 w-3.5" aria-hidden />
             Simple workspace
           </p>
           <p className="mt-2 text-sm text-slate-200">
@@ -77,7 +77,7 @@ export function SimpleModeExploreBanner({
             className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-white/15 text-slate-300 hover:bg-white/5"
             aria-label="Dismiss"
           >
-            <X className="h-4 w-4" />
+            <ChromeX className="h-4 w-4" />
           </button>
         </div>
       </div>

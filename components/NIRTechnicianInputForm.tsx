@@ -1336,11 +1336,13 @@ export default function NIRTechnicianInputForm({
     photoWorkCount.current++;
     setUploadingPhotos(true);
     try {
-      const currentInspectionId = await ensureInspectionExists(false);
+      // showToast: an unconfirmed create must say so (and, on a changed retry,
+      // tell the user to restore the original details) - RA recovery #2386.
+      const currentInspectionId = await ensureInspectionExists(true);
       if (!currentInspectionId) {
         const ids = new Set(entries.map((entry) => entry.id));
         setPhotos((prev) => prev.map((photo) => ids.has(photo.id)
-          ? { ...photo, uploading: false, error: "Could not attach to the inspection draft. Retry this photo." }
+          ? { ...photo, uploading: false, error: "Inspection creation is unconfirmed. Retry this photo to check the same request." }
           : photo,
         ));
         return;
@@ -1365,7 +1367,7 @@ export default function NIRTechnicianInputForm({
     photoWorkCount.current++;
     setUploadingPhotos(true);
     try {
-      const currentInspectionId = await ensureInspectionExists(false);
+      const currentInspectionId = await ensureInspectionExists(true);
       if (!currentInspectionId) return;
       const saved = await uploadSelectedPhoto(entry, currentInspectionId);
       if (saved) toast.success("Photo attached to the inspection.");
@@ -2705,6 +2707,7 @@ export default function NIRTechnicianInputForm({
 
           <div>
             <label
+              htmlFor="nir-property-postcode"
               className={cn(
                 "block text-sm font-medium mb-1",
                 "text-neutral-700 dark:text-slate-300",
@@ -2713,6 +2716,7 @@ export default function NIRTechnicianInputForm({
               Postcode <span className="text-destructive">*</span>
             </label>
             <input
+              id="nir-property-postcode"
               type="text"
               required
               disabled={creatingInspection}
@@ -2736,10 +2740,14 @@ export default function NIRTechnicianInputForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-neutral-700 dark:text-slate-300">
+            <label
+              htmlFor="nir-inspection-date"
+              className="block text-sm font-medium mb-1 text-neutral-700 dark:text-slate-300"
+            >
               Site attendance date
             </label>
             <input
+              id="nir-inspection-date"
               type="date"
               disabled={creatingInspection}
               value={inspectionDate}

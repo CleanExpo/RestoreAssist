@@ -20,10 +20,16 @@ test.describe("Dashboard connected navigation @smoke", () => {
       }),
     ).toBeVisible({ timeout: 20_000 });
 
-    const inspectStep = page.getByRole("link", { name: /inspect/i }).first();
+    // The pipeline's Inspect step, not the page's first /inspect/ link: since
+    // the overview redesign (e3513ca06) a "New inspection" quick action comes
+    // first in the DOM and lands on /dashboard/inspections/new, which also
+    // satisfies the URL check below but has no "Inspections" heading.
+    const inspectStep = page
+      .getByRole("region", { name: "Job through invoice" })
+      .getByRole("link", { name: /inspect/i });
     await expect(inspectStep).toBeVisible();
     await inspectStep.click();
-    await expect(page).toHaveURL(/\/dashboard\/inspections/);
+    await expect(page).toHaveURL(/\/dashboard\/inspections\/?(\?|$)/);
     await expect(
       page.getByRole("heading", { name: /^inspections$/i }),
     ).toBeVisible({ timeout: 15_000 });

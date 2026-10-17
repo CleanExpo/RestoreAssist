@@ -246,11 +246,14 @@ export async function PATCH(
     }
 
     // Non-gated transitions — update and return (APPROVED freezes snapshot P2-2)
+    // Bound outside the callback: the isEstimateStatus narrowing of
+    // `body.status` does not carry into a closure.
+    const nextStatus = body.status;
     const updated = await prisma.$transaction(async (tx) => {
       const transitioned = await tx.estimate.updateMany({
         where: { id, userId: session.user.id, status: currentStatus },
         data: {
-          status: body.status,
+          status: nextStatus,
           updatedBy: session.user.id,
           ...(approvalEvidence
             ? {

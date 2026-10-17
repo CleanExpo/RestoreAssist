@@ -38,7 +38,6 @@ import { BusinessDetailsSetting } from "@/components/settings/BusinessDetailsSet
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
 import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
-import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 const SUBSCRIPTION_STATUS_TONES: Record<string, StatusTone> = {
   ACTIVE: "success",
@@ -309,7 +308,6 @@ export default function SettingsPage() {
         title="Settings & profile"
         description="Account, business details, notifications, and workspace preferences."
         icon={<User className="h-7 w-7 text-cyan-500" aria-hidden />}
-        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/settings" })}
         primaryAction={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <button

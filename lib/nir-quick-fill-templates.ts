@@ -28,7 +28,7 @@ export type NirQuickFillTemplate = {
     location: string;
     surfaceType: string;
     moistureLevel: number;
-    depth: string;
+    depth: "Surface" | "Subsurface";
   }>;
   affectedAreas: Array<{
     id: string;

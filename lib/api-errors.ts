@@ -25,6 +25,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reportError, type ErrorContext } from "@/lib/observability";
 
+/**
+ * Machine-readable error codes. The 402s, by the customer action each means
+ * (RA-8001):
+ *
+ *   PAYMENT_REQUIRED          on agent workflow create/execute and on
+ *                             field-assist: add your own Anthropic key in
+ *                             Settings. On routes that pre-date RA-8001 it
+ *                             still means an active plan is required
+ *                             (e.g. app/api/analytics/narrative), so the code
+ *                             is overloaded: clients render `error.message`.
+ *   AI_SUBSCRIPTION_INACTIVE  renew the plan.
+ *   (legacy `{ error, upgradeRequired }` bodies from
+ *   requireActiveSubscription, outside this envelope)  upgrade.
+ *
+ * GOVERNOR_UNAVAILABLE is a 503: the gate or key check could not be read, or
+ * a funded trial's platform key is missing (an ops fault). Retry later.
+ */
 export type ApiErrorCode =
   | "VALIDATION"
   | "UNAUTHORIZED"
@@ -35,6 +52,8 @@ export type ApiErrorCode =
   | "PAYLOAD_TOO_LARGE"
   | "CONFLICT"
   | "PAYMENT_REQUIRED"
+  | "AI_SUBSCRIPTION_INACTIVE"
+  | "GOVERNOR_UNAVAILABLE"
   | "FEATURE_UNAVAILABLE"
   | "RATE_LIMITED"
   | "UPSTREAM_FAILED"

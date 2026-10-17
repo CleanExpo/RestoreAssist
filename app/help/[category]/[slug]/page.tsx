@@ -41,7 +41,7 @@ export default async function PublicArticlePage({
   }
 
   return (
-    <main className="container mx-auto max-w-3xl p-6">
+    <div className="container mx-auto max-w-3xl p-6">
       <nav className="mb-4 text-sm text-slate-500">
         <Link href="/help" className="text-[#3B6D8C] hover:underline">
           Help
@@ -72,6 +72,6 @@ export default async function PublicArticlePage({
       </article>
 
       <HelpRelatedArticles articles={related} basePath="/help" tone="public" />
-    </main>
+    </div>
   );
 }

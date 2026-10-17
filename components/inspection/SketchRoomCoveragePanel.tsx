@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Droplets, Layers, MapPin } from "lucide-react";
+import { ChromeDroplet, ChromeLayers, ChromeMapPin } from "@/components/brand/chrome-icons";
 
 type RoomRow = {
   id: string;
@@ -93,14 +93,14 @@ export function SketchRoomCoveragePanel({
                       href={`/dashboard/inspections/${inspectionId}?tab=sketch&sketchRoomId=${encodeURIComponent(room.id)}&mapMoisture=1`}
                       className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400 hover:underline"
                     >
-                      <MapPin size={12} />
+                      <ChromeMapPin size={12} />
                       Pin on plan
                     </Link>
                     <Link
                       href={`/dashboard/inspections/${inspectionId}?tab=moisture&sketchRoomId=${encodeURIComponent(room.id)}&roomName=${encodeURIComponent(room.name)}`}
                       className="inline-flex items-center gap-1 text-cyan-600/80 dark:text-cyan-500 hover:underline"
                     >
-                      <Droplets size={12} />
+                      <ChromeDroplet size={12} />
                       Reading
                     </Link>
                   </>
@@ -115,7 +115,7 @@ export function SketchRoomCoveragePanel({
                     href={`/dashboard/inspections/${inspectionId}?tab=scope&roomZone=${encodeURIComponent(room.name)}`}
                     className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline"
                   >
-                    <Layers size={12} />
+                    <ChromeLayers size={12} />
                     Scope
                   </Link>
                 )}

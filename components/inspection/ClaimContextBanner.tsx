@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { ChromeAlertTriangle, ChromeCheckCircle, ChromeSpinner } from "@/components/brand/chrome-icons";
 
 type ClaimContextResponse = {
   data: {
@@ -52,7 +52,7 @@ export function ClaimContextBanner({ inspectionId }: { inspectionId: string }) {
   if (loading) {
     return (
       <div className="flex h-full min-h-[120px] items-center gap-2 rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 shadow-sm">
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <ChromeSpinner className="h-4 w-4 animate-spin" />
         Loading claim readiness…
       </div>
     );
@@ -67,7 +67,7 @@ export function ClaimContextBanner({ inspectionId }: { inspectionId: string }) {
   }
 
   const blocked = payload.completeness.blocking.length > 0;
-  const Icon = blocked ? AlertTriangle : CheckCircle2;
+  const Icon = blocked ? ChromeAlertTriangle : ChromeCheckCircle;
 
   return (
     <div

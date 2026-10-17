@@ -60,7 +60,7 @@ describe("dashboard resource failures and account separation", () => {
     auth.session = { ...auth.session, user: { ...auth.session.user, organizationScopeVerified: false } };
     view.rerender(<DashboardPage />);
     expect(screen.queryByText(report.title)).not.toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("verify your workspace");
+    expect(screen.getByRole("alert")).toHaveTextContent("Workspace verification paused");
     expect(fetchMock.mock.calls).toHaveLength(before);
     fireEvent.click(screen.getByRole("button", { name: "Retry workspace" }));
     expect(auth.update).toHaveBeenCalledOnce();
@@ -145,7 +145,7 @@ describe("dashboard resource failures and account separation", () => {
     auth.status = "unauthenticated";
     view.rerender(<DashboardPage />);
     expect(screen.queryByText(report.title)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Sign in to load your workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login?callbackUrl=/dashboard");
     auth.session = { ...auth.session, user: { ...auth.session.user, id: "synthetic-b", organizationId: "org-b" } };
     auth.status = "authenticated";
     responses["/api/reports"] = () => new Promise(() => {});

@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Package } from "lucide-react";
+import { ChromePackage } from "@/components/brand/chrome-icons";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
 import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
@@ -161,7 +161,7 @@ export default function AddonsClient() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Add-on packs"
         description="Extend RestoreAssist with optional packs on top of your base plan — add what you need, when you need it."
-        icon={<Package className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<ChromePackage className="h-7 w-7 text-cyan-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/addons" })}
         primaryAction={
           <Link

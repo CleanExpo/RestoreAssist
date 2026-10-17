@@ -86,6 +86,15 @@ export async function tryClaudeModels(
   options?: {
     agentName?: string;
     enableCacheMetrics?: boolean;
+    /**
+     * RA-7999, opt-in (agent callAI only). "notFound": fall back to the next
+     * model only on a 404 (model unavailable); every other error is rethrown
+     * unchanged so the caller's single retry layer sees it. Omitted: today's
+     * behaviour, which also falls back on other errors.
+     */
+    fallbackOn?: "notFound";
+    /** Passed to messages.create so an abort cancels the in-flight request. */
+    signal?: AbortSignal;
   },
 ): Promise<any> {
   const modelsToTry =
@@ -126,7 +135,11 @@ export async function tryClaudeModels(
         );
       }
 
-      const response = await anthropicClient.messages.create(createParams);
+      const response = options?.signal
+        ? await anthropicClient.messages.create(createParams, {
+            signal: options.signal,
+          })
+        : await anthropicClient.messages.create(createParams);
 
       // Log cache metrics if enabled
       if (options?.enableCacheMetrics && options?.agentName) {
@@ -143,6 +156,12 @@ export async function tryClaudeModels(
       // If it's a 404/not_found, try next model
       if (error.status === 404 || errorType === "not_found_error") {
         continue;
+      }
+
+      // Opt-in single-request mode: anything but "model unavailable" surfaces
+      // to the caller, so one attempt cannot fan out across every model.
+      if (options?.fallbackOn === "notFound") {
+        throw error;
       }
 
       // If it's a deprecation warning but still works, log and continue
@@ -184,6 +203,12 @@ export async function tryClaudeModels(
       // For other errors, still try next model
       continue;
     }
+  }
+
+  // Opt-in mode: every model 404'd. Surface the last original SDK error
+  // (status and class intact) so callers can classify it.
+  if (options?.fallbackOn === "notFound" && lastError) {
+    throw lastError;
   }
 
   // All models failed - format error message better

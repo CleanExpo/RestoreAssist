@@ -2,10 +2,9 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { SVGProps } from "react";
-import { ChromeMapPin } from "@/components/brand/chrome-icons";
+import { ChromeBuilding, ChromeMapPin } from "@/components/brand/chrome-icons";
 import { authOptions } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
@@ -119,7 +118,7 @@ export default async function ContractorsHubPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Contractor workspace"
         description="Profile, licences, coverage, equipment, and service areas for this organisation."
-        icon={<Building2 className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<ChromeBuilding className="h-7 w-7 text-cyan-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/contractors" })}
       />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
