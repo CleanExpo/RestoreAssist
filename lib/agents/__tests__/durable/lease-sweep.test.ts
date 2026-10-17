@@ -23,6 +23,12 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: async () => null,
 }));
+// RA-8001 added G1 to the execute route; these fixture users have no User
+// row, so the plan is stubbed current. G1 itself is proven in
+// app/api/agents/workflows/[id]/execute/__tests__/route.test.ts.
+vi.mock("@/lib/billing/subscription-gate", () => ({
+  hasActiveSubscription: async () => true,
+}));
 
 import { prisma } from "@/lib/prisma";
 import { claimTask, sweepExpiredLeases, LEASE_MARGIN_MS } from "@/lib/agents";

@@ -121,6 +121,7 @@ export const reportAnalysisHandler: AgentHandler = async (
     agentSlug: "report-analysis",
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,
+    keyPolicy: "byok-only",
     overrides: { maxTokens: 4000, temperature: 0.3 },
     timeoutMs: reportAnalysisConfig.timeoutMs,
     signal: options?.signal,

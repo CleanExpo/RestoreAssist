@@ -19,7 +19,9 @@ import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
 import { sanitizeString } from "@/lib/sanitize";
 
 /**
- * POST — P4-2 claim-aware field assist (BYOK client plane; no house-key fallback).
+ * POST — P4-2 claim-aware field assist. Runs on the workspace's own key, or,
+ * for a funded trial (D-022), on the platform key: callAI "platform-allowed"
+ * (RA-8001). That spend is uncapped until RA-8001 slice 1d-ii.
  * Body: { message?: string }
  */
 export async function POST(
@@ -128,6 +130,7 @@ ${contextBlock}`;
         agentSlug: "client-communication",
         systemPrompt,
         userPrompt: message,
+        keyPolicy: "platform-allowed",
         overrides: { maxTokens: 1200, temperature: 0.2 },
       });
 
@@ -150,11 +153,27 @@ ${contextBlock}`;
       });
     } catch (err) {
       if (err instanceof NoWorkspaceKeyError) {
+        // RA-7600 / RA-8001: a funded trial whose platform key is missing is
+        // an ops fault, never "add your key".
+        if (err.reason === "PLATFORM_NOT_READY") {
+          return apiError(request, {
+            code: "GOVERNOR_UNAVAILABLE",
+            message: err.message,
+            status: 503,
+            err,
+            stage: "field-assist-post",
+            context: {
+              userId: session.user.id,
+              reason: err.reason,
+              inspectionId: id,
+            },
+          });
+        }
         return apiError(request, {
-          code: "PRECONDITION_FAILED",
+          code: "PAYMENT_REQUIRED",
           message:
             "Add an Anthropic API key in Workspace Settings before using field assist.",
-          status: 412,
+          status: 402,
         });
       }
       throw err;

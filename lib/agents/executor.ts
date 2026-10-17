@@ -22,6 +22,7 @@ import type {
 } from "./types";
 import { getAgent, getAgentHandler } from "./registry";
 import { classifyError } from "./error-handler";
+import { PlatformKeyRefusedError } from "./ai-bridge";
 import { logAgentEvent } from "./logger";
 import { refreshWorkflowProgress } from "./state-manager";
 import {
@@ -271,6 +272,20 @@ export async function executeTask(
       return true;
     });
     if (!failed) return leaseLost("failure", null);
+
+    // RA-8001: the durable record of a key refusal. AgentTaskLog is purged at
+    // 30 days and resume wipes errorCode. Ids and source only: no key, no prompt.
+    if (err instanceof PlatformKeyRefusedError) {
+      console.warn("[agent-refusal]", {
+        code: classified.code,
+        taskId: task.id,
+        workflowId,
+        agentSlug: task.agentSlug,
+        userId: err.userId ?? context.userId,
+        workspaceId: err.workspaceId,
+        source: err.source,
+      });
+    }
 
     await logAgentEvent(task.id, "error", `Task failed: ${classified.message}`, {
       errorCode: classified.code,

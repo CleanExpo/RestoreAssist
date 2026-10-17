@@ -27,6 +27,8 @@ vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
   resolveWorkspaceAiKey: async () => ({
     workspaceId: "ws-test",
     apiKey: "test-workspace-key-placeholder",
+    // RA-8001: agents run byok-only; a result without a source is refused.
+    source: "byok",
   }),
   NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
 }));
@@ -85,6 +87,7 @@ describe.skipIf(!process.env.DATABASE_URL)("RA-7999 [AC2b] one retry layer", () 
           agentSlug: "report-analysis",
           systemPrompt: "system",
           userPrompt: "prompt",
+          keyPolicy: "byok-only",
           timeoutMs: 600_000,
           signal: options?.signal,
         });

@@ -193,6 +193,7 @@ export interface ClassifiedError {
     | "AUTH_ERROR"
     | "VALIDATION_ERROR"
     | "AI_PROVIDER_ERROR"
+    | "AI_PLATFORM_KEY_REFUSED"
     | "UNKNOWN";
   message: string;
   retryable: boolean;

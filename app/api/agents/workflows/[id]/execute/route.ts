@@ -10,6 +10,11 @@ import {
   executeBatch,
   sweepExpiredLeases,
 } from "@/lib/agents";
+import { BYOK_ONLY_AGENT_SLUGS } from "@/lib/agents/ai-bridge";
+import {
+  agentKeyPreflight,
+  agentSubscriptionGate,
+} from "@/lib/agents/route-gates";
 import { apiError, fromException } from "@/lib/api-errors";
 
 /**
@@ -98,6 +103,43 @@ export async function POST(
         totalTasks: current.totalTasks,
         failedTasks: current.failedTasks,
       });
+    }
+
+    // RA-8001: G1 then the key preflight, after the terminal early return (a
+    // finished workflow stays readable) and before any task is claimed. A
+    // refusal leaves the workflow and its READY tasks untouched.
+    const gate = {
+      route: "agents-workflow-execute",
+      userId: session.user.id,
+      ids: { workflowId },
+    };
+    const inactive = await agentSubscriptionGate(request, gate);
+    if (inactive) return inactive;
+
+    let byokTasks: number;
+    try {
+      byokTasks = await prisma.agentTask.count({
+        where: {
+          AND: [
+            { workflowId },
+            { status: { in: ["PENDING", "READY", "RUNNING"] } },
+            { agentSlug: { in: [...BYOK_ONLY_AGENT_SLUGS] } },
+          ],
+        },
+      });
+    } catch (err) {
+      return apiError(request, {
+        code: "GOVERNOR_UNAVAILABLE",
+        message: "AI access could not be checked right now. Please try again shortly.",
+        status: 503,
+        err,
+        stage: gate.route,
+        context: { userId: gate.userId, reason: "key-preflight", workflowId },
+      });
+    }
+    if (byokTasks > 0) {
+      const refused = await agentKeyPreflight(request, gate);
+      if (refused) return refused;
     }
 
     // Advance workflow — promotes PENDING tasks to READY if dependencies are met
