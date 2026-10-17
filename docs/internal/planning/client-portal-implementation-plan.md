@@ -34,3 +34,24 @@
 - Resolve inspection only from token; never trust client-supplied job ids.
 - Interactive links carry expiry; legacy/no-expiry links are read-only.
 - Client report APIs omit `totalCost` and approval amounts.
+
+---
+
+## Product strategy (v2)
+
+**Single job URL is the hero path.** Marketing and staff email drive homeowners to `/portal/[token]`. JWT account login (`/portal/login`) stays for multi-report homeowners and legacy flows — not the first-run story for a new claim.
+
+**One poll, two surfaces.** `ClientPortalLiveHub` owns `/api/portal/[token]/updates` polling (with slower interval when the tab is hidden). It renders:
+
+1. **Next step** cards — prioritized actions (approvals → upload → PDF) with in-page anchors (`lib/portal/portal-section-ids.ts`, `lib/portal/homeowner-next-actions.ts`).
+2. **Claim status** — progress, drying timeline, pending approvals copy.
+
+**Staff: send gate before send.** `ClientPortalLinkButton` uses the same comms-readiness API as report delivery (`buildClientPortalLinkChecklist`) so contractors fix client email + mail config before hitting send. Re-send refreshes token expiry and surfaces last emailed timestamp from audit.
+
+**Contractor-forward email.** Invite HTML/subject live in `lib/portal/client-portal-invite-email.ts` (testable, reusable for resend templates).
+
+**Launch checklist (next)**
+
+- Playwright: send link → open token → approval anchor visible when pending.
+- Theme parity on `/portal/reset-password`, signup, insurer token aliases.
+- Phase 5 sign-off + production Mailtrap verification.
