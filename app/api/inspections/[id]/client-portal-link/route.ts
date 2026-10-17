@@ -7,7 +7,10 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { sendEmail } from "@/lib/email-send";
 import { getAppUrl } from "@/lib/app-url";
-import { escapeHtml } from "@/lib/email";
+import {
+  buildClientPortalInviteEmailHtml,
+  clientPortalInviteSubject,
+} from "@/lib/portal/client-portal-invite-email";
 
 export const dynamic = "force-dynamic";
 
@@ -94,32 +97,22 @@ export async function POST(
     }
 
     const url = `${getAppUrl()}/portal/${token}`;
-    const safeUrl = escapeHtml(url);
 
     const contractorName =
       inspection.user?.organization?.name?.trim() ||
       inspection.user?.businessName?.trim() ||
       "Your restoration team";
-    const safeContractor = escapeHtml(contractorName);
-    const clientName = client.name?.trim();
-    const greeting = clientName
-      ? `<p>Hi ${escapeHtml(clientName)},</p>`
-      : "<p>Hello,</p>";
-    const jobLine = inspection.propertyAddress
-      ? `<p><strong>${escapeHtml(inspection.inspectionNumber ?? "Your job")}</strong> — ${escapeHtml(inspection.propertyAddress)}</p>`
-      : "";
 
     const messageId = await sendEmail({
       to: client.email,
-      subject: `${contractorName} — your secure claim portal`,
-      html: `${greeting}
-<p>${safeContractor} has shared your restoration claim with you.</p>
-${jobLine}
-<p>Use this secure link to view progress, add photos for your assessor, and complete any approvals required:</p>
-<p><a href="${safeUrl}">Open your claim portal</a></p>
-<p style="word-break:break-all;color:#64748b;font-size:12px">${safeUrl}</p>
-<p>If you didn’t expect this email, you can ignore it.</p>
-<p style="color:#94a3b8;font-size:11px">Sent via RestoreAssist on behalf of ${safeContractor}.</p>`,
+      subject: clientPortalInviteSubject(contractorName),
+      html: buildClientPortalInviteEmailHtml({
+        url,
+        contractorName,
+        clientName: client.name,
+        inspectionNumber: inspection.inspectionNumber,
+        propertyAddress: inspection.propertyAddress,
+      }),
     });
 
     if (messageId) {
