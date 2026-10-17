@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
 import { ClientPortalAuthorities } from "@/components/portal/ClientPortalAuthorities";
-import { ClientPortalStatus } from "@/components/portal/ClientPortalStatus";
+import { ClientPortalLiveHub } from "@/components/portal/ClientPortalLiveHub";
+import { PORTAL_SECTION_IDS } from "@/lib/portal/portal-section-ids";
 import {
   PortalAboutSection,
   PortalContentSections,
@@ -120,7 +121,15 @@ export default async function ClientPortalPage({ params }: PageProps) {
         technicianName={inspection.technicianName}
       />
 
-      <ClientPortalStatus token={token} reportPdfHref={reportReady ? `/api/portal/${encodeURIComponent(token)}/pdf` : undefined} />
+      <ClientPortalLiveHub
+        token={token}
+        interactive={showInteractiveActions}
+        reportPdfHref={
+          reportReady
+            ? `/api/portal/${encodeURIComponent(token)}/pdf`
+            : undefined
+        }
+      />
 
       {!showInteractiveActions && (
         <ClientPortalPanel role="status">
@@ -132,7 +141,11 @@ export default async function ClientPortalPage({ params }: PageProps) {
         </ClientPortalPanel>
       )}
 
-      {showInteractiveActions && <ClientPortalAuthorities token={token} />}
+      {showInteractiveActions && (
+        <div id={PORTAL_SECTION_IDS.approvals} className="scroll-mt-6">
+          <ClientPortalAuthorities token={token} />
+        </div>
+      )}
 
       <PortalAffectedAreas
         areas={toPortalAffectedAreaItems(inspection.affectedAreas)}
@@ -172,9 +185,17 @@ export default async function ClientPortalPage({ params }: PageProps) {
         </div>
       )}
 
-      {reportReady && <ClientPortalReportReady token={token} />}
+      {reportReady && (
+        <div id={PORTAL_SECTION_IDS.report} className="scroll-mt-6">
+          <ClientPortalReportReady token={token} />
+        </div>
+      )}
 
-      {showInteractiveActions && <ClientPortalUpload token={token} />}
+      {showInteractiveActions && (
+        <div id={PORTAL_SECTION_IDS.upload} className="scroll-mt-6">
+          <ClientPortalUpload token={token} />
+        </div>
+      )}
 
       {technician && <TechnicianIdentityCard technician={technician} />}
 
