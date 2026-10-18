@@ -91,6 +91,7 @@ describe("RA-1259 — JWT needsOnboarding refresh while the gate is closed", () 
       subscriptionStatus: "TRIAL",
       setupCompletedAt: "2026-01-01T00:00:00.000Z",
       revocationCheckedAt: Math.floor(Date.now() / 1000),
+      customExp: Math.floor(Date.now() / 1000) + 3600,
       ...overrides,
     };
   }

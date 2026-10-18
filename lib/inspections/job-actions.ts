@@ -8,10 +8,11 @@ import { apiErrorMessage } from "@/lib/api-error-message";
 
 /**
  * D-028: the assigned technician creates and updates field data on the job;
- * the dispute pack, deleting readings and the client progress-update toggle
- * stay with the job owner and with managers and admins. A role USER caller
- * keeps these controls only on a job they own (a solo technician). An unknown
- * role or owner hides them until both are known.
+ * deleting readings and the client progress-update toggle stay with the job
+ * owner and with managers and admins. A role USER caller keeps these controls
+ * only on a job they own (a solo technician). An unknown role or owner hides
+ * them until both are known. The dispute pack is narrower: see
+ * canGenerateDisputePack.
  */
 export function canUseOwnerJobActions(input: {
   role: string | null | undefined;
@@ -22,6 +23,17 @@ export function canUseOwnerJobActions(input: {
   if (role === "ADMIN" || role === "MANAGER") return true;
   if (role !== "USER") return false;
   return Boolean(callerId) && callerId === ownerId;
+}
+
+/**
+ * The dispute-pack route answers 403 unless the caller owns the job, whatever
+ * their role, so the page offers the button only to the owner.
+ */
+export function canGenerateDisputePack(input: {
+  callerId: string | null | undefined;
+  ownerId: string | null | undefined;
+}): boolean {
+  return Boolean(input.callerId) && input.callerId === input.ownerId;
 }
 
 /**

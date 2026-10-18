@@ -79,9 +79,12 @@ export default function InviteAcceptPage() {
   const [previewError, setPreviewError] = useState<string | null>(null);
 
   const errorCode = searchParams?.get("error") ?? null;
-  const inviteErrorMessage = errorCode
-    ? (INVITE_ERROR_MESSAGES[errorCode] ?? null)
-    : null;
+  // Own keys only: `?error=__proto__` must not read the object prototype.
+  const inviteErrorMessage =
+    errorCode &&
+    Object.prototype.hasOwnProperty.call(INVITE_ERROR_MESSAGES, errorCode)
+      ? INVITE_ERROR_MESSAGES[errorCode]
+      : null;
 
   const initialStep = searchParams?.get("step") === "2" ? "terms" : "identity";
   const [step, setStep] = useState<"identity" | "terms">(initialStep);

@@ -168,7 +168,15 @@ describe("inspection detail: owner-only actions for an assigned technician", () 
     expect(canUseOwnerJobActions({ role: undefined, callerId: undefined, ownerId: "owner-1" })).toBe(false);
   });
 
-  it("the page gates the dispute pack, moisture delete and progress-update toggle on it", () => {
+  it("canGenerateDisputePack matches the route: the job owner only, whatever the role", async () => {
+    const { canGenerateDisputePack } = await loadJobActions();
+    expect(canGenerateDisputePack({ callerId: "owner-1", ownerId: "owner-1" })).toBe(true);
+    // A manager or admin viewing another user's job gets 403 from the route.
+    expect(canGenerateDisputePack({ callerId: "m-1", ownerId: "owner-1" })).toBe(false);
+    expect(canGenerateDisputePack({ callerId: undefined, ownerId: undefined })).toBe(false);
+  });
+
+  it("the page gates the dispute pack on the owner, and moisture delete and progress-update toggle on owner actions", () => {
     const src = readFileSync(
       resolve(__dirname, "../inspections/[id]/page.tsx"),
       "utf8",
@@ -179,7 +187,9 @@ describe("inspection detail: owner-only actions for an assigned technician", () 
       expect(at, marker).toBeGreaterThan(-1);
       return src.slice(Math.max(0, at - 1200), at);
     };
-    expect(guardedBefore('"Dispute Defence Pack"}')).toMatch(/ownerActions &&/);
+    expect(src).toMatch(/canGenerateDisputePack\(/);
+    expect(guardedBefore('"Dispute Defence Pack"}')).toMatch(/disputePackAction &&/);
+    expect(guardedBefore('"Dispute Defence Pack"}')).not.toMatch(/ownerActions &&/);
     expect(guardedBefore("aria-label={`Delete moisture reading for")).toMatch(/ownerActions &&/);
     expect(guardedBefore("Automatic progress updates")).toMatch(/ownerActions &&/);
     // Report and PDF stay visible to the technician (not wrapped).
