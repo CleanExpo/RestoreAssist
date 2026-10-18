@@ -82,7 +82,7 @@ const BEST_USE = [
 
 export function WelcomeOverview() {
   return (
-    <Card className="overflow-hidden border-brand-navy/10 shadow-sm">
+    <Card className="overflow-hidden border-brand-navy/10 bg-white text-neutral-900 shadow-sm">
       <CardHeader className="space-y-1 border-b border-brand-navy/5 bg-[#F7F9FB] pb-4">
         <CardTitle className="text-lg">What RestoreAssist does</CardTitle>
         <p className="text-sm text-neutral-600">

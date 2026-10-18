@@ -48,6 +48,7 @@ import {
   type ParsedApiError,
 } from "@/lib/client/parse-api-error";
 import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
+import { ReportClientSendChecklist } from "@/components/reports/ReportClientSendChecklist";
 
 export default function ReportDetailPage({
   params,
@@ -267,6 +268,24 @@ export default function ReportDetailPage({
           acknowledged={p0Acknowledged}
           onGateChange={setWeaknessGate}
           onRunStart={() => setP0Acknowledged(false)}
+        />
+      )}
+
+      {reportId && (
+        <ReportClientSendChecklist
+          reportId={reportId}
+          reportStatus={report.status}
+          inspectionId={
+            report?.inspectionId ?? report?.inspection?.id ?? null
+          }
+          clientEmailHint={
+            report?.client?.email ??
+            report?.clientEmail ??
+            null
+          }
+          canSend={canEmailClient}
+          sending={emailingClient}
+          onSend={() => requestExport(handleEmailClient)}
         />
       )}
 

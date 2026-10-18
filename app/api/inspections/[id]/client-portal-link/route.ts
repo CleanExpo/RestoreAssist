@@ -7,19 +7,10 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { sendEmail } from "@/lib/email-send";
 import { getAppUrl } from "@/lib/app-url";
-import { escapeHtml } from "@/lib/email";
-
-/**
- * The "single button" (Client portal Phase 1).
- *
- * Staff action on an inspection → ensure the claim's client has a portal token
- * (ClientPortalAccount, revocable), email them the one /portal/[token] link, and
- * return it for copy. The link is the client's single entry to their claim
- * (status now; evidence upload + authority approvals in later phases).
- *
- * Authed + tenancy-gated. Client is resolved via Report.clientId (Inspection has
- * no direct client). Token: 256-bit, stored verbatim (matches ClientPortalAccount).
- */
+import {
+  buildClientPortalInviteEmailHtml,
+  clientPortalInviteSubject,
+} from "@/lib/portal/client-portal-invite-email";
 
 export const dynamic = "force-dynamic";
 
@@ -53,10 +44,23 @@ export async function POST(
     const inspection = await prisma.inspection.findUnique({
       where: { id },
       select: {
-        report: { select: { client: { select: { id: true, email: true } } } },
+        clientId: true,
+        propertyAddress: true,
+        inspectionNumber: true,
+        client: { select: { id: true, email: true, name: true } },
+        report: { select: { client: { select: { id: true, email: true, name: true } } } },
+        user: {
+          select: {
+            businessName: true,
+            organization: { select: { name: true } },
+          },
+        },
       },
     });
-    const client = inspection?.report?.client;
+    const client =
+      inspection?.client ??
+      inspection?.report?.client ??
+      null;
     if (!client?.id || !client.email) {
       return apiError(request, {
         code: "VALIDATION",
@@ -66,13 +70,7 @@ export async function POST(
       });
     }
 
-    // Reuse the client's active portal token if present; else mint one. Always
-    // (re)set a 30-day expiry on send — the link authorises signing, so it must
-    // not be an unbounded-lifetime bearer token (security review must-fix).
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    // WP-02: one link per client AND job, so a link sent for one job never
-    // follows the client to a newer one. An older link with no job recorded is
-    // not adopted: it would keep opening whichever job is newest.
     const existing = await prisma.clientPortalAccount.findFirst({
       where: { clientId: client.id, inspectionId: id, revokedAt: null },
       select: { id: true, token: true },
@@ -98,20 +96,40 @@ export async function POST(
       ).token;
     }
 
-    // RA-7634: build the emailed link from the configured app URL, never from
-    // the request's Origin header — a forged Origin must not steer where the
-    // client's link points.
     const url = `${getAppUrl()}/portal/${token}`;
-    const safeUrl = escapeHtml(url);
+
+    const contractorName =
+      inspection.user?.organization?.name?.trim() ||
+      inspection.user?.businessName?.trim() ||
+      "Your restoration team";
 
     const messageId = await sendEmail({
       to: client.email,
-      subject: "Your RestoreAssist claim — view and respond",
-      html: `<p>Your assessor has shared your claim with you.</p>
-<p>Use this secure link to view your claim, add photos, and approve the authorities required:</p>
-<p><a href="${safeUrl}">${safeUrl}</a></p>
-<p>If you didn’t expect this, you can ignore this email.</p>`,
+      subject: clientPortalInviteSubject(contractorName),
+      html: buildClientPortalInviteEmailHtml({
+        url,
+        contractorName,
+        clientName: client.name,
+        inspectionNumber: inspection.inspectionNumber,
+        propertyAddress: inspection.propertyAddress,
+      }),
     });
+
+    if (messageId) {
+      await prisma.auditLog.create({
+        data: {
+          inspectionId: id,
+          userId: session.user.id,
+          action: "CLIENT_PORTAL_LINK_EMAILED",
+          entityType: "Client",
+          entityId: client.id,
+          changes: JSON.stringify({
+            channel: "email",
+            providerMessageId: messageId,
+          }),
+        },
+      });
+    }
 
     return NextResponse.json({
       data: {

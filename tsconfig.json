@@ -38,7 +38,7 @@
     "tools/remotion/**",
     "scripts/**",
     "packages/**",
-    "ops/**",
+    "mobile/fastlane/**",
     "tests/**",
     "tools/remotion/remotion.config.ts",
     ".next/dev/**",

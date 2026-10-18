@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 // Synthetic, local-only UI verification. No auth.setup, DB fixtures or providers.
 export default defineConfig({
-  testDir: "../tests/browser",
+  testDir: "../e2e/browser",
   testMatch: "auth-recovery.spec.ts",
   workers: 1,
   timeout: 45_000,

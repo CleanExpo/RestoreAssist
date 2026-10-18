@@ -54,7 +54,7 @@ fi
 PROMPT_FILE="$(mktemp)"
 trap 'rm -f "$PROMPT_FILE"; $CLEANUP_DIFF && rm -f "$DIFF_FILE"' EXIT
 {
-  cat "$REPO_ROOT/REVIEW.md"
+  cat "$REPO_ROOT/docs/project/REVIEW.md"
   printf '\n\n---\n\n# Dimension reference\n\n'
   cat "$REPO_ROOT/.claude/rules/review-dimensions.md"
   printf '\n\n---\n\n# The diff to review\n\n'

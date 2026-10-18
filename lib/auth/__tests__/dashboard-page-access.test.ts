@@ -25,6 +25,7 @@ const OWNER_PAGES = [
   "/dashboard/team",
   "/dashboard/pricing-config",
   "/dashboard/integrations",
+  "/dashboard/operations/completeness-inbox",
 ] as const;
 
 beforeEach(() => vi.clearAllMocks());
@@ -42,10 +43,13 @@ describe("dashboard page access by role (RA-7721, deny by default)", () => {
     }
   });
 
-  it("a manager can open Team, Pricing Configuration and Integrations, not Subscription or Add-ons", () => {
+  it("a manager can open Team, Pricing Configuration, Integrations, and Completeness inbox, not Subscription or Add-ons", () => {
     expect(canOpenDashboardPage("MANAGER", "/dashboard/team")).toBe(true);
     expect(canOpenDashboardPage("MANAGER", "/dashboard/pricing-config")).toBe(true);
     expect(canOpenDashboardPage("MANAGER", "/dashboard/integrations")).toBe(true);
+    expect(
+      canOpenDashboardPage("MANAGER", "/dashboard/operations/completeness-inbox"),
+    ).toBe(true);
     expect(canOpenDashboardPage("MANAGER", "/dashboard/subscription")).toBe(false);
     expect(canOpenDashboardPage("MANAGER", "/dashboard/addons")).toBe(false);
   });

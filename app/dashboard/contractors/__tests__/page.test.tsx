@@ -62,8 +62,12 @@ describe("Contractors hub (RA-7452)", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Coming later")).not.toBeInTheDocument();
 
-    const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(5);
+    // The page also carries the shared workspace hub links (179b3bfb1); the
+    // contractor sections are the links under /dashboard/contractors/.
+    const sectionLinks = screen
+      .getAllByRole("link")
+      .filter((a) => a.getAttribute("href")?.startsWith("/dashboard/contractors/"));
+    expect(sectionLinks).toHaveLength(5);
     for (const section of SECTION_LINKS) {
       expect(
         screen.getByRole("link", { name: new RegExp(section.title) }),

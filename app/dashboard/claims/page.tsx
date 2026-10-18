@@ -11,6 +11,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { FolderKanban } from "lucide-react";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 export const metadata = {
   title: "Claims — RestoreAssist",
@@ -56,32 +60,35 @@ export default async function ClaimsIndexPage() {
   const reviewCount = claims.filter((c) => c.managerReviewRequired).length;
 
   return (
-    <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Claims</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isAdmin
-              ? "All claims across the workspace."
-              : "Claims you have progress access to."}
-          </p>
-        </div>
-        {claims.length > 0 ? (
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border px-2.5 py-1 text-muted-foreground">
-              {claims.length} total
-            </span>
-            <span className="rounded-full border px-2.5 py-1 text-muted-foreground">
-              {openCount} open
-            </span>
-            {reviewCount > 0 ? (
-              <span className="rounded-full border border-warning-subtle-foreground/30 bg-warning-subtle px-2.5 py-1 text-warning-subtle-foreground">
-                {reviewCount} need review
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Claims"
+        description={
+          isAdmin
+            ? "All claims across the workspace — intake through closeout."
+            : "Claims you have progress access to."
+        }
+        icon={<FolderKanban className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/claims" })}
+        primaryAction={
+          claims.length > 0 ? (
+            <div className="flex flex-wrap justify-end gap-2 text-xs">
+              <span className="rounded-full border border-white/20 bg-white/5 px-2.5 py-1 text-white/80">
+                {claims.length} total
               </span>
-            ) : null}
-          </div>
-        ) : null}
-      </header>
+              <span className="rounded-full border border-white/20 bg-white/5 px-2.5 py-1 text-white/80">
+                {openCount} open
+              </span>
+              {reviewCount > 0 ? (
+                <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-amber-100">
+                  {reviewCount} need review
+                </span>
+              ) : null}
+            </div>
+          ) : undefined
+        }
+      />
 
       {claims.length === 0 ? (
         <div className="rounded-lg border p-8 space-y-4 text-center">
@@ -233,7 +240,7 @@ export default async function ClaimsIndexPage() {
         </div>
         </div>
       )}
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }
 

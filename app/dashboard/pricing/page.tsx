@@ -77,7 +77,7 @@ function PricingPageContent() {
             <h1 className="text-4xl font-bold text-white mb-4">
               Choose Your Plan
             </h1>
-            <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-400 max-w-9xl mx-auto">
               Select the perfect plan for your water damage restoration
               business. All plans include IICRC S500 compliance and professional
               reporting tools.
@@ -85,7 +85,7 @@ function PricingPageContent() {
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-8 max-w-9xl mx-auto">
             {Object.entries(PRICING_CONFIG.pricing).map(([key, plan]) => (
               <div
                 key={key}
@@ -187,7 +187,7 @@ function PricingPageContent() {
           </div>
 
           {/* Features Comparison */}
-          <div className="mt-16 max-w-4xl mx-auto">
+          <div className="mt-16 max-w-9xl mx-auto">
             <h2 className="text-3xl font-bold text-white text-center mb-8">
               All Plans Include
             </h2>
@@ -235,7 +235,7 @@ function PricingPageContent() {
           </div>
 
           {/* FAQ Section */}
-          <div className="mt-16 max-w-3xl mx-auto">
+          <div className="mt-16 max-w-9xl mx-auto">
             <h2 className="text-3xl font-bold text-white text-center mb-8">
               Frequently Asked Questions
             </h2>

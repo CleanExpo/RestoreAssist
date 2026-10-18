@@ -29,6 +29,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/EmptyState";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -236,7 +237,9 @@ export default function ClientPortalPage({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to revoke invitation");
+        throw new Error(
+          data?.error?.message ?? data.error ?? "Failed to revoke invitation",
+        );
       }
       toast.success("Invitation revoked");
       setRevokeTargetId(null);
@@ -258,7 +261,7 @@ export default function ClientPortalPage({
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <DashboardPageFrame className="space-y-6 pb-10">
       {/* Back link + title */}
       <div className="flex items-center gap-4">
         <Link
@@ -599,6 +602,6 @@ export default function ClientPortalPage({
       </Card>
 
       {/* Revoke confirm overlay (fallback if inline confirm isn't enough) */}
-    </div>
+    </DashboardPageFrame>
   );
 }

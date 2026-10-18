@@ -19,8 +19,8 @@ Conversational always; the user approves every write.
 
 ## On Activation
 
-1. Resolve customization: `uv run {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`. On failure, read `{skill-root}/customize.toml` directly and use defaults. Execute `{workflow.activation_steps_prepend}`; treat `{workflow.persistent_facts}` entries as standing context (`file:` = paths/globs to load, others verbatim).
-2. Config: if `{project-root}/_bmad` exists, `uv run {project-root}/_bmad/scripts/resolve_config.py --project-root {project-root}` and read `{user_name}`, `{communication_language}` (use it every turn), `{output_folder}`. Standalone: skip.
+1. Resolve customization: `uv run {project-root}/.claude/bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`. On failure, read `{skill-root}/customize.toml` directly and use defaults. Execute `{workflow.activation_steps_prepend}`; treat `{workflow.persistent_facts}` entries as standing context (`file:` = paths/globs to load, others verbatim).
+2. Config: if `{project-root}/.claude/bmad` exists, `uv run {project-root}/.claude/bmad/scripts/resolve_config.py --project-root {project-root}` and read `{user_name}`, `{communication_language}` (use it every turn), `{output_folder}`. Standalone: skip.
 3. **Load `references/best-practices.md` and `references/template.md` before anything else.** Every decision below is made against them.
 4. Detect intent and greet `{user_name}`: **setup** (no block in the target — the default), **refresh** (a block exists), **record** (the user reports a mistake agents made), **audit** (re-verify and prune). Fold `{workflow.external_sources}` into the source list. Execute `{workflow.activation_steps_append}`.
 

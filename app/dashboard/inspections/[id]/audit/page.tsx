@@ -234,7 +234,7 @@ export default function InspectionAuditPage({
   };
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-9xl">
       {/* Header */}
       <div className="flex items-start gap-4">
         <Link

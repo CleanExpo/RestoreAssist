@@ -6,6 +6,11 @@ import {
   Receipt,
   CreditCard,
   HelpCircle,
+  LayoutDashboard,
+  ClipboardCheck,
+  CalendarDays,
+  ScrollText,
+  Inbox,
 } from "lucide-react";
 
 /**
@@ -69,6 +74,8 @@ export function isAdvancedMode(
  * real, existing route under `app/dashboard/**`.
  */
 export const simpleNavItems: NavItem[] = [
+  { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
+  { icon: ClipboardCheck, label: "My Jobs", href: "/dashboard/inspections" },
   {
     icon: Plus,
     label: "Make a Report",
@@ -77,6 +84,11 @@ export const simpleNavItems: NavItem[] = [
   },
   { icon: FileText, label: "My Reports", href: "/dashboard/reports" },
   { icon: Users, label: "My Clients", href: "/dashboard/clients" },
+  {
+    icon: CalendarDays,
+    label: "Job schedule",
+    href: "/dashboard/inspections/schedule",
+  },
   // "Get a Bill Out" -> the canonical *standalone* billing entry point.
   // `/dashboard/invoices/new` is a self-contained create form: a user can
   // land there and bill any client immediately (manual or client-linked).
@@ -85,6 +97,7 @@ export const simpleNavItems: NavItem[] = [
   // param to seed from a report — without report context that page has nothing
   // to invoice, so it is not a valid "just bill someone" entry point.
   { icon: Receipt, label: "Get a Bill Out", href: "/dashboard/invoices/new" },
+  { icon: ScrollText, label: "Invoices", href: "/dashboard/invoices" },
   // "Account & Billing" merges the Subscription/Upgrade concept into one
   // plain-language entry pointing at the subscription management page.
   {
@@ -94,6 +107,23 @@ export const simpleNavItems: NavItem[] = [
   },
   { icon: HelpCircle, label: "Help", href: "/dashboard/help" },
 ];
+
+/** Simple-mode sidebar — optional manager inbox appended by the shell. */
+export function buildSimpleNavItems(options?: { isManager?: boolean }): NavItem[] {
+  const items: NavItem[] = [...simpleNavItems];
+  if (options?.isManager) {
+    for (const extra of MANAGER_NAV_HREFS) {
+      if (!items.some((i) => i.href === extra.href)) {
+        items.push({
+          icon: extra.href.includes("inbox") ? Inbox : CalendarDays,
+          label: extra.label,
+          href: extra.href,
+        });
+      }
+    }
+  }
+  return items;
+}
 
 /**
  * Admin destinations shown whenever role === ADMIN — including Simple mode.
@@ -107,6 +137,15 @@ export const ADMIN_NAV_HREFS = [
   { label: "Governance", href: "/dashboard/governance" },
   { label: "Restoration Insights", href: "/dashboard/admin/restoration-insights" },
   { label: "Margot", href: "/dashboard/margot/home" },
+] as const;
+
+/** Manager/owner ops — appended in the shell (server routes enforce access). */
+/** Appended in Advanced nav for managers — schedule is already in simpleNavItems. */
+export const MANAGER_NAV_HREFS = [
+  {
+    label: "Completeness inbox",
+    href: "/dashboard/operations/completeness-inbox",
+  },
 ] as const;
 
 /**
@@ -138,6 +177,8 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/reports/new": "Jobs",
     "/dashboard/reports": "Jobs",
     "/dashboard/inspections": "Jobs",
+    "/dashboard/inspections/schedule": "Jobs",
+    "/dashboard/operations/completeness-inbox": "Jobs",
     "/dashboard/clients": "Jobs",
     "/dashboard/field": "Jobs",
     // Documents & Billing — Invoices, Restoration Documents, Quote Generator,

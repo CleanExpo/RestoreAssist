@@ -248,7 +248,7 @@ export default function ReportPreviewPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-4">
+      <div className="max-w-9xl mx-auto px-4 py-8 space-y-4">
         <div className="h-8 bg-slate-200 rounded w-48 animate-pulse mb-6" />
         <SkeletonCard />
         <SkeletonCard />
@@ -290,7 +290,7 @@ export default function ReportPreviewPage() {
       : "—";
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 print:px-0 print:py-4">
+    <div className="max-w-9xl mx-auto px-4 py-8 print:px-0 print:py-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 print:hidden">
         <Link

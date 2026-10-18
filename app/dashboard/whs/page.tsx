@@ -999,7 +999,7 @@ export default function WHSPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <Skeleton className="h-9 w-64 bg-slate-700" />
           <Skeleton className="h-10 w-40 bg-slate-700" />
@@ -1167,7 +1167,7 @@ export default function WHSPage() {
       >
         <DialogContent
           aria-describedby={undefined}
-          className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-700"
+          className="sm:max-w-9xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-700"
         >
           <NewIncidentFormPanel
             form={form}

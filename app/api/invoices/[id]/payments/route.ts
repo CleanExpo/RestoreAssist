@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { PaymentMethod } from "@prisma/client";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -71,6 +72,15 @@ export async function POST(
         return apiError(request, {
           code: "VALIDATION",
           message: "Payment method is required",
+          status: 400,
+        });
+      }
+      // An unknown method reached prisma.invoicePayment.create and answered 500
+      // ("EFT" in the V1 reference claim). It is the caller's input: say so.
+      if (!(Object.values(PaymentMethod) as string[]).includes(paymentMethod)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Unknown payment method. Use one of: ${Object.values(PaymentMethod).join(", ")}`,
           status: 400,
         });
       }

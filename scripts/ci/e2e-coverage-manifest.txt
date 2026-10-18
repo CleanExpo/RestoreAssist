@@ -43,7 +43,13 @@ billing/trial-expired-soft-gate.spec.ts  workflow:sketch-e2e.yml
 billing/multi-tab.spec.ts                workflow:sketch-e2e.yml
 billing/voluntary-upgrade.spec.ts        workflow:sketch-e2e.yml
 billing/webhook-race.spec.ts             workflow:sketch-e2e.yml
+browser/auth-recovery.spec.ts            unrun:local-only browser check run by hand through config/playwright.auth-local.config.ts; no workflow runs that config (and it starts no server of its own)
+browser/inspection-photo-upload.spec.ts  unrun:local-only browser check run by hand through config/playwright.photo-local.config.ts; no workflow runs that config
+browser/integrations-identity.spec.ts    unrun:local-only browser check run by hand through config/playwright.integrations-local.config.ts; no workflow runs that config
+browser/mobile-pull-refresh.spec.ts      unrun:local-only browser check run by hand through config/playwright.pull-refresh-local.config.ts; no workflow runs that config
+browser/room-identity.spec.ts            unrun:local-only browser check run by hand through config/playwright.room-identity-local.config.ts; no workflow runs that config
 crm-health.spec.ts                       workflow:sketch-e2e.yml
+dashboard-connected-journey.spec.ts      workflow:sketch-e2e.yml
 dr-nrpg-inbound-job.spec.ts              workflow:sketch-e2e.yml
 first-tradie-flow.spec.ts                a1
 health-migrations.spec.ts                workflow:sketch-e2e.yml
@@ -54,6 +60,7 @@ help/public-mirror.spec.ts               workflow:sketch-e2e.yml
 help/report-honesty.spec.ts              workflow:sketch-e2e.yml
 help/redirects.spec.ts                   workflow:sketch-e2e.yml
 help/search-cmd-k.spec.ts                workflow:sketch-e2e.yml
+inspection-floor-plan-flow.spec.ts       workflow:sketch-e2e.yml
 invite-tech-already-used.spec.ts         workflow:sketch-e2e.yml
 invite-tech-expired.spec.ts              workflow:sketch-e2e.yml
 invite-tech-google-oauth.spec.ts         workflow:sketch-e2e.yml
@@ -62,8 +69,11 @@ ios-billing-gates.spec.ts                workflow:sketch-e2e.yml
 job-close-happy-path.spec.ts             a1
 job-close-preconditions.spec.ts          workflow:sketch-e2e.yml
 login-callback-url.spec.ts               workflow:sketch-e2e.yml
+moisture-p2-claim-integrity.spec.ts      workflow:sketch-e2e.yml
 navigation.spec.ts                       workflow:sketch-e2e.yml
 nir-routes-regression.spec.ts            workflow:sketch-e2e.yml
+nz-org-gst.spec.ts                       workflow:sketch-e2e.yml
+offline-moisture-sync.spec.ts            workflow:sketch-e2e.yml
 pilot-workflow.spec.ts                   smoke
 portal-unknown-token.spec.ts             smoke
 procurement.spec.ts                      workflow:sketch-e2e.yml
@@ -82,6 +92,7 @@ sketch-chrome-1280.spec.ts               workflow:sketch-e2e.yml
 sketch-damage-markers-1280.spec.ts       workflow:sketch-e2e.yml
 sketch-image-report-1280.spec.ts         workflow:sketch-e2e.yml
 storage-restore.spec.ts                  workflow:sketch-e2e.yml
+stripe-connect-payments.spec.ts          unrun:skips itself unless STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET test keys are set; no workflow names it or provides those keys
 stripe-payment-intent-webhook.spec.ts    workflow:sketch-e2e.yml
 tech-banner-auto-dismiss.spec.ts         workflow:sketch-e2e.yml
 tech-evidence-capture-no-modal.spec.ts   workflow:sketch-e2e.yml
@@ -90,6 +101,7 @@ tech-signoff-modal-cancel.spec.ts        workflow:sketch-e2e.yml
 tech-signoff-modal-fresh.spec.ts         a1
 tech-visual-baselines.spec.ts            unrun:visual baselines need committed reference images and a stable renderer; no pipeline provides either
 trial-no-paywall.spec.ts                 smoke
+v1-reference-claim.spec.ts               workflow:sketch-e2e.yml
 v2-sketch-workflow.spec.ts               a1
 walkthrough/client.spec.ts               unrun:three-persona walkthrough; runs only against an already-running localhost server via walkthrough.config.ts, which refuses non-local URLs and starts no server; no pipeline boots one
 walkthrough/owner.spec.ts                unrun:three-persona walkthrough; runs only against an already-running localhost server via walkthrough.config.ts, which refuses non-local URLs and starts no server; no pipeline boots one

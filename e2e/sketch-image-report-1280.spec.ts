@@ -9,6 +9,7 @@
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { AUTH_FILE } from "./auth-paths";
+import { dragPanOnCanvas } from "./helpers/sketch-pan";
 
 test.use({
   storageState: AUTH_FILE,
@@ -189,12 +190,7 @@ test.describe("RA-7547 image insert + report embed @ 1280×720", () => {
       "aria-pressed",
       "true",
     );
-    const box = await canvasHost.boundingBox();
-    expect(box, "canvas host bounding box").toBeTruthy();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box!.x + box!.width / 2 + 80, box!.y + box!.height / 2 + 40);
-    await page.mouse.up();
+    await dragPanOnCanvas(page, canvasHost);
 
     await expect(pin, "photo marker must survive pan/zoom").toBeVisible();
     await expect(page.getByTestId("sketch-selection-panel")).toHaveCount(0);

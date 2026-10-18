@@ -16,6 +16,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 interface DocSummary {
   id: string;
@@ -116,24 +120,21 @@ export default function RestorationDocumentsPage() {
     `/dashboard/restoration-documents/invoice/${doc.id}`;
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-slate-950">
-      <div className="mx-auto px-4 py-8 sm:px-6">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
-              Restoration Documents
-            </h1>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-slate-400">
-              IICRC-worded tax invoices and estimates (JSON documents). Separate
-              from Accounts Receivable invoices under Billing → Invoices.
-            </p>
-          </div>
+    <DashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Restoration Documents"
+        description="IICRC-worded tax invoices and estimates. Separate from AR invoices under Billing → Invoices."
+        icon={<FileText className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/restoration-documents",
+        })}
+        primaryAction={
           <div className="flex flex-wrap gap-2">
             <Link
               href="/dashboard/quote"
               className={cn(
-                "inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50",
-                "dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800",
+                "inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 text-sm font-semibold text-white hover:bg-white/10",
               )}
             >
               <Plus className="h-4 w-4" />
@@ -150,7 +151,8 @@ export default function RestorationDocumentsPage() {
               New Restoration Invoice
             </Link>
           </div>
-        </div>
+        }
+      />
 
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
           <p className="font-medium">
@@ -364,7 +366,6 @@ export default function RestorationDocumentsPage() {
             </ul>
           )}
         </div>
-      </div>
-    </div>
+    </DashboardPageFrame>
   );
 }

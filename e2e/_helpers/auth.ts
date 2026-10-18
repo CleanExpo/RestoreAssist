@@ -16,7 +16,9 @@ type Role = "USER" | "ADMIN" | "MANAGER";
 export async function loginAs(
   page: Page,
   role: Role,
-  opts: { email?: string } = {},
+  // setupCompletedAt: null creates the user's stub org with setup NOT complete
+  // (only applies when the user, and so the org, does not exist yet).
+  opts: { email?: string; setupCompletedAt?: null } = {},
 ): Promise<void> {
   const res = await page.request.post("/api/test/sign-in-as", {
     data: { role, ...opts },

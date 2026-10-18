@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { requireClientAuth } from "@/lib/portal/require-client-auth";
+import { toClientPortalReportDetail } from "@/lib/portal/client-safe-report";
 
 // GET /api/portal/reports/[id] - Get single report for logged-in client (bearer JWT)
 export async function GET(
@@ -28,7 +29,6 @@ export async function GET(
         status: true,
         propertyAddress: true,
         hazardType: true,
-        totalCost: true,
         createdAt: true,
         updatedAt: true,
         completionDate: true,
@@ -58,7 +58,6 @@ export async function GET(
             requestedAt: true,
             respondedAt: true,
             clientComments: true,
-            amount: true,
           },
         },
       },
@@ -73,12 +72,7 @@ export async function GET(
     }
 
     return NextResponse.json({
-      report: {
-        ...report,
-        description: null,
-        scopeOfWorksDocument: null,
-        costEstimationDocument: null,
-      },
+      report: toClientPortalReportDetail(report),
     });
   } catch (error) {
     console.error("Error fetching report:", error);

@@ -34,6 +34,7 @@ function mkReq(pathname: string, search: string = "", method: string = "GET") {
   return {
     nextUrl: {
       pathname,
+      origin: "http://test",
       clone: () => new URL(`http://test${pathname}${search}`),
       search,
       searchParams: parsed.searchParams,

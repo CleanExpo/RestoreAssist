@@ -152,12 +152,12 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 w-full max-w-xs sm:max-w-md px-3 py-2 rounded-lg text-sm bg-neutral-50 dark:bg-slate-800 border border-neutral-300 dark:border-slate-700 text-neutral-500 dark:text-slate-400 hover:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-colors"
+        className="flex w-full max-w-md items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500 transition-colors hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-slate-600 lg:max-w-xl"
         aria-label="Open search"
       >
         <Search size={18} className="flex-shrink-0" />
         <span className="flex-1 text-left">Search reports, clients...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-neutral-200 dark:bg-slate-700 text-neutral-500 dark:text-slate-400 border border-neutral-300 dark:border-slate-600">
+        <kbd className="hidden items-center gap-1 rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 text-xs font-medium text-neutral-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400 sm:inline-flex">
           ⌘K
         </kbd>
       </button>

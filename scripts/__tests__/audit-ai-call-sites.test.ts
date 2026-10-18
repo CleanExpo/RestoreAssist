@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { dirname, join } from "path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -141,13 +141,16 @@ describe("platform-key-fallback detection (RA-6921 P0)", () => {
     expect(finding?.platformKeyFallback).toBe(true);
   });
 
-  it("does not flag a route that resolves the workspace BYOK key", () => {
+  it("does not flag a route that resolves the workspace key and refuses a non-BYOK source (RA-8001)", () => {
+    // RA-8001: resolving is not BYOK on its own (a funded trial gets the
+    // platform key); the explicit source check is the evidence.
     const finding = auditAiCallSite(
       "app/api/ai/voice-note-transcribe/route.ts",
       `
         import OpenAI from "openai";
         import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
         const key = await resolveWorkspaceAiKey(session.user.id, "OPENAI");
+        if (key.source !== "byok") throw new Error("own key required");
         const openai = new OpenAI({ apiKey: key.apiKey });
         await openai.audio.transcriptions.create({ model: "whisper-1" });
       `,
@@ -238,7 +241,10 @@ describe("platform-key-fallback detection (RA-6921 P0)", () => {
       `
         import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
         // superseded getAnthropicApiKey() path removed under RA-6932
-        const anthropicApiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+        const resolved = await resolveWorkspaceAiKey(userId, "ANTHROPIC");
+        // RA-8001: the source check, not the resolver call, is the BYOK evidence.
+        if (resolved.source !== "byok") throw new Error("own key required");
+        const anthropicApiKey = resolved.apiKey;
         await generateInterviewQuestion({ apiKey: anthropicApiKey, conversation });
       `,
     );
@@ -869,7 +875,7 @@ describe("RA-6991 module-scope seed hardening", () => {
     const flagged = auditFixture({
       "lib/inline/module-scope-byok.ts": `
         import Anthropic from "@anthropic-ai/sdk";
-        const apiKey = resolveWorkspaceAiKey(workspaceId) ?? process.env.ANTHROPIC_API_KEY;
+        const apiKey = getProviderApiKey(workspaceId, "ANTHROPIC") ?? process.env.ANTHROPIC_API_KEY;
         const client = new Anthropic({ apiKey });
         export async function classifyWithModuleByok(input: string) {
           return client.messages.create({
@@ -1065,5 +1071,67 @@ describe("RA-6920 ElevenLabs platform-key leak class", () => {
     });
 
     expect(flagged).not.toContain("app/api/elevenlabs/sfx/route.ts");
+  });
+});
+
+/**
+ * RA-8001 slice 1d-i — resolveWorkspaceAiKey is not BYOK evidence: it returns
+ * the D-022 platform key to a funded trial. The fixture tree is scanned as
+ * the rootDir, so its app/ routes are admitted without shipping as live
+ * routes (the repository scan ignores __tests__/).
+ */
+describe("RA-8001 [AC8] the key resolver is a platform surface, not BYOK evidence", () => {
+  const fixtureRoot = join(__dirname, "fixtures", "ra-8001-key-resolver");
+  let fixtureReport: ReturnType<typeof auditAiCallSites>;
+
+  beforeAll(() => {
+    fixtureReport = auditAiCallSites(fixtureRoot);
+  });
+
+  it("[AC8] a route that resolves a key and builds a client with no source check is a finding naming that path", () => {
+    expect(fixtureReport.guardrailSummary.platformKeyFallbackFiles).toContain(
+      "app/api/fixture/route.ts",
+    );
+    const finding = fixtureReport.findings.find(
+      (f) => f.file === "app/api/fixture/route.ts",
+    );
+    expect(finding?.platformKeyFallback).toBe(true);
+  });
+
+  it("[AC8] its twin under keyPolicy byok-only is not flagged", () => {
+    expect(fixtureReport.guardrailSummary.platformKeyFallbackFiles).not.toContain(
+      "app/api/fixture-byok-only/route.ts",
+    );
+  });
+
+  it("[AC8] a platform env read beside a resolver call is still a platform-key fallback", () => {
+    const finding = auditAiCallSite(
+      "app/api/example/route.ts",
+      `
+        import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
+        const apiKey =
+          (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey ??
+          process.env.ANTHROPIC_API_KEY;
+        const client = new Anthropic({ apiKey });
+      `,
+    );
+    expect(finding?.platformKeyFallback).toBe(true);
+  });
+
+  it("[AC8] every platformAllowedSurfaces entry carries a reason, and field-assist is listed by name", () => {
+    const raw = JSON.parse(
+      readFileSync(join(__dirname, "..", "ai-platform-key-fallback-baseline.json"), "utf8"),
+    ) as { platformAllowedSurfaces?: Record<string, string> };
+    const register = raw.platformAllowedSurfaces ?? {};
+    expect(register["app/api/inspections/[id]/field-assist/route.ts"]).toMatch(
+      /funded-trial platform key, capped in 1d-ii/,
+    );
+    for (const [file, reason] of Object.entries(register)) {
+      expect(reason.trim().length, file).toBeGreaterThan(0);
+    }
+    // The register suppresses the gate, so it is read with the other two.
+    expect(readPlatformKeyFallbackBaseline()).toEqual(
+      expect.arrayContaining(Object.keys(register)),
+    );
   });
 });

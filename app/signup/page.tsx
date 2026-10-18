@@ -129,9 +129,9 @@ export default function SignupPage() {
         });
 
         if (result?.ok) {
-          notifySuccess("Welcome to RestoreAssist!");
-          // Redirect to dashboard with welcome param so we show personalization popup
-          window.location.href = "/dashboard?welcome=1";
+          notifySuccess("Welcome to RestoreAssist — let's set up your workspace.");
+          // Owners complete the setup wizard before the dashboard (middleware gate).
+          window.location.href = "/setup?welcome=1";
         } else {
           notifyError("Account created — please sign in to continue");
           // Send to login with callbackUrl=dashboard so after login they land on dashboard

@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { resolvePortalAccess } from "@/lib/portal/resolve-portal-inspection";
 import { PortalLinkExpired } from "@/components/portal/PortalLinkExpired";
 import { PortalTokenAccessFallback } from "@/components/portal/PortalTokenAccessFallback";
-import { PORTAL_PATHS } from "@/lib/portal/recovery-paths";
 import { fetchPublishedPortalContent } from "@/lib/portal/fetch-portal-content";
 import { fetchTechnicianIdentity } from "@/lib/portal/fetch-technician-identity";
 import { isAddonEntitledForResource } from "@/lib/entitlements";
@@ -12,12 +11,9 @@ import { CLIENT_EDUCATION_SKU } from "@/lib/billing/client-education-addon";
 import { PortalContentSections } from "@/components/portal/PortalContentHub";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { TechnicianIdentityCard } from "@/components/portal/TechnicianIdentityCard";
+import { ClientPortalShell } from "@/components/portal/ClientPortalShell";
+import { clientPortalTextLink } from "@/lib/portal/client-portal-theme";
 
-// The parent `[token]/layout.tsx` already sets noindex and, since metadata
-// merges per-key with the deepest segment winning, this page inherits it. It is
-// restated here anyway: this is the page most likely to end up on a screen in
-// someone's living room, read over a shoulder and typed into a browser, and the
-// cost of the guarantee being local is one object literal.
 export const metadata: Metadata = {
   title: "About your restoration",
   robots: { index: false, follow: false },
@@ -27,19 +23,6 @@ interface PageProps {
   params: Promise<{ token: string }>;
 }
 
-/**
- * The handover tablet.
- *
- * A technician hands this to the homeowner and gets back to work. It is the same
- * content as the portal's explainer sections, full-screen and stripped of the
- * job chrome — no status timeline, no upload box, no authorities to sign —
- * because someone reading it is trying to understand the process, not action
- * their claim.
- *
- * Entitlement behaves exactly as it does on the portal: fail closed to the free
- * article set, and never an upsell. The client is not the buyer. A thinner page
- * is a fine outcome; a message about their restorer's billing is not.
- */
 export default async function ClientLearnKioskPage({ params }: PageProps) {
   const { token } = await params;
 
@@ -65,10 +48,6 @@ export default async function ClientLearnKioskPage({ params }: PageProps) {
   });
   if (!inspection) return <PortalLinkExpired />;
 
-  // RA-7893: the job's creator may be an invited technician; the add-on is
-  // the owner's of the business the JOB belongs to, which is not the
-  // creator's current one if they have since moved. Fails closed to the free
-  // set.
   const educationEntitled = await isAddonEntitledForResource(
     inspection.userId,
     inspection.createdAt,
@@ -91,61 +70,31 @@ export default async function ClientLearnKioskPage({ params }: PageProps) {
   const org = inspection.user.organization;
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-3xl mx-auto px-5 py-5 flex items-center gap-3">
-          {org?.logoUrl && (
-            // Plain <img>: token-gated and non-indexed, and next/image would
-            // need a remotePatterns entry per customer logo host.
-            <img
-              src={org.logoUrl}
-              alt={org.name ? `${org.name} logo` : "Company logo"}
-              className="h-9 w-auto"
-            />
-          )}
-          <div>
-            <h1 className="text-lg font-semibold text-slate-900">
-              About your restoration
-            </h1>
-            {org?.name && (
-              <p className="text-xs text-slate-500 mt-0.5">
-                Prepared for you by {org.name}
-              </p>
-            )}
-          </div>
+    <ClientPortalShell brandName={org?.name} logoUrl={org?.logoUrl}>
+      <div className="mx-auto max-w-3xl space-y-5">
+        <div>
+          <h1 className="text-xl font-semibold text-white">
+            About your restoration
+          </h1>
+          {org?.name ? (
+            <p className="mt-1 text-sm text-slate-400">
+              Prepared for you by {org.name}
+            </p>
+          ) : null}
         </div>
-      </header>
 
-      <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
         {technician && <TechnicianIdentityCard technician={technician} />}
 
         <PortalContentSections articles={articles} />
 
         <ClientPortalVideos />
 
-        {/* Not a dead end: someone handed a tablet should be able to get back to
-            their own job without knowing the URL. */}
         <div className="pt-2 text-center">
-          <Link
-            href={`/portal/${token}`}
-            className="text-sm text-cyan-700 underline underline-offset-2"
-          >
-            Back to your job status
+          <Link href={`/portal/${token}`} className={clientPortalTextLink}>
+            Back to job status
           </Link>
         </div>
       </div>
-
-      <footer className="max-w-3xl mx-auto px-5 py-6 text-center border-t border-slate-100 mt-4">
-        <p className="text-xs text-slate-400">
-          General information about the restoration process. For questions about
-          the job or the insurance claim, speak to the technician or the insurer.
-        </p>
-        <p className="text-xs text-slate-400 mt-2">
-          <Link href={PORTAL_PATHS.help} className="text-cyan-600 hover:underline">
-            Client help
-          </Link>
-        </p>
-      </footer>
-    </main>
+    </ClientPortalShell>
   );
 }

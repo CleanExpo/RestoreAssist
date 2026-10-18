@@ -54,6 +54,34 @@ describe("VideoExplainer fallback", () => {
     });
   });
 
+  it("uses a light inline fallback when unavailableVariant is subtle", async () => {
+    render(
+      <VideoExplainer
+        slug="remotion-onboarding-welcome"
+        trackEngagement={false}
+        unavailableVariant="subtle"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector("video")).not.toBeNull();
+    });
+
+    fireEvent.error(document.querySelector("video")!);
+    await waitFor(() => {
+      expect(document.querySelector("video")?.getAttribute("src")).toBe(
+        "/videos/remotion/onboarding-welcome.mp4",
+      );
+    });
+    fireEvent.error(document.querySelector("video")!);
+
+    const status = await screen.findByRole("status", {
+      name: /welcome to restoreassist — video unavailable/i,
+    });
+    expect(status).toHaveClass("text-brand-slate");
+    expect(status.querySelector(".bg-brand-navy")).toBeNull();
+  });
+
   it("ships the registered mobile-workflow caption file with valid VTT content", () => {
     const entry = VIDEO_REGISTRY["remotion-mobile-workflow"];
     const captionUrl = getCaptionUrl(

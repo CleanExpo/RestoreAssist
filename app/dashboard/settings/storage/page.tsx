@@ -32,7 +32,7 @@ export default async function StorageSettingsPage() {
   });
   if (!user?.organizationId) {
     return (
-      <main className="mx-auto max-w-3xl space-y-6 p-6">
+      <main className="mx-auto max-w-9xl space-y-6 p-6">
         <h1 className="text-2xl font-semibold">Storage</h1>
         <p className="text-sm text-muted-foreground">
           You need to belong to an organisation to configure storage.
@@ -57,7 +57,7 @@ export default async function StorageSettingsPage() {
     Boolean(org.storageProviderAccountEmail);
 
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-6">
+    <main className="mx-auto max-w-9xl space-y-6 p-6">
       <header>
         <h1 className="text-2xl font-semibold">Storage</h1>
         <p className="text-sm text-muted-foreground">

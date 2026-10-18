@@ -300,7 +300,7 @@ export default function AILabPage() {
   };
 
   return (
-    <div className="space-y-8 p-6 max-w-4xl mx-auto">
+    <div className="space-y-8 p-6 max-w-9xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <button

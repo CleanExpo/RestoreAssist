@@ -162,7 +162,7 @@ export default function FormTemplateDetailPage({
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
+        <div className="max-w-9xl mx-auto space-y-6">
           <SkeletonBlock className="h-5 w-40" />
           <SkeletonBlock className="h-9 w-64" />
           <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
@@ -211,7 +211,7 @@ export default function FormTemplateDetailPage({
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-9xl mx-auto space-y-6">
         {/* Back link */}
         <Link
           href="/dashboard/forms/templates"

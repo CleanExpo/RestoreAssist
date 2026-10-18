@@ -49,7 +49,7 @@ export default [
       "docs/tooling/vendor-opensrc/**",
       "tools/remotion/**",
       "packages/**",
-      "ops/**",
+      "mobile/fastlane/**",
       "tests/**",
       "config/**",
       // Scripts folder has its own tsconfig and historically broke the old linter too

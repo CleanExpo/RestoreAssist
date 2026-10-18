@@ -9,8 +9,10 @@
  * divergent). A hit is a candidate, not a proven bug: each MUST have ONE
  * documented resolver both readers call, or it is drift.
  *
- * Usage:  node scripts/ci/check-data-source-ssot.mjs
+ * Usage:  node scripts/ci/check-data-source-ssot.mjs [--strict] [--schema <path>]
  * Exit 0 always (advisory by default). Pass --strict to exit 1 on any hit.
+ * --schema reads another schema file (the tests use it); the allowlist is
+ * always this repo's.
  *
  * See .claude/skills/data-source-ssot/SKILL.md.
  */
@@ -19,38 +21,91 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const SCHEMA = join(ROOT, "prisma", "schema.prisma");
+const schemaFlag = process.argv.indexOf("--schema");
+const SCHEMA =
+  schemaFlag > -1 && process.argv[schemaFlag + 1]
+    ? process.argv[schemaFlag + 1]
+    : join(ROOT, "prisma", "schema.prisma");
 
 // Fields present on nearly every model — ignore them when measuring overlap.
 const BOILERPLATE = new Set(["id", "createdAt", "updatedAt", "deletedAt"]);
 const OVERLAP_RATIO = 0.6; // shared / smaller field-set
 const MIN_SHARED = 6; // absolute floor so tiny models don't false-positive
 
+/** A schema line without its `//` comment (a `//` inside a string literal stays). */
+function stripComment(line) {
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"' && line[i - 1] !== "\\") quoted = !quoted;
+    else if (!quoted && line[i] === "/" && line[i + 1] === "/") return line.slice(0, i);
+  }
+  return line;
+}
+
 function parseModels(src) {
   const models = [];
+  const modelNames = new Set([...src.matchAll(/^model\s+(\w+)/gm)].map((x) => x[1]));
   const re = /model\s+(\w+)\s*\{([\s\S]*?)\n\}/g;
   let m;
   while ((m = re.exec(src)) !== null) {
     const [, name, body] = m;
     const fields = new Set();
+    // relation object -> its FK scalar list ("a,b"), for @relation(fields: [...])
+    const relationFks = new Map();
     let uniqueKey = null;
     for (const raw of body.split("\n")) {
-      const line = raw.trim();
-      if (!line || line.startsWith("//") || line.startsWith("@@")) continue;
-      const field = line.split(/\s+/)[0];
+      // Comments carry no schema meaning; stripping them first means a comment
+      // cannot fake relation metadata or a @unique key.
+      const line = stripComment(raw).trim();
+      if (!line || line.startsWith("@@")) continue;
+      const [field, type = ""] = line.split(/\s+/);
       if (!/^[a-zA-Z_]\w*$/.test(field)) continue;
       if (!BOILERPLATE.has(field)) fields.add(field);
       if (/@unique/.test(line)) uniqueKey = field;
+      const fk = line.match(/@relation\([^)]*\bfields\s*:\s*\[([^\]]*)\]/);
+      if (fk && modelNames.has(type.replace(/[?[\]]/g, ""))) {
+        relationFks.set(field, fk[1].split(",").map((s) => s.trim()).sort().join(","));
+      }
     }
-    models.push({ name, fields, uniqueKey });
+    models.push({ name, fields, relationFks, uniqueKey });
   }
   return models;
 }
 
-function shared(a, b) {
+/**
+ * Shared field names, counting each shared parent link once. A relation
+ * object and its FK scalar are one link; when both models carry the same
+ * relation through the same, shared FK scalars, the pair counted it twice
+ * (PortalInvitation vs Inspection, 16/10/2026). Relations with no FK scalar
+ * (implicit many-to-many lists) and relations through differently named FKs
+ * are not deduplicated: they are still shared data.
+ *
+ * Returns the raw shared count (every field, as the detector always counted)
+ * and the shared count and smaller-model size with the same duplicate links
+ * removed. The ratio uses the deduplicated pair: deduplicating only the
+ * numerator let ten shared parents hide a field-identical pair (Codex
+ * 570cd23f3, 16/27). The MIN_SHARED floor stays on the raw count: applied to
+ * the deduplicated count it let a six-field pricing pair through on five
+ * (Codex 6a50fd93f). The raw count is never below the deduplicated one, so
+ * this flags every pair the fully deduplicated rule flagged.
+ */
+function overlap(a, b) {
   let n = 0;
-  for (const f of a) if (b.has(f)) n++;
-  return n;
+  for (const f of a.fields) if (b.fields.has(f)) n++;
+  let duplicates = 0;
+  for (const [relation, fks] of a.relationFks) {
+    if (
+      b.relationFks.get(relation) === fks &&
+      fks.split(",").every((f) => a.fields.has(f) && b.fields.has(f))
+    ) {
+      duplicates++;
+    }
+  }
+  return {
+    raw: n,
+    shared: n - duplicates,
+    smaller: Math.min(a.fields.size, b.fields.size) - duplicates,
+  };
 }
 
 const models = parseModels(readFileSync(SCHEMA, "utf8"));
@@ -61,10 +116,9 @@ for (let i = 0; i < models.length; i++) {
     const b = models[j];
     if (!a.uniqueKey || !b.uniqueKey) continue;
     if (a.uniqueKey === b.uniqueKey) continue; // same key → not tenancy drift
-    const s = shared(a.fields, b.fields);
-    const smaller = Math.min(a.fields.size, b.fields.size);
+    const { raw, shared: s, smaller } = overlap(a, b);
     if (smaller === 0) continue;
-    if (s >= MIN_SHARED && s / smaller >= OVERLAP_RATIO) {
+    if (raw >= MIN_SHARED && s / smaller >= OVERLAP_RATIO) {
       hits.push({ a, b, s, ratio: (s / smaller) * 100 });
     }
   }

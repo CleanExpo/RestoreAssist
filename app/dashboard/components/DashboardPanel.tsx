@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { simpleDashboardPanelGradient } from "@/lib/dashboard/simple-dashboard-theme";
 
 /** Elevated surface matching WHS / Interviews — avoids black voids where --card === --background. */
 export const dashboardSurfaceClass =
@@ -23,6 +24,7 @@ export function DashboardPanel({
       className={cn(
         "min-w-0 overflow-hidden rounded-lg",
         dashboardSurfaceClass,
+        simpleDashboardPanelGradient,
         padded && "p-4 sm:p-6",
         className,
       )}

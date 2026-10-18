@@ -44,7 +44,16 @@ on:
       - "lib/margot/**"
       - "lib/canonical/**"
       - "lib/scheduling/**"
+      - "app/api/operations/**"
+      - "components/dashboard/SimpleModeExploreBanner.tsx"
       - "e2e/v1-reference-claim.spec.ts"
+      - "e2e/dashboard-connected-journey.spec.ts"
+      - "e2e/inspection-floor-plan-flow.spec.ts"
+      - "lib/dashboard/**"
+      - "app/dashboard/page.tsx"
+      - "app/dashboard/nav-config.ts"
+      - "app/dashboard/components/**"
+      - "config/vitest.config.js"
       - "docs/operations/P3-CANONICAL-SPINE.md"
       - "docs/operations/P6-RELEASE-READINESS.md"
       - "lib/nir-tiered-completion.ts"
@@ -158,7 +167,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
@@ -293,7 +302,7 @@ jobs:
       #
       # Groups B to D run even when an earlier group fails (!cancelled()), so one red
       # spec does not hide the results of the rest. The job still fails.
-      - name: Run remaining E2E (1 of 4)
+      - name: Run remaining E2E (1 of 5)
         run: >-
           bash scripts/ci/with-mem-log.sh
           npx --no-install playwright test -c config/playwright.config.ts
@@ -312,7 +321,7 @@ jobs:
           e2e/invite-tech-already-used.spec.ts
           --project=chromium --reporter=line
 
-      - name: Run remaining E2E (2 of 4)
+      - name: Run remaining E2E (2 of 5)
         if: ${{ !cancelled() }}
         run: >-
           bash scripts/ci/with-mem-log.sh
@@ -328,7 +337,7 @@ jobs:
           e2e/procurement.spec.ts
           --project=chromium --reporter=line
 
-      - name: Run remaining E2E (3 of 4)
+      - name: Run remaining E2E (3 of 5)
         if: ${{ !cancelled() }}
         run: >-
           bash scripts/ci/with-mem-log.sh
@@ -342,14 +351,15 @@ jobs:
           e2e/setup-website-failure.spec.ts
           --project=chromium --reporter=line
 
-      - name: Run remaining E2E (4 of 4)
+      - name: Run remaining E2E (4 of 5)
         if: ${{ !cancelled() }}
         run: >-
           bash scripts/ci/with-mem-log.sh
           npx --no-install playwright test -c config/playwright.config.ts
           e2e/first-tradie-flow.spec.ts
           e2e/moisture-p2-claim-integrity.spec.ts
-          e2e/v1-reference-claim.spec.ts
+          e2e/dashboard-connected-journey.spec.ts
+          e2e/inspection-floor-plan-flow.spec.ts
           e2e/offline-moisture-sync.spec.ts
           e2e/nz-org-gst.spec.ts
           e2e/storage-restore.spec.ts
@@ -358,13 +368,28 @@ jobs:
           e2e/tech-evidence-capture-no-modal.spec.ts
           e2e/tech-second-signoff-prefilled.spec.ts
           e2e/tech-signoff-modal-cancel.spec.ts
+          --project=chromium --reporter=line
+
+      # Split from the step above on 16/10/2026. Each playwright run boots its
+      # own `npm run dev`, and the dev server's memory grows with every route it
+      # compiles. With these three in the same run, v1-reference-claim (which
+      # compiles the estimate, invoice, payment, Xero and close routes) took the
+      # 16 GB runner to 173 MB free and GitHub killed it ("The runner has
+      # received a shutdown signal"), twice on main @ 95c5ca53b, with no test
+      # failing. A fresh server for the financial spine keeps both runs clear.
+      - name: Run remaining E2E (5 of 5)
+        if: ${{ !cancelled() }}
+        run: >-
+          bash scripts/ci/with-mem-log.sh
+          npx --no-install playwright test -c config/playwright.config.ts
+          e2e/v1-reference-claim.spec.ts
           e2e/warehouse.spec.ts
           e2e/workshop.spec.ts
           --project=chromium --reporter=line
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: playwright-report
           path: playwright-report/

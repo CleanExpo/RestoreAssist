@@ -180,7 +180,7 @@ export default function NewRecurringInvoicePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-9xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Link

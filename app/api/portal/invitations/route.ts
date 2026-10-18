@@ -2,18 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { apiError, fromException } from "@/lib/api-errors";
-
-/** Escape special HTML characters to prevent XSS in email bodies */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;");
-}
+import { extendAndEmailPortalInvitation } from "@/lib/portal/extend-and-email-invitation";
 
 // GET /api/portal/invitations - List invitations for current contractor
 export async function GET(request: NextRequest) {
@@ -84,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { clientId, message } = body;
+    const { clientId } = body;
 
     if (!clientId) {
       return apiError(request, {
@@ -151,7 +141,11 @@ export async function POST(request: NextRequest) {
             },
           });
           if (existing) {
-            throw new Error("DUPLICATE_INVITE");
+            const duplicate = new Error("DUPLICATE_INVITE") as Error & {
+              invitationId?: string;
+            };
+            duplicate.invitationId = existing.id;
+            throw duplicate;
           }
           return await tx.portalInvitation.create({
             data: {
@@ -165,7 +159,11 @@ export async function POST(request: NextRequest) {
                 select: { name: true, email: true },
               },
               user: {
-                select: { name: true, businessName: true },
+                select: {
+                  name: true,
+                  businessName: true,
+                  organizationId: true,
+                },
               },
             },
           });
@@ -175,64 +173,81 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg === "DUPLICATE_INVITE" || msg.includes("P2034")) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "Active invitation already exists for this client",
-          status: 400,
-        });
+        const invitationId =
+          err instanceof Error &&
+          "invitationId" in err &&
+          typeof (err as { invitationId?: unknown }).invitationId === "string"
+            ? (err as { invitationId: string }).invitationId
+            : undefined;
+
+        return NextResponse.json(
+          {
+            error: {
+              code: "CONFLICT",
+              message: "Active invitation already exists for this client",
+              eventId: Math.random().toString(36).slice(2, 10),
+            },
+            invitation: invitationId ? { id: invitationId } : undefined,
+          },
+          { status: 409 },
+        );
       }
       throw err;
     }
 
-    // Send invitation email via Mailtrap.
-    const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.app";
-    const inviteUrl = `${baseUrl}/portal/signup?token=${invitation.token}`;
     const contractorName =
       invitation.user.businessName || invitation.user.name || "RestoreAssist";
 
-    const sender = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { organizationId: true },
+    const emailResult = await extendAndEmailPortalInvitation({
+      invitationId: invitation.id,
+      token: invitation.token,
+      email: invitation.email,
+      clientName: invitation.client.name,
+      contractorName,
+      organizationId: invitation.user.organizationId ?? null,
+      kind: "invite",
     });
 
-    try {
-      const result = await sendTransactionalEmail({
-        organizationId: sender?.organizationId,
-        to: invitation.email,
-        subject: `${contractorName} has invited you to view your restoration project`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>You've been invited to the Client Portal</h2>
-            <p>Hi ${escapeHtml(client.name)},</p>
-            <p>${escapeHtml(contractorName)} has invited you to access the Client Portal where you can:</p>
-            <ul>
-              <li>View your restoration project reports</li>
-              <li>Review and approve scope of work</li>
-              <li>Track project status and progress</li>
-              <li>Download important documents</li>
-            </ul>
-            ${message ? `<p><strong>Message from ${escapeHtml(contractorName)}:</strong><br/>${escapeHtml(message)}</p>` : ""}
-            <p style="margin: 30px 0;">
-              <a href="${inviteUrl}" style="background-color: #8A6B4E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                Accept Invitation & Create Account
-              </a>
-            </p>
-            <p style="font-size: 12px; color: #666;">
-              This invitation expires in 7 days. If you did not expect this invitation, you can safely ignore this email.
-            </p>
-            <p style="font-size: 12px; color: #666;">
-              Link not working? Copy and paste this URL into your browser:<br/>
-              ${inviteUrl}
-            </p>
-          </div>
-        `,
-      });
-      if (result.error) {
-        console.error("Failed to send invitation email:", result.error);
+    if (!emailResult.ok) {
+      if (emailResult.reason === "email_not_configured") {
+        return NextResponse.json(
+          {
+            error: {
+              code: "UPSTREAM_FAILED",
+              message: "Email service not configured — invitation saved; resend when email is ready",
+              eventId: Math.random().toString(36).slice(2, 10),
+            },
+            invitation: {
+              id: invitation.id,
+              email: invitation.email,
+              token: invitation.token,
+              expiresAt: invitation.expiresAt,
+              createdAt: invitation.createdAt,
+            },
+            emailSent: false,
+          },
+          { status: 503 },
+        );
       }
-    } catch (emailError) {
-      console.error("Failed to send invitation email:", emailError);
-      // Don't fail the request if email fails - invitation is still created
+      return NextResponse.json(
+        {
+          error: {
+            code: "UPSTREAM_FAILED",
+            message:
+              emailResult.detail ?? "Failed to send invitation email — use Resend to try again",
+            eventId: Math.random().toString(36).slice(2, 10),
+          },
+          invitation: {
+            id: invitation.id,
+            email: invitation.email,
+            token: invitation.token,
+            expiresAt: invitation.expiresAt,
+            createdAt: invitation.createdAt,
+          },
+          emailSent: false,
+        },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json(
@@ -241,9 +256,10 @@ export async function POST(request: NextRequest) {
           id: invitation.id,
           email: invitation.email,
           token: invitation.token,
-          expiresAt: invitation.expiresAt,
+          expiresAt: emailResult.data.expiresAt,
           createdAt: invitation.createdAt,
         },
+        emailSent: true,
       },
       { status: 201 },
     );

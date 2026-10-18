@@ -319,7 +319,7 @@ export default function CompletenessCheckPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6">
-      <div className="max-w-5xl mx-auto space-y-8">
+      <div className="max-w-9xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow">

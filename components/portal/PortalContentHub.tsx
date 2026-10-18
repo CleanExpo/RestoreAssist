@@ -23,9 +23,9 @@ export function PortalContentSections({
       {Object.entries(byCategory).map(([category, rows]) => (
         <section
           key={category}
-          className="bg-white rounded-xl border border-slate-200 p-4 space-y-4"
+          className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-indigo-950/35 p-4 space-y-4 shadow-lg shadow-black/20"
         >
-          <h2 className="text-sm font-semibold text-slate-700 capitalize">
+          <h2 className="text-sm font-semibold capitalize text-white/90">
             {category.replace(/-/g, " ")}
           </h2>
           {rows.map((row) => (
@@ -34,14 +34,14 @@ export function PortalContentSections({
                 block.type === "heading" ? (
                   <h3
                     key={`${row.id}-h-${i}`}
-                    className="text-sm font-medium text-slate-800"
+                    className="text-sm font-medium text-slate-200"
                   >
                     {block.text}
                   </h3>
                 ) : (
                   <p
                     key={`${row.id}-p-${i}`}
-                    className="text-sm text-slate-600 leading-relaxed"
+                    className="text-sm leading-relaxed text-slate-400"
                   >
                     {block.text}
                   </p>
@@ -67,8 +67,10 @@ export function PortalAboutSection({
   if (!logoUrl && !aboutCopy) return null;
 
   return (
-    <section className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-      <h2 className="text-sm font-semibold text-slate-700">About your restoration team</h2>
+    <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-indigo-950/35 p-4 space-y-3 shadow-lg shadow-black/20">
+      <h2 className="text-sm font-semibold text-white/90">
+        About your restoration team
+      </h2>
       {logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -81,11 +83,11 @@ export function PortalAboutSection({
         <div className="space-y-2">
           {parseSimpleMarkdown(aboutCopy).map((block, i) =>
             block.type === "heading" ? (
-              <h3 key={`about-h-${i}`} className="text-sm font-medium text-slate-800">
+              <h3 key={`about-h-${i}`} className="text-sm font-medium text-slate-200">
                 {block.text}
               </h3>
             ) : (
-              <p key={`about-p-${i}`} className="text-sm text-slate-600 leading-relaxed">
+              <p key={`about-p-${i}`} className="text-sm leading-relaxed text-slate-400">
                 {block.text}
               </p>
             ),

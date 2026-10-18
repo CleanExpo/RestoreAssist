@@ -24,7 +24,11 @@ import {
   GitBranch,
   RefreshCw,
   Sparkles,
+  FileText,
 } from "lucide-react";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import toast from "react-hot-toast";
 import {
   EvaluatorScoreBadge,
@@ -397,16 +401,18 @@ export default function ReportsPage() {
   };
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Reports</h1>
-          <p className="text-slate-300">
-            Manage and view all restoration reports
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        className="mb-4"
+        eyebrow="Simple workspace"
+        title="My Reports"
+        description="Manage and view all restoration reports"
+        icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/reports",
+        })}
+        primaryAction={
+        <div className="flex items-center gap-3 flex-wrap justify-end w-full sm:w-auto">
           <DataSourceSwitcher
             id="reports-data-source"
             value={dataSource}
@@ -447,7 +453,8 @@ export default function ReportsPage() {
             </Link>
           )}
         </div>
-      </div>
+        }
+      />
 
       {dataSource !== "native" ? (
         <>
@@ -1094,6 +1101,6 @@ export default function ReportsPage() {
         itemCount={selectedReports.length}
         itemName="report"
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }

@@ -20,6 +20,7 @@ const resolveWorkspaceAiKey = vi.fn();
 const generateScopeStream = vi.fn();
 const scopeItemCreateMany = vi.fn().mockResolvedValue({ count: 1 });
 const scopeItemDeleteMany = vi.fn().mockResolvedValue({ count: 0 });
+const assessS500IntakeComplete = vi.fn().mockResolvedValue({ ok: true });
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -63,6 +64,12 @@ vi.mock("@/lib/ai/claim-type-prompts", () => ({
 }));
 vi.mock("@/lib/services/ai/generate-scope", () => ({
   generateScopeStream: (...args: unknown[]) => generateScopeStream(...args),
+}));
+// The S500 intake gate has its own suite; here intake is complete unless a
+// case says otherwise.
+vi.mock("@/lib/compliance/s500-intake-gate", () => ({
+  assessS500IntakeComplete: (...args: unknown[]) =>
+    assessS500IntakeComplete(...args),
 }));
 vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
   resolveWorkspaceAiKey: (...args: unknown[]) => resolveWorkspaceAiKey(...args),

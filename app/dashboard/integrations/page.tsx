@@ -57,6 +57,10 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/EmptyState";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 interface ExternalIntegration {
   provider: string;
@@ -785,42 +789,41 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
   };
 
   return (
-    <div className="space-y-8">
+    <DashboardPageFrame className="space-y-8 pb-10 pt-2">
       <confirm.Mount />
-      {/* ── Header ─────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
-            Integrations
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Connect your tools and services to Restore Assist
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {/* RA-7660: hidden until the re-pull path stops reporting a failed
-              import as a success (RA-7663). */}
-          {showImportData && (
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Integrations"
+        description="Connect accounting, CRM, field tools, and AI providers to Restore Assist."
+        icon={<Network className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/integrations",
+        })}
+        primaryAction={
+          <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
+            {showImportData && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowImportModal(true)}
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+              >
+                <Download />
+                Import Data
+              </Button>
+            )}
             <Button
-              variant="outline"
               size="sm"
-              onClick={() => setShowImportModal(true)}
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white border-0 shadow-sm hover:from-blue-500 hover:to-cyan-500"
+              onClick={() => setShowAddModal(true)}
+              disabled={loading || aiLoadError || aiBusy}
             >
-              <Download />
-              Import Data
+              <Plus />
+              Add Integration
             </Button>
-          )}
-          <Button
-            size="sm"
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
-            onClick={() => setShowAddModal(true)}
-            disabled={loading || aiLoadError || aiBusy}
-          >
-            <Plus />
-            Add Integration
-          </Button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* ── Loading ─────────────────────────────────── */}
       {loading ? (
@@ -1860,6 +1863,6 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
           }}
         />
       )}
-    </div>
+    </DashboardPageFrame>
   );
 }

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { MAKE_SAFE_ACTIONS } from "@/lib/compliance/make-safe-actions";
 import {
   makeSafeCompliance,
+  MAKE_SAFE_NOT_ASSESSED_REASON,
   type MakeSafeComplianceItem,
 } from "@/lib/compliance/make-safe-compliance";
 
@@ -26,9 +27,7 @@ export type MakeSafeGateResult = {
   reason?: string;
 };
 
-// RA-7739: shown to the technician when nothing was marked applicable.
-export const MAKE_SAFE_NOT_ASSESSED_REASON =
-  "The Stabilisation checklist has not been filled in. Mark each item as applicable or not applicable, complete the applicable ones, then submit again.";
+export { MAKE_SAFE_NOT_ASSESSED_REASON };
 
 /**
  * Stabilisation gate per ANSI/IICRC S500:2021.
