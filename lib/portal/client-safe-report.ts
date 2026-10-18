@@ -71,7 +71,8 @@ export function toClientPortalReportDetail(report: {
   createdAt: Date;
   updatedAt: Date;
   completionDate: Date | null;
-  client: { name: string; email: string; phone: string | null };
+  // Report.client is optional in the schema (onDelete: SetNull).
+  client: { name: string; email: string; phone: string | null } | null;
   user: {
     name: string | null;
     businessName: string | null;
