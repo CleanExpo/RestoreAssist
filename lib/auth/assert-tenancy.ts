@@ -873,6 +873,7 @@ export async function writeWithinInspectionScope<T>(
   scopeWhere: Prisma.InspectionWhereInput,
   parentData: Prisma.InspectionUpdateManyMutationInput,
   work: (tx: Prisma.TransactionClient) => Promise<T>,
+  options?: { maxWait?: number; timeout?: number },
 ): Promise<T | null> {
   return prisma.$transaction(async (tx) => {
     const claimed = await tx.inspection.updateMany({
@@ -881,7 +882,7 @@ export async function writeWithinInspectionScope<T>(
     });
     if (claimed.count === 0) return null;
     return work(tx);
-  });
+  }, options);
 }
 
 /**

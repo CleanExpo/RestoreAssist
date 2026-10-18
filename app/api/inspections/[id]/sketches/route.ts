@@ -772,6 +772,9 @@ export async function POST(
           }
           return true;
         },
+        // Rooms are written one by one, so a large sketch can pass Prisma's
+        // 5 s interactive-transaction default and roll the whole sync back.
+        { timeout: 20_000, maxWait: 10_000 },
       );
       if (!graphSynced) {
         console.warn("[sketches] scope lost after the sketch save; room graph not synced", {

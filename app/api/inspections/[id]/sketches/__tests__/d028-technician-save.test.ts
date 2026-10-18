@@ -11,7 +11,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
-const gate = vi.hoisted(() => ({ viaAssignment: true, scopeClaims: true }));
+const gate = vi.hoisted(() => ({
+  viaAssignment: true,
+  scopeClaims: true,
+  txOptions: undefined as unknown,
+}));
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
@@ -22,7 +26,11 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
     _scope: unknown,
     _data: unknown,
     work: (tx: unknown) => unknown,
-  ) => (gate.scopeClaims ? work(scopePrisma) : null),
+    options?: unknown,
+  ) => {
+    gate.txOptions = options;
+    return gate.scopeClaims ? work(scopePrisma) : null;
+  },
   assertInspectionAssignedWrite: vi.fn(async () => ({
     ok: true,
     data: {
@@ -152,6 +160,8 @@ describe("sketch POST by the assigned technician (D-028)", () => {
       (c) => c[0].data as Array<{ currentMc: number }>,
     );
     expect(created.map((r) => r.currentMc)).toEqual([30]);
+    // A large sketch must not hit Prisma's 5 s default and roll the sync back.
+    expect(gate.txOptions).toEqual({ timeout: 20_000, maxWait: 10_000 });
   });
 
   it("a technician reassigned after the sketch save writes no rooms and no pin readings", async () => {
