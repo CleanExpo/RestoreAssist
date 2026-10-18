@@ -86,8 +86,7 @@ describe("InviteAcceptPage session claims", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Continue identity" }));
     fireEvent.click(screen.getByRole("button", { name: "Accept invitation" }));
 
-    // A technician (role USER) lands on Field Mode.
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/field"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard?firstRun=tech"));
     expect(signIn).toHaveBeenCalledWith("credentials", {
       email: "technician@example.com",
       password: "not-a-real-password",
@@ -114,7 +113,7 @@ describe("InviteAcceptPage session claims", () => {
     expect(toastError).toHaveBeenCalledWith(
       "Invitation accepted, but your session could not be refreshed. Please sign in again.",
     );
-    expect(push).not.toHaveBeenCalledWith("/dashboard/field");
+    expect(push).not.toHaveBeenCalledWith("/dashboard?firstRun=tech");
   });
 
   it("renders a structured preview error message instead of an object", async () => {
@@ -165,7 +164,9 @@ describe("InviteAcceptPage session claims", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Continue identity" }));
     fireEvent.click(screen.getByRole("button", { name: "Accept invitation" }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/field"));
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/dashboard?firstRun=tech"),
+    );
     expect(toastError).toHaveBeenCalledWith(
       "Your photo did not save. You can add it later from your profile.",
       expect.objectContaining({ duration: 8000 }),
