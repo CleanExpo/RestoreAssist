@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Circle, Loader2 } from "lucide-react";
+import { ChromeCheck, ChromeCircle, ChromeSpinner } from "@/components/brand/chrome-icons";
 import {
   buildClientPortalLinkChecklist,
   type InspectionCommsReadiness,
@@ -107,19 +107,19 @@ export function ClientPortalLinkButton({
       <ul className="space-y-2 rounded-lg border border-white/10 bg-slate-950/40 p-3">
         {readinessLoading ? (
           <li className="flex items-center gap-2 text-xs text-slate-400">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            <ChromeSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden />
             Checking send readiness…
           </li>
         ) : (
           checklist.map((item) => (
             <li key={item.id} className="flex gap-2 text-xs">
               {item.ok ? (
-                <Check
+                <ChromeCheck
                   className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400"
                   aria-hidden
                 />
               ) : (
-                <Circle
+                <ChromeCircle
                   className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500"
                   aria-hidden
                 />

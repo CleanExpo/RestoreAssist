@@ -1036,8 +1036,10 @@ const OWNER_ONLY_CASES: FieldCase[] = [
         jsonReq(job.id, `moisture/${s.readingId}`, "DELETE"),
         cx({ id: job.id, readingId: s.readingId }),
       ),
+    // DELETE keeps the row and stamps invalidatedAt (7ec6b2b5b), so "changed"
+    // means invalidated, not gone.
     changed: async (_job, s) =>
-      (await prisma.moistureReading.count({ where: { id: s.readingId } })) === 0,
+      (await prisma.moistureReading.findUnique({ where: { id: s.readingId } }))?.invalidatedAt != null,
   },
   {
     name: "scope-items/[itemId] DELETE",
