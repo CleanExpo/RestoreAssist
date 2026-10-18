@@ -17,6 +17,7 @@ import {
   applyRoomProvenanceToSketchData,
 } from "@/lib/sketch/sync-room-graph";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
+import { isSupabaseServerConfigured } from "@/lib/supabase-server";
 import {
   enforceUnverifiedUnderlayProvenance,
   evaluateUnderlayVerification,
@@ -147,6 +148,7 @@ export async function POST(
       sketchType = "structural",
       sketchData,
       renderedPngUrl,
+      backgroundImageUrl,
       backgroundImageOpacity,
       backgroundImageScale,
       backgroundImageOffsetX,
@@ -256,6 +258,11 @@ export async function POST(
     let cleanRenderReceipt:
       | { storagePath: string; renderSha256: string }
       | undefined;
+    type CanonicalRenderMeta =
+      | { status: "stored" }
+      | { status: "skipped"; reason: string }
+      | { status: "failed"; reason: string };
+    let canonicalRenderMeta: CanonicalRenderMeta | undefined;
     if (activeUnderlay) {
       renderLocator = null;
     }
@@ -263,16 +270,36 @@ export async function POST(
       requestCanonicalRender === true &&
       (!activeUnderlay || underlayVerification?.ok)
     ) {
-      const { storeVerifiedCleanRender } = await import(
-        "@/lib/sketch/server-clean-render"
-      );
-      const clean = await storeVerifiedCleanRender(
-        id,
-        floorNumber,
-        securedSketchData,
-      );
-      renderLocator = clean.storageLocator;
-      cleanRenderReceipt = clean;
+      if (!isSupabaseServerConfigured()) {
+        canonicalRenderMeta = {
+          status: "skipped",
+          reason:
+            "Sketch storage is not configured on this environment; geometry was saved without a server PNG.",
+        };
+        renderLocator = existing?.renderedPngUrl ?? null;
+      } else {
+        try {
+          const { storeVerifiedCleanRender } = await import(
+            "@/lib/sketch/server-clean-render"
+          );
+          const clean = await storeVerifiedCleanRender(
+            id,
+            floorNumber,
+            securedSketchData,
+          );
+          renderLocator = clean.storageLocator;
+          cleanRenderReceipt = clean;
+          canonicalRenderMeta = { status: "stored" };
+        } catch (renderErr) {
+          const reason =
+            renderErr instanceof Error
+              ? renderErr.message
+              : "Canonical render failed";
+          console.error("[sketches] canonical render failed (non-fatal):", renderErr);
+          canonicalRenderMeta = { status: "failed", reason };
+          renderLocator = existing?.renderedPngUrl ?? null;
+        }
+      }
     }
 
     const { resolveSketchCaptureAdapter } =
@@ -467,6 +494,7 @@ export async function POST(
             sketchType,
             sketchData: sketchDataToPersist,
             renderedPngUrl: renderLocator,
+            backgroundImageUrl: backgroundImageUrl ?? undefined,
             backgroundImageOpacity: opacity,
             backgroundImageScale: bgScale,
             backgroundImageOffsetX: bgOffsetX,
@@ -492,6 +520,7 @@ export async function POST(
                 sketchType,
                 sketchData: sketchDataToPersist,
                 renderedPngUrl: renderLocator,
+                backgroundImageUrl: backgroundImageUrl ?? undefined,
                 backgroundImageOpacity: opacity,
                 backgroundImageScale: bgScale,
                 backgroundImageOffsetX: bgOffsetX,
@@ -793,7 +822,15 @@ export async function POST(
       );
     }
 
-    return NextResponse.json(sketch, { status: 201 });
+    return NextResponse.json(
+      {
+        ...sketch,
+        ...(canonicalRenderMeta
+          ? { _saveMeta: { canonicalRender: canonicalRenderMeta } }
+          : {}),
+      },
+      { status: 201 },
+    );
   } catch (error) {
     return fromException(request, error, { stage: "sketches:save" });
   }

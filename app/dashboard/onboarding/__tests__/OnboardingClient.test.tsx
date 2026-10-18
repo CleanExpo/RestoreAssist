@@ -55,7 +55,7 @@ describe("OnboardingClient", () => {
     expect(screen.queryByText("Connect an integration")).not.toBeInTheDocument();
 
     // Header reflects the server's step count (6), not 6 + fallback extras.
-    expect(screen.getByText(/of 6 steps complete/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 6 steps done/i)).toBeInTheDocument();
 
     // RA-7549 — post-signup CTA is on this surface and is not a BYOK wall.
     const cta = screen.getByRole("link", {
@@ -74,8 +74,8 @@ describe("OnboardingClient", () => {
 
     // On error the fallback list IS shown (its titles appear).
     await waitFor(() =>
-      expect(screen.getByText("Complete business profile")).toBeInTheDocument(),
+      expect(screen.getByText("Pricing & rate card")).toBeInTheDocument(),
     );
-    expect(screen.getByText("Configure pricing")).toBeInTheDocument();
+    expect(screen.getByText("Create your first job")).toBeInTheDocument();
   });
 });

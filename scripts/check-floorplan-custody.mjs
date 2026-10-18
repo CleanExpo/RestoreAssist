@@ -170,7 +170,7 @@ requireText(
 );
 
 const storageMigration =
-  "supabase/migrations/20260828103500_track_b_sketch_media_tenant_storage.sql";
+  "docs/ops/supabase-migrations-archive/20260828103500_track_b_sketch_media_tenant_storage.sql";
 for (const required of [
   "INSERT INTO storage.buckets",
   "ON CONFLICT (id) DO UPDATE SET",

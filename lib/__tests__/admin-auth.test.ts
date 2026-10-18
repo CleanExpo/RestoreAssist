@@ -20,6 +20,7 @@ import {
   verifyTenantAdmin,
   requireAdminPage,
 } from "@/lib/admin-auth";
+import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 
 const ADMIN_SESSION = {
   user: { id: "operator_1", role: "ADMIN" },
@@ -129,6 +130,19 @@ describe("verifyPlatformSupportOperator", () => {
       organizationId: "org_1",
     });
     expect(userFindUnique).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isPlatformSupportOperator — local dev open", () => {
+  it("allows any id in development when allowlist is empty and DEV_OPEN is set", () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+    vi.stubEnv("PLATFORM_SUPPORT_DEV_OPEN", "true");
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+
+    expect(isPlatformSupportOperator("any-admin-id")).toBe(true);
+
+    process.env.NODE_ENV = prev;
   });
 });
 

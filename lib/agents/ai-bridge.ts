@@ -6,23 +6,120 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
+import {
+  NoWorkspaceKeyError,
+  resolveWorkspaceAiKey,
+  type ResolvedWorkspaceAiKey,
+} from "@/lib/ai/resolve-workspace-ai-key";
+import { readPlatformTrialApiKey } from "@/lib/ai/platform-trial-credential";
 import { tryClaudeModels, getClaudeModels } from "@/lib/anthropic-models";
 import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache";
 import type { AgentSlug, AIProviderType } from "./types";
+
+/**
+ * RA-8001: whose key a call may spend. "byok-only" (every agent) refuses
+ * anything but the workspace's own key; "platform-allowed" (field-assist
+ * only) may use the D-022 funded-trial platform key.
+ */
+export type AgentKeyPolicy = "byok-only" | "platform-allowed";
+
+/**
+ * Agents whose task calls the provider under "byok-only". Workflow create and
+ * execute preflight the key when a template or workflow holds one of these.
+ */
+export const BYOK_ONLY_AGENT_SLUGS: readonly AgentSlug[] = ["report-analysis"];
+
+export const PLATFORM_KEY_REFUSED_CODE = "AI_PLATFORM_KEY_REFUSED" as const;
+
+/** One message whatever the cause: the customer's action is the same. */
+const PLATFORM_KEY_REFUSED_MESSAGE =
+  "Agent workflows run only on your own Anthropic API key. Add it in Workspace Settings -> AI Providers, then resume the workflow.";
+
+/**
+ * A byok-only call that would have spent the platform key, or that has no
+ * key of the workspace's own. Thrown before any client is constructed, so a
+ * refusal makes zero provider requests. Carries no key material.
+ */
+export class PlatformKeyRefusedError extends Error {
+  readonly code = PLATFORM_KEY_REFUSED_CODE;
+  constructor(
+    public readonly userId: string | null = null,
+    public readonly workspaceId: string | null = null,
+    public readonly source: string | null = null,
+  ) {
+    super(PLATFORM_KEY_REFUSED_MESSAGE);
+    this.name = "PlatformKeyRefusedError";
+  }
+}
+
+/**
+ * The one refusal predicate, shared by callAI and the route preflight so the
+ * two cannot drift. Written `!== "platform-allowed"` and `!== "byok"` so a
+ * missing policy or a missing source refuses. A key labelled BYOK that is the
+ * platform key is still the platform key.
+ */
+export function isPlatformKeyRefused(
+  keyPolicy: AgentKeyPolicy | undefined,
+  resolved: Pick<ResolvedWorkspaceAiKey, "apiKey"> & { source?: string },
+): boolean {
+  if (keyPolicy === "platform-allowed") return false;
+  return (
+    resolved.source !== "byok" || resolved.apiKey === readPlatformTrialApiKey()
+  );
+}
+
+/**
+ * Resolve the workspace's Anthropic key and apply the predicate. Under any
+ * policy but "platform-allowed", a NoWorkspaceKeyError of either reason
+ * becomes PlatformKeyRefusedError. Other errors (a failed DB read) propagate.
+ */
+export async function resolveAgentAiKey(
+  userId: string,
+  keyPolicy: AgentKeyPolicy | undefined,
+): Promise<ResolvedWorkspaceAiKey> {
+  let resolved: ResolvedWorkspaceAiKey;
+  try {
+    resolved = await resolveWorkspaceAiKey(userId, "ANTHROPIC");
+  } catch (err) {
+    if (keyPolicy !== "platform-allowed" && err instanceof NoWorkspaceKeyError) {
+      throw new PlatformKeyRefusedError(userId);
+    }
+    throw err;
+  }
+  if (isPlatformKeyRefused(keyPolicy, resolved)) {
+    throw new PlatformKeyRefusedError(
+      userId,
+      resolved.workspaceId ?? null,
+      typeof resolved.source === "string" ? resolved.source : null,
+    );
+  }
+  return resolved;
+}
 
 export interface AIBridgeParams {
   userId: string;
   agentSlug: AgentSlug;
   systemPrompt: string;
   userPrompt: string;
+  /** Required, no default (RA-8001). Checked again at runtime. */
+  keyPolicy: AgentKeyPolicy;
   overrides?: {
     provider?: AIProviderType;
     model?: string;
     maxTokens?: number;
     temperature?: number;
   };
+  /** The agent's executor timeout; the SDK request timeout is 5 s less. */
+  timeoutMs?: number;
+  /** The executor's abort signal; aborting it cancels the request. */
+  signal?: AbortSignal;
 }
+
+/** Used when a caller does not pass its agent's timeoutMs. */
+const DEFAULT_AGENT_TIMEOUT_MS = 60_000;
+/** The SDK request gives up this long before the executor's own timeout. */
+const SDK_TIMEOUT_HEADROOM_MS = 5_000;
+const MIN_SDK_TIMEOUT_MS = 1_000;
 
 export interface AIBridgeResult {
   text: string;
@@ -45,14 +142,19 @@ export async function callAI(params: AIBridgeParams): Promise<AIBridgeResult> {
     throw new Error("Local agents do not use the AI bridge");
   }
 
-  // RA-6971 (BYOK, P1) — resolve the owning workspace's own Anthropic key.
-  // This is a customer-reachable agent workload (POST
-  // /api/agents/workflows/[id]/execute), so it must NEVER spend the platform
-  // ANTHROPIC_API_KEY. resolveWorkspaceAiKey throws NoWorkspaceKeyError when the
-  // workspace has no key; we let it propagate so the executor fails the task
-  // (fail-closed) instead of silently billing the platform.
-  const { apiKey } = await resolveWorkspaceAiKey(userId, "ANTHROPIC");
-  const client = new Anthropic({ apiKey });
+  // RA-8001: resolveWorkspaceAiKey hands a funded trial the PLATFORM key, so
+  // resolving is not enough. Agents run "byok-only": the shared predicate
+  // refuses any key whose source is not "byok" (or that equals the platform
+  // key) before a client exists, so a refusal makes zero provider requests.
+  // Field-assist alone passes "platform-allowed" (funded trial, until 1d-ii).
+  const { apiKey } = await resolveAgentAiKey(userId, params.keyPolicy);
+  // RA-7999: exactly one retry layer. The executor owns retries (one request
+  // per attempt, gated by the lease), so the SDK must not retry on its own.
+  const timeout = Math.max(
+    (params.timeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS) - SDK_TIMEOUT_HEADROOM_MS,
+    MIN_SDK_TIMEOUT_MS,
+  );
+  const client = new Anthropic({ apiKey, maxRetries: 0, timeout });
 
   const models = overrides?.model
     ? [{ name: overrides.model, maxTokens }]
@@ -70,6 +172,8 @@ export async function callAI(params: AIBridgeParams): Promise<AIBridgeResult> {
     {
       agentName: `Agent-${params.agentSlug}`,
       enableCacheMetrics: true,
+      fallbackOn: "notFound",
+      signal: params.signal,
     },
   );
 

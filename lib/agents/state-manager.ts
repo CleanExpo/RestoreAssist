@@ -7,47 +7,11 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { WorkflowStatus, TaskStatus } from "@prisma/client";
+import type { Prisma, WorkflowStatus } from "@prisma/client";
 import type { WorkflowContext, TaskOutput } from "./types";
 
-// ---------------------------------------------------------------------------
-// Task state transitions
-// ---------------------------------------------------------------------------
-
-/**
- * Atomically transition a task from one status to another.
- * Returns true if the transition succeeded, false if the task was not in
- * the expected `from` status (optimistic lock failure).
- */
-export async function transitionTask(
-  taskId: string,
-  from: TaskStatus,
-  to: TaskStatus,
-  data?: Record<string, unknown>,
-): Promise<boolean> {
-  const result = await prisma.agentTask.updateMany({
-    where: { id: taskId, status: from },
-    data: { status: to, ...data },
-  });
-
-  if (result.count > 0) {
-    // Update workflow lastActivityAt for stale detection
-    const task = await prisma.agentTask.findUnique({
-      where: { id: taskId },
-      select: { workflowId: true },
-    });
-    if (task) {
-      await prisma.agentWorkflow
-        .update({
-          where: { id: task.workflowId },
-          data: { lastActivityAt: new Date() },
-        })
-        .catch(() => {}); // Non-blocking
-    }
-  }
-
-  return result.count > 0;
-}
+// Task claims and every write after a claim live in executor.ts / lease.ts
+// (RA-7999): they are guarded by the claim's lease token, not by status alone.
 
 /**
  * Atomically transition a workflow status.
@@ -162,13 +126,16 @@ export async function buildContext(
  * Recalculate and persist workflow counters (completedTasks, failedTasks)
  * and determine if the workflow has reached a terminal state.
  */
-export async function refreshWorkflowProgress(workflowId: string): Promise<{
+export async function refreshWorkflowProgress(
+  workflowId: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<{
   status: WorkflowStatus;
   totalTasks: number;
   completedTasks: number;
   failedTasks: number;
 }> {
-  const tasks = await prisma.agentTask.findMany({
+  const tasks = await db.agentTask.findMany({
     where: { workflowId },
     select: { status: true },
   });
@@ -209,7 +176,7 @@ export async function refreshWorkflowProgress(workflowId: string): Promise<{
     updateData.status = newStatus;
   }
 
-  await prisma.agentWorkflow.update({
+  await db.agentWorkflow.update({
     where: { id: workflowId },
     data: updateData as any,
   });

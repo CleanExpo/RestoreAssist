@@ -20,8 +20,8 @@ vi.mock("@/lib/prisma", () => ({
     inspection: { findFirst: vi.fn(), findUnique: vi.fn() },
   },
 }));
-vi.mock("@/components/portal/ClientPortalStatus", () => ({
-  ClientPortalStatus: () => null,
+vi.mock("@/components/portal/ClientPortalLiveHub", () => ({
+  ClientPortalLiveHub: () => null,
 }));
 vi.mock("@/components/portal/ClientPortalAuthorities", () => ({
   ClientPortalAuthorities: () => <div data-testid="portal-authorities" />,
@@ -144,7 +144,7 @@ describe("ClientPortalPage — view-only links (RA-7634)", () => {
     render(await ClientPortalPage({ params }));
 
     expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
-    expect(screen.getByText("Viewing only")).toBeInTheDocument();
+    expect(screen.getByText("View only")).toBeInTheDocument();
     expect(screen.queryByTestId("portal-authorities")).not.toBeInTheDocument();
     expect(screen.queryByTestId("portal-upload")).not.toBeInTheDocument();
   });
@@ -153,7 +153,7 @@ describe("ClientPortalPage — view-only links (RA-7634)", () => {
     render(await ClientPortalPage({ params }));
 
     expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
-    expect(screen.getByText("Viewing only")).toBeInTheDocument();
+    expect(screen.getByText("View only")).toBeInTheDocument();
     expect(screen.queryByTestId("portal-authorities")).not.toBeInTheDocument();
     expect(screen.queryByTestId("portal-upload")).not.toBeInTheDocument();
   });
@@ -165,9 +165,20 @@ describe("ClientPortalPage — view-only links (RA-7634)", () => {
 
     render(await ClientPortalPage({ params }));
 
-    expect(screen.queryByText("Viewing only")).not.toBeInTheDocument();
+    expect(screen.queryByText("View only")).not.toBeInTheDocument();
     expect(screen.getByTestId("portal-authorities")).toBeInTheDocument();
     expect(screen.getByTestId("portal-upload")).toBeInTheDocument();
+  });
+});
+
+describe("ClientPortalPage — scope copy (audit)", () => {
+  it("lists each scope item description instead of generic duplicate lines", async () => {
+    render(await ClientPortalPage({ params }));
+
+    expect(screen.getByText("Extract standing water")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Restoration work item included"),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -282,7 +293,7 @@ describe("ClientPortalPage — affected areas from the job (RA-7573)", () => {
     render(jsx);
 
     expect(screen.getByText("12 Test St, Brisbane")).toBeInTheDocument();
-    expect(screen.getByText("Scope of Works")).toBeInTheDocument();
+    expect(screen.getByText(/Scope of works/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /Affected Areas/ }),
     ).not.toBeInTheDocument();

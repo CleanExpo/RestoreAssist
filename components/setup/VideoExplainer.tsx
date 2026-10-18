@@ -26,6 +26,8 @@ interface VideoExplainerProps {
   className?: string;
   showCaptions?: boolean;
   trackEngagement?: boolean;
+  /** When the player cannot load, avoid a full-viewport navy block (e.g. setup welcome). */
+  unavailableVariant?: "prominent" | "subtle";
 }
 
 function formatDuration(seconds: number): string {
@@ -66,6 +68,7 @@ export function VideoExplainer({
   className,
   showCaptions = true,
   trackEngagement = true,
+  unavailableVariant = "prominent",
 }: VideoExplainerProps) {
   const entry = VIDEO_REGISTRY[slug];
   const [isPlaying, setIsPlaying] = useState(false);
@@ -183,6 +186,32 @@ export function VideoExplainer({
     className ??
     "relative aspect-video w-full max-h-[min(56vh,560px)] overflow-hidden rounded-xl border border-brand-navy/15 bg-brand-canvas shadow-sm";
 
+  const renderUnavailable = (message: string, detail?: string) => {
+    if (unavailableVariant === "subtle") {
+      return (
+        <div
+          className={
+            className ??
+            "rounded-lg border border-brand-navy/10 bg-brand-canvas px-4 py-3 text-sm text-brand-slate"
+          }
+          role="status"
+          aria-label={`${title} — video unavailable`}
+        >
+          <p className="font-medium text-brand-navy">{message}</p>
+          {detail ? <p className="mt-1 text-xs leading-relaxed">{detail}</p> : null}
+        </div>
+      );
+    }
+    return (
+      <div className={wrapperClass} role="status" aria-label={`${title} — video unavailable`}>
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-brand-navy text-center text-white">
+          <span className="text-sm font-medium">{message}</span>
+          {detail ? <span className="text-xs text-white/70">{detail}</span> : null}
+        </div>
+      </div>
+    );
+  };
+
   // ─── Video element with captions + mobile optimisation ───
   const renderVideo = (src: string) => {
     // Captions are keyed by file stem; the registry slug differs, so resolve
@@ -194,30 +223,13 @@ export function VideoExplainer({
       : undefined;
 
     if (hasError) {
-      return (
-        <div className={wrapperClass} role="status" aria-label={`${title} — video unavailable`}>
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-brand-navy text-center text-white">
-            <span className="text-sm font-medium">Video unavailable</span>
-            <span className="text-xs text-white/70">{title}</span>
-          </div>
-        </div>
-      );
+      return renderUnavailable("Video unavailable", title);
     }
 
     if (!captionUrl) {
-      return (
-        <div
-          className={wrapperClass}
-          role="status"
-          aria-label={`${title} — captions unavailable`}
-        >
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-brand-navy text-center text-white">
-            <span className="text-sm font-medium">Video unavailable</span>
-            <span className="text-xs text-white/70">
-              A captioned version is being prepared.
-            </span>
-          </div>
-        </div>
+      return renderUnavailable(
+        "Video unavailable",
+        "A captioned version is being prepared.",
       );
     }
 
@@ -256,7 +268,12 @@ export function VideoExplainer({
           </video>
         )}
         {!isVisible && (
-          <div className="h-full w-full bg-brand-navy flex items-center justify-center">
+          <div
+            className={[
+              "flex h-full w-full items-center justify-center",
+              unavailableVariant === "subtle" ? "bg-brand-canvas" : "bg-brand-navy",
+            ].join(" ")}
+          >
             <div className="animate-pulse flex flex-col items-center gap-2">
               <div className="h-12 w-12 rounded-full bg-brand-bronze/30" />
               <div className="h-3 w-24 rounded bg-brand-bronze/20" />
@@ -277,14 +294,7 @@ export function VideoExplainer({
 
   // YouTube fallback (still tracks engagement via iframe API)
   if (!youtubeId) {
-    return (
-      <div className={wrapperClass} role="status" aria-label={`${title} — video unavailable`}>
-        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-brand-navy text-center text-white">
-          <span className="text-sm font-medium">Video unavailable</span>
-          <span className="text-xs text-white/70">{title}</span>
-        </div>
-      </div>
-    );
+    return renderUnavailable("Video unavailable", title);
   }
 
   if (isPlaying) {

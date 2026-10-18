@@ -1,3 +1,4 @@
+import { getAppUrl } from "@/lib/app-url";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { escapeHtml } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
@@ -79,8 +80,7 @@ export async function extendAndEmailPortalInvitation(
     },
   });
 
-  const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.app";
-  const inviteUrl = `${baseUrl}/portal/signup?token=${input.token}`;
+  const inviteUrl = `${getAppUrl()}/portal/signup?token=${input.token}`;
   const subject =
     input.kind === "reminder"
       ? `Reminder: ${input.contractorName} invited you to view the restoration project`

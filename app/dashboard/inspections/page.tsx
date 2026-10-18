@@ -29,6 +29,8 @@ import {
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import { EmptyState } from "@/components/EmptyState";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import {
   formatEnvironmentalValue,
   latestEnvironmentalReading,
@@ -281,27 +283,29 @@ export default function InspectionsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-            <ClipboardCheck className="text-cyan-500" size={28} />
-            Inspections
-          </h1>
-          <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1">
-            National Inspection Reports (NIR) — Field data capture and IICRC
-            classification
-          </p>
-        </div>
-        <button
-          onClick={() => router.push("/dashboard/inspections/new")}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <Plus size={18} />
-          New Inspection
-        </button>
-      </div>
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow="Simple workspace"
+        title="Inspections"
+        description="Capture the site, classify damage, and link each job to reports and billing."
+        icon={<ClipboardCheck className="text-cyan-500" size={28} aria-hidden />}
+        primaryAction={
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/inspections/new")}
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2.5 font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 active:scale-[0.98] sm:w-auto"
+          >
+            <Plus size={18} aria-hidden />
+            New inspection
+          </button>
+        }
+        secondaryLinks={[
+          { href: "/dashboard", label: "Overview" },
+          { href: "/dashboard/inspections/schedule", label: "Schedule" },
+          { href: "/dashboard/field", label: "Field capture" },
+          { href: "/dashboard/reports", label: "Reports" },
+        ]}
+      />
 
       {/* Status Filter Pills */}
       <div className="flex flex-wrap gap-2">
@@ -648,6 +652,6 @@ export default function InspectionsPage() {
         itemCount={deleteTarget?.type === "bulk" ? selectedIds.size : undefined}
         isLoading={deleting}
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }

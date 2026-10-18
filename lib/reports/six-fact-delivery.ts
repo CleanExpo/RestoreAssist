@@ -29,7 +29,7 @@ export async function loadReportDeliveryFacts(
     where: { entityType: "Report", entityId: reportId },
     select: { action: true },
     take: 200,
-    orderBy: { createdAt: "desc" },
+    orderBy: { timestamp: "desc" },
   });
   const actions = new Set(audits.map((a) => a.action));
 

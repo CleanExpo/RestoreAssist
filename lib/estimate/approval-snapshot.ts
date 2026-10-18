@@ -83,6 +83,7 @@ export async function freezeEstimateApprovalSnapshot(
 }
 
 export type FrozenEstimateLine = {
+  id?: string;
   description: string;
   category: string;
   qty: number;

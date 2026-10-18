@@ -21,6 +21,10 @@ import {
 import { LineExIncPrices } from "@/components/invoices/LineExIncPrices";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
+import Link from "next/link";
 
 interface Client {
   id: string;
@@ -108,9 +112,52 @@ export default function NewInvoicePage() {
     const name = searchParams.get("customerName");
     const email = searchParams.get("customerEmail");
     const prefillNotes = searchParams.get("notes");
+    const clientIdParam = searchParams.get("clientId");
     if (name) setCustomerName(name);
     if (email) setCustomerEmail(email);
     if (prefillNotes) setNotes(prefillNotes);
+    if (clientIdParam) {
+      setCustomerType("client");
+      setSelectedClientId(clientIdParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const inspectionId = searchParams.get("inspectionId");
+    if (!inspectionId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/inspections/${inspectionId}`);
+        if (!res.ok) {
+          if (!cancelled) {
+            toast.error(
+              "Could not load job details — you can still create the invoice manually.",
+            );
+          }
+          return;
+        }
+        const data = await res.json();
+        if (cancelled) return;
+        const insp = data.inspection ?? data;
+        if (insp.clientId) {
+          setCustomerType("client");
+          setSelectedClientId(insp.clientId);
+        }
+        if (insp.propertyAddress && !searchParams.get("customerName")) {
+          setNotes((prev) =>
+            prev.trim()
+              ? prev
+              : `Restoration work — ${insp.propertyAddress}${insp.inspectionNumber ? ` (${insp.inspectionNumber})` : ""}`,
+          );
+        }
+      } catch {
+        /* optional prefill */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   useEffect(() => {
@@ -340,24 +387,25 @@ export default function NewInvoicePage() {
   const financials = calculateFinancials();
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push("/dashboard/invoices")}
-          className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Create New Invoice
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            Fill in the details below to create a new invoice
-          </p>
-        </div>
-      </div>
+    <SimpleDashboardPageFrame className="space-y-6 pb-12 pt-2">
+      <DashboardListPageHeader
+        eyebrow="Simple workspace"
+        title="Get a Bill Out"
+        description="Create an invoice for a client or one-off customer. Opened from a job? Client and notes prefill when available."
+        icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/invoices/new",
+        })}
+        primaryAction={
+          <Link
+            href="/dashboard/invoices"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800 sm:w-auto"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            All invoices
+          </Link>
+        }
+      />
 
       <form method="post"
         onSubmit={handleSubmit}
@@ -852,6 +900,6 @@ export default function NewInvoicePage() {
           </div>
         </div>
       </form>
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }

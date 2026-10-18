@@ -54,13 +54,15 @@ describe("ClientPortalStatus", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/Scope of works/);
   });
 
-  it("renders nothing until the feed loads", () => {
+  it("shows a loading skeleton until the feed loads", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => new Promise(() => {})),
     );
-    const { container } = render(<ClientPortalStatus token="tok" />);
-    expect(container).toBeEmptyDOMElement();
+    render(<ClientPortalStatus token="tok" />);
+    expect(
+      screen.getByLabelText("Loading claim status"),
+    ).toBeInTheDocument();
   });
 
   it("renders the curated per-area drying timeline with on-track/needs-attention badges", async () => {

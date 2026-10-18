@@ -216,7 +216,7 @@ export default function MissionControlPage() {
   const online = health?.online === true;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-9xl space-y-6">
       <header>
         <p className="text-sm text-muted-foreground">Unite-Group · Nexus Hub</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">

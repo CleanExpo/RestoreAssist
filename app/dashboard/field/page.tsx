@@ -27,18 +27,34 @@ import {
   AlertTriangle,
   RefreshCw,
   WifiOff,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile/MobileNav";
-import { useMobilePullRefreshHandler, type RefreshResult } from "@/components/mobile/MobilePullToRefresh";
+import {
+  useMobilePullRefreshHandler,
+  type RefreshResult,
+} from "@/components/mobile/MobilePullToRefresh";
 import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
 import {
   cacheJobs,
   getCachedJobs,
   type CachedJob,
 } from "@/lib/offline/job-cache";
-import { fetchOfflineReplay, getOfflineOwner, ownsOfflineEntry, OFFLINE_CONTEXT_EVENT, refreshOfflineOwner } from "@/lib/offline/account-boundary";
+import {
+  fetchOfflineReplay,
+  getOfflineOwner,
+  ownsOfflineEntry,
+  OFFLINE_CONTEXT_EVENT,
+  refreshOfflineOwner,
+} from "@/lib/offline/account-boundary";
 import { isCapacitor } from "@/lib/capacitor";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import {
+  simpleDashboardHeroShell,
+  simpleDashboardHeroShine,
+} from "@/lib/dashboard/simple-dashboard-theme";
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "text-white/50",
@@ -51,9 +67,6 @@ const STATUS_COLOR: Record<string, string> = {
   COMPLETED: "text-success",
 };
 
-// RA-7711: every status a job is still being worked in. ESTIMATED and
-// IN_BILLING were missing, so estimated jobs vanished from Field Mode.
-// Values are the InspectionStatus enum in prisma/schema.prisma.
 const ACTIVE_STATUSES = [
   "DRAFT",
   "SUBMITTED",
@@ -72,6 +85,16 @@ function formatInspectionDate(dateStr: string | null): string {
   return format(d, "d MMM");
 }
 
+function statusLine(
+  loading: boolean,
+  loadError: string | null,
+  activeCount: number,
+): string {
+  if (loading) return "Loading your jobs…";
+  if (loadError) return "Jobs not loaded — use Retry below.";
+  return `${activeCount} active job${activeCount !== 1 ? "s" : ""}`;
+}
+
 export default function FieldDashboardPage() {
   const [inspections, setInspections] = useState<CachedJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,29 +106,27 @@ export default function FieldDashboardPage() {
 
   useEffect(() => {
     const clear = () => {
-      setInspections([]); setFromCache(false); setCacheAge(null);
+      setInspections([]);
+      setFromCache(false);
+      setCacheAge(null);
       if (getOfflineOwner()) void loadInspections();
     };
     window.addEventListener(OFFLINE_CONTEXT_EVENT, clear);
     return () => window.removeEventListener(OFFLINE_CONTEXT_EVENT, clear);
   }, []);
 
-  // Greeting
   useEffect(() => {
     const h = new Date().getHours();
     if (h >= 12 && h < 17) setGreeting("Good afternoon");
     else if (h >= 17) setGreeting("Good evening");
   }, []);
 
-  // Network status listener (Capacitor native — proactive offline detection)
   useEffect(() => {
     if (!isCapacitor()) return;
     let cleanup: (() => void) | undefined;
     import("@capacitor/network")
       .then(({ Network }) => {
-        // Seed initial state
         Network.getStatus().then(({ connected }) => setIsOffline(!connected));
-        // Listen for changes
         Network.addListener("networkStatusChange", ({ connected }) => {
           setIsOffline(!connected);
           if (connected) loadInspections();
@@ -127,8 +148,14 @@ export default function FieldDashboardPage() {
     if (!requestOwner) {
       setInspections([]);
       setLoading(false);
-      setLoadError("Reconnect to verify your account. Saved offline work is preserved.");
-      return { kind: "cancelled", message: "Reconnect to verify your account. Saved offline work is preserved." };
+      setLoadError(
+        "Reconnect to verify your account. Saved offline work is preserved.",
+      );
+      return {
+        kind: "cancelled",
+        message:
+          "Reconnect to verify your account. Saved offline work is preserved.",
+      };
     }
     setLoading(true);
     setLoadError(null);
@@ -138,7 +165,11 @@ export default function FieldDashboardPage() {
         `/api/inspections?status=${ACTIVE_STATUSES.join(",")}&assignee=me&limit=100`,
         { cache: "no-store" },
       );
-      if (!res) throw new Error("Reconnect to verify your account. Saved offline work is preserved.");
+      if (!res) {
+        throw new Error(
+          "Reconnect to verify your account. Saved offline work is preserved.",
+        );
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw Object.assign(
@@ -160,7 +191,6 @@ export default function FieldDashboardPage() {
         moistureReadings?: unknown[];
       }>;
 
-      // Enrich with checklist status — best-effort, never blocks the list
       const enriched = await Promise.all(
         items.map(async (insp) => {
           try {
@@ -198,20 +228,27 @@ export default function FieldDashboardPage() {
       );
 
       if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) {
-        return { kind: "cancelled", message: "Account changed. Refresh cancelled." };
+        return {
+          kind: "cancelled",
+          message: "Account changed. Refresh cancelled.",
+        };
       }
       setInspections(enriched);
       setFromCache(false);
       setCacheAge(null);
       setIsOffline(false);
-      // Persist to IndexedDB for offline fallback
       await cacheJobs(enriched, requestOwner);
       return { kind: "updated", message: "Jobs updated" };
     } catch (err) {
       if (!ownsOfflineEntry({ owner: requestOwner })) {
         setInspections([]);
-        setLoadError("Reconnect to verify your account. Saved offline work is preserved.");
-        return { kind: "cancelled", message: "Account changed. Refresh cancelled." };
+        setLoadError(
+          "Reconnect to verify your account. Saved offline work is preserved.",
+        );
+        return {
+          kind: "cancelled",
+          message: "Account changed. Refresh cancelled.",
+        };
       }
       const isHttpError =
         err instanceof Error &&
@@ -224,28 +261,34 @@ export default function FieldDashboardPage() {
         );
         setIsOffline(false);
         return { kind: "error", message: "Could not refresh jobs. Try again." };
-      } else {
-        // Network failure — fall back to IndexedDB cache
-        const { jobs, fetchedAt } = await getCachedJobs(requestOwner);
-        if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) {
-          return { kind: "cancelled", message: "Account changed. Refresh cancelled." };
-        }
-        if (jobs.length === 0) {
-          // RA-7711: nothing to show is a failed load, not "0 active jobs".
-          setLoadError("check your connection and try again");
-        }
-        if (jobs.length > 0) {
-          setInspections(jobs);
-          setFromCache(true);
-          setCacheAge(
-            fetchedAt
-              ? formatDistanceToNow(new Date(fetchedAt), { addSuffix: true })
-              : null,
-          );
-        }
-        setIsOffline(true);
-        return { kind: "offline", message: jobs.length > 0 ? "Offline. Showing saved jobs." : "Offline. No saved jobs available." };
       }
+      const { jobs, fetchedAt } = await getCachedJobs(requestOwner);
+      if (requestOwner && !ownsOfflineEntry({ owner: requestOwner })) {
+        return {
+          kind: "cancelled",
+          message: "Account changed. Refresh cancelled.",
+        };
+      }
+      if (jobs.length === 0) {
+        setLoadError("check your connection and try again");
+      }
+      if (jobs.length > 0) {
+        setInspections(jobs);
+        setFromCache(true);
+        setCacheAge(
+          fetchedAt
+            ? formatDistanceToNow(new Date(fetchedAt), { addSuffix: true })
+            : null,
+        );
+      }
+      setIsOffline(true);
+      return {
+        kind: "offline",
+        message:
+          jobs.length > 0
+            ? "Offline. Showing saved jobs."
+            : "Offline. No saved jobs available.",
+      };
     } finally {
       setLoading(false);
     }
@@ -262,13 +305,13 @@ export default function FieldDashboardPage() {
     ACTIVE_STATUSES.includes(i.status),
   );
   const nextJob = activeJobs[0];
+  const statusText = statusLine(loading, loadError, activeJobs.length);
 
   return (
-    <div className="min-h-screen bg-brand-canvas text-white pb-24">
-      {/* Offline / cached-data banner */}
+    <DashboardPageFrame className="space-y-6 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-2">
       {(isOffline || fromCache) && (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/15 border-b border-amber-500/20 text-amber-300 text-xs">
-          <WifiOff className="h-3.5 w-3.5 shrink-0" />
+        <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-900 dark:text-amber-200">
+          <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span className="flex-1">
             {isOffline
               ? fromCache && cacheAge
@@ -281,8 +324,8 @@ export default function FieldDashboardPage() {
           {!isOffline && (
             <button
               type="button"
-              onClick={loadInspections}
-              className="text-amber-300/70 hover:text-amber-200"
+              onClick={() => void loadInspections()}
+              className="text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
               aria-label="Refresh job list"
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -294,212 +337,239 @@ export default function FieldDashboardPage() {
       {loadError && (
         <div
           role="alert"
-          className="flex items-center gap-2 px-4 py-2.5 bg-red-500/15 border-b border-red-500/20 text-red-300 text-xs"
+          className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-xs text-red-800 dark:text-red-300"
         >
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span className="flex-1">Could not load jobs — {loadError}</span>
           <button
             type="button"
             onClick={() => void loadInspections()}
-            className="flex items-center gap-1 text-red-300/80 hover:text-red-200"
+            className="flex items-center gap-1 font-medium text-red-700 hover:text-red-900 dark:text-red-300 dark:hover:text-red-100"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
             Retry
           </button>
         </div>
       )}
 
-      {/* Header */}
-      <div className="px-4 pt-6 pb-4">
-        <p className="text-white/50 text-sm">{greeting}</p>
-        <h1 className="text-2xl font-bold text-white">Field Dashboard</h1>
-        <p className="text-white/40 text-sm mt-0.5">
-          {loading
-            ? "Loading…"
-            : loadError
-              ? "Jobs not loaded"
-              : `${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
-        </p>
-      </div>
-
-      {/* Quick actions */}
-      <div className="px-4 mb-6">
-        <div className="grid gap-3 sm:grid-cols-2">
-          {nextJob ? (
-            <Link
-              href={`/dashboard/inspections/${nextJob.id}/field`}
-              className="flex items-center justify-between rounded-2xl bg-brand-navy px-4 py-4 text-white transition-all active:scale-95"
+      <DashboardListPageHeader
+        eyebrow="Field workspace"
+        title="Field Mode"
+        description={`${greeting}. ${statusText}`}
+        icon={<Smartphone className="h-7 w-7 text-cyan-400" aria-hidden />}
+        primaryAction={
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <button
+              type="button"
+              onClick={() => void loadInspections()}
+              disabled={loading}
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-50 sm:flex-none"
             >
-              <span>
-                <span className="block text-sm font-semibold">
-                  Continue next job
-                </span>
-                <span className="mt-0.5 block truncate text-xs text-white/60">
-                  {nextJob.propertyAddress}
-                </span>
-              </span>
-              <ChevronRight className="h-5 w-5 text-white/60" />
-            </Link>
-          ) : (
-            <div className="rounded-2xl bg-white/5 px-4 py-4 text-sm text-white/50">
-              {loadError
-                ? "Jobs not loaded. Use Retry above."
-                : "No active jobs ready yet."}
-            </div>
-          )}
-          <Link
-            href="/dashboard/inspections/new"
-            className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-4 text-sm font-medium text-white transition-all active:scale-95"
-          >
-            <span className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Start new job
-            </span>
-            <ChevronRight className="h-5 w-5 text-white/30" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Active jobs */}
-      <div id="active" className="px-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs text-white/40 uppercase tracking-wider">
-            Active jobs
-          </p>
-          <div className="flex items-center gap-3">
-            {!loading && !isOffline && (
-              <button
-                type="button"
-                onClick={loadInspections}
-                aria-label="Refresh job list"
-                className="text-white/30 hover:text-white/60 transition-colors"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-              </button>
-            )}
+              <RefreshCw
+                className={cn("h-4 w-4", loading && "animate-spin")}
+                aria-hidden
+              />
+              Refresh
+            </button>
             <Link
-              href="/dashboard/inspections"
-              className="text-xs text-brand-gold"
+              href="/dashboard/inspections/new"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-4 text-sm font-semibold text-white shadow-md hover:from-blue-500 hover:to-cyan-500 sm:flex-none"
             >
-              All jobs
+              <Plus className="h-4 w-4" aria-hidden />
+              New job
             </Link>
           </div>
+        }
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {nextJob ? (
+          <Link
+            href={`/dashboard/inspections/${nextJob.id}/field`}
+            className={cn(
+              simpleDashboardHeroShell,
+              "flex items-center justify-between p-4 transition-transform active:scale-[0.98]",
+            )}
+          >
+            <div aria-hidden className={simpleDashboardHeroShine} />
+            <span className="relative min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-white">
+                Continue next job
+              </span>
+              <span className="mt-0.5 block truncate text-xs text-white/60">
+                {nextJob.propertyAddress}
+              </span>
+            </span>
+            <ChevronRight
+              className="relative h-5 w-5 shrink-0 text-cyan-300/80"
+              aria-hidden
+            />
+          </Link>
+        ) : (
+          <div className="rounded-2xl border border-border bg-muted/40 px-4 py-4 text-sm text-muted-foreground">
+            {loadError
+              ? "Jobs not loaded. Use Retry above."
+              : "No active jobs ready yet."}
+          </div>
+        )}
+        <Link
+          href="/dashboard/field/bluetooth-pair"
+          className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-4 text-sm font-medium text-foreground shadow-sm transition-transform active:scale-[0.98] hover:border-cyan-500/30"
+        >
+          <span className="flex items-center gap-2">
+            <Droplets className="h-5 w-5 text-cyan-500" aria-hidden />
+            Pair moisture meter
+          </span>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden />
+        </Link>
+      </div>
+
+      <section id="active" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Active jobs
+          </p>
+          <Link
+            href="/dashboard/inspections"
+            className="text-xs font-medium text-cyan-600 hover:text-cyan-500 dark:text-cyan-400"
+          >
+            All jobs
+          </Link>
         </div>
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <RefreshCw className="h-5 w-5 text-white/30 animate-spin" />
+            <RefreshCw
+              className="h-5 w-5 animate-spin text-muted-foreground"
+              aria-hidden
+            />
           </div>
-        ) : loadError && activeJobs.length === 0 ? null : activeJobs.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-white/30 text-sm mb-4">
+        ) : loadError && activeJobs.length === 0 ? null : activeJobs.length ===
+          0 ? (
+          <div
+            className={cn(
+              simpleDashboardHeroShell,
+              "relative py-12 text-center",
+            )}
+          >
+            <div aria-hidden className={simpleDashboardHeroShine} />
+            <MapPin
+              className="relative mx-auto h-8 w-8 text-cyan-400/70"
+              aria-hidden
+            />
+            <p className="relative mt-3 text-sm text-white/70">
               {isOffline ? "Go online to load your jobs" : "No active jobs"}
             </p>
             {!isOffline && (
               <Link
                 href="/dashboard/inspections/new"
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-brand-navy text-white text-sm font-medium"
+                className="relative mt-4 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2.5 text-sm font-medium text-white"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" aria-hidden />
                 Start new inspection
               </Link>
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <ul className="space-y-3">
             {activeJobs.map((insp) => (
-              <div
+              <li
                 key={insp.id}
-                className="bg-white/5 rounded-2xl p-4 hover:bg-white/8 transition-all"
+                className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.04] shadow-sm"
               >
                 <Link
                   href={`/dashboard/inspections/${insp.id}/field`}
-                  className="block active:scale-[0.98] transition-all"
+                  className="block p-4 transition-colors hover:bg-muted/30 active:scale-[0.99]"
                 >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-white/40">
-                        {insp.inspectionNumber}
-                      </span>
-                      <span
-                        className={cn(
-                          "text-xs font-medium",
-                          STATUS_COLOR[insp.status],
-                        )}
-                      >
-                        {insp.status}
-                      </span>
-                    </div>
-                    <p className="font-medium text-white text-sm leading-snug">
-                      {insp.propertyAddress}
-                    </p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-white/40">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatInspectionDate(insp.inspectionDate)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Droplets className="h-3 w-3" />
-                        {insp.moistureReadingCount} readings
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    {insp.readyToLeave ? (
-                      <CheckCircle2 className="h-5 w-5 text-success" />
-                    ) : insp.criticalMissing > 0 ? (
-                      <div className="flex items-center gap-1 text-amber-400">
-                        <AlertTriangle className="h-4 w-4" />
-                        <span className="text-xs font-bold">
-                          {insp.criticalMissing}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {insp.inspectionNumber}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-xs font-medium",
+                            STATUS_COLOR[insp.status] ??
+                              "text-muted-foreground",
+                          )}
+                        >
+                          {insp.status}
                         </span>
                       </div>
-                    ) : null}
-                    <ChevronRight className="h-4 w-4 text-white/20" />
+                      <p className="text-sm font-medium leading-snug text-foreground">
+                        {insp.propertyAddress}
+                      </p>
+                      <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" aria-hidden />
+                          {formatInspectionDate(insp.inspectionDate)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Droplets className="h-3 w-3" aria-hidden />
+                          {insp.moistureReadingCount} readings
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      {insp.readyToLeave ? (
+                        <CheckCircle2
+                          className="h-5 w-5 text-emerald-500"
+                          aria-label="Ready to leave"
+                        />
+                      ) : insp.criticalMissing > 0 ? (
+                        <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                          <AlertTriangle className="h-4 w-4" aria-hidden />
+                          <span className="text-xs font-bold">
+                            {insp.criticalMissing}
+                          </span>
+                        </div>
+                      ) : null}
+                      <ChevronRight
+                        className="h-4 w-4 text-muted-foreground"
+                        aria-hidden
+                      />
+                    </div>
                   </div>
-                </div>
                 </Link>
 
-                {/* Field shortcuts — siblings of the card link (no nested <a>) */}
-                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/10">
+                <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
                   <Link
                     href={`/dashboard/inspections/${insp.id}/field`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-navy/60 text-xs text-white/70 hover:bg-brand-navy active:scale-95 transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-800 transition-colors hover:bg-cyan-500/15 dark:text-cyan-200"
                   >
-                    <Droplets className="h-3 w-3" />
+                    <Droplets className="h-3 w-3" aria-hidden />
                     Readings
                   </Link>
                   <Link
                     href={`/dashboard/inspections/${insp.id}/capture`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 text-xs text-cyan-100 hover:bg-cyan-500/30 active:scale-95 transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
                   >
-                    <Camera className="h-3 w-3" />
+                    <Camera className="h-3 w-3" aria-hidden />
                     Capture
                   </Link>
                   <Link
                     href={`/dashboard/inspections/${insp.id}/voice`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-xs text-white/60 hover:bg-white/10 active:scale-95 transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
                   >
-                    <Mic className="h-3 w-3" />
+                    <Mic className="h-3 w-3" aria-hidden />
                     Voice
                   </Link>
                   <Link
                     href={`/dashboard/inspections/${insp.id}/photos`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-xs text-white/60 hover:bg-white/10 active:scale-95 transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
                   >
-                    <Camera className="h-3 w-3" />
+                    <Camera className="h-3 w-3" aria-hidden />
                     Photos
                   </Link>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </div>
+      </section>
 
-      {/* Bottom nav */}
       <MobileNav />
-    </div>
+    </DashboardPageFrame>
   );
 }

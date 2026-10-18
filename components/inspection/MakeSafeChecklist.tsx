@@ -5,30 +5,31 @@
 //
 // Brand: navy #1C2E47 header · warm #8A6B4E accents · shadcn/ui primitives only
 
-import { useState, useEffect } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import toast from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
 import {
   MAKE_SAFE_COMPLIANCE_LABEL,
+  MAKE_SAFE_NOT_ASSESSED_REASON,
   makeSafeCompliance,
 } from "@/lib/compliance/make-safe-compliance";
+import {
+  MAKE_SAFE_ACTIONS,
+  type MakeSafeActionName,
+  type MakeSafeChecklistState,
+  persistMakeSafeChecklist,
+} from "@/lib/compliance/make-safe-actions";
 
 // ── Constants ──────────────────────────────────────────────────────────────
-
-const MAKE_SAFE_ACTIONS = [
-  "power_isolated",
-  "gas_isolated",
-  "mould_containment",
-  "water_stopped",
-  "occupant_briefing",
-] as const;
-
-type MakeSafeActionName = (typeof MAKE_SAFE_ACTIONS)[number];
 
 const ACTION_LABELS: Record<MakeSafeActionName, string> = {
   power_isolated: "Power isolated (electrical hazard)",
@@ -47,24 +48,16 @@ interface MakeSafeRow {
   notes: string | null;
 }
 
-interface ActionState {
-  applicable: boolean;
-  completed: boolean;
-  notes: string;
-}
-
-type ChecklistState = Record<MakeSafeActionName, ActionState>;
-
-function defaultState(): ChecklistState {
+function defaultState(): MakeSafeChecklistState {
   return Object.fromEntries(
     MAKE_SAFE_ACTIONS.map((a) => [
       a,
       { applicable: true, completed: false, notes: "" },
     ]),
-  ) as ChecklistState;
+  ) as MakeSafeChecklistState;
 }
 
-function rowsToState(rows: MakeSafeRow[]): ChecklistState {
+function rowsToState(rows: MakeSafeRow[]): MakeSafeChecklistState {
   const state = defaultState();
   for (const row of rows) {
     if (MAKE_SAFE_ACTIONS.includes(row.action as MakeSafeActionName)) {
@@ -78,26 +71,102 @@ function rowsToState(rows: MakeSafeRow[]): ChecklistState {
   return state;
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
+export type MakeSafeChecklistHandle = {
+  /** Persist current checklist selections to the inspection (no toast). */
+  persist: () => Promise<void>;
+  readiness: () => { ok: true } | { ok: false; message: string };
+  applySeed: (seed: MakeSafeChecklistState) => void;
+};
 
 interface MakeSafeChecklistProps {
   inspectionId: string;
+  /** Debounced silent save after edits (e.g. inspection hub without Review & Submit). */
+  autoSave?: boolean;
+  /** Quick Fill or similar — applied when the API still has the all-N/A intake seed. */
+  seed?: MakeSafeChecklistState | null;
 }
 
-export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
+export const MakeSafeChecklist = forwardRef<
+  MakeSafeChecklistHandle,
+  MakeSafeChecklistProps
+>(function MakeSafeChecklist({ inspectionId, autoSave = false, seed = null }, ref) {
   const endpoint = `/api/inspections/${inspectionId}/make-safe`;
 
   const { data, loading, error } = useFetch<{ data: MakeSafeRow[] }>(endpoint);
 
-  const [state, setState] = useState<ChecklistState>(defaultState);
-  const [saving, setSaving] = useState(false);
+  const [state, setState] = useState<MakeSafeChecklistState>(defaultState);
+  const skipAutoSave = useRef(true);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const intakeSeedFromApi = (rows: MakeSafeRow[]) => {
+    const next = rowsToState(rows);
+    return MAKE_SAFE_ACTIONS.every((action) => !next[action].applicable);
+  };
 
   // Hydrate from API on load
   useEffect(() => {
     if (data?.data) {
-      setState(rowsToState(data.data));
+      const fromApi = rowsToState(data.data);
+      if (seed && intakeSeedFromApi(data.data)) {
+        setState(seed);
+      } else {
+        setState(fromApi);
+      }
+      skipAutoSave.current = true;
     }
-  }, [data]);
+  }, [data, seed]);
+
+  useEffect(() => {
+    if (!seed || !data?.data) return;
+    if (intakeSeedFromApi(data.data)) {
+      setState(seed);
+      skipAutoSave.current = true;
+    }
+  }, [seed, data]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      persist: () => persistMakeSafeChecklist(inspectionId, stateRef.current),
+      readiness: () => {
+        const compliance = makeSafeCompliance(
+          MAKE_SAFE_ACTIONS.map((action) => stateRef.current[action]),
+        );
+        if (compliance === "NOT_ASSESSED") {
+          return { ok: false, message: MAKE_SAFE_NOT_ASSESSED_REASON };
+        }
+        if (compliance === "FAIL") {
+          return {
+            ok: false,
+            message:
+              "Complete all applicable stabilisation items before submitting.",
+          };
+        }
+        return { ok: true };
+      },
+      applySeed: (next) => {
+        setState(next);
+        skipAutoSave.current = true;
+      },
+    }),
+    [inspectionId],
+  );
+
+  useEffect(() => {
+    if (!autoSave || skipAutoSave.current) {
+      skipAutoSave.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void persistMakeSafeChecklist(inspectionId, stateRef.current).catch(
+        () => {
+          /* Hub autosave is best-effort; explicit persist on submit surfaces errors. */
+        },
+      );
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [autoSave, inspectionId, state]);
 
   // ── Compliance pill ──────────────────────────────────────────────────────
 
@@ -109,53 +178,15 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
 
   // ── Field handlers ───────────────────────────────────────────────────────
 
-  function setField<K extends keyof ActionState>(
+  function setField<K extends keyof MakeSafeChecklistState[MakeSafeActionName]>(
     action: MakeSafeActionName,
     field: K,
-    value: ActionState[K],
+    value: MakeSafeChecklistState[MakeSafeActionName][K],
   ) {
     setState((prev) => ({
       ...prev,
       [action]: { ...prev[action], [field]: value },
     }));
-  }
-
-  // ── Save handler ─────────────────────────────────────────────────────────
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const payload = {
-        actions: MAKE_SAFE_ACTIONS.map((action) => ({
-          action,
-          applicable: state[action].applicable,
-          completed: state[action].completed,
-          notes: state[action].notes || undefined,
-        })),
-      };
-
-      const res = await fetch(endpoint, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { error?: string }).error ?? `HTTP ${res.status}`,
-        );
-      }
-
-      toast.success(
-        `Stabilisation checklist saved — compliance status: ${complianceStatus}`,
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Save failed";
-      toast.error(`Save failed: ${message}`);
-    } finally {
-      setSaving(false);
-    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -288,19 +319,6 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
           );
         })}
       </div>
-
-      {/* Footer */}
-      <div className="px-4 py-3 border-t flex justify-end">
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          style={{ backgroundColor: "#8A6B4E" }}
-          className="text-white hover:opacity-90"
-          aria-label="Save Stabilisation checklist"
-        >
-          {saving ? "Saving…" : "Save Checklist"}
-        </Button>
-      </div>
     </section>
   );
-}
+});

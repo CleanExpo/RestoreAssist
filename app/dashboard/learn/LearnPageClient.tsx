@@ -4,6 +4,12 @@ import { useState, useEffect, useMemo } from "react";
 import { VideoExplainer } from "@/components/setup/VideoExplainer";
 import { VIDEO_REGISTRY, type VideoExplainerSlug } from "@/components/setup/video-registry";
 import { Input } from "@/components/ui/input";
+import { ChromePlayCircle } from "@/components/brand/chrome-icons";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
+import { DashboardPanel } from "@/app/dashboard/components/DashboardPanel";
 
 const CATEGORIES = [
   { key: "all", label: "All" },
@@ -128,15 +134,16 @@ export function LearnPageClient() {
   };
 
   return (
-    <div className="w-full space-y-6 px-4 sm:px-6 py-6 sm:py-8">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Tutorials</h1>
-        <p className="mt-2 text-muted-foreground">
-          Short walk-throughs of the RestoreAssist platform — {filtered.length} videos available.
-        </p>
-      </header>
+    <DashboardPageFrame className="w-full space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Tutorials"
+        description={`Short walk-throughs of RestoreAssist — ${filtered.length} videos in the library.`}
+        icon={<ChromePlayCircle className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/learn" })}
+      />
 
-      <div className="mb-6 rounded-lg bg-brand-navy/5 p-4">
+      <DashboardPanel className="mb-2">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">
             {totalWatched} of {LIBRARY.length} watched
@@ -151,7 +158,7 @@ export function LearnPageClient() {
             style={{ width: `${(totalWatched / LIBRARY.length) * 100}%` }}
           />
         </div>
-      </div>
+      </DashboardPanel>
 
       <div className="relative mb-4">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true">⌕</span>
@@ -217,6 +224,6 @@ export function LearnPageClient() {
           No tutorials match your search.
         </div>
       )}
-    </div>
+    </DashboardPageFrame>
   );
 }

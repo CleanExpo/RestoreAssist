@@ -5,17 +5,17 @@ description: 'Deprecated — forwards to bmad-prd (update intent).'
 
 # DEPRECATED — forwards to bmad-prd (update intent)
 
-This skill was consolidated into `bmad-prd`. It is retained as a thin compatibility shim so existing invocations by name and `_bmad/custom/bmad-edit-prd.toml` override files keep working. New work should invoke `bmad-prd` directly — it detects create / update / validate intent from the conversation.
+This skill was consolidated into `bmad-prd`. It is retained as a thin compatibility shim so existing invocations by name and `.claude/bmad/custom/bmad-edit-prd.toml` override files keep working. New work should invoke `bmad-prd` directly — it detects create / update / validate intent from the conversation.
 
 ## On Activation
 
-1. Resolve customization: `uv run {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`. This picks up any `{project-root}/_bmad/custom/bmad-edit-prd.toml` and `bmad-edit-prd.user.toml` overrides for the legacy fields (`activation_steps_prepend`, `activation_steps_append`, `persistent_facts`, `on_complete`).
+1. Resolve customization: `uv run {project-root}/.claude/bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`. This picks up any `{project-root}/.claude/bmad/custom/bmad-edit-prd.toml` and `bmad-edit-prd.user.toml` overrides for the legacy fields (`activation_steps_prepend`, `activation_steps_append`, `persistent_facts`, `on_complete`).
 
-2. Load `{project-root}/_bmad/bmm/config.yaml` (and `config.user.yaml` if present) to resolve `{user_name}` and `{communication_language}`.
+2. Load `{project-root}/.claude/bmad/bmm/config.yaml` (and `config.user.yaml` if present) to resolve `{user_name}` and `{communication_language}`.
 
 3. Emit a deprecation notice to the user in `{communication_language}`:
 
-   > Notice: `bmad-edit-prd` is deprecated and will be removed in a future release. It now forwards to `bmad-prd` with update intent. To silence this notice and access the full new customization surface (`prd_template`, `validation_checklist_template`, `validation_report_template`, `doc_standards`, `finalize_reviewers`, `external_sources`, `external_handoffs`, `prd_output_path`, `run_folder_pattern`), migrate `_bmad/custom/bmad-edit-prd.toml` to `_bmad/custom/bmad-prd.toml` and invoke `bmad-prd` directly next time. Customization fields that were in this version still remain in the new version and will be respected if present in `_bmad/custom/bmad-prd.toml`, but the new version also supports additional fields that you can take advantage of by migrating.
+   > Notice: `bmad-edit-prd` is deprecated and will be removed in a future release. It now forwards to `bmad-prd` with update intent. To silence this notice and access the full new customization surface (`prd_template`, `validation_checklist_template`, `validation_report_template`, `doc_standards`, `finalize_reviewers`, `external_sources`, `external_handoffs`, `prd_output_path`, `run_folder_pattern`), migrate `.claude/bmad/custom/bmad-edit-prd.toml` to `.claude/bmad/custom/bmad-prd.toml` and invoke `bmad-prd` directly next time. Customization fields that were in this version still remain in the new version and will be respected if present in `.claude/bmad/custom/bmad-prd.toml`, but the new version also supports additional fields that you can take advantage of by migrating.
 
 4. Invoke `bmad-prd` with the following context. Pass these as the activating context so `bmad-prd` honors them instead of resolving its own customization from scratch:
 

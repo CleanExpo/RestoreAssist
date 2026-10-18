@@ -619,20 +619,9 @@ export async function POST(request: NextRequest) {
             status: 409,
           });
         }
-        if (
-          report.propertyAddress.trim().toLowerCase() !==
-            body.propertyAddress.trim().toLowerCase() ||
-          (report.propertyPostcode &&
-            report.propertyPostcode.trim() !== body.propertyPostcode.trim())
-        ) {
-          return apiError(request, {
-            code: "CONFLICT",
-            message: "Inspection property does not match the report",
-            status: 409,
-          });
-        }
-        // Report-to-inspection is unique. An ordinary retry must return the
-        // existing draft, not create a second job or change its evidence.
+        // Report-to-inspection is unique. Return the existing draft before any
+        // property comparison — photo upload and Save Draft retry the same POST
+        // with form values that may differ slightly from the report row.
         const existing = await prisma.inspection.findUnique({
           where: { reportId: report.id },
           include: {
@@ -664,6 +653,18 @@ export async function POST(request: NextRequest) {
             }
           }
           return NextResponse.json({ inspection: existing });
+        }
+        if (
+          report.propertyAddress.trim().toLowerCase() !==
+            body.propertyAddress.trim().toLowerCase() ||
+          (report.propertyPostcode &&
+            report.propertyPostcode.trim() !== body.propertyPostcode.trim())
+        ) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "Inspection property does not match the report",
+            status: 409,
+          });
         }
       }
 

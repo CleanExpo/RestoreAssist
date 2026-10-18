@@ -109,8 +109,18 @@ describe('BusinessDetailsCard', () => {
     expect(screen.getByText('NSW')).toBeInTheDocument();
   });
 
+  // 4647b0097: the fallback copy now names the lookup failure
+  // (lib/setup/abr-user-message.ts); with no reason it is the generic message.
   it('shows manual-entry fallback in error state', () => {
     useSetupStore.getState().setSectionStatus('businessDetails', 'error');
+    render(<BusinessDetailsCard />);
+    expect(screen.getByText(/couldn't complete the business register lookup/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/legal name/i)).toBeInTheDocument();
+  });
+
+  it('says the register was unreachable only for an upstream failure', () => {
+    useSetupStore.getState().setSectionStatus('businessDetails', 'error');
+    useSetupStore.getState().setSectionError('businessDetails', 'UPSTREAM_ERROR');
     render(<BusinessDetailsCard />);
     expect(screen.getByText(/couldn't reach the business register/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/legal name/i)).toBeInTheDocument();

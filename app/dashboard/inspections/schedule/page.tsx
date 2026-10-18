@@ -7,16 +7,26 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import {
+  isManagerOrAdminRole,
+  workspaceHubLinks,
+} from "@/lib/dashboard/workspace-secondary-links";
+import { useSession } from "next-auth/react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Inspection {
+interface CalendarVisit {
   id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  inspectionId: string;
   inspectionNumber: string;
   propertyAddress: string;
-  propertyPostcode: string;
-  status: string;
-  createdAt: string;
+  inspectionStatus: string;
 }
 
 // ─── Status colour config (matches list page) ─────────────────────────────────
@@ -155,29 +165,34 @@ function SkeletonGrid() {
   );
 }
 
-interface InspectionChipProps {
-  inspection: Inspection;
+interface VisitChipProps {
+  visit: CalendarVisit;
   onClick: () => void;
 }
 
-function InspectionChip({ inspection, onClick }: InspectionChipProps) {
-  const cfg = STATUS_CHIP[inspection.status] ?? STATUS_CHIP.DRAFT;
+function VisitChip({ visit, onClick }: VisitChipProps) {
+  const cfg = STATUS_CHIP[visit.inspectionStatus] ?? STATUS_CHIP.DRAFT;
+  const time = new Date(visit.startsAt).toLocaleTimeString("en-AU", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
   const truncatedAddress =
-    inspection.propertyAddress.length > 20
-      ? inspection.propertyAddress.slice(0, 20) + "…"
-      : inspection.propertyAddress;
+    visit.propertyAddress.length > 18
+      ? visit.propertyAddress.slice(0, 18) + "…"
+      : visit.propertyAddress;
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      title={`${inspection.inspectionNumber} — ${inspection.propertyAddress}`}
+      title={`${visit.title} · ${visit.inspectionNumber} — ${visit.propertyAddress}`}
       className={cn(
         "w-full text-left text-[11px] font-medium px-1.5 py-0.5 rounded truncate leading-tight transition-opacity hover:opacity-80",
         cfg.bg,
         cfg.text,
       )}
     >
-      {truncatedAddress}
+      <span className="opacity-80">{time}</span> {truncatedAddress}
     </button>
   );
 }
@@ -186,6 +201,8 @@ function InspectionChip({ inspection, onClick }: InspectionChipProps) {
 
 export default function InspectionSchedulePage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const showCompletenessInbox = isManagerOrAdminRole(session?.user?.role);
 
   // Hydration-safe "today": `new Date()` at render reads the SSR server clock,
   // which can differ from the client at month/timezone boundaries and cause a
@@ -195,7 +212,7 @@ export default function InspectionSchedulePage() {
   const [today, setToday] = useState<Date | null>(null);
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [currentMonth, setCurrentMonth] = useState<number | null>(null); // 0-indexed
-  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [visits, setVisits] = useState<CalendarVisit[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -207,43 +224,51 @@ export default function InspectionSchedulePage() {
     setCurrentMonth((m) => (m === null ? now.getMonth() : m));
   }, []);
 
-  // Fetch all inspections once; filter client-side (API has no date range params)
-  const fetchInspections = useCallback(async () => {
+  const fetchVisits = useCallback(async () => {
+    if (currentYear === null || currentMonth === null) return;
     try {
       setLoading(true);
       setLoadError(null);
-      const res = await fetch("/api/inspections?limit=100");
+      const gridStart = getGridStart(currentYear, currentMonth);
+      const gridEnd = new Date(gridStart);
+      gridEnd.setDate(gridStart.getDate() + 41);
+      gridEnd.setHours(23, 59, 59, 999);
+      const from = gridStart.toISOString();
+      const to = gridEnd.toISOString();
+      const res = await fetch(
+        `/api/operations/appointments-calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+        { credentials: "include", cache: "no-store" },
+      );
       if (!res.ok) {
-        setInspections([]);
-        setLoadError("Failed to load inspections");
+        setVisits([]);
+        setLoadError("Could not load scheduled visits");
         return;
       }
       const data = await res.json();
-      setInspections(data.inspections ?? []);
+      setVisits(data.data ?? []);
     } catch (err) {
-      console.error("[Schedule] Failed to fetch inspections:", err);
-      setInspections([]);
-      setLoadError("Failed to load inspections");
+      console.error("[Schedule] Failed to fetch visits:", err);
+      setVisits([]);
+      setLoadError("Could not load scheduled visits");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentYear, currentMonth]);
 
   useEffect(() => {
-    void fetchInspections();
-  }, [fetchInspections]);
+    void fetchVisits();
+  }, [fetchVisits]);
 
-  // Group inspections by their createdAt date key
-  const inspectionsByDay = useMemo(() => {
-    const map = new Map<string, Inspection[]>();
-    for (const insp of inspections) {
-      const d = new Date(insp.createdAt);
+  const visitsByDay = useMemo(() => {
+    const map = new Map<string, CalendarVisit[]>();
+    for (const visit of visits) {
+      const d = new Date(visit.startsAt);
       const key = toDateKey(d);
       if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(insp);
+      map.get(key)!.push(visit);
     }
     return map;
-  }, [inspections]);
+  }, [visits]);
 
   // Whether the client has resolved the current month view yet.
   const monthResolved = currentYear !== null && currentMonth !== null;
@@ -257,12 +282,12 @@ export default function InspectionSchedulePage() {
   );
 
   // Inspections in the currently displayed month (for empty state message)
-  const monthHasInspections = useMemo(() => {
+  const monthHasVisits = useMemo(() => {
     return cells.some((cell) => {
       if (cell.getMonth() !== currentMonth) return false;
-      return (inspectionsByDay.get(toDateKey(cell))?.length ?? 0) > 0;
+      return (visitsByDay.get(toDateKey(cell))?.length ?? 0) > 0;
     });
-  }, [cells, currentMonth, inspectionsByDay]);
+  }, [cells, currentMonth, visitsByDay]);
 
   const goToPrevMonth = () => {
     if (currentMonth === null) return;
@@ -292,41 +317,36 @@ export default function InspectionSchedulePage() {
   };
 
   return (
-    <div className="space-y-5">
-      {/* ── Page header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-            <CalendarDays className="text-cyan-500" size={26} />
-            Inspection Schedule
-          </h1>
-          <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1">
-            Monthly calendar view of all National Inspection Reports
-          </p>
-        </div>
-
-        {/* View toggle */}
-        <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-lg border border-neutral-200 dark:border-slate-700 overflow-hidden text-sm">
-            {/* Calendar — active */}
+    <SimpleDashboardPageFrame className="space-y-5 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow="Simple workspace"
+        title="Job schedule"
+        description="Scheduled site visits from each job’s appointments — add visits on the job detail page."
+        icon={<CalendarDays className="text-cyan-500" size={26} aria-hidden />}
+        primaryAction={
+          <div className="inline-flex overflow-hidden rounded-lg border border-neutral-200 text-sm dark:border-slate-700">
             <span
-              className="flex items-center gap-1.5 px-3 py-2 bg-cyan-500 text-white font-medium cursor-default"
+              className="flex min-h-11 items-center gap-1.5 bg-cyan-500 px-3 font-medium text-white"
               aria-current="page"
             >
-              <CalendarDays size={14} />
+              <CalendarDays size={14} aria-hidden />
               Calendar
             </span>
-            {/* List — link */}
             <button
+              type="button"
               onClick={() => router.push("/dashboard/inspections")}
-              className="flex items-center gap-1.5 px-3 py-2 text-neutral-600 dark:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
+              className="flex min-h-11 items-center gap-1.5 px-3 text-neutral-600 hover:bg-neutral-50 dark:text-slate-300 dark:hover:bg-slate-800"
             >
-              <List size={14} />
+              <List size={14} aria-hidden />
               List
             </button>
           </div>
-        </div>
-      </div>
+        }
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/inspections/schedule",
+          includeCompletenessInbox: showCompletenessInbox,
+        })}
+      />
 
       {loadError && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
@@ -334,7 +354,7 @@ export default function InspectionSchedulePage() {
           <button
             type="button"
             className="ml-3 underline"
-            onClick={() => void fetchInspections()}
+            onClick={() => void fetchVisits()}
           >
             Retry
           </button>
@@ -403,10 +423,9 @@ export default function InspectionSchedulePage() {
                   const isCurrentMonth = cell.getMonth() === currentMonth;
                   const isToday = today !== null && isSameDay(cell, today);
                   const dayKey = toDateKey(cell);
-                  const dayInspections = inspectionsByDay.get(dayKey) ?? [];
-                  const visibleChips = dayInspections.slice(0, 3);
-                  const overflowCount =
-                    dayInspections.length - visibleChips.length;
+                  const dayVisits = visitsByDay.get(dayKey) ?? [];
+                  const visibleChips = dayVisits.slice(0, 3);
+                  const overflowCount = dayVisits.length - visibleChips.length;
 
                   return (
                     <div
@@ -434,12 +453,14 @@ export default function InspectionSchedulePage() {
                       </span>
 
                       {/* Inspection chips */}
-                      {visibleChips.map((insp) => (
-                        <InspectionChip
-                          key={insp.id}
-                          inspection={insp}
+                      {visibleChips.map((visit) => (
+                        <VisitChip
+                          key={visit.id}
+                          visit={visit}
                           onClick={() =>
-                            router.push(`/dashboard/inspections/${insp.id}`)
+                            router.push(
+                              `/dashboard/inspections/${visit.inspectionId}`,
+                            )
                           }
                         />
                       ))}
@@ -458,10 +479,11 @@ export default function InspectionSchedulePage() {
           </div>
 
           {/* Empty month message */}
-          {!monthHasInspections && (
-            <p className="text-center text-sm text-neutral-400 dark:text-slate-500 py-4">
-              No inspections scheduled for {MONTH_NAMES[currentMonth!]}{" "}
-              {currentYear}
+          {!monthHasVisits && (
+            <p className="py-4 text-center text-sm text-neutral-400 dark:text-slate-500">
+              No site visits scheduled for {MONTH_NAMES[currentMonth!]}{" "}
+              {currentYear}. Open a job and use the Schedule panel to book a
+              visit.
             </p>
           )}
         </>
@@ -485,6 +507,6 @@ export default function InspectionSchedulePage() {
           </Badge>
         ))}
       </div>
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }

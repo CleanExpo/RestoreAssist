@@ -15,6 +15,7 @@ export type {
   AgentConfig,
   AgentCapability,
   AgentHandler,
+  AgentHandlerOptions,
   TaskInput,
   TaskOutput,
   TaskOutputMetadata,
@@ -49,7 +50,16 @@ export {
 } from "./orchestrator";
 
 // Executor
-export { executeTask, executeBatch } from "./executor";
+export { executeTask, executeBatch, claimTask } from "./executor";
+
+// Leases and the expired-lease sweep (RA-7999)
+export {
+  sweepExpiredLeases,
+  liveLeaseSql,
+  LEASE_MARGIN_MS,
+  LEGACY_UNLEASED_AFTER_MS,
+} from "./lease";
+export type { SweepResult } from "./lease";
 
 // Workflow templates
 export { quickAssessmentWorkflow } from "./workflows";

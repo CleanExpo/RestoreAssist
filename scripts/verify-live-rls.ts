@@ -34,13 +34,19 @@ const READ_ONLY_TENANT = new Set([
   "Organization",
   "OrganizationPricingConfig",
   "AuthorityFormSignature",
+  // 20261016120000: owners read their inspections' appointments; writes are server-only.
+  "JobAppointment",
 ]);
 
 function normaliseExpression(expression: string | null): string {
   return (expression ?? "")
     .toLowerCase()
     .replace(/[\s"]/g, "")
-    .replace(/::text/g, "");
+    .replace(/::text/g, "")
+    // The initplan-safe form the RLS lint requires, `(select auth.uid())`,
+    // deparses as `( SELECT auth.uid() AS uid)`. It is the same value, so it
+    // reads as auth.uid() for every check below (including the rejections).
+    .replace(/\(selectauth\.uid\(\)(?:asuid)?\)/g, "auth.uid()");
 }
 
 function isTenantScopedExpression(expression: string | null): boolean {
@@ -56,6 +62,11 @@ function isTenantScopedExpression(expression: string | null): boolean {
     return disjuncts.every((disjunct) => isTenantScopedExpression(disjunct));
   }
   const normalised = normaliseExpression(expression);
+  if (/(?:^|[(=,])not(?:exists|\()/.test(normalised)) {
+    // A negated scope check (NOT EXISTS, NOT (...)) grants exactly the rows
+    // the anchor would refuse.
+    return false;
+  }
   if (
     /(?:auth\.uid\(\)|\))is(?:not)?null/.test(normalised) &&
     /auth\.uid\(\)|is_workspace_(?:owner|member)\(/.test(normalised)
@@ -79,6 +90,25 @@ function isTenantScopedExpression(expression: string | null): boolean {
   const workspaceHelper = /is_workspace_(owner|member)\(/.test(normalised);
   return uidIsCompared || workspaceHelper;
 }
+
+// Tables scoped through a parent row. Their USING predicate must be exactly
+// one EXISTS over the parent whose single WHERE conjoins both comparisons on
+// the same parent alias: parent.id = this row's FK, and parent.userId =
+// auth.uid(). Anything else (an uncorrelated owner check, the two comparisons
+// split across separate EXISTS, a negated owner comparison, an extra arm)
+// fails. Matched against the normalised expression with parentheses removed;
+// with only AND and = permitted, parentheses cannot change its meaning.
+const CORRELATED_OWNER_SHAPE: Record<string, RegExp> = (() => {
+  const link = (a: string) =>
+    `(?:${a}\\.id=jobappointment\\.inspectionid|jobappointment\\.inspectionid=${a}\\.id)`;
+  const owner = (a: string) => `(?:${a}\\.userid=auth\\.uid|auth\\.uid=${a}\\.userid)`;
+  const a = "\\1";
+  return {
+    JobAppointment: new RegExp(
+      `^existsselect1frominspection([a-z_][a-z0-9_]*)where(?:${link(a)}and${owner(a)}|${owner(a)}and${link(a)})$`,
+    ),
+  };
+})();
 
 function policyFindings(table: string, policies: LiveRlsPolicy[], readOnly: boolean): string[] {
   const findings: string[] = [];
@@ -114,6 +144,13 @@ function policyFindings(table: string, policies: LiveRlsPolicy[], readOnly: bool
     }
     if (["SELECT", "UPDATE", "DELETE"].includes(command) && !isTenantScopedExpression(policy.using_expression)) {
       findings.push(`${table}: ${command} policy ${policy.name} has no recognised tenant-scoped USING predicate`);
+    }
+    const shape = CORRELATED_OWNER_SHAPE[table];
+    if (shape && ["SELECT", "UPDATE", "DELETE"].includes(command)) {
+      const using = normaliseExpression(policy.using_expression).replace(/[()]/g, "");
+      if (!shape.test(using)) {
+        findings.push(`${table}: ${command} policy ${policy.name} is not correlated to the row's inspection`);
+      }
     }
     if (["INSERT", "UPDATE"].includes(command) && !isTenantScopedExpression(policy.check_expression)) {
       findings.push(`${table}: ${command} policy ${policy.name} has no recognised tenant-scoped WITH CHECK predicate`);

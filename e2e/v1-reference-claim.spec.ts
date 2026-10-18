@@ -6,6 +6,7 @@ import { loginAs } from "./_helpers/auth";
 import {
   finalizeV1ReferenceExit,
   seedV1ReferenceClaim,
+  issueV1ReferenceInvoice,
 } from "./_helpers/v1-reference-claim";
 
 test.describe("V1 reference claim @v1-exit", () => {
@@ -91,15 +92,17 @@ test.describe("V1 reference claim @v1-exit", () => {
     const invoiceId = invoiceJson.invoiceId as string;
     expect(invoiceId).toBeTruthy();
 
+    await issueV1ReferenceInvoice(page, invoiceId);
     const pay = await page.request.post(`/api/invoices/${invoiceId}/payments`, {
       headers: { "Idempotency-Key": `v1-pay-${inspectionId}` },
       data: {
         amount: invoiceJson.totalIncGST ?? 110000,
-        paymentMethod: "EFT",
+        // Australian EFT is a direct bank transfer; "EFT" is not a PaymentMethod.
+        paymentMethod: "BANK_TRANSFER",
         reference: "V1-REF-EFT-001",
       },
     });
-    expect(pay.ok()).toBeTruthy();
+    expect(pay.ok(), `payment POST ${pay.status()}: ${await pay.text()}`).toBeTruthy();
 
     await finalizeV1ReferenceExit(page, { inspectionId, invoiceId });
 

@@ -92,7 +92,17 @@ export function isPlatformSupportOperator(userId: string): boolean {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  return allowlist.includes(userId);
+  if (allowlist.includes(userId)) return true;
+  // Local dev only: empty allowlist + explicit opt-in lets Margot/Mission Control
+  // work for DB-verified ADMIN without hand-editing ids on every machine.
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.PLATFORM_SUPPORT_DEV_OPEN === "true" &&
+    allowlist.length === 0
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /**

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { BRAND } from "@/lib/brand";
+import { ChromeCheck } from "@/components/brand/chrome-icons";
 import { HOME, getHomeFaqs } from "@/components/landing/home/homeContent";
 import { LandingOverviewVideo } from "@/components/landing/home/LandingOverviewVideo";
 import {
@@ -273,9 +274,7 @@ export function ClaimFolioLanding() {
           <ul className="mt-6 space-y-2 text-[15px] text-slate-700">
             {HOME.proof.bullets.map((item) => (
               <li key={item} className="flex gap-2">
-                <span className="text-[#3B6D8C]" aria-hidden>
-                  ✓
-                </span>
+                <ChromeCheck size={16} className="mt-1 shrink-0 text-[#3B6D8C]" />
                 <span>{item}</span>
               </li>
             ))}

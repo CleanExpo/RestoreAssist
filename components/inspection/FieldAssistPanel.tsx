@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, MessageSquare } from "lucide-react";
+import { ChromeChat, ChromeSpinner } from "@/components/brand/chrome-icons";
 
 export function FieldAssistPanel({ inspectionId }: { inspectionId: string }) {
   const [message, setMessage] = useState("");
@@ -20,7 +20,8 @@ export function FieldAssistPanel({ inspectionId }: { inspectionId: string }) {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(json.message ?? "Assist unavailable");
+        // apiError envelope: { error: { code, message } } (RA-8001).
+        throw new Error(json.error?.message ?? "Assist unavailable");
       }
       setReply(json.data?.reply ?? json.data?.context?.completenessHint ?? null);
     } catch (e) {
@@ -31,9 +32,9 @@ export function FieldAssistPanel({ inspectionId }: { inspectionId: string }) {
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+    <section className="flex h-full min-h-[120px] flex-col rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 p-4 shadow-sm space-y-3">
       <h3 className="text-sm font-semibold flex items-center gap-2">
-        <MessageSquare className="h-4 w-4" />
+        <ChromeChat className="h-4 w-4" />
         Field assist
       </h3>
       <textarea
@@ -47,9 +48,9 @@ export function FieldAssistPanel({ inspectionId }: { inspectionId: string }) {
         type="button"
         disabled={loading}
         onClick={() => void ask()}
-        className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-brand-navy text-white text-sm font-medium px-4 disabled:opacity-50"
+        className="inline-flex min-h-9 w-full sm:w-auto items-center justify-center rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium px-4 disabled:opacity-50"
       >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Get guidance"}
+        {loading ? <ChromeSpinner className="h-4 w-4 animate-spin" /> : "Get guidance"}
       </button>
       {error && (
         <p className="text-xs text-destructive" role="alert">

@@ -64,6 +64,10 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -546,39 +550,29 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1
-            className={cn(
-              "text-2xl sm:text-3xl font-bold",
-              "text-neutral-900 dark:text-neutral-50",
-            )}
-          >
-            Team Management
-          </h1>
-          <p
-            className={cn(
-              "text-xs sm:text-sm mt-1",
-              "text-neutral-600 dark:text-neutral-400",
-            )}
-          >
-            {isTechnician
-              ? "View your organisation's team members and hierarchy."
-              : "Manage your team members and invitations."}
-          </p>
-        </div>
-        {canInvite && (
-          <Button
-            onClick={() => setShowInviteForm(!showInviteForm)}
-            className="bg-brand-navy text-white shadow-lg w-full sm:w-auto"
-          >
-            <UserPlus className="w-4 h-4" />
-            {showInviteForm ? "Cancel" : "Invite Member"}
-          </Button>
-        )}
-      </div>
+    <DashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Team Management"
+        description={
+          isTechnician
+            ? "View your organisation's team members and hierarchy."
+            : "Manage your team members and invitations."
+        }
+        icon={<Users className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/team" })}
+        primaryAction={
+          canInvite ? (
+            <Button
+              onClick={() => setShowInviteForm(!showInviteForm)}
+              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg sm:w-auto"
+            >
+              <UserPlus className="w-4 h-4" />
+              {showInviteForm ? "Cancel" : "Invite Member"}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -1488,6 +1482,6 @@ export default function TeamPage() {
           <TeamActivityFeed />
         </div>
       )}
-    </div>
+    </DashboardPageFrame>
   );
 }

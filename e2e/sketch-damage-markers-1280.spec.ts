@@ -12,6 +12,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import { AUTH_FILE } from "./auth-paths";
+import { dragPanOnCanvas } from "./helpers/sketch-pan";
 
 test.use({
   storageState: AUTH_FILE,
@@ -208,12 +209,7 @@ test.describe("RA-2953 IICRC damage markers @ 1280×720", () => {
       "aria-pressed",
       "true",
     );
-    const box = await page.getByTestId("sketch-canvas-host").boundingBox();
-    expect(box, "canvas host bounding box").toBeTruthy();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box!.x + box!.width / 2 + 80, box!.y + box!.height / 2 + 40);
-    await page.mouse.up();
+    await dragPanOnCanvas(page, page.getByTestId("sketch-canvas-host"));
 
     await expect(pin, "damage marker must survive pan").toBeVisible();
     await expect(

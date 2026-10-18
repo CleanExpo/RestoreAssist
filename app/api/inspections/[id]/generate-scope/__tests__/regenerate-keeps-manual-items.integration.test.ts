@@ -40,7 +40,7 @@ import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
 
 const S = `prelaunch-d030-${Date.now().toString(36)}`;
-const ids = { userId: "", inspectionId: "", manualItemId: "" };
+const ids = { userId: "", reportId: "", inspectionId: "", manualItemId: "" };
 
 async function* streamMarkdown(text: string) {
   yield { type: "content_block_delta", delta: { type: "text_delta", text } };
@@ -73,15 +73,33 @@ describe.skipIf(!process.env.DATABASE_URL)(
         data: { email: `${S}@test.local`, role: "ADMIN", subscriptionStatus: "ACTIVE" },
       });
       ids.userId = user.id;
+      // Water-damage scope generation requires a complete S500 intake
+      // (af2296cb3): the report's incident date and the water category/class.
+      const report = await prisma.report.create({
+        data: {
+          title: `${S} report`,
+          clientName: "Synthetic Client",
+          propertyAddress: "1 Scope St",
+          hazardType: "Water",
+          insuranceType: "Building",
+          incidentDate: new Date(Date.UTC(2026, 9, 1)),
+          userId: user.id,
+        },
+      });
+      ids.reportId = report.id;
       const inspection = await prisma.inspection.create({
         data: {
           inspectionNumber: `${S}-insp`,
           propertyAddress: "1 Scope St",
           propertyPostcode: "4000",
           userId: user.id,
+          reportId: report.id,
         },
       });
       ids.inspectionId = inspection.id;
+      await prisma.waterDamageClassification.create({
+        data: { inspectionId: inspection.id, waterCategory: "CAT_2", damageClass: "CLASS_2" },
+      });
       await prisma.classification.create({
         data: {
           inspectionId: inspection.id,
@@ -109,7 +127,11 @@ describe.skipIf(!process.env.DATABASE_URL)(
       if (ids.inspectionId) {
         await prisma.scopeItem.deleteMany({ where: { inspectionId: ids.inspectionId } });
         await prisma.classification.deleteMany({ where: { inspectionId: ids.inspectionId } });
+        await prisma.waterDamageClassification.deleteMany({ where: { inspectionId: ids.inspectionId } });
         await prisma.inspection.deleteMany({ where: { id: ids.inspectionId } });
+      }
+      if (ids.reportId) {
+        await prisma.report.deleteMany({ where: { id: ids.reportId } });
       }
       if (ids.userId) {
         await prisma.usageEvent.deleteMany({ where: { userId: ids.userId } }).catch(() => undefined);

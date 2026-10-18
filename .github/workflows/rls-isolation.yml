@@ -19,6 +19,14 @@ on:
     paths:
       - "**/migrations/**"
       - "scripts/rls-harness/**"
+  # Manual run on any ref (e.g. main after a direct push). base_ref is
+  # required: without it the initplan lint would diff main against itself,
+  # find no changed migrations and pass without checking anything.
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Commit or ref the lint diffs against (the pre-change base)"
+        required: true
 
 permissions:
   contents: read
@@ -44,9 +52,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A dispatch must name a base that leaves something to lint. "required"
+      # only stops an empty input: base_ref = HEAD, origin/main after a direct
+      # push, or a bare `main` (not fetched here) all leave zero migrations in
+      # range, and the lint then exits 0 having checked nothing.
+      - name: Refuse a dispatch base that leaves no migration to lint
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BASE: ${{ inputs.base_ref }}
+        run: |
+          git rev-parse --verify --quiet "$BASE^{commit}" > /dev/null \
+            || { echo "::error::base_ref '$BASE' is not a commit in this checkout"; exit 1; }
+          mb=$(git merge-base "$BASE" HEAD)
+          n=$(git diff --name-only "$mb" HEAD -- prisma/migrations docs/ops/supabase-migrations-archive | grep -c '\.sql$' || true)
+          echo "migration files changed since $BASE: $n"
+          [ "$n" -gt 0 ] \
+            || { echo "::error::base_ref '$BASE' leaves no migration to lint; a pass would check nothing"; exit 1; }
+
       - name: Lint new policy predicates for bare auth.*()
         env:
-          LINT_BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+          LINT_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.event.pull_request.base.ref) }}
         run: node scripts/lint-rls-policy-initplan.mjs
 
   rls-isolation:

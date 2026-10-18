@@ -63,7 +63,7 @@ export default async function HelpArticlePage({
         </span>
       </nav>
 
-      <header className="max-w-3xl">
+      <header className="max-w-9xl">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-foreground leading-tight">
           {frontmatter.title}
         </h1>
@@ -75,7 +75,7 @@ export default async function HelpArticlePage({
       </header>
 
       {frontmatter.heroImage ? (
-        <div className="max-w-4xl" data-testid="help-hero-figure">
+        <div className="max-w-9xl" data-testid="help-hero-figure">
           <Screenshot
             src={frontmatter.heroImage}
             alt={`Hero image for ${frontmatter.title}`}
@@ -83,7 +83,7 @@ export default async function HelpArticlePage({
         </div>
       ) : null}
 
-      <DashboardPanel className="max-w-3xl">
+      <DashboardPanel className="max-w-9xl">
         <article className="prose dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-a:text-primary">
           <MDXRemote source={body} components={mdxComponents} />
         </article>
@@ -95,7 +95,7 @@ export default async function HelpArticlePage({
         tone="dashboard"
       />
 
-      <DashboardPanel className="max-w-3xl text-center">
+      <DashboardPanel className="max-w-9xl text-center">
         <p className="text-sm text-muted-foreground">Still stuck?</p>
         <Button asChild className="mt-3">
           <Link href="/dashboard/help/contact">Contact support</Link>

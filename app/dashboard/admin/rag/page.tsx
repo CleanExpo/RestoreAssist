@@ -139,7 +139,7 @@ export default function AdminRagPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-9xl">
       <div>
         <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">
           RAG corpus (IICRC)

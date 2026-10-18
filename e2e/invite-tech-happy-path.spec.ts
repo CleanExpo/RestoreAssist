@@ -13,7 +13,9 @@ test.describe("W11 — team invite accept", () => {
       "Set ALLOW_TEST_HELPERS=true for invite seed route",
     );
     const seed = await request.post("/api/test/seed-org-with-manager", {
-      data: { managerEmail: `mgr-${Date.now()}@test.com` },
+      // One seat for the one seeded invite: technician seats are enforced at
+      // acceptance (7f7b703a5), and a seed with no seat answers 402 on "Join".
+      data: { managerEmail: `mgr-${Date.now()}@test.com`, technicianSeats: 1 },
     });
     expect(seed.ok(), "seed-org-with-manager must return 200").toBeTruthy();
     const { token, inviteeEmail } = await seed.json();
@@ -46,8 +48,14 @@ test.describe("W11 — team invite accept", () => {
     await page.waitForURL(/\/dashboard(\?|$)/, { timeout: 30_000 });
     await expect(page).toHaveURL(/firstRun=tech|\/dashboard/);
 
+    // The technician licence banner (components/dashboard/TechLicenceBanner).
+    // The old /…attestations|IICRC certificate/ alternation matched the banner's
+    // headline, its body line and its "IICRC certificate pending" badge at once,
+    // a strict-mode violation; the headline alone is the banner's own claim.
     await expect(
-      page.getByText(/Add your credentials to unlock attestations|IICRC certificate/i),
+      page.getByText("Add your credentials to unlock attestations", {
+        exact: true,
+      }),
     ).toBeVisible({ timeout: 15_000 });
 
     expect(inviteeEmail).toMatch(/@/);

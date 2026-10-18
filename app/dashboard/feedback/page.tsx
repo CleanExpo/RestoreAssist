@@ -17,6 +17,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Send, CheckCircle, Star, Loader2, Inbox } from "lucide-react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 type FeedbackItem = {
   id: string;
@@ -105,15 +109,14 @@ export default function FeedbackPage() {
   }
 
   return (
-    <div className="space-y-6 bg-background p-4">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-semibold mb-1 text-foreground">
-          Feedback
-        </h1>
-        <p className="text-muted-foreground">
-          Share your experience and help us improve Restore Assist.
-        </p>
-      </div>
+    <DashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Feedback"
+        description="Share your experience and help us improve RestoreAssist."
+        icon={<Send className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/feedback" })}
+      />
 
       {submitted ? (
         <Card className="border-border bg-card">
@@ -336,6 +339,6 @@ export default function FeedbackPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </DashboardPageFrame>
   );
 }

@@ -541,7 +541,7 @@ test("owner journey: sign up, set up, buy, invite, add a job, load every page, s
       try {
         const [r] = await Promise.all([
           page.waitForResponse(isCall("/api/setup/activate"), { timeout: 30_000 }),
-          page.getByRole("button", { name: /generate your first report/i }).click({ timeout: 8_000 }),
+          page.getByRole("button", { name: /finish setup/i }).click({ timeout: 8_000 }),
         ]);
         act = r.status();
         failed = clip((await r.json().catch(() => ({})))?.failedChecks ?? "", 200);

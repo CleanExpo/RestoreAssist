@@ -1,6 +1,6 @@
 # P0-1 — Private evidence & sketch buckets (Supabase)
 
-Migration: `supabase/migrations/20260717000000_p0_1_private_evidence_sketch_buckets.sql`
+Migration: `docs/ops/supabase-migrations-archive/20260717000000_p0_1_private_evidence_sketch_buckets.sql`
 
 Makes `evidence-optimised` and `sketch-media` **private**; app serves via signed URLs (`lib/storage/sign-stored-url.ts`).
 

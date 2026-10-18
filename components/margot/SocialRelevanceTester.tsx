@@ -76,6 +76,11 @@ export function SocialRelevanceTester() {
       });
       const json = await res.json();
       if (!res.ok) {
+        if (res.status === 403) {
+          throw new Error(
+            "Platform operator access required.",
+          );
+        }
         throw new Error(
           json?.error?.message || json?.error || `HTTP ${res.status}`,
         );

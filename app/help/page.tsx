@@ -9,7 +9,7 @@ export default async function PublicHelpIndex() {
   const articles = await loadAllArticles();
 
   return (
-    <main className="container mx-auto max-w-5xl p-6">
+    <div className="container mx-auto max-w-5xl p-6">
       <header className="mb-8">
         <h1 className="text-3xl font-semibold text-[#0B1F3A]">RestoreAssist Help</h1>
         <p className="mt-2 text-slate-600">Public knowledge base. Browse by category.</p>
@@ -40,6 +40,6 @@ export default async function PublicHelpIndex() {
           </section>
         );
       })}
-    </main>
+    </div>
   );
 }

@@ -25,8 +25,11 @@ const storeState: {
   org: Record<string, unknown> | null;
   setOrg: ReturnType<typeof vi.fn>;
   setSectionStatus: ReturnType<typeof vi.fn>;
+  // 4647b0097 records the ABR failure reason; without it the stream handler
+  // threw inside its try/catch and never reached es.close().
+  setSectionError: ReturnType<typeof vi.fn>;
   hydrationRun: number;
-} = { org: null, setOrg: vi.fn(), setSectionStatus: vi.fn(), hydrationRun: 0 };
+} = { org: null, setOrg: vi.fn(), setSectionStatus: vi.fn(), setSectionError: vi.fn(), hydrationRun: 0 };
 
 // Minimal EventSource stand-in: records every stream the shell opens.
 class FakeEventSource {
@@ -58,6 +61,7 @@ beforeEach(() => {
   vi.stubGlobal("EventSource", FakeEventSource);
   storeState.setOrg.mockClear();
   storeState.setSectionStatus.mockClear();
+  storeState.setSectionError.mockClear();
   // mockReset, not mockClear: the ordering test installs a deferred
   // implementation that never settles on its own, and leaking that into the
   // next test hangs it.
@@ -238,6 +242,8 @@ describe("SetupShell — one-step wizard wiring", () => {
 
     es.onmessage?.({ data: JSON.stringify([{ kind: "ABR", status: "ERROR" }]) });
     expect(storeState.setSectionStatus).toHaveBeenCalledWith("businessDetails", "error");
+    // No errorMessage on the job: the card is told it was an upstream failure.
+    expect(storeState.setSectionError).toHaveBeenCalledWith("businessDetails", "UPSTREAM_ERROR");
     // Not every job has finished, so the watch stays open.
     expect(es.closed).toBe(false);
 
@@ -314,7 +320,7 @@ describe("SetupShell — the finish CTA completes setup", () => {
       fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     }
     return screen.findByRole("button", {
-      name: /generate your first report/i,
+      name: /finish setup/i,
     });
   }
 
@@ -374,7 +380,7 @@ describe("SetupShell — the finish CTA completes setup", () => {
 
     releaseRefresh();
 
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/dashboard/reports/new"));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/dashboard/onboarding?welcome=1"));
     expect(calls.some((u) => u.includes("/api/setup/activate"))).toBe(true);
     expect(order).toEqual([
       "activate",
@@ -393,7 +399,7 @@ describe("SetupShell — the finish CTA completes setup", () => {
 
     fireEvent.click(await reachFinalStep());
 
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/dashboard/reports/new"));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/dashboard/onboarding?welcome=1"));
     expect(updateSession).toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });

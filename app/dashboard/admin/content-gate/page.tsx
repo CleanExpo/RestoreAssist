@@ -27,7 +27,7 @@ export const metadata = {
  */
 export default function ContentGatePage() {
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Header */}
       <div>
         <Link

@@ -62,14 +62,24 @@ import {
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
 import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
 import ClaimTypePicker from "@/components/inspection/ClaimTypePicker";
-import NIRClaimAssessmentPanel from "@/components/inspection/NIRClaimAssessmentPanel";
-import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
+import NIRClaimAssessmentPanel, {
+  type NIRClaimAssessmentPanelHandle,
+} from "@/components/inspection/NIRClaimAssessmentPanel";
+import {
+  MakeSafeChecklist,
+  type MakeSafeChecklistHandle,
+} from "@/components/inspection/MakeSafeChecklist";
 import {
   asIicrcClaimType,
   isWaterDamageClaim,
   moistureReadingsRequired,
   type IicrcClaimType,
 } from "@/lib/nir-standards-mapping";
+import {
+  NIR_QUICK_FILL_TEMPLATES,
+  NIR_QUICK_FILL_USE_CASES,
+} from "@/lib/nir-quick-fill-templates";
+import type { MakeSafeChecklistState } from "@/lib/compliance/make-safe-actions";
 import {
   Dialog,
   DialogContent,
@@ -189,19 +199,6 @@ const WATER_CLASSES = [
   },
 ];
 
-// RA-7711: claim type and IICRC S500 water category/class for each Quick Fill
-// template. Mould has no water classification.
-const QUICK_FILL_CLASSIFICATION: Record<
-  string,
-  { claimType: IicrcClaimType; category?: string; waterClass?: string }
-> = {
-  "residential-burst-pipe": { claimType: "WATER", category: "1", waterClass: "2" },
-  "commercial-hvac-failure": { claimType: "WATER", category: "1", waterClass: "3" },
-  "mould-remediation": { claimType: "MOULD" },
-  "storm-damage": { claimType: "WATER", category: "2", waterClass: "3" },
-  "flood-damage": { claimType: "WATER", category: "3", waterClass: "3" },
-};
-
 export default function NIRTechnicianInputForm({
   reportId,
   initialData,
@@ -214,6 +211,8 @@ export default function NIRTechnicianInputForm({
   const [inspectionId, setInspectionId] = useState<string | null>(null);
   const [creatingInspection, setCreatingInspection] = useState(false);
   const inspectionIdRef = useRef<string | null>(null);
+  const makeSafeChecklistRef = useRef<MakeSafeChecklistHandle | null>(null);
+  const claimAssessmentRef = useRef<NIRClaimAssessmentPanelHandle | null>(null);
   const inspectionCreationRef = useRef<{
     key: string;
     body: string;
@@ -583,308 +582,76 @@ export default function NIRTechnicianInputForm({
   const [quickFillCredits, setQuickFillCredits] = useState<number | null>(null);
   const [hasUnlimitedQuickFill, setHasUnlimitedQuickFill] = useState(false);
   const [loadingCredits, setLoadingCredits] = useState(false);
-
-  // Quick Fill Use Cases for NIR
-  const nirUseCases = [
-    {
-      id: "residential-burst-pipe",
-      name: "Residential Burst Pipe",
-      description:
-        "Standard residential water damage from burst pipe affecting master bedroom and ensuite",
-    },
-    {
-      id: "commercial-hvac-failure",
-      name: "Commercial HVAC Failure",
-      description:
-        "Large-scale commercial office water damage from HVAC system failure",
-    },
-    {
-      id: "mould-remediation",
-      name: "Mould Remediation",
-      description:
-        "Residential property with extensive mould growth due to long-term moisture",
-    },
-    {
-      id: "storm-damage",
-      name: "Storm Damage - Roof Leak",
-      description:
-        "Residential property with water damage from severe storm causing roof penetration",
-    },
-    {
-      id: "flood-damage",
-      name: "Flood Damage - Category 3",
-      description:
-        "Severe flood damage from overflowing river affecting ground floor",
-    },
-  ];
+  const [claimAssessmentSeed, setClaimAssessmentSeed] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [complianceAssessmentSeed, setComplianceAssessmentSeed] = useState<
+    Record<string, unknown> | null
+  >(null);
+  const [makeSafeSeed, setMakeSafeSeed] = useState<MakeSafeChecklistState | null>(
+    null,
+  );
 
   const populateQuickFillData = (useCaseId: string) => {
-    let useCaseData: any;
-
-    switch (useCaseId) {
-      case "residential-burst-pipe":
-        useCaseData = {
-          propertyAddress: "123 Main Street, Suburb, NSW 2000",
-          propertyPostcode: "2000",
-          technicianName: "Mark O'Connor",
-          environmentalData: {
-            ambientTemperature: 22,
-            humidityLevel: 65,
-            dewPoint: 15.2,
-            airCirculation: true,
-          },
-          moistureReadings: [
-            {
-              id: Date.now().toString(),
-              location: "Master Bedroom - Floor",
-              surfaceType: "Carpet",
-              moistureLevel: 45.5,
-              depth: "Surface",
-            },
-            {
-              id: (Date.now() + 1).toString(),
-              location: "Master Bedroom - Wall",
-              surfaceType: "Drywall",
-              moistureLevel: 38.2,
-              depth: "Subsurface",
-            },
-            {
-              id: (Date.now() + 2).toString(),
-              location: "Ensuite - Floor",
-              surfaceType: "Tile",
-              moistureLevel: 52.1,
-              depth: "Surface",
-            },
-            {
-              id: (Date.now() + 3).toString(),
-              location: "Ensuite - Wall",
-              surfaceType: "Drywall",
-              moistureLevel: 41.8,
-              depth: "Subsurface",
-            },
-          ],
-          affectedAreas: [
-            {
-              id: newRoomEntryId(),
-              roomZoneId: "Master Bedroom",
-              roomType: "Master Bedroom",
-              length: 5.5,
-              width: 4.0,
-              height: 2.7,
-              affectedSquareFootage: 22.0,
-              materials: ["Carpet", "Drywall"],
-              waterSource: "Clean Water",
-              timeSinceLoss: 24,
-            },
-            {
-              id: newRoomEntryId(),
-              roomZoneId: "Ensuite",
-              roomType: "Ensuite",
-              length: 3.0,
-              width: 2.5,
-              height: 2.4,
-              affectedSquareFootage: 7.5,
-              materials: ["Tile", "Drywall"],
-              waterSource: "Clean Water",
-              timeSinceLoss: 24,
-            },
-          ],
-          selectedScopeItems: new Set([
-            "remove_carpet",
-            "extract_standing_water",
-            "install_dehumidification",
-            "install_air_movers",
-            "demolish_drywall",
-            "apply_antimicrobial",
-            "dry_out_structure",
-          ]),
-          equipmentSelection: [
-            {
-              id: Date.now().toString(),
-              type: "LGR Dehumidifier",
-              quantity: 2,
-            },
-            { id: (Date.now() + 1).toString(), type: "Air Mover", quantity: 4 },
-          ],
-          dryingDuration: 4,
-        };
-        break;
-      case "commercial-hvac-failure":
-        useCaseData = {
-          propertyAddress: "456 Business Park Drive, Melbourne VIC 3000",
-          propertyPostcode: "3000",
-          technicianName: "David Chen",
-          environmentalData: {
-            ambientTemperature: 24,
-            humidityLevel: 70,
-            dewPoint: 18.1,
-            airCirculation: false,
-          },
-          moistureReadings: [
-            {
-              id: Date.now().toString(),
-              location: "3rd Floor - Office Area - Ceiling",
-              surfaceType: "Drywall",
-              moistureLevel: 58.3,
-              depth: "Subsurface",
-            },
-            {
-              id: (Date.now() + 1).toString(),
-              location: "3rd Floor - Server Room - Floor",
-              surfaceType: "Concrete",
-              moistureLevel: 42.1,
-              depth: "Surface",
-            },
-            {
-              id: (Date.now() + 2).toString(),
-              location: "2nd Floor - Office Area - Wall",
-              surfaceType: "Drywall",
-              moistureLevel: 35.7,
-              depth: "Subsurface",
-            },
-          ],
-          affectedAreas: [
-            {
-              id: newRoomEntryId(),
-              roomZoneId: "3rd Floor - Office Area",
-              roomType: "Other",
-              customRoomName: "3rd Floor - Office Area",
-              length: 15.0,
-              width: 10.0,
-              height: 3.0,
-              affectedSquareFootage: 150.0,
-              materials: ["Drywall", "Carpet"],
-              waterSource: "Clean Water",
-              timeSinceLoss: 12,
-            },
-          ],
-          selectedScopeItems: new Set([
-            "extract_standing_water",
-            "install_dehumidification",
-            "install_air_movers",
-            "demolish_drywall",
-            "containment_setup",
-            "ppe_required",
-          ]),
-          equipmentSelection: [
-            {
-              id: Date.now().toString(),
-              type: "LGR Dehumidifier",
-              quantity: 3,
-            },
-            { id: (Date.now() + 1).toString(), type: "Air Mover", quantity: 8 },
-          ],
-          dryingDuration: 7,
-        };
-        break;
-      case "mould-remediation":
-        useCaseData = {
-          propertyAddress: "789 Oak Street, Brisbane QLD 4000",
-          propertyPostcode: "4000",
-          technicianName: "Emma Thompson",
-          environmentalData: {
-            ambientTemperature: 26,
-            humidityLevel: 75,
-            dewPoint: 21.2,
-            airCirculation: false,
-          },
-          moistureReadings: [
-            {
-              id: Date.now().toString(),
-              location: "Bathroom - Wall Behind Shower",
-              surfaceType: "Drywall",
-              moistureLevel: 62.4,
-              depth: "Subsurface",
-            },
-            {
-              id: (Date.now() + 1).toString(),
-              location: "Bathroom - Ceiling",
-              surfaceType: "Plaster",
-              moistureLevel: 55.8,
-              depth: "Subsurface",
-            },
-            {
-              id: (Date.now() + 2).toString(),
-              location: "Laundry - Wall",
-              surfaceType: "Drywall",
-              moistureLevel: 48.2,
-              depth: "Subsurface",
-            },
-          ],
-          affectedAreas: [
-            {
-              id: newRoomEntryId(),
-              roomZoneId: "Bathroom",
-              roomType: "Bathroom",
-              length: 3.5,
-              width: 2.5,
-              height: 2.4,
-              affectedSquareFootage: 8.75,
-              materials: ["Drywall", "Plaster"],
-              waterSource: "Grey Water",
-              timeSinceLoss: 720,
-            },
-          ],
-          selectedScopeItems: new Set([
-            "demolish_drywall",
-            "apply_antimicrobial",
-            "containment_setup",
-            "ppe_required",
-            "sanitize_materials",
-          ]),
-          equipmentSelection: [
-            {
-              id: Date.now().toString(),
-              type: "Desiccant Dehumidifier",
-              quantity: 2,
-            },
-            { id: (Date.now() + 1).toString(), type: "Air Mover", quantity: 6 },
-          ],
-          dryingDuration: 10,
-        };
-        break;
-      default:
-        useCaseData = {};
+    const template = NIR_QUICK_FILL_TEMPLATES[useCaseId];
+    if (!template) {
+      toast.error("Unknown Quick Fill template");
+      return;
     }
 
-    // Populate form with use case data
-    if (useCaseData.propertyAddress)
-      setPropertyAddress(useCaseData.propertyAddress);
-    if (useCaseData.propertyPostcode)
-      setPropertyPostcode(useCaseData.propertyPostcode);
-    if (useCaseData.technicianName)
-      setTechnicianName(useCaseData.technicianName);
-    if (useCaseData.environmentalData)
-      setEnvironmentalData(useCaseData.environmentalData);
-    if (useCaseData.moistureReadings)
-      setMoistureReadings(
-        useCaseData.moistureReadings.map((reading: { id: string }) => ({
-          ...reading,
-          id: crypto.randomUUID(),
-        })),
-      );
-    if (useCaseData.affectedAreas) setAffectedAreas(useCaseData.affectedAreas);
-    if (useCaseData.selectedScopeItems)
-      setSelectedScopeItems(useCaseData.selectedScopeItems);
-    if (useCaseData.equipmentSelection)
-      setEquipmentSelection(useCaseData.equipmentSelection);
-    if (useCaseData.dryingDuration)
-      setDryingDuration(useCaseData.dryingDuration);
+    setPropertyAddress(template.propertyAddress);
+    setPropertyPostcode(template.propertyPostcode);
+    setTechnicianName(template.technicianName);
+    setInspectionDate(template.inspectionDate);
+    setDamageDescription(template.damageDescription);
+    setEnvironmentalData((prev) => ({
+      ...prev,
+      ambientTemperature: template.environmentalData.ambientTemperature,
+      humidityLevel: template.environmentalData.humidityLevel,
+      dewPoint: template.environmentalData.dewPoint,
+      airCirculation: template.environmentalData.airCirculation,
+      weatherConditions:
+        template.environmentalData.weatherConditions ?? prev.weatherConditions,
+    }));
+    hydratedDewPointInputs.current = {
+      ambientTemperature: template.environmentalData.ambientTemperature,
+      humidityLevel: template.environmentalData.humidityLevel,
+    };
 
-    // RA-7711: the template carries its claim type and, for water claims, the
-    // IICRC category and class, so the filled form is classified.
-    const classification = QUICK_FILL_CLASSIFICATION[useCaseId];
-    if (classification) {
-      setClaimType(classification.claimType);
-      setManualClassification(
-        classification.category && classification.waterClass
-          ? {
-              category: classification.category,
-              class: classification.waterClass,
-            }
-          : null,
-      );
-    }
+    const readings = template.moistureReadings.map((reading) => ({
+      ...reading,
+      id: crypto.randomUUID(),
+    }));
+    setMoistureReadings(readings);
+    savedReadingIds.current = new Set(readings.map((reading) => reading.id));
+
+    setAffectedAreas(template.affectedAreas);
+    setSelectedScopeItems(new Set(template.selectedScopeItems));
+    setEquipmentSelection(
+      template.equipmentSelection.map((item, index) => ({
+        ...item,
+        id: `${Date.now()}-${index}`,
+      })),
+    );
+    setDryingDuration(template.dryingDuration);
+
+    setClaimType(template.claimType);
+    setManualClassification(
+      template.category && template.waterClass
+        ? { category: template.category, class: template.waterClass }
+        : null,
+    );
+
+    setClaimAssessmentSeed(template.assessmentSeed);
+    setComplianceAssessmentSeed(template.complianceSeed);
+    claimAssessmentRef.current?.applyQuickFillSeed({
+      assessment: template.assessmentSeed,
+      compliance: template.complianceSeed,
+    });
+
+    setMakeSafeSeed(template.makeSafeSeed);
+    makeSafeChecklistRef.current?.applySeed(template.makeSafeSeed);
 
     setShowQuickFillModal(false);
     toast.success("Quick Fill data populated successfully!");
@@ -1116,7 +883,23 @@ export default function NIRTechnicianInputForm({
   const linkedAreaConflict = linkedReadingsAreaConflict(moistureReadings, affectedAreas);
   const unlinkedAreaAmbiguity = unlinkedReadingsAreaAmbiguity(moistureReadings, affectedAreas);
 
-  const validateForm = (): boolean => {
+  const tieredFieldToErrorKey = (fieldName: string): string => {
+    if (fieldName === "waterSource") return "affectedAreas";
+    if (fieldName === "photos") return "photos";
+    if (fieldName === "affectedAreas") return "affectedAreas";
+    return fieldName;
+  };
+
+  const submissionValidationToast = (errors: Record<string, string>): string => {
+    const messages = [...new Set(Object.values(errors))];
+    if (messages.length === 1) return messages[0];
+    return `Complete ${messages.length} required items before submitting. Fields are highlighted below.`;
+  };
+
+  const collectValidationErrors = (options?: {
+    forSubmit?: boolean;
+  }): Record<string, string> => {
+    const forSubmit = options?.forSubmit === true;
     const errors: Record<string, string> = {};
 
     if (!claimType) {
@@ -1191,8 +974,58 @@ export default function NIRTechnicianInputForm({
       errors.temperature = partialEnvironmentalMessage;
     }
 
+    if (forSubmit) {
+      if (!inspectionDate.trim()) {
+        errors.inspectionDate =
+          "Site attendance date is required before submission";
+      }
+
+      if (verifiedPhotoCount === 0) {
+        errors.photos =
+          "At least one verified photo is required before submission";
+      }
+
+      // Matches validateSubmissionPayload on POST …/submit.
+      if (moistureReadings.length === 0) {
+        errors.moistureReadings =
+          "At least one moisture reading is required before submission";
+      }
+
+      if (!affectedAreas.some((area) => area.waterSource?.trim())) {
+        errors.affectedAreas ??=
+          "Water source / loss type is required before submission";
+      }
+    }
+
+    return errors;
+  };
+
+  const validateForm = (options?: { forSubmit?: boolean }): boolean => {
+    const errors = collectValidationErrors(options);
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const applyServerSubmitValidationErrors = (
+    payload: {
+      missingCritical?: Array<{ field?: string; label?: string }>;
+      summary?: string;
+    },
+  ): string => {
+    const errors: Record<string, string> = {};
+    for (const field of payload.missingCritical ?? []) {
+      const fieldName = field.field ?? "";
+      const key = tieredFieldToErrorKey(fieldName);
+      const label = field.label?.trim() || "Required field";
+      errors[key] = `${label} is required before submission`;
+    }
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setShowReview(false);
+    }
+    return payload.summary?.trim() ||
+      submissionValidationToast(errors) ||
+      "Complete all required fields before submitting";
   };
 
   const handleAddMoistureReading = () => {
@@ -1481,7 +1314,7 @@ export default function NIRTechnicianInputForm({
       return;
     }
     if (!propertyAddress.trim() || !propertyPostcode.trim()) {
-      toast.error("Enter property address and postcode before uploading photos");
+      toast.error("Add the property address and postcode before adding photos");
       resetInput();
       return;
     }
@@ -1503,6 +1336,8 @@ export default function NIRTechnicianInputForm({
     photoWorkCount.current++;
     setUploadingPhotos(true);
     try {
+      // showToast: an unconfirmed create must say so (and, on a changed retry,
+      // tell the user to restore the original details) - RA recovery #2386.
       const currentInspectionId = await ensureInspectionExists(true);
       if (!currentInspectionId) {
         const ids = new Set(entries.map((entry) => entry.id));
@@ -1516,8 +1351,11 @@ export default function NIRTechnicianInputForm({
       for (const entry of entries) {
         if (await uploadSelectedPhoto(entry, currentInspectionId)) savedCount++;
       }
-      if (savedCount > 0) toast.success(`${savedCount} photo(s) uploaded successfully`);
-      if (savedCount < entries.length) toast.error("Some photos need retry. Your selected files are still here.");
+      if (savedCount === 1) toast.success("Photo attached to the inspection.");
+      else if (savedCount > 1) toast.success(`${savedCount} photos attached to the inspection.`);
+      if (savedCount < entries.length) {
+        toast.error("Some photos could not be attached. Retry the items marked below.");
+      }
     } finally {
       photoWorkCount.current--;
       setUploadingPhotos(photoWorkCount.current > 0);
@@ -1532,8 +1370,8 @@ export default function NIRTechnicianInputForm({
       const currentInspectionId = await ensureInspectionExists(true);
       if (!currentInspectionId) return;
       const saved = await uploadSelectedPhoto(entry, currentInspectionId);
-      if (saved) toast.success("Photo attached and verified");
-      else toast.error("Photo still needs retry. Your selected file is still here.");
+      if (saved) toast.success("Photo attached to the inspection.");
+      else toast.error("Photo could not be attached. Retry or save the original file.");
     } finally {
       photoWorkCount.current--;
       setUploadingPhotos(photoWorkCount.current > 0);
@@ -1607,37 +1445,43 @@ export default function NIRTechnicianInputForm({
       manualClassification,
     });
 
-  const handleReview = () => {
-    // Additional validation for review - require photos
-    const reviewErrors: Record<string, string> = {};
-
-    if (deletingPhotoId) {
-      reviewErrors.photos = "Please wait for photo removal to finish";
-    } else if (verifiedPhotoCount === 0) {
-      reviewErrors.photos = "At least one photo is required before submitting";
+  const persistMakeSafeChecklist = async () => {
+    const readiness = makeSafeChecklistRef.current?.readiness();
+    if (readiness && !readiness.ok) {
+      throw new Error(readiness.message);
     }
-    if (photos.some((photo) => photo.error)) {
-      reviewErrors.photos = "Retry or remove photos that have not been verified";
-    }
+    await makeSafeChecklistRef.current?.persist();
+  };
 
-    // Validate that all photos are uploaded (not still uploading)
-    const stillUploading = uploadingPhotos || photos.some((p) => p.uploading);
-    if (stillUploading) {
-      reviewErrors.photos = "Please wait for all photos to finish uploading";
-    }
+  const persistClaimAssessment = async () => {
+    await claimAssessmentRef.current?.persist();
+  };
 
-    if (Object.keys(reviewErrors).length > 0) {
-      setValidationErrors(reviewErrors);
-      toast.error("Please fix validation errors before reviewing");
+  const persistInspectionSidecars = async () => {
+    await persistMakeSafeChecklist();
+    await persistClaimAssessment();
+  };
+
+  const handleReview = async () => {
+    const errors = collectValidationErrors({ forSubmit: true });
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error(submissionValidationToast(errors));
       return;
     }
-
-    if (!validateForm()) {
-      toast.error("Please fix validation errors before reviewing");
-      return;
+    if (inspectionId) {
+      try {
+        await persistInspectionSidecars();
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : "Could not save inspection evidence";
+        toast.error(message);
+        return;
+      }
     }
     setShowReview(true);
   };
+
 
   // Auto-create inspection when property info is entered
   const ensureInspectionExists = (showToast = false): Promise<string | null> => {
@@ -1738,7 +1582,6 @@ export default function NIRTechnicianInputForm({
           try {
             if (sessionStorage.getItem(legacyAttemptStorageKey) === attempt.key) sessionStorage.removeItem(legacyAttemptStorageKey);
           } catch { /* saved ID is verified */ }
-          if (showToast) toast.success("Inspection created. You can now upload photos and floor plan.");
           return savedId;
         }
         const error = await response.json().catch(() => null);
@@ -1849,37 +1692,11 @@ export default function NIRTechnicianInputForm({
   };
 
   const handleSubmit = async () => {
-    // Validate photos are required for final submission
-    if (deletingPhotoId) {
-      setValidationErrors({ photos: "Please wait for photo removal to finish" });
-      toast.error("Please wait for photo removal to finish");
-      return;
-    }
-    if (verifiedPhotoCount === 0) {
-      setValidationErrors({
-        photos: "At least one photo is required before submitting",
-      });
-      toast.error("Please upload at least one photo before submitting");
-      return;
-    }
-
-    if (photos.some((photo) => photo.error)) {
-      setValidationErrors({ photos: "Retry or remove photos that have not been verified" });
-      toast.error("Retry or remove unverified photos before submitting");
-      return;
-    }
-
-    const stillUploading = uploadingPhotos || photos.some((p) => p.uploading);
-    if (stillUploading) {
-      setValidationErrors({
-        photos: "Please wait for all photos to finish uploading",
-      });
-      toast.error("Please wait for all photos to finish uploading");
-      return;
-    }
-
-    if (!validateForm()) {
-      toast.error("Please fix validation errors before submitting");
+    const errors = collectValidationErrors({ forSubmit: true });
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error(submissionValidationToast(errors));
+      setShowReview(false);
       return;
     }
 
@@ -1890,11 +1707,13 @@ export default function NIRTechnicianInputForm({
       let currentInspectionId = inspectionId;
 
       if (!currentInspectionId) {
-        currentInspectionId = await ensureInspectionExists(true); // Show toast
+        currentInspectionId = await ensureInspectionExists(false);
         if (!currentInspectionId) {
-          throw new Error("Failed to create inspection");
+          throw new Error("Could not prepare the inspection draft for submission");
         }
       }
+
+      await persistInspectionSidecars();
 
       // A draft save is a snapshot. Synchronise the editable child records in
       // one transaction so retries and repeated saves cannot append duplicates.
@@ -1931,14 +1750,27 @@ export default function NIRTechnicianInputForm({
 
       if (!submitResponse.ok) {
         const error = await submitResponse.json().catch(() => null);
+        if (submitResponse.status === 400 && Array.isArray(error?.missingCritical)) {
+          throw new Error(applyServerSubmitValidationErrors(error));
+        }
         const blockers = Array.isArray(error?.blockers)
           ? error.blockers
               .map((b: { label?: string }) => b?.label)
               .filter(Boolean)
               .join("; ")
           : "";
+        const missingLabels = Array.isArray(error?.missingCritical)
+          ? error.missingCritical
+              .map((f: { label?: string }) => f?.label)
+              .filter(Boolean)
+              .join(", ")
+          : "";
         throw new Error(
-          [error?.error || "Failed to submit inspection", blockers]
+          [
+            error?.error || "Submission could not be completed",
+            missingLabels,
+            blockers,
+          ]
             .filter(Boolean)
             .join(" — "),
         );
@@ -1946,7 +1778,7 @@ export default function NIRTechnicianInputForm({
 
       void fireHaptic("success");
       toast.success(
-        "Inspection submitted successfully! Processing classification and scope determination...",
+        "Inspection submitted. Classification and scope are being prepared.",
       );
 
       // RA-1842 — Native iOS only: offer to schedule a local follow-up
@@ -2034,7 +1866,7 @@ export default function NIRTechnicianInputForm({
     return (
       <div
         className={cn(
-          "max-w-7xl mx-auto space-y-6",
+          "max-w-8xl mx-auto space-y-6",
           "text-neutral-900 dark:text-neutral-100",
         )}
       >
@@ -2048,8 +1880,8 @@ export default function NIRTechnicianInputForm({
             Review & Submit Inspection
           </h2>
           <p className={cn("text-neutral-600 dark:text-slate-400")}>
-            Review all entered data. The system will automatically classify and
-            determine scope after submission.
+            Confirm the record below. After submission, classification and scope
+            are generated from the saved evidence.
           </p>
         </div>
 
@@ -2625,7 +2457,7 @@ export default function NIRTechnicianInputForm({
             ) : (
               <>
                 <Sparkles className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                <span>Submit for Auto-Classification</span>
+                <span>Submit inspection</span>
                 <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
               </>
             )}
@@ -2638,7 +2470,7 @@ export default function NIRTechnicianInputForm({
   return (
     <div
       className={cn(
-        "max-w-7xl mx-auto space-y-6",
+        "max-w-8xl mx-auto space-y-6",
         "text-neutral-900 dark:text-neutral-100",
       )}
     >
@@ -2791,12 +2623,19 @@ export default function NIRTechnicianInputForm({
             Claim-type evidence
           </h3>
           <NIRClaimAssessmentPanel
+            ref={claimAssessmentRef}
             inspectionId={inspectionId}
             lockedClaimType={claimType}
+            assessmentSeed={claimAssessmentSeed}
+            complianceSeed={complianceAssessmentSeed}
             // RA-7709: a Category / Class pick in the panel is the
             // technician's choice, shown in the preview and saved as such.
             onWaterClassificationSaved={setManualClassification}
           />
+          <p className="text-xs text-muted-foreground mt-3">
+            Claim-type and compliance fields save when you save a draft, review,
+            or submit.
+          </p>
         </div>
       )}
 
@@ -2868,6 +2707,7 @@ export default function NIRTechnicianInputForm({
 
           <div>
             <label
+              htmlFor="nir-property-postcode"
               className={cn(
                 "block text-sm font-medium mb-1",
                 "text-neutral-700 dark:text-slate-300",
@@ -2876,6 +2716,7 @@ export default function NIRTechnicianInputForm({
               Postcode <span className="text-destructive">*</span>
             </label>
             <input
+              id="nir-property-postcode"
               type="text"
               required
               disabled={creatingInspection}
@@ -2899,19 +2740,33 @@ export default function NIRTechnicianInputForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-neutral-700 dark:text-slate-300">
-              Inspection attendance date (optional)
+            <label
+              htmlFor="nir-inspection-date"
+              className="block text-sm font-medium mb-1 text-neutral-700 dark:text-slate-300"
+            >
+              Site attendance date
             </label>
             <input
+              id="nir-inspection-date"
               type="date"
               disabled={creatingInspection}
               value={inspectionDate}
               onChange={(e) => setInspectionDate(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 dark:border-slate-600 dark:bg-slate-700/50 dark:text-white"
+              className={cn(
+                "w-full px-4 py-2 rounded-lg border bg-neutral-50 text-neutral-900 dark:bg-slate-700/50 dark:text-white",
+                validationErrors.inspectionDate
+                  ? "border-destructive dark:border-destructive"
+                  : "border-neutral-300 dark:border-slate-600",
+              )}
             />
             <p className="mt-1 text-xs text-neutral-600 dark:text-slate-400">
-              Leave blank until someone has attended the property.
+              Required before submission. Save a draft without a date if attendance is not confirmed yet.
             </p>
+            {validationErrors.inspectionDate && (
+              <p className="text-destructive text-xs mt-1">
+                {validationErrors.inspectionDate}
+              </p>
+            )}
           </div>
 
           <div className="md:col-span-2">
@@ -3362,7 +3217,7 @@ export default function NIRTechnicianInputForm({
                   throw new Error("Property info required");
                 }
 
-                currentInspectionId = await ensureInspectionExists(true); // Show toast
+                currentInspectionId = await ensureInspectionExists(false);
                 if (!currentInspectionId) {
                   throw new Error("No inspection ID");
                 }
@@ -4490,9 +4345,6 @@ export default function NIRTechnicianInputForm({
               accept="image/*"
               multiple
               onChange={handlePhotoUpload}
-              // Keep enabled so the file picker always opens; prerequisites are
-              // validated in handlePhotoUpload with a toast (disabled inputs
-              // swallow clicks and look like "nothing happens").
               disabled={uploadingPhotos}
               className="hidden"
             />
@@ -4504,17 +4356,22 @@ export default function NIRTechnicianInputForm({
             : !propertyAddress.trim() || !propertyPostcode.trim()
               ? "Enter property address and postcode first. Inspection will be created automatically, then you can upload photos."
               : inspectionId
-                ? "Upload photos of each affected area. Photos are saved to Cloudinary with a timestamp."
+                ? "Upload photos of each affected area."
                 : "Photos upload as soon as you pick them — the inspection is created automatically if needed."}
         </p>
       </div>
 
       {inspectionId && (
         <div className="space-y-2">
-          <MakeSafeChecklist inspectionId={inspectionId} />
+          <MakeSafeChecklist
+            ref={makeSafeChecklistRef}
+            inspectionId={inspectionId}
+            seed={makeSafeSeed}
+          />
           <p className="text-xs text-muted-foreground">
-            Mark applicable stabilisation items complete (or leave as N/A), then
-            save the checklist before submitting.
+            Mark each item applicable or N/A, and tick completed items. At least
+            one applicable item must be complete before submit. Saved with draft,
+            review, or submit.
           </p>
         </div>
       )}
@@ -4557,7 +4414,7 @@ export default function NIRTechnicianInputForm({
               }
 
               let currentInspectionId =
-                inspectionId || (await ensureInspectionExists(true)); // Show toast
+                inspectionId || (await ensureInspectionExists(false));
 
               if (!currentInspectionId) {
                 toast.error("Failed to create inspection. Please try again.");
@@ -4566,6 +4423,7 @@ export default function NIRTechnicianInputForm({
               }
 
               if (currentInspectionId) {
+                await persistInspectionSidecars();
                 await saveDraftSnapshot(currentInspectionId);
 
                 if (floorPlanImageUrl) {
@@ -4582,9 +4440,7 @@ export default function NIRTechnicianInputForm({
                   }
                 }
 
-                toast.success(
-                  "Draft saved successfully! You can now upload photos and floor plan.",
-                );
+                toast.success("Draft saved.");
               } else {
                 toast.error("Failed to save draft");
               }
@@ -4630,7 +4486,7 @@ export default function NIRTechnicianInputForm({
           </DialogHeader>
 
           <div className="mt-4 space-y-3 max-h-[500px] overflow-y-auto">
-            {nirUseCases.map((useCase) => (
+            {NIR_QUICK_FILL_USE_CASES.map((useCase) => (
               <button
                 key={useCase.id}
                 type="button"

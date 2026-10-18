@@ -37,6 +37,10 @@ import {
   DashboardPanel,
   DashboardPanelHeader,
 } from "../components/DashboardPanel";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 // RA-1209: Recharts `Tooltip` props don't type `className`, though the
 // underlying div accepts it. Narrow typed escape hatch replaces the
@@ -439,18 +443,14 @@ export default function AnalyticsPage() {
           : "Year to date";
 
   return (
-    <div className="space-y-6 w-full">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-cyan-500" aria-hidden />
-            Analytics
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Reports, revenue, and completion trends across your team.
-          </p>
-        </div>
-      </header>
+    <DashboardPageFrame className="w-full space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Analytics"
+        description="Reports, revenue, and completion trends across your team."
+        icon={<BarChart3 className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/analytics" })}
+      />
 
       <DashboardPanel className="p-3 sm:p-4">
         <AnalyticsFilters
@@ -1002,7 +1002,7 @@ export default function AnalyticsPage() {
           )}
         </div>
       )}
-    </div>
+    </DashboardPageFrame>
   );
 }
 

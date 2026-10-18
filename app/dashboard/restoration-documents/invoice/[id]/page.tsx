@@ -77,7 +77,7 @@ export default function EditRestorationInvoicePage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 py-6 dark:bg-slate-950">
-      <div className="mx-auto mb-4 max-w-5xl px-4">
+      <div className="mx-auto mb-4 max-w-9xl px-4">
         <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
           This is a <strong>Restoration Document</strong> (IICRC-worded), not an
           AR Billing Invoice.{" "}

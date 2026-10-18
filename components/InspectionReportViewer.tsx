@@ -705,14 +705,14 @@ export default function InspectionReportViewer({
 
           <div
             id="inspection-report-print-content"
-            className="bg-white text-slate-900 print-content"
+            className="report-light-surface bg-white text-slate-900 print-content"
           >
             <div
               className={
                 "p-4 rounded-[10px] border print:hidden " +
                 (isBasicReport || isAiDraftPending(report)
-                  ? "border-warning/50 bg-warning/10"
-                  : "border-success/50 bg-success/10")
+                  ? "border-amber-300 bg-amber-50"
+                  : "border-emerald-300 bg-emerald-50")
               }
             >
               <div className="flex items-center gap-2">
@@ -720,16 +720,16 @@ export default function InspectionReportViewer({
                   className={
                     "w-5 h-5 " +
                     (isBasicReport || isAiDraftPending(report)
-                      ? "text-warning"
-                      : "text-success")
+                      ? "text-amber-700"
+                      : "text-emerald-700")
                   }
                 />
                 <p
                   className={
                     "font-medium " +
                     (isBasicReport || isAiDraftPending(report)
-                      ? "text-amber-900 dark:text-amber-100"
-                      : "text-success")
+                      ? "text-amber-950"
+                      : "text-emerald-900")
                   }
                 >
                   {isBasicReport

@@ -41,9 +41,17 @@ const KEY_PROVIDER_TO_CONNECTION: Record<AIProvider, AiProvider> = {
   openrouter: "OPENROUTER",
 };
 
+/**
+ * RA-8001: which key the caller got. "platform" is the D-022 funded-trial
+ * key; callers that must never spend it check `source !== "byok"`, so a
+ * result without a source fails closed. Never persisted.
+ */
+export type WorkspaceAiKeySource = "byok" | "platform";
+
 export interface ResolvedWorkspaceAiKey {
   workspaceId: string;
   apiKey: string;
+  source: WorkspaceAiKeySource;
 }
 
 export interface ResolvedWorkspaceElevenLabsKey {
@@ -127,13 +135,17 @@ export async function resolveWorkspaceAiKey(
     if (!apiKey || (keyProvider && KEY_PROVIDER_TO_CONNECTION[keyProvider] !== provider)) {
       throw new NoWorkspaceKeyError(provider);
     }
-    return { workspaceId: canonical.workspaceId, apiKey };
+    return { workspaceId: canonical.workspaceId, apiKey, source: "byok" };
   }
 
   // Untouched empty DISABLED placeholders are absent from this metadata list.
   const trialKey = await tryPlatformTrialApiKey(ownerId, provider);
   if (trialKey) {
-    return { workspaceId: canonical.workspaceId ?? "platform-trial", apiKey: trialKey };
+    return {
+      workspaceId: canonical.workspaceId ?? "platform-trial",
+      apiKey: trialKey,
+      source: "platform",
+    };
   }
 
   throw await noWorkspaceKeyErrorForUser(ownerId, provider);

@@ -155,7 +155,7 @@ export default function ClientEditPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-9xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link

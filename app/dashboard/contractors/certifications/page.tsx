@@ -366,7 +366,7 @@ export default function ContractorCertificationsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Skeleton className="h-9 w-64 mb-8" />
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -379,7 +379,7 @@ export default function ContractorCertificationsPage() {
 
   if (profileMissing) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <AlertCircle className="h-12 w-12 text-amber-400 mb-4" />
           <h2 className="text-xl font-semibold text-white mb-2">
@@ -402,7 +402,7 @@ export default function ContractorCertificationsPage() {
   // ── Main render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <ContractorsBackLink />
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-white">Certifications</h1>
