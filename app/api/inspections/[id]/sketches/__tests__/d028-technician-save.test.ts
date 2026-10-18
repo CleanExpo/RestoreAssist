@@ -11,16 +11,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
-const gate = vi.hoisted(() => ({ viaAssignment: true }));
+const gate = vi.hoisted(() => ({ viaAssignment: true, scopeClaims: true }));
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // The real helper claims the inspection with the caller's scope first and
+  // runs `work` only when that claim matched a row.
   writeWithinInspectionScope: async (
     _scope: unknown,
     _data: unknown,
     work: (tx: unknown) => unknown,
-  ) => work(scopePrisma),
+  ) => (gate.scopeClaims ? work(scopePrisma) : null),
   assertInspectionAssignedWrite: vi.fn(async () => ({
     ok: true,
     data: {
@@ -70,7 +72,7 @@ const mockSession = getServerSession as unknown as Fn;
 const p = prisma as unknown as {
   claimSketch: { findFirst: Fn; update: Fn };
   sketchElement: { deleteMany: Fn; createMany: Fn };
-  sketchRoom: { findMany: Fn; deleteMany: Fn; updateMany: Fn };
+  sketchRoom: { findMany: Fn; create: Fn; update: Fn; deleteMany: Fn; updateMany: Fn };
   sketchMoistureReading: { findMany: Fn; deleteMany: Fn; createMany: Fn };
 };
 
@@ -115,6 +117,7 @@ const save = () =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  gate.scopeClaims = true;
   mockSession.mockResolvedValue({ user: { id: "u_1" } });
   p.sketchRoom.findMany.mockImplementation(async (args) => projectRooms(args));
   p.claimSketch.findFirst.mockResolvedValue({
@@ -149,6 +152,17 @@ describe("sketch POST by the assigned technician (D-028)", () => {
       (c) => c[0].data as Array<{ currentMc: number }>,
     );
     expect(created.map((r) => r.currentMc)).toEqual([30]);
+  });
+
+  it("a technician reassigned after the sketch save writes no rooms and no pin readings", async () => {
+    gate.viaAssignment = true;
+    gate.scopeClaims = false;
+    const res = await save();
+    expect(res.status, await res.clone().text()).toBe(201);
+    expect(p.sketchRoom.create).not.toHaveBeenCalled();
+    expect(p.sketchRoom.update).not.toHaveBeenCalled();
+    expect(p.sketchRoom.updateMany).not.toHaveBeenCalled();
+    expect(p.sketchMoistureReading.createMany).not.toHaveBeenCalled();
   });
 
   it("positive control: the owner's save still rebuilds by delete and recreate", async () => {
