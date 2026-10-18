@@ -11,6 +11,7 @@ const getApiSession = vi.fn();
 const userFindUnique = vi.fn();
 const userCreate = vi.fn();
 const inviteFindFirst = vi.fn();
+const securityEventFindFirst = vi.fn();
 
 vi.mock("@/lib/auth/get-api-session", () => ({
   getApiSession: (...a: unknown[]) => getApiSession(...a),
@@ -31,6 +32,9 @@ vi.mock("@/lib/prisma", () => ({
     userInvite: {
       findFirst: (...a: unknown[]) => inviteFindFirst(...a),
     },
+    securityEvent: {
+      findFirst: (...a: unknown[]) => securityEventFindFirst(...a),
+    },
   },
 }));
 
@@ -43,6 +47,7 @@ beforeEach(() => {
   });
   userFindUnique.mockResolvedValue(null);
   userCreate.mockResolvedValue({ id: "u_new", email: "new@example.com" });
+  securityEventFindFirst.mockResolvedValue(null);
 });
 
 async function createdRole() {
@@ -63,6 +68,18 @@ describe("GET /api/user/profile fallback create", () => {
     expect(inviteFindFirst.mock.calls[0][0].where).toMatchObject({
       email: { equals: "new@example.com", mode: "insensitive" },
       usedAt: null,
+    });
+  });
+
+  it("refuses to recreate a deleted account from its surviving session", async () => {
+    inviteFindFirst.mockResolvedValue(null);
+    securityEventFindFirst.mockResolvedValue({ id: "se_1" });
+    const res = await GET(new NextRequest("http://localhost/api/user/profile"));
+    expect(res.status).toBe(401);
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(securityEventFindFirst.mock.calls[0][0].where).toEqual({
+      userId: "u_new",
+      eventType: "ACCOUNT_DELETED",
     });
   });
 });

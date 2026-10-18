@@ -76,6 +76,22 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
+      // A deleted account's session can outlive its row. Account delete logs
+      // ACCOUNT_DELETED against the id (no foreign key, so it survives), and
+      // ids are never reused, so that event means this identity was deleted:
+      // refuse rather than recreate it.
+      const deleted = await prisma.securityEvent.findFirst({
+        where: { userId: session.user.id, eventType: "ACCOUNT_DELETED" },
+        select: { id: true },
+      });
+      if (deleted) {
+        return apiError(request, {
+          code: "UNAUTHORIZED",
+          message: "Unauthorized",
+          status: 401,
+        });
+      }
+
       // Create Stripe customer for new user
       let stripeCustomerId = null;
       try {
