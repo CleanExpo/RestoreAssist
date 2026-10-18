@@ -35,6 +35,21 @@ export async function getApiSession(
   });
   if (!token?.sub) return session;
 
+  // Apply the same limits as the session() callback in lib/auth.ts, which
+  // strips the user past customExp or after a revoke. Without this, the
+  // fallback would bring back a session the callback just ended. A token
+  // with no customExp has no absolute lifetime, so it is refused here too:
+  // GET /api/user/profile relies on every accepted token expiring within
+  // 90 days, before the cleanup cron purges the ACCOUNT_DELETED tombstone.
+  const customExp = (token as { customExp?: unknown }).customExp;
+  if (
+    (token as { revoked?: unknown }).revoked ||
+    typeof customExp !== "number" ||
+    Math.floor(Date.now() / 1000) > customExp
+  ) {
+    return session;
+  }
+
   return {
     ...session,
     user: {

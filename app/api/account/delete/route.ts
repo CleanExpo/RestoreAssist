@@ -115,6 +115,28 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      const reqCtx = extractRequestContext(request);
+
+      // The ACCOUNT_DELETED event is the tombstone GET /api/user/profile
+      // checks before it recreates a missing user, so a session that
+      // outlives this delete cannot bring the account back. It is written
+      // first and is not best-effort: if it fails, nothing is cancelled or
+      // deleted. If a later step fails, the user row still exists, and the
+      // profile route only reads the tombstone when the row is missing.
+      await prisma.securityEvent.create({
+        data: {
+          eventType: "ACCOUNT_DELETED",
+          severity: "INFO",
+          userId: user.id,
+          email: user.email,
+          ipAddress: reqCtx.ipAddress,
+          userAgent: reqCtx.userAgent,
+          details: JSON.stringify({
+            hadSubscription: Boolean(user.subscriptionId),
+          }),
+        },
+      });
+
       if (user.subscriptionId) {
         try {
           await stripe.subscriptions.cancel(user.subscriptionId);
@@ -125,8 +147,6 @@ export async function POST(request: NextRequest) {
           );
         }
       }
-
-      const reqCtx = extractRequestContext(request);
 
       // account-deletion-retention: the account holder's PII is erased (the
       // User row is deleted below), but the statutory financial/compliance
@@ -185,23 +205,6 @@ export async function POST(request: NextRequest) {
         await tx.restorationDocument.updateMany(reassignToRetentionOwner);
         await tx.creditNote.updateMany(reassignToRetentionOwner);
         await tx.invoicePayment.updateMany(reassignToRetentionOwner);
-        // The ACCOUNT_DELETED event is the tombstone GET /api/user/profile
-        // checks before it recreates a missing user, so a session that
-        // outlives this delete cannot bring the account back. It is written
-        // here, not best-effort, so the delete fails if the tombstone does.
-        await tx.securityEvent.create({
-          data: {
-            eventType: "ACCOUNT_DELETED",
-            severity: "INFO",
-            userId: user.id,
-            email: user.email,
-            ipAddress: reqCtx.ipAddress,
-            userAgent: reqCtx.userAgent,
-            details: JSON.stringify({
-              hadSubscription: Boolean(user.subscriptionId),
-            }),
-          },
-        });
         await tx.user.delete({ where: { id: user.id } });
       });
 

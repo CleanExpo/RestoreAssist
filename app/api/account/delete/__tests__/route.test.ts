@@ -148,8 +148,8 @@ describe("POST /api/account/delete — statutory-record retention", () => {
   });
 
   // GET /api/user/profile refuses to recreate an id with this tombstone, so
-  // it must be written with the delete or the delete must not happen.
-  it("writes the ACCOUNT_DELETED tombstone in the transaction, before the user is deleted", async () => {
+  // it must be written before the delete or the delete must not happen.
+  it("writes the ACCOUNT_DELETED tombstone before the user is deleted", async () => {
     const res = await POST(makeRequest(CONFIRMATION));
     expect(res.status).toBe(200);
     expect(prismaMock.securityEvent.create).toHaveBeenCalledWith({
@@ -167,6 +167,20 @@ describe("POST /api/account/delete — statutory-record retention", () => {
     prismaMock.securityEvent.create.mockRejectedValue(new Error("db down"));
     const res = await POST(makeRequest(CONFIRMATION));
     expect(res.status).not.toBe(200);
+    expect(prismaMock.user.delete).not.toHaveBeenCalled();
+  });
+
+  it("does not cancel a paid subscription when the tombstone cannot be written", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      stripeCustomerId: "cus_1",
+      subscriptionId: "sub_paid",
+    } as never);
+    prismaMock.securityEvent.create.mockRejectedValue(new Error("db down"));
+    const res = await POST(makeRequest(CONFIRMATION));
+    expect(res.status).not.toBe(200);
+    expect(stripeMock.subscriptions.cancel).not.toHaveBeenCalled();
     expect(prismaMock.user.delete).not.toHaveBeenCalled();
   });
 
