@@ -13,7 +13,7 @@
  * - @capacitor/network listener drives the isOffline state proactively
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   MapPin,
@@ -103,13 +103,19 @@ export default function FieldDashboardPage() {
   const [cacheAge, setCacheAge] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // refreshOfflineOwner() fires OFFLINE_CONTEXT_EVENT while loadInspections()
+  // waits on it; that load continues by itself, so the listener must not start
+  // a second one.
+  const ownerRefreshInProgress = useRef(false);
 
   useEffect(() => {
     const clear = () => {
       setInspections([]);
       setFromCache(false);
       setCacheAge(null);
-      if (getOfflineOwner()) void loadInspections();
+      if (getOfflineOwner() && !ownerRefreshInProgress.current) {
+        void loadInspections();
+      }
     };
     window.addEventListener(OFFLINE_CONTEXT_EVENT, clear);
     return () => window.removeEventListener(OFFLINE_CONTEXT_EVENT, clear);
@@ -144,7 +150,15 @@ export default function FieldDashboardPage() {
     // load (or after it was cleared) verify it now rather than reporting a
     // failed load; Retry comes back through here and verifies again. Offline,
     // refreshOfflineOwner() resolves null and the reconnect message stands.
-    const requestOwner = getOfflineOwner() ?? (await refreshOfflineOwner());
+    let requestOwner = getOfflineOwner();
+    if (!requestOwner) {
+      ownerRefreshInProgress.current = true;
+      try {
+        requestOwner = await refreshOfflineOwner();
+      } finally {
+        ownerRefreshInProgress.current = false;
+      }
+    }
     if (!requestOwner) {
       setInspections([]);
       setLoading(false);

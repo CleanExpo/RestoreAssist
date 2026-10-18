@@ -92,6 +92,18 @@ export async function GET(request: NextRequest) {
         // Continue without Stripe customer ID - user can still use the app
       }
 
+      // A self-serve account owns its workspace, so it is ADMIN as on every
+      // signup path (financial writes need ADMIN or MANAGER). An email with an
+      // open invite stays USER, as register refuses it for the same reason.
+      const pendingInvite = await prisma.userInvite.findFirst({
+        where: {
+          email: { equals: session.user.email!, mode: "insensitive" },
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      });
+
       // If user doesn't exist in database, create a basic profile
       const newUser = await prisma.user.create({
         data: {
@@ -99,6 +111,7 @@ export async function GET(request: NextRequest) {
           name: session.user.name,
           email: session.user.email!,
           image: session.user.image,
+          role: pendingInvite ? "USER" : "ADMIN",
           subscriptionStatus: "TRIAL",
           creditsRemaining: TRIAL_REPORT_CREDITS,
           totalCreditsUsed: 0,

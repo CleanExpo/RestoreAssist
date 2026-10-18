@@ -79,6 +79,19 @@ export function MobileNav({ inspectionId }: MobileNavProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={(e) => {
+                // A Link that only changes the hash fires no hashchange, so
+                // the page cannot react; set the hash natively instead.
+                const [path, hash] = item.href.split("#");
+                if (hash && pathname === path) {
+                  e.preventDefault();
+                  if (window.location.hash === `#${hash}`) {
+                    window.dispatchEvent(new HashChangeEvent("hashchange"));
+                  } else {
+                    window.location.hash = hash;
+                  }
+                }
+              }}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center gap-1 text-xs transition-colors",
                 isActive

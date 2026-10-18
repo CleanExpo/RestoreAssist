@@ -331,7 +331,9 @@ describe("C3 behavioural: report GET for the assigned technician", () => {
     const text = JSON.stringify(body);
     expect(text).not.toContain("Dehumidifier hire");
     expect(text).not.toContain('"rate"');
-    expect(text).not.toContain("285");
+    // Match the money fields only: the body also carries ISO timestamps, whose
+    // milliseconds can read ".285".
+    expect(text).not.toMatch(/"(subtotal|total)":285\b/);
   });
 
   it("the owner gets the cost estimate with its rates", async () => {

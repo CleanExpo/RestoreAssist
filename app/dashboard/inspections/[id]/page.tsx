@@ -13,6 +13,7 @@ import { AssignTechnician } from "@/components/inspection/AssignTechnician";
 import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 import { cn } from "@/lib/utils";
 import {
+  canGenerateDisputePack,
   canUseOwnerJobActions,
   failedResponseMessage,
 } from "@/lib/inspections/job-actions";
@@ -1282,11 +1283,16 @@ export default function InspectionDetailPage({
     0,
   );
   const isAdmin = session?.user?.role === "ADMIN";
-  // D-028: the assigned technician records field data; the dispute pack,
-  // deleting readings and the client progress-update toggle stay with the job
-  // owner and managers. The routes enforce this; the page stops offering them.
+  // D-028: the assigned technician records field data; deleting readings and
+  // the client progress-update toggle stay with the job owner and managers,
+  // and the dispute pack with the owner only. The routes enforce this; the
+  // page stops offering them.
   const ownerActions = canUseOwnerJobActions({
     role: session?.user?.role,
+    callerId: session?.user?.id,
+    ownerId: inspection.userId,
+  });
+  const disputePackAction = canGenerateDisputePack({
     callerId: session?.user?.id,
     ownerId: inspection.userId,
   });
@@ -1482,7 +1488,7 @@ export default function InspectionDetailPage({
             </Button>
           )}
           <ExportPdfButton inspectionId={inspection.id} />
-          {ownerActions &&
+          {disputePackAction &&
             (inspection.status === "SUBMITTED" ||
               inspection.status === "COMPLETED") && (
             <Button
