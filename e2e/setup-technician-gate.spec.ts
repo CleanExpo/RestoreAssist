@@ -43,8 +43,9 @@ test.describe("RA-P1-1 — technician never hits owner setup wizard", () => {
     await page.getByLabel(/chain-of-custody/).check();
     await page.getByRole("button", { name: /^Join / }).click();
 
-    await page.waitForURL(/\/dashboard(\?|$)/, { timeout: 30_000 });
+    // The seeded invite is role USER, and a USER lands on Field Mode
+    // (app/invite/[token]/page.tsx); a manager or admin gets /dashboard?firstRun=tech.
+    await page.waitForURL(/\/dashboard\/field(\?|$)/, { timeout: 30_000 });
     expect(page.url()).not.toContain("/setup");
-    await expect(page).toHaveURL(/firstRun=tech|\/dashboard/);
   });
 });
