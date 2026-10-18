@@ -17,7 +17,7 @@ type Fixture = {
 
 async function fixture(page: Page, context: BrowserContext): Promise<Fixture> {
   const { encode } = createRequire(`${process.cwd()}/package.json`)("next-auth/jwt") as typeof import("next-auth/jwt");
-  const cookie = await encode({ secret: "synthetic-local-browser-secret", token: { sub: user.id, role: user.role, organizationId: user.organizationId, needsOnboarding: false, setupCompletedAt: "2026-01-01T00:00:00.000Z" } });
+  const cookie = await encode({ secret: "synthetic-local-browser-secret", token: { sub: user.id, role: user.role, organizationId: user.organizationId, needsOnboarding: false, setupCompletedAt: "2026-01-01T00:00:00.000Z", customExp: Math.floor(Date.now() / 1000) + 3600 } });
   await context.addCookies([{ name: "next-auth.session-token", value: cookie, url: base }]);
   const state: Fixture = { clients: [{ ...firstClient }], clientReads: 0, queuePosts: 0 };
   await context.route("**/*", async (route) => {

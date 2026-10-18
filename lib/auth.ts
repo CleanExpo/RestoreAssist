@@ -684,9 +684,12 @@ export const authOptions: NextAuthOptions = {
       // (90d). The actual session length per user comes from customExp
       // which is 7d for default logins and 90d when rememberMe ticked.
       // Past customExp we strip user identity so middleware redirects.
+      // A token with no customExp (minted before RA-2074) is refused too:
+      // NextAuth renews its cookie on every read, so it would never expire
+      // and could outlive the 90-day ACCOUNT_DELETED tombstone.
       const customExp = (token as any).customExp;
       if (
-        typeof customExp === "number" &&
+        typeof customExp !== "number" ||
         Math.floor(Date.now() / 1000) > customExp
       ) {
         return { ...session, user: undefined } as any;

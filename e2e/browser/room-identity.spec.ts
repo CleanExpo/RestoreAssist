@@ -15,6 +15,7 @@ test("iPhone-sized NIR form keeps numbered and named rooms distinct", async ({ p
       organizationId: "synthetic-room-org",
       needsOnboarding: false,
       setupCompletedAt: "2026-01-01T00:00:00.000Z",
+      customExp: Math.floor(Date.now() / 1000) + 3600,
     },
   });
   await context.addCookies([
@@ -113,6 +114,7 @@ test("iPhone-sized NIR photo retains a failed upload and verifies the same-key r
       organizationId: "synthetic-room-org",
       needsOnboarding: false,
       setupCompletedAt: "2026-01-01T00:00:00.000Z",
+      customExp: Math.floor(Date.now() / 1000) + 3600,
     },
   });
   await context.addCookies([{ name: "next-auth.session-token", value: cookie, url: base }]);

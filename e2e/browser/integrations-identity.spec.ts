@@ -45,6 +45,7 @@ function syntheticToken(identity: FixtureUser) {
   return encode({ secret: SECRET, token: {
     sub: identity.id, role: identity.role, needsOnboarding: false,
     setupCompletedAt: DATE, organizationId: identity.organizationId,
+    customExp: Math.floor(Date.now() / 1000) + 3600,
   } });
 }
 function metadata(integrations: Record<string, unknown>[] = [], aiConnections: Record<string, unknown>[] = []): Metadata {

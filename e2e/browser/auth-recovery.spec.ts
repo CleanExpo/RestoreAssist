@@ -90,7 +90,7 @@ test("recovery keeps errors truthful and lets an invalid code be corrected", asy
 test("dashboard preserves authorised legacy records when one resource fails and identifies the signed-in account", async ({ page, context }, testInfo) => {
   const { encode } = await import("next-auth/jwt");
   // This value matches only the isolated local test server. It is not a live credential.
-  const cookie = await encode({ secret: "synthetic-local-browser-secret", token: { sub: "synthetic-a", role: "ADMIN", needsOnboarding: false, setupCompletedAt: "2026-01-01T00:00:00.000Z" } });
+  const cookie = await encode({ secret: "synthetic-local-browser-secret", token: { sub: "synthetic-a", role: "ADMIN", needsOnboarding: false, setupCompletedAt: "2026-01-01T00:00:00.000Z", customExp: Math.floor(Date.now() / 1000) + 3600 } });
   await context.addCookies([{ name: "next-auth.session-token", value: cookie, url: base }]);
   const user = { id: "synthetic-a", email: "real-fixture@example.com", name: "Synthetic owner", role: "ADMIN", needsOnboarding: false };
   await page.route("**/api/**", (route) => {
@@ -127,7 +127,7 @@ test("product-tour contract: undismissed tour can be dismissed before using the 
   let dismissRequests = 0;
   const { encode } = await import("next-auth/jwt");
   // This value matches only the isolated local test server. It is not a live credential.
-  const cookie = await encode({ secret: "synthetic-local-browser-secret", token: { sub: "synthetic-a", role: "ADMIN", needsOnboarding: false, setupCompletedAt: "2026-01-01T00:00:00.000Z" } });
+  const cookie = await encode({ secret: "synthetic-local-browser-secret", token: { sub: "synthetic-a", role: "ADMIN", needsOnboarding: false, setupCompletedAt: "2026-01-01T00:00:00.000Z", customExp: Math.floor(Date.now() / 1000) + 3600 } });
   await context.addCookies([{ name: "next-auth.session-token", value: cookie, url: base }]);
   const user = { id: "synthetic-a", email: "real-fixture@example.com", name: "Synthetic owner", role: "ADMIN", needsOnboarding: false };
   await page.route("**/api/**", (route) => {
