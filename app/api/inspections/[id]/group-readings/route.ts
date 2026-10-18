@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { groupReadings } from "@/lib/services/ai/group-readings";
 import {
@@ -224,8 +225,17 @@ export async function PATCH(
 
     const { id: inspectionId } = await context.params;
 
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId },
+      where: tenancy.data.inspectionManyWhere,
       select: { id: true },
     });
     if (!inspection) {
@@ -281,7 +291,13 @@ export async function PATCH(
       for (const op of ops) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = await (tx.moistureReading.updateMany as any)({
-          where: { id: { in: op.ids }, inspectionId },
+          where: {
+            id: { in: op.ids },
+            inspectionId,
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
+          },
           data: { affectedArea: op.name },
         });
         updated += r.count;
@@ -292,6 +308,9 @@ export async function PATCH(
         const r = await (tx.moistureReading.updateMany as any)({
           where: {
             inspectionId,
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
             id: { notIn: Array.from(touchedIds) },
             NOT: { affectedArea: null },
           },

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
+const gate = vi.hoisted(() => ({ refuse: false }));
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(), getSession: vi.fn(), addObservation: vi.fn(),
   updateSessionState: vi.fn(), updateMissingItems: vi.fn(),
@@ -13,6 +15,21 @@ vi.mock("@/lib/voice/session", () => mocks);
 vi.mock("@/lib/voice/completion-checker", () => mocks);
 vi.mock("@/lib/voice/transcript-parser", () => mocks);
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
+// D-028: every observation re-checks the job's write reach (owner, or the
+// technician assigned to the job).
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
+  assertInspectionAssignedWrite: async () =>
+    gate.refuse
+      ? { ok: false, status: 404, reason: "Inspection not found" }
+      : { ok: true, data: { childInspectionFilter: undefined, viaAssignment: false } },
+}));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (req: NextRequest, _userId: string,
     handler: (rawBody: string) => Promise<Response>) => handler(await req.text()),
@@ -36,6 +53,7 @@ function expectNoFieldAccess() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  gate.refuse = false;
   mocks.auth.mockResolvedValue({ user: { id: "user-owned" } });
   mocks.getSession.mockResolvedValue({ userId: "user-owned", inspectionId: "inspection-owned" });
   mocks.parseTranscript.mockReturnValue({ type: "general_note", parsed: { note: "wet" },
@@ -68,6 +86,11 @@ describe("voice observation session and inspection boundary", () => {
     mocks.auth.mockResolvedValue(null);
     expect((await submit()).status).toBe(401);
     expect(mocks.getSession).not.toHaveBeenCalled();
+    expectNoFieldAccess();
+  });
+  it("denies a session holder who no longer has write reach on the job (D-028)", async () => {
+    gate.refuse = true;
+    expect((await submit()).status).toBe(404);
     expectNoFieldAccess();
   });
   it("retains legitimate observation and confirmation on the session's inspection", async () => {

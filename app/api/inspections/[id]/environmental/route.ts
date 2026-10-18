@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 
 // POST - Add or update environmental data
 export async function POST(
@@ -26,11 +31,17 @@ export async function POST(
 
   let inspection;
   let workspace;
+  let writeScope: Prisma.InspectionWhereInput | undefined;
   try {
-    inspection = await prisma.inspection.findFirst({
-      where: { id, userId },
-      select: { id: true },
-    });
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    writeScope = tenancy.ok ? tenancy.data.inspectionManyWhere : undefined;
+    inspection = writeScope
+      ? await prisma.inspection.findFirst({
+          where: writeScope,
+          select: { id: true },
+        })
+      : null;
     // RA-7586: the sync ledger is keyed to the caller's workspace, not
     // Inspection.workspaceId, which no create path writes.
     workspace = inspection ? await getWorkspaceForUser(userId) : null;
@@ -38,13 +49,14 @@ export async function POST(
     return fromException(request, error, { stage: "environmental-lookup" });
   }
 
-  if (!inspection) {
+  if (!inspection || !writeScope) {
     return apiError(request, {
       code: "NOT_FOUND",
       message: "Inspection not found",
       status: 404,
     });
   }
+  const scope = writeScope;
 
   // RA-1266: EnvironmentalData is a time-series (M-7) — each POST creates
   // a new reading row. Retry would create duplicate readings for the same
@@ -92,17 +104,31 @@ export async function POST(
           ? sanitizeString(body.weatherConditions, 200)
           : null;
 
-        const environmentalData = await prisma.environmentalData.create({
-          data: {
-            inspectionId: id,
-            ambientTemperature: body.ambientTemperature,
-            humidityLevel: body.humidityLevel,
-            dewPoint: body.dewPoint,
-            airCirculation: body.airCirculation ?? false,
-            weatherConditions: sanitizedWeather,
-            notes: sanitizedNotes,
-          },
-        });
+        // D-028: re-check the caller's reach inside the write, so a
+        // reassignment between the check and the write changes 0 rows.
+        const environmentalData = await writeWithinInspectionScope(
+          scope,
+          { updatedAt: new Date() },
+          (tx) =>
+            tx.environmentalData.create({
+              data: {
+                inspectionId: id,
+                ambientTemperature: body.ambientTemperature,
+                humidityLevel: body.humidityLevel,
+                dewPoint: body.dewPoint,
+                airCirculation: body.airCirculation ?? false,
+                weatherConditions: sanitizedWeather,
+                notes: sanitizedNotes,
+              },
+            }),
+        );
+        if (!environmentalData) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Inspection not found",
+            status: 404,
+          });
+        }
 
         await prisma.auditLog.create({
           data: {

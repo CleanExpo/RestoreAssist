@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { deriveAreaColumns } from "@/lib/units";
@@ -25,8 +29,17 @@ export async function POST(
   const { id } = await params;
 
   try {
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id, userId },
+      where: tenancy.data.inspectionManyWhere,
       select: { id: true },
     });
 
@@ -103,24 +116,38 @@ export async function POST(
             }
           }
 
-          const affectedArea = await prisma.affectedArea.create({
-            data: {
-              inspectionId: id,
-              roomZoneId: String(body.roomZoneId).trim().slice(0, 200),
-              affectedAreaSqm: areaColumns.affectedAreaSqm,
-              affectedSquareFootage: areaColumns.affectedSquareFootage,
-              waterSource: String(body.waterSource).slice(0, 100),
-              timeSinceLoss: body.timeSinceLoss
-                ? typeof body.timeSinceLoss === "number"
-                  ? body.timeSinceLoss
-                  : parseFloat(String(body.timeSinceLoss)) || null
-                : null,
-              description: body.description
-                ? String(body.description).slice(0, 2000)
-                : null,
-              photos: body.photos ? JSON.stringify(body.photos) : null,
-            },
-          });
+          // D-028: re-check the caller's reach inside the write, so a
+          // reassignment between the check and the write changes 0 rows.
+          const affectedArea = await writeWithinInspectionScope(
+            tenancy.data.inspectionManyWhere,
+            { updatedAt: new Date() },
+            (tx) =>
+              tx.affectedArea.create({
+                data: {
+                  inspectionId: id,
+                  roomZoneId: String(body.roomZoneId).trim().slice(0, 200),
+                  affectedAreaSqm: areaColumns.affectedAreaSqm,
+                  affectedSquareFootage: areaColumns.affectedSquareFootage,
+                  waterSource: String(body.waterSource).slice(0, 100),
+                  timeSinceLoss: body.timeSinceLoss
+                    ? typeof body.timeSinceLoss === "number"
+                      ? body.timeSinceLoss
+                      : parseFloat(String(body.timeSinceLoss)) || null
+                    : null,
+                  description: body.description
+                    ? String(body.description).slice(0, 2000)
+                    : null,
+                  photos: body.photos ? JSON.stringify(body.photos) : null,
+                },
+              }),
+          );
+          if (!affectedArea) {
+            return apiError(request, {
+              code: "NOT_FOUND",
+              message: "Inspection not found",
+              status: 404,
+            });
+          }
 
           await prisma.auditLog.create({
             data: {

@@ -44,6 +44,29 @@ import { POST as postEvidence, DELETE as deleteEvidence } from "../evidence/rout
 import { POST as postSubmit } from "../submit/route";
 import { DELETE as removeTeamMember } from "../../../team/members/[id]/route";
 import { buildWorkflowStepsData } from "@/lib/evidence";
+// D-028: field-data handlers re-routed to the assigned-write helper.
+import { POST as postEnvironmental } from "../environmental/route";
+import { POST as postArea } from "../affected-areas/route";
+import { PATCH as patchArea, DELETE as deleteArea } from "../affected-areas/[areaId]/route";
+import {
+  PATCH as patchReading,
+  DELETE as deleteReading,
+} from "../moisture/[readingId]/route";
+import { PATCH as patchPhotoMeta } from "../photos/[photoId]/route";
+import { POST as postScopeItem } from "../scope-items/route";
+import {
+  PATCH as patchScopeItem,
+  DELETE as deleteScopeItem,
+} from "../scope-items/[itemId]/route";
+import { POST as postWaterClass } from "../water-damage-classification/route";
+import { PUT as putFloorPlan } from "../floor-plan/route";
+import { POST as postBiohazard } from "../biohazard-assessment/route";
+import { POST as postPackOut } from "../contents-pack-out/route";
+import { PATCH as patchGroupReadings } from "../group-readings/route";
+import { DELETE as deleteSketch } from "../sketches/[sketchId]/route";
+import { POST as postVoiceSession } from "../voice/session/route";
+import { POST as postEquipment } from "../equipment-calculator/route";
+import { POST as postDryingGoal, PUT as putDryingGoal } from "../drying-goal/route";
 
 const S = `ra7755-${Date.now().toString(36)}`;
 const ids = { owner: "", tech: "", outsider: "", inspectionId: "", orgs: [] as string[] };
@@ -743,6 +766,537 @@ describe.skipIf(!process.env.DATABASE_URL)(
       expect(
         await prisma.costEstimate.count({ where: { inspectionId: job.id, rate: RATE } }),
       ).toBeGreaterThan(0);
+    });
+  },
+);
+
+// ─── D-028: the assigned technician writes FIELD DATA on the job ────────────
+//
+// Founder decision 2026-10-11 ("Yes, field data only"), narrowed to create
+// and update. Each FIELD_CASES row is one re-routed handler. Four actors per row, each on a fresh job assigned to T:
+// T (assigned technician) succeeds AND the row really changed; C (unassigned
+// colleague, same organisation) gets 404 and nothing changed; X (another
+// business) gets 404 and nothing changed; O (the owner) is unchanged. The
+// "row changed" check is what catches the trap this decision is about: a
+// handler admitted by the gate whose write still filters on the creator's
+// userId answers 200 and changes 0 rows.
+
+type Seeded = {
+  areaId: string;
+  readingId: string;
+  photoId: string;
+  scopeItemId: string;
+  sketchId: string;
+};
+type FieldCase = {
+  name: string;
+  ok: number;
+  call: (job: Job, s: Seeded) => Promise<Response>;
+  /** False on a freshly seeded job; true once the write has landed. */
+  changed: (job: Job, s: Seeded) => Promise<boolean>;
+};
+
+type AnyHandler = (req: NextRequest, ctx: { params: Promise<any> }) => Promise<Response>;
+const h = (fn: unknown) => fn as AnyHandler;
+const cx = (params: Record<string, string>) => ({ params: Promise.resolve(params) });
+const MARK = `${S2}-d028`;
+
+async function seedFieldRows(job: Job): Promise<Seeded> {
+  const [area, reading, photo] = await Promise.all([
+    prisma.affectedArea.findFirstOrThrow({ where: { inspectionId: job.id }, select: { id: true } }),
+    prisma.moistureReading.findFirstOrThrow({ where: { inspectionId: job.id }, select: { id: true } }),
+    prisma.inspectionPhoto.findFirstOrThrow({ where: { inspectionId: job.id }, select: { id: true } }),
+  ]);
+  const scopeItem = await prisma.scopeItem.create({
+    data: { inspectionId: job.id, itemType: "GENERAL", description: "Seeded item" },
+    select: { id: true },
+  });
+  const sketch = await prisma.claimSketch.create({
+    data: { inspectionId: job.id, floorNumber: 0 },
+    select: { id: true },
+  });
+  return {
+    areaId: area.id,
+    readingId: reading.id,
+    photoId: photo.id,
+    scopeItemId: scopeItem.id,
+    sketchId: sketch.id,
+  };
+}
+
+const FIELD_CASES: FieldCase[] = [
+  {
+    name: "environmental POST",
+    ok: 200,
+    call: (job) =>
+      h(postEnvironmental)(
+        jsonReq(job.id, "environmental", "POST", { ambientTemperature: 21, humidityLevel: 60, notes: MARK }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      (await prisma.environmentalData.count({ where: { inspectionId: job.id, notes: MARK } })) === 1,
+  },
+  {
+    name: "affected-areas POST",
+    ok: 201,
+    call: (job) =>
+      h(postArea)(
+        jsonReq(job.id, "affected-areas", "POST", {
+          roomZoneId: MARK,
+          affectedAreaSqm: 4,
+          waterSource: "Clean Water",
+        }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      (await prisma.affectedArea.count({ where: { inspectionId: job.id, roomZoneId: MARK } })) === 1,
+  },
+  {
+    name: "affected-areas/[areaId] PATCH",
+    ok: 200,
+    call: (job, s) =>
+      h(patchArea)(
+        jsonReq(job.id, `affected-areas/${s.areaId}`, "PATCH", { description: MARK }),
+        cx({ id: job.id, areaId: s.areaId }),
+      ),
+    changed: async (_job, s) =>
+      (await prisma.affectedArea.findUnique({ where: { id: s.areaId } }))?.description === MARK,
+  },
+  {
+    name: "moisture/[readingId] PATCH",
+    ok: 200,
+    call: (job, s) =>
+      h(patchReading)(
+        jsonReq(job.id, `moisture/${s.readingId}`, "PATCH", { mapX: 0.25, mapY: 0.75 }),
+        cx({ id: job.id, readingId: s.readingId }),
+      ),
+    changed: async (_job, s) =>
+      (await prisma.moistureReading.findUnique({ where: { id: s.readingId } }))?.mapX === 0.25,
+  },
+  {
+    name: "photos/[photoId] PATCH",
+    ok: 200,
+    call: (job, s) =>
+      h(patchPhotoMeta)(
+        jsonReq(job.id, `photos/${s.photoId}`, "PATCH", { description: MARK }),
+        cx({ id: job.id, photoId: s.photoId }),
+      ),
+    changed: async (_job, s) =>
+      (await prisma.inspectionPhoto.findUnique({ where: { id: s.photoId } }))?.description === MARK,
+  },
+  {
+    name: "make-safe PATCH",
+    ok: 200,
+    call: (job) =>
+      h(patchMakeSafe)(
+        jsonReq(job.id, "make-safe", "PATCH", {
+          actions: [{ action: "power_isolated", applicable: true, completed: true }],
+        }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      (await prisma.makeSafeAction.count({
+        where: { inspectionId: job.id, action: "power_isolated", completed: true },
+      })) === 1,
+  },
+  {
+    name: "scope-items POST",
+    ok: 201,
+    call: (job) =>
+      h(postScopeItem)(
+        jsonReq(job.id, "scope-items", "POST", { itemType: "GENERAL", description: MARK }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      (await prisma.scopeItem.count({ where: { inspectionId: job.id, description: MARK } })) === 1,
+  },
+  {
+    name: "scope-items/[itemId] PATCH",
+    ok: 200,
+    call: (job, s) =>
+      h(patchScopeItem)(
+        jsonReq(job.id, `scope-items/${s.scopeItemId}`, "PATCH", { description: MARK }),
+        cx({ id: job.id, itemId: s.scopeItemId }),
+      ),
+    changed: async (_job, s) =>
+      (await prisma.scopeItem.findUnique({ where: { id: s.scopeItemId } }))?.description === MARK,
+  },
+  {
+    name: "water-damage-classification POST",
+    ok: 200,
+    call: (job) =>
+      h(postWaterClass)(
+        jsonReq(job.id, "water-damage-classification", "POST", {
+          waterCategory: "CAT_1",
+          damageClass: "CLASS_2",
+        }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      (await prisma.waterDamageClassification.count({ where: { inspectionId: job.id } })) === 1,
+  },
+  {
+    name: "floor-plan PUT",
+    ok: 200,
+    call: (job) =>
+      h(putFloorPlan)(
+        jsonReq(job.id, "floor-plan", "PUT", {
+          imageUrl: `https://res.cloudinary.com/demo/image/upload/${MARK}.png`,
+        }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      ((await prisma.inspection.findUnique({ where: { id: job.id } }))?.floorPlanImageUrl ?? "").includes(MARK),
+  },
+  {
+    name: "biohazard-assessment POST",
+    ok: 200,
+    call: (job) =>
+      h(postBiohazard)(
+        jsonReq(job.id, "biohazard-assessment", "POST", { contaminationAreaM2: 3 }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      (await prisma.biohazardAssessment.count({ where: { inspectionId: job.id } })) === 1,
+  },
+  {
+    name: "group-readings PATCH",
+    ok: 200,
+    call: (job, s) =>
+      h(patchGroupReadings)(
+        jsonReq(job.id, "group-readings", "PATCH", {
+          assignments: [{ name: MARK, readingIds: [s.readingId] }],
+        }),
+        cx({ id: job.id }),
+      ),
+    changed: async (_job, s) =>
+      (await prisma.moistureReading.findUnique({ where: { id: s.readingId } }))?.affectedArea === MARK,
+  },
+  {
+    name: "voice/session POST",
+    ok: 200,
+    call: (job) =>
+      h(postVoiceSession)(jsonReq(job.id, "voice/session", "POST", {}), cx({ id: job.id })),
+    changed: async (job) =>
+      (await prisma.voiceCopilotSession.count({ where: { inspectionId: job.id } })) === 1,
+  },
+  {
+    name: "equipment-calculator POST",
+    ok: 200,
+    call: (job) =>
+      h(postEquipment)(
+        jsonReq(job.id, "equipment-calculator", "POST", {
+          affectedAreaM2: 20,
+          damageClass: "CLASS_2",
+          damageCategory: "CAT_1",
+        }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      (await prisma.scopeItem.count({ where: { inspectionId: job.id, autoDetermined: true } })) > 0,
+  },
+  {
+    name: "drying-goal POST",
+    ok: 200,
+    call: (job) =>
+      h(postDryingGoal)(
+        jsonReq(job.id, "drying-goal", "POST", {
+          targetCategory: "Category 1",
+          targetClass: "Class 2",
+        }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      (await (prisma as any).dryingGoalRecord.count({ where: { inspectionId: job.id } })) === 1,
+  },
+];
+
+/**
+ * Coordinator ruling on D-028: create and update only. Every delete, and
+ * contents pack-out (its items carry replacementValueAud and
+ * restorationCostEstimate), stays with the owner's reach. The assigned
+ * technician is refused here exactly as before D-028.
+ */
+const OWNER_ONLY_CASES: FieldCase[] = [
+  {
+    name: "affected-areas/[areaId] DELETE",
+    ok: 200,
+    call: (job, s) =>
+      h(deleteArea)(
+        jsonReq(job.id, `affected-areas/${s.areaId}`, "DELETE"),
+        cx({ id: job.id, areaId: s.areaId }),
+      ),
+    changed: async (_job, s) => (await prisma.affectedArea.count({ where: { id: s.areaId } })) === 0,
+  },
+  {
+    name: "moisture/[readingId] DELETE",
+    ok: 200,
+    call: (job, s) =>
+      h(deleteReading)(
+        jsonReq(job.id, `moisture/${s.readingId}`, "DELETE"),
+        cx({ id: job.id, readingId: s.readingId }),
+      ),
+    // DELETE keeps the row and stamps invalidatedAt (7ec6b2b5b), so "changed"
+    // means invalidated, not gone.
+    changed: async (_job, s) =>
+      (await prisma.moistureReading.findUnique({ where: { id: s.readingId } }))?.invalidatedAt != null,
+  },
+  {
+    name: "scope-items/[itemId] DELETE",
+    ok: 200,
+    call: (job, s) =>
+      h(deleteScopeItem)(
+        jsonReq(job.id, `scope-items/${s.scopeItemId}`, "DELETE"),
+        cx({ id: job.id, itemId: s.scopeItemId }),
+      ),
+    changed: async (_job, s) => (await prisma.scopeItem.count({ where: { id: s.scopeItemId } })) === 0,
+  },
+  {
+    name: "contents-pack-out POST",
+    ok: 201,
+    call: (job) =>
+      h(postPackOut)(
+        jsonReq(job.id, "contents-pack-out", "POST", { itemDescription: MARK }),
+        cx({ id: job.id }),
+      ),
+    changed: async (job) =>
+      (await prisma.contentsPackOutItem.count({
+        where: { inspectionId: job.id, itemDescription: MARK },
+      })) === 1,
+  },
+  {
+    name: "sketches/[sketchId] DELETE",
+    ok: 200,
+    call: (job, s) =>
+      h(deleteSketch)(
+        jsonReq(job.id, `sketches/${s.sketchId}`, "DELETE"),
+        cx({ id: job.id, sketchId: s.sketchId }),
+      ),
+    changed: async (_job, s) => (await prisma.claimSketch.count({ where: { id: s.sketchId } })) === 0,
+  },
+];
+
+describe.skipIf(!process.env.DATABASE_URL)(
+  "D-028: the assigned technician writes field data on the job",
+  () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    afterAll(async () => {
+      if (made.inspections.length) {
+        await prisma.auditLog.deleteMany({ where: { inspectionId: { in: made.inspections } } });
+        await prisma.inspection.deleteMany({ where: { id: { in: made.inspections } } });
+      }
+      // The RA-7721 block's afterAll has already run, so the users,
+      // organisations and rate-limit rows this block made are removed here.
+      if (made.users.length) {
+        await prisma.report.deleteMany({ where: { userId: { in: made.users } } });
+        await prisma.rateLimitHit.deleteMany({
+          where: { OR: made.users.map((u) => ({ key: { contains: u } })) },
+        });
+        await prisma.user.updateMany({
+          where: { id: { in: made.users } },
+          data: { organizationId: null },
+        });
+      }
+      await prisma.organization.deleteMany({ where: { id: { in: made.orgs } } });
+      await prisma.user.deleteMany({ where: { id: { in: made.users } } });
+    });
+
+    async function fresh() {
+      const w = await mkWorld();
+      const job = await mkJob(w, { workflow: false });
+      const seeded = await seedFieldRows(job);
+      return { w, job, seeded };
+    }
+
+    it.each(FIELD_CASES.map((c) => [c.name, c] as const))(
+      "%s: the assigned technician succeeds and the row changes",
+      async (_name, c) => {
+        const { w, job, seeded } = await fresh();
+        // Negative control first: the seed has not already satisfied the check.
+        expect(await c.changed(job, seeded)).toBe(false);
+        as2(w.T);
+        await expectStatus(await c.call(job, seeded), c.ok);
+        expect(await c.changed(job, seeded)).toBe(true);
+      },
+    );
+
+    it.each(FIELD_CASES.map((c) => [c.name, c] as const))(
+      "%s: an unassigned colleague gets 404 and nothing changes",
+      async (_name, c) => {
+        const { w, job, seeded } = await fresh();
+        as2(w.C);
+        await expectStatus(await c.call(job, seeded), 404);
+        expect(await c.changed(job, seeded)).toBe(false);
+      },
+    );
+
+    it.each(FIELD_CASES.map((c) => [c.name, c] as const))(
+      "%s: another business gets 404 and nothing changes",
+      async (_name, c) => {
+        const { w, job, seeded } = await fresh();
+        as2(w.X);
+        await expectStatus(await c.call(job, seeded), 404);
+        expect(await c.changed(job, seeded)).toBe(false);
+      },
+    );
+
+    it.each(OWNER_ONLY_CASES.map((c) => [c.name, c] as const))(
+      "%s stays owner-only: the assigned technician gets 404 and nothing changes",
+      async (_name, c) => {
+        const { w, job, seeded } = await fresh();
+        as2(w.T);
+        await expectStatus(await c.call(job, seeded), 404);
+        expect(await c.changed(job, seeded)).toBe(false);
+        // Positive control: the same request succeeds for the owner.
+        as2(w.O);
+        await expectStatus(await c.call(job, seeded), c.ok);
+        expect(await c.changed(job, seeded)).toBe(true);
+      },
+    );
+
+    it.each(FIELD_CASES.map((c) => [c.name, c] as const))(
+      "%s: the owner is unchanged",
+      async (_name, c) => {
+        const { w, job, seeded } = await fresh();
+        as2(w.O);
+        await expectStatus(await c.call(job, seeded), c.ok);
+        expect(await c.changed(job, seeded)).toBe(true);
+      },
+    );
+
+    /**
+     * Deterministic race: the gate has already admitted T; the owner reassigns
+     * the job just before the handler's scoped write opens its transaction.
+     * `prisma` from @/lib/prisma is a Proxy over the real client cached on
+     * globalThis outside production, so the spy sits on that client.
+     */
+    async function reassignBeforeNextTransaction(jobId: string, to: string) {
+      const client = (globalThis as { prisma?: typeof prisma }).prisma;
+      if (!client) throw new Error("real Prisma client not initialised");
+      const realTransaction = client.$transaction.bind(client);
+      const state = { reassigned: false };
+      vi.spyOn(client, "$transaction").mockImplementationOnce((async (...args: unknown[]) => {
+        await client.inspection.update({ where: { id: jobId }, data: { technicianId: to } });
+        state.reassigned = true;
+        return (realTransaction as (...a: unknown[]) => unknown)(...args);
+      }) as typeof client.$transaction);
+      return state;
+    }
+
+    const RACE_CASES = FIELD_CASES.filter((c) =>
+      ["environmental POST", "scope-items POST", "make-safe PATCH", "affected-areas POST"].includes(c.name),
+    );
+
+    it.each(RACE_CASES.map((c) => [c.name, c] as const))(
+      "%s: a technician reassigned between the check and the write changes 0 rows",
+      async (_name, c) => {
+        const { w, job, seeded } = await fresh();
+        const race = await reassignBeforeNextTransaction(job.id, w.O);
+        as2(w.T);
+        const res = await c.call(job, seeded);
+        // Positive control first: the reassignment really ran inside this request.
+        expect(race.reassigned).toBe(true);
+        await expectStatus(res, 404);
+        expect(await c.changed(job, seeded)).toBe(false);
+      },
+    );
+
+    it("cross-job child id: the technician cannot edit a row of another job through their own job's URL", async () => {
+      const { w, job, seeded } = await fresh();
+      // A second job of the same owner, NOT assigned to T.
+      const other = await mkJob(w, { technicianId: null, workflow: false });
+      const otherArea = await prisma.affectedArea.findFirstOrThrow({
+        where: { inspectionId: other.id },
+        select: { id: true, description: true },
+      });
+      as2(w.T);
+      // Through T's own job URL, naming the other job's area id.
+      await expectStatus(
+        await h(patchArea)(
+          jsonReq(job.id, `affected-areas/${otherArea.id}`, "PATCH", { description: MARK }),
+          cx({ id: job.id, areaId: otherArea.id }),
+        ),
+        404,
+      );
+      // Through the other job's URL directly.
+      await expectStatus(
+        await h(patchArea)(
+          jsonReq(other.id, `affected-areas/${otherArea.id}`, "PATCH", { description: MARK }),
+          cx({ id: other.id, areaId: otherArea.id }),
+        ),
+        404,
+      );
+      expect(
+        (await prisma.affectedArea.findUnique({ where: { id: otherArea.id } }))?.description,
+      ).toBe(otherArea.description);
+      // Positive control: the same request on T's own area succeeds.
+      await expectStatus(
+        await h(patchArea)(
+          jsonReq(job.id, `affected-areas/${seeded.areaId}`, "PATCH", { description: MARK }),
+          cx({ id: job.id, areaId: seeded.areaId }),
+        ),
+        200,
+      );
+    });
+
+    it("cross-job child id: a moisture reading of another job cannot be moved through T's job", async () => {
+      const { w, job } = await fresh();
+      const other = await mkJob(w, { technicianId: null, workflow: false });
+      const otherReading = await prisma.moistureReading.findFirstOrThrow({
+        where: { inspectionId: other.id },
+        select: { id: true, mapX: true },
+      });
+      as2(w.T);
+      await expectStatus(
+        await h(patchReading)(
+          jsonReq(job.id, `moisture/${otherReading.id}`, "PATCH", { mapX: 0.5, mapY: 0.5 }),
+          cx({ id: job.id, readingId: otherReading.id }),
+        ),
+        404,
+      );
+      expect(
+        (await prisma.moistureReading.findUnique({ where: { id: otherReading.id } }))?.mapX,
+      ).toBe(otherReading.mapX);
+    });
+
+    it("drying goal: the technician evaluates but cannot certify; the owner certifies as themself", async () => {
+      const { w, job } = await fresh();
+      // The seeded reading (30 on drywall) is above target; make it dry.
+      await prisma.moistureReading.updateMany({
+        where: { inspectionId: job.id },
+        data: { moistureLevel: 1 },
+      });
+      as2(w.T);
+      await expectStatus(
+        await h(postDryingGoal)(
+          jsonReq(job.id, "drying-goal", "POST", { targetCategory: "Category 1", targetClass: "Class 2" }),
+          cx({ id: job.id }),
+        ),
+        200,
+      );
+      await expectStatus(
+        await h(putDryingGoal)(
+          jsonReq(job.id, "drying-goal", "PUT", { signedOffBy: "Not The Owner" }),
+          cx({ id: job.id }),
+        ),
+        403,
+      );
+      const db = prisma as any;
+      expect((await db.dryingGoalRecord.findUnique({ where: { inspectionId: job.id } })).goalAchieved).toBe(false);
+      as2(w.O);
+      await expectStatus(
+        await h(putDryingGoal)(
+          jsonReq(job.id, "drying-goal", "PUT", { signedOffBy: "Not The Owner" }),
+          cx({ id: job.id }),
+        ),
+        200,
+      );
+      const rec = await db.dryingGoalRecord.findUnique({ where: { inspectionId: job.id } });
+      expect(rec.goalAchieved).toBe(true);
+      expect(rec.signedOffBy).toBe(w.O);
     });
   },
 );

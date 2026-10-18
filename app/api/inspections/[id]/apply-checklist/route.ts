@@ -4,7 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { IICRC_CHECKLISTS } from "@/lib/iicrc-checklists";
 import { withIdempotency } from "@/lib/idempotency";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
 // POST — apply an IICRC checklist template to an inspection's scope items
@@ -50,7 +53,7 @@ export async function POST(
       }
 
       // RA-1711 batch 4 — adopt shared tenancy helper.
-      const tenancy = await assertInspectionTenancy(session, id);
+      const tenancy = await assertInspectionAssignedWrite(session, id);
       if (!tenancy.ok) {
         return apiError(request, {
           code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -83,19 +86,33 @@ export async function POST(
 
       let created: { id: string; itemType: string; description: string }[] = [];
       if (newItems.length > 0) {
-        await prisma.scopeItem.createMany({
-          data: newItems.map((item) => ({
-            inspectionId: id,
-            itemType: item.itemType,
-            description: item.description,
-            quantity: item.quantity,
-            unit: item.unit,
-            justification: item.justification,
-            autoDetermined: true,
-            isRequired: true,
-            isSelected: true,
-          })),
-        });
+        // D-028: re-check the caller's reach inside the write, so a
+        // reassignment between the check and the write changes 0 rows.
+        const inserted = await writeWithinInspectionScope(
+          tenancy.data.inspectionManyWhere,
+          { updatedAt: new Date() },
+          (tx) =>
+            tx.scopeItem.createMany({
+              data: newItems.map((item) => ({
+                inspectionId: id,
+                itemType: item.itemType,
+                description: item.description,
+                quantity: item.quantity,
+                unit: item.unit,
+                justification: item.justification,
+                autoDetermined: true,
+                isRequired: true,
+                isSelected: true,
+              })),
+            }),
+        );
+        if (!inserted) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Inspection not found",
+            status: 404,
+          });
+        }
 
         created = await prisma.scopeItem.findMany({
           where: {

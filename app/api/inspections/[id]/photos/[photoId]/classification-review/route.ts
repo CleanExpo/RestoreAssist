@@ -14,6 +14,7 @@ import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   acceptPhotoClassification,
@@ -63,8 +64,17 @@ export async function POST(
 
     const { id: inspectionId, photoId } = await params;
 
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
+      where: tenancy.data.inspectionManyWhere,
       select: { id: true },
     });
     if (!inspection) {
@@ -200,7 +210,12 @@ export async function POST(
       }
 
       const updated = await tx.inspectionPhoto.update({
-        where: { id: current.id, inspection: { userId: session.user.id } },
+        where: {
+          id: current.id,
+          ...(tenancy.data.childInspectionFilter && {
+            inspection: tenancy.data.childInspectionFilter,
+          }),
+        },
         data: updateData,
         select: {
           id: true,

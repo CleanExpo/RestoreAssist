@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
 import type { Prisma } from "@prisma/client";
@@ -100,6 +101,7 @@ async function syncTechnicianChoice(
   userId: string,
   before: ChoiceFields,
   after: ChoiceFields,
+  ownerReach: boolean,
 ) {
   const beforeKey = choiceKey(before);
   const afterKey = choiceKey(after);
@@ -116,7 +118,10 @@ async function syncTechnicianChoice(
       isFinal: status !== "DRAFT",
       reviewedBy: userId,
     });
-  } else if (status === "DRAFT") {
+  } else if (status === "DRAFT" && ownerReach) {
+    // D-028: clearing the pick deletes the reviewed Classification row, which
+    // the owner may have written (job page, draft save). Deletes stay with the
+    // owner's reach, so for the assigned technician the row is left as it is.
     await tx.classification.deleteMany({
       where: { inspectionId, reviewedBy: { not: null } },
     });
@@ -180,8 +185,17 @@ export async function POST(
 
     const { id } = await params;
 
-    const inspection = await prisma.inspection.findUnique({
-      where: { id, userId: session.user.id },
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
+    const inspection = await prisma.inspection.findFirst({
+      where: tenancy.data.inspectionManyWhere,
       select: {
         id: true,
         status: true,
@@ -212,6 +226,7 @@ export async function POST(
     // Atomically upsert classification + stamp claimType + record the
     // technician's Category / Class choice (RA-7709) — prevents split-brain
     // state if DB connection drops between the writes.
+    const ownerReach = !tenancy.data.viaAssignment;
     const record = await prisma.$transaction(async (tx) => {
       const before = await tx.waterDamageClassification.findUnique({
         where: { inspectionId: id },
@@ -252,7 +267,7 @@ export async function POST(
         },
       });
       await tx.inspection.update({
-        where: { id, userId: session.user.id },
+        where: tenancy.data.inspectionWhere,
         data: { claimType: "WATER" },
       });
       await syncTechnicianChoice(
@@ -262,6 +277,7 @@ export async function POST(
         session.user.id,
         before,
         saved,
+        ownerReach,
       );
       return saved;
     });

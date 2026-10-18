@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
 const HAZARD_TYPES = ["asbestos", "lead", "silica", "electrical", "structural"];
@@ -31,7 +34,7 @@ export async function POST(
 
     const { id, sketchId } = await params;
 
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -96,16 +99,30 @@ export async function POST(
       });
     }
 
-    const hazard = await (prisma as any).hazard.create({
-      data: {
-        sketchId,
-        elementId: elementId ?? null,
-        sketchRoomId: sketchRoomId ?? null,
-        type,
-        status: status ?? "suspected",
-        whsPathwayNote: whsPathwayNote ?? null,
-      },
-    });
+    // D-028: re-check the caller's reach inside the write, so a
+    // reassignment between the check and the write changes 0 rows.
+    const hazard = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { updatedAt: new Date() },
+      (tx) =>
+        tx.hazard.create({
+          data: {
+            sketchId,
+            elementId: elementId ?? null,
+            sketchRoomId: sketchRoomId ?? null,
+            type,
+            status: status ?? "suspected",
+            whsPathwayNote: whsPathwayNote ?? null,
+          },
+        }),
+    );
+    if (!hazard) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json({ hazard }, { status: 201 });
   } catch (error) {

@@ -9,15 +9,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
-const resolveInspectionWrite = vi.fn();
+const assertInspectionAssignedWrite = vi.fn();
 const updateMany = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  resolveInspectionWrite: (...a: unknown[]) => resolveInspectionWrite(...a),
+  assertInspectionAssignedWrite: (...a: unknown[]) => assertInspectionAssignedWrite(...a),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -43,7 +44,7 @@ function patch(body: unknown) {
 
 beforeEach(() => {
   getServerSession.mockReset().mockResolvedValue({ user: { id: "u1" } });
-  resolveInspectionWrite.mockReset().mockResolvedValue({
+  assertInspectionAssignedWrite.mockReset().mockResolvedValue({
     ok: true,
     data: {
       inspectionWhere: { id: "insp_1", ...ownerFilter },
@@ -101,7 +102,7 @@ describe("PATCH moisture reading position (RA-7713 part 12)", () => {
   });
 
   it("returns the tenancy status and writes nothing without write reach", async () => {
-    resolveInspectionWrite.mockResolvedValue({
+    assertInspectionAssignedWrite.mockResolvedValue({
       ok: false,
       status: 404,
       reason: "Inspection not found",
@@ -113,7 +114,7 @@ describe("PATCH moisture reading position (RA-7713 part 12)", () => {
 
   it("returns 401 without a session", async () => {
     getServerSession.mockResolvedValue(null);
-    resolveInspectionWrite.mockResolvedValue({
+    assertInspectionAssignedWrite.mockResolvedValue({
       ok: false,
       status: 401,
       reason: "Unauthorized",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -24,11 +25,18 @@ export async function POST(
     const { id } = await params;
 
     // Validate inspection exists and belongs to user
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+      where: tenancy.data.inspectionManyWhere,
+      select: { id: true },
     });
 
     if (!inspection) {
@@ -99,7 +107,7 @@ export async function POST(
 
     // Update inspection with floor plan URL
     await prisma.inspection.update({
-      where: { id, userId: session.user.id },
+      where: tenancy.data.inspectionWhere,
       data: {
         floorPlanImageUrl: uploadResult.url,
       },
@@ -144,11 +152,18 @@ export async function PUT(
     const { id } = await params;
 
     // Validate inspection exists and belongs to user
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+      where: tenancy.data.inspectionManyWhere,
+      select: { id: true },
     });
 
     if (!inspection) {
@@ -195,7 +210,7 @@ export async function PUT(
 
     // Update inspection with floor plan URL
     await prisma.inspection.update({
-      where: { id, userId: session.user.id },
+      where: tenancy.data.inspectionWhere,
       data: {
         floorPlanImageUrl: imageUrl,
       },

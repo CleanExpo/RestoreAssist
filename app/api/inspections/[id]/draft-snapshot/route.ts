@@ -144,6 +144,40 @@ export async function PUT(
   const { id } = await params;
   const tenancy = await resolveInspectionWrite(session, id);
   if (!tenancy.ok) {
+    // D-028: a snapshot save deletes rows (readings the form dropped, areas,
+    // every scope item, the classification choice), and deletes stay with the
+    // owner's reach. The job's assigned technician is told so plainly; their
+    // field edits go through the per-record routes. Anyone else gets the
+    // opaque 404 below.
+    // The assigned-technician test mirrors assertInspectionAssignedWrite: the
+    // caller's organisation, read from the database, is non-empty and equal
+    // to the job owner's, so a technician removed from the team gets 404.
+    const callerOrg =
+      tenancy.status === 404
+        ? (
+            await prisma.user.findUnique({
+              where: { id: session.user.id },
+              select: { organizationId: true },
+            })
+          )?.organizationId
+        : null;
+    if (
+      callerOrg &&
+      (await prisma.inspection.count({
+        where: {
+          id,
+          technicianId: session.user.id,
+          user: { organizationId: callerOrg },
+        },
+      })) > 0
+    ) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message:
+          "Saving the whole draft is for the job owner or a manager. Record field data on each screen instead.",
+        status: 403,
+      });
+    }
     return apiError(request, {
       code: tenancy.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
       message: tenancy.reason,

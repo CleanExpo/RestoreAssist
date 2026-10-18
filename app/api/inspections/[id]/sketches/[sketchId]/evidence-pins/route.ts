@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionTenancy,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   attachRoomNamesToPins,
@@ -142,7 +146,7 @@ export async function POST(
     }
 
     const { id, sketchId } = await params;
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -292,53 +296,69 @@ export async function POST(
       thumbnailUrl = toStorageLocator(ref);
     }
 
-    const pin = await prisma.evidencePin.create({
-      data: {
-        sketchId,
-        sketchRoomId,
-        inspectionPhotoId: linkedPhoto?.id ?? null,
-        kind,
-        x: body.x,
-        y: body.y,
-        nx: nx ?? null,
-        ny: ny ?? null,
-        rotationDeg: body.rotationDeg ?? 0,
-        scale: body.scale ?? 1,
-        fileUrl,
-        thumbnailUrl,
-        fileName: body.fileName ?? null,
-        fileMimeType: linkedPhoto?.mimeType ?? body.fileMimeType ?? null,
-        fileSizeBytes: linkedPhoto?.fileSize ?? body.fileSizeBytes ?? null,
-        caption:
-          linkedPhoto?.description ??
-          linkedPhoto?.location ??
-          body.caption ??
-          null,
-        capturedByUserId: session.user.id,
-        captureSource: body.captureSource ?? "web",
-        syncState: "synced",
-      },
-      select: {
-        id: true,
-        sketchId: true,
-        sketchRoomId: true,
-        inspectionPhotoId: true,
-        kind: true,
-        x: true,
-        y: true,
-        nx: true,
-        ny: true,
-        rotationDeg: true,
-        scale: true,
-        fileUrl: true,
-        thumbnailUrl: true,
-        fileName: true,
-        caption: true,
-        captureSource: true,
-        syncState: true,
-        createdAt: true,
-      },
-    });
+    // Validated as numbers above; bound here so the narrowing survives the callback.
+    const { x, y } = body;
+    // D-028: re-check the caller's reach inside the write, so a
+    // reassignment between the check and the write changes 0 rows.
+    const pin = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { updatedAt: new Date() },
+      (tx) =>
+        tx.evidencePin.create({
+          data: {
+            sketchId,
+            sketchRoomId,
+            inspectionPhotoId: linkedPhoto?.id ?? null,
+            kind,
+            x,
+            y,
+            nx: nx ?? null,
+            ny: ny ?? null,
+            rotationDeg: body.rotationDeg ?? 0,
+            scale: body.scale ?? 1,
+            fileUrl,
+            thumbnailUrl,
+            fileName: body.fileName ?? null,
+            fileMimeType: linkedPhoto?.mimeType ?? body.fileMimeType ?? null,
+            fileSizeBytes: linkedPhoto?.fileSize ?? body.fileSizeBytes ?? null,
+            caption:
+              linkedPhoto?.description ??
+              linkedPhoto?.location ??
+              body.caption ??
+              null,
+            capturedByUserId: session.user.id,
+            captureSource: body.captureSource ?? "web",
+            syncState: "synced",
+          },
+          select: {
+            id: true,
+            sketchId: true,
+            sketchRoomId: true,
+            inspectionPhotoId: true,
+            kind: true,
+            x: true,
+            y: true,
+            nx: true,
+            ny: true,
+            rotationDeg: true,
+            scale: true,
+            fileUrl: true,
+            thumbnailUrl: true,
+            fileName: true,
+            caption: true,
+            captureSource: true,
+            syncState: true,
+            createdAt: true,
+          },
+        }),
+    );
+    if (!pin) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     const responsePin = await signEvidencePinUrls({
       ...pin,

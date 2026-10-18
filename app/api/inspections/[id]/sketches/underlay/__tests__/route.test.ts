@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 const prepareUnderlayBytes = vi.hoisted(() => vi.fn());
@@ -10,8 +11,32 @@ const requireAddon = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) =>
+    // Run through the mocked $transaction so the test's tx object is used.
+    (
+      scopePrisma as unknown as {
+        $transaction: (fn: (tx: unknown) => unknown) => unknown;
+      }
+    ).$transaction(work),
+  // DELETE keeps the owner's reach (D-028: create and update only).
   assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  assertInspectionAssignedWrite: vi.fn(async () => ({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "insp-1" },
+      inspectionManyWhere: { id: "insp-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
+  })),
 }));
 vi.mock("@/lib/sketch/server-underlay-import", () => ({
   prepareUnderlayBytes,
@@ -32,12 +57,12 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { getServerSession } from "next-auth";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { DELETE, POST } from "../route";
 
 const session = getServerSession as unknown as ReturnType<typeof vi.fn>;
-const tenancy = assertInspectionTenancy as unknown as ReturnType<typeof vi.fn>;
+const tenancy = assertInspectionAssignedWrite as unknown as ReturnType<typeof vi.fn>;
 const transaction = (
   prisma as unknown as { $transaction: ReturnType<typeof vi.fn> }
 ).$transaction;
@@ -81,7 +106,15 @@ function urlRequest(): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   session.mockResolvedValue({ user: { id: "user-1" } });
-  tenancy.mockResolvedValue({ ok: true });
+  tenancy.mockResolvedValue({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "inspection-1" },
+      inspectionManyWhere: { id: "inspection-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
+  });
   isUnderlayUrlImportEnabled.mockReturnValue(false);
   requireAddon.mockResolvedValue({ allowed: true });
   prepareUnderlayBytes.mockResolvedValue({

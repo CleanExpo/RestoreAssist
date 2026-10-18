@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
 import { persistInspectionClassification } from "@/lib/nir-classification-persist";
@@ -117,8 +121,17 @@ export async function POST(
     }
 
     const { id } = await params;
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
+      where: tenancy.data.inspectionManyWhere,
       select: {
         id: true,
         claimType: true,
@@ -165,70 +178,83 @@ export async function POST(
       justification ??
       `Technician-recorded IICRC S500 Category ${category} / Class ${damageClass}.`;
 
-    const classification = await prisma.$transaction(async (tx) => {
-      // RA-7709: one row per inspection — replace it, never append.
-      const created = await persistInspectionClassification(tx, id, {
-        category,
-        class: damageClass,
-        justification: finalJustification,
-        standardReference:
-          standardReference ?? "IICRC S500:2021 §7.1 (technician recorded)",
-        confidence: confidence ?? 100,
-        inputData: JSON.stringify({
-          source: "manual_classification_tab",
-          reviewedBy: session.user.id,
-        }),
-        isFinal: true,
-        reviewedBy: session.user.id,
-      });
-
-      const waterCategory = toWaterCategory(category);
-      const waterClass = toDamageClass(damageClass);
-      const photoCount = inspection.photos.length;
-
-      await tx.waterDamageClassification.upsert({
-        where: { inspectionId: id },
-        create: {
-          inspectionId: id,
-          waterCategory,
-          damageClass: waterClass,
-          gateClassificationComplete: true,
-          gateLossSourceComplete: false,
-          gatePhotosAttached: photoCount >= 3,
-        },
-        update: {
-          waterCategory,
-          damageClass: waterClass,
-          gateClassificationComplete: true,
-          gatePhotosAttached: photoCount >= 3,
-        },
-      });
-
-      // Stamp claim type for water when unset so moisture gates activate.
-      if (!inspection.claimType) {
-        await tx.inspection.update({
-          where: { id },
-          data: { claimType: "WATER" },
-        });
-      }
-
-      await tx.auditLog.create({
-        data: {
-          inspectionId: id,
-          action: "Classification recorded",
-          entityType: "Classification",
-          entityId: created.id,
-          userId: session.user.id,
-          changes: JSON.stringify({
-            category,
-            class: damageClass,
-            justification: finalJustification,
+    // D-028: the scoped parent update claims the job first, so a reassignment
+    // between the check and the write changes 0 rows.
+    const classification = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { updatedAt: new Date() },
+      async (tx) => {
+        // RA-7709: one row per inspection — replace it, never append.
+        const created = await persistInspectionClassification(tx, id, {
+          category,
+          class: damageClass,
+          justification: finalJustification,
+          standardReference:
+            standardReference ?? "IICRC S500:2021 §7.1 (technician recorded)",
+          confidence: confidence ?? 100,
+          inputData: JSON.stringify({
+            source: "manual_classification_tab",
+            reviewedBy: session.user.id,
           }),
-        },
-      });
+          isFinal: true,
+          reviewedBy: session.user.id,
+        });
 
-      return created;
-    });
+        const waterCategory = toWaterCategory(category);
+        const waterClass = toDamageClass(damageClass);
+        const photoCount = inspection.photos.length;
+
+        await tx.waterDamageClassification.upsert({
+          where: { inspectionId: id },
+          create: {
+            inspectionId: id,
+            waterCategory,
+            damageClass: waterClass,
+            gateClassificationComplete: true,
+            gateLossSourceComplete: false,
+            gatePhotosAttached: photoCount >= 3,
+          },
+          update: {
+            waterCategory,
+            damageClass: waterClass,
+            gateClassificationComplete: true,
+            gatePhotosAttached: photoCount >= 3,
+          },
+        });
+
+        // Stamp claim type for water when unset so moisture gates activate.
+        if (!inspection.claimType) {
+          await tx.inspection.update({
+            where: tenancy.data.inspectionWhere,
+            data: { claimType: "WATER" },
+          });
+        }
+
+        await tx.auditLog.create({
+          data: {
+            inspectionId: id,
+            action: "Classification recorded",
+            entityType: "Classification",
+            entityId: created.id,
+            userId: session.user.id,
+            changes: JSON.stringify({
+              category,
+              class: damageClass,
+              justification: finalJustification,
+            }),
+          },
+        });
+
+        return created;
+      },
+    );
+    if (!classification) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json({ classification }, { status: 201 });
   } catch (error) {

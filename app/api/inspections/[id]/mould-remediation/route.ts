@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import {
   assertInspectionTenancy,
+  assertInspectionAssignedWrite,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -120,7 +121,7 @@ export async function POST(
 
     const { id } = await params;
 
-    const tenancy = await resolveInspectionWrite(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },

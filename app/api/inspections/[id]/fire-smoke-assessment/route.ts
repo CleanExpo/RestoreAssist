@@ -22,6 +22,7 @@ import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
 import {
   assertInspectionTenancy,
+  assertInspectionAssignedWrite,
   resolveInspectionWrite,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
@@ -134,7 +135,7 @@ export async function POST(
 
     const { id } = await params;
 
-    const tenancy = await resolveInspectionWrite(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(req, {
         code: tenancyCode(tenancy.status),
