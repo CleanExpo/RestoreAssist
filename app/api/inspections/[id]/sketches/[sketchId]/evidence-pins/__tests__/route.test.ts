@@ -22,8 +22,8 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
     _data: unknown,
     work: (tx: unknown) => unknown,
   ) => work(scopePrisma),
-  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
-  // D-028: POST gates on the assigned-write helper; GET keeps the tenancy read.
+  assertInspectionReadable: vi.fn(async () => ({ ok: true })),
+  // D-028: POST gates on the assigned-write helper; GET on the read reach.
   assertInspectionAssignedWrite: vi.fn(async () => ({
       ok: true,
       data: {
@@ -297,8 +297,8 @@ describe("GET evidence pins", () => {
   });
 
   it("does not read another tenant or another inspection's sketch", async () => {
-    const { assertInspectionTenancy } = await import("@/lib/auth/assert-tenancy");
-    vi.mocked(assertInspectionTenancy).mockResolvedValueOnce({ ok: false, status: 403, reason: "Forbidden" } as never);
+    const { assertInspectionReadable } = await import("@/lib/auth/assert-tenancy");
+    vi.mocked(assertInspectionReadable).mockResolvedValueOnce({ ok: false, status: 403, reason: "Forbidden" } as never);
     const lookup = new NextRequest(
       "http://localhost/api/inspections/inspection-1/sketches/sketch-1/evidence-pins?inspectionPhotoId=photo-1&x=400&y=300",
     );

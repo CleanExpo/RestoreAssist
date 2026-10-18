@@ -32,6 +32,8 @@ const {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    // The money gate re-reads the caller's role; the caller is an owner.
+    user: { findUnique: vi.fn().mockResolvedValue({ id: "u_1", role: "ADMIN" }) },
     invoice: { findFirst: invoiceFindFirst },
     invoiceSequence: { upsert: sequenceUpsert },
     $transaction,

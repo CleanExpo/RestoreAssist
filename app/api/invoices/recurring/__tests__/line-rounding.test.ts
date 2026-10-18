@@ -12,6 +12,10 @@ vi.mock("next-auth", () => ({
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // The money gate itself is covered by technician-money-gate.test.ts.
+  assertFinancialWriter: vi
+    .fn()
+    .mockResolvedValue({ ok: true, data: { id: "user_1", role: "ADMIN" } }),
   canLinkRecord: vi.fn().mockResolvedValue(true),
 }));
 vi.mock("@/lib/gst/resolve-user-gst", () => ({
