@@ -77,6 +77,7 @@ const prismaMock = vi.hoisted(() => {
     restorationDocument: { updateMany: ReturnType<typeof vi.fn> };
     creditNote: { updateMany: ReturnType<typeof vi.fn> };
     invoicePayment: { updateMany: ReturnType<typeof vi.fn> };
+    securityEvent: { create: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   } = {
     user: { findUnique: vi.fn(), delete: vi.fn(), updateMany: vi.fn() },
@@ -87,6 +88,7 @@ const prismaMock = vi.hoisted(() => {
     restorationDocument: { updateMany: vi.fn() },
     creditNote: { updateMany: vi.fn() },
     invoicePayment: { updateMany: vi.fn() },
+    securityEvent: { create: vi.fn() },
     // Interactive transaction: run the callback with the same delegate set as
     // the transactional client so tx.* calls are observable on the mock.
     $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mock)),
@@ -139,9 +141,33 @@ describe("POST /api/account/delete — statutory-record retention", () => {
     } as never);
     prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
     prismaMock.user.updateMany.mockResolvedValue({ count: 2 } as never);
+    prismaMock.securityEvent.create.mockResolvedValue({ id: "se-1" } as never);
     prismaMock.$transaction.mockImplementation(
       async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
     );
+  });
+
+  // GET /api/user/profile refuses to recreate an id with this tombstone, so
+  // it must be written with the delete or the delete must not happen.
+  it("writes the ACCOUNT_DELETED tombstone in the transaction, before the user is deleted", async () => {
+    const res = await POST(makeRequest(CONFIRMATION));
+    expect(res.status).toBe(200);
+    expect(prismaMock.securityEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        eventType: "ACCOUNT_DELETED",
+        userId: "user-1",
+      }),
+    });
+    expect(
+      prismaMock.securityEvent.create.mock.invocationCallOrder[0],
+    ).toBeLessThan(prismaMock.user.delete.mock.invocationCallOrder[0]);
+  });
+
+  it("does not delete the account when the tombstone cannot be written", async () => {
+    prismaMock.securityEvent.create.mockRejectedValue(new Error("db down"));
+    const res = await POST(makeRequest(CONFIRMATION));
+    expect(res.status).not.toBe(200);
+    expect(prismaMock.user.delete).not.toHaveBeenCalled();
   });
 
   it("deletes the account holder's User row (erases their PII)", async () => {
@@ -236,6 +262,7 @@ describe("POST /api/account/delete — RA-7893 members keep a leave date", () =>
       { id: "org-a" },
     ] as never);
     prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
+    prismaMock.securityEvent.create.mockResolvedValue({ id: "se-1" } as never);
     prismaMock.$transaction.mockImplementation(
       async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
     );

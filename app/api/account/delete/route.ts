@@ -29,7 +29,7 @@ import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
-import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { extractRequestContext } from "@/lib/security-audit";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -127,15 +127,6 @@ export async function POST(request: NextRequest) {
       }
 
       const reqCtx = extractRequestContext(request);
-      await logSecurityEvent({
-        eventType: "ACCOUNT_DELETED",
-        userId: user.id,
-        email: user.email,
-        ...reqCtx,
-        details: { hadSubscription: Boolean(user.subscriptionId) },
-      }).catch((err) =>
-        console.error("[account-delete] audit log failed:", err),
-      );
 
       // account-deletion-retention: the account holder's PII is erased (the
       // User row is deleted below), but the statutory financial/compliance
@@ -194,6 +185,23 @@ export async function POST(request: NextRequest) {
         await tx.restorationDocument.updateMany(reassignToRetentionOwner);
         await tx.creditNote.updateMany(reassignToRetentionOwner);
         await tx.invoicePayment.updateMany(reassignToRetentionOwner);
+        // The ACCOUNT_DELETED event is the tombstone GET /api/user/profile
+        // checks before it recreates a missing user, so a session that
+        // outlives this delete cannot bring the account back. It is written
+        // here, not best-effort, so the delete fails if the tombstone does.
+        await tx.securityEvent.create({
+          data: {
+            eventType: "ACCOUNT_DELETED",
+            severity: "INFO",
+            userId: user.id,
+            email: user.email,
+            ipAddress: reqCtx.ipAddress,
+            userAgent: reqCtx.userAgent,
+            details: JSON.stringify({
+              hadSubscription: Boolean(user.subscriptionId),
+            }),
+          },
+        });
         await tx.user.delete({ where: { id: user.id } });
       });
 
