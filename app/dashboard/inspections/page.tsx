@@ -8,6 +8,7 @@ import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListEr
 import type { ParsedApiError } from "@/lib/client/parse-api-error";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import {
   Plus,
@@ -42,6 +43,8 @@ interface Inspection {
   propertyAddress: string;
   propertyPostcode: string;
   technicianName: string | null;
+  // The assigned technician (Inspection.technicianId); null when unassigned.
+  technicianId: string | null;
   status: string;
   createdAt: string;
   submittedAt: string | null;
@@ -102,13 +105,25 @@ const STATUS_CONFIG: Record<
 
 export default function InspectionsPage() {
   const router = useRouter();
+  const { data: session, status: sessionStatus } = useSession();
+  const currentUserId = session?.user?.id;
+  // D-028: a technician (role USER) works their own jobs, so ask for those
+  // (assigned to them, plus unassigned). Wait for the session: fetching the
+  // unscoped list first would flash every job in the workspace.
+  const inspectionsUrl =
+    sessionStatus === "loading"
+      ? null
+      : session?.user?.role === "USER"
+        ? "/api/inspections?assignee=me"
+        : "/api/inspections";
   const {
     data: inspectionsData,
-    loading,
+    loading: fetchLoading,
     error: fetchError,
     refetch: refetchInspections,
     refresh: refreshInspections,
-  } = useFetch<{ inspections: Inspection[] }>("/api/inspections");
+  } = useFetch<{ inspections: Inspection[] }>(inspectionsUrl);
+  const loading = fetchLoading || sessionStatus === "loading";
   useMobilePullRefreshHandler(async () =>
     (await refreshInspections())
       ? { kind: "updated", message: "Inspections updated" }
@@ -529,6 +544,11 @@ export default function InspectionsPage() {
                         year: "numeric",
                       })}
                     </span>
+                    {insp.technicianId === null ? (
+                      <span>Unassigned</span>
+                    ) : currentUserId && insp.technicianId === currentUserId ? (
+                      <span>Assigned to you</span>
+                    ) : null}
                     {insp.technicianName && (
                       <span>Tech: {insp.technicianName}</span>
                     )}

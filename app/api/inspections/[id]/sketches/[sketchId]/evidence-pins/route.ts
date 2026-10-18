@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   assertInspectionAssignedWrite,
-  assertInspectionTenancy,
+  assertInspectionReadable,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -56,7 +56,7 @@ export async function GET(
     }
 
     const { id, sketchId } = await params;
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",

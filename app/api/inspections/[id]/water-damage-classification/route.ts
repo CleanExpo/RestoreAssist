@@ -21,7 +21,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionReadable,
+} from "@/lib/auth/assert-tenancy";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
 import type { Prisma } from "@prisma/client";
@@ -146,8 +149,19 @@ export async function GET(
 
     const { id } = await params;
 
+    // D-028 / D-023: the assigned technician reads back the classification
+    // they record.
+    const tenancy = await assertInspectionReadable(session, id);
+    if (!tenancy.ok) {
+      return apiError(_req, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
+
     const inspection = await prisma.inspection.findUnique({
-      where: { id, userId: session.user.id },
+      where: { id },
       select: { id: true, waterDamageClassification: true },
     });
 

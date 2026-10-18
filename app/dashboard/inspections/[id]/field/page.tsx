@@ -240,7 +240,7 @@ export default function FieldModePage({ params }: PageProps) {
               {inspection.propertyAddress}
             </p>
             <p className="text-xs text-white/40">
-              {inspection.inspectionNumber} ·{" "}
+              <span>{inspection.inspectionNumber}</span> ·{" "}
               {STATUS_LABEL[inspection.status] ?? inspection.status}
             </p>
           </div>
@@ -529,7 +529,9 @@ export default function FieldModePage({ params }: PageProps) {
         )}
       </div>
 
-      <MobileNav />
+      {/* Job-scoped tabs (Overview, Readings, Photos, Voice, Checklist), so
+          the technician moves between this job's views, not the job list. */}
+      <MobileNav inspectionId={inspectionId} />
     </div>
   );
 }

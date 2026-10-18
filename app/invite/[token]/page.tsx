@@ -9,7 +9,10 @@
  *     or Google path sets an invite_token cookie and dispatches signIn("google").
  *   - Step 2 (terms): user accepts ToS + chain-of-custody, POSTs to
  *     /api/invites/[token]. On success, credentials path signs the user in via
- *     NextAuth and lands on /dashboard?firstRun=tech.
+ *     NextAuth. A technician (role USER) lands on Field Mode (/dashboard/field);
+ *     a manager or admin lands on /dashboard?firstRun=tech.
+ *   - ?error=<code> is set by /api/invites/oauth-complete when the Google
+ *     sign-in cannot complete the invite; INVITE_ERROR_MESSAGES explains it.
  */
 
 import { useEffect, useState } from "react";
@@ -36,6 +39,25 @@ import {
 } from "@/components/invite/headshot-utils";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
+/**
+ * Codes /api/invites/oauth-complete redirects back with. `mismatch` and
+ * `signin` leave the invite usable, so the page explains them above step 1;
+ * the rest replace the raw preview error.
+ */
+const INVITE_ERROR_MESSAGES: Record<string, string> = {
+  mismatch:
+    "The Google account you signed in with does not match the email address this invitation was sent to. Sign in with that address, or create a password below.",
+  signin:
+    "Google sign-in did not finish. Try again, or create a password below.",
+  expired:
+    "This invitation has expired. Ask the person who invited you to send a new one.",
+  used: "This invitation has already been accepted. Sign in to continue.",
+  not_found:
+    "This invitation could not be found. Check the link, or ask for a new invitation.",
+  invalid:
+    "This invitation link is not valid. Check the link, or ask for a new invitation.",
+};
+
 interface InvitePreview {
   email: string;
   role: string;
@@ -55,6 +77,11 @@ export default function InviteAcceptPage() {
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(true);
   const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const errorCode = searchParams?.get("error") ?? null;
+  const inviteErrorMessage = errorCode
+    ? (INVITE_ERROR_MESSAGES[errorCode] ?? null)
+    : null;
 
   const initialStep = searchParams?.get("step") === "2" ? "terms" : "identity";
   const [step, setStep] = useState<"identity" | "terms">(initialStep);
@@ -133,7 +160,9 @@ export default function InviteAcceptPage() {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {previewError ?? "This invite is no longer available."}
+              {inviteErrorMessage ??
+                previewError ??
+                "This invite is no longer available."}
             </AlertDescription>
           </Alert>
           <div className="text-center text-sm text-slate-400">
@@ -240,7 +269,11 @@ export default function InviteAcceptPage() {
         );
         return;
       }
-      router.push("/dashboard?firstRun=tech");
+      // A technician's work is on site: send them to Field Mode. Managers and
+      // admins keep the dashboard first-run.
+      router.push(
+        preview.role === "USER" ? "/dashboard/field" : "/dashboard?firstRun=tech",
+      );
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -252,6 +285,12 @@ export default function InviteAcceptPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl">
+          {inviteErrorMessage && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{inviteErrorMessage}</AlertDescription>
+            </Alert>
+          )}
           {step === "identity" ? (
             <InviteIdentityStep
               token={token}

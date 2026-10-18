@@ -7,7 +7,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
 import { lineAmountsCents } from "@/lib/invoices/calc";
-import { canLinkRecord } from "@/lib/auth/assert-tenancy";
+import { assertFinancialWriter, canLinkRecord } from "@/lib/auth/assert-tenancy";
 
 function nextDateFromFrequency(start: Date, frequency: string): Date {
   const d = new Date(start);
@@ -73,6 +73,16 @@ export async function POST(request: NextRequest) {
     });
   }
   const userId = session.user.id;
+  // Creating a money record is an owner or manager action. The role is read
+  // from the database (a JWT role can be stale), before the body is parsed.
+  const moneyGate = await assertFinancialWriter(session);
+  if (!moneyGate.ok) {
+    return apiError(request, {
+      code: moneyGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: moneyGate.reason,
+      status: moneyGate.status,
+    });
+  }
 
   // RA-1266: Idempotency-Key prevents duplicate recurring-template creation
   // (which would then spawn duplicate invoices on every cycle).

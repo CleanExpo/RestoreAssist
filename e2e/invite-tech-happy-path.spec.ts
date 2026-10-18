@@ -45,8 +45,10 @@ test.describe("W11 — team invite accept", () => {
     await page.getByLabel(/chain-of-custody/).check();
     await page.getByRole("button", { name: /^Join / }).click();
 
-    await page.waitForURL(/\/dashboard(\?|$)/, { timeout: 30_000 });
-    await expect(page).toHaveURL(/firstRun=tech|\/dashboard/);
+    // The seeded invite is role USER, and a USER lands on Field Mode
+    // (app/invite/[token]/page.tsx). The licence banner lives on /dashboard.
+    await page.waitForURL(/\/dashboard\/field(\?|$)/, { timeout: 30_000 });
+    await page.goto("/dashboard");
 
     // The technician licence banner (components/dashboard/TechLicenceBanner).
     // The old /…attestations|IICRC certificate/ alternation matched the banner's

@@ -16,6 +16,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   assertInspectionAssignedWrite,
+  assertInspectionReadable,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -70,11 +71,9 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const inspection = await prisma.inspection.findUnique({
-      where: { id, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
+    // D-028 / D-023: the assigned technician reads back the readings they log.
+    const tenancy = await assertInspectionReadable(session, id);
+    if (!tenancy.ok) {
       return apiError(_req, {
         code: "NOT_FOUND",
         message: "Inspection not found",

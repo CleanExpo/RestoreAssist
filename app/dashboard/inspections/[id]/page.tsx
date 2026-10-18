@@ -12,6 +12,10 @@ import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPane
 import { AssignTechnician } from "@/components/inspection/AssignTechnician";
 import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 import { cn } from "@/lib/utils";
+import {
+  canUseOwnerJobActions,
+  failedResponseMessage,
+} from "@/lib/inspections/job-actions";
 import { resolveAreaSqm } from "@/lib/units";
 import { parseReadingInput } from "@/lib/forms/parse-reading-input";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
@@ -206,6 +210,8 @@ interface Inspection {
   propertyPostcode: string;
   technicianName: string | null;
   technicianId: string | null;
+  // The job owner (Inspection.userId). Absent on the demo inspection.
+  userId?: string | null;
   status: string;
   createdAt: string;
   submittedAt: string | null;
@@ -1097,9 +1103,8 @@ export default function InspectionDetailPage({
         `/api/inspections/${inspection!.id}/report?format=pdf`,
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string }).error ?? "Report generation failed",
+          await failedResponseMessage(res, "Report generation failed"),
         );
       }
       const contentType = res.headers.get("content-type") ?? "";
@@ -1158,9 +1163,8 @@ export default function InspectionDetailPage({
         { method: "POST" },
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string }).error ?? "Dispute pack generation failed",
+          await failedResponseMessage(res, "Dispute pack generation failed"),
         );
       }
       const blob = await res.blob();
@@ -1217,10 +1221,7 @@ export default function InspectionDetailPage({
         },
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          (err as { error?: string }).error ?? "Failed to add area",
-        );
+        throw new Error(await failedResponseMessage(res, "Failed to add area"));
       }
       const data = await res.json();
       setAffectedAreas((prev) => [...prev, data.affectedArea]);
@@ -1281,6 +1282,14 @@ export default function InspectionDetailPage({
     0,
   );
   const isAdmin = session?.user?.role === "ADMIN";
+  // D-028: the assigned technician records field data; the dispute pack,
+  // deleting readings and the client progress-update toggle stay with the job
+  // owner and managers. The routes enforce this; the page stops offering them.
+  const ownerActions = canUseOwnerJobActions({
+    role: session?.user?.role,
+    callerId: session?.user?.id,
+    ownerId: inspection.userId,
+  });
   const showMoistureTabs = moistureReadingsRequired(
     inspection.claimType as IicrcClaimType | null | undefined,
   );
@@ -1473,8 +1482,9 @@ export default function InspectionDetailPage({
             </Button>
           )}
           <ExportPdfButton inspectionId={inspection.id} />
-          {(inspection.status === "SUBMITTED" ||
-            inspection.status === "COMPLETED") && (
+          {ownerActions &&
+            (inspection.status === "SUBMITTED" ||
+              inspection.status === "COMPLETED") && (
             <Button
               variant="outline"
               size="sm"
@@ -1576,28 +1586,30 @@ export default function InspectionDetailPage({
               </div>
               {/* RA-6949 — per-job Restoration Pulse kill switch. Default OFF;
                   the firm opts a job in before any automated update is sent. */}
-              <div className="mt-2 pt-3 border-t border-neutral-200 dark:border-slate-700">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={inspection.pulseEnabled}
-                    disabled={pulseSaving}
-                    onChange={(e) => handleTogglePulse(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500"
-                    aria-label="Send automatic progress updates to the client for this job"
-                  />
-                  <span className="text-sm">
-                    <span className="font-medium text-neutral-800 dark:text-slate-200">
-                      Automatic progress updates
+              {ownerActions && (
+                <div className="mt-2 pt-3 border-t border-neutral-200 dark:border-slate-700">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={inspection.pulseEnabled}
+                      disabled={pulseSaving}
+                      onChange={(e) => handleTogglePulse(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500"
+                      aria-label="Send automatic progress updates to the client for this job"
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium text-neutral-800 dark:text-slate-200">
+                        Automatic progress updates
+                      </span>
+                      <span className="block text-xs text-neutral-500 dark:text-slate-400">
+                        Email the client when this job reaches a new stage or the
+                        drying status changes. Turn off to pause updates (for
+                        example, during a dispute).
+                      </span>
                     </span>
-                    <span className="block text-xs text-neutral-500 dark:text-slate-400">
-                      Email the client when this job reaches a new stage or the
-                      drying status changes. Turn off to pause updates (for
-                      example, during a dispute).
-                    </span>
-                  </span>
-                </label>
-              </div>
+                  </label>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
       </header>
@@ -2441,13 +2453,15 @@ export default function InspectionDetailPage({
                           {reading.notes || "—"}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => handleDeleteMoisture(reading.id)}
-                            aria-label={`Delete moisture reading for ${reading.location}`}
-                            className="text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
-                          >
-                            <Trash2 size={14} aria-hidden="true" />
-                          </button>
+                          {ownerActions && (
+                            <button
+                              onClick={() => handleDeleteMoisture(reading.id)}
+                              aria-label={`Delete moisture reading for ${reading.location}`}
+                              className="text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

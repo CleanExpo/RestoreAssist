@@ -654,16 +654,65 @@ export async function resolveReportFinancialReach(
 }
 
 /**
+ * An inspection's money (cost estimates and their rates): the organisation
+ * widening stops at MANAGER, as for invoices. The job's owner always keeps it
+ * through the `{ userId }` clause.
+ */
+export async function resolveInspectionFinancialReach(
+  session: SessionLike | null,
+): Promise<TenancyResult<Prisma.InspectionWhereInput>> {
+  return resolveReach(session, "read-financial") as Promise<
+    TenancyResult<Prisma.InspectionWhereInput>
+  >;
+}
+
+/**
+ * Roles that may create money records (invoices, credit notes, recurring
+ * templates, variation invoices) and spend the business's credits.
+ *
+ * Tested as a capability the role HAS, never as `role !== "USER"`: the
+ * negative form silently hands money to whatever role is added next.
+ */
+const FINANCIAL_WRITER_ROLES: readonly string[] = ["ADMIN", "MANAGER"];
+
+/**
+ * Gate for a handler that creates money records or spends credits. The role is
+ * re-read from the DATABASE, never taken from the session claim: the JWT
+ * carries a role for up to 90 days and a demotion does not rewrite it.
+ * 401 without a session, 403 for any other role or a missing user row.
+ */
+export async function assertFinancialWriter(
+  session: SessionLike | null,
+): Promise<TenancyResult<{ id: string; role: string }>> {
+  if (!session?.user?.id) {
+    return { ok: false, status: 401, reason: "Unauthorized" };
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, role: true },
+  });
+  if (!user || !FINANCIAL_WRITER_ROLES.includes(String(user.role))) {
+    return {
+      ok: false,
+      status: 403,
+      reason: "Only an owner or manager can do this",
+    };
+  }
+  return { ok: true, data: { id: user.id, role: String(user.role) } };
+}
+
+/**
  * Whether the caller may link a client, report or estimate named by id in a
  * request body.
  *
  * A body id is chosen by the caller. Storing it unchecked let one business
  * attach another business's client to its own invoice and then read that
  * client's name and email back through the invoice (prelaunch audit D-021).
- * The reach required is the one the caller would need to read the record
- * directly, so linking can never expose more than a direct read would. An
- * estimate has no workspace relation of its own; it is reached through its
- * report.
+ * A client needs the reach the caller would need to read it directly. A
+ * report or estimate needs the FINANCIAL reach: linking it to an invoice puts
+ * its money behind that invoice, so the organisation widening stops at
+ * MANAGER (D-023 / RA-7771). An estimate has no workspace relation of its
+ * own; it is reached through its report.
  */
 export async function canLinkRecord(
   session: SessionLike | null,
@@ -680,7 +729,7 @@ export async function canLinkRecord(
     });
     return row !== null;
   }
-  const reach = await resolveReportReach(session);
+  const reach = await resolveReportFinancialReach(session);
   if (!reach.ok) return false;
   if (kind === "report") {
     const row = await prisma.report.findFirst({
