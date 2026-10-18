@@ -57,6 +57,13 @@ export async function POST(
         },
       },
     });
+    if (!inspection) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const client =
       inspection?.client ??
       inspection?.report?.client ??
