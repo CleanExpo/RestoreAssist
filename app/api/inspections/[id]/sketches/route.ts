@@ -595,179 +595,192 @@ export async function POST(
         await (prisma as any).$transaction(elementOps);
       }
 
-      // RoomGraph V1 — upsert rooms BEFORE moisture pin sync so pins can bind
-      // to SketchRoom ids (EvidencePin / moisture / hazards join target).
-      const roomNodes = extractRoomGraphNodes(
-        (authoritativeSketchData ?? {}) as Record<string, unknown>,
-      );
-      const seenFabric = new Set<string>();
-      for (const node of roomNodes) {
-        seenFabric.add(node.fabricObjectId);
-        const existingRoom = byFabric.get(node.fabricObjectId) as
-          | {
-              id: string;
-              originalAreaM2: number | null;
-              originalGeometryJson: unknown;
-              confirmedAt: Date | null;
-              confirmedBy: string | null;
-              provenance: string | null;
+      // D-028: the room graph and pin readings are written in one transaction
+      // that first re-claims the inspection with the caller's scope, so a
+      // reassignment after the sketch save writes none of them.
+      const graphSynced = await writeWithinInspectionScope(
+        tenancy.data.inspectionManyWhere,
+        { updatedAt: new Date() },
+        async (tx) => {
+          const db = tx as any;
+          // RoomGraph V1 — upsert rooms BEFORE moisture pin sync so pins can bind
+          // to SketchRoom ids (EvidencePin / moisture / hazards join target).
+          const roomNodes = extractRoomGraphNodes(
+            (authoritativeSketchData ?? {}) as Record<string, unknown>,
+          );
+          const seenFabric = new Set<string>();
+          for (const node of roomNodes) {
+            seenFabric.add(node.fabricObjectId);
+            const existingRoom = byFabric.get(node.fabricObjectId) as
+              | {
+                  id: string;
+                  originalAreaM2: number | null;
+                  originalGeometryJson: unknown;
+                  confirmedAt: Date | null;
+                  confirmedBy: string | null;
+                  provenance: string | null;
+                }
+              | undefined;
+            const resolved = resolvedByFabricId.get(node.fabricObjectId) ?? {
+              provenance: node.provenance,
+              isExplicitConfirm: false,
+            };
+            // RA-7611 P1 / RA-7617: confirmedBy/confirmedAt are server-stamped.
+            // Client values are ignored. An already-confirmed row keeps its stamp.
+            const confirmStamp = resolveSketchRoomConfirmAttribution({
+              existingConfirmedAt: existingRoom?.confirmedAt ?? null,
+              existingConfirmedBy: existingRoom?.confirmedBy ?? null,
+              incomingConfirmedAt: node.confirmedAt,
+              incomingConfirmedBy: node.confirmedBy,
+              sessionUserId: session.user.id,
+              isExplicitConfirm: resolved.isExplicitConfirm,
+            });
+            if (existingRoom) {
+              await db.sketchRoom.update({
+                where: { id: existingRoom.id },
+                data: {
+                  name: node.name,
+                  areaM2: node.areaM2,
+                  perimeterM: node.perimeterM,
+                  materialSlug: node.materialSlug,
+                  waterCategory: node.waterCategory,
+                  provenance: resolved.provenance,
+                  geometryJson: node.geometryJson,
+                  floorNumber,
+                  // RA-7611: confirmation state on SketchRoom (SketchElement is
+                  // deleted and recreated on every save). original* is sticky —
+                  // once captured, later canvas edits must not overwrite the
+                  // first-suggested snapshot.
+                  confirmedAt: confirmStamp.confirmedAt,
+                  confirmedBy: confirmStamp.confirmedBy,
+                  correctionHistory: node.correctionHistory ?? undefined,
+                  originalAreaM2: existingRoom.originalAreaM2 ?? node.originalAreaM2,
+                  originalGeometryJson:
+                    existingRoom.originalGeometryJson ??
+                    node.originalGeometryJson ??
+                    undefined,
+                  // Back on the canvas — clear any previous detachment so the room
+                  // is a placement target again.
+                  detachedAt: null,
+                },
+              });
+            } else {
+              await db.sketchRoom.create({
+                data: {
+                  sketchId: sketch.id,
+                  fabricObjectId: node.fabricObjectId,
+                  name: node.name,
+                  areaM2: node.areaM2,
+                  perimeterM: node.perimeterM,
+                  materialSlug: node.materialSlug,
+                  waterCategory: node.waterCategory,
+                  provenance: resolved.provenance,
+                  geometryJson: node.geometryJson,
+                  floorNumber,
+                  confirmedAt: confirmStamp.confirmedAt,
+                  confirmedBy: confirmStamp.confirmedBy,
+                  correctionHistory: node.correctionHistory ?? undefined,
+                  originalAreaM2: node.originalAreaM2,
+                  originalGeometryJson: node.originalGeometryJson ?? undefined,
+                },
+              });
             }
-          | undefined;
-        const resolved = resolvedByFabricId.get(node.fabricObjectId) ?? {
-          provenance: node.provenance,
-          isExplicitConfirm: false,
-        };
-        // RA-7611 P1 / RA-7617: confirmedBy/confirmedAt are server-stamped.
-        // Client values are ignored. An already-confirmed row keeps its stamp.
-        const confirmStamp = resolveSketchRoomConfirmAttribution({
-          existingConfirmedAt: existingRoom?.confirmedAt ?? null,
-          existingConfirmedBy: existingRoom?.confirmedBy ?? null,
-          incomingConfirmedAt: node.confirmedAt,
-          incomingConfirmedBy: node.confirmedBy,
-          sessionUserId: session.user.id,
-          isExplicitConfirm: resolved.isExplicitConfirm,
-        });
-        if (existingRoom) {
-          await (prisma as any).sketchRoom.update({
-            where: { id: existingRoom.id },
-            data: {
-              name: node.name,
-              areaM2: node.areaM2,
-              perimeterM: node.perimeterM,
-              materialSlug: node.materialSlug,
-              waterCategory: node.waterCategory,
-              provenance: resolved.provenance,
-              geometryJson: node.geometryJson,
-              floorNumber,
-              // RA-7611: confirmation state on SketchRoom (SketchElement is
-              // deleted and recreated on every save). original* is sticky —
-              // once captured, later canvas edits must not overwrite the
-              // first-suggested snapshot.
-              confirmedAt: confirmStamp.confirmedAt,
-              confirmedBy: confirmStamp.confirmedBy,
-              correctionHistory: node.correctionHistory ?? undefined,
-              originalAreaM2: existingRoom.originalAreaM2 ?? node.originalAreaM2,
-              originalGeometryJson:
-                existingRoom.originalGeometryJson ??
-                node.originalGeometryJson ??
-                undefined,
-              // Back on the canvas — clear any previous detachment so the room
-              // is a placement target again.
-              detachedAt: null,
-            },
-          });
-        } else {
-          await (prisma as any).sketchRoom.create({
-            data: {
-              sketchId: sketch.id,
-              fabricObjectId: node.fabricObjectId,
-              name: node.name,
-              areaM2: node.areaM2,
-              perimeterM: node.perimeterM,
-              materialSlug: node.materialSlug,
-              waterCategory: node.waterCategory,
-              provenance: resolved.provenance,
-              geometryJson: node.geometryJson,
-              floorNumber,
-              confirmedAt: confirmStamp.confirmedAt,
-              confirmedBy: confirmStamp.confirmedBy,
-              correctionHistory: node.correctionHistory ?? undefined,
-              originalAreaM2: node.originalAreaM2,
-              originalGeometryJson: node.originalGeometryJson ?? undefined,
-            },
-          });
-        }
-      }
-      // A room missing from the incoming canvas is only safe to delete when
-      // nothing was captured in it. Deleting one that holds evidence would
-      // SetNull the room link on those pins/readings/hazards and silently lose
-      // which room they came from — see partitionStaleRooms.
-      const staleRooms = existingRooms.filter(
-        (r: { fabricObjectId: string }) => !seenFabric.has(r.fabricObjectId),
-      );
-      const partition = partitionStaleRooms(staleRooms);
-      const deletableIds = partition.deletableIds;
-      // D-028: the technician's save detaches every stale room (as it already
-      // does for rooms holding evidence) instead of deleting any.
-      const detachableIds = ownerReach
-        ? partition.detachableIds
-        : [...partition.detachableIds, ...partition.deletableIds];
+          }
+          // A room missing from the incoming canvas is only safe to delete when
+          // nothing was captured in it. Deleting one that holds evidence would
+          // SetNull the room link on those pins/readings/hazards and silently lose
+          // which room they came from — see partitionStaleRooms.
+          const staleRooms = existingRooms.filter(
+            (r: { fabricObjectId: string }) => !seenFabric.has(r.fabricObjectId),
+          );
+          const partition = partitionStaleRooms(staleRooms);
+          const deletableIds = partition.deletableIds;
+          // D-028: the technician's save detaches every stale room (as it already
+          // does for rooms holding evidence) instead of deleting any.
+          const detachableIds = ownerReach
+            ? partition.detachableIds
+            : [...partition.detachableIds, ...partition.deletableIds];
 
-      if (deletableIds.length && ownerReach) {
-        await (prisma as any).sketchRoom.deleteMany({
-          where: { id: { in: deletableIds } },
-        });
-      }
-      if (detachableIds.length) {
-        // Only stamp rooms detaching for the first time, so a room that stays
-        // off-canvas across saves keeps the timestamp it actually left at.
-        await (prisma as any).sketchRoom.updateMany({
-          where: { id: { in: detachableIds }, detachedAt: null },
-          data: { detachedAt: new Date() },
-        });
-      }
+          if (deletableIds.length && ownerReach) {
+            await db.sketchRoom.deleteMany({
+              where: { id: { in: deletableIds } },
+            });
+          }
+          if (detachableIds.length) {
+            // Only stamp rooms detaching for the first time, so a room that stays
+            // off-canvas across saves keeps the timestamp it actually left at.
+            await db.sketchRoom.updateMany({
+              where: { id: { in: detachableIds }, detachedAt: null },
+              data: { detachedAt: new Date() },
+            });
+          }
 
-      const roomsForPins = await (prisma as any).sketchRoom.findMany({
-        // Detached rooms are history, not placement targets: hit-testing a
-        // point against geometry that is no longer on the canvas would bind
-        // new evidence to a room the operator cannot see.
-        where: { sketchId: sketch.id, detachedAt: null },
-        select: {
-          id: true,
-          name: true,
-          fabricObjectId: true,
-          geometryJson: true,
+          const roomsForPins = await db.sketchRoom.findMany({
+            // Detached rooms are history, not placement targets: hit-testing a
+            // point against geometry that is no longer on the canvas would bind
+            // new evidence to a room the operator cannot see.
+            where: { sketchId: sketch.id, detachedAt: null },
+            select: {
+              id: true,
+              name: true,
+              fabricObjectId: true,
+              geometryJson: true,
+            },
+            take: 500,
+          });
+
+          // RA-6763 pt2: mirror the moisture overlay pins into normalized
+          // SketchMoistureReading rows (source="pin"). Scoped delete+recreate so the
+          // technician's manual drying log (source="manual") is never touched.
+          const pinReadings = pinsToMoistureReadingInputs(
+            sketch.id,
+            moisturePoints,
+            roomsForPins,
+          );
+          if (ownerReach) {
+            await db.sketchMoistureReading.deleteMany({
+              where: { sketchId: sketch.id, source: "pin" },
+            });
+            if (pinReadings.length) {
+              await db.sketchMoistureReading.createMany({
+                data: pinReadings,
+              });
+            }
+          } else {
+            // D-028: the technician's save only adds. A pin reading already on
+            // record (same value, same room) is kept; anything new is created;
+            // nothing is deleted, so a removed or changed pin leaves its earlier
+            // reading as history until the owner's next save.
+            const onRecord: Array<{ currentMc: number; sketchRoomId: string | null }> =
+              await db.sketchMoistureReading.findMany({
+                where: { sketchId: sketch.id, source: "pin" },
+                select: { currentMc: true, sketchRoomId: true },
+                take: 1000,
+              });
+            const remaining = onRecord.map((r) => `${r.currentMc}|${r.sketchRoomId ?? ""}`);
+            const additions = pinReadings.filter((p) => {
+              const i = remaining.indexOf(`${p.currentMc}|${p.sketchRoomId ?? ""}`);
+              if (i === -1) return true;
+              remaining.splice(i, 1);
+              return false;
+            });
+            if (additions.length) {
+              await db.sketchMoistureReading.createMany({
+                data: additions,
+              });
+            }
+          }
+          return true;
         },
-        take: 500,
-      });
-
-      // RA-6763 pt2: mirror the moisture overlay pins into normalized
-      // SketchMoistureReading rows (source="pin"). Scoped delete+recreate so the
-      // technician's manual drying log (source="manual") is never touched.
-      const pinReadings = pinsToMoistureReadingInputs(
-        sketch.id,
-        moisturePoints,
-        roomsForPins,
       );
-      if (ownerReach) {
-        await (prisma as any).$transaction([
-          (prisma as any).sketchMoistureReading.deleteMany({
-            where: { sketchId: sketch.id, source: "pin" },
-          }),
-          ...(pinReadings.length
-            ? [
-                (prisma as any).sketchMoistureReading.createMany({
-                  data: pinReadings,
-                }),
-              ]
-            : []),
-        ]);
-      } else {
-        // D-028: the technician's save only adds. A pin reading already on
-        // record (same value, same room) is kept; anything new is created;
-        // nothing is deleted, so a removed or changed pin leaves its earlier
-        // reading as history until the owner's next save.
-        const onRecord: Array<{ currentMc: number; sketchRoomId: string | null }> =
-          await (prisma as any).sketchMoistureReading.findMany({
-            where: { sketchId: sketch.id, source: "pin" },
-            select: { currentMc: true, sketchRoomId: true },
-            take: 1000,
-          });
-        const remaining = onRecord.map((r) => `${r.currentMc}|${r.sketchRoomId ?? ""}`);
-        const additions = pinReadings.filter((p) => {
-          const i = remaining.indexOf(`${p.currentMc}|${p.sketchRoomId ?? ""}`);
-          if (i === -1) return true;
-          remaining.splice(i, 1);
-          return false;
+      if (!graphSynced) {
+        console.warn("[sketches] scope lost after the sketch save; room graph not synced", {
+          inspectionId: id,
         });
-        if (additions.length) {
-          await (prisma as any).sketchMoistureReading.createMany({
-            data: additions,
-          });
-        }
       }
 
       if (
+        graphSynced &&
         activeUnderlay &&
         underlayVerification?.ok &&
         cleanRenderReceipt
