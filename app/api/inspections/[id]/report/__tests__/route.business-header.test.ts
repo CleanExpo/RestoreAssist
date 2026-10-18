@@ -40,6 +40,14 @@ vi.mock("@/lib/api-errors", () => ({
     new Response("e", { status: o.status }),
   fromException: () => new Response("e", { status: 500 }),
 }));
+// D-028: read reach and money reach are covered by their own tests; here the
+// caller can read the job and see its money.
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionReadable: vi.fn().mockResolvedValue({ ok: true }),
+  resolveInspectionFinancialReach: vi
+    .fn()
+    .mockResolvedValue({ ok: true, data: {} }),
+}));
 
 import { GET } from "../route";
 
@@ -48,7 +56,7 @@ const req = () =>
 const ctx = { params: Promise.resolve({ id: "insp-1" }) };
 
 type FindArgs = {
-  include: { report: { include: { user: { select: Record<string, unknown> } } } };
+  include?: { report: { include: { user: { select: Record<string, unknown> } } } };
 };
 
 // The inspection row as the DB returns it for the route's own include: the
@@ -57,28 +65,32 @@ function serveReportAuthoredBy(
   authorId: string,
   fixture = makeTwoWorkspaces(),
 ) {
-  inspectionFindFirst.mockImplementation(async (args: FindArgs) => ({
-    id: "insp-1",
-    inspectionNumber: "NIR-1",
-    propertyAddress: "1 Test Street",
-    status: "COMPLETED",
-    environmentalData: null,
-    moistureReadings: [],
-    affectedAreas: [],
-    scopeItems: [],
-    classifications: [],
-    costEstimates: [],
-    photos: [],
-    claimSketches: [],
-    floorPlanImageUrl: null,
-    report: {
-      id: "r1",
-      user: project(
-        fixture.userRow(authorId),
-        args.include.report.include.user.select,
-      ),
-    },
-  }));
+  inspectionFindFirst.mockImplementation(async (args: FindArgs) => {
+    // The route's money-reach probe selects only the id.
+    if (args.include === undefined) return { id: "insp-1" };
+    return {
+      id: "insp-1",
+      inspectionNumber: "NIR-1",
+      propertyAddress: "1 Test Street",
+      status: "COMPLETED",
+      environmentalData: null,
+      moistureReadings: [],
+      affectedAreas: [],
+      scopeItems: [],
+      classifications: [],
+      costEstimates: [],
+      photos: [],
+      claimSketches: [],
+      floorPlanImageUrl: null,
+      report: {
+        id: "r1",
+        user: project(
+          fixture.userRow(authorId),
+          args.include.report.include.user.select,
+        ),
+      },
+    };
+  });
 }
 
 function headerBusiness() {
