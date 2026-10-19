@@ -21,6 +21,7 @@ import { ConvaiWidget } from "@/components/support/ConvaiWidget";
 import { PublicAssistantOrb } from "@/components/avatar";
 import { BotIdClient } from "botid/client";
 import { IOS_SHELL_LAUNCH_GUARD } from "@/lib/capacitor";
+import { FIRST_TOUCH_SCRIPT } from "@/lib/analytics/attribution";
 import "@/lib/env-check";
 import "./globals.css";
 
@@ -148,6 +149,8 @@ export default function RootLayout({
           }}
         />
         <script dangerouslySetInnerHTML={{ __html: IOS_SHELL_LAUNCH_GUARD }} />
+        {/* First-touch campaign attribution for signups (lib/analytics/attribution.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: FIRST_TOUCH_SCRIPT }} />
         <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
         {/* Dev-only: unregister leftover NIR SWs early. Do not force-reload —
             that races the Next router. SW v2.1 also self-destructs on localhost. */}

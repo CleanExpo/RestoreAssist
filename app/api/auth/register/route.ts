@@ -11,6 +11,10 @@ import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { verifyBotId } from "@/lib/auth/botid";
 import { track } from "@/lib/analytics/track";
+import {
+  FIRST_TOUCH_COOKIE,
+  parseFirstTouch,
+} from "@/lib/analytics/attribution";
 import { apiError } from "@/lib/api-errors";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
@@ -303,6 +307,10 @@ export async function POST(request: NextRequest) {
         // RA-1246 — signup_completed (unconditional)
         track(updatedUser.id, "signup_completed", {
           hasOrganization: true,
+          method: "credentials",
+          attribution: parseFirstTouch(
+            request.cookies.get(FIRST_TOUCH_COOKIE)?.value,
+          ),
         }).catch(() => {}),
       ]);
       let capTimer: ReturnType<typeof setTimeout> | undefined;
