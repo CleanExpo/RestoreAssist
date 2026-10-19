@@ -230,4 +230,13 @@ describe("RA-7549 Stripe-path CTA honesty (RA-7541 class)", () => {
     expect(src).toContain("afterTrialPlanNote");
     expect(src).not.toMatch(/\bUSD\b/);
   });
+
+  it("in-app pricing FAQ states the trial grant from PRICING_CONFIG", () => {
+    // Every trial-reminder email lands on /dashboard/pricing. Its FAQ said
+    // "30 free reports" while the trial grants 50 credits over 15 days.
+    const src = readSrc("app/dashboard/pricing/page.tsx");
+    expect(src).toContain("{PRICING_CONFIG.free.trialDays}-day trial");
+    expect(src).toContain("{PRICING_CONFIG.free.trialReportCredits} report");
+    expect(src).not.toMatch(/\b\d+ free reports\b/);
+  });
 });

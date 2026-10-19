@@ -245,9 +245,11 @@ function PricingPageContent() {
                   What happens after my free trial ends?
                 </h3>
                 <p className="text-slate-400">
-                  After your 30 free reports, you'll need to subscribe to a paid
-                  plan to continue creating reports. Your existing reports will
-                  remain accessible.
+                  When your {PRICING_CONFIG.free.trialDays}-day trial ends or
+                  its {PRICING_CONFIG.free.trialReportCredits} report credits
+                  are used, whichever comes first, you&apos;ll need to subscribe
+                  to keep creating reports. Your existing reports remain
+                  accessible.
                 </p>
               </div>
               <div className="bg-slate-800/30 rounded-lg p-6">
