@@ -18,11 +18,11 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "tough-cookie": "^6.0.2",
-    "undici": "^6.29.0"
+    "undici": "^6.29.1"
   },
   "devDependencies": {
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }
