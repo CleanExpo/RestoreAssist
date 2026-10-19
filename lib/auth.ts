@@ -19,6 +19,12 @@ import {
 import { logSecurityEvent, getAccountLockoutStatus } from "./security-audit";
 import { TRIAL_DAYS } from "@/lib/billing/constants";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { cookies } from "next/headers";
+import { track } from "@/lib/analytics/track";
+import {
+  FIRST_TOUCH_COOKIE,
+  parseFirstTouch,
+} from "@/lib/analytics/attribution";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
 
 const SESSION_REVOCATION_RECHECK_SECONDS = 24 * 60 * 60;
@@ -452,6 +458,22 @@ export const authOptions: NextAuthOptions = {
               PRICING_CONFIG.free.trialQuickFillCredits,
             totalQuickFillUsed: 0,
           } as any,
+        });
+        // RA-1246 parity with /api/auth/register: OAuth signups previously
+        // emitted no signup_completed, so the activation funnel and campaign
+        // attribution missed every Google sign-up.
+        let attribution = null;
+        try {
+          attribution = parseFirstTouch(
+            (await cookies()).get(FIRST_TOUCH_COOKIE)?.value,
+          );
+        } catch {
+          // cookies() throws outside a request context; attribution is optional.
+        }
+        await track(user.id, "signup_completed", {
+          hasOrganization: false,
+          method: "oauth",
+          attribution,
         });
       } catch (err) {
         console.error(
