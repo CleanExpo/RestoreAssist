@@ -238,5 +238,7 @@ describe("RA-7549 Stripe-path CTA honesty (RA-7541 class)", () => {
     expect(src).toContain("{PRICING_CONFIG.free.trialDays}-day trial");
     expect(src).toContain("{PRICING_CONFIG.free.trialReportCredits} report");
     expect(src).not.toMatch(/\b\d+ free reports\b/);
+    // Expired trials get 402 from /api/reports/[id]/download.
+    expect(src).toContain("downloading their PDFs requires an active");
   });
 });
