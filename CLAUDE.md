@@ -46,8 +46,9 @@ owner; do not re-derive the value.
   the crawler reading the `noindex`.
 - **`gitleaks --no-git` ignores `.gitignore`.** Verify against a
   `git checkout-index` export, which is what CI scans.
-- **Production is deployed by hand.** Merging to `main` ships nothing;
-  `deploy-production.yml` is `workflow_dispatch`-only and owner-gated.
+- **Merging to `main` deploys production.** The DigitalOcean app auto-deploys
+  on push to `main` (about 16 minutes); `/api/health` reports the live
+  `deploymentSha`. `deploy-production.yml` is not the release path.
 
 ## Australian and New Zealand English
 
