@@ -249,7 +249,8 @@ function PricingPageContent() {
                   its {PRICING_CONFIG.free.trialReportCredits} report credits
                   are used, whichever comes first, you&apos;ll need to subscribe
                   to keep creating reports. Your existing reports remain
-                  accessible.
+                  listed, but downloading their PDFs requires an active
+                  subscription.
                 </p>
               </div>
               <div className="bg-slate-800/30 rounded-lg p-6">
