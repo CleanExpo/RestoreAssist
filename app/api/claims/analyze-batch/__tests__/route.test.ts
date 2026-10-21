@@ -12,6 +12,17 @@ vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// RA-8043d: the route now requires platform support staff before any work.
+vi.mock("@/lib/admin-auth", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/admin-auth")>("@/lib/admin-auth");
+  return {
+    verifyAdminFromDb: async () => ({
+      user: { id: "user-1", role: "ADMIN", organizationId: null },
+    }),
+    verifyPlatformSupportOperator: actual.verifyPlatformSupportOperator,
+  };
+});
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: (...args: unknown[]) => applyRateLimit(...args),
 }));
@@ -49,6 +60,7 @@ function makeRequest(body: Record<string, unknown>) {
 }
 
 beforeEach(() => {
+  process.env.PLATFORM_SUPPORT_USER_IDS = "user-1";
   getServerSession.mockReset();
   applyRateLimit.mockReset();
   userFindUnique.mockReset();

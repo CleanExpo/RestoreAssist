@@ -19,6 +19,7 @@ import {
 import type { GapAnalysisResult } from "@/lib/gap-analysis";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import { verifyAdminFromDb, verifyPlatformSupportOperator } from "@/lib/admin-auth";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 const CATEGORY_MAP: Record<
@@ -71,6 +72,14 @@ export async function POST(request: NextRequest) {
         status: 401,
       });
     }
+
+    // RA-8043d: one Drive service account is shared by every firm, so any
+    // folder a firm shares with it is visible to whoever can browse it. Every
+    // self-signup is ADMIN, so browsing that Drive is platform staff work.
+    const operator = verifyPlatformSupportOperator(
+      await verifyAdminFromDb(session),
+    );
+    if (operator.response) return operator.response;
 
     // Rate limit: 5 batch analyses per 15 minutes per user (heavy operation)
     const rateLimited = await applyRateLimit(request, {
