@@ -30,6 +30,7 @@ import {
   type InvoiceStatus,
 } from "@/lib/invoice-status";
 import { getVariationAmountDisplay } from "@/lib/invoices/variation-amount";
+import { INVOICE_ONLINE_PAYMENT_ENABLED } from "@/lib/invoices/online-payment";
 import { formatDate } from "@/lib/formatters";
 import {
   parseApiError,
@@ -499,14 +500,17 @@ export default function InvoiceDetailPage({
           )}
           {canRecordPayment && (
             <>
-              <button
-                onClick={handlePayOnline}
-                disabled={creatingCheckout}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                <CreditCard className="h-4 w-4" />
-                <span>{creatingCheckout ? "Loading..." : "Pay Online"}</span>
-              </button>
+              {/* P1-MNY-00: hidden until firms are paid into their own Stripe account. */}
+              {INVOICE_ONLINE_PAYMENT_ENABLED && (
+                <button
+                  onClick={handlePayOnline}
+                  disabled={creatingCheckout}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  <span>{creatingCheckout ? "Loading..." : "Pay Online"}</span>
+                </button>
+              )}
               <button
                 onClick={() => setShowRecordPayment(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
