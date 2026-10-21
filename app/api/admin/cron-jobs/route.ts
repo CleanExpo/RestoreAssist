@@ -60,6 +60,9 @@ export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // RA-8043c: the platform job list is staff data, gated like POST below.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
   return NextResponse.json({ jobs: CRON_JOBS });
 }
 

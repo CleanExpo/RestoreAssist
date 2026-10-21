@@ -4,7 +4,8 @@
  *
  * Auth model under test:
  *  - Bearer CONNECTIONS_STATUS_TOKEN (timing-safe, fail-closed when unset)
- *  - OR an ADMIN session re-validated against the DB (verifyAdminFromDb)
+ *  - OR a platform support session: DB-verified ADMIN (verifyAdminFromDb) on
+ *    the PLATFORM_SUPPORT_USER_IDS allowlist (RA-8043c; every firm owner is ADMIN)
  *  - anonymous callers get a bare 401 with no infra detail
  *  - ?probe=1 switches to the live-probe builder
  */
@@ -14,7 +15,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/admin-auth", () => ({ verifyAdminFromDb: vi.fn() }));
+vi.mock("@/lib/admin-auth", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/admin-auth")>("@/lib/admin-auth");
+  return {
+    verifyAdminFromDb: vi.fn(),
+    verifyPlatformSupportOperator: actual.verifyPlatformSupportOperator,
+  };
+});
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: vi.fn() }));
 vi.mock("@/lib/connections/status", () => ({
   buildRestoreAssistConnectionStatus: vi.fn(),
@@ -109,7 +117,22 @@ describe("GET /api/v1/connections/status (RA-6937)", () => {
     expect(getServerSession).not.toHaveBeenCalled();
   });
 
-  it("returns 200 for a DB-verified admin session without a token", async () => {
+  it("refuses a firm owner's ADMIN session that is not platform support [ra-8043c]", async () => {
+    vi.stubEnv("CONNECTIONS_STATUS_TOKEN", "expected-token");
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "firm-owner-1", role: "ADMIN" },
+    } as never);
+    vi.mocked(verifyAdminFromDb).mockResolvedValue({
+      user: { id: "firm-owner-1", role: "ADMIN", organizationId: "org-1" },
+    });
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(401);
+    expect(buildRestoreAssistConnectionStatus).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for a DB-verified platform support session without a token", async () => {
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "admin-1");
     vi.stubEnv("CONNECTIONS_STATUS_TOKEN", "expected-token");
     vi.mocked(getServerSession).mockResolvedValue({
       user: { id: "admin-1", role: "ADMIN" },

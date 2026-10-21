@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { adminUserScope, verifyAdminFromDb } from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
 import {
   computeCostRollup,
@@ -33,6 +33,9 @@ export async function GET(request: NextRequest) {
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
   const { user: adminUser } = auth;
+  // RA-8043b: an org-less ADMIN must reach only their own rows. Filtering on
+  // `organizationId: null` matched every other org-less firm on the platform.
+  const userScope = adminUserScope(adminUser!);
 
   const { searchParams } = new URL(request.url);
   const now = new Date();
@@ -51,7 +54,7 @@ export async function GET(request: NextRequest) {
       by: ["inspectionId"],
       where: {
         startedAt: { gte: from, lte: to },
-        inspection: { user: { organizationId: adminUser!.organizationId } },
+        inspection: { user: userScope },
       },
       _sum: { totalCostAudCents: true },
       _count: { _all: true },
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest) {
       where: {
         startedAt: { gte: from, lte: to },
         endedAt: null,
-        inspection: { user: { organizationId: adminUser!.organizationId } },
+        inspection: { user: userScope },
       },
     });
 
@@ -79,7 +82,7 @@ export async function GET(request: NextRequest) {
         role: "assistant",
         session: {
           startedAt: { gte: from, lte: to },
-          inspection: { user: { organizationId: adminUser!.organizationId } },
+          inspection: { user: userScope },
         },
       },
       select: { sessionId: true, clauseRefs: true },
@@ -111,7 +114,7 @@ export async function GET(request: NextRequest) {
       where: {
         createdAt: { gte: from, lte: to },
         inspection: { isNot: null },
-        user: { organizationId: adminUser!.organizationId },
+        user: userScope,
       },
       select: {
         reportNumber: true,
@@ -179,7 +182,7 @@ export async function GET(request: NextRequest) {
                 ]
               : []),
             "Completeness delta is observational (non-randomised): assisted = inspection had at least one Live Teacher session, control = none. Confounding is possible.",
-            "All metrics (cost, citations, completeness) are scoped to the admin's organisation via inspection.user.organizationId — LiveTeacherSession has no organisation column of its own but reaches one through its inspection.",
+            "All metrics (cost, citations, completeness) are scoped to the admin's organisation (or, without one, the admin alone) via inspection.user — LiveTeacherSession has no organisation column of its own but reaches one through its inspection.",
           ],
         },
       },

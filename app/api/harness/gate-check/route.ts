@@ -22,6 +22,10 @@ import { prisma } from "@/lib/prisma";
 import { runGateCheck } from "@/lib/harness/gate-check";
 import { apiError, fromException } from "@/lib/api-errors";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +106,14 @@ export async function GET(request: NextRequest) {
         status: 401,
       });
     }
+
+    // RA-8043c: GateCheck rows have no owner column and every subscriber's
+    // POST writes into them, so the list is platform-wide. Only platform
+    // support may read it until rows carry an owner.
+    const operator = verifyPlatformSupportOperator(
+      await verifyAdminFromDb(session),
+    );
+    if (operator.response) return operator.response;
 
     const { searchParams } = new URL(request.url);
     const projectKey = searchParams.get("projectKey") ?? undefined;

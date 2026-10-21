@@ -4,7 +4,10 @@ import { z } from "zod";
 import fs from "fs";
 import path from "path";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { apiError } from "@/lib/api-errors";
 
 const BetaSignupSchema = z.object({
@@ -106,6 +109,10 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // RA-8043c: platform-wide beta signup totals are RestoreAssist staff data. Every firm owner is an ADMIN,
+  // so the ADMIN check alone let any firm reach it.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   const signups = readSignups();
   return NextResponse.json({

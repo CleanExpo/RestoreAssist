@@ -4,32 +4,22 @@
   "files": [
     "app/api/admin/blocked-customers/route.ts",
     "app/api/admin/clients/[clientId]/portal-account/route.ts",
-    "app/api/admin/cron-runs/route.ts",
-    "app/api/admin/evaluation/route.ts",
     "app/api/admin/evidence-review/route.ts",
     "app/api/admin/live-teacher/gate-metrics/route.ts",
     "app/api/admin/migrate-v2/route.ts",
-    "app/api/admin/optimize-prompts/route.ts",
     "app/api/admin/portal-accounts/[id]/revoke/route.ts",
     "app/api/admin/portal-accounts/[id]/rotate/route.ts",
-    "app/api/admin/publish/assets/route.ts",
-    "app/api/admin/restoration-insights/annual-report/route.ts",
-    "app/api/admin/restoration-insights/route.ts",
     "app/api/admin/seed-demo/route.ts",
     "app/api/admin/stripe-diagnostics/route.ts",
     "app/api/admin/usage/route.ts",
     "app/api/admin/users/[id]/route.ts",
     "app/api/admin/users/route.ts",
     "app/api/admin/vectorise/route.ts",
-    "app/api/analytics/activation-funnel/route.ts",
     "app/api/auth/revoke-sessions/route.ts",
     "app/api/inspections/[id]/reopen/route.ts",
     "app/api/inspections/[id]/scope-variations/route.ts",
     "app/api/inspections/[id]/sign/route.ts",
     "app/api/live-teacher/audit/[sessionId]/route.ts",
-    "app/api/margot/voice/route.ts",
-    "app/api/mobile/beta-signup/route.ts",
-    "app/api/progress/governance/route.ts",
-    "app/api/v1/connections/status/route.ts"
+    "app/api/margot/voice/route.ts"
   ]
 }

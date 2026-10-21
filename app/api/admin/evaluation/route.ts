@@ -16,7 +16,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { apiError } from "@/lib/api-errors";
 import {
   runEvaluationSuite,
@@ -30,6 +33,10 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // RA-8043c: the evaluation suite runs on the platform AI key with a caller-chosen prompt. Every firm owner is an ADMIN,
+  // so the ADMIN check alone let any firm reach it.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   try {
     const body = (await request.json().catch(() => ({}))) as {
