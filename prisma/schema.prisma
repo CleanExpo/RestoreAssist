@@ -1020,6 +1020,9 @@ model Organization {
   // SP-E: Restore from Google Drive queue
   storageRestoreJobs StorageRestoreJob[]
 
+  // RA-8043e: claim analysis batches run on this firm's own Drive (FIRM_OAUTH only)
+  claimAnalysisBatches ClaimAnalysisBatch[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1821,6 +1824,13 @@ model ClaimAnalysisBatch {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // RA-8043e: which Drive credential produced the batch. Only a FIRM_OAUTH batch
+  // carries a firm; the database CHECK claim_batch_source_org refuses any other
+  // pairing, so a service-account batch can never be labelled with a firm.
+  source         ClaimDriveSource @default(PLATFORM_SERVICE_ACCOUNT)
+  organizationId String?
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   // Batch details
   folderId       String // Google Drive folder ID
   folderName     String?
@@ -1847,6 +1857,13 @@ model ClaimAnalysisBatch {
 
   @@index([userId])
   @@index([status])
+  @@index([organizationId])
+}
+
+/// RA-8043e: the Drive credential a claim analysis batch ran under.
+enum ClaimDriveSource {
+  PLATFORM_SERVICE_ACCOUNT
+  FIRM_OAUTH
 }
 
 enum ClaimAnalysisBatchStatus {
@@ -1914,6 +1931,9 @@ model ClaimAnalysis {
 
   missingElements MissingElement[]
 
+  // RA-8043e: added beside the global unique on googleDriveFileId, which stays
+  // until Slice 1a-ii switches analysis rows to one per batch per file.
+  @@unique([batchId, googleDriveFileId])
   @@index([batchId])
   @@index([technicianName])
   @@index([status])
