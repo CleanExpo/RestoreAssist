@@ -55,6 +55,7 @@ import {
   simpleDashboardHeroShell,
   simpleDashboardHeroShine,
 } from "@/lib/dashboard/simple-dashboard-theme";
+import { formatAttendanceDateEnAu } from "@/lib/inspections/format-attendance-date";
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "text-white/50",
@@ -80,9 +81,11 @@ const ACTIVE_STATUSES = [
 function formatInspectionDate(dateStr: string | null): string {
   if (!dateStr) return "Attendance unknown";
   const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "Attendance unknown";
   if (isToday(d)) return "Today";
   if (isYesterday(d)) return "Yesterday";
-  return format(d, "d MMM");
+  const short = formatAttendanceDateEnAu(dateStr);
+  return short ?? format(d, "d MMM");
 }
 
 function statusLine(
@@ -329,11 +332,22 @@ export default function FieldDashboardPage() {
           <span className="flex-1">
             {isOffline
               ? fromCache && cacheAge
-                ? `Offline — showing snapshot from ${cacheAge}`
-                : "Offline — connect to load jobs"
+                ? `Offline — showing snapshot from ${cacheAge}. New captures queue on this device.`
+                : "Offline — connect to load jobs. New captures queue on this device."
               : cacheAge
                 ? `Cached snapshot from ${cacheAge}`
                 : "Showing cached data"}
+            {isOffline && (
+              <>
+                {" "}
+                <Link
+                  href="/offline"
+                  className="underline underline-offset-2"
+                >
+                  How offline sync works
+                </Link>
+              </>
+            )}
           </span>
           {!isOffline && (
             <button
