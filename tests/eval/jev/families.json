@@ -26,6 +26,11 @@
       "name": "Attack payloads on create and update routes",
       "expected_cases": 3800,
       "hard_gate": false
+    },
+    "J6": {
+      "name": "Photos through submit, classification, invoice and report (stand-in photo store)",
+      "expected_cases": 1500,
+      "hard_gate": false
     }
   }
 }
