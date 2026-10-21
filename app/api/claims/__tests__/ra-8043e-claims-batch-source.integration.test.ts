@@ -8,7 +8,10 @@
  * - A save failure in either path ends the batch FAILED and logs at error level
  *   with batchId, userId, source and stage.
  * - Re-analysing a file in a new batch still moves the one row (keys unchanged).
- * - maxDocuments is a whole number from 1 to 100; omitted means at most 100.
+ * - A failed save whose mark-failed update also fails leaves the batch
+ *   PROCESSING, never COMPLETED/PARTIAL without rows.
+ * - maxDocuments is a whole number from 1 to 100; omitted means at most 100,
+ *   an explicit null is refused.
  * - CLAIMS_ANALYSIS_PAUSED=1 refuses work before any Drive or model call.
  *
  * Runs only when DATABASE_URL is set (`npm run test:db`). Session, Drive and the
@@ -39,6 +42,9 @@ const h = vi.hoisted(() => ({
   getIntegrationsForUser: vi.fn(),
   // When set, the next prisma.$transaction call runs this instead (forced P2002).
   transactionOverride: null as null | ((...args: unknown[]) => Promise<never>),
+  // When set, the next prisma.claimAnalysisBatch.update call (outside any
+  // transaction) runs this instead: the mark-failed recovery write fails too.
+  batchUpdateOverride: null as null | ((...args: unknown[]) => Promise<never>),
   claimAnalysisReads: [] as Read[],
 }));
 
@@ -83,6 +89,20 @@ vi.mock("@/lib/prisma", async () => {
           const override = h.transactionOverride;
           h.transactionOverride = null;
           return override;
+        }
+        if (prop === "claimAnalysisBatch") {
+          const delegate = real.claimAnalysisBatch as Record<string | symbol, unknown>;
+          return new Proxy(delegate, {
+            get(d, m) {
+              if (m === "update" && h.batchUpdateOverride) {
+                const override = h.batchUpdateOverride;
+                h.batchUpdateOverride = null;
+                return override;
+              }
+              const v = d[m];
+              return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(d) : v;
+            },
+          });
         }
         if (prop === "claimAnalysis") {
           const delegate = real.claimAnalysis as Record<string | symbol, unknown>;
@@ -206,6 +226,7 @@ const batchesIn = (folderId: string) =>
       status: true,
       totalFiles: true,
       errorMessage: true,
+      completedAt: true,
     },
   });
 
@@ -286,6 +307,7 @@ describe.skipIf(!process.env.DATABASE_URL)(
         fn.mockReset();
       }
       h.transactionOverride = null;
+      h.batchUpdateOverride = null;
       h.claimAnalysisReads.length = 0;
       h.getIntegrationsForUser.mockResolvedValue([{ apiKey: "synthetic-key" }]);
       h.retrieveRelevantStandards.mockResolvedValue([]);
@@ -516,6 +538,58 @@ describe.skipIf(!process.env.DATABASE_URL)(
       expect(batches[0].status).toBe("FAILED");
     });
 
+    const markFailedDown = async (): Promise<never> => {
+      throw new Error("synthetic: database still unavailable for the mark-failed update");
+    };
+
+    function expectStageLogged(batchId: string, stage: string) {
+      expect(errorLogsFor(batchId)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ batchId, userId: ids.operator, stage }),
+        ]),
+      );
+    }
+
+    it("[ra-8043e] T4dn a non-streaming save failure whose mark-failed update also fails leaves the batch PROCESSING, never COMPLETED", async () => {
+      const folderId = `${S}-t4dn`;
+      h.listDriveItems.mockResolvedValue({ files: [pdf("t4dn")] });
+      h.transactionOverride = p2002;
+      h.batchUpdateOverride = markFailedDown;
+
+      const { status } = await analyse({ folderId, stream: false });
+
+      // Both planted failures fired.
+      expect(h.transactionOverride).toBeNull();
+      expect(h.batchUpdateOverride).toBeNull();
+      expect(status).toBe(500);
+      const batches = await batchesIn(folderId);
+      expect(batches).toHaveLength(1);
+      expect(batches[0].status).toBe("PROCESSING");
+      expect(batches[0].completedAt).toBeNull();
+      expect(await prisma.claimAnalysis.count({ where: { batchId: batches[0].id } })).toBe(0);
+      expectStageLogged(batches[0].id, "save-results");
+      expectStageLogged(batches[0].id, "mark-failed");
+    });
+
+    it("[ra-8043e] T4ds a streaming save failure whose mark-failed update also fails leaves the batch PROCESSING with an error line", async () => {
+      const folderId = `${S}-t4ds`;
+      h.listDriveItems.mockResolvedValue({ files: [pdf("t4ds")] });
+      h.transactionOverride = p2002;
+      h.batchUpdateOverride = markFailedDown;
+
+      const { text } = await analyse({ folderId, stream: true });
+
+      expect(h.transactionOverride).toBeNull();
+      expect(h.batchUpdateOverride).toBeNull();
+      const batches = await batchesIn(folderId);
+      expect(batches).toHaveLength(1);
+      expect(batches[0].status).toBe("PROCESSING");
+      expect(batches[0].completedAt).toBeNull();
+      expect(text).toContain('"type":"error"');
+      expectStageLogged(batches[0].id, "save-results");
+      expectStageLogged(batches[0].id, "mark-failed");
+    });
+
     it("[ra-8043e] T5 re-analysing an analysed file in a new batch moves its one row to the new batch", async () => {
       const file = pdf("t5");
       h.listDriveItems.mockResolvedValue({ files: [file] });
@@ -577,6 +651,19 @@ describe.skipIf(!process.env.DATABASE_URL)(
       expect(statuses).toEqual([400, 400, 400, 400, 400, 400]);
       expect(h.listDriveItems).not.toHaveBeenCalled();
       expect(await batchesIn(`${S}-t6b`)).toHaveLength(0);
+    });
+
+    it("[ra-8043e] T6d an explicit null maxDocuments returns 400 before any Drive or model call", async () => {
+      const folderId = `${S}-t6d`;
+      h.listDriveItems.mockResolvedValue({ files: [pdf("t6d")] });
+
+      const { status } = await analyse({ folderId, maxDocuments: null, stream: false });
+
+      expect(status).toBe(400);
+      expect(h.listDriveItems).not.toHaveBeenCalled();
+      expect(h.retrieveRelevantStandards).not.toHaveBeenCalled();
+      expect(h.performGapAnalysis).not.toHaveBeenCalled();
+      expect(await batchesIn(folderId)).toHaveLength(0);
     });
 
     it("[ra-8043e] T6c with maxDocuments omitted a 150-file folder processes at most 100", async () => {
