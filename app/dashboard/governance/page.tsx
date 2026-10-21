@@ -2,12 +2,15 @@
  * Override Governance — Admin
  *
  * Route: /dashboard/governance
- * Auth:  ADMIN role required (server-side redirect)
+ * Auth:  platform support only (DB-verified ADMIN on the allowlist)
  *
  * RA-1390 / Motion M-15 board surface. Shows the monthly SOFT-gap
  * override-rate roll-up. Breaches (>5%) flag for re-classification.
  */
 
+import { notFound } from "next/navigation";
+import { requireAdminPage } from "@/lib/admin-auth";
+import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { getGate } from "@/lib/progress/gate-policy";
 
@@ -23,10 +26,14 @@ interface Props {
 }
 
 /**
- * Auth: `app/dashboard/governance/layout.tsx` runs requireAdminPage()
- * (DB-revalidated ADMIN) before this page's Prisma reads.
+ * Auth: the layout gate does not stop this page rendering in the same
+ * request, so the page checks platform support itself before its Prisma
+ * reads (RA-8043c). A firm's ADMIN is never platform staff.
  */
 export default async function GovernancePage({ searchParams }: Props) {
+  const user = await requireAdminPage();
+  if (!isPlatformSupportOperator(user.id)) notFound();
+
   const params = await searchParams;
   const requestedMonth = parseYearMonth(params.month);
 
