@@ -1,7 +1,7 @@
 /**
  * RA-1494 — Margot image generation helper (v2 inc3).
  *
- * Calls Gemini "Nano Banana 2" (gemini-3.1-flash-image-preview) to generate
+ * Calls Gemini "Nano Banana 2" (gemini-3.1-flash-image) to generate
  * an image, uploads the bytes to Supabase Storage bucket `margot-generations`,
  * and returns a public URL. Kept as a pure helper so the Margot chat route
  * can wrap it with a `tool(...)` definition.
@@ -14,13 +14,13 @@ import { formatImageGenerateFailure } from "./margot-tool-errors";
 import { getSupabaseServerClient } from "./supabase-server";
 
 const BUCKET = "margot-generations";
-const MODEL = "gemini-3.1-flash-image-preview";
+const MODEL = "gemini-3.1-flash-image";
 
 // Approx per-image cost (USD) by output size tier. Source: Gemini API pricing
-// for Nano Banana 2 (Jan 2026).
+// for gemini-3.1-flash-image (21/10/2026).
 const COST_BY_SIZE: Record<ImageSize, number> = {
-  "1K": 0.045,
-  "2K": 0.067,
+  "1K": 0.067,
+  "2K": 0.101,
   "4K": 0.151,
 };
 
