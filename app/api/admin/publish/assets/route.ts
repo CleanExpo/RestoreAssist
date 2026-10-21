@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyStorePublishingOperator,
+} from "@/lib/admin-auth";
 import { spawn } from "child_process";
 import { resolve } from "path";
 
@@ -37,6 +40,10 @@ export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // RA-8043c: store asset generation is a RestoreAssist platform action, gated like the app-store and google-play routes. Every firm owner is an ADMIN,
+  // so the ADMIN check alone let any firm reach it.
+  const operator = verifyStorePublishingOperator(auth);
+  if (operator.response) return operator.response;
 
   triggerAssetGeneration();
 
@@ -56,6 +63,10 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // RA-8043c: store asset generation is a RestoreAssist platform action, gated like the app-store and google-play routes. Every firm owner is an ADMIN,
+  // so the ADMIN check alone let any firm reach it.
+  const operator = verifyStorePublishingOperator(auth);
+  if (operator.response) return operator.response;
 
   let body: { baseUrl?: string } = {};
   try {
