@@ -313,7 +313,7 @@ const imageGenerateTool = tool({
     image_size: z
       .enum(["1K", "2K", "4K"])
       .optional()
-      .describe("Output resolution tier. Default 1K (cheapest: $0.045/img)."),
+      .describe("Output resolution tier. Default 1K (cheapest: $0.067/img)."),
     reference_image_url: z
       .string()
       .url()
