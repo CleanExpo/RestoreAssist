@@ -1,0 +1,31 @@
+{
+  "schema": "jev-families/1",
+  "note": "expected_cases is a floor set just below the first measured run (22/10/2026); hard_gate is false for every family until its baseline reds are fixed or listed in known-gaps",
+  "families": {
+    "J1": {
+      "name": "Route security matrix (every route x method x identity x payload)",
+      "expected_cases": 11000,
+      "hard_gate": false
+    },
+    "J2": {
+      "name": "Golden regressions (known 22/10 failures)",
+      "expected_cases": 5,
+      "hard_gate": false
+    },
+    "J3": {
+      "name": "Claim lifecycle through real routes (CRM, photos, floor plans, invoice, payment)",
+      "expected_cases": 3600,
+      "hard_gate": false
+    },
+    "J4": {
+      "name": "Domain invariants (GST, estimates, sketch area, drying)",
+      "expected_cases": 12000,
+      "hard_gate": false
+    },
+    "J5": {
+      "name": "Attack payloads on create and update routes",
+      "expected_cases": 3800,
+      "hard_gate": false
+    }
+  }
+}

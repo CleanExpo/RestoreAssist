@@ -155,4 +155,4 @@ echo "==> Verifying CI parity (no env-gated suite will skip)"
 node scripts/ci/check-test-parity.mjs --strict
 
 echo "==> Running vitest with DATABASE_URL set"
-npx --no-install vitest run --config config/vitest.config.js "$@"
+npx --no-install vitest run --config "${RA_VITEST_CONFIG:-config/vitest.config.js}" "$@"

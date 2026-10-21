@@ -183,3 +183,4 @@ _bmad/_config/files-manifest.csv
 # an untracked directory behind and every run looked like a pending change.
 # Regenerable from icon-mark.svg; the tracked outputs are in icon-source/out/.
 docs/distribution/mobile/
+tests/eval/jev/out/
