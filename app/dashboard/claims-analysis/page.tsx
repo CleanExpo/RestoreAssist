@@ -445,6 +445,8 @@ export default function ClaimsAnalysisPage() {
               toast.success(
                 `Analysis completed! Processed ${event.results?.length || 0} file(s)`,
               );
+            } else if (event.type === "error") {
+              toast.error(event.error || "Failed to perform analysis");
             }
           } catch {
             // skip malformed JSON lines
