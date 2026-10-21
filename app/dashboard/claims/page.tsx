@@ -2,12 +2,15 @@
  * Claims index — RA-1704.
  *
  * Lists ClaimProgress rows the current user has access to. Server-rendered.
- * Tenancy: scopes by Report.userId == session user (admins see all).
+ * Tenancy (RA-8043): an admin sees their workspace's reports through
+ * resolveReportReach (platform-wide only for the platform allowlist); anyone
+ * else sees their own.
  */
 
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { FolderKanban } from "lucide-react";
@@ -29,11 +32,18 @@ export default async function ClaimsIndexPage() {
   const role = (session.user as { role?: string }).role ?? "USER";
   const isAdmin = role === "ADMIN";
 
-  // Tenancy via Report.userId. Joined to ClaimProgress so the index
-  // shows only rows that have a progress record (the rest are read-only
-  // reports that haven't entered the lifecycle).
+  // RA-8043: an admin gets the tenancy helper's report reach (their workspace;
+  // platform-wide only for the platform allowlist); anyone else gets their own
+  // reports. If the reach cannot be resolved, an admin falls back to their own
+  // reports, never to every tenant.
+  const ownOnly = { userId: session.user.id };
+  const reach = isAdmin ? await resolveReportReach(session).catch(() => null) : null;
+  const reportScope = reach?.ok ? reach.data : ownOnly;
+
+  // Joined to ClaimProgress so the index shows only rows that have a progress
+  // record (the rest are read-only reports that haven't entered the lifecycle).
   const claims = await prisma.claimProgress.findMany({
-    where: isAdmin ? undefined : { report: { userId: session.user.id } },
+    where: { report: reportScope },
     select: {
       id: true,
       reportId: true,
