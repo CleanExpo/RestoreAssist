@@ -10,6 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { listDriveItems } from "@/lib/google-drive";
 import { apiError, fromException } from "@/lib/api-errors";
+import { verifyAdminFromDb, verifyPlatformSupportOperator } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,14 @@ export async function POST(request: NextRequest) {
         status: 401,
       });
     }
+
+    // RA-8043d: one Drive service account is shared by every firm, so any
+    // folder a firm shares with it is visible to whoever can browse it. Every
+    // self-signup is ADMIN, so browsing that Drive is platform staff work.
+    const operator = verifyPlatformSupportOperator(
+      await verifyAdminFromDb(session),
+    );
+    if (operator.response) return operator.response;
 
     const body = await request.json();
     const { parentFolderId } = body;

@@ -128,3 +128,77 @@ describe("detectDuplicateJob", () => {
     expect(findManyCall.where.id).toEqual({ not: "insp-self" });
   });
 });
+
+// RA-8043c: siblings must come from the same firm. Applies the where the
+// detector sends, as the database would, over inspections of two firms.
+describe("detectDuplicateJob firm scope (RA-8043c)", () => {
+  const rows = [
+    { id: "own-other-tech", userId: "user-001", org: "org-a" },
+    { id: "teammate-job", userId: "user-002", org: "org-a" },
+    { id: "other-firm-job", userId: "user-900", org: "org-z" },
+    { id: "solo-firm-job", userId: "user-901", org: null },
+  ];
+  type Where = { AND?: Array<Record<string, unknown>> };
+  const matches = (scope: Record<string, unknown>, r: (typeof rows)[number]): boolean => {
+    if ("OR" in scope) {
+      return (scope.OR as Array<Record<string, unknown>>).some((s) => matches(s, r));
+    }
+    if ("userId" in scope) return r.userId === scope.userId;
+    if ("user" in scope) {
+      const org = (scope.user as { organizationId?: unknown }).organizationId;
+      return r.org === org;
+    }
+    return true;
+  };
+  const fakeDb = async (args: { where: Where }) => {
+    const scopes = args.where.AND ?? [];
+    return rows
+      .filter((r) => scopes.every((s) => matches(s, r)))
+      .map((r) => makeSibling({ id: r.id, technicianName: `Tech ${r.id}` }));
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindMany.mockImplementation(fakeDb);
+  });
+
+  it("never offers another firm's job as a duplicate [ra-8043c]", async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      makeCurrentInspection({ user: { organizationId: "org-a" } }),
+    );
+
+    const result = await detectDuplicateJob("insp-001");
+    const ids = result.candidates.map((c) => c.inspectionId);
+
+    expect(ids).toContain("teammate-job");
+    expect(ids).not.toContain("other-firm-job");
+    expect(ids).not.toContain("solo-firm-job");
+    expect(JSON.stringify(result)).not.toContain("Tech other-firm-job");
+  });
+
+  it("scopes an org-less firm to its own jobs, never every org-less firm [ra-8043c]", async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      makeCurrentInspection({ user: { organizationId: null } }),
+    );
+
+    const result = await detectDuplicateJob("insp-001");
+    const ids = result.candidates.map((c) => c.inspectionId);
+
+    expect(ids).toEqual(["own-other-tech"]);
+    expect(mockFindMany.mock.calls[0][0].where.AND).toEqual([
+      { userId: "user-001" },
+    ]);
+  });
+
+  it("sends the firm filter to the database, not only filtering afterwards [ra-8043c]", async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      makeCurrentInspection({ user: { organizationId: "org-a" } }),
+    );
+
+    await detectDuplicateJob("insp-001");
+
+    expect(mockFindMany.mock.calls[0][0].where.AND).toEqual([
+      { OR: [{ userId: "user-001" }, { user: { organizationId: "org-a" } }] },
+    ]);
+  });
+});

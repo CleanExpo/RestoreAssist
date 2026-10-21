@@ -60,9 +60,17 @@ export interface DriveItems {
 /**
  * List all items (files and folders) in a Google Drive folder
  */
+// Drive ids are URL-safe base64-like tokens. Anything else (a quote, a space,
+// "or") would be spliced into the files.list query below and could widen it
+// beyond the named folder (RA-8043d).
+const DRIVE_ID = /^[A-Za-z0-9_-]{1,200}$/;
+
 export async function listDriveItems(
   folderId: string = "root",
 ): Promise<DriveItems> {
+  if (folderId !== "root" && !DRIVE_ID.test(folderId)) {
+    throw new Error("Invalid Google Drive folder id");
+  }
   try {
     const drive = getDriveClient();
 

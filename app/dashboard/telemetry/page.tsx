@@ -2,15 +2,15 @@
  * Progress Telemetry — Admin
  *
  * Route: /dashboard/telemetry
- * Auth:  ADMIN role required (server-side redirect)
+ * Auth:  platform support operator (DB-verified ADMIN on PLATFORM_SUPPORT_USER_IDS)
  *
  * RA-1392 / Motion M-17 board surface — 4 funnels + 2 KPIs computed off
  * ProgressTelemetryEvent. Server-rendered; no client-side fetch needed.
  */
 
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAdminPage } from "@/lib/admin-auth";
+import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { computeAllFunnels, type FunnelStat } from "@/lib/telemetry/funnels";
 import {
   computeOverrideRate,
@@ -26,9 +26,11 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ProgressTelemetryPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/login");
-  if ((session.user as { role?: string }).role !== "ADMIN") {
+  // RA-8043b: these funnels and KPIs count every firm on the platform, so they
+  // are RestoreAssist staff data. `role: "ADMIN"` is every firm owner; only the
+  // platform support allowlist may see them.
+  const admin = await requireAdminPage();
+  if (!isPlatformSupportOperator(admin.id)) {
     redirect("/dashboard");
   }
 

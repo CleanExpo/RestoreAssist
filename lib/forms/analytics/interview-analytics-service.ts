@@ -407,13 +407,20 @@ export class InterviewAnalyticsService {
   }
 
   /**
-   * Get template performance analytics
+   * Get template performance analytics.
+   *
+   * `sessionUserIds` limits the sessions counted to those users (RA-8043b): a
+   * shared system template is used by every firm, so without it one firm would
+   * see every firm's interview sessions. Omit it only for platform support.
    */
   static async getTemplatePerformanceAnalytics(
     templateId: string,
+    sessionUserIds?: string[],
   ): Promise<TemplatePerformanceAnalytics> {
     try {
-      const where = { formTemplateId: templateId };
+      const where = sessionUserIds
+        ? { formTemplateId: templateId, userId: { in: sessionUserIds } }
+        : { formTemplateId: templateId };
       const sessions = await prisma.interviewSession.findMany({
         where,
         select: {
