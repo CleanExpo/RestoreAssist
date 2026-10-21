@@ -369,13 +369,13 @@ export async function callAIProvider(
         content: prompt,
       });
 
-      // OpenAI models have different max_tokens limits
-      // gpt-4-turbo-preview supports max 4096 completion tokens
-      // Use a safer limit for OpenAI
+      // Keep the existing 4096 completion-token cap for the OpenAI branch.
+      // gpt-5.4-mini replaces the GPT-4 Turbo preview OpenAI shut down on
+      // 26/03/2026; it matches the BYOK dispatch fallback model.
       const openaiMaxTokens = Math.min(maxTokens, 4096);
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
+        model: "gpt-5.4-mini",
         messages,
         max_tokens: openaiMaxTokens,
         temperature,

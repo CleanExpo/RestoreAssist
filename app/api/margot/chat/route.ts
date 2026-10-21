@@ -303,7 +303,7 @@ const linearCommentOnIssueTool = tool({
 
 const imageGenerateTool = tool({
   description:
-    "Generate an image via Nano Banana 2 (gemini-3.1-flash-image-preview). Use when Phill asks for an image, diagram, mockup, or anything visual. Defaults to 16:9 at 1K. Returns a public image_url hosted on Supabase Storage.",
+    "Generate an image via Nano Banana 2 (gemini-3.1-flash-image). Use when Phill asks for an image, diagram, mockup, or anything visual. Defaults to 16:9 at 1K. Returns a public image_url hosted on Supabase Storage.",
   inputSchema: z.object({
     prompt: z.string().min(1).describe("Concise, descriptive image prompt."),
     aspect_ratio: z
@@ -313,7 +313,7 @@ const imageGenerateTool = tool({
     image_size: z
       .enum(["1K", "2K", "4K"])
       .optional()
-      .describe("Output resolution tier. Default 1K (cheapest: $0.045/img)."),
+      .describe("Output resolution tier. Default 1K (cheapest: $0.067/img)."),
     reference_image_url: z
       .string()
       .url()
