@@ -36,6 +36,10 @@ import {
   latestEnvironmentalReading,
   type EnvironmentalReading,
 } from "@/lib/inspections/latest-environmental-reading";
+import {
+  ATTENDANCE_NOT_RECORDED_LABEL,
+  formatAttendanceDateEnAu,
+} from "@/lib/inspections/format-attendance-date";
 
 interface Inspection {
   id: string;
@@ -46,6 +50,7 @@ interface Inspection {
   // The assigned technician (Inspection.technicianId); null when unassigned.
   technicianId: string | null;
   status: string;
+  inspectionDate: string | null;
   createdAt: string;
   submittedAt: string | null;
   processedAt: string | null;
@@ -538,11 +543,8 @@ export default function InspectionsPage() {
                   <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-slate-400">
                     <span className="flex items-center gap-1">
                       <Calendar size={12} />
-                      {new Date(insp.createdAt).toLocaleDateString("en-AU", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {formatAttendanceDateEnAu(insp.inspectionDate) ??
+                        ATTENDANCE_NOT_RECORDED_LABEL}
                     </span>
                     {insp.technicianId === null ? (
                       <span>Unassigned</span>

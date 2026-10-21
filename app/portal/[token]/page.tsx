@@ -28,6 +28,7 @@ import {
 import { ClientPortalReportReady } from "@/components/portal/ClientPortalReportReady";
 import { ClientPortalPanel } from "@/components/portal/ClientPortalPanel";
 import { clientPortalPanelPadding } from "@/lib/portal/client-portal-theme";
+import { formatAttendanceDateEnAuLong } from "@/lib/inspections/format-attendance-date";
 
 export const dynamic = "force-dynamic";
 
@@ -100,14 +101,8 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
   const org = inspection.user.organization;
 
-  const inspectionDate = new Date(inspection.createdAt).toLocaleDateString(
-    "en-AU",
-    {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    },
-  );
+  const inspectionDate =
+    formatAttendanceDateEnAuLong(inspection.inspectionDate) ?? undefined;
 
   return (
     <ClientPortalShell

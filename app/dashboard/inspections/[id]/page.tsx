@@ -17,6 +17,10 @@ import {
   canUseOwnerJobActions,
   failedResponseMessage,
 } from "@/lib/inspections/job-actions";
+import {
+  ATTENDANCE_NOT_RECORDED_LABEL,
+  formatAttendanceDateEnAu,
+} from "@/lib/inspections/format-attendance-date";
 import { resolveAreaSqm } from "@/lib/units";
 import { parseReadingInput } from "@/lib/forms/parse-reading-input";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
@@ -214,6 +218,7 @@ interface Inspection {
   // The job owner (Inspection.userId). Absent on the demo inspection.
   userId?: string | null;
   status: string;
+  inspectionDate: string | null;
   createdAt: string;
   submittedAt: string | null;
   processedAt: string | null;
@@ -1456,11 +1461,8 @@ export default function InspectionDetailPage({
               )}
               <span className="flex items-center gap-1.5">
                 <Calendar size={14} aria-hidden="true" />
-                {new Date(inspection.createdAt).toLocaleDateString("en-AU", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
+                {formatAttendanceDateEnAu(inspection.inspectionDate) ??
+                  ATTENDANCE_NOT_RECORDED_LABEL}
               </span>
             </div>
           </div>
