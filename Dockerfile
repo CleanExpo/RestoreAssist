@@ -14,7 +14,7 @@
 # Pin both the repository tag and its multi-platform index digest. The version
 # matches .nvmrc; the digest prevents an upstream tag move from changing the
 # bytes built for the same reviewed release.
-FROM node:22.22.3-bookworm-slim@sha256:e21fc383b50d5347dc7a9f1cae45b8f4e2f0d39f7ade28e4eef7d2934522b752 AS base
+FROM node:22.23.3-bookworm-slim@sha256:3ed98443660ff48413b5af19ecefce3b9d50845a901a43420d47cc63a9fddbe9 AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # ── deps ───────────────────────────────────────────────────────────────────

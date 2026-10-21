@@ -360,8 +360,10 @@ const APPROVED_PROVIDER_EXECUTABLES = new Map([
   // Re-pinned when the image HEALTHCHECK moved off /api/health/migrations, a
   // migration-drift watchdog, onto the /api/health readiness probe. Any
   // runtime honouring Docker HEALTHCHECK was otherwise still treating drift
-  // as container failure outside App Platform.
-  ["Dockerfile", "631fcdd8869333f6a06d41c9edf49757c31717f01580339087e045d1355d74e5"],
+  // as container failure outside App Platform. Re-pinned again when the base
+  // image moved to node:22.23.3-bookworm-slim for the 22.23.x security
+  // releases; only the FROM line changed.
+  ["Dockerfile", "b7cbeaec0b4234ee574d66232e80655540dd7bb8f1e2b08b0170041c9536c3a4"],
   ["docker/entrypoint.sh", "5582a15a3407ac31a28c7056b87b02c9c5563acf78d36a4acd141d3f0167c1b4"],
   ["scripts/build-help-index.ts", "ec8849f2c4f0d26e1467886040f3e01b16eefec0d14ce2d2daba0a1a382c2553"],
   ["scripts/build.sh", "25583db2753872420f27e050050ee8e0bc8df7059f08c91cbbcf6865ed7adc4a"],
