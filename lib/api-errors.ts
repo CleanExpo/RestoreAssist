@@ -41,6 +41,9 @@ import { reportError, type ErrorContext } from "@/lib/observability";
  *
  * GOVERNOR_UNAVAILABLE is a 503: the gate or key check could not be read, or
  * a funded trial's platform key is missing (an ops fault). Retry later.
+ *
+ * CLAIMS_ANALYSIS_PAUSED is a 503: staff have paused claims analysis for a
+ * maintenance window (CLAIMS_ANALYSIS_PAUSED=1, RA-8043e). Retry later.
  */
 export type ApiErrorCode =
   | "VALIDATION"
@@ -54,6 +57,7 @@ export type ApiErrorCode =
   | "PAYMENT_REQUIRED"
   | "AI_SUBSCRIPTION_INACTIVE"
   | "GOVERNOR_UNAVAILABLE"
+  | "CLAIMS_ANALYSIS_PAUSED"
   | "FEATURE_UNAVAILABLE"
   | "RATE_LIMITED"
   | "UPSTREAM_FAILED"
