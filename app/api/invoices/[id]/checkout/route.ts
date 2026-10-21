@@ -6,6 +6,10 @@ import { stripe } from "@/lib/stripe";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  INVOICE_ONLINE_PAYMENT_ENABLED,
+  INVOICE_ONLINE_PAYMENT_UNAVAILABLE_MESSAGE,
+} from "@/lib/invoices/online-payment";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -19,6 +23,15 @@ export async function POST(
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // P1-MNY-00: refuse before any Stripe call — this route charged into
+  // RestoreAssist's own account, not the firm's.
+  if (!INVOICE_ONLINE_PAYMENT_ENABLED) {
+    return apiError(request, {
+      code: "FEATURE_UNAVAILABLE",
+      message: INVOICE_ONLINE_PAYMENT_UNAVAILABLE_MESSAGE,
+      status: 409,
     });
   }
   const userId = session.user.id;
