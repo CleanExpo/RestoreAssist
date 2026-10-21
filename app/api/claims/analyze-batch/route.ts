@@ -21,6 +21,64 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import { verifyAdminFromDb, verifyPlatformSupportOperator } from "@/lib/admin-auth";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { reportError } from "@/lib/observability";
+
+const ROUTE = "/api/claims/analyze-batch";
+
+/**
+ * RA-8043e: every batch this route creates is analysed through the shared
+ * platform service account, so it never carries a firm. Only the firm OAuth
+ * route (Slice 1c) may set organizationId, and the database CHECK
+ * claim_batch_source_org refuses a service-account batch that has one.
+ */
+const CLAIM_BATCH_SOURCE = "PLATFORM_SERVICE_ACCOUNT" as const;
+
+/** RA-8043e: most documents one batch may analyse. */
+const MAX_DOCUMENTS_PER_BATCH = 100;
+
+const SAVE_FAILED_MESSAGE =
+  "Saving the analysis results failed. The batch has been marked as failed.";
+
+/**
+ * A whole number from 1 to MAX_DOCUMENTS_PER_BATCH, or MAX_DOCUMENTS_PER_BATCH
+ * when omitted. Anything else is null (the caller returns 400).
+ */
+function parseDocumentLimit(value: unknown): number | null {
+  if (value === undefined || value === null) return MAX_DOCUMENTS_PER_BATCH;
+  const n =
+    typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
+  if (typeof n !== "number" || !Number.isInteger(n)) return null;
+  return n >= 1 && n <= MAX_DOCUMENTS_PER_BATCH ? n : null;
+}
+
+/**
+ * Error-level log for a failed write, whatever status the client later sees
+ * (apiError only reports 5xx, so a P2002 mapped to 409 would otherwise be
+ * silent).
+ */
+function logSaveFailure(
+  err: unknown,
+  context: { batchId: string | null; userId: string; stage: string },
+) {
+  reportError(err, { route: ROUTE, source: CLAIM_BATCH_SOURCE, ...context });
+}
+
+/** Log a failed save and mark its batch FAILED so it never hangs as PROCESSING. */
+async function markBatchFailed(batchId: string, userId: string, err: unknown) {
+  logSaveFailure(err, { batchId, userId, stage: "save-results" });
+  try {
+    await prisma.claimAnalysisBatch.update({
+      where: { id: batchId },
+      data: {
+        status: "FAILED",
+        errorMessage: SAVE_FAILED_MESSAGE,
+        completedAt: new Date(),
+      },
+    });
+  } catch (updateErr) {
+    logSaveFailure(updateErr, { batchId, userId, stage: "mark-failed" });
+  }
+}
 
 const CATEGORY_MAP: Record<
   string,
@@ -81,6 +139,17 @@ export async function POST(request: NextRequest) {
     );
     if (operator.response) return operator.response;
 
+    // RA-8043e: staff switch for maintenance windows (Slice 1a-ii). Only the
+    // exact value "1" pauses; checked before any batch, Drive or model work.
+    if (process.env.CLAIMS_ANALYSIS_PAUSED === "1") {
+      return apiError(request, {
+        code: "CLAIMS_ANALYSIS_PAUSED",
+        message:
+          "Claims analysis is paused for maintenance. Please try again later.",
+        status: 503,
+      });
+    }
+
     // Rate limit: 5 batch analyses per 15 minutes per user (heavy operation)
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 5,
@@ -112,6 +181,16 @@ export async function POST(request: NextRequest) {
       return apiError(request, {
         code: "VALIDATION",
         message: "folderId is required",
+        status: 400,
+      });
+    }
+
+    // RA-8043e: cap the batch before any Drive listing or model call.
+    const documentLimit = parseDocumentLimit(maxDocuments);
+    if (documentLimit === null) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `maxDocuments must be a whole number from 1 to ${MAX_DOCUMENTS_PER_BATCH}`,
         status: 400,
       });
     }
@@ -197,9 +276,7 @@ export async function POST(request: NextRequest) {
         file.name.toLowerCase().endsWith(".pdf"),
     );
 
-    if (maxDocuments && maxDocuments > 0) {
-      pdfFiles = pdfFiles.slice(0, parseInt(maxDocuments));
-    }
+    pdfFiles = pdfFiles.slice(0, documentLimit);
 
     if (pdfFiles.length === 0) {
       return apiError(request, {
@@ -218,17 +295,30 @@ export async function POST(request: NextRequest) {
             controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
           };
 
-          const batch = await prisma.claimAnalysisBatch.create({
-            data: {
-              userId,
-              folderId,
-              folderName: null,
-              status: "PROCESSING",
-              totalFiles: pdfFiles.length,
-              processedFiles: 0,
-              failedFiles: 0,
-            },
-          });
+          let batch: { id: string };
+          try {
+            batch = await prisma.claimAnalysisBatch.create({
+              data: {
+                userId,
+                source: CLAIM_BATCH_SOURCE,
+                folderId,
+                folderName: null,
+                status: "PROCESSING",
+                totalFiles: pdfFiles.length,
+                processedFiles: 0,
+                failedFiles: 0,
+              },
+              select: { id: true },
+            });
+          } catch (err) {
+            logSaveFailure(err, { batchId: null, userId, stage: "batch-create" });
+            sendEvent({
+              type: "error",
+              error: "The analysis batch could not be created.",
+            });
+            controller.close();
+            return;
+          }
 
           sendEvent({
             type: "start",
@@ -338,89 +428,101 @@ export async function POST(request: NextRequest) {
           ).length;
           const failed = pdfFiles.length - completed;
 
-          await prisma.$transaction(async (tx) => {
-            for (const r of analysisResults) {
-              const analysisData = {
-                batchId: batch.id,
-                fileName: r.fileName,
-                completenessScore: Math.round(r.scores?.completeness ?? 0),
-                complianceScore: Math.round(r.scores?.compliance ?? 0),
-                standardizationScore: Math.round(
-                  r.scores?.standardization ?? 0,
-                ),
-                billingAccuracyScore: Math.round(
-                  r.scores?.billingAccuracy ?? 0,
-                ),
-                missingIICRCElements: r.missingElements?.iicrc ?? 0,
-                missingOHSElements: r.missingElements?.ohs ?? 0,
-                missingBillingItems: r.missingElements?.billing ?? 0,
-                missingDocumentation: r.missingElements?.documentation ?? 0,
-                estimatedMissingRevenue: r.estimatedMissingRevenue ?? null,
-                fullAnalysisData: JSON.stringify({
-                  issues: r.issues,
-                  reportStructure: r.reportStructure,
-                  technicianPattern: r.technicianPattern,
-                }),
-                status:
-                  (r.issues?.length ?? 0) === 0 &&
-                  (r.scores?.completeness ?? 0) === 0
-                    ? ("FAILED" as const)
-                    : ("COMPLETED" as const),
-                processedAt: new Date(),
-              };
-              const analysis = await tx.claimAnalysis.upsert({
-                where: { googleDriveFileId: r.fileId },
-                create: { googleDriveFileId: r.fileId, ...analysisData },
-                update: analysisData,
-              });
-              await tx.missingElement.deleteMany({
-                where: { analysisId: analysis.id },
-              });
-              const issues = r.issues ?? [];
-              if (issues.length > 0) {
-                await tx.missingElement.createMany({
-                  data: issues.map((issue) => ({
-                    analysisId: analysis.id,
-                    category: mapCategory(issue.category),
-                    elementType: issue.category || "Other",
-                    elementName: issue.elementName || "Unknown",
-                    description: issue.description ?? null,
-                    severity: mapSeverity(issue.severity),
-                    standardReference: issue.standardReference ?? null,
-                    isBillable: !!issue.isBillable,
-                    estimatedCost: issue.estimatedCost ?? null,
-                    estimatedHours: issue.estimatedHours ?? null,
-                    suggestedLineItem: issue.suggestedLineItem ?? null,
-                  })),
+          try {
+            await prisma.$transaction(async (tx) => {
+              for (const r of analysisResults) {
+                const analysisData = {
+                  batchId: batch.id,
+                  fileName: r.fileName,
+                  completenessScore: Math.round(r.scores?.completeness ?? 0),
+                  complianceScore: Math.round(r.scores?.compliance ?? 0),
+                  standardizationScore: Math.round(
+                    r.scores?.standardization ?? 0,
+                  ),
+                  billingAccuracyScore: Math.round(
+                    r.scores?.billingAccuracy ?? 0,
+                  ),
+                  missingIICRCElements: r.missingElements?.iicrc ?? 0,
+                  missingOHSElements: r.missingElements?.ohs ?? 0,
+                  missingBillingItems: r.missingElements?.billing ?? 0,
+                  missingDocumentation: r.missingElements?.documentation ?? 0,
+                  estimatedMissingRevenue: r.estimatedMissingRevenue ?? null,
+                  fullAnalysisData: JSON.stringify({
+                    issues: r.issues,
+                    reportStructure: r.reportStructure,
+                    technicianPattern: r.technicianPattern,
+                  }),
+                  status:
+                    (r.issues?.length ?? 0) === 0 &&
+                    (r.scores?.completeness ?? 0) === 0
+                      ? ("FAILED" as const)
+                      : ("COMPLETED" as const),
+                  processedAt: new Date(),
+                };
+                const analysis = await tx.claimAnalysis.upsert({
+                  where: { googleDriveFileId: r.fileId },
+                  create: { googleDriveFileId: r.fileId, ...analysisData },
+                  update: analysisData,
                 });
+                await tx.missingElement.deleteMany({
+                  where: { analysisId: analysis.id },
+                });
+                const issues = r.issues ?? [];
+                if (issues.length > 0) {
+                  await tx.missingElement.createMany({
+                    data: issues.map((issue) => ({
+                      analysisId: analysis.id,
+                      category: mapCategory(issue.category),
+                      elementType: issue.category || "Other",
+                      elementName: issue.elementName || "Unknown",
+                      description: issue.description ?? null,
+                      severity: mapSeverity(issue.severity),
+                      standardReference: issue.standardReference ?? null,
+                      isBillable: !!issue.isBillable,
+                      estimatedCost: issue.estimatedCost ?? null,
+                      estimatedHours: issue.estimatedHours ?? null,
+                      suggestedLineItem: issue.suggestedLineItem ?? null,
+                    })),
+                  });
+                }
               }
-            }
-            await tx.claimAnalysisBatch.update({
-              where: { id: batch.id },
-              data: {
-                status:
-                  failed > 0 && completed > 0
-                    ? "PARTIAL"
-                    : failed === pdfFiles.length
-                      ? "FAILED"
-                      : "COMPLETED",
-                processedFiles: completed,
-                failedFiles: failed,
-                completedAt: new Date(),
-                averageCompletenessScore: summary.averageScores.completeness,
-                averageComplianceScore: summary.averageScores.compliance,
-                totalMissingElements:
-                  summary.totalMissingElements.iicrc +
-                  summary.totalMissingElements.ohs +
-                  summary.totalMissingElements.billing +
-                  summary.totalMissingElements.documentation,
-                estimatedRevenueRecovery: summary.totalEstimatedMissingRevenue,
-              },
+              await tx.claimAnalysisBatch.update({
+                where: { id: batch.id },
+                data: {
+                  status:
+                    failed > 0 && completed > 0
+                      ? "PARTIAL"
+                      : failed === pdfFiles.length
+                        ? "FAILED"
+                        : "COMPLETED",
+                  processedFiles: completed,
+                  failedFiles: failed,
+                  completedAt: new Date(),
+                  averageCompletenessScore: summary.averageScores.completeness,
+                  averageComplianceScore: summary.averageScores.compliance,
+                  totalMissingElements:
+                    summary.totalMissingElements.iicrc +
+                    summary.totalMissingElements.ohs +
+                    summary.totalMissingElements.billing +
+                    summary.totalMissingElements.documentation,
+                  estimatedRevenueRecovery: summary.totalEstimatedMissingRevenue,
+                },
+              });
+            },
+            // Batches can carry many files × issues; give the interactive tx
+            // headroom beyond the 5s default so a large batch can't roll back.
+            { timeout: 20_000, maxWait: 10_000 });
+          } catch (err) {
+            // RA-8043e: a failed save must not leave the batch PROCESSING.
+            await markBatchFailed(batch.id, userId, err);
+            sendEvent({
+              type: "error",
+              batchId: batch.id,
+              error: SAVE_FAILED_MESSAGE,
             });
-          },
-          // Batches can carry many files × issues; give the interactive tx
-          // headroom beyond the 5s default so a large batch can't roll back.
-          { timeout: 20_000, maxWait: 10_000 });
+            controller.close();
+            return;
+          }
 
           sendEvent({
             type: "complete",
@@ -473,6 +575,7 @@ export async function POST(request: NextRequest) {
     const batch = await prisma.claimAnalysisBatch.create({
       data: {
         userId,
+        source: CLAIM_BATCH_SOURCE,
         folderId,
         folderName: null,
         status:
@@ -496,61 +599,74 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    await prisma.$transaction(async (tx) => {
-      for (const r of analysisResults) {
-        const analysisData = {
-          batchId: batch.id,
-          fileName: r.fileName,
-          completenessScore: Math.round(r.scores?.completeness ?? 0),
-          complianceScore: Math.round(r.scores?.compliance ?? 0),
-          standardizationScore: Math.round(r.scores?.standardization ?? 0),
-          billingAccuracyScore: Math.round(r.scores?.billingAccuracy ?? 0),
-          missingIICRCElements: r.missingElements?.iicrc ?? 0,
-          missingOHSElements: r.missingElements?.ohs ?? 0,
-          missingBillingItems: r.missingElements?.billing ?? 0,
-          missingDocumentation: r.missingElements?.documentation ?? 0,
-          estimatedMissingRevenue: r.estimatedMissingRevenue ?? null,
-          fullAnalysisData: JSON.stringify({
-            issues: r.issues,
-            reportStructure: r.reportStructure,
-            technicianPattern: r.technicianPattern,
-          }),
-          status:
-            (r.issues?.length ?? 0) === 0 && (r.scores?.completeness ?? 0) === 0
-              ? ("FAILED" as const)
-              : ("COMPLETED" as const),
-          processedAt: new Date(),
-        };
-        const analysis = await tx.claimAnalysis.upsert({
-          where: { googleDriveFileId: r.fileId },
-          create: { googleDriveFileId: r.fileId, ...analysisData },
-          update: analysisData,
-        });
-        await tx.missingElement.deleteMany({
-          where: { analysisId: analysis.id },
-        });
-        const issues = r.issues ?? [];
-        if (issues.length > 0) {
-          await tx.missingElement.createMany({
-            data: issues.map((issue) => ({
-              analysisId: analysis.id,
-              category: mapCategory(issue.category),
-              elementType: issue.category || "Other",
-              elementName: issue.elementName || "Unknown",
-              description: issue.description ?? null,
-              severity: mapSeverity(issue.severity),
-              standardReference: issue.standardReference ?? null,
-              isBillable: !!issue.isBillable,
-              estimatedCost: issue.estimatedCost ?? null,
-              estimatedHours: issue.estimatedHours ?? null,
-              suggestedLineItem: issue.suggestedLineItem ?? null,
-            })),
+    try {
+      await prisma.$transaction(async (tx) => {
+        for (const r of analysisResults) {
+          const analysisData = {
+            batchId: batch.id,
+            fileName: r.fileName,
+            completenessScore: Math.round(r.scores?.completeness ?? 0),
+            complianceScore: Math.round(r.scores?.compliance ?? 0),
+            standardizationScore: Math.round(r.scores?.standardization ?? 0),
+            billingAccuracyScore: Math.round(r.scores?.billingAccuracy ?? 0),
+            missingIICRCElements: r.missingElements?.iicrc ?? 0,
+            missingOHSElements: r.missingElements?.ohs ?? 0,
+            missingBillingItems: r.missingElements?.billing ?? 0,
+            missingDocumentation: r.missingElements?.documentation ?? 0,
+            estimatedMissingRevenue: r.estimatedMissingRevenue ?? null,
+            fullAnalysisData: JSON.stringify({
+              issues: r.issues,
+              reportStructure: r.reportStructure,
+              technicianPattern: r.technicianPattern,
+            }),
+            status:
+              (r.issues?.length ?? 0) === 0 && (r.scores?.completeness ?? 0) === 0
+                ? ("FAILED" as const)
+                : ("COMPLETED" as const),
+            processedAt: new Date(),
+          };
+          const analysis = await tx.claimAnalysis.upsert({
+            where: { googleDriveFileId: r.fileId },
+            create: { googleDriveFileId: r.fileId, ...analysisData },
+            update: analysisData,
           });
+          await tx.missingElement.deleteMany({
+            where: { analysisId: analysis.id },
+          });
+          const issues = r.issues ?? [];
+          if (issues.length > 0) {
+            await tx.missingElement.createMany({
+              data: issues.map((issue) => ({
+                analysisId: analysis.id,
+                category: mapCategory(issue.category),
+                elementType: issue.category || "Other",
+                elementName: issue.elementName || "Unknown",
+                description: issue.description ?? null,
+                severity: mapSeverity(issue.severity),
+                standardReference: issue.standardReference ?? null,
+                isBillable: !!issue.isBillable,
+                estimatedCost: issue.estimatedCost ?? null,
+                estimatedHours: issue.estimatedHours ?? null,
+                suggestedLineItem: issue.suggestedLineItem ?? null,
+              })),
+            });
+          }
         }
-      }
-    },
-    // Headroom beyond the 5s default for large batches (files × issues).
-    { timeout: 20_000, maxWait: 10_000 });
+      },
+      // Headroom beyond the 5s default for large batches (files × issues).
+      { timeout: 20_000, maxWait: 10_000 });
+    } catch (err) {
+      // RA-8043e: the batch row above already holds its final status; a
+      // failed save must not leave it claiming COMPLETED.
+      await markBatchFailed(batch.id, userId, err);
+      return apiError(request, {
+        code: "INTERNAL",
+        message: SAVE_FAILED_MESSAGE,
+        status: 500,
+        stage: "save-results",
+        context: { batchId: batch.id },
+      });
+    }
 
     return NextResponse.json({
       success: true,
