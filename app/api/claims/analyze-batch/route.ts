@@ -41,10 +41,11 @@ const SAVE_FAILED_MESSAGE =
 
 /**
  * A whole number from 1 to MAX_DOCUMENTS_PER_BATCH, or MAX_DOCUMENTS_PER_BATCH
- * when omitted. Anything else is null (the caller returns 400).
+ * when omitted. Anything else, an explicit null included, is null (the caller
+ * returns 400).
  */
 function parseDocumentLimit(value: unknown): number | null {
-  if (value === undefined || value === null) return MAX_DOCUMENTS_PER_BATCH;
+  if (value === undefined) return MAX_DOCUMENTS_PER_BATCH;
   const n =
     typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
   if (typeof n !== "number" || !Number.isInteger(n)) return null;
@@ -572,30 +573,19 @@ export async function POST(request: NextRequest) {
     ).length;
     const failed = pdfFiles.length - completed;
 
+    // RA-8043e: the batch starts PROCESSING; its final status is written in
+    // the same transaction as its rows, so a failed save can never leave a
+    // COMPLETED or PARTIAL batch with no rows (even if markBatchFailed fails).
     const batch = await prisma.claimAnalysisBatch.create({
       data: {
         userId,
         source: CLAIM_BATCH_SOURCE,
         folderId,
         folderName: null,
-        status:
-          failed > 0 && completed > 0
-            ? "PARTIAL"
-            : failed === pdfFiles.length
-              ? "FAILED"
-              : "COMPLETED",
+        status: "PROCESSING",
         totalFiles: pdfFiles.length,
-        processedFiles: completed,
-        failedFiles: failed,
-        completedAt: new Date(),
-        averageCompletenessScore: summary.averageScores.completeness,
-        averageComplianceScore: summary.averageScores.compliance,
-        totalMissingElements:
-          summary.totalMissingElements.iicrc +
-          summary.totalMissingElements.ohs +
-          summary.totalMissingElements.billing +
-          summary.totalMissingElements.documentation,
-        estimatedRevenueRecovery: summary.totalEstimatedMissingRevenue,
+        processedFiles: 0,
+        failedFiles: 0,
       },
     });
 
@@ -652,12 +642,33 @@ export async function POST(request: NextRequest) {
             });
           }
         }
+        await tx.claimAnalysisBatch.update({
+          where: { id: batch.id },
+          data: {
+            status:
+              failed > 0 && completed > 0
+                ? "PARTIAL"
+                : failed === pdfFiles.length
+                  ? "FAILED"
+                  : "COMPLETED",
+            processedFiles: completed,
+            failedFiles: failed,
+            completedAt: new Date(),
+            averageCompletenessScore: summary.averageScores.completeness,
+            averageComplianceScore: summary.averageScores.compliance,
+            totalMissingElements:
+              summary.totalMissingElements.iicrc +
+              summary.totalMissingElements.ohs +
+              summary.totalMissingElements.billing +
+              summary.totalMissingElements.documentation,
+            estimatedRevenueRecovery: summary.totalEstimatedMissingRevenue,
+          },
+        });
       },
       // Headroom beyond the 5s default for large batches (files × issues).
       { timeout: 20_000, maxWait: 10_000 });
     } catch (err) {
-      // RA-8043e: the batch row above already holds its final status; a
-      // failed save must not leave it claiming COMPLETED.
+      // RA-8043e: a failed save must not leave the batch PROCESSING.
       await markBatchFailed(batch.id, userId, err);
       return apiError(request, {
         code: "INTERNAL",
