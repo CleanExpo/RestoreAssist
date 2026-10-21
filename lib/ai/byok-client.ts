@@ -9,6 +9,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { modelRejectsSamplingParams } from "@/lib/anthropic-models";
 
 // ═══ BYOK Allowlist (mirror of mobile/constants/byok.ts) ═══════════
 
@@ -248,7 +249,10 @@ async function callAnthropic(req: ByokRequest): Promise<ByokResponse> {
   const response = await client.messages.create({
     model: req.model,
     max_tokens: req.maxTokens ?? 4096,
-    temperature: req.temperature ?? 0.3,
+    // Opus 4.7+ / Sonnet 5+ reject sampling params with a 400; omit them there.
+    ...(modelRejectsSamplingParams(req.model)
+      ? {}
+      : { temperature: req.temperature ?? 0.3 }),
     system: req.systemPrompt,
     messages: formatClaudeMessages(req.userPrompt, req.visionInputs),
   });

@@ -29,7 +29,7 @@ export interface ModelConfig {
  * Keep in sync with Anthropic's breaking-change list:
  * https://docs.anthropic.com/en/docs/about-claude/models/whats-new-claude-4-7
  */
-function modelRejectsSamplingParams(model: string): boolean {
+export function modelRejectsSamplingParams(model: string): boolean {
   // Forward-compatible — matches opus-4-7+ (incl. opus-4-8) and sonnet-5+.
   return (
     /^claude-opus-4-(7|8|9|1\d)/.test(model) ||
