@@ -342,29 +342,37 @@ describe.skipIf(!process.env.DATABASE_URL)(
     });
 
     it("[ra-8043e] T2a the database refuses a service-account batch that carries a firm", async () => {
-      await expect(
-        prisma.claimAnalysisBatch.create({
+      const refusal = await prisma.claimAnalysisBatch
+        .create({
           data: {
             userId: ids.operator,
             folderId: `${S}-t2a`,
             source: "PLATFORM_SERVICE_ACCOUNT",
             organizationId: ids.org,
           },
-        }),
-      ).rejects.toThrow(/claim_batch_source_org/);
+        })
+        .then(
+          () => "stored",
+          (e: unknown) => String(e),
+        );
+      expect(refusal).toMatch(/claim_batch_source_org/);
       expect(await batchesIn(`${S}-t2a`)).toHaveLength(0);
     });
 
     it("[ra-8043e] T2b the database refuses a firm batch with no firm", async () => {
-      await expect(
-        prisma.claimAnalysisBatch.create({
+      const refusal = await prisma.claimAnalysisBatch
+        .create({
           data: {
             userId: ids.operator,
             folderId: `${S}-t2b`,
             source: "FIRM_OAUTH",
           },
-        }),
-      ).rejects.toThrow(/claim_batch_source_org/);
+        })
+        .then(
+          () => "stored",
+          (e: unknown) => String(e),
+        );
+      expect(refusal).toMatch(/claim_batch_source_org/);
       expect(await batchesIn(`${S}-t2b`)).toHaveLength(0);
     });
 
