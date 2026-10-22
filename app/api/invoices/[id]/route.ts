@@ -8,6 +8,7 @@ import { recordMutationAudit } from "@/lib/audit-log";
 import { apiError, fromException } from "@/lib/api-errors";
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
 import { lineSubtotalCents } from "@/lib/invoices/calc";
+import { getInvoiceOnlinePayment } from "@/lib/invoices/online-payment-availability";
 import {
   getGstTreatmentForCurrency,
   resolveLineGstRatePercent,
@@ -199,7 +200,15 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({ invoice });
+    // P1-MNY-01: the page is a client component and cannot read the server
+    // flag or the firm's Stripe state; it shows Pay Online only when this is
+    // available. The connected account id is deliberately not sent.
+    const online = await getInvoiceOnlinePayment(invoice);
+    const onlinePayment = online.available
+      ? { available: true as const }
+      : { available: false as const, reason: online.reason };
+
+    return NextResponse.json({ invoice: { ...invoice, onlinePayment } });
   } catch (error: any) {
     return fromException(request, error, { stage: "invoice-get" });
   }

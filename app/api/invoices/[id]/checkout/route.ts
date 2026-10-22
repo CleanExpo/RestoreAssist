@@ -7,9 +7,13 @@ import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
-  INVOICE_ONLINE_PAYMENT_ENABLED,
   INVOICE_ONLINE_PAYMENT_UNAVAILABLE_MESSAGE,
+  isInvoiceOnlinePaymentEnabled,
 } from "@/lib/invoices/online-payment";
+import {
+  ONLINE_PAYMENT_REASON_MESSAGES,
+  getInvoiceOnlinePayment,
+} from "@/lib/invoices/online-payment-availability";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -25,9 +29,9 @@ export async function POST(
       status: 401,
     });
   }
-  // P1-MNY-00: refuse before any Stripe call — this route charged into
-  // RestoreAssist's own account, not the firm's.
-  if (!INVOICE_ONLINE_PAYMENT_ENABLED) {
+  // P1-MNY-00 / P1-MNY-01: off unless INVOICE_ONLINE_PAYMENT_ENABLED is
+  // exactly "true". Refuse before any Stripe call.
+  if (!isInvoiceOnlinePaymentEnabled()) {
     return apiError(request, {
       code: "FEATURE_UNAVAILABLE",
       message: INVOICE_ONLINE_PAYMENT_UNAVAILABLE_MESSAGE,
@@ -92,7 +96,20 @@ export async function POST(
         });
       }
 
-      // Create Stripe checkout session
+      // P1-MNY-01: the money must go to the firm. Only the invoice's own
+      // workspace counts, and it needs the PAYMENTS add-on and a connected
+      // Stripe account with charges enabled.
+      const onlinePayment = await getInvoiceOnlinePayment(invoice);
+      if (!onlinePayment.available) {
+        return apiError(request, {
+          code: "FEATURE_UNAVAILABLE",
+          message: ONLINE_PAYMENT_REASON_MESSAGES[onlinePayment.reason],
+          status: 409,
+        });
+      }
+
+      // Direct charge on the firm's connected account ({ stripeAccount }),
+      // with no application fee: RestoreAssist takes nothing from it.
       const checkoutSession = await stripe.checkout.sessions.create({
         mode: "payment",
         customer_email: invoice.customerEmail,
@@ -118,6 +135,7 @@ export async function POST(
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
           userId,
+          workspaceId: onlinePayment.workspaceId,
         },
         success_url: `${APP_URL}/dashboard/invoices/${invoice.id}?payment=success`,
         cancel_url: `${APP_URL}/dashboard/invoices/${invoice.id}?payment=cancelled`,
@@ -127,9 +145,10 @@ export async function POST(
             invoiceId: invoice.id,
             invoiceNumber: invoice.invoiceNumber,
             userId,
+            workspaceId: onlinePayment.workspaceId,
           },
         },
-      });
+      }, { stripeAccount: onlinePayment.stripeAccountId });
 
       // Create audit log
       await prisma.invoiceAuditLog.create({
@@ -141,6 +160,7 @@ export async function POST(
           metadata: {
             sessionId: checkoutSession.id,
             amount: invoice.amountDue,
+            connectedAccountId: onlinePayment.stripeAccountId,
           },
         },
       });

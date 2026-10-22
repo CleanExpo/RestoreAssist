@@ -6040,6 +6040,15 @@ model Workspace {
   stripeCustomerId       String?         @unique
   stripeSubscriptionId   String?         @unique
 
+  // P1-MNY-01 — the firm's own Stripe account (Connect, Standard). Invoice card
+  // payments are direct charges on this account, so the money is the firm's.
+  // Status mirrors Stripe (account.updated webhook / onboarding return) and is
+  // never trusted from a browser redirect alone.
+  stripeConnectAccountId        String?   @unique
+  stripeConnectChargesEnabled   Boolean   @default(false)
+  stripeConnectDetailsSubmitted Boolean   @default(false)
+  stripeConnectStatusAt         DateTime?
+
   // RA-1707 / P0-2 — Anthropic + AI org-spend cap. Daily ceiling in USD.
   // Null falls back to AI_DEFAULT_DAILY_BUDGET_USD env (defaults to 50).
   // checkWorkspaceBudget() in lib/ai/budget-guard.ts reads this.

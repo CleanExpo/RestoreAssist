@@ -8,11 +8,13 @@
  * Stripe `price_data` at checkout, so NO pre-created Stripe product or price
  * is required.
  *
- * SCOPE: this SKU gates the EXISTING manual bank-deposit payment-recording
- * feature only. The Stripe Connect payment rail (client-account onboarding
- * for payment links) is a separate, owner-gated (O1) phase
- * (byok-monetisation-spec §5, "P2b — Stripe Connect rail") and is
- * intentionally out of scope here.
+ * SCOPE: this SKU gates the manual bank-deposit payment-recording feature.
+ * P1-MNY-01 built invoice card payments on Stripe Connect (Standard accounts,
+ * direct charges to the firm's own Stripe account) and also requires this
+ * SKU for them, but they stay OFF behind INVOICE_ONLINE_PAYMENT_ENABLED until
+ * the founder enables them. While that flag is off, the customer-facing
+ * description below (bank deposit only) is the true one; change it in the
+ * same release that turns card payments on.
  *
  * Shared by:
  *   - app/api/addons/checkout/route.ts  (builds the subscription checkout)
