@@ -22,6 +22,9 @@ export const PLANTED: Array<{
   { id: "J1-CTRL-xwrite", info: { file: `${P}/xwrite.ts`, route: "/api/jev-planted/xwrite/[id]", params: ["id"] }, method: "PATCH", who: "B_TECH", payload: "swap" },
   // Returns 500 on malformed JSON instead of 400.
   // Keeps the honest-503 exemption narrow: an opaque 503 must still fail.
+  // A crash behind a per-address limiter: both calls must reach the crash.
+  { id: "J1-CTRL-ratelimit-first", info: { file: `${P}/ratelimited-crash.ts`, route: "/api/jev-planted/ratelimited-crash", params: [] }, method: "POST", who: "A_OWNER", payload: "empty" },
+  { id: "J1-CTRL-ratelimit-second", info: { file: `${P}/ratelimited-crash.ts`, route: "/api/jev-planted/ratelimited-crash", params: [] }, method: "POST", who: "A_OWNER", payload: "empty" },
   { id: "J1-CTRL-opaque503", info: { file: `${P}/opaque503.ts`, route: "/api/jev-planted/opaque503", params: [] }, method: "GET", who: "A_OWNER", payload: "empty" },
   // Lets the JSON parse error escape the handler.
   { id: "J1-CTRL-throw", info: { file: `${P}/throw.ts`, route: "/api/jev-planted/throw", params: [] }, method: "POST", who: "A_OWNER", payload: "malformed" },

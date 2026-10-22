@@ -74,6 +74,13 @@ function errorText(err: unknown): string {
   return err instanceof Error ? `${err.name}: ${err.message}`.slice(0, 300) : String(err).slice(0, 300);
 }
 
+let ipCounter = 0;
+/** A distinct documentation-range (TEST-NET) address per call. */
+function nextClientIp(): string {
+  ipCounter++;
+  return `198.18.${(ipCounter >> 8) & 255}.${ipCounter & 255}`;
+}
+
 const modCache = new Map<string, Promise<Record<string, unknown>>>();
 
 export async function loadRoute(file: string): Promise<Record<string, unknown>> {
@@ -98,11 +105,15 @@ export async function invokeRoute(info: Pick<RouteInfo, "file" | "route">, metho
   const url = `http://localhost${fillPath(info.route, params)}${opts.query ? `?${opts.query}` : ""}`;
   const hasBody = method !== "GET";
   const body = opts.rawBody ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body));
+  // Every call comes from its own client address. The rate limiters key on
+  // x-forwarded-for, so with one shared address a limiter answered (429)
+  // before the handler under test ran, and a crash behind it read as a pass.
+  const ip = { "x-forwarded-for": nextClientIp() };
   const req = opts.form
-    ? new NextRequest(url, { method, headers: opts.headers ?? {}, body: opts.form })
+    ? new NextRequest(url, { method, headers: { ...ip, ...(opts.headers ?? {}) }, body: opts.form })
     : new NextRequest(url, {
         method,
-        headers: { "content-type": "application/json", ...(opts.headers ?? {}) },
+        headers: { "content-type": "application/json", ...ip, ...(opts.headers ?? {}) },
         body: hasBody ? body : undefined,
       });
   (globalThis as { __jevReqHeaders?: Headers }).__jevReqHeaders = new Headers(req.headers);

@@ -80,6 +80,8 @@ export function judgeCall(args: {
   if (outsider && who !== "anon" && ok && touchesA && method !== "GET" && !ID_IGNORED.some((p) => p.re.test(route))) {
     return { state: "FAIL", detail: `${who} write on firm A record accepted (${s})` };
   }
+  // A rate limiter answered before the handler: the subject was never reached.
+  if (s === 429) return { state: "INCONCLUSIVE", detail: `rate limited (429) before the handler ran on ${payload} payload` };
   if (s >= 500) {
     if (blocked.length) return { state: "INCONCLUSIVE", detail: `${s} after refused call to ${blocked.join(",")}` };
     // A 503 that says what is unavailable is honest status, not a crash.
