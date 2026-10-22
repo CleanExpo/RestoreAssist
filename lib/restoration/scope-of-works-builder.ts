@@ -1,6 +1,7 @@
 import { getEquipmentGroupById, getEquipmentDailyRate } from "@/lib/equipment-matrix";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
+import { extractWaterCategory } from "@/lib/reports/extract-report-data";
 /**
  * Exported for test. buildScopeOfWorksData is the pure builder that decides,
  * among much else, the mould flag handed to the safety reconciler --
@@ -523,16 +524,3 @@ export function buildScopeOfWorksData(data: {
   };
 }
 
-function extractWaterCategory(waterSource: string): string {
-  if (!waterSource) return "Category 1";
-  if (waterSource.includes("Category 2") || waterSource.includes("grey water"))
-    return "Category 2";
-  if (
-    waterSource.includes("Category 3") ||
-    waterSource.includes("contaminated") ||
-    waterSource.includes("Sewage") ||
-    waterSource.includes("biohazard")
-  )
-    return "Category 3";
-  return "Category 1";
-}

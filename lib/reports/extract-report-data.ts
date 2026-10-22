@@ -92,39 +92,89 @@ export function extractMaterialsFromReport(report: {
 }
 
 /**
+ * The Tier 1 water-source options (components/Tier1Questions.tsx), exactly as
+ * stored, resolved before any keyword rule. Each option carries its own
+ * category label; "Washing machine/dishwasher (Category 1)" would otherwise
+ * read as Category 2 by the dishwasher rule below.
+ */
+const TIER1_WATER_SOURCE_CATEGORIES: Readonly<Record<string, string>> = {
+  "Burst pipe (clean water — Category 1)": "Category 1",
+  "Overflowing toilet (Category 2 — grey water)": "Category 2",
+  "Flood/stormwater (Category 3 — contaminated)": "Category 3",
+  "Sewage backup (Category 3 — biohazard)": "Category 3",
+  "Roof leak (Category 1 — clean)": "Category 1",
+  "Hot water service failure (Category 1)": "Category 1",
+  "Washing machine/dishwasher (Category 1)": "Category 1",
+  "Unknown source": "Category 1",
+  Other: "Category 1",
+};
+
+// Keyword rules, all case-insensitive so free text is never under-classified
+// because of its capitalisation. They cover the source names, explicit
+// category labels, and the terms the per-report classifiers (assessment PDF,
+// forensic PDF, scope of works) recognised before they were folded in here.
+const CATEGORY_2_PATTERNS = [
+  /overflowing toilet/i,
+  /\bgr[ae]y[\s-]?water\b/i,
+  /\b(?:cat|category)\s*2\b/i,
+];
+const CATEGORY_3_PATTERNS = [
+  /flood/i,
+  /sewage/i,
+  /biohazard/i,
+  /contaminated/i,
+  /\bblack[\s-]?water\b/i,
+  /\b(?:cat|category)\s*3\b/i,
+];
+
+const DISHWASHER = /dishwasher/i;
+const DISHWASHER_DISCHARGE = /\b(?:discharg|drain|waste|overflow|outlet)/i;
+const DISHWASHER_SUPPLY =
+  /\b(?:supply|inlet)\b|\bfeed (?:line|hose|pipe)\b|\bfill (?:line|hose|valve)\b/i;
+
+/**
+ * IICRC S500: a dishwasher's supply (inlet) line carries clean, potable water
+ * (Category 1); water discharged from the machine (drain, waste, overflow) is
+ * grey water (Category 2). Discharge wording wins when both are named, and a
+ * dishwasher with neither is treated as discharge.
+ */
+function isDishwasherDischarge(waterSource: string): boolean {
+  if (!DISHWASHER.test(waterSource)) return false;
+  if (DISHWASHER_DISCHARGE.test(waterSource)) return true;
+  return !DISHWASHER_SUPPLY.test(waterSource);
+}
+
+/**
  * Classify a water source description into IICRC S500 water categories:
- * - Category 1 (clean water): burst pipes, roof leaks, appliance failures
+ * - Category 1 (clean water): burst pipes, roof leaks, appliance failures,
+ *   a dishwasher supply line
  * - Category 2 (grey water): overflow toilets, dishwasher discharge
  * - Category 3 (black water): sewage, flood, biohazard
  *
- * Defaults to Category 1 when the source is unrecognised.
+ * An exact Tier 1 option resolves from its table. Otherwise the worst source
+ * named governs (IICRC S500), matched without regard to case, and an
+ * unrecognised source defaults to Category 1. This is the one classifier
+ * report generation uses; do not add private copies.
  */
 export function extractWaterCategory(waterSource: string): string {
   if (!waterSource) return "Not specified";
 
-  const category1Sources = [
-    "Burst pipe",
-    "Roof leak",
-    "Hot water service failure",
-    "Washing machine",
-    "Dishwasher",
-  ];
-  const category2Sources = ["Overflowing toilet", "Grey water"];
-  const category3Sources = [
-    "Flood",
-    "Sewage backup",
-    "Biohazard",
-    "Contaminated",
-  ];
+  const option = TIER1_WATER_SOURCE_CATEGORIES[waterSource.trim()];
+  if (option) return option;
 
-  if (category1Sources.some((s) => waterSource.includes(s)))
-    return "Category 1";
-  if (category2Sources.some((s) => waterSource.includes(s)))
-    return "Category 2";
-  if (category3Sources.some((s) => waterSource.includes(s)))
+  // IICRC S500: the worst source present governs, so check the most
+  // contaminated category first.
+  if (CATEGORY_3_PATTERNS.some((p) => p.test(waterSource)))
     return "Category 3";
+  if (
+    CATEGORY_2_PATTERNS.some((p) => p.test(waterSource)) ||
+    isDishwasherDischarge(waterSource)
+  )
+    return "Category 2";
 
-  return "Category 1"; // Default
+  // Burst pipe, roof leak, hot water service, washing machine, a dishwasher
+  // supply line, and anything unrecognised.
+  return "Category 1";
 }
 
 /**
