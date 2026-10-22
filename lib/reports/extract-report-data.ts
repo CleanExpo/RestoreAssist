@@ -97,6 +97,7 @@ export function extractMaterialsFromReport(report: {
  * - Category 2 (grey water): overflow toilets, dishwasher discharge
  * - Category 3 (black water): sewage, flood, biohazard
  *
+ * When several sources are named, the worst one governs (IICRC S500).
  * Defaults to Category 1 when the source is unrecognised.
  */
 export function extractWaterCategory(waterSource: string): string {
@@ -107,9 +108,8 @@ export function extractWaterCategory(waterSource: string): string {
     "Roof leak",
     "Hot water service failure",
     "Washing machine",
-    "Dishwasher",
   ];
-  const category2Sources = ["Overflowing toilet", "Grey water"];
+  const category2Sources = ["Overflowing toilet", "Grey water", "Dishwasher"];
   const category3Sources = [
     "Flood",
     "Sewage backup",
@@ -117,12 +117,14 @@ export function extractWaterCategory(waterSource: string): string {
     "Contaminated",
   ];
 
-  if (category1Sources.some((s) => waterSource.includes(s)))
-    return "Category 1";
-  if (category2Sources.some((s) => waterSource.includes(s)))
-    return "Category 2";
+  // IICRC S500: the worst source present governs, so check the most
+  // contaminated category first.
   if (category3Sources.some((s) => waterSource.includes(s)))
     return "Category 3";
+  if (category2Sources.some((s) => waterSource.includes(s)))
+    return "Category 2";
+  if (category1Sources.some((s) => waterSource.includes(s)))
+    return "Category 1";
 
   return "Category 1"; // Default
 }

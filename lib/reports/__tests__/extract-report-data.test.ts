@@ -110,7 +110,18 @@ describe("extractWaterCategory (IICRC S500 mapping)", () => {
       "Category 1",
     );
     expect(extractWaterCategory("Washing machine hose")).toBe("Category 1");
-    expect(extractWaterCategory("Dishwasher supply line")).toBe("Category 1");
+  });
+
+  it("maps dishwasher discharge to Category 2, as the docstring states", () => {
+    expect(extractWaterCategory("Dishwasher")).toBe("Category 2");
+  });
+
+  it("lets the worst source named govern (IICRC S500)", () => {
+    expect(extractWaterCategory("Roof leak Flood")).toBe("Category 3");
+    expect(extractWaterCategory("Grey water Sewage backup")).toBe("Category 3");
+    expect(extractWaterCategory("Burst pipe then Overflowing toilet")).toBe(
+      "Category 2",
+    );
   });
 
   it("maps grey-water sources to Category 2", () => {
