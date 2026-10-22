@@ -15,7 +15,7 @@ import { recordResults, classify, type JevResult } from "../runner/record";
 import { invokeRoute, listRoutes, type Method, type RouteInfo } from "../runner/route-harness";
 import { asIdentity, takeBlocked } from "../runner/setup";
 import { areaOf, judgeCall } from "../runner/judge";
-import { aIdFor, buildWorld, FIRM_A, IDENTITIES, sessionUser, type IdentityName, type World } from "../runner/world";
+import { aIdFor, buildWorld, clearRateLimits, FIRM_A, IDENTITIES, sessionUser, type IdentityName, type World } from "../runner/world";
 import { PLANTED } from "./j1/planted";
 
 const FAMILY = "J1";
@@ -50,6 +50,7 @@ function swapBody(w: World): Record<string, string> {
 async function runCase(w: World, info: Pick<RouteInfo, "file" | "route" | "params">, method: Method, who: IdentityName, payload: Payload, id: string, kind: "case" | "control") {
   const params = Object.fromEntries(info.params.map((p) => [p, aIdFor(w, info.route, p)]));
   const swap = swapBody(w);
+  await clearRateLimits();
   asIdentity(sessionUser(w, who));
   takeBlocked();
   const res = await invokeRoute(info, method, {

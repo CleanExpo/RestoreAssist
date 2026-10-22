@@ -22,7 +22,7 @@ import { classify, recordResults, type JevResult } from "../runner/record";
 import { invokeRoute, type InvokeResult } from "../runner/route-harness";
 import { asIdentity, takeBlocked } from "../runner/setup";
 import { areaOf, judgeCall } from "../runner/judge";
-import { buildWorld, FIRM_A, sessionUser, type IdentityName, type World } from "../runner/world";
+import { buildWorld, clearRateLimits, FIRM_A, sessionUser, type IdentityName, type World } from "../runner/world";
 import { ERROR_TEXT, PAYLOADS, serialize, setPath } from "./j5/payloads";
 import { plantedSpecs, specs, type Ctx, type Spec } from "./j5/specs";
 
@@ -150,6 +150,7 @@ async function runCase(shared: Ctx, spec: Spec, who: IdentityName, field: string
   const target = spec.readback.rowId(c, null);
   const rowBefore = target ? await delegate(spec.readback.model).findUnique({ where: { id: target } }) : null;
 
+  await clearRateLimits();
   asIdentity(sessionUser(w, who));
   takeBlocked();
   const res: InvokeResult = await invokeRoute(spec, spec.method, { params: spec.params(c), rawBody: serialize(body), headers: spec.headers?.(c, n), timeoutMs: 30_000 });

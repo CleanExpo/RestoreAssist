@@ -12,6 +12,20 @@ export type IdentityName = "anon" | "A_OWNER" | "A_MANAGER" | "A_TECH" | "B_OWNE
 export const IDENTITIES: IdentityName[] = ["anon", "A_OWNER", "A_MANAGER", "A_TECH", "B_OWNER", "B_TECH"];
 export const FIRM_A: IdentityName[] = ["A_OWNER", "A_MANAGER", "A_TECH"];
 
+/**
+ * Clear rate-limiter state before a case, as J3's world does for its users.
+ * Some limiters key on the user, the capture token or a process-local Map, so
+ * the per-call client address alone cannot keep one case's earlier calls from
+ * answering 429 before the handler under test runs. The throwaway database is
+ * this run's own, so every row may go. Planted controls keep their own state.
+ */
+export async function clearRateLimits(): Promise<void> {
+  const { __resetRateLimitStore } = await import("@/lib/rate-limiter");
+  const { __resetBulkRateLimit } = await import("@/lib/bulk-operations");
+  await __resetRateLimitStore();
+  __resetBulkRateLimit();
+}
+
 export interface World {
   run: string;
   markA: string;
