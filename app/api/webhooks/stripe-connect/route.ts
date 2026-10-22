@@ -17,7 +17,11 @@ import { syncConnectAccountStatus } from "@/lib/billing/stripe-connect";
  *   account.updated           -> mirror charges_enabled / details_submitted
  *   payment_intent.succeeded  -> reconcile the invoice, but only when the
  *                                account is the invoice workspace's own
- *                                (otherwise 400 + audit row, invoice unpaid)
+ *                                (otherwise one audit row, invoice unpaid,
+ *                                event SKIPPED, 200 so Stripe stops retrying)
+ *
+ * Events whose livemode differs from the platform key's mode are ignored
+ * (SKIPPED, 200): a production Connect endpoint also receives test events.
  *   charge.refunded,
  *   charge.dispute.*          -> logged only in v1 (the firm manages refunds
  *                                and disputes in its own Stripe Dashboard)
@@ -69,7 +73,39 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Dedupe (RA-913 / RA-6962 rule, as the platform webhook).
+  // A production Connect endpoint receives both live and test events. An
+  // event from the other mode is never acted on: recorded SKIPPED with the
+  // reason, answered 200 so Stripe stops sending it.
+  const keyIsLive = (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_live_");
+  const eventIsLive = event.livemode === true;
+  if (eventIsLive !== keyIsLive) {
+    const reason = `livemode mismatch: event livemode=${eventIsLive}, platform key is ${keyIsLive ? "live" : "test"}; ignored`;
+    console.warn("[stripe-connect-webhook] " + reason, {
+      eventId: event.id,
+      type: event.type,
+      account: connectedAccountId,
+    });
+    try {
+      await prisma.stripeWebhookEvent.create({
+        data: {
+          stripeEventId: event.id,
+          eventType: event.type,
+          eventData: JSON.stringify(event.data.object),
+          status: "SKIPPED",
+          processedAt: new Date(),
+          errorMessage: reason,
+        },
+      });
+    } catch (err: unknown) {
+      if ((err as { code?: string })?.code !== "P2002") {
+        console.error("[stripe-connect-webhook] failed to record skipped event:", event.id);
+      }
+    }
+    return NextResponse.json({ received: true, warning: "livemode_mismatch" });
+  }
+
+  // Dedupe (RA-913 / RA-6962 rule, as the platform webhook). A SKIPPED row is
+  // acknowledged without reprocessing, so a refused event is audited once.
   try {
     await prisma.stripeWebhookEvent.create({
       data: {
@@ -129,15 +165,18 @@ export async function POST(request: NextRequest) {
           });
         }
         if (result.kind === "account-mismatch") {
+          // Refused, invoice unpaid, one audit row written by the reconcile.
+          // SKIPPED + 200: retrying cannot make the account match, and a
+          // FAILED row would be reprocessed on every Stripe retry (72 h),
+          // writing another audit row each time.
           await markEvent(
             event.id,
-            "FAILED",
+            "SKIPPED",
             `Connected account ${connectedAccountId} does not own invoice ${result.invoiceId}`,
           );
-          return apiError(request, {
-            code: "VALIDATION",
-            message: "Payment account does not match the invoice's business",
-            status: 400,
+          return NextResponse.json({
+            received: true,
+            warning: "connect_account_mismatch",
           });
         }
         if (result.kind === "orphan") {
@@ -184,7 +223,7 @@ export async function POST(request: NextRequest) {
 
 async function markEvent(
   stripeEventId: string,
-  status: "COMPLETED" | "FAILED",
+  status: "COMPLETED" | "FAILED" | "SKIPPED",
   errorMessage?: string,
 ) {
   await prisma.stripeWebhookEvent

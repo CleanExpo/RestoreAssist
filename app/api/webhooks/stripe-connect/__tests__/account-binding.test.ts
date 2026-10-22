@@ -4,10 +4,12 @@
  *
  * A forged (or misrouted) payment_intent.succeeded from connected account
  * acct_B, whose metadata names firm A's invoice (firm A = acct_A), must leave
- * the invoice unpaid, answer 400 and leave an audit row on the invoice. The
- * same event from acct_A reconciles it (positive control).
+ * the invoice unpaid and write ONE audit row. The event is recorded SKIPPED
+ * and answered 200, so Stripe does not retry it for 72 hours; a replay of the
+ * same event id adds no second audit row. The same event from acct_A
+ * reconciles it (positive control).
  * Sabotage: drop the event.account comparison — the acct_B case marks the
- * invoice PAID and these tests fail.
+ * invoice PAID. Mark the event FAILED, or answer 4xx — the retry-storm cases fail.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -19,12 +21,48 @@ const tx = vi.hoisted(() => ({
   invoiceAuditLog: { create: vi.fn() },
 }));
 
+// In-memory StripeWebhookEvent table so the dedupe rule behaves as on Postgres.
+const events = vi.hoisted(
+  () =>
+    new Map<
+      string,
+      { status: string; errorMessage: string | null; createdAt: Date }
+    >(),
+);
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     stripeWebhookEvent: {
-      create: vi.fn().mockResolvedValue({}),
-      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      findUnique: vi.fn(),
+      create: vi.fn(async ({ data }: { data: { stripeEventId: string; status: string } }) => {
+        if (events.has(data.stripeEventId)) {
+          throw Object.assign(new Error("Unique constraint"), { code: "P2002" });
+        }
+        events.set(data.stripeEventId, {
+          status: data.status,
+          errorMessage: null,
+          createdAt: new Date(),
+        });
+        return {};
+      }),
+      findUnique: vi.fn(async ({ where }: { where: { stripeEventId: string } }) => {
+        const row = events.get(where.stripeEventId);
+        return row ? { status: row.status, createdAt: row.createdAt } : null;
+      }),
+      updateMany: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: { stripeEventId: string };
+          data: { status?: string; errorMessage?: string | null };
+        }) => {
+          const row = events.get(where.stripeEventId);
+          if (!row) return { count: 0 };
+          if (data.status) row.status = data.status;
+          if (data.errorMessage !== undefined) row.errorMessage = data.errorMessage;
+          return { count: 1 };
+        },
+      ),
     },
     workspace: { updateMany: vi.fn() },
     $transaction: vi.fn(async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
@@ -57,6 +95,7 @@ function event(account: string | undefined) {
   return {
     id: `evt_${account ?? "none"}`,
     type: "payment_intent.succeeded",
+    livemode: false,
     account,
     data: {
       object: {
@@ -95,7 +134,8 @@ const firmAInvoice = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(prisma.stripeWebhookEvent.create).mockResolvedValue({} as never);
+  events.clear();
+  delete process.env.STRIPE_SECRET_KEY;
   vi.mocked(prisma.$transaction).mockImplementation(
     async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
   );
@@ -108,6 +148,12 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
+function expectUnpaid() {
+  expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+  expect(tx.invoicePayment.create).not.toHaveBeenCalled();
+  expect(tx.invoicePaymentAllocation.create).not.toHaveBeenCalled();
+}
+
 describe("Connect payment_intent.succeeded account binding", () => {
   it("positive control: firm A's own account pays firm A's invoice", async () => {
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event("acct_A") as never);
@@ -115,15 +161,14 @@ describe("Connect payment_intent.succeeded account binding", () => {
     expect(res.status).toBe(200);
     expect(tx.invoice.updateMany).toHaveBeenCalledTimes(1);
     expect(tx.invoicePayment.create).toHaveBeenCalledTimes(1);
+    expect(events.get("evt_acct_A")?.status).toBe("COMPLETED");
   });
 
-  it("acct_B paying firm A's invoice leaves it unpaid, 400, with an audit row", async () => {
+  it("acct_B paying firm A's invoice: unpaid, one audit row, SKIPPED, 200", async () => {
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event("acct_B") as never);
     const res = await POST(req());
-    expect(res.status).toBe(400);
-    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
-    expect(tx.invoicePayment.create).not.toHaveBeenCalled();
-    expect(tx.invoicePaymentAllocation.create).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expectUnpaid();
     expect(tx.invoiceAuditLog.create).toHaveBeenCalledTimes(1);
     const audit = tx.invoiceAuditLog.create.mock.calls[0][0].data;
     expect(audit.invoiceId).toBe("inv_A");
@@ -133,6 +178,22 @@ describe("Connect payment_intent.succeeded account binding", () => {
       expectedAccount: "acct_A",
       paymentIntentId: "pi_1",
     });
+    const row = events.get("evt_acct_B");
+    expect(row?.status).toBe("SKIPPED");
+    expect(row?.errorMessage).toMatch(/acct_B/);
+  });
+
+  it("a replay of the same mismatched event adds no second audit row and no retry", async () => {
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event("acct_B") as never);
+    await POST(req());
+    const replay = await POST(req());
+    const third = await POST(req());
+    expect(replay.status).toBe(200);
+    expect(third.status).toBe(200);
+    expect(tx.invoiceAuditLog.create).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expectUnpaid();
+    expect(events.get("evt_acct_B")?.status).toBe("SKIPPED");
   });
 
   it("an invoice whose workspace has no connected account is never paid by a Connect event", async () => {
@@ -142,9 +203,10 @@ describe("Connect payment_intent.succeeded account binding", () => {
     });
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event("acct_A") as never);
     const res = await POST(req());
-    expect(res.status).toBe(400);
-    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
-    expect(tx.invoicePayment.create).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expectUnpaid();
+    expect(tx.invoiceAuditLog.create).toHaveBeenCalledTimes(1);
+    expect(events.get("evt_acct_A")?.status).toBe("SKIPPED");
   });
 
   it("an invoice with no workspace is never paid by a Connect event", async () => {
@@ -155,8 +217,9 @@ describe("Connect payment_intent.succeeded account binding", () => {
     });
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event("acct_A") as never);
     const res = await POST(req());
-    expect(res.status).toBe(400);
-    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expectUnpaid();
+    expect(events.get("evt_acct_A")?.status).toBe("SKIPPED");
   });
 
   it("a PaymentIntent event with no connected account is refused", async () => {
