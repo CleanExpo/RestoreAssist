@@ -47,6 +47,11 @@ export function rateLimit(
   return { allowed: true };
 }
 
+/** Test-only: clear the in-memory bulk-operation limiter state. */
+export function __resetBulkRateLimit(): void {
+  rateLimitStore.clear();
+}
+
 /**
  * Check if user can create bulk reports (check credits)
  */
