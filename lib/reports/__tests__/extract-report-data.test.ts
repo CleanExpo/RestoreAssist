@@ -203,6 +203,39 @@ describe("extractWaterCategory (IICRC S500 mapping)", () => {
   });
 });
 
+// Free text must never be under-classified because of its capitalisation.
+describe("extractWaterCategory ignores case", () => {
+  it.each([
+    ["flood from river", "Category 3"],
+    ["FLOOD FROM RIVER", "Category 3"],
+    ["sewage backup", "Category 3"],
+    ["BIOHAZARD SPILL", "Category 3"],
+    ["overflowing toilet", "Category 2"],
+    ["GREY WATER", "Category 2"],
+    ["dishwasher", "Category 2"],
+    ["DISHWASHER", "Category 2"],
+    ["dishwasher leak in kitchen", "Category 2"],
+    ["washing machine/dishwasher", "Category 2"],
+    ["DISHWASHER SUPPLY LINE BURST", "Category 1"],
+    ["dishwasher supply line", "Category 1"],
+    ["burst pipe", "Category 1"],
+  ])("%s -> %s", (source, want) => {
+    expect(extractWaterCategory(source)).toBe(want);
+  });
+
+  it("resolves an exact Tier 1 option from its table before any keyword rule", () => {
+    // The option bundles washing machine and dishwasher under its Category 1
+    // label; the keyword rules alone would make it Category 2.
+    expect(
+      extractWaterCategory("Washing machine/dishwasher (Category 1)"),
+    ).toBe("Category 1");
+    // Anything that is not the exact option string falls to the keyword rules.
+    expect(
+      extractWaterCategory("Washing machine/dishwasher (Category 1) drain"),
+    ).toBe("Category 2");
+  });
+});
+
 describe("extractAverageMoisture", () => {
   it("returns null for falsy input", () => {
     expect(extractAverageMoisture(null)).toBeNull();

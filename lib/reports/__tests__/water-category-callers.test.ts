@@ -218,12 +218,22 @@ const DELTAS: Record<"assessment" | "forensic" | "scope", Record<string, string>
     "biohazard": "Category 3", // was Category 1
     "Grey carpet soaked by burst pipe": "Category 1", // was Category 2
     "Burst pipe under blackbutt flooring": "Category 1", // was Category 3
+    "dishwasher": "Category 2", // was Category 1
     "dishwasher discharge": "Category 2", // was Category 1
+    "roof leak flood": "Category 3", // was Category 1
+    "burst pipe then overflowing toilet": "Category 2", // was Category 1
+    "overflowing toilet (urine only)": "Category 2", // was Category 1
+    "flood from river": "Category 3", // was Category 1
     "biohazard spill": "Category 3", // was Category 1
     "contaminated standing water": "Category 3", // was Category 1
     "grey carpet soaked by burst pipe": "Category 1", // was Category 2
     "burst pipe under blackbutt flooring": "Category 1", // was Category 3
+    "DISHWASHER": "Category 2", // was Category 1
     "DISHWASHER DISCHARGE": "Category 2", // was Category 1
+    "ROOF LEAK FLOOD": "Category 3", // was Category 1
+    "BURST PIPE THEN OVERFLOWING TOILET": "Category 2", // was Category 1
+    "OVERFLOWING TOILET (URINE ONLY)": "Category 2", // was Category 1
+    "FLOOD FROM RIVER": "Category 3", // was Category 1
     "BIOHAZARD SPILL": "Category 3", // was Category 1
     "CONTAMINATED STANDING WATER": "Category 3", // was Category 1
     "CONTAMINATED RUNOFF": "Category 3", // was Category 1
@@ -241,9 +251,19 @@ const DELTAS: Record<"assessment" | "forensic" | "scope", Record<string, string>
     "Biohazard spill": "Category 3", // was Category 1
     "black water": "Category 3", // was Category 1
     "biohazard": "Category 3", // was Category 1
+    "dishwasher": "Category 2", // was Category 1
     "dishwasher discharge": "Category 2", // was Category 1
+    "roof leak flood": "Category 3", // was Category 1
+    "burst pipe then overflowing toilet": "Category 2", // was Category 1
+    "overflowing toilet (urine only)": "Category 2", // was Category 1
+    "flood from river": "Category 3", // was Category 1
     "biohazard spill": "Category 3", // was Category 1
+    "DISHWASHER": "Category 2", // was Category 1
     "DISHWASHER DISCHARGE": "Category 2", // was Category 1
+    "ROOF LEAK FLOOD": "Category 3", // was Category 1
+    "BURST PIPE THEN OVERFLOWING TOILET": "Category 2", // was Category 1
+    "OVERFLOWING TOILET (URINE ONLY)": "Category 2", // was Category 1
+    "FLOOD FROM RIVER": "Category 3", // was Category 1
     "BIOHAZARD SPILL": "Category 3", // was Category 1
     "BLACK WATER": "Category 3", // was Category 1
     "BIOHAZARD": "Category 3", // was Category 1
@@ -265,14 +285,24 @@ const DELTAS: Record<"assessment" | "forensic" | "scope", Record<string, string>
     "category 2": "Category 2", // was Category 1
     "CATEGORY 3": "Category 3", // was Category 1
     "Category 2 then Sewage backup": "Category 3", // was Category 2
+    "dishwasher": "Category 2", // was Category 1
     "dishwasher discharge": "Category 2", // was Category 1
+    "roof leak flood": "Category 3", // was Category 1
     "grey water sewage backup": "Category 3", // was Category 2
+    "burst pipe then overflowing toilet": "Category 2", // was Category 1
+    "overflowing toilet (urine only)": "Category 2", // was Category 1
+    "flood from river": "Category 3", // was Category 1
     "sewage backup": "Category 3", // was Category 1
     "category 3": "Category 3", // was Category 1
     "category 2 then sewage backup": "Category 3", // was Category 1
+    "DISHWASHER": "Category 2", // was Category 1
     "DISHWASHER DISCHARGE": "Category 2", // was Category 1
+    "ROOF LEAK FLOOD": "Category 3", // was Category 1
     "GREY WATER SEWAGE BACKUP": "Category 3", // was Category 1
+    "BURST PIPE THEN OVERFLOWING TOILET": "Category 2", // was Category 1
+    "OVERFLOWING TOILET (URINE ONLY)": "Category 2", // was Category 1
     "GREY WATER DISCHARGE": "Category 2", // was Category 1
+    "FLOOD FROM RIVER": "Category 3", // was Category 1
     "SEWAGE BACKUP": "Category 3", // was Category 1
     "BIOHAZARD SPILL": "Category 3", // was Category 1
     "CONTAMINATED STANDING WATER": "Category 3", // was Category 1
