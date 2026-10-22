@@ -91,42 +91,76 @@ export function extractMaterialsFromReport(report: {
   return [...new Set(materials)]; // Deduplicate
 }
 
+// Case-sensitive source names, as the Tier 1 options and stored sources spell them.
+const CATEGORY_2_SOURCES = ["Overflowing toilet", "Grey water"];
+const CATEGORY_3_SOURCES = ["Flood", "Sewage backup", "Biohazard", "Contaminated"];
+
+// Case-insensitive wording: an explicit category label, and the terms the
+// per-report classifiers (assessment PDF, forensic PDF, scope of works)
+// recognised before they were folded into this function.
+const CATEGORY_2_PATTERNS = [
+  /\b(?:cat|category)\s*2\b/i,
+  /\bgr[ae]y[\s-]?water\b/i,
+];
+const CATEGORY_3_PATTERNS = [
+  /\b(?:cat|category)\s*3\b/i,
+  /sewage/i,
+  /contaminated/i,
+  /biohazard/i,
+  /\bblack[\s-]?water\b/i,
+];
+
+const DISHWASHER = /dishwasher/i;
+const DISHWASHER_DISCHARGE = /\b(?:discharg|drain|waste|overflow|outlet)/i;
+const DISHWASHER_SUPPLY =
+  /\b(?:supply|inlet)\b|\bfeed (?:line|hose|pipe)\b|\bfill (?:line|hose|valve)\b/i;
+
+/**
+ * IICRC S500: a dishwasher's supply (inlet) line carries clean, potable water
+ * (Category 1); water discharged from the machine (drain, waste, overflow) is
+ * grey water (Category 2). Discharge wording wins when both are named. With
+ * neither named, the source counts as discharge when written as the
+ * "Dishwasher" source name; the Tier 1 option
+ * "Washing machine/dishwasher (Category 1)" keeps its labelled category.
+ */
+function isDishwasherDischarge(waterSource: string): boolean {
+  if (!DISHWASHER.test(waterSource)) return false;
+  if (DISHWASHER_DISCHARGE.test(waterSource)) return true;
+  if (DISHWASHER_SUPPLY.test(waterSource)) return false;
+  return waterSource.includes("Dishwasher");
+}
+
 /**
  * Classify a water source description into IICRC S500 water categories:
- * - Category 1 (clean water): burst pipes, roof leaks, appliance failures
+ * - Category 1 (clean water): burst pipes, roof leaks, appliance failures,
+ *   a dishwasher supply line
  * - Category 2 (grey water): overflow toilets, dishwasher discharge
  * - Category 3 (black water): sewage, flood, biohazard
  *
  * When several sources are named, the worst one governs (IICRC S500).
- * Defaults to Category 1 when the source is unrecognised.
+ * Defaults to Category 1 when the source is unrecognised. This is the one
+ * classifier report generation uses; do not add private copies.
  */
 export function extractWaterCategory(waterSource: string): string {
   if (!waterSource) return "Not specified";
 
-  const category1Sources = [
-    "Burst pipe",
-    "Roof leak",
-    "Hot water service failure",
-    "Washing machine",
-  ];
-  const category2Sources = ["Overflowing toilet", "Grey water", "Dishwasher"];
-  const category3Sources = [
-    "Flood",
-    "Sewage backup",
-    "Biohazard",
-    "Contaminated",
-  ];
-
   // IICRC S500: the worst source present governs, so check the most
   // contaminated category first.
-  if (category3Sources.some((s) => waterSource.includes(s)))
+  if (
+    CATEGORY_3_SOURCES.some((s) => waterSource.includes(s)) ||
+    CATEGORY_3_PATTERNS.some((p) => p.test(waterSource))
+  )
     return "Category 3";
-  if (category2Sources.some((s) => waterSource.includes(s)))
+  if (
+    CATEGORY_2_SOURCES.some((s) => waterSource.includes(s)) ||
+    CATEGORY_2_PATTERNS.some((p) => p.test(waterSource)) ||
+    isDishwasherDischarge(waterSource)
+  )
     return "Category 2";
-  if (category1Sources.some((s) => waterSource.includes(s)))
-    return "Category 1";
 
-  return "Category 1"; // Default
+  // Burst pipe, roof leak, hot water service, washing machine, a dishwasher
+  // supply line, and anything unrecognised.
+  return "Category 1";
 }
 
 /**

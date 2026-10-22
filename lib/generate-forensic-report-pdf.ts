@@ -25,6 +25,7 @@ import {
 } from "@/lib/compliance/asbestos-era";
 import { standardDesignation } from "./nir-standards-mapping";
 import { isSafePublicHttpsUrl } from "./security/safe-external-url";
+import { extractWaterCategory } from "@/lib/reports/extract-report-data";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -2856,30 +2857,6 @@ function buildForensicSummary(
   }
 
   return summary;
-}
-
-/**
- * Extract water category from source
- */
-function extractWaterCategory(source: string): string {
-  if (!source) return "Category 1";
-  const lower = source.toLowerCase();
-  if (
-    lower.includes("category 3") ||
-    lower.includes("cat 3") ||
-    lower.includes("sewage") ||
-    lower.includes("contaminated")
-  ) {
-    return "Category 3";
-  }
-  if (
-    lower.includes("category 2") ||
-    lower.includes("cat 2") ||
-    lower.includes("grey water")
-  ) {
-    return "Category 2";
-  }
-  return "Category 1";
 }
 
 /**
