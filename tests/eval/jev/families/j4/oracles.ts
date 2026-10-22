@@ -56,10 +56,29 @@ export const WATER_INDICATORS: Record<1 | 2 | 3, string[]> = {
   3: ["Flood", "Sewage backup", "Biohazard", "Contaminated"],
 };
 
+/**
+ * S500: a dishwasher supply (inlet) line is clean water, so "Dishwasher" stops
+ * counting as a Category 2 indicator when supply wording is present and no
+ * discharge wording is. Written independently of the product's regexes.
+ */
+const SUPPLY_WORDS = ["supply", "inlet"];
+const DISCHARGE_WORDS = ["discharg", "drain", "waste", "overflow", "outlet"];
+
+function dishwasherIsSupplyOnly(source: string): boolean {
+  const words = source.toLowerCase().split(/[^a-z]+/);
+  const has = (stems: string[]) => words.some((w) => stems.some((st) => w.startsWith(st)));
+  return has(SUPPLY_WORDS) && !has(DISCHARGE_WORDS);
+}
+
 export function waterCategoryOracle(source: string): string {
   if (!source) return "Not specified";
   for (const cat of [3, 2, 1] as const) {
-    if (WATER_INDICATORS[cat].some((s) => source.includes(s))) return `Category ${cat}`;
+    // Case-insensitive: free text is never under-classified by its capitalisation.
+    const lower = source.toLowerCase();
+    const present = WATER_INDICATORS[cat].filter((s) => lower.includes(s.toLowerCase()));
+    const counted =
+      cat === 2 && dishwasherIsSupplyOnly(source) ? present.filter((s) => s !== "Dishwasher") : present;
+    if (counted.length) return `Category ${cat}`;
   }
   return "Category 1"; // documented default for an unrecognised source
 }

@@ -632,11 +632,15 @@ const moisture: Prop<MsIn, typeof getMoistureStatus> = {
   },
 };
 
-const FILLER = ["kitchen", "after storm", "upstairs", "reported by tenant", "", "unit 4", "overnight"];
+const FILLER = ["kitchen", "after storm", "upstairs", "reported by tenant", "", "unit 4", "overnight", "supply line", "drain hose"];
 const ALL_IND = [...WATER_INDICATORS[1], ...WATER_INDICATORS[2], ...WATER_INDICATORS[3]];
 const waterArb = fc.oneof(
   fc.array(fc.constantFrom(...ALL_IND, ...FILLER), { minLength: 0, maxLength: 4 }).map((a) => a.join(" ").trim()),
   fc.constantFrom(...ALL_IND),
+  // Same sources in lower or upper case: capitalisation must not change the category.
+  fc
+    .tuple(fc.array(fc.constantFrom(...ALL_IND, ...FILLER), { minLength: 1, maxLength: 3 }), fc.boolean())
+    .map(([a, up]) => (up ? a.join(" ").toUpperCase() : a.join(" ").toLowerCase()).trim()),
 );
 const water: Prop<string, typeof extractWaterCategory> = {
   fn: "extractWaterCategory",
