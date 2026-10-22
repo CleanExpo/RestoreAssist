@@ -13,8 +13,16 @@ import { NextRequest } from "next/server";
 
 vi.mock("@/lib/stripe", async () => {
   const Stripe = (await import("stripe")).default;
+  const { STRIPE_API_VERSION } =
+    await vi.importActual<typeof import("@/lib/stripe")>("@/lib/stripe");
   // Placeholder key: only the offline webhook signature helpers are used.
-  return { stripe: new Stripe("sk_test_not_a_real_key") };
+  return {
+    STRIPE_API_VERSION,
+    stripe: new Stripe("sk_test_not_a_real_key", {
+      apiVersion: STRIPE_API_VERSION,
+      typescript: true,
+    }),
+  };
 });
 
 vi.mock("@/lib/prisma", () => ({
@@ -34,11 +42,15 @@ vi.mock("@/lib/lifecycle/subscribers/invoice-paid", () => ({
 
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { STRIPE_API_VERSION } from "@/lib/stripe";
 import { POST } from "../route";
 
 const CONNECT_SECRET = "whsec_connect_fixture";
 const PLATFORM_SECRET = "whsec_platform_fixture";
-const signer = new Stripe("sk_test_not_a_real_key");
+const signer = new Stripe("sk_test_not_a_real_key", {
+  apiVersion: STRIPE_API_VERSION,
+  typescript: true,
+});
 
 const payload = JSON.stringify({
   id: "evt_sig_1",
