@@ -185,6 +185,14 @@ export interface SketchCanvasProps {
   backgroundImageLockAspect?: boolean;
   onReady?: (canvas: FabricCanvasRef) => void;
   onModified?: () => void;
+  /**
+   * RA-7656: a user action took rooms off the canvas (delete, clear, undo,
+   * redo - anything). Receives the removed rooms' ids (an empty string for a
+   * room without one). Loads and unmount never call it. The route keeps the
+   * stored rooms on a save without any unless the editor marks it, and this
+   * is the only place that tells the editor rooms were removed.
+   */
+  onRoomsRemoved?: (roomIds: string[]) => void;
   onSelect?: (obj: SelectedObject | null) => void;
   /** Fired when Fabric zoom/pan changes so pin overlays can stay on the plan. */
   onViewportChange?: (vpt: OverlayViewport) => void;
@@ -269,6 +277,29 @@ function snapshotSketchCanvas(
  *
  * Uses dynamic import to avoid SSR issues (canvas is client-only).
  */
+/** RA-7656: ids of the room objects on a canvas ("" for a room without one). */
+function roomIdsOnCanvas(canvas: { getObjects?: () => unknown[] }): string[] {
+  const ids: string[] = [];
+  for (const o of canvas.getObjects?.() ?? []) {
+    const data = (o as { data?: { type?: string; id?: unknown } }).data;
+    if (data?.type === "room") ids.push(typeof data.id === "string" ? data.id : "");
+  }
+  return ids;
+}
+
+/** RA-7656: rooms in `before` not in `after`, counted (ids may repeat or be ""). */
+function missingRoomIds(before: string[], after: string[]): string[] {
+  const left = new Map<string, number>();
+  for (const id of after) left.set(id, (left.get(id) ?? 0) + 1);
+  const missing: string[] = [];
+  for (const id of before) {
+    const n = left.get(id) ?? 0;
+    if (n > 0) left.set(id, n - 1);
+    else missing.push(id);
+  }
+  return missing;
+}
+
 const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
   function SketchCanvas(
     {
@@ -288,6 +319,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       onReady,
       onViewportChange,
       onModified,
+      onRoomsRemoved,
       readonly = false,
       className,
       damageKind = "water",
@@ -334,6 +366,48 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     // snapshot; this set puts the latch back so a save cannot clear it.
     const raisedVoiceAcmRef = useRef(new Set<string>());
 
+    // ── RA-7656: room-removal reporting ──────────────────────
+    // Every room that leaves the canvas because of a user action reaches
+    // `reportRoomsRemoved`, and nothing else calls `onRoomsRemoved`. Fabric's
+    // loadFromJSON clears the canvas before it adds the loaded objects, which
+    // fires `object:removed` for every room; those removals are not the
+    // user's, so loads run inside `withoutRoomReports`. Undo and redo are
+    // loads too, so they report the difference between the rooms before and
+    // after instead.
+    const onRoomsRemovedRef = useRef(onRoomsRemoved);
+    onRoomsRemovedRef.current = onRoomsRemoved;
+    const roomReportSuppressionRef = useRef(0);
+    const roomReportsClosedRef = useRef(false);
+    const reportRoomsRemoved = useCallback((roomIds: string[]) => {
+      if (roomReportsClosedRef.current) return;
+      if (roomReportSuppressionRef.current > 0) return;
+      if (roomIds.length === 0) return;
+      onRoomsRemovedRef.current?.(roomIds);
+    }, []);
+    const withoutRoomReports = useCallback(
+      async <T,>(work: () => Promise<T>): Promise<T> => {
+        roomReportSuppressionRef.current += 1;
+        try {
+          return await work();
+        } finally {
+          roomReportSuppressionRef.current -= 1;
+        }
+      },
+      [],
+    );
+    /** A user-driven reload (undo/redo): report rooms the reload took away. */
+    const reloadReportingRemovedRooms = useCallback(
+      async (
+        canvas: { getObjects?: () => unknown[] },
+        work: () => Promise<unknown>,
+      ) => {
+        const before = roomIdsOnCanvas(canvas);
+        await withoutRoomReports(work);
+        reportRoomsRemoved(missingRoomIds(before, roomIdsOnCanvas(canvas)));
+      },
+      [withoutRoomReports, reportRoomsRemoved],
+    );
+
     // ── Undo/Redo helpers ─────────────────────────────────────
     const saveState = useCallback(() => {
       const canvas = fabricRef.current as LatchCanvas | null;
@@ -369,7 +443,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       historyIdxRef.current -= 1;
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
-      await canvas.loadFromJSON(json);
+      await reloadReportingRemovedRooms(canvas, () => canvas.loadFromJSON(json));
       reapplyVoiceAcmLatch(
         canvas.getObjects?.() ?? [],
         raisedVoiceAcmRef.current,
@@ -380,7 +454,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         canUndo: historyIdxRef.current > 0,
         canRedo: historyIdxRef.current < historyRef.current.length - 1,
       });
-    }, []);
+    }, [reloadReportingRemovedRooms]);
 
     const redo = useCallback(async () => {
       const canvas = fabricRef.current as {
@@ -393,7 +467,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       historyIdxRef.current += 1;
       isLoadingRef.current = true;
       const json = JSON.parse(historyRef.current[historyIdxRef.current]);
-      await canvas.loadFromJSON(json);
+      await reloadReportingRemovedRooms(canvas, () => canvas.loadFromJSON(json));
       reapplyVoiceAcmLatch(
         canvas.getObjects?.() ?? [],
         raisedVoiceAcmRef.current,
@@ -404,7 +478,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         canUndo: historyIdxRef.current > 0,
         canRedo: historyIdxRef.current < historyRef.current.length - 1,
       });
-    }, []);
+    }, [reloadReportingRemovedRooms]);
 
     // ── Expose imperative handle ─────────────────────────────
     useImperativeHandle(
@@ -428,7 +502,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           if (!c) return;
           // Fabric v7: must await the returned Promise. Passing a "done"
           // callback as arg 2 treats it as a reviver and never restores objects.
-          await c.loadFromJSON(data);
+          // RA-7656: a load replaces the canvas; its removals are not the user's.
+          await withoutRoomReports(() => c.loadFromJSON(data));
           reapplyVoiceAcmLatch(
             c.getObjects?.() ?? [],
             raisedVoiceAcmRef.current,
@@ -471,12 +546,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         canRedo: historyState.canRedo,
         refreshWallBands: () => refreshWallBandsRef.current(),
       }),
-      [saveState, undo, redo, historyState],
+      [saveState, undo, redo, historyState, withoutRoomReports],
     );
 
     // ── Initialise Fabric.js canvas ─────────────────────────
     useEffect(() => {
       if (!canvasElRef.current) return;
+      roomReportsClosedRef.current = false;
 
       let destroyed = false;
       let fabricCanvas: unknown = null;
@@ -699,6 +775,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         });
         canvas.on("object:removed", (opt: unknown) => {
           const target = (opt as { target?: unknown } | undefined)?.target;
+          const removedData = (
+            target as { data?: { type?: string; id?: unknown } } | undefined
+          )?.data;
+          if (removedData?.type === "room") {
+            reportRoomsRemoved([
+              typeof removedData.id === "string" ? removedData.id : "",
+            ]);
+          }
           if (
             (target as { data?: { type?: string } } | undefined)?.data?.type ===
             "opening"
@@ -3035,7 +3119,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         if (bootstrap && typeof bootstrap === "object") {
           try {
             isLoadingRef.current = true;
-            await canvas.loadFromJSON(bootstrap);
+            await withoutRoomReports(() => canvas.loadFromJSON(bootstrap));
             refreshDamageRoomClips();
             refreshWallBands();
             refreshPlanChrome();
@@ -3063,7 +3147,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           loadFromJSON: async (data) => {
             isLoadingRef.current = true;
             try {
-              await canvas.loadFromJSON(data);
+              await withoutRoomReports(() => canvas.loadFromJSON(data));
               refreshDamageRoomClips();
               refreshWallBands();
               canvas.renderAll();
@@ -3118,6 +3202,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
       return () => {
         destroyed = true;
+        // RA-7656: tearing the canvas down removes nothing the user chose.
+        roomReportsClosedRef.current = true;
         if (fabricRef.current) {
           (fabricRef.current as { dispose: () => void }).dispose();
           fabricRef.current = null;

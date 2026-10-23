@@ -2878,6 +2878,9 @@ export function SketchEditorV2({
                 backgroundImageOffsetY={fd.backgroundOffsetY}
                 backgroundImageLockAspect={fd.backgroundLockAspect}
                 initialData={fd.pendingSketchData ?? null}
+                // RA-7656: the canvas reports every room a user action takes
+                // off it (delete, clear, undo, redo); loads never report.
+                onRoomsRemoved={() => markUserRemovedRooms(fd.clientKey)}
                 readonly={readonly}
                 onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
                 onModified={() => {
@@ -3391,16 +3394,7 @@ export function SketchEditorV2({
                   )?.id === id,
               );
             if (obj) {
-              const removedType = (
-                (obj as Record<string, unknown>).data as
-                  | Record<string, unknown>
-                  | undefined
-              )?.type;
-              // RA-7656: deleting a room is deliberate; if it was the last
-              // one, the route must still reconcile it away.
-              if (removedType === "room" && activeFloor) {
-                markUserRemovedRooms(activeFloor.clientKey);
-              }
+              // RA-7656: removing a room reaches the canvas's onRoomsRemoved.
               fc.remove(obj);
               fc.renderAll();
             }
@@ -3793,8 +3787,11 @@ export function SketchEditorV2({
         onClear={() => {
           if (activeFloor) {
             // RA-7656: the cleared canvas is the floor now. Drop the last
-            // snapshot, or the next save posts the old rooms back, and mark
-            // the removal as deliberate for the route.
+            // snapshot, or the next save posts the old rooms back. Clearing
+            // removes every room the route holds for this floor, including
+            // legacy room polygons the canvas never loaded as rooms (so no
+            // removal event fires for them), hence the explicit mark through
+            // the same helper the canvas report uses.
             activeFloor.sketchSnapshot = null;
             markUserRemovedRooms(activeFloor.clientKey);
           }
