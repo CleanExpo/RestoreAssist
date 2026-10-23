@@ -15,7 +15,12 @@
   "production": {
     "/dashboard/inspections/new renders for a TRIAL user with no upgrade wall": "UNPROVEN ON PRODUCTION. trial-no-paywall.spec.ts signs in via /api/test/sign-in-as, gated behind ALLOW_TEST_HELPERS, which production correctly does not set. Closing this needs a seeded production trial account the smoke can authenticate as -- founder-gated, it is a credential. Until then production smoke proves nothing about a trial user reaching first value.",
     "/dashboard/reports/new renders for a TRIAL user with no upgrade wall": "UNPROVEN ON PRODUCTION. Same cause and same remedy as the inspections leg above.",
-    "connects via mocked OAuth and shows 'Connected as <email>'": "Quarantined at source: setup-storage-google-drive.spec.ts is marked test.fixme. Recorded in the estate as restoreassist-gdrive-smoke-quarantine. It is declared here so the quarantine is visible in every run rather than only in the spec file."
+    "connects via mocked OAuth and shows 'Connected as <email>'": "Quarantined at source: setup-storage-google-drive.spec.ts is marked test.fixme. Recorded in the estate as restoreassist-gdrive-smoke-quarantine. It is declared here so the quarantine is visible in every run rather than only in the spec file.",
+    "overview pipeline links reach inspections and return": "UNPROVEN ON PRODUCTION. dashboard-connected-journey.spec.ts needs an authenticated smoke login (E2E_USER_EMAIL/E2E_USER_PASSWORD), not provisioned for production yet. Production smoke runs --no-deps, so the setup project never writes e2e/.auth/user.json.",
+    "inspections list exposes schedule and overview shortcuts": "UNPROVEN ON PRODUCTION. Same cause as the overview pipeline leg above: needs an authenticated smoke login (E2E_USER_EMAIL/E2E_USER_PASSWORD), not provisioned for production yet.",
+    "login → overview → open job → workflow back → schedule → inbox survives reload": "UNPROVEN ON PRODUCTION. dashboard-connected-journey.spec.ts seeds rows via /api/test/*; ALLOW_TEST_HELPERS is off on production by design.",
+    "floor plan tab shows field guide, canvas, and workflow links": "UNPROVEN ON PRODUCTION. inspection-floor-plan-flow.spec.ts seeds rows via /api/test/*; ALLOW_TEST_HELPERS is off on production by design.",
+    "overview journey and more sections toggle": "UNPROVEN ON PRODUCTION. inspection-floor-plan-flow.spec.ts seeds rows via /api/test/*; ALLOW_TEST_HELPERS is off on production by design."
   },
   "default": {}
 }
