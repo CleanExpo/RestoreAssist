@@ -188,11 +188,52 @@ async function settle(ms = 0) {
   }
 }
 
+/**
+ * Wait until `ready()` returns a value, flushing React and fake timers between
+ * checks. Bounded by real time, not by a count of turns, so a cold or slow
+ * runner cannot read the editor before it is ready.
+ */
+async function waitUntil<T>(
+  ready: () => T | null | undefined | false,
+  what: string,
+  timeoutMs = 20_000,
+): Promise<T> {
+  const deadline = performance.now() + timeoutMs;
+  for (;;) {
+    const value = ready();
+    if (value) return value;
+    if (performance.now() > deadline) {
+      throw new Error(`Timed out after ${timeoutMs} ms waiting for ${what}`);
+    }
+    await settle(0);
+  }
+}
+
 async function renderJobWithRooms() {
   render(<SketchEditorV2 inspectionId="job-1" />);
-  await settle(0);
+  await waitUntil(
+    () =>
+      probe.canvas !== null &&
+      JSON.stringify(probe.json) === JSON.stringify(storedDrawing) &&
+      screen.queryByRole("button", { name: "Clear Canvas" }),
+    "the editor to load the stored drawing",
+  );
   expect(probe.canvas).not.toBeNull();
   expect(probe.json).toEqual(storedDrawing);
+}
+
+/** Run the debounced autosave (1.5 s of fake time) and wait for its POST. */
+async function nextSave() {
+  const before = posts.length;
+  await settle(1600);
+  await waitUntil(() => posts.length > before, "the autosave POST");
+}
+
+/** Run the debounced autosave and wait for the failed save to be queued. */
+async function nextQueuedSave() {
+  const before = queue.enqueued.length;
+  await settle(1600);
+  await waitUntil(() => queue.enqueued.length > before, "the failed save to be queued");
 }
 
 function lastPost() {
@@ -228,7 +269,7 @@ describe("RA-7656 Clear Canvas intent (SketchEditorV2)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear Canvas" }));
     probe.json = { objects: [freehand] };
     fireEvent.click(screen.getByTestId("draw-stroke"));
-    await settle(1600);
+    await nextSave();
 
     expect(posts).toHaveLength(1);
     expect(lastPost().sketchData?.objects).toEqual([freehand]);
@@ -239,7 +280,7 @@ describe("RA-7656 Clear Canvas intent (SketchEditorV2)", () => {
     await renderJobWithRooms();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear Canvas" }));
-    await settle(1600);
+    await nextSave();
 
     expect(posts).toHaveLength(1);
     expect(lastPost().sketchData?.objects).toEqual([]);
@@ -250,18 +291,18 @@ describe("RA-7656 Clear Canvas intent (SketchEditorV2)", () => {
     await renderJobWithRooms();
 
     fireEvent.click(screen.getByTestId("draw-stroke"));
-    await settle(1600);
+    await nextSave();
     expect(posts).toHaveLength(1);
     expect(lastPost().userRemovedRooms).toBeUndefined();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear Canvas" }));
     probe.json = { objects: [freehand] };
-    await settle(1600);
+    await nextSave();
     expect(posts).toHaveLength(2);
     expect(lastPost().userRemovedRooms).toBe(true);
 
     fireEvent.click(screen.getByTestId("draw-stroke"));
-    await settle(1600);
+    await nextSave();
     expect(posts).toHaveLength(3);
     expect(lastPost().userRemovedRooms).toBeUndefined();
   });
@@ -272,7 +313,7 @@ describe("RA-7656 Clear Canvas intent (SketchEditorV2)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Clear Canvas" }));
     probe.json = { objects: [freehand] };
-    await settle(1600);
+    await nextQueuedSave();
 
     expect(queue.enqueued).toHaveLength(1);
     expect(queue.enqueued[0].payload.userRemovedRooms).toBe(true);
@@ -284,17 +325,17 @@ describe("RA-7656 Clear Canvas intent (SketchEditorV2)", () => {
     // per floor), so it must carry the intent itself.
     probe.json = { objects: [freehand, freehand] };
     fireEvent.click(screen.getByTestId("draw-stroke"));
-    await settle(1600);
+    await nextQueuedSave();
     expect(queue.enqueued).toHaveLength(2);
     expect(queue.enqueued[1].payload.userRemovedRooms).toBe(true);
 
     // Back online: the acknowledged save still carries it; the one after does not.
     probe.postStatus = 201;
     fireEvent.click(screen.getByTestId("draw-stroke"));
-    await settle(1600);
+    await nextSave();
     expect(lastPost().userRemovedRooms).toBe(true);
     fireEvent.click(screen.getByTestId("draw-stroke"));
-    await settle(1600);
+    await nextSave();
     expect(lastPost().userRemovedRooms).toBeUndefined();
   });
 });

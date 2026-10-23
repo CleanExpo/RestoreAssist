@@ -60,6 +60,26 @@ async function flush(times = 10) {
   }
 }
 
+/**
+ * Wait until `ready()` returns a value. Bounded by real time, not by a count
+ * of turns: a cold or slow runner can need far more turns than a warm laptop.
+ */
+async function waitUntil<T>(
+  ready: () => T | null | undefined | false,
+  what: string,
+  timeoutMs = 20_000,
+): Promise<T> {
+  const deadline = performance.now() + timeoutMs;
+  for (;;) {
+    const value = ready();
+    if (value) return value;
+    if (performance.now() > deadline) {
+      throw new Error(`Timed out after ${timeoutMs} ms waiting for ${what}`);
+    }
+    await flush(1);
+  }
+}
+
 async function mount(initialData: Record<string, unknown> | null) {
   let ready: FabricCanvasRef | null = null;
   const ref = createRef<FabricCanvasRef>();
@@ -75,9 +95,9 @@ async function mount(initialData: Record<string, unknown> | null) {
       onRoomsRemoved={onRoomsRemoved}
     />,
   );
-  for (let i = 0; i < 100 && !ready; i++) await flush(1);
-  expect(ready).not.toBeNull();
-  const handle = ready as unknown as FabricCanvasRef;
+  // onReady fires after the initialData load, so the drawing is on the canvas.
+  const handle = await waitUntil(() => ready, "SketchCanvas onReady");
+  expect(handle).not.toBeNull();
   const fc = handle.getFabricCanvas() as FabricLike;
   return { view, handle, ref, fc };
 }

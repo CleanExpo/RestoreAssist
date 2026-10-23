@@ -230,19 +230,61 @@ type FabricLike = {
 
 let fabricCanvas: FabricLike | null = null;
 
-async function latestCanvas(after: number) {
-  for (let i = 0; i < 60 && created.canvases.length <= after; i++) await settle(0);
-  // Let the bootstrap load and onReady finish.
-  for (let i = 0; i < 10; i++) await settle(0);
-  return (created.canvases.at(-1) as FabricLike | undefined) ?? null;
+/**
+ * Wait until `ready()` returns a value, flushing React and fake timers between
+ * checks. Bounded by real time, not by a count of turns: a cold or slow runner
+ * (CI loads fabric and the editor from scratch for the first test) can need
+ * far more turns than a warm laptop.
+ */
+async function waitUntil<T>(
+  ready: () => T | null | undefined | false,
+  what: string,
+  timeoutMs = 20_000,
+): Promise<T> {
+  const deadline = performance.now() + timeoutMs;
+  for (;;) {
+    const value = ready();
+    if (value) return value;
+    if (performance.now() > deadline) {
+      throw new Error(`Timed out after ${timeoutMs} ms waiting for ${what}`);
+    }
+    await settle(0);
+  }
+}
+
+const DRAWN_TYPES = new Set(["room", "freehand"]);
+
+/**
+ * The editor's canvas is ready when a new fabric canvas exists, it holds every
+ * object of the loaded drawing (the bootstrap load ran, and onReady with it),
+ * and the toolbar is on screen.
+ */
+async function canvasReady(after: number, drawing: Record<string, unknown>) {
+  const expected = (drawing.objects as unknown[]).length;
+  return waitUntil(() => {
+    if (created.canvases.length <= after) return null;
+    const fc = created.canvases.at(-1) as FabricLike;
+    const drawn = fc.getObjects().filter((o) => DRAWN_TYPES.has(o.data?.type ?? "")).length;
+    if (drawn !== expected) return null;
+    if (!screen.queryByRole("button", { name: "Undo (Ctrl+Z)" })) return null;
+    return fc;
+  }, "the editor's canvas to load the drawing");
 }
 
 async function renderJob(drawing: Record<string, unknown>) {
   loadedDrawing = drawing;
   const before = created.canvases.length;
   const view = render(<SketchEditorV2 inspectionId="job-1" />);
-  fabricCanvas = await latestCanvas(before);
+  fabricCanvas = await canvasReady(before, drawing);
   return view;
+}
+
+/** Wait until the canvas holds exactly these rooms (an undo/redo load is async). */
+async function roomsBecome(fc: FabricLike, ids: string[]) {
+  await waitUntil(
+    () => JSON.stringify(roomsOn(fc)) === JSON.stringify(ids),
+    `the canvas rooms to become ${JSON.stringify(ids)}`,
+  );
 }
 
 async function enliven(json: Record<string, unknown>) {
@@ -291,11 +333,11 @@ function expectRoutePersistedRemoval(status: number) {
   });
 }
 
-/** Wait for the debounced autosave (1.5 s) and the POST it sends. */
+/** Run the debounced autosave (1.5 s of fake time) and wait for its POST. */
 async function nextSave() {
   const before = posts.length;
   await settle(1600);
-  for (let i = 0; i < 20 && posts.length === before; i++) await settle(100);
+  await waitUntil(() => posts.length > before, "the autosave POST");
 }
 
 describe("RA-7656 editor room removal (real canvas, real route)", () => {
@@ -338,10 +380,12 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
     const undo = screen.getByRole("button", { name: "Undo (Ctrl+Z)" });
     expect((undo as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(undo); // takes the stroke off: no room leaves
+    await waitUntil(() => fc.getObjects().filter((o) => o.data?.type === "freehand").length === 1, "the undo to take the stroke off");
     await nextSave();
     expect(roomsOn(fc)).toEqual(["room-kitchen"]);
     expect(lastPost().userRemovedRooms).toBeUndefined();
     fireEvent.click(undo); // takes the room off
+    await roomsBecome(fc, []);
     await nextSave();
     expect(roomsOn(fc)).toEqual([]);
     expect(lastPost().sketchData?.objects?.some((o) => o.data?.type === "room")).toBe(false);
@@ -359,8 +403,7 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
     await act(async () => {
       fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
     });
-    await settle(0);
-    expect(roomsOn(fc)).toEqual([]);
+    await roomsBecome(fc, []);
     // Keyboard undo does not schedule a save by itself; the next stroke does.
     const path = await enliven(freehand);
     act(() => fc.add(path));
@@ -383,8 +426,10 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
     await nextSave();
     expect(lastPost().userRemovedRooms).toBeUndefined();
     fireEvent.click(undo); // stroke off
+    await waitUntil(() => fc.getObjects().filter((o) => o.data?.type === "freehand").length === 1, "the undo to take the stroke off");
     await nextSave();
     fireEvent.click(undo); // Kitchen back: nothing left the canvas
+    await roomsBecome(fc, ["room-kitchen"]);
     await nextSave();
     expect(roomsOn(fc)).toEqual(["room-kitchen"]);
     expect(lastPost().userRemovedRooms).toBeUndefined();
@@ -394,8 +439,7 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
     await act(async () => {
       fireEvent.keyDown(document.body, { key: "z", ctrlKey: true, shiftKey: true });
     });
-    await settle(0);
-    expect(roomsOn(fc)).toEqual([]);
+    await roomsBecome(fc, []);
     const after = await enliven(freehand);
     act(() => fc.add(after));
     await nextSave();
@@ -411,8 +455,11 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
       fc.setActiveObject(kitchen);
       fc.fire("selection:created", { selected: [kitchen] });
     });
-    await settle(0);
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    const remove = await waitUntil(
+      () => screen.queryByRole("button", { name: "Delete" }),
+      "the selection panel's Delete button",
+    );
+    fireEvent.click(remove);
     await nextSave();
     expect(roomsOn(fc)).toEqual([]);
     expect(lastPost().userRemovedRooms).toBe(true);
@@ -435,7 +482,7 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
     loadedDrawing = { objects: [freehand] };
     const before = created.canvases.length;
     view.rerender(<SketchEditorV2 inspectionId="job-2" />);
-    const fc = await latestCanvas(before);
+    const fc = await canvasReady(before, loadedDrawing);
     expect(fc).not.toBeNull();
     expect(created.canvases.length).toBeGreaterThan(before);
     const path = await enliven(freehand);
@@ -447,9 +494,10 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
 
   it("RA-7656 editor room removal: adding a floor and switching floors carries no mark", async () => {
     await renderJob({ objects: [room("room-kitchen", "Kitchen", 0)] });
+    const before = created.canvases.length;
     fireEvent.click(screen.getByRole("button", { name: "Add floor" }));
-    await settle(0);
-    await nextSave();
+    await waitUntil(() => created.canvases.length > before, "the new floor's canvas");
+    await settle(1600); // any autosave the new floor schedules
     fireEvent.click(screen.getByRole("button", { name: "Ground Floor" }));
     await settle(0);
     const path = await enliven(freehand);
