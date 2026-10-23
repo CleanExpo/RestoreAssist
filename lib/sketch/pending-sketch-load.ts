@@ -35,7 +35,7 @@ function newLostRoomId(): string {
  * custom `data` was dropped by Fabric 7 toJSON() (RA-7655). Damage tints
  * and the north arrow are also polygons but use other fills.
  */
-function isDataLessRoomPolygon(obj: unknown): boolean {
+export function isDataLessRoomPolygon(obj: unknown): boolean {
   if (!obj || typeof obj !== "object" || objectHasCustomData(obj)) return false;
   const o = obj as { type?: unknown; points?: unknown; fill?: unknown };
   const type = typeof o.type === "string" ? o.type.toLowerCase() : "";

@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { decomposeElements } from "@/lib/sketch/decompose-elements";
+import { isDataLessRoomPolygon } from "@/lib/sketch/pending-sketch-load";
 import { pinsToMoistureReadingInputs } from "@/lib/sketch/moisture-readings-sync";
 import {
   extractRoomGraphNodes,
@@ -252,6 +253,97 @@ export async function POST(
           )
         : sketchData;
 
+    let existingRooms: Array<{
+      id: string;
+      fabricObjectId: string;
+      name: string;
+      geometryJson: unknown;
+      originalAreaM2: number | null;
+      originalGeometryJson: unknown;
+      confirmedAt: Date | null;
+      confirmedBy: string | null;
+      provenance: string | null;
+      detachedAt?: Date | null;
+      _count: {
+        evidencePins: number;
+        moistureReadings: number;
+        hazards: number;
+        jobMoistureReadings: number;
+      };
+    }> = [];
+    // RA-7656: a failed read is not "no rooms"; the guard below fails closed.
+    let existingRoomsUnknown = false;
+    if (existing?.id) {
+      try {
+        existingRooms = await (prisma as any).sketchRoom.findMany({
+          where: { sketchId: existing.id },
+          select: {
+            id: true,
+            fabricObjectId: true,
+            name: true,
+            geometryJson: true,
+            originalAreaM2: true,
+            originalGeometryJson: true,
+            confirmedAt: true,
+            confirmedBy: true,
+            provenance: true,
+            detachedAt: true,
+            _count: {
+              select: {
+                evidencePins: true,
+                moistureReadings: true,
+                hazards: true,
+                jobMoistureReadings: true,
+              },
+            },
+          },
+          take: 500,
+        });
+      } catch (e) {
+        existingRoomsUnknown = true;
+        console.error(
+          "[sketches] SketchRoom load for provenance resolution failed (non-fatal):",
+          e,
+        );
+      }
+    }
+
+    // Guard: never let an empty Fabric blob (common after dispose-on-unmount)
+    // wipe a previously saved drawing. Explicit clears should send objects:[].
+    // RA-7656: a blob with no objects array at all (missing, null, {}) is just
+    // as empty. A save carrying objects but no room (freehand, walls, openings)
+    // over a stored drawing that has rooms is ambiguous the same way: no client
+    // sends an explicit "remove every room" intent, so the stored drawing wins.
+    // Incoming rooms are counted by the room sync's own extractor, so the two
+    // agree. The stored floor has rooms when its SketchRoom rows say so (they
+    // hold the evidence links) or its blob does, legacy data-less room
+    // polygons included (RA-7655).
+    // The canonical render, room-graph and element sync below use this same
+    // flag, so a save that keeps the stored drawing never re-renders it blank
+    // or deletes or detaches its rooms.
+    const incomingObjects = Array.isArray(securedSketchData?.objects)
+      ? securedSketchData.objects.length
+      : -1;
+    const existingObjects = Array.isArray(existing?.sketchData?.objects)
+      ? existing.sketchData.objects.length
+      : 0;
+    const roomCount = (data: unknown) =>
+      data && typeof data === "object"
+        ? extractRoomGraphNodes(data as Record<string, unknown>).length
+        : 0;
+    const skipEmptyOverwrite =
+      !!existing &&
+      ((incomingObjects <= 0 &&
+        existingObjects > 0 &&
+        !securedSketchData?.backgroundImage &&
+        !securedSketchData?.background) ||
+        (roomCount(securedSketchData) === 0 &&
+          (existingRoomsUnknown ||
+            existingRooms.some((r) => !r.detachedAt) ||
+            roomCount(existing?.sketchData) > 0 ||
+            (Array.isArray(existing?.sketchData?.objects) &&
+              existing.sketchData.objects.some(isDataLessRoomPolygon)))));
+
     // Every canonical claim image is rendered from allowlisted geometry on the
     // server. Underlay pixels are never an input. An active underlay must also
     // pass explicit technician verification before a canonical render exists.
@@ -266,7 +358,14 @@ export async function POST(
     if (activeUnderlay) {
       renderLocator = null;
     }
-    if (
+    if (requestCanonicalRender === true && skipEmptyOverwrite) {
+      // RA-7656: the stored drawing was kept, so its render stays too. A render
+      // of the empty blob would replace the report's floor image with a blank.
+      canonicalRenderMeta = {
+        status: "skipped",
+        reason: "The save carried no drawing; the stored floor-plan render was kept.",
+      };
+    } else if (
       requestCanonicalRender === true &&
       (!activeUnderlay || underlayVerification?.ok)
     ) {
@@ -310,21 +409,6 @@ export async function POST(
       previous: existing?.captureAdapter ?? null,
     });
 
-    // Guard: never let an empty Fabric blob (common after dispose-on-unmount)
-    // wipe a previously saved drawing. Explicit clears should send objects:[].
-    const incomingObjects = Array.isArray(securedSketchData?.objects)
-      ? securedSketchData.objects.length
-      : -1;
-    const existingObjects = Array.isArray(existing?.sketchData?.objects)
-      ? existing.sketchData.objects.length
-      : 0;
-    const skipEmptyOverwrite =
-      !!existing &&
-      incomingObjects === 0 &&
-      existingObjects > 0 &&
-      !securedSketchData?.backgroundImage &&
-      !securedSketchData?.background;
-
     // RA-7617: provenance is derived from the existing SketchRoom row and
     // from room ids the Vision import path recorded on this inspection.
     // Lookup is inspection-wide so an import on floor 2 cannot be re-posted
@@ -348,55 +432,6 @@ export async function POST(
         "[sketches] inspection-wide AI room id load failed (non-fatal):",
         e,
       );
-    }
-    let existingRooms: Array<{
-      id: string;
-      fabricObjectId: string;
-      name: string;
-      geometryJson: unknown;
-      originalAreaM2: number | null;
-      originalGeometryJson: unknown;
-      confirmedAt: Date | null;
-      confirmedBy: string | null;
-      provenance: string | null;
-      _count: {
-        evidencePins: number;
-        moistureReadings: number;
-        hazards: number;
-        jobMoistureReadings: number;
-      };
-    }> = [];
-    if (existing?.id) {
-      try {
-        existingRooms = await (prisma as any).sketchRoom.findMany({
-          where: { sketchId: existing.id },
-          select: {
-            id: true,
-            fabricObjectId: true,
-            name: true,
-            geometryJson: true,
-            originalAreaM2: true,
-            originalGeometryJson: true,
-            confirmedAt: true,
-            confirmedBy: true,
-            provenance: true,
-            _count: {
-              select: {
-                evidencePins: true,
-                moistureReadings: true,
-                hazards: true,
-                jobMoistureReadings: true,
-              },
-            },
-          },
-          take: 500,
-        });
-      } catch (e) {
-        console.error(
-          "[sketches] SketchRoom load for provenance resolution failed (non-fatal):",
-          e,
-        );
-      }
     }
     const byFabric = new Map(
       existingRooms.map(
@@ -570,7 +605,7 @@ export async function POST(
       // D-028: hazards and readings link to these rows, so the rebuild (a
       // delete) is the owner's; the technician's save leaves them for the
       // owner's next save.
-      if (ownerReach) {
+      if (ownerReach && !skipEmptyOverwrite) {
         const elementOps: unknown[] = [
           (prisma as any).sketchElement.deleteMany({
             where: { sketchId: sketch.id },
@@ -690,9 +725,12 @@ export async function POST(
           // nothing was captured in it. Deleting one that holds evidence would
           // SetNull the room link on those pins/readings/hazards and silently lose
           // which room they came from — see partitionStaleRooms.
-          const staleRooms = existingRooms.filter(
-            (r: { fabricObjectId: string }) => !seenFabric.has(r.fabricObjectId),
-          );
+          // RA-7656: when the stored drawing was kept, no room left the canvas.
+          const staleRooms = skipEmptyOverwrite
+            ? []
+            : existingRooms.filter(
+                (r: { fabricObjectId: string }) => !seenFabric.has(r.fabricObjectId),
+              );
           const partition = partitionStaleRooms(staleRooms);
           const deletableIds = partition.deletableIds;
           // D-028: the technician's save detaches every stale room (as it already
@@ -737,7 +775,10 @@ export async function POST(
             moisturePoints,
             roomsForPins,
           );
-          if (ownerReach) {
+          if (moisturePoints == null) {
+            // RA-7656: a save without pins keeps the stored pins column
+            // (written as `moisturePoints ?? undefined`), so its readings stay.
+          } else if (ownerReach) {
             await db.sketchMoistureReading.deleteMany({
               where: { sketchId: sketch.id, source: "pin" },
             });
