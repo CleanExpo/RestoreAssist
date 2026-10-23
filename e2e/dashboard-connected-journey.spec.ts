@@ -8,6 +8,19 @@ import { loginAs } from "./_helpers/auth";
 import { seedV1ReferenceClaim } from "./_helpers/v1-reference-claim";
 
 test.describe("Dashboard connected navigation @smoke", () => {
+  // These two need the storage state e2e/auth.setup.ts writes, and auth.setup
+  // can only log in through the test helper (ALLOW_TEST_HELPERS) or a real
+  // account (E2E_USER_EMAIL + E2E_USER_PASSWORD). With neither, the run cannot
+  // authenticate: production smoke runs --no-deps with no credentials, and
+  // before this skip both tests failed with ENOENT on e2e/.auth/user.json.
+  // A skip is not a pass: scripts/run-smoke.mjs fails the run unless the skip
+  // is declared, with its reason, in scripts/ci/smoke-skip-manifest.json.
+  test.skip(
+    process.env.ALLOW_TEST_HELPERS !== "true" &&
+      !(process.env.E2E_USER_EMAIL && process.env.E2E_USER_PASSWORD),
+    "No way to authenticate: set E2E_USER_EMAIL/E2E_USER_PASSWORD or ALLOW_TEST_HELPERS=true",
+  );
+
   test.use({ storageState: AUTH_FILE });
 
   test("overview pipeline links reach inspections and return", async ({
