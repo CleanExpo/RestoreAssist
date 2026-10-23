@@ -8,6 +8,8 @@
  * by-inspection, by-type on the NIR sync queue), each firing
  * onsuccess/onerror asynchronously like the real API — that subset is
  * implemented here rather than pulling in a full IndexedDB polyfill.
+ * Index cursors (`openCursor` with `IDBKeyRange.only`) cover the sketch
+ * queue's coalesce-by-floor scan (RA-7656).
  */
 
 type Row = Record<string, unknown>;
@@ -15,14 +17,14 @@ type Row = Record<string, unknown>;
 class FakeRequest<T> {
   result: T | undefined;
   error: Error | null = null;
-  onsuccess: (() => void) | null = null;
+  onsuccess: ((event: { target: FakeRequest<T> }) => void) | null = null;
   onerror: (() => void) | null = null;
 
   constructor(private readonly settled?: () => void) {}
 
   succeed(result: T) {
     this.result = result;
-    queueMicrotask(() => { this.onsuccess?.(); this.settled?.(); });
+    queueMicrotask(() => { this.onsuccess?.({ target: this }); this.settled?.(); });
   }
 
   fail(error: Error) {
@@ -62,6 +64,47 @@ class FakeIndex {
     );
     return req;
   }
+
+  /**
+   * Walk the rows matching `query` (a value or `IDBKeyRange.only(value)`).
+   * Each step sets `result` to a cursor and calls `onsuccess`; the walk ends
+   * with `result` null. The transaction stays open for the whole walk, so
+   * writes made from the last `onsuccess` land in the same transaction.
+   */
+  openCursor(query?: unknown) {
+    const req = this.request<FakeCursor | null>();
+    const key =
+      query && typeof query === "object" && "only" in query
+        ? (query as { only: unknown }).only
+        : query;
+    const matches = Array.from(this.rows.entries()).filter(
+      ([, row]) => key === undefined || row[this.field] === key,
+    );
+    let next = 0;
+    const step = () => {
+      if (next < matches.length) {
+        const [rowKey, row] = matches[next++];
+        req.result = {
+          value: row,
+          delete: () => {
+            this.rows.delete(rowKey);
+          },
+          continue: () => queueMicrotask(step),
+        };
+        req.onsuccess?.({ target: req });
+      } else {
+        req.succeed(null);
+      }
+    };
+    queueMicrotask(step);
+    return req;
+  }
+}
+
+interface FakeCursor {
+  value: Row;
+  delete: () => void;
+  continue: () => void;
 }
 
 class FakeObjectStore {
@@ -201,6 +244,10 @@ class FakeDatabase {
 export function installFakeIndexedDB(): () => void {
   const databases = new Map<string, FakeDatabase>();
   const previous = (globalThis as { indexedDB?: unknown }).indexedDB;
+  const previousKeyRange = (globalThis as { IDBKeyRange?: unknown }).IDBKeyRange;
+  (globalThis as { IDBKeyRange?: unknown }).IDBKeyRange = {
+    only: (value: unknown) => ({ only: value }),
+  };
 
   (globalThis as { indexedDB?: unknown }).indexedDB = {
     open(name: string, _version: number) {
@@ -222,6 +269,7 @@ export function installFakeIndexedDB(): () => void {
 
   return () => {
     (globalThis as { indexedDB?: unknown }).indexedDB = previous;
+    (globalThis as { IDBKeyRange?: unknown }).IDBKeyRange = previousKeyRange;
     databases.clear();
   };
 }

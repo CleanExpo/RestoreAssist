@@ -86,6 +86,11 @@ export interface SketchSavePayload {
   equipmentPoints?: unknown;
   /** RA-7091 — ClaimSketch.captureAdapter (manual | roomplan | …). */
   captureAdapter?: string;
+  /**
+   * RA-7656 — the user removed rooms on purpose (Clear Canvas or a room
+   * delete). Replayed unchanged so the route applies a save without rooms.
+   */
+  userRemovedRooms?: boolean;
   /** Epoch ms at the moment the local sketch state was captured. */
   clientUpdatedAt: number;
 }

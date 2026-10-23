@@ -1021,6 +1021,19 @@ export function SketchEditorV2({
   // it immediately and resolves after server acknowledgment — call flushSaveNow
   // before a floor switch, PDF export, or scope generation so no edits are lost
   // (RA-6762: the old `await scheduleSave()` returned void and never waited).
+  // RA-7656: floors (by clientKey) whose rooms the user removed on purpose -
+  // Clear Canvas, or deleting a room. The route keeps the stored rooms when a
+  // save arrives without any, because a disposed or partly loaded canvas
+  // posts exactly that; `userRemovedRooms` tells it this one is deliberate.
+  // The value is a counter so a save only clears the mark it carried, and
+  // every save keeps the mark until one is acknowledged online (queued saves
+  // coalesce per floor, so the newest queued save must carry it too).
+  const userRemovedRoomsRef = useRef(new Map<string, number>());
+  const markUserRemovedRooms = useCallback((clientKey: string) => {
+    const marks = userRemovedRoomsRef.current;
+    marks.set(clientKey, (marks.get(clientKey) ?? 0) + 1);
+  }, []);
+
   const performSave = useCallback(
     async (renderImage = false) => {
       setSaving(true);
@@ -1055,6 +1068,7 @@ export function SketchEditorV2({
             : {}),
         };
         const clientUpdatedAt = Date.now();
+        const removalMark = userRemovedRoomsRef.current.get(fd.clientKey) ?? 0;
         const { resolveSketchCaptureAdapter } =
           await import("@/lib/sketch/ingest-roomplan");
         const captureAdapter = resolveSketchCaptureAdapter({ sketchData });
@@ -1077,6 +1091,7 @@ export function SketchEditorV2({
           confirmedFabricObjectIds: [
             ...confirmedFabricObjectIdsRef.current,
           ],
+          ...(removalMark > 0 ? { userRemovedRooms: true as const } : {}),
         };
 
         const saveUrl = captureToken
@@ -1092,6 +1107,12 @@ export function SketchEditorV2({
             body: JSON.stringify(body),
           });
           if (res.ok) {
+            if (
+              removalMark > 0 &&
+              userRemovedRoomsRef.current.get(fd.clientKey) === removalMark
+            ) {
+              userRemovedRoomsRef.current.delete(fd.clientKey);
+            }
             const savedSketch = (await res.json().catch(() => null)) as {
               id?: string;
             } | null;
@@ -2857,6 +2878,9 @@ export function SketchEditorV2({
                 backgroundImageOffsetY={fd.backgroundOffsetY}
                 backgroundImageLockAspect={fd.backgroundLockAspect}
                 initialData={fd.pendingSketchData ?? null}
+                // RA-7656: the canvas reports every room a user action takes
+                // off it (delete, clear, undo, redo); loads never report.
+                onRoomsRemoved={() => markUserRemovedRooms(fd.clientKey)}
                 readonly={readonly}
                 onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
                 onModified={() => {
@@ -3370,6 +3394,7 @@ export function SketchEditorV2({
                   )?.id === id,
               );
             if (obj) {
+              // RA-7656: removing a room reaches the canvas's onRoomsRemoved.
               fc.remove(obj);
               fc.renderAll();
             }
@@ -3760,6 +3785,16 @@ export function SketchEditorV2({
         onZoomOut={() => applyZoom(0.8)}
         onZoomReset={handleZoomReset}
         onClear={() => {
+          if (activeFloor) {
+            // RA-7656: the cleared canvas is the floor now. Drop the last
+            // snapshot, or the next save posts the old rooms back. Clearing
+            // removes every room the route holds for this floor, including
+            // legacy room polygons the canvas never loaded as rooms (so no
+            // removal event fires for them), hence the explicit mark through
+            // the same helper the canvas report uses.
+            activeFloor.sketchSnapshot = null;
+            markUserRemovedRooms(activeFloor.clientKey);
+          }
           activeFloor?.canvasRef.current?.clear();
           scheduleSave();
         }}
