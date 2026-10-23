@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * RA-1762 — unit tests for the parts of the offline queue extension
  * that don't touch IndexedDB. The IDB-touching paths (enqueueSketchSave
@@ -9,7 +10,8 @@
  * just throw "IndexedDB unavailable in server context".
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { installFakeIndexedDB } from "./helpers/fake-indexeddb";
 
 import type { QueueEntryType, SketchSavePayload } from "@/lib/nir-sync-queue";
 
@@ -59,5 +61,65 @@ describe("RA-1762 — SketchSavePayload contract", () => {
     };
     expect(typeof payload.clientUpdatedAt).toBe("number");
     expect(Number.isFinite(payload.clientUpdatedAt)).toBe(true);
+  });
+});
+
+/**
+ * RA-7656 — Clear Canvas marks its save `userRemovedRooms: true`. A save that
+ * fails online is queued as-is, so the replay must send the flag back to the
+ * route; otherwise it arrives roomless and unmarked and the route keeps the
+ * rooms the user removed. (The editor keeps the flag on every save until one
+ * is acknowledged online, so coalescing always keeps a flagged entry.)
+ */
+describe("RA-7656 queue keeps intent", () => {
+  const owner = { userId: "user-a", organizationId: "org-a", workspaceId: "ws-a", workspaceOwnerId: "user-a" };
+  let uninstall: (() => void) | undefined;
+  afterEach(() => {
+    uninstall?.();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("RA-7656 queue keeps intent: a queued sketch save replays userRemovedRooms in the request body", async () => {
+    vi.resetModules();
+    uninstall = installFakeIndexedDB();
+    const fetchMock = vi.fn(async (url: string) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner }), { status: 200 })
+        : new Response(JSON.stringify({ id: "srv-1" }), { status: 201 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    Object.defineProperty(navigator, "locks", {
+      configurable: true,
+      value: { request: vi.fn(async (_n: unknown, _o: unknown, work: () => unknown) => work()) },
+    });
+    const boundary = await import("../offline/account-boundary");
+    boundary.setOfflineSession(owner.userId);
+    expect(await boundary.refreshOfflineOwner()).toEqual(owner);
+    const queue = await import("@/lib/nir-sync-queue");
+
+    const payload: SketchSavePayload = {
+      floorNumber: 0,
+      floorLabel: "Ground Floor",
+      sketchData: { objects: [{ type: "path", data: { type: "freehand" } }] },
+      userRemovedRooms: true,
+      clientUpdatedAt: 1_700_000_000_000,
+    };
+    await queue.queueWrite({
+      type: "sketch-save",
+      endpoint: "/api/inspections/i1/sketches",
+      method: "POST",
+      payload,
+      inspectionId: "i1",
+    });
+
+    fetchMock.mockClear();
+    expect(await queue.drainQueue()).toBe(1);
+    const bodies = fetchMock.mock.calls
+      .filter(([url]) => url === "/api/inspections/i1/sketches")
+      .map(([, init]) => JSON.parse(String((init as RequestInit).body)));
+    expect(bodies).toEqual([payload]);
+    expect(bodies[0].userRemovedRooms).toBe(true);
   });
 });

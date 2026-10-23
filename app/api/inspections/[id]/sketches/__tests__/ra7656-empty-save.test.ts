@@ -447,3 +447,142 @@ describe("RA-7656 legacy", () => {
     expect(render.storeVerifiedCleanRender).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * Codex round 3 (e5ceacef): Clear Canvas, then a freehand stroke, posts a
+ * roomless canvas. The editor marks that save with `userRemovedRooms: true`
+ * and the route must honour it: save the new drawing, render it, and reconcile
+ * the rooms exactly as a save that removed one room does. Without the flag the
+ * RA-7656 keep behaviour above is unchanged.
+ */
+describe("RA-7656 user-removed-rooms intent", () => {
+  /** Codex's exact editor payload from the round-3 probe. */
+  const codexPayload = { objects: [{ type: "path", data: { type: "freehand" } }] };
+
+  it("the review repro with the intent saves and renders the new drawing, deletes Kitchen and detaches Laundry (owner)", async () => {
+    gate.storageConfigured = true;
+    const res = await save(codexPayload, { requestCanonicalRender: true, userRemovedRooms: true });
+
+    expect(res.status).toBe(201);
+    const data = p.claimSketch.update.mock.calls[0][0].data;
+    expect(data.sketchData).toEqual(codexPayload);
+    expect(render.storeVerifiedCleanRender).toHaveBeenCalledTimes(1);
+    expect(data.renderedPngUrl).toBe(
+      "storage://sketch-media/inspections/i1/exports/verified/floor-0-new.png",
+    );
+    expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["sr_kitchen"] } } });
+    expect(p.sketchRoom.updateMany).toHaveBeenCalledTimes(1);
+    expect(p.sketchRoom.updateMany.mock.calls[0][0].where).toEqual({
+      id: { in: ["sr_laundry"] },
+      detachedAt: null,
+    });
+    expect(p.sketchElement.deleteMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("the review repro with the intent detaches both rooms and deletes none (technician)", async () => {
+    gate.viaAssignment = true;
+    const res = await save(codexPayload, { requestCanonicalRender: true, userRemovedRooms: true });
+
+    expect(res.status).toBe(201);
+    expect(p.claimSketch.update.mock.calls[0][0].data.sketchData).toEqual(codexPayload);
+    expect(p.sketchRoom.deleteMany).not.toHaveBeenCalled();
+    expect(p.sketchRoom.updateMany).toHaveBeenCalledTimes(1);
+    expect(p.sketchRoom.updateMany.mock.calls[0][0].where).toEqual({
+      id: { in: ["sr_laundry", "sr_kitchen"] },
+      detachedAt: null,
+    });
+  });
+
+  it("a bare Clear Canvas (objects: []) with the intent saves the empty floor and reconciles the rooms (owner)", async () => {
+    const cleared = { scaleConfig: { pxPerMetre: 100 }, objects: [] };
+    const res = await save(cleared, { userRemovedRooms: true });
+
+    expect(res.status).toBe(201);
+    expect(p.claimSketch.update.mock.calls[0][0].data.sketchData).toEqual(cleared);
+    expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["sr_kitchen"] } } });
+    expect(p.sketchRoom.updateMany.mock.calls[0][0].where).toEqual({
+      id: { in: ["sr_laundry"] },
+      detachedAt: null,
+    });
+  });
+
+  it("the intent with a failed room-row read is refused non-2xx and writes nothing", async () => {
+    gate.storageConfigured = true;
+    p.sketchRoom.findMany.mockRejectedValueOnce(new Error("db down"));
+    const res = await save(codexPayload, { requestCanonicalRender: true, userRemovedRooms: true });
+
+    expect(res.status).toBe(503);
+    expect(p.claimSketch.update).not.toHaveBeenCalled();
+    expect(render.storeVerifiedCleanRender).not.toHaveBeenCalled();
+    expectRoomsAndElementsUntouched();
+  });
+
+  it("the intent without an objects array is refused non-2xx and writes nothing", async () => {
+    for (const shape of [NO_SKETCH_DATA, null, {}, { objects: null }]) {
+      vi.clearAllMocks();
+      const res = await save(shape, { userRemovedRooms: true });
+      expect(res.status).toBe(400);
+      expect(p.claimSketch.update).not.toHaveBeenCalled();
+      expectRoomsAndElementsUntouched();
+    }
+  });
+
+  it("a non-boolean intent is ignored: the roomless save keeps the stored drawing and rooms", async () => {
+    for (const flag of ["true", 1, {}, [true]]) {
+      vi.clearAllMocks();
+      const res = await save(codexPayload, { requestCanonicalRender: true, userRemovedRooms: flag });
+      expect(res.status).toBe(201);
+      expect(p.claimSketch.update.mock.calls[0][0].data.sketchData).toBeUndefined();
+      expectRoomsAndElementsUntouched();
+    }
+  });
+});
+
+describe("RA-7656 gaps", () => {
+  const freehandOnly = { objects: [{ type: "path", data: { type: "freehand" } }] };
+
+  it("a stored blob with tagged rooms but no room rows keeps the drawing, rooms and render", async () => {
+    gate.storageConfigured = true;
+    p.sketchRoom.findMany.mockImplementation(async () => []);
+    const res = await save(freehandOnly, { requestCanonicalRender: true });
+
+    expect(res.status).toBe(201);
+    const data = p.claimSketch.update.mock.calls[0][0].data;
+    expect(data.sketchData).toBeUndefined();
+    expect(data.renderedPngUrl).toBeUndefined();
+    expect(render.storeVerifiedCleanRender).not.toHaveBeenCalled();
+    expectRoomsAndElementsUntouched();
+  });
+
+  it("legacy data-less polygons arriving in the save are not rooms: the stored drawing and rooms are kept", async () => {
+    const legacy = {
+      type: "Polygon",
+      fill: "rgba(28,46,71,0.08)",
+      points: [{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: 300, y: 300 }],
+    };
+    const res = await save({ objects: [legacy] }, { requestCanonicalRender: true });
+
+    expect(res.status).toBe(201);
+    expect(p.claimSketch.update.mock.calls[0][0].data.sketchData).toBeUndefined();
+    expectRoomsAndElementsUntouched();
+  });
+
+  it("room rows are read with detachedAt selected: all-detached rows (as Prisma projects them) let a roomless save through", async () => {
+    gate.storageConfigured = true;
+    p.claimSketch.findFirst.mockResolvedValue({
+      id: "s_1",
+      sketchData: { objects: [] },
+      updatedAt: new Date("2026-09-20T00:00:00Z"),
+    });
+    // Prisma returns only selected fields: detachedAt exists only when selected.
+    p.sketchRoom.findMany.mockImplementation(async (args: { select?: Record<string, unknown> }) =>
+      projectRooms(args).map((r) =>
+        args?.select?.detachedAt ? { ...r, detachedAt: new Date("2026-10-01T00:00:00Z") } : r,
+      ),
+    );
+    const res = await save(freehandOnly, { requestCanonicalRender: true });
+
+    expect(res.status).toBe(201);
+    expect(p.claimSketch.update.mock.calls[0][0].data.sketchData).toEqual(freehandOnly);
+  });
+});

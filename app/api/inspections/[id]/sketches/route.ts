@@ -161,7 +161,31 @@ export async function POST(
       confirmUnderlayVerification,
       requestCanonicalRender,
       confirmedFabricObjectIds: confirmedFabricObjectIdsRaw,
+      userRemovedRooms: userRemovedRoomsRaw,
     } = body;
+
+    // RA-7656: the editor sets this only when the user removed rooms on purpose
+    // (Clear Canvas, or deleting a room). It lets a save without rooms reach
+    // the normal room reconciliation below instead of being treated as a
+    // disposed or partly loaded canvas. Only a literal `true` counts. It widens
+    // nothing: the save is still this caller's, for this floor, under the same
+    // reach checks as a save that leaves one room out.
+    const userRemovedRooms = userRemovedRoomsRaw === true;
+    if (
+      userRemovedRooms &&
+      !(
+        sketchData &&
+        typeof sketchData === "object" &&
+        Array.isArray((sketchData as { objects?: unknown }).objects)
+      )
+    ) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "A save that removes rooms must carry the floor's canvas objects.",
+        status: 400,
+      });
+    }
 
     const confirmedFabricObjectIds = parseConfirmedFabricObjectIds(
       confirmedFabricObjectIdsRaw,
@@ -307,13 +331,26 @@ export async function POST(
         );
       }
     }
+    if (userRemovedRooms && existingRoomsUnknown) {
+      // The rooms to delete or detach are unknown, so the removal cannot be
+      // applied. Refuse rather than answer success for a save that was not
+      // made; the editor queues the save and retries it.
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        message:
+          "The floor's rooms could not be read, so the removal was not saved. It will be retried.",
+        status: 503,
+      });
+    }
 
     // Guard: never let an empty Fabric blob (common after dispose-on-unmount)
-    // wipe a previously saved drawing. Explicit clears should send objects:[].
+    // wipe a previously saved drawing.
     // RA-7656: a blob with no objects array at all (missing, null, {}) is just
     // as empty. A save carrying objects but no room (freehand, walls, openings)
-    // over a stored drawing that has rooms is ambiguous the same way: no client
-    // sends an explicit "remove every room" intent, so the stored drawing wins.
+    // over a stored drawing that has rooms is ambiguous the same way, so the
+    // stored drawing wins - unless the save carries `userRemovedRooms`, the
+    // editor's mark for a deliberate clear or room delete. That save is
+    // applied as sent: an empty or roomless floor, rooms reconciled below.
     // Incoming rooms are counted by the room sync's own extractor, so the two
     // agree. The stored floor has rooms when its SketchRoom rows say so (they
     // hold the evidence links) or its blob does, legacy data-less room
@@ -333,6 +370,7 @@ export async function POST(
         : 0;
     const skipEmptyOverwrite =
       !!existing &&
+      !userRemovedRooms &&
       ((incomingObjects <= 0 &&
         existingObjects > 0 &&
         !securedSketchData?.backgroundImage &&
