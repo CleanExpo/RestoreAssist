@@ -67,7 +67,8 @@ async function flush(times = 10) {
 async function waitUntil<T>(
   ready: () => T | null | undefined | false,
   what: string,
-  timeoutMs = 20_000,
+  // Below vitest's 20 s testTimeout, so a stall reports this message.
+  timeoutMs = 15_000,
 ): Promise<T> {
   const deadline = performance.now() + timeoutMs;
   for (;;) {

@@ -91,6 +91,9 @@ vi.mock("@/lib/nir-sync-queue", async (importOriginal) => {
   };
 });
 
+/** SketchCanvas onReady calls that have returned (the editor's handler ran). */
+const canvasReadyCalls = vi.hoisted(() => ({ count: 0 }));
+
 vi.mock("next/dynamic", async () => {
   const React = await import("react");
   return {
@@ -116,7 +119,20 @@ vi.mock("next/dynamic", async () => {
           };
         }, []);
         if (!Loaded) return null;
-        return React.createElement(Loaded, { ...props, ref });
+        const onReady = props.onReady as ((canvas: unknown) => void) | undefined;
+        return React.createElement(Loaded, {
+          ...props,
+          ...(onReady
+            ? {
+                // Count only after the editor's own onReady handler returned.
+                onReady: (canvas: unknown) => {
+                  onReady(canvas);
+                  canvasReadyCalls.count += 1;
+                },
+              }
+            : {}),
+          ref,
+        });
       });
     },
   };
@@ -239,7 +255,14 @@ let fabricCanvas: FabricLike | null = null;
 async function waitUntil<T>(
   ready: () => T | null | undefined | false,
   what: string,
-  timeoutMs = 20_000,
+  {
+    // Below vitest's 20 s testTimeout, so a stall reports this message.
+    timeoutMs = 15_000,
+    // Fake time to advance per check. Only for waits that come before any
+    // user action (nothing is debounced yet), so canvas start-up that runs on
+    // a timer can complete whether that timer is real or faked.
+    advanceMs = 0,
+  }: { timeoutMs?: number; advanceMs?: number } = {},
 ): Promise<T> {
   const deadline = performance.now() + timeoutMs;
   for (;;) {
@@ -248,7 +271,7 @@ async function waitUntil<T>(
     if (performance.now() > deadline) {
       throw new Error(`Timed out after ${timeoutMs} ms waiting for ${what}`);
     }
-    await settle(0);
+    await settle(advanceMs);
   }
 }
 
@@ -256,27 +279,46 @@ const DRAWN_TYPES = new Set(["room", "freehand"]);
 
 /**
  * The editor's canvas is ready when a new fabric canvas exists, it holds every
- * object of the loaded drawing (the bootstrap load ran, and onReady with it),
- * and the toolbar is on screen.
+ * object of the loaded drawing, the editor's onReady handler has returned for
+ * it, and the toolbar is on screen. Objects alone are not enough: they land
+ * before onReady, and until the editor's handler runs (and React flushes what
+ * it queued) the toolbar's Undo state is not the editor's.
  */
-async function canvasReady(after: number, drawing: Record<string, unknown>) {
+async function canvasReady(
+  canvasesBefore: number,
+  readyBefore: number,
+  drawing: Record<string, unknown>,
+) {
   const expected = (drawing.objects as unknown[]).length;
-  return waitUntil(() => {
-    if (created.canvases.length <= after) return null;
-    const fc = created.canvases.at(-1) as FabricLike;
-    const drawn = fc.getObjects().filter((o) => DRAWN_TYPES.has(o.data?.type ?? "")).length;
+  const fc = await waitUntil(() => {
+    if (created.canvases.length <= canvasesBefore) return null;
+    if (canvasReadyCalls.count <= readyBefore) return null;
+    const latest = created.canvases.at(-1) as FabricLike;
+    const drawn = latest.getObjects().filter((o) => DRAWN_TYPES.has(o.data?.type ?? "")).length;
     if (drawn !== expected) return null;
     if (!screen.queryByRole("button", { name: "Undo (Ctrl+Z)" })) return null;
-    return fc;
-  }, "the editor's canvas to load the drawing");
+    return latest;
+  }, "the editor's canvas to finish onReady with the drawing loaded", { advanceMs: 50 });
+  // Flush the state updates and effects the editor's onReady queued.
+  await settle(0);
+  return fc;
 }
 
 async function renderJob(drawing: Record<string, unknown>) {
   loadedDrawing = drawing;
-  const before = created.canvases.length;
+  const canvasesBefore = created.canvases.length;
+  const readyBefore = canvasReadyCalls.count;
   const view = render(<SketchEditorV2 inspectionId="job-1" />);
-  fabricCanvas = await canvasReady(before, drawing);
+  fabricCanvas = await canvasReady(canvasesBefore, readyBefore, drawing);
   return view;
+}
+
+/** Wait until the toolbar's Undo is enabled (it follows the editor's history state). */
+async function undoEnabled() {
+  return waitUntil(() => {
+    const undo = screen.queryByRole("button", { name: "Undo (Ctrl+Z)" }) as HTMLButtonElement | null;
+    return undo && !undo.disabled ? undo : null;
+  }, "the toolbar Undo to be enabled");
 }
 
 /** Wait until the canvas holds exactly these rooms (an undo/redo load is async). */
@@ -377,8 +419,8 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
     await nextSave();
     expect(posts.every((b) => b.userRemovedRooms === undefined)).toBe(true);
 
-    const undo = screen.getByRole("button", { name: "Undo (Ctrl+Z)" });
-    expect((undo as HTMLButtonElement).disabled).toBe(false);
+    const undo = await undoEnabled();
+    expect(undo.disabled).toBe(false);
     fireEvent.click(undo); // takes the stroke off: no room leaves
     await waitUntil(() => fc.getObjects().filter((o) => o.data?.type === "freehand").length === 1, "the undo to take the stroke off");
     await nextSave();
@@ -420,14 +462,16 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
     await nextSave();
     expect(lastPost().userRemovedRooms).toBe(true); // acknowledged: the mark is spent
 
-    const undo = screen.getByRole("button", { name: "Undo (Ctrl+Z)" });
     const stroke = await enliven(freehand);
     act(() => fc.add(stroke)); // refreshes the Undo button
     await nextSave();
     expect(lastPost().userRemovedRooms).toBeUndefined();
+    const undo = await undoEnabled();
+    expect(undo.disabled).toBe(false);
     fireEvent.click(undo); // stroke off
     await waitUntil(() => fc.getObjects().filter((o) => o.data?.type === "freehand").length === 1, "the undo to take the stroke off");
     await nextSave();
+    expect((await undoEnabled()).disabled).toBe(false);
     fireEvent.click(undo); // Kitchen back: nothing left the canvas
     await roomsBecome(fc, ["room-kitchen"]);
     await nextSave();
@@ -481,8 +525,9 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
     const view = await renderJob({ objects: [room("room-kitchen", "Kitchen", 0)] });
     loadedDrawing = { objects: [freehand] };
     const before = created.canvases.length;
+    const readyBefore = canvasReadyCalls.count;
     view.rerender(<SketchEditorV2 inspectionId="job-2" />);
-    const fc = await canvasReady(before, loadedDrawing);
+    const fc = await canvasReady(before, readyBefore, loadedDrawing);
     expect(fc).not.toBeNull();
     expect(created.canvases.length).toBeGreaterThan(before);
     const path = await enliven(freehand);
@@ -495,8 +540,14 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
   it("RA-7656 editor room removal: adding a floor and switching floors carries no mark", async () => {
     await renderJob({ objects: [room("room-kitchen", "Kitchen", 0)] });
     const before = created.canvases.length;
+    const readyBefore = canvasReadyCalls.count;
     fireEvent.click(screen.getByRole("button", { name: "Add floor" }));
-    await waitUntil(() => created.canvases.length > before, "the new floor's canvas");
+    await waitUntil(
+      () => created.canvases.length > before && canvasReadyCalls.count > readyBefore,
+      "the new floor's canvas to finish onReady",
+      { advanceMs: 50 },
+    );
+    await settle(0);
     await settle(1600); // any autosave the new floor schedules
     fireEvent.click(screen.getByRole("button", { name: "Ground Floor" }));
     await settle(0);

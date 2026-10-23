@@ -20,6 +20,8 @@ const probe = vi.hoisted(() => ({
   json: { objects: [] } as Record<string, unknown>,
   canvas: null as FabricCanvasRef | null,
   postStatus: 201,
+  /** onReady calls that have returned (the editor's handler ran). */
+  readyCalls: 0,
 }));
 
 const queue = vi.hoisted(() => ({
@@ -102,6 +104,7 @@ vi.mock("../SketchCanvas", async () => {
       probe.canvas = canvas;
       if (ref && typeof ref !== "function") ref.current = canvas;
       props.onReady?.(canvas);
+      probe.readyCalls += 1;
       return () => {
         if (ref && typeof ref !== "function" && ref.current === canvas) ref.current = null;
       };
@@ -196,7 +199,8 @@ async function settle(ms = 0) {
 async function waitUntil<T>(
   ready: () => T | null | undefined | false,
   what: string,
-  timeoutMs = 20_000,
+  // Below vitest's 20 s testTimeout, so a stall reports this message.
+  timeoutMs = 15_000,
 ): Promise<T> {
   const deadline = performance.now() + timeoutMs;
   for (;;) {
@@ -213,11 +217,13 @@ async function renderJobWithRooms() {
   render(<SketchEditorV2 inspectionId="job-1" />);
   await waitUntil(
     () =>
-      probe.canvas !== null &&
+      probe.readyCalls > 0 &&
       JSON.stringify(probe.json) === JSON.stringify(storedDrawing) &&
       screen.queryByRole("button", { name: "Clear Canvas" }),
-    "the editor to load the stored drawing",
+    "the editor's onReady to finish with the stored drawing loaded",
   );
+  // Flush the state updates and effects the editor's onReady queued.
+  await settle(0);
   expect(probe.canvas).not.toBeNull();
   expect(probe.json).toEqual(storedDrawing);
 }
@@ -248,6 +254,7 @@ describe("RA-7656 Clear Canvas intent (SketchEditorV2)", () => {
     probe.json = { objects: [] };
     probe.canvas = null;
     probe.postStatus = 201;
+    probe.readyCalls = 0;
     posts.length = 0;
     queue.enqueued.length = 0;
     vi.useFakeTimers({
