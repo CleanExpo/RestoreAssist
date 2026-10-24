@@ -91,6 +91,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         status: inspection.status,
         propertyAddress:
           `${inspection.propertyAddress} ${inspection.propertyPostcode}`.trim(),
+        inspectionDate: inspection.inspectionDate?.toISOString() ?? null,
         createdAt: inspection.createdAt.toISOString(),
         completedAt: null,
         technician: inspection.user?.name

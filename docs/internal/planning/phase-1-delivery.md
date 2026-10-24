@@ -22,20 +22,22 @@
 
 | # | Founder priority | Status on `main` | Verification |
 | --- | --- | --- | --- |
-| 1 | **Indooroopilly** — moisture, invented date, frontend | **UI date fix merged** (#2448); API create path already refuses invented dates; **round-2 PR** closes portal API/PDF/print/filter gaps | Golden DB test + checklist |
+| 1 | **Indooroopilly** — moisture, invented date, frontend | **#2448 merged**; **round-2** on branch `feat/phase1-attendance-hardening-round2` (awaiting founder merge to `origin/main`) | Golden DB test + checklist |
 | 2 | **Firm isolation** (RA-8043) | **#2447 + #2444 + #2450** | `ra-8043c-platform-gates`, `ra-8043d-drive-gates`, batch source integration test |
 | 3 | **Offline capture** | **UX merged** (#2449); device proof pending | Airplane-mode script; `lib/offline/*` |
 
 ---
 
-## Round 2 — attendance hardening (local merge to `main`)
+## Round 2 — attendance hardening (PR pending)
 
-Closes remaining **createdAt-as-attendance** leaks found after #2448 merge:
+Branch: **`feat/phase1-attendance-hardening-round2`** → open/compare PR → CI green → founder merge.
 
-- `GET /api/portal/[token]` public `inspectionDate` field  
-- Token + JWT client PDF `attendanceDate` line  
-- Job **print** view  
-- Job list **date range filter** (uses `inspectionDate` only)
+Closes **createdAt-as-attendance** leaks after #2448:
+
+- `GET /api/portal/[token]` public `inspectionDate`  
+- Token + JWT client PDF `attendanceDate`  
+- Job **print** view + list **date filter**  
+- Staff **export PDF** header + team member recent-jobs row  
 
 Regression: `phase1-attendance-display-regression.test.ts`, `consumer-report-attendance.test.ts`, portal PDF/download route tests.
 
@@ -45,7 +47,7 @@ Regression: `phase1-attendance-display-regression.test.ts`, `consumer-report-att
 
 - [x] Dashboard list/header attendance display (#2448)
 - [ ] Golden integration test green on CI DB
-- [x] Round-2 portal API/PDF/print/filter merged (local `main`)
+- [ ] Round-2 merged on **`origin/main`** (PR + CI; not local-only)
 - [ ] Founder trace on sanitised prod/staging IDs
 - [ ] iPhone photo attach re-test (`escaped-defects.md` 2026-10-02)
 

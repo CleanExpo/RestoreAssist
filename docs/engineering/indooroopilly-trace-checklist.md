@@ -27,6 +27,8 @@ Golden case asserts: linked inspection (no duplicate), **no invented attendance 
 | `GET /api/portal/[token]` | Public `inspectionDate` = DB field, not `createdAt` |
 | Client PDF (token + JWT) | **Site attendance:** recorded date or **Not recorded** |
 | Field dashboard | Uses `inspectionDate` or “Attendance unknown” |
+| Staff export PDF (`lib/pdf-export.ts`) | Header date from `inspectionDate` or **Attendance not recorded** |
+| Team member recent jobs | Same as job list row |
 
 ## Production trace (founder / support)
 

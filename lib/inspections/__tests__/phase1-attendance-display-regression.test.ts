@@ -75,4 +75,16 @@ describe("Phase 1 attendance display regression", () => {
       /attendanceDate: report\.inspection\?\.inspectionDate/,
     );
   });
+
+  it("staff export PDF header uses inspectionDate not createdAt", () => {
+    const src = read("lib/pdf-export.ts");
+    expect(src).toMatch(/inspection\.inspectionDate/);
+    expect(src).not.toMatch(/\$\{fmt\(inspection\.createdAt\)\}/);
+  });
+
+  it("team recent jobs row uses formatAttendanceDateEnAu on inspectionDate", () => {
+    const src = read("app/dashboard/team/[id]/page.tsx");
+    expect(src).toMatch(/formatAttendanceDateEnAu\(inspection\.inspectionDate\)/);
+    expect(src).not.toMatch(/formatDate\(inspection\.createdAt\)/);
+  });
 });
