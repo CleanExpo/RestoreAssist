@@ -28,7 +28,7 @@
 
 ---
 
-## Round 2 (follow-up PR) — attendance hardening
+## Round 2 — attendance hardening (local merge to `main`)
 
 Closes remaining **createdAt-as-attendance** leaks found after #2448 merge:
 
@@ -37,7 +37,7 @@ Closes remaining **createdAt-as-attendance** leaks found after #2448 merge:
 - Job **print** view  
 - Job list **date range filter** (uses `inspectionDate` only)
 
-Regression: `lib/inspections/__tests__/phase1-attendance-display-regression.test.ts`, `lib/portal/__tests__/consumer-report-attendance.test.ts`.
+Regression: `phase1-attendance-display-regression.test.ts`, `consumer-report-attendance.test.ts`, portal PDF/download route tests.
 
 ---
 
@@ -45,7 +45,7 @@ Regression: `lib/inspections/__tests__/phase1-attendance-display-regression.test
 
 - [x] Dashboard list/header attendance display (#2448)
 - [ ] Golden integration test green on CI DB
-- [ ] Round-2 portal API/PDF/print/filter merged
+- [x] Round-2 portal API/PDF/print/filter merged (local `main`)
 - [ ] Founder trace on sanitised prod/staging IDs
 - [ ] iPhone photo attach re-test (`escaped-defects.md` 2026-10-02)
 

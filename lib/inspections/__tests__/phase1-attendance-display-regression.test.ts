@@ -68,4 +68,11 @@ describe("Phase 1 attendance display regression", () => {
     expect(src).toMatch(/attendanceDate: inspection\.inspectionDate/);
     expect(src).not.toMatch(/date: inspection\.createdAt/);
   });
+
+  it("JWT client report download uses inspection.inspectionDate for attendanceDate", () => {
+    const src = read("app/api/portal/reports/[id]/download/route.ts");
+    expect(src).toMatch(
+      /attendanceDate: report\.inspection\?\.inspectionDate/,
+    );
+  });
 });
