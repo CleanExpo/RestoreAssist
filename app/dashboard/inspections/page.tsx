@@ -168,9 +168,12 @@ export default function InspectionsPage() {
           .includes(searchTerm.toLowerCase()) ??
           false);
       const matchesStatus = !statusFilter || insp.status === statusFilter;
-      const inspDate = new Date(insp.createdAt);
-      const matchesFrom = !fromDate || inspDate >= fromDate;
-      const matchesTo = !toDate || inspDate <= toDate;
+      const inspDate = insp.inspectionDate
+        ? new Date(insp.inspectionDate)
+        : null;
+      const matchesFrom =
+        !fromDate || (inspDate !== null && inspDate >= fromDate);
+      const matchesTo = !toDate || (inspDate !== null && inspDate <= toDate);
       return matchesSearch && matchesStatus && matchesFrom && matchesTo;
     });
   }, [inspections, searchTerm, statusFilter, dateFrom, dateTo]);

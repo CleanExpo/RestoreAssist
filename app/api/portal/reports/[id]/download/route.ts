@@ -34,6 +34,7 @@ export async function GET(
         inspection: {
           select: {
             inspectionNumber: true,
+            inspectionDate: true,
             affectedAreas: { select: { id: true } },
             scopeItems: {
               where: { isSelected: true },
@@ -65,7 +66,7 @@ export async function GET(
         report.inspection?.inspectionNumber ?? report.reportNumber,
       propertyAddress: report.propertyAddress,
       status: report.status,
-      date: report.createdAt,
+      attendanceDate: report.inspection?.inspectionDate ?? null,
       affectedAreaCount: report.inspection?.affectedAreas.length ?? 0,
       scopeItemCount: report.inspection?.scopeItems.length ?? 0,
       // RA-7727: the workspace owner's business, whoever wrote the report.

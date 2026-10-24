@@ -43,7 +43,7 @@ export async function GET(
     select: {
       inspectionNumber: true,
       propertyAddress: true,
-      createdAt: true,
+      inspectionDate: true,
       status: true,
       technicianName: true,
       affectedAreas: {
@@ -85,7 +85,7 @@ export async function GET(
     inspectionNumber: inspection.inspectionNumber,
     propertyAddress: inspection.propertyAddress,
     status: inspection.status,
-    date: inspection.createdAt,
+    attendanceDate: inspection.inspectionDate,
     affectedAreaCount: inspection.affectedAreas.length,
     scopeItemCount: inspection.scopeItems.length,
     // RA-7727: the workspace owner's business, whoever wrote the report.

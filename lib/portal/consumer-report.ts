@@ -1,11 +1,20 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
+export function formatConsumerReportAttendanceLine(
+  attendanceDate: Date | null,
+): string {
+  return attendanceDate
+    ? `Site attendance: ${attendanceDate.toLocaleDateString("en-AU")}`
+    : "Site attendance: Not recorded";
+}
+
 export type ConsumerReportPdfInput = {
   title: string;
   inspectionNumber?: string | null;
   propertyAddress: string;
   status: string;
-  date: Date;
+  /** Recorded site attendance; omit invented dates from job creation time. */
+  attendanceDate: Date | null;
   affectedAreaCount?: number;
   scopeItemCount?: number;
   contractorName?: string | null;
@@ -60,7 +69,7 @@ export async function generateConsumerReportPdf(
   write(input.title, { heading: true, size: 18 });
   write(input.propertyAddress);
   write(`Status: ${input.status.replaceAll("_", " ")}`);
-  write(`Report date: ${input.date.toLocaleDateString("en-AU")}`);
+  write(formatConsumerReportAttendanceLine(input.attendanceDate));
   if (input.inspectionNumber) write(`Reference: ${input.inspectionNumber}`);
 
   section("What this means for you", [

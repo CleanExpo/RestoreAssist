@@ -42,4 +42,30 @@ describe("Phase 1 attendance display regression", () => {
     expect(src).toMatch(/href="\/offline"/);
     expect(src).toMatch(/How offline sync works/);
   });
+
+  it("job print view uses inspectionDate for the inspection date row", () => {
+    const src = read("app/dashboard/inspections/[id]/print/page.tsx");
+    expect(src).toMatch(/formatAttendanceDateEnAu\(inspection\.inspectionDate\)/);
+    expect(src).not.toMatch(
+      /fmtDate\(inspection\.createdAt\)/,
+    );
+  });
+
+  it("job list date filters use inspectionDate not createdAt", () => {
+    const src = read("app/dashboard/inspections/page.tsx");
+    expect(src).toMatch(/insp\.inspectionDate/);
+    expect(src).not.toMatch(/new Date\(insp\.createdAt\)/);
+  });
+
+  it("portal token JSON uses inspection.inspectionDate in public payload", () => {
+    const src = read("app/api/portal/[token]/route.ts");
+    expect(src).toMatch(/inspectionDate: inspection\.inspectionDate/);
+    expect(src).not.toMatch(/inspectionDate: inspection\.createdAt/);
+  });
+
+  it("portal token PDF passes inspectionDate as attendanceDate", () => {
+    const src = read("app/api/portal/[token]/pdf/route.ts");
+    expect(src).toMatch(/attendanceDate: inspection\.inspectionDate/);
+    expect(src).not.toMatch(/date: inspection\.createdAt/);
+  });
 });
