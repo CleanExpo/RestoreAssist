@@ -22,15 +22,15 @@
 
 | # | Founder priority | Status on `main` | Verification |
 | --- | --- | --- | --- |
-| 1 | **Indooroopilly** — moisture, invented date, frontend | **#2448 merged**; **round-2** on branch `feat/phase1-attendance-hardening-round2` (awaiting founder merge to `origin/main`) | Golden DB test + checklist |
+| 1 | **Indooroopilly** — moisture, invented date, frontend | **#2448 + round-2 on `main`** (portal API/PDF, print, filters, export PDF, team row) | Golden DB test + checklist |
 | 2 | **Firm isolation** (RA-8043) | **#2447 + #2444 + #2450** | `ra-8043c-platform-gates`, `ra-8043d-drive-gates`, batch source integration test |
 | 3 | **Offline capture** | **UX merged** (#2449); device proof pending | Airplane-mode script; `lib/offline/*` |
 
 ---
 
-## Round 2 — attendance hardening (PR pending)
+## Round 2 — attendance hardening (on `main`)
 
-Branch: **`feat/phase1-attendance-hardening-round2`** → open/compare PR → CI green → founder merge.
+Merged via **`feat/phase1-attendance-hardening-round2`** (commits `a5496e919` … `902add59e`).
 
 Closes **createdAt-as-attendance** leaks after #2448:
 
@@ -47,7 +47,7 @@ Regression: `phase1-attendance-display-regression.test.ts`, `consumer-report-att
 
 - [x] Dashboard list/header attendance display (#2448)
 - [ ] Golden integration test green on CI DB
-- [ ] Round-2 merged on **`origin/main`** (PR + CI; not local-only)
+- [x] Round-2 attendance surfaces on **`origin/main`**
 - [ ] Founder trace on sanitised prod/staging IDs
 - [ ] iPhone photo attach re-test (`escaped-defects.md` 2026-10-02)
 
