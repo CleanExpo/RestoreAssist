@@ -27,6 +27,8 @@ interface GlobalSearchProps {
   onClose?: () => void;
 }
 
+const SEARCH_ERROR = "Search failed, try again.";
+
 export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   open = false,
   onClose,
@@ -36,6 +38,8 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  // A failed search must not read as "No results found" (RA-8085).
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -76,11 +80,13 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     setIsOpen(false);
     setQuery("");
     setResults([]);
+    setSearchError(null);
     setSelectedIndex(0);
     onClose?.();
   };
 
   const performSearch = useCallback(async (searchQuery: string) => {
+    setSearchError(null);
     if (!searchQuery.trim() || searchQuery.length < 2) {
       setResults([]);
       return;
@@ -103,9 +109,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
           .slice(0, 12);
         setResults(sorted);
         setSelectedIndex(0);
+      } else {
+        setResults([]);
+        setSearchError(SEARCH_ERROR);
       }
     } catch (error) {
       console.error("Search error:", error);
+      setResults([]);
+      setSearchError(SEARCH_ERROR);
     } finally {
       setLoading(false);
     }
@@ -204,6 +215,13 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
+                </div>
+              ) : searchError ? (
+                <div
+                  role="alert"
+                  className="px-4 py-8 text-center text-red-600 text-sm"
+                >
+                  {searchError}
                 </div>
               ) : results.length > 0 ? (
                 results.map((result, index) => (

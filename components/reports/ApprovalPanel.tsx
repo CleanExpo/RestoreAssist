@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, Clock, Plus } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
 type ApprovalType = "SCOPE_OF_WORK" | "COST_ESTIMATE";
@@ -40,6 +41,16 @@ interface Approval {
 
 interface ApprovalPanelProps {
   reportId: string;
+}
+
+const LOAD_ERROR = "Couldn't load approvals.";
+const CREATE_ERROR = "Couldn't request approval. Try again.";
+const RESPOND_ERROR = "Couldn't record the response. Try again.";
+
+// A failed request must never read as "nothing here" or as "it worked" (RA-8085).
+async function failureMessage(res: Response, fallback: string) {
+  const body = await res.json().catch(() => null);
+  return apiErrorMessage(body) ?? fallback;
 }
 
 const APPROVAL_TYPE_LABELS: Record<ApprovalType, string> = {
@@ -82,6 +93,12 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [respondError, setRespondError] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
 
   // Form state for creating a new approval
   const [newType, setNewType] = useState<ApprovalType | "">("");
@@ -90,13 +107,17 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
   const fetchApprovals = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await fetch(`/api/reports/${reportId}/approvals`);
       if (res.ok) {
         const data = await res.json();
-        setApprovals(data.approvals);
+        setApprovals(data.approvals ?? []);
+      } else {
+        setLoadError(LOAD_ERROR);
       }
     } catch (err) {
       console.error("Failed to load approvals:", err);
+      setLoadError(LOAD_ERROR);
     } finally {
       setLoading(false);
     }
@@ -109,6 +130,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
   const handleCreate = async () => {
     if (!newType) return;
     setSubmitting(true);
+    setCreateError(null);
     try {
       const res = await fetch(`/api/reports/${reportId}/approvals`, {
         method: "POST",
@@ -123,9 +145,12 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
         setNewType("");
         setNewAmount("");
         await fetchApprovals();
+      } else {
+        setCreateError(await failureMessage(res, CREATE_ERROR));
       }
     } catch (err) {
       console.error("Failed to create approval:", err);
+      setCreateError(CREATE_ERROR);
     } finally {
       setSubmitting(false);
     }
@@ -136,6 +161,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
     status: "APPROVED" | "REJECTED",
   ) => {
     setRespondingId(approvalId);
+    setRespondError(null);
     try {
       const res = await fetch(
         `/api/reports/${reportId}/approvals/${approvalId}/respond`,
@@ -147,9 +173,15 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
       );
       if (res.ok) {
         await fetchApprovals();
+      } else {
+        setRespondError({
+          id: approvalId,
+          message: await failureMessage(res, RESPOND_ERROR),
+        });
       }
     } catch (err) {
       console.error("Failed to respond to approval:", err);
+      setRespondError({ id: approvalId, message: RESPOND_ERROR });
     } finally {
       setRespondingId(null);
     }
@@ -171,7 +203,10 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
           </CardTitle>
           <Button
             size="sm"
-            onClick={() => setDialogOpen(true)}
+            onClick={() => {
+              setCreateError(null);
+              setDialogOpen(true);
+            }}
             className="bg-cyan-600 hover:bg-cyan-700 text-white h-8 gap-1"
           >
             <Plus size={14} />
@@ -184,6 +219,21 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
               <Skeleton className="h-14 w-full rounded-lg bg-slate-700/50" />
               <Skeleton className="h-14 w-full rounded-lg bg-slate-700/50" />
               <Skeleton className="h-14 w-full rounded-lg bg-slate-700/50" />
+            </div>
+          ) : loadError ? (
+            <div
+              role="alert"
+              className="flex flex-col items-center gap-3 py-4 text-center"
+            >
+              <p className="text-sm text-red-400">{loadError}</p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={fetchApprovals}
+                className="h-8 border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                Retry
+              </Button>
             </div>
           ) : approvals.length === 0 ? (
             <p className="text-sm text-slate-400 py-4 text-center">
@@ -255,6 +305,12 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                     )}
                   </div>
 
+                  {respondError?.id === approval.id && (
+                    <p role="alert" className="text-xs text-red-400">
+                      {respondError.message}
+                    </p>
+                  )}
+
                   {approval.clientComments && (
                     <p className="text-xs text-slate-400 italic border-t border-slate-600/50 pt-2 mt-1">
                       &ldquo;{approval.clientComments}&rdquo;
@@ -323,6 +379,12 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
               </div>
             )}
           </div>
+
+          {createError && (
+            <p role="alert" className="text-sm text-red-400">
+              {createError}
+            </p>
+          )}
 
           <DialogFooter>
             <Button

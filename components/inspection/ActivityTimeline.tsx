@@ -25,6 +25,8 @@ function relativeTime(dateStr: string): string {
   return `${days}d ago`;
 }
 
+const LOAD_ERROR = "Couldn't load the activity log. Refresh the page to try again.";
+
 export default function ActivityTimeline({
   inspectionId,
 }: {
@@ -32,6 +34,8 @@ export default function ActivityTimeline({
 }) {
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed read must not look like an empty audit trail (RA-8085).
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchActivity() {
@@ -40,9 +44,12 @@ export default function ActivityTimeline({
         if (res.ok) {
           const data = await res.json();
           setActivity(data.activity ?? []);
+        } else {
+          setError(LOAD_ERROR);
         }
       } catch (err) {
         console.error("Failed to load activity:", err);
+        setError(LOAD_ERROR);
       } finally {
         setLoading(false);
       }
@@ -67,6 +74,18 @@ export default function ActivityTimeline({
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        role="alert"
+        className="flex flex-col items-center justify-center py-12 text-red-500 gap-3"
+      >
+        <History size={32} className="opacity-40" />
+        <p className="text-sm">{error}</p>
       </div>
     );
   }
