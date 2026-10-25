@@ -201,6 +201,22 @@ describe("PATCH /api/estimates/[id]/status", () => {
     expect(estimateUpdateMany).not.toHaveBeenCalled();
   });
 
+  // RA-8068: an approval with no amount proves nothing about the total.
+  it("rejects approval when the client approval carries no amount", async () => {
+    estimateFindUnique.mockResolvedValueOnce(estimate("CLIENT_REVIEW"));
+    reportApprovalFindFirst.mockResolvedValueOnce({
+      id: "approval_1",
+      respondedAt,
+      amount: null,
+    });
+
+    const res = await PATCH(request("APPROVED"), params);
+
+    expect(res.status).toBe(409);
+    expect(estimateUpdateMany).not.toHaveBeenCalled();
+    expect(freezeEstimateApprovalSnapshot).not.toHaveBeenCalled();
+  });
+
   it("allows APPROVED to LOCKED and rejects leaving LOCKED", async () => {
     estimateFindUnique
       .mockResolvedValueOnce(estimate("APPROVED"))

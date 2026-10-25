@@ -29,7 +29,10 @@ export async function POST(
           status: 400,
         });
       }
-      const { approvalType, status, clientComments, amount } = body;
+      // RA-8068: `amount` is deliberately not read from the body. It is the
+      // figure the estimate status route checks against the total, so the
+      // client must never be able to set or clear it.
+      const { approvalType, status, clientComments } = body;
 
       // Validate approvalType and status
       if (
@@ -89,11 +92,22 @@ export async function POST(
             status,
             respondedAt: new Date(),
             clientComments: clientComments || null,
-            amount: amount || null,
+            // amount is left as the restorer requested it
           },
         });
       } else {
-        // Create new approval
+        // No request on file: record the estimate total the client is
+        // looking at right now, read server-side.
+        let amount: number | null = null;
+        if (approvalType === "COST_ESTIMATE") {
+          const estimate = await prisma.estimate.findFirst({
+            where: { reportId },
+            orderBy: { createdAt: "desc" },
+            select: { totalIncGST: true },
+          });
+          amount = estimate?.totalIncGST ?? null;
+        }
+
         approval = await prisma.reportApproval.create({
           data: {
             reportId,
@@ -101,7 +115,7 @@ export async function POST(
             status,
             respondedAt: new Date(),
             clientComments: clientComments || null,
-            amount: amount || null,
+            amount,
           },
         });
       }

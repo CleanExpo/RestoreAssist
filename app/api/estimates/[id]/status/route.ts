@@ -142,8 +142,18 @@ export async function PATCH(
         });
       }
 
+      // RA-8068: a missing amount is not a match. Without it the approval
+      // says nothing about which total the client agreed to.
+      if (approvalEvidence.amount === null) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Client approval has no amount on record; ask the client to approve the current total",
+          status: 409,
+        });
+      }
+
       if (
-        approvalEvidence.amount !== null &&
         Math.abs(approvalEvidence.amount - (estimate.totalIncGST ?? 0)) > 0.01
       ) {
         return apiError(request, {

@@ -136,12 +136,23 @@ export async function POST(
         });
       }
 
-      const approval = await prisma.reportApproval.create({
-        data: {
+      // RA-8068: one row per (report, type). A revised quote resets that row
+      // to a fresh PENDING request at the new amount; a plain create would
+      // hit the unique constraint and leave the restorer stuck on a 409.
+      const approval = await prisma.reportApproval.upsert({
+        where: { reportId_approvalType: { reportId: id, approvalType } },
+        create: {
           reportId: id,
           approvalType,
           status: "PENDING",
           amount: amount ?? null,
+        },
+        update: {
+          status: "PENDING",
+          amount: amount ?? null,
+          requestedAt: new Date(),
+          respondedAt: null,
+          clientComments: null,
         },
       });
 

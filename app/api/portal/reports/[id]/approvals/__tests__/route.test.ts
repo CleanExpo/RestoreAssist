@@ -34,12 +34,14 @@ const approvalFindFirst = vi.fn();
 const approvalCreate = vi.fn();
 const approvalUpdate = vi.fn();
 const clientUserFindUnique = vi.fn();
+const estimateFindFirst = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     clientUser: {
       findUnique: (...a: unknown[]) => clientUserFindUnique(...a),
     },
     report: { findFirst: (...a: unknown[]) => reportFindFirst(...a) },
+    estimate: { findFirst: (...a: unknown[]) => estimateFindFirst(...a) },
     reportApproval: {
       findFirst: (...a: unknown[]) => approvalFindFirst(...a),
       create: (...a: unknown[]) => approvalCreate(...a),
@@ -74,6 +76,7 @@ beforeEach(() => {
   approvalCreate.mockReset();
   approvalUpdate.mockReset();
   clientUserFindUnique.mockReset();
+  estimateFindFirst.mockReset();
   authenticateClientRequest.mockResolvedValue(clientClaims);
   clientUserFindUnique.mockResolvedValue({ id: "u_c", clientId: "c_1" });
 });
@@ -137,5 +140,59 @@ describe("POST /api/portal/reports/[id]/approvals", () => {
     expect(res.status).toBe(201);
     expect(approvalUpdate.mock.calls[0][0].where).toEqual({ id: "ap_old" });
     expect(approvalCreate).not.toHaveBeenCalled();
+  });
+
+  // RA-8068: the amount on an approval is the restorer's figure (or the
+  // server's current estimate total), never the client's request body.
+  it("keeps the requested amount when the client approves a pending request", async () => {
+    reportFindFirst.mockResolvedValueOnce({ id: "r_1", clientId: "c_1" });
+    approvalFindFirst.mockResolvedValueOnce({ id: "ap_req", amount: 5000 });
+    approvalUpdate.mockResolvedValueOnce({ id: "ap_req", amount: 5000 });
+
+    const res = await POST(
+      postReq({ approvalType: "COST_ESTIMATE", status: "APPROVED" }),
+      ctx,
+    );
+    expect(res.status).toBe(201);
+    expect(approvalUpdate.mock.calls[0][0].data).not.toHaveProperty("amount");
+  });
+
+  it("ignores a client-supplied amount on a pending request", async () => {
+    reportFindFirst.mockResolvedValueOnce({ id: "r_1", clientId: "c_1" });
+    approvalFindFirst.mockResolvedValueOnce({ id: "ap_req", amount: 5000 });
+    approvalUpdate.mockResolvedValueOnce({ id: "ap_req", amount: 5000 });
+
+    await POST(
+      postReq({ approvalType: "COST_ESTIMATE", status: "APPROVED", amount: 1 }),
+      ctx,
+    );
+    expect(approvalUpdate.mock.calls[0][0].data).not.toHaveProperty("amount");
+  });
+
+  it("stamps the current estimate total, not the client amount, on create", async () => {
+    reportFindFirst.mockResolvedValueOnce({ id: "r_1", clientId: "c_1" });
+    approvalFindFirst.mockResolvedValueOnce(null);
+    estimateFindFirst.mockResolvedValueOnce({ totalIncGST: 5000 });
+    approvalCreate.mockResolvedValueOnce({ id: "ap_new", amount: 5000 });
+
+    const res = await POST(
+      postReq({ approvalType: "COST_ESTIMATE", status: "APPROVED", amount: 1 }),
+      ctx,
+    );
+    expect(res.status).toBe(201);
+    expect(estimateFindFirst.mock.calls[0][0].where).toEqual({
+      reportId: "r_1",
+    });
+    expect(approvalCreate.mock.calls[0][0].data.amount).toBe(5000);
+  });
+
+  it("records no amount for a scope-of-work approval", async () => {
+    reportFindFirst.mockResolvedValueOnce({ id: "r_1", clientId: "c_1" });
+    approvalFindFirst.mockResolvedValueOnce(null);
+    approvalCreate.mockResolvedValueOnce({ id: "ap_new" });
+
+    await POST(postReq({ ...approve, amount: 1 }), ctx);
+    expect(estimateFindFirst).not.toHaveBeenCalled();
+    expect(approvalCreate.mock.calls[0][0].data.amount).toBeNull();
   });
 });
