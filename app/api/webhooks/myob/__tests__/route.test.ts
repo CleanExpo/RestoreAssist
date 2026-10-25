@@ -227,3 +227,130 @@ describe("POST /api/webhooks/myob — unresolvable payment stub", () => {
     expect(createArgs.data.status).toBe("PENDING");
   });
 });
+
+// RA-8072: the route used to look up ONE integration from events[0] and file
+// every event under it, so a request mixing company files stored the second
+// file's events against the first file's integration. Each event must bind to
+// the integration for its own CompanyFileId, as the QuickBooks (realmId) and
+// Xero (tenantId) routes already do.
+describe("POST /api/webhooks/myob — per-event company file binding", () => {
+  it("stores each event under the integration for its own CompanyFileId", async () => {
+    integrationFindFirst.mockImplementation(
+      async (args: { where: { companyId: string } }) =>
+        ({ cf_a: { id: "integration_a" }, cf_b: { id: "integration_b" } })[
+          args.where.companyId
+        ] ?? null,
+    );
+    webhookEventCreate
+      .mockResolvedValueOnce({ id: "event_a" })
+      .mockResolvedValueOnce({ id: "event_b" });
+
+    const now = new Date().toISOString();
+    const response = await POST(
+      requestWithEvents([
+        {
+          CompanyFileId: "cf_a",
+          EventDateTime: now,
+          EventType: "Updated",
+          ResourceType: "Sale.Invoice",
+          ResourceUID: "invoice_a",
+        },
+        {
+          CompanyFileId: "cf_b",
+          EventDateTime: now,
+          EventType: "Updated",
+          ResourceType: "Sale.Invoice",
+          ResourceUID: "invoice_b",
+        },
+      ]),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.processed).toBe(2);
+    const stored = webhookEventCreate.mock.calls.map(
+      (call) =>
+        [call[0].data.externalEventId, call[0].data.integrationId] as const,
+    );
+    expect(stored).toEqual([
+      ["invoice_a", "integration_a"],
+      ["invoice_b", "integration_b"],
+    ]);
+  });
+
+  it("drops only the events whose company file has no connected integration", async () => {
+    integrationFindFirst.mockImplementation(
+      async (args: { where: { companyId: string } }) =>
+        args.where.companyId === "cf_a" ? { id: "integration_a" } : null,
+    );
+
+    const now = new Date().toISOString();
+    const response = await POST(
+      requestWithEvents([
+        {
+          CompanyFileId: "cf_unknown",
+          EventDateTime: now,
+          EventType: "Updated",
+          ResourceType: "Sale.Invoice",
+          ResourceUID: "invoice_x",
+        },
+        {
+          CompanyFileId: "cf_a",
+          EventDateTime: now,
+          EventType: "Updated",
+          ResourceType: "Sale.Invoice",
+          ResourceUID: "invoice_a",
+        },
+      ]),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.processed).toBe(1);
+    expect(webhookEventCreate).toHaveBeenCalledTimes(1);
+    expect(webhookEventCreate.mock.calls[0][0].data.integrationId).toBe(
+      "integration_a",
+    );
+  });
+
+  it("looks each company file up once, however many events it has", async () => {
+    const now = new Date().toISOString();
+    await POST(
+      requestWithEvents(
+        ["invoice_1", "invoice_2", "invoice_3"].map((uid) => ({
+          CompanyFileId: "cf_1",
+          EventDateTime: now,
+          EventType: "Updated",
+          ResourceType: "Sale.Invoice",
+          ResourceUID: uid,
+        })),
+      ),
+    );
+
+    expect(integrationFindFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects the request when any event is missing its CompanyFileId", async () => {
+    const now = new Date().toISOString();
+    const response = await POST(
+      requestWithEvents([
+        {
+          CompanyFileId: "cf_1",
+          EventDateTime: now,
+          EventType: "Updated",
+          ResourceType: "Sale.Invoice",
+          ResourceUID: "invoice_1",
+        },
+        {
+          EventDateTime: now,
+          EventType: "Updated",
+          ResourceType: "Sale.Invoice",
+          ResourceUID: "invoice_2",
+        },
+      ]),
+    );
+
+    expect(response.status).toBe(400);
+    expect(webhookEventCreate).not.toHaveBeenCalled();
+  });
+});

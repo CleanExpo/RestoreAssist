@@ -104,11 +104,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, processed: 0 });
     }
 
-    // Find integration by company file ID
-    const firstEvent = events[0];
-    const companyFileId = firstEvent.CompanyFileId;
-
-    if (!companyFileId) {
+    // RA-8072: every event must name its company file. This used to check
+    // only events[0], and every later event was filed under that one file.
+    if (events.some((evt: { CompanyFileId?: string }) => !evt.CompanyFileId)) {
       console.error("[MYOB Webhook] Missing CompanyFileId in event");
       return apiError(request, {
         code: "VALIDATION",
@@ -117,28 +115,39 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Find the integration for this company file
-    const integration = await prisma.integration.findFirst({
-      where: {
-        provider: "MYOB",
-        companyId: companyFileId,
-        status: "CONNECTED",
-      },
-    });
-
-    if (!integration) {
-      console.warn(
-        `[MYOB Webhook] No active integration found for company ${companyFileId}`,
-      );
-      // Return 200 to prevent MYOB from retrying
-      return NextResponse.json({ success: true, processed: 0 });
-    }
+    // RA-8072: bind each event to the integration for its OWN company file,
+    // as the QuickBooks route does per realmId and Xero per tenantId. One
+    // lookup per distinct file; null means no connected integration.
+    const integrationsByFile = new Map<string, { id: string } | null>();
+    const integrationFor = async (companyFileId: string) => {
+      if (!integrationsByFile.has(companyFileId)) {
+        const found = await prisma.integration.findFirst({
+          where: {
+            provider: "MYOB",
+            companyId: companyFileId,
+            status: "CONNECTED",
+          },
+        });
+        if (!found) {
+          console.warn(
+            `[MYOB Webhook] No active integration found for company ${companyFileId}`,
+          );
+        }
+        integrationsByFile.set(companyFileId, found);
+      }
+      return integrationsByFile.get(companyFileId) ?? null;
+    };
 
     // Queue webhook events for async processing
     const queuedEvents = [];
 
     for (const event of events) {
       try {
+        // Events for a file with no connected integration are dropped with a
+        // 200 so MYOB does not retry them.
+        const integration = await integrationFor(event.CompanyFileId);
+        if (!integration) continue;
+
         // MYOB event structure:
         // EventType: "Created" | "Updated" | "Deleted"
         // ResourceType: "Sale.Invoice" | "Sale.CustomerPayment" | "Contact.Customer"
