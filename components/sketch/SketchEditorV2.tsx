@@ -1891,9 +1891,13 @@ export function SketchEditorV2({
     setPendingExistingPin(null);
   };
 
+  // RA-8088: move and delete change the screen first. When the server refuses
+  // or cannot be reached, put the pin back and say so — otherwise the
+  // technician believes a pin is gone that is still on the report.
   const handleEvidenceMove = useCallback(
-    (id: string, x: number, y: number, nx: number, ny: number) => {
+    async (id: string, x: number, y: number, nx: number, ny: number) => {
       const sketchId = floorsData[activeIdx]?.floor.id;
+      const previous = floorsData[activeIdx]?.evidencePins.find((p) => p.id === id);
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -1907,60 +1911,91 @@ export function SketchEditorV2({
         ),
       );
       if (!inspectionId || !sketchId || sketchId.startsWith(uid)) return;
-      void fetch(
-        `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            x,
-            y,
-            nx,
-            ny,
-            canvasWidth: width,
-            canvasHeight: height,
-          }),
-        },
-      )
-        .then(async (res) => {
-          if (!res.ok) return;
-          const json = (await res.json()) as {
-            pin?: {
-              sketchRoomId?: string | null;
-              roomName?: string | null;
-              captureAdapter?: string | null;
-            };
-          };
-          const updated = json.pin;
-          if (!updated) return;
+      const restore = (message: string) => {
+        // Only undo this move; a later move of the same pin stays put.
+        if (previous) {
           setFloorsData((prev) =>
-            prev.map((fd, i) =>
-              i === activeIdx
+            prev.map((fd) =>
+              fd.floor.id === sketchId
                 ? {
                     ...fd,
                     evidencePins: fd.evidencePins.map((p) =>
-                      p.id === id
-                        ? {
-                            ...p,
-                            sketchRoomId: updated.sketchRoomId ?? null,
-                            roomName: updated.roomName ?? null,
-                            captureAdapter: updated.captureAdapter ?? null,
-                          }
+                      p.id === id && p.x === x && p.y === y
+                        ? { ...p, x: previous.x, y: previous.y, nx: previous.nx, ny: previous.ny }
                         : p,
                     ),
                   }
                 : fd,
             ),
           );
-        })
-        .catch(() => {});
+        }
+        toast.error(message);
+      };
+      let res: Response;
+      try {
+        res = await fetch(
+          `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              x,
+              y,
+              nx,
+              ny,
+              canvasWidth: width,
+              canvasHeight: height,
+            }),
+          },
+        );
+      } catch {
+        restore("Photo pin not moved: no connection. It is back in its saved place.");
+        return;
+      }
+      if (!res.ok) {
+        restore(`Photo pin not moved (${res.status}). It is back in its saved place.`);
+        return;
+      }
+      let updated:
+        | { sketchRoomId?: string | null; roomName?: string | null; captureAdapter?: string | null }
+        | undefined;
+      try {
+        updated = ((await res.json()) as { pin?: typeof updated }).pin;
+      } catch {
+        // The move saved; only the room label refresh is lost.
+        return;
+      }
+      if (!updated) return;
+      const room = updated;
+      setFloorsData((prev) =>
+        prev.map((fd) =>
+          fd.floor.id === sketchId
+            ? {
+                ...fd,
+                evidencePins: fd.evidencePins.map((p) =>
+                  p.id === id
+                    ? {
+                        ...p,
+                        sketchRoomId: room.sketchRoomId ?? null,
+                        roomName: room.roomName ?? null,
+                        captureAdapter: room.captureAdapter ?? null,
+                      }
+                    : p,
+                ),
+              }
+            : fd,
+        ),
+      );
     },
     [activeIdx, floorsData, height, inspectionId, uid, width],
   );
 
   const handleEvidenceRemove = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const sketchId = floorsData[activeIdx]?.floor.id;
+      const pinsBefore = floorsData[activeIdx]?.evidencePins ?? [];
+      const removedIndex = pinsBefore.findIndex((p) => p.id === id);
+      const removed = removedIndex >= 0 ? pinsBefore[removedIndex] : undefined;
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -1972,10 +2007,36 @@ export function SketchEditorV2({
         ),
       );
       if (!inspectionId || !sketchId || sketchId.startsWith(uid)) return;
-      void fetch(
-        `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
-        { method: "DELETE" },
-      );
+      const restore = (message: string) => {
+        if (removed) {
+          setFloorsData((prev) =>
+            prev.map((fd) =>
+              fd.floor.id === sketchId && !fd.evidencePins.some((p) => p.id === id)
+                ? {
+                    ...fd,
+                    evidencePins: [
+                      ...fd.evidencePins.slice(0, removedIndex),
+                      removed,
+                      ...fd.evidencePins.slice(removedIndex),
+                    ],
+                  }
+                : fd,
+            ),
+          );
+        }
+        toast.error(message);
+      };
+      try {
+        const res = await fetch(
+          `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
+          { method: "DELETE" },
+        );
+        if (!res.ok) {
+          restore(`Photo pin not deleted (${res.status}). It is still on the report.`);
+        }
+      } catch {
+        restore("Photo pin not deleted: no connection. It is still on the report.");
+      }
     },
     [activeIdx, floorsData, inspectionId, uid],
   );
