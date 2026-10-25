@@ -163,10 +163,22 @@ export async function POST(request: NextRequest) {
   // Secrets are encrypted at rest (AES-256-GCM credential vault); decrypt
   // before HMAC verification. Legacy plaintext rows (pre-backfill) aren't in
   // cipher shape, so verify against them unchanged until the backfill runs.
+  // RA-8075: a row that cannot be decrypted (vault key changed, or the row is
+  // corrupt) is treated as no-match and logged by id only, never by value —
+  // otherwise the throw would 500 every event for every integration after it.
   const matchedIntegration = integrations.find((i: any) => {
-    const secret = isEncryptedToken(i.webhookSecret)
-      ? decrypt(i.webhookSecret)
-      : i.webhookSecret;
+    let secret: string;
+    try {
+      secret = isEncryptedToken(i.webhookSecret)
+        ? decrypt(i.webhookSecret)
+        : i.webhookSecret;
+    } catch {
+      console.error(
+        "[dr-nrpg webhook] webhookSecret could not be decrypted — skipping integration",
+        { integrationId: i.id },
+      );
+      return false;
+    }
     return verifySignature(rawBody, signature, secret);
   });
 
