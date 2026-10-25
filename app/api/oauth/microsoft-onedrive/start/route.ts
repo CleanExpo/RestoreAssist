@@ -3,6 +3,9 @@
  *
  * Starts Microsoft OAuth for OneDrive cloud mirror (Files.ReadWrite).
  * Uses DB-backed OAuthStateNonce for one-shot state validation.
+ *
+ * RA-8078: refuses while OneDrive is disabled in PROVIDER_CATALOG, so a
+ * direct link cannot complete a Microsoft login for a mirror that never runs.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -10,6 +13,7 @@ import { getServerSession } from "next-auth";
 import crypto from "crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { PROVIDER_CATALOG } from "@/lib/cloud-mirror";
 import { buildMicrosoftAuthorizeUrl } from "@/lib/cloud-mirror/onedrive";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -25,6 +29,12 @@ export async function GET(request: NextRequest) {
         message: "Unauthorized",
         status: 401,
       });
+    }
+
+    if (!PROVIDER_CATALOG.find((p) => p.id === "onedrive")?.enabled) {
+      return NextResponse.redirect(
+        SETTINGS_URL("/dashboard/settings/cloud-mirror?error=onedrive-not-available"),
+      );
     }
 
     const clientId = process.env.MICROSOFT_CLIENT_ID;
