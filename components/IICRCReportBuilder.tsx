@@ -18,6 +18,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import RemediationProcedures from "./RemediationProcedures";
+import { fetchAllClients } from "@/lib/clients/fetch-all-clients";
 import DryingPlanTemplates from "./DryingPlanTemplates";
 import EquipmentSizingGuidelines from "./EquipmentSizingGuidelines";
 import MonitoringVerificationProcedures from "./MonitoringVerificationProcedures";
@@ -156,11 +157,8 @@ export default function IICRCReportBuilder({
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("/api/clients");
-        if (response.ok) {
-          const data = await response.json();
-          setClients(data.clients || []);
-        }
+        // RA-8091 — every page, not just the newest 10.
+        setClients(await fetchAllClients<{ id: string }>());
       } catch (error) {
         console.error("Error fetching clients:", error);
       }

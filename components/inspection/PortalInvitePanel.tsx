@@ -5,6 +5,7 @@ import { Link2, Send, CheckCircle, Info, Loader2, RefreshCw } from "lucide-react
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
+import { fetchAllClients } from "@/lib/clients/fetch-all-clients";
 
 interface Client {
   id: string;
@@ -36,6 +37,7 @@ export default function PortalInvitePanel({
   preselectedClientId,
 }: PortalInvitePanelProps) {
   const [clients, setClients] = useState<Client[]>([]);
+  const [clientsLoadError, setClientsLoadError] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState(
     preselectedClientId ?? "",
   );
@@ -50,9 +52,16 @@ export default function PortalInvitePanel({
   >("idle");
 
   useEffect(() => {
-    fetch("/api/clients")
-      .then((r) => r.json())
-      .then((data) => setClients(data.clients ?? []))
+    // RA-8091 — every page, so an older preselected client is in the list.
+    fetchAllClients<Client>()
+      .then((all) => {
+        setClients(all);
+        setClientsLoadError(null);
+      })
+      .catch((err) => {
+        console.error("Error fetching clients:", err);
+        setClientsLoadError("Could not load clients. Refresh the page to try again.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -279,6 +288,11 @@ export default function PortalInvitePanel({
                 </option>
               ))}
             </select>
+            {clientsLoadError && (
+              <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                {clientsLoadError}
+              </p>
+            )}
           </div>
           <div>
             <label className="text-xs text-neutral-500 mb-1 block">

@@ -37,6 +37,7 @@ import {
   type ParsedApiError,
 } from "@/lib/client/parse-api-error";
 import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
+import { fetchAllClients } from "@/lib/clients/fetch-all-clients";
 
 type EditStage = "inspection" | "scoping" | "estimation";
 
@@ -54,6 +55,7 @@ export default function EditReportPage({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [clients, setClients] = useState<any[]>([]);
+  const [clientsLoadError, setClientsLoadError] = useState<string | null>(null);
 
   // Inspection data
   const [inspectionData, setInspectionData] = useState({
@@ -80,10 +82,16 @@ export default function EditReportPage({
 
   // Load clients
   useEffect(() => {
-    fetch("/api/clients")
-      .then((res) => res.json())
-      .then((data) => setClients(data.clients || []))
-      .catch((err) => console.error("Error fetching clients:", err));
+    // RA-8091 — every page, not just the newest 10.
+    fetchAllClients<{ id: string }>()
+      .then((all) => {
+        setClients(all);
+        setClientsLoadError(null);
+      })
+      .catch((err) => {
+        console.error("Error fetching clients:", err);
+        setClientsLoadError("Could not load clients. Refresh the page to try again.");
+      });
   }, []);
 
   const fetchReportData = async (reportId: string) => {
@@ -455,6 +463,11 @@ export default function EditReportPage({
                       ))}
                     </SelectContent>
                   </Select>
+                  {clientsLoadError && (
+                    <p role="alert" className="text-sm text-red-400">
+                      {clientsLoadError}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">

@@ -28,6 +28,7 @@ import {
   type ClientFormValues,
 } from "@/lib/clients/form";
 import type { Client, ClientWithReportFlag } from "@/lib/clients/types";
+import { fetchAllClients } from "@/lib/clients/fetch-all-clients";
 import { AddClientModal } from "@/components/clients/add-client-modal";
 import { EditClientModal } from "@/components/clients/edit-client-modal";
 import { DeleteClientModal } from "@/components/clients/delete-client-modal";
@@ -161,12 +162,10 @@ export default function ClientsPage() {
       try {
         setLoading(true);
         setLoadError(null);
-        const response = await fetch("/api/clients", { cache: "no-store", signal: controller.signal });
-        if (!response.ok) throw new Error("Failed to load clients");
-        const data = await response.json();
+        // RA-8091 — every page, not just the newest 10; search and paging below run over this list.
+        const allClients = await fetchAllClients<Client>({ signal: controller.signal });
         if (controller.signal.aborted) return false;
-        if (!Array.isArray(data.clients)) throw new Error("Invalid clients response");
-        setClients(data.clients);
+        setClients(allClients);
         return true;
       } catch (error) {
         if (controller.signal.aborted) return false;
