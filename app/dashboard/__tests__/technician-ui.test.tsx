@@ -261,7 +261,11 @@ describe("Inspections list for a technician", () => {
     render(<InspectionsPage />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-    expect(urls).toContain("/api/inspections");
+    // RA-8092: the list URL now carries page and limit; a manager's has no
+    // assignee scope.
+    const list = urls.filter((u) => u.startsWith("/api/inspections"));
+    expect(list.length).toBeGreaterThan(0);
+    expect(list.every((u) => !/[?&]assignee=/.test(u))).toBe(true);
   });
 
   it("does not fetch the unscoped list while the session is still loading", async () => {
@@ -271,7 +275,11 @@ describe("Inspections list for a technician", () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 20));
     });
-    expect(fetchMock.mock.calls.map((c) => String(c[0]))).not.toContain("/api/inspections");
+    expect(
+      fetchMock.mock.calls
+        .map((c) => String(c[0]))
+        .some((u) => u.startsWith("/api/inspections")),
+    ).toBe(false);
   });
 });
 
