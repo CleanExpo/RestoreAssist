@@ -7,7 +7,7 @@ import {
   assertInspectionAssignedWrite,
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
-import { canManageAppointments } from "@/lib/scheduling/can-manage-appointments";
+import { callerCanManageAppointments } from "@/lib/scheduling/can-manage-appointments";
 
 /** PATCH — acknowledge or cancel an appointment (P5-1). */
 export async function PATCH(
@@ -50,8 +50,8 @@ export async function PATCH(
     }
 
     if (action === "cancel") {
-      const role = (session!.user as { role?: string }).role;
-      if (!canManageAppointments(role)) {
+      // RA-8065: gate on the database role; the cookie role goes stale on demotion.
+      if (!(await callerCanManageAppointments(session!.user!.id))) {
         return apiError(request, {
           code: "FORBIDDEN",
           message: "Only managers or owners may cancel visits",

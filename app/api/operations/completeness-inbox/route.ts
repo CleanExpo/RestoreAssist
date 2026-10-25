@@ -17,8 +17,12 @@ export async function GET(request: NextRequest) {
         status: 401,
       });
     }
-    const role = (session.user as { role?: string }).role;
-    if (!canManageAppointments(role)) {
+    // RA-8065: gate on the database role; the cookie role goes stale on demotion.
+    const caller = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true, role: true },
+    });
+    if (!canManageAppointments(caller?.role)) {
       return apiError(request, {
         code: "FORBIDDEN",
         message: "Manager or owner role required",
@@ -26,10 +30,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const caller = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { organizationId: true },
-    });
     const rows = await listCompletenessInboxForOwner(prisma, {
       userId: session.user.id,
       organizationId: caller?.organizationId,
