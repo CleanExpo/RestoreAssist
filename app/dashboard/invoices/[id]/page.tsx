@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   FileText,
@@ -620,6 +621,17 @@ export default function InvoiceDetailPage({
             )}
             <span>{generatingPdf ? "Generating PDF..." : "Download PDF"}</span>
           </button>
+          {/* RA-8081: the credit-note form lists only SENT and PAID invoices
+              and does not read a preselected invoice, so this is a plain link
+              shown only where the invoice will appear in that list. */}
+          {(invoice.status === "SENT" || invoice.status === "PAID") && (
+            <Link
+              href="/dashboard/invoices/credit-notes/new"
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              Issue credit note
+            </Link>
+          )}
           {canEdit && (
             <button
               onClick={() =>
@@ -934,6 +946,12 @@ export default function InvoiceDetailPage({
                   {variations.length}
                 </span>
               )}
+              <Link
+                href={`/dashboard/invoices/${invoice.id}/variations`}
+                className="ml-auto text-sm font-medium text-cyan-500 hover:text-cyan-600 transition-colors"
+              >
+                Manage variations
+              </Link>
             </div>
             {loadingVariations ? (
               <div className="space-y-3">

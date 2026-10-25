@@ -332,6 +332,13 @@ export default function ClientDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* RA-8081: the client portal page had no link anywhere */}
+          <Link
+            href={`/dashboard/clients/${client.id}/portal`}
+            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+          >
+            Client portal
+          </Link>
           <Link
             href={`/dashboard/clients/${client.id}/edit`}
             className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
