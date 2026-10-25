@@ -5008,7 +5008,7 @@ model InvoicePaymentAllocation {
 model CreditNote {
   id String @id @default(cuid())
 
-  creditNoteNumber String           @unique // "CN-2024-0001"
+  creditNoteNumber String           // "CN-2024-0001", unique per owner (RA-8069)
   status           CreditNoteStatus @default(DRAFT)
 
   // Dates
@@ -5048,7 +5048,7 @@ model CreditNote {
   // Relations
   lineItems CreditNoteLineItem[]
 
-  @@index([userId, creditNoteNumber])
+  @@unique([userId, creditNoteNumber])
   @@index([invoiceId])
   @@index([status])
 }

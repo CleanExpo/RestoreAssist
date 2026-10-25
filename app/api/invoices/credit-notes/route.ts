@@ -111,12 +111,23 @@ export async function POST(request: NextRequest) {
       }
       const gstTreatment = getGstTreatmentForCurrency(invoice.currency);
 
-      // Generate credit note number
-      const count = await prisma.creditNote.count({
-        where: { userId },
-      });
+      // RA-8069: numbers are per owner and per year (unique on userId +
+      // creditNoteNumber). Take this owner's highest number for the year + 1;
+      // a concurrent create that took it first raises P2002 and we re-read.
       const year = new Date().getFullYear();
-      const creditNoteNumber = `CN-${year}-${String(count + 1).padStart(4, "0")}`;
+      const prefix = `CN-${year}-`;
+      const nextCreditNoteNumber = async () => {
+        const latest = await prisma.creditNote.findFirst({
+          where: { userId, creditNoteNumber: { startsWith: prefix } },
+          select: { creditNoteNumber: true },
+          orderBy: { creditNoteNumber: "desc" },
+        });
+        const last = latest
+          ? parseInt(latest.creditNoteNumber.slice(prefix.length), 10)
+          : 0;
+        const next = (Number.isNaN(last) ? 0 : last) + 1;
+        return `${prefix}${String(next).padStart(4, "0")}`;
+      };
 
       // Calculate totals from line items
       const items: Array<{
@@ -155,51 +166,63 @@ export async function POST(request: NextRequest) {
       const gstAmount = lines.reduce((sum, l) => sum + l.gstAmount, 0);
       const totalIncGST = subtotalExGST + gstAmount;
 
-      const creditNote = await prisma.creditNote.create({
-        data: {
-          creditNoteNumber,
-          invoiceId,
-          userId,
-          reason,
-          reasonNotes: reasonNotes || null,
-          creditDate: creditDate ? new Date(creditDate) : new Date(),
-          subtotalExGST,
-          gstAmount,
-          totalIncGST,
-          refundMethod: refundMethod || null,
-          refundReference: refundReference || null,
-          status: "DRAFT",
-          lineItems: {
-            create: lines.map((l, idx) => ({
-              description: l.item.description,
-              quantity: l.item.quantity,
-              unitPrice: l.unitPrice,
-              gstRate: l.gstRate,
-              subtotal: l.subtotal,
-              gstAmount: l.gstAmount,
-              total: l.total,
-              sortOrder: idx,
-            })),
-          },
-        },
-        include: {
-          lineItems: {
-            select: {
-              id: true,
-              description: true,
-              quantity: true,
-              unitPrice: true,
-              subtotal: true,
-              gstRate: true,
-              gstAmount: true,
-              total: true,
-              sortOrder: true,
-              creditNoteId: true,
-              createdAt: true,
+      const createCreditNote = async (creditNoteNumber: string) =>
+        prisma.creditNote.create({
+          data: {
+            creditNoteNumber,
+            invoiceId,
+            userId,
+            reason,
+            reasonNotes: reasonNotes || null,
+            creditDate: creditDate ? new Date(creditDate) : new Date(),
+            subtotalExGST,
+            gstAmount,
+            totalIncGST,
+            refundMethod: refundMethod || null,
+            refundReference: refundReference || null,
+            status: "DRAFT",
+            lineItems: {
+              create: lines.map((l, idx) => ({
+                description: l.item.description,
+                quantity: l.item.quantity,
+                unitPrice: l.unitPrice,
+                gstRate: l.gstRate,
+                subtotal: l.subtotal,
+                gstAmount: l.gstAmount,
+                total: l.total,
+                sortOrder: idx,
+              })),
             },
           },
-        },
-      });
+          include: {
+            lineItems: {
+              select: {
+                id: true,
+                description: true,
+                quantity: true,
+                unitPrice: true,
+                subtotal: true,
+                gstRate: true,
+                gstAmount: true,
+                total: true,
+                sortOrder: true,
+                creditNoteId: true,
+                createdAt: true,
+              },
+            },
+          },
+        });
+
+      const MAX_NUMBER_ATTEMPTS = 3;
+      let creditNote: Awaited<ReturnType<typeof createCreditNote>> | undefined;
+      for (let attempt = 1; !creditNote; attempt++) {
+        try {
+          creditNote = await createCreditNote(await nextCreditNoteNumber());
+        } catch (error) {
+          const code = (error as { code?: string } | null)?.code;
+          if (code !== "P2002" || attempt >= MAX_NUMBER_ATTEMPTS) throw error;
+        }
+      }
 
       return NextResponse.json({ creditNote }, { status: 201 });
     } catch (error) {

@@ -33,7 +33,7 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: vi.fn().mockResolvedValue({ id: "inv_1", currency: "AUD" }),
     },
     creditNote: {
-      count: vi.fn().mockResolvedValue(0),
+      findFirst: vi.fn().mockResolvedValue(null),
       create: creditNoteCreate,
     },
   },
