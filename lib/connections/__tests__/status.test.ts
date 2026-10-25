@@ -146,7 +146,19 @@ describe("buildRestoreAssistConnectionStatus", () => {
     expect(byId.myob.state).toBe("ready");
     expect(byId.myob.nextAction).toBe("Set MYOB_WEBHOOK_SECRET.");
     expect(byId.servicem8.state).toBe("ready");
-    expect(byId.servicem8.nextAction).toBe("Set SERVICEM8_WEBHOOK_SECRET.");
+    expect(byId.servicem8.nextAction).toMatch(/RA-8073/);
+  });
+
+  // RA-8073: the ServiceM8 webhook route expects a signed message ServiceM8
+  // does not send, so a configured secret must not read as webhook readiness.
+  it("does not report the ServiceM8 webhook ready from the secret's presence", () => {
+    const status = buildRestoreAssistConnectionStatus(FULL_ENV, "2026-07-02T00:00:00.000Z");
+    const servicem8 = status.connections.find((c) => c.id === "servicem8");
+
+    expect(servicem8?.state).toBe("ready");
+    expect(servicem8?.detail).not.toMatch(/webhook secret present/);
+    expect(servicem8?.detail).toMatch(/not built for ServiceM8's real message format/);
+    expect(servicem8?.nextAction).toMatch(/RA-8073/);
   });
 
   it("never leaks secret values into the payload", () => {

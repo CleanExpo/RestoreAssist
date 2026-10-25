@@ -134,7 +134,9 @@ export function buildRestoreAssistConnectionStatus(
   const myobWebhookReady = envSet("MYOB_WEBHOOK_SECRET", env);
   const servicem8Ready =
     envSet("SERVICEM8_CLIENT_ID", env) && envSet("SERVICEM8_CLIENT_SECRET", env);
-  const servicem8WebhookReady = envSet("SERVICEM8_WEBHOOK_SECRET", env);
+  // No ServiceM8 webhook readiness from env presence: the receiver expects a
+  // signature header and payload shape ServiceM8 does not send (RA-8073), so
+  // SERVICEM8_WEBHOOK_SECRET being set says nothing about whether it works.
 
   const connections: RestoreAssistConnection[] = [
     {
@@ -325,14 +327,10 @@ export function buildRestoreAssistConnectionStatus(
       method: "env-presence",
       safeForMissionControl: true,
       detail: servicem8Ready
-        ? servicem8WebhookReady
-          ? "ServiceM8 OAuth client pair and webhook secret present."
-          : "ServiceM8 OAuth client pair present but SERVICEM8_WEBHOOK_SECRET is missing — webhooks will fail."
+        ? "ServiceM8 OAuth client pair present. The webhook receiver is not built for ServiceM8's real message format, so no ServiceM8 webhook can be stored yet."
         : "SERVICEM8_CLIENT_ID and SERVICEM8_CLIENT_SECRET are required for the ServiceM8 connect flow.",
       nextAction: servicem8Ready
-        ? servicem8WebhookReady
-          ? undefined
-          : "Set SERVICEM8_WEBHOOK_SECRET."
+        ? "Do not register the ServiceM8 webhook URL until the receiver is rebuilt (RA-8073)."
         : "Set the ServiceM8 OAuth client pair.",
     },
     {
