@@ -131,6 +131,29 @@ describe("GET /api/cron/sync-xero-payments — polled payment amounts", () => {
   });
 });
 
+// RA-8071: opening the public invoice link moves SENT to VIEWED. The poll used
+// a hand-copied status list without VIEWED, so a viewed invoice paid in Xero
+// stayed outstanding whenever the webhook was missed.
+it("polls an invoice the client has viewed and marks it PAID", async () => {
+  const stored = [{ id: "inv-viewed", externalInvoiceId: "xero-inv-viewed", status: "VIEWED" }];
+  invoiceFindMany.mockImplementation(async (args: { where: { status: { in: string[] } } }) =>
+    stored
+      .filter((inv) => args.where.status.in.includes(inv.status))
+      .map(({ id, externalInvoiceId }) => ({ id, externalInvoiceId })),
+  );
+  xeroReturns({ Status: "PAID", AmountPaid: 420, AmountDue: 0 });
+
+  await GET(authorisedRequest());
+
+  expect(invoiceUpdate).toHaveBeenCalledTimes(1);
+  expect(invoiceUpdate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: expect.objectContaining({ id: "inv-viewed" }),
+      data: expect.objectContaining({ status: "PAID", amountPaid: 42000, amountDue: 0 }),
+    }),
+  );
+});
+
 it("does not poll a mislabeled AI row or scan another workspace's invoices", async () => {
   integrationFindMany.mockResolvedValue([{ id: "ai", provider: "XERO", name: "OpenAI GPT", icon: "[ra:ai]", tenantId: "tenant", userId: "user-1", workspaceId: null }]);
   await GET(authorisedRequest());

@@ -6,6 +6,7 @@ import { verifyCronAuth } from "@/lib/cron/auth";
 import { runCronJob } from "@/lib/cron/runner";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
+import { OUTSTANDING_STATUSES } from "@/lib/invoice-status";
 
 const MAX_XERO_INTEGRATIONS_PER_CRON_RUN = 100;
 
@@ -110,12 +111,15 @@ async function syncXeroPaymentsOnce() {
       const accessToken = credResult.data;
 
       // Find local invoices that are AUTHORISED (sent to Xero) but not yet PAID,
-      // limited to 50 per integration to stay within cron time budget
+      // limited to 50 per integration to stay within cron time budget.
+      // RA-8071: the filter comes from OUTSTANDING_STATUSES so a status such as
+      // VIEWED (written when the client opens the link) cannot drop out of the
+      // backstop again.
       const pendingInvoices = await prisma.invoice.findMany({
         where: {
           userId: integration.userId,
           workspaceId: integration.workspaceId,
-          status: { in: ["SENT", "OVERDUE", "PARTIALLY_PAID"] },
+          status: { in: [...OUTSTANDING_STATUSES] },
           externalInvoiceId: { not: null },
           externalSyncProvider: { in: ["XERO", "xero"] },
         },
