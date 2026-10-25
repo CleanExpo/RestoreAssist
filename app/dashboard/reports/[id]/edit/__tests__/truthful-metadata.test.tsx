@@ -25,7 +25,7 @@ beforeEach(() => {
       return Response.json({ ...report, ...body });
     }
     if (url === "/api/reports/synthetic-report") return Response.json(report);
-    if (url === "/api/clients") return Response.json({ clients: [] });
+    if (url.startsWith("/api/clients?")) return Response.json({ clients: [], pagination: { pages: 1 } });
     if (url.startsWith("/api/scopes?") || url.startsWith("/api/estimates?")) return Response.json({});
     throw new Error(`Unexpected synthetic request: ${url}`);
   });

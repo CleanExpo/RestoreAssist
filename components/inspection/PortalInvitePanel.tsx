@@ -269,6 +269,12 @@ export default function PortalInvitePanel({
         </div>
       )}
 
+      {clientsLoadError && (
+        <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+          {clientsLoadError}
+        </p>
+      )}
+
       {inviteStatus === "idle" && (
         <div className="space-y-3">
           <div>
@@ -288,11 +294,6 @@ export default function PortalInvitePanel({
                 </option>
               ))}
             </select>
-            {clientsLoadError && (
-              <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {clientsLoadError}
-              </p>
-            )}
           </div>
           <div>
             <label className="text-xs text-neutral-500 mb-1 block">
