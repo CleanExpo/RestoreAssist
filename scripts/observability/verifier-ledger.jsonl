@@ -770,3 +770,6 @@
 {"sessionId":"3fc8a6d1-cc44-5179-b7af-038cdcda2b57","timestamp":1791543266,"domain":"claim-truthfulness-static","status":"static-clean"}
 {"sessionId":"3fc8a6d1-cc44-5179-b7af-038cdcda2b57","timestamp":1791543290,"domain":"ios-app-review-static","status":"static-clean","claimsTotal":0,"claimsFailed":0,"claimsWarned":0}
 {"sessionId":"3fc8a6d1-cc44-5179-b7af-038cdcda2b57","timestamp":1791543290,"domain":"claim-truthfulness-static","status":"static-clean"}
+{"sessionId":"b9a9f939-938e-47fe-a180-a3b075d4833a","timestamp":1792964186,"domain":"ios-app-review-static","status":"static-clean","claimsTotal":0,"claimsFailed":0,"claimsWarned":0}
+{"sessionId":"b9a9f939-938e-47fe-a180-a3b075d4833a","timestamp":1792964186,"domain":"ios-app-review","status":"verifier-unavailable"}
+{"sessionId":"b9a9f939-938e-47fe-a180-a3b075d4833a","timestamp":1792964187,"domain":"claim-truthfulness-static","status":"static-clean"}
