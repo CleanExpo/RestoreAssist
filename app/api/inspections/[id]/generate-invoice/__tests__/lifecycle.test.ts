@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   writeLifecycleTransition: vi.fn(),
   onNextAction: vi.fn(),
   resolveCanonicalClient: vi.fn(),
+  userFindUnique: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
@@ -75,6 +76,7 @@ vi.mock("@/lib/prisma", () => ({
     estimate: { findFirst: mocks.estimateFindFirst },
     // No frozen approval snapshot: the route falls back to the live lines.
     estimateVersion: { findUnique: vi.fn().mockResolvedValue(null) },
+    user: { findUnique: mocks.userFindUnique },
     invoiceSequence: { upsert: vi.fn() },
     $transaction: mocks.transaction,
   },
@@ -106,6 +108,10 @@ describe("inspection invoice lifecycle", () => {
       auditLogId: "audit-1",
     });
     mocks.onNextAction.mockResolvedValue(undefined);
+    mocks.userFindUnique.mockResolvedValue({
+      role: "USER",
+      isJuniorTechnician: false,
+    });
     mocks.transaction.mockImplementation(
       async (callback: (tx: unknown) => unknown) =>
         callback({
@@ -213,6 +219,32 @@ describe("inspection invoice lifecycle", () => {
         fromState: "CLOSEOUT",
         toState: "INVOICE_ISSUED",
       }),
+    );
+  });
+
+  it("stamps the database role in progress vocabulary, not the stale cookie role (RA-8067)", async () => {
+    // The cookie still says MANAGER from before a demotion; the database
+    // says USER. The append-only transition must record TECHNICIAN.
+    mockSession.mockResolvedValue({
+      user: { id: "u1", name: "Tech", role: "MANAGER" },
+    } as never);
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/inspections/i1/generate-invoice", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.writeLifecycleTransition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transitionKey: "issue_invoice",
+        actorRole: "TECHNICIAN",
+      }),
+    );
+    expect(mocks.userFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "u1" } }),
     );
   });
 

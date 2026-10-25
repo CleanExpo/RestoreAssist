@@ -17,6 +17,7 @@ const exportHandoverPackageToBYOKStorage = vi.fn();
 const writeLifecycleTransition = vi.fn();
 const inspectionFindUnique = vi.fn();
 const inspectionUpdateMany = vi.fn();
+const userFindUnique = vi.fn();
 const createSignedUrl = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -52,6 +53,9 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: (...a: unknown[]) => inspectionFindUnique(...a),
       updateMany: (...a: unknown[]) => inspectionUpdateMany(...a),
     },
+    user: {
+      findUnique: (...a: unknown[]) => userFindUnique(...a),
+    },
   },
 }));
 vi.mock("@/lib/supabase-server", () => ({
@@ -74,6 +78,7 @@ beforeEach(() => {
   writeLifecycleTransition.mockReset();
   inspectionFindUnique.mockReset();
   inspectionUpdateMany.mockReset();
+  userFindUnique.mockReset();
   createSignedUrl.mockReset();
 
   // Default happy-path doubles. Each `it()` overrides as needed.
@@ -82,6 +87,7 @@ beforeEach(() => {
     handoverCompletedAt: null,
   });
   inspectionUpdateMany.mockResolvedValue({ count: 1 });
+  userFindUnique.mockResolvedValue({ role: "USER", isJuniorTechnician: false });
   resolveInspectionWrite.mockResolvedValue({
     ok: true,
     data: {
@@ -214,6 +220,28 @@ describe("POST /api/inspections/[id]/handover — happy path", () => {
     expect(txArgs.auditAction).toBe("JOB_HANDED_OVER");
 
     expect(exportHandoverPackageToBYOKStorage).toHaveBeenCalledWith("ins_1");
+  });
+
+  it("stamps the database role in progress vocabulary, not the stale cookie role (RA-8067)", async () => {
+    // The cookie still says MANAGER from before a demotion; the database
+    // says USER. The append-only transition must record TECHNICIAN.
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", name: "Alice Tradie", role: "MANAGER" },
+    });
+    userFindUnique.mockResolvedValueOnce({
+      role: "USER",
+      isJuniorTechnician: false,
+    });
+
+    const res = await POST(makeReq(), routeParams);
+
+    expect(res.status).toBe(200);
+    expect(writeLifecycleTransition.mock.calls[0][0].actorRole).toBe(
+      "TECHNICIAN",
+    );
+    expect(userFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "u_1" } }),
+    );
   });
 
   it("409 status_drift when CAS finds row already handed over (race)", async () => {

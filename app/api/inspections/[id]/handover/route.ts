@@ -34,6 +34,7 @@ import {
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError } from "@/lib/api-errors";
 import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
+import { resolveProgressRole } from "@/lib/progress/permissions";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { exportHandoverPackageToBYOKStorage } from "@/lib/queue/exportHandoverPackageToBYOKStorage";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
@@ -209,6 +210,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // The role recorded on the append-only transition comes from the
+    // database, not the login cookie, which can be up to 90 days stale
+    // after a promotion or demotion (RA-8067). Same pattern as `close`.
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, isJuniorTechnician: true },
+    });
+    if (!actor) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
+    }
+    const actorRole = resolveProgressRole({
+      userRole: actor.role,
+      isJuniorTechnician: actor.isJuniorTechnician,
+    });
+
     // 4. Build + upload the ZIP. Synchronous — failure is a hard 500.
     let exportResult: { storageKey: string; byteSize: number };
     try {
@@ -262,7 +282,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         toState: ClaimState.CLOSED,
         transitionKey: "complete_handover",
         actorUserId: userId,
-        actorRole: (session.user as { role?: string }).role ?? "USER",
+        actorRole,
         actorName: session.user.name ?? "User",
         guardSnapshot: {
           handoverPackageStorageKey: exportResult.storageKey,

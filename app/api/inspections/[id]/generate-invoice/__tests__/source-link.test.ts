@@ -101,6 +101,12 @@ vi.mock("@/lib/prisma", () => ({
     estimateVersion: { findUnique: vi.fn().mockResolvedValue(null) },
     invoice: { findFirst: invoiceFindFirst, findUnique: invoiceFindUnique },
     client: { findFirst: clientFindFirst },
+    // The actor role on the lifecycle transition is read from the database.
+    user: {
+      findUnique: vi
+        .fn()
+        .mockResolvedValue({ role: "USER", isJuniorTechnician: false }),
+    },
     invoiceSequence: { upsert: vi.fn() },
     $transaction,
   },

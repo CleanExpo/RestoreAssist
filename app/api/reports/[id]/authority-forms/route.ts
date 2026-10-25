@@ -194,8 +194,14 @@ export async function POST(
         businessAddress: report.user.businessAddress || null,
       };
 
-      // For team members, get Admin's business info
-      if (session.user.role === "MANAGER" || session.user.role === "USER") {
+      // For team members, get Admin's business info. The role comes from the
+      // database, not the login cookie, which can be up to 90 days stale
+      // after a promotion or demotion (RA-8067).
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+      if (currentUser?.role === "MANAGER" || currentUser?.role === "USER") {
         const ownerId = await getOrganizationOwner(userId);
         if (ownerId) {
           const owner = await prisma.user.findUnique({

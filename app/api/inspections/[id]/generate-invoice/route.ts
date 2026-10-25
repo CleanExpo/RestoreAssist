@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
+import { resolveProgressRole } from "@/lib/progress/permissions";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
@@ -381,11 +382,29 @@ export async function POST(
         }
       }
 
+      // The role recorded on the append-only transition comes from the
+      // database, not the login cookie, which can be up to 90 days stale
+      // after a promotion or demotion (RA-8067). Same pattern as `close`.
+      const actor = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true, isJuniorTechnician: true },
+      });
+      if (!actor) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
+      }
+
       const billingActor = {
         inspectionId: inspection.id,
         userId,
         actorName: session.user.name ?? "User",
-        actorRole: session.user.role ?? "USER",
+        actorRole: resolveProgressRole({
+          userRole: actor.role,
+          isJuniorTechnician: actor.isJuniorTechnician,
+        }),
       };
 
       // A durable source + report + estimate link is the business-level
