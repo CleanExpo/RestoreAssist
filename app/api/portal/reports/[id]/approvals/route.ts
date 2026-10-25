@@ -4,6 +4,21 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { requireClientAuth } from "@/lib/portal/require-client-auth";
 
+// RA-8068: the estimate total the client is looking at right now, read
+// server-side. Only cost approvals carry an amount.
+async function currentEstimateTotal(
+  reportId: string,
+  approvalType: string,
+): Promise<number | null> {
+  if (approvalType !== "COST_ESTIMATE") return null;
+  const estimate = await prisma.estimate.findFirst({
+    where: { reportId },
+    orderBy: { createdAt: "desc" },
+    select: { totalIncGST: true },
+  });
+  return estimate?.totalIncGST ?? null;
+}
+
 // POST /api/portal/reports/[id]/approvals - Create or update approval (bearer JWT)
 export async function POST(
   request: NextRequest,
@@ -92,22 +107,16 @@ export async function POST(
             status,
             respondedAt: new Date(),
             clientComments: clientComments || null,
-            // amount is left as the restorer requested it
+            // Keep the restorer's requested amount; a request sent without
+            // one is filled from the current estimate total.
+            ...(existingApproval.amount === null
+              ? { amount: await currentEstimateTotal(reportId, approvalType) }
+              : {}),
           },
         });
       } else {
-        // No request on file: record the estimate total the client is
-        // looking at right now, read server-side.
-        let amount: number | null = null;
-        if (approvalType === "COST_ESTIMATE") {
-          const estimate = await prisma.estimate.findFirst({
-            where: { reportId },
-            orderBy: { createdAt: "desc" },
-            select: { totalIncGST: true },
-          });
-          amount = estimate?.totalIncGST ?? null;
-        }
-
+        // No request on file: record the current estimate total.
+        const amount = await currentEstimateTotal(reportId, approvalType);
         approval = await prisma.reportApproval.create({
           data: {
             reportId,

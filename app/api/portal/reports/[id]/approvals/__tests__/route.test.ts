@@ -169,6 +169,19 @@ describe("POST /api/portal/reports/[id]/approvals", () => {
     expect(approvalUpdate.mock.calls[0][0].data).not.toHaveProperty("amount");
   });
 
+  it("fills a blank requested amount from the current estimate total", async () => {
+    reportFindFirst.mockResolvedValueOnce({ id: "r_1", clientId: "c_1" });
+    approvalFindFirst.mockResolvedValueOnce({ id: "ap_req", amount: null });
+    estimateFindFirst.mockResolvedValueOnce({ totalIncGST: 5000 });
+    approvalUpdate.mockResolvedValueOnce({ id: "ap_req", amount: 5000 });
+
+    await POST(
+      postReq({ approvalType: "COST_ESTIMATE", status: "APPROVED", amount: 1 }),
+      ctx,
+    );
+    expect(approvalUpdate.mock.calls[0][0].data.amount).toBe(5000);
+  });
+
   it("stamps the current estimate total, not the client amount, on create", async () => {
     reportFindFirst.mockResolvedValueOnce({ id: "r_1", clientId: "c_1" });
     approvalFindFirst.mockResolvedValueOnce(null);
