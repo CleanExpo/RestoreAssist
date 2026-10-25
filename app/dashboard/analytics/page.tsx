@@ -377,6 +377,8 @@ export default function AnalyticsPage() {
         }
       } catch (err) {
         console.error("Error fetching analytics:", err);
+        // RA-8084: the previous filter's numbers are not this filter's result.
+        setData(null);
         setError(
           err instanceof Error ? err.message : "Failed to load analytics",
         );
@@ -530,6 +532,11 @@ export default function AnalyticsPage() {
             ))}
           </div>
         </div>
+      ) : error ? (
+        // RA-8084: a failed load is unknown, not empty. The banner above carries Retry.
+        <p className="py-12 text-center text-sm text-muted-foreground">
+          Analytics could not be loaded for this period.
+        </p>
       ) : isEmpty ? (
         <div className="rounded-lg border border-border bg-card p-8 sm:p-12 text-center space-y-4">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">

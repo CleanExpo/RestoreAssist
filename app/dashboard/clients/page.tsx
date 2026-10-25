@@ -591,6 +591,12 @@ export default function ClientsPage() {
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
         </div>
+      ) : loadError && clients.length === 0 ? (
+        // RA-8084: a failed load with nothing held is unknown, not empty. The
+        // banner above carries Retry; never invite the user to add a "first" client.
+        <p className="py-12 text-center text-sm text-neutral-600 dark:text-slate-400">
+          Your client list could not be loaded.
+        </p>
       ) : (
         <>
           {/* Clients Table */}
