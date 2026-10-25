@@ -49,12 +49,26 @@ const ALL_ROWS: RateRow[] = [
   { key: 'projectManagementPercent',         label: 'Project mgmt',                   suffix: '%' },
 ];
 
-async function patchPricing(key: string, value: number): Promise<void> {
-  await fetch('/api/setup/pricing', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ [key]: value }),
-  });
+async function patchPricing(
+  key: string,
+  value: number,
+): Promise<{ ok: boolean; error?: string }> {
+  let res: Response;
+  try {
+    res = await fetch('/api/setup/pricing', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value }),
+    });
+  } catch {
+    return { ok: false, error: 'Not saved. Check your connection and try again.' };
+  }
+  if (!res.ok) {
+    // PATCH /api/setup/pricing responds via `apiError` — nested `{ error: { message } }`
+    const body = await res.json().catch(() => null);
+    return { ok: false, error: body?.error?.message ?? `Not saved (${res.status})` };
+  }
+  return { ok: true };
 }
 
 export function PricingCard() {
@@ -63,6 +77,7 @@ export function PricingCard() {
   const [expanded, setExpanded] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Populate values from the org's hydrated pricingConfig once available.
   useEffect(() => {
@@ -78,13 +93,19 @@ export function PricingCard() {
 
   const handleBlur = async (key: string, raw: string) => {
     const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) return;
-    setSaving((p) => ({ ...p, [key]: true }));
-    try {
-      await patchPricing(key, n);
-    } finally {
-      setSaving((p) => ({ ...p, [key]: false }));
+    if (raw.trim() === '' || !Number.isFinite(n) || n < 0) {
+      setErrors((p) => ({ ...p, [key]: 'Not saved. Enter a number of zero or more.' }));
+      return;
     }
+    setSaving((p) => ({ ...p, [key]: true }));
+    const result = await patchPricing(key, n);
+    setSaving((p) => ({ ...p, [key]: false }));
+    setErrors((p) => {
+      const next = { ...p };
+      if (result.ok) delete next[key];
+      else next[key] = result.error ?? 'Not saved.';
+      return next;
+    });
   };
 
   const rows = expanded ? ALL_ROWS : COMPACT_ROWS;
@@ -136,10 +157,21 @@ export function PricingCard() {
                         onBlur={(e) => void handleBlur(row.key, e.target.value)}
                         className="w-24 rounded-md border border-border bg-background px-2 py-1 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         aria-label={row.label}
+                        aria-invalid={errors[row.key] ? true : undefined}
+                        aria-describedby={errors[row.key] ? `pricing-error-${row.key}` : undefined}
                       />
                       <span className="text-muted-foreground text-xs ml-1">{row.suffix}</span>
                       {saving[row.key] && (
                         <span className="text-xs text-muted-foreground ml-2">saving…</span>
+                      )}
+                      {errors[row.key] && (
+                        <p
+                          id={`pricing-error-${row.key}`}
+                          role="alert"
+                          className="mt-1 text-xs text-destructive"
+                        >
+                          {errors[row.key]}
+                        </p>
                       )}
                     </td>
                   </tr>

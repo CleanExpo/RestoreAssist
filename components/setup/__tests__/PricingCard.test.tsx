@@ -78,4 +78,52 @@ describe('PricingCard', () => {
       }),
     );
   });
+
+  // RA-8087: a failed save used to look saved, so quotes kept the old rate.
+  it('shows the server error next to the row when PATCH returns 500', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { message: 'Could not save pricing' } }),
+    }) as never;
+    useSetupStore.getState().setSectionStatus('pricing', 'ready');
+    render(<PricingCard />);
+    const input = screen.getByLabelText(/admin fee/i);
+    fireEvent.change(input, { target: { value: '250' } });
+    fireEvent.blur(input);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save pricing');
+  });
+
+  it('shows an error when fetch rejects (network failure)', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch')) as never;
+    useSetupStore.getState().setSectionStatus('pricing', 'ready');
+    render(<PricingCard />);
+    const input = screen.getByLabelText(/admin fee/i);
+    fireEvent.change(input, { target: { value: '250' } });
+    fireEvent.blur(input);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not saved/i);
+  });
+
+  it('shows a message for a negative value and does not PATCH', async () => {
+    useSetupStore.getState().setSectionStatus('pricing', 'ready');
+    render(<PricingCard />);
+    const input = screen.getByLabelText(/admin fee/i);
+    fireEvent.change(input, { target: { value: '-5' } });
+    fireEvent.blur(input);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/zero or more/i);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('clears the row error after a later successful save', async () => {
+    useSetupStore.getState().setSectionStatus('pricing', 'ready');
+    render(<PricingCard />);
+    const input = screen.getByLabelText(/admin fee/i);
+    fireEvent.change(input, { target: { value: '-5' } });
+    fireEvent.blur(input);
+    await screen.findByRole('alert');
+    fireEvent.change(input, { target: { value: '250' } });
+    fireEvent.blur(input);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });
