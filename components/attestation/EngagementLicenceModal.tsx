@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface MostRecentRow {
   subjectLicenceNumber: string | null;
@@ -50,30 +51,50 @@ export function EngagementLicenceModal({
   const [insurer, setInsurer] = useState("");
   const [policy, setPolicy] = useState("");
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     (async () => {
-      const res = await fetch("/api/authorisations/most-recent");
-      const data = await res.json().catch(() => ({ row: null }));
-      if (cancelled) return;
-      setRow(data.row);
-      if (data.row) {
-        setIicrc(data.row.subjectLicenceNumber ?? "");
-        setWhs(data.row.whsCardNumber ?? "");
-        setState(data.row.subjectLicenceState ?? "");
-        setLicenceClass(data.row.subjectLicenceClass ?? "");
-        setInsurer(data.row.publicLiabilityInsurer ?? "");
-        setPolicy(data.row.publicLiabilityPolicyNumber ?? "");
+      try {
+        const res = await fetch("/api/authorisations/most-recent");
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+        // A failed read must not look like "no saved credentials": only an
+        // OK response carrying `row` (object or null) may reach the form.
+        if (!res.ok || !data || !("row" in data)) {
+          setLoadError(
+            apiErrorMessage(data) ?? "We couldn't load your saved credentials.",
+          );
+          return;
+        }
+        setRow(data.row);
+        if (data.row) {
+          setIicrc(data.row.subjectLicenceNumber ?? "");
+          setWhs(data.row.whsCardNumber ?? "");
+          setState(data.row.subjectLicenceState ?? "");
+          setLicenceClass(data.row.subjectLicenceClass ?? "");
+          setInsurer(data.row.publicLiabilityInsurer ?? "");
+          setPolicy(data.row.publicLiabilityPolicyNumber ?? "");
+        }
+        setEditing(!data.row);
+      } catch {
+        if (cancelled) return;
+        setLoadError(
+          "We couldn't reach RestoreAssist. Check your connection and try again.",
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
-      setEditing(!data.row);
     })();
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, loadAttempt]);
 
   async function handleSubmit() {
     if (!iicrc || !whs) {
@@ -97,11 +118,15 @@ export function EngagementLicenceModal({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Failed to save credentials");
+        toast.error(apiErrorMessage(data) ?? "Failed to save credentials");
         return;
       }
       onConfirmed(data.authorisationId);
       onOpenChange(false);
+    } catch {
+      toast.error(
+        "Couldn't save your credentials. Check your connection and try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -112,10 +137,16 @@ export function EngagementLicenceModal({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {row && !editing ? "Still using these credentials?" : "Add your credentials"}
+            {loadError
+              ? "Couldn't load your credentials"
+              : row && !editing
+                ? "Still using these credentials?"
+                : "Add your credentials"}
           </DialogTitle>
           <DialogDescription>
-            {row && !editing
+            {loadError
+              ? "Nothing has been changed. Retry once you have signal."
+              : row && !editing
               ? "We're checking because rule 28 requires verification at each engagement."
               : "RestoreAssist verifies your IICRC, WHS, and state licence at the moment you sign off evidence."}
           </DialogDescription>
@@ -123,6 +154,10 @@ export function EngagementLicenceModal({
 
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : loadError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {loadError}
+          </p>
         ) : row && !editing ? (
           <div className="space-y-1 text-sm">
             <p>
@@ -178,7 +213,15 @@ export function EngagementLicenceModal({
         )}
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
-          {row && !editing ? (
+          {loadError ? (
+            <Button
+              onClick={() => setLoadAttempt((n) => n + 1)}
+              disabled={loading}
+              className="w-full"
+            >
+              Retry
+            </Button>
+          ) : row && !editing ? (
             <>
               <Button onClick={handleSubmit} disabled={submitting} className="w-full">
                 {submitting ? "Confirming…" : "Yes — confirm and continue →"}
