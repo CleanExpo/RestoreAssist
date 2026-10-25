@@ -61,6 +61,7 @@ interface UserProfile {
   subscriptionEndsAt?: string;
   lastBillingDate?: string;
   nextBillingDate?: string;
+  twoFactorEnabled?: boolean;
 }
 
 export default function SettingsPage() {
@@ -726,17 +727,26 @@ export default function SettingsPage() {
                 <span className="text-sm text-slate-300">
                   Two-Factor Authentication
                 </span>
-                <span className="text-xs text-slate-500">Not enabled</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Login Sessions</span>
-                <span className="text-xs text-slate-500">1 active</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Last Login</span>
-                <span className="text-xs text-slate-500">Today</span>
+                <div className="flex items-center gap-3">
+                  {/* RA-8082 — real state from GET /api/user/profile; a
+                      failed profile read is Unavailable, never Off. */}
+                  <span
+                    data-testid="two-factor-state"
+                    className="text-xs text-slate-500"
+                  >
+                    {!profile
+                      ? "Unavailable"
+                      : profile.twoFactorEnabled
+                        ? "On"
+                        : "Off"}
+                  </span>
+                  <a
+                    href="/dashboard/security"
+                    className="text-xs font-medium text-cyan-400 hover:text-cyan-300"
+                  >
+                    {profile && !profile.twoFactorEnabled ? "Set up" : "Manage"}
+                  </a>
+                </div>
               </div>
 
               {isCapacitorIOS() && (
