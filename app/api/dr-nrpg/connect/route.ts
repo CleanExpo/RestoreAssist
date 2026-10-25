@@ -12,7 +12,7 @@
  * {
  *   drNrpgApiKey: string
  *   drNrpgBaseUrl?: string  // default: https://api.dr-nrpg.com.au
- *   webhookSecret?: string  // if omitted, a secure 32-byte secret is auto-generated
+ *   webhookSecret?: string  // min 32 chars, unique across integrations; if omitted, a secure 32-byte secret is auto-generated
  * }
  *
  * After connecting, give DR-NRPG the following webhook URL:
@@ -24,14 +24,44 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
-import { encrypt } from "@/lib/credential-vault";
+import { decrypt, encrypt } from "@/lib/credential-vault";
+import { isEncryptedToken } from "@/lib/auth/account-tokens";
 import { requireAddon } from "@/lib/entitlements";
 import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
 
 const DR_NRPG_BASE_URL = "https://api.dr-nrpg.com.au";
+
+// RA-8076: matches the strength floor of a guess-resistant shared secret; the
+// auto-generated default is 64 hex characters.
+const MIN_WEBHOOK_SECRET_LENGTH = 32;
+
+/**
+ * True when another user's active integration already holds this secret.
+ * Checks every active row (unbounded on purpose: a capped scan would let a
+ * clash through silently) and reads secrets the same way the webhook receiver
+ * does, so a legacy plaintext row is caught too. Compared in constant time
+ * over SHA-256 digests so differing lengths cannot short-circuit.
+ */
+async function secretHeldByAnotherIntegration(
+  userId: string,
+  secret: string,
+): Promise<boolean> {
+  const others: { webhookSecret: string | null }[] = await (
+    prisma as any
+  ).drNrpgIntegration.findMany({
+    where: { isActive: true, userId: { not: userId } },
+    select: { webhookSecret: true },
+  });
+  const wanted = createHash("sha256").update(secret).digest();
+  return others.some(({ webhookSecret: stored }) => {
+    if (!stored) return false;
+    const plain = isEncryptedToken(stored) ? decrypt(stored) : stored;
+    return timingSafeEqual(wanted, createHash("sha256").update(plain).digest());
+  });
+}
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -126,10 +156,33 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-8076: the webhook receiver binds an event to whichever active
+      // integration's secret verifies it, oldest first. A user-supplied secret
+      // must therefore be long enough not to be guessed (forged job events),
+      // and must not already belong to another business (its jobs would land
+      // in the older account). Error messages never echo the secret.
+      const suppliedSecret = webhookSecret?.trim();
+      if (suppliedSecret) {
+        if (suppliedSecret.length < MIN_WEBHOOK_SECRET_LENGTH) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `webhookSecret must be at least ${MIN_WEBHOOK_SECRET_LENGTH} characters. Omit it to have a secure secret generated.`,
+            status: 400,
+          });
+        }
+        if (await secretHeldByAnotherIntegration(userId, suppliedSecret)) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message:
+              "This webhookSecret is already used by another DR-NRPG connection. Omit it to have a unique secret generated.",
+            status: 409,
+          });
+        }
+      }
+
       // Auto-generate a secure webhook secret if not provided
       // This is used to verify inbound webhooks from DR-NRPG
-      const resolvedSecret =
-        webhookSecret?.trim() || randomBytes(32).toString("hex");
+      const resolvedSecret = suppliedSecret || randomBytes(32).toString("hex");
 
       // Encrypt the API key at rest (AES-256-GCM credential vault) — never
       // persist the raw third-party key. The liveness cron decrypts on use.
