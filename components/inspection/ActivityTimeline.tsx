@@ -39,6 +39,8 @@ export default function ActivityTimeline({
 
   useEffect(() => {
     async function fetchActivity() {
+      setLoading(true);
+      setError(null);
       try {
         const res = await fetch(`/api/inspections/${inspectionId}/activity`);
         if (res.ok) {
@@ -84,7 +86,7 @@ export default function ActivityTimeline({
         role="alert"
         className="flex flex-col items-center justify-center py-12 text-red-500 gap-3"
       >
-        <History size={32} className="opacity-40" />
+        <History size={32} className="opacity-40" aria-hidden="true" />
         <p className="text-sm">{error}</p>
       </div>
     );

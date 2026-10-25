@@ -43,6 +43,8 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  // Only the latest keystroke's response may change the list (RA-8085).
+  const latestSearch = useRef(0);
 
   // Listen for Cmd+K or Ctrl+K
   useEffect(() => {
@@ -86,9 +88,11 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   };
 
   const performSearch = useCallback(async (searchQuery: string) => {
+    const searchId = ++latestSearch.current;
     setSearchError(null);
     if (!searchQuery.trim() || searchQuery.length < 2) {
       setResults([]);
+      setLoading(false);
       return;
     }
 
@@ -97,8 +101,10 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
       const response = await fetch(
         `/api/search?q=${encodeURIComponent(searchQuery)}&limit=12`,
       );
+      if (searchId !== latestSearch.current) return;
       if (response.ok) {
         const data = await response.json();
+        if (searchId !== latestSearch.current) return;
         // Sort by rank and take top 12
         const sorted = [
           ...data.results.reports,
@@ -115,10 +121,11 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
       }
     } catch (error) {
       console.error("Search error:", error);
+      if (searchId !== latestSearch.current) return;
       setResults([]);
       setSearchError(SEARCH_ERROR);
     } finally {
-      setLoading(false);
+      if (searchId === latestSearch.current) setLoading(false);
     }
   }, []);
 

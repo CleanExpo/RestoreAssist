@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -44,5 +44,28 @@ describe("GlobalSearch failures (RA-8085)", () => {
     );
     expect(screen.queryByText(/No results found/)).not.toBeInTheDocument();
     expect(screen.queryByText("Smith water damage")).not.toBeInTheDocument();
+  });
+
+  it("ignores a slow failure from an earlier keystroke", async () => {
+    let failOld: (v: unknown) => void = () => {};
+    const f = vi
+      .fn()
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (failOld = resolve)),
+      )
+      .mockResolvedValueOnce(found);
+    vi.stubGlobal("fetch", f);
+    render(<GlobalSearch open />);
+    const input = screen.getByPlaceholderText(/Search reports/);
+
+    fireEvent.change(input, { target: { value: "sm" } });
+    fireEvent.change(input, { target: { value: "smi" } });
+    expect(await screen.findByText("Smith water damage")).toBeInTheDocument();
+
+    await act(async () => {
+      failOld({ ok: false, status: 500, json: async () => ({}) });
+    });
+    expect(screen.getByText("Smith water damage")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
