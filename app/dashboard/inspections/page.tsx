@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useFetch } from "@/lib/hooks/useFetch";
 import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRefresh";
@@ -108,26 +108,48 @@ const STATUS_CONFIG: Record<
   },
 };
 
+// Matches the route's default page size; the route caps `limit` at 100.
+const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 300;
+
 export default function InspectionsPage() {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const currentUserId = session?.user?.id;
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // RA-8092: search, filters and paging run on the server. Filtering in the
+  // browser only ever saw the route's first page (20 rows).
   // D-028: a technician (role USER) works their own jobs, so ask for those
   // (assigned to them, plus unassigned). Wait for the session: fetching the
   // unscoped list first would flash every job in the workspace.
+  const listParams = new URLSearchParams();
+  if (session?.user?.role === "USER") listParams.set("assignee", "me");
+  listParams.set("page", String(page));
+  listParams.set("limit", String(PAGE_SIZE));
+  if (debouncedSearch.trim()) listParams.set("search", debouncedSearch.trim());
+  if (statusFilter) listParams.set("status", statusFilter);
+  if (dateFrom) listParams.set("from", dateFrom);
+  if (dateTo) listParams.set("to", dateTo);
+  // The list filters by site attendance, not by when the job was created.
+  if (dateFrom || dateTo) listParams.set("dateField", "inspectionDate");
   const inspectionsUrl =
-    sessionStatus === "loading"
-      ? null
-      : session?.user?.role === "USER"
-        ? "/api/inspections?assignee=me"
-        : "/api/inspections";
+    sessionStatus === "loading" ? null : `/api/inspections?${listParams}`;
   const {
     data: inspectionsData,
     loading: fetchLoading,
     error: fetchError,
     refetch: refetchInspections,
     refresh: refreshInspections,
-  } = useFetch<{ inspections: Inspection[] }>(inspectionsUrl);
+  } = useFetch<{
+    inspections: Inspection[];
+    pagination?: { page: number; limit: number; total: number; pages: number };
+  }>(inspectionsUrl);
   const loading = fetchLoading || sessionStatus === "loading";
   useMobilePullRefreshHandler(async () =>
     (await refreshInspections())
@@ -138,12 +160,12 @@ export default function InspectionsPage() {
     ? { code: "UNKNOWN", message: fetchError, status: 0 }
     : null;
   const inspections = inspectionsData?.inspections ?? [];
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const total = inspectionsData?.pagination?.total ?? inspections.length;
+  const pages = inspectionsData?.pagination?.pages ?? 1;
+  const filtersActive = Boolean(
+    debouncedSearch.trim() || statusFilter || dateFrom || dateTo,
+  );
   const [exporting, setExporting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -153,38 +175,27 @@ export default function InspectionsPage() {
 
   // Data fetching handled by useFetch above — auto-fetches on mount + abort on unmount
 
-  const filtered = useMemo(() => {
-    const fromDate = dateFrom ? new Date(dateFrom) : null;
-    const toDate = dateTo ? new Date(dateTo + "T23:59:59.999") : null;
-    return inspections.filter((insp) => {
-      const matchesSearch =
-        !searchTerm ||
-        insp.inspectionNumber
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        insp.propertyAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (insp.technicianName
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ??
-          false);
-      const matchesStatus = !statusFilter || insp.status === statusFilter;
-      const inspDate = insp.inspectionDate
-        ? new Date(insp.inspectionDate)
-        : null;
-      const matchesFrom =
-        !fromDate || (inspDate !== null && inspDate >= fromDate);
-      const matchesTo = !toDate || (inspDate !== null && inspDate <= toDate);
-      return matchesSearch && matchesStatus && matchesFrom && matchesTo;
-    });
-  }, [inspections, searchTerm, statusFilter, dateFrom, dateTo]);
+  // A new query starts on page 1 with nothing selected, so a selection never
+  // covers rows the user can no longer see.
+  const resetView = () => {
+    setPage(1);
+    setSelectedIds(new Set());
+  };
 
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    inspections.forEach((i) => {
-      counts[i.status] = (counts[i.status] || 0) + 1;
-    });
-    return counts;
-  }, [inspections]);
+  useEffect(() => {
+    if (searchTerm === debouncedSearch) return;
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+      setSelectedIds(new Set());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchTerm, debouncedSearch]);
+
+  const goToPage = (next: number) => {
+    setPage(next);
+    setSelectedIds(new Set());
+  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -195,12 +206,13 @@ export default function InspectionsPage() {
     });
   };
 
+  const allOnPageSelected =
+    inspections.length > 0 && inspections.every((i) => selectedIds.has(i.id));
+
   const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filtered.map((i) => i.id)));
-    }
+    setSelectedIds(
+      allOnPageSelected ? new Set() : new Set(inspections.map((i) => i.id)),
+    );
   };
 
   const handleDeleteOne = (e: React.MouseEvent, id: string) => {
@@ -213,6 +225,12 @@ export default function InspectionsPage() {
     if (selectedIds.size === 0) return;
     setDeleteTarget({ type: "bulk" });
     setDeleteDialogOpen(true);
+  };
+
+  // Emptying the last page steps back one, rather than showing an empty page.
+  const afterDelete = (deletedCount: number) => {
+    if (page > 1 && deletedCount >= inspections.length) goToPage(page - 1);
+    else refetchInspections();
   };
 
   const performDelete = async () => {
@@ -231,7 +249,7 @@ export default function InspectionsPage() {
             return next;
           });
           toast.success("Inspection deleted");
-          refetchInspections();
+          afterDelete(1);
         } else {
           const data = await res.json().catch(() => ({}));
           toast.error(apiErrorMessage(data) || "Failed to delete inspection");
@@ -248,7 +266,7 @@ export default function InspectionsPage() {
           toast.success(
             `${data.deletedCount ?? selectedIds.size} inspection(s) deleted`,
           );
-          refetchInspections();
+          afterDelete(data.deletedCount ?? selectedIds.size);
         } else {
           toast.error(apiErrorMessage(data) || "Failed to delete inspections");
         }
@@ -318,7 +336,10 @@ export default function InspectionsPage() {
       {/* Status Filter Pills */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => setStatusFilter("")}
+          onClick={() => {
+            setStatusFilter("");
+            resetView();
+          }}
           className={cn(
             "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
             !statusFilter
@@ -326,13 +347,16 @@ export default function InspectionsPage() {
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700",
           )}
         >
-          All ({inspections.length})
+          {/* The count is the server's total for the current query. */}
+          {!statusFilter ? `All (${total})` : "All"}
         </button>
-        {Object.entries(STATUS_CONFIG).map(([key, cfg]) =>
-          statusCounts[key] ? (
+        {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
             <button
               key={key}
-              onClick={() => setStatusFilter(statusFilter === key ? "" : key)}
+              onClick={() => {
+                setStatusFilter(statusFilter === key ? "" : key);
+                resetView();
+              }}
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
                 statusFilter === key
@@ -340,10 +364,9 @@ export default function InspectionsPage() {
                   : cn(cfg.bg, cfg.color, "hover:opacity-80"),
               )}
             >
-              {cfg.label} ({statusCounts[key]})
+              {statusFilter === key ? `${cfg.label} (${total})` : cfg.label}
             </button>
-          ) : null,
-        )}
+        ))}
       </div>
 
       {/* Search and Date Filters */}
@@ -371,7 +394,10 @@ export default function InspectionsPage() {
               id="inspections-date-from"
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                resetView();
+              }}
               className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
             />
           </div>
@@ -383,7 +409,10 @@ export default function InspectionsPage() {
               id="inspections-date-to"
               type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                resetView();
+              }}
               className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
             />
           </div>
@@ -393,6 +422,7 @@ export default function InspectionsPage() {
               onClick={() => {
                 setDateFrom("");
                 setDateTo("");
+                resetView();
               }}
               className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 transition-colors"
             >
@@ -418,18 +448,18 @@ export default function InspectionsPage() {
       </div>
 
       {/* Bulk actions */}
-      {filtered.length > 0 && (
+      {inspections.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-neutral-600 dark:text-slate-400">
             <input
               type="checkbox"
-              checked={
-                selectedIds.size === filtered.length && filtered.length > 0
-              }
+              checked={allOnPageSelected}
               onChange={toggleSelectAll}
               className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
             />
-            Select all ({filtered.length})
+            {total > inspections.length
+              ? `Select all on this page (${inspections.length} of ${total})`
+              : `Select all (${inspections.length})`}
           </label>
           {selectedIds.size > 0 && (
             <button
@@ -463,21 +493,21 @@ export default function InspectionsPage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-cyan-500" size={32} />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : inspections.length === 0 ? (
         <EmptyState
           icon={<ClipboardCheck size={40} aria-hidden />}
           title={
-            inspections.length === 0
+            !filtersActive && page === 1
               ? "No inspections yet"
               : "No matching inspections"
           }
           description={
-            inspections.length === 0
+            !filtersActive && page === 1
               ? "Create your first National Inspection Report"
               : "Try adjusting your search or filters"
           }
           primaryAction={
-            inspections.length === 0
+            !filtersActive && page === 1
               ? {
                   label: "New Inspection",
                   onClick: () => router.push("/dashboard/inspections/new"),
@@ -487,7 +517,7 @@ export default function InspectionsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {filtered.map((insp) => {
+          {inspections.map((insp) => {
             const status = STATUS_CONFIG[insp.status] || STATUS_CONFIG.DRAFT;
             const classification = insp.classifications?.[0];
             return (
@@ -637,6 +667,43 @@ export default function InspectionsPage() {
             );
           })}
         </div>
+      )}
+
+      {/* Pager: driven by the route's pagination, so every job is reachable. */}
+      {!loading && !listError && (pages > 1 || page > 1) && (
+        <nav
+          aria-label="Inspections pages"
+          className="flex flex-wrap items-center justify-between gap-3 text-sm text-neutral-600 dark:text-slate-400"
+        >
+          <span>
+            {inspections.length > 0
+              ? `Showing ${(page - 1) * PAGE_SIZE + 1}-${(page - 1) * PAGE_SIZE + inspections.length} of ${total}`
+              : `Page ${page} of ${Math.max(pages, 1)}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Previous page"
+              onClick={() => goToPage(Math.max(1, page - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-lg font-medium bg-neutral-100 dark:bg-slate-800 text-neutral-700 dark:text-slate-300 hover:bg-neutral-200 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
+            >
+              Previous
+            </button>
+            <span>
+              Page {page} of {Math.max(pages, 1)}
+            </span>
+            <button
+              type="button"
+              aria-label="Next page"
+              onClick={() => goToPage(page + 1)}
+              disabled={page >= pages}
+              className="px-3 py-1.5 rounded-lg font-medium bg-neutral-100 dark:bg-slate-800 text-neutral-700 dark:text-slate-300 hover:bg-neutral-200 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </nav>
       )}
 
       {/* Delete Confirmation Dialog */}

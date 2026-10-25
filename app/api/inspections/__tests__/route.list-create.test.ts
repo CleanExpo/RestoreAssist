@@ -255,6 +255,26 @@ describe("GET /api/inspections", () => {
     expect(JSON.stringify(whereArg)).not.toContain("organizationId");
   });
 
+  // RA-8092: the jobs list filters by attendance (inspectionDate) and now asks
+  // the server to do it, so it can see past the first page. Without the
+  // opt-in the range stays on createdAt for every other caller.
+  it("filters from/to on inspectionDate only when dateField=inspectionDate", async () => {
+    getServerSession.mockResolvedValue({ user: { id: "u_1" } });
+    inspectionCount.mockResolvedValue(0);
+    inspectionFindMany.mockResolvedValue([]);
+
+    await GET(getReq("?from=2026-09-01&to=2026-09-30&dateField=inspectionDate"));
+    const scoped = inspectionFindMany.mock.calls[0][0].where;
+    expect(scoped.inspectionDate.gte).toEqual(new Date("2026-09-01"));
+    expect(scoped.inspectionDate.lte).toBeInstanceOf(Date);
+    expect(scoped.createdAt).toBeUndefined();
+
+    await GET(getReq("?from=2026-09-01"));
+    const legacy = inspectionFindMany.mock.calls[1][0].where;
+    expect(legacy.createdAt.gte).toEqual(new Date("2026-09-01"));
+    expect(legacy.inspectionDate).toBeUndefined();
+  });
+
   it("does not skip the lookahead inspection between cursor pages", async () => {
     getServerSession.mockResolvedValue({ user: { id: "u_1" } });
     const rows = ["a", "b", "c", "d", "e"].map((id) => ({ id }));

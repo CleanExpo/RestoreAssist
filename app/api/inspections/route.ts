@@ -304,13 +304,14 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Date range filter (createdAt)
+    // Date range filter (createdAt). RA-8092: the jobs list filters by site
+    // attendance, so it opts in to inspectionDate with `dateField`.
     if (from || to) {
-      where.createdAt = {};
+      const range: Prisma.DateTimeFilter = {};
       if (from) {
         const fromDate = new Date(from);
         if (!isNaN(fromDate.getTime())) {
-          where.createdAt.gte = fromDate;
+          range.gte = fromDate;
         }
       }
       if (to) {
@@ -318,8 +319,13 @@ export async function GET(request: NextRequest) {
         if (!isNaN(toDate.getTime())) {
           // Include all of the "to" day by setting to end-of-day
           toDate.setHours(23, 59, 59, 999);
-          where.createdAt.lte = toDate;
+          range.lte = toDate;
         }
+      }
+      if (searchParams.get("dateField") === "inspectionDate") {
+        where.inspectionDate = range;
+      } else {
+        where.createdAt = range;
       }
     }
 
