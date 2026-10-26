@@ -1533,6 +1533,29 @@ export default function InspectionDetailPage({
               Contents
             </Link>
           </Button>
+          {/* RA-8081: per-job pages that had no link anywhere */}
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/print`}>
+              Print
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/monitoring`}>
+              Monitoring
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/audit`}>
+              Audit trail
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              href={`/dashboard/inspections/${inspection.id}/sketch-preview`}
+            >
+              Homeowner sketch view
+            </Link>
+          </Button>
           {canGenerateInvoice && (
             <Button
               variant="outline"

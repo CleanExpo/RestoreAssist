@@ -18,6 +18,7 @@ import {
   Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import InspectionReportViewer from "@/components/InspectionReportViewer";
 import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer";
@@ -378,6 +379,19 @@ export default function ReportDetailPage({
           <MessageSquare size={18} />
           Start Interview
         </button>
+        {/* RA-8081: report pages that had no link anywhere */}
+        <Link
+          href={`/dashboard/reports/${reportId}/preview`}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+        >
+          Preview
+        </Link>
+        <Link
+          href={`/dashboard/reports/${reportId}/share`}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+        >
+          Share settings
+        </Link>
       </div>
 
       {/* RA-5041 UI: block export/handoff on an unacknowledged P0 hard-stop —
