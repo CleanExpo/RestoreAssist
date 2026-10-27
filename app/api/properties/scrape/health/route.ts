@@ -17,10 +17,39 @@
  *   503 + { status: "degraded", configured: false, timestamp }   when
  *         the underlying scraper isn't configured. Wizard surfaces the
  *         degraded reason inline so the user can self-serve.
+ *
+ * Both answers also carry `scope`, `checks` and `note` (sketch package
+ * 27/10/2026, P0A). "ok" here was read as "the floor-plan source works". It
+ * never meant that: this endpoint does not contact a provider, so provider
+ * connectivity and image availability are always "not_checked" and source
+ * rights always "unknown". `urlImportRelease` reports the RA-6850 legal
+ * release flag, which is already public (NEXT_PUBLIC_, inlined at build).
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { isUnderlayUrlImportEnabled } from "@/lib/sketch/underlay-import-flag";
+
+const NOTE =
+  "Configuration only. This endpoint does not contact any property provider, so it cannot show " +
+  "that a provider is reachable, that a floor plan exists for an address, or that using it is permitted.";
+
+function unchecked() {
+  return {
+    providerConnectivity: "not_checked",
+    sourceImageAvailability: "not_checked",
+    sourceRights: "unknown",
+    urlImportRelease: isUnderlayUrlImportEnabled() ? "on" : "off",
+  } as const;
+}
+
+function described(configuration: "ok" | "missing", rest: ReturnType<typeof unchecked>) {
+  return {
+    scope: "configuration-only",
+    checks: { configuration, ...rest },
+    note: NOTE,
+  };
+}
 
 export async function GET(request: NextRequest) {
   const rateLimited = await applyRateLimit(request, {
@@ -51,6 +80,9 @@ export async function GET(request: NextRequest) {
         configured: false,
         reason: "PROPERTY_SCRAPER_URL is required but not set",
         timestamp: new Date().toISOString(),
+        ...described("missing", {
+          ...unchecked(),
+        }),
       },
       { status: 503 },
     );
@@ -61,6 +93,7 @@ export async function GET(request: NextRequest) {
       status: "ok",
       configured: true,
       timestamp: new Date().toISOString(),
+      ...described("ok", unchecked()),
     },
     { status: 200 },
   );
