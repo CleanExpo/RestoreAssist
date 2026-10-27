@@ -96,6 +96,13 @@ const photoRow = (n: number) => ({
 });
 const PHOTO_ROWS = [photoRow(1), photoRow(2), photoRow(3)];
 
+// A small JPEG is drawn as it is; only larger or non-JPEG photos are re-encoded.
+const jpg = (caption: string) => ({
+  bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]),
+  isPng: false,
+  caption,
+});
+
 const PHOTO_SELECT = {
   userId: true,
   workspaceId: true,
@@ -189,7 +196,7 @@ beforeEach(() => {
   claimSketchesToFloors.mockResolvedValue([floor]);
   appendSketchPages.mockResolvedValue(SKETCHED);
   prepareReportPhotos.mockResolvedValue({
-    photos: [{ caption: "a" }, { caption: "b" }, { caption: "c" }],
+    photos: [jpg("a"), jpg("b"), jpg("c")],
     missing: 0,
     reasons: {},
   });
@@ -204,7 +211,7 @@ beforeEach(() => {
 const hanging: Array<() => void> = [];
 function hang() {
   return new Promise((resolve) => {
-    hanging.push(() => resolve({ photos: [], missing: 0, reasons: {} }));
+    hanging.push(() => resolve({ photos: [jpg("late")], missing: 0, reasons: {} }));
   });
 }
 
@@ -276,7 +283,7 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
   });
 
   it("passes the pipeline's missing count to the photo pages", async () => {
-    prepareReportPhotos.mockResolvedValue({ photos: [{ caption: "a" }], missing: 649, reasons: {} });
+    prepareReportPhotos.mockResolvedValue({ photos: [jpg("a")], missing: 649, reasons: {} });
 
     await GET(request(), context);
 
@@ -304,13 +311,20 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
     );
     vi.stubGlobal("fetch", remote);
     let fetchImpl: typeof fetch | undefined;
+    let signal: AbortSignal | undefined;
     let inFlight: Promise<Response> | undefined;
-    prepareReportPhotos.mockImplementation((_rows: unknown, options: { fetchImpl: typeof fetch }) => {
-      fetchImpl = options.fetchImpl;
-      inFlight = options.fetchImpl("https://store.example/slow.jpg");
-      inFlight.catch(() => {});
-      return hang();
-    });
+    prepareReportPhotos.mockImplementation(
+      (_rows: unknown, options: { fetchImpl: typeof fetch; signal: AbortSignal }) => {
+        fetchImpl = options.fetchImpl;
+        signal = options.signal;
+        // The helper passes its own per-photo signal; the route's must join it.
+        inFlight = options.fetchImpl("https://store.example/slow.jpg", {
+          signal: new AbortController().signal,
+        });
+        inFlight.catch(() => {});
+        return hang();
+      },
+    );
 
     const pending = GET(request(), context);
     await vi.advanceTimersByTimeAsync(24_999);
@@ -333,6 +347,32 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
     const after = await fetchImpl!("https://store.example/late.jpg");
     expect(after.ok).toBe(false);
     expect(remote).toHaveBeenCalledTimes(1);
+    // The helper is told to start no further photo.
+    expect(signal?.aborted).toBe(true);
+
+    // When the abandoned stage's photos arrive later, it draws nothing.
+    vi.useRealTimers();
+    hanging.splice(0).forEach((settle) => settle());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(appendPhotoPages).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts downloads still in flight against the 40 MB budget", async () => {
+    const remote = vi.fn(async () => new Response(new Uint8Array(25 * 1024 * 1024), { status: 200 }));
+    vi.stubGlobal("fetch", remote);
+    let oks: boolean[] = [];
+    prepareReportPhotos.mockImplementation(async (_rows: unknown, options: { fetchImpl: typeof fetch }) => {
+      const res = await Promise.all(
+        [1, 2, 3].map((n) => options.fetchImpl(`https://store.example/${n}.jpg`)),
+      );
+      oks = res.map((r) => r.ok);
+      return { photos: [jpg("a")], missing: TOTAL - 1, reasons: {} };
+    });
+
+    await GET(request(), context);
+
+    expect(oks.filter(Boolean)).toHaveLength(1);
+    expect(dropReasons()).toEqual(["fetch_budget"]);
   });
 
   it("runs one photo stage at a time; a request still waiting at its deadline gets the notice", async () => {
@@ -355,7 +395,7 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
     vi.useRealTimers();
     hanging.splice(0).forEach((settle) => settle());
     await new Promise((resolve) => setTimeout(resolve, 0));
-    prepareReportPhotos.mockResolvedValue({ photos: [{ caption: "a" }], missing: 0, reasons: {} });
+    prepareReportPhotos.mockResolvedValue({ photos: [jpg("a")], missing: 0, reasons: {} });
     const third = await GET(request(), context);
     expect(await body(third)).toEqual(WITH_PHOTOS);
   });
@@ -371,7 +411,7 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
         seen.push(res.ok);
         if (res.ok) expect((await res.arrayBuffer()).byteLength).toBe(25 * 1024 * 1024);
       }
-      return { photos: [{ caption: "a" }], missing: TOTAL - 1, reasons: {} };
+      return { photos: [jpg("a")], missing: TOTAL - 1, reasons: {} };
     });
 
     const response = await GET(request(), context);

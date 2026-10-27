@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 
 // Real pdf-lib and the real appendPhotoPages: this file proves the bytes the
 // route returns gain photo pages, which the wiring test cannot.
@@ -37,6 +37,14 @@ vi.mock("@/lib/reports/inspection-photos-to-images", async (importOriginal) => (
 
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 
+const signStoredMediaUrl = vi.fn(async (url: string | null | undefined) =>
+  url ? `${url}?token=signed` : url,
+);
+vi.mock("@/lib/storage/sign-stored-url", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/storage/sign-stored-url")>()),
+  signStoredMediaUrl: (u: string | null | undefined) => signStoredMediaUrl(u),
+}));
+
 vi.mock("@/lib/api-errors", () => ({
   apiError: (_request: unknown, options: { status: number; message: string }) =>
     Response.json({ error: options.message }, { status: options.status }),
@@ -51,17 +59,22 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
     .mockResolvedValue({ ok: true, data: {} }),
 }));
 
+import sharp from "sharp";
 import { GET } from "../route";
 
-const PNG_1x1 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const HOST = "https://abc.supabase.co";
 
-function bytes(base64: string): Uint8Array {
-  const bin = atob(base64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
+// A small valid PNG made by sharp. (The 1x1 base64 PNG used elsewhere fails
+// libpng's checks, so the route would rightly drop it as unreadable.)
+let smallPng: Uint8Array;
+beforeAll(async () => {
+  smallPng = new Uint8Array(
+    await sharp({ create: { width: 4, height: 3, channels: 3, background: "#808080" } })
+      .png()
+      .toBuffer(),
+  );
+});
+const png = () => smallPng.slice();
 
 const request = () =>
   new NextRequest("http://localhost/api/inspections/insp-1/report?format=pdf");
@@ -97,7 +110,7 @@ const photoRow = {
   photos: Array.from({ length: 7 }, (_, i) => ({
     id: `photo-${i}`,
     inspectionId: "insp-1",
-    url: `https://store.example/row-org/insp-1/${i}.png`,
+    url: `${HOST}/storage/v1/object/public/evidence-optimised/row-org/insp-1/${i}.png`,
     thumbnailUrl: null,
     description: null,
     location: null,
@@ -114,6 +127,8 @@ async function onePagePdf(): Promise<Uint8Array> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", HOST);
   getServerSession.mockResolvedValue({ user: { id: "session-user" } });
   inspectionFindFirst.mockImplementation(async (args: { select?: Record<string, unknown> }) => {
     if (args?.select && "photos" in args.select) return photoRow;
@@ -128,11 +143,23 @@ async function pageCount(response: Response): Promise<number> {
   return doc.getPageCount();
 }
 
+/** The /Filter of every image in the PDF. */
+async function imageFilters(response: Response): Promise<string[]> {
+  const doc = await PDFDocument.load(new Uint8Array(await response.arrayBuffer()));
+  const filters: string[] = [];
+  for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+    if (!(obj instanceof PDFRawStream)) continue;
+    if (String(obj.dict.get(PDFName.of("Subtype"))) !== "/Image") continue;
+    filters.push(String(obj.dict.get(PDFName.of("Filter"))));
+  }
+  return filters;
+}
+
 describe("GET /api/inspections/[id]/report?format=pdf — real PDF bytes", () => {
   it("the returned report has photo grid pages after the report pages", async () => {
     prepareReportPhotos.mockResolvedValue({
       photos: Array.from({ length: 7 }, (_, i) => ({
-        bytes: bytes(PNG_1x1),
+        bytes: png(),
         isPng: true,
         caption: `Photo ${i}`,
       })),
@@ -145,6 +172,39 @@ describe("GET /api/inspections/[id]/report?format=pdf — real PDF bytes", () =>
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/pdf");
     expect(await pageCount(response)).toBe(1 + 2); // 7 photos, 6 per grid page
+  });
+
+  it("runs the real photo helper through the route's download budget", async () => {
+    const actual = await vi.importActual<typeof import("@/lib/reports/inspection-photos-to-images")>(
+      "@/lib/reports/inspection-photos-to-images",
+    );
+    prepareReportPhotos.mockImplementation(actual.prepareReportPhotos);
+    const remote = vi.fn(async () => new Response(png(), { status: 200 }));
+    vi.stubGlobal("fetch", remote);
+
+    const response = await GET(request(), context);
+
+    expect(remote).toHaveBeenCalledTimes(7);
+    expect(signStoredMediaUrl).toHaveBeenCalledTimes(7);
+    expect(await pageCount(response)).toBe(1 + 2);
+  });
+
+  it("a large PNG is drawn as a JPEG, never decoded to raw pixels by pdf-lib", async () => {
+    const png = await sharp({
+      create: { width: 2400, height: 1800, channels: 3, noise: { type: "gaussian", mean: 128, sigma: 30 } },
+    })
+      .png()
+      .toBuffer();
+    prepareReportPhotos.mockResolvedValue({
+      photos: [{ bytes: new Uint8Array(png), isPng: true, caption: "Large PNG" }],
+      missing: 0,
+      reasons: {},
+    });
+
+    const response = await GET(request(), context);
+
+    expect(await imageFilters(response.clone())).toEqual(["/DCTDecode"]);
+    expect(await pageCount(response)).toBe(1 + 1);
   });
 
   it("when no photo can be prepared, the report gains one notice page", async () => {

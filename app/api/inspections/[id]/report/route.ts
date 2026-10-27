@@ -23,6 +23,8 @@ import {
   prepareReportPhotos,
 } from "@/lib/reports/inspection-photos-to-images";
 import { reportError } from "@/lib/observability";
+import type { ReportPhoto } from "@/lib/reports/inspection-photos-to-images";
+import sharp from "sharp";
 import {
   WORKSPACE_OWNER_SELECT,
   workspaceBusiness,
@@ -57,6 +59,9 @@ const NIR_PHOTO_LIMIT = 500;
 const NIR_PHOTO_DEADLINE_MS = 25_000;
 const NIR_PHOTO_FETCH_BUDGET_BYTES = 40 * 1024 * 1024;
 const MAX_PDF_BYTES = 60 * 1024 * 1024;
+const PDF_PHOTO_MAX_EDGE = 1600;
+const SHRINK_JPEG_ABOVE_BYTES = 2 * 1024 * 1024;
+const SHRINK_INPUT_MAX_PIXELS = 40_000_000;
 
 // GET — Generate report in requested format (json | pdf | excel)
 export async function GET(
@@ -414,14 +419,19 @@ async function appendInspectionPhotos(
     reason: PhotoDropReason,
     error: unknown,
     extra: Record<string, unknown> = {},
-  ) =>
-    reportError(error, {
-      route: "/api/inspections/[id]/report",
-      stage: "inspection:report:photos-dropped",
-      inspectionId: id,
-      reason,
-      ...extra,
-    });
+  ) => {
+    try {
+      reportError(error, {
+        route: "/api/inspections/[id]/report",
+        stage: "inspection:report:photos-dropped",
+        inspectionId: id,
+        reason,
+        ...extra,
+      });
+    } catch {
+      // Logging must never fail the report.
+    }
+  };
 
   let row;
   try {
@@ -502,16 +512,23 @@ async function appendInspectionPhotos(
           ownerFolders: photoOwnerFolders(photoRow),
           totalCount: total,
           fetchImpl: budget.fetch,
+          signal: controller.signal,
         });
       } catch (error) {
         throw new PhotoStageError("prepare_failed", error);
       }
+      // An abandoned stage draws nothing: its result is never sent, and
+      // drawing would only hold the gate and memory longer.
+      if (controller.signal.aborted) return { bytes: base, missing: total };
+      const drawable = await shrinkForPdf(prepared.photos);
+      if (controller.signal.aborted) return { bytes: base, missing: total };
+      const missing = prepared.missing + drawable.dropped;
       try {
-        const bytes = await appendPhotoPages(base, prepared.photos, {
+        const bytes = await appendPhotoPages(base, drawable.photos, {
           ...pageOptions,
-          missingCount: prepared.missing,
+          missingCount: missing,
         });
-        return { bytes, missing: prepared.missing };
+        return { bytes, missing };
       } catch (error) {
         throw new PhotoStageError("append_failed", error);
       }
@@ -561,6 +578,52 @@ async function appendInspectionPhotos(
 }
 
 /**
+ * Re-encodes photos pdf-lib would hold as raw pixels: anything that is not a
+ * JPEG (pdf-lib decodes a PNG to RGB, about 36 MB for 12 MP) and JPEGs over
+ * 2 MB. The result is a JPEG at most 1600 px on its long edge, which pdf-lib
+ * embeds without decoding. sharp works off the event loop; one photo at a
+ * time keeps its own memory small. A photo sharp cannot read is kept if it is
+ * a JPEG and dropped otherwise, so pdf-lib never decodes a PNG here.
+ */
+async function shrinkForPdf(
+  photos: ReportPhoto[],
+): Promise<{ photos: ReportPhoto[]; dropped: number }> {
+  const kept: ReportPhoto[] = [];
+  let dropped = 0;
+  for (const photo of photos) {
+    const jpeg = isJpeg(photo.bytes);
+    if (jpeg && photo.bytes.length <= SHRINK_JPEG_ABOVE_BYTES) {
+      kept.push(photo);
+      continue;
+    }
+    try {
+      const bytes = await sharp(photo.bytes, {
+        limitInputPixels: SHRINK_INPUT_MAX_PIXELS,
+      })
+        .rotate()
+        .resize({
+          width: PDF_PHOTO_MAX_EDGE,
+          height: PDF_PHOTO_MAX_EDGE,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .flatten({ background: "#ffffff" })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+      kept.push({ ...photo, bytes: new Uint8Array(bytes), isPng: false });
+    } catch {
+      if (jpeg) kept.push(photo);
+      else dropped++;
+    }
+  }
+  return { photos: kept, dropped };
+}
+
+function isJpeg(bytes: Uint8Array): boolean {
+  return bytes.length > 2 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+}
+
+/**
  * A fetch for one request's photo stage. It stops downloading once
  * `limitBytes` have been received across that request's photos, and once
  * `stop` aborts. Refused photos get a non-ok response, which the photo helper
@@ -589,15 +652,17 @@ function budgetedFetch(limitBytes: number, stop: AbortSignal) {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      size += value.byteLength;
-      if (received + size > limitBytes) {
+      // Counted as each chunk arrives, so downloads running side by side
+      // share one budget. A refused photo's bytes stay counted.
+      received += value.byteLength;
+      if (tripped || received > limitBytes) {
         tripped = true;
         await reader.cancel().catch(() => {});
         return refuse();
       }
       chunks.push(value);
+      size += value.byteLength;
     }
-    received += size;
     const body = new Uint8Array(size);
     let offset = 0;
     for (const chunk of chunks) {
