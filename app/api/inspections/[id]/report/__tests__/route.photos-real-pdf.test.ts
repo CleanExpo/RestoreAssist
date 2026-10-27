@@ -207,6 +207,42 @@ describe("GET /api/inspections/[id]/report?format=pdf — real PDF bytes", () =>
     expect(await pageCount(response)).toBe(1 + 1);
   });
 
+  it("a file that is not a JPEG, PNG or WebP never reaches sharp and is counted missing", async () => {
+    const tiff = await sharp({
+      create: { width: 40, height: 30, channels: 3, background: "#336699" },
+    })
+      .tiff()
+      .toBuffer();
+    prepareReportPhotos.mockResolvedValue({
+      photos: [{ bytes: new Uint8Array(tiff), isPng: false, caption: "TIFF" }],
+      missing: 0,
+      reasons: {},
+    });
+
+    const response = await GET(request(), context);
+
+    expect(await imageFilters(response.clone())).toEqual([]);
+    expect(await pageCount(response)).toBe(1 + 1); // the notice page
+  });
+
+  it("a PNG over 25 megapixels is refused, not decoded", async () => {
+    const huge = await sharp({
+      create: { width: 6000, height: 5000, channels: 3, background: "#ffffff" },
+    })
+      .png()
+      .toBuffer();
+    prepareReportPhotos.mockResolvedValue({
+      photos: [{ bytes: new Uint8Array(huge), isPng: true, caption: "30 MP" }],
+      missing: 0,
+      reasons: {},
+    });
+
+    const response = await GET(request(), context);
+
+    expect(await imageFilters(response.clone())).toEqual([]);
+    expect(await pageCount(response)).toBe(1 + 1);
+  });
+
   it("when no photo can be prepared, the report gains one notice page", async () => {
     prepareReportPhotos.mockRejectedValue(new Error("storage down"));
 

@@ -24,7 +24,6 @@ import {
 } from "@/lib/reports/inspection-photos-to-images";
 import { reportError } from "@/lib/observability";
 import type { ReportPhoto } from "@/lib/reports/inspection-photos-to-images";
-import sharp from "sharp";
 import {
   WORKSPACE_OWNER_SELECT,
   workspaceBusiness,
@@ -61,7 +60,10 @@ const NIR_PHOTO_FETCH_BUDGET_BYTES = 40 * 1024 * 1024;
 const MAX_PDF_BYTES = 60 * 1024 * 1024;
 const PDF_PHOTO_MAX_EDGE = 1600;
 const SHRINK_JPEG_ABOVE_BYTES = 2 * 1024 * 1024;
-const SHRINK_INPUT_MAX_PIXELS = 40_000_000;
+const SHRINK_INPUT_MAX_PIXELS = 25_000_000;
+// Re-encoding stops this long before the deadline, so the photos already done
+// are still drawn (JPEG embedding takes milliseconds) instead of all being lost.
+const NIR_PHOTO_DRAW_RESERVE_MS = 5_000;
 
 // GET — Generate report in requested format (json | pdf | excel)
 export async function GET(
@@ -382,7 +384,8 @@ type PhotoDropReason =
   | "busy"
   | "over_size"
   | "notice_failed"
-  | "fetch_budget";
+  | "fetch_budget"
+  | "shrink_time";
 
 class PhotoStageError extends Error {
   constructor(
@@ -486,6 +489,8 @@ async function appendInspectionPhotos(
   // The deadline covers waiting for the gate as well as the work itself. When
   // it fires, downloads in flight are aborted and new ones are refused.
   const controller = new AbortController();
+  const shrinkUntil =
+    Date.now() + NIR_PHOTO_DEADLINE_MS - NIR_PHOTO_DRAW_RESERVE_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<"deadline">((resolve) => {
     timer = setTimeout(() => {
@@ -519,16 +524,20 @@ async function appendInspectionPhotos(
       }
       // An abandoned stage draws nothing: its result is never sent, and
       // drawing would only hold the gate and memory longer.
-      if (controller.signal.aborted) return { bytes: base, missing: total };
-      const drawable = await shrinkForPdf(prepared.photos);
-      if (controller.signal.aborted) return { bytes: base, missing: total };
+      if (controller.signal.aborted) {
+        return { bytes: base, missing: total, droppedForTime: 0 };
+      }
+      const drawable = await shrinkForPdf(prepared.photos, shrinkUntil);
+      if (controller.signal.aborted) {
+        return { bytes: base, missing: total, droppedForTime: 0 };
+      }
       const missing = prepared.missing + drawable.dropped;
       try {
         const bytes = await appendPhotoPages(base, drawable.photos, {
           ...pageOptions,
           missingCount: missing,
         });
-        return { bytes, missing };
+        return { bytes, missing, droppedForTime: drawable.droppedForTime };
       } catch (error) {
         throw new PhotoStageError("append_failed", error);
       }
@@ -564,6 +573,13 @@ async function appendInspectionPhotos(
         { pdfBytes: outcome.bytes.length },
       );
     }
+    if (outcome.droppedForTime > 0) {
+      log(
+        "shrink_time",
+        new Error("photo re-encoding ran out of time"),
+        { photoCount: total, droppedForTime: outcome.droppedForTime },
+      );
+    }
     if (budget.tripped()) {
       log(
         "fetch_budget",
@@ -582,45 +598,91 @@ async function appendInspectionPhotos(
  * JPEG (pdf-lib decodes a PNG to RGB, about 36 MB for 12 MP) and JPEGs over
  * 2 MB. The result is a JPEG at most 1600 px on its long edge, which pdf-lib
  * embeds without decoding. sharp works off the event loop; one photo at a
- * time keeps its own memory small. A photo sharp cannot read is kept if it is
- * a JPEG and dropped otherwise, so pdf-lib never decodes a PNG here.
+ * time keeps its own memory small. Only JPEG, PNG and WebP bytes reach sharp
+ * (pdf-lib can draw nothing else anyway), and only up to 25 MP.
+ *
+ * Re-encoding stops at `until`. A photo not re-encoded by then, or one sharp
+ * cannot read, is kept as it is if it is a JPEG (cheap to embed) and dropped
+ * otherwise, so pdf-lib never decodes a PNG here. Dropped photos are counted.
  */
 async function shrinkForPdf(
   photos: ReportPhoto[],
-): Promise<{ photos: ReportPhoto[]; dropped: number }> {
+  until: number,
+): Promise<{ photos: ReportPhoto[]; dropped: number; droppedForTime: number }> {
   const kept: ReportPhoto[] = [];
   let dropped = 0;
+  let droppedForTime = 0;
   for (const photo of photos) {
     const jpeg = isJpeg(photo.bytes);
     if (jpeg && photo.bytes.length <= SHRINK_JPEG_ABOVE_BYTES) {
       kept.push(photo);
       continue;
     }
-    try {
-      const bytes = await sharp(photo.bytes, {
-        limitInputPixels: SHRINK_INPUT_MAX_PIXELS,
-      })
-        .rotate()
-        .resize({
-          width: PDF_PHOTO_MAX_EDGE,
-          height: PDF_PHOTO_MAX_EDGE,
-          fit: "inside",
-          withoutEnlargement: true,
+    if (!jpeg && !isPng(photo.bytes) && !isWebp(photo.bytes)) {
+      dropped++;
+      continue;
+    }
+    const remaining = until - Date.now();
+    let late = remaining <= 0;
+    let encoded: Uint8Array | null = null;
+    if (!late) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const sharp = (await import("sharp")).default;
+        const encode = sharp(photo.bytes, {
+          limitInputPixels: SHRINK_INPUT_MAX_PIXELS,
         })
-        .flatten({ background: "#ffffff" })
-        .jpeg({ quality: 80 })
-        .toBuffer();
-      kept.push({ ...photo, bytes: new Uint8Array(bytes), isPng: false });
-    } catch {
-      if (jpeg) kept.push(photo);
-      else dropped++;
+          .rotate()
+          .resize({
+            width: PDF_PHOTO_MAX_EDGE,
+            height: PDF_PHOTO_MAX_EDGE,
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .flatten({ background: "#ffffff" })
+          .jpeg({ quality: 80 })
+          .toBuffer();
+        // A late re-encode finishes in the background; nothing awaits it.
+        encode.catch(() => {});
+        const result = await Promise.race([
+          encode,
+          new Promise<"late">((resolve) => {
+            timer = setTimeout(() => resolve("late"), remaining);
+          }),
+        ]);
+        if (result === "late") late = true;
+        else encoded = new Uint8Array(result);
+      } catch {
+        // Unreadable: handled below like a late photo.
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    if (encoded) {
+      kept.push({ ...photo, bytes: encoded, isPng: false });
+    } else if (jpeg) {
+      kept.push(photo);
+    } else {
+      dropped++;
+      if (late) droppedForTime++;
     }
   }
-  return { photos: kept, dropped };
+  return { photos: kept, dropped, droppedForTime };
 }
 
 function isJpeg(bytes: Uint8Array): boolean {
   return bytes.length > 2 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+}
+
+function isPng(bytes: Uint8Array): boolean {
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  return bytes.length > sig.length && sig.every((b, i) => bytes[i] === b);
+}
+
+function isWebp(bytes: Uint8Array): boolean {
+  const ascii = (from: number, to: number) =>
+    String.fromCharCode(...bytes.subarray(from, to));
+  return bytes.length > 12 && ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP";
 }
 
 /**

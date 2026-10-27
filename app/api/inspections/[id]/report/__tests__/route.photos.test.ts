@@ -44,6 +44,26 @@ vi.mock("@/lib/reports/append-photo-pages", () => ({
   appendPhotoPages: (...args: unknown[]) => appendPhotoPages(...args),
 }));
 
+// sharp is replaced by a chain whose final step the test controls, so a
+// re-encode can be made to finish after the deadline.
+const JPG_BYTES = [0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10];
+const toBuffer = vi.fn();
+function sharpModule() {
+  return {
+    default: vi.fn(() => {
+      const chain = {
+        rotate: () => chain,
+        resize: () => chain,
+        flatten: () => chain,
+        jpeg: () => chain,
+        toBuffer: () => toBuffer(),
+      };
+      return chain;
+    }),
+  };
+}
+vi.mock("sharp", () => sharpModule());
+
 const reportError = vi.fn();
 vi.mock("@/lib/observability", () => ({
   reportError: (...args: unknown[]) => reportError(...args),
@@ -98,10 +118,22 @@ const PHOTO_ROWS = [photoRow(1), photoRow(2), photoRow(3)];
 
 // A small JPEG is drawn as it is; only larger or non-JPEG photos are re-encoded.
 const jpg = (caption: string) => ({
-  bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]),
+  bytes: new Uint8Array(JPG_BYTES),
   isPng: false,
   caption,
 });
+const png = (caption: string) => ({
+  bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]),
+  isPng: true,
+  caption,
+});
+// Just over the 2 MB line, so it is re-encoded when there is time.
+const bigJpg = (caption: string) => {
+  const bytes = new Uint8Array(2 * 1024 * 1024 + 1);
+  bytes.set(JPG_BYTES);
+  return { bytes, isPng: false, caption };
+};
+const captions = (photos: Array<{ caption: string }>) => photos.map((p) => p.caption);
 
 const PHOTO_SELECT = {
   userId: true,
@@ -183,6 +215,7 @@ let photoQuery: (args: Args) => unknown;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  reportError.mockReset();
   photoQuery = answerPhotoQuery;
   getServerSession.mockResolvedValue({
     user: { id: "session-user", organizationId: "session-org" },
@@ -200,6 +233,7 @@ beforeEach(() => {
     missing: 0,
     reasons: {},
   });
+  toBuffer.mockResolvedValue(Buffer.from(JPG_BYTES));
   appendPhotoPages.mockImplementation(async (bytes: Uint8Array, photos: unknown[]) =>
     photos.length ? WITH_PHOTOS : NOTICE,
   );
@@ -355,6 +389,64 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
     hanging.splice(0).forEach((settle) => settle());
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(appendPhotoPages).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-encoding stops 5 s before the deadline and the photos done by then are drawn", async () => {
+    vi.useFakeTimers();
+    prepareReportPhotos.mockResolvedValue({
+      photos: [png("a"), png("b"), bigJpg("c"), png("d")],
+      missing: 0,
+      reasons: {},
+    });
+    const later = (ms: number) => () =>
+      new Promise((resolve) => setTimeout(() => resolve(Buffer.from(JPG_BYTES)), ms));
+    // "a" is done at 5 s; "b" would finish at 35 s, past the 20 s re-encode limit.
+    toBuffer.mockImplementationOnce(later(5_000)).mockImplementationOnce(later(30_000));
+
+    const pending = GET(request(), context);
+    await vi.advanceTimersByTimeAsync(25_000);
+    const response = await pending;
+
+    expect(toBuffer).toHaveBeenCalledTimes(2);
+    expect(appendPhotoPages).toHaveBeenCalledTimes(1);
+    const [, photos, options] = appendPhotoPages.mock.calls[0];
+    // "c" is a JPEG, cheap to draw, so it is kept as it is; "b" and "d" are dropped.
+    expect(captions(photos)).toEqual(["a", "c"]);
+    expect(photos[1].bytes.length).toBe(2 * 1024 * 1024 + 1);
+    expect(options).toMatchObject({ missingCount: 2 });
+    expect(await body(response)).toEqual(WITH_PHOTOS);
+    expect(dropReasons()).toEqual(["shrink_time"]);
+    expect(reportError.mock.calls[0][1]).toMatchObject({ photoCount: TOTAL, droppedForTime: 2 });
+  });
+
+  it("a photo sharp cannot read is kept if it is a JPEG, dropped and counted if not", async () => {
+    prepareReportPhotos.mockResolvedValue({
+      photos: [png("a"), bigJpg("b")],
+      missing: 5,
+      reasons: {},
+    });
+    toBuffer.mockRejectedValue(new Error("unsupported image format"));
+
+    const response = await GET(request(), context);
+
+    const [, photos, options] = appendPhotoPages.mock.calls[0];
+    expect(captions(photos)).toEqual(["b"]);
+    expect(options).toMatchObject({ missingCount: 6 });
+    expect(await body(response)).toEqual(WITH_PHOTOS);
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it("a logging failure never fails the report", async () => {
+    reportError.mockImplementation(() => {
+      throw new Error("telemetry down");
+    });
+    prepareReportPhotos.mockRejectedValue(new Error("storage down"));
+
+    const response = await GET(request(), context);
+
+    expect(response.status).toBe(200);
+    expect(await body(response)).toEqual(NOTICE);
+    expect(dropReasons()).toEqual(["prepare_failed"]);
   });
 
   it("counts downloads still in flight against the 40 MB budget", async () => {
@@ -520,5 +612,34 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
     expect(inspectionFindFirst.mock.calls.some((c) => isPhotoQuery(c[0]))).toBe(false);
     expect(prepareReportPhotos).not.toHaveBeenCalled();
     expect(appendPhotoPages).not.toHaveBeenCalled();
+  });
+
+  it("if the image library cannot load, every format still works and only non-JPEG photos are dropped", async () => {
+    const baseline = await Promise.all(
+      ["json", "excel"].map(async (format) => (await GET(request(format), context)).status),
+    );
+    vi.resetModules();
+    vi.doMock("sharp", () => {
+      throw new Error("native module failed to load");
+    });
+    try {
+      // A route module that imported sharp at load time would fail right here.
+      const { GET: fresh } = await import("../route");
+      const statuses = await Promise.all(
+        ["json", "excel"].map(async (format) => (await fresh(request(format), context)).status),
+      );
+      expect(statuses).toEqual(baseline);
+
+      prepareReportPhotos.mockResolvedValue({ photos: [png("a"), jpg("b")], missing: 0, reasons: {} });
+      const response = await fresh(request(), context);
+
+      expect(response.status).toBe(200);
+      const [, photos, options] = appendPhotoPages.mock.calls.at(-1)!;
+      expect(captions(photos)).toEqual(["b"]);
+      expect(options).toMatchObject({ missingCount: 1 });
+    } finally {
+      vi.doMock("sharp", () => sharpModule());
+      vi.resetModules();
+    }
   });
 });
