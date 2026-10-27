@@ -106,6 +106,16 @@ function isoTime(value: unknown, label: string): number {
   return parsed;
 }
 
+// Read a list by index into records built here. Never call the input's own
+// map(): a list can replace it and return records with getters on them.
+function plainList<T, R>(list: readonly T[], label: string, pick: (item: T) => R): R[] {
+  if (!Array.isArray(list)) throw new Error("Invalid " + label);
+  const length = list.length;
+  const out: R[] = [];
+  for (let i = 0; i < length; i++) out.push(pick(list[i]));
+  return out;
+}
+
 function deepFreeze<T>(value: T): T {
   if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
     for (const item of Object.values(value)) deepFreeze(item);
@@ -148,19 +158,19 @@ export function buildReportExperienceSnapshot(
     approvedLogoAssetId: brand.approvedLogoAssetId,
     propertyAddress: evidence.propertyAddress,
     safetyAssessment: evidence.safetyAssessment,
-    hazards: evidence.hazards.map(item => ({
+    hazards: plainList(evidence.hazards, "hazards", item => ({
       id: item.id, title: item.title, action: item.action, verification: item.verification,
     })),
-    moistureReadings: evidence.moistureReadings.map(item => ({
+    moistureReadings: plainList(evidence.moistureReadings, "readings", item => ({
       id: item.id, roomId: item.roomId, observedAt: item.observedAt, value: item.value, unit: item.unit,
     })),
-    scopeItems: evidence.scopeItems.map(item => ({
+    scopeItems: plainList(evidence.scopeItems, "scope items", item => ({
       id: item.id, description: item.description, approvalStatus: item.approvalStatus,
     })),
     financials: money
       ? { estimatedTotalCents: money.estimatedTotalCents, currency: money.currency, estimateStatus: money.estimateStatus }
       : undefined,
-    sourceRefs: evidence.sourceRefs.map(item => ({ kind: item.kind, id: item.id })),
+    sourceRefs: plainList(evidence.sourceRefs, "source references", item => ({ kind: item.kind, id: item.id })),
   };
 
   ensureId(access.reportId, "grant report ID");

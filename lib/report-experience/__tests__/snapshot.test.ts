@@ -196,6 +196,25 @@ describe("authorised report snapshot", () => {
     expect(typeof pick(result)).toBe("string");
     expect(JSON.stringify(result)).not.toContain("hidden");
   });
+  // A list can replace its own map() and hand back records the builder did not
+  // make. The builder must read lists by index into records it creates itself.
+  function hostileMap<T extends object>(list: readonly T[], key: keyof T & string): readonly T[] {
+    return new Proxy(list, {
+      get: (target, prop, receiver) =>
+        prop === "map" ? () => target.map((item, i) => (i === 0 ? twoFaced(item, key) : item))
+          : Reflect.get(target, prop, receiver),
+    });
+  }
+  it.each([
+    ["hazards", () => ({ ...fixture, hazards: hostileMap(fixture.hazards, "title") })],
+    ["moisture readings", () => ({ ...fixture, moistureReadings: hostileMap(fixture.moistureReadings, "unit") })],
+    ["scope items", () => ({ ...fixture, scopeItems: hostileMap(fixture.scopeItems, "approvalStatus") })],
+    ["source references", () => ({ ...fixture, sourceRefs: hostileMap(fixture.sourceRefs, "kind") })],
+  ])("does not use a %s list's own map() to copy records", (_name, make) => {
+    const result = buildReportExperienceSnapshot(make() as VerifiedReportProjection, moneyGrant, now);
+    expect(JSON.stringify(result)).not.toContain("hidden");
+    expect(result).toEqual(buildReportExperienceSnapshot(fixture, moneyGrant, now));
+  });
   it("produces stable but permission-specific immutable receipts", () => {
     const base = buildReportExperienceSnapshot(fixture, grant, now);
     const same = buildReportExperienceSnapshot(fixture, grant, now);
