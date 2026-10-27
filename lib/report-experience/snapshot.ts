@@ -80,10 +80,27 @@ export type ReportExperienceSnapshot = Readonly<SanitisedReportBody & {
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
 const SIGNATURE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,200}$/;
 
+const SAFETY_ASSESSMENTS = ["NOT_ASSESSED", "PENDING_VERIFICATION", "ASSESSED"] as const;
+const HAZARD_VERIFICATIONS = ["unverified", "verified", "resolved"] as const;
+const READING_UNITS = ["WME", "RH_PERCENT", "G_PER_KG", "CELSIUS"] as const;
+const SCOPE_APPROVALS = ["unknown", "proposed", "authorised"] as const;
+const CURRENCIES = ["AUD", "NZD"] as const;
+const ESTIMATE_STATUSES = ["draft", "approved"] as const;
+const SOURCE_KINDS = ["inspection", "scope", "sketch", "photo", "reading"] as const;
+
+// Every copied value is checked at runtime: TypeScript types do not stop an
+// object or an unknown option from crossing this disclosure boundary.
 function ensureId(value: unknown, label: string, pattern = ID): void {
   if (typeof value !== "string" || !pattern.test(value)) throw new Error("Invalid " + label);
 }
-function isoTime(value: string, label: string): number {
+function ensureText(value: unknown, label: string): void {
+  if (typeof value !== "string") throw new Error("Invalid " + label);
+}
+function ensureOneOf(value: unknown, allowed: readonly string[], label: string): void {
+  if (typeof value !== "string" || !allowed.includes(value)) throw new Error("Invalid " + label);
+}
+function isoTime(value: unknown, label: string): number {
+  if (typeof value !== "string") throw new Error("Invalid " + label);
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) throw new Error("Invalid " + label);
   return parsed;
@@ -118,23 +135,47 @@ export function buildReportExperienceSnapshot(
     throw new Error("Denied: grant expired");
   }
   isoTime(evidence.revisionCreatedAt, "revision timestamp");
-  if (!evidence.workspaceBrand.businessName.trim()) throw new Error("Missing authoritative organisation brand");
+  ensureText(evidence.reportNumber, "report number");
+  ensureText(evidence.status, "status");
+  const businessName: unknown = evidence.workspaceBrand.businessName;
+  if (typeof businessName !== "string" || !businessName.trim()) throw new Error("Missing authoritative organisation brand");
+  if (evidence.propertyAddress !== undefined && evidence.propertyAddress !== null) {
+    ensureText(evidence.propertyAddress, "property address");
+  }
+  ensureOneOf(evidence.safetyAssessment, SAFETY_ASSESSMENTS, "safety assessment");
   // ID.test(null) coerces null to "null" and matches, so the type is checked first.
   const logo: unknown = evidence.workspaceBrand.approvedLogoAssetId;
   if (logo !== undefined && (typeof logo !== "string" || !ID.test(logo))) {
     throw new Error("Invalid approved logo asset ID");
   }
-  for (const source of evidence.sourceRefs) ensureId(source.id, "source ID", SIGNATURE_REF);
-  for (const hazard of evidence.hazards) ensureId(hazard.id, "hazard ID");
+  for (const source of evidence.sourceRefs) {
+    ensureOneOf(source.kind, SOURCE_KINDS, "source kind");
+    ensureId(source.id, "source ID", SIGNATURE_REF);
+  }
+  for (const hazard of evidence.hazards) {
+    ensureId(hazard.id, "hazard ID");
+    ensureText(hazard.title, "hazard title");
+    ensureText(hazard.action, "hazard action");
+    ensureOneOf(hazard.verification, HAZARD_VERIFICATIONS, "hazard verification");
+  }
   for (const reading of evidence.moistureReadings) {
     ensureId(reading.id, "reading ID");
     ensureId(reading.roomId, "reading room ID");
     isoTime(reading.observedAt, "reading timestamp");
     if (!Number.isFinite(reading.value)) throw new Error("Invalid observed reading");
+    ensureOneOf(reading.unit, READING_UNITS, "reading unit");
   }
-  for (const item of evidence.scopeItems) ensureId(item.id, "scope ID");
-  if (evidence.financials && (!Number.isSafeInteger(evidence.financials.estimatedTotalCents) || evidence.financials.estimatedTotalCents < 0)) {
-    throw new Error("Invalid money in authoritative evidence");
+  for (const item of evidence.scopeItems) {
+    ensureId(item.id, "scope ID");
+    ensureText(item.description, "scope description");
+    ensureOneOf(item.approvalStatus, SCOPE_APPROVALS, "scope approval");
+  }
+  if (evidence.financials) {
+    if (!Number.isSafeInteger(evidence.financials.estimatedTotalCents) || evidence.financials.estimatedTotalCents < 0) {
+      throw new Error("Invalid money in authoritative evidence");
+    }
+    ensureOneOf(evidence.financials.currency, CURRENCIES, "currency");
+    ensureOneOf(evidence.financials.estimateStatus, ESTIMATE_STATUSES, "estimate status");
   }
 
   // Clone the authorised projection. Do not return live mutable Prisma objects.

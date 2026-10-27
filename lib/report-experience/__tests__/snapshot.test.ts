@@ -142,6 +142,29 @@ describe("authorised report snapshot", () => {
       ...fixture, ...change,
     } as unknown as VerifiedReportProjection, grant, now)).toThrow(message);
   });
+  const smuggled = { note: "hidden", toString: () => "2026-10-27T08:00:00Z", trim: () => "x" };
+  it.each([
+    ["report number", { reportNumber: smuggled }, /report number/i],
+    ["status", { status: smuggled }, /status/i],
+    ["revision timestamp", { revisionCreatedAt: smuggled }, /revision timestamp/i],
+    ["business name", { workspaceBrand: { businessName: smuggled } }, /organisation brand/i],
+    ["property address", { propertyAddress: smuggled }, /property address/i],
+    ["safety assessment", { safetyAssessment: "SAFE" }, /safety assessment/i],
+    ["hazard title", { hazards: [{ ...fixture.hazards[0], title: smuggled }] }, /hazard title/i],
+    ["hazard action", { hazards: [{ ...fixture.hazards[0], action: smuggled }] }, /hazard action/i],
+    ["hazard verification", { hazards: [{ ...fixture.hazards[0], verification: smuggled }] }, /hazard verification/i],
+    ["reading timestamp", { moistureReadings: [{ ...fixture.moistureReadings[0], observedAt: smuggled }] }, /reading timestamp/i],
+    ["reading unit", { moistureReadings: [{ ...fixture.moistureReadings[0], unit: "PERCENT" }] }, /reading unit/i],
+    ["scope description", { scopeItems: [{ ...fixture.scopeItems[0], description: smuggled }] }, /scope description/i],
+    ["scope approval", { scopeItems: [{ ...fixture.scopeItems[0], approvalStatus: smuggled }] }, /scope approval/i],
+    ["currency", { financials: { ...fixture.financials, currency: "USD" } }, /currency/i],
+    ["estimate status", { financials: { ...fixture.financials, estimateStatus: smuggled } }, /estimate status/i],
+    ["source kind", { sourceRefs: [{ kind: smuggled, id: "inspection_1" }] }, /source kind/i],
+  ])("rejects a %s that is not the declared text or option", (_name, change, message) => {
+    expect(() => buildReportExperienceSnapshot({
+      ...fixture, ...change,
+    } as unknown as VerifiedReportProjection, moneyGrant, now)).toThrow(message);
+  });
   it("produces stable but permission-specific immutable receipts", () => {
     const base = buildReportExperienceSnapshot(fixture, grant, now);
     const same = buildReportExperienceSnapshot(fixture, grant, now);
