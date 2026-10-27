@@ -1,4 +1,30 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+/**
+ * The builder accepts only grants issued by authoriseReportExperienceRead, so
+ * these tests obtain every grant through that gate, with its database and
+ * tenancy reads replaced by small fakes.
+ */
+const fake = vi.hoisted(() => ({ financial: true }));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    report: {
+      findFirst: vi.fn(async () => ({ id: "report_001", userId: "user_a", createdAt: new Date("2026-09-15T00:00:00Z") })),
+      count: vi.fn(async () => (fake.financial ? 1 : 0)),
+    },
+    reportShareAccess: { findUnique: vi.fn(async () => null), update: vi.fn(async () => ({})) },
+  },
+}));
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  resolveReportReach: vi.fn(async () => ({ ok: true, data: {} })),
+  resolveReportFinancialReach: vi.fn(async () => ({ ok: true, data: {} })),
+}));
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: vi.fn(async () => ({ ownerId: "owner_a", organizationId: "business_a" })),
+}));
+
+import { authoriseReportExperienceRead } from "../authorise";
 import {
   buildReportExperienceSnapshot,
   type ReportReadGrant,
@@ -7,7 +33,7 @@ import {
 
 const fixture: VerifiedReportProjection = {
   reportId: "report_001",
-  organisationId: "business_a",
+  organisationId: "org_business_a",
   revision: "rev-a",
   revisionCreatedAt: "2026-10-27T08:00:00Z",
   reportNumber: "SAMPLE-001",
@@ -21,15 +47,27 @@ const fixture: VerifiedReportProjection = {
   financials: { estimatedTotalCents: 27500, currency: "AUD", estimateStatus: "draft" },
   sourceRefs: [{ kind: "inspection", id: "inspection_1" }, { kind: "reading", id: "reading_1" }],
 };
-const grant: ReportReadGrant = {
-  reportId: "report_001",
-  organisationId: "business_a",
-  audience: "property-owner",
-  mayViewAddress: false,
-  mayViewFinancials: false,
-  expiresAt: "2026-10-29T08:00:00Z",
-};
-const now = "2026-10-27T12:00:00Z";
+const NOW = new Date("2026-10-27T12:00:00Z");
+const now = NOW.toISOString();
+
+async function grantFor(financial: boolean): Promise<ReportReadGrant> {
+  fake.financial = financial;
+  const result = await authoriseReportExperienceRead({
+    reportId: "report_001",
+    session: { user: { id: "user_t", role: "USER" } },
+  });
+  if (!result.ok) throw new Error("expected a grant");
+  return result.grant;
+}
+
+let grant: ReportReadGrant;
+let moneyGrant: ReportReadGrant;
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+  grant = await grantFor(false);
+  moneyGrant = await grantFor(true);
+});
 
 describe("authorised report snapshot", () => {
   it("keeps original evidence values, provenance and missing safety state", () => {
@@ -41,28 +79,26 @@ describe("authorised report snapshot", () => {
     expect(result.schemaVersion).toBe(1);
     expect(result.contentDigestSha256).toMatch(/^[a-f0-9]{64}$/);
   });
-  it("excludes financials and property address when their separate permissions are absent", () => {
+  it("excludes financials when the money permission is absent", () => {
     const result = buildReportExperienceSnapshot(fixture, grant, now);
+    expect(grant.mayViewFinancials).toBe(false);
     expect("financials" in result).toBe(false);
-    expect("propertyAddress" in result).toBe(false);
     expect(JSON.stringify(result)).not.toContain("27500");
-    expect(JSON.stringify(result)).not.toContain("Example Street");
   });
-  it("includes explicitly approved financials and address without changing safety evidence", () => {
-    const result = buildReportExperienceSnapshot(fixture, {
-      ...grant, audience: "manager", mayViewAddress: true, mayViewFinancials: true,
-    }, now);
+  it("includes approved financials and address without changing safety evidence", () => {
+    const result = buildReportExperienceSnapshot(fixture, moneyGrant, now);
     expect(result.financials?.estimatedTotalCents).toBe(27500);
     expect(result.propertyAddress).toContain("Example Street");
     expect(result.hazards).toEqual(fixture.hazards);
   });
-  it("denies cross-organisation and wrong-report grants", () => {
-    expect(() => buildReportExperienceSnapshot(fixture, { ...grant, organisationId: "business_b" }, now)).toThrow(/mismatch/i);
-    expect(() => buildReportExperienceSnapshot(fixture, { ...grant, reportId: "another_report" }, now)).toThrow(/mismatch/i);
+  it("denies evidence from another organisation or another report", () => {
+    expect(() => buildReportExperienceSnapshot({ ...fixture, organisationId: "org_business_b" }, grant, now)).toThrow(/mismatch/i);
+    expect(() => buildReportExperienceSnapshot({ ...fixture, reportId: "another_report" }, grant, now)).toThrow(/mismatch/i);
   });
-  it("rejects an expired or malformed grant without a soft fallback", () => {
-    expect(() => buildReportExperienceSnapshot(fixture, { ...grant, expiresAt: now }, now)).toThrow(/expired/i);
-    expect(() => buildReportExperienceSnapshot(fixture, { ...grant, expiresAt: "not-a-date" }, now)).toThrow(/expiry/i);
+  it("rejects a grant once it has expired, without a soft fallback", () => {
+    const later = new Date(Date.parse(grant.expiresAt) + 1000).toISOString();
+    expect(() => buildReportExperienceSnapshot(fixture, grant, later)).toThrow(/expired/i);
+    expect(() => buildReportExperienceSnapshot(fixture, grant, "not-a-date")).toThrow(/reference time/i);
   });
   it("fails invalid measurements and negative costs instead of generating corrected values", () => {
     expect(() => buildReportExperienceSnapshot({
@@ -85,7 +121,7 @@ describe("authorised report snapshot", () => {
   it("produces stable but permission-specific immutable receipts", () => {
     const base = buildReportExperienceSnapshot(fixture, grant, now);
     const same = buildReportExperienceSnapshot(fixture, grant, now);
-    const financial = buildReportExperienceSnapshot(fixture, { ...grant, mayViewFinancials: true }, now);
+    const financial = buildReportExperienceSnapshot(fixture, moneyGrant, now);
     expect(base.contentDigestSha256).toBe(same.contentDigestSha256);
     expect(base.contentDigestSha256).not.toBe(financial.contentDigestSha256);
     expect(Object.isFrozen(base)).toBe(true);

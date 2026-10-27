@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { isIssuedReportReadGrant } from "./authorise";
 
 /**
  * RA-8105: authorised data projection, not an authentication mechanism.
@@ -101,6 +102,8 @@ export function buildReportExperienceSnapshot(
   grant: ReportReadGrant,
   nowIso: string,
 ): ReportExperienceSnapshot {
+  // RA-8105: only the exact grant object authoriseReportExperienceRead issued.
+  if (!isIssuedReportReadGrant(grant)) throw new Error("Denied: grant not issued by the server gate");
   ensureId(grant.reportId, "grant report ID");
   ensureId(grant.organisationId, "grant organisation ID");
   ensureId(evidence.reportId, "report ID");
