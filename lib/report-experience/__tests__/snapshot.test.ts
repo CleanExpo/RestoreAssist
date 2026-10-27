@@ -165,6 +165,37 @@ describe("authorised report snapshot", () => {
       ...fixture, ...change,
     } as unknown as VerifiedReportProjection, moneyGrant, now)).toThrow(message);
   });
+  // A getter can answer the check with a valid value and the copy with an object.
+  // Each value must be read once, so the check and the copy see the same value.
+  function twoFaced<T extends object>(target: T, key: keyof T & string): T {
+    const valid = target[key];
+    let reads = 0;
+    return Object.defineProperty({ ...target }, key, {
+      enumerable: true,
+      get: () => (reads++ === 0 ? valid : smuggled),
+    });
+  }
+  type Snap = ReturnType<typeof buildReportExperienceSnapshot>;
+  it.each([
+    ["report number", () => twoFaced(fixture, "reportNumber"), (s: Snap) => s.reportNumber],
+    ["property address", () => twoFaced(fixture, "propertyAddress"), (s: Snap) => s.propertyAddress],
+    ["business name", () => ({ ...fixture, workspaceBrand: twoFaced(fixture.workspaceBrand, "businessName") }),
+      (s: Snap) => s.brand.businessName],
+    ["hazard title", () => ({ ...fixture, hazards: [twoFaced(fixture.hazards[0], "title")] }),
+      (s: Snap) => s.hazards[0].title],
+    ["reading unit", () => ({ ...fixture, moistureReadings: [twoFaced(fixture.moistureReadings[0], "unit")] }),
+      (s: Snap) => s.moistureReadings[0].unit],
+    ["scope approval", () => ({ ...fixture, scopeItems: [twoFaced(fixture.scopeItems[0], "approvalStatus")] }),
+      (s: Snap) => s.scopeItems[0].approvalStatus],
+    ["currency", () => ({ ...fixture, financials: twoFaced(fixture.financials!, "currency") }),
+      (s: Snap) => s.financials?.currency],
+    ["source kind", () => ({ ...fixture, sourceRefs: [twoFaced(fixture.sourceRefs[0], "kind")] }),
+      (s: Snap) => s.sourceRefs[0].kind],
+  ])("copies the same checked %s value, not a second read", (_name, make, pick) => {
+    const result = buildReportExperienceSnapshot(make() as VerifiedReportProjection, moneyGrant, now);
+    expect(typeof pick(result)).toBe("string");
+    expect(JSON.stringify(result)).not.toContain("hidden");
+  });
   it("produces stable but permission-specific immutable receipts", () => {
     const base = buildReportExperienceSnapshot(fixture, grant, now);
     const same = buildReportExperienceSnapshot(fixture, grant, now);
