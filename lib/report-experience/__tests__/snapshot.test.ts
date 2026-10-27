@@ -130,6 +130,18 @@ describe("authorised report snapshot", () => {
       ...fixture, workspaceBrand: { businessName: "Synthetic Test Organisation", approvedLogoAssetId: logo },
     } as VerifiedReportProjection, grant, now)).toThrow(/logo asset ID/i);
   });
+  it.each([
+    ["hazard", { hazards: [{ ...fixture.hazards[0], id: null }] }, /hazard ID/i],
+    ["reading", { moistureReadings: [{ ...fixture.moistureReadings[0], id: null }] }, /reading ID/i],
+    ["reading room", { moistureReadings: [{ ...fixture.moistureReadings[0], roomId: undefined }] }, /reading room ID/i],
+    ["scope", { scopeItems: [{ ...fixture.scopeItems[0], id: 123 }] }, /scope ID/i],
+    ["source", { sourceRefs: [{ kind: "inspection", id: null }] }, /source ID/i],
+    ["revision", { revision: null }, /revision/i],
+  ])("rejects a non-text %s ID instead of copying it as text", (_name, change, message) => {
+    expect(() => buildReportExperienceSnapshot({
+      ...fixture, ...change,
+    } as unknown as VerifiedReportProjection, grant, now)).toThrow(message);
+  });
   it("produces stable but permission-specific immutable receipts", () => {
     const base = buildReportExperienceSnapshot(fixture, grant, now);
     const same = buildReportExperienceSnapshot(fixture, grant, now);

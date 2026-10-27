@@ -80,8 +80,8 @@ export type ReportExperienceSnapshot = Readonly<SanitisedReportBody & {
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
 const SIGNATURE_REF = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,200}$/;
 
-function ensureId(value: string, label: string, pattern = ID): void {
-  if (!pattern.test(value)) throw new Error("Invalid " + label);
+function ensureId(value: unknown, label: string, pattern = ID): void {
+  if (typeof value !== "string" || !pattern.test(value)) throw new Error("Invalid " + label);
 }
 function isoTime(value: string, label: string): number {
   const parsed = Date.parse(value);
