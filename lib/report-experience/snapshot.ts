@@ -112,12 +112,18 @@ export function buildReportExperienceSnapshot(
   if (grant.reportId !== evidence.reportId || grant.organisationId !== evidence.organisationId) {
     throw new Error("Denied: report or organisation mismatch");
   }
-  if (isoTime(grant.expiresAt, "grant expiry") <= isoTime(nowIso, "reference time")) {
+  // The server clock is the floor: a caller's old reference time must not extend a grant.
+  const reference = Math.max(Date.now(), isoTime(nowIso, "reference time"));
+  if (isoTime(grant.expiresAt, "grant expiry") <= reference) {
     throw new Error("Denied: grant expired");
   }
   isoTime(evidence.revisionCreatedAt, "revision timestamp");
   if (!evidence.workspaceBrand.businessName.trim()) throw new Error("Missing authoritative organisation brand");
-  if (evidence.workspaceBrand.approvedLogoAssetId) ensureId(evidence.workspaceBrand.approvedLogoAssetId, "approved logo asset ID");
+  // ID.test(null) coerces null to "null" and matches, so the type is checked first.
+  const logo: unknown = evidence.workspaceBrand.approvedLogoAssetId;
+  if (logo !== undefined && (typeof logo !== "string" || !ID.test(logo))) {
+    throw new Error("Invalid approved logo asset ID");
+  }
   for (const source of evidence.sourceRefs) ensureId(source.id, "source ID", SIGNATURE_REF);
   for (const hazard of evidence.hazards) ensureId(hazard.id, "hazard ID");
   for (const reading of evidence.moistureReadings) {

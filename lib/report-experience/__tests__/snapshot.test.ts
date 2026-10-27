@@ -100,6 +100,10 @@ describe("authorised report snapshot", () => {
     expect(() => buildReportExperienceSnapshot(fixture, grant, later)).toThrow(/expired/i);
     expect(() => buildReportExperienceSnapshot(fixture, grant, "not-a-date")).toThrow(/reference time/i);
   });
+  it("rejects an expired grant even when the caller passes an old reference time", () => {
+    vi.setSystemTime(Date.parse(grant.expiresAt) + 60_000);
+    expect(() => buildReportExperienceSnapshot(fixture, grant, now)).toThrow(/expired/i);
+  });
   it("fails invalid measurements and negative costs instead of generating corrected values", () => {
     expect(() => buildReportExperienceSnapshot({
       ...fixture, moistureReadings: [{ ...fixture.moistureReadings[0], value: Number.NaN }],
@@ -117,6 +121,14 @@ describe("authorised report snapshot", () => {
     expect(() => buildReportExperienceSnapshot({
       ...fixture, workspaceBrand: { businessName: " " },
     }, grant, now)).toThrow(/organisation brand/i);
+  });
+  it.each([
+    ["an empty", ""],
+    ["a null", null],
+  ])("rejects %s approved logo ID instead of copying it", (_name, logo) => {
+    expect(() => buildReportExperienceSnapshot({
+      ...fixture, workspaceBrand: { businessName: "Synthetic Test Organisation", approvedLogoAssetId: logo },
+    } as VerifiedReportProjection, grant, now)).toThrow(/logo asset ID/i);
   });
   it("produces stable but permission-specific immutable receipts", () => {
     const base = buildReportExperienceSnapshot(fixture, grant, now);
