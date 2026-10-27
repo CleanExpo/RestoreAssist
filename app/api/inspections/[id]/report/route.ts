@@ -386,7 +386,8 @@ type PhotoDropReason =
   | "notice_failed"
   | "fetch_budget"
   | "shrink_time"
-  | "shrink_failed";
+  | "shrink_failed"
+  | "unsupported_format";
 
 class PhotoStageError extends Error {
   constructor(
@@ -437,9 +438,23 @@ async function appendInspectionPhotos(
     }
   };
 
+  // The deadline covers the photo query and waiting for the gate as well as the
+  // work itself. When
+  // it fires, downloads in flight are aborted and new ones are refused.
+  const controller = new AbortController();
+  const shrinkUntil =
+    Date.now() + NIR_PHOTO_DEADLINE_MS - NIR_PHOTO_DRAW_RESERVE_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<"deadline">((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve("deadline");
+    }, NIR_PHOTO_DEADLINE_MS);
+  });
+
   let row;
   try {
-    row = await prisma.inspection.findFirst({
+    const query = prisma.inspection.findFirst({
       where: { id },
       select: {
         userId: true,
@@ -462,12 +477,25 @@ async function appendInspectionPhotos(
         },
       },
     });
+    const found = await Promise.race([query, deadline]);
+    if (found === "deadline") {
+      // No row came back, so no photo count is known: ladder step c.
+      query.catch(() => {});
+      clearTimeout(timer);
+      log("deadline", new Error(`photo query passed ${NIR_PHOTO_DEADLINE_MS} ms`));
+      return base;
+    }
+    row = found;
   } catch (error) {
+    clearTimeout(timer);
     log("query_failed", error);
     return base;
   }
   const total = row?._count?.photos ?? 0;
-  if (!row || total === 0) return base;
+  if (!row || total === 0) {
+    clearTimeout(timer);
+    return base;
+  }
   const photoRow = row;
 
   const notice = async (
@@ -486,19 +514,6 @@ async function appendInspectionPhotos(
       return base;
     }
   };
-
-  // The deadline covers waiting for the gate as well as the work itself. When
-  // it fires, downloads in flight are aborted and new ones are refused.
-  const controller = new AbortController();
-  const shrinkUntil =
-    Date.now() + NIR_PHOTO_DEADLINE_MS - NIR_PHOTO_DRAW_RESERVE_MS;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<"deadline">((resolve) => {
-    timer = setTimeout(() => {
-      controller.abort();
-      resolve("deadline");
-    }, NIR_PHOTO_DEADLINE_MS);
-  });
 
   try {
     while (photoStageInFlight) {
@@ -526,11 +541,11 @@ async function appendInspectionPhotos(
       // An abandoned stage draws nothing: its result is never sent, and
       // drawing would only hold the gate and memory longer.
       if (controller.signal.aborted) {
-        return { bytes: base, missing: total, droppedForTime: 0, shrinkFailed: null };
+        return { bytes: base, missing: total, droppedForTime: 0, unsupported: 0, shrinkFailed: null };
       }
       const drawable = await shrinkForPdf(prepared.photos, shrinkUntil);
       if (controller.signal.aborted) {
-        return { bytes: base, missing: total, droppedForTime: 0, shrinkFailed: null };
+        return { bytes: base, missing: total, droppedForTime: 0, unsupported: 0, shrinkFailed: null };
       }
       const missing = prepared.missing + drawable.dropped;
       try {
@@ -542,6 +557,7 @@ async function appendInspectionPhotos(
           bytes,
           missing,
           droppedForTime: drawable.droppedForTime,
+          unsupported: drawable.unsupported,
           shrinkFailed: drawable.failed,
         };
       } catch (error) {
@@ -586,6 +602,12 @@ async function appendInspectionPhotos(
         { photoCount: total, droppedForTime: outcome.droppedForTime },
       );
     }
+    if (outcome.unsupported > 0) {
+      log("unsupported_format", new Error("photo format cannot be drawn"), {
+        photoCount: total,
+        unsupportedCount: outcome.unsupported,
+      });
+    }
     if (outcome.shrinkFailed) {
       log("shrink_failed", outcome.shrinkFailed.error, {
         photoCount: total,
@@ -628,11 +650,13 @@ async function shrinkForPdf(
   photos: ReportPhoto[];
   dropped: number;
   droppedForTime: number;
+  unsupported: number;
   failed: { unreadable: number; sharpUnavailable: boolean; error: unknown } | null;
 }> {
   const kept: ReportPhoto[] = [];
   let dropped = 0;
   let droppedForTime = 0;
+  let unsupported = 0;
   let unreadable = 0;
   let sharpUnavailable = false;
   let failure: unknown = null;
@@ -645,6 +669,7 @@ async function shrinkForPdf(
     }
     if (!jpeg && !isPng(photo.bytes) && !isWebp(photo.bytes)) {
       dropped++;
+      unsupported++;
       continue;
     }
     if (!sharp && !sharpUnavailable && Date.now() < until) {
@@ -705,7 +730,7 @@ async function shrinkForPdf(
     unreadable > 0 || sharpUnavailable
       ? { unreadable, sharpUnavailable, error: failure ?? new Error("photo re-encoding failed") }
       : null;
-  return { photos: kept, dropped, droppedForTime, failed };
+  return { photos: kept, dropped, droppedForTime, unsupported, failed };
 }
 
 function isJpeg(bytes: Uint8Array): boolean {

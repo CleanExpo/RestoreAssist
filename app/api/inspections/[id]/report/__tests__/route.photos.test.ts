@@ -568,6 +568,51 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
     expect(dropReasons()).toEqual(["query_failed"]);
   });
 
+  it("a stalled photo query is bounded by the 25 s deadline and the report still returns", async () => {
+    vi.useFakeTimers();
+    photoQuery = () => new Promise(() => {});
+
+    const pending = GET(request(), context);
+    await vi.advanceTimersByTimeAsync(24_999);
+    expect(dropReasons()).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    const response = await pending;
+
+    // No row came back, so no photo count is known: the sketch-final report goes out as it was.
+    expect(response.status).toBe(200);
+    expect(await body(response)).toEqual(SKETCHED);
+    expect(appendPhotoPages).not.toHaveBeenCalled();
+    expect(prepareReportPhotos).not.toHaveBeenCalled();
+    expect(dropReasons()).toEqual(["deadline"]);
+  });
+
+  it("photos in a format the report cannot draw are logged once as unsupported_format with a count", async () => {
+    const tiff = (caption: string) => ({
+      bytes: new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00]),
+      isPng: false,
+      caption,
+    });
+    prepareReportPhotos.mockResolvedValue({
+      photos: [tiff("a"), jpg("b"), tiff("c")],
+      missing: 0,
+      reasons: {},
+    });
+
+    const response = await GET(request(), context);
+
+    const [, photos, options] = appendPhotoPages.mock.calls[0];
+    expect(captions(photos)).toEqual(["b"]);
+    expect(options).toMatchObject({ missingCount: 2 });
+    expect(await body(response)).toEqual(WITH_PHOTOS);
+    expect(dropReasons()).toEqual(["unsupported_format"]);
+    expect(reportError.mock.calls[0][1]).toMatchObject({
+      stage: "inspection:report:photos-dropped",
+      inspectionId: "insp-1",
+      photoCount: TOTAL,
+      unsupportedCount: 2,
+    });
+  });
+
   it("a failure preparing photos returns the notice report counting every photo", async () => {
     prepareReportPhotos.mockRejectedValue(new Error("storage down"));
 
