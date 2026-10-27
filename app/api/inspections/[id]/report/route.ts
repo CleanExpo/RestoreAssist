@@ -385,7 +385,8 @@ type PhotoDropReason =
   | "over_size"
   | "notice_failed"
   | "fetch_budget"
-  | "shrink_time";
+  | "shrink_time"
+  | "shrink_failed";
 
 class PhotoStageError extends Error {
   constructor(
@@ -525,11 +526,11 @@ async function appendInspectionPhotos(
       // An abandoned stage draws nothing: its result is never sent, and
       // drawing would only hold the gate and memory longer.
       if (controller.signal.aborted) {
-        return { bytes: base, missing: total, droppedForTime: 0 };
+        return { bytes: base, missing: total, droppedForTime: 0, shrinkFailed: null };
       }
       const drawable = await shrinkForPdf(prepared.photos, shrinkUntil);
       if (controller.signal.aborted) {
-        return { bytes: base, missing: total, droppedForTime: 0 };
+        return { bytes: base, missing: total, droppedForTime: 0, shrinkFailed: null };
       }
       const missing = prepared.missing + drawable.dropped;
       try {
@@ -537,7 +538,12 @@ async function appendInspectionPhotos(
           ...pageOptions,
           missingCount: missing,
         });
-        return { bytes, missing, droppedForTime: drawable.droppedForTime };
+        return {
+          bytes,
+          missing,
+          droppedForTime: drawable.droppedForTime,
+          shrinkFailed: drawable.failed,
+        };
       } catch (error) {
         throw new PhotoStageError("append_failed", error);
       }
@@ -580,6 +586,13 @@ async function appendInspectionPhotos(
         { photoCount: total, droppedForTime: outcome.droppedForTime },
       );
     }
+    if (outcome.shrinkFailed) {
+      log("shrink_failed", outcome.shrinkFailed.error, {
+        photoCount: total,
+        unreadable: outcome.shrinkFailed.unreadable,
+        sharpUnavailable: outcome.shrinkFailed.sharpUnavailable,
+      });
+    }
     if (budget.tripped()) {
       log(
         "fetch_budget",
@@ -599,19 +612,31 @@ async function appendInspectionPhotos(
  * 2 MB. The result is a JPEG at most 1600 px on its long edge, which pdf-lib
  * embeds without decoding. sharp works off the event loop; one photo at a
  * time keeps its own memory small. Only JPEG, PNG and WebP bytes reach sharp
- * (pdf-lib can draw nothing else anyway), and only up to 25 MP.
+ * (pdf-lib can draw nothing else anyway), and only up to 25 MP. sharp is
+ * loaded here, once, so a native module that fails to load costs only this
+ * step.
  *
  * Re-encoding stops at `until`. A photo not re-encoded by then, or one sharp
  * cannot read, is kept as it is if it is a JPEG (cheap to embed) and dropped
- * otherwise, so pdf-lib never decodes a PNG here. Dropped photos are counted.
+ * otherwise, so pdf-lib never decodes a PNG here. Dropped photos are counted;
+ * `failed` reports photos dropped because sharp failed or could not load.
  */
 async function shrinkForPdf(
   photos: ReportPhoto[],
   until: number,
-): Promise<{ photos: ReportPhoto[]; dropped: number; droppedForTime: number }> {
+): Promise<{
+  photos: ReportPhoto[];
+  dropped: number;
+  droppedForTime: number;
+  failed: { unreadable: number; sharpUnavailable: boolean; error: unknown } | null;
+}> {
   const kept: ReportPhoto[] = [];
   let dropped = 0;
   let droppedForTime = 0;
+  let unreadable = 0;
+  let sharpUnavailable = false;
+  let failure: unknown = null;
+  let sharp: typeof import("sharp").default | null = null;
   for (const photo of photos) {
     const jpeg = isJpeg(photo.bytes);
     if (jpeg && photo.bytes.length <= SHRINK_JPEG_ABOVE_BYTES) {
@@ -622,13 +647,21 @@ async function shrinkForPdf(
       dropped++;
       continue;
     }
+    if (!sharp && !sharpUnavailable && Date.now() < until) {
+      try {
+        sharp = (await import("sharp")).default;
+      } catch (error) {
+        sharpUnavailable = true;
+        failure = error;
+      }
+    }
+    // Measured after loading sharp, so its first load counts against the limit.
     const remaining = until - Date.now();
     let late = remaining <= 0;
     let encoded: Uint8Array | null = null;
-    if (!late) {
+    if (!late && sharp) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        const sharp = (await import("sharp")).default;
         const encode = sharp(photo.bytes, {
           limitInputPixels: SHRINK_INPUT_MAX_PIXELS,
         })
@@ -652,8 +685,8 @@ async function shrinkForPdf(
         ]);
         if (result === "late") late = true;
         else encoded = new Uint8Array(result);
-      } catch {
-        // Unreadable: handled below like a late photo.
+      } catch (error) {
+        failure ??= error;
       } finally {
         clearTimeout(timer);
       }
@@ -665,9 +698,14 @@ async function shrinkForPdf(
     } else {
       dropped++;
       if (late) droppedForTime++;
+      else unreadable++;
     }
   }
-  return { photos: kept, dropped, droppedForTime };
+  const failed =
+    unreadable > 0 || sharpUnavailable
+      ? { unreadable, sharpUnavailable, error: failure ?? new Error("photo re-encoding failed") }
+      : null;
+  return { photos: kept, dropped, droppedForTime, failed };
 }
 
 function isJpeg(bytes: Uint8Array): boolean {

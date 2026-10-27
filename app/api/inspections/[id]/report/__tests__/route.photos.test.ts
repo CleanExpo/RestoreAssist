@@ -433,7 +433,14 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
     expect(captions(photos)).toEqual(["b"]);
     expect(options).toMatchObject({ missingCount: 6 });
     expect(await body(response)).toEqual(WITH_PHOTOS);
-    expect(reportError).not.toHaveBeenCalled();
+    // The dropped PNG is logged, so lost photos never go unrecorded.
+    expect(dropReasons()).toEqual(["shrink_failed"]);
+    expect(reportError.mock.calls[0][0]).toEqual(new Error("unsupported image format"));
+    expect(reportError.mock.calls[0][1]).toMatchObject({
+      photoCount: TOTAL,
+      unreadable: 1,
+      sharpUnavailable: false,
+    });
   });
 
   it("a logging failure never fails the report", async () => {
@@ -637,6 +644,9 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
       const [, photos, options] = appendPhotoPages.mock.calls.at(-1)!;
       expect(captions(photos)).toEqual(["b"]);
       expect(options).toMatchObject({ missingCount: 1 });
+      // A missing native module is logged once, not left for the notice page to hint at.
+      expect(dropReasons()).toEqual(["shrink_failed"]);
+      expect(reportError.mock.calls[0][1]).toMatchObject({ unreadable: 1, sharpUnavailable: true });
     } finally {
       vi.doMock("sharp", () => sharpModule());
       vi.resetModules();
