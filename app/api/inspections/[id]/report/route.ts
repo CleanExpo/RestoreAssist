@@ -387,7 +387,8 @@ type PhotoDropReason =
   | "fetch_budget"
   | "shrink_time"
   | "shrink_failed"
-  | "unsupported_format";
+  | "unsupported_format"
+  | "row_missing";
 
 class PhotoStageError extends Error {
   constructor(
@@ -491,8 +492,15 @@ async function appendInspectionPhotos(
     log("query_failed", error);
     return base;
   }
-  const total = row?._count?.photos ?? 0;
-  if (!row || total === 0) {
+  if (!row) {
+    // The inspection was readable a moment ago, so a missing row is a lost
+    // read, not an inspection without photos.
+    clearTimeout(timer);
+    log("row_missing", new Error("photo query returned no inspection row"));
+    return base;
+  }
+  const total = row._count?.photos ?? 0;
+  if (total === 0) {
     clearTimeout(timer);
     return base;
   }

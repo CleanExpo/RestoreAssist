@@ -613,6 +613,30 @@ describe("GET /api/inspections/[id]/report?format=pdf — photo pages (O-1)", ()
     });
   });
 
+  it("a missing photo row is logged as row_missing, unlike a genuine zero-photo row", async () => {
+    photoQuery = () => null;
+
+    const response = await GET(request(), context);
+
+    expect(response.status).toBe(200);
+    expect(await body(response)).toEqual(SKETCHED);
+    expect(appendPhotoPages).not.toHaveBeenCalled();
+    expect(dropReasons()).toEqual(["row_missing"]);
+    expect(reportError.mock.calls[0][1]).toMatchObject({
+      stage: "inspection:report:photos-dropped",
+      inspectionId: "insp-1",
+    });
+  });
+
+  it("a genuine zero-photo row returns the report untouched and logs nothing", async () => {
+    photoQuery = () => ({ ...answerPhotoQuery({ select: PHOTO_SELECT }), _count: { photos: 0 }, photos: [] });
+
+    const response = await GET(request(), context);
+
+    expect(await body(response)).toEqual(SKETCHED);
+    expect(dropReasons()).toEqual([]);
+  });
+
   it("a failure preparing photos returns the notice report counting every photo", async () => {
     prepareReportPhotos.mockRejectedValue(new Error("storage down"));
 
