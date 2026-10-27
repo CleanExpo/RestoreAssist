@@ -1,6 +1,6 @@
 # RestoreAssist Report Experience Engine (RA-8104)
 
-**Status:** Foundation only. The ten-mode catalogue exists; no dynamic report theme renderer, interactive module or PDF export integration is complete.
+**Status (27/10/2026):** Ten-mode registry, development-only synthetic theme studio, responsive/print CSS, Playwright smoke and pure permission-specific report snapshot are implemented locally. Actual report/inspection DB adapter, external customer viewer, production PDF integration, true 3D/media modules and release are NOT complete.
 **Source:** 27/10/2026 founder-selected ten-design moodboard.
 **Base:** CleanExpo/RestoreAssist current origin/main at worktree creation.
 **Purpose:** Replace fixed report presentation with composable reader-specific web experiences and print-safe documents, without forking evidence or access control.
@@ -14,7 +14,7 @@
 - `lib/clients/brand`, `lib/reports/workspace-business.ts` -> signed company branding, not author-only contact fields.
 - `framer-motion`, `motion`, `recharts`, `pdf-lib`, `jspdf`, `puppeteer` already present in package dependencies. Add no new dependency without measurements.
 
-## Data architecture (build next, not implemented)
+## Data architecture (typed projection built; live adapter not implemented)
 ```
 Existing Report / Inspection / Evidence / Scope / Room / Floor / Hazard / Photo
            | Authorised, version-bound server-side aggregation
@@ -69,6 +69,12 @@ Style selection changes visual grammar, not truth. A mode must never remove mand
 - RA-8108: verified floor/room spatial/3D/map/media plugins, fallback and privacy.
 - RA-8109: snapshot/parity validation, recipient permissions, revised PDF and versioned evidence chain.
 - RA-8110: full 10-theme x role x device x print QA, independent review, rollout canary and closeout.
+
+## Local implementation and observed checks
+- `lib/report-experience/snapshot.ts` projects already-authorised evidence by report/organisation grant with content digest, expiry and permitted financial/address fields. It does **not** authenticate the grant itself, and is not yet wired to database access rules.
+- `components/report-experience/ReportDesignStudio.tsx` and CSS + `app/dev/report-experience/page.tsx` create the **development-only** ten-theme report gallery. It uses clearly marked synthetic readings, hazards and plan geometry. The route intentionally 404s outside `NODE_ENV=development`.
+- `scripts/report-experience-visual-smoke.mjs` exercises ten theme switches at desktop and mobile sizes, reduced motion, safe PDF mode and extracts the generated PDF text, preventing a repeat of the global print-CSS blank-output defect. The existing global stylesheet hides every element except `#visual-report-content` and `#quote-print-content` during print; the gallery correctly uses `#visual-report-content`.
+- Verified development server: `next dev --webpack` using the MacBook's existing Chrome. Turbopack fails when `node_modules` is symlinked outside its project filesystem root; this is a development-environment issue, not a bypass of any security control. Playwright `localhost` works; the `127.0.0.1` dev origin failed to hydrate reliably in this setup. A production build still needs its own clean dependency installation.
 
 ## Required test suite and acceptance gates
 - Synthetic multi-floor loss with valid readings, unconfirmed geometry, Category 3 hazard, equipment, time sequence, consented photos, separate client and insurer disclosure.
