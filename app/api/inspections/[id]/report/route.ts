@@ -17,6 +17,12 @@ import {
 import { resolveAreaSqm } from "@/lib/units";
 import { claimSketchesToFloors } from "@/lib/reports/claim-sketch-floors";
 import { appendSketchPages } from "@/lib/reports/append-sketch-pages";
+import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
+import {
+  photoOwnerFolders,
+  prepareReportPhotos,
+} from "@/lib/reports/inspection-photos-to-images";
+import { reportError } from "@/lib/observability";
 import {
   WORKSPACE_OWNER_SELECT,
   workspaceBusiness,
@@ -42,6 +48,15 @@ const REPORT_READY_STATUSES = new Set<InspectionStatus>([
   InspectionStatus.SUBMITTED,
   InspectionStatus.COMPLETED,
 ]);
+
+// The PDF now downloads the inspection's photos, so the ceiling is set here
+// rather than left to a platform default; the photo stage stops well inside it.
+export const maxDuration = 60;
+
+const NIR_PHOTO_LIMIT = 500;
+const NIR_PHOTO_DEADLINE_MS = 25_000;
+const NIR_PHOTO_FETCH_BUDGET_BYTES = 40 * 1024 * 1024;
+const MAX_PDF_BYTES = 60 * 1024 * 1024;
 
 // GET — Generate report in requested format (json | pdf | excel)
 export async function GET(
@@ -246,7 +261,7 @@ export async function GET(
 
     switch (format.toLowerCase()) {
       case "pdf":
-        return generatePDFReport(data);
+        return generatePDFReport(data, id);
       case "excel":
         return generateExcelReport(data);
       case "json":
@@ -352,9 +367,259 @@ function generateJSONReport(
   return NextResponse.json(report);
 }
 
+// ─── PDF photo pages ──────────────────────────────────────────────────────────
+
+type PhotoDropReason =
+  | "query_failed"
+  | "prepare_failed"
+  | "append_failed"
+  | "deadline"
+  | "busy"
+  | "over_size"
+  | "notice_failed"
+  | "fetch_budget";
+
+class PhotoStageError extends Error {
+  constructor(
+    readonly reason: PhotoDropReason,
+    readonly original: unknown,
+  ) {
+    super(reason);
+  }
+}
+
+// Production runs one instance (.do/app.yaml, enforced by
+// scripts/ci/check-release-bootstrap.mjs), so every photo stage shares one
+// process's memory. One stage runs at a time; it is held until its work
+// settles, not until its response is sent.
+let photoStageInFlight: Promise<void> | null = null;
+
+/**
+ * Appends the inspection's photos to the finished report. The photo stage
+ * never fails the report: on any failure the report gets one notice page
+ * counting every photo, and if even that fails, the report goes out as it was.
+ * Every such outcome is logged with its own reason. Signing is bound to the
+ * folders of the inspection row's owner, never the caller's session.
+ */
+async function appendInspectionPhotos(
+  base: Uint8Array,
+  inspection: NirReportInspectionData,
+  id: string,
+): Promise<Uint8Array> {
+  const pageOptions = {
+    propertyAddress: inspection.propertyAddress ?? undefined,
+    reportNumber: inspection.inspectionNumber ?? inspection.id,
+  };
+  const log = (
+    reason: PhotoDropReason,
+    error: unknown,
+    extra: Record<string, unknown> = {},
+  ) =>
+    reportError(error, {
+      route: "/api/inspections/[id]/report",
+      stage: "inspection:report:photos-dropped",
+      inspectionId: id,
+      reason,
+      ...extra,
+    });
+
+  let row;
+  try {
+    row = await prisma.inspection.findFirst({
+      where: { id },
+      select: {
+        userId: true,
+        workspaceId: true,
+        user: { select: { organizationId: true } },
+        _count: { select: { photos: true } },
+        photos: {
+          select: {
+            id: true,
+            inspectionId: true,
+            url: true,
+            thumbnailUrl: true,
+            description: true,
+            location: true,
+            roomType: true,
+            mimeType: true,
+          },
+          orderBy: { timestamp: "asc" },
+          take: NIR_PHOTO_LIMIT,
+        },
+      },
+    });
+  } catch (error) {
+    log("query_failed", error);
+    return base;
+  }
+  const total = row?._count?.photos ?? 0;
+  if (!row || total === 0) return base;
+  const photoRow = row;
+
+  const notice = async (
+    reason: PhotoDropReason,
+    error: unknown,
+    extra: Record<string, unknown> = {},
+  ): Promise<Uint8Array> => {
+    log(reason, error, { photoCount: total, ...extra });
+    try {
+      return await appendPhotoPages(base, [], {
+        ...pageOptions,
+        missingCount: total,
+      });
+    } catch (noticeError) {
+      log("notice_failed", noticeError, { photoCount: total });
+      return base;
+    }
+  };
+
+  // The deadline covers waiting for the gate as well as the work itself. When
+  // it fires, downloads in flight are aborted and new ones are refused.
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<"deadline">((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve("deadline");
+    }, NIR_PHOTO_DEADLINE_MS);
+  });
+
+  try {
+    while (photoStageInFlight) {
+      const held = photoStageInFlight;
+      const waited = await Promise.race([held.then(() => "free" as const), deadline]);
+      if (waited === "deadline") {
+        return notice("busy", new Error("another NIR photo stage is running"));
+      }
+    }
+
+    const budget = budgetedFetch(NIR_PHOTO_FETCH_BUDGET_BYTES, controller.signal);
+    const work = (async () => {
+      let prepared;
+      try {
+        prepared = await prepareReportPhotos(photoRow.photos, {
+          inspectionId: id,
+          ownerFolders: photoOwnerFolders(photoRow),
+          totalCount: total,
+          fetchImpl: budget.fetch,
+        });
+      } catch (error) {
+        throw new PhotoStageError("prepare_failed", error);
+      }
+      try {
+        const bytes = await appendPhotoPages(base, prepared.photos, {
+          ...pageOptions,
+          missingCount: prepared.missing,
+        });
+        return { bytes, missing: prepared.missing };
+      } catch (error) {
+        throw new PhotoStageError("append_failed", error);
+      }
+    })();
+    const release = () => {
+      if (photoStageInFlight === settled) photoStageInFlight = null;
+    };
+    // Also keeps the work's rejection handled once nothing awaits it.
+    const settled: Promise<void> = work.then(release, release);
+    photoStageInFlight = settled;
+
+    let outcome: Awaited<typeof work> | "deadline";
+    try {
+      outcome = await Promise.race([work, deadline]);
+    } catch (error) {
+      const stage =
+        error instanceof PhotoStageError
+          ? error
+          : new PhotoStageError("prepare_failed", error);
+      return notice(stage.reason, stage.original);
+    }
+
+    if (outcome === "deadline") {
+      return notice(
+        "deadline",
+        new Error(`photo stage passed ${NIR_PHOTO_DEADLINE_MS} ms`),
+      );
+    }
+    if (outcome.bytes.length > MAX_PDF_BYTES) {
+      return notice(
+        "over_size",
+        new Error(`report with photos is ${outcome.bytes.length} bytes`),
+        { pdfBytes: outcome.bytes.length },
+      );
+    }
+    if (budget.tripped()) {
+      log(
+        "fetch_budget",
+        new Error(`photo downloads passed ${NIR_PHOTO_FETCH_BUDGET_BYTES} bytes`),
+        { photoCount: total, missingCount: outcome.missing },
+      );
+    }
+    return outcome.bytes;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * A fetch for one request's photo stage. It stops downloading once
+ * `limitBytes` have been received across that request's photos, and once
+ * `stop` aborts. Refused photos get a non-ok response, which the photo helper
+ * counts as missing, so memory stays bounded however many photos there are.
+ */
+function budgetedFetch(limitBytes: number, stop: AbortSignal) {
+  let received = 0;
+  let tripped = false;
+  const refuse = () =>
+    new Response(null, {
+      status: 507,
+      statusText: "Photo download refused",
+    });
+
+  const budgeted = async (
+    input: Parameters<typeof fetch>[0],
+    init?: Parameters<typeof fetch>[1],
+  ): Promise<Response> => {
+    if (stop.aborted || tripped) return refuse();
+    const signal = init?.signal ? AbortSignal.any([init.signal, stop]) : stop;
+    const res = await fetch(input, { ...init, signal });
+    if (!res.ok || !res.body) return res;
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (received + size > limitBytes) {
+        tripped = true;
+        await reader.cancel().catch(() => {});
+        return refuse();
+      }
+      chunks.push(value);
+    }
+    received += size;
+    const body = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new Response(body, {
+      status: res.status,
+      statusText: res.statusText,
+      headers: res.headers,
+    });
+  };
+
+  return { fetch: budgeted as typeof fetch, tripped: () => tripped };
+}
+
 // ─── PDF ──────────────────────────────────────────────────────────────────────
 
-async function generatePDFReport(inspection: NirReportInspectionData) {
+async function generatePDFReport(
+  inspection: NirReportInspectionData,
+  id: string,
+) {
   const floorPlanOutput = await resolveFloorPlanOutput(inspection);
   let reportData = {
     ...inspection,
@@ -400,6 +665,10 @@ async function generatePDFReport(inspection: NirReportInspectionData) {
       reportNumber: inspection.inspectionNumber ?? inspection.id,
     });
   }
+
+  // Photos go on the final buffer, after any rebuild above, so a rebuild can
+  // never discard them.
+  pdfBuffer = await appendInspectionPhotos(pdfBuffer, inspection, id);
 
   return new NextResponse(pdfBuffer as unknown as BodyInit, {
     headers: {
