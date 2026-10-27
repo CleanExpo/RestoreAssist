@@ -132,6 +132,8 @@ export function buildReportExperienceSnapshot(
   }
 
   // Clone the authorised projection. Do not return live mutable Prisma objects.
+  // Name every field: a spread would also copy undeclared runtime fields
+  // (a signed URL, an internal note) across this disclosure boundary.
   const body: SanitisedReportBody = {
     schemaVersion: 1,
     reportId: evidence.reportId,
@@ -140,14 +142,33 @@ export function buildReportExperienceSnapshot(
     revisionCreatedAt: evidence.revisionCreatedAt,
     reportNumber: evidence.reportNumber,
     status: evidence.status,
-    brand: { ...evidence.workspaceBrand },
+    brand: {
+      businessName: evidence.workspaceBrand.businessName,
+      ...(evidence.workspaceBrand.approvedLogoAssetId !== undefined
+        ? { approvedLogoAssetId: evidence.workspaceBrand.approvedLogoAssetId }
+        : {}),
+    },
     ...(grant.mayViewAddress && evidence.propertyAddress ? { propertyAddress: evidence.propertyAddress } : {}),
     safetyAssessment: evidence.safetyAssessment,
-    hazards: evidence.hazards.map(item => ({ ...item })),
-    moistureReadings: evidence.moistureReadings.map(item => ({ ...item })),
-    scopeItems: evidence.scopeItems.map(item => ({ ...item })),
-    ...(grant.mayViewFinancials && evidence.financials ? { financials: { ...evidence.financials } } : {}),
-    sourceRefs: evidence.sourceRefs.map(item => ({ ...item })),
+    hazards: evidence.hazards.map(item => ({
+      id: item.id, title: item.title, action: item.action, verification: item.verification,
+    })),
+    moistureReadings: evidence.moistureReadings.map(item => ({
+      id: item.id, roomId: item.roomId, observedAt: item.observedAt, value: item.value, unit: item.unit,
+    })),
+    scopeItems: evidence.scopeItems.map(item => ({
+      id: item.id, description: item.description, approvalStatus: item.approvalStatus,
+    })),
+    ...(grant.mayViewFinancials && evidence.financials
+      ? {
+          financials: {
+            estimatedTotalCents: evidence.financials.estimatedTotalCents,
+            currency: evidence.financials.currency,
+            estimateStatus: evidence.financials.estimateStatus,
+          },
+        }
+      : {}),
+    sourceRefs: evidence.sourceRefs.map(item => ({ kind: item.kind, id: item.id })),
   };
   const contentDigestSha256 = createHash("sha256").update(JSON.stringify(body)).digest("hex");
   return deepFreeze({ ...body, audience: grant.audience, contentDigestSha256 });

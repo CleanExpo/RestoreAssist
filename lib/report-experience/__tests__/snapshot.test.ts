@@ -129,6 +129,20 @@ describe("authorised report snapshot", () => {
     expect(Object.isFrozen(base.sourceRefs[0])).toBe(true);
     expect(Object.isFrozen(fixture.hazards[0])).toBe(false);
   });
+  // A runtime record can carry fields its TypeScript shape does not declare.
+  // The snapshot is a disclosure boundary, so only declared fields may cross it.
+  const SECRET = "https://private.example/secret-sentinel";
+  it.each([
+    ["source references", { sourceRefs: [{ ...fixture.sourceRefs[0], signedUrl: SECRET }] }],
+    ["hazards", { hazards: [{ ...fixture.hazards[0], internalNote: SECRET }] }],
+    ["moisture readings", { moistureReadings: [{ ...fixture.moistureReadings[0], rawDeviceUrl: SECRET }] }],
+    ["scope items", { scopeItems: [{ ...fixture.scopeItems[0], supplierCostUrl: SECRET }] }],
+    ["workspace brand", { workspaceBrand: { ...fixture.workspaceBrand, logoSignedUrl: SECRET } }],
+    ["financials", { financials: { ...fixture.financials!, marginNote: SECRET } }],
+  ])("copies only declared fields from %s into the snapshot", (_name, extra) => {
+    const result = buildReportExperienceSnapshot({ ...fixture, ...extra } as VerifiedReportProjection, moneyGrant, now);
+    expect(JSON.stringify(result)).not.toContain("secret-sentinel");
+  });
   it("returns no invented measurements when evidence has none", () => {
     const result = buildReportExperienceSnapshot({ ...fixture, moistureReadings: [], scopeItems: [] }, grant, now);
     expect(result.moistureReadings).toEqual([]);
