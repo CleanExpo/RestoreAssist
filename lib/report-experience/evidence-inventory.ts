@@ -7,7 +7,9 @@ import type { OmittedEvidence } from "./evidence-adapter";
  *
  * - "shown": the evidence adapter maps it (or handles it itself).
  * - "context": not evidence about the damage or the work: identity, contact
- *   details, workflow state, timestamps, caches, AI bookkeeping, storage keys.
+ *   details, workflow state, timestamps, AI bookkeeping, storage keys.
+ *   Anything that describes the damage, the work, the hazards or the money is
+ *   evidence, including AI-written summaries and past versions of the report.
  * - any other value: evidence of that kind that the preview does not show
  *   yet. When it is filled, it is listed as not shown, by name only. Its
  *   contents are never copied.
@@ -40,9 +42,9 @@ export const REPORT_FIELDS: Readonly<Record<string, FieldUse>> = {
   insuranceType: "context",
   totalCost: "financials",
   isSample: "context",
-  aiSynopsis: "context",
+  aiSynopsis: "finding",
   aiSynopsisAt: "context",
-  clientSummaryCache: "context",
+  clientSummaryCache: "finding",
   clientSummaryCachedAt: "context",
   createdAt: "shown",
   updatedAt: "shown",
@@ -82,7 +84,7 @@ export const REPORT_FIELDS: Readonly<Record<string, FieldUse>> = {
   scopeOfWorksData: "scope-item",
   costEstimationDocument: "financials",
   costEstimationData: "financials",
-  versionHistory: "context",
+  versionHistory: "document",
   lastEditedBy: "context",
   lastEditedAt: "context",
   completenessScore: "context",
@@ -257,13 +259,13 @@ export const INSPECTION_LINKS: Readonly<Record<string, LinkUse>> = {
   clientMutations: ["context", "many"],
   fieldCaptureEvents: ["context", "many"],
   aiRunnerReceipts: ["context", "many"],
-  aiJobSuggestions: ["context", "many"],
-  assessmentGenerations: ["context", "many"],
+  aiJobSuggestions: ["scope-item", "many"],
+  assessmentGenerations: ["finding", "many"],
   lidarScans: ["document", "many"],
   roomPlanCaptureReceipts: ["context", "many"],
   voiceNotes: ["document", "many"],
   voiceCopilotSessions: ["context", "many"],
-  inboundJobMessages: ["context", "many"],
+  inboundJobMessages: ["document", "many"],
   propertyLookupCache: ["context", "one"],
   evidenceItems: ["document", "many"],
   inspectionWorkflow: ["context", "one"],
@@ -280,7 +282,7 @@ export const INSPECTION_LINKS: Readonly<Record<string, LinkUse>> = {
   whsIncidents: ["hazard", "many"],
   swmsDraft: ["hazard", "one"],
   claimProgress: ["context", "one"],
-  authorisations: ["context", "many"],
+  authorisations: ["document", "many"],
   jobAppointments: ["context", "many"],
   waterDamageClassification: ["finding", "one"],
   psychrometricReadings: ["moisture-reading", "many"],
@@ -299,10 +301,15 @@ function isEvidence(use: FieldUse): use is EvidenceKind {
   return use !== "shown" && use !== "context";
 }
 
+// A Boolean false is not counted: those columns default to false, so false
+// cannot be told apart from "never recorded".
 function isFilled(value: unknown): boolean {
+  if (value === null || value === undefined || value === false) return false;
   if (typeof value === "string") return value.trim() !== "";
-  if (typeof value === "number") return true;
-  return value === true;
+  if (value instanceof Date) return !Number.isNaN(value.getTime());
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value).length > 0;
+  return true;
 }
 
 /** A Prisma `select` that reads only the evidence the preview does not show. */

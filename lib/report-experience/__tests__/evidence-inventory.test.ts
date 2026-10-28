@@ -110,6 +110,31 @@ describe("evidence inventory", () => {
     expect(JSON.stringify(omitted)).not.toContain("SECRET");
   });
 
+  it("counts dates, numbers and stored JSON as filled, but not empty values", () => {
+    const omitted = inventoryOmissions(
+      "Report",
+      {
+        incidentDate: new Date("2026-10-01T00:00:00Z"),
+        technicianAttendanceDate: new Date("not a date"),
+        aiSynopsis: "SECRET-SUMMARY",
+        tier1Responses: { q1: "SECRET-ANSWER" },
+        tier2Responses: {},
+        tier3Responses: [],
+      },
+      REPORT_FIELDS,
+      REPORT_LINKS,
+    );
+    expect(omitted.map((o) => o.reason.split(" ")[2]).sort()).toEqual(["aiSynopsis", "incidentDate", "tier1Responses"]);
+    expect(JSON.stringify(omitted)).not.toMatch(/SECRET|2026-10-01/);
+  });
+
+  it("labels AI-written summaries and past versions as evidence, not context", () => {
+    for (const name of ["aiSynopsis", "clientSummaryCache", "versionHistory", "technicianReportAnalysis"]) {
+      expect(REPORT_FIELDS[name], name).not.toMatch(/^(shown|context)$/);
+    }
+    expect(INSPECTION_LINKS.assessmentGenerations[0]).not.toBe("context");
+  });
+
   it("says sketches are shown only in part", () => {
     const omitted = inventoryOmissions("Inspection", { _count: { claimSketches: 1 } }, INSPECTION_FIELDS, INSPECTION_LINKS);
     expect(omitted).toEqual([
