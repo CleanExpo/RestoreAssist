@@ -98,9 +98,11 @@ describe("ReportDesignStudio with a snapshot", () => {
   it("shows plain no-evidence sentences for empty sections", () => {
     render(<ReportDesignStudio snapshot={makeSnapshot({ hazards: [], moistureReadings: [], scopeItems: [], sourceRefs: [] })} />);
     const text = reportFor("Executive Modern").textContent ?? "";
-    expect(text).toContain("No moisture readings recorded for this report.");
-    expect(text).toContain("No hazards recorded for this report.");
-    expect(text).toContain("No scope items recorded for this report.");
+    expect(text).toContain("No moisture readings are shown in this preview. Check the records listed as not shown.");
+    expect(text).toContain("No hazards are shown in this preview. Check the records listed as not shown.");
+    // An empty section never claims the report has none: evidence may sit in records not shown.
+    expect(text).not.toMatch(/recorded for this report/);
+    expect(text).toContain("No scope items are shown in this preview. Check the records listed as not shown.");
     expect(reportFor("Executive Modern").querySelectorAll("table").length).toBe(0);
   });
 
@@ -113,7 +115,7 @@ describe("ReportDesignStudio with a snapshot", () => {
     expect(text).not.toContain("$");
     expect(text).not.toMatch(/AUD|NZD/);
     expect(text).not.toContain("Wattle");
-    expect(text).toContain("No financial estimate supplied for this report.");
+    expect(text).toContain("No financial estimate is shown in this preview.");
   });
 
   it("every one of the ten styles shows the same readings, safety facts and provenance", () => {

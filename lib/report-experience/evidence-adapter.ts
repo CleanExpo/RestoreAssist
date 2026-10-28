@@ -120,6 +120,8 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
           ...WORKSPACE_OWNER_SELECT,
         },
       },
+      // Earlier estimates are counted so the page can say they are not shown.
+      _count: { select: { estimates: true } },
       estimates: {
         orderBy: [{ version: "desc" }, { updatedAt: "desc" }],
         take: 1,
@@ -130,6 +132,8 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
           id: true,
           updatedAt: true,
           propertyCountry: true,
+          // Invalidated readings are left out, and counted so the page says so.
+          _count: { select: { moistureReadings: { where: { invalidatedAt: { not: null } } } } },
           moistureReadings: {
             where: { invalidatedAt: null },
             orderBy: { recordedAt: "asc" },
@@ -174,6 +178,10 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
   };
 
   const readingRows = inspection?.moistureReadings ?? [];
+  const invalidatedReadings = inspection?._count?.moistureReadings ?? 0;
+  if (invalidatedReadings > 0) {
+    omitted.push({ kind: "moisture-reading", reason: invalidatedReadings + " reading(s) marked invalid are left out" });
+  }
   const legacyReadings = countLegacyReadings(report.moistureReadings);
   if (legacyReadings === -1) {
     omitted.push({ kind: "moisture-reading", reason: "Readings stored in the older report format could not be read" });
@@ -275,6 +283,10 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
   // exact number of cents and the job's country says which currency it is.
   let financials: VerifiedReportProjection["financials"];
   const estimate = report.estimates[0];
+  const earlierEstimates = (report._count?.estimates ?? 0) - report.estimates.length;
+  if (earlierEstimates > 0) {
+    omitted.push({ kind: "financials", reason: earlierEstimates + " earlier estimate(s) are not shown; only the latest is" });
+  }
   if (estimate) {
     bump(estimate.updatedAt);
     const currency = inspection ? CURRENCY_BY_COUNTRY[inspection.propertyCountry] : undefined;

@@ -241,7 +241,7 @@ function SnapshotReport({ snapshot }: { snapshot: ReportExperienceSnapshot }) {
       <div className={styles.snapshotGrid}>
         <section className={styles.snapshotPanel} aria-labelledby="snap-hazards">
           <h3 id="snap-hazards">Hazards</h3>
-          {snapshot.hazards.length === 0 ? <Empty>No hazards recorded for this report.</Empty> : (
+          {snapshot.hazards.length === 0 ? <Empty>No hazards are shown in this preview. Check the records listed as not shown.</Empty> : (
             <ul className={styles.snapshotList}>
               {snapshot.hazards.map((hazard) => (
                 <li key={hazard.id} data-verification={hazard.verification}>
@@ -256,7 +256,7 @@ function SnapshotReport({ snapshot }: { snapshot: ReportExperienceSnapshot }) {
 
         <section className={styles.snapshotPanel} aria-labelledby="snap-readings">
           <h3 id="snap-readings">Moisture readings</h3>
-          {snapshot.moistureReadings.length === 0 ? <Empty>No moisture readings recorded for this report.</Empty> : (
+          {snapshot.moistureReadings.length === 0 ? <Empty>No moisture readings are shown in this preview. Check the records listed as not shown.</Empty> : (
             <table className={styles.compactTable}>
               <thead><tr><th>Room</th><th>Reading</th><th>Observed</th></tr></thead>
               <tbody>
@@ -274,7 +274,7 @@ function SnapshotReport({ snapshot }: { snapshot: ReportExperienceSnapshot }) {
 
         <section className={styles.snapshotPanel} aria-labelledby="snap-scope">
           <h3 id="snap-scope">Scope of work</h3>
-          {snapshot.scopeItems.length === 0 ? <Empty>No scope items recorded for this report.</Empty> : (
+          {snapshot.scopeItems.length === 0 ? <Empty>No scope items are shown in this preview. Check the records listed as not shown.</Empty> : (
             <ul className={styles.snapshotList}>
               {snapshot.scopeItems.map((item) => (
                 <li key={item.id} data-approval={item.approvalStatus}>
@@ -293,7 +293,7 @@ function SnapshotReport({ snapshot }: { snapshot: ReportExperienceSnapshot }) {
               <strong>{formatMoney(snapshot.financials.estimatedTotalCents, snapshot.financials.currency)}</strong>
               <span className={styles.stateTag}>{snapshot.financials.estimateStatus === "approved" ? "Approved estimate" : "Draft estimate"}</span>
             </p>
-          ) : <Empty>No financial estimate supplied for this report.</Empty>}
+          ) : <Empty>No financial estimate is shown in this preview.</Empty>}
         </section>
       </div>
 

@@ -159,7 +159,7 @@ export const REPORT_LINKS: Readonly<Record<string, LinkUse>> = {
   assignedManager: ["context", "one"],
   assignedAdmin: ["context", "one"],
   scope: ["scope-item", "one"],
-  // Only the latest estimate is shown; earlier ones are its past versions.
+  // The adapter shows the latest estimate and lists how many earlier ones it does not show.
   estimates: ["shown", "many"],
   scheduledEmails: ["context", "many"],
   emailAudits: ["context", "many"],
@@ -244,7 +244,7 @@ export const INSPECTION_LINKS: Readonly<Record<string, LinkUse>> = {
   clientInvites: ["context", "many"],
   user: ["context", "one"],
   environmentalData: ["moisture-reading", "many"],
-  // Invalidated readings are left out on purpose; the rest are shown.
+  // The adapter shows valid readings and counts the invalidated ones it leaves out.
   moistureReadings: ["shown", "many"],
   affectedAreas: ["finding", "many"],
   scopeItems: ["shown", "many"],

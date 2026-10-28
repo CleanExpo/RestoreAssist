@@ -262,6 +262,25 @@ describe("evidence adapter", () => {
     expect(omitted.map((o) => o.kind)).toContain("financials");
   });
 
+  it("shows only the latest estimate and says how many earlier ones are not shown", async () => {
+    db.report!._count = { estimates: 3 };
+    const { projection, omitted } = await buildVerifiedReportProjection(await grantFor());
+    expect(projection.financials?.estimatedTotalCents).toBe(123456);
+    expect(withoutPhotos(omitted)).toEqual([
+      { kind: "financials", reason: "2 earlier estimate(s) are not shown; only the latest is" },
+    ]);
+    db.report!._count = { estimates: 1 };
+    expect(withoutPhotos((await buildVerifiedReportProjection(await grantFor())).omitted)).toEqual([]);
+  });
+
+  it("says how many readings marked invalid are left out", async () => {
+    db.report!.inspection._count = { moistureReadings: 2 };
+    const { omitted } = await buildVerifiedReportProjection(await grantFor());
+    expect(withoutPhotos(omitted)).toEqual([
+      { kind: "moisture-reading", reason: "2 reading(s) marked invalid are left out" },
+    ]);
+  });
+
   it("uses NZD for a New Zealand job", async () => {
     db.report!.inspection.propertyCountry = "NZ";
     const { projection } = await buildVerifiedReportProjection(await grantFor());
