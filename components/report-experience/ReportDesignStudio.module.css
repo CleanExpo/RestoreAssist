@@ -215,3 +215,21 @@
  .moduleCard,.safety,.metrics>div { break-inside: avoid; }
  .ganttMotion,.animatedStroke { animation: none !important; }
 }
+
+/* Snapshot mode: identical content in every style; layout differs by theme layout. */
+.snapshotGrid { margin: 0 43px 30px; display: grid; grid-template-columns: 1fr; gap: 16px; }
+.snapshotPanel { border: 1px solid var(--line); border-top: 3px solid var(--accent); background: var(--soft); padding: 17px; }
+.snapshotPanel h3 { font-weight: 750; font-size: .95rem; margin-bottom: 10px; }
+.snapshotList { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.snapshotList p { color: var(--secondary-ink); font-size: .8rem; margin-top: 3px; }
+.stateTag { display: inline-block; margin-left: 10px; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; border: 1px solid var(--accent); padding: 1px 6px; }
+.noEvidence { color: var(--secondary-ink); font-size: .85rem; }
+.money { display: flex; align-items: center; flex-wrap: wrap; font-size: 1.4rem; }
+.report[data-layout="dashboard"] .snapshotGrid,
+.report[data-layout="spatial"] .snapshotGrid { grid-template-columns: 1fr 1fr; }
+.report[data-layout="story"] .snapshotGrid { grid-template-columns: 1fr; gap: 28px; }
+.report[data-layout="summary"] .snapshotGrid { grid-template-columns: 1.4fr 1fr; }
+.report[data-layout="document"] .snapshotPanel { border-top-width: 1px; background: var(--paper); }
+@media (max-width: 760px) {
+  .snapshotGrid { grid-template-columns: 1fr !important; margin-inline: 18px; }
+}

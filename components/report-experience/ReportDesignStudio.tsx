@@ -10,6 +10,7 @@ import {
   type ReportModuleId,
   type ReportThemeId,
 } from "@/lib/report-experience/catalog";
+import type { ReportExperienceSnapshot } from "@/lib/report-experience/snapshot";
 import styles from "./ReportDesignStudio.module.css";
 
 // Deliberately synthetic. No claims, people, live readings or customer data.
@@ -193,7 +194,118 @@ function EvidencePanel({ module, animated }: { module: ReportModuleId; animated:
   );
 }
 
-export function ReportDesignStudio() {
+const UNIT_LABELS: Record<ReportExperienceSnapshot["moistureReadings"][number]["unit"], string> = {
+  WME: "WME",
+  RH_PERCENT: "% RH",
+  G_PER_KG: "g/kg",
+  CELSIUS: "°C",
+};
+const VERIFICATION_LABELS = { unverified: "Unverified", verified: "Verified", resolved: "Resolved" } as const;
+const APPROVAL_LABELS = { unknown: "Approval unknown", proposed: "Proposed", authorised: "Authorised" } as const;
+const SAFETY_TEXT = {
+  NOT_ASSESSED: { title: "Safety not assessed", body: "No formal safety assessment has been recorded for this report. Treat site conditions as unverified until one is recorded." },
+  PENDING_VERIFICATION: { title: "Safety assessment pending verification", body: "A safety assessment has been recorded but is not yet verified. Confirm before relying on it." },
+  ASSESSED: { title: "Safety assessed", body: "A safety assessment has been recorded for this report." },
+} as const;
+
+function formatMoney(cents: number, currency: string): string {
+  return (cents / 100).toLocaleString("en-AU", { style: "currency", currency });
+}
+
+function Empty({ children }: { children: string }) {
+  return <p className={styles.noEvidence}>{children}</p>;
+}
+
+// Every style renders this same content; styles differ only in CSS layout.
+function SnapshotReport({ snapshot }: { snapshot: ReportExperienceSnapshot }) {
+  const safety = SAFETY_TEXT[snapshot.safetyAssessment];
+  return (
+    <>
+      <div className={styles.documentHead}>
+        <p className={styles.documentEyebrow}>REPORT {snapshot.reportNumber} / REVISION {snapshot.revision}</p>
+        <span className={styles.revision}>{snapshot.status}</span>
+      </div>
+      <section className={styles.hero}>
+        <div>
+          <p className={styles.heroKicker}>{snapshot.brand.businessName}</p>
+          <h2>Report {snapshot.reportNumber}</h2>
+          {snapshot.propertyAddress ? <p>{snapshot.propertyAddress}</p> : null}
+        </div>
+      </section>
+
+      <section className={styles.safety} role="note" aria-label="Safety assessment" data-assessment={snapshot.safetyAssessment}>
+        <span className={styles.safetySymbol} aria-hidden="true">!</span>
+        <div><strong>{safety.title}</strong><p>{safety.body}</p></div>
+      </section>
+
+      <div className={styles.snapshotGrid}>
+        <section className={styles.snapshotPanel} aria-labelledby="snap-hazards">
+          <h3 id="snap-hazards">Hazards</h3>
+          {snapshot.hazards.length === 0 ? <Empty>No hazards recorded for this report.</Empty> : (
+            <ul className={styles.snapshotList}>
+              {snapshot.hazards.map((hazard) => (
+                <li key={hazard.id} data-verification={hazard.verification}>
+                  <strong>{hazard.title}</strong>
+                  <span className={styles.stateTag}>{VERIFICATION_LABELS[hazard.verification]}</span>
+                  <p>{hazard.action}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className={styles.snapshotPanel} aria-labelledby="snap-readings">
+          <h3 id="snap-readings">Moisture readings</h3>
+          {snapshot.moistureReadings.length === 0 ? <Empty>No moisture readings recorded for this report.</Empty> : (
+            <table className={styles.compactTable}>
+              <thead><tr><th>Room</th><th>Reading</th><th>Observed</th></tr></thead>
+              <tbody>
+                {snapshot.moistureReadings.map((reading) => (
+                  <tr key={reading.id}>
+                    <td>{reading.roomId}</td>
+                    <td>{reading.value} {UNIT_LABELS[reading.unit]}</td>
+                    <td><time dateTime={reading.observedAt}>{reading.observedAt}</time></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+
+        <section className={styles.snapshotPanel} aria-labelledby="snap-scope">
+          <h3 id="snap-scope">Scope of work</h3>
+          {snapshot.scopeItems.length === 0 ? <Empty>No scope items recorded for this report.</Empty> : (
+            <ul className={styles.snapshotList}>
+              {snapshot.scopeItems.map((item) => (
+                <li key={item.id} data-approval={item.approvalStatus}>
+                  <strong>{item.description}</strong>
+                  <span className={styles.stateTag}>{APPROVAL_LABELS[item.approvalStatus]}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className={styles.snapshotPanel} aria-labelledby="snap-money">
+          <h3 id="snap-money">Estimate</h3>
+          {snapshot.financials ? (
+            <p className={styles.money}>
+              <strong>{formatMoney(snapshot.financials.estimatedTotalCents, snapshot.financials.currency)}</strong>
+              <span className={styles.stateTag}>{snapshot.financials.estimateStatus === "approved" ? "Approved estimate" : "Draft estimate"}</span>
+            </p>
+          ) : <Empty>No financial estimate supplied for this report.</Empty>}
+        </section>
+      </div>
+
+      <footer className={styles.documentFoot}>
+        <span>Revision {snapshot.revision}, created {snapshot.revisionCreatedAt}</span>
+        <span>Content digest (SHA-256) {snapshot.contentDigestSha256}</span>
+      </footer>
+    </>
+  );
+}
+
+export function ReportDesignStudio({ snapshot }: { snapshot?: ReportExperienceSnapshot } = {}) {
   const [themeId, setThemeId] = useState<ReportThemeId>("executive-modern");
   const [play, setPlay] = useState(false);
   const [pdfView, setPdfView] = useState(false);
@@ -215,10 +327,12 @@ export function ReportDesignStudio() {
     <main className={styles.studio} data-testid="report-design-studio">
       <header className={styles.studioHead}>
         <div><p className={styles.eyebrow}>RESTOREASSIST / REPORT EXPERIENCE STUDIO</p>
-          <h1>Ten ways to tell one accurate story.</h1>
-          <p>Explore the same synthetic inspection in ten visual treatments. Styling changes. Evidence does not.</p>
+          <h1>{snapshot ? "Ten ways to tell one accurate story." : "Ten ways to tell one accurate story (synthetic sample)."}</h1>
+          <p>{snapshot
+            ? "Explore the same report in ten visual treatments. Styling changes. Evidence does not."
+            : "Explore the same synthetic inspection in ten visual treatments. Styling changes. Evidence does not."}</p>
         </div>
-        <span className={styles.demoStamp}>DESIGN LAB · SYNTHETIC DATA</span>
+        <span className={styles.demoStamp}>{snapshot ? "REPORT SNAPSHOT · EVIDENCE FROM THIS REPORT ONLY" : "DESIGN LAB · SYNTHETIC DATA"}</span>
       </header>
       <section aria-labelledby="choose-style" className={styles.selector}>
         <div className={styles.selectorHead}><h2 id="choose-style">Choose your design</h2><span>01–10 / all included</span></div>
@@ -243,14 +357,18 @@ export function ReportDesignStudio() {
           <Button type="button" variant="outline" size="sm" aria-pressed={!pdfView} onClick={() => setPdfView(false)}>Interactive web</Button>
           <Button type="button" variant="outline" size="sm" aria-pressed={pdfView} onClick={() => { setPdfView(true); setPlay(false); }}>Print / PDF</Button>
           <Button type="button" variant="outline" size="sm" aria-pressed={compact} onClick={() => setCompact(!compact)}>Compact {compact ? "on" : "off"}</Button>
-          <Button type="button" variant="outline" size="sm" disabled={pdfView}
-            aria-pressed={play}
-            onClick={() => setPlay((value) => !value)}>{play ? "Pause motion" : "Preview motion"}</Button>
+          {snapshot ? null : (
+            <Button type="button" variant="outline" size="sm" disabled={pdfView}
+              aria-pressed={play}
+              onClick={() => setPlay((value) => !value)}>{play ? "Pause motion" : "Preview motion"}</Button>
+          )}
         </div>
       </section>
 
       <article id="visual-report-content" className={styles.report} data-theme={themeId} data-compact={compact} data-pdf={pdfView}
-        data-animated={animated} aria-label={`${plan.theme.label} synthetic report preview`}>
+        data-layout={plan.theme.layout}
+        data-animated={animated} aria-label={`${plan.theme.label} ${snapshot ? "" : "synthetic "}report preview`}>
+        {snapshot ? <SnapshotReport snapshot={snapshot} /> : <>
         <div className={styles.documentHead}>
           <p className={styles.documentEyebrow}>INSPECTION / SAMPLE REPORT 0001 / REVISION A</p>
           <span className={styles.revision}>DRAFT CONCEPT · NOT FOR CLAIM USE</span>
@@ -295,8 +413,9 @@ export function ReportDesignStudio() {
           <div><h3>Required evidence and sign-off</h3><p>Authenticated technician, inspection timestamp, validated readings, relevant standards citations and an auditable approval are mandatory in the real report workflow.</p></div>
         </section>
         <footer className={styles.documentFoot}><span>EXAMPLE DATA · REPORT EXPERIENCE CONCEPT</span><span>All {ALWAYS_VISIBLE_REPORT_SECTIONS.length} mandatory report sections preserved across themes</span></footer>
+        </>}
       </article>
-      <p className={styles.studioFootnote}>Prototype only. The live inspection report and PDF generator remain unchanged. PDF mode is a static layout preview, not a verified generated PDF.</p>
+      <p className={styles.studioFootnote}>{snapshot ? "Layout preview only. The inspection report and PDF generator remain unchanged. PDF mode is a static layout preview, not a verified generated PDF." : "Prototype only. The live inspection report and PDF generator remain unchanged. PDF mode is a static layout preview, not a verified generated PDF."}</p>
     </main>
   );
 }
