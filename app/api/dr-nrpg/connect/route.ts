@@ -52,21 +52,33 @@ const WEBHOOK_SECRET_LOCK = "dr-nrpg:webhook-secret";
  * over SHA-256 digests so differing lengths cannot short-circuit.
  * Run it inside the WEBHOOK_SECRET_LOCK transaction, so the answer still holds
  * when the row is written.
+ * A row that cannot be decrypted is skipped and logged by id only, as the
+ * webhook receiver does (RA-8075): it can never verify an event, so it cannot
+ * take another business's jobs, and one bad row must not refuse every connect.
  */
 async function secretHeldByAnotherIntegration(
   db: any,
   userId: string,
   secret: string,
 ): Promise<boolean> {
-  const others: { webhookSecret: string | null }[] =
+  const others: { id: string; webhookSecret: string | null }[] =
     await db.drNrpgIntegration.findMany({
       where: { isActive: true, userId: { not: userId } },
-      select: { webhookSecret: true },
+      select: { id: true, webhookSecret: true },
     });
   const wanted = createHash("sha256").update(secret).digest();
-  return others.some(({ webhookSecret: stored }) => {
+  return others.some(({ id, webhookSecret: stored }) => {
     if (!stored) return false;
-    const plain = isEncryptedToken(stored) ? decrypt(stored) : stored;
+    let plain: string;
+    try {
+      plain = isEncryptedToken(stored) ? decrypt(stored) : stored;
+    } catch {
+      console.error(
+        "[dr-nrpg connect] webhookSecret could not be decrypted — skipped in the clash check",
+        { integrationId: id },
+      );
+      return false;
+    }
     return timingSafeEqual(wanted, createHash("sha256").update(plain).digest());
   });
 }

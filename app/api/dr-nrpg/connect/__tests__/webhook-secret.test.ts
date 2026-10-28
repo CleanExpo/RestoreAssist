@@ -67,9 +67,13 @@ vi.mock("@/lib/entitlements", () => ({
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { decrypt } from "@/lib/credential-vault";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
+const mockDecrypt = decrypt as unknown as ReturnType<typeof vi.fn>;
+// A stored value the vault cannot open (key changed, or the row is corrupt).
+const CORRUPT = "enc:corrupt";
 const fakePrisma = prisma as unknown as {
   drNrpgIntegration: {
     upsert: ReturnType<typeof vi.fn>;
@@ -97,6 +101,10 @@ beforeEach(() => {
   mockSession.mockResolvedValue({ user: { id: "user_B" } });
   db.upsert.mockResolvedValue({ id: "integ-B" });
   db.findMany.mockResolvedValue([]);
+  mockDecrypt.mockImplementation((v: string) => {
+    if (v === CORRUPT) throw new Error("Unsupported state or unable to authenticate data");
+    return v.replace(/^enc:/, "");
+  });
   logSpies = (["log", "info", "warn", "error"] as const).map((m) =>
     vi.spyOn(console, m).mockImplementation(() => {}),
   );
@@ -161,6 +169,31 @@ describe("RA-8076 — webhookSecret validation on /api/dr-nrpg/connect", () => {
 
     expect(res.status).toBe(409);
     expect(db.upsert).not.toHaveBeenCalled();
+  });
+
+  it("a stored secret that cannot be decrypted does not block a new secret", async () => {
+    db.findMany.mockResolvedValue([{ id: "integ-bad", webhookSecret: CORRUPT }]);
+
+    const res = await POST(makePost({ drNrpgApiKey: "k", webhookSecret: SHARED }));
+
+    expect(res.status).toBe(200);
+    expect(db.upsert).toHaveBeenCalledTimes(1);
+    // The bad row is reported by id only, never by value.
+    expect(loggedText()).toContain("integ-bad");
+    expect(loggedText()).not.toContain(SHARED);
+  });
+
+  it("a stored secret that cannot be decrypted does not hide a clash with a readable row", async () => {
+    db.findMany.mockResolvedValue([
+      { id: "integ-bad", webhookSecret: CORRUPT },
+      { id: "integ-A", webhookSecret: `enc:${SHARED}` },
+    ]);
+
+    const res = await POST(makePost({ drNrpgApiKey: "k", webhookSecret: SHARED }));
+
+    expect(res.status).toBe(409);
+    expect(db.upsert).not.toHaveBeenCalled();
+    expect(JSON.stringify(await res.json()) + loggedText()).not.toContain(SHARED);
   });
 
   it("lets the same user reconnect with their own current secret", async () => {
