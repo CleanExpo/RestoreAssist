@@ -106,9 +106,35 @@ describe("development report experience page", () => {
     m.adapter.mockRejectedValue(new Error("Denied: report tenant does not match the grant"));
     await show();
     expect(screen.getByRole("alert").textContent).toMatch(/adapter/i);
-    expect(screen.getByRole("alert").textContent).toContain("Denied: report tenant does not match the grant");
     expect(screen.queryByTestId("studio")).toBeNull();
     expect(m.studio).not.toHaveBeenCalled();
+  });
+
+  it("never shows exception text from any step, and logs it on the server", async () => {
+    const secret = "SECRET-DB-CONNECTION-DETAIL";
+    const failures: Array<() => void> = [
+      () => m.getServerSession.mockRejectedValue(new Error(secret)),
+      () => m.authorise.mockRejectedValue(new Error(secret)),
+      () => m.adapter.mockRejectedValue(new Error(secret)),
+      () =>
+        m.snapshot.mockImplementation(() => {
+          throw new Error(secret);
+        }),
+    ];
+    for (const fail of failures) {
+      fail();
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { container } = await show();
+      expect(screen.getByRole("alert").textContent).toContain("server log");
+      expect(container.textContent).not.toContain(secret);
+      expect(log).toHaveBeenCalledWith(expect.stringContaining("step failed"), expect.objectContaining({ message: secret }));
+      log.mockRestore();
+      cleanup();
+      m.getServerSession.mockResolvedValue({ user: { id: "user_a" } });
+      m.authorise.mockResolvedValue({ ok: true, grant });
+      m.adapter.mockResolvedValue({ projection: { p: 1 }, omitted: [] });
+      m.snapshot.mockReturnValue(snapshot);
+    }
   });
 
   it("names the snapshot step when the snapshot builder throws", async () => {

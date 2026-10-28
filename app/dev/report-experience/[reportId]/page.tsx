@@ -17,11 +17,16 @@ type PageProps = { params: Promise<{ reportId: string }> };
 
 type Outcome =
   | { ok: true; snapshot: ReportExperienceSnapshot; omitted: OmittedEvidence[] }
-  | { ok: false; step: "gate" | "adapter" | "snapshot"; message: string }
+  | { ok: false; step: Step }
   | { ok: false; refused: true };
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown error";
+type Step = "gate" | "adapter" | "snapshot";
+
+// The page never shows exception text: a database or session error can carry
+// connection details. The error goes to the server log only.
+function failed(step: Step, error: unknown): Outcome {
+  console.error("[report-experience] " + step + " step failed", error);
+  return { ok: false, step };
 }
 
 /**
@@ -37,7 +42,7 @@ async function load(reportId: string): Promise<Outcome> {
     const session = await getServerSession(authOptions);
     decision = await authoriseReportExperienceRead({ reportId, session });
   } catch (error) {
-    return { ok: false, step: "gate", message: messageOf(error) };
+    return failed("gate", error);
   }
   if (!decision.ok) return { ok: false, refused: true };
 
@@ -45,13 +50,13 @@ async function load(reportId: string): Promise<Outcome> {
   try {
     built = await buildVerifiedReportProjection(decision.grant);
   } catch (error) {
-    return { ok: false, step: "adapter", message: messageOf(error) };
+    return failed("adapter", error);
   }
   try {
     const snapshot = buildReportExperienceSnapshot(built.projection, decision.grant, new Date().toISOString());
     return { ok: true, snapshot, omitted: built.omitted };
   } catch (error) {
-    return { ok: false, step: "snapshot", message: messageOf(error) };
+    return failed("snapshot", error);
   }
 }
 
@@ -64,7 +69,7 @@ export default async function ReportExperienceOneReportPage({ params }: PageProp
     return (
       <main style={{ padding: "2rem", maxWidth: "48rem", margin: "0 auto" }}>
         <p role="alert">
-          The {outcome.step} step refused this report: {outcome.message}
+          The {outcome.step} step could not show this report. The reason is in the server log.
         </p>
       </main>
     );

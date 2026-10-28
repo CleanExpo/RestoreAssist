@@ -104,6 +104,8 @@ beforeEach(() => {
   db.tenants = { user_a: { ownerId: "owner_a", organizationId: "business_a" } };
 });
 
+const withoutPhotos = (list: Array<{ kind: string }>) => list.filter((o) => o.kind !== "photo");
+
 describe("evidence adapter", () => {
   it("refuses a grant the gate did not issue", async () => {
     const forged = { ...(await grantFor()) };
@@ -125,7 +127,10 @@ describe("evidence adapter", () => {
   it("builds a projection the snapshot builder accepts", async () => {
     const grant = await grantFor();
     const { projection, omitted } = await buildVerifiedReportProjection(grant);
-    expect(omitted).toEqual([]);
+    // Photos are not rendered yet, so each one is reported as not shown.
+    expect(omitted).toEqual([
+      { kind: "photo", id: "photo_1", reason: "Photos are not shown in this preview yet" },
+    ]);
     expect(projection.reportId).toBe("report_001");
     expect(projection.organisationId).toBe(grant.organisationId);
     expect(projection.reportNumber).toBe("RA-2026-0042");
@@ -172,7 +177,7 @@ describe("evidence adapter", () => {
     db.report!.inspection.moistureReadings[0].sketchRoomId = null;
     const { projection, omitted } = await buildVerifiedReportProjection(await grantFor());
     expect(projection.moistureReadings.map((r) => r.id)).toEqual(["read_rh"]);
-    expect(omitted).toEqual([
+    expect(withoutPhotos(omitted)).toEqual([
       expect.objectContaining({ kind: "moisture-reading", id: "read_1", reason: expect.stringMatching(/room/i) }),
     ]);
   });
@@ -197,7 +202,7 @@ describe("evidence adapter", () => {
     db.report!.inspection.propertyCountry = "US";
     const { projection, omitted } = await buildVerifiedReportProjection(await grantFor());
     expect(projection.financials).toBeUndefined();
-    expect(omitted).toEqual([
+    expect(withoutPhotos(omitted)).toEqual([
       expect.objectContaining({ kind: "financials", reason: expect.stringMatching(/jurisdiction/i) }),
     ]);
   });
@@ -243,7 +248,7 @@ describe("evidence adapter", () => {
     const { projection, omitted } = await buildVerifiedReportProjection(await grantFor());
     expect(projection.scopeItems.map((s) => s.id)).toEqual(["scope_1"]);
     expect(projection.sourceRefs.map((s) => s.id)).not.toContain("scope_off");
-    expect(omitted).toEqual([expect.objectContaining({ kind: "scope-item", id: "scope_off" })]);
+    expect(withoutPhotos(omitted)).toEqual([expect.objectContaining({ kind: "scope-item", id: "scope_off" })]);
   });
 
   it("states that no action is recorded rather than borrowing another field", async () => {

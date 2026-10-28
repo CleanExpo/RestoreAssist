@@ -207,6 +207,11 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
   const photoRows = inspection?.photos ?? [];
   if (photoRows.length > LIST_LIMIT) omitted.push(describeLimit("photo", LIST_LIMIT));
   const photoIds = photoRows.slice(0, LIST_LIMIT).map(p => p.id);
+  // The report design does not show photos yet (RA-8104 slice C). Each one is
+  // listed here so the page never claims every record was shown.
+  for (const id of photoIds) {
+    omitted.push({ kind: "photo", id, reason: "Photos are not shown in this preview yet" });
+  }
 
   bump(inspection?.updatedAt);
 
