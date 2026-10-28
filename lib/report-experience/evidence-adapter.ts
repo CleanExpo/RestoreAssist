@@ -53,6 +53,22 @@ const ESTIMATE_STATUS: Readonly<Record<string, "draft" | "approved">> = {
   APPROVED: "approved",
 };
 
+/**
+ * Readings in the older report format: JSON text on Report.moistureReadings.
+ * Those entries carry no link to a sketch room, so they cannot be mapped
+ * without guessing. Returns how many there are, or -1 when the text is not a
+ * JSON list.
+ */
+function countLegacyReadings(text: string | null): number {
+  if (!text || !text.trim()) return 0;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed.length : -1;
+  } catch {
+    return -1;
+  }
+}
+
 function describeLimit(kind: string, shown: number): OmittedEvidence {
   return { kind, reason: "More than " + shown + " records stored; only the first " + shown + " are included" };
 }
@@ -86,6 +102,8 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
       jobNumber: true,
       status: true,
       propertyAddress: true,
+      // Older reports keep readings as JSON text here (the PDF falls back to it).
+      moistureReadings: true,
       user: {
         select: {
           organizationId: true,
@@ -147,6 +165,17 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
   };
 
   const readingRows = inspection?.moistureReadings ?? [];
+  const legacyReadings = countLegacyReadings(report.moistureReadings);
+  if (legacyReadings === -1) {
+    omitted.push({ kind: "moisture-reading", reason: "Readings stored in the older report format could not be read" });
+  } else if (legacyReadings > 0) {
+    omitted.push({
+      kind: "moisture-reading",
+      reason:
+        legacyReadings +
+        " reading(s) stored in the older report format have no room link, so they are not shown",
+    });
+  }
   if (readingRows.length > LIST_LIMIT) omitted.push(describeLimit("moisture-reading", LIST_LIMIT));
   const moistureReadings: Array<VerifiedReportProjection["moistureReadings"][number]> = [];
   for (const row of readingRows.slice(0, LIST_LIMIT)) {

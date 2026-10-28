@@ -182,6 +182,33 @@ describe("evidence adapter", () => {
     ]);
   });
 
+  it("lists readings stored in the older report format as not shown", async () => {
+    db.report!.inspection.moistureReadings = [];
+    db.report!.moistureReadings = JSON.stringify([
+      { location: "Kitchen", value: 32, unit: "WME" },
+      { location: "Hall", value: 18, unit: "WME" },
+    ]);
+    const { projection, omitted } = await buildVerifiedReportProjection(await grantFor());
+    expect(projection.moistureReadings).toEqual([]);
+    expect(withoutPhotos(omitted)).toEqual([
+      {
+        kind: "moisture-reading",
+        reason: "2 reading(s) stored in the older report format have no room link, so they are not shown",
+      },
+    ]);
+  });
+
+  it("says so when older-format readings cannot be read, and is silent for an empty list", async () => {
+    db.report!.moistureReadings = "not json";
+    let { omitted } = await buildVerifiedReportProjection(await grantFor());
+    expect(withoutPhotos(omitted)).toEqual([
+      { kind: "moisture-reading", reason: "Readings stored in the older report format could not be read" },
+    ]);
+    db.report!.moistureReadings = "[]";
+    ({ omitted } = await buildVerifiedReportProjection(await grantFor()));
+    expect(withoutPhotos(omitted)).toEqual([]);
+  });
+
   it("never assumes a site is safe: no assessment record means NOT_ASSESSED", async () => {
     db.report!.safetyPlan = "Site is safe, no hazards";
     const { projection } = await buildVerifiedReportProjection(await grantFor());
