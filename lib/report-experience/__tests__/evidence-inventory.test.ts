@@ -66,24 +66,48 @@ describe("evidence inventory", () => {
 
     it(c.name + ": every single linked record it reads has an id", () => {
       for (const [name, [use, size]] of Object.entries(c.links)) {
-        if (size !== "one" || use === "shown" || use === "context") continue;
+        if (size !== "one" || use === "shown" || use === "system") continue;
         const target = model(c.name).fields.find((f) => f.name === name)!.type;
         expect(model(target).fields.map((f) => f.name), target).toContain("id");
       }
     });
   }
 
+  it("keeps the silent list narrow: keys, bookkeeping timestamps and settings switches only", () => {
+    const SWITCHES = ["isSample", "lastEditedBy", "includeRegulatoryCitations", "reportDepthLevel", "pulseEnabled"];
+    for (const fields of [REPORT_FIELDS, INSPECTION_FIELDS]) {
+      for (const [name, use] of Object.entries(fields)) {
+        if (use !== "system") continue;
+        expect(/Id$|At$/.test(name) || SWITCHES.includes(name), name).toBe(true);
+      }
+    }
+    const silentLinks = [
+      ...Object.entries(REPORT_LINKS).filter(([, v]) => v[0] === "system").map(([k]) => "Report." + k),
+      ...Object.entries(INSPECTION_LINKS).filter(([, v]) => v[0] === "system").map(([k]) => "Inspection." + k),
+    ].sort();
+    expect(silentLinks).toEqual([
+      "Inspection.captureTokens",
+      "Inspection.report",
+      "Inspection.usageEvents",
+      "Inspection.user",
+      "Inspection.workspace",
+      "Report.shareAccess",
+      "Report.workspace",
+    ]);
+  });
+
   it("selects evidence only, counting many-record links", () => {
     const select = inventorySelect(REPORT_FIELDS, REPORT_LINKS);
     expect(select.safetyHazards).toBe(true);
     expect(select.scope).toEqual({ select: { id: true } });
     expect(select._count).toEqual(expect.objectContaining({ select: expect.objectContaining({ invoices: true }) }));
-    expect(select.clientName).toBeUndefined();
+    expect(select.clientName).toBe(true);
+    expect(select.clientId).toBeUndefined();
     expect(select.reportNumber).toBeUndefined();
     expect((select._count as { select: Record<string, true> }).select.shareAccess).toBeUndefined();
   });
 
-  it("lists filled evidence by name only, and skips blank, empty and context values", () => {
+  it("lists filled fields by name only, and skips blank, empty and system values", () => {
     const omitted = inventoryOmissions(
       "Report",
       {
@@ -93,7 +117,7 @@ describe("evidence inventory", () => {
         hvacAffected: false,
         totalCost: 0,
         methamphetamineScreen: null,
-        clientName: "SECRET-CLIENT",
+        clientId: "SECRET-CLIENT-KEY",
         scope: { id: "scope_rec_1" },
         _count: { invoices: 2, restorationDocuments: 0, shareAccess: 5 },
       },
@@ -101,9 +125,9 @@ describe("evidence inventory", () => {
       REPORT_LINKS,
     );
     expect(omitted).toEqual([
-      { kind: "financials", reason: "Report field totalCost holds evidence this preview does not show yet" },
-      { kind: "hazard", reason: "Report field safetyHazards holds evidence this preview does not show yet" },
-      { kind: "hazard", reason: "Report field biologicalMouldDetected holds evidence this preview does not show yet" },
+      { kind: "financials", reason: "Report field totalCost is stored but not shown in this preview" },
+      { kind: "hazard", reason: "Report field safetyHazards is stored but not shown in this preview" },
+      { kind: "hazard", reason: "Report field biologicalMouldDetected is stored but not shown in this preview" },
       { kind: "scope-item", id: "scope_rec_1", reason: "The linked Report.scope record: not shown in this preview yet" },
       { kind: "financials", reason: "2 linked Report.invoices record(s): not shown in this preview yet" },
     ]);
@@ -130,9 +154,9 @@ describe("evidence inventory", () => {
 
   it("labels AI-written summaries and past versions as evidence, not context", () => {
     for (const name of ["aiSynopsis", "clientSummaryCache", "versionHistory", "technicianReportAnalysis"]) {
-      expect(REPORT_FIELDS[name], name).not.toMatch(/^(shown|context)$/);
+      expect(REPORT_FIELDS[name], name).not.toMatch(/^(shown|system)$/);
     }
-    expect(INSPECTION_LINKS.assessmentGenerations[0]).not.toBe("context");
+    expect(INSPECTION_LINKS.assessmentGenerations[0]).not.toMatch(/^(shown|system)$/);
   });
 
   it("says sketches are shown only in part", () => {

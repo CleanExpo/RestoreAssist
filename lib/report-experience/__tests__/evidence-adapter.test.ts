@@ -109,9 +109,12 @@ beforeEach(() => {
   db.tenants = { user_a: { ownerId: "owner_a", organizationId: "business_a" } };
 });
 
-const BASE_NOTE = "Report field technicianFieldReport holds evidence this preview does not show yet";
+// Fields the base fixture fills that the preview does not show. They are
+// listed in every result; tests compare what each case adds.
+const BASE_FIELDS = ["clientName", "clientContactDetails", "technicianFieldReport", "ownerManagementEmail"];
+const BASE_NOTES = BASE_FIELDS.map((f) => "Report field " + f + " is stored but not shown in this preview");
 const withoutPhotos = (list: Array<{ kind: string; reason: string }>) =>
-  list.filter((o) => o.kind !== "photo" && o.reason !== BASE_NOTE);
+  list.filter((o) => o.kind !== "photo" && !BASE_NOTES.includes(o.reason));
 
 describe("evidence adapter", () => {
   it("refuses a grant the gate did not issue", async () => {
@@ -137,7 +140,10 @@ describe("evidence adapter", () => {
     // Photos are not rendered yet, so each one is reported as not shown.
     expect(omitted).toEqual([
       { kind: "photo", id: "photo_1", reason: "Photos are not shown in this preview yet" },
-      { kind: "finding", reason: BASE_NOTE },
+      { kind: "other", reason: BASE_NOTES[0] },
+      { kind: "other", reason: BASE_NOTES[1] },
+      { kind: "finding", reason: BASE_NOTES[2] },
+      { kind: "other", reason: BASE_NOTES[3] },
     ]);
     expect(projection.reportId).toBe("report_001");
     expect(projection.organisationId).toBe(grant.organisationId);
@@ -219,13 +225,15 @@ describe("evidence adapter", () => {
 
   it("lists unshown evidence on the report and its inspection by name only", async () => {
     Object.assign(db.report!, { safetyHazards: "SECRET-HAZARD-TEXT", scope: { id: "scope_rec_1" } });
-    Object.assign(db.report!.inspection, { lossDescription: "SECRET-LOSS", _count: { costEstimates: 3, auditLogs: 9 } });
+    Object.assign(db.report!.inspection, { lossDescription: "SECRET-LOSS", _count: { costEstimates: 3, auditLogs: 9, usageEvents: 4 } });
     const { projection, omitted } = await buildVerifiedReportProjection(await grantFor());
     expect(withoutPhotos(omitted)).toEqual([
-      { kind: "hazard", reason: "Report field safetyHazards holds evidence this preview does not show yet" },
+      { kind: "hazard", reason: "Report field safetyHazards is stored but not shown in this preview" },
       { kind: "scope-item", id: "scope_rec_1", reason: "The linked Report.scope record: not shown in this preview yet" },
-      { kind: "finding", reason: "Inspection field lossDescription holds evidence this preview does not show yet" },
+      { kind: "finding", reason: "Inspection field lossDescription is stored but not shown in this preview" },
       { kind: "financials", reason: "3 linked Inspection.costEstimates record(s): not shown in this preview yet" },
+      // Audit logs hold before-and-after values, so they are listed; usage events are system bookkeeping.
+      { kind: "other", reason: "9 linked Inspection.auditLogs record(s): not shown in this preview yet" },
     ]);
     expect(JSON.stringify({ projection, omitted })).not.toContain("SECRET");
   });
@@ -331,11 +339,12 @@ describe("evidence adapter", () => {
     const json = JSON.stringify(result);
     for (const secret of [
       "SECRET-CLIENT-NAME", "SECRET-CLIENT-PHONE", "SECRET-owner@example.test", "SECRET-INTERNAL-NOTE",
-      "SECRET-author@example.test", "SECRET-biz@example.test", "signed.example.test", "clientContactDetails",
-      "ownerManagementEmail",
+      "SECRET-author@example.test", "SECRET-biz@example.test", "signed.example.test",
     ]) {
       expect(json).not.toContain(secret);
     }
+    // Field names may appear in the not-shown list, never in the projection.
+    expect(JSON.stringify(result.projection)).not.toMatch(/clientContactDetails|ownerManagementEmail/);
     const snapshot = buildReportExperienceSnapshot(result.projection, grant, NOW.toISOString());
     expect(JSON.stringify(snapshot)).not.toContain("SECRET");
   });
