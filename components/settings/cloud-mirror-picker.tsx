@@ -54,8 +54,12 @@ export function CloudMirrorPicker() {
         provider: ProviderId | null;
         catalog?: ProviderOption[];
       };
-      setOptions(data.catalog ?? []);
-      const current = data.provider ?? "";
+      const catalog = data.catalog ?? [];
+      setOptions(catalog);
+      // RA-8078: a saved choice the catalog no longer offers is not current.
+      const current = catalog.some((o) => o.id === data.provider && o.enabled)
+        ? (data.provider ?? "")
+        : "";
       setSelected(current);
       setInitial(current);
     } catch (err) {

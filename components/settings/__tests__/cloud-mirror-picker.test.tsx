@@ -19,7 +19,7 @@ const { CloudMirrorPicker } = await import("../cloud-mirror-picker");
 
 type Entry = { id: string; label: string; tagline: string; enabled: boolean };
 
-function mockCatalog(onedriveEnabled: boolean) {
+function mockCatalog(onedriveEnabled: boolean, provider = "drive") {
   const catalog: Entry[] = [
     { id: "drive", label: "Google Drive", tagline: "Drive", enabled: true },
     {
@@ -37,7 +37,7 @@ function mockCatalog(onedriveEnabled: boolean) {
     return {
       ok: true,
       status: 200,
-      json: async () => ({ provider: "drive", catalog }),
+      json: async () => ({ provider, catalog }),
     };
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -64,6 +64,22 @@ describe("CloudMirrorPicker — OneDrive", () => {
     await waitFor(() => screen.getByLabelText(/microsoft onedrive/i));
     expect(screen.getByLabelText(/microsoft onedrive/i)).toBeDisabled();
     expect(screen.queryByText(/onedrive connected/i)).not.toBeInTheDocument();
+  });
+
+  it("a saved OneDrive choice that is switched off is not shown as current", async () => {
+    // A user who saved OneDrive while it was offered, before RA-8078 hid it.
+    mockCatalog(false, "onedrive");
+    render(<CloudMirrorPicker />);
+    const radio = await waitFor(() => screen.getByLabelText(/microsoft onedrive/i));
+    expect(radio).not.toBeChecked();
+    expect(screen.queryByText(/currently using/i)).not.toBeInTheDocument();
+  });
+
+  it("still shows an enabled saved choice as current", async () => {
+    mockCatalog(false, "drive");
+    render(<CloudMirrorPicker />);
+    await waitFor(() => screen.getByText(/currently using/i));
+    expect(screen.getByLabelText(/google drive/i)).toBeChecked();
   });
 
   it("Save with OneDrive selected posts the choice instead of redirecting to the Microsoft login", async () => {
