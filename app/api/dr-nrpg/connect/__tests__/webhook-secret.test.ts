@@ -30,16 +30,37 @@ vi.mock("@/lib/idempotency", () => ({
     ) => fn(await req.text()),
   ),
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    drNrpgIntegration: {
-      upsert: vi.fn(),
-      findMany: vi.fn(),
-      deleteMany: vi.fn(),
-      findUnique: vi.fn(),
-    },
-  },
-}));
+vi.mock("@/lib/prisma", () => {
+  const drNrpgIntegration = {
+    upsert: vi.fn(),
+    findMany: vi.fn(),
+    deleteMany: vi.fn(),
+    findUnique: vi.fn(),
+  };
+  // Like pg_advisory_xact_lock: the lock statement waits for the previous
+  // holder, and the end of the transaction releases it. Without the statement
+  // two transactions run side by side, as they would on Postgres.
+  let tail: Promise<void> = Promise.resolve();
+  const lockCalls = vi.fn();
+  const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+    let release: (() => void) | undefined;
+    const tx = {
+      drNrpgIntegration,
+      $executeRaw: async (query: { sql?: string }) => {
+        lockCalls(query?.sql ?? String(query));
+        const previous = tail;
+        tail = new Promise<void>((resolve) => (release = resolve));
+        await previous;
+      },
+    };
+    try {
+      return await fn(tx);
+    } finally {
+      release?.();
+    }
+  });
+  return { prisma: { drNrpgIntegration, $transaction, lockCalls } };
+});
 vi.mock("@/lib/entitlements", () => ({
   requireAddon: vi.fn(async () => ({ allowed: true, sku: "SERVICE_CRM" })),
 }));
@@ -49,14 +70,15 @@ import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
-const db = (
-  prisma as unknown as {
-    drNrpgIntegration: {
-      upsert: ReturnType<typeof vi.fn>;
-      findMany: ReturnType<typeof vi.fn>;
-    };
-  }
-).drNrpgIntegration;
+const fakePrisma = prisma as unknown as {
+  drNrpgIntegration: {
+    upsert: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
+  };
+  $transaction: ReturnType<typeof vi.fn>;
+  lockCalls: ReturnType<typeof vi.fn>;
+};
+const db = fakePrisma.drNrpgIntegration;
 
 const SHARED = "a".repeat(64);
 
@@ -124,6 +146,12 @@ describe("RA-8076 — webhookSecret validation on /api/dr-nrpg/connect", () => {
     );
     const text = JSON.stringify(await res.json()) + loggedText();
     expect(text).not.toContain(SHARED);
+    // The clash read happens under the advisory lock, inside the transaction.
+    expect(fakePrisma.lockCalls).toHaveBeenCalledTimes(1);
+    expect(fakePrisma.lockCalls.mock.calls[0][0]).toContain("pg_advisory_xact_lock");
+    expect(fakePrisma.lockCalls.mock.invocationCallOrder[0]).toBeLessThan(
+      db.findMany.mock.invocationCallOrder[0],
+    );
   });
 
   it("also detects a clash against a legacy plaintext (pre-backfill) row", async () => {
@@ -159,5 +187,44 @@ describe("RA-8076 — webhookSecret validation on /api/dr-nrpg/connect", () => {
       `enc:${body.webhookSecret}`,
     );
     expect(loggedText()).not.toContain(body.webhookSecret);
+    expect(fakePrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("two businesses connecting at once with the same secret: exactly one is saved", async () => {
+    // A stateful table. Each clash read is slow, so without the lock both reads
+    // finish before either write and both connects would store the secret.
+    const rows: { userId: string; webhookSecret: string }[] = [];
+    db.findMany.mockImplementation(
+      async ({ where }: { where: { userId: { not: string } } }) => {
+        const seen = rows
+          .filter((r) => r.userId !== where.userId.not)
+          .map((r) => ({ webhookSecret: r.webhookSecret }));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return seen;
+      },
+    );
+    db.upsert.mockImplementation(
+      async ({
+        where,
+        create,
+      }: {
+        where: { userId: string };
+        create: { webhookSecret: string };
+      }) => {
+        rows.push({ userId: where.userId, webhookSecret: create.webhookSecret });
+        return { id: `integ-${where.userId}` };
+      },
+    );
+    mockSession
+      .mockResolvedValueOnce({ user: { id: "user_A" } })
+      .mockResolvedValueOnce({ user: { id: "user_B" } });
+
+    const [first, second] = await Promise.all([
+      POST(makePost({ drNrpgApiKey: "k", webhookSecret: SHARED })),
+      POST(makePost({ drNrpgApiKey: "k", webhookSecret: SHARED })),
+    ]);
+
+    expect([first.status, second.status].sort()).toEqual([200, 409]);
+    expect(rows.filter((r) => r.webhookSecret === `enc:${SHARED}`)).toHaveLength(1);
   });
 });

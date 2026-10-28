@@ -21,6 +21,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -38,23 +39,30 @@ const DR_NRPG_BASE_URL = "https://api.dr-nrpg.com.au";
 // auto-generated default is 64 hex characters.
 const MIN_WEBHOOK_SECRET_LENGTH = 32;
 
+// RA-8076: one transaction-scoped advisory lock for every connect that supplies
+// its own secret. Without it, two connects can both pass the clash check before
+// either row is written, and both store the same secret.
+const WEBHOOK_SECRET_LOCK = "dr-nrpg:webhook-secret";
+
 /**
  * True when another user's active integration already holds this secret.
  * Checks every active row (unbounded on purpose: a capped scan would let a
  * clash through silently) and reads secrets the same way the webhook receiver
  * does, so a legacy plaintext row is caught too. Compared in constant time
  * over SHA-256 digests so differing lengths cannot short-circuit.
+ * Run it inside the WEBHOOK_SECRET_LOCK transaction, so the answer still holds
+ * when the row is written.
  */
 async function secretHeldByAnotherIntegration(
+  db: any,
   userId: string,
   secret: string,
 ): Promise<boolean> {
-  const others: { webhookSecret: string | null }[] = await (
-    prisma as any
-  ).drNrpgIntegration.findMany({
-    where: { isActive: true, userId: { not: userId } },
-    select: { webhookSecret: true },
-  });
+  const others: { webhookSecret: string | null }[] =
+    await db.drNrpgIntegration.findMany({
+      where: { isActive: true, userId: { not: userId } },
+      select: { webhookSecret: true },
+    });
   const wanted = createHash("sha256").update(secret).digest();
   return others.some(({ webhookSecret: stored }) => {
     if (!stored) return false;
@@ -162,22 +170,15 @@ export async function POST(request: NextRequest) {
       // and must not already belong to another business (its jobs would land
       // in the older account). Error messages never echo the secret.
       const suppliedSecret = webhookSecret?.trim();
-      if (suppliedSecret) {
-        if (suppliedSecret.length < MIN_WEBHOOK_SECRET_LENGTH) {
-          return apiError(request, {
-            code: "VALIDATION",
-            message: `webhookSecret must be at least ${MIN_WEBHOOK_SECRET_LENGTH} characters. Omit it to have a secure secret generated.`,
-            status: 400,
-          });
-        }
-        if (await secretHeldByAnotherIntegration(userId, suppliedSecret)) {
-          return apiError(request, {
-            code: "CONFLICT",
-            message:
-              "This webhookSecret is already used by another DR-NRPG connection. Omit it to have a unique secret generated.",
-            status: 409,
-          });
-        }
+      if (
+        suppliedSecret &&
+        suppliedSecret.length < MIN_WEBHOOK_SECRET_LENGTH
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `webhookSecret must be at least ${MIN_WEBHOOK_SECRET_LENGTH} characters. Omit it to have a secure secret generated.`,
+          status: 400,
+        });
       }
 
       // Auto-generate a secure webhook secret if not provided
@@ -195,23 +196,46 @@ export async function POST(request: NextRequest) {
       // returned once in the response below so it can be configured in DR-NRPG.
       const encryptedSecret = encrypt(resolvedSecret);
 
-      const integration = await (prisma as any).drNrpgIntegration.upsert({
-        where: { userId: userId },
-        create: {
-          userId: userId,
-          drNrpgApiKey: encryptedApiKey,
-          drNrpgBaseUrl: resolvedBase,
-          webhookSecret: encryptedSecret,
-          isActive: true,
-        },
-        update: {
-          drNrpgApiKey: encryptedApiKey,
-          drNrpgBaseUrl: resolvedBase,
-          webhookSecret: encryptedSecret,
-          isActive: true,
-          updatedAt: new Date(),
-        },
-      });
+      const save = (db: any) =>
+        db.drNrpgIntegration.upsert({
+          where: { userId: userId },
+          create: {
+            userId: userId,
+            drNrpgApiKey: encryptedApiKey,
+            drNrpgBaseUrl: resolvedBase,
+            webhookSecret: encryptedSecret,
+            isActive: true,
+          },
+          update: {
+            drNrpgApiKey: encryptedApiKey,
+            drNrpgBaseUrl: resolvedBase,
+            webhookSecret: encryptedSecret,
+            isActive: true,
+            updatedAt: new Date(),
+          },
+        });
+
+      // A supplied secret is checked and saved under one lock, so a second
+      // connect with the same secret waits, then sees the first one's row. The
+      // generated default is 32 random bytes and needs no clash check.
+      const integration = suppliedSecret
+        ? await (prisma as any).$transaction(async (tx: any) => {
+            await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${WEBHOOK_SECRET_LOCK}))`);
+            if (await secretHeldByAnotherIntegration(tx, userId, suppliedSecret)) {
+              return null;
+            }
+            return save(tx);
+          })
+        : await save(prisma);
+
+      if (!integration) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "This webhookSecret is already used by another DR-NRPG connection. Omit it to have a unique secret generated.",
+          status: 409,
+        });
+      }
 
       const appUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
 
