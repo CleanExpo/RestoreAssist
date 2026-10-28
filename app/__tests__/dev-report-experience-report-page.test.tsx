@@ -99,7 +99,7 @@ describe("development report experience page", () => {
 
   it("says so when every record was mapped", async () => {
     await show();
-    expect(screen.getByText("Every record found for this report was mapped.")).toBeTruthy();
+    expect(screen.getByText("Every stored field and linked record on this report and its inspection is shown here or is not evidence.")).toBeTruthy();
   });
 
   it("names the adapter step when the adapter throws, and renders no studio", async () => {

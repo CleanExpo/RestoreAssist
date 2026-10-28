@@ -25,6 +25,11 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: vi.fn(async () => (db.report ? { ...db.report } : null)),
       count: vi.fn(async () => 1),
     },
+    inspection: {
+      findUnique: vi.fn(async (args: { where: { id: string } }) =>
+        db.report?.inspection && db.report.inspection.id === args.where.id ? { ...db.report.inspection } : null,
+      ),
+    },
     reportShareAccess: { findUnique: vi.fn(async () => null), update: vi.fn(async () => ({})) },
   },
 }));
@@ -104,7 +109,9 @@ beforeEach(() => {
   db.tenants = { user_a: { ownerId: "owner_a", organizationId: "business_a" } };
 });
 
-const withoutPhotos = (list: Array<{ kind: string }>) => list.filter((o) => o.kind !== "photo");
+const BASE_NOTE = "Report field technicianFieldReport holds evidence this preview does not show yet";
+const withoutPhotos = (list: Array<{ kind: string; reason: string }>) =>
+  list.filter((o) => o.kind !== "photo" && o.reason !== BASE_NOTE);
 
 describe("evidence adapter", () => {
   it("refuses a grant the gate did not issue", async () => {
@@ -130,6 +137,7 @@ describe("evidence adapter", () => {
     // Photos are not rendered yet, so each one is reported as not shown.
     expect(omitted).toEqual([
       { kind: "photo", id: "photo_1", reason: "Photos are not shown in this preview yet" },
+      { kind: "finding", reason: BASE_NOTE },
     ]);
     expect(projection.reportId).toBe("report_001");
     expect(projection.organisationId).toBe(grant.organisationId);
@@ -209,23 +217,15 @@ describe("evidence adapter", () => {
     expect(withoutPhotos(omitted)).toEqual([]);
   });
 
-  it("lists filled older-format fields and the Scope record as not shown, without their contents", async () => {
-    Object.assign(db.report!, {
-      safetyHazards: "SECRET-HAZARD-TEXT",
-      electricalHazards: "   ",
-      biologicalMouldDetected: true,
-      methamphetamineScreen: null,
-      totalCost: 0,
-      scopeOfWorksData: "SECRET-SCOPE-JSON",
-      scope: { id: "scope_rec_1" },
-    });
+  it("lists unshown evidence on the report and its inspection by name only", async () => {
+    Object.assign(db.report!, { safetyHazards: "SECRET-HAZARD-TEXT", scope: { id: "scope_rec_1" } });
+    Object.assign(db.report!.inspection, { lossDescription: "SECRET-LOSS", _count: { costEstimates: 3, auditLogs: 9 } });
     const { projection, omitted } = await buildVerifiedReportProjection(await grantFor());
     expect(withoutPhotos(omitted)).toEqual([
       { kind: "hazard", reason: "Report field safetyHazards holds evidence this preview does not show yet" },
-      { kind: "hazard", reason: "Report field biologicalMouldDetected holds evidence this preview does not show yet" },
-      { kind: "scope-item", reason: "Report field scopeOfWorksData holds evidence this preview does not show yet" },
-      { kind: "financials", reason: "Report field totalCost holds evidence this preview does not show yet" },
-      { kind: "scope-item", id: "scope_rec_1", reason: "The Scope of Works record is not shown in this preview yet" },
+      { kind: "scope-item", id: "scope_rec_1", reason: "The linked Report.scope record: not shown in this preview yet" },
+      { kind: "finding", reason: "Inspection field lossDescription holds evidence this preview does not show yet" },
+      { kind: "financials", reason: "3 linked Inspection.costEstimates record(s): not shown in this preview yet" },
     ]);
     expect(JSON.stringify({ projection, omitted })).not.toContain("SECRET");
   });

@@ -1,8 +1,17 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getResourceTenant } from "@/lib/organization-credits";
 import { WORKSPACE_OWNER_SELECT, workspaceBusiness } from "@/lib/reports/workspace-business";
 import { isIssuedReportReadGrant, reportTenantKey } from "./authorise";
+import {
+  INSPECTION_FIELDS,
+  INSPECTION_LINKS,
+  REPORT_FIELDS,
+  REPORT_LINKS,
+  inventoryOmissions,
+  inventorySelect,
+} from "./evidence-inventory";
 import type { ReportReadGrant, VerifiedReportProjection } from "./snapshot";
 
 /**
@@ -69,32 +78,6 @@ function countLegacyReadings(text: string | null): number {
   }
 }
 
-/**
- * Evidence older reports keep as free text, JSON or single numbers on the
- * Report row. The projection has no faithful place for any of it yet, so each
- * filled field is listed as not shown. Only the field name is copied, never
- * its contents.
- */
-const OLDER_FORMAT_FIELDS = [
-  ["moisture-reading", "psychrometricReadings"],
-  ["hazard", "safetyHazards"],
-  ["hazard", "electricalHazards"],
-  ["hazard", "microbialGrowth"],
-  ["hazard", "methamphetamineScreen"],
-  ["hazard", "biologicalMouldDetected"],
-  ["hazard", "biologicalMouldCategory"],
-  ["scope-item", "scopeOfWorksData"],
-  ["financials", "totalCost"],
-  ["financials", "costEstimationData"],
-  ["financials", "equipmentCostTotal"],
-] as const;
-
-function isFilled(value: unknown): boolean {
-  if (typeof value === "string") return value.trim() !== "";
-  if (typeof value === "number") return true;
-  return value === true;
-}
-
 function describeLimit(kind: string, shown: number): OmittedEvidence {
   return { kind, reason: "More than " + shown + " records stored; only the first " + shown + " are included" };
 }
@@ -130,18 +113,6 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
       propertyAddress: true,
       // Older reports keep readings as JSON text here (the PDF falls back to it).
       moistureReadings: true,
-      psychrometricReadings: true,
-      safetyHazards: true,
-      electricalHazards: true,
-      microbialGrowth: true,
-      methamphetamineScreen: true,
-      biologicalMouldDetected: true,
-      biologicalMouldCategory: true,
-      scopeOfWorksData: true,
-      totalCost: true,
-      costEstimationData: true,
-      equipmentCostTotal: true,
-      scope: { select: { id: true } },
       user: {
         select: {
           organizationId: true,
@@ -282,13 +253,22 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
 
   bump(inspection?.updatedAt);
 
-  for (const [kind, field] of OLDER_FORMAT_FIELDS) {
-    if (isFilled(report[field])) {
-      omitted.push({ kind, reason: "Report field " + field + " holds evidence this preview does not show yet" });
-    }
-  }
-  if (report.scope) {
-    omitted.push({ kind: "scope-item", id: report.scope.id, reason: "The Scope of Works record is not shown in this preview yet" });
+  // Every other stored field and linked record on the report and its
+  // inspection that holds evidence this preview does not show: listed by name
+  // only (evidence-inventory.ts), never copied.
+  const reportRow = await prisma.report.findUnique({
+    where: { id: reportId },
+    select: inventorySelect(REPORT_FIELDS, REPORT_LINKS) as Prisma.ReportSelect,
+  });
+  omitted.push(...inventoryOmissions("Report", (reportRow ?? {}) as Record<string, unknown>, REPORT_FIELDS, REPORT_LINKS));
+  if (inspection) {
+    const inspectionRow = await prisma.inspection.findUnique({
+      where: { id: inspection.id },
+      select: inventorySelect(INSPECTION_FIELDS, INSPECTION_LINKS) as Prisma.InspectionSelect,
+    });
+    omitted.push(
+      ...inventoryOmissions("Inspection", (inspectionRow ?? {}) as Record<string, unknown>, INSPECTION_FIELDS, INSPECTION_LINKS),
+    );
   }
 
   // Money: the latest stored estimate's GST-inclusive total, only if it is an

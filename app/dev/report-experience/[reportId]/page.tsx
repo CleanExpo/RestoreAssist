@@ -79,7 +79,7 @@ export default async function ReportExperienceOneReportPage({ params }: PageProp
       <ReportDesignStudio snapshot={outcome.snapshot} />
       <section aria-label="Records not shown" style={{ padding: "1.5rem 2rem", maxWidth: "64rem", margin: "0 auto" }}>
         {outcome.omitted.length === 0 ? (
-          <p>Every record found for this report was mapped.</p>
+          <p>Every stored field and linked record on this report and its inspection is shown here or is not evidence.</p>
         ) : (
           <ul>
             {outcome.omitted.map((item, index) => (
