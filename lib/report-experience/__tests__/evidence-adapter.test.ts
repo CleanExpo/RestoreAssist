@@ -43,6 +43,7 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
   resolveReportFinancialReach: vi.fn(async () => ({ ok: true, data: {} })),
 }));
 
+import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 import { authoriseReportExperienceRead } from "../authorise";
 import { buildReportExperienceSnapshot } from "../snapshot";
 import { buildVerifiedReportProjection } from "../evidence-adapter";
@@ -287,6 +288,21 @@ describe("evidence adapter", () => {
     expect(withoutPhotos(omitted)).toEqual([
       { kind: "moisture-reading", reason: "2 reading(s) marked invalid are left out" },
     ]);
+  });
+
+  it("lists no money records for a reader without financial reach", async () => {
+    db.report!._count = { estimates: 3 };
+    db.report!.propertyCover = 500000;
+    db.report!.inspection.propertyCountry = "US";
+    vi.mocked(resolveReportFinancialReach).mockResolvedValueOnce({ ok: false } as never);
+    const grant = await grantFor();
+    expect(grant.mayViewFinancials).toBe(false);
+    const { omitted } = await buildVerifiedReportProjection(grant);
+    expect(omitted.filter((o) => o.kind === "financials")).toEqual([]);
+    expect(JSON.stringify(omitted)).not.toMatch(/estimate|propertyCover|est_/i);
+    // The same report read with financial reach does list them.
+    const full = await buildVerifiedReportProjection(await grantFor());
+    expect(full.omitted.filter((o) => o.kind === "financials").length).toBe(3);
   });
 
   it("uses NZD for a New Zealand job", async () => {

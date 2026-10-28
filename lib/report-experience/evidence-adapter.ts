@@ -337,5 +337,10 @@ export async function buildVerifiedReportProjection(grant: ReportReadGrant): Pro
     ...(financials ? { financials } : {}),
     sourceRefs,
   };
-  return { projection, omitted };
+  // A reader without financial reach sees no money and no sign of which money
+  // records exist: no field names, counts or estimate ids.
+  return {
+    projection,
+    omitted: grant.mayViewFinancials ? omitted : omitted.filter(o => o.kind !== "financials"),
+  };
 }
