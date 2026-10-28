@@ -209,6 +209,27 @@ describe("evidence adapter", () => {
     expect(withoutPhotos(omitted)).toEqual([]);
   });
 
+  it("lists filled older-format fields and the Scope record as not shown, without their contents", async () => {
+    Object.assign(db.report!, {
+      safetyHazards: "SECRET-HAZARD-TEXT",
+      electricalHazards: "   ",
+      biologicalMouldDetected: true,
+      methamphetamineScreen: null,
+      totalCost: 0,
+      scopeOfWorksData: "SECRET-SCOPE-JSON",
+      scope: { id: "scope_rec_1" },
+    });
+    const { projection, omitted } = await buildVerifiedReportProjection(await grantFor());
+    expect(withoutPhotos(omitted)).toEqual([
+      { kind: "hazard", reason: "Report field safetyHazards holds evidence this preview does not show yet" },
+      { kind: "hazard", reason: "Report field biologicalMouldDetected holds evidence this preview does not show yet" },
+      { kind: "scope-item", reason: "Report field scopeOfWorksData holds evidence this preview does not show yet" },
+      { kind: "financials", reason: "Report field totalCost holds evidence this preview does not show yet" },
+      { kind: "scope-item", id: "scope_rec_1", reason: "The Scope of Works record is not shown in this preview yet" },
+    ]);
+    expect(JSON.stringify({ projection, omitted })).not.toContain("SECRET");
+  });
+
   it("never assumes a site is safe: no assessment record means NOT_ASSESSED", async () => {
     db.report!.safetyPlan = "Site is safe, no hazards";
     const { projection } = await buildVerifiedReportProjection(await grantFor());
