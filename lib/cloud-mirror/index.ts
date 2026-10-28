@@ -35,8 +35,13 @@ export const PROVIDER_CATALOG: {
   {
     id: "onedrive",
     label: "Microsoft OneDrive",
-    tagline: "Mirrors to your OneDrive. Folder: RestoreAssist/{JobNumber}/",
-    enabled: !!process.env.MICROSOFT_CLIENT_ID,
+    tagline: "Coming soon — OneDrive mirroring is not available yet",
+    // RA-8078: kept off until OneDrive mirroring works end to end. Today the
+    // choice cannot be saved, nothing reads User.cloudMirrorProvider, and the
+    // Microsoft access token is never refreshed, so offering it (even with
+    // MICROSOFT_CLIENT_ID set) would tell users their files are mirrored when
+    // none are.
+    enabled: false,
   },
   {
     id: "icloud",

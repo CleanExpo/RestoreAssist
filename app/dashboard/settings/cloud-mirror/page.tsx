@@ -4,7 +4,7 @@ import { CloudMirrorPicker } from "@/components/settings/cloud-mirror-picker";
 export const metadata: Metadata = {
   title: "Cloud mirror provider — RestoreAssist",
   description:
-    "Pick where RestoreAssist mirrors your viewing-quality evidence files. Google Drive and OneDrive (when configured).",
+    "Pick where RestoreAssist mirrors your viewing-quality evidence files. Google Drive today; OneDrive coming soon.",
 };
 
 export default function CloudMirrorSettingsPage() {

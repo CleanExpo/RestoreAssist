@@ -4,8 +4,8 @@
  * RA-1459 — Cloud Mirror Provider picker.
  *
  * Users pick where RestoreAssist copies their viewing-quality evidence
- * files after they're produced. Drive ships by default; OneDrive is
- * env-gated via PROVIDER_CATALOG; iCloud remains disabled (CloudKit).
+ * files after they're produced. Drive ships by default; OneDrive and iCloud
+ * are disabled in PROVIDER_CATALOG until they mirror end to end (RA-8078).
  */
 
 import { useEffect, useState } from "react";
@@ -33,8 +33,6 @@ interface ProviderOption {
   enabled: boolean;
 }
 
-const ONEDRIVE_OAUTH_PATH = "/api/oauth/microsoft-onedrive/start";
-
 export function CloudMirrorPicker() {
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const [options, setOptions] = useState<ProviderOption[]>([]);
@@ -45,7 +43,6 @@ export function CloudMirrorPicker() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const oauthError = searchParams?.get("error") ?? null;
-  const onedriveConnected = searchParams?.get("onedrive") === "connected";
 
   async function loadCatalog() {
     setLoadError(null);
@@ -57,8 +54,12 @@ export function CloudMirrorPicker() {
         provider: ProviderId | null;
         catalog?: ProviderOption[];
       };
-      setOptions(data.catalog ?? []);
-      const current = data.provider ?? "";
+      const catalog = data.catalog ?? [];
+      setOptions(catalog);
+      // RA-8078: a saved choice the catalog no longer offers is not current.
+      const current = catalog.some((o) => o.id === data.provider && o.enabled)
+        ? (data.provider ?? "")
+        : "";
       setSelected(current);
       setInitial(current);
     } catch (err) {
@@ -72,21 +73,15 @@ export function CloudMirrorPicker() {
   useEffect(() => {
     loadCatalog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onedriveConnected]);
+  }, []);
 
   const dirty = selected !== initial && selected !== "";
 
   async function handleSave() {
     if (!selected || selected === initial) return;
 
-    if (selected === "onedrive") {
-      const onedriveOpt = options.find((o) => o.id === "onedrive");
-      if (onedriveOpt?.enabled) {
-        window.location.href = ONEDRIVE_OAUTH_PATH;
-        return;
-      }
-    }
-
+    // RA-8078: always persist through the POST. Redirecting to a provider
+    // login here skipped the save, so the choice was never stored.
     setSaving(true);
     try {
       const res = await fetch("/api/user/cloud-mirror", {
@@ -142,12 +137,6 @@ export function CloudMirrorPicker() {
             className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive"
           >
             Could not connect OneDrive: {oauthError}
-          </p>
-        ) : null}
-
-        {onedriveConnected ? (
-          <p className="text-sm text-emerald-700">
-            OneDrive connected. Pick OneDrive below and save to start mirroring.
           </p>
         ) : null}
 

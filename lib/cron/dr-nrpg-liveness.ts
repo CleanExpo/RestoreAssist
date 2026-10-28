@@ -58,6 +58,10 @@ export async function runDrNrpgLiveness(): Promise<CronJobResult> {
   let failed = 0;
   let deactivated = 0;
   const failures: Array<{ id: string; userId: string; reason: string }> = [];
+  // RA-8075: rows whose stored key cannot be decrypted, and whether any
+  // encrypted row in this batch DID decrypt (proof the current vault key works).
+  const undecryptableIds: string[] = [];
+  let anyEncryptedDecrypted = false;
 
   for (const integ of integrations as Array<{
     id: string;
@@ -67,9 +71,30 @@ export async function runDrNrpgLiveness(): Promise<CronJobResult> {
   }>) {
     // Decrypt the stored API key for the outbound probe. Legacy plaintext rows
     // (pre-backfill) aren't in cipher shape, so pass them through unchanged.
-    const drNrpgApiKey = isEncryptedToken(integ.drNrpgApiKey)
-      ? decrypt(integ.drNrpgApiKey)
-      : integ.drNrpgApiKey;
+    // A decrypt error is counted against that row and the loop continues;
+    // a throw here used to end the run before any integration was probed.
+    let drNrpgApiKey: string;
+    if (isEncryptedToken(integ.drNrpgApiKey)) {
+      try {
+        drNrpgApiKey = decrypt(integ.drNrpgApiKey);
+        anyEncryptedDecrypted = true;
+      } catch {
+        console.error(
+          "[dr-nrpg-liveness] drNrpgApiKey could not be decrypted",
+          { integrationId: integ.id },
+        );
+        failed++;
+        failures.push({
+          id: integ.id,
+          userId: integ.userId,
+          reason: "decrypt-failed",
+        });
+        undecryptableIds.push(integ.id);
+        continue;
+      }
+    } else {
+      drNrpgApiKey = integ.drNrpgApiKey;
+    }
     const outcome = await probeOne(integ.drNrpgBaseUrl, drNrpgApiKey);
 
     if (outcome.ok) {
@@ -108,12 +133,37 @@ export async function runDrNrpgLiveness(): Promise<CronJobResult> {
     }
   }
 
+  // Undecryptable rows are deactivated, not merely skipped: they are never
+  // probed, so lastSyncAt never moves and they would hold the first slots of
+  // every future batch. A key encrypted under another vault key can never be
+  // used (neither probe nor dispatch), and reconnecting via
+  // /api/dr-nrpg/connect re-encrypts and reactivates the row.
+  // Guard: only when another encrypted row in this batch decrypted, proving
+  // the current key is sound. If none did, the deployed vault key itself is
+  // the likely fault, and deactivating would switch off every business.
+  const decryptKeySuspect = undecryptableIds.length > 0 && !anyEncryptedDecrypted;
+  if (!decryptKeySuspect) {
+    for (const id of undecryptableIds) {
+      await (prisma as any).drNrpgIntegration.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      deactivated++;
+    }
+  } else {
+    console.error(
+      "[dr-nrpg-liveness] no encrypted API key in this batch could be decrypted — vault key misconfiguration suspected; nothing deactivated",
+      { undecryptable: undecryptableIds.length },
+    );
+  }
+
   return {
     itemsProcessed: integrations.length,
     metadata: {
       passed,
       failed,
       deactivated,
+      decryptKeySuspect,
       failures: failures.slice(0, 20), // cap payload size
     },
   };

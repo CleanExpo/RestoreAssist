@@ -67,14 +67,16 @@ export function StorageCard() {
           : { connected: false, accountEmail: null };
         setOnedriveStatus(onedriveJson);
 
+        let onedriveOffered = false;
         if (catalogRes.ok) {
           const catalog = (await catalogRes.json()) as { catalog?: CatalogEntry[] };
           const onedrive = catalog.catalog?.find((c) => c.id === 'onedrive');
-          setOnedriveEnabled(!!onedrive?.enabled);
+          onedriveOffered = !!onedrive?.enabled;
+          setOnedriveEnabled(onedriveOffered);
           if (onedrive?.tagline) setOnedriveTagline(onedrive.tagline);
         }
 
-        if (driveJson.connected || onedriveJson.connected) {
+        if (driveJson.connected || (onedriveOffered && onedriveJson.connected)) {
           setSectionStatus('storage', 'ready');
         }
       } catch {
@@ -122,7 +124,9 @@ export function StorageCard() {
 
   const driveConnected =
     status?.connected && status.provider === 'GOOGLE_DRIVE';
-  const onedriveConnected = onedriveStatus?.connected === true;
+  // RA-8078: a linked Microsoft account is not working storage while the
+  // catalog does not offer OneDrive.
+  const onedriveConnected = onedriveEnabled && onedriveStatus?.connected === true;
   const showConnected = (driveConnected || onedriveConnected) && !forceGrid;
   const connectedEmail = driveConnected
     ? status?.accountEmail
