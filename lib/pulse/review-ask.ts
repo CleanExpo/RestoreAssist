@@ -28,6 +28,7 @@ import { reportError } from "@/lib/observability";
 import { sendPulseUpdateEmail } from "@/lib/email";
 import { requireAddonForResource } from "@/lib/entitlements";
 import { renderReviewAskEmail } from "./templates";
+import { buildPulseUnsubscribeUrl } from "./pulse-unsubscribe-token";
 
 export type ReviewAskSuppressionReason =
   | "TOGGLE_OFF"
@@ -82,7 +83,7 @@ export async function dispatchReviewAskNotification(
       report: {
         select: {
           client: {
-            select: { email: true, pulseOptOut: true },
+            select: { id: true, email: true, pulseOptOut: true },
           },
         },
       },
@@ -180,10 +181,14 @@ export async function dispatchReviewAskNotification(
     throw err;
   }
 
+  const unsubscribeUrl = client?.id
+    ? buildPulseUnsubscribeUrl(client.id)
+    : undefined;
   const rendered = renderReviewAskEmail(
     orgName,
     job.inspectionNumber,
     reviewUrl,
+    unsubscribeUrl,
   );
 
   try {

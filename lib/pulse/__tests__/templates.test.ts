@@ -163,3 +163,20 @@ describe("renderCodeOfPracticeUpdateEmail", () => {
     expect(email.text).toContain("Scope prepared");
   });
 });
+
+describe("Pulse unsubscribe footer (RA-7979)", () => {
+  const UNSUB = "https://app.example.com/pulse/unsubscribe?token=abc";
+
+  it("includes unsubscribe link in step-transition html and text when provided", () => {
+    const feed = buildClientStatusFeed({
+      status: "SCOPED",
+      workflow: null,
+      reportStatus: null,
+      pendingApprovals: [],
+    });
+    const email = renderStepTransitionEmail(feed, PORTAL_URL, UNSUB);
+    expect(email.html).toContain("Unsubscribe from automated progress emails");
+    expect(email.html).toContain(UNSUB);
+    expect(email.text).toContain(UNSUB);
+  });
+});

@@ -37,6 +37,7 @@ import {
 import type { ClientFeed } from "@/lib/portal/client-status-feed";
 import type { AreaDryingState } from "@/lib/portal/drying-timeline";
 import type { DailyDigestData } from "./digest";
+import { buildPulseUnsubscribeUrl } from "./pulse-unsubscribe-token";
 
 export type PulseEventType =
   | "STEP_TRANSITION"
@@ -115,16 +116,24 @@ function buildPortalUrl(token: string | null): string {
   return token ? `${base}/portal/${token}` : `${base}/portal`;
 }
 
-function render(event: PulseEvent, portalUrl: string): RenderedPulseEmail {
+function render(
+  event: PulseEvent,
+  portalUrl: string,
+  unsubscribeUrl?: string,
+): RenderedPulseEmail {
   switch (event.type) {
     case "STEP_TRANSITION":
-      return renderStepTransitionEmail(event.feed, portalUrl);
+      return renderStepTransitionEmail(event.feed, portalUrl, unsubscribeUrl);
     case "DRYING_GOAL_CHANGE":
-      return renderDryingUpdateEmail(event.areas, portalUrl);
+      return renderDryingUpdateEmail(event.areas, portalUrl, unsubscribeUrl);
     case "DAILY_DIGEST":
-      return renderDailyDigestEmail(event.digest, portalUrl);
+      return renderDailyDigestEmail(event.digest, portalUrl, unsubscribeUrl);
     case "COP_UPDATE":
-      return renderCodeOfPracticeUpdateEmail(event.feed, portalUrl);
+      return renderCodeOfPracticeUpdateEmail(
+        event.feed,
+        portalUrl,
+        unsubscribeUrl,
+      );
   }
 }
 
@@ -149,6 +158,7 @@ export async function dispatchPulseNotification(
         select: {
           client: {
             select: {
+              id: true,
               email: true,
               pulseOptOut: true,
               portalAccounts: {
@@ -177,7 +187,14 @@ export async function dispatchPulseNotification(
   const client = job.report?.client ?? null;
   const recipient = client?.email ?? "";
   const token = pickPortalToken(client?.portalAccounts ?? [], inspectionId);
-  const rendered = render(event, buildPortalUrl(token));
+  const unsubscribeUrl = client?.id
+    ? buildPulseUnsubscribeUrl(client.id)
+    : undefined;
+  const rendered = render(
+    event,
+    buildPortalUrl(token),
+    unsubscribeUrl,
+  );
   const logicalKey = `${inspectionId}:${event.type}:${eventFingerprint(event)}`;
 
   const base = {
