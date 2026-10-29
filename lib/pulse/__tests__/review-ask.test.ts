@@ -58,6 +58,7 @@ function jobFixture(opts: JobOverrides = {}) {
     pulseEnabled: opts.pulseEnabled ?? true,
     report: {
       client: {
+        id: "client_1",
         email: opts.clientEmail ?? "home@owner.test",
         pulseOptOut: opts.pulseOptOut ?? false,
       },
@@ -101,6 +102,8 @@ beforeEach(() => {
   requireAddon.mockResolvedValue({ allowed: true, sku: "CLIENT_COMMS", workspaceId: "ws_1" });
   process.env.MAILTRAP_API_KEY = "mt_test";
   process.env.SENDER_EMAIL = "updates@restoreassist.app";
+  process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+  process.env.PORTAL_SECRET = "test-portal-secret";
 });
 
 function sentCreateCall() {

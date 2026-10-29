@@ -98,6 +98,7 @@ function jobFixture(
     pulseEnabled: opts.pulseEnabled ?? true,
     report: {
       client: {
+        id: "client_1",
         email: c.email ?? "home@owner.test",
         pulseOptOut: c.pulseOptOut ?? false,
         portalAccounts:
@@ -131,6 +132,7 @@ beforeEach(() => {
   process.env.MAILTRAP_API_KEY = "mt_test";
   process.env.SENDER_EMAIL = "updates@restoreassist.app";
   process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+  process.env.PORTAL_SECRET = "test-portal-secret";
 });
 
 function sentCreateCall() {
@@ -162,6 +164,8 @@ describe("dispatchPulseNotification — sends", () => {
     // Deep-links to the client's portal token page.
     const arg = sendPulseUpdateEmail.mock.calls[0][0];
     expect(arg.html).toContain("https://app.example.com/portal/tok_abc");
+    expect(arg.html).toContain("/pulse/unsubscribe?token=");
+    expect(arg.text).toContain("Stop automated progress emails:");
   });
 
   it("sends the drying-update template for a drying-goal change", async () => {
