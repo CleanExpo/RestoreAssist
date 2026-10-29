@@ -259,24 +259,106 @@ describe("offline ownership containment", () => {
         : new Response(JSON.stringify({ error: "not found" }), { status: 404 }));
     expect(await queue.drainEvidenceQueue()).toBe(0);
     expect(await rows("ra-evidence-queue", "uploads")).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id, retryCount: 1, readbackPending: true, readbackStatus: 404, lastStatus: undefined }),
+      expect.objectContaining({
+        id,
+        retryCount: 1,
+        readbackPending: true,
+        readbackStatus: 404,
+        lastStatus: undefined,
+        serverPhotoId: "persisted-photo",
+      }),
     ]));
   });
 
-  it("keeps an accepted-but-unverified photo status through a later failed replay", async () => {
+  it("does not re-POST a readback-pending photo — listing verify only (RA-7862 B15)", async () => {
     await login();
     const queue = await import("../evidence-upload-queue");
-    await queue.getQueuedEvidenceCount();
     await put("ra-evidence-queue", "uploads", {
-      id: "photo-pending-readback", owner: A, inspectionId: "job-1",
-      blob: audio(), filename: "room.webp", mimeType: "image/webp",
-      queuedAt: "2026-10-01", retryCount: 1, readbackPending: true, readbackStatus: 404,
+      id: "photo-pending-readback",
+      owner: A,
+      inspectionId: "job-1",
+      blob: audio(),
+      filename: "room.webp",
+      mimeType: "image/webp",
+      queuedAt: "2026-10-01",
+      retryCount: 1,
+      readbackPending: true,
+      readbackStatus: 404,
+      serverPhotoId: "persisted-photo",
+      originalSize: 8,
+      compressedSize: 8,
+      cocoaSha256: "deadbeef",
     });
-    uploadStatus = 400;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+        : init?.method === "POST"
+          ? new Response(JSON.stringify({ error: "must not replay POST" }), {
+              status: 400,
+            })
+          : new Response(JSON.stringify({ error: "not found" }), { status: 404 }),
+    );
     expect(await queue.drainEvidenceQueue()).toBe(0);
-    expect(await rows("ra-evidence-queue", "uploads")).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "photo-pending-readback", retryCount: 2, lastStatus: 400, readbackPending: true, readbackStatus: 404 }),
-    ]));
+    expect(
+      replayCalls().filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(0);
+    expect(await rows("ra-evidence-queue", "uploads")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "photo-pending-readback",
+          retryCount: 2,
+          lastStatus: undefined,
+          readbackPending: true,
+          readbackStatus: 404,
+        }),
+      ]),
+    );
+  });
+
+  it("clears a readback-pending row when the job listing shows the server photo (RA-7862 B15)", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    await put("ra-evidence-queue", "uploads", {
+      id: "photo-pending-readback",
+      owner: A,
+      inspectionId: "job-1",
+      blob: audio(),
+      filename: "room.webp",
+      mimeType: "image/webp",
+      queuedAt: "2026-10-01",
+      retryCount: 2,
+      readbackPending: true,
+      readbackStatus: 404,
+      serverPhotoId: "persisted-photo",
+      originalSize: 8,
+      compressedSize: 8,
+      cocoaSha256: "deadbeef",
+    });
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+        : init?.method === "POST"
+          ? new Response(JSON.stringify({ error: "must not replay POST" }), {
+              status: 400,
+            })
+          : new Response(
+              JSON.stringify({
+                photos: [
+                  {
+                    id: "persisted-photo",
+                    url: "https://synthetic.invalid/signed-photo",
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+    );
+    expect(await queue.drainEvidenceQueue()).toBe(1);
+    expect(
+      (await rows("ra-evidence-queue", "uploads")).some(
+        (row) => row.id === "photo-pending-readback",
+      ),
+    ).toBe(false);
   });
 
   it("retains an unidentified 2xx row and continues syncing later photos", async () => {
