@@ -47,14 +47,14 @@ curl -s -H "Authorization: $SCHEME not.a.real.token" \
 # {"error":"Unauthorized — please sign in again"}   HTTP 401
 ```
 
-`requireClientAuth` → `jwtVerify` → `getSecret()`. If `CLIENT_PORTAL_JWT_SECRET` (or
-`NEXTAUTH_SECRET`) were absent, `getSecret()` **throws** — "must be set for portal auth" —
-and the route would return **500**. A clean `401` proves the secret is present and
-verification actually ran.
+**Proof A — distinguish config from bad tokens (RA-7509).** With `CLIENT_PORTAL_JWT_SECRET`
+unset, the same curl must return **503** with `code: PORTAL_JWT_SECRET_MISSING`, not 401.
+With the secret set, a garbage bearer token must still return **401**. Configuration failure
+and authentication failure must not share a status.
 
-**Proof B — declarative.** `NEXTAUTH_SECRET` is in `REQUIRED_VARS` (`lib/env-check.ts`),
-and `/api/health` reports an empty `missingRequired`. A missing required var would also
-refuse to boot in production.
+**Proof B — declarative.** `CLIENT_PORTAL_JWT_SECRET` is in `REQUIRED_VARS`
+(`lib/env-check.ts`), and `/api/health` reports an empty `missingRequired`. A missing
+required var would also refuse to boot in production.
 
 ## 3. Every probed endpoint fails closed
 

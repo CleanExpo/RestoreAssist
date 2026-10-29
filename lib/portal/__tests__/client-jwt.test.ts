@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import {
   authenticateClientRequest,
+  ClientPortalJwtConfigError,
   signClientPortalJwt,
   verifyClientPortalJwt,
 } from "@/lib/portal/client-jwt";
@@ -62,6 +63,16 @@ describe("client portal JWT", () => {
     });
     const claims = await authenticateClientRequest(request);
     expect(claims?.clientId).toBe("client_1");
+  });
+
+  it("throws a config error when the secret is missing (RA-7509)", async () => {
+    delete process.env.CLIENT_PORTAL_JWT_SECRET;
+    await expect(signClientPortalJwt(INPUT)).rejects.toBeInstanceOf(
+      ClientPortalJwtConfigError,
+    );
+    await expect(verifyClientPortalJwt("any.token.here")).rejects.toBeInstanceOf(
+      ClientPortalJwtConfigError,
+    );
   });
 
   it("returns null when the header is absent or malformed", async () => {

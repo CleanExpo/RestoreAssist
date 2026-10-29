@@ -24,6 +24,7 @@ const REQUIRED_VARS = [
   "GOOGLE_CLIENT_SECRET",
   "NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID",
   "STRIPE_WEBHOOK_SECRET", // RA-1801 — missing webhook secret silently drifts subscription state
+  "CLIENT_PORTAL_JWT_SECRET", // RA-7509 — must not fall back to NEXTAUTH_SECRET silently
 ] as const;
 
 const RECOMMENDED_VARS = [

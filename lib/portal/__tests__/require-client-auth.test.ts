@@ -4,10 +4,14 @@ import { NextRequest } from "next/server";
 const authenticateClientRequest = vi.hoisted(() => vi.fn());
 const clientUserFindUnique = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/portal/client-jwt", () => ({
-  authenticateClientRequest: (...args: unknown[]) =>
-    authenticateClientRequest(...args),
-}));
+vi.mock("@/lib/portal/client-jwt", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/portal/client-jwt")>();
+  return {
+    ...actual,
+    authenticateClientRequest: (...args: unknown[]) =>
+      authenticateClientRequest(...args),
+  };
+});
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     clientUser: {
@@ -87,17 +91,41 @@ describe("requireClientAuth", () => {
     expect(clientUserFindUnique).not.toHaveBeenCalled();
   });
 
-  it("fails closed with the same safe response when revalidation is unavailable", async () => {
+  it("returns 503 when revalidation is unavailable (RA-7509)", async () => {
     clientUserFindUnique.mockRejectedValue(new Error("database unavailable"));
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
 
-    await expectSafeUnauthorized(await requireClientAuth(request()));
+    const result = await requireClientAuth(request());
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected failure");
+    expect(result.response.status).toBe(503);
+    expect(await result.response.json()).toEqual({
+      error: "Portal sign-in could not be verified — try again shortly",
+      code: "UPSTREAM_FAILED",
+    });
     expect(consoleError).toHaveBeenCalledWith(
       "Portal client auth revalidation failed",
       expect.any(Error),
     );
     consoleError.mockRestore();
+  });
+
+  it("returns 503 when portal JWT secret is not configured (RA-7509)", async () => {
+    const { ClientPortalJwtConfigError } = await import(
+      "@/lib/portal/client-jwt"
+    );
+    authenticateClientRequest.mockRejectedValue(
+      new ClientPortalJwtConfigError(),
+    );
+
+    const result = await requireClientAuth(request());
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected failure");
+    expect(result.response.status).toBe(503);
+    expect(await result.response.json()).toMatchObject({
+      code: "PORTAL_JWT_SECRET_MISSING",
+    });
   });
 });
