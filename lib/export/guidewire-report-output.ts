@@ -303,7 +303,7 @@ export function buildNirReportOutput(
       photoId: p.id,
       capturedAt: p.timestamp
         ? new Date(p.timestamp).toISOString()
-        : new Date().toISOString(),
+        : null,
       // `null`, never 0 — a photo with no fix must not be published to an
       // insurer as though it were photographed at 0N 0E. See NirPhotoManifest.
       latitude: p.gpsLatitude ?? null,
@@ -338,7 +338,7 @@ export function buildNirReportOutput(
     inspectionDate: new Date(inspection.inspectionDate).toISOString(),
     submittedAt: inspection.submittedAt
       ? new Date(inspection.submittedAt as Date).toISOString()
-      : new Date().toISOString(),
+      : null,
     technician,
     property,
     lossClassification,
