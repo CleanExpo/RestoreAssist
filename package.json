@@ -123,7 +123,7 @@
     "email:test": "tsx scripts/ops/send-test-email.ts",
     "db:studio": "prisma studio",
     "db:seed:ceo": "npx tsx prisma/seed-ceo.ts",
-    "script:linear-query": "tsx scripts/linear-query.ts",
+    "script:linear-query": "tsx --env-file=.env scripts/linear-query.ts",
     "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts",
     "script:grant-founding-trial": "npx tsx scripts/grant-founding-trial.ts",
     "script:upgrade-user": "npx tsx scripts/upgrade-user-package.ts",
