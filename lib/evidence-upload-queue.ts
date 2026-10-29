@@ -73,6 +73,8 @@ export interface EvidenceQueueEntry {
   /** POST succeeded, but owner-scoped readback did not verify the photo. */
   readbackPending?: boolean;
   readbackStatus?: number;
+  /** Server row id from a successful POST — used to verify before re-POST (RA-7862 B15). */
+  serverPhotoId?: string;
   /** Direct photo POST retry: keep the original request's byte/field shape. */
   directRetry?: boolean;
   /** Exact hash field from the first direct request, if it included one. */
@@ -316,6 +318,51 @@ export async function drainEvidenceQueue(): Promise<number> {
   return withOfflineDrainLock("ra-evidence-drain", drainEvidenceQueueImpl);
 }
 
+type ListedPhoto = {
+  id?: string;
+  url?: string;
+  metadata?: { cocoaSha256?: string } | null;
+};
+
+function photoVisibleForQueuedEntry(
+  photo: ListedPhoto,
+  entry: EvidenceQueueEntry,
+): boolean {
+  const urlOk =
+    typeof photo.url === "string" && Boolean(photo.url.trim());
+  if (!urlOk) return false;
+  if (entry.serverPhotoId && photo.id === entry.serverPhotoId) return true;
+  const hash = entry.directRetry ? entry.directCocoaSha256 : entry.cocoaSha256;
+  return Boolean(hash && photo.metadata?.cocoaSha256 === hash);
+}
+
+async function tryClearQueuedPhotoViaListing(
+  db: IDBDatabase,
+  entry: EvidenceQueueEntry,
+): Promise<
+  | { kind: "cleared" }
+  | { kind: "offline" }
+  | { kind: "missing"; readbackStatus?: number }
+> {
+  const readback = await fetchOfflineReplay(
+    entry.owner,
+    `/api/inspections/${entry.inspectionId}/photos`,
+    { cache: "no-store" },
+  );
+  if (!readback) return { kind: "offline" };
+  const listing = readback.ok ? await readback.json().catch(() => null) : null;
+  if (
+    Array.isArray(listing?.photos) &&
+    listing.photos.some((photo: ListedPhoto) =>
+      photoVisibleForQueuedEntry(photo, entry),
+    )
+  ) {
+    await removeEntry(db, entry.id);
+    return { kind: "cleared" };
+  }
+  return { kind: "missing", readbackStatus: readback.status };
+}
+
 async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
   if (typeof window === "undefined" || !navigator.onLine) return 0;
 
@@ -338,6 +385,22 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
     }
 
     try {
+      // RA-7862 B15 — after POST succeeded but readback failed (or the
+      // idempotency window expired), verify on the server listing before
+      // sending another multipart POST that could duplicate the photo.
+      if (entry.readbackPending || entry.serverPhotoId) {
+        const verify = await tryClearQueuedPhotoViaListing(db, entry);
+        if (verify.kind === "cleared") {
+          uploaded++;
+          continue;
+        }
+        if (verify.kind === "offline") break;
+        if (entry.readbackPending) {
+          await incrementRetry(db, entry, verify.readbackStatus, "readback");
+          continue;
+        }
+      }
+
       const form = new FormData();
       form.append(
         "file",
@@ -393,8 +456,16 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
         const readback = await fetchOfflineReplay(entry.owner, `/api/inspections/${entry.inspectionId}/photos`, { cache: "no-store" });
         if (!readback) break;
         const listing = readback.ok ? await readback.json().catch(() => null) : null;
-        if (!Array.isArray(listing?.photos) || !listing.photos.some((photo: { id?: string; url?: string }) => photo.id === photoId && typeof photo.url === "string" && Boolean(photo.url.trim()))) {
-          await incrementRetry(db, entry, readback.status, "readback");
+        if (
+          !Array.isArray(listing?.photos) ||
+          !listing.photos.some((photo: ListedPhoto) =>
+            photoVisibleForQueuedEntry(
+              { ...photo, id: photo.id ?? photoId },
+              { ...entry, serverPhotoId: photoId },
+            ),
+          )
+        ) {
+          await incrementRetry(db, entry, readback.status, "readback", photoId);
           continue;
         }
         await removeEntry(db, entry.id);
@@ -482,15 +553,19 @@ function incrementRetry(
   entry: EvidenceQueueEntry,
   status?: number,
   stage: "upload" | "readback" = "upload",
+  serverPhotoId?: string,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const req = tx
       .objectStore(STORE)
-      .put({ ...entry, retryCount: entry.retryCount + 1,
+      .put({
+        ...entry,
+        retryCount: entry.retryCount + 1,
         lastStatus: stage === "upload" ? status : undefined,
         readbackPending: stage === "readback" || Boolean(entry.readbackPending),
         readbackStatus: stage === "readback" ? status : entry.readbackStatus,
+        serverPhotoId: serverPhotoId ?? entry.serverPhotoId,
       });
     tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
     req.onerror = () => reject(req.error);

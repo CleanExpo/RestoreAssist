@@ -110,6 +110,10 @@ export interface SyncQueueEntry {
   lastAttemptAt?: string;
   retryCount: number;
   status: "pending" | "processing" | "failed";
+  /** RA-7862 B15 — POST succeeded; verify on server before another POST. */
+  verifyPending?: boolean;
+  /** Moisture / environmental row id from a successful POST body. */
+  serverResourceId?: string;
 }
 
 export interface SyncConflict {
@@ -470,6 +474,84 @@ export async function drainQueue(): Promise<number> {
   return withOfflineDrainLock(SYNC_DRAIN_LOCK_NAME, drainQueueImpl);
 }
 
+type ExportMoistureRow = {
+  location?: string;
+  material?: string;
+  moistureContent?: number;
+};
+
+function moisturePayloadMatchesExport(
+  payload: unknown,
+  row: ExportMoistureRow,
+): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const p = payload as {
+    location?: string;
+    surfaceType?: string;
+    moistureLevel?: number;
+  };
+  return (
+    typeof p.location === "string" &&
+    typeof p.surfaceType === "string" &&
+    typeof p.moistureLevel === "number" &&
+    p.location.trim() === row.location &&
+    p.surfaceType === row.material &&
+    p.moistureLevel === row.moistureContent
+  );
+}
+
+async function putQueueEntry(
+  db: IDBDatabase,
+  entry: SyncQueueEntry,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite");
+    const req = tx.objectStore(QUEUE_STORE).put(entry);
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => {
+      notifySyncQueueChanged();
+      resolve();
+    };
+  });
+}
+
+/**
+ * RA-7862 B15 — moisture rows are time-series; after idempotency TTL expires a
+ * blind re-POST duplicates. List via export-data and match payload fingerprint.
+ */
+async function tryClearMoistureViaExportListing(
+  db: IDBDatabase,
+  entry: SyncQueueEntry,
+): Promise<"cleared" | "missing" | "offline"> {
+  const readback = await fetchOfflineReplay(
+    entry.owner,
+    `/api/inspections/${entry.inspectionId}/export-data`,
+    { cache: "no-store" },
+  );
+  if (!readback) return "offline";
+  const data = readback.ok ? await readback.json().catch(() => null) : null;
+  const readings = data?.moistureReadings;
+  if (
+    Array.isArray(readings) &&
+    readings.some((row: ExportMoistureRow) =>
+      moisturePayloadMatchesExport(entry.payload, row),
+    )
+  ) {
+    await removeEntry(db, entry.id);
+    return "cleared";
+  }
+  return "missing";
+}
+
+function moistureNeedsVerifyBeforePost(entry: SyncQueueEntry): boolean {
+  return (
+    entry.type === "moisture-reading" &&
+    (entry.verifyPending === true ||
+      Boolean(entry.serverResourceId) ||
+      entry.retryCount > 0)
+  );
+}
+
 async function drainQueueImpl(): Promise<number> {
   if (typeof window === "undefined" || !navigator.onLine) return 0;
 
@@ -502,6 +584,22 @@ async function drainQueueImpl(): Promise<number> {
     }
 
     try {
+      if (moistureNeedsVerifyBeforePost(entry)) {
+        const verify = await tryClearMoistureViaExportListing(db, entry);
+        if (verify === "cleared") {
+          syncedCount++;
+          continue;
+        }
+        if (verify === "offline") break;
+        await putQueueEntry(db, {
+          ...entry,
+          verifyPending: true,
+          retryCount: entry.retryCount + 1,
+          lastAttemptAt: new Date().toISOString(),
+        });
+        continue;
+      }
+
       // RA-1762 — sketch-save entries piggyback the staleness check on
       // the `x-client-updated-at` header. Idempotency-Key is sent for every
       // type (RA-7568 moisture replay; evidence/mobile already did this).
@@ -531,6 +629,30 @@ async function drainQueueImpl(): Promise<number> {
 
       if (!response) break;
       if (response.ok) {
+        if (entry.type === "moisture-reading") {
+          const posted = await response.json().catch(() => null);
+          const serverResourceId =
+            typeof posted?.moistureReading?.id === "string"
+              ? posted.moistureReading.id
+              : undefined;
+          const verify = await tryClearMoistureViaExportListing(db, {
+            ...entry,
+            serverResourceId,
+          });
+          if (verify === "cleared") {
+            syncedCount++;
+            continue;
+          }
+          if (verify === "offline") break;
+          await putQueueEntry(db, {
+            ...entry,
+            serverResourceId,
+            verifyPending: true,
+            retryCount: entry.retryCount + 1,
+            lastAttemptAt: new Date().toISOString(),
+          });
+          continue;
+        }
         await removeEntry(db, entry.id);
         syncedCount++;
       } else if (response.status === 409) {
