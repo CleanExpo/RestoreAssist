@@ -436,10 +436,73 @@ describe("offline ownership containment", () => {
     expect(replayCalls()).toHaveLength(0);
   });
 
+  it("clears a verify-pending moisture row via export-data without re-POST (RA-7862 B15)", async () => {
+    await login();
+    const queue = await import("../nir-sync-queue");
+    const id = await queue.queueWrite({
+      id: "moisture-pending-verify",
+      type: "moisture-reading",
+      endpoint: "/api/inspections/job-1/moisture",
+      method: "POST",
+      payload: {
+        location: "Kitchen",
+        surfaceType: "timber",
+        moistureLevel: 18,
+      },
+      inspectionId: "job-1",
+    });
+    const seeded = (await rows("nir-offline-queue", "sync-queue")).find(
+      (row) => row.id === id,
+    );
+    await put("nir-offline-queue", "sync-queue", {
+      ...seeded,
+      retryCount: 1,
+      verifyPending: true,
+      serverResourceId: "mr_1",
+    });
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+        : init?.method === "POST"
+          ? new Response(JSON.stringify({ error: "must not replay POST" }), {
+              status: 400,
+            })
+          : url.includes("/export-data")
+            ? new Response(
+                JSON.stringify({
+                  moistureReadings: [
+                    {
+                      location: "Kitchen",
+                      material: "timber",
+                      moistureContent: 18,
+                    },
+                  ],
+                }),
+                { status: 200 },
+              )
+            : new Response("{}", { status: 404 }),
+    );
+    expect(await queue.drainQueue()).toBe(1);
+    expect(
+      replayCalls().filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(0);
+    expect(
+      (await rows("nir-offline-queue", "sync-queue")).some(
+        (row) => row.id === "moisture-pending-verify",
+      ),
+    ).toBe(false);
+  });
+
   it("drains owned NIR work once and leaves legacy and foreign entries unchanged", async () => {
     await login();
     const queue = await import("../nir-sync-queue");
-    await queue.queueWrite({ type: "moisture-reading", endpoint: "/api/inspections/i/moisture", method: "POST", payload: {}, inspectionId: "i" });
+    await queue.queueWrite({
+      type: "inspection-update",
+      endpoint: "/api/inspections/i",
+      method: "PATCH",
+      payload: { notes: "offline patch" },
+      inspectionId: "i",
+    });
     const original = (await rows("nir-offline-queue", "sync-queue"))[0];
     await put("nir-offline-queue", "sync-queue", { ...original, id: "legacy", owner: undefined });
     await put("nir-offline-queue", "sync-queue", { ...original, id: "foreign", owner: B });
