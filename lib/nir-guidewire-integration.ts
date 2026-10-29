@@ -31,8 +31,8 @@ export interface NirReportOutput {
   reportId: string;
   /** ISO 8601 — date the inspection was conducted */
   inspectionDate: string;
-  /** ISO 8601 — date the report was submitted/locked */
-  submittedAt: string;
+  /** ISO 8601 — date the report was submitted/locked, or null if not yet submitted */
+  submittedAt: string | null;
   /** Technician details */
   technician: NirTechnician;
   /** Property being inspected */
@@ -117,7 +117,8 @@ export interface NirPhotoManifest {
   totalPhotos: number;
   photos: Array<{
     photoId: string;
-    capturedAt: string;
+    /** ISO 8601 capture time, or null when the upload has no recorded timestamp */
+    capturedAt: string | null;
     /**
      * Capture coordinates, or `null` when the photo carries none.
      *
@@ -354,7 +355,7 @@ export function transformNirToGuidewireClaim(
       lossType: insurerLossTypeCode,
       externalClaimNumber: nir.reportId,
       lossDate: nir.inspectionDate,
-      reportedDate: nir.submittedAt,
+      ...(nir.submittedAt ? { reportedDate: nir.submittedAt } : {}),
       description: `${nir.lossClassification.primaryClassification} — NIR ${nir.reportId}`,
       policy: { policyNumber },
       lossLocation: {

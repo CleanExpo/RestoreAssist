@@ -118,7 +118,7 @@ const nirPhotoManifestSchema = z.strictObject({
   photos: z.array(
     z.strictObject({
       photoId: z.string(),
-      capturedAt: z.string(),
+      capturedAt: z.string().nullable(),
       // Nullable by contract: a photo with no GPS fix reports `null`, never a
       // substituted 0. See NirPhotoManifest for why 0 is not a safe sentinel.
       latitude: z.number().nullable(),
@@ -147,7 +147,7 @@ const nirEvidenceClearanceSchema = z.strictObject({
 const nirReportOutputSchema = z.strictObject({
   reportId: z.string(),
   inspectionDate: z.string(),
-  submittedAt: z.string(),
+  submittedAt: z.string().nullable(),
   technician: nirTechnicianSchema,
   property: nirPropertySchema,
   lossClassification: nirLossClassificationSchema,

@@ -70,7 +70,14 @@
           "type": "string"
         },
         "submittedAt": {
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "technician": {
           "type": "object",
@@ -320,7 +327,14 @@
                     "type": "string"
                   },
                   "capturedAt": {
-                    "type": "string"
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "latitude": {
                     "anyOf": [
