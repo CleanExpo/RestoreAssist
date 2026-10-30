@@ -124,6 +124,7 @@
     "db:studio": "prisma studio",
     "db:seed:ceo": "npx tsx prisma/seed-ceo.ts",
     "script:linear-query": "tsx --env-file=.env scripts/linear-query.ts",
+    "script:verify-ra-7754": "tsx scripts/verify-ra-7754-prelaunch.ts",
     "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts",
     "script:grant-founding-trial": "npx tsx scripts/grant-founding-trial.ts",
     "script:upgrade-user": "npx tsx scripts/upgrade-user-package.ts",
