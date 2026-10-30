@@ -23,6 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  integrationProviderToSlug,
+  runExternalIntegrationSync,
+} from "@/lib/integrations/external-sync-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -120,7 +124,11 @@ function providerLabel(provider: string) {
 
 interface SyncErrorRowProps {
   error: SyncError;
-  onRetry: (integrationId: string, syncLogId: string) => Promise<void>;
+  onRetry: (
+    integrationId: string,
+    syncLogId: string,
+    provider: string,
+  ) => Promise<void>;
   retryingId: string | null;
 }
 
@@ -209,7 +217,13 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
           size="sm"
           variant="outline"
           disabled={isPermanentlyFailed || isRetrying}
-          onClick={() => onRetry(error.integrationId, error.id)}
+          onClick={() =>
+            onRetry(
+              error.integrationId,
+              error.id,
+              error.integration.provider,
+            )
+          }
           className="h-7 text-xs"
         >
           {isRetrying ? (
@@ -407,28 +421,24 @@ export default function SyncErrorsPage() {
   // ── Retry ──────────────────────────────────────────────────────────────────
 
   const handleRetry = useCallback(
-    async (integrationId: string, syncLogId: string) => {
+    async (_integrationId: string, syncLogId: string, provider: string) => {
       setRetryingId(syncLogId);
       try {
-        // Re-trigger the NIR sync for the specific integration.
-        // targetIntegrationId scopes the sync to the single failed integration.
-        const res = await fetch(`/api/integrations/nir-sync`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            targetIntegrationId: integrationId,
-            syncLogId,
-          }),
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error ?? `HTTP ${res.status}`);
+        const slug = integrationProviderToSlug(provider);
+        if (!slug) {
+          toast.error(`Retry is not available for provider "${provider}".`);
+          return;
         }
-        // Refresh list after successful retry
-        await fetchErrors();
-      } catch (err: any) {
+        const result = await runExternalIntegrationSync(slug);
+        if (result.ok) {
+          toast.success(result.message);
+          await fetchErrors();
+        } else {
+          toast.error(`Retry failed: ${result.message}`);
+        }
+      } catch (err: unknown) {
         console.error("[Retry]", err);
-        toast.error(`Retry failed: ${err.message}`);
+        toast.error("Retry failed: Something went wrong");
       } finally {
         setRetryingId(null);
       }
