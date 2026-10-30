@@ -50,6 +50,7 @@ import {
 } from "@/lib/client/parse-api-error";
 import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 import { ReportClientSendChecklist } from "@/components/reports/ReportClientSendChecklist";
+import { ReportDetailHonestyPanel } from "@/components/reports/ReportDetailHonestyPanel";
 
 export default function ReportDetailPage({
   params,
@@ -261,6 +262,8 @@ export default function ReportDetailPage({
           </p>
         </div>
       </div>
+
+      <ReportDetailHonestyPanel report={report} />
 
       {/* Weakness check — reviewed ahead of export/handoff (RA-5041 UI) */}
       {reportId && (
