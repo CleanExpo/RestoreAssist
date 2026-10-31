@@ -68,10 +68,16 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 /** The tracked-tree export. Pinned by the verifier; see note 2 above. */
 export const C2_SCANNED_REF = "git-checkout-index";
@@ -105,6 +111,20 @@ export const C2_SCANNER = "gitleaks";
  * The value is not a credential and never existed.
  */
 export const C2_CANARY_PATH = "docs/c2-control-canary.md";
+
+/**
+ * Every path the canary is planted at. Each one is a file class an allowlist
+ * in `.gitleaks.toml` once hid from every rule: all markdown (until
+ * 2026-08-16), every tracked file under `.claude/`, and every unit-test file
+ * (both until 2026-10-31; a planted fake token in each scanned clean). The
+ * control passes only when the canary is found at EVERY path, so widening any
+ * of those allowlists again fails the receipt instead of passing silently.
+ */
+export const C2_CANARY_PATHS: readonly string[] = [
+  C2_CANARY_PATH,
+  ".claude/rules/c2-control-canary.md",
+  "lib/__tests__/c2-control-canary.test.ts",
+];
 
 export function c2CanarySecret(): string {
   return ["sk", "live", "51H8xQ2KgTqLmNpRsTuVwXyZa1b2c3d4e"].join("_");
@@ -211,8 +231,10 @@ export function summariseC2(input: {
   // control scan merely returned more results than the real one for any
   // reason, which is a weaker claim than "the scanner read this file and
   // applied the rule".
-  const controlCanaryDetected = input.controlFindings.some((finding) =>
-    (finding.File ?? "").endsWith(C2_CANARY_PATH),
+  const controlCanaryDetected = C2_CANARY_PATHS.every((path) =>
+    input.controlFindings.some((finding) =>
+      (finding.File ?? "").endsWith(path),
+    ),
   );
 
   return {
@@ -292,9 +314,13 @@ export function scanDirectory(
 
 /** Export the tracked tree, which is what ships. See note 2. */
 export function exportTrackedTree(destination: string): void {
-  execFileSync("git", ["checkout-index", "-a", "-f", `--prefix=${destination}/`], {
-    encoding: "utf8",
-  });
+  execFileSync(
+    "git",
+    ["checkout-index", "-a", "-f", `--prefix=${destination}/`],
+    {
+      encoding: "utf8",
+    },
+  );
 }
 
 async function fetchEnvCompleteness(
@@ -315,7 +341,9 @@ async function fetchEnvCompleteness(
   // 503 is a legitimate answer here: /api/health returns it when a check is in
   // `error`, and the body still carries the env block this criterion reads.
   if (!response.ok && response.status !== 503) {
-    throw new Error(`${url} returned ${response.status} ${response.statusText}`);
+    throw new Error(
+      `${url} returned ${response.status} ${response.statusText}`,
+    );
   }
   return readEnvCompleteness(await response.json());
 }
@@ -354,7 +382,10 @@ export async function produceC2Measurements(): Promise<C2Measurements> {
     // The control. Plant the canary in the SAME export and rescan: if this does
     // not come back the scanner is not reading markdown, and the real scan's
     // silence means nothing.
-    writeFileSync(join(exportDir, C2_CANARY_PATH), c2CanaryDocument());
+    for (const path of C2_CANARY_PATHS) {
+      mkdirSync(dirname(join(exportDir, path)), { recursive: true });
+      writeFileSync(join(exportDir, path), c2CanaryDocument());
+    }
     const controlFindings = scanDirectory(
       binary,
       exportDir,
@@ -374,7 +405,8 @@ export async function produceC2Measurements(): Promise<C2Measurements> {
 
     if (!measurements.controlCanaryDetected) {
       throw new Error(
-        `the control canary planted at ${C2_CANARY_PATH} was NOT detected. ` +
+        `the control canary planted at ${C2_CANARY_PATHS.join(", ")} was NOT ` +
+          "detected at every path. " +
           "The scanner is blind to that path -- almost certainly an over-broad " +
           "allowlist in .gitleaks.toml, which is the exact defect recorded in " +
           "docs/evidence/release-gate/1.0.0/C2-secrets-scan.md. Refusing to " +
