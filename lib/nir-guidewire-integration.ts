@@ -443,7 +443,9 @@ export interface GuidewireClaimIntakePayload {
     lossType: string;
     externalClaimNumber: string;
     lossDate: string;
-    reportedDate: string;
+    // Omitted when the inspection has not been submitted (RA-7880): never
+    // the wall clock.
+    reportedDate?: string;
     description: string;
     policy: { policyNumber: string };
     lossLocation: {
