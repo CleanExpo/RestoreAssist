@@ -493,6 +493,73 @@ describe("offline ownership containment", () => {
     ).toBe(false);
   });
 
+  // The B15 read-back must never stand between a reading and the server.
+  async function seedMoisture(fields: Record<string, unknown>) {
+    const queue = await import("../nir-sync-queue");
+    const id = await queue.queueWrite({
+      id: "moisture-b15",
+      type: "moisture-reading",
+      endpoint: "/api/inspections/job-1/moisture",
+      method: "POST",
+      payload: { location: "Kitchen", surfaceType: "timber", moistureLevel: 18 },
+      inspectionId: "job-1",
+    });
+    const seeded = (await rows("nir-offline-queue", "sync-queue")).find((row) => row.id === id);
+    await put("nir-offline-queue", "sync-queue", { ...seeded, ...fields });
+    return queue;
+  }
+  function moistureServer(exported: unknown[], postStatus = 201) {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+        : init?.method === "POST"
+          ? new Response(JSON.stringify({ moistureReading: { id: "mr_1" } }), { status: postStatus })
+          : url.includes("/export-data")
+            ? new Response(JSON.stringify({ moistureReadings: exported }), { status: 200 })
+            : new Response("{}", { status: 404 }),
+    );
+  }
+  const posts = () => replayCalls().filter(([, init]) => init?.method === "POST");
+  const queued = async () =>
+    (await rows("nir-offline-queue", "sync-queue")).some((row) => row.id === "moisture-b15");
+
+  it("POSTs a moisture row whose read-back finds nothing, instead of re-queueing it forever (RA-7862 B15)", async () => {
+    await login();
+    const queue = await seedMoisture({ retryCount: 1, verifyPending: true });
+    moistureServer([]);
+    expect(await queue.drainQueue()).toBe(1);
+    expect(posts()).toHaveLength(1);
+    expect(await queued()).toBe(false);
+  });
+
+  it("clears a moisture row on a 2xx that names the committed reading (RA-7862 B15)", async () => {
+    await login();
+    const queue = await seedMoisture({});
+    moistureServer([]);
+    expect(await queue.drainQueue()).toBe(1);
+    expect(posts()).toHaveLength(1);
+    expect(await queued()).toBe(false);
+  });
+
+  it("reads back before re-POSTing a retried moisture row old enough for its key to expire (RA-7862 B15)", async () => {
+    await login();
+    const queue = await seedMoisture({ retryCount: 1, queuedAt: "2020-01-01T00:00:00.000Z" });
+    moistureServer([{ location: "Kitchen", material: "timber", moistureContent: 18 }]);
+    expect(await queue.drainQueue()).toBe(1);
+    expect(posts()).toHaveLength(0);
+    expect(await queued()).toBe(false);
+  });
+
+  it("keeps the read-back window tied to the server idempotency TTL", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(`${process.cwd()}/lib/idempotency.ts`, "utf8");
+    const expr = source.match(/const TTL_MS = ([\d\s*]+);/)?.[1];
+    expect(expr, "lib/idempotency.ts TTL_MS not found").toBeTruthy();
+    const serverTtl = expr!.split("*").reduce((n, part) => n * Number(part.trim()), 1);
+    const queue = await import("../nir-sync-queue");
+    expect(queue.MOISTURE_IDEMPOTENCY_TTL_MS).toBe(serverTtl);
+  });
+
   it("drains owned NIR work once and leaves legacy and foreign entries unchanged", async () => {
     await login();
     const queue = await import("../nir-sync-queue");
