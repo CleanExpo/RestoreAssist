@@ -69,7 +69,9 @@ paths = [
   '''(?i)^\.env$''',
 
   # Gitignored, local-only parts of `.claude/` (agent worktrees, Done
-  # contracts, verifier reports, synced skills, local progress notes).
+  # contracts, local progress notes). `.claude/skills/` and
+  # `.claude/verifier-reports/` are NOT here: 65 + 151 of their files are
+  # tracked, so CI must scan them.
   #
   # NOTE (2026-10-31): this used to be a blanket '''(?i)^\.claude/''', which
   # also exempted the ~330 TRACKED files under `.claude/` (rules, hooks,
@@ -79,8 +81,6 @@ paths = [
   # content is scanned like everything else.
   '''(?i)^\.claude/worktrees/''',
   '''(?i)^\.claude/done/''',
-  '''(?i)^\.claude/verifier-reports/''',
-  '''(?i)^\.claude/skills/''',
   '''(?i)^\.claude/swarm/identity\.local\.md$''',
   '''(?i)^\.claude/PROGRESS\.md$''',
 

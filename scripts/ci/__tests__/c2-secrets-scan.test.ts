@@ -1,4 +1,12 @@
-import { readFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -11,6 +19,7 @@ import {
   c2CanarySecret,
   parseGitleaksReport,
   readEnvCompleteness,
+  scanDirectory,
   summariseC2,
   type GitleaksFinding,
 } from "../producers/c2-secrets-scan";
@@ -202,5 +211,38 @@ describe("the control canary", () => {
       "utf8",
     );
     expect(source).not.toMatch(/sk_live_[0-9a-zA-Z]{20,}/);
+  });
+});
+
+describe("scanDirectory", () => {
+  it("scans from inside the export with a relative source, as CI does", () => {
+    // gitleaks matches `paths` allowlists against the path as it reports it.
+    // An absolute --source makes that path absolute, so every `^`-anchored
+    // exemption stops matching and the measurement sees more than CI. A fake
+    // binary records how it was called; no real gitleaks is needed.
+    const dir = mkdtempSync(join(tmpdir(), "c2-scan-dir-"));
+    const tree = join(dir, "tree");
+    mkdirSync(tree);
+    const log = join(dir, "call.log");
+    const binary = join(dir, "fake-gitleaks");
+    writeFileSync(
+      binary,
+      [
+        "#!/bin/sh",
+        `pwd -P > "${log}"`,
+        `printf '%s\\n' "$@" >> "${log}"`,
+        'while [ "$#" -gt 0 ]; do',
+        '  if [ "$1" = "--report-path" ]; then printf "[]" > "$2"; fi',
+        "  shift",
+        "done",
+      ].join("\n"),
+    );
+    chmodSync(binary, 0o755);
+
+    scanDirectory(binary, tree, join(dir, "cfg.toml"), join(dir, "r.json"));
+
+    const [cwd, ...args] = readFileSync(log, "utf8").trim().split("\n");
+    expect(cwd).toBe(realpathSync(tree));
+    expect(args[args.indexOf("--source") + 1]).toBe(".");
   });
 });

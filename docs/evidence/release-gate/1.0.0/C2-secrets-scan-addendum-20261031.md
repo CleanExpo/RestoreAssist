@@ -45,3 +45,30 @@ https://restoreassist.app/api/health: ok, 0 variables unset."
 C2 still scores 0 until a signed receipt exists: that needs the owner's
 keypair in `RELEASE_RECEIPT_PUBLIC_KEYS` and the `release-receipts`
 environment (founder-only).
+
+## Round 2 (independent review, Cursor, 31/10/2026)
+
+The first version still exempted `.claude/skills/` and
+`.claude/verifier-reports/`, on the assumption they were gitignored. They are
+not: 65 and 151 of their files are tracked, and CI scans them. A planted fake
+token there was invisible to the relative scan CI runs. Both exemptions are
+removed; the tracked tree still scans clean without them.
+
+The review also showed why the producer's canary had not caught this. The
+producer passed an absolute `--source` to gitleaks, and gitleaks matches
+`paths` allowlists against the path as it reports it. With an absolute source
+that path is absolute, so no `^`-anchored exemption matched: the producer saw
+more than CI and its canary could never fail on an over-broad path exemption.
+Measured: the same planted token in `.claude/skills/` was reported by an
+absolute scan and hidden by a relative one under the same config.
+
+`scanDirectory` now runs gitleaks from inside the export with `--source .`.
+The canary is planted at five paths (adding `.claude/skills/` and
+`.claude/verifier-reports/`). Controls run:
+
+- Producer with the round-1 config: exit 1, "the control canary ... was NOT
+  detected at every path". With the new config: exit 0, "Scanned 6169 tracked
+  files with gitleaks 8.30.1: 0 findings (control canary detected)".
+- New unit test `scanDirectory > scans from inside the export with a relative
+  source`: fails against the absolute-source code (cwd was the repo, not the
+  export), passes after; 29 tests pass.

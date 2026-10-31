@@ -123,6 +123,8 @@ export const C2_CANARY_PATH = "docs/c2-control-canary.md";
 export const C2_CANARY_PATHS: readonly string[] = [
   C2_CANARY_PATH,
   ".claude/rules/c2-control-canary.md",
+  ".claude/skills/c2-control-canary.md",
+  ".claude/verifier-reports/c2-control-canary.md",
   "lib/__tests__/c2-control-canary.test.ts",
 ];
 
@@ -289,13 +291,19 @@ export function scanDirectory(
   configPath: string,
   reportPath: string,
 ): GitleaksFinding[] {
+  // Scan from inside `source` with a relative `.`, as pr-checks.yml does from
+  // the repo root. gitleaks matches `paths` allowlists against the path as it
+  // reports it: with an absolute --source that path is absolute, so every
+  // `^`-anchored exemption silently stops matching and the measurement sees
+  // MORE than CI does. The canary could then never catch an over-broad
+  // exemption (measured 2026-10-31 with `^\.claude/skills/`).
   execFileSync(
     binary,
     [
       "detect",
       "--no-git",
       "--source",
-      source,
+      ".",
       "--config",
       configPath,
       "--redact",
@@ -307,7 +315,7 @@ export function scanDirectory(
       "--report-path",
       reportPath,
     ],
-    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    { cwd: source, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   );
   return parseGitleaksReport(readFileSync(reportPath, "utf8"));
 }
