@@ -543,12 +543,33 @@ async function tryClearMoistureViaExportListing(
   return "missing";
 }
 
-function moistureNeedsVerifyBeforePost(entry: SyncQueueEntry): boolean {
+/**
+ * Server-side Idempotency-Key lifetime, `TTL_MS` in lib/idempotency.ts (a
+ * server module, so not imported here; a test pins the two together). While
+ * a key lives, a replayed POST cannot insert twice.
+ */
+export const MOISTURE_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+// Read back an hour early so a slow clock or a long drain cannot straddle expiry.
+const MOISTURE_VERIFY_AFTER_MS = MOISTURE_IDEMPOTENCY_TTL_MS - 60 * 60 * 1000;
+
+/**
+ * Read back before re-POSTing only where the key cannot be trusted: an
+ * unconfirmed 2xx, or an entry old enough that its key may have expired.
+ * Inside the TTL a retry (409 in flight, 5xx, lost response) is safe to POST,
+ * and gating every retry on the read-back left readings unsynced.
+ */
+function moistureNeedsVerifyBeforePost(
+  entry: SyncQueueEntry,
+  now: number = Date.now(),
+): boolean {
+  if (entry.type !== "moisture-reading") return false;
+  if (entry.verifyPending === true || Boolean(entry.serverResourceId)) {
+    return true;
+  }
+  const queuedAt = Date.parse(entry.queuedAt);
   return (
-    entry.type === "moisture-reading" &&
-    (entry.verifyPending === true ||
-      Boolean(entry.serverResourceId) ||
-      entry.retryCount > 0)
+    entry.retryCount > 0 &&
+    (!Number.isFinite(queuedAt) || now - queuedAt >= MOISTURE_VERIFY_AFTER_MS)
   );
 }
 
@@ -591,13 +612,10 @@ async function drainQueueImpl(): Promise<number> {
           continue;
         }
         if (verify === "offline") break;
-        await putQueueEntry(db, {
-          ...entry,
-          verifyPending: true,
-          retryCount: entry.retryCount + 1,
-          lastAttemptAt: new Date().toISOString(),
-        });
-        continue;
+        // "missing": the server does not hold this reading, so POST it. The
+        // Idempotency-Key still dedupes a replay inside the TTL. Re-queueing
+        // for another read-back here would never POST, and the reading would
+        // never sync.
       }
 
       // RA-1762 — sketch-save entries piggyback the staleness check on
@@ -635,6 +653,14 @@ async function drainQueueImpl(): Promise<number> {
             typeof posted?.moistureReading?.id === "string"
               ? posted.moistureReading.id
               : undefined;
+          // A 2xx naming the committed row is the server's own confirmation.
+          // Only an unconfirmed 2xx falls back to the export-data read-back,
+          // whose fingerprint match is too strict to gate every success on.
+          if (serverResourceId) {
+            await removeEntry(db, entry.id);
+            syncedCount++;
+            continue;
+          }
           const verify = await tryClearMoistureViaExportListing(db, {
             ...entry,
             serverResourceId,
