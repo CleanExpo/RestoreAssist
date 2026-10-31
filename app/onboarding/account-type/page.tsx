@@ -75,12 +75,13 @@ const formSchema = z.object({
       "ACN must be exactly 9 digits if supplied",
     ),
   state: z.enum(["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"], {
-    required_error: "Please select a state or territory",
+    error: (issue) =>
+      issue.input === undefined
+        ? "Please select a state or territory"
+        : undefined,
   }),
   acceptedTerms: z.literal(true, {
-    errorMap: () => ({
-      message: "You must accept the Terms of Service and Privacy Policy",
-    }),
+    error: "You must accept the Terms of Service and Privacy Policy",
   }),
 });
 

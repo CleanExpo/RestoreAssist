@@ -14,7 +14,7 @@ const BetaSignupSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   name: z.string().min(1, "Name is required").max(100),
   deviceType: z.enum(["ios", "android", "both"], {
-    errorMap: () => ({ message: "Device type must be ios, android, or both" }),
+    error: "Device type must be ios, android, or both",
   }),
 });
 
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return apiError(req, {
         code: "VALIDATION",
-        message: parsed.error.errors[0].message,
+        message: parsed.error.issues[0].message,
         status: 400,
       });
     }

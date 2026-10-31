@@ -9,10 +9,15 @@
   "overrides": {
     "google-auth-library": "$google-auth-library",
     "googleapis-common": {
-      "google-auth-library": "$google-auth-library",
-      "minimatch@9.0.9": {
-        "brace-expansion": ">=2.1.6 <3"
-      }
+      "google-auth-library": "$google-auth-library"
+    },
+    "exceljs": {
+      "minimatch": ">=11.0.3",
+      "unzipper": "^0.12.3",
+      "glob": "^8.1.0"
+    },
+    "archiver-utils@2.1.0": {
+      "glob": "^8.1.0"
     },
     "dompurify": "$dompurify",
     "loader-utils": "^2.0.4",
@@ -24,7 +29,7 @@
     "tar": ">=7.5.21",
     "tmp": ">=0.2.6",
     "ws": ">=8.21.0",
-    "qs": ">=6.15.2",
+    "qs": ">=6.17.1",
     "effect": ">=3.20.0",
     "defu": ">=6.1.5",
     "nodemailer": "$nodemailer",
@@ -37,14 +42,18 @@
     "postcss": "$postcss",
     "uuid": ">=11.1.1",
     "ip-address": ">=10.1.1",
-    "brace-expansion": ">=5.0.11",
-    "minimatch@3.1.5": {
-      "brace-expansion": "1.1.20"
-    },
-    "minimatch": ">=9.0.5",
+    "brace-expansion@<2": "^1.1.21",
+    "brace-expansion@>=2 <3": "^2.1.7",
+    "brace-expansion@>=5": ">=5.0.12",
+    "minimatch@>=5": ">=11.0.3",
+    "glob@>=9": ">=14.0.3",
+    "postcss-selector-parser@<7": "^6.1.5",
+    "postcss-selector-parser@>=7": ">=7.1.7",
+    "@fastify/busboy": ">=3.2.4",
+    "zod": "$zod",
     "@tootallnate/once": ">=3.0.1",
     "fast-xml-builder": ">=1.1.7",
-    "fast-uri": ">=4.1.4",
+    "fast-uri": ">=4.2.3",
     "basic-ftp": ">=5.3.1",
     "esbuild": ">=0.28.1",
     "source-map-js": ">=1.2.2",
@@ -67,8 +76,7 @@
   "auditConfig": {
     "ignoreGhsas": [
       "GHSA-hfvx-25r5-qc3w",
-      "GHSA-22p9-wv53-3rq4",
-      "GHSA-mrhx-c7xc-m3w5"
+      "GHSA-22p9-wv53-3rq4"
     ]
   },
   "scripts": {
@@ -290,7 +298,7 @@
     "undici": "^6.29.1",
     "use-stick-to-bottom": "^1.1.6",
     "vaul": "^1.1.2",
-    "zod": "3.25.76",
+    "zod": "^4.6.7",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
