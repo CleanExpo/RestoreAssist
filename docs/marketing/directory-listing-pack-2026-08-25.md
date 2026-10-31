@@ -15,14 +15,14 @@ Every block below is fill-in-the-form ready. Each listing is a referring domain.
 | Field | Value |
 | --- | --- |
 | Company | Unite-Group Nexus Pty Ltd |
-| ABN | 62 580 077 456 |
+| ABN | 95 691 477 844 |
 | Product | RestoreAssist · <https://restoreassist.app> |
 | Category | Restoration / Field Service / Construction Software |
 | Pricing | Free 15-day trial · $99 AUD/month · add-ons from $11 |
 | Markets | Australia, New Zealand |
 | Founded | 2026 |
 
-**ABN verified.** `62 580 077 456` passes the ATO weighted-modulus check (weighted sum 534, mod 89 = 0) and the repo's own `isValidABN` in `lib/sanitize.ts`. Safe to put on forms.
+**ABN corrected 2026-10-31.** This pack previously gave `62 580 077 456`. A checksum pass does not say who owns a number: the ABR lists that ABN as an individual/sole trader (business name Carsi, not GST registered), not the company. The ABR record for UNITE-GROUP NEXUS PTY LTD, extracted 31 Oct 2026, is ABN `95 691 477 844`, ACN 691 477 844, active, GST registered from 1 Oct 2025, main location QLD 4305. That is the number `app/privacy` and `app/terms` already use.
 
 **Verified against `lib/pricing.ts`:** 15-day trial, 50 report credits, no card; $99 AUD/month; 50 reports/month; add-ons $11. **GST-inclusivity of the $99 is confirmed** — `app/pricing/page.tsx:239` renders "AUD, incl. GST" and `components/pricing/CostDisclosure.tsx:282` states plan pricing includes GST. An earlier draft called this unverifiable; that was wrong, and it was wrong because I checked `lib/pricing.ts` alone and stopped. **Still owner-supplied:** the CARSI IICRC CEC registration and the 2026 founding date — fine to state, just not repo-checkable.
 
@@ -71,7 +71,7 @@ Australian and New Zealand regulatory context is built into the workflow rather 
 
 Cost transparency is a deliberate design choice. Report generation runs on the customer's own Anthropic or OpenAI API key — the provider bills the customer directly at cost, and RestoreAssist takes no margin or share. The pricing page discloses this alongside every optional add-on, and states plainly which paid features are not yet enforced server-side.
 
-RestoreAssist is a product of Unite-Group Nexus Pty Ltd (ABN 62 580 077 456), which also operates CARSI, a provider of IICRC CEC-registered restoration training.
+RestoreAssist is a product of Unite-Group Nexus Pty Ltd (ABN 95 691 477 844), which also operates CARSI, a provider of IICRC CEC-registered restoration training.
 
 Pricing: 15-day free trial with 50 inspection report credits, no credit card required. $99 AUD per month for 50 reports. Optional add-ons from $11 per month.
 ```
