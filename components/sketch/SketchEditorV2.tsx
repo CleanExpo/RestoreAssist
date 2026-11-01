@@ -984,12 +984,7 @@ export function SketchEditorV2({
           (canvas as { getObjects?: () => unknown[] }).getObjects?.() ?? [],
         ).find((r) => r.id === crop.roomId)?.points ??
         [];
-      const inRoom = filterPinsInRoom(
-        activeFloor.moisturePins,
-        roomPoints,
-        viewport.width,
-        viewport.height,
-      );
+      const inRoom = filterPinsInRoom(activeFloor.moisturePins, roomPoints);
       toast.success(
         inRoom.length
           ? `Exported room crop (${inRoom.length} moisture pin${inRoom.length === 1 ? "" : "s"} in room)`

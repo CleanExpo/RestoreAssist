@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   contentBoundsForRoomCrop,
   filterPinsInRoom,
-  filterNormalizedPinsInRoom,
   isPointInRoomCrop,
   roomCropMeta,
   roomPolygonToCropRect,
@@ -48,7 +47,7 @@ describe("room-moisture-crop", () => {
       { id: "a", x: 200, y: 175, wme: 10 },
       { id: "b", x: 10, y: 10, wme: 20 },
     ];
-    const inside = filterPinsInRoom(pins, square.points, 800, 600);
+    const inside = filterPinsInRoom(pins, square.points);
     expect(inside.map((p) => p.id)).toEqual(["a"]);
   });
 
@@ -62,13 +61,8 @@ describe("room-moisture-crop", () => {
     expect(bounds.height).toBe(crop.height);
   });
 
-  it("filters normalized pins into the room polygon", () => {
-    const pins = [
-      { nx: 200 / 800, ny: 175 / 600, wme: 12 },
-      { nx: 10 / 800, ny: 10 / 600, wme: 22 },
-    ];
-    const inside = filterNormalizedPinsInRoom(pins, square.points, 800, 600);
-    expect(inside).toHaveLength(1);
-    expect(inside[0].wme).toBe(12);
+  it("ignores nx,ny saved against a different panel", () => {
+    const pins = [{ id: "a", x: 200, y: 175, nx: 0.9, ny: 0.9 }];
+    expect(filterPinsInRoom(pins, square.points)).toHaveLength(1);
   });
 });
