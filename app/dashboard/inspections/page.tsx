@@ -7,7 +7,8 @@ import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRef
 import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
 import type { ParsedApiError } from "@/lib/client/parse-api-error";
 import { apiErrorMessage } from "@/lib/api-error-message";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { isActiveInspectionStatus } from "@/lib/inspections/active-status";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import {
@@ -112,6 +113,19 @@ export default function InspectionsPage() {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const currentUserId = session?.user?.id;
+  // RA-8022: the dashboard's Active Inspections card links here with
+  // ?status=active. Asked of the server, because the list is paged and a
+  // filter over one page would undercount.
+  const searchParams = useSearchParams();
+  // The URL owns this filter, so a later navigation or a refresh agrees with
+  // what is on screen.
+  const activeOnly = searchParams.get("status") === "active";
+  const [pillFilter, setPillFilter] = useState("");
+  const statusFilter = activeOnly ? "active" : pillFilter;
+  const setStatusFilter = (next: string) => {
+    setPillFilter(next);
+    if (activeOnly) router.replace("/dashboard/inspections");
+  };
   // D-028: a technician (role USER) works their own jobs, so ask for those
   // (assigned to them, plus unassigned). Wait for the session: fetching the
   // unscoped list first would flash every job in the workspace.
@@ -119,8 +133,8 @@ export default function InspectionsPage() {
     sessionStatus === "loading"
       ? null
       : session?.user?.role === "USER"
-        ? "/api/inspections?assignee=me"
-        : "/api/inspections";
+        ? `/api/inspections?assignee=me${activeOnly ? "&status=active" : ""}`
+        : `/api/inspections${activeOnly ? "?status=active" : ""}`;
   const {
     data: inspectionsData,
     loading: fetchLoading,
@@ -139,7 +153,6 @@ export default function InspectionsPage() {
     : null;
   const inspections = inspectionsData?.inspections ?? [];
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -167,7 +180,11 @@ export default function InspectionsPage() {
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ??
           false);
-      const matchesStatus = !statusFilter || insp.status === statusFilter;
+      const matchesStatus =
+        !statusFilter ||
+        (activeOnly
+          ? isActiveInspectionStatus(insp.status)
+          : insp.status === statusFilter);
       const inspDate = insp.inspectionDate
         ? new Date(insp.inspectionDate)
         : null;
@@ -176,7 +193,14 @@ export default function InspectionsPage() {
       const matchesTo = !toDate || (inspDate !== null && inspDate <= toDate);
       return matchesSearch && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [inspections, searchTerm, statusFilter, dateFrom, dateTo]);
+  }, [inspections, searchTerm, statusFilter, activeOnly, dateFrom, dateTo]);
+
+  // Bulk actions reach only what is on screen: a selection a filter has since
+  // hidden must not be deleted unseen.
+  const visibleSelectedIds = useMemo(
+    () => filtered.filter((i) => selectedIds.has(i.id)).map((i) => i.id),
+    [filtered, selectedIds],
+  );
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -196,7 +220,7 @@ export default function InspectionsPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) {
+    if (visibleSelectedIds.length === filtered.length) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(filtered.map((i) => i.id)));
@@ -210,7 +234,7 @@ export default function InspectionsPage() {
   };
 
   const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return;
+    if (visibleSelectedIds.length === 0) return;
     setDeleteTarget({ type: "bulk" });
     setDeleteDialogOpen(true);
   };
@@ -240,13 +264,13 @@ export default function InspectionsPage() {
         const res = await fetch("/api/inspections/bulk-delete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: Array.from(selectedIds) }),
+          body: JSON.stringify({ ids: visibleSelectedIds }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
           setSelectedIds(new Set());
           toast.success(
-            `${data.deletedCount ?? selectedIds.size} inspection(s) deleted`,
+            `${data.deletedCount ?? visibleSelectedIds.length} inspection(s) deleted`,
           );
           refetchInspections();
         } else {
@@ -326,8 +350,17 @@ export default function InspectionsPage() {
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700",
           )}
         >
-          All ({inspections.length})
+          All{activeOnly ? "" : ` (${inspections.length})`}
         </button>
+        {activeOnly && (
+          <button
+            type="button"
+            onClick={() => setStatusFilter("")}
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-all bg-cyan-500 text-white"
+          >
+            Active
+          </button>
+        )}
         {Object.entries(STATUS_CONFIG).map(([key, cfg]) =>
           statusCounts[key] ? (
             <button
@@ -424,14 +457,15 @@ export default function InspectionsPage() {
             <input
               type="checkbox"
               checked={
-                selectedIds.size === filtered.length && filtered.length > 0
+                visibleSelectedIds.length === filtered.length &&
+                filtered.length > 0
               }
               onChange={toggleSelectAll}
               className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
             />
             Select all ({filtered.length})
           </label>
-          {selectedIds.size > 0 && (
+          {visibleSelectedIds.length > 0 && (
             <button
               type="button"
               onClick={handleDeleteSelected}
@@ -443,7 +477,7 @@ export default function InspectionsPage() {
               ) : (
                 <Trash2 size={14} />
               )}
-              Delete selected ({selectedIds.size})
+              Delete selected ({visibleSelectedIds.length})
             </button>
           )}
         </div>
@@ -654,7 +688,9 @@ export default function InspectionsPage() {
             ? "Are you sure you want to delete the selected inspections? This will permanently remove all selected inspections and their associated data."
             : "Are you sure you want to delete this inspection? This will permanently remove the inspection and all its associated data."
         }
-        itemCount={deleteTarget?.type === "bulk" ? selectedIds.size : undefined}
+        itemCount={
+          deleteTarget?.type === "bulk" ? visibleSelectedIds.length : undefined
+        }
         isLoading={deleting}
       />
     </SimpleDashboardPageFrame>

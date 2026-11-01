@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
+import { EXCLUDED_FROM_REVENUE } from "@/lib/invoice-status";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,11 +23,11 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // 1. Active jobs: inspections where status != 'COMPLETED'
+    // 1. Active jobs: inspections that are not finished
     const activeJobs = await prisma.inspection.count({
       where: {
         userId,
-        status: { not: "COMPLETED" },
+        status: { notIn: [...INACTIVE_INSPECTION_STATUSES] },
       },
     });
 
@@ -48,11 +50,13 @@ export async function GET(request: NextRequest) {
     `;
     const avgDryingDays = Number(avgDryingResult[0]?.avg_days ?? 0) || 0;
 
-    // 3. Revenue MTD: sum of Invoice totalIncGST (cents) / 100 for current calendar month
+    // 3. Revenue MTD: sum of Invoice totalIncGST (cents) / 100 for current calendar month,
+    // leaving out drafts and cancelled invoices
     const revenueMtdResult = await prisma.invoice.aggregate({
       where: {
         userId,
         invoiceDate: { gte: startOfMonth },
+        status: { notIn: [...EXCLUDED_FROM_REVENUE] },
       },
       _sum: {
         totalIncGST: true,
