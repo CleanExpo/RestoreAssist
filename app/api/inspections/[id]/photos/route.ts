@@ -94,6 +94,8 @@ export async function GET(
         aiModel: true,
         aiRunAt: true,
         metadata: true,
+        // RA-8131 — the offline queue finds a photo by hash when it has no id.
+        cocoaSha256: true,
       },
       take: 500,
     });

@@ -64,6 +64,7 @@ const DB_PHOTO: Record<string, unknown> = {
   aiModel: "claude-sonnet-4-6",
   aiRunAt: new Date("2026-09-21T00:00:00Z"),
   metadata: { photoAi: { reviewStatus: "pending" } },
+  cocoaSha256: "deadbeef",
 };
 
 /** RA-446 label fields the photos page dereferences (page.tsx Photo type) */
@@ -144,6 +145,12 @@ describe("GET /api/inspections/[id]/photos (RA-7054 label payload)", () => {
     for (const field of PHOTO_AI_FIELDS) {
       expect(photos[0], `payload missing "${field}"`).toHaveProperty(field);
     }
+  });
+
+  it("returns the custody hash the offline queue matches a photo by (RA-8131)", async () => {
+    const res = await GET(makeRequest(), ctx());
+    const { photos } = await res.json();
+    expect(photos[0].cocoaSha256).toBe("deadbeef");
   });
 
   it("uses sketch-equivalent tenancy so an active workspace member can list photos", async () => {

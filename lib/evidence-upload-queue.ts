@@ -321,7 +321,7 @@ export async function drainEvidenceQueue(): Promise<number> {
 type ListedPhoto = {
   id?: string;
   url?: string;
-  metadata?: { cocoaSha256?: string } | null;
+  cocoaSha256?: string | null;
 };
 
 /** `take` on GET /api/inspections/[id]/photos: a full page may hide this photo. */
@@ -337,7 +337,7 @@ function photoMatchesQueuedEntry(
 ): boolean {
   if (entry.serverPhotoId && photo.id === entry.serverPhotoId) return true;
   const hash = queuedEntryHash(entry);
-  return Boolean(hash && photo.metadata?.cocoaSha256 === hash);
+  return Boolean(hash && photo.cocoaSha256 === hash);
 }
 
 function photoVisibleForQueuedEntry(
@@ -352,7 +352,8 @@ function photoVisibleForQueuedEntry(
 /**
  * "missing" means the listing proves the photo absent. Anything short of that
  * (failed or malformed listing, a full page, a row with no usable URL, nothing
- * to identify the photo by) is "unverified" and must not re-upload: past the
+ * to identify the photo by, a listing without the hash a hash-only row needs) is
+ * "unverified" and must not re-upload: past the
  * Idempotency-Key lifetime a second POST would insert a duplicate.
  */
 async function tryClearQueuedPhotoViaListing(
@@ -379,7 +380,9 @@ async function tryClearQueuedPhotoViaListing(
     return { kind: "cleared" };
   }
   if (
-    (!entry.serverPhotoId && !queuedEntryHash(entry)) ||
+    (!entry.serverPhotoId &&
+      (!queuedEntryHash(entry) ||
+        photos.some((photo) => !("cocoaSha256" in photo)))) ||
     photos.length >= PHOTO_LISTING_CAP ||
     photos.some((photo) => photoMatchesQueuedEntry(photo, entry))
   ) {

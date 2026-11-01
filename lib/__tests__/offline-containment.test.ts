@@ -451,6 +451,43 @@ describe("offline ownership containment", () => {
       expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
     });
 
+    async function hashOnly(queue: Awaited<ReturnType<typeof pendingRow>>) {
+      await put("ra-evidence-queue", "uploads", { ...(await pending()), serverPhotoId: undefined });
+      return queue;
+    }
+
+    it("finds a photo by hash alone and sends no second upload (RA-8131)", async () => {
+      const queue = await hashOnly(await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: "created", url: signed, cocoaSha256: "deadbeef" }] }), { status: 200 }),
+      ));
+      expect(await queue.drainEvidenceQueue()).toBe(1);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toBeUndefined();
+    });
+
+    it("re-uploads a hash-only row when no listed photo carries its hash (RA-8131)", async () => {
+      let listed = false;
+      const queue = await hashOnly(await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: listed ? "new-photo" : "other", url: signed, cocoaSha256: listed ? "deadbeef" : null }] }), { status: 200 }),
+        () => {
+          listed = true;
+          return new Response(JSON.stringify({ photo: { id: "new-photo" } }), { status: 201 });
+        },
+      ));
+      expect(await queue.drainEvidenceQueue()).toBe(1);
+      expect(posts()).toHaveLength(1);
+      expect(await pending()).toBeUndefined();
+    });
+
+    it("does not re-upload a hash-only row when the listing leaves out the hash (RA-8131)", async () => {
+      const queue = await hashOnly(await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: "created", url: signed }] }), { status: 200 }),
+      ));
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
     it("sends no second upload when the listing shows the photo the timed-out POST created (RA-8131)", async () => {
       const queue = await pendingRow(
         () => new Response(JSON.stringify({ photos: [{ id: "persisted-photo", url: signed }] }), { status: 200 }),
