@@ -23,7 +23,7 @@ import {
   type MaterialTypeId,
 } from "@/lib/sketch/iicrc-utils";
 import { pinDryingStatus } from "@/lib/sketch/pin-drying";
-import { toNormalized, pinPixelPosition } from "@/lib/sketch/pin-coords";
+import { toNormalized } from "@/lib/sketch/pin-coords";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
   overlayScenePoint,
@@ -107,8 +107,8 @@ export function SketchMoistureLayer({
       ) {
         return;
       }
-      // RA-6763: also store the normalized position so the pin stays anchored
-      // when the canvas is zoomed/panned/resized.
+      // Older readers of moisturePoints still expect nx,ny. Nothing places a
+      // pin from them now.
       const { nx, ny } = toNormalized(x, y, width, height);
       const pin: MoisturePin = {
         id: newPinId(),
@@ -172,8 +172,9 @@ export function SketchMoistureLayer({
     >
       {pins.map((pin) => {
         const info = getClassInfo(pin.iicrClass);
-        const { left, top } = pinPixelPosition(pin, width, height);
-        const screen = overlayScreenPoint(left, top, vpt);
+        // Scene x,y, not nx,ny: those are fractions of the panel the pin was
+        // dropped on, and the panel size changes between devices.
+        const screen = overlayScreenPoint(pin.x, pin.y, vpt);
         return (
           <PinMarker
             key={pin.id}

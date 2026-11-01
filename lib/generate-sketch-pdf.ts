@@ -206,6 +206,7 @@ async function addSketchPage(
     pngDataUrl: string;
     fabricJson?: Record<string, unknown> | null;
     moisturePins?: MoistureMapPin[] | null;
+    moisturePinsNotShown?: number;
     evidencePins?: EvidenceMapPin[] | null;
     damageMarkers?: DamageMarkerMapPin[] | null;
   },
@@ -667,13 +668,19 @@ async function addSketchPage(
   // them here on the same image — colour + class per IICRC S500:2021 §8.1 — so
   // the structural sketch AND the moisture map are both present on the page.
   const pins = floor.moisturePins ?? [];
+  let moisturePinsNotShown = floor.moisturePinsNotShown ?? 0;
   if (pins.length > 0) {
-    const placed = placeMoisturePins(pins, {
-      x: imgX,
-      y: imgY,
-      width: drawW,
-      height: drawH,
-    });
+    const placed = placeMoisturePins(
+      pins,
+      {
+        x: imgX,
+        y: imgY,
+        width: drawW,
+        height: drawH,
+      },
+      { width: imgW, height: imgH },
+    );
+    moisturePinsNotShown += pins.length - placed.length;
     const PIN_R = 7;
     for (const p of placed) {
       const c = parseHexColor(p.color);
@@ -730,6 +737,20 @@ async function addSketchPage(
       });
       lx += 9 + helvetica.widthOfTextAtSize(text, 7) + 12;
     }
+  }
+  if (moisturePinsNotShown > 0) {
+    page.drawText(
+      safe(
+        `${moisturePinsNotShown} moisture ${moisturePinsNotShown === 1 ? "reading" : "readings"} not shown on this plan: no position on the drawing.`,
+      ),
+      {
+        x: imgX + 4,
+        y: imgY + (pins.length > 0 ? 16 : 6),
+        size: 7,
+        font: bold,
+        color: TEXT_MAIN,
+      },
+    );
   }
 
   const evidencePins = placeEvidencePins(floor.evidencePins ?? [], {
@@ -1143,6 +1164,8 @@ export interface SketchFloor {
    * `ClaimSketch.moisturePoints` via `parseMoisturePins`.
    */
   moisturePins?: MoistureMapPin[] | null;
+  /** Saved readings on this floor with no scene position to print them at. */
+  moisturePinsNotShown?: number;
   /** Evidence photos linked to stable normalized positions on this floor. */
   evidencePins?: EvidenceMapPin[] | null;
   /** IICRC damage markers (RA-2953) — overlay, not baked into the PNG. */

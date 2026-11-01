@@ -75,6 +75,7 @@ nir-routes-regression.spec.ts            workflow:sketch-e2e.yml
 nz-org-gst.spec.ts                       workflow:sketch-e2e.yml
 offline-moisture-sync.spec.ts            workflow:sketch-e2e.yml
 pilot-workflow.spec.ts                   smoke
+portal-recovery-help.spec.ts             unrun:RA-7551 public portal walk at 1280x720, merged without a runner; not tagged @smoke and no workflow names it. Candidate for smoke (public /portal/* only, read-only)
 portal-unknown-token.spec.ts             smoke
 procurement.spec.ts                      workflow:sketch-e2e.yml
 security.spec.ts                         workflow:sketch-e2e.yml

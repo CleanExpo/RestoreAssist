@@ -21,7 +21,7 @@
  * Versioned via `schemaVersion` (same pattern as lib/export/scope-contract.ts)
  * so any carrier integration binds to a stable contract, not a moving target.
  */
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import type {
   NirEvidenceClearance,

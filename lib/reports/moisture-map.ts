@@ -22,9 +22,9 @@ import {
 
 /** A moisture pin ready to draw on the sketch page. */
 export interface MoistureMapPin {
-  /** Normalized 0..1 position across the sketch image (RA-6763). */
-  nx: number;
-  ny: number;
+  /** Scene position, the same units the plan's geometry is drawn in. */
+  x: number;
+  y: number;
   /** Wood-moisture-equivalent % reading. */
   wme: number;
   /** IICRC S500:2021 §8.1 class, recomputed from `wme` for integrity. */
@@ -36,13 +36,11 @@ export interface MoistureMapPin {
 /**
  * Parse the persisted `ClaimSketch.moisturePoints` JSON into typed map pins.
  *
- * Only pins carrying a numeric `wme` AND a normalized `nx`/`ny` in 0..1 are
- * kept — those are the ones whose position is stable and mappable onto the
- * rasterised sketch (legacy pre-RA-6763 pins stored only absolute canvas
- * pixels, which can't be placed without the original canvas size, so they are
- * skipped rather than mis-placed). The IICRC class is recomputed from `wme`
- * (never trusted from the stored blob) so the map's colour can't drift from the
- * reading it represents.
+ * Only pins carrying a numeric `wme` AND a scene `x`/`y` are kept. The saved
+ * `nx`/`ny` are fractions of whatever panel the technician had open, not of the
+ * plan, so they are never used for placement. The IICRC class is recomputed from
+ * `wme` (never trusted from the stored blob) so the map's colour can't drift from
+ * the reading it represents.
  */
 export function parseMoisturePins(raw: unknown): MoistureMapPin[] {
   if (!Array.isArray(raw)) return [];
@@ -51,15 +49,25 @@ export function parseMoisturePins(raw: unknown): MoistureMapPin[] {
     if (!p || typeof p !== "object") continue;
     const rec = p as Record<string, unknown>;
     const wme = rec.wme;
-    const nx = rec.nx;
-    const ny = rec.ny;
+    const x = rec.x;
+    const y = rec.y;
     if (typeof wme !== "number" || Number.isNaN(wme)) continue;
-    if (typeof nx !== "number" || nx < 0 || nx > 1) continue;
-    if (typeof ny !== "number" || ny < 0 || ny > 1) continue;
+    if (typeof x !== "number" || !Number.isFinite(x)) continue;
+    if (typeof y !== "number" || !Number.isFinite(y)) continue;
     const iicrClass = deriveIicrClass(wme);
-    pins.push({ nx, ny, wme, iicrClass, color: getClassInfo(iicrClass).color });
+    pins.push({ x, y, wme, iicrClass, color: getClassInfo(iicrClass).color });
   }
   return pins;
+}
+
+/** Saved readings that have a value but no scene position to print them at. */
+export function countUnplaceableMoisturePins(raw: unknown): number {
+  if (!Array.isArray(raw)) return 0;
+  const withValue = raw.filter((p) => {
+    const wme = (p as { wme?: unknown } | null)?.wme;
+    return typeof wme === "number" && !Number.isNaN(wme);
+  });
+  return withValue.length - parseMoisturePins(raw).length;
 }
 
 /** A pin resolved to absolute page coordinates + its render attributes. */
@@ -71,21 +79,27 @@ export interface PinPlacement {
 }
 
 /**
- * Place normalized pins onto the drawn sketch image. `img` is the image's
- * rectangle in pdf-lib page space (origin bottom-left). `ny` is top-down (DOM
- * convention) so it is flipped to match the page's bottom-up Y axis, keeping
- * the map spatially faithful to the on-screen overlay.
+ * Place pins onto the drawn sketch image. `img` is the image's rectangle in
+ * pdf-lib page space (origin bottom-left); `frame` is the embedded PNG's pixel
+ * size, one pixel to one scene unit on a clean render. Y is top-down in the
+ * scene and flipped for the page. A pin outside the frame has no true position
+ * on this image, so it is left out and the caller counts it as not shown.
  */
 export function placeMoisturePins(
   pins: MoistureMapPin[],
   img: { x: number; y: number; width: number; height: number },
+  frame: { width: number; height: number },
 ): PinPlacement[] {
-  return pins.map((p) => ({
-    cx: img.x + p.nx * img.width,
-    cy: img.y + (1 - p.ny) * img.height,
-    wme: p.wme,
-    color: p.color,
-  }));
+  return pins
+    .filter(
+      (p) => p.x >= 0 && p.y >= 0 && p.x <= frame.width && p.y <= frame.height,
+    )
+    .map((p) => ({
+      cx: img.x + (p.x / frame.width) * img.width,
+      cy: img.y + (1 - p.y / frame.height) * img.height,
+      wme: p.wme,
+      color: p.color,
+    }));
 }
 
 /**

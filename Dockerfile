@@ -61,8 +61,20 @@ ENV NODE_OPTIONS=--max-old-space-size=8192
 # lookup. Defaults to "unknown" so a local build still succeeds.
 ARG GIT_SHA=unknown
 ARG NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID
+# Company trust details shown in the footer, legal pages and emails
+# (lib/brand.ts). Next.js inlines NEXT_PUBLIC_* at build time, so a value set
+# only on the DigitalOcean runtime never reaches the page: it has to be a
+# build arg. Empty is allowed; lib/brand.ts then hides the line or falls back.
+ARG NEXT_PUBLIC_COMPANY_ABN=""
+ARG NEXT_PUBLIC_COMPANY_ADDRESS=""
+ARG NEXT_PUBLIC_SUPPORT_EMAIL=""
+ARG NEXT_PUBLIC_SECURITY_EMAIL=""
 ENV GIT_SHA=${GIT_SHA} \
-    NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID}
+    NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID} \
+    NEXT_PUBLIC_COMPANY_ABN=${NEXT_PUBLIC_COMPANY_ABN} \
+    NEXT_PUBLIC_COMPANY_ADDRESS=${NEXT_PUBLIC_COMPANY_ADDRESS} \
+    NEXT_PUBLIC_SUPPORT_EMAIL=${NEXT_PUBLIC_SUPPORT_EMAIL} \
+    NEXT_PUBLIC_SECURITY_EMAIL=${NEXT_PUBLIC_SECURITY_EMAIL}
 
 # `npm run build`, NOT `sh scripts/build.sh` directly. package.json defines a
 # `prebuild` lifecycle script (tsx scripts/build-help-index.ts) that writes
