@@ -361,6 +361,106 @@ describe("offline ownership containment", () => {
     ).toBe(false);
   });
 
+  describe("read-back outcomes before a re-upload", () => {
+    const signed = "https://synthetic.invalid/signed-photo";
+
+    async function pendingRow(listing: () => Response, post?: () => Response) {
+      await login();
+      const queue = await import("../evidence-upload-queue");
+      await put("ra-evidence-queue", "uploads", {
+        id: "photo-pending-readback",
+        owner: A,
+        inspectionId: "job-1",
+        blob: audio(),
+        filename: "room.webp",
+        mimeType: "image/webp",
+        queuedAt: "2026-10-01",
+        retryCount: 1,
+        readbackPending: true,
+        readbackStatus: 200,
+        serverPhotoId: "persisted-photo",
+        originalSize: 8,
+        compressedSize: 8,
+        cocoaSha256: "deadbeef",
+      });
+      fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+        url === "/api/auth/offline-context"
+          ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+          : init?.method === "POST"
+            ? (post?.() ?? new Response(JSON.stringify({ error: "must not POST" }), { status: 400 }))
+            : listing(),
+      );
+      return queue;
+    }
+    const posts = () => replayCalls().filter(([, init]) => init?.method === "POST");
+    const pending = async () =>
+      (await rows("ra-evidence-queue", "uploads")).find((row) => row.id === "photo-pending-readback");
+
+    it("re-uploads under the same key when a complete listing proves the photo absent (RA-8131)", async () => {
+      let listed = false;
+      const queue = await pendingRow(
+        () => new Response(JSON.stringify({ photos: listed ? [{ id: "new-photo", url: signed }] : [] }), { status: 200 }),
+        () => {
+          listed = true;
+          return new Response(JSON.stringify({ photo: { id: "new-photo" } }), { status: 201 });
+        },
+      );
+      expect(await queue.drainEvidenceQueue()).toBe(1);
+      expect(posts()).toHaveLength(1);
+      expect(new Headers(posts()[0][1]?.headers).get("Idempotency-Key")).toBe("photo-pending-readback");
+      expect(await pending()).toBeUndefined();
+    });
+
+    it("keeps the row without re-uploading when a 500 means absence is unproven (RA-8131)", async () => {
+      const queue = await pendingRow(() => new Response("{}", { status: 500 }));
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2, readbackPending: true, readbackStatus: 500 }));
+    });
+
+    it("keeps the row without re-uploading when a 200 listing is malformed (RA-8131)", async () => {
+      const queue = await pendingRow(() => new Response("not json", { status: 200 }));
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
+    it("does not re-upload a photo whose row is listed without a usable URL (RA-8131)", async () => {
+      const queue = await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: "persisted-photo", url: "" }] }), { status: 200 }),
+      );
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
+    it("does not treat a listing at the server's 500-row cap as proof of absence (RA-8131)", async () => {
+      const full = Array.from({ length: 500 }, (_, i) => ({ id: `other-${i}`, url: signed }));
+      const queue = await pendingRow(() => new Response(JSON.stringify({ photos: full }), { status: 200 }));
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
+    it("does not re-upload when the row has nothing to identify its photo by (RA-8131)", async () => {
+      const queue = await pendingRow(() => new Response(JSON.stringify({ photos: [] }), { status: 200 }));
+      const row = await pending();
+      await put("ra-evidence-queue", "uploads", { ...row, serverPhotoId: undefined, cocoaSha256: undefined });
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
+    it("sends no second upload when the listing shows the photo the timed-out POST created (RA-8131)", async () => {
+      const queue = await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: "persisted-photo", url: signed }] }), { status: 200 }),
+      );
+      expect(await queue.drainEvidenceQueue()).toBe(1);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toBeUndefined();
+    });
+  });
+
   it("retains an unidentified 2xx row and continues syncing later photos", async () => {
     await login();
     const queue = await import("../evidence-upload-queue");

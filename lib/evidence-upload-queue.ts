@@ -324,25 +324,45 @@ type ListedPhoto = {
   metadata?: { cocoaSha256?: string } | null;
 };
 
+/** `take` on GET /api/inspections/[id]/photos: a full page may hide this photo. */
+const PHOTO_LISTING_CAP = 500;
+
+function queuedEntryHash(entry: EvidenceQueueEntry): string | undefined {
+  return entry.directRetry ? entry.directCocoaSha256 : entry.cocoaSha256;
+}
+
+function photoMatchesQueuedEntry(
+  photo: ListedPhoto,
+  entry: EvidenceQueueEntry,
+): boolean {
+  if (entry.serverPhotoId && photo.id === entry.serverPhotoId) return true;
+  const hash = queuedEntryHash(entry);
+  return Boolean(hash && photo.metadata?.cocoaSha256 === hash);
+}
+
 function photoVisibleForQueuedEntry(
   photo: ListedPhoto,
   entry: EvidenceQueueEntry,
 ): boolean {
   const urlOk =
     typeof photo.url === "string" && Boolean(photo.url.trim());
-  if (!urlOk) return false;
-  if (entry.serverPhotoId && photo.id === entry.serverPhotoId) return true;
-  const hash = entry.directRetry ? entry.directCocoaSha256 : entry.cocoaSha256;
-  return Boolean(hash && photo.metadata?.cocoaSha256 === hash);
+  return urlOk && photoMatchesQueuedEntry(photo, entry);
 }
 
+/**
+ * "missing" means the listing proves the photo absent. Anything short of that
+ * (failed or malformed listing, a full page, a row with no usable URL, nothing
+ * to identify the photo by) is "unverified" and must not re-upload: past the
+ * Idempotency-Key lifetime a second POST would insert a duplicate.
+ */
 async function tryClearQueuedPhotoViaListing(
   db: IDBDatabase,
   entry: EvidenceQueueEntry,
 ): Promise<
   | { kind: "cleared" }
   | { kind: "offline" }
-  | { kind: "missing"; readbackStatus?: number }
+  | { kind: "missing" }
+  | { kind: "unverified"; readbackStatus?: number }
 > {
   const readback = await fetchOfflineReplay(
     entry.owner,
@@ -351,16 +371,21 @@ async function tryClearQueuedPhotoViaListing(
   );
   if (!readback) return { kind: "offline" };
   const listing = readback.ok ? await readback.json().catch(() => null) : null;
-  if (
-    Array.isArray(listing?.photos) &&
-    listing.photos.some((photo: ListedPhoto) =>
-      photoVisibleForQueuedEntry(photo, entry),
-    )
-  ) {
+  const unverified = { kind: "unverified", readbackStatus: readback.status } as const;
+  if (!Array.isArray(listing?.photos)) return unverified;
+  const photos: ListedPhoto[] = listing.photos;
+  if (photos.some((photo) => photoVisibleForQueuedEntry(photo, entry))) {
     await removeEntry(db, entry.id);
     return { kind: "cleared" };
   }
-  return { kind: "missing", readbackStatus: readback.status };
+  if (
+    (!entry.serverPhotoId && !queuedEntryHash(entry)) ||
+    photos.length >= PHOTO_LISTING_CAP ||
+    photos.some((photo) => photoMatchesQueuedEntry(photo, entry))
+  ) {
+    return unverified;
+  }
+  return { kind: "missing" };
 }
 
 async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
@@ -388,6 +413,7 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
       // RA-7862 B15 — after POST succeeded but readback failed (or the
       // idempotency window expired), verify on the server listing before
       // sending another multipart POST that could duplicate the photo.
+      // RA-8131 — a photo proven absent falls through to POST under the same key.
       if (entry.readbackPending || entry.serverPhotoId) {
         const verify = await tryClearQueuedPhotoViaListing(db, entry);
         if (verify.kind === "cleared") {
@@ -395,7 +421,7 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
           continue;
         }
         if (verify.kind === "offline") break;
-        if (entry.readbackPending) {
+        if (verify.kind === "unverified" && entry.readbackPending) {
           await incrementRetry(db, entry, verify.readbackStatus, "readback");
           continue;
         }
