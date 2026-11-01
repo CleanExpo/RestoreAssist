@@ -117,10 +117,15 @@ export default function InspectionsPage() {
   // ?status=active. Asked of the server, because the list is paged and a
   // filter over one page would undercount.
   const searchParams = useSearchParams();
-  const [statusFilter, setStatusFilter] = useState(
-    searchParams.get("status") === "active" ? "active" : "",
-  );
-  const activeOnly = statusFilter === "active";
+  // The URL owns this filter, so a later navigation or a refresh agrees with
+  // what is on screen.
+  const activeOnly = searchParams.get("status") === "active";
+  const [pillFilter, setPillFilter] = useState("");
+  const statusFilter = activeOnly ? "active" : pillFilter;
+  const setStatusFilter = (next: string) => {
+    setPillFilter(next);
+    if (activeOnly) router.replace("/dashboard/inspections");
+  };
   // D-028: a technician (role USER) works their own jobs, so ask for those
   // (assigned to them, plus unassigned). Wait for the session: fetching the
   // unscoped list first would flash every job in the workspace.

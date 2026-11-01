@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   urls: [] as (string | null)[],
   query: "",
   role: "MANAGER",
+  replace: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/useFetch", () => ({
@@ -30,7 +31,7 @@ vi.mock("next-auth/react", () => ({
   }),
 }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: h.replace }),
   useSearchParams: () => new URLSearchParams(h.query),
 }));
 
@@ -40,6 +41,7 @@ beforeEach(() => {
   h.urls = [];
   h.query = "";
   h.role = "MANAGER";
+  h.replace.mockReset();
 });
 afterEach(cleanup);
 
@@ -57,12 +59,26 @@ describe("jobs list ?status=active (RA-8022)", () => {
     expect(h.urls.at(-1)).toBe("/api/inspections?assignee=me&status=active");
   });
 
-  it("lets the owner clear the filter with the All pill", () => {
+  it("clears the filter from the URL, so a refresh does not bring it back", () => {
     h.query = "status=active";
-    render(<InspectionsPage />);
+    h.replace.mockImplementation(() => {
+      h.query = "";
+    });
+    const { rerender } = render(<InspectionsPage />);
     expect(screen.getByRole("button", { name: "Active" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^All/ }));
+    expect(h.replace).toHaveBeenCalledWith("/dashboard/inspections");
+    rerender(<InspectionsPage />);
     expect(h.urls.at(-1)).toBe("/api/inspections");
+    expect(screen.queryByRole("button", { name: "Active" })).toBeNull();
+  });
+
+  it("follows a URL change without remounting", () => {
+    const { rerender } = render(<InspectionsPage />);
+    expect(h.urls.at(-1)).toBe("/api/inspections");
+    h.query = "status=active";
+    rerender(<InspectionsPage />);
+    expect(h.urls.at(-1)).toBe("/api/inspections?status=active");
   });
 
   it("does not filter without the query", () => {
