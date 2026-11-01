@@ -15,12 +15,7 @@ export function isOpenReportStatus(status: string | null | undefined): boolean {
   return s === "DRAFT" || s === "PENDING" || s === "IN_PROGRESS";
 }
 
-export function isActiveInspectionStatus(
-  status: string | null | undefined,
-): boolean {
-  const s = (status ?? "").toUpperCase();
-  return s !== "COMPLETED" && s !== "REJECTED" && s !== "CANCELLED";
-}
+export { isActiveInspectionStatus } from "@/lib/inspections/active-status";
 
 export function isOutstandingInvoiceStatus(
   status: string | null | undefined,

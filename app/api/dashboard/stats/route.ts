@@ -5,7 +5,7 @@
  *
  * Returns:
  * {
- *   activeInspections:  { value, delta }   — inspections not yet COMPLETED/REJECTED
+ *   activeInspections:  { value, delta }   — inspections not yet finished
  *   moistureReadings7d: { value, delta }   — moisture readings in last 7 days
  *   equipmentItems:     { value, delta }   — IICRC-determined scope items (autoDetermined=true)
  *   completedThisMonth: { value, delta }   — inspections completed this calendar month
@@ -20,6 +20,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 
 // This route reads the session (which depends on request headers/cookies via
 // getServerSession) so it cannot be statically prerendered at build time.
@@ -70,18 +71,18 @@ export async function GET(request: NextRequest) {
       createdToday,
       createdYesterday,
     ] = await Promise.all([
-      // 1. Active inspections (status not COMPLETED or REJECTED)
+      // 1. Active inspections (not finished)
       prisma.inspection.count({
         where: {
           userId,
-          status: { notIn: ["COMPLETED", "REJECTED"] },
+          status: { notIn: [...INACTIVE_INSPECTION_STATUSES] },
         },
       }),
       // 1b. Active prev (same calc 7 days ago — approximate: total minus completed then)
       prisma.inspection.count({
         where: {
           userId,
-          status: { notIn: ["COMPLETED", "REJECTED"] },
+          status: { notIn: [...INACTIVE_INSPECTION_STATUSES] },
           createdAt: { lte: sevenDaysAgo },
         },
       }),

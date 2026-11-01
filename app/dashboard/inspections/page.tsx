@@ -7,7 +7,8 @@ import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRef
 import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
 import type { ParsedApiError } from "@/lib/client/parse-api-error";
 import { apiErrorMessage } from "@/lib/api-error-message";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { isActiveInspectionStatus } from "@/lib/inspections/active-status";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import {
@@ -112,6 +113,14 @@ export default function InspectionsPage() {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const currentUserId = session?.user?.id;
+  // RA-8022: the dashboard's Active Inspections card links here with
+  // ?status=active. Asked of the server, because the list is paged and a
+  // filter over one page would undercount.
+  const searchParams = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") === "active" ? "active" : "",
+  );
+  const activeOnly = statusFilter === "active";
   // D-028: a technician (role USER) works their own jobs, so ask for those
   // (assigned to them, plus unassigned). Wait for the session: fetching the
   // unscoped list first would flash every job in the workspace.
@@ -119,8 +128,8 @@ export default function InspectionsPage() {
     sessionStatus === "loading"
       ? null
       : session?.user?.role === "USER"
-        ? "/api/inspections?assignee=me"
-        : "/api/inspections";
+        ? `/api/inspections?assignee=me${activeOnly ? "&status=active" : ""}`
+        : `/api/inspections${activeOnly ? "?status=active" : ""}`;
   const {
     data: inspectionsData,
     loading: fetchLoading,
@@ -139,7 +148,6 @@ export default function InspectionsPage() {
     : null;
   const inspections = inspectionsData?.inspections ?? [];
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -167,7 +175,11 @@ export default function InspectionsPage() {
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ??
           false);
-      const matchesStatus = !statusFilter || insp.status === statusFilter;
+      const matchesStatus =
+        !statusFilter ||
+        (activeOnly
+          ? isActiveInspectionStatus(insp.status)
+          : insp.status === statusFilter);
       const inspDate = insp.inspectionDate
         ? new Date(insp.inspectionDate)
         : null;
@@ -176,7 +188,7 @@ export default function InspectionsPage() {
       const matchesTo = !toDate || (inspDate !== null && inspDate <= toDate);
       return matchesSearch && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [inspections, searchTerm, statusFilter, dateFrom, dateTo]);
+  }, [inspections, searchTerm, statusFilter, activeOnly, dateFrom, dateTo]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -326,8 +338,17 @@ export default function InspectionsPage() {
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700",
           )}
         >
-          All ({inspections.length})
+          All{activeOnly ? "" : ` (${inspections.length})`}
         </button>
+        {activeOnly && (
+          <button
+            type="button"
+            onClick={() => setStatusFilter("")}
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-all bg-cyan-500 text-white"
+          >
+            Active
+          </button>
+        )}
         {Object.entries(STATUS_CONFIG).map(([key, cfg]) =>
           statusCounts[key] ? (
             <button
