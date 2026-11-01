@@ -36,6 +36,7 @@ type SketchObject = {
   text?: unknown;
   fontSize?: unknown;
   objects?: unknown;
+  path?: unknown;
   data?: Record<string, unknown>;
 };
 
@@ -58,6 +59,7 @@ type ScenePoint = { x: number; y: number };
 
 type SceneShape =
   | { kind: "polygon"; points: ScenePoint[] }
+  | { kind: "polyline"; points: ScenePoint[] }
   | { kind: "line"; a: ScenePoint; b: ScenePoint }
   | { kind: "circle"; centre: ScenePoint; radius: number }
   | { kind: "text"; at: ScenePoint; text: string; size: number };
@@ -117,6 +119,44 @@ function rawPoints(object: SketchObject): ScenePoint[] {
   });
 }
 
+const CURVE_STEPS = 24;
+
+/** Flattens saved Fabric path commands (M L Q C Z, absolute) to points. */
+function flattenPath(path: unknown): ScenePoint[] {
+  if (!Array.isArray(path)) return [];
+  const points: ScenePoint[] = [];
+  for (const entry of path.slice(0, 500)) {
+    if (!Array.isArray(entry)) continue;
+    const [command, ...raw] = entry;
+    const n = raw.map((value) => finite(value));
+    const from = points[points.length - 1];
+    if ((command === "M" || command === "L") && n.length >= 2) {
+      points.push({ x: n[0], y: n[1] });
+    } else if (command === "Q" && n.length >= 4 && from) {
+      for (let i = 1; i <= CURVE_STEPS; i += 1) {
+        const t = i / CURVE_STEPS;
+        const u = 1 - t;
+        points.push({
+          x: u * u * from.x + 2 * u * t * n[0] + t * t * n[2],
+          y: u * u * from.y + 2 * u * t * n[1] + t * t * n[3],
+        });
+      }
+    } else if (command === "C" && n.length >= 6 && from) {
+      for (let i = 1; i <= CURVE_STEPS; i += 1) {
+        const t = i / CURVE_STEPS;
+        const u = 1 - t;
+        points.push({
+          x: u * u * u * from.x + 3 * u * u * t * n[0] + 3 * u * t * t * n[2] + t * t * t * n[4],
+          y: u * u * u * from.y + 3 * u * u * t * n[1] + 3 * u * t * t * n[3] + t * t * t * n[5],
+        });
+      }
+    } else if ((command === "Z" || command === "z") && points[0]) {
+      points.push(points[0]);
+    }
+  }
+  return points;
+}
+
 /** Geometry with no origin field is a plain bag, not saved Fabric output. */
 function plainShape(object: SketchObject, shapeType: string): SceneShape {
   const left = finite(object.left);
@@ -155,7 +195,8 @@ function plainShape(object: SketchObject, shapeType: string): SceneShape {
 }
 
 function fabricShape(object: SketchObject, shapeType: string): SceneShape {
-  const points = rawPoints(object);
+  const pathPoints = flattenPath(object.path);
+  const points = pathPoints.length >= 2 ? pathPoints : rawPoints(object);
   if (points.length >= 2) {
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
@@ -167,7 +208,7 @@ function fabricShape(object: SketchObject, shapeType: string): SceneShape {
     const middleX = (minX + maxX) / 2;
     const middleY = (minY + maxY) / 2;
     return {
-      kind: "polygon",
+      kind: pathPoints.length >= 2 ? "polyline" : "polygon",
       points: points.map((p) => toScene(p.x - middleX, p.y - middleY)),
     };
   }
@@ -192,6 +233,16 @@ function fabricShape(object: SketchObject, shapeType: string): SceneShape {
       radius: Math.max(2, finite(object.radius, 12) * scale),
     };
   }
+  if (shapeType === "triangle") {
+    return {
+      kind: "polygon",
+      points: [
+        toScene(0, -height / 2),
+        toScene(width / 2, height / 2),
+        toScene(-width / 2, height / 2),
+      ],
+    };
+  }
   return {
     kind: "polygon",
     points: [
@@ -208,8 +259,8 @@ function mapShape(
   toScene: (x: number, y: number) => ScenePoint,
   scale: number,
 ): SceneShape {
-  if (shape.kind === "polygon") {
-    return { kind: "polygon", points: shape.points.map((p) => toScene(p.x, p.y)) };
+  if (shape.kind === "polygon" || shape.kind === "polyline") {
+    return { kind: shape.kind, points: shape.points.map((p) => toScene(p.x, p.y)) };
   }
   if (shape.kind === "line") {
     return {
@@ -275,7 +326,7 @@ function fabricShapes(object: SketchObject, shapeType: string): SceneShape[] {
 
 function shapeBounds(shape: SceneShape) {
   const points =
-    shape.kind === "polygon"
+    shape.kind === "polygon" || shape.kind === "polyline"
       ? shape.points
       : shape.kind === "line"
         ? [shape.a, shape.b]
@@ -327,6 +378,10 @@ function objectMarkup(object: SketchObject): { markup: string; maxX: number; max
       if (scene.kind === "polygon") {
         const points = scene.points.map((p) => `${p.x},${p.y}`).join(" ");
         return `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+      }
+      if (scene.kind === "polyline") {
+        const points = scene.points.map((p) => `${p.x},${p.y}`).join(" ");
+        return `<polyline points="${points}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
       }
       if (scene.kind === "line") {
         return `<line x1="${scene.a.x}" y1="${scene.a.y}" x2="${scene.b.x}" y2="${scene.b.y}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;

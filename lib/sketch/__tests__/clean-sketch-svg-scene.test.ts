@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { Circle, FabricText, Group, Line, Polygon, Rect } from "fabric/node";
+import {
+  Circle,
+  FabricText,
+  Group,
+  Line,
+  Path,
+  Point,
+  Polygon,
+  Rect,
+  Triangle,
+  util,
+} from "fabric/node";
 import sharp from "sharp";
 import { buildCleanSketchSvg } from "@/lib/sketch/clean-sketch-svg";
 
@@ -137,6 +148,46 @@ describe("clean render places saved Fabric objects at their scene position", () 
     expect(Math.abs(Number(circle?.[1]) - 200)).toBeLessThan(2);
     expect(Math.abs(Number(circle?.[2]) - 300)).toBeLessThan(2);
     expect(Number(circle?.[3])).toBe(40);
+  });
+
+  it("draws a door's swing arc as a curve at its true position, not a box", () => {
+    const arc = new Path("M 300 200 Q 300 300 400 300", { fill: "transparent" });
+    const door = new Group([
+      new Line([300, 200, 400, 200]),
+      new Line([300, 200, 300, 300]),
+      arc,
+    ]);
+    const svg = buildCleanSketchSvg({
+      objects: [{ ...door.toObject(), data: { type: "opening" } }],
+    }).toString("utf8");
+    expect(svg).not.toContain("<polygon");
+    const match = svg.match(/<polyline points="([^"]+)" fill="none"/);
+    const points = match![1].split(" ").map((pair) => pair.split(",").map(Number));
+    const toTruth = (x: number, y: number) =>
+      util.transformPoint(
+        new Point(x - arc.pathOffset.x, y - arc.pathOffset.y),
+        arc.calcTransformMatrix(),
+      );
+    const start = toTruth(300, 200);
+    const end = toTruth(400, 300);
+    expect(points[0][0]).toBeCloseTo(start.x, 1);
+    expect(points[0][1]).toBeCloseTo(start.y, 1);
+    expect(points[points.length - 1][0]).toBeCloseTo(end.x, 1);
+    expect(points[points.length - 1][1]).toBeCloseTo(end.y, 1);
+    // A straight chord would pass through the midpoint; the arc bows away from it.
+    const middle = points[Math.floor(points.length / 2)];
+    expect(Math.hypot(middle[0] - (start.x + end.x) / 2, middle[1] - (start.y + end.y) / 2))
+      .toBeGreaterThan(10);
+  });
+
+  it("draws a triangle as a triangle", () => {
+    const shape = new Triangle({ left: 500, top: 400, width: 100, height: 80 });
+    const points = polygonPoints(svgFor(saved(shape)));
+    expect(points).toEqual([
+      [500, 360],
+      [550, 440],
+      [450, 440],
+    ]);
   });
 
   it("reads a left and top origin as the box corner", () => {
