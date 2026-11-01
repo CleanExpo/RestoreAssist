@@ -81,6 +81,15 @@ describe("placeMoisturePins", () => {
     expect(placed.color).toBe("#eab308");
   });
 
+  it("uses the frame it is given, not a fixed plan size", () => {
+    const pins = parseMoisturePins([{ x: 600, y: 200, wme: 20 }]);
+    const [placed] = placeMoisturePins(pins, img, { width: 2000, height: 1000 });
+    // cx = 100 + (600/2000)*400 = 220; a fixed 1200 would have given 300
+    expect(placed.cx).toBe(220);
+    // cy = 200 + (1 - 200/1000)*300 = 440; a fixed 800 would have given 425
+    expect(placed.cy).toBe(440);
+  });
+
   it("leaves out a pin beyond the frame instead of drawing it off the plan", () => {
     const pins = parseMoisturePins([
       { x: 1300, y: 200, wme: 20 },

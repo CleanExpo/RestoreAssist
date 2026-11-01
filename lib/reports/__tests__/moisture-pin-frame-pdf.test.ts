@@ -97,8 +97,13 @@ function paintedRoomAround(
   return { left, right };
 }
 
-async function printedRoomForPin(panelWidth: number, wme: number, scene: { x: number; y: number }) {
-  const sketchData = { objects: [roomObject(LOUNGE), roomObject(BEDROOM)] };
+async function printedRoomForPin(
+  panelWidth: number,
+  wme: number,
+  scene: { x: number; y: number },
+  rooms: (typeof LOUNGE)[] = [LOUNGE, BEDROOM],
+) {
+  const sketchData = { objects: rooms.map(roomObject) };
   const png = await sharp(buildCleanSketchSvg(sketchData)).png().toBuffer();
   const { data, info } = await sharp(png)
     .ensureAlpha()
@@ -176,6 +181,15 @@ describe("AC-F1 printed pins land in the room they were placed in", () => {
       expect(near(printed.room.right, LOUNGE.right)).toBe(true);
     },
   );
+
+  it("a plan wider and taller than the old 1200x800 frame still places the pin", async () => {
+    const far = { left: 1700, right: 2100, top: 900, bottom: 1200 };
+    const printed = await printedRoomForPin(1000, 99, { x: 1900, y: 1050 }, [LOUNGE, far]);
+    expect(near(printed.pixelX, 1900)).toBe(true);
+    expect(near(printed.pixelY, 1050)).toBe(true);
+    expect(near(printed.room.left, far.left)).toBe(true);
+    expect(near(printed.room.right, far.right)).toBe(true);
+  });
 
   it.each([1000, 1600])(
     "panel width %i: a bedroom pin fails the lounge assertion",
