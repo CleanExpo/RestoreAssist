@@ -195,6 +195,13 @@ export default function InspectionsPage() {
     });
   }, [inspections, searchTerm, statusFilter, activeOnly, dateFrom, dateTo]);
 
+  // Bulk actions reach only what is on screen: a selection a filter has since
+  // hidden must not be deleted unseen.
+  const visibleSelectedIds = useMemo(
+    () => filtered.filter((i) => selectedIds.has(i.id)).map((i) => i.id),
+    [filtered, selectedIds],
+  );
+
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     inspections.forEach((i) => {
@@ -213,7 +220,7 @@ export default function InspectionsPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) {
+    if (visibleSelectedIds.length === filtered.length) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(filtered.map((i) => i.id)));
@@ -227,7 +234,7 @@ export default function InspectionsPage() {
   };
 
   const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return;
+    if (visibleSelectedIds.length === 0) return;
     setDeleteTarget({ type: "bulk" });
     setDeleteDialogOpen(true);
   };
@@ -257,13 +264,13 @@ export default function InspectionsPage() {
         const res = await fetch("/api/inspections/bulk-delete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: Array.from(selectedIds) }),
+          body: JSON.stringify({ ids: visibleSelectedIds }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
           setSelectedIds(new Set());
           toast.success(
-            `${data.deletedCount ?? selectedIds.size} inspection(s) deleted`,
+            `${data.deletedCount ?? visibleSelectedIds.length} inspection(s) deleted`,
           );
           refetchInspections();
         } else {
@@ -450,14 +457,15 @@ export default function InspectionsPage() {
             <input
               type="checkbox"
               checked={
-                selectedIds.size === filtered.length && filtered.length > 0
+                visibleSelectedIds.length === filtered.length &&
+                filtered.length > 0
               }
               onChange={toggleSelectAll}
               className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
             />
             Select all ({filtered.length})
           </label>
-          {selectedIds.size > 0 && (
+          {visibleSelectedIds.length > 0 && (
             <button
               type="button"
               onClick={handleDeleteSelected}
@@ -469,7 +477,7 @@ export default function InspectionsPage() {
               ) : (
                 <Trash2 size={14} />
               )}
-              Delete selected ({selectedIds.size})
+              Delete selected ({visibleSelectedIds.length})
             </button>
           )}
         </div>
@@ -680,7 +688,9 @@ export default function InspectionsPage() {
             ? "Are you sure you want to delete the selected inspections? This will permanently remove all selected inspections and their associated data."
             : "Are you sure you want to delete this inspection? This will permanently remove the inspection and all its associated data."
         }
-        itemCount={deleteTarget?.type === "bulk" ? selectedIds.size : undefined}
+        itemCount={
+          deleteTarget?.type === "bulk" ? visibleSelectedIds.length : undefined
+        }
         isLoading={deleting}
       />
     </SimpleDashboardPageFrame>
