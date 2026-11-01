@@ -3,6 +3,7 @@ import {
   Circle,
   FabricText,
   Group,
+  IText,
   Line,
   Path,
   Point,
@@ -258,6 +259,43 @@ describe("clean render places saved Fabric objects at their scene position", () 
       const matrix = shape.calcTransformMatrix() as never;
       return local.map((p) => util.transformPoint(new Point(p.x, p.y), matrix));
     };
+
+    /** Each drawn caption's anchor, undoing the baseline nudge the renderer adds. */
+    function captionAnchors(svg: string) {
+      return [
+        ...svg.matchAll(/<text x="([^"]+)" y="([^"]+)"[^>]*font-size="([^"]+)" text-anchor="middle"/g),
+      ].map((m) => ({ x: Number(m[1]), y: Number(m[2]) - Number(m[3]) * 0.35 }));
+    }
+
+    for (const [textName, TextShape] of [
+      ["Text", FabricText],
+      ["IText", IText],
+    ] as const) {
+      for (const [transformName, transform] of Object.entries(TRANSFORMS)) {
+        it(`${transformName} ${textName}, on its own`, () => {
+          const text = new TextShape("Dehumidifier", { left: 400, top: 300 });
+          text.set(transform);
+          const [anchor] = captionAnchors(
+            svgFor({ ...text.toObject(), data: { type: "equipment" } }),
+          );
+          const truth = text.getCenterPoint();
+          expect(anchor.x).toBeCloseTo(truth.x, 1);
+          expect(anchor.y).toBeCloseTo(truth.y, 1);
+        });
+
+        it(`${transformName} ${textName}, inside a group`, () => {
+          const text = new TextShape("Dehumidifier", { left: 400, top: 300 });
+          const group = new Group([text, new Circle({ left: 500, top: 400, radius: 20 })]);
+          group.set(transform);
+          const [anchor] = captionAnchors(
+            svgFor({ ...group.toObject(), data: { type: "equipment" } }),
+          );
+          const truth = text.getCenterPoint();
+          expect(anchor.x).toBeCloseTo(truth.x, 1);
+          expect(anchor.y).toBeCloseTo(truth.y, 1);
+        });
+      }
+    }
 
     for (const [shapeName, make] of Object.entries(SHAPES)) {
       for (const [transformName, transform] of Object.entries(TRANSFORMS)) {
