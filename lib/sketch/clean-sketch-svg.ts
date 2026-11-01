@@ -88,15 +88,27 @@ function fabricToScene(object: SketchObject, width: number, height: number) {
     x: x * cos - y * sin,
     y: x * sin + y * cos,
   });
+  const tanX = Math.tan((finite(object.skewX) * Math.PI) / 180);
+  const tanY = Math.tan((finite(object.skewY) * Math.PI) / 180);
+  // Fabric's order: skew Y, then skew X, then scale, then rotate.
+  const shape = (x: number, y: number): ScenePoint => {
+    const skewedY = y + tanY * x;
+    return { x: (x + tanX * skewedY) * scaleX, y: skewedY * scaleY };
+  };
+  // The origin sits on the shaped box, so left/top must be read against it.
   const stroke = Math.max(0, finite(object.strokeWidth));
-  const boxWidth =
-    object.strokeUniform === true
-      ? width * Math.abs(scaleX) + stroke
-      : (width + stroke) * Math.abs(scaleX);
-  const boxHeight =
-    object.strokeUniform === true
-      ? height * Math.abs(scaleY) + stroke
-      : (height + stroke) * Math.abs(scaleY);
+  const uniform = object.strokeUniform === true;
+  const halfWidth = (width + (uniform ? 0 : stroke)) / 2;
+  const halfHeight = (height + (uniform ? 0 : stroke)) / 2;
+  const corners = [
+    shape(-halfWidth, -halfHeight),
+    shape(halfWidth, -halfHeight),
+    shape(halfWidth, halfHeight),
+    shape(-halfWidth, halfHeight),
+  ];
+  const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
+  const boxWidth = spread(corners.map((c) => c.x)) + (uniform ? stroke : 0);
+  const boxHeight = spread(corners.map((c) => c.y)) + (uniform ? stroke : 0);
   const offset = rotate(
     (0.5 - originFraction(object.originX)) * boxWidth,
     (0.5 - originFraction(object.originY)) * boxHeight,
@@ -105,13 +117,9 @@ function fabricToScene(object: SketchObject, width: number, height: number) {
     x: finite(object.left) + offset.x,
     y: finite(object.top) + offset.y,
   };
-  const tanX = Math.tan((finite(object.skewX) * Math.PI) / 180);
-  const tanY = Math.tan((finite(object.skewY) * Math.PI) / 180);
   return (x: number, y: number): ScenePoint => {
-    // Fabric's order: skew Y, then skew X, then scale, then rotate.
-    const skewedY = y + tanY * x;
-    const skewedX = x + tanX * skewedY;
-    const turned = rotate(skewedX * scaleX, skewedY * scaleY);
+    const shaped = shape(x, y);
+    const turned = rotate(shaped.x, shaped.y);
     return { x: centre.x + turned.x, y: centre.y + turned.y };
   };
 }

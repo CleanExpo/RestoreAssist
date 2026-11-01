@@ -210,7 +210,23 @@ describe("clean render places saved Fabric objects at their scene position", () 
         };
       },
     };
-    const TRANSFORMS: Record<string, Record<string, number | boolean>> = {
+    const FULL = { scaleX: 2, scaleY: 0.5, angle: 30, skewX: 20, skewY: 15 };
+    const TRANSFORMS: Record<string, Record<string, number | boolean | string>> = {
+      "left and top origin, fully transformed": { originX: "left", originY: "top", ...FULL },
+      "right and bottom origin, fully transformed": { originX: "right", originY: "bottom", ...FULL },
+      "uniform stroke, left and top origin": {
+        originX: "left",
+        originY: "top",
+        strokeUniform: true,
+        strokeWidth: 6,
+        ...FULL,
+      },
+      "thick stroke, left and top origin": {
+        originX: "left",
+        originY: "top",
+        strokeWidth: 6,
+        ...FULL,
+      },
       stretched: { scaleX: 2, scaleY: 0.5 },
       rotated: { angle: 30 },
       "stretched and rotated": { scaleX: 2, scaleY: 0.5, angle: 30 },
