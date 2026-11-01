@@ -4,7 +4,6 @@
  */
 
 import { pointInPolygon } from "./geometry-utils";
-import { pinPixelPosition } from "./pin-coords";
 
 export const ROOM_MOISTURE_CROP_PADDING_PX = 24;
 
@@ -76,29 +75,13 @@ export function isPointInRoomCrop(
   return pointInPolygon(x, y, roomPoints);
 }
 
-function pinSceneXY<T extends { x: number; y: number; nx?: number; ny?: number }>(
-  pin: T,
-  canvasWidth: number,
-  canvasHeight: number,
-): { x: number; y: number } {
-  const { left, top } = pinPixelPosition(pin, canvasWidth, canvasHeight);
-  return { x: left, y: top };
-}
-
 /** Keep only pins whose scene position lies inside the room polygon. */
-export function filterPinsInRoom<
-  T extends { x: number; y: number; nx?: number; ny?: number },
->(
+export function filterPinsInRoom<T extends { x: number; y: number }>(
   pins: readonly T[],
   roomPoints: ReadonlyArray<RoomCropPoint>,
-  canvasWidth: number,
-  canvasHeight: number,
 ): T[] {
   if (roomPoints.length < 3) return [];
-  return pins.filter((pin) => {
-    const { x, y } = pinSceneXY(pin, canvasWidth, canvasHeight);
-    return isPointInRoomCrop(x, y, roomPoints);
-  });
+  return pins.filter((pin) => isPointInRoomCrop(pin.x, pin.y, roomPoints));
 }
 
 export function roomCropMeta(
@@ -106,33 +89,6 @@ export function roomCropMeta(
   crop: RoomCropRect,
 ): RoomMoistureCropMeta {
   return { roomId, crop: { ...crop, roomId } };
-}
-
-/**
- * Filter normalized (0..1) moisture map pins that fall inside a room polygon.
- * Requires roomPoints in scene pixels plus the canvas size used when nx/ny
- * were computed.
- */
-export function filterNormalizedPinsInRoom<
-  T extends { nx: number; ny: number },
->(
-  pins: readonly T[],
-  roomPoints: ReadonlyArray<RoomCropPoint>,
-  canvasWidth: number,
-  canvasHeight: number,
-): T[] {
-  if (
-    roomPoints.length < 3 ||
-    !(canvasWidth > 0) ||
-    !(canvasHeight > 0)
-  ) {
-    return [];
-  }
-  return pins.filter((pin) => {
-    const x = pin.nx * canvasWidth;
-    const y = pin.ny * canvasHeight;
-    return isPointInRoomCrop(x, y, roomPoints);
-  });
 }
 
 /**

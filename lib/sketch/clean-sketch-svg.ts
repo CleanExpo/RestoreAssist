@@ -7,6 +7,11 @@ const INCLUDED_TYPES = new Set([
   "equipment",
 ]);
 
+const MIN_FRAME_WIDTH = 1200;
+const MIN_FRAME_HEIGHT = 800;
+const MAX_FRAME = 4000;
+const FRAME_MARGIN = 24;
+
 type SketchObject = {
   type?: unknown;
   left?: unknown;
@@ -20,6 +25,13 @@ type SketchObject = {
   y2?: unknown;
   scaleX?: unknown;
   scaleY?: unknown;
+  angle?: unknown;
+  flipX?: unknown;
+  flipY?: unknown;
+  originX?: unknown;
+  originY?: unknown;
+  strokeWidth?: unknown;
+  strokeUniform?: unknown;
   points?: unknown;
   text?: unknown;
   data?: Record<string, unknown>;
@@ -40,15 +52,179 @@ function escapeXml(value: unknown): string {
     .replaceAll("'", "&apos;");
 }
 
-function objectMarkup(object: SketchObject): string {
-  const domainType = typeof object.data?.type === "string" ? object.data.type : "";
-  if (!INCLUDED_TYPES.has(domainType)) return "";
-  if (object.data?.provenance === "underlay_reference") return "";
+type ScenePoint = { x: number; y: number };
 
+type SceneShape =
+  | { kind: "polygon"; points: ScenePoint[] }
+  | { kind: "line"; a: ScenePoint; b: ScenePoint }
+  | { kind: "circle"; centre: ScenePoint; radius: number };
+
+function originFraction(origin: unknown): number {
+  if (origin === "left" || origin === "top") return 0;
+  if (origin === "right" || origin === "bottom") return 1;
+  return 0.5;
+}
+
+/**
+ * Maps a point in the object's own frame (centred on the object) to the scene.
+ * A saved Fabric object has its origin in left/top (the centre by default on
+ * Fabric 7) and keeps points in creation coordinates, so left/top must not be
+ * added to them as if they were offsets.
+ */
+function fabricToScene(object: SketchObject, width: number, height: number) {
+  const scaleX = finite(object.scaleX, 1) * (object.flipX === true ? -1 : 1);
+  const scaleY = finite(object.scaleY, 1) * (object.flipY === true ? -1 : 1);
+  const radians = (finite(object.angle) * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const rotate = (x: number, y: number): ScenePoint => ({
+    x: x * cos - y * sin,
+    y: x * sin + y * cos,
+  });
+  const stroke = Math.max(0, finite(object.strokeWidth));
+  const boxWidth =
+    object.strokeUniform === true
+      ? width * Math.abs(scaleX) + stroke
+      : (width + stroke) * Math.abs(scaleX);
+  const boxHeight =
+    object.strokeUniform === true
+      ? height * Math.abs(scaleY) + stroke
+      : (height + stroke) * Math.abs(scaleY);
+  const offset = rotate(
+    (0.5 - originFraction(object.originX)) * boxWidth,
+    (0.5 - originFraction(object.originY)) * boxHeight,
+  );
+  const centre = {
+    x: finite(object.left) + offset.x,
+    y: finite(object.top) + offset.y,
+  };
+  return (x: number, y: number): ScenePoint => {
+    const turned = rotate(x * scaleX, y * scaleY);
+    return { x: centre.x + turned.x, y: centre.y + turned.y };
+  };
+}
+
+function rawPoints(object: SketchObject): ScenePoint[] {
+  if (!Array.isArray(object.points)) return [];
+  return object.points.slice(0, 500).map((point) => {
+    const p = point as { x?: unknown; y?: unknown } | [unknown, unknown];
+    return Array.isArray(p)
+      ? { x: finite(p[0]), y: finite(p[1]) }
+      : { x: finite(p.x), y: finite(p.y) };
+  });
+}
+
+/** Geometry with no origin field is a plain bag, not saved Fabric output. */
+function plainShape(object: SketchObject, shapeType: string): SceneShape {
   const left = finite(object.left);
   const top = finite(object.top);
   const scaleX = Math.max(0.01, Math.abs(finite(object.scaleX, 1)));
   const scaleY = Math.max(0.01, Math.abs(finite(object.scaleY, 1)));
+  const points = rawPoints(object);
+  if (points.length >= 2) {
+    return {
+      kind: "polygon",
+      points: points.map((p) => ({ x: left + p.x * scaleX, y: top + p.y * scaleY })),
+    };
+  }
+  if (shapeType === "line" || (object.x2 != null && object.y2 != null)) {
+    return {
+      kind: "line",
+      a: { x: left + finite(object.x1), y: top + finite(object.y1) },
+      b: { x: left + finite(object.x2), y: top + finite(object.y2) },
+    };
+  }
+  if (shapeType === "circle" || object.radius != null) {
+    const radius = Math.max(2, finite(object.radius, 12) * Math.max(scaleX, scaleY));
+    return { kind: "circle", centre: { x: left + radius, y: top + radius }, radius };
+  }
+  const width = Math.max(2, finite(object.width, 20) * scaleX);
+  const height = Math.max(2, finite(object.height, 20) * scaleY);
+  return {
+    kind: "polygon",
+    points: [
+      { x: left, y: top },
+      { x: left + width, y: top },
+      { x: left + width, y: top + height },
+      { x: left, y: top + height },
+    ],
+  };
+}
+
+function fabricShape(object: SketchObject, shapeType: string): SceneShape {
+  const points = rawPoints(object);
+  if (points.length >= 2) {
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const toScene = fabricToScene(object, maxX - minX, maxY - minY);
+    const middleX = (minX + maxX) / 2;
+    const middleY = (minY + maxY) / 2;
+    return {
+      kind: "polygon",
+      points: points.map((p) => toScene(p.x - middleX, p.y - middleY)),
+    };
+  }
+  const width = Math.abs(finite(object.width, 20));
+  const height = Math.abs(finite(object.height, 20));
+  const toScene = fabricToScene(object, width, height);
+  if (shapeType === "line" || (object.x2 != null && object.y2 != null)) {
+    return {
+      kind: "line",
+      a: toScene(finite(object.x1), finite(object.y1)),
+      b: toScene(finite(object.x2), finite(object.y2)),
+    };
+  }
+  if (shapeType === "circle" || object.radius != null) {
+    const scale = Math.max(
+      Math.abs(finite(object.scaleX, 1)),
+      Math.abs(finite(object.scaleY, 1)),
+    );
+    return {
+      kind: "circle",
+      centre: toScene(0, 0),
+      radius: Math.max(2, finite(object.radius, 12) * scale),
+    };
+  }
+  return {
+    kind: "polygon",
+    points: [
+      toScene(-width / 2, -height / 2),
+      toScene(width / 2, -height / 2),
+      toScene(width / 2, height / 2),
+      toScene(-width / 2, height / 2),
+    ],
+  };
+}
+
+function shapeBounds(shape: SceneShape) {
+  const points =
+    shape.kind === "polygon"
+      ? shape.points
+      : shape.kind === "line"
+        ? [shape.a, shape.b]
+        : [
+            { x: shape.centre.x - shape.radius, y: shape.centre.y - shape.radius },
+            { x: shape.centre.x + shape.radius, y: shape.centre.y + shape.radius },
+          ];
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  return {
+    minX: Math.min(...xs),
+    minY: Math.min(...ys),
+    maxX: Math.max(...xs),
+    maxY: Math.max(...ys),
+  };
+}
+
+function objectMarkup(object: SketchObject): { markup: string; maxX: number; maxY: number } | null {
+  const domainType = typeof object.data?.type === "string" ? object.data.type : "";
+  if (!INCLUDED_TYPES.has(domainType)) return null;
+  if (object.data?.provenance === "underlay_reference") return null;
+
   const stroke = domainType === "damage" ? "#dc2626" : "#1f2937";
   const fill =
     domainType === "damage"
@@ -60,33 +236,28 @@ function objectMarkup(object: SketchObject): string {
           : "none";
   const strokeWidth = domainType === "wall" ? 8 : 3;
   const shapeType = typeof object.type === "string" ? object.type.toLowerCase() : "";
+  const scene =
+    typeof object.originX === "string"
+      ? fabricShape(object, shapeType)
+      : plainShape(object, shapeType);
+  const box = shapeBounds(scene);
   let shape = "";
 
-  if (Array.isArray(object.points) && object.points.length >= 2) {
-    const points = object.points
-      .slice(0, 500)
-      .map((point) => {
-        const p = point as { x?: unknown; y?: unknown } | [unknown, unknown];
-        const x = Array.isArray(p) ? p[0] : p.x;
-        const y = Array.isArray(p) ? p[1] : p.y;
-        return `${left + finite(x) * scaleX},${top + finite(y) * scaleY}`;
-      })
-      .join(" ");
+  if (scene.kind === "polygon") {
+    const points = scene.points.map((p) => `${p.x},${p.y}`).join(" ");
     shape = `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
-  } else if (shapeType === "line" || (object.x2 != null && object.y2 != null)) {
-    shape = `<line x1="${left + finite(object.x1)}" y1="${top + finite(object.y1)}" x2="${left + finite(object.x2)}" y2="${top + finite(object.y2)}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
-  } else if (shapeType === "circle" || object.radius != null) {
-    const radius = Math.max(2, finite(object.radius, 12) * Math.max(scaleX, scaleY));
-    shape = `<circle cx="${left + radius}" cy="${top + radius}" r="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+  } else if (scene.kind === "line") {
+    shape = `<line x1="${scene.a.x}" y1="${scene.a.y}" x2="${scene.b.x}" y2="${scene.b.y}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
   } else {
-    const width = Math.max(2, Math.abs(finite(object.width, 20) * scaleX));
-    const height = Math.max(2, Math.abs(finite(object.height, 20) * scaleY));
-    shape = `<rect x="${left}" y="${top}" width="${width}" height="${height}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+    shape = `<circle cx="${scene.centre.x}" cy="${scene.centre.y}" r="${scene.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
   }
 
   const label = object.data?.label ?? object.data?.name ?? object.text;
-  if (typeof label !== "string" || !label.trim()) return shape;
-  return `${shape}<text x="${left + 8}" y="${top + 22}" fill="#111827" font-family="Arial,sans-serif" font-size="18" font-weight="600">${escapeXml(label.trim())}</text>`;
+  const markup =
+    typeof label === "string" && label.trim()
+      ? `${shape}<text x="${box.minX + 8}" y="${box.minY + 22}" fill="#111827" font-family="Arial,sans-serif" font-size="18" font-weight="600">${escapeXml(label.trim())}</text>`
+      : shape;
+  return { markup, maxX: box.maxX, maxY: box.maxY };
 }
 
 /** Build source-free SVG from technician geometry only. */
@@ -95,10 +266,34 @@ export function buildCleanSketchSvg(sketchData: unknown): Buffer {
     sketchData && typeof sketchData === "object"
       ? (sketchData as Record<string, unknown>)
       : {};
-  const width = Math.round(Math.max(320, Math.min(4000, finite(sketch.canvasWidth, 1200))));
-  const height = Math.round(Math.max(240, Math.min(4000, finite(sketch.canvasHeight, 800))));
   const objects = Array.isArray(sketch.objects) ? (sketch.objects as SketchObject[]) : [];
-  const markup = objects.slice(0, 2000).map(objectMarkup).join("");
+  const drawn = objects
+    .slice(0, 2000)
+    .map(objectMarkup)
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  // The frame follows the drawing, not the panel it was drawn on. Pins read
+  // this size back from the PNG, so nothing else needs to know it.
+  const width = Math.round(
+    Math.min(
+      MAX_FRAME,
+      Math.max(
+        MIN_FRAME_WIDTH,
+        finite(sketch.canvasWidth, 0),
+        ...drawn.map((entry) => entry.maxX + FRAME_MARGIN),
+      ),
+    ),
+  );
+  const height = Math.round(
+    Math.min(
+      MAX_FRAME,
+      Math.max(
+        MIN_FRAME_HEIGHT,
+        finite(sketch.canvasHeight, 0),
+        ...drawn.map((entry) => entry.maxY + FRAME_MARGIN),
+      ),
+    ),
+  );
+  const markup = drawn.map((entry) => entry.markup).join("");
 
   return Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#ffffff"/><g stroke-linejoin="round" stroke-linecap="round">${markup}</g></svg>`,
