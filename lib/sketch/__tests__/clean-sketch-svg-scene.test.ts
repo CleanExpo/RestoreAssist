@@ -150,6 +150,119 @@ describe("clean render places saved Fabric objects at their scene position", () 
     expect(Number(circle?.[3])).toBe(40);
   });
 
+  describe("matches Fabric's own geometry under every transform", () => {
+    type Local = { x: number; y: number };
+    const SHAPES: Record<string, () => { shape: Rect | Circle | Triangle | Polygon | Line | Path; local: () => Local[] }> = {
+      circle: () => ({
+        shape: new Circle({ left: 400, top: 300, radius: 40 }),
+        local: () => [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({
+          x: 40 * Math.cos((i * Math.PI) / 4),
+          y: 40 * Math.sin((i * Math.PI) / 4),
+        })),
+      }),
+      rect: () => ({
+        shape: new Rect({ left: 400, top: 300, width: 80, height: 40 }),
+        local: () => [
+          { x: -40, y: -20 },
+          { x: 40, y: -20 },
+          { x: 40, y: 20 },
+          { x: -40, y: 20 },
+        ],
+      }),
+      triangle: () => ({
+        shape: new Triangle({ left: 400, top: 300, width: 80, height: 60 }),
+        local: () => [
+          { x: 0, y: -30 },
+          { x: 40, y: 30 },
+          { x: -40, y: 30 },
+        ],
+      }),
+      polygon: () => {
+        const shape = new Polygon(SQUARE);
+        return {
+          shape,
+          local: () =>
+            SQUARE.map((p) => ({ x: p.x - shape.pathOffset.x, y: p.y - shape.pathOffset.y })),
+        };
+      },
+      line: () => {
+        const shape = new Line([300, 200, 400, 260]);
+        return {
+          shape,
+          local: () => {
+            const { x1, y1, x2, y2 } = shape.calcLinePoints();
+            return [
+              { x: x1, y: y1 },
+              { x: x2, y: y2 },
+            ];
+          },
+        };
+      },
+      path: () => {
+        const shape = new Path("M 300 200 Q 300 300 400 300", { fill: "transparent" });
+        return {
+          shape,
+          local: () =>
+            [
+              { x: 300, y: 200 },
+              { x: 400, y: 300 },
+            ].map((p) => ({ x: p.x - shape.pathOffset.x, y: p.y - shape.pathOffset.y })),
+        };
+      },
+    };
+    const TRANSFORMS: Record<string, Record<string, number | boolean>> = {
+      stretched: { scaleX: 2, scaleY: 0.5 },
+      rotated: { angle: 30 },
+      "stretched and rotated": { scaleX: 2, scaleY: 0.5, angle: 30 },
+      flipped: { flipX: true, scaleX: 1.5, scaleY: 1.5 },
+      "skewed on x": { skewX: 20 },
+      "skewed on y": { skewY: 15, scaleX: 1.3 },
+    };
+
+    function expectDrawnAtTruth(svg: string, truth: Point[]) {
+      const drawn = [...svg.matchAll(/ points="([^"]+)"/g)].flatMap((m) =>
+        m[1].split(" ").map((pair) => pair.split(",").map(Number)),
+      );
+      for (const m of svg.matchAll(/<line x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)) {
+        drawn.push([Number(m[1]), Number(m[2])], [Number(m[3]), Number(m[4])]);
+      }
+      const circles = [...svg.matchAll(/<circle cx="([^"]+)" cy="([^"]+)" r="([^"]+)"/g)].map((m) =>
+        m.slice(1).map(Number),
+      );
+      for (const point of truth) {
+        const onPoint = drawn.some(([x, y]) => Math.hypot(x - point.x, y - point.y) < 1);
+        const onCircle = circles.some(
+          ([x, y, r]) => Math.abs(Math.hypot(x - point.x, y - point.y) - r) < 1,
+        );
+        expect(onPoint || onCircle, `${point.x},${point.y} not in ${svg}`).toBe(true);
+      }
+    }
+
+    const truthOf = (shape: { calcTransformMatrix: () => number[] }, local: Local[]) => {
+      const matrix = shape.calcTransformMatrix() as never;
+      return local.map((p) => util.transformPoint(new Point(p.x, p.y), matrix));
+    };
+
+    for (const [shapeName, make] of Object.entries(SHAPES)) {
+      for (const [transformName, transform] of Object.entries(TRANSFORMS)) {
+        it(`${transformName} ${shapeName}, on its own`, () => {
+          const { shape, local } = make();
+          shape.set(transform);
+          const svg = svgFor({ ...shape.toObject(), data: { type: "equipment" } });
+          expectDrawnAtTruth(svg, truthOf(shape, local()));
+        });
+
+        it(`${transformName} ${shapeName}, inside a group`, () => {
+          const { shape, local } = make();
+          const group = new Group([shape, new Rect({ left: 700, top: 500, width: 30, height: 30 })]);
+          group.set(transform);
+          const svg = svgFor({ ...group.toObject(), data: { type: "equipment" } });
+          expectDrawnAtTruth(svg, truthOf(shape, local()));
+        });
+      }
+    }
+  });
+
   it("draws a door's swing arc as a curve at its true position, not a box", () => {
     const arc = new Path("M 300 200 Q 300 300 400 300", { fill: "transparent" });
     const door = new Group([

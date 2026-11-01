@@ -28,6 +28,8 @@ type SketchObject = {
   angle?: unknown;
   flipX?: unknown;
   flipY?: unknown;
+  skewX?: unknown;
+  skewY?: unknown;
   originX?: unknown;
   originY?: unknown;
   strokeWidth?: unknown;
@@ -103,10 +105,34 @@ function fabricToScene(object: SketchObject, width: number, height: number) {
     x: finite(object.left) + offset.x,
     y: finite(object.top) + offset.y,
   };
+  const tanX = Math.tan((finite(object.skewX) * Math.PI) / 180);
+  const tanY = Math.tan((finite(object.skewY) * Math.PI) / 180);
   return (x: number, y: number): ScenePoint => {
-    const turned = rotate(x * scaleX, y * scaleY);
+    // Fabric's order: skew Y, then skew X, then scale, then rotate.
+    const skewedY = y + tanY * x;
+    const skewedX = x + tanX * skewedY;
+    const turned = rotate(skewedX * scaleX, skewedY * scaleY);
     return { x: centre.x + turned.x, y: centre.y + turned.y };
   };
+}
+
+/** True when the object's transform keeps a circle round. */
+function keepsCircleRound(object: SketchObject): boolean {
+  return (
+    Math.abs(Math.abs(finite(object.scaleX, 1)) - Math.abs(finite(object.scaleY, 1))) < 1e-6 &&
+    finite(object.skewX) === 0 &&
+    finite(object.skewY) === 0
+  );
+}
+
+const CIRCLE_STEPS = 48;
+
+/** A circle as points, for a transform that stretches it into an ellipse. */
+function circleOutline(centre: ScenePoint, radius: number): ScenePoint[] {
+  return Array.from({ length: CIRCLE_STEPS }, (_, i) => {
+    const turn = (i * 2 * Math.PI) / CIRCLE_STEPS;
+    return { x: centre.x + radius * Math.cos(turn), y: centre.y + radius * Math.sin(turn) };
+  });
 }
 
 function rawPoints(object: SketchObject): ScenePoint[] {
@@ -223,10 +249,15 @@ function fabricShape(object: SketchObject, shapeType: string): SceneShape {
     };
   }
   if (shapeType === "circle" || object.radius != null) {
-    const scale = Math.max(
-      Math.abs(finite(object.scaleX, 1)),
-      Math.abs(finite(object.scaleY, 1)),
-    );
+    if (!keepsCircleRound(object)) {
+      return {
+        kind: "polygon",
+        points: circleOutline({ x: 0, y: 0 }, finite(object.radius, 12)).map((p) =>
+          toScene(p.x, p.y),
+        ),
+      };
+    }
+    const scale = Math.abs(finite(object.scaleX, 1));
     return {
       kind: "circle",
       centre: toScene(0, 0),
@@ -258,6 +289,7 @@ function mapShape(
   shape: SceneShape,
   toScene: (x: number, y: number) => ScenePoint,
   scale: number,
+  round: boolean,
 ): SceneShape {
   if (shape.kind === "polygon" || shape.kind === "polyline") {
     return { kind: shape.kind, points: shape.points.map((p) => toScene(p.x, p.y)) };
@@ -270,6 +302,12 @@ function mapShape(
     };
   }
   if (shape.kind === "circle") {
+    if (!round) {
+      return {
+        kind: "polygon",
+        points: circleOutline(shape.centre, shape.radius).map((p) => toScene(p.x, p.y)),
+      };
+    }
     return {
       kind: "circle",
       centre: toScene(shape.centre.x, shape.centre.y),
@@ -319,7 +357,7 @@ function fabricShapes(object: SketchObject, shapeType: string): SceneShape[] {
   return children.flatMap((child) => {
     const childType = typeof child.type === "string" ? child.type.toLowerCase() : "";
     return fabricShapes(child, childType).map((shape) =>
-      mapShape(shape, toScene, scale),
+      mapShape(shape, toScene, scale, keepsCircleRound(object)),
     );
   });
 }
