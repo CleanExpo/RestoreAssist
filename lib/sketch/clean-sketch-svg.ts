@@ -34,6 +34,8 @@ type SketchObject = {
   strokeUniform?: unknown;
   points?: unknown;
   text?: unknown;
+  fontSize?: unknown;
+  objects?: unknown;
   data?: Record<string, unknown>;
 };
 
@@ -57,7 +59,8 @@ type ScenePoint = { x: number; y: number };
 type SceneShape =
   | { kind: "polygon"; points: ScenePoint[] }
   | { kind: "line"; a: ScenePoint; b: ScenePoint }
-  | { kind: "circle"; centre: ScenePoint; radius: number };
+  | { kind: "circle"; centre: ScenePoint; radius: number }
+  | { kind: "text"; at: ScenePoint; text: string; size: number };
 
 function originFraction(origin: unknown): number {
   if (origin === "left" || origin === "top") return 0;
@@ -200,16 +203,88 @@ function fabricShape(object: SketchObject, shapeType: string): SceneShape {
   };
 }
 
+function mapShape(
+  shape: SceneShape,
+  toScene: (x: number, y: number) => ScenePoint,
+  scale: number,
+): SceneShape {
+  if (shape.kind === "polygon") {
+    return { kind: "polygon", points: shape.points.map((p) => toScene(p.x, p.y)) };
+  }
+  if (shape.kind === "line") {
+    return {
+      kind: "line",
+      a: toScene(shape.a.x, shape.a.y),
+      b: toScene(shape.b.x, shape.b.y),
+    };
+  }
+  if (shape.kind === "circle") {
+    return {
+      kind: "circle",
+      centre: toScene(shape.centre.x, shape.centre.y),
+      radius: shape.radius * scale,
+    };
+  }
+  return {
+    ...shape,
+    at: toScene(shape.at.x, shape.at.y),
+    size: shape.size * scale,
+  };
+}
+
+/**
+ * A saved Fabric group holds its children relative to the group's centre, so
+ * each child is resolved in that frame and then carried out by the group's own
+ * transform. Equipment symbols are a circle and two captions saved this way.
+ */
+function fabricShapes(object: SketchObject, shapeType: string): SceneShape[] {
+  const children = Array.isArray(object.objects)
+    ? (object.objects as SketchObject[]).slice(0, 50)
+    : [];
+  if (children.length === 0) {
+    if (typeof object.text === "string" && object.text.trim()) {
+      const size = Math.max(
+        1,
+        finite(object.fontSize, 12) * Math.abs(finite(object.scaleY, 1)),
+      );
+      const toScene = fabricToScene(
+        object,
+        Math.abs(finite(object.width)),
+        Math.abs(finite(object.height)),
+      );
+      return [{ kind: "text", at: toScene(0, 0), text: object.text, size }];
+    }
+    return [fabricShape(object, shapeType)];
+  }
+  const toScene = fabricToScene(
+    object,
+    Math.abs(finite(object.width, 20)),
+    Math.abs(finite(object.height, 20)),
+  );
+  const scale = Math.max(
+    Math.abs(finite(object.scaleX, 1)),
+    Math.abs(finite(object.scaleY, 1)),
+  );
+  return children.flatMap((child) => {
+    const childType = typeof child.type === "string" ? child.type.toLowerCase() : "";
+    return fabricShapes(child, childType).map((shape) =>
+      mapShape(shape, toScene, scale),
+    );
+  });
+}
+
 function shapeBounds(shape: SceneShape) {
   const points =
     shape.kind === "polygon"
       ? shape.points
       : shape.kind === "line"
         ? [shape.a, shape.b]
-        : [
-            { x: shape.centre.x - shape.radius, y: shape.centre.y - shape.radius },
-            { x: shape.centre.x + shape.radius, y: shape.centre.y + shape.radius },
-          ];
+        : shape.kind === "text"
+          ? [shape.at]
+          : [
+              { x: shape.centre.x - shape.radius, y: shape.centre.y - shape.radius },
+              { x: shape.centre.x + shape.radius, y: shape.centre.y + shape.radius },
+            ];
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
   return {
@@ -236,21 +311,32 @@ function objectMarkup(object: SketchObject): { markup: string; maxX: number; max
           : "none";
   const strokeWidth = domainType === "wall" ? 8 : 3;
   const shapeType = typeof object.type === "string" ? object.type.toLowerCase() : "";
-  const scene =
+  const scenes =
     typeof object.originX === "string"
-      ? fabricShape(object, shapeType)
-      : plainShape(object, shapeType);
-  const box = shapeBounds(scene);
-  let shape = "";
-
-  if (scene.kind === "polygon") {
-    const points = scene.points.map((p) => `${p.x},${p.y}`).join(" ");
-    shape = `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
-  } else if (scene.kind === "line") {
-    shape = `<line x1="${scene.a.x}" y1="${scene.a.y}" x2="${scene.b.x}" y2="${scene.b.y}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
-  } else {
-    shape = `<circle cx="${scene.centre.x}" cy="${scene.centre.y}" r="${scene.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
-  }
+      ? fabricShapes(object, shapeType)
+      : [plainShape(object, shapeType)];
+  const boxes = scenes.map(shapeBounds);
+  const box = {
+    minX: Math.min(...boxes.map((b) => b.minX)),
+    minY: Math.min(...boxes.map((b) => b.minY)),
+    maxX: Math.max(...boxes.map((b) => b.maxX)),
+    maxY: Math.max(...boxes.map((b) => b.maxY)),
+  };
+  const shape = scenes
+    .map((scene) => {
+      if (scene.kind === "polygon") {
+        const points = scene.points.map((p) => `${p.x},${p.y}`).join(" ");
+        return `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+      }
+      if (scene.kind === "line") {
+        return `<line x1="${scene.a.x}" y1="${scene.a.y}" x2="${scene.b.x}" y2="${scene.b.y}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+      }
+      if (scene.kind === "circle") {
+        return `<circle cx="${scene.centre.x}" cy="${scene.centre.y}" r="${scene.radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+      }
+      return `<text x="${scene.at.x}" y="${scene.at.y + scene.size * 0.35}" fill="#111827" font-family="Arial,sans-serif" font-size="${scene.size}" text-anchor="middle">${escapeXml(scene.text)}</text>`;
+    })
+    .join("");
 
   const label = object.data?.label ?? object.data?.name ?? object.text;
   const markup =

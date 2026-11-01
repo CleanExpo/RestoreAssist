@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Circle, Line, Polygon, Rect } from "fabric/node";
+import { Circle, FabricText, Group, Line, Polygon, Rect } from "fabric/node";
 import sharp from "sharp";
 import { buildCleanSketchSvg } from "@/lib/sketch/clean-sketch-svg";
 
@@ -99,6 +99,44 @@ describe("clean render places saved Fabric objects at their scene position", () 
     wall.set({ left: 700, top: 500 });
     const svg = svgFor(saved(wall));
     expect(svg).toContain('x1="500" y1="500" x2="900" y2="500"');
+  });
+
+  it("draws an equipment group's circle and captions, not a bounding box", () => {
+    const group = new Group(
+      [
+        new Circle({ left: 0, top: 0, radius: 20, originX: "center", originY: "center" }),
+        new FabricText("DH", { left: 0, top: -3, fontSize: 13, originX: "center", originY: "center" }),
+        new FabricText("Dehumidifier", { left: 0, top: 17, fontSize: 9, originX: "center", originY: "top" }),
+      ],
+      { left: 700, top: 500, originX: "center", originY: "center" },
+    );
+    const svg = buildCleanSketchSvg({
+      objects: [{ ...group.toObject(), data: { type: "equipment" } }],
+    }).toString("utf8");
+    expect(svg).not.toContain("<polygon");
+    const circle = svg.match(/<circle cx="([^"]+)" cy="([^"]+)" r="([^"]+)"/);
+    // Fabric centres a group on all its children, so ask Fabric where the circle is.
+    const truth = group.getObjects()[0].getCenterPoint();
+    expect(Number(circle?.[1])).toBeCloseTo(truth.x, 1);
+    expect(Number(circle?.[2])).toBeCloseTo(truth.y, 1);
+    expect(Number(circle?.[3])).toBe(20);
+    expect(svg).toContain(">DH</text>");
+    expect(svg).toContain(">Dehumidifier</text>");
+  });
+
+  it("carries group children through a moved and scaled group", () => {
+    const group = new Group(
+      [new Circle({ left: 0, top: 0, radius: 20, originX: "center", originY: "center" })],
+      { left: 700, top: 500, originX: "center", originY: "center" },
+    );
+    group.set({ left: 200, top: 300, scaleX: 2, scaleY: 2 });
+    const svg = buildCleanSketchSvg({
+      objects: [{ ...group.toObject(), data: { type: "equipment" } }],
+    }).toString("utf8");
+    const circle = svg.match(/<circle cx="([^"]+)" cy="([^"]+)" r="([^"]+)"/);
+    expect(Math.abs(Number(circle?.[1]) - 200)).toBeLessThan(2);
+    expect(Math.abs(Number(circle?.[2]) - 300)).toBeLessThan(2);
+    expect(Number(circle?.[3])).toBe(40);
   });
 
   it("reads a left and top origin as the box corner", () => {
