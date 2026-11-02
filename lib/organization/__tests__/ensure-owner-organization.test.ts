@@ -59,6 +59,22 @@ describe("ensureOwnerOrganization", () => {
     );
   });
 
+  it("still writes the user data when another tab won the claim, because the rollback discarded it", async () => {
+    db.user.updateMany.mockResolvedValue({ count: 0 });
+    db.user.findUnique
+      .mockResolvedValueOnce(owner)
+      .mockResolvedValueOnce({ organizationId: "org_winner" });
+    await expect(
+      ensureOwnerOrganization("u1", { userData: { needsOnboarding: false } }),
+    ).resolves.toBe("org_winner");
+    // Once inside the transaction that rolled back, once after it.
+    expect(db.user.update).toHaveBeenCalledTimes(2);
+    expect(db.user.update).toHaveBeenLastCalledWith({
+      where: { id: "u1" },
+      data: { needsOnboarding: false },
+    });
+  });
+
   it("writes the user data in the same transaction as the claim", async () => {
     await ensureOwnerOrganization("u1", {
       userData: { needsOnboarding: false },

@@ -905,6 +905,7 @@ export default function TeamPage() {
                   )}
                   {seatLimitHit && (
                     <SeatLimitPanel
+                      addingTechnician
                       audience={
                         iosShell === true || isCapacitorIOS()
                           ? "ios"

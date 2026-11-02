@@ -68,6 +68,18 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // A supplied value of the wrong type must not read as "left blank".
+  for (const field of ["abn", "acn", "state"]) {
+    const value = body[field];
+    if (value !== undefined && value !== null && typeof value !== "string") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `${field.toUpperCase()} must be text if supplied`,
+        status: 400,
+      });
+    }
+  }
+
   const businessName = sanitizeString(body.businessName, 200);
   const abn = normaliseDigits(body.abn);
   const acnRaw = normaliseDigits(body.acn);

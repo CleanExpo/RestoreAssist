@@ -163,5 +163,9 @@ describe("the 15-day free trial seat", () => {
     expect(await seatsNeededToBuy(afterLock, "org", 1)).toBe(1);
     const noMarker = fakeDb({ owner: onTrial(5), members: 0 });
     expect(await seatsNeededToBuy(noMarker, "org", 1)).toBe(1);
+    // After day 15, paying to invite one more must also cover the locked technician.
+    expect(
+      await seatsNeededToBuy(afterLock, "org", 1, { addingTechnician: true }),
+    ).toBe(2);
   });
 });

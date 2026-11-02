@@ -10,6 +10,13 @@ describe("one-setup browser test guards", () => {
       assertDisposableDatabase("postgresql://u@db.example.test:5432/one_setup"),
     ).toThrow(/not a local database/);
   });
+  it.each(["host", "hostaddr"])("refuses a local address whose %s option points elsewhere", (option) => {
+    expect(() =>
+      assertDisposableDatabase(
+        `postgresql://u@localhost:5432/one_setup?${option}=db.example.test`,
+      ),
+    ).toThrow(/not a local database/);
+  });
   it("refuses a local database not named as disposable", () => {
     expect(() =>
       assertDisposableDatabase("postgresql://u@localhost:5432/restoreassist"),

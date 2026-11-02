@@ -186,15 +186,19 @@ export async function isTrialSeatLocked(
 /**
  * The first purchase replaces the free seat, so it must cover whoever that seat
  * was covering. Otherwise an owner who pays for one more technician is refused,
- * because the paid seat only replaced the free one.
+ * because the paid seat only replaced the free one. After day 15 the free seat
+ * is gone: paying only to unlock covers the existing technician, while
+ * `addingTechnician` also buys for the new one being invited.
  */
 export async function seatsNeededToBuy(
   db: SeatDb,
   organizationId: string,
   requested: number,
+  opts: { addingTechnician?: boolean } = {},
 ): Promise<number> {
   const { purchased, free, used } = await technicianSeatUsage(db, organizationId);
   const state = await readSeatState(db, organizationId);
   if (state.row?.stripePriceId !== TRIAL_SEAT_PRICE_ID) return requested;
-  return Math.max(requested, used - purchased + (free ? requested : 0));
+  const adding = free || opts.addingTechnician;
+  return Math.max(requested, used - purchased + (adding ? requested : 0));
 }

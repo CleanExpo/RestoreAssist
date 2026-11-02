@@ -88,10 +88,13 @@ export async function POST(request: NextRequest) {
           checkoutSession.mode === "subscription" &&
           checkoutSession.metadata?.type === "addon_subscription"
         ) {
-          if (
-            checkoutSession.payment_status !== "paid" &&
-            checkoutSession.status !== "complete"
-          ) {
+          // A complete session can still be unpaid. Stripe says no_payment_required
+          // when an add-on starts on a trial with nothing due today.
+          const paymentConfirmed =
+            checkoutSession.payment_status === "paid" ||
+            (checkoutSession.status === "complete" &&
+              checkoutSession.payment_status === "no_payment_required");
+          if (!paymentConfirmed) {
             return NextResponse.json(
               {
                 error: "Payment not completed",

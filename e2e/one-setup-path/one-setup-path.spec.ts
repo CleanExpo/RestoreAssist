@@ -61,7 +61,8 @@ async function expectTechnicianBack(browser: Browser) {
   const technician = await context.newPage();
   await technician.goto("/api/auth/session");
   await technician.goto("/dashboard");
-  await expect(technician).not.toHaveURL(/\/seat-required/);
+  // An expired session lands on /login, which is also not /seat-required.
+  await expect(technician).toHaveURL(/\/dashboard/);
 }
 
 async function sendInvite(page: Page) {

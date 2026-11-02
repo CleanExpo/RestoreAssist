@@ -46,6 +46,8 @@ vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+const trackMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/analytics/track", () => ({ track: trackMock }));
 vi.mock("@/lib/auth/password-breach", () => ({
   rejectIfBreached: (...a: unknown[]) => rejectIfBreached(...a),
 }));
@@ -275,6 +277,40 @@ describe("POST /api/invites/[token] (extended)", () => {
     );
     expect(cloudinaryUploadDataUrl).not.toHaveBeenCalled();
     expect(userCreate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["USER", 1],
+    ["MANAGER", 0],
+  ])("a %s acceptance records %i technician acceptance", async (role, expected) => {
+    trackMock.mockClear();
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv_1",
+      token: INVITE_TOKEN,
+      email: "jamie@example.com",
+      role,
+      organizationId: "org_1",
+      expiresAt: new Date(Date.now() + 86400000),
+      usedAt: null,
+    });
+    userFindUnique.mockResolvedValueOnce(null);
+    cloudinaryUploadDataUrl.mockResolvedValueOnce({
+      url: "https://res.cloudinary.com/.../jamie.jpg",
+      publicId: "headshots/jamie-1",
+    });
+    userCreate.mockResolvedValueOnce({
+      id: "u_new",
+      email: "jamie@example.com",
+      name: "Jamie Tradie",
+      role,
+    });
+
+    const res = await POST(makeReq(baseBody), await ctx());
+
+    expect(res.status).toBe(200);
+    expect(
+      trackMock.mock.calls.filter((call) => call[1] === "technician_accepted"),
+    ).toHaveLength(expected);
   });
 
   it("creates User with phone + image when email-password happy path", async () => {

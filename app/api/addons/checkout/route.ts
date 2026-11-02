@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
         addonKey?: string;
         quantity?: number;
         returnTo?: unknown;
+        addingTechnician?: unknown;
       } = {};
       try {
         parsedBody = rawBody ? JSON.parse(rawBody) : {};
@@ -367,6 +368,7 @@ export async function POST(request: NextRequest) {
               prisma,
               user.organizationId,
               quantity,
+              { addingTechnician: parsedBody.addingTechnician === true },
             );
           }
 
@@ -473,16 +475,42 @@ export async function POST(request: NextRequest) {
             });
           }
 
+          let payable: { id: string; url: string | null } = checkoutSession;
           if (recurringAddon.perSeat) {
+            // Two clicks can both pass the list above, and different clicks carry
+            // different idempotency keys. Each request lists again now its session
+            // exists, so at least one sees the other, and both keep the newest.
+            // Exactly one link stays payable.
+            const open = await stripe.checkout.sessions.list({
+              customer: customerId,
+              status: "open",
+              limit: 100,
+            });
+            const rivals = open.data.filter(
+              (other) =>
+                other.metadata?.sku === recurringAddon.sku &&
+                other.id !== checkoutSession.id,
+            );
+            payable = [checkoutSession, ...rivals].reduce((newest, other) =>
+              other.created > newest.created ||
+              (other.created === newest.created && other.id > newest.id)
+                ? other
+                : newest,
+            );
+            for (const other of [checkoutSession, ...rivals]) {
+              if (other.id !== payable.id) {
+                await stripe.checkout.sessions.expire(other.id);
+              }
+            }
             await track(userId, "seat_checkout_started", {
               workspaceId: workspace.id,
-              stripeSessionId: checkoutSession.id,
+              stripeSessionId: payable.id,
             });
           }
 
           return NextResponse.json({
-            sessionId: checkoutSession.id,
-            url: checkoutSession.url,
+            sessionId: payable.id,
+            url: payable.url,
           });
         } catch (stripeError) {
           return fromException(request, stripeError, {

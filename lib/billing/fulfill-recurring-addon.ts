@@ -67,24 +67,6 @@ export async function applyRecurringAddonSubscription(
     subscription.status === "active" || subscription.status === "trialing";
   const stripePriceId = subscription.items?.data?.[0]?.price?.id ?? null;
 
-  // D-029 — only a paid seat replaces the free trial seat's marker. An abandoned
-  // or declined checkout must not lift the day 15 lock by overwriting it, and a
-  // late event from an older subscription must not end a newer paid one.
-  if (!active && descriptor.perSeat) {
-    const current = await prisma.featureEntitlement.findUnique({
-      where: { workspaceId_sku: { workspaceId, sku: descriptor.sku } },
-      select: { active: true, stripePriceId: true, stripeSubscriptionId: true },
-    });
-    if (current?.stripePriceId === TRIAL_SEAT_PRICE_ID) return true;
-    if (
-      current?.active &&
-      current.stripeSubscriptionId &&
-      current.stripeSubscriptionId !== subscription.id
-    ) {
-      return true;
-    }
-  }
-
   // RA-6920 B6 — persist the purchased seat count for the quantity-based
   // TECHNICIAN_SEATS add-on only. Flat add-ons leave `seats` untouched (null).
   const seats = descriptor.perSeat
@@ -112,6 +94,56 @@ export async function applyRecurringAddonSubscription(
     stripeSubscriptionId: subscription.id,
     stripePriceId,
   };
+
+  // D-029 — only a paid seat replaces the free trial seat's marker. An abandoned
+  // or declined checkout must not lift the day 15 lock by overwriting it, and a
+  // late event from an older subscription must not end a newer paid one. Paid
+  // fulfilment can run at the same moment, so the conditions sit in the write.
+  // No match means the row is one of those, or does not exist: creating settles
+  // which, and a unique conflict means this event is stale.
+  if (!active && descriptor.perSeat) {
+    const { count } = await prisma.featureEntitlement.updateMany({
+      where: {
+        workspaceId,
+        sku: descriptor.sku,
+        AND: [
+          {
+            OR: [
+              { stripePriceId: null },
+              {
+                stripePriceId: {
+                  notIn: [TRIAL_SEAT_PRICE_ID, COMPLIMENTARY_PRICE_ID],
+                },
+              },
+            ],
+          },
+          {
+            OR: [
+              { active: false },
+              { stripeSubscriptionId: null },
+              { stripeSubscriptionId: subscription.id },
+            ],
+          },
+        ],
+      },
+      data: values,
+    });
+    if (count > 0) return true;
+    try {
+      await prisma.featureEntitlement.create({
+        data: { workspaceId, sku: descriptor.sku, ...values },
+      });
+    } catch (e) {
+      if (
+        !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+        e.code !== "P2002"
+      ) {
+        throw e;
+      }
+    }
+    return true;
+  }
+
   const write = () =>
     prisma.featureEntitlement.upsert({
       where,
