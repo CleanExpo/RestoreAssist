@@ -250,6 +250,19 @@ const REVIEWED_CAPABILITY_ROUTES = new Map([
       'externalReference: `stripe:job-file-audit:${checkoutSession.id}`',
     ],
   ],
+  // RFC 8058: a mail client posts this with no session, so the signed token is
+  // its capability. It can only set an opt-out, within one business.
+  [
+    "app/api/pulse/unsubscribe/route.ts",
+    [
+      "readPulseUnsubscribeToken(token)",
+      "pulseAddressTag(email) !== addressTag",
+      'prefix: "pulse-unsubscribe-ip"',
+      'prefix: "pulse-unsubscribe-token"',
+      "userId: client.userId",
+      "data: { pulseOptOut: true }",
+    ],
+  ],
 ]);
 
 function isReviewedCapabilityRoute(relPath, content) {

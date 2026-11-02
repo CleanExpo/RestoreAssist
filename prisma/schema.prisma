@@ -7607,7 +7607,7 @@ model ClientCommsLog {
   channel           String // "EMAIL" (SMS ships in P1)
   eventType         String // PulseEventType: STEP_TRANSITION | DRYING_GOAL_CHANGE
   recipient         String // curated recipient address (homeowner email)
-  status            String // "PENDING" (send in progress, or died mid-send) | "SENT" | "SUPPRESSED"
+  status            String // "SENT" | "SUPPRESSED"
   suppressionReason String? // null when SENT; PulseSuppressionReason otherwise
   providerMessageId String? // Resend message id when SENT
   templateKey       String? // which curated template rendered
