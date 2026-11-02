@@ -4,9 +4,9 @@ vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    inspection: { count: vi.fn() },
+    user: { findUnique: vi.fn(async () => ({ role: "ADMIN", organizationId: null, email: "o@example.test" })) },
+    inspection: { count: vi.fn(), findMany: vi.fn(async () => []) },
     invoice: { aggregate: vi.fn() },
-    $queryRaw: vi.fn().mockResolvedValue([{ avg_days: 0 }]),
   },
 }));
 
@@ -79,10 +79,10 @@ describe("GET /api/analytics/dashboard-stats", () => {
     expect((await load()).revenueMtdAud).toBe(12);
   });
 
-  it("stays scoped to the signed-in user", async () => {
+  it("always carries a tenancy filter", async () => {
     await load();
     const calls = (prisma.inspection.count as ReturnType<typeof vi.fn>).mock
       .calls;
-    expect(calls[0][0].where.userId).toBe("owner-1");
+    expect(JSON.stringify(calls[0][0].where.AND)).toContain("owner-1");
   });
 });
