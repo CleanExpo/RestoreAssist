@@ -63,8 +63,21 @@ export function verifyPulseUnsubscribeToken(token: string): string | null {
   return clientId;
 }
 
+/**
+ * An unsubscribe link only works from an inbox if it is absolute, and RFC 8058
+ * requires HTTPS. Throwing makes both senders suppress with MISSING_ENV rather
+ * than send an email with no working way out.
+ */
+function appOrigin(): string {
+  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim().replace(/\/$/, "");
+  if (!URL.canParse(base) || new URL(base).protocol !== "https:") {
+    throw new Error("NEXT_PUBLIC_APP_URL must be an https URL for Pulse unsubscribe links");
+  }
+  return base;
+}
+
 export function buildPulseUnsubscribeUrl(clientId: string): string {
-  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  const base = appOrigin();
   const token = generatePulseUnsubscribeToken(clientId);
   return `${base}/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
 }
@@ -74,7 +87,7 @@ export function buildPulseUnsubscribeUrl(clientId: string): string {
  * which asks first, because mail scanners open links without anyone clicking.
  */
 export function buildPulseOneClickUnsubscribeUrl(clientId: string): string {
-  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  const base = appOrigin();
   const token = generatePulseUnsubscribeToken(clientId);
   return `${base}/api/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
 }

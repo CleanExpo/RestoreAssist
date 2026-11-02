@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  buildPulseOneClickUnsubscribeUrl,
   buildPulseUnsubscribeUrl,
   generatePulseUnsubscribeToken,
   verifyPulseUnsubscribeToken,
@@ -28,4 +29,13 @@ describe("pulse unsubscribe token", () => {
     const token = new URL(url).searchParams.get("token");
     expect(token && verifyPulseUnsubscribeToken(token)).toBe("client_abc");
   });
+
+  it.each(["", "/relative", "http://app.example.com", "not a url"])(
+    "refuses to build either link from the app URL %j",
+    (value) => {
+      process.env.NEXT_PUBLIC_APP_URL = value;
+      expect(() => buildPulseUnsubscribeUrl("client_abc")).toThrow(/https/);
+      expect(() => buildPulseOneClickUnsubscribeUrl("client_abc")).toThrow(/https/);
+    },
+  );
 });

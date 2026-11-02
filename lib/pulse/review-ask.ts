@@ -60,9 +60,9 @@ const TEMPLATE_KEY = "pulse-review-ask";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 
 /**
- * Hard dependency for a review-ask send. No portal/app-url dependency here
- * (the email links to the firm's external Google review page, not the
- * portal) — only the email connector itself needs to be configured.
+ * Hard dependency for a review-ask send. No portal dependency here (the email
+ * links to the firm's external Google review page). The unsubscribe link's
+ * secret and app URL are checked where that link is built.
  */
 function reviewAskEnvConfigured(): boolean {
   return isEmailServiceConfigured();
@@ -169,7 +169,7 @@ export async function dispatchReviewAskNotification(
     "CLIENT_COMMS",
   );
   if (!addonGate.allowed) return suppress("NOT_ENTITLED");
-  // Fail closed with a row when the unsubscribe secret is missing: an email
+  // Fail closed with a row when the unsubscribe link cannot be built: an email
   // with no way out must not go, and a throw here would leave no record.
   let unsubscribeUrl: string | undefined;
   let oneClickUrl: string | undefined;
@@ -182,7 +182,7 @@ export async function dispatchReviewAskNotification(
   if (!reviewAskEnvConfigured() || !unsubscribeUrl) {
     reportError(
       new Error(
-        "[pulse] Mailtrap or unsubscribe secret env not configured — review-ask suppressed",
+        "[pulse] Mailtrap or unsubscribe link env not configured — review-ask suppressed",
       ),
       { stage: "pulse:review-ask", inspectionId, connector: "mailtrap" },
     );

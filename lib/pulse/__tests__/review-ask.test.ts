@@ -193,6 +193,20 @@ describe("dispatchReviewAskNotification — suppressions", () => {
     expect(reportError.mock.calls[0][1]).toMatchObject({ connector: "mailtrap" });
   });
 
+  it.each([undefined, "", "/relative", "http://app.example.com"])(
+    "fails closed with MISSING_ENV when the app URL is %s",
+    async (value) => {
+      if (value === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+      else process.env.NEXT_PUBLIC_APP_URL = value;
+      inspectionFindUnique.mockResolvedValue(jobFixture());
+
+      const result = await dispatchReviewAskNotification("insp_1");
+
+      expect(result).toMatchObject({ status: "SUPPRESSED", reason: "MISSING_ENV" });
+      expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    },
+  );
+
   it("suppresses the second close / re-close of the same job as a duplicate (idempotent)", async () => {
     inspectionFindUnique.mockResolvedValue(jobFixture());
 
