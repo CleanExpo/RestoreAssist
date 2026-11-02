@@ -283,3 +283,7 @@ The technician_accepted guard was shown by mutant: with the role check removed, 
 ## Review finding: a one-seat checkout could return a rival two-seat link
 
 app/api/addons/checkout/__tests__/technician-seats-checkout.test.ts, "a newer rival wins". Codex reproduced it with a route probe: a one-seat request returned the rival session. Fixed by refusing with 409 rather than handing out another request's link.
+
+## Review finding: a colliding paid row could swallow a legitimate cancellation
+
+lib/billing/__tests__/seat-cancel-conditional-write.test.ts, "still records its cancellation when its own subscription's paid row lands first". Red before the fix: 1 failed, 4 passed. Fixed by repeating the conditional write after the unique conflict.

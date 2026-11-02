@@ -100,6 +100,18 @@ describe("a cancellation event for a seat subscription", () => {
     expect(db.row).toEqual(paidRow);
   });
 
+  it("still records its cancellation when its own subscription's paid row lands first", async () => {
+    let calls = 0;
+    db.featureEntitlement.create.mockImplementation(async () => {
+      calls += 1;
+      db.row = { ...paidRow, stripeSubscriptionId: "sub_old" };
+      throw conflict();
+    });
+    await applyRecurringAddonSubscription(cancelled("sub_old"));
+    expect(calls).toBe(1);
+    expect(db.row?.active).toBe(false);
+  });
+
   it("carries both conditions in the write", async () => {
     db.row = paidRow;
     await applyRecurringAddonSubscription(cancelled("sub_old"));

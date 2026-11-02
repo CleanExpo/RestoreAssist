@@ -100,9 +100,10 @@ export async function applyRecurringAddonSubscription(
   // late event from an older subscription must not end a newer paid one. Paid
   // fulfilment can run at the same moment, so the conditions sit in the write.
   // No match means the row is one of those, or does not exist: creating settles
-  // which, and a unique conflict means this event is stale.
+  // which. A unique conflict means a row landed in between, so the conditional
+  // write runs once more: its own subscription's row still takes the cancellation.
   if (!active && descriptor.perSeat) {
-    const { count } = await prisma.featureEntitlement.updateMany({
+    const writeIfCurrent = () => prisma.featureEntitlement.updateMany({
       where: {
         workspaceId,
         sku: descriptor.sku,
@@ -128,7 +129,7 @@ export async function applyRecurringAddonSubscription(
       },
       data: values,
     });
-    if (count > 0) return true;
+    if ((await writeIfCurrent()).count > 0) return true;
     try {
       await prisma.featureEntitlement.create({
         data: { workspaceId, sku: descriptor.sku, ...values },
@@ -140,6 +141,7 @@ export async function applyRecurringAddonSubscription(
       ) {
         throw e;
       }
+      await writeIfCurrent();
     }
     return true;
   }
