@@ -710,7 +710,8 @@ export default function ClientsPage() {
                           $
                           {client.totalRevenue
                             ? client.totalRevenue.toLocaleString()
-                            : "0"}
+                            : "0"}{" "}
+                          invoiced
                         </span>
                         <span className="text-neutral-500 dark:text-slate-500 truncate">
                           {client.lastJob || "No jobs yet"}
@@ -778,7 +779,7 @@ export default function ClientsPage() {
                         "text-neutral-700 dark:text-slate-400",
                       )}
                     >
-                      Total Revenue
+                      Invoiced
                     </th>
                     <th
                       className={cn(

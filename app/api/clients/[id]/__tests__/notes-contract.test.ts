@@ -7,7 +7,12 @@ const update = vi.hoisted(() => vi.fn());
 vi.mock("next-auth", () => ({ getServerSession: session }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { client: { findFirst, update } },
+  prisma: {
+    client: { findFirst, update },
+    user: { findUnique: vi.fn(async () => ({ role: "ADMIN", organizationId: null, email: "o@example.test" })) },
+    invoice: { aggregate: vi.fn(async () => ({ _sum: { totalIncGST: null }, _count: 0 })) },
+    report: { findMany: vi.fn(async () => []) },
+  },
 }));
 
 import { GET, PUT } from "../route";

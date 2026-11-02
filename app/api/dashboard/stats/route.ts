@@ -8,7 +8,7 @@
  *   activeInspections:  { value, delta }   — inspections not yet finished
  *   moistureReadings7d: { value, delta }   — moisture readings in last 7 days
  *   equipmentItems:     { value, delta }   — IICRC-determined scope items (autoDetermined=true)
- *   completedThisMonth: { value, delta }   — inspections completed this calendar month
+ *   completedThisMonth: { value, delta }   — inspections finished this calendar month
  *   createdToday:       { value, delta }   — inspections created in last 24h (field activity proxy)
  * }
  *
@@ -17,10 +17,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
-import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
+import { resolveTotalsReach } from "@/lib/auth/assert-tenancy";
+import {
+  INACTIVE_INSPECTION_STATUSES,
+  finishedInPeriodWhere,
+} from "@/lib/inspections/active-status";
 
 // This route reads the session (which depends on request headers/cookies via
 // getServerSession) so it cannot be statically prerendered at build time.
@@ -37,7 +42,20 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const userId = session.user.id;
+    // Every figure here counts jobs, not money, so it takes the read reach:
+    // the whole organisation, technicians included (D-023).
+    const reach = await resolveTotalsReach<Prisma.InspectionWhereInput>(
+      session,
+      "read",
+    );
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+    const jobs = reach.data;
     const now = new Date();
 
     // ── Time boundaries ──────────────────────────────────────────
@@ -48,15 +66,6 @@ export async function GET(request: NextRequest) {
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      0,
-      23,
-      59,
-      59,
-      999,
-    );
 
     // ── Parallel queries ─────────────────────────────────────────
     const [
@@ -74,14 +83,14 @@ export async function GET(request: NextRequest) {
       // 1. Active inspections (not finished)
       prisma.inspection.count({
         where: {
-          userId,
+          ...jobs,
           status: { notIn: [...INACTIVE_INSPECTION_STATUSES] },
         },
       }),
       // 1b. Active prev (same calc 7 days ago — approximate: total minus completed then)
       prisma.inspection.count({
         where: {
-          userId,
+          ...jobs,
           status: { notIn: [...INACTIVE_INSPECTION_STATUSES] },
           createdAt: { lte: sevenDaysAgo },
         },
@@ -89,59 +98,54 @@ export async function GET(request: NextRequest) {
       // 2. Moisture readings in last 7 days
       prisma.moistureReading.count({
         where: {
-          inspection: { userId },
+          inspection: jobs,
           createdAt: { gte: sevenDaysAgo },
         },
       }),
       // 2b. Moisture readings 14→7 days ago (prior period for delta)
       prisma.moistureReading.count({
         where: {
-          inspection: { userId },
+          inspection: jobs,
           createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo },
         },
       }),
       // 3. Equipment items: autoDetermined ScopeItems (IICRC equipment placed)
       prisma.scopeItem.count({
         where: {
-          inspection: { userId },
+          inspection: jobs,
           autoDetermined: true,
         },
       }),
       // 3b. Prior period (created before 7 days ago)
       prisma.scopeItem.count({
         where: {
-          inspection: { userId },
+          inspection: jobs,
           autoDetermined: true,
           createdAt: { lte: sevenDaysAgo },
         },
       }),
-      // 4. Inspections completed this calendar month
+      // 4. Inspections finished this calendar month
       prisma.inspection.count({
-        where: {
-          userId,
-          status: "COMPLETED",
-          updatedAt: { gte: startOfMonth },
-        },
+        where: { ...jobs, ...finishedInPeriodWhere({ gte: startOfMonth }) },
       }),
-      // 4b. Inspections completed last month
+      // 4b. Inspections finished last month
       prisma.inspection.count({
         where: {
-          userId,
-          status: "COMPLETED",
-          updatedAt: { gte: startOfLastMonth, lte: endOfLastMonth },
+          ...jobs,
+          ...finishedInPeriodWhere({ gte: startOfLastMonth, lt: startOfMonth }),
         },
       }),
       // 5. Inspections created in last 24h (field activity proxy)
       prisma.inspection.count({
         where: {
-          userId,
+          ...jobs,
           createdAt: { gte: oneDayAgo },
         },
       }),
       // 5b. Inspections created 48→24h ago
       prisma.inspection.count({
         where: {
-          userId,
+          ...jobs,
           createdAt: { gte: twoDaysAgo, lt: oneDayAgo },
         },
       }),
@@ -181,7 +185,8 @@ export async function GET(request: NextRequest) {
         delta: calcDelta(completedThisMonth, completedLastMonth),
         label: "Completed",
         sublabel: "This month",
-        href: "/dashboard/inspections?status=COMPLETED",
+        // The plain list: no single status pill can match a month-dated figure.
+        href: "/dashboard/inspections",
       },
       createdToday: {
         value: createdToday,

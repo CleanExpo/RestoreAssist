@@ -4,6 +4,7 @@ vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    user: { findUnique: vi.fn(async () => ({ role: "ADMIN", organizationId: null, email: "o@example.test" })) },
     inspection: { count: vi.fn() },
     moistureReading: { count: vi.fn().mockResolvedValue(0) },
     scopeItem: { count: vi.fn().mockResolvedValue(0) },

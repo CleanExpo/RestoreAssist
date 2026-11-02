@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -7,6 +8,9 @@ import {
   OUTSTANDING_STATUSES,
 } from "@/lib/invoice-status";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveTotalsReach } from "@/lib/auth/assert-tenancy";
+
+const MONTHLY_BUCKETS = 13;
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +23,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const where = { userId: session.user.id };
+    const reach = await resolveTotalsReach<Prisma.InvoiceWhereInput>(
+      session,
+      "read-financial",
+    );
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+    const where = reach.data;
 
     // Calculate date ranges
     const now = new Date();
@@ -96,29 +111,44 @@ export async function GET(request: NextRequest) {
       statusCountRows.map((row) => [row.status, row._count._all]),
     );
 
-    // Calculate monthly revenue for the last 12 months
-    const monthlyRevenue = await prisma.$queryRaw<
-      Array<{ month: string; revenue: bigint; count: bigint }>
-    >`
-      SELECT
-        TO_CHAR(DATE_TRUNC('month', "invoiceDate"), 'YYYY-MM') as month,
-        SUM("totalIncGST") as revenue,
-        COUNT(*) as count
-      FROM "Invoice"
-      WHERE "userId" = ${session.user.id}
-        AND "status" != 'DRAFT'
-        AND "status" != 'CANCELLED'
-        AND "invoiceDate" >= NOW() - INTERVAL '12 months'
-      GROUP BY DATE_TRUNC('month', "invoiceDate")
-      ORDER BY month DESC
-    `;
+    // Monthly revenue for the last 12 months: this month, then back, with the
+    // oldest month starting twelve months ago to the day. One exact aggregate
+    // per month rather than raw SQL, so tenancy stays in the one reach filter.
+    const twelveMonthsAgo = new Date(now);
+    twelveMonthsAgo.setFullYear(now.getFullYear() - 1);
+    const months = Array.from({ length: MONTHLY_BUCKETS }, (_, back) => {
+      const start = new Date(now.getFullYear(), now.getMonth() - back, 1);
+      return {
+        month: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`,
+        gte: back === MONTHLY_BUCKETS - 1 ? twelveMonthsAgo : start,
+        lt: new Date(now.getFullYear(), now.getMonth() - back + 1, 1),
+      };
+    });
+    const monthlyTotals = await prisma.$transaction(
+      months.map(({ gte, lt }) =>
+        prisma.invoice.aggregate({
+          where: {
+            ...where,
+            status: { notIn: [...EXCLUDED_FROM_REVENUE] },
+            invoiceDate: { gte, lt },
+          },
+          _sum: { totalIncGST: true },
+          _count: true,
+        }),
+      ),
+    );
 
-    // Convert BigInt to Number for JSON serialization
-    const monthlyRevenueFormatted = monthlyRevenue.map((row) => ({
-      month: row.month,
-      revenue: Number(row.revenue),
-      count: Number(row.count),
-    }));
+    const monthlyRevenueFormatted = months.flatMap(({ month }, i) =>
+      monthlyTotals[i]._count > 0
+        ? [
+            {
+              month,
+              revenue: monthlyTotals[i]._sum.totalIncGST ?? 0,
+              count: monthlyTotals[i]._count,
+            },
+          ]
+        : [],
+    );
 
     return NextResponse.json({
       stats: {

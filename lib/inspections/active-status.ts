@@ -11,6 +11,40 @@ export const INACTIVE_INSPECTION_STATUSES = [
   "ARCHIVED",
 ] as const;
 
+/** A job that reached its end. REJECTED never did; IN_BILLING has not yet. */
+export const FINISHED_INSPECTION_STATUSES = ["COMPLETED", "CLOSED"] as const;
+
+/** Finished, including a finished job since archived (it kept its finish date). */
+export function finishedJobWhere() {
+  return {
+    OR: [
+      { status: { in: [...FINISHED_INSPECTION_STATUSES] } },
+      { status: "ARCHIVED" as const, completedAt: { not: null } },
+    ],
+  };
+}
+
+/**
+ * Finished inside a period, dated on `completedAt` so a later edit cannot move
+ * the job. Legacy rows have no `completedAt`, so `updatedAt` is the only date
+ * they offer.
+ */
+export function finishedInPeriodWhere(range: { gte: Date; lt?: Date }) {
+  return {
+    OR: [
+      {
+        completedAt: range,
+        status: { in: [...FINISHED_INSPECTION_STATUSES, "ARCHIVED" as const] },
+      },
+      {
+        completedAt: null,
+        status: { in: [...FINISHED_INSPECTION_STATUSES] },
+        updatedAt: range,
+      },
+    ],
+  };
+}
+
 export function isActiveInspectionStatus(
   status: string | null | undefined,
 ): boolean {
