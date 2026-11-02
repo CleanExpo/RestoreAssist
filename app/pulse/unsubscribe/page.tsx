@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
+// Its own light surface: a client arrives from an email, and the app's dark
+// default background would otherwise hide this dark text.
+const PAGE_CLASS =
+  "min-h-screen bg-slate-50 px-6 py-16 text-center text-slate-800";
+
 function isValidToken(token: string | undefined): boolean {
   if (!token) return false;
   try {
@@ -32,9 +37,9 @@ export default async function PulseUnsubscribePage({
 
   if (done === "1") {
     return (
-      <main className="mx-auto max-w-md px-6 py-16 text-center text-slate-800">
-        <h1 className="text-xl font-semibold">You are unsubscribed</h1>
-        <p className="mt-3 text-sm text-slate-600">
+      <main className={PAGE_CLASS}>
+        <h1 className="mx-auto max-w-md text-xl font-semibold">You are unsubscribed</h1>
+        <p className="mx-auto mt-3 max-w-md text-sm text-slate-600">
           Automated restoration progress emails will no longer be sent to this
           address by this business. Your contractor can still contact you
           directly about your job.
@@ -45,9 +50,9 @@ export default async function PulseUnsubscribePage({
 
   if (!isValidToken(token)) {
     return (
-      <main className="mx-auto max-w-md px-6 py-16 text-center text-slate-800">
-        <h1 className="text-xl font-semibold">Link not valid</h1>
-        <p className="mt-3 text-sm text-slate-600">
+      <main className={PAGE_CLASS}>
+        <h1 className="mx-auto max-w-md text-xl font-semibold">Link not valid</h1>
+        <p className="mx-auto mt-3 max-w-md text-sm text-slate-600">
           This unsubscribe link is invalid or incomplete. Contact your
           restoration provider if you still receive unwanted emails.
         </p>
@@ -56,9 +61,9 @@ export default async function PulseUnsubscribePage({
   }
 
   return (
-    <main className="mx-auto max-w-md px-6 py-16 text-center text-slate-800">
-      <h1 className="text-xl font-semibold">Stop job update emails?</h1>
-      <p className="mt-3 text-sm text-slate-600">
+    <main className={PAGE_CLASS}>
+      <h1 className="mx-auto max-w-md text-xl font-semibold">Stop job update emails?</h1>
+      <p className="mx-auto mt-3 max-w-md text-sm text-slate-600">
         You will no longer get automated progress emails about restoration jobs
         from this business. Your contractor can still contact you directly about
         your job.
@@ -69,7 +74,12 @@ export default async function PulseUnsubscribePage({
         className="mt-6"
       >
         <input type="hidden" name="source" value="page" />
-        <Button type="submit">Unsubscribe</Button>
+        <Button
+          type="submit"
+          className="bg-slate-800 text-white hover:bg-slate-700"
+        >
+          Unsubscribe
+        </Button>
       </form>
     </main>
   );
