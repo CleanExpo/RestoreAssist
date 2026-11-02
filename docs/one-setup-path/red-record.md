@@ -248,3 +248,7 @@ With the check in `proxy.ts` and the claim in `lib/auth.ts` disabled, then resto
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
       Tests  4 failed | 9 passed (13)
 ```
+
+## Review finding: an old cancelled subscription replaced a paid seat during sync
+
+lib/billing/__tests__/fulfill-recurring-addon.test.ts, "an old cancelled subscription never overwrites the paid one". Red before the fix: expected { active: false, ... } to match object { active: true, ... }.

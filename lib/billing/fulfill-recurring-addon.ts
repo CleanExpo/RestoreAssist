@@ -250,12 +250,20 @@ export async function syncRecurringAddonsFromStripe(
   let examined = 0;
   let granted = 0;
 
-  for (const sub of listed.data) {
+  // One row holds each add-on and the last write wins, so a live subscription
+  // goes last: an old cancelled one must not replace it. Stripe lists newest first.
+  const isLive = (sub: Stripe.Subscription) =>
+    sub.status === "active" || sub.status === "trialing";
+  const oldestDeadToNewestLive = [...listed.data].sort(
+    (a, b) =>
+      Number(isLive(a)) - Number(isLive(b)) || a.created - b.created,
+  );
+
+  for (const sub of oldestDeadToNewestLive) {
     const type = sub.metadata?.type;
     if (!type || !getRecurringAddonBySubscriptionType(type)) continue;
     examined += 1;
-    const beforeActive =
-      sub.status === "active" || sub.status === "trialing";
+    const beforeActive = isLive(sub);
     await applyRecurringAddonSubscription(sub);
     if (beforeActive) granted += 1;
   }
