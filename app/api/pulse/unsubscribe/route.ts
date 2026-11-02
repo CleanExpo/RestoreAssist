@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       // The record's address was replaced after this link was sent. The new
       // address asked for nothing, so only records still holding the old one go.
       const held = await prisma.client.findMany({
-        where: { userId: client.userId, email: { not: null } },
+        where: { userId: client.userId },
         select: { id: true, email: true },
         take: MAX_CLIENTS_SCANNED,
       });
