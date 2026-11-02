@@ -82,6 +82,15 @@ function acceptanceResponse(
   });
 }
 
+/** Managers accept through the same paths, and are not technicians. */
+async function trackTechnicianAccepted(
+  role: string,
+  userId: string,
+  provider: "google" | "credentials",
+) {
+  if (role === "USER") await track(userId, "technician_accepted", { provider });
+}
+
 async function replayAcceptance(
   req: NextRequest,
   invite: {
@@ -670,7 +679,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       }
       throw error;
     }
-    await track(session.user.id, "technician_accepted", { provider: "google" });
+    await trackTechnicianAccepted(invite.role, session.user.id, "google");
     return acceptanceResponse(
       "google",
       invite.email,
@@ -866,9 +875,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     throw error;
   }
 
-  await track(acceptedUserId, "technician_accepted", {
-    provider: "credentials",
-  });
+  await trackTechnicianAccepted(invite.role, acceptedUserId, "credentials");
   return acceptanceResponse(
     "credentials",
     invite.email,

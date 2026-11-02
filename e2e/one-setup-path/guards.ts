@@ -12,7 +12,13 @@ export function assertDisposableDatabase(url: string | undefined): void {
   } catch {
     throw new Error("one-setup test refuses: DATABASE_URL is missing or unreadable");
   }
-  if (!LOCAL_HOSTS.has(parsed.hostname)) {
+  // pg lets these options override the host in the address, so a local-looking
+  // URL could still connect somewhere else.
+  if (
+    !LOCAL_HOSTS.has(parsed.hostname) ||
+    parsed.searchParams.has("host") ||
+    parsed.searchParams.has("hostaddr")
+  ) {
     throw new Error("one-setup test refuses: DATABASE_URL is not a local database");
   }
   if (!parsed.pathname.includes("one_setup")) {

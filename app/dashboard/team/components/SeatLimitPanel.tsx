@@ -25,6 +25,8 @@ type Props = {
   /** Owner on the web. A manager or the iOS shell sees no price and no purchase. */
   audience: "owner" | "manager" | "ios";
   headline?: string;
+  /** Buying to invite one more, not only to unlock the technician already here. */
+  addingTechnician?: boolean;
   /** Runs before the page can leave for Stripe, so the entry survives the trip. */
   onBeforeBuy: () => void;
   /** A seat was added without leaving the page. */
@@ -34,6 +36,7 @@ type Props = {
 export function SeatLimitPanel({
   audience,
   headline = "All your technician seats are in use. Your entry is saved.",
+  addingTechnician = false,
   onBeforeBuy,
   onSeatAdded,
 }: Props) {
@@ -54,7 +57,12 @@ export function SeatLimitPanel({
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
-  async function send(request: typeof SEAT_REQUEST | typeof PLAN_REQUEST) {
+  const seatRequest = {
+    url: SEAT_REQUEST.url,
+    body: { ...SEAT_REQUEST.body, addingTechnician },
+  };
+
+  async function send(request: typeof seatRequest | typeof PLAN_REQUEST) {
     const key = lostKeys.current.get(request.url) ?? globalThis.crypto.randomUUID();
     lostKeys.current.set(request.url, key);
     const res = await fetch(request.url, {
@@ -99,14 +107,14 @@ export function SeatLimitPanel({
     onBeforeBuy();
     let leaving = false;
     try {
-      let reply = await send(SEAT_REQUEST);
+      let reply = await send(seatRequest);
       if (reply.kind === "needsPlan") {
         reply = await send(PLAN_REQUEST);
         // Stripe says a plan exists but this app missed it. Catch up once, so a
         // late webhook doesn't send a paying owner to the billing portal.
         if (reply.kind === "portalRequired") {
           await fetch("/api/subscription?refresh=true");
-          reply = await send(SEAT_REQUEST);
+          reply = await send(seatRequest);
           if (reply.kind === "needsPlan") reply = await send(PLAN_REQUEST);
         }
       }

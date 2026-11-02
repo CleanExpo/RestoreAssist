@@ -256,3 +256,34 @@ lib/billing/__tests__/fulfill-recurring-addon.test.ts, "an old cancelled subscri
 ## Review finding: a late cancellation ended a newer paid seat
 
 lib/billing/__tests__/trial-seat-unlock-webhook.test.ts, "a late cancellation of an older subscription leaves the newer paid seat alone". Red before the fix: expected { active: false, ... } to match object { active: true, ... }.
+
+## CodeRabbit round on the opened pull request
+
+Thirteen new tests failed before the fixes:
+
+```
+     × a first purchase covers everyone the free seat was covering, plus the new one 3ms
+     × still writes the user data when another tab won the claim, because the rollback discarded it 1ms
+     × refuses a local address whose host option points elsewhere 2ms
+     × refuses a local address whose hostaddr option points elsewhere 0ms
+     × cannot end a paid seat that lands between its read and its write 4ms
+     × carries both conditions in the write 0ms
+     × is hidden from a technician, who has no invite form to reach 21ms
+     × a completed checkout that is still unpaid is not a confirmed purchase 7ms
+       × an older rival is expired and this link is handed out 3ms
+       × a newer rival wins: this one is expired and both clicks get the one payable link 1ms
+     × refuses a supplied abn of the wrong type instead of dropping it 2ms
+     × refuses a supplied acn of the wrong type instead of dropping it 1ms
+     × refuses a supplied state of the wrong type instead of dropping it 1ms
+      Tests  13 failed | 82 passed (95)
+```
+
+The technician_accepted guard was shown by mutant: with the role check removed, "a MANAGER acceptance records 0 technician acceptance" fails. After the fixes the affected suites pass and the browser walk without Stripe passes 6 of 6.
+
+## Review finding: a one-seat checkout could return a rival two-seat link
+
+app/api/addons/checkout/__tests__/technician-seats-checkout.test.ts, "a newer rival wins". Codex reproduced it with a route probe: a one-seat request returned the rival session. Fixed by refusing with 409 rather than handing out another request's link.
+
+## Review finding: a colliding paid row could swallow a legitimate cancellation
+
+lib/billing/__tests__/seat-cancel-conditional-write.test.ts, "still records its cancellation when its own subscription's paid row lands first". Red before the fix: 1 failed, 4 passed. Fixed by repeating the conditional write after the unique conflict.

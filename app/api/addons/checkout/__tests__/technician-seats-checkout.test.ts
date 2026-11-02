@@ -67,6 +67,10 @@ vi.mock("@/lib/billing/require-billing-owner", () => ({
   refuseNonOwner: vi.fn(async () => null),
 }));
 vi.mock("@/lib/analytics/track", () => ({ track: vi.fn(async () => {}) }));
+vi.mock("@/lib/billing/technician-seats", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/billing/technician-seats")>()),
+  seatsNeededToBuy: vi.fn(),
+}));
 vi.mock("@/lib/observability", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/observability")>()),
   reportError: vi.fn(),
@@ -78,7 +82,10 @@ import { prisma } from "@/lib/prisma";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
 import { syncRecurringAddonsFromStripe } from "@/lib/billing/fulfill-recurring-addon";
-import { technicianSeatUsage } from "@/lib/billing/technician-seats";
+import {
+  seatsNeededToBuy,
+  technicianSeatUsage,
+} from "@/lib/billing/technician-seats";
 import { track } from "@/lib/analytics/track";
 
 function makeRequest(body: unknown) {
@@ -381,7 +388,7 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
   });
 
   it("expires only this customer's open seat sessions before minting a new one", async () => {
-    stripeMock.checkout.sessions.list.mockResolvedValue({
+    stripeMock.checkout.sessions.list.mockResolvedValueOnce({
       data: [
         { id: "cs_seat_old", metadata: { sku: "TECHNICIAN_SEATS" } },
         { id: "cs_other", metadata: { sku: "BOOKKEEPING" } },
@@ -396,6 +403,61 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
       ["cs_seat_old"],
     ]);
     expect(stripeMock.checkout.sessions.create).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [{ addingTechnician: true }, true],
+    [{}, false],
+    [{ addingTechnician: "yes" }, false],
+  ])("buying with %j tells the seat count addingTechnician is %s", async (extra, expected) => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      role: "ADMIN",
+      subscriptionStatus: "ACTIVE",
+      stripeCustomerId: "cus_1",
+      subscriptionId: "sub_base_1",
+      organizationId: "org_1",
+    } as never);
+    vi.mocked(seatsNeededToBuy).mockResolvedValue(2);
+    await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS", ...extra }));
+    expect(seatsNeededToBuy).toHaveBeenCalledWith(prisma, "org_1", 1, {
+      addingTechnician: expected,
+    });
+    const arg = stripeMock.checkout.sessions.create.mock.calls[0][0];
+    expect(arg.line_items[0].quantity).toBe(2);
+  });
+
+  describe("two clicks racing past the first list", () => {
+    const seatSession = (id: string, created: number) => ({
+      id,
+      created,
+      url: `https://stripe.test/${id}`,
+      metadata: { sku: "TECHNICIAN_SEATS" },
+    });
+
+    it("an older rival is expired and this link is handed out", async () => {
+      stripeMock.checkout.sessions.create.mockResolvedValue(seatSession("cs_b", 200));
+      stripeMock.checkout.sessions.list
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({
+          data: [seatSession("cs_a", 100), seatSession("cs_b", 200)],
+        });
+      const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS" }));
+      expect((await res.json()).url).toBe("https://stripe.test/cs_b");
+      expect(stripeMock.checkout.sessions.expire.mock.calls).toEqual([["cs_a"]]);
+    });
+
+    it("a newer rival wins: this one is expired and it never hands out the rival's link, which may be for another seat count", async () => {
+      stripeMock.checkout.sessions.create.mockResolvedValue(seatSession("cs_a", 100));
+      stripeMock.checkout.sessions.list
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({
+          data: [seatSession("cs_a", 100), seatSession("cs_b", 200)],
+        });
+      const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS" }));
+      expect(res.status).toBe(409);
+      expect(JSON.stringify(await res.json())).not.toContain("https://stripe.test/");
+      expect(stripeMock.checkout.sessions.expire.mock.calls).toEqual([["cs_a"]]);
+    });
   });
 
   it("a Stripe raise followed by a local write failure returns success with the seat count", async () => {

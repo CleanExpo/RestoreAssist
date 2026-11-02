@@ -41,5 +41,6 @@ export default async function OnboardingPage() {
     redirect("/setup");
   }
 
-  return <OnboardingClient />;
+  // The team page gives technicians no invite form to reach.
+  return <OnboardingClient canInvite={session.user.role !== "USER"} />;
 }

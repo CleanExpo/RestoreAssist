@@ -20,6 +20,45 @@ const db = vi.hoisted(() => ({
   },
   featureEntitlement: {
     findUnique: vi.fn(async () => db.row),
+    updateMany: vi.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: { AND: { OR: Record<string, unknown>[] }[] };
+        data: Record<string, unknown>;
+      }) => {
+          // Evaluate the conditions the code actually sent, including SQL null rules.
+          const holdsAll = (
+            r: Record<string, unknown>,
+            and: { OR: Record<string, unknown>[] }[],
+          ) =>
+            and.every(({ OR }) =>
+              OR.some((c) =>
+                Object.entries(c).every(([col, want]) =>
+                  want && typeof want === "object" && "notIn" in want
+                    ? r[col] != null &&
+                      !(want.notIn as unknown[]).includes(r[col])
+                    : r[col] === want,
+                ),
+              ),
+            );
+        if (!db.row || !holdsAll(db.row, where.AND)) return { count: 0 };
+        db.row = { ...db.row, ...data };
+        return { count: 1 };
+      },
+    ),
+    create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+      if (db.row) {
+        const { Prisma } = await import("@prisma/client");
+        throw new Prisma.PrismaClientKnownRequestError("unique", {
+          code: "P2002",
+          clientVersion: "test",
+        });
+      }
+      db.row = data;
+      return data;
+    }),
     upsert: vi.fn(
       async ({
         create,

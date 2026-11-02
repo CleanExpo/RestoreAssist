@@ -208,6 +208,7 @@ describe("Team page at the seat limit", () => {
       addonKey: "TECHNICIAN_SEATS",
       quantity: 1,
       returnTo: "team-invite",
+      addingTechnician: true,
     });
     expect(readInviteDraft("owner_1")?.email).toBe("tech@example.com");
     vi.unstubAllGlobals();

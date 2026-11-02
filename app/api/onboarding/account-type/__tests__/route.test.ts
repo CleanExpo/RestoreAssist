@@ -58,6 +58,19 @@ describe("POST /api/onboarding/account-type", () => {
     expect(track).toHaveBeenCalledWith("u1", "terms_accepted", expect.anything());
   });
 
+  it.each([
+    ["abn", 51824753556],
+    ["acn", 123456789],
+    ["state", 3],
+  ])("refuses a supplied %s of the wrong type instead of dropping it", async (field, value) => {
+    const res = await post({
+      businessName: "Coastal Restoration",
+      acceptedTerms: true,
+      [field]: value,
+    });
+    expect(res.status).toBe(400);
+  });
+
   it("a New Zealand owner passes with no ABN and no state, and neither field is overwritten", async () => {
     const res = await post({ businessName: "Kiwi Dry", acceptedTerms: true });
     expect(res.status).toBe(200);

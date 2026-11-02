@@ -18,7 +18,8 @@ class ClaimLost extends Error {}
  * caller can turn a technician, a manager or a pending invited identity into an
  * owner. "No organisation" means owns none and belongs to none: an owner who
  * already owns one is attached to the oldest instead of getting a second.
- * `userData` is written in the same transaction as the claim.
+ * `userData` is written in the same transaction as the claim, and again if
+ * another request wins the claim, because the rollback discards this one's write.
  */
 export async function ensureOwnerOrganization(
   userId: string,
@@ -72,6 +73,9 @@ export async function ensureOwnerOrganization(
       select: { organizationId: true },
     });
     if (!winner?.organizationId) throw error;
+    if (opts.userData) {
+      await prisma.user.update({ where: { id: userId }, data: opts.userData });
+    }
     organizationId = winner.organizationId;
   }
 
