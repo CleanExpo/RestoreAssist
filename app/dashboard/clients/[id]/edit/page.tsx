@@ -7,7 +7,6 @@ import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { CLIENT_NOTES_MAX_LENGTH } from "@/lib/clients/notes";
-import { Checkbox } from "@/components/ui/checkbox";
 
 interface ClientFormData {
   name: string;
@@ -343,14 +342,15 @@ export default function ClientEditPage() {
 
           {/* Automated email opt-out */}
           <div className="flex items-start gap-3">
-            <Checkbox
+            <input
               id="pulseOptOut"
+              type="checkbox"
               checked={form.pulseOptOut}
               disabled={savedOptOut}
-              onCheckedChange={(checked) =>
-                setForm((prev) => ({ ...prev, pulseOptOut: checked === true }))
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, pulseOptOut: e.target.checked }))
               }
-              className="mt-0.5"
+              className="mt-0.5 h-4 w-4 accent-cyan-500"
             />
             <div>
               <label
