@@ -136,6 +136,44 @@ check "an uppercase .ENV"                "$EDIT_GUARD" "$(edit_payload '/repo/.E
 check "no path in the payload"           "$EDIT_GUARD" '{"tool_name":"Edit","tool_input":{}}'             allow
 
 echo
+echo "== settings.json wiring: hooks must launch from a project path with spaces =="
+# Claude Code runs a command hook through `sh -c`. An unquoted $CLAUDE_PROJECT_DIR
+# splits on spaces and the hook exits 127, which Claude Code logs as a
+# non-blocking error and then runs the tool call anyway (RA-8147). These cases
+# run the exact command strings from settings.json, through sh -c, from a copy
+# of the hooks under a directory whose name contains spaces.
+SETTINGS="$HOOKS_DIR/../settings.json"
+space_root="$(mktemp -d)/Project With Spaces"
+mkdir -p "$space_root/.claude"
+cp -R "$HOOKS_DIR" "$space_root/.claude/hooks"
+
+# wired_decision <hook-script-name> <payload> -> "deny", "allow", or "launch-failed(<rc>)"
+wired_decision() {
+  local cmd out rc
+  cmd="$(jq -r --arg n "$1" '.hooks.PreToolUse[].hooks[].command | select(contains($n))' "$SETTINGS")"
+  out="$(printf '%s' "$2" | (cd "$space_root" && CLAUDE_PROJECT_DIR="$space_root" sh -c "$cmd") 2>/dev/null)"; rc=$?
+  if (( rc != 0 )); then printf 'launch-failed(%s)' "$rc"; return; fi
+  if [[ -z "$out" ]]; then printf 'allow'; else
+    printf '%s' "$out" | jq -r '.hookSpecificOutput.permissionDecision // "allow"' 2>/dev/null || printf 'allow'
+  fi
+}
+wired_check() {  # <label> <hook-name> <payload> <expected>
+  local got; got="$(wired_decision "$2" "$3")"
+  if [[ "$got" == "$4" ]]; then pass=$((pass+1)); printf '  ok    %-58s %s\n' "$1" "$got"
+  else fail=$((fail+1)); printf '  FAIL  %-58s expected %s, got %s\n' "$1" "$4" "$got"; fi
+}
+wired_check "wired destructive guard blocks, path has spaces" pre-bash-destructive "$(bash_payload "cd /tmp && $RM_RF x")" deny
+wired_check "wired destructive guard allows a safe command"   pre-bash-destructive "$(bash_payload 'git status')"          allow
+wired_check "wired sensitive guard blocks, path has spaces"   pre-edit-sensitive   "$(edit_payload '/repo/.env')"           deny
+
+# Static: every hook command that uses $CLAUDE_PROJECT_DIR must quote it.
+unquoted="$(jq -r '.. | objects | select(has("command")) | .command | strings' "$SETTINGS" \
+  | grep -E 'CLAUDE_PROJECT_DIR' | grep -vE '"\$\{?CLAUDE_PROJECT_DIR\}?"' || true)"
+if [[ -z "$unquoted" ]]; then pass=$((pass+1)); printf '  ok    %-58s %s\n' "no unquoted \$CLAUDE_PROJECT_DIR in hook commands" "clean"
+else fail=$((fail+1)); printf '  FAIL  unquoted $CLAUDE_PROJECT_DIR in: %s\n' "$unquoted"; fi
+rm -r "$(dirname "$space_root")" 2>/dev/null || true
+
+echo
 echo "== dead-check: neuter each guard and confirm the deny cases notice =="
 # If a guard can be emptied without the suite going red, the suite proves nothing.
 sabotage_dir="$(mktemp -d)"
