@@ -137,7 +137,10 @@ describe("GET /api/invoices/analytics organisation reach (RA-8146)", () => {
     await analyticsFor("admin-a");
     expect(fakePrisma.$queryRaw).not.toHaveBeenCalled();
     expect(fakePrisma.$transaction).toHaveBeenCalledTimes(1);
-    const ops = (fakePrisma.$transaction as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const [ops, options] = (fakePrisma.$transaction as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(ops).toHaveLength(13);
+    // Read Committed gives each aggregate its own snapshot, so an invoice moved
+    // between two of them could land in both months or neither.
+    expect(options).toEqual({ isolationLevel: "RepeatableRead" });
   });
 });

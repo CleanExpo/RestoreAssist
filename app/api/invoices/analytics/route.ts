@@ -136,6 +136,9 @@ export async function GET(request: NextRequest) {
           _count: true,
         }),
       ),
+      // One snapshot across all months, so an invoice moved mid-read cannot
+      // land in two months or neither.
+      { isolationLevel: "RepeatableRead" },
     );
 
     const monthlyRevenueFormatted = months.flatMap(({ month }, i) =>
