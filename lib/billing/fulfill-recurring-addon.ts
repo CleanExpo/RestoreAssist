@@ -68,13 +68,21 @@ export async function applyRecurringAddonSubscription(
   const stripePriceId = subscription.items?.data?.[0]?.price?.id ?? null;
 
   // D-029 — only a paid seat replaces the free trial seat's marker. An abandoned
-  // or declined checkout must not lift the day 15 lock by overwriting it.
+  // or declined checkout must not lift the day 15 lock by overwriting it, and a
+  // late event from an older subscription must not end a newer paid one.
   if (!active && descriptor.perSeat) {
     const current = await prisma.featureEntitlement.findUnique({
       where: { workspaceId_sku: { workspaceId, sku: descriptor.sku } },
-      select: { stripePriceId: true },
+      select: { active: true, stripePriceId: true, stripeSubscriptionId: true },
     });
     if (current?.stripePriceId === TRIAL_SEAT_PRICE_ID) return true;
+    if (
+      current?.active &&
+      current.stripeSubscriptionId &&
+      current.stripeSubscriptionId !== subscription.id
+    ) {
+      return true;
+    }
   }
 
   // RA-6920 B6 — persist the purchased seat count for the quantity-based

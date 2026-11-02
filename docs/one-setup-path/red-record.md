@@ -252,3 +252,7 @@ With the check in `proxy.ts` and the claim in `lib/auth.ts` disabled, then resto
 ## Review finding: an old cancelled subscription replaced a paid seat during sync
 
 lib/billing/__tests__/fulfill-recurring-addon.test.ts, "an old cancelled subscription never overwrites the paid one". Red before the fix: expected { active: false, ... } to match object { active: true, ... }.
+
+## Review finding: a late cancellation ended a newer paid seat
+
+lib/billing/__tests__/trial-seat-unlock-webhook.test.ts, "a late cancellation of an older subscription leaves the newer paid seat alone". Red before the fix: expected { active: false, ... } to match object { active: true, ... }.

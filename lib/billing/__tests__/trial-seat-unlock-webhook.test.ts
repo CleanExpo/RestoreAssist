@@ -68,4 +68,16 @@ describe("paying after the lock", () => {
     expect(db.row?.active).not.toBe(true);
     expect(await isTrialSeatLocked(prisma as never, "org")).toBe(true);
   });
+
+  it("a late cancellation of an older subscription leaves the newer paid seat alone", async () => {
+    db.row = { active: true, seats: 1, stripePriceId: "price_seat", stripeSubscriptionId: "sub_new" };
+    await handleRecurringAddonSubscription(seatSubscription("canceled"));
+    expect(db.row).toMatchObject({ active: true, stripeSubscriptionId: "sub_new" });
+  });
+
+  it("cancelling the subscription that holds the seat still ends it", async () => {
+    db.row = { active: true, seats: 1, stripePriceId: "price_seat", stripeSubscriptionId: "sub_seat" };
+    await handleRecurringAddonSubscription(seatSubscription("canceled"));
+    expect(db.row?.active).toBe(false);
+  });
 });
