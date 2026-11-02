@@ -388,6 +388,33 @@ describe("notifyClientDryingChange", () => {
     expect(sends()).toBe(1);
   });
 
+  it("sends again when an area the client was told about has dropped out", async () => {
+    const twoAreas = {
+      affectedAreas: [
+        { id: "a1", roomZoneId: "Kitchen" },
+        { id: "a2", roomZoneId: "Lounge" },
+      ],
+    };
+    const kitchen = job().moistureReadings[0];
+    vi.useFakeTimers({ now: DAY_ONE, toFake: ["Date"] });
+    h.inspectionFindUnique.mockResolvedValue(
+      job({
+        ...twoAreas,
+        moistureReadings: [kitchen, { ...kitchen, location: "Lounge" }],
+      }),
+    );
+    await notifyClientDryingChange("insp_1");
+    expect(sends()).toBe(1);
+
+    vi.setSystemTime(DAY_TWO);
+    h.inspectionFindUnique.mockResolvedValue(
+      job({ ...twoAreas, moistureReadings: [kitchen] }),
+    );
+    await notifyClientDryingChange("insp_1");
+
+    expect(sends()).toBe(2);
+  });
+
   it("holds two changes on one AU day to one email, even when they race", async () => {
     vi.useFakeTimers({ now: DAY_ONE, toFake: ["Date"] });
     h.inspectionFindUnique

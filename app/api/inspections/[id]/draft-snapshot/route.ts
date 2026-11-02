@@ -602,7 +602,8 @@ export async function PUT(
       });
     });
 
-    if (data.moistureReadings.length > 0) {
+    // The save can delete readings as well as add them.
+    if (data.moistureReadings.length > 0 || data.baseIds.moistureReadings.length > 0) {
       void notifyClientDryingChange(id);
     }
 

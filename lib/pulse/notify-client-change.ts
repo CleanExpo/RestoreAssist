@@ -132,8 +132,9 @@ const dryingInFlight = new Set<string>();
 
 /**
  * Email the client when an area they were told about has changed state, at most
- * once per AU day per job. The first state counts as a change. An area appearing
- * for the first time does not, because nothing the client was told has moved.
+ * once per AU day per job. The first state counts as a change, and so does an
+ * area dropping out. An area appearing for the first time does not, because
+ * nothing the client was told has moved.
  */
 export function notifyClientDryingChange(inspectionId: string): Promise<void> {
   return holdRequestOpen(runDryingCheck(inspectionId));
@@ -242,11 +243,10 @@ async function checkDryingChange(inspectionId: string): Promise<void> {
   if (lastSent) {
     const told = parseDryingTemplateKey(lastSent.templateKey);
     // A row with no recorded state tells us nothing, so it cannot mean "same".
+    const current = dryingAreaStates(areas);
     const changed =
       told.size === 0 ||
-      [...dryingAreaStates(areas)].some(
-        ([areaId, state]) => told.has(areaId) && told.get(areaId) !== state,
-      );
+      [...told].some(([areaId, state]) => current.get(areaId) !== state);
     if (!changed) {
       logOutcome(inspectionId, "drying", "skipped:no_change");
       return;
