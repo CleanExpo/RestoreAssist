@@ -29,6 +29,7 @@ import {
   COMPLIMENTARY_PRICE_ID,
   isComplimentaryEntitlement,
 } from "@/lib/billing/founding-trial-grant";
+import { TRIAL_SEAT_PRICE_ID } from "@/lib/billing/technician-seats";
 
 export interface RecurringAddonFulfillResult extends FulfillResult {
   sku?: string;
@@ -65,6 +66,24 @@ export async function applyRecurringAddonSubscription(
   const active =
     subscription.status === "active" || subscription.status === "trialing";
   const stripePriceId = subscription.items?.data?.[0]?.price?.id ?? null;
+
+  // D-029 — only a paid seat replaces the free trial seat's marker. An abandoned
+  // or declined checkout must not lift the day 15 lock by overwriting it, and a
+  // late event from an older subscription must not end a newer paid one.
+  if (!active && descriptor.perSeat) {
+    const current = await prisma.featureEntitlement.findUnique({
+      where: { workspaceId_sku: { workspaceId, sku: descriptor.sku } },
+      select: { active: true, stripePriceId: true, stripeSubscriptionId: true },
+    });
+    if (current?.stripePriceId === TRIAL_SEAT_PRICE_ID) return true;
+    if (
+      current?.active &&
+      current.stripeSubscriptionId &&
+      current.stripeSubscriptionId !== subscription.id
+    ) {
+      return true;
+    }
+  }
 
   // RA-6920 B6 — persist the purchased seat count for the quantity-based
   // TECHNICIAN_SEATS add-on only. Flat add-ons leave `seats` untouched (null).
@@ -239,12 +258,20 @@ export async function syncRecurringAddonsFromStripe(
   let examined = 0;
   let granted = 0;
 
-  for (const sub of listed.data) {
+  // One row holds each add-on and the last write wins, so a live subscription
+  // goes last: an old cancelled one must not replace it. Stripe lists newest first.
+  const isLive = (sub: Stripe.Subscription) =>
+    sub.status === "active" || sub.status === "trialing";
+  const oldestDeadToNewestLive = [...listed.data].sort(
+    (a, b) =>
+      Number(isLive(a)) - Number(isLive(b)) || a.created - b.created,
+  );
+
+  for (const sub of oldestDeadToNewestLive) {
     const type = sub.metadata?.type;
     if (!type || !getRecurringAddonBySubscriptionType(type)) continue;
     examined += 1;
-    const beforeActive =
-      sub.status === "active" || sub.status === "trialing";
+    const beforeActive = isLive(sub);
     await applyRecurringAddonSubscription(sub);
     if (beforeActive) granted += 1;
   }

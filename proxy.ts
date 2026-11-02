@@ -1,3 +1,4 @@
+import { TRIAL_SEAT_ENDED_MESSAGE } from "@/lib/billing/trial-seat-copy";
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { applyRateLimitEdge } from "@/lib/rate-limiter-edge";
@@ -158,6 +159,9 @@ const SETUP_WIZARD_API_DESTINATIONS: Readonly<Record<string, ReadonlySet<string>
   "/api/ascora/connect": new Set(["GET", "POST"]),
   "/api/dr-nrpg/connect": new Set(["GET", "POST"]),
   "/api/onboarding/status": new Set(["GET"]),
+  // The terms page sits behind /setup for a Google or Apple owner; a redirect
+  // here would strand them on it.
+  "/api/onboarding/account-type": new Set(["POST"]),
   "/api/pricing-config": new Set(["GET"]),
   "/api/workspace/status": new Set(["GET"]),
   "/api/workspace/provider-connections": new Set(["GET", "POST", "DELETE"]),
@@ -297,15 +301,13 @@ export async function proxy(req: NextRequest) {
     !shouldBypassSetupGate(pathname, req.method.toUpperCase())
   ) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    // C1+C3 fix: gate on setupCompletedAt only — role-agnostic.
-    // The old OWNER/ADMIN/TECHNICIAN branches used role strings that don't
-    // exist in the schema (Role enum: USER | ADMIN | MANAGER), making the
-    // OWNER branch dead code and the TECHNICIAN branch a 404 trap.
-    if (token && !(token as any).setupCompletedAt) {
+    // The wizard belongs to the owner: staff join a business someone else set
+    // up, so they skip it. A missing or empty role is still gated.
+    const role = (token as { role?: string } | null)?.role;
+    const isStaff = role === "USER" || role === "MANAGER";
+    if (token && !isStaff && !(token as any).setupCompletedAt) {
       const url = req.nextUrl.clone();
-      const role = (token as { role?: string }).role;
-      url.pathname =
-        role === "TECHNICIAN" ? "/onboarding/technician" : "/setup";
+      url.pathname = "/setup";
       url.search = "";
       return NextResponse.redirect(url, 307);
     }
@@ -334,6 +336,28 @@ export async function proxy(req: NextRequest) {
     const { guardOfflineReplay } = await import("@/lib/offline/server-boundary");
     const refused = await guardOfflineReplay(req);
     if (refused) return refused;
+  }
+
+  // A technician on a free trial seat stops at day 15 until the owner pays. Their
+  // work stays. The paused header makes offline queues hold, not discard, writes.
+  const apiMutation =
+    pathname.startsWith("/api/") &&
+    API_MUTATION_METHODS.has(req.method.toUpperCase()) &&
+    !pathname.startsWith("/api/auth/");
+  if (apiMutation || pathname.startsWith("/dashboard")) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if ((token as { seatLocked?: boolean } | null)?.seatLocked) {
+      if (apiMutation) {
+        return NextResponse.json(
+          { error: { code: "PAYMENT_REQUIRED", message: TRIAL_SEAT_ENDED_MESSAGE } },
+          { status: 402, headers: { "x-restoreassist-offline-paused": "1" } },
+        );
+      }
+      const url = req.nextUrl.clone();
+      url.pathname = "/seat-required";
+      url.search = "";
+      return NextResponse.redirect(url, 307);
+    }
   }
 
   // ── Unauth → /login redirect for protected surfaces (P1 #16) ────────────────

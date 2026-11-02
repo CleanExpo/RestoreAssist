@@ -43,6 +43,7 @@ billing/trial-expired-soft-gate.spec.ts  workflow:sketch-e2e.yml
 billing/multi-tab.spec.ts                workflow:sketch-e2e.yml
 billing/voluntary-upgrade.spec.ts        workflow:sketch-e2e.yml
 billing/webhook-race.spec.ts             workflow:sketch-e2e.yml
+one-setup-path/one-setup-path.spec.ts    unrun:local-only browser walk run by hand through config/playwright.one-setup.config.ts on a disposable database; no workflow provides one, and its @stripe test needs a Stripe test key
 browser/auth-recovery.spec.ts            unrun:local-only browser check run by hand through config/playwright.auth-local.config.ts; no workflow runs that config (and it starts no server of its own)
 browser/inspection-photo-upload.spec.ts  unrun:local-only browser check run by hand through config/playwright.photo-local.config.ts; no workflow runs that config
 browser/integrations-identity.spec.ts    unrun:local-only browser check run by hand through config/playwright.integrations-local.config.ts; no workflow runs that config

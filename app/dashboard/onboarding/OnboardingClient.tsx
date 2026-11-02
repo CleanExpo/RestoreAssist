@@ -301,6 +301,13 @@ export default function OnboardingClient() {
             </span>
           </div>
 
+          <p className="mb-4 text-sm text-neutral-600 dark:text-slate-400">
+            Working with a crew?{" "}
+            <Link href="/dashboard/team?invite=1" className="font-semibold underline">
+              Invite a technician
+            </Link>
+          </p>
+
           <ul className="space-y-3 sm:space-y-4">
             {steps.map((step, index) => {
               const isNext = step.id === nextStepId && !step.completed;

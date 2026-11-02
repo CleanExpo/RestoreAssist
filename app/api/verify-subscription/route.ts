@@ -83,6 +83,16 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // A seat or other add-on subscription bills $11, not $99: it must never
+        // activate the plan, even for its rightful owner.
+        if (checkoutSession.metadata?.type === "addon_subscription") {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "This purchase is an add-on, not a plan",
+            status: 400,
+          });
+        }
+
         // Check if payment was successful. A completed subscription Checkout
         // with a trial (Founding Trial early upgrade, first charge on day 60)
         // is "no_payment_required"; the live-subscription check below still
