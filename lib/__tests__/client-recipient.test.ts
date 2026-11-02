@@ -17,12 +17,15 @@ describe("resolveClientRecipient", () => {
     ).toEqual({ client: b, email: "job@example.test" });
   });
 
-  it("skips a client whose address is blank", () => {
-    const blank = { id: "c", email: "   " };
-    expect(
-      resolveClientRecipient({ reportClient: blank, inspectionClient: b })
-        ?.client,
-    ).toBe(b);
+  it("never sends to the job's client when the report's client has no address", () => {
+    for (const email of ["   ", "", null]) {
+      expect(
+        resolveClientRecipient({
+          reportClient: { id: "c", email },
+          inspectionClient: b,
+        }),
+      ).toBeNull();
+    }
   });
 
   it("trims the address", () => {
