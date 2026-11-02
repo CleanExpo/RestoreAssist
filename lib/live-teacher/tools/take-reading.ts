@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { notifyClientDryingChange } from "@/lib/pulse/notify-client-change";
 
 // MoistureReading schema fields (per prisma/schema.prisma):
 //   location, surfaceType, moistureLevel (Float), depth (String)
@@ -51,6 +52,8 @@ export async function takeReading(args: TakeReadingArgs) {
       moistureLevel: true,
     },
   });
+
+  void notifyClientDryingChange(inspectionId);
 
   return {
     id: reading.id,

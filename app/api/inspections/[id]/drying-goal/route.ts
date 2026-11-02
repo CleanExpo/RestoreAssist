@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { notifyClientDryingChange } from "@/lib/pulse/notify-client-change";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
@@ -261,6 +262,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
       }
 
+      void notifyClientDryingChange(inspectionId);
+
       return NextResponse.json({
         dryingGoal: record,
         message:
@@ -455,6 +458,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         status: 404,
       });
     }
+
+    void notifyClientDryingChange(inspectionId);
 
     return NextResponse.json({
       status: "ACHIEVED",

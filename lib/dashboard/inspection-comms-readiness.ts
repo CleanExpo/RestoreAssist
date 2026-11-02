@@ -18,7 +18,9 @@ export type InspectionCommsReadiness = {
   reportDeliveredAt: string | null;
   portalLinkEmailedAt: string | null;
   clientEmailSentAt: string | null;
-  completenessBlockerCount: number;
+  /** null when the check could not run: unknown, not zero. */
+  completenessBlockerCount: number | null;
+  completenessCheckError?: boolean;
 };
 
 /** Checklist for emailing a secure job link (PDF completion not required). */

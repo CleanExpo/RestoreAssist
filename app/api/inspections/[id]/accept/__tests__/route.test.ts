@@ -88,6 +88,8 @@ describe("POST /api/inspections/[id]/accept", () => {
       user: { id: "user_1", role: "USER" },
     });
     inspectionUpdateMany.mockResolvedValueOnce({ count: 0 });
+    // First the prior status for the client email, then the existence check.
+    inspectionFindFirst.mockResolvedValueOnce({ status: "PROCESSING" });
     inspectionFindFirst.mockResolvedValueOnce({ id: "insp_1" });
 
     const res = await POST(makeRequest(), params);

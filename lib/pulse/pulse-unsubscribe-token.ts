@@ -68,3 +68,13 @@ export function buildPulseUnsubscribeUrl(clientId: string): string {
   const token = generatePulseUnsubscribeToken(clientId);
   return `${base}/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
 }
+
+/**
+ * The RFC 8058 target a mail client POSTs to. The body link stays on the page,
+ * which asks first, because mail scanners open links without anyone clicking.
+ */
+export function buildPulseOneClickUnsubscribeUrl(clientId: string): string {
+  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  const token = generatePulseUnsubscribeToken(clientId);
+  return `${base}/api/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
+}

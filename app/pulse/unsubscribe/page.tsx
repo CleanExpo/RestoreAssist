@@ -1,17 +1,49 @@
+import type { Metadata } from "next";
+import { Button } from "@/components/ui/button";
 import { verifyPulseUnsubscribeToken } from "@/lib/pulse/pulse-unsubscribe-token";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+// Protected only by the secrecy of the URL. It must serve noindex, and
+// robots.txt must not Disallow it, or a crawler could never read the noindex.
+export const metadata: Metadata = {
+  title: "Email preferences",
+  robots: { index: false, follow: false },
+  referrer: "no-referrer",
+};
+
+function isValidToken(token: string | undefined): boolean {
+  if (!token) return false;
+  try {
+    return verifyPulseUnsubscribeToken(token) !== null;
+  } catch {
+    return false;
+  }
+}
+
+// This page never writes on load: mail scanners open links without anyone
+// clicking, and that must not unsubscribe a client who asked for nothing.
 export default async function PulseUnsubscribePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; done?: string }>;
 }) {
-  const { token } = await searchParams;
-  const clientId = token ? verifyPulseUnsubscribeToken(token) : null;
+  const { token, done } = await searchParams;
 
-  if (!clientId) {
+  if (done === "1") {
+    return (
+      <main className="mx-auto max-w-md px-6 py-16 text-center text-slate-800">
+        <h1 className="text-xl font-semibold">You are unsubscribed</h1>
+        <p className="mt-3 text-sm text-slate-600">
+          Automated restoration progress emails will no longer be sent to this
+          address by this business. Your contractor can still contact you
+          directly about your job.
+        </p>
+      </main>
+    );
+  }
+
+  if (!isValidToken(token)) {
     return (
       <main className="mx-auto max-w-md px-6 py-16 text-center text-slate-800">
         <h1 className="text-xl font-semibold">Link not valid</h1>
@@ -23,19 +55,22 @@ export default async function PulseUnsubscribePage({
     );
   }
 
-  await prisma.client.update({
-    where: { id: clientId },
-    data: { pulseOptOut: true },
-  });
-
   return (
     <main className="mx-auto max-w-md px-6 py-16 text-center text-slate-800">
-      <h1 className="text-xl font-semibold">You are unsubscribed</h1>
+      <h1 className="text-xl font-semibold">Stop job update emails?</h1>
       <p className="mt-3 text-sm text-slate-600">
-        Automated restoration progress emails will no longer be sent to this
-        client record. Your contractor can still contact you directly about
+        You will no longer get automated progress emails about restoration jobs
+        from this business. Your contractor can still contact you directly about
         your job.
       </p>
+      <form
+        method="post"
+        action={`/api/pulse/unsubscribe?token=${encodeURIComponent(token as string)}`}
+        className="mt-6"
+      >
+        <input type="hidden" name="source" value="page" />
+        <Button type="submit">Unsubscribe</Button>
+      </form>
     </main>
   );
 }

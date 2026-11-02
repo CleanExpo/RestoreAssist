@@ -66,4 +66,54 @@ describe("GET /api/inspections/[id]/comms-readiness", () => {
     expect(body.data.completenessBlockerCount).toBe(1);
     expect(body.data.reportDeliveredAt).toBeTruthy();
   });
+
+  it("reads the same recipient the send would use: report's client first", async () => {
+    session.mockResolvedValue({ user: { id: "u1" } });
+    p.inspection.findUnique.mockResolvedValue({
+      reportId: "r1",
+      claimType: "water_damage",
+      clientId: "c1",
+      client: { email: "job@example.test" },
+      report: {
+        id: "r1",
+        status: "DRAFT",
+        client: { email: "report@example.test" },
+      },
+    });
+    p.auditLog.findFirst.mockResolvedValue(null);
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/inspections/i1/comms-readiness"),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+
+    expect((await res.json()).data.clientEmail).toBe("report@example.test");
+  });
+
+  it("reports an unrun completeness check as unknown, not zero", async () => {
+    const { validateSubmission } = await import(
+      "@/lib/evidence/submission-gate"
+    );
+    (validateSubmission as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("db down"),
+    );
+    session.mockResolvedValue({ user: { id: "u1" } });
+    p.inspection.findUnique.mockResolvedValue({
+      reportId: null,
+      claimType: "water_damage",
+      clientId: null,
+      client: null,
+      report: null,
+    });
+    p.auditLog.findFirst.mockResolvedValue(null);
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/inspections/i1/comms-readiness"),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+    const body = await res.json();
+
+    expect(body.data.completenessBlockerCount).toBeNull();
+    expect(body.data.completenessCheckError).toBe(true);
+  });
 });

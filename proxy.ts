@@ -193,6 +193,11 @@ function isSetupOAuthRoute(pathname: string, method: string): boolean {
 function shouldBypassSetupGate(pathname: string, method: string): boolean {
   // Exact match for /setup (without trailing slash)
   if (pathname === "/setup") return true;
+  // Exact paths: a client unsubscribing has no account here, and a mail
+  // client's one-click POST carries no session. Neither can go to /setup.
+  if (pathname === "/pulse/unsubscribe" || pathname === "/api/pulse/unsubscribe") {
+    return true;
+  }
   return (
     SETUP_GATE_BYPASS.some((prefix) => pathname.startsWith(prefix)) ||
     isWizardDestination(pathname) ||

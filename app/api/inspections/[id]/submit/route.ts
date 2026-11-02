@@ -36,6 +36,7 @@ import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
+import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
 import { linkedReadingsAreaConflict, readingMatchesArea, unlinkedReadingsAreaAmbiguity } from "@/lib/moisture/reading-room-join";
 
 // POST - Submit inspection for processing
@@ -421,6 +422,10 @@ export async function POST(
         // Don't fail the submission, but log the error
         // In production, would retry via queue
       }
+
+      // After processing, so the client gets one email for where the job
+      // landed rather than one per internal status it passed through.
+      void notifyClientStepChange({ inspectionId: id, fromStatus: "DRAFT" });
 
       // After successful submit — trigger integration sync (non-blocking)
       // Only fires if the inspection is linked to a Report (reportId is nullable).

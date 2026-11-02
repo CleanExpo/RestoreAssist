@@ -117,6 +117,7 @@ vi.mock("@/lib/prisma", () => ({
           ? { id: "fe", active: true }
           : null,
     },
+    client: { findFirst: async () => null },
     clientCommsLog: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         db.logs.push(data);
@@ -156,6 +157,7 @@ const STEP_EVENT = {
 };
 
 beforeEach(() => {
+  process.env.PORTAL_SECRET = "test-secret";
   sendPulseUpdateEmail.mockReset().mockResolvedValue("mailtrap_msg_1");
   process.env.MAILTRAP_API_KEY = "mt_test";
   process.env.SENDER_EMAIL = "updates@restoreassist.app";

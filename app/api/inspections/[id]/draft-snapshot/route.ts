@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
+import { notifyClientDryingChange } from "@/lib/pulse/notify-client-change";
 import { sanitizeString } from "@/lib/sanitize";
 import { parseInspectionDate } from "@/lib/parse-date";
 import { deriveAreaColumns } from "@/lib/units";
@@ -600,6 +601,10 @@ export async function PUT(
         },
       });
     });
+
+    if (data.moistureReadings.length > 0) {
+      void notifyClientDryingChange(id);
+    }
 
     return NextResponse.json({
       saved: true,

@@ -14,6 +14,7 @@ vi.mock("@/lib/prisma", () => ({
     inspection: {
       findUnique: (...args: unknown[]) => inspectionFindUnique(...args),
     },
+    client: { findFirst: async () => null },
     clientCommsLog: {
       create: (...args: unknown[]) => commsCreate(...args),
       update: (...args: unknown[]) => commsUpdate(...args),
@@ -112,6 +113,7 @@ let commsSeq = 0;
 let seenKeys: Set<string>;
 
 beforeEach(() => {
+  process.env.PORTAL_SECRET = "test-secret";
   vi.clearAllMocks();
   commsSeq = 0;
   seenKeys = new Set();
@@ -138,7 +140,7 @@ beforeEach(() => {
 function sentCreateCall() {
   return commsCreate.mock.calls
     .map((c) => c[0].data)
-    .find((d: any) => d.status === "SENT");
+    .find((d: any) => d.status === "PENDING");
 }
 
 describe("dispatchPulseNotification — sends", () => {
@@ -159,7 +161,7 @@ describe("dispatchPulseNotification — sends", () => {
     // provider message id stamped after the send.
     expect(commsUpdate).toHaveBeenCalledWith({
       where: { id: "log_1" },
-      data: { providerMessageId: "mailtrap_msg_1" },
+      data: { status: "SENT", providerMessageId: "mailtrap_msg_1" },
     });
     // Deep-links to the client's portal token page.
     const arg = sendPulseUpdateEmail.mock.calls[0][0];
@@ -177,7 +179,7 @@ describe("dispatchPulseNotification — sends", () => {
     });
 
     expect(result.status).toBe("SENT");
-    expect(sentCreateCall().templateKey).toBe("pulse-drying-update");
+    expect(sentCreateCall().templateKey).toBe("pulse-drying-update#a1=on-track");
   });
 
   it("sends the daily-digest template for a DAILY_DIGEST event", async () => {

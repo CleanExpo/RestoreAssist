@@ -85,7 +85,7 @@ export const BOARD_HYGIENE_EVIDENCE: BoardHygieneEntry[] = [
       { kind: "file", path: "lib/pulse/pulse-unsubscribe-token.ts" },
       {
         kind: "grep",
-        path: "app/pulse/unsubscribe/page.tsx",
+        path: "app/api/pulse/unsubscribe/route.ts",
         pattern: "pulseOptOut",
       },
     ],

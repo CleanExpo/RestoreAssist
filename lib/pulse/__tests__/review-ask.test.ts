@@ -6,12 +6,14 @@ const commsUpdate = vi.fn();
 const sendPulseUpdateEmail = vi.fn();
 const reportError = vi.fn();
 const requireAddon = vi.fn();
+const clientFindFirst = vi.fn(async (..._args: unknown[]) => null as { id: string } | null);
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
       findUnique: (...args: unknown[]) => inspectionFindUnique(...args),
     },
+    client: { findFirst: (...args: unknown[]) => clientFindFirst(...args) },
     clientCommsLog: {
       create: (...args: unknown[]) => commsCreate(...args),
       update: (...args: unknown[]) => commsUpdate(...args),
@@ -83,6 +85,7 @@ let commsSeq = 0;
 let seenKeys: Set<string>;
 
 beforeEach(() => {
+  process.env.PORTAL_SECRET = "test-secret";
   vi.clearAllMocks();
   commsSeq = 0;
   seenKeys = new Set();
@@ -109,7 +112,7 @@ beforeEach(() => {
 function sentCreateCall() {
   return commsCreate.mock.calls
     .map((c) => c[0].data)
-    .find((d: any) => d.status === "SENT");
+    .find((d: any) => d.status === "PENDING");
 }
 
 describe("dispatchReviewAskNotification — sends", () => {
@@ -127,7 +130,7 @@ describe("dispatchReviewAskNotification — sends", () => {
     expect(sent.idempotencyKey).toBe("reviewask:insp_1");
     expect(commsUpdate).toHaveBeenCalledWith({
       where: { id: "log_1" },
-      data: { providerMessageId: "mailtrap_msg_1" },
+      data: { status: "SENT", providerMessageId: "mailtrap_msg_1" },
     });
     const arg = sendPulseUpdateEmail.mock.calls[0][0];
     expect(arg.html).toContain("https://g.page/r/acme-restoration/review");
@@ -251,4 +254,33 @@ describe("dispatchReviewAskNotification — CLIENT_COMMS entitlement gate (RA-69
     expect(result.status).toBe("SENT");
     expect(sendPulseUpdateEmail).toHaveBeenCalledTimes(1);
   });
+
+describe("dispatchReviewAskNotification — reservation and opt-out", () => {
+  it("holds the row as PENDING until the provider accepts", async () => {
+    await dispatchReviewAskNotification("insp_1");
+    expect(sentCreateCall()).toMatchObject({ status: "PENDING" });
+    expect(commsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "SENT" }),
+      }),
+    );
+  });
+
+  it("suppresses when another record with the address opted out", async () => {
+    clientFindFirst.mockResolvedValueOnce({ id: "client_dup" });
+    const result = await dispatchReviewAskNotification("insp_1");
+    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("reports SENT when only the log write afterwards fails", async () => {
+    commsUpdate.mockRejectedValueOnce(new Error("db blip"));
+    const result = await dispatchReviewAskNotification("insp_1");
+    expect(result.status).toBe("SENT");
+    expect(reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ stage: "pulse:log-update" }),
+    );
+  });
+});
 });
