@@ -126,9 +126,11 @@ async function checkStepChange(input: {
   }
 }
 
-// Readings can land in bursts; one check per job at a time is enough, because
-// the next reading re-checks anyway. The unique key still holds across servers.
+// Readings can land in bursts, so one check runs per job at a time. A call during
+// a check may hold a change that check already read past, so it asks for one fresh
+// check afterwards. The unique key still holds across servers.
 const dryingInFlight = new Set<string>();
+const dryingRecheck = new Set<string>();
 
 /**
  * Email the client when an area they were told about has changed state, at most
@@ -141,10 +143,16 @@ export function notifyClientDryingChange(inspectionId: string): Promise<void> {
 }
 
 async function runDryingCheck(inspectionId: string): Promise<void> {
-  if (dryingInFlight.has(inspectionId)) return;
+  if (dryingInFlight.has(inspectionId)) {
+    dryingRecheck.add(inspectionId);
+    return;
+  }
   dryingInFlight.add(inspectionId);
   try {
-    await checkDryingChange(inspectionId);
+    do {
+      dryingRecheck.delete(inspectionId);
+      await checkDryingChange(inspectionId);
+    } while (dryingRecheck.has(inspectionId));
   } catch (err) {
     reportError(err, {
       stage: "pulse:notify-drying",
@@ -155,6 +163,7 @@ async function runDryingCheck(inspectionId: string): Promise<void> {
     logOutcome(inspectionId, "drying", "error");
   } finally {
     dryingInFlight.delete(inspectionId);
+    dryingRecheck.delete(inspectionId);
   }
 }
 

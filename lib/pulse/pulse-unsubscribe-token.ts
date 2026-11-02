@@ -29,18 +29,48 @@ function fromBase64Url(input: string): string {
   return Buffer.from(paddedStr, "base64").toString("utf8");
 }
 
-function sign(clientId: string): string {
+function sign(subject: string): string {
   return createHmac("sha256", getSecret())
-    .update(`${PREFIX}:${clientId}`)
+    .update(`${PREFIX}:${subject}`)
     .digest("hex");
 }
 
-export function generatePulseUnsubscribeToken(clientId: string): string {
-  const payload = `${PREFIX}:${clientId}:${sign(clientId)}`;
-  return toBase64Url(payload);
+/**
+ * A keyed fingerprint of an address, so a token can name the address it was sent
+ * to without carrying it. Case and outer spaces do not change who it reaches.
+ */
+export function pulseAddressTag(email: string): string {
+  return createHmac("sha256", getSecret())
+    .update(`${PREFIX}-address:${email.trim().toLowerCase()}`)
+    .digest("hex")
+    .slice(0, 32);
 }
 
-export function verifyPulseUnsubscribeToken(token: string): string | null {
+/**
+ * Pass the address the email is going to. A record's address can be replaced, and
+ * an old link must not then opt out the new one. Leaving it out makes the older
+ * token form, which exists for links already in inboxes.
+ */
+export function generatePulseUnsubscribeToken(
+  clientId: string,
+  email?: string,
+): string {
+  if (email === undefined) {
+    return toBase64Url(`${PREFIX}:${clientId}:${sign(clientId)}`);
+  }
+  const tag = pulseAddressTag(email);
+  return toBase64Url(`${PREFIX}:${clientId}:${tag}:${sign(`${clientId}:${tag}`)}`);
+}
+
+export interface PulseUnsubscribeToken {
+  clientId: string;
+  /** Null on a link issued before tokens named their address. */
+  addressTag: string | null;
+}
+
+export function readPulseUnsubscribeToken(
+  token: string,
+): PulseUnsubscribeToken | null {
   let decoded: string;
   try {
     decoded = fromBase64Url(token);
@@ -48,11 +78,14 @@ export function verifyPulseUnsubscribeToken(token: string): string | null {
     return null;
   }
   const parts = decoded.split(":");
-  if (parts.length !== 3 || parts[0] !== PREFIX) return null;
+  if ((parts.length !== 3 && parts.length !== 4) || parts[0] !== PREFIX) {
+    return null;
+  }
   const clientId = parts[1];
-  const provided = parts[2];
-  if (!clientId || !provided) return null;
-  const expected = sign(clientId);
+  const addressTag = parts.length === 4 ? parts[2] : null;
+  const provided = parts[parts.length - 1];
+  if (!clientId || !provided || addressTag === "") return null;
+  const expected = sign(addressTag ? `${clientId}:${addressTag}` : clientId);
   try {
     const a = Buffer.from(provided, "hex");
     const b = Buffer.from(expected, "hex");
@@ -60,7 +93,11 @@ export function verifyPulseUnsubscribeToken(token: string): string | null {
   } catch {
     return null;
   }
-  return clientId;
+  return { clientId, addressTag };
+}
+
+export function verifyPulseUnsubscribeToken(token: string): string | null {
+  return readPulseUnsubscribeToken(token)?.clientId ?? null;
 }
 
 /**
@@ -76,9 +113,9 @@ function appOrigin(): string {
   return base;
 }
 
-export function buildPulseUnsubscribeUrl(clientId: string): string {
+export function buildPulseUnsubscribeUrl(clientId: string, email: string): string {
   const base = appOrigin();
-  const token = generatePulseUnsubscribeToken(clientId);
+  const token = generatePulseUnsubscribeToken(clientId, email);
   return `${base}/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
 }
 
@@ -86,8 +123,11 @@ export function buildPulseUnsubscribeUrl(clientId: string): string {
  * The RFC 8058 target a mail client POSTs to. The body link stays on the page,
  * which asks first, because mail scanners open links without anyone clicking.
  */
-export function buildPulseOneClickUnsubscribeUrl(clientId: string): string {
+export function buildPulseOneClickUnsubscribeUrl(
+  clientId: string,
+  email: string,
+): string {
   const base = appOrigin();
-  const token = generatePulseUnsubscribeToken(clientId);
+  const token = generatePulseUnsubscribeToken(clientId, email);
   return `${base}/api/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
 }

@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "fs";
 import { join, relative } from "path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -8,9 +9,20 @@ import { describe, expect, it } from "vitest";
  * "the status changed and the client heard nothing" cannot arrive unnoticed.
  */
 
-// The call, not the name: an import left behind must not count as a hook.
-const HOOK = "notifyClientStepChange({";
-const DRYING_HOOK = "notifyClientDryingChange(";
+const HOOK = "notifyClientStepChange";
+const DRYING_HOOK = "notifyClientDryingChange";
+
+// Parsed, not matched as text: an import left behind, a comment or a string
+// must not count as a hook.
+function callsHook(source: string, name: string): boolean {
+  const file = ts.createSourceFile("source.tsx", source, ts.ScriptTarget.Latest);
+  const visit = (node: ts.Node): boolean =>
+    (ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === name) ||
+    (ts.forEachChild(node, visit) ?? false);
+  return visit(file);
+}
 
 /** Writers that deliberately do not fire the step email, each with its reason. */
 const ALLOWLIST: Record<string, string> = {
@@ -126,6 +138,26 @@ describe("the scanner recognises every write form", () => {
   });
 });
 
+describe("the hook check counts only a real call", () => {
+  it.each([
+    ["a line comment", `// void notifyClientStepChange({ inspectionId });`],
+    ["a block comment", `/* void notifyClientStepChange({ inspectionId }); */`],
+    ["a string", `const note = "notifyClientStepChange({";`],
+    ["an import", `import { notifyClientStepChange } from "./notify";`],
+  ])("rejects %s", (_form, sample) => {
+    expect(callsHook(sample, HOOK)).toBe(false);
+  });
+
+  it("accepts a discarded call inside a function", () => {
+    expect(
+      callsHook(
+        `export async function POST() { void notifyClientStepChange({ inspectionId }); }`,
+        HOOK,
+      ),
+    ).toBe(true);
+  });
+});
+
 describe("status writers on this tree", () => {
   const found = writers();
 
@@ -137,7 +169,7 @@ describe("status writers on this tree", () => {
   it("hooks or explains every writer", () => {
     const unexplained = found.filter(
       (file) =>
-        !ALLOWLIST[file] && !readFileSync(file, "utf8").includes(HOOK),
+        !ALLOWLIST[file] && !callsHook(readFileSync(file, "utf8"), HOOK),
     );
     expect(unexplained).toEqual([]);
   });
@@ -157,10 +189,7 @@ describe("status writers on this tree", () => {
       "app/api/inspections/[id]/drying-goal/route.ts",
       "lib/live-teacher/tools/take-reading.ts",
     ]) {
-      expect(
-        readFileSync(file, "utf8").split(DRYING_HOOK).length,
-        file,
-      ).toBeGreaterThan(1);
+      expect(callsHook(readFileSync(file, "utf8"), DRYING_HOOK), file).toBe(true);
     }
   });
 
@@ -171,7 +200,7 @@ describe("status writers on this tree", () => {
       "app/api/inspections/[id]/cost-estimates/route.ts",
       "app/api/inspections/[id]/generate-invoice/route.ts",
     ]) {
-      expect(readFileSync(file, "utf8")).toContain(HOOK);
+      expect(callsHook(readFileSync(file, "utf8"), HOOK), file).toBe(true);
     }
   });
 });

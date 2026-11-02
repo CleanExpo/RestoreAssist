@@ -174,8 +174,8 @@ export async function dispatchReviewAskNotification(
   let unsubscribeUrl: string | undefined;
   let oneClickUrl: string | undefined;
   try {
-    unsubscribeUrl = buildPulseUnsubscribeUrl(client.id);
-    oneClickUrl = buildPulseOneClickUnsubscribeUrl(client.id);
+    unsubscribeUrl = buildPulseUnsubscribeUrl(client.id, recipient);
+    oneClickUrl = buildPulseOneClickUnsubscribeUrl(client.id, recipient);
   } catch {
     unsubscribeUrl = undefined;
   }

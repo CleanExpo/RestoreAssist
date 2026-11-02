@@ -497,16 +497,41 @@ describe("notifyClientDryingChange", () => {
     expect(rows[0].suppressionReason).toBe("OPT_OUT");
   });
 
-  it("drops a call while one is in flight for the job", async () => {
+  it("folds calls during a check into one fresh check afterwards", async () => {
     await Promise.all([
       notifyClientDryingChange("insp_1"),
       notifyClientDryingChange("insp_1"),
       notifyClientDryingChange("insp_1"),
     ]);
 
-    // Toggle, readings and dispatcher: one pass, not three.
-    expect(h.inspectionFindUnique).toHaveBeenCalledTimes(3);
+    // Toggle, readings and dispatcher, then the toggle of one fresh pass, which
+    // stops at today's row: two passes, not three, and one email.
+    expect(h.inspectionFindUnique).toHaveBeenCalledTimes(4);
     expect(sends()).toBe(1);
+  });
+
+  it("does not lose a change that arrives while a check reads old state", async () => {
+    vi.useFakeTimers({ now: DAY_ONE, toFake: ["Date"] });
+    await notifyClientDryingChange("insp_1");
+    expect(sends()).toBe(1);
+
+    vi.setSystemTime(DAY_TWO);
+    let release!: (value: null) => void;
+    h.goalFindUnique.mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    const first = notifyClientDryingChange("insp_1");
+    // Let the first check read the unchanged readings and pause at the goal.
+    await vi.waitFor(() => expect(h.goalFindUnique).toHaveBeenCalledTimes(2));
+
+    h.inspectionFindUnique.mockResolvedValue(job({ moistureReadings: [wet] }));
+    await notifyClientDryingChange("insp_1");
+    release(null);
+    await first;
+
+    expect(sends()).toBe(2);
   });
 
   it("resolves when the send fails, and tries again on a later day", async () => {

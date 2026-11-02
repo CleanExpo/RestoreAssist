@@ -3,12 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   findUnique: vi.fn(),
+  findMany: vi.fn(),
   updateMany: vi.fn(),
   applyRateLimit: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { client: { findUnique: h.findUnique, updateMany: h.updateMany } },
+  prisma: {
+    client: {
+      findUnique: h.findUnique,
+      findMany: h.findMany,
+      updateMany: h.updateMany,
+    },
+  },
 }));
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: h.applyRateLimit }));
 
@@ -56,6 +63,63 @@ describe("POST /api/pulse/unsubscribe", () => {
         email: { equals: "Homeowner@example.test", mode: "insensitive" },
       },
       data: { pulseOptOut: true },
+    });
+  });
+
+  it("accepts a bound link when the record still holds that address", async () => {
+    const res = await POST(
+      request(
+        generatePulseUnsubscribeToken("client_a", "homeowner@example.test"),
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(h.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: "owner_1",
+        email: { equals: "Homeowner@example.test", mode: "insensitive" },
+      },
+      data: { pulseOptOut: true },
+    });
+    expect(h.findMany).not.toHaveBeenCalled();
+  });
+
+  describe("a bound link after the record's address changed", () => {
+    const stale = () =>
+      generatePulseUnsubscribeToken("client_a", "old@example.test");
+
+    beforeEach(() => {
+      h.findUnique.mockResolvedValue({
+        id: "client_a",
+        userId: "owner_1",
+        email: "replacement@example.test",
+      });
+    });
+
+    it("never opts out the replacement address", async () => {
+      h.findMany.mockResolvedValue([
+        { id: "client_a", email: "replacement@example.test" },
+      ]);
+
+      const res = await POST(request(stale()));
+
+      expect(res.status).toBe(200);
+      expect(h.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("still opts out other records in this business holding the old address", async () => {
+      h.findMany.mockResolvedValue([
+        { id: "client_a", email: "replacement@example.test" },
+        { id: "client_b", email: "OLD@example.test" },
+      ]);
+
+      await POST(request(stale()));
+
+      expect(h.findMany.mock.calls[0][0].where.userId).toBe("owner_1");
+      expect(h.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ["client_b"] }, userId: "owner_1" },
+        data: { pulseOptOut: true },
+      });
     });
   });
 

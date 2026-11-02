@@ -3,6 +3,8 @@ import {
   buildPulseOneClickUnsubscribeUrl,
   buildPulseUnsubscribeUrl,
   generatePulseUnsubscribeToken,
+  readPulseUnsubscribeToken,
+  pulseAddressTag,
   verifyPulseUnsubscribeToken,
 } from "../pulse-unsubscribe-token";
 
@@ -23,8 +25,43 @@ describe("pulse unsubscribe token", () => {
     expect(verifyPulseUnsubscribeToken(tampered)).toBeNull();
   });
 
+  it("binds a token to the address it was sent to", () => {
+    const token = generatePulseUnsubscribeToken("client_abc", " Home@Example.test ");
+    expect(readPulseUnsubscribeToken(token)).toEqual({
+      clientId: "client_abc",
+      addressTag: pulseAddressTag("home@example.test"),
+    });
+    expect(pulseAddressTag("other@example.test")).not.toBe(
+      pulseAddressTag("home@example.test"),
+    );
+    expect(token).not.toContain(Buffer.from("home@example.test").toString("base64"));
+  });
+
+  it("still reads a link already in an inbox, with no address tag", () => {
+    const token = generatePulseUnsubscribeToken("client_abc");
+    expect(readPulseUnsubscribeToken(token)).toEqual({
+      clientId: "client_abc",
+      addressTag: null,
+    });
+  });
+
+  it("refuses a bound token with its address tag changed", () => {
+    const token = generatePulseUnsubscribeToken("client_abc", "home@example.test");
+    const parts = Buffer.from(token, "base64url").toString("utf8").split(":");
+    parts[2] = pulseAddressTag("other@example.test");
+    const forged = Buffer.from(parts.join(":")).toString("base64url");
+    expect(readPulseUnsubscribeToken(forged)).toBeNull();
+  });
+
+  it("refuses a bound signature reused without its tag", () => {
+    const token = generatePulseUnsubscribeToken("client_abc", "home@example.test");
+    const parts = Buffer.from(token, "base64url").toString("utf8").split(":");
+    const forged = Buffer.from([parts[0], parts[1], parts[3]].join(":")).toString("base64url");
+    expect(readPulseUnsubscribeToken(forged)).toBeNull();
+  });
+
   it("builds an app unsubscribe URL", () => {
-    const url = buildPulseUnsubscribeUrl("client_abc");
+    const url = buildPulseUnsubscribeUrl("client_abc", "home@example.test");
     expect(url).toMatch(/^https:\/\/app\.example\.com\/pulse\/unsubscribe\?token=/);
     const token = new URL(url).searchParams.get("token");
     expect(token && verifyPulseUnsubscribeToken(token)).toBe("client_abc");
@@ -34,8 +71,8 @@ describe("pulse unsubscribe token", () => {
     "refuses to build either link from the app URL %j",
     (value) => {
       process.env.NEXT_PUBLIC_APP_URL = value;
-      expect(() => buildPulseUnsubscribeUrl("client_abc")).toThrow(/https/);
-      expect(() => buildPulseOneClickUnsubscribeUrl("client_abc")).toThrow(/https/);
+      expect(() => buildPulseUnsubscribeUrl("client_abc", "h@example.test")).toThrow(/https/);
+      expect(() => buildPulseOneClickUnsubscribeUrl("client_abc", "h@example.test")).toThrow(/https/);
     },
   );
 });
