@@ -4,12 +4,13 @@
  * Called from every route that changes a job's status or its drying readings.
  * Neither function ever rejects, so a failed email cannot fail the request or
  * roll back the change. Call them fire-and-forget (`void notify...`, rule 13)
- * after the change has committed.
+ * after the change has committed; they hold the request open themselves.
  *
  * Every exit logs one `[pulse:hook]` line, so "no email went out" can be told
  * apart from "the hook never ran".
  */
 
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
 import {
@@ -30,6 +31,20 @@ const DRYING_EVENT = "DRYING_GOAL_CHANGE";
 // More readings than any real job holds; a bound, not a business rule.
 const MAX_READINGS = 5000;
 
+/**
+ * Keep the request alive until the email work ends, so a host that stops work
+ * once the response is sent cannot strand a reservation at PENDING. Outside a
+ * request (scripts) `after` throws, and there is nothing to extend.
+ */
+function holdRequestOpen(work: Promise<void>): Promise<void> {
+  try {
+    after(() => work);
+  } catch {
+    // Not in a request scope.
+  }
+  return work;
+}
+
 function logOutcome(
   inspectionId: string,
   kind: "step" | "drying",
@@ -48,7 +63,14 @@ function dispatchOutcome(result: PulseDispatchResult): string {
  * `fromStatus`. The status is read fresh, so this reports what the job is now
  * rather than what the caller believed.
  */
-export async function notifyClientStepChange(input: {
+export function notifyClientStepChange(input: {
+  inspectionId: string;
+  fromStatus: string;
+}): Promise<void> {
+  return holdRequestOpen(checkStepChange(input));
+}
+
+async function checkStepChange(input: {
   inspectionId: string;
   fromStatus: string;
 }): Promise<void> {
@@ -113,9 +135,11 @@ const dryingInFlight = new Set<string>();
  * once per AU day per job. The first state counts as a change. An area appearing
  * for the first time does not, because nothing the client was told has moved.
  */
-export async function notifyClientDryingChange(
-  inspectionId: string,
-): Promise<void> {
+export function notifyClientDryingChange(inspectionId: string): Promise<void> {
+  return holdRequestOpen(runDryingCheck(inspectionId));
+}
+
+async function runDryingCheck(inspectionId: string): Promise<void> {
   if (dryingInFlight.has(inspectionId)) return;
   dryingInFlight.add(inspectionId);
   try {
