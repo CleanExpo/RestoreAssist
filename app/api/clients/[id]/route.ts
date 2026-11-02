@@ -265,8 +265,6 @@ export async function PUT(
 
     return NextResponse.json({
       ...client,
-      totalRevenue: 0,
-      lastJob: "Never",
       reportsCount: client._count.reports,
     });
   } catch (error) {

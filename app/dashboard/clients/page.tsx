@@ -281,7 +281,10 @@ export default function ClientsPage() {
       if (response.ok) {
         const updatedClient = await response.json();
         setClients(
-          clients.map((c) => (c.id === selectedClient.id ? updatedClient : c)),
+          // The edit response has no figures, so the listed ones stay.
+          clients.map((c) =>
+            c.id === selectedClient.id ? { ...c, ...updatedClient } : c,
+          ),
         );
         setShowEditModal(false);
         setSelectedClient(null);

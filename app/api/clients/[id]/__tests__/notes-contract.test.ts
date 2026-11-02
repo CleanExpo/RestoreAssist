@@ -52,6 +52,12 @@ describe("Client Notes persistence contract", () => {
     expect((await res.json()).notes).toBe(notes);
   });
 
+  it("does not state figures an edit never read (RA-8146)", async () => {
+    const saved = await (await PUT(put("note"), params)).json();
+    expect(saved).not.toHaveProperty("totalRevenue");
+    expect(saved).not.toHaveProperty("lastJob");
+  });
+
   it("rejects 5,001 characters clearly before any write", async () => {
     const res = await PUT(put("x".repeat(5_001)), params);
 
