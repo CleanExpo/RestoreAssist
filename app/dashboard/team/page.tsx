@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -97,6 +98,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatInviteExpiry } from "./invite-expiry";
+import { SeatLimitPanel } from "./components/SeatLimitPanel";
+import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
+import { isCapacitorIOS } from "@/lib/capacitor";
+import {
+  clearInviteDraft,
+  readInviteDraft,
+  saveInviteDraft,
+} from "@/lib/team/invite-draft";
 
 type Member = {
   id: string;
@@ -181,6 +190,15 @@ export default function TeamPage() {
   const isTechnician = session?.user?.role === "USER";
   const canInvite = isAdmin || isManager;
   const canViewInvites = isAdmin || isManager;
+  const userId = session?.user?.id;
+  const searchParams = useSearchParams();
+  const returningToInvite = searchParams?.get("invite") === "1";
+  const checkoutCancelled = searchParams?.get("checkout") === "cancelled";
+  const iosShell = useServerIosShell();
+  const [seatLimitHit, setSeatLimitHit] = useState(false);
+  const [seatPaymentDue, setSeatPaymentDue] = useState(false);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const hasLoaded = useRef(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -221,14 +239,19 @@ export default function TeamPage() {
   }, []);
 
   const load = async () => {
-    setLoading(true);
+    // Only the first load may show the spinner: it replaces the whole page, and
+    // a refresh must not unmount an invite form the owner is part way through.
+    if (!hasLoaded.current) setLoading(true);
     try {
       const [mRes, iRes] = await Promise.all([
         fetch("/api/team/members"),
         canViewInvites ? fetch("/api/team/invites") : Promise.resolve(null),
       ]);
       const mJson = await mRes.json();
-      if (mRes.ok) setMembers(mJson.members || []);
+      if (mRes.ok) {
+        setMembers(mJson.members || []);
+        setSeatPaymentDue(mJson.seatPaymentDue === true);
+      }
       else toast.error(apiErrorMessage(mJson, "Failed to load team"));
       if (iRes) {
         const iJson = await iRes.json();
@@ -240,6 +263,7 @@ export default function TeamPage() {
     } catch {
       toast.error("Failed to load team data");
     } finally {
+      hasLoaded.current = true;
       setLoading(false);
     }
   };
@@ -247,6 +271,21 @@ export default function TeamPage() {
   useEffect(() => {
     if (session?.user) load();
   }, [session?.user?.role]);
+
+  // Back from Stripe, or the setup checklist: open the invite with the entry kept.
+  useEffect(() => {
+    if (!returningToInvite || !userId || !canInvite) return;
+    const draft = readInviteDraft(userId);
+    if (draft) inviteForm.reset(draft);
+    setShowInviteForm(true);
+    setFocusRequest((n) => n + 1);
+  }, [returningToInvite, userId, canInvite, inviteForm]);
+
+  useEffect(() => {
+    if (focusRequest > 0 && showInviteForm && !loading) {
+      inviteForm.setFocus("email");
+    }
+  }, [focusRequest, showInviteForm, loading, inviteForm]);
 
   // Managers can only invite Technicians: when opening invite form as Manager, force role to Technician
   useEffect(() => {
@@ -263,7 +302,7 @@ export default function TeamPage() {
       createInviteIdempotencyKey.current ?? globalThis.crypto.randomUUID();
     createInviteIdempotencyKey.current = idempotencyKey;
     let receivedResponse = false;
-    let completedResponse = false;
+    setSeatLimitHit(false);
     try {
       const res = await fetch("/api/team/invites", {
         method: "POST",
@@ -274,9 +313,11 @@ export default function TeamPage() {
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
       receivedResponse = true;
-      completedResponse = res.ok;
       const json = await res.json().catch(() => ({}));
 
+      if (res.ok || json.partial) {
+        if (userId) clearInviteDraft(userId);
+      }
       if (json.partial) {
         toast.error(
           json.message ?? "The change was saved, but the email could not be sent.",
@@ -285,6 +326,14 @@ export default function TeamPage() {
         inviteForm.reset({ email: "", role: "USER" });
         setShowInviteForm(false);
         await load();
+        return;
+      }
+      // By status, never by words: the routing below reads the message text.
+      if (res.status === 402) {
+        if (userId) {
+          saveInviteDraft(userId, { email: inviteEmail, role: inviteRole });
+        }
+        setSeatLimitHit(true);
         return;
       }
       if (!res.ok) {
@@ -350,7 +399,10 @@ export default function TeamPage() {
       inviteForm.setError("root", { type: "network", message });
       toast.error(message);
     } finally {
-      if (receivedResponse && completedResponse) {
+      // Any answer settles the attempt: the server stores refusals against the
+      // key, so reusing it would replay a refusal the owner has since paid to
+      // clear. Only a lost response keeps it.
+      if (receivedResponse) {
         createInviteIdempotencyKey.current = null;
       }
       setCreating(false);
@@ -573,6 +625,15 @@ export default function TeamPage() {
           ) : undefined
         }
       />
+
+      {seatPaymentDue && (
+        <SeatLimitPanel
+          audience={iosShell === true || isCapacitorIOS() ? "ios" : "owner"}
+          headline="Your free trial seat has ended, and your technician can't work until it is paid for. Nothing has been deleted."
+          onBeforeBuy={() => undefined}
+          onSeatAdded={() => void load()}
+        />
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -837,6 +898,30 @@ export default function TeamPage() {
                       />
                     </div>
                   </div>
+                  {checkoutCancelled && (
+                    <p className="text-sm mt-3" role="status">
+                      Checkout cancelled. Nothing was charged.
+                    </p>
+                  )}
+                  {seatLimitHit && (
+                    <SeatLimitPanel
+                      audience={
+                        iosShell === true || isCapacitorIOS()
+                          ? "ios"
+                          : isAdmin
+                            ? "owner"
+                            : "manager"
+                      }
+                      onBeforeBuy={() => {
+                        if (userId) saveInviteDraft(userId, inviteForm.getValues());
+                      }}
+                      onSeatAdded={() => {
+                        setSeatLimitHit(false);
+                        setFocusRequest((n) => n + 1);
+                        void load();
+                      }}
+                    />
+                  )}
                   {inviteForm.formState.errors.root && (
                     <p className="text-destructive text-sm mt-3" role="alert">
                       {inviteForm.formState.errors.root.message}

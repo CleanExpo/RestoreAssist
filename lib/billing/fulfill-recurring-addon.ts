@@ -29,6 +29,7 @@ import {
   COMPLIMENTARY_PRICE_ID,
   isComplimentaryEntitlement,
 } from "@/lib/billing/founding-trial-grant";
+import { TRIAL_SEAT_PRICE_ID } from "@/lib/billing/technician-seats";
 
 export interface RecurringAddonFulfillResult extends FulfillResult {
   sku?: string;
@@ -65,6 +66,16 @@ export async function applyRecurringAddonSubscription(
   const active =
     subscription.status === "active" || subscription.status === "trialing";
   const stripePriceId = subscription.items?.data?.[0]?.price?.id ?? null;
+
+  // D-029 — only a paid seat replaces the free trial seat's marker. An abandoned
+  // or declined checkout must not lift the day 15 lock by overwriting it.
+  if (!active && descriptor.perSeat) {
+    const current = await prisma.featureEntitlement.findUnique({
+      where: { workspaceId_sku: { workspaceId, sku: descriptor.sku } },
+      select: { stripePriceId: true },
+    });
+    if (current?.stripePriceId === TRIAL_SEAT_PRICE_ID) return true;
+  }
 
   // RA-6920 B6 — persist the purchased seat count for the quantity-based
   // TECHNICIAN_SEATS add-on only. Flat add-ons leave `seats` untouched (null).

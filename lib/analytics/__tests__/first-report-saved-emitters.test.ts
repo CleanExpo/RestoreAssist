@@ -792,6 +792,11 @@ describe("not counted: every other seed, demo, sample or partner-push writer", (
   it.each(files)("%s never records first_report_saved", (file) => {
     const source = readFileSync(join(process.cwd(), file), "utf8");
     expect(source).not.toMatch(/first_report_saved/);
-    expect(source).not.toMatch(/@\/lib\/analytics\/(track|first-report-saved)/);
+    // Setup activation records its own setup_completed event through track.
+    const writers =
+      file === "app/api/setup/activate/route.ts"
+        ? /@\/lib\/analytics\/first-report-saved/
+        : /@\/lib\/analytics\/(track|first-report-saved)/;
+    expect(source).not.toMatch(writers);
   });
 });

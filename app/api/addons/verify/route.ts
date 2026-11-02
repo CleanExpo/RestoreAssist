@@ -1,3 +1,5 @@
+import { track } from "@/lib/analytics/track";
+import { TECHNICIAN_SEATS_SKU } from "@/lib/billing/technician-seats-addon";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -105,10 +107,20 @@ export async function POST(request: NextRequest) {
               code: "VALIDATION",
               message: result.reason,
               status: 400,
+              stage: "addon-verify-not-applied",
+              context: {
+                userId: session.user.id,
+                stripeSessionId: checkoutSession.id,
+              },
             });
           }
 
           const sku = result.sku ?? checkoutSession.metadata?.sku ?? "";
+          if (sku === TECHNICIAN_SEATS_SKU) {
+            await track(session.user.id, "seat_granted", {
+              stripeSessionId: checkoutSession.id,
+            });
+          }
           const descriptor = sku ? getRecurringAddon(sku) : undefined;
 
           return NextResponse.json({

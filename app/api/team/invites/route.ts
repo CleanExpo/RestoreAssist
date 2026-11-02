@@ -17,6 +17,8 @@ import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
 import { ROLE_CHANGE_AUDIT_PROVIDER } from "@/lib/billing/invite-membership";
 import { getIdempotencyKey, withIdempotency } from "@/lib/idempotency";
 import { deliverEmailOnce, EmailDeliveryPending } from "@/lib/email-delivery-ledger";
+import { ensureOwnerOrganization } from "@/lib/organization/ensure-owner-organization";
+import { track } from "@/lib/analytics/track";
 
 function canInvite(role?: string) {
   // Only ADMIN and MANAGER can create invites
@@ -34,37 +36,6 @@ const inviteRequestSchema = z.object({
   email: z.string().trim().email().max(320),
   role: z.enum(["MANAGER", "USER"]),
 });
-
-async function ensureOrganizationForUser(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) throw new Error("User not found");
-
-  if (user.organizationId) return user.organizationId;
-
-  // Backward compatible: if an existing user has no org, create one lazily and attach.
-  // Re-read and claim the missing organisation atomically. Concurrent first
-  // requests must not create multiple owner organisations and leave orphans.
-  return prisma.$transaction(async (tx) => {
-    const freshUser = await tx.user.findUnique({ where: { id: userId } });
-    if (!freshUser) throw new Error("User not found");
-    if (freshUser.organizationId) return freshUser.organizationId;
-
-    const org = await tx.organization.create({
-      data: {
-        name: `${freshUser.name || "Account"} Organisation`,
-        ownerId: userId,
-      },
-    });
-    const claimed = await tx.user.updateMany({
-      where: { id: userId, organizationId: null },
-      data: { organizationId: org.id },
-    });
-    if (claimed.count !== 1) {
-      throw new Error("Organization assignment changed concurrently");
-    }
-    return org.id;
-  });
-}
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -95,7 +66,7 @@ export async function GET(request: NextRequest) {
   }
   const orgId =
     dbUser.organizationId ??
-    (await ensureOrganizationForUser(session.user.id));
+    (await ensureOwnerOrganization(session.user.id));
 
   // Build where clause based on user role
   let whereClause: any = { organizationId: orgId };
@@ -205,7 +176,7 @@ export async function POST(req: NextRequest) {
   }
   const orgId =
     dbUser.organizationId ??
-    (await ensureOrganizationForUser(session.user.id));
+    (await ensureOwnerOrganization(session.user.id));
 
   // Check if user already exists
   const existingUser = await prisma.user.findFirst({
@@ -288,6 +259,7 @@ export async function POST(req: NextRequest) {
       if (!membershipResult.ok) {
         const error = membershipResult.error;
         if (error instanceof TechnicianSeatLimitReached) {
+          await track(session.user.id, "seat_limit_hit", { organizationId: orgId });
           return apiError(req, {
             code: "PAYMENT_REQUIRED",
             message: TECHNICIAN_SEAT_REQUIRED_MESSAGE,
@@ -497,6 +469,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (role === "USER") {
+      await track(session.user.id, "invite_sent_after_purchase", {
+        inviteId: invite.id,
+      });
+    }
+
     return NextResponse.json({
       message: "Invite sent. The recipient will set their own password.",
       invite: {
@@ -508,6 +486,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     if (error instanceof TechnicianSeatLimitReached) {
+      await track(session.user.id, "seat_limit_hit", {});
       return apiError(req, {
         code: "PAYMENT_REQUIRED",
         message: TECHNICIAN_SEAT_REQUIRED_MESSAGE,

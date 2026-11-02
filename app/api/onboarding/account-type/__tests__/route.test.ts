@@ -1,100 +1,105 @@
-/**
- * Tests for POST /api/onboarding/account-type
- * Route: app/api/onboarding/account-type/route.ts
- *
- * RA-6793: the onboarding ABN gate must enforce the ATO mod-89 checksum
- * (not just an 11-digit length check), matching /api/user/profile. An invalid
- * ABN on a tax invoice forces the recipient to withhold 47% PAYG, so a
- * structurally-malformed ABN must be rejected at onboarding.
- *
- * Mocks session + prisma so the test runs offline (no DB / network).
- */
-
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const getServerSession = vi.fn();
-const userUpdate = vi.fn();
-
-vi.mock("next-auth", () => ({
-  getServerSession: (...a: unknown[]) => getServerSession(...a),
-}));
+vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/csrf", () => ({ validateCsrf: vi.fn(() => null) }));
+vi.mock("@/lib/analytics/track", () => ({ track: vi.fn(async () => {}) }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    user: { update: (...a: unknown[]) => userUpdate(...a) },
-  },
+  prisma: { user: { findUnique: vi.fn(), update: vi.fn() } },
+}));
+vi.mock("@/lib/organization/ensure-owner-organization", () => ({
+  ensureOwnerOrganization: vi.fn(async () => "org1"),
+  OwnerOrganizationRefused: class extends Error {},
 }));
 
-// Import route AFTER mocks are registered.
-const { POST } = await import("../route");
+import { POST } from "../route";
+import { getServerSession } from "next-auth";
+import { prisma } from "@/lib/prisma";
+import { ensureOwnerOrganization } from "@/lib/organization/ensure-owner-organization";
+import { track } from "@/lib/analytics/track";
 
-// Valid ABN (passes ATO mod-89 checksum) and an invalid-checksum sibling —
-// same 11 digits with the final digit bumped so the weighted sum no longer
-// divides by 89.
-const VALID_ABN = "53004085616"; // Telstra-style ABN, checksum-valid
-const INVALID_CHECKSUM_ABN = "53004085617"; // 11 digits but wrong checksum
+const VALID_ABN = "51824753556";
 
-function makeReq(body: unknown): NextRequest {
-  return new NextRequest("http://localhost/api/onboarding/account-type", {
-    method: "POST",
-    body: typeof body === "string" ? body : JSON.stringify(body),
-    headers: { "content-type": "application/json" },
+function post(body: unknown) {
+  return POST(
+    new NextRequest("http://localhost/api/onboarding/account-type", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+    }),
+  );
+}
+
+describe("POST /api/onboarding/account-type", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1" },
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      role: "ADMIN",
+      pendingInviteIdentity: false,
+    } as never);
   });
-}
 
-function validBody(overrides: Record<string, unknown> = {}) {
-  return {
-    businessName: "Acme Restoration Pty Ltd",
-    abn: VALID_ABN,
-    state: "QLD",
-    acceptedTerms: true,
-    ...overrides,
-  };
-}
+  it("gives a Google owner an organisation named for the business, with terms and the flip in the same call", async () => {
+    const res = await post({ businessName: "Coastal", acceptedTerms: true });
+    expect(res.status).toBe(200);
+    expect(ensureOwnerOrganization).toHaveBeenCalledTimes(1);
+    const [userId, opts] = vi.mocked(ensureOwnerOrganization).mock.calls[0];
+    expect(userId).toBe("u1");
+    expect(opts?.name).toBe("Coastal");
+    expect(opts?.userData).toMatchObject({
+      businessName: "Coastal",
+      needsOnboarding: false,
+    });
+    expect(opts?.userData?.acceptedTermsAt).toBeInstanceOf(Date);
+    expect(track).toHaveBeenCalledWith("u1", "terms_accepted", expect.anything());
+  });
 
-beforeEach(() => {
-  getServerSession.mockReset();
-  userUpdate.mockReset();
-  getServerSession.mockResolvedValue({ user: { id: "u_1" } });
-  userUpdate.mockResolvedValue({ id: "u_1" });
-});
+  it("a New Zealand owner passes with no ABN and no state, and neither field is overwritten", async () => {
+    const res = await post({ businessName: "Kiwi Dry", acceptedTerms: true });
+    expect(res.status).toBe(200);
+    const opts = vi.mocked(ensureOwnerOrganization).mock.calls[0][1];
+    expect(opts?.userData).not.toHaveProperty("businessABN");
+    expect(opts?.userData).not.toHaveProperty("businessState");
+  });
 
-describe("POST /api/onboarding/account-type — ABN checksum gate (RA-6793)", () => {
-  it("rejects an 11-digit ABN that fails the ATO checksum", async () => {
-    const res = await POST(makeReq(validBody({ abn: INVALID_CHECKSUM_ABN })));
+  it("a cached bundle's full form still saves its details", async () => {
+    const res = await post({
+      businessName: "Coastal",
+      abn: VALID_ABN,
+      state: "qld",
+      acceptedTerms: true,
+    });
+    expect(res.status).toBe(200);
+    expect(
+      vi.mocked(ensureOwnerOrganization).mock.calls[0][1]?.userData,
+    ).toMatchObject({ businessABN: VALID_ABN, businessState: "QLD" });
+  });
+
+  it.each([
+    ["no terms", { businessName: "C" }],
+    ["no name", { acceptedTerms: true }],
+    ["a bad ABN", { businessName: "C", acceptedTerms: true, abn: "12345678901" }],
+    ["a bad state", { businessName: "C", acceptedTerms: true, state: "ZZ" }],
+  ])("refuses %s and creates nothing", async (_label, body) => {
+    const res = await post(body);
     expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error.message).toMatch(/Invalid ABN/i);
-    expect(userUpdate).not.toHaveBeenCalled();
+    expect(ensureOwnerOrganization).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
-  it("accepts a valid ABN and persists it", async () => {
-    const res = await POST(makeReq(validBody()));
+  it.each([
+    ["an invited identity", { role: "ADMIN", pendingInviteIdentity: true }],
+    ["a removed technician", { role: "USER", pendingInviteIdentity: false }],
+    ["a manager", { role: "MANAGER", pendingInviteIdentity: false }],
+  ])("%s accepts terms but gets no organisation", async (_label, dbUser) => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(dbUser as never);
+    const res = await post({ businessName: "C", acceptedTerms: true });
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.data.ok).toBe(true);
-    expect(userUpdate).toHaveBeenCalledTimes(1);
-    const arg = userUpdate.mock.calls[0][0] as {
-      data: { businessABN: string };
-    };
-    expect(arg.data.businessABN).toBe(VALID_ABN);
-  });
-
-  it("accepts a valid ABN with embedded whitespace", async () => {
-    const res = await POST(makeReq(validBody({ abn: "53 004 085 616" })));
-    expect(res.status).toBe(200);
-    const arg = userUpdate.mock.calls[0][0] as {
-      data: { businessABN: string };
-    };
-    // Whitespace is stripped before persistence.
-    expect(arg.data.businessABN).toBe(VALID_ABN);
-  });
-
-  it("rejects when unauthenticated before touching the ABN", async () => {
-    getServerSession.mockResolvedValue(null);
-    const res = await POST(makeReq(validBody()));
-    expect(res.status).toBe(401);
-    expect(userUpdate).not.toHaveBeenCalled();
+    expect(ensureOwnerOrganization).not.toHaveBeenCalled();
+    expect(prisma.user.update).toHaveBeenCalledTimes(1);
   });
 });

@@ -15,6 +15,7 @@
  *   - RA-7574: headshot upload failure is a warning, not a 502 — account still joins
  */
 
+import { track } from "@/lib/analytics/track";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
@@ -669,6 +670,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       }
       throw error;
     }
+    await track(session.user.id, "technician_accepted", { provider: "google" });
     return acceptanceResponse(
       "google",
       invite.email,
@@ -734,8 +736,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const headshotUpload = await tryUploadInviteHeadshot(headshotDataUrl);
 
   // Create the user and mark the invite used atomically.
+  let acceptedUserId: string;
   try {
-    await prisma.$transaction(async (tx) => {
+    acceptedUserId = await prisma.$transaction(async (tx) => {
       const now = new Date();
       if (invite.managedById) {
         const manager = await tx.user.findFirst({
@@ -797,6 +800,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
           acceptancePayloadHash: payloadHash,
         },
       });
+      return createdUser.id;
     });
   } catch (error) {
     if (headshotUpload) {
@@ -862,6 +866,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     throw error;
   }
 
+  await track(acceptedUserId, "technician_accepted", {
+    provider: "credentials",
+  });
   return acceptanceResponse(
     "credentials",
     invite.email,

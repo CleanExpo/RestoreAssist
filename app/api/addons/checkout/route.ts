@@ -15,6 +15,19 @@ import { getRecurringAddon } from "@/lib/billing/addon-registry";
 import { TECHNICIAN_SEATS_MAX_PER_CHECKOUT } from "@/lib/billing/technician-seats-addon";
 import { isComplimentaryEntitlement } from "@/lib/billing/founding-trial-grant";
 import { CHECKOUT_CANCEL_PATH } from "@/lib/billing/checkout-presentation";
+import {
+  parseCheckoutReturn,
+  seatReturnUrls,
+} from "@/lib/billing/checkout-return";
+import {
+  seatWorkspaceFor,
+  seatsNeededToBuy,
+} from "@/lib/billing/technician-seats";
+import { isCurrentTrial } from "@/lib/billing/trial-expired-pay-route";
+import { syncRecurringAddonsFromStripe } from "@/lib/billing/fulfill-recurring-addon";
+import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
+import { reportError } from "@/lib/observability";
+import { track } from "@/lib/analytics/track";
 
 export async function POST(request: NextRequest) {
   // RA-1842 Path B — fail-closed for iOS Capacitor.
@@ -52,7 +65,11 @@ export async function POST(request: NextRequest) {
       // could redirect the buyer to a phishing origin after payment).
       const baseUrl = getAppUrl();
 
-      let parsedBody: { addonKey?: string; quantity?: number } = {};
+      let parsedBody: {
+        addonKey?: string;
+        quantity?: number;
+        returnTo?: unknown;
+      } = {};
       try {
         parsedBody = rawBody ? JSON.parse(rawBody) : {};
       } catch {
@@ -63,6 +80,15 @@ export async function POST(request: NextRequest) {
         });
       }
       const { addonKey } = parsedBody;
+
+      const checkoutReturn = parseCheckoutReturn(parsedBody.returnTo);
+      if (!checkoutReturn.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Unknown return target",
+          status: 400,
+        });
+      }
 
       if (!addonKey) {
         return apiError(request, {
@@ -95,6 +121,9 @@ export async function POST(request: NextRequest) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
+          role: true,
+          organizationId: true,
+          trialEndsAt: true,
           subscriptionStatus: true,
           stripeCustomerId: true,
           subscriptionId: true,
@@ -109,7 +138,13 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      if (user.subscriptionStatus !== "ACTIVE") {
+      // A technician seat can be bought during a current trial: the free seat
+      // ends on day 15, well before the trial does. Every other add-on, and an
+      // expired trial, still takes the plan first.
+      const seatOnTrial =
+        !!getRecurringAddon(addonKey)?.perSeat &&
+        isCurrentTrial(user.subscriptionStatus, user.trialEndsAt);
+      if (user.subscriptionStatus !== "ACTIVE" && !seatOnTrial) {
         // Preserve upgradeRequired flag for client UX
         return NextResponse.json(
           {
@@ -118,6 +153,18 @@ export async function POST(request: NextRequest) {
           },
           { status: 403 },
         );
+      }
+
+      // refuseNonOwner deliberately passes someone in no organisation, which a
+      // removed technician is. Seats belong to a business, so the database role
+      // decides before a workspace or a Stripe customer can come into being.
+      if (recurringAddon?.perSeat && user.role !== "ADMIN") {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message:
+            "Billing is managed by your business owner. Ask them to make this change.",
+          status: 403,
+        });
       }
 
       let customerId = user.stripeCustomerId;
@@ -152,7 +199,15 @@ export async function POST(request: NextRequest) {
       // metadata marker so the webhook can toggle the FeatureEntitlement on
       // lifecycle.
       if (recurringAddon) {
-        const workspace = await getWorkspaceForUser(userId);
+        // Seats must land on the workspace the seat count reads, or a business
+        // pays and the invite still refuses. Never a membership elsewhere.
+        let workspace: { id: string } | null;
+        if (recurringAddon.perSeat) {
+          await ensureWorkspaceForUser(userId);
+          workspace = await seatWorkspaceFor(prisma, userId);
+        } else {
+          workspace = await getWorkspaceForUser(userId);
+        }
         if (!workspace) {
           return apiError(request, {
             code: "NOT_FOUND",
@@ -208,6 +263,10 @@ export async function POST(request: NextRequest) {
         // When seats are already active, raise that subscription's quantity
         // instead; Stripe prorates the difference on the existing card.
         if (recurringAddon.perSeat) {
+          // A paid subscription the row missed (late webhook, closed tab) must
+          // take the in-place path below, not bill a second subscription. If
+          // Stripe can't answer, the outer catch stops the purchase.
+          await syncRecurringAddonsFromStripe(customerId);
           const existingSeats = await prisma.featureEntitlement.findUnique({
             where: {
               workspaceId_sku: {
@@ -261,26 +320,76 @@ export async function POST(request: NextRequest) {
                 );
                 // The customer.subscription.updated webhook writes the same count;
                 // write it now so the new seat is usable without waiting for it.
-                await prisma.featureEntitlement.update({
-                  where: {
-                    workspaceId_sku: {
-                      workspaceId: workspace.id,
-                      sku: recurringAddon.sku,
+                // Stripe has already moved the money, so a failure here must not
+                // answer as retryable: a retry would buy another seat. The webhook
+                // and the reconcile job heal the row.
+                try {
+                  await prisma.featureEntitlement.update({
+                    where: {
+                      workspaceId_sku: {
+                        workspaceId: workspace.id,
+                        sku: recurringAddon.sku,
+                      },
                     },
-                  },
-                  data: { seats },
+                    data: { seats },
+                  });
+                } catch (localWriteError) {
+                  reportError(localWriteError, {
+                    route: "/api/addons/checkout",
+                    stage: "seat-row-write-after-stripe-raise",
+                    userId,
+                    workspaceId: workspace.id,
+                    stripeSubscriptionId: seatSubscription.id,
+                  });
+                }
+                await track(userId, "seat_granted", {
+                  workspaceId: workspace.id,
+                  seats,
                 });
                 return NextResponse.json({ updated: true, seats });
               }
             } catch (stripeError) {
               return fromException(request, stripeError, {
                 stage: "stripe-seat-quantity-update",
+                context: {
+                  userId,
+                  workspaceId: workspace.id,
+                  stripeSubscriptionId: existingSeats.stripeSubscriptionId,
+                },
               });
             }
           }
         }
 
         try {
+          if (recurringAddon.perSeat && user.organizationId) {
+            quantity = await seatsNeededToBuy(
+              prisma,
+              user.organizationId,
+              quantity,
+            );
+          }
+
+          // Two open seat sessions could both complete and bill two
+          // subscriptions, and this flow sends owners back and forth to Stripe.
+          if (recurringAddon.perSeat) {
+            const open = await stripe.checkout.sessions.list({
+              customer: customerId,
+              status: "open",
+              limit: 100,
+            });
+            for (const stale of open.data) {
+              if (stale.metadata?.sku === recurringAddon.sku) {
+                await stripe.checkout.sessions.expire(stale.id);
+              }
+            }
+          }
+
+          const returnUrls = seatReturnUrls(
+            baseUrl,
+            addonKey,
+            checkoutReturn.target,
+          );
           const checkoutSession = await stripe.checkout.sessions.create({
             mode: "subscription",
             payment_method_types: ["card"],
@@ -305,8 +414,8 @@ export async function POST(request: NextRequest) {
                 quantity,
               },
             ],
-            success_url: `${baseUrl}/dashboard/success?addon=${addonKey}&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${baseUrl}${CHECKOUT_CANCEL_PATH}`,
+            success_url: returnUrls.successUrl,
+            cancel_url: returnUrls.cancelUrl,
             // Propagates onto the created Subscription so the webhook's
             // customer.subscription.* handlers can identify this add-on and
             // toggle the entitlement without touching the base-plan fields.
@@ -364,6 +473,13 @@ export async function POST(request: NextRequest) {
             });
           }
 
+          if (recurringAddon.perSeat) {
+            await track(userId, "seat_checkout_started", {
+              workspaceId: workspace.id,
+              stripeSessionId: checkoutSession.id,
+            });
+          }
+
           return NextResponse.json({
             sessionId: checkoutSession.id,
             url: checkoutSession.url,
@@ -371,6 +487,7 @@ export async function POST(request: NextRequest) {
         } catch (stripeError) {
           return fromException(request, stripeError, {
             stage: "stripe-checkout-create",
+            context: { userId, workspaceId: workspace.id },
           });
         }
       }
