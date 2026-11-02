@@ -3,7 +3,7 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Features - AI-Assisted Damage Assessment & IICRC S500 Alignment",
   description:
-    "Discover RestoreAssist features used by Australian restorers: AI-assisted report generation, IICRC S500 alignment, cost estimation, interactive forms, and real-time collaboration for water damage restoration professionals.",
+    "Discover RestoreAssist features used by Australian restorers: AI-assisted report generation, IICRC S500 alignment, cost estimation, interactive forms, and offline field capture for water damage restoration professionals.",
   keywords: [
     "restoration software features",
     "AI report generation",
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     "water damage assessment",
     "cost estimation software",
     "interactive inspection forms",
-    "restoration collaboration tools",
+    "restoration CRM",
   ],
   openGraph: {
     title:
