@@ -802,11 +802,12 @@ test("semantic workflow inspection covers the current workflow population", () =
     .filter((name) => /\.ya?ml$/i.test(name));
   // A deliberate review tripwire: adding a workflow must force someone to
   // re-confirm the inspection below still holds over the new population.
-  // Reviewed 2026-09-21 at 25 -> 26: p0-1-private-buckets.yml (RA-7466).
-  // findReleaseBootstrapViolations returned 0 over all 26 workflows
+  // Reviewed 2026-11-02 at 26 -> 27: check-visuals.yml (PR 2483).
+  // findReleaseBootstrapViolations returned 0 over all 27 workflows
   // (SHA-pinned checkout/setup-node, no pnpm, no unapproved actions).
-  // Prior review 2026-09-21 at 24 -> 25 (RA-7597); 2026-09-06 at 20 -> 24.
-  assert.equal(workflowPopulation.length, 26);
+  // Prior reviews 2026-09-21 at 25 -> 26 (RA-7466) and 24 -> 25 (RA-7597);
+  // 2026-09-06 at 20 -> 24.
+  assert.equal(workflowPopulation.length, 27);
   assert.deepEqual(findReleaseBootstrapViolations(process.cwd()), []);
 });
 
