@@ -18,10 +18,16 @@ export async function lookupAbn(input: string): Promise<ParseResult> {
     });
     // Non-2xx is ABR erroring or rejecting our GUID — never a comment on the ABN.
     if (!res.ok) return { ok: false, reason: 'UPSTREAM_ERROR' };
-    const json = await res.json();
-    return parseAbrResponse(json);
+    return parseAbrResponse(parseAbrBody(await res.text()));
   } catch {
     // Timeout, DNS, or a body that would not parse as JSON. Ours, not the caller's.
     return { ok: false, reason: 'UPSTREAM_ERROR' };
   }
+}
+
+// ABR answers JSONP as text/javascript, callback({...}), whatever Accept says, so
+// res.json() threw on every reply. Parsed, never evaluated.
+function parseAbrBody(body: string): unknown {
+  const wrapped = body.trim().match(/^callback\(([\s\S]*)\);?$/);
+  return JSON.parse(wrapped ? wrapped[1] : body);
 }
