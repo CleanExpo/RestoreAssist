@@ -279,3 +279,7 @@ Thirteen new tests failed before the fixes:
 ```
 
 The technician_accepted guard was shown by mutant: with the role check removed, "a MANAGER acceptance records 0 technician acceptance" fails. After the fixes the affected suites pass and the browser walk without Stripe passes 6 of 6.
+
+## Review finding: a one-seat checkout could return a rival two-seat link
+
+app/api/addons/checkout/__tests__/technician-seats-checkout.test.ts, "a newer rival wins". Codex reproduced it with a route probe: a one-seat request returned the rival session. Fixed by refusing with 409 rather than handing out another request's link.

@@ -446,7 +446,7 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
       expect(stripeMock.checkout.sessions.expire.mock.calls).toEqual([["cs_a"]]);
     });
 
-    it("a newer rival wins: this one is expired and both clicks get the one payable link", async () => {
+    it("a newer rival wins: this one is expired and it never hands out the rival's link, which may be for another seat count", async () => {
       stripeMock.checkout.sessions.create.mockResolvedValue(seatSession("cs_a", 100));
       stripeMock.checkout.sessions.list
         .mockResolvedValueOnce({ data: [] })
@@ -454,7 +454,8 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
           data: [seatSession("cs_a", 100), seatSession("cs_b", 200)],
         });
       const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS" }));
-      expect((await res.json()).url).toBe("https://stripe.test/cs_b");
+      expect(res.status).toBe(409);
+      expect(JSON.stringify(await res.json())).not.toContain("https://stripe.test/");
       expect(stripeMock.checkout.sessions.expire.mock.calls).toEqual([["cs_a"]]);
     });
   });
