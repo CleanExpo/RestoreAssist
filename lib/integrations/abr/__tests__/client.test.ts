@@ -9,12 +9,36 @@ describe('lookupAbn', () => {
     process.env.ABR_BASE_URL = 'https://abr.business.gov.au/json/';
   });
 
-  it('returns parsed data when ABR responds 200', async () => {
+  // The real service answers text/javascript, as callback({...}), whatever Accept says.
+  const abrReply = (body: unknown) =>
+    ({ ok: true, text: async () => `callback(${JSON.stringify(body)})` }) as Response;
+
+  it('returns parsed data from a callback-wrapped ABR reply', async () => {
+    global.fetch = vi.fn().mockResolvedValue(abrReply(company));
+
+    const result = await lookupAbn('53004085616');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.abn).toBe(company.Abn);
+  });
+
+  it('returns CONFIG_ERROR when a callback-wrapped reply rejects the GUID', async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      abrReply({
+        Abn: '',
+        EntityName: '',
+        Message: 'The GUID entered is not recognised as a Registered Party',
+      }),
+    );
+    const result = await lookupAbn('53004085616');
+    expect(result).toEqual({ ok: false, reason: 'CONFIG_ERROR' });
+  });
+
+  it('still reads a plain JSON reply', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => company,
+      text: async () => JSON.stringify(company),
     } as Response);
-
     const result = await lookupAbn('53004085616');
     expect(result.ok).toBe(true);
   });
@@ -56,9 +80,7 @@ describe('lookupAbn', () => {
   it('returns UPSTREAM_ERROR when ABR returns unparseable JSON', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => {
-        throw new SyntaxError('Unexpected token < in JSON');
-      },
+      text: async () => '<html>Service unavailable</html>',
     } as unknown as Response);
     const result = await lookupAbn('53004085616');
     expect(result.ok).toBe(false);
@@ -67,10 +89,7 @@ describe('lookupAbn', () => {
   });
 
   it('still returns MALFORMED when ABR returns a well-formed 200 it cannot parse', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ Abn: '', EntityName: '' }),
-    } as Response);
+    global.fetch = vi.fn().mockResolvedValue(abrReply({ Abn: '', EntityName: '' }));
     const result = await lookupAbn('53004085616');
     expect(result.ok).toBe(false);
     if (result.ok) return;
