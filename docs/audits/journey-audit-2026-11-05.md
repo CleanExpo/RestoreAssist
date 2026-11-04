@@ -13,7 +13,7 @@ comes back later as an insurer query, and the job then waits on a person to chas
   `GET https://restoreassist.app/api/health` returned
   `"deploymentSha":"5b00c64ebae8e5cc28673fedb0dd48ba90df29f0"`, database `ok` (04/11/2026
   16:12 UTC). The code described below is the code running in production.
-- **Live walk:** https://restoreassist.app only (never restoreassist.com.au). 24 routes
+- **Live walk:** https://restoreassist.app only (never restoreassist.com.au). 25 routes
   were probed with `curl -L`. Nine public pages were rendered in headless Chromium
   (`agent-browser`) and their accessibility trees were read.
 - **Test accounts:** none were used. RA-7228 records that an agent must not enter
@@ -814,7 +814,7 @@ room.
 
 ### S5-2 (High, REVIEW): the delivery panel claims "sent" and "delivered" without evidence
 
-**Evidence:** `lib/reports/six-fact-delivery.ts:45-48`:
+**Evidence:** `lib/reports/six-fact-delivery.ts:46-49`:
 - `const sent = actions.has("REPORT_SENT") || report.status === "COMPLETED";`
 - The same fallback applies to `delivered`.
 
