@@ -29,7 +29,7 @@
 ### T-6 → Thursday 2026-05-14
 - **08:00–10:00** — Record the four new long-tail YouTube videos (writing an IICRC S500 report, Xero push, photo chain-of-custody on iPad, ABN setup). These ship across the first 30 days, not T-day.
 - **10:00–12:00** — Draft thumbnails for the 6 launch explainers + the new long-tails. Brand colours from `BrandConfig.colour` (primary `#E55A2B`, accent `#C5E063`).
-- **15:00–17:00** — Email send infrastructure check. Send one test email to a personal inbox + a Gmail + an Outlook. Verify DKIM, SPF, DMARC all aligned. Verify the From address `phill@restoreassist.com.au` is whitelisted. **Fallback:** if `restoreassist.com.au` DNS isn't fully propagated by 16:00, switch the launch email From to `phill@unite-group.in` (already provisioned) and update `copy-pack.md` email signature accordingly.
+- **15:00–17:00** — Email send infrastructure check. Send one test email to a personal inbox + a Gmail + an Outlook. Verify DKIM, SPF, DMARC all aligned. Verify the From address `phill@restoreassist.app` is whitelisted. **Fallback:** if `restoreassist.app` DNS isn't fully propagated by 16:00, switch the launch email From to `phill@unite-group.in` (already provisioned) and update `copy-pack.md` email signature accordingly.
 
 ### T-5 → Friday 2026-05-15
 - **08:00–10:00** — RIA Australia newsletter — submit the 200-word column to editorial. Confirm placement for the June newsletter (closest to launch).
@@ -208,7 +208,7 @@ Tracked daily. Owner: Phill. Surface: a single page in the analytics tool (or a 
 **Trigger:** Open rate <15% in the first 2 hours.
 
 **Response:**
-1. Check that From: `phill@restoreassist.com.au` is not being filtered to spam.
+1. Check that From: `phill@restoreassist.app` is not being filtered to spam.
 2. Check DKIM/SPF/DMARC alignment via a tool like `mxtoolbox`.
 3. If deliverability is genuinely broken, pause the send for the remaining recipients. Investigate before resuming.
 4. If deliverability is fine and opens are just slow, hold — the second wave typically opens 6–18 hours after send.

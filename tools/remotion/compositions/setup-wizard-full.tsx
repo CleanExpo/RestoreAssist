@@ -115,7 +115,7 @@ const StepAccount = () => (
       <div style={{textAlign:'center'}}>
         <div style={{fontSize:22,fontWeight:700,color:'#1C2E47',marginBottom:8,fontFamily:'Inter'}}>Create your account</div>
         <MockField label="Full Name" value="Phill McGurk" />
-        <MockField label="Email" value="phill@restoreassist.com.au" />
+        <MockField label="Email" value="phill@restoreassist.app" />
         <MockField label="Company" value="CleanExpo Restoration" type="select" />
         <div style={{padding:'14px',borderRadius:8,backgroundColor:'#8A6B4E',color:'#FFF',fontSize:16,fontWeight:700,textAlign:'center',fontFamily:'Inter',marginTop:12}}>Create Account</div>
       </div>

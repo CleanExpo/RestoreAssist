@@ -6,6 +6,8 @@ okf_version: "0.1"
 updated: 2026-08-25
 ---
 
+> **Update 04/11/2026 (founder):** there is no restoreassist.com.au. RestoreAssist is only `restoreassist.app`. Every "verify restoreassist.com.au / 301 it to .app" item below is dropped, and the tools/remotion URLs now read `restoreassist.app`.
+
 # RestoreAssist — Directory & Association Listing Pack
 
 Every block below is fill-in-the-form ready. Each listing is a referring domain. RIA week is the window — association listings during a show get processed fast.

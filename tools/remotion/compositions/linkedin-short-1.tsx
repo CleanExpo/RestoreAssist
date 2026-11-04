@@ -30,7 +30,7 @@ export const LinkedInShort1 = () => {
         <div style={{fontSize:14,color:'rgba(255,255,255,0.8)',marginTop:4,textAlign:'center'}}>With RestoreAssist</div>
       </div>
       <div style={{position:'absolute',bottom:40,fontSize:16,color:'#8A6B4E',opacity:cta}}>
-        restoreassist.com.au
+        restoreassist.app
       </div>
     </AbsoluteFill>
   );

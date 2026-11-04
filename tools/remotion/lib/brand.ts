@@ -37,6 +37,6 @@ export const RA_FONTS = {
   mono: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace',
 } as const;
 
-export const RA_URL = 'restoreassist.com.au';
+export const RA_URL = 'restoreassist.app';
 
 export type RAColour = typeof RA[keyof typeof RA];

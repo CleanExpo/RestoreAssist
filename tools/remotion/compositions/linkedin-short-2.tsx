@@ -30,7 +30,7 @@ export const LinkedInShort2 = () => {
         Without it? Disputed. Delayed. Denied.
       </div>
       <div style={{position:'absolute',bottom:40,fontSize:16,color:'#8A6B4E',opacity:pulse}}>
-        restoreassist.com.au
+        restoreassist.app
       </div>
     </AbsoluteFill>
   );
