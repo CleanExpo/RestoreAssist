@@ -6,6 +6,8 @@ okf_version: "0.1"
 updated: 2026-08-25
 ---
 
+> **Update 04/11/2026 (founder):** there is no restoreassist.com.au. RestoreAssist is only `restoreassist.app`. Every "verify restoreassist.com.au / 301 it to .app" item below is dropped, and the tools/remotion URLs now read `restoreassist.app`.
+
 # RestoreAssist — SEO Export Pack
 
 **Pulled from Semrush 2026-08-25, before cancellation. These figures do not come back once the subscription ends.**
