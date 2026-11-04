@@ -120,7 +120,11 @@ function ProgressRing({
   );
 }
 
-export default function OnboardingClient() {
+export default function OnboardingClient({
+  canInvite = false,
+}: {
+  canInvite?: boolean;
+}) {
   const [loading, setLoading] = useState(true);
   const [steps, setSteps] = useState<OnboardingDisplayStep[]>([]);
   const [isAllDone, setIsAllDone] = useState(false);
@@ -300,6 +304,15 @@ export default function OnboardingClient() {
               {completedCount}/{totalCount}
             </span>
           </div>
+
+          {canInvite && (
+            <p className="mb-4 text-sm text-neutral-600 dark:text-slate-400">
+              Working with a crew?{" "}
+              <Link href="/dashboard/team?invite=1" className="font-semibold underline">
+                Invite a technician
+              </Link>
+            </p>
+          )}
 
           <ul className="space-y-3 sm:space-y-4">
             {steps.map((step, index) => {

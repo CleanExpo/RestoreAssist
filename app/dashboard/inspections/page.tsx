@@ -107,7 +107,33 @@ const STATUS_CONFIG: Record<
     color: "text-destructive",
     bg: "bg-red-50 dark:bg-red-900/30",
   },
+  IN_BILLING: {
+    label: "In billing",
+    color: "text-cyan-600 dark:text-cyan-400",
+    bg: "bg-cyan-50 dark:bg-cyan-900/30",
+  },
+  CLOSED: {
+    label: "Closed",
+    color: "text-success",
+    bg: "bg-emerald-50 dark:bg-emerald-900/30",
+  },
+  ARCHIVED: {
+    label: "Archived",
+    color: "text-neutral-600 dark:text-slate-400",
+    bg: "bg-neutral-100 dark:bg-slate-800",
+  },
 };
+
+/** A status this page has no badge for reads as itself, never as Draft. */
+function statusBadge(status: string) {
+  return (
+    STATUS_CONFIG[status] ?? {
+      label: status,
+      color: "text-neutral-600 dark:text-slate-400",
+      bg: "bg-neutral-100 dark:bg-slate-800",
+    }
+  );
+}
 
 export default function InspectionsPage() {
   const router = useRouter();
@@ -117,14 +143,19 @@ export default function InspectionsPage() {
   // ?status=active. Asked of the server, because the list is paged and a
   // filter over one page would undercount.
   const searchParams = useSearchParams();
-  // The URL owns this filter, so a later navigation or a refresh agrees with
-  // what is on screen.
-  const activeOnly = searchParams.get("status") === "active";
-  const [pillFilter, setPillFilter] = useState("");
-  const statusFilter = activeOnly ? "active" : pillFilter;
+  // The URL owns this filter, and nothing else holds it, so Back, a refresh and
+  // a shared link all agree with what is on screen. Anything but `active` or a
+  // known status is ignored.
+  const statusParam = searchParams.get("status") ?? "";
+  const activeOnly = statusParam === "active";
+  const statusFilter =
+    activeOnly || Object.hasOwn(STATUS_CONFIG, statusParam) ? statusParam : "";
   const setStatusFilter = (next: string) => {
-    setPillFilter(next);
-    if (activeOnly) router.replace("/dashboard/inspections");
+    router.replace(
+      next
+        ? `/dashboard/inspections?status=${encodeURIComponent(next)}`
+        : "/dashboard/inspections",
+    );
   };
   // D-028: a technician (role USER) works their own jobs, so ask for those
   // (assigned to them, plus unassigned). Wait for the session: fetching the
@@ -522,7 +553,7 @@ export default function InspectionsPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((insp) => {
-            const status = STATUS_CONFIG[insp.status] || STATUS_CONFIG.DRAFT;
+            const status = statusBadge(insp.status);
             const classification = insp.classifications?.[0];
             return (
               <div

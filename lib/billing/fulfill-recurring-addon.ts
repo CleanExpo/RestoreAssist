@@ -29,6 +29,7 @@ import {
   COMPLIMENTARY_PRICE_ID,
   isComplimentaryEntitlement,
 } from "@/lib/billing/founding-trial-grant";
+import { TRIAL_SEAT_PRICE_ID } from "@/lib/billing/technician-seats";
 
 export interface RecurringAddonFulfillResult extends FulfillResult {
   sku?: string;
@@ -93,6 +94,58 @@ export async function applyRecurringAddonSubscription(
     stripeSubscriptionId: subscription.id,
     stripePriceId,
   };
+
+  // D-029 — only a paid seat replaces the free trial seat's marker. An abandoned
+  // or declined checkout must not lift the day 15 lock by overwriting it, and a
+  // late event from an older subscription must not end a newer paid one. Paid
+  // fulfilment can run at the same moment, so the conditions sit in the write.
+  // No match means the row is one of those, or does not exist: creating settles
+  // which. A unique conflict means a row landed in between, so the conditional
+  // write runs once more: its own subscription's row still takes the cancellation.
+  if (!active && descriptor.perSeat) {
+    const writeIfCurrent = () => prisma.featureEntitlement.updateMany({
+      where: {
+        workspaceId,
+        sku: descriptor.sku,
+        AND: [
+          {
+            OR: [
+              { stripePriceId: null },
+              {
+                stripePriceId: {
+                  notIn: [TRIAL_SEAT_PRICE_ID, COMPLIMENTARY_PRICE_ID],
+                },
+              },
+            ],
+          },
+          {
+            OR: [
+              { active: false },
+              { stripeSubscriptionId: null },
+              { stripeSubscriptionId: subscription.id },
+            ],
+          },
+        ],
+      },
+      data: values,
+    });
+    if ((await writeIfCurrent()).count > 0) return true;
+    try {
+      await prisma.featureEntitlement.create({
+        data: { workspaceId, sku: descriptor.sku, ...values },
+      });
+    } catch (e) {
+      if (
+        !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+        e.code !== "P2002"
+      ) {
+        throw e;
+      }
+      await writeIfCurrent();
+    }
+    return true;
+  }
+
   const write = () =>
     prisma.featureEntitlement.upsert({
       where,
@@ -239,12 +292,20 @@ export async function syncRecurringAddonsFromStripe(
   let examined = 0;
   let granted = 0;
 
-  for (const sub of listed.data) {
+  // One row holds each add-on and the last write wins, so a live subscription
+  // goes last: an old cancelled one must not replace it. Stripe lists newest first.
+  const isLive = (sub: Stripe.Subscription) =>
+    sub.status === "active" || sub.status === "trialing";
+  const oldestDeadToNewestLive = [...listed.data].sort(
+    (a, b) =>
+      Number(isLive(a)) - Number(isLive(b)) || a.created - b.created,
+  );
+
+  for (const sub of oldestDeadToNewestLive) {
     const type = sub.metadata?.type;
     if (!type || !getRecurringAddonBySubscriptionType(type)) continue;
     examined += 1;
-    const beforeActive =
-      sub.status === "active" || sub.status === "trialing";
+    const beforeActive = isLive(sub);
     await applyRecurringAddonSubscription(sub);
     if (beforeActive) granted += 1;
   }

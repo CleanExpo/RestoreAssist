@@ -156,6 +156,79 @@ describe("middleware setup gate", () => {
     expect((res as any).headers.get("location")).toContain("/setup");
   });
 
+  it.each(["USER", "MANAGER"])(
+    "%s staff skip the owner wizard",
+    async (role) => {
+      (getToken as any).mockResolvedValue({
+        sub: "u1",
+        role,
+        setupCompletedAt: null,
+      });
+      const res = await proxy(mkReq("/dashboard"));
+      expect((res as any).headers.get("location") ?? "").not.toContain(
+        "/setup",
+      );
+    },
+  );
+
+  it.each([undefined, "", "ADMIN"])(
+    "role %j is still gated, with the location pinned",
+    async (role) => {
+      (getToken as any).mockResolvedValue({
+        sub: "u1",
+        role,
+        setupCompletedAt: null,
+      });
+      const res = await proxy(mkReq("/dashboard"));
+      expect((res as any).status).toBe(307);
+      expect(new URL((res as any).headers.get("location")).pathname).toBe(
+        "/setup",
+      );
+    },
+  );
+
+  it("the terms POST passes the gate, so the page can save", async () => {
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      role: "ADMIN",
+      needsOnboarding: true,
+      setupCompletedAt: null,
+    });
+    const res = await proxy(
+      mkReq("/api/onboarding/account-type", "", "POST"),
+    );
+    expect((res as any).headers.get("location") ?? "").not.toContain("/setup");
+  });
+
+  it("the terms route's GET stays gated: only the POST is allowed through", async () => {
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      role: "ADMIN",
+      setupCompletedAt: null,
+    });
+    const res = await proxy(mkReq("/api/onboarding/account-type"));
+    expect((res as any).headers.get("location")).toContain("/setup");
+  });
+
+  it("no redirect cycle: every gate target is itself past the gate", async () => {
+    for (const role of ["ADMIN", "MANAGER", "USER", "", undefined]) {
+      for (const needsOnboarding of [true, false]) {
+        (getToken as any).mockResolvedValue({
+          sub: "u1",
+          role,
+          needsOnboarding,
+          setupCompletedAt: null,
+        });
+        for (const start of ["/setup", "/onboarding/account-type"]) {
+          const res = await proxy(mkReq(start));
+          expect((res as any).headers.get("location") ?? "").not.toContain(
+            "/setup",
+          );
+        }
+      }
+    }
+  });
+
   it("ADMIN with null setupCompletedAt is redirected to /setup (C1 regression)", async () => {
     // Regression for C1: ADMIN must be gated same as any other role.
     // Old code relied on role === "OWNER" || role === "ADMIN" — "OWNER" doesn't

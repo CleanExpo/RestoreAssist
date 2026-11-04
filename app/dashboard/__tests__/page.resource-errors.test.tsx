@@ -43,6 +43,7 @@ beforeEach(() => {
   responses["/api/inspections"] = () => json({ inspections: [] });
   responses["/api/invoices"] = () => json({ invoices: [invoice] });
   responses["/api/operations/completeness-inbox"] = () => json({ data: [] });
+  responses["/api/dashboard/home-counts"] = () => json({ activeJobs: 0, openReports: 1, awaitingPayment: 1, clients: 1 });
   fetchMock = vi.fn((url: string) => {
     const path = url.split("?")[0];
     if (!responses[path]) throw new Error(`Unexpected synthetic request: ${path}`);
@@ -71,7 +72,8 @@ describe("dashboard resource failures and account separation", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Clients: HTTP 500 (INTERNAL) — Error ID: synthetic-error-1");
     expect(screen.getAllByText(report.title).length).toBeGreaterThan(0);
     expect(screen.getByText(invoice.invoiceNumber)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Clients.*People on file/ })).toHaveTextContent("Unavailable");
+    // The figure has its own source, so a failed list page does not take it away.
+    expect(screen.getByRole("link", { name: /Clients.*People on file/ })).toHaveTextContent("1");
     expect(screen.queryByText("Start the first job")).not.toBeInTheDocument();
     const count = fetchMock.mock.calls.length;
     responses["/api/clients"] = () => json({ clients: [] });
@@ -89,11 +91,13 @@ describe("dashboard resource failures and account separation", () => {
     expect(screen.queryByText("No invoices waiting on payment.")).not.toBeInTheDocument();
   });
 
-  it("never reports no records when all four requests fail", async () => {
+  it("never reports no records when every request fails", async () => {
     for (const resource of resources) responses[`/api/${resource}`] = () => failure();
+    responses["/api/dashboard/home-counts"] = () => failure();
     render(<DashboardPage />);
     await screen.findByRole("alert");
-    expect(screen.getAllByText("Unavailable")).toHaveLength(4);
+    // Four chips in the header and four pipeline steps.
+    expect(screen.getAllByText("Unavailable")).toHaveLength(8);
     expect(screen.queryByText("Start the first job")).not.toBeInTheDocument();
     expect(screen.queryByText("Nothing waiting")).not.toBeInTheDocument();
     expect(screen.queryByText("No reports yet")).not.toBeInTheDocument();
@@ -102,6 +106,7 @@ describe("dashboard resource failures and account separation", () => {
 
   it("shows empty states only for successfully loaded empty resources", async () => {
     for (const resource of resources) responses[`/api/${resource}`] = () => json({ [resource]: [] });
+    responses["/api/dashboard/home-counts"] = () => json({ activeJobs: 0, openReports: 0, awaitingPayment: 0, clients: 0 });
     render(<DashboardPage />);
     expect(await screen.findByRole("heading", { name: "Start the first job" })).toBeInTheDocument();
     expect(screen.getByText("No reports yet")).toBeInTheDocument();

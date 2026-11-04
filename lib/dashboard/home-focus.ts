@@ -23,6 +23,7 @@ export function isOutstandingInvoiceStatus(
   const s = (status ?? "").toUpperCase();
   return (
     s === "SENT" ||
+    s === "VIEWED" ||
     s === "ISSUED" ||
     s === "OVERDUE" ||
     s === "UNPAID" ||

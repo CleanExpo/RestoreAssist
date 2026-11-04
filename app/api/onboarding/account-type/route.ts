@@ -6,18 +6,22 @@ import { validateCsrf } from "@/lib/csrf";
 import { sanitizeString } from "@/lib/sanitize";
 import { isValidAbn } from "@/lib/abn/checksum";
 import { apiError, fromException } from "@/lib/api-errors";
+import { ensureOwnerOrganization } from "@/lib/organization/ensure-owner-organization";
+import { track } from "@/lib/analytics/track";
 
 /**
- * RA-1259: Capture the AU business details that the Google OAuth signup
- * path skipped. On success, flips `needsOnboarding` to false so the
- * middleware stops redirecting to /onboarding/account-type.
+ * RA-1259: The terms step a Google or Apple signup skipped. On success, flips
+ * `needsOnboarding` to false and gives a real owner their organisation, in one
+ * transaction. ABN or NZBN capture belongs to the setup wizard, which applies
+ * the same checksum; a New Zealand owner has no ABN to give here.
  *
  * Rules:
  * - Auth required (session.user.id).
- * - ABN must pass the ATO mod-89 checksum (strip whitespace before validating).
+ * - Business name and terms acceptance are mandatory (mirrors /api/auth/register).
+ * - ABN optional but, if supplied, must pass the ATO mod-89 checksum.
  * - ACN optional but, if supplied, must be 9 digits.
- * - state must be one of the 8 AU states/territories.
- * - Terms acceptance is mandatory (mirrors /api/auth/register).
+ * - state optional but, if supplied, must be one of the 8 AU states/territories.
+ * - Only an ADMIN who is not a pending invited identity gets an organisation.
  */
 
 const AU_STATES = [
@@ -64,6 +68,18 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // A supplied value of the wrong type must not read as "left blank".
+  for (const field of ["abn", "acn", "state"]) {
+    const value = body[field];
+    if (value !== undefined && value !== null && typeof value !== "string") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `${field.toUpperCase()} must be text if supplied`,
+        status: 400,
+      });
+    }
+  }
+
   const businessName = sanitizeString(body.businessName, 200);
   const abn = normaliseDigits(body.abn);
   const acnRaw = normaliseDigits(body.acn);
@@ -80,7 +96,7 @@ export async function POST(request: NextRequest) {
   // RA-6793: enforce the ATO mod-89 checksum (not just digit count) so invalid
   // ABNs cannot pass onboarding. Matches /api/user/profile, which already gates
   // on the checksum — an invalid ABN on a tax invoice forces 47% PAYG withholding.
-  if (!isValidAbn(abn)) {
+  if (abn && !isValidAbn(abn)) {
     return apiError(request, {
       code: "VALIDATION",
       message:
@@ -95,7 +111,7 @@ export async function POST(request: NextRequest) {
       status: 400,
     });
   }
-  if (!AU_STATES.includes(state as AuState)) {
+  if (state && !AU_STATES.includes(state as AuState)) {
     return apiError(request, {
       code: "VALIDATION",
       message: "State must be one of: " + AU_STATES.join(", "),
@@ -112,17 +128,35 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        businessName,
-        businessABN: abn,
-        businessACN: acnRaw || null,
-        businessState: state,
-        needsOnboarding: false,
-        acceptedTermsAt: new Date(),
-      } as any,
+    const userId = session.user.id;
+    const userData = {
+      businessName,
+      ...(abn ? { businessABN: abn } : {}),
+      ...(acnRaw ? { businessACN: acnRaw } : {}),
+      ...(state ? { businessState: state } : {}),
+      needsOnboarding: false,
+      acceptedTermsAt: new Date(),
+    };
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        role: true,
+        organizationId: true,
+        pendingInviteIdentity: true,
+      },
     });
+    if (dbUser?.role === "ADMIN" && !dbUser.pendingInviteIdentity) {
+      const organizationId = await ensureOwnerOrganization(userId, {
+        name: businessName,
+        userData,
+      });
+      if (!dbUser.organizationId) {
+        await track(userId, "org_created_oauth", { organizationId });
+      }
+    } else {
+      await prisma.user.update({ where: { id: userId }, data: userData });
+    }
+    await track(userId, "terms_accepted", {});
     return NextResponse.json({ data: { ok: true } });
   } catch (err) {
     return fromException(request, err, { stage: "account-type" });

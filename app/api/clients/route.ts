@@ -6,7 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { validateClientNotes } from "@/lib/clients/notes";
 import { apiError, fromException } from "@/lib/api-errors";
-import { resolveClientReach } from "@/lib/auth/assert-tenancy";
+import {
+  resolveClientReach,
+  resolveInvoiceReach,
+} from "@/lib/auth/assert-tenancy";
+import { EXCLUDED_FROM_REVENUE } from "@/lib/invoice-status";
 
 export async function GET(request: NextRequest) {
   try {
@@ -78,12 +82,23 @@ export async function GET(request: NextRequest) {
     const TERMINAL_REPORT_STATUSES = ["COMPLETED", "ARCHIVED"] as const;
     const clientIds = clients.map((c) => c.id);
 
-    const [statsByClient, openByClient] = await Promise.all([
+    // Revenue is what was invoiced, never a report's draft estimate. Invoice
+    // reach applies on top of the client's: a technician who owns a client must
+    // not read a colleague's invoices through it.
+    const invoiceReach = await resolveInvoiceReach(session);
+    if (!invoiceReach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: invoiceReach.reason,
+        status: invoiceReach.status,
+      });
+    }
+
+    const [statsByClient, openByClient, invoicedByClient] = await Promise.all([
       clientIds.length
         ? prisma.report.groupBy({
             by: ["clientId"],
             where: { clientId: { in: clientIds } },
-            _sum: { totalCost: true },
             _max: { createdAt: true },
             _count: { _all: true },
           })
@@ -98,9 +113,23 @@ export async function GET(request: NextRequest) {
             _count: { _all: true },
           })
         : [],
+      clientIds.length
+        ? prisma.invoice.groupBy({
+            by: ["clientId"],
+            where: {
+              ...invoiceReach.data,
+              clientId: { in: clientIds },
+              status: { notIn: [...EXCLUDED_FROM_REVENUE] },
+            },
+            _sum: { totalIncGST: true },
+          })
+        : [],
     ]);
 
     const statsMap = new Map(statsByClient.map((s) => [s.clientId, s]));
+    const invoicedMap = new Map(
+      invoicedByClient.map((s) => [s.clientId, s._sum.totalIncGST ?? 0]),
+    );
     const openMap = new Map(
       openByClient.map((s) => [s.clientId, s._count._all]),
     );
@@ -110,7 +139,7 @@ export async function GET(request: NextRequest) {
       const lastReportAt = s?._max.createdAt ?? null;
       return {
         ...client,
-        totalRevenue: s?._sum.totalCost ?? 0,
+        totalRevenue: (invoicedMap.get(client.id) ?? 0) / 100,
         lastJob: lastReportAt
           ? new Date(lastReportAt).toLocaleDateString()
           : "Never",

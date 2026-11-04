@@ -52,6 +52,26 @@ describe("POST /api/addons/verify — recurring BOOKKEEPING", () => {
     vi.mocked(prisma.featureEntitlement.upsert).mockResolvedValue({} as never);
   });
 
+  it("a completed checkout that is still unpaid is not a confirmed purchase", async () => {
+    stripeMock.checkout.sessions.retrieve.mockResolvedValue({
+      id: "cs_unpaid",
+      mode: "subscription",
+      payment_status: "unpaid",
+      status: "complete",
+      subscription: "sub_x",
+      metadata: {
+        userId: "u_1",
+        type: "addon_subscription",
+        sku: "TECHNICIAN_SEATS",
+        workspaceId: "ws_1",
+      },
+    });
+    const res = await POST(makeRequest({ sessionId: "cs_unpaid" }));
+    expect(res.status).toBe(400);
+    expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
+    expect(prisma.featureEntitlement.upsert).not.toHaveBeenCalled();
+  });
+
   it("activates FeatureEntitlement from a paid addon_subscription checkout", async () => {
     stripeMock.checkout.sessions.retrieve.mockResolvedValue({
       id: "cs_bk",

@@ -1,3 +1,4 @@
+import { isTrialSeatLocked } from "@/lib/billing/technician-seats";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
@@ -77,7 +78,12 @@ export async function GET(request: NextRequest) {
       take: 500, // CLAUDE.md rule 4
     });
 
-    return NextResponse.json({ members });
+    // The owner's way to pay once the free trial seat has ended.
+    const seatPaymentDue =
+      currentUser.role === "ADMIN" &&
+      (await isTrialSeatLocked(prisma, currentUser.organizationId));
+
+    return NextResponse.json({ members, seatPaymentDue });
   } catch (err) {
     return fromException(request, err, { stage: "team-members-get" });
   }

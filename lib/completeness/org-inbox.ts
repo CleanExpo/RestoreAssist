@@ -3,6 +3,7 @@
  */
 
 import type { PrismaClient } from "@prisma/client";
+import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 import { loadClaimContext } from "@/lib/margot/claim-context";
 import { evaluateWaterDamageCompleteness } from "./water-damage-pack";
 
@@ -35,7 +36,7 @@ export async function listCompletenessInboxForOwner(
 
   const inspections = await prisma.inspection.findMany({
     where: {
-      status: { notIn: ["CLOSED", "ARCHIVED"] },
+      status: { notIn: [...INACTIVE_INSPECTION_STATUSES] },
       ...(orgId
         ? {
             OR: [

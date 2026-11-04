@@ -62,8 +62,8 @@ const JOURNEY = [
       number: "04",
     phase: "Office",
     title: "Invoice with GST confidence",
-    body: "Raise GST-ready invoices from the desk — or seed lines from the report — with Australian 10% or New Zealand 15% rules built in. Connect Xero or Ascora when your office already runs those systems.",
-    tags: ["AU & NZ GST", "Accounting sync", "Credit notes"],
+    body: "Raise GST-ready invoices from the desk — or seed lines from the report — with Australian 10% or New Zealand 15% rules built in. Push invoices to Xero with the optional bookkeeping add-on, and bring your job history and pricing across from Ascora with the optional migration add-on.",
+    tags: ["AU & NZ GST", "Xero add-on", "Credit notes"],
     carries: "Invoice linked to the report",
     },
     {

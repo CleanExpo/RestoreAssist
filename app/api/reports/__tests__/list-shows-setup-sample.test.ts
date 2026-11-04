@@ -17,6 +17,7 @@ const TENANCY = { AND: [{ OR: [{ userId: "u1" }] }] };
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   resolveReportReach: async () => ({ ok: true, data: TENANCY }),
   resolveClientReach: async () => ({ ok: true, data: TENANCY }),
+  resolveInvoiceReach: async () => ({ ok: true, data: TENANCY }),
 }));
 vi.mock("@/lib/api-errors", () => ({
   apiError: (_r: unknown, o: { message: string; status: number }) =>
@@ -45,6 +46,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: (...a: unknown[]) => clientFindMany(...a),
       count: (...a: unknown[]) => clientCount(...a),
     },
+    invoice: { groupBy: vi.fn(async () => []) },
   },
 }));
 
