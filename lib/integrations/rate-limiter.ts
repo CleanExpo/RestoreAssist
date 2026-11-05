@@ -215,6 +215,11 @@ export const PROVIDER_RATE_LIMITS: Record<string, RateLimiterOptions> = {
     tokensPerMinute: 60,
     maxBurst: 100,
   },
+  // Zoho CRM credit system is per-org. Stay well under a typical daily cap.
+  ZOHO: {
+    tokensPerMinute: 60,
+    maxBurst: 30,
+  },
   // SP-E: Google Drive — quota is 1000 req/100s/user for the v3 API.
   // 60 req/min stays well under that while keeping headroom for bursts.
   GOOGLE_DRIVE: {

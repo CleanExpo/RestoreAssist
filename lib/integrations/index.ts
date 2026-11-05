@@ -15,11 +15,13 @@ export { XeroClient, createXeroClient } from "./xero/client";
 export { QuickBooksClient, createQuickBooksClient } from "./quickbooks/client";
 export { MYOBClient, createMYOBClient } from "./myob/client";
 export { AscoraClient, createAscoraClient } from "./ascora/client";
+export { ZohoClient, createZohoClient } from "./zoho/client";
 
 import { ServiceM8Client } from "./servicem8/client";
 import { XeroClient } from "./xero/client";
 import { QuickBooksClient } from "./quickbooks/client";
 import { MYOBClient } from "./myob/client";
+import { ZohoClient } from "./zoho/client";
 import { prisma } from "@/lib/prisma";
 import type { IntegrationProvider } from "./oauth-handler";
 import { isOAuthIntegration } from "./identity";
@@ -49,6 +51,8 @@ export async function createClientForIntegration(integrationId: string) {
       );
     case "MYOB":
       return new MYOBClient(integrationId);
+    case "ZOHO":
+      return new ZohoClient(integrationId);
     default:
       throw new Error(`Unsupported provider: ${integration.provider}`);
   }
@@ -63,6 +67,7 @@ export function getProviderAuthUrl(
   redirectUri: string,
   state: string,
   codeChallenge?: string,
+  region?: "AU" | "US" | "EU",
 ): string {
   switch (provider) {
     case "SERVICEM8":
@@ -77,6 +82,8 @@ export function getProviderAuthUrl(
       return new QuickBooksClient(integrationId).getAuthUrl(redirectUri, state);
     case "MYOB":
       return new MYOBClient(integrationId).getAuthUrl(redirectUri, state);
+    case "ZOHO":
+      return new ZohoClient(integrationId).getAuthUrl(redirectUri, state, region ?? "AU");
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }

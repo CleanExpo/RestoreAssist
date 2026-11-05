@@ -70,7 +70,9 @@ export function describeOAuthCard(rows: LegacyIntegrationMetadata[], provider: s
   if (!readiness.ready) {
     if (readiness.reason === "DISCONNECTED") return { status: "DISCONNECTED", connected: false };
     return { status: "ATTENTION", connected: false, syncError: readiness.reason === "ORGANISATION_REQUIRED"
-      ? "No organisation is selected for this connection. Reconnect and authorise a single organisation before syncing."
+      ? provider === "ZOHO"
+        ? "Choose a Zoho region and reconnect before syncing."
+        : "No organisation is selected for this connection. Reconnect and authorise a single organisation before syncing."
       : "This connection needs authorisation before it can sync." };
   }
   return { status: row.status === "ERROR" ? "ERROR" : row.status === "SYNCING" ? "SYNCING" : "CONNECTED", connected: true, lastSyncAt: row.lastSyncAt, syncError: row.syncError };

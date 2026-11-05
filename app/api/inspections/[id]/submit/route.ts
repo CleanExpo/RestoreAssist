@@ -29,6 +29,7 @@ import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
+import { scheduleZohoInspectionPush } from "@/lib/integrations/zoho/queue";
 import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
 import { apiError, fromException } from "@/lib/api-errors";
 import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
@@ -325,6 +326,7 @@ export async function POST(
         void onNextAction(id, InspectionStatus.SUBMITTED).catch((err) =>
           console.error("[next-action] SUBMITTED nudge failed:", err),
         );
+        scheduleZohoInspectionPush(id);
       }
       if (submitGuard.count === 0) {
         return apiError(request, {

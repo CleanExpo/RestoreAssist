@@ -517,6 +517,9 @@ export const PENDING_RLS = new Set<string>([
   "InterviewStandardsMapping",
   "InvoiceSequence",
   "InvoiceSyncJob",
+  // RA-8199: outbound Zoho CRM queue. Tenant data via userId, no RLS migration
+  // yet — same posture as InvoiceSyncJob until the RA-6677 policy pass.
+  "ZohoSyncJob",
   "InvoiceTemplate",
   "LidarScan",
   "LiveTeacherSession",

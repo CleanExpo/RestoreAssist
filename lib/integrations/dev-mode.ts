@@ -43,6 +43,10 @@ export const MOCK_CREDENTIALS = {
     apiKey: "mock-ascora-key",
     apiSecret: "mock-ascora-secret",
   },
+  ZOHO: {
+    clientId: "mock-zoho-client",
+    clientSecret: "mock-zoho-secret",
+  },
 } as const;
 
 export type MockProvider = keyof typeof MOCK_CREDENTIALS;
