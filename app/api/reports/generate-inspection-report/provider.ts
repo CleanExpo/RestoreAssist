@@ -2,9 +2,9 @@
  * resolveReportProvider — reads the new ProviderConnection store (Task 2's
  * BYOK store) to determine which AI provider to use for report generation.
  *
- * Priority: ANTHROPIC first (preferred), then OPENAI, then GOOGLE (Gemini),
- * then OPENROUTER. Returns null when no workspace exists or no active key is
- * available for a supported provider.
+ * Priority: ANTHROPIC first (preferred), then OPENAI, then META (Llama),
+ * then OPENROUTER, then GOOGLE (Gemini). Returns null when no workspace
+ * exists or no active key is available for a supported provider.
  *
  * This allows a client who installed a key via the AI-providers page to have
  * their reports routed to that provider, independent of the old Integration
@@ -24,13 +24,15 @@ import { aiProviderToCallProvider } from "@/lib/workspace/ai-key-type";
  * Preferred provider resolution order. ANTHROPIC first because it supports
  * the full 16 000-token output needed for a 13-section report. OPENAI is
  * capped at 4 096 tokens in callAIProvider but is still a valid fallback.
- * OPENROUTER (a routed multi-model gateway) is preferred over GOOGLE (Gemini),
- * which is last. GOOGLE remains a valid provider — a workspace whose only
- * active key is GOOGLE still routes to gemini.
+ * META (Meta Model API / Llama) is a direct generation host, so it is
+ * preferred over OPENROUTER (a routed gateway) and GOOGLE (Gemini). GOOGLE
+ * remains a valid provider — a workspace whose only active key is GOOGLE
+ * still routes to gemini. A Meta-only workspace routes to meta.
  */
 const PREFERRED_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
   "OPENAI",
+  "META",
   "OPENROUTER",
   "GOOGLE",
 ];

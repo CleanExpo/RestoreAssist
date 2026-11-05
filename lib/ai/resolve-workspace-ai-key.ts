@@ -39,6 +39,7 @@ const KEY_PROVIDER_TO_CONNECTION: Record<AIProvider, AiProvider> = {
   openai: "OPENAI",
   gemini: "GOOGLE",
   openrouter: "OPENROUTER",
+  meta: "META",
 };
 
 /**

@@ -94,6 +94,42 @@ describe("resolveReportProvider", () => {
     expect(result!.model).toBe("qwen/qwen-2.5-72b-instruct");
   });
 
+  it("returns meta when an ACTIVE Meta key is the only operating connection", async () => {
+    mockGetWorkspace.mockResolvedValue({ id: "ws1", name: "Test Workspace" });
+    mockListConnections.mockResolvedValue([
+      { provider: "META", status: "ACTIVE" },
+      { provider: "GOOGLE", status: "DISABLED" },
+    ]);
+    mockGetProviderCredentials.mockImplementation(
+      (_wsId: string, provider: string) =>
+        Promise.resolve({ apiKey: `key-${provider}` }),
+    );
+
+    const result = await resolveReportProvider("user-1");
+
+    expect(result).not.toBeNull();
+    expect(result!.provider).toBe("meta");
+    expect(result!.apiKey).toBe("key-META");
+    expect(result!.id).toBe("byok-meta");
+    expect(result!.model).toBeUndefined();
+  });
+
+  it("prefers anthropic over meta when both are active", async () => {
+    mockGetWorkspace.mockResolvedValue({ id: "ws1", name: "Test Workspace" });
+    mockListConnections.mockResolvedValue([
+      { provider: "META", status: "ACTIVE" },
+      { provider: "ANTHROPIC", status: "ACTIVE" },
+    ]);
+    mockGetProviderCredentials.mockImplementation(
+      (_wsId: string, provider: string) =>
+        Promise.resolve({ apiKey: `key-${provider}` }),
+    );
+
+    const result = await resolveReportProvider("user-1");
+
+    expect(result!.provider).toBe("anthropic");
+  });
+
   it("prefers anthropic over openrouter when both are active", async () => {
     mockGetWorkspace.mockResolvedValue({ id: "ws1", name: "Test Workspace" });
     mockListConnections.mockResolvedValue([

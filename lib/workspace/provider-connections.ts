@@ -27,7 +27,18 @@ export type AiProvider =
   | "GOOGLE"
   | "GEMMA"
   | "ELEVENLABS"
-  | "OPENROUTER";
+  | "OPENROUTER"
+  | "META";
+
+/**
+ * Hosted Meta Llama API (Meta Model API). Checked against
+ * https://llama.developer.meta.com/docs/ on 2026-11-05: the official surface
+ * is OpenAI-compatible Chat Completions at this base, with Bearer auth.
+ * Keys are prefixed `LLM_`. GET `{base}/models` checks a key without running
+ * a completion. `muse-spark-1.3` is the current standard-mode chat model.
+ */
+export const META_API_BASE_URL = "https://api.meta.ai/v1";
+export const META_DEFAULT_CHAT_MODEL = "muse-spark-1.3";
 
 /** Mirrors the Prisma ProviderConnectionStatus enum */
 export type ProviderConnectionStatus = "ACTIVE" | "FAILED" | "DISABLED";
@@ -261,19 +272,22 @@ export async function getProviderCredentials(
  * a BYOK key for any one of these is enough to operate RestoreAssist. GEMMA is
  * the platform's own inference and ELEVENLABS is voice, so those do not count.
  * GOOGLE here is Gemini (Generative Language API), not Google Drive OAuth.
- * This is the SINGLE SOURCE OF TRUTH: the setup gate's `byokKeysCheck` and the
- * onboarding presence check below both consume it.
+ * META is Meta Model API (hosted Llama). This is the SINGLE SOURCE OF TRUTH:
+ * the setup gate's `byokKeysCheck` and the onboarding presence check below
+ * both consume it.
  */
 export const OPERATING_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
   "OPENAI",
   "GOOGLE",
   "OPENROUTER",
+  "META",
 ];
 
 /**
  * Lightweight presence check: does the user's workspace have at least one
- * ACTIVE Anthropic or OpenAI provider connection?
+ * ACTIVE operating-provider connection (Anthropic, OpenAI, Gemini,
+ * OpenRouter, or Meta)?
  *
  * This is the onboarding-grade signal — it mirrors the setup gate's
  * `byokKeysCheck` operating-provider filter but WITHOUT the live network probe,
@@ -511,6 +525,9 @@ async function testProviderKey(
       case "OPENROUTER":
         await testOpenRouterKey(apiKey, controller.signal);
         break;
+      case "META":
+        await testMetaKey(apiKey, controller.signal);
+        break;
       default:
         throw new Error(`Unknown provider: ${provider}`);
     }
@@ -612,6 +629,27 @@ async function testGoogleKey(
     const body = await res.text().catch(() => "");
     throw new Error(
       `Google AI server error ${res.status}: ${body.slice(0, 100)}`,
+    );
+  }
+}
+
+async function testMetaKey(
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<void> {
+  // Models list is the documented unbilled auth check (Bearer token). A 401
+  // is an invalid key; the key itself is never written into the error.
+  const res = await fetch(`${META_API_BASE_URL}/models`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal,
+  });
+
+  if (res.status === 401) throw new Error("Invalid Meta API key");
+  if (res.status === 403) throw new Error("Meta API key lacks permissions");
+  if (res.status >= 500) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `Meta API server error ${res.status}: ${body.slice(0, 100)}`,
     );
   }
 }

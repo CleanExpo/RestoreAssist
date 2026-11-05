@@ -28,6 +28,12 @@ describe("providerForKey — key-authoritative provider resolution (B1)", () => 
     expect(providerForKey("sk-proj-openaikey")).toBe("openai");
     expect(providerForKey("sk-openaikey")).toBe("openai");
   });
+
+  it("classifies Meta Model API keys by the LLM_ prefix", () => {
+    expect(providerForKey("LLM_1607358788850350_synthetic")).toBe("meta");
+    expect(providerForKey("sk-ant-api03-abc")).toBe("anthropic");
+    expect(providerForKey("unrecognised-format")).toBeNull();
+  });
 });
 
 describe("callAIProvider — refuses cross-vendor key routing (B1)", () => {
@@ -49,6 +55,20 @@ describe("callAIProvider — refuses cross-vendor key routing (B1)", () => {
     await expect(
       callAIProvider(
         { id: "y", name: "Anthropic", apiKey: "AIzaSyGeminiKey", provider: "anthropic" },
+        { prompt: "hello" },
+      ),
+    ).rejects.toThrow(/does not match/i);
+  });
+
+  it("never sends a Meta key to the OpenAI endpoint", async () => {
+    await expect(
+      callAIProvider(
+        {
+          id: "m",
+          name: "OpenAI",
+          apiKey: "LLM_1607358788850350_synthetic",
+          provider: "openai",
+        },
         { prompt: "hello" },
       ),
     ).rejects.toThrow(/does not match/i);

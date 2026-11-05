@@ -54,7 +54,7 @@ function SpinnerMark({ size = 14, className }: { size?: number; className?: stri
   );
 }
 
-type Provider = 'ANTHROPIC' | 'OPENAI' | 'OPENROUTER';
+type Provider = 'ANTHROPIC' | 'OPENAI' | 'OPENROUTER' | 'META';
 
 const PROVIDER_META: Record<Provider, { label: string; placeholder: string }> = {
   ANTHROPIC: {
@@ -64,6 +64,10 @@ const PROVIDER_META: Record<Provider, { label: string; placeholder: string }> = 
   OPENAI: {
     label: 'OpenAI (GPT)',
     placeholder: 'sk-proj-…',
+  },
+  META: {
+    label: 'Meta (Llama)',
+    placeholder: 'LLM_…',
   },
   OPENROUTER: {
     label: 'OpenRouter (open models)',
