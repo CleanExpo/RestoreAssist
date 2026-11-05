@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { auditInspectionById } from "@/lib/evidence/field-evidence-audit";
+import { buildBeforeYouLeaveActions } from "@/lib/evidence/before-you-leave";
 import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Field evidence completeness checklist for an inspection (RA-5039).
@@ -37,7 +38,12 @@ export async function GET(
 
     const checklist = await auditInspectionById(id);
 
-    return NextResponse.json({ data: checklist });
+    // RA-8002 slice 1: advisory before-you-leave actions, derived only from
+    // this checklist. Additive field; `data` keeps its existing shape.
+    return NextResponse.json({
+      data: checklist,
+      beforeYouLeave: buildBeforeYouLeaveActions(checklist),
+    });
   } catch (error) {
     return fromException(request, error, { stage: "field-evidence-checklist" });
   }
