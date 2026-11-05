@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation";
-import { requireAdminPage } from "@/lib/admin-auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import { requirePlatformSupportPage } from "@/lib/admin-auth";
 import { MargotSectionChrome } from "@/components/admin/MargotSectionChrome";
 
 /**
@@ -15,7 +13,6 @@ export default async function MargotSectionLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireAdminPage();
-  if (!isPlatformSupportOperator(user.id)) notFound();
+  await requirePlatformSupportPage();
   return <MargotSectionChrome>{children}</MargotSectionChrome>;
 }

@@ -14,7 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import type { Session } from "next-auth";
 
@@ -103,6 +103,27 @@ export async function requireAdminPage(): Promise<{
   }
 
   return auth.user;
+}
+
+/**
+ * Server-page gate for RestoreAssist staff surfaces (/dashboard/admin/**,
+ * /dashboard/margot/**). Every self-registered business owner is ADMIN, so
+ * after requireAdminPage() the caller must also be on the
+ * PLATFORM_SUPPORT_USER_IDS allowlist (fails closed when unset); anyone else
+ * gets not-found.
+ *
+ * Call it from the segment layout AND from every server page in the segment:
+ * layouts and pages render in parallel, so a layout check alone does not stop
+ * a server page from rendering into the RSC payload.
+ */
+export async function requirePlatformSupportPage(): Promise<{
+  id: string;
+  role: string;
+  organizationId: string | null;
+}> {
+  const user = await requireAdminPage();
+  if (!isPlatformSupportOperator(user.id)) notFound();
+  return user;
 }
 
 /**
