@@ -71,6 +71,7 @@ import {
   buildAdvancedNavGroups,
   isAdvancedMode,
   ADMIN_NAV_HREFS,
+  platformNavHrefs,
   type ExperienceMode,
   type NavItem,
 } from "./nav-config";
@@ -97,8 +98,15 @@ const ADMIN_NAV_ICONS: Record<(typeof ADMIN_NAV_HREFS)[number]["label"], typeof 
 
 export default function DashboardShell({
   children,
+  isPlatformOperator = false,
 }: {
   children: React.ReactNode;
+  /**
+   * Resolved on the server by the dashboard layout from the
+   * PLATFORM_SUPPORT_USER_IDS allowlist. Only the boolean crosses to the
+   * client; the allowlist never does. Defaults to false (fails closed).
+   */
+  isPlatformOperator?: boolean;
 }) {
   // Default: collapsed (icon-only) on tablets to give the content pane
   // breathing room. Apple App Review (1.0.2) flagged the iPad layout because
@@ -280,14 +288,17 @@ export default function DashboardShell({
   const isManager =
     isAdmin || (session?.user as { role?: string })?.role === "MANAGER";
 
-  const adminNavItems: NavItem[] = isAdmin
-    ? ADMIN_NAV_HREFS.map((item) => ({
-        icon: ADMIN_NAV_ICONS[item.label],
-        label: item.label,
-        href: item.href,
-        adminOnly: true,
-      }))
-    : [];
+  // Platform staff links only: every business owner is ADMIN, so ADMIN alone
+  // must not show them (pages and APIs still enforce access server-side).
+  const adminNavItems: NavItem[] = platformNavHrefs({
+    role: session?.user?.role,
+    isPlatformOperator,
+  }).map((item) => ({
+    icon: ADMIN_NAV_ICONS[item.label],
+    label: item.label,
+    href: item.href,
+    adminOnly: true,
+  }));
 
   // Free trial users get full sidebar access; they must add their own API key in Integrations
   const fullNavItems = [
@@ -377,7 +388,7 @@ export default function DashboardShell({
     { icon: MessageCircle, label: "Feedback", href: "/dashboard/feedback" },
     { icon: PlayCircle, label: "Tutorials", href: "/dashboard/learn" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
-    // Admin-only section — hidden from Managers and Technicians
+    // Platform staff section — hidden from business owners, Managers and Technicians
     ...adminNavItems,
   ];
 

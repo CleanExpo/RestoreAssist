@@ -1,6 +1,9 @@
+import { getServerSession } from "next-auth";
 import { headers } from "next/headers";
 
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
+import { authOptions } from "@/lib/auth";
+import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { isIosShellUserAgent } from "@/lib/capacitor";
 
 import DashboardShell from "./DashboardShell";
@@ -20,6 +23,10 @@ import DashboardShell from "./DashboardShell";
  * everywhere billing UI can appear.
  *
  * The previous 821-line client layout is unchanged, moved to DashboardShell.
+ *
+ * Platform staff nav (Admin, Margot, ...) is resolved here too: every business
+ * owner is ADMIN, so the shell needs the server-only PLATFORM_SUPPORT_USER_IDS
+ * verdict. Only the boolean is passed down; the allowlist stays on the server.
  */
 export default async function DashboardLayout({
   children,
@@ -27,10 +34,18 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const isIosShell = isIosShellUserAgent((await headers()).get("user-agent"));
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+  const isPlatformOperator =
+    session?.user?.role === "ADMIN" &&
+    typeof userId === "string" &&
+    isPlatformSupportOperator(userId);
 
   return (
     <ShellPlatformProvider isIosShell={isIosShell}>
-      <DashboardShell>{children}</DashboardShell>
+      <DashboardShell isPlatformOperator={isPlatformOperator}>
+        {children}
+      </DashboardShell>
     </ShellPlatformProvider>
   );
 }
