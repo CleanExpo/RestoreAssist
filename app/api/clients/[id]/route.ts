@@ -14,6 +14,7 @@ import {
   resolveReportFinancialReach,
 } from "@/lib/auth/assert-tenancy";
 import { EXCLUDED_FROM_REVENUE } from "@/lib/invoice-status";
+import { scheduleZohoCustomerPush } from "@/lib/integrations/zoho/queue";
 
 const MAX_REPORT_ROWS = 200;
 
@@ -261,6 +262,15 @@ export async function PUT(
           select: { reports: true },
         },
       },
+    });
+
+    scheduleZohoCustomerPush(session.user.id, {
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      address: client.address,
+      company: client.company,
     });
 
     return NextResponse.json({

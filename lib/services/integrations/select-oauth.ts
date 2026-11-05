@@ -8,7 +8,7 @@ export const OAUTH_CANDIDATE_WHERE: Prisma.IntegrationWhereInput = {
     { OR: [{ icon: null }, { icon: { not: "[ra:ai]" } }] },
     { name: { notIn: LEGACY_AI_NAMES, mode: "insensitive" } },
     { OR: [
-      { name: { in: ["Xero", "QuickBooks", "QuickBooks Online", "MYOB", "ServiceM8", "Service M8"], mode: "insensitive" } },
+      { name: { in: ["Xero", "QuickBooks", "QuickBooks Online", "MYOB", "ServiceM8", "Service M8", "Zoho", "Zoho CRM"], mode: "insensitive" } },
       { icon: { in: OAUTH_PROVIDERS.map(provider => `/integrations/${provider.toLowerCase()}.svg`) } },
       { tokenExpiresAt: { not: null } }, { tenantId: { not: null, notIn: [""] } },
       { realmId: { not: null, notIn: [""] } }, { companyId: { not: null, notIn: [""] } },

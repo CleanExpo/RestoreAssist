@@ -11,6 +11,7 @@ import {
   resolveInvoiceReach,
 } from "@/lib/auth/assert-tenancy";
 import { EXCLUDED_FROM_REVENUE } from "@/lib/invoice-status";
+import { scheduleZohoCustomerPush } from "@/lib/integrations/zoho/queue";
 
 export async function GET(request: NextRequest) {
   try {
@@ -248,6 +249,15 @@ export async function POST(request: NextRequest) {
             select: { reports: true },
           },
         },
+      });
+
+      scheduleZohoCustomerPush(userId, {
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        address: client.address,
+        company: client.company,
       });
 
       return NextResponse.json({

@@ -30,6 +30,8 @@ import {
   BOOKKEEPING_SKU,
   isBookkeepingProvider,
 } from "@/lib/billing/bookkeeping-addon";
+import { isZohoEnabled } from "@/lib/flags/one-crm-flags";
+import { isZohoConnectRegion } from "@/lib/integrations/zoho/regions";
 
 export async function POST(
   request: NextRequest,
@@ -47,7 +49,7 @@ export async function POST(
 
   // RA-1266: prevents duplicate OAuth state rows + duplicate Integration
   // records when the user double-clicks "Connect".
-  return withIdempotency(request, userId, async () => {
+  return withIdempotency(request, userId, async (rawBody) => {
     try {
       const subscriptionCheck = await checkIntegrationAccess(userId, (await params).provider);
       if (!subscriptionCheck.isAllowed) {
@@ -92,6 +94,31 @@ export async function POST(
             "Ascora does not use OAuth. Use /api/ascora/connect, which enforces the Service CRM add-on and verifies the API key.",
           status: 400,
         });
+      }
+
+      let zohoRegion: "AU" | "US" | "EU" | undefined;
+      if (provider === "ZOHO") {
+        const parsedRegion = readZohoConnectRegion(rawBody);
+        if (!parsedRegion) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Choose a Zoho region: AU, US or EU.",
+            status: 400,
+          });
+        }
+        zohoRegion = parsedRegion;
+        if (!isZohoEnabled()) {
+          const existingZoho = await selectOAuthIntegration({
+            prisma, userId, provider, requireReady: false,
+          });
+          if (!existingZoho.ok) {
+            return apiError(request, {
+              code: "NOT_FOUND",
+              message: "This integration is not available.",
+              status: 404,
+            });
+          }
+        }
       }
 
       const config = PROVIDER_CONFIG[provider];
@@ -146,9 +173,16 @@ export async function POST(
             name: config.name,
             icon: config.icon,
             status: "DISCONNECTED",
+            ...(zohoRegion ? { companyId: zohoRegion } : {}),
             ...(subscriptionCheck.foundingTrialWorkspaceId
               ? { workspaceId: subscriptionCheck.foundingTrialWorkspaceId } : {}),
           },
+          select: OAUTH_IDENTITY_SELECT,
+        });
+      } else if (zohoRegion) {
+        integration = await prisma.integration.update({
+          where: { id: integration.id },
+          data: { companyId: zohoRegion },
           select: OAUTH_IDENTITY_SELECT,
         });
       }
@@ -183,6 +217,7 @@ export async function POST(
         redirectUri,
         state,
         codeChallenge,
+        zohoRegion,
       );
 
       // In dev mode, return a mock callback URL that will immediately complete
@@ -203,4 +238,15 @@ export async function POST(
       return fromException(request, error, { stage: "integration-connect" });
     }
   });
+}
+
+function readZohoConnectRegion(rawBody: string): "AU" | "US" | "EU" | null {
+  if (!rawBody.trim()) return "AU";
+  try {
+    const body = JSON.parse(rawBody) as { region?: unknown };
+    const region = typeof body.region === "string" ? body.region.trim().toUpperCase() : "AU";
+    return isZohoConnectRegion(region) ? region : null;
+  } catch {
+    return null;
+  }
 }

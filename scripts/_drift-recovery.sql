@@ -75,7 +75,7 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "interviewTier" "SubscriptionTierLev
 --  here, prefixing each statement with IF NOT EXISTS / EXCEPTION-handlers.)
 
 -- Migration 2: integrations + regulatory + forms
-DO $$ BEGIN CREATE TYPE "IntegrationProvider" AS ENUM ('XERO', 'QUICKBOOKS', 'MYOB', 'SERVICEM8', 'ASCORA');
+DO $$ BEGIN CREATE TYPE "IntegrationProvider" AS ENUM ('XERO', 'QUICKBOOKS', 'MYOB', 'SERVICEM8', 'ASCORA', 'ZOHO');
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE "RegulatoryDocumentType" AS ENUM ('INSURANCE_POLICY', 'INSURANCE_REGULATION', 'BUILDING_CODE_NATIONAL', 'BUILDING_CODE_STATE', 'ELECTRICAL_STANDARD', 'PLUMBING_STANDARD', 'CONSUMER_LAW', 'INDUSTRY_BEST_PRACTICE', 'SAFETY_REGULATION');
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;

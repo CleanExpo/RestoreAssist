@@ -24,6 +24,7 @@ import {
   enumEqualityOrIn,
   parseEnumList,
 } from "@/lib/validation/parse-enum-list";
+import { scheduleZohoInspectionPush } from "@/lib/integrations/zoho/queue";
 
 class ReportClientChangedError extends Error {}
 class IdempotencyReservationLostError extends Error {}
@@ -810,6 +811,8 @@ export async function POST(request: NextRequest) {
       } catch (seedErr) {
         console.error("Error seeding make-safe rows (non-critical):", seedErr);
       }
+
+      scheduleZohoInspectionPush(inspection.id);
 
       return NextResponse.json({ inspection }, {
         status: 201,
