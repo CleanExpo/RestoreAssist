@@ -10,7 +10,7 @@
 
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/admin-auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import { isAllowlistedPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { getGate } from "@/lib/progress/gate-policy";
 
@@ -32,7 +32,7 @@ interface Props {
  */
 export default async function GovernancePage({ searchParams }: Props) {
   const user = await requireAdminPage();
-  if (!isPlatformSupportOperator(user.id)) notFound();
+  if (!isAllowlistedPlatformSupportOperator(user.id)) notFound();
 
   const params = await searchParams;
   const requestedMonth = parseYearMonth(params.month);
