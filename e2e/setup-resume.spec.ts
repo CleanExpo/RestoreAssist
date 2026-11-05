@@ -24,7 +24,7 @@ test("resume: close tab mid-hydration → return → state restored", async ({
     await page1.goto("/setup");
   }
 
-  await page1.getByPlaceholder(/e\.g\. 53 004 085 616/i).fill("53004085616");
+  await page1.getByLabel(/^ABN \(11 digits\)$/).fill("53004085616");
   await page1.getByRole("button", { name: /start setup/i }).click();
 
   // Wait briefly for hydration to start (Business Details turns into "Looking up..." skeleton)

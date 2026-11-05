@@ -21,6 +21,7 @@ vi.mock("next/navigation", () => ({
 
 import FoundingTrialLayout from "../layout";
 import FoundingTrialPage from "../page";
+import { isValidAbn } from "@/lib/abn/checksum";
 
 const OPERATOR = "operator_ra7721";
 
@@ -40,6 +41,16 @@ afterEach(() => {
 });
 
 describe("Founding Trial page, rendered through its layout", () => {
+  // The placeholder was the ATO's real ABN (51 824 753 556). An example that
+  // fails the ABN checksum can never be issued to a real business.
+  it("uses an ABN placeholder that can never be a real ABN", async () => {
+    await renderAs(OPERATOR);
+    const input = screen.getByLabelText("ABN or organisation id");
+    const digits = (input.getAttribute("placeholder") ?? "").replace(/\D/g, "");
+    expect(digits).toHaveLength(11);
+    expect(isValidAbn(digits)).toBe(false);
+  });
+
   it("a tenant ADMIN gets not-found; the form never renders", async () => {
     await expect(renderAs("tenant_admin_ra7721")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();

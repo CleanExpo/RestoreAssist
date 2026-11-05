@@ -3,7 +3,7 @@
  * override figures. Its layout admitted any ADMIN — every firm owner — so it
  * now also requires the platform support allowlist.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 class NotFound extends Error {}
 
@@ -58,9 +58,26 @@ beforeEach(() => {
   findMany.mockClear();
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("override governance page access (RA-8043c)", () => {
   it("is not found for a firm owner (tenant ADMIN) [ra-8043c]", async () => {
     expect(await open()).toBe("not-found");
+  });
+
+  it("layout refuses a firm owner in development with PLATFORM_SUPPORT_DEV_OPEN and no allowlist", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PLATFORM_SUPPORT_DEV_OPEN", "true");
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+    expect(await open()).toBe("not-found");
+  });
+
+  it("page refuses a firm owner in development with PLATFORM_SUPPORT_DEV_OPEN and no allowlist, before any read", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PLATFORM_SUPPORT_DEV_OPEN", "true");
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+    expect(await renderPage()).toBe("not-found");
+    expect(findMany).not.toHaveBeenCalled();
   });
 
   it("opens for an allowlisted platform support operator", async () => {

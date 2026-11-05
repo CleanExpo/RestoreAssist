@@ -88,10 +88,7 @@ const MAX_REMOVED_MEMBERS = 50;
  * fails closed."
  */
 export function isPlatformSupportOperator(userId: string): boolean {
-  const allowlist = (process.env.PLATFORM_SUPPORT_USER_IDS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const allowlist = platformSupportAllowlist();
   if (allowlist.includes(userId)) return true;
   // Local dev only: empty allowlist + explicit opt-in lets Margot/Mission Control
   // work for DB-verified ADMIN without hand-editing ids on every machine.
@@ -103,6 +100,27 @@ export function isPlatformSupportOperator(userId: string): boolean {
     return true;
   }
   return false;
+}
+
+function platformSupportAllowlist(): string[] {
+  return (process.env.PLATFORM_SUPPORT_USER_IDS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Strict form of `isPlatformSupportOperator`: membership of
+ * PLATFORM_SUPPORT_USER_IDS only, with NO development fallback. An unset or
+ * empty allowlist refuses everyone in every environment, including
+ * NODE_ENV=development with PLATFORM_SUPPORT_DEV_OPEN=true.
+ *
+ * Used where the dev fallback would otherwise show staff pages and nav to any
+ * business owner on a reachable development deployment: the staff page gate
+ * (`requirePlatformSupportPage`) and the dashboard nav flag.
+ */
+export function isAllowlistedPlatformSupportOperator(userId: string): boolean {
+  return platformSupportAllowlist().includes(userId);
 }
 
 /**
