@@ -160,7 +160,18 @@ export function shellOK(
     });
     return { status: "pass", detail: `\`${cmd}\` exit 0` };
   } catch (err) {
-    const e = err as { status?: number };
+    const e = err as { status?: number | null; code?: string };
+    const timeoutMs = options.timeout ?? 300_000;
+    // execSync reports a killed-on-timeout child as code ETIMEDOUT with a null
+    // status. Saying "exit unknown" hid that B3 was cut off, not failing.
+    if (e.code === "ETIMEDOUT") {
+      return {
+        status: "fail",
+        detail:
+          `\`${cmd}\` timed out after ${Math.round(timeoutMs / 1000)}s; ` +
+          "child output retained only in the masked workflow log",
+      };
+    }
     const exit = e.status ?? "unknown";
     return {
       status: "fail",
@@ -213,12 +224,19 @@ export function verifyReleaseDbProfile(
   return { status: "pass", detail: "DB-backed release test profile is active" };
 }
 
+// The full suite's worst measured wall-clock is 11.20 min (pr-checks.yml,
+// RA-7443), where the Unit Tests job allows 25 min. A 10-minute cap here
+// killed the suite before it finished (release-gate run 41934795349,
+// 2026-11-04), so B3 scored 0 without any test having failed.
+// 20 min keeps 79% headroom over the worst run.
+export const B3_TESTS_TIMEOUT_MS = 20 * 60_000;
+
 export function runDbBackedReleaseTests(): CriterionResult {
   const profile = verifyReleaseDbProfile();
   if (profile.status !== "pass") return profile;
   return shellOK(
     "node scripts/ci/check-test-parity.mjs --strict && npx vitest run --config config/vitest.config.js",
-    { timeout: 600_000 },
+    { timeout: B3_TESTS_TIMEOUT_MS },
   );
 }
 
