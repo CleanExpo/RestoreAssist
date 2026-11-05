@@ -33,6 +33,12 @@ import {
   readAiSuggestedRoomIds,
   withAiSuggestedRoomIds,
 } from "@/lib/sketch/sketch-field-status";
+import {
+  FLOOR_REVISION_HEADER,
+  floorRevisionMatches,
+  parseFloorRevision,
+} from "@/lib/sketch/floor-revision";
+import { floorRevisionOf } from "@/lib/sketch/floor-revision-server";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -96,6 +102,8 @@ export async function GET(
     const signedSketches = await Promise.all(
       sketches.map(async (sketch: Record<string, unknown>) => ({
         ...sketch,
+        // RA-8056: the editor sends this back with each save of the floor.
+        revision: floorRevisionOf(sketch.sketchData),
         backgroundImageUrl:
           typeof sketch.backgroundImageUrl === "string"
             ? await signStoredMediaUrl(sketch.backgroundImageUrl)
@@ -227,10 +235,43 @@ export async function POST(
       where: { inspectionId: id, floorNumber },
     });
 
+    // RA-8056: the editor sends the floor revision it loaded. A save based on
+    // any other revision is refused before storage, verification or database
+    // state can change: its room snapshot would delete or detach rooms added
+    // since. Not `stale: true` - the offline queue drops stale entries, and
+    // this edit must stay with the user. The floor write below is also
+    // conditional on the revision, so two saves racing past this check cannot
+    // both apply.
+    const revision = parseFloorRevision(
+      request.headers.get(FLOOR_REVISION_HEADER),
+    );
+    if (revision.kind === "invalid") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "The floor plan revision is not valid.",
+        status: 400,
+      });
+    }
+    const revisionConflict = (serverRevision: string | null) =>
+      NextResponse.json(
+        {
+          conflict: "revision",
+          reason:
+            "This floor was changed somewhere else after it was opened here.",
+          serverRevision,
+        },
+        { status: 409 },
+      );
+    const storedRevision = existing ? floorRevisionOf(existing.sketchData) : null;
+    if (!floorRevisionMatches(revision, storedRevision)) {
+      return revisionConflict(storedRevision);
+    }
+
     // Reject stale queue entries before storage, verification or database
-    // state can change.
+    // state can change. A save carrying a revision was checked above; this
+    // timestamp check remains for saves queued before the revision existed.
     const clientUpdatedAtRaw = request.headers.get("x-client-updated-at");
-    if (existing && clientUpdatedAtRaw) {
+    if (existing && clientUpdatedAtRaw && revision.kind === "absent") {
       const clientMs = Number.isFinite(Number(clientUpdatedAtRaw))
         ? Number(clientUpdatedAtRaw)
         : Date.parse(clientUpdatedAtRaw);
@@ -554,11 +595,36 @@ export async function POST(
       });
     }
 
+    // RA-8056: a save that carried a revision writes only while the row is
+    // unchanged since it was read for the check above. Another write landing
+    // in between makes this one change no row (P2025); that is answered as a
+    // conflict below, before any room is synced. Nothing was written, so the
+    // editor keeps its edit and the newer floor stays as it is.
+    const guardRevision = !!existing && revision.kind === "at";
+    const REVISION_LOST = Symbol("revision-lost");
+    let lostToRevision: string | null = null;
+    const onFloorWriteError = async (writeErr: unknown) => {
+      if (
+        guardRevision &&
+        (writeErr as { code?: unknown } | null)?.code === "P2025"
+      ) {
+        const current = await (prisma as any).claimSketch.findFirst({
+          where: { id: existing.id },
+          select: { sketchData: true },
+        });
+        if (current) {
+          lostToRevision = floorRevisionOf(current.sketchData);
+          return REVISION_LOST;
+        }
+      }
+      throw writeErr;
+    };
     const sketch = existing
       ? await (prisma as any).claimSketch.update({
           // D-028: re-check the caller's reach inside the write itself.
           where: {
             id: existing.id,
+            ...(guardRevision && { updatedAt: existing.updatedAt }),
             ...(tenancy.data.childInspectionFilter && {
               inspection: tenancy.data.childInspectionFilter,
             }),
@@ -577,7 +643,7 @@ export async function POST(
             country: country ?? undefined,
             captureAdapter,
           },
-        })
+        }).catch(onFloorWriteError)
       : // D-028: a new floor is created inside a write that re-checks the
         // caller's reach, so a reassignment between the check and the
         // write changes 0 rows.
@@ -605,6 +671,7 @@ export async function POST(
               },
             }),
         );
+    if (sketch === REVISION_LOST) return revisionConflict(lostToRevision);
     if (!sketch) {
       return apiError(request, {
         code: "NOT_FOUND",
@@ -920,6 +987,7 @@ export async function POST(
     return NextResponse.json(
       {
         ...sketch,
+        revision: floorRevisionOf(sketch.sketchData),
         ...(canonicalRenderMeta
           ? { _saveMeta: { canonicalRender: canonicalRenderMeta } }
           : {}),
