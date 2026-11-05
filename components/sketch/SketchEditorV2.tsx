@@ -287,6 +287,15 @@ export function nextSaveIndicator(input: {
   };
 }
 
+
+/** RA-8056 — one id per load of the plan in a mounted editor. */
+function newEditorSessionId(): string {
+  return typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function SketchEditorV2({
   inspectionId,
   propertyAddress,
@@ -551,12 +560,10 @@ export function SketchEditorV2({
   // editor created (`none`); `null` = loaded without a revision (send none).
   const floorRevisionRef = useRef(new Map<string, string | null>());
   // One id per mounted editor; the offline queue coalesces only its own saves.
+  // It is renewed on every load of the plan (see the load effect).
   const editorSessionIdRef = useRef("");
   if (!editorSessionIdRef.current) {
-    editorSessionIdRef.current =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    editorSessionIdRef.current = newEditorSessionId();
   }
   // RA-8056: floors (by clientKey) whose save was refused as a revision
   // conflict. Saving pauses on them until the plan is reloaded.
@@ -585,6 +592,10 @@ export function SketchEditorV2({
     revisionConflictRef.current = new Set();
     setRevisionConflictLabels([]);
     setRevisionConflictKept(true);
+    // RA-8056: each load is a new editor session. The canvas is replaced by
+    // the stored plan, so saves queued before it are not part of what this
+    // editor saves next and must not be dropped as superseded by it.
+    editorSessionIdRef.current = newEditorSessionId();
     (async () => {
       try {
         const res = await fetch(`/api/inspections/${inspectionId}/sketches`);
@@ -1226,6 +1237,7 @@ export function SketchEditorV2({
                   clientUpdatedAt,
                   baseRevision,
                   editorSessionId,
+                  refusedAsConflict: true,
                 });
                 queuedThisTick++;
               } catch {

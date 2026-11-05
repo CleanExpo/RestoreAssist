@@ -198,6 +198,42 @@ describe("RA-8056 a live save supersedes the session's own queued saves", () => 
     expect(left).toEqual(["tab-a:1", "tab-b:0"]);
   });
 
+  it("never drops an edit the route refused as a conflict, even from the same session and floor", async () => {
+    vi.resetModules();
+    uninstall = installFakeIndexedDB();
+    const { queue } = await bootQueue(
+      () => new Response("{}", { status: 503 }),
+    );
+    await queue.enqueueSketchSave(
+      "i1",
+      payload({ editorSessionId: "tab-a", refusedAsConflict: true }),
+    );
+
+    await queue.discardSupersededSketchSaves("i1", 0, "tab-a");
+
+    const left = await pending(queue);
+    expect(left).toHaveLength(1);
+    expect(left[0].payload).toMatchObject({ refusedAsConflict: true });
+  });
+
+  it("a later save from the same session does not coalesce away a refused edit", async () => {
+    vi.resetModules();
+    uninstall = installFakeIndexedDB();
+    const { queue } = await bootQueue(
+      () => new Response("{}", { status: 503 }),
+    );
+    await queue.enqueueSketchSave(
+      "i1",
+      payload({ clientUpdatedAt: 1, refusedAsConflict: true }),
+    );
+    await queue.enqueueSketchSave("i1", payload({ clientUpdatedAt: 2 }));
+
+    const kept = (await pending(queue))
+      .map((e) => (e.payload as SketchSavePayload).clientUpdatedAt)
+      .sort();
+    expect(kept).toEqual([1, 2]);
+  });
+
   it("a replay refused after its entry was discarded mid-drain leaves no broken record", async () => {
     vi.resetModules();
     uninstall = installFakeIndexedDB();

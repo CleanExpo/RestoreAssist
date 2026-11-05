@@ -110,6 +110,12 @@ export interface SketchSavePayload {
    * Coalescing collapses only this session's own saves for a floor.
    */
   editorSessionId?: string;
+  /**
+   * RA-8056 — the route refused this save as a revision conflict and the
+   * editor queued it so the user keeps it (it lands in Sync failed). It is
+   * never coalesced away or dropped as superseded: no later save holds it.
+   */
+  refusedAsConflict?: boolean;
 }
 
 /**
@@ -322,7 +328,10 @@ export async function enqueueSketchSave(
           (existing.payload as SketchSavePayload | null)?.floorNumber ===
             payload.floorNumber &&
           // RA-8056: another tab's queued edit for this floor is its own
-          // work; keep it and let the route's revision check decide.
+          // work; keep it and let the route's revision check decide. An edit
+          // the route refused as a conflict is kept whatever comes after it.
+          (existing.payload as SketchSavePayload | null)?.refusedAsConflict !==
+            true &&
           (payload.editorSessionId == null ||
             (existing.payload as SketchSavePayload | null)?.editorSessionId ==
               null ||
@@ -492,7 +501,8 @@ export async function discardSupersededSketchSaves(
         entry.type === "sketch-save" &&
         entry.status === "pending" &&
         payload?.floorNumber === floorNumber &&
-        payload?.editorSessionId === editorSessionId
+        payload?.editorSessionId === editorSessionId &&
+        payload?.refusedAsConflict !== true
       ) {
         cursor.delete();
         removed++;
