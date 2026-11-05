@@ -114,13 +114,7 @@ export async function GET() {
     return degraded("LINEAR_API_KEY not configured", fetchedAt);
   }
 
-  let json: {
-    data?: {
-      workflowStates?: { nodes?: unknown[] };
-      issues?: { nodes?: unknown[]; pageInfo?: { hasNextPage?: boolean } };
-    };
-    errors?: unknown[];
-  };
+  let parsed: unknown;
 
   try {
     const res = await fetch(LINEAR_GRAPHQL_URL, {
@@ -134,11 +128,26 @@ export async function GET() {
       return degraded(`Linear ${res.status}`, fetchedAt);
     }
 
-    json = await res.json();
+    parsed = await res.json();
   } catch {
     // Do not echo the thrown message: it can carry hostnames and internals.
     return degraded("Linear fetch failed", fetchedAt);
   }
+
+  // HTTP 200 with JSON `null`, a primitive, or an array is not a board.
+  // Reading `.errors` on null throws, and that unhandled TypeError becomes a
+  // 500 instead of the stale envelope every other failed read returns.
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return degraded("Linear response was not a JSON object", fetchedAt);
+  }
+
+  const json = parsed as {
+    data?: {
+      workflowStates?: { nodes?: unknown[] };
+      issues?: { nodes?: unknown[]; pageInfo?: { hasNextPage?: boolean } };
+    };
+    errors?: unknown[];
+  };
 
   // A GraphQL error arrives as HTTP 200 with an `errors` array. Rendering that
   // as an empty board would be indistinguishable from a finished week.
