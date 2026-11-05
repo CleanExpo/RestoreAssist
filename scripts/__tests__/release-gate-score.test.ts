@@ -33,6 +33,7 @@ import { canonicalizeManifest as canonicalJson } from "../../lib/evidence/manife
 import { TRUSTED_KEYS_ENV } from "../ci/release-receipt";
 
 import {
+  B3_TESTS_TIMEOUT_MS,
   ownerEvidence,
   parseReleaseProfile,
   readEvidenceVerifiedDate,
@@ -57,10 +58,26 @@ describe("retained command evidence", () => {
     expect(result.detail).toContain("exit 9");
     expect(result.detail).not.toContain(planted);
   });
+
+  it("names a timeout instead of reporting `exit unknown`", () => {
+    const result = shellOK(`node -e "setTimeout(() => {}, 5000)"`, {
+      timeout: 1000,
+    });
+    expect(result.status).toBe("fail");
+    expect(result.detail).toContain("timed out after 1s");
+    expect(result.detail).not.toContain("exit unknown");
+  });
 });
 
 describe("B3 DB-backed release profile", () => {
   const postgres = "postgresql://ci:ci@localhost:5432/ci";
+
+  // The suite's worst measured wall-clock is 11.20 min (pr-checks.yml, RA-7443).
+  // A 10-minute cap killed it before it finished on 2026-11-04
+  // (run 41934795349), so B3 scored 0 without any test having failed.
+  it("gives the full suite 50% headroom over its worst measured run", () => {
+    expect(B3_TESTS_TIMEOUT_MS).toBeGreaterThanOrEqual(11.2 * 60_000 * 1.5);
+  });
 
   it("fails closed when the release DB profile marker is missing", () => {
     const result = verifyReleaseDbProfile({
