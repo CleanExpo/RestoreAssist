@@ -192,6 +192,15 @@ describe("DashboardLayout resolves the platform flag on the server", () => {
     expect(shellProps(tree).isPlatformOperator).toBe(false);
   });
 
+  it("passes false for an owner in development with PLATFORM_SUPPORT_DEV_OPEN and no allowlist", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PLATFORM_SUPPORT_DEV_OPEN", "true");
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+    getServerSession.mockResolvedValue({ user: { id: "owner-1", role: "ADMIN" } });
+    const tree = (await DashboardLayout({ children: null })) as ReactElement;
+    expect(shellProps(tree).isPlatformOperator).toBe(false);
+  });
+
   it("passes false with no session", async () => {
     vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "staff-1");
     getServerSession.mockResolvedValue(null);

@@ -116,6 +116,16 @@ describe("Content Gate page renders only for platform support operators", () => 
     );
   });
 
+  it("refuses an owner in development with PLATFORM_SUPPORT_DEV_OPEN and no allowlist", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PLATFORM_SUPPORT_DEV_OPEN", "true");
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+    signIn(OWNER);
+    await expect(Promise.resolve().then(() => ContentGatePage())).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+  });
+
   it("a MANAGER is redirected before the allowlist is consulted", async () => {
     signIn(OPERATOR, "MANAGER");
     await expect(Promise.resolve().then(() => ContentGatePage())).rejects.toThrow(

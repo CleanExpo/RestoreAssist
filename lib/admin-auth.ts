@@ -12,7 +12,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import {
+  isAllowlistedPlatformSupportOperator,
+  isPlatformSupportOperator,
+} from "@/lib/auth/assert-tenancy";
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
 import { NextResponse } from "next/server";
@@ -109,8 +112,9 @@ export async function requireAdminPage(): Promise<{
  * Server-page gate for RestoreAssist staff surfaces (/dashboard/admin/**,
  * /dashboard/margot/**). Every self-registered business owner is ADMIN, so
  * after requireAdminPage() the caller must also be on the
- * PLATFORM_SUPPORT_USER_IDS allowlist (fails closed when unset); anyone else
- * gets not-found.
+ * PLATFORM_SUPPORT_USER_IDS allowlist; anyone else gets not-found. Strict
+ * membership: unlike `isPlatformSupportOperator`, there is no development
+ * fallback, so an unset allowlist refuses everyone in every environment.
  *
  * Call it from the segment layout AND from every server page in the segment:
  * layouts and pages render in parallel, so a layout check alone does not stop
@@ -122,7 +126,7 @@ export async function requirePlatformSupportPage(): Promise<{
   organizationId: string | null;
 }> {
   const user = await requireAdminPage();
-  if (!isPlatformSupportOperator(user.id)) notFound();
+  if (!isAllowlistedPlatformSupportOperator(user.id)) notFound();
   return user;
 }
 

@@ -144,7 +144,7 @@ export const ADMIN_NAV_HREFS = [
  * The platform destinations a user may see in the sidebar. `role: "ADMIN"` is
  * granted to every self-registered business owner, so it is not enough: the
  * caller must also be a platform support operator, resolved on the server
- * (`isPlatformSupportOperator`) and passed down as a boolean. The allowlist
+ * (`isAllowlistedPlatformSupportOperator`) and passed down as a boolean. The allowlist
  * widens an ADMIN only; it never promotes a MANAGER or USER.
  */
 export function platformNavHrefs(options: {

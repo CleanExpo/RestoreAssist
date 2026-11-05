@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 import { authOptions } from "@/lib/auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import { isAllowlistedPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { isIosShellUserAgent } from "@/lib/capacitor";
 
 import DashboardShell from "./DashboardShell";
@@ -26,7 +26,8 @@ import DashboardShell from "./DashboardShell";
  *
  * Platform staff nav (Admin, Margot, ...) is resolved here too: every business
  * owner is ADMIN, so the shell needs the server-only PLATFORM_SUPPORT_USER_IDS
- * verdict. Only the boolean is passed down; the allowlist stays on the server.
+ * verdict (strict membership, no development fallback). Only the boolean is
+ * passed down; the allowlist stays on the server.
  */
 export default async function DashboardLayout({
   children,
@@ -39,7 +40,7 @@ export default async function DashboardLayout({
   const isPlatformOperator =
     session?.user?.role === "ADMIN" &&
     typeof userId === "string" &&
-    isPlatformSupportOperator(userId);
+    isAllowlistedPlatformSupportOperator(userId);
 
   return (
     <ShellPlatformProvider isIosShell={isIosShell}>

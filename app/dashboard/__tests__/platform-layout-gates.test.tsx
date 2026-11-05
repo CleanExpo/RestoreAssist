@@ -87,6 +87,14 @@ describe.each(LAYOUTS)("%s segment layout", (_path, Layout) => {
     await expect(Layout({ children: "SEGMENT" })).rejects.toThrow("NEXT_NOT_FOUND");
   });
 
+  it("refuses an owner in development with PLATFORM_SUPPORT_DEV_OPEN and no allowlist", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PLATFORM_SUPPORT_DEV_OPEN", "true");
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+    signIn(OWNER, "ADMIN");
+    await expect(Layout({ children: "SEGMENT" })).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
   it("positive control: an allowlisted ADMIN renders the segment", async () => {
     signIn(OPERATOR, "ADMIN");
     await expect(rendered(Layout)).resolves.toBe("SEGMENT");
