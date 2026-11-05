@@ -965,7 +965,10 @@ describe("runReleaseGate profiles", () => {
  * set is absent -- which is the state of every checkout that has not been
  * given the owner's public key, this one included.
  */
-describe("ownerEvidence — signed receipts", () => {
+// These tests shell out to git and verify signatures; inside the Docker CI
+// mirror on macOS one took more than the 20 s default (gate run on 6f6698f3,
+// 05/11/2026) while finishing in under a second natively and on GitHub.
+describe("ownerEvidence — signed receipts", { timeout: 60_000 }, () => {
   const KEY_ID = "test-release-key";
 
   function issueReceipt(
