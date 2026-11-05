@@ -44,7 +44,9 @@ function payload(extra: Partial<SketchSavePayload> = {}): SketchSavePayload {
   };
 }
 
-async function bootQueue(sketchResponse: () => Response) {
+async function bootQueue(
+  sketchResponse: () => Response | Promise<Response>,
+) {
   const fetchMock = vi.fn(async (url: string) =>
     url === "/api/auth/offline-context"
       ? new Response(JSON.stringify({ owner }), { status: 200 })
@@ -170,6 +172,51 @@ describe("RA-8056 queued revision", () => {
         revision: SAVED,
       },
     ]);
+  });
+});
+
+describe("RA-8056 a live save supersedes the session's own queued saves", () => {
+  it("drops only this session's pending saves for that floor, so they never replay into Sync failed", async () => {
+    vi.resetModules();
+    uninstall = installFakeIndexedDB();
+    const { queue } = await bootQueue(
+      () => new Response("{}", { status: 503 }),
+    );
+    await queue.enqueueSketchSave("i1", payload({ editorSessionId: "tab-a" }));
+    await queue.enqueueSketchSave("i1", payload({ editorSessionId: "tab-b" }));
+    await queue.enqueueSketchSave(
+      "i1",
+      payload({ editorSessionId: "tab-a", floorNumber: 1 }),
+    );
+
+    await queue.discardSupersededSketchSaves("i1", 0, "tab-a");
+
+    const left = (await pending(queue))
+      .map((e) => e.payload as SketchSavePayload)
+      .map((p) => `${p.editorSessionId}:${p.floorNumber}`)
+      .sort();
+    expect(left).toEqual(["tab-a:1", "tab-b:0"]);
+  });
+
+  it("a replay refused after its entry was discarded mid-drain leaves no broken record", async () => {
+    vi.resetModules();
+    uninstall = installFakeIndexedDB();
+    let queueRef: typeof import("@/lib/nir-sync-queue") | undefined;
+    const { queue } = await bootQueue(async () => {
+      // The editor's live save lands while this replay is in flight.
+      await queueRef?.discardSupersededSketchSaves("i1", 0, "tab-a");
+      return new Response(JSON.stringify({ conflict: "revision" }), {
+        status: 409,
+      });
+    });
+    queueRef = queue;
+    await queue.enqueueSketchSave("i1", payload());
+
+    await queue.drainQueue();
+
+    expect(await queue.getPendingEntries("i1")).toEqual([]);
+    // Across every inspection: no half-written "failed" row without its entry.
+    expect(await queue.getFailedEntries()).toEqual([]);
   });
 });
 

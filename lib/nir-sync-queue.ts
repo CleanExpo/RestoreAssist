@@ -464,6 +464,50 @@ export async function retryFailedEntry(id: string): Promise<boolean> {
  * confirmation gate at this layer; the caller (UI) is responsible for
  * asking the user before invoking.
  */
+/**
+ * RA-8056 — a live save from an editor session carries that session's newest
+ * canvas for the floor, so its own older queued saves for the floor are
+ * superseded. Drop them: replayed with the older revision they would be
+ * refused and sit in Sync failed with nothing left to retry. Other sessions'
+ * entries, other floors and failed entries are left alone.
+ */
+export async function discardSupersededSketchSaves(
+  inspectionId: string,
+  floorNumber: number,
+  editorSessionId: string,
+): Promise<void> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite");
+    const index = tx.objectStore(QUEUE_STORE).index("by-inspection");
+    const cursorReq = index.openCursor(IDBKeyRange.only(inspectionId));
+    let removed = 0;
+    cursorReq.onsuccess = (evt) => {
+      const cursor = (evt.target as IDBRequest<IDBCursorWithValue>).result;
+      if (!cursor) return;
+      const entry = cursor.value as SyncQueueEntry;
+      const payload = entry.payload as SketchSavePayload | null;
+      if (
+        ownsOfflineEntry(entry) &&
+        entry.type === "sketch-save" &&
+        entry.status === "pending" &&
+        payload?.floorNumber === floorNumber &&
+        payload?.editorSessionId === editorSessionId
+      ) {
+        cursor.delete();
+        removed++;
+      }
+      cursor.continue();
+    };
+    cursorReq.onerror = () => reject(cursorReq.error);
+    tx.onerror = () => reject(tx.error);
+    tx.oncomplete = () => {
+      if (removed > 0) notifySyncQueueChanged();
+      resolve();
+    };
+  });
+}
+
 export async function removeFailedEntry(id: string): Promise<void> {
   const entry = (await getFailedEntries()).find((item) => item.id === id);
   if (!entry || !ownsOfflineEntry(entry)) return;
@@ -909,6 +953,9 @@ async function markEntryFailed(db: IDBDatabase, id: string): Promise<void> {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+  // RA-8056: the entry was removed while its replay was in flight (a live
+  // save superseded it). There is nothing left to keep.
+  if (!entry) return;
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readwrite");

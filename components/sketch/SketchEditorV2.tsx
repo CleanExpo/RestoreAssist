@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import {
   enqueueSketchSave,
+  discardSupersededSketchSaves,
   getPendingEntries,
   getFailedEntries,
   retryFailedEntry,
@@ -563,6 +564,9 @@ export function SketchEditorV2({
   const [revisionConflictLabels, setRevisionConflictLabels] = useState<
     string[]
   >([]);
+  // False when a refused edit could not be stored on the device; the notice
+  // then says it exists only on this screen.
+  const [revisionConflictKept, setRevisionConflictKept] = useState(true);
   const confirmedFabricObjectIdsRef = useRef<Set<string>>(new Set());
   /** RA-7091 — run pending RoomPlan custody recovery once per inspection. */
   const roomPlanRecoveryKeyRef = useRef<string | null>(null);
@@ -580,6 +584,7 @@ export function SketchEditorV2({
     setSketchLoadError(false);
     revisionConflictRef.current = new Set();
     setRevisionConflictLabels([]);
+    setRevisionConflictKept(true);
     (async () => {
       try {
         const res = await fetch(`/api/inspections/${inspectionId}/sketches`);
@@ -1164,6 +1169,15 @@ export function SketchEditorV2({
             if (!captureToken && savedRevision) {
               floorRevisionRef.current.set(fd.clientKey, savedRevision);
             }
+            // This save carried the newest canvas for the floor, so the
+            // session's own older queued saves for it are superseded.
+            if (inspectionId && !captureMode) {
+              void discardSupersededSketchSaves(
+                inspectionId,
+                fd.floor.floorNumber,
+                editorSessionId,
+              ).catch(() => undefined);
+            }
             if (savedSketch?.id && fd.floor.id.startsWith(uid)) {
               // A locally-created floor cannot accept evidence pins until the
               // server assigns its ClaimSketch id. Keep both the mutable ref
@@ -1217,6 +1231,7 @@ export function SketchEditorV2({
               } catch {
                 // IDB unavailable: the edit stays on the open canvas only,
                 // and the conflict notice says to keep this tab open.
+                setRevisionConflictKept(false);
               }
               return;
             }
@@ -2652,8 +2667,10 @@ export function SketchEditorV2({
             another device or tab after you opened it here. Nothing on the
             saved floor plan was removed. Saving is paused for{" "}
             {revisionConflictLabels.length === 1 ? "that floor" : "those floors"}
-            , and your latest version is kept on this device under Sync
-            failed, where you can export it. Reload to see the saved floor plan.
+            .{" "}
+            {revisionConflictKept
+              ? "Your latest version is kept on this device under Sync failed, where you can export it. Reload to see the saved floor plan."
+              : "Your latest version could not be stored on this device and is only on this screen. Keep this tab open until you have redone or recorded it; reloading will replace it with the saved floor plan."}
           </p>
           <button
             type="button"
