@@ -482,6 +482,27 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     expect(db.locks[0].organizationId).toBe("org-sent");
   });
 
+  it("does not copy a person flag into a different organisation than the lock it sourced", async () => {
+    staff("owner-a", "org-b");
+    db.orgs["org-b"] = { id: "org-b", ownerId: "owner-a" };
+    client({
+      id: "client-a",
+      userId: "owner-a",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    db.locks.push({
+      organizationId: "org-a",
+      addressTag: pulseAddressTag("home@owner.test"),
+      sourceClientId: "client-a",
+    });
+
+    expect(
+      await isPulseOptedOutByAddress("owner-a", "home@owner.test", "org-b"),
+    ).toBe(false);
+    expect(db.locks.map((row) => row.organizationId)).toEqual(["org-a"]);
+  });
+
   it("uses the pinned organisation, not the owner's live firm", async () => {
     staff("staff-a", "org-live");
     db.orgs["org-live"] = { id: "org-live", ownerId: "staff-a" };

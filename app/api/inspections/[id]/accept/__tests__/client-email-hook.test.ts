@@ -16,6 +16,12 @@ vi.mock("@/lib/entitlements", () => ({
   requireAddonForResource: async () => ({ allowed: true }),
 }));
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: vi.fn(async () => ({
+    ownerId: "owner_1",
+    organizationId: "org_sent",
+  })),
+}));
 vi.mock("@/lib/email", async (importActual) => ({
   ...(await importActual<typeof import("@/lib/email")>()),
   sendPulseUpdateEmail: h.send,

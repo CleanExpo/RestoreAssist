@@ -86,6 +86,13 @@ vi.mock("@/lib/email", async (importActual) => ({
 
 vi.mock("@/lib/observability", () => ({ reportError: h.reportError }));
 
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: vi.fn(async () => ({
+    ownerId: "owner_1",
+    organizationId: "org_sent",
+  })),
+}));
+
 import {
   notifyClientDryingChange,
   notifyClientStepChange,
@@ -246,7 +253,7 @@ describe("notifyClientStepChange", () => {
     expect(sends()).toBe(0);
     expect(rows[0].suppressionReason).toBe("OPT_OUT");
     const where = h.clientFindFirst.mock.calls[0][0].where;
-    expect(where.userId).toBe("owner_1");
+    expect(where.userId).toEqual({ in: ["owner_1"] });
     expect(where.pulseOptOut).toBe(true);
     expect(where.email).toEqual({
       equals: "homeowner@example.test",

@@ -73,7 +73,13 @@ export async function resolvePulseJobOrganisationId(
   userId: string,
   jobCreatedAt: Date,
 ): Promise<string | null> {
-  const tenant = await getResourceTenant(userId, jobCreatedAt);
+  let tenant: Awaited<ReturnType<typeof getResourceTenant>> = null;
+  try {
+    tenant = await getResourceTenant(userId, jobCreatedAt);
+  } catch {
+    // Unproven is safer than guessing the creator's live firm.
+    return null;
+  }
   if (tenant?.organizationId) return tenant.organizationId;
   if (!tenant) return null;
   if (tenant.ownerId === userId) {
@@ -289,10 +295,12 @@ export async function isPulseOptedOutByAddress(
           const alreadySourced =
             typeof findSourced === "function"
               ? await findSourced({
-                  where: { organizationId, sourceClientId: legacy.id },
-                  select: { id: true },
+                  where: { sourceClientId: legacy.id },
+                  select: { id: true, organizationId: true },
                 })
               : null;
+          // Identity-only in this firm, and never copy a lock into another
+          // firm the owner joined later.
           if (alreadySourced) return false;
 
           const upsert = tx.pulseOrgAddressOptOut?.upsert;
