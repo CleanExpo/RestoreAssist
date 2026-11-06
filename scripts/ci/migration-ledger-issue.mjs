@@ -208,6 +208,21 @@ export function createGitHubClient({
   };
 }
 
+/**
+ * Provenance for issue text. `sha` is the commit actually compared
+ * (CHECKED_SHA, the checked-out branch tip), which can be newer than
+ * GITHUB_SHA, the commit that started the run.
+ */
+export function contextFromEnv(env) {
+  const server = env.GITHUB_SERVER_URL ?? "https://github.com";
+  return {
+    sha: env.CHECKED_SHA || env.GITHUB_SHA || "unknown",
+    runUrl: `${server}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID ?? "unknown"}`,
+    event: env.GITHUB_EVENT_NAME ?? "unknown",
+    target: env.TARGET_ORIGIN ?? "production",
+  };
+}
+
 async function main(env) {
   let line = "";
   if (env.PARITY_LOG) {
@@ -217,13 +232,7 @@ async function main(env) {
       line = "(parity log could not be read)";
     }
   }
-  const server = env.GITHUB_SERVER_URL ?? "https://github.com";
-  const context = {
-    sha: env.GITHUB_SHA ?? "unknown",
-    runUrl: `${server}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID ?? "unknown"}`,
-    event: env.GITHUB_EVENT_NAME ?? "unknown",
-    target: env.TARGET_ORIGIN ?? "production",
-  };
+  const context = contextFromEnv(env);
   try {
     const client = createGitHubClient({
       token: env.GITHUB_TOKEN,

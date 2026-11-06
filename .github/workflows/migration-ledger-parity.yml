@@ -69,9 +69,17 @@ jobs:
           - name: production
             origin: https://restoreassist.app
     steps:
-      - name: Checkout this revision
+      # The branch tip as it is NOW, not the commit that started the run
+      # (RA-8227). A re-run keeps its original commit, so an old run re-run
+      # after newer migrations merged would judge production against an old
+      # migrations folder: it could close a live alarm, or open a false one.
+      # With ref = the branch, every run, re-runs included, compares against
+      # the current tip, and the serialised group above orders those runs.
+      - name: Checkout the current tip of this branch
         id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -102,7 +110,9 @@ jobs:
           PARITY_LOG: ${{ runner.temp }}/parity.log
           TARGET_ORIGIN: ${{ matrix.target.origin }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/ci/migration-ledger-issue.mjs
+        # CHECKED_SHA is the commit actually compared, which can be newer
+        # than GITHUB_SHA (the commit that started the run).
+        run: CHECKED_SHA="$(git rev-parse HEAD)" node scripts/ci/migration-ledger-issue.mjs
 
       - name: Fail the job when the ledger is not in parity
         if: ${{ !cancelled() && steps.parity.outcome != 'success' }}

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   LABEL,
+  contextFromEnv,
   createGitHubClient,
   planIssueActions,
   syncLedgerIssue,
@@ -445,6 +446,44 @@ test("workflow: issue writers are serialised, never cancelled mid-write", () => 
     /^\s+concurrency:/m,
     "keep one workflow-level group so every writer shares it",
   );
+});
+
+test("workflow: every run judges production against the current branch tip", () => {
+  // A re-run keeps its original commit. If the checkout used that commit, a
+  // re-run of an old main commit could PASS against an old migrations folder
+  // and close a live alarm (or DRIFT and open a false one). Checking out the
+  // branch ref fetches its tip at run time, so no run judges a stale folder.
+  const checkout = stepBlock("Checkout the current tip of this branch");
+  assert.match(checkout, /^\s*id:\s*checkout$/m);
+  assert.match(checkout, /^\s*with:\n\s*ref:\s*\$\{\{\s*github\.ref\s*\}\}$/m);
+  assert.doesNotMatch(code, /ref:\s*\$\{\{\s*github\.sha\s*\}\}/);
+  const issue = stepBlock("Keep one issue open while production is behind");
+  assert.match(
+    issue,
+    /run:\s*CHECKED_SHA="\$\(git rev-parse HEAD\)" node scripts\/ci\/migration-ledger-issue\.mjs/,
+  );
+});
+
+test("issue provenance names the commit actually compared", async () => {
+  const checked = "f".repeat(40);
+  const started = "a".repeat(40);
+  assert.equal(
+    contextFromEnv({ CHECKED_SHA: checked, GITHUB_SHA: started }).sha,
+    checked,
+  );
+  assert.equal(
+    contextFromEnv({ CHECKED_SHA: "", GITHUB_SHA: started }).sha,
+    started,
+  );
+  assert.equal(contextFromEnv({}).sha, "unknown");
+  const { state, client } = fakeGitHub();
+  await syncLedgerIssue({
+    outcome: "failure",
+    line: "x",
+    context: { ...CONTEXT, sha: checked },
+    client,
+  });
+  assert.match(openIssues(state)[0].body, new RegExp(checked));
 });
 
 test("workflow: never applies, resolves or pushes migrations", () => {
