@@ -106,7 +106,7 @@ function completedReport(overrides: Record<string, unknown> = {}) {
       businessName: "Firm A <b>Restoration</b>",
       businessEmail: "office@firm-a.example",
     },
-    client: { name: HOSTILE, email: "bob@owner.test" },
+    client: { name: HOSTILE, email: "bob@restoreassist.com.au" },
     inspection: { id: INSPECTION_ID },
     ...overrides,
   };
@@ -293,6 +293,7 @@ describe("POST /api/reports/[id]/send — refusals send nothing and write nothin
     "sample.client@example.com.au",
     "sample.client@restoreassist.invalid",
     "bob@client.example",
+    "bob@owner.test",
   ])("refuses a demo or reserved recipient %s before send, token, or record", async (email) => {
     currentReport = completedReport({
       client: { name: "Sample", email },
@@ -366,7 +367,7 @@ describe("POST /api/reports/[id]/send — a good send", () => {
       html: string;
       text?: string;
     };
-    expect(email.to).toBe("bob@owner.test");
+    expect(email.to).toBe("bob@restoreassist.com.au");
     expect(email.subject).not.toMatch(/[\r\n]/);
 
     // Every user-supplied value is escaped; nothing hostile survives raw.
@@ -391,7 +392,7 @@ describe("POST /api/reports/[id]/send — a good send", () => {
       data: {
         userId: OWNER_ID,
         reportId: REPORT_ID,
-        recipient: "bob@owner.test",
+        recipient: "bob@restoreassist.com.au",
         success: true,
       },
     });

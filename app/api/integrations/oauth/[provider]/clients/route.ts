@@ -235,11 +235,24 @@ export async function POST(
 
         // Client.email is required and unique per (userId, email). External
         // records without an email would otherwise all collide on "" - give
-        // each one a stable per-record placeholder instead.
-        const email =
-          externalClient.email && externalClient.email.trim()
-            ? externalClient.email.trim()
-            : `ext-${integration.id}-${externalClient.externalId}@client.invalid`;
+        // each one a stable per-record placeholder instead. New placeholders
+        // use @client.invalid (RFC 6761). Leftover @client.local rows from
+        // earlier imports must be reused, not duplicated.
+        const trimmedEmail = externalClient.email?.trim() ?? "";
+        const invalidPlaceholder = `ext-${integration.id}-${externalClient.externalId}@client.invalid`;
+        const localPlaceholder = `ext-${integration.id}-${externalClient.externalId}@client.local`;
+        let email = trimmedEmail;
+        if (!email) {
+          const existingPlaceholder = await prisma.client.findFirst({
+            where: {
+              userId: session.user.id,
+              workspaceId,
+              email: { in: [invalidPlaceholder, localPlaceholder] },
+            },
+            select: { email: true },
+          });
+          email = existingPlaceholder?.email ?? invalidPlaceholder;
+        }
 
         // Email is unique for the user across all workspaces. Refuse a
         // same-email row owned by another workspace before any update; the
