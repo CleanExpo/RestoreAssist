@@ -140,12 +140,22 @@ vi.mock("@/lib/prisma", () => {
         }),
     },
     organization: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        db.orgs[where.id] ?? null,
       findFirst: async ({
         where,
       }: {
-        where: { ownerId: string };
-      }) =>
-        Object.values(db.orgs).find((o) => o.ownerId === where.ownerId) ?? null,
+        where: { ownerId?: string; id?: string };
+      }) => {
+        if (where.id) return db.orgs[where.id] ?? null;
+        if (where.ownerId) {
+          return (
+            Object.values(db.orgs).find((o) => o.ownerId === where.ownerId) ??
+            null
+          );
+        }
+        return null;
+      },
     },
     client,
     pulseOrgAddressOptOut: {
@@ -412,6 +422,31 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
       true,
     );
     expect(db.locks[0].addressTag).toBe(pulseAddressTag("old@owner.test"));
+  });
+
+  it("blocks a colleague when the owner has a null orgId and a legacy opt-out", async () => {
+    staff("owner-1", null);
+    staff("staff-b", "org-1");
+    db.orgs["org-1"] = { id: "org-1", ownerId: "owner-1" };
+    client({
+      id: "client-owner",
+      userId: "owner-1",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    client({
+      id: "client-b",
+      userId: "staff-b",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+
+    expect(await isPulseOptedOutByAddress("staff-b", "home@owner.test")).toBe(
+      true,
+    );
+    expect(db.clients.find((row) => row.id === "client-b")?.pulseOptOut).toBe(
+      false,
+    );
   });
 
   it("honours a legacy staff-level Client.pulseOptOut for a colleague", async () => {

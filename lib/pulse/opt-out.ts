@@ -39,10 +39,19 @@ export async function resolvePulseOrganisationId(
 }
 
 /**
- * Current members only. A former member can still hold Client rows after they
- * leave; scanning those would let them lock this firm's address after they
- * left. Org-wide consent lives on PulseOrgAddressOptOut, written while they
- * were a member (or by a current colleague / the public unsubscribe token).
+ * Current members plus the proven Organisation.ownerId.
+ *
+ * Owners often have `User.organizationId` null and sit only on
+ * `Organization.ownerId`. Leaving them out of this set would skip a
+ * pre-migration `Client.pulseOptOut` on the owner's table, so a colleague
+ * could keep mailing an address that already withdrew. Former members stay
+ * out: after they leave they can still hold Client rows, and scanning those
+ * would let them lock this firm's address.
+ *
+ * No SQL backfill of PulseOrgAddressOptOut: the tag is an HMAC of the
+ * address (needs the unsubscribe secret) and promoting a row's live email
+ * could lock a replacement address. The next send promotes a still-current
+ * owner flag into the lock table.
  */
 export async function pulseOrganisationMemberIds(
   organizationId: string,
@@ -55,7 +64,18 @@ export async function pulseOrganisationMemberIds(
     select: { id: true },
     take: MEMBER_SCAN_CAP,
   });
-  return [...new Set(current.map((row) => row.id))];
+  const ids = current.map((row) => row.id);
+  const findOrg = db.organization?.findUnique;
+  if (typeof findOrg === "function") {
+    const org = await findOrg({
+      where: { id: organizationId },
+      select: { ownerId: true },
+    });
+    if (typeof org?.ownerId === "string" && org.ownerId.length > 0) {
+      ids.push(org.ownerId);
+    }
+  }
+  return [...new Set(ids)];
 }
 
 /**
