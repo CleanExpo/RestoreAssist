@@ -222,7 +222,7 @@ describe("Pulse status dispatcher — moved technician (RA-7893)", () => {
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       status: "SUPPRESSED",
-      reason: "OPT_OUT",
+      reason: "UNPROVEN_SCOPE",
     });
   });
 
@@ -243,7 +243,7 @@ describe("Pulse review-ask — moved technician (RA-7893)", () => {
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       status: "SUPPRESSED",
-      reason: "OPT_OUT",
+      reason: "UNPROVEN_SCOPE",
     });
   });
 

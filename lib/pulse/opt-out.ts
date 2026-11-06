@@ -234,6 +234,12 @@ export async function recordPulseAddressLock(input: {
   organizationId?: string | null;
   /** Join an existing transaction so a failed lock rolls the email replace back. */
   db?: Db;
+  /**
+   * Opted-out email replace must lock a proven organisation. A null membership
+   * with two owned firms is not "no organisation" — skipping the lock would
+   * let a colleague mail the old address.
+   */
+  requireOrganisation?: boolean;
 }): Promise<{ organizationId: string | null; addressTag: string | null }> {
   const db = input.db ?? prisma;
   const addressTag =
@@ -246,6 +252,11 @@ export async function recordPulseAddressLock(input: {
   if (organizationId && (input.email?.trim() || input.addressTag) && !addressTag) {
     throw new PulseAddressLockWriteError(
       "Pulse address lock cannot be fingerprinted",
+    );
+  }
+  if (input.requireOrganisation && (!organizationId || !addressTag)) {
+    throw new PulseAddressLockWriteError(
+      "Pulse address lock cannot be scoped",
     );
   }
   if (!organizationId || !addressTag) {
@@ -346,6 +357,46 @@ export async function recordPulseOptOut(input: {
 }
 
 /**
+ * Consent for a Pulse recipient. Send only on `"clear"`: anything else is
+ * fail-closed. `"opted_out"` is a proven withdrawal; `"unproven"` means the
+ * organisation or the opt-out tables could not be read completely.
+ */
+export type PulseConsentState = "clear" | "opted_out" | "unproven";
+
+export type PulseSendGate =
+  | { allow: true; organizationId: string | null }
+  | { allow: false; reason: "OPT_OUT" | "UNPROVEN_SCOPE" };
+
+/**
+ * Job organisation plus recipient consent. The send path must call this
+ * (or an equivalent default-deny) before mailing: a missed upstream lock
+ * still cannot send unless this returns `allow: true`.
+ */
+export async function gatePulseRecipientSend(
+  userId: string,
+  jobCreatedAt: Date,
+  email: string,
+): Promise<PulseSendGate> {
+  let jobOrg: PulseJobOrganisation;
+  try {
+    jobOrg = await resolvePulseJobOrganisationId(userId, jobCreatedAt);
+  } catch {
+    return { allow: false, reason: "UNPROVEN_SCOPE" };
+  }
+  if (jobOrg.ambiguous) return { allow: false, reason: "UNPROVEN_SCOPE" };
+  const consent = await pulseRecipientConsent(
+    userId,
+    email,
+    jobOrg.organizationId,
+  );
+  if (consent === "clear") {
+    return { allow: true, organizationId: jobOrg.organizationId };
+  }
+  if (consent === "opted_out") return { allow: false, reason: "OPT_OUT" };
+  return { allow: false, reason: "UNPROVEN_SCOPE" };
+}
+
+/**
  * Has this address withdrawn from this business?
  *
  * Reads, in order:
@@ -360,13 +411,13 @@ export async function recordPulseOptOut(input: {
  * A missing HMAC secret cannot fingerprint the address, so the send is
  * suppressed rather than mailed without a consent check.
  */
-export async function isPulseOptedOutByAddress(
+export async function pulseRecipientConsent(
   userId: string,
   email: string,
   pinnedOrganizationId?: string | null,
-): Promise<boolean> {
+): Promise<PulseConsentState> {
   const trimmed = email.trim();
-  if (!trimmed) return false;
+  if (!trimmed) return "clear";
 
   try {
     const organizationId =
@@ -374,23 +425,25 @@ export async function isPulseOptedOutByAddress(
         ? pinnedOrganizationId
         : await resolvePulseOrganisationId(userId);
     const addressTag = tagFor(trimmed);
-    if (organizationId && !addressTag) return true;
+    if (organizationId && !addressTag) return "unproven";
 
     return await withConsentLock(organizationId, addressTag, async (tx) => {
       if (organizationId && addressTag) {
         const upsert = tx.pulseOrgAddressOptOut?.upsert;
         // A missing writer cannot persist a lock. Do not send; a later email
         // change would otherwise resume mail to an address that withdrew.
-        if (typeof upsert !== "function") return true;
-        if (await orgAddressLocked(organizationId, addressTag, tx)) return true;
+        if (typeof upsert !== "function") return "unproven";
+        if (await orgAddressLocked(organizationId, addressTag, tx)) {
+          return "opted_out";
+        }
 
         const memberIds = await pulseOrganisationMemberIds(organizationId, tx);
-        if (memberIds === null) return true;
-        if (memberIds.length >= MEMBER_SCAN_CAP) return true;
+        if (memberIds === null) return "unproven";
+        if (memberIds.length >= MEMBER_SCAN_CAP) return "unproven";
         const scopeUserIds = memberIds.length > 0 ? memberIds : [userId];
         if (scopeUserIds.length > 0) {
           const findLegacy = tx.client.findMany;
-          if (typeof findLegacy !== "function") return true;
+          if (typeof findLegacy !== "function") return "unproven";
           const legacyRows = await findLegacy({
             where: {
               userId: { in: scopeUserIds },
@@ -400,10 +453,10 @@ export async function isPulseOptedOutByAddress(
             select: { id: true },
             take: MEMBER_SCAN_CAP,
           });
-          if (legacyRows.length >= MEMBER_SCAN_CAP) return true;
+          if (legacyRows.length >= MEMBER_SCAN_CAP) return "unproven";
           const findSourced = tx.pulseOrgAddressOptOut?.findFirst;
           if (legacyRows.length > 0 && typeof findSourced !== "function") {
-            return true;
+            return "unproven";
           }
           for (const legacy of legacyRows) {
             // A row that already sourced an address lock is identity-only after
@@ -428,14 +481,14 @@ export async function isPulseOptedOutByAddress(
               },
               update: {},
             });
-            return true;
+            return "opted_out";
           }
         }
-        return false;
+        return "clear";
       }
 
       const findOwn = tx.client.findFirst;
-      if (typeof findOwn !== "function") return true;
+      if (typeof findOwn !== "function") return "unproven";
       const match = await findOwn({
         where: {
           userId,
@@ -444,9 +497,18 @@ export async function isPulseOptedOutByAddress(
         },
         select: { id: true },
       });
-      return Boolean(match);
+      return match ? "opted_out" : "clear";
     });
   } catch {
-    return true;
+    return "unproven";
   }
+}
+
+export async function isPulseOptedOutByAddress(
+  userId: string,
+  email: string,
+  pinnedOrganizationId?: string | null,
+): Promise<boolean> {
+  return (await pulseRecipientConsent(userId, email, pinnedOrganizationId)) !==
+    "clear";
 }

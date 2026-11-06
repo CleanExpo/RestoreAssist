@@ -14,7 +14,8 @@
  * resent because Mailtrap may already have accepted the email.
  *
  * Suppression reasons: the per-job Pulse toggle is off (mid-dispute kill
- * switch, judge AC6), the homeowner opted out, no recipient, the workspace
+ * switch, judge AC6), the homeowner opted out, the job firm or opt-out state
+ * cannot be proven clear (UNPROVEN_SCOPE), no recipient, the workspace
  * lacks the CLIENT_COMMS entitlement (RA-6954), the Mailtrap/app env is unset
  * (fail-closed with connector-health visibility, mirroring lib/email.ts), or
  * the logical event was already dispatched (duplicate).
@@ -50,10 +51,7 @@ import {
   buildPulseOneClickUnsubscribeUrl,
   buildPulseUnsubscribeUrl,
 } from "./pulse-unsubscribe-token";
-import {
-  isPulseOptedOutByAddress,
-  resolvePulseJobOrganisationId,
-} from "./opt-out";
+import { gatePulseRecipientSend } from "./opt-out";
 
 export type PulseEventType =
   | "STEP_TRANSITION"
@@ -75,6 +73,7 @@ export type PulseEvent =
 export type PulseSuppressionReason =
   | "TOGGLE_OFF"
   | "OPT_OUT"
+  | "UNPROVEN_SCOPE"
   | "NO_RECIPIENT"
   | "NOT_ENTITLED"
   | "MISSING_ENV"
@@ -281,21 +280,17 @@ export async function dispatchPulseNotification(
     return suppress("OPT_OUT");
   }
   if (!recipient || !client) return suppress("NO_RECIPIENT");
-  // RA-7893: the job's firm, not whichever organisation its creator is in now.
-  // Self-tenant owners who own exactly one organisation bind to that firm.
-  // Two or more owned organisations cannot be told apart from the job, so we
-  // do not send and do not mint a token for an arbitrary (oldest) firm.
-  let jobOrg: Awaited<ReturnType<typeof resolvePulseJobOrganisationId>>;
-  try {
-    jobOrg = await resolvePulseJobOrganisationId(job.userId, job.createdAt);
-  } catch {
-    return suppress("OPT_OUT");
-  }
-  if (jobOrg.ambiguous) return suppress("OPT_OUT");
-  const jobOrganizationId = jobOrg.organizationId;
-  if (await isPulseOptedOutByAddress(job.userId, recipient, jobOrganizationId)) {
-    return suppress("OPT_OUT");
-  }
+  // Default-deny: send only when the job's firm and the recipient's opt-out
+  // state are both proven clear. A missed address lock upstream still cannot
+  // mail. Unproven organisation (null tenant, throw, two owned firms) is
+  // UNPROVEN_SCOPE, not a user-scoped send.
+  const sendGate = await gatePulseRecipientSend(
+    job.userId,
+    job.createdAt,
+    recipient,
+  );
+  if (!sendGate.allow) return suppress(sendGate.reason);
+  const jobOrganizationId = sendGate.organizationId;
   // RA-6954 — client-comms send requires the CLIENT_COMMS entitlement.
   // Internal status reads (the portal feed itself) are never gated — only
   // this SEND path is.

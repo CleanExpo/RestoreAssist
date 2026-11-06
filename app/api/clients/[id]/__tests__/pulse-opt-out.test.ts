@@ -112,6 +112,7 @@ describe("contractor control of the client's opt-out", () => {
       ownerUserId: "owner_1",
       email: "old@example.test",
       sourceClientId: "client_a",
+      requireOrganisation: true,
       db: expect.objectContaining({ client: expect.any(Object) }),
     });
     expect(written().email).toBe("new@example.test");

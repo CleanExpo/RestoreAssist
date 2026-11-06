@@ -376,6 +376,63 @@ function client(row: ClientRow) {
   db.clients.push(row);
 }
 
+function pulseSendEnv() {
+  process.env.MAILTRAP_API_KEY = "mt_test";
+  process.env.SENDER_EMAIL = "updates@restoreassist.app";
+  process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+}
+
+function stepEvent() {
+  return {
+    type: "STEP_TRANSITION" as const,
+    feed: buildClientStatusFeed({
+      status: "SCOPED",
+      workflow: null,
+      reportStatus: null,
+      pendingApprovals: [],
+    }),
+  };
+}
+
+function putClientEmail(id: string, email: string) {
+  return PUT(
+    new NextRequest(`https://app.example.test/api/clients/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: "Pat",
+        email,
+        status: "ACTIVE",
+      }),
+    }),
+    { params: Promise.resolve({ id }) },
+  );
+}
+
+function colleagueJob(
+  inspectionId: string,
+  userId: string,
+  clientId: string,
+  email: string,
+) {
+  db.inspections[inspectionId] = {
+    id: inspectionId,
+    userId,
+    createdAt: new Date("2026-06-01T00:00:00Z"),
+    pulseEnabled: true,
+    report: {
+      client: {
+        id: clientId,
+        email,
+        pulseOptOut: false,
+        portalAccounts: [
+          { token: "tok_b", inspectionId: null, createdAt: new Date() },
+        ],
+      },
+    },
+    client: null,
+  };
+}
+
 describe("Pulse consent (RA-8156, RA-7979)", () => {
   it("resolves the organisation, not the staff user, as the business identity", async () => {
     staff("staff-a", "org-1");
@@ -964,7 +1021,7 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     }
   });
 
-  it("rolls back an opted-out email replace when the lock writer is missing, and a later send to the old address is not sent", async () => {
+  it("retries an opted-out email replace after the lock writer recovers, then a send to the old address is suppressed by the lock", async () => {
     staff("staff-a", "org-1");
     staff("staff-b", "org-1");
     db.orgs["org-1"] = { id: "org-1", ownerId: "staff-a" };
@@ -974,55 +1031,16 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
       email: "old@owner.test",
       pulseOptOut: true,
     });
-    client({
-      id: "client-b",
-      userId: "staff-b",
-      email: "old@owner.test",
-      pulseOptOut: false,
-    });
     db.putUserId = "staff-a";
-    db.getResourceTenant.mockResolvedValue({
-      ownerId: "staff-b",
-      organizationId: "org-1",
-    });
-    db.inspections["insp-b"] = {
-      id: "insp-b",
-      userId: "staff-b",
-      createdAt: new Date("2026-06-01T00:00:00Z"),
-      pulseEnabled: true,
-      report: {
-        client: {
-          id: "client-b",
-          email: "old@owner.test",
-          pulseOptOut: false,
-          portalAccounts: [
-            { token: "tok_b", inspectionId: null, createdAt: new Date() },
-          ],
-        },
-      },
-      client: null,
-    };
-    process.env.MAILTRAP_API_KEY = "mt_test";
-    process.env.SENDER_EMAIL = "updates@restoreassist.app";
-    process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+    pulseSendEnv();
 
     const upsert = prisma.pulseOrgAddressOptOut.upsert;
     // @ts-expect-error — simulate a client missing the lock writer
     prisma.pulseOrgAddressOptOut.upsert = undefined;
     try {
-      const res = await PUT(
-        new NextRequest("https://app.example.test/api/clients/client-a", {
-          method: "PUT",
-          body: JSON.stringify({
-            name: "Pat",
-            email: "new@owner.test",
-            status: "ACTIVE",
-          }),
-        }),
-        { params: Promise.resolve({ id: "client-a" }) },
-      );
-      expect(res.status).not.toBe(200);
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      const failed = await putClientEmail("client-a", "new@owner.test");
+      expect(failed.status).not.toBe(200);
+      expect(failed.status).toBeGreaterThanOrEqual(400);
       expect(db.clients.find((row) => row.id === "client-a")?.email).toBe(
         "old@owner.test",
       );
@@ -1031,21 +1049,110 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
       prisma.pulseOrgAddressOptOut.upsert = upsert;
     }
 
+    const retried = await putClientEmail("client-a", "new@owner.test");
+    expect(retried.status).toBe(200);
+    expect(db.clients.find((row) => row.id === "client-a")?.email).toBe(
+      "new@owner.test",
+    );
+    expect(db.locks).toEqual([
+      expect.objectContaining({
+        organizationId: "org-1",
+        addressTag: pulseAddressTag("old@owner.test"),
+      }),
+    ]);
+
+    client({
+      id: "client-b",
+      userId: "staff-b",
+      email: "old@owner.test",
+      pulseOptOut: false,
+    });
+    colleagueJob("insp-b", "staff-b", "client-b", "old@owner.test");
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "staff-b",
+      organizationId: "org-1",
+    });
+
     const result = await dispatchPulseNotification({
       inspectionId: "insp-b",
-      event: {
-        type: "STEP_TRANSITION",
-        feed: buildClientStatusFeed({
-          status: "SCOPED",
-          workflow: null,
-          reportStatus: null,
-          pendingApprovals: [],
-        }),
-      },
+      event: stepEvent(),
     });
     expect(result.status).toBe("SUPPRESSED");
     expect(result).toMatchObject({ reason: "OPT_OUT" });
     expect(db.sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses an opted-out email replace for a two-org owner, and their job does not send", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+    client({
+      id: "client-a",
+      userId: "owner-a",
+      email: "old@owner.test",
+      pulseOptOut: true,
+    });
+    db.putUserId = "owner-a";
+    pulseSendEnv();
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "owner-a",
+      organizationId: null,
+    });
+
+    const upsert = prisma.pulseOrgAddressOptOut.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    prisma.pulseOrgAddressOptOut.upsert = undefined;
+    try {
+      const failed = await putClientEmail("client-a", "new@owner.test");
+      expect(failed.status).not.toBe(200);
+      expect(failed.status).toBeGreaterThanOrEqual(400);
+      expect(db.clients.find((row) => row.id === "client-a")?.email).toBe(
+        "old@owner.test",
+      );
+      expect(db.locks).toHaveLength(0);
+    } finally {
+      prisma.pulseOrgAddressOptOut.upsert = upsert;
+    }
+
+    const retried = await putClientEmail("client-a", "new@owner.test");
+    expect(retried.status).not.toBe(200);
+    expect(retried.status).toBeGreaterThanOrEqual(400);
+    expect(db.clients.find((row) => row.id === "client-a")?.email).toBe(
+      "old@owner.test",
+    );
+    expect(db.locks).toHaveLength(0);
+
+    client({
+      id: "job-client",
+      userId: "owner-a",
+      email: "other@owner.test",
+      pulseOptOut: false,
+    });
+    colleagueJob("insp-a", "owner-a", "job-client", "other@owner.test");
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp-a",
+      event: stepEvent(),
+    });
+    expect(result.status).toBe("SUPPRESSED");
+    expect(result).toMatchObject({ reason: "UNPROVEN_SCOPE" });
+    expect(db.sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not skip the lock when an email replace requires a proven organisation", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+
+    await expect(
+      recordPulseAddressLock({
+        ownerUserId: "owner-a",
+        email: "old@owner.test",
+        sourceClientId: "client-a",
+        requireOrganisation: true,
+      }),
+    ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+    expect(db.locks).toHaveLength(0);
   });
 
   it("does not record a person withdrawal when the address lock cannot be written", async () => {

@@ -355,12 +355,15 @@ describe("dispatchPulseNotification — suppressions", () => {
       event: STEP_EVENT,
     });
 
-    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(orgFindMany).toHaveBeenCalled();
   });
 
-  it("does not send when the job tenant is unproven and a colleague has withdrawn", async () => {
+  it("does not send when the job tenant is unproven (resolver returns null)", async () => {
     vi.mocked(getResourceTenant).mockResolvedValue(null);
     inspectionFindUnique.mockResolvedValue(jobFixture());
 
@@ -369,7 +372,10 @@ describe("dispatchPulseNotification — suppressions", () => {
       event: STEP_EVENT,
     });
 
-    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 
@@ -384,14 +390,17 @@ describe("dispatchPulseNotification — suppressions", () => {
         inspectionId: "insp_1",
         event: STEP_EVENT,
       });
-      expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+      expect(result).toMatchObject({
+        status: "SUPPRESSED",
+        reason: "UNPROVEN_SCOPE",
+      });
       expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     } finally {
       locks.upsert = upsert;
     }
   });
 
-  it("does not send when the job tenant lookup throws and a colleague has withdrawn", async () => {
+  it("does not send when the job tenant lookup throws", async () => {
     vi.mocked(getResourceTenant).mockRejectedValueOnce(new Error("tenant lookup failed"));
     inspectionFindUnique.mockResolvedValue(jobFixture());
 
@@ -400,7 +409,10 @@ describe("dispatchPulseNotification — suppressions", () => {
       event: STEP_EVENT,
     });
 
-    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 

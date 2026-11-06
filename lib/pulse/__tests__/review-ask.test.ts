@@ -201,28 +201,37 @@ describe("dispatchReviewAskNotification — suppressions", () => {
 
     const result = await dispatchReviewAskNotification("insp_1");
 
-    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(orgFindMany).toHaveBeenCalled();
   });
 
-  it("does not send when the job tenant is unproven and a colleague has withdrawn", async () => {
+  it("does not send when the job tenant is unproven (resolver returns null)", async () => {
     vi.mocked(getResourceTenant).mockResolvedValue(null);
     inspectionFindUnique.mockResolvedValue(jobFixture());
 
     const result = await dispatchReviewAskNotification("insp_1");
 
-    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 
-  it("does not send when the job tenant lookup throws and a colleague has withdrawn", async () => {
+  it("does not send when the job tenant lookup throws", async () => {
     vi.mocked(getResourceTenant).mockRejectedValueOnce(new Error("tenant lookup failed"));
     inspectionFindUnique.mockResolvedValue(jobFixture());
 
     const result = await dispatchReviewAskNotification("insp_1");
 
-    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 

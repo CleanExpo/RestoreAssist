@@ -33,14 +33,12 @@ import {
   buildPulseOneClickUnsubscribeUrl,
   buildPulseUnsubscribeUrl,
 } from "./pulse-unsubscribe-token";
-import {
-  isPulseOptedOutByAddress,
-  resolvePulseJobOrganisationId,
-} from "./opt-out";
+import { gatePulseRecipientSend } from "./opt-out";
 
 export type ReviewAskSuppressionReason =
   | "TOGGLE_OFF"
   | "OPT_OUT"
+  | "UNPROVEN_SCOPE"
   | "NO_RECIPIENT"
   | "NO_URL"
   | "NOT_ENTITLED"
@@ -159,17 +157,13 @@ export async function dispatchReviewAskNotification(
     return suppress("OPT_OUT");
   }
   if (!recipient || !client) return suppress("NO_RECIPIENT");
-  let jobOrg: Awaited<ReturnType<typeof resolvePulseJobOrganisationId>>;
-  try {
-    jobOrg = await resolvePulseJobOrganisationId(job.userId, job.createdAt);
-  } catch {
-    return suppress("OPT_OUT");
-  }
-  if (jobOrg.ambiguous) return suppress("OPT_OUT");
-  const jobOrganizationId = jobOrg.organizationId;
-  if (await isPulseOptedOutByAddress(job.userId, recipient, jobOrganizationId)) {
-    return suppress("OPT_OUT");
-  }
+  const sendGate = await gatePulseRecipientSend(
+    job.userId,
+    job.createdAt,
+    recipient,
+  );
+  if (!sendGate.allow) return suppress(sendGate.reason);
+  const jobOrganizationId = sendGate.organizationId;
   if (!reviewUrl) return suppress("NO_URL");
   // RA-6954 — client-comms send requires the CLIENT_COMMS entitlement.
   // RA-7893: the CLIENT_COMMS of the business the JOB belongs to — not of an

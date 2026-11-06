@@ -286,6 +286,7 @@ export async function PUT(
           ownerUserId: session.user.id,
           email: existingClient.email,
           sourceClientId: id,
+          requireOrganisation: true,
           db,
         });
         return writeClient(db);
