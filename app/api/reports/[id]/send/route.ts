@@ -7,6 +7,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { assertReportTenancy } from "@/lib/auth/assert-tenancy";
 import { generateInsurerToken } from "@/lib/portal-token";
+import { isDemoOrReservedRecipient } from "@/lib/email/reserved-recipient";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { sanitiseEmailField } from "@/lib/email/sanitise-header";
@@ -27,8 +28,9 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * the record Close Job requires before a job can close.
  *
  * Refuses (sending nothing, writing nothing): another business's report (404),
- * a report that is not COMPLETED, has no client email, or is not linked to a
- * job (409). A repeated Idempotency-Key replays the first response.
+ * a report that is not COMPLETED, has no client email, a demo/reserved
+ * recipient, or is not linked to a job (409). A repeated Idempotency-Key
+ * replays the first response.
  */
 export async function POST(
   request: NextRequest,
@@ -111,6 +113,14 @@ export async function POST(
           code: "CONFLICT",
           message:
             "This report has no client email address. Add one to the client record, then try again.",
+          status: 409,
+        });
+      }
+      if (isDemoOrReservedRecipient(recipient)) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "This client email is a sample or reserved address, so the report was not sent.",
           status: 409,
         });
       }

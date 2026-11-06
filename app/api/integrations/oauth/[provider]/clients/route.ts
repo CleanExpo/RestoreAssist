@@ -239,7 +239,7 @@ export async function POST(
         const email =
           externalClient.email && externalClient.email.trim()
             ? externalClient.email.trim()
-            : `ext-${integration.id}-${externalClient.externalId}@client.local`;
+            : `ext-${integration.id}-${externalClient.externalId}@client.invalid`;
 
         // Email is unique for the user across all workspaces. Refuse a
         // same-email row owned by another workspace before any update; the
