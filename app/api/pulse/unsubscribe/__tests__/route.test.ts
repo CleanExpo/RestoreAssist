@@ -55,6 +55,24 @@ beforeEach(() => {
 });
 
 describe("POST /api/pulse/unsubscribe", () => {
+  it("an unpinned two-org owner link does not lock the oldest owned organisation", async () => {
+    const token = generatePulseUnsubscribeToken(
+      "client_a",
+      "homeowner@example.test",
+      null,
+    );
+
+    const res = await POST(request(token, "List-Unsubscribe=One-Click", FORM));
+
+    expect(res.status).toBe(200);
+    expect(h.recordLock).not.toHaveBeenCalled();
+    expect(h.memberIds).not.toHaveBeenCalled();
+    expect(h.updateMany).toHaveBeenCalledWith({
+      where: { id: "client_a", userId: "owner_1" },
+      data: { pulseOptOut: true },
+    });
+  });
+
   it("an unbound link opts out only the named person, not the live address", async () => {
     const res = await POST(
       request(

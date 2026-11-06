@@ -7,13 +7,23 @@ const sendPulseUpdateEmail = vi.fn();
 const reportError = vi.fn();
 const requireAddon = vi.fn();
 const clientFindFirst = vi.fn(async (..._args: unknown[]) => null as { id: string } | null);
+const orgFindMany = vi.fn(async () => [] as { id: string }[]);
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
       findUnique: (...args: unknown[]) => inspectionFindUnique(...args),
     },
-    client: { findFirst: (...args: unknown[]) => clientFindFirst(...args) },
+    client: {
+      findFirst: (...args: unknown[]) => clientFindFirst(...args),
+      findMany: async (...args: unknown[]) => {
+        const row = await clientFindFirst(...args);
+        return row ? [row] : [];
+      },
+    },
+    organization: {
+      findMany: (...args: unknown[]) => orgFindMany(...args),
+    },
     clientCommsLog: {
       create: (...args: unknown[]) => commsCreate(...args),
       update: (...args: unknown[]) => commsUpdate(...args),
@@ -45,6 +55,7 @@ vi.mock("@/lib/organization-credits", () => ({
   })),
 }));
 
+import { getResourceTenant } from "@/lib/organization-credits";
 import { dispatchReviewAskNotification } from "../review-ask";
 
 interface JobOverrides {
@@ -94,6 +105,11 @@ let seenKeys: Set<string>;
 beforeEach(() => {
   process.env.PORTAL_SECRET = "test-secret";
   vi.clearAllMocks();
+  orgFindMany.mockResolvedValue([]);
+  vi.mocked(getResourceTenant).mockResolvedValue({
+    ownerId: "user_1",
+    organizationId: "org_sent",
+  });
   commsSeq = 0;
   seenKeys = new Set();
   // Simulate the DB unique constraint on idempotencyKey.
@@ -163,6 +179,21 @@ describe("dispatchReviewAskNotification — suppressions", () => {
 
     expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not send when a self-tenant owner owns more than one organisation", async () => {
+    vi.mocked(getResourceTenant).mockResolvedValue({
+      ownerId: "user_1",
+      organizationId: null,
+    });
+    orgFindMany.mockResolvedValue([{ id: "org_old" }, { id: "org_new" }]);
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchReviewAskNotification("insp_1");
+
+    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    expect(orgFindMany).toHaveBeenCalled();
   });
 
   it("suppresses with NO_RECIPIENT when the client has no email", async () => {

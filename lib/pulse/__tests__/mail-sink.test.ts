@@ -12,7 +12,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: h.inspectionFindUnique },
     reportApproval: { findMany: async () => [] },
-    client: { findFirst: async () => null },
+    client: { findFirst: async () => null, findMany: async () => [] },
     clientCommsLog: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row = { ...data, id: `log_${h.rows.length + 1}` };

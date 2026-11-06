@@ -8,11 +8,30 @@ const MEMBER_SCAN_CAP = 5000;
 type Db = Prisma.TransactionClient | typeof prisma;
 
 /**
- * Authoritative Pulse consent identity for a staff user.
+ * Organisations this user owns. Null means we cannot list them, so callers
+ * fail closed instead of picking an arbitrary (e.g. oldest) firm.
+ */
+async function ownedOrganisationIds(
+  userId: string,
+  db: Db,
+): Promise<string[] | null> {
+  const findMany = db.organization?.findMany;
+  if (typeof findMany !== "function") return null;
+  const rows = await findMany({
+    where: { ownerId: userId },
+    select: { id: true },
+    take: 2,
+  });
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Authoritative Pulse consent identity for a staff user acting now
+ * (contractor PUT, unpinned address check).
  *
- * Organisation id when the user belongs to one, or owns one. Null means we
- * cannot join colleagues' client tables — callers then stay on that user's
- * own rows (fail closed for cross-account leakage).
+ * Membership first. Else the unique organisation they own. Two or more owned
+ * organisations with no membership cannot be disambiguated — null, never the
+ * oldest. Callers then stay on that user's own rows.
  */
 export async function resolvePulseOrganisationId(
   userId: string,
@@ -28,14 +47,9 @@ export async function resolvePulseOrganisationId(
   if (typeof user.organizationId === "string" && user.organizationId.length > 0) {
     return user.organizationId;
   }
-  const findOwned = db.organization?.findFirst;
-  if (typeof findOwned !== "function") return null;
-  const owned = await findOwned({
-    where: { ownerId: userId },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  return owned?.id ?? null;
+  const owned = await ownedOrganisationIds(userId, db);
+  if (!owned || owned.length !== 1) return null;
+  return owned[0];
 }
 
 /**
@@ -78,34 +92,54 @@ export async function pulseOrganisationMemberIds(
   return [...new Set(ids)];
 }
 
+export type PulseJobOrganisation = {
+  organizationId: string | null;
+  /**
+   * The job's firm cannot be proven (a self-tenant who owns more than one
+   * organisation). Callers must not send and must not mint an org-bound
+   * unsubscribe token — never bind the oldest owned org.
+   */
+  ambiguous: boolean;
+};
+
 /**
  * The organisation a Pulse send belongs to: the job's proven firm, not
- * whoever the creator joined later.
+ * whoever the creator joined later, and not an arbitrary owned org.
  *
  * `getResourceTenant` names the organisation for invited members, and returns
  * a self-tenant with `organizationId: null` for ADMIN / org-owner creators.
- * In that self-tenant case we fill in the organisation they currently own or
- * belong to, so owner-created jobs still bind unsubscribe and the address lock
- * to the firm. Null tenant (unproven) stays unpinned — fail closed, no live
- * membership guess.
+ * A self-tenant who owns exactly one organisation uses that firm. Two or more
+ * owned organisations cannot be told apart from the job, so the result is
+ * ambiguous (fail closed).
  */
 export async function resolvePulseJobOrganisationId(
   userId: string,
   jobCreatedAt: Date,
-): Promise<string | null> {
+): Promise<PulseJobOrganisation> {
   let tenant: Awaited<ReturnType<typeof getResourceTenant>> = null;
   try {
     tenant = await getResourceTenant(userId, jobCreatedAt);
   } catch {
-    // Unproven is safer than guessing the creator's live firm.
-    return null;
+    // Unproven is safer than guessing the creator's live firm. Do not send
+    // an org-bound token; the caller still may mail with a user-scoped check.
+    return { organizationId: null, ambiguous: false };
   }
-  if (tenant?.organizationId) return tenant.organizationId;
-  if (!tenant) return null;
-  if (tenant.ownerId === userId) {
-    return resolvePulseOrganisationId(userId);
+  if (tenant?.organizationId) {
+    return { organizationId: tenant.organizationId, ambiguous: false };
   }
-  return null;
+  if (!tenant) return { organizationId: null, ambiguous: false };
+  if (tenant.ownerId !== userId) {
+    return { organizationId: null, ambiguous: false };
+  }
+  const owned = await ownedOrganisationIds(userId, prisma);
+  if (owned === null) return { organizationId: null, ambiguous: true };
+  if (owned.length === 1) {
+    return { organizationId: owned[0], ambiguous: false };
+  }
+  if (owned.length === 0) {
+    return { organizationId: null, ambiguous: false };
+  }
+  return { organizationId: null, ambiguous: true };
 }
 
 async function withConsentLock<T>(
@@ -268,10 +302,11 @@ export async function recordPulseOptOut(input: {
  *
  * Reads, in order:
  *  1. PulseOrgAddressOptOut for the organisation (canonical address lock)
- *  2. Client.pulseOptOut on current and former members still holding the address
- *     (legacy staff-level rows, promoted into the org table when found). A row
- *     that already sourced a lock is identity-only: its live email is not
- *     promoted, so a replacement address is not locked.
+ *  2. Client.pulseOptOut on current members and the proven owner still holding
+ *     the address (legacy staff-level rows, promoted into the org table when
+ *     found). Every matching unsourced row is checked: a sourced sibling must
+ *     not hide another withdrawal. A sourced row is identity-only — its live
+ *     email is not promoted, so a replacement address is not locked.
  *  3. This user's own Client.pulseOptOut rows when there is no organisation
  *
  * A missing HMAC secret cannot fingerprint the address, so the send is
@@ -297,21 +332,27 @@ export async function isPulseOptedOutByAddress(
       if (await orgAddressLocked(organizationId, addressTag, tx)) return true;
 
       const memberIds = await pulseOrganisationMemberIds(organizationId, tx);
+      if (memberIds.length >= MEMBER_SCAN_CAP) return true;
       const scopeUserIds = memberIds.length > 0 ? memberIds : [userId];
       if (scopeUserIds.length > 0) {
-        const legacy = await tx.client.findFirst({
+        const findLegacy = tx.client.findMany;
+        if (typeof findLegacy !== "function") return true;
+        const legacyRows = await findLegacy({
           where: {
             userId: { in: scopeUserIds },
             pulseOptOut: true,
             email: { equals: trimmed, mode: "insensitive" },
           },
           select: { id: true },
+          take: MEMBER_SCAN_CAP,
         });
-        if (legacy) {
+        if (legacyRows.length >= MEMBER_SCAN_CAP) return true;
+        const findSourced = tx.pulseOrgAddressOptOut?.findFirst;
+        for (const legacy of legacyRows) {
           // A row that already sourced an address lock is identity-only after
           // that. Promoting its live email would lock a replacement address
-          // the person never withdrew.
-          const findSourced = tx.pulseOrgAddressOptOut?.findFirst;
+          // the person never withdrew. Another matching row may still be a
+          // real withdrawal — skip sourced rows, do not return false yet.
           const alreadySourced =
             typeof findSourced === "function"
               ? await findSourced({
@@ -319,9 +360,7 @@ export async function isPulseOptedOutByAddress(
                   select: { id: true, organizationId: true },
                 })
               : null;
-          // Identity-only in this firm, and never copy a lock into another
-          // firm the owner joined later.
-          if (alreadySourced) return false;
+          if (alreadySourced) continue;
 
           const upsert = tx.pulseOrgAddressOptOut?.upsert;
           if (typeof upsert === "function") {

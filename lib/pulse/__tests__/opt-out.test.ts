@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { pulseAddressTag } from "../pulse-unsubscribe-token";
+import {
+  buildPulseUnsubscribeUrl,
+  pulseAddressTag,
+  readPulseUnsubscribeToken,
+} from "../pulse-unsubscribe-token";
 
 type ClientRow = {
   id: string;
@@ -63,16 +67,32 @@ vi.mock("@/lib/prisma", () => {
       }) ?? null,
     findMany: async ({
       where,
+      take,
     }: {
-      where: { userId?: string | { in: string[] } };
-    }) =>
-      db.clients.filter((row) => {
-        if (typeof where.userId === "string") return row.userId === where.userId;
-        if (where.userId && typeof where.userId === "object") {
-          return where.userId.in.includes(row.userId);
+      where: {
+        userId?: string | { in: string[] };
+        pulseOptOut?: boolean;
+        email?: { equals: string; mode: string };
+      };
+      take?: number;
+    }) => {
+      const rows = db.clients.filter((row) => {
+        if (where.pulseOptOut === true && !row.pulseOptOut) return false;
+        if (typeof where.userId === "string" && row.userId !== where.userId) {
+          return false;
         }
+        if (
+          where.userId &&
+          typeof where.userId === "object" &&
+          !where.userId.in.includes(row.userId)
+        ) {
+          return false;
+        }
+        if (where.email && !eqEmail(row.email, where.email.equals)) return false;
         return true;
-      }),
+      });
+      return typeof take === "number" ? rows.slice(0, take) : rows;
+    },
     updateMany: async ({
       where,
       data,
@@ -142,6 +162,18 @@ vi.mock("@/lib/prisma", () => {
     organization: {
       findUnique: async ({ where }: { where: { id: string } }) =>
         db.orgs[where.id] ?? null,
+      findMany: async ({
+        where,
+        take,
+      }: {
+        where: { ownerId?: string };
+        take?: number;
+      }) => {
+        const rows = Object.values(db.orgs).filter(
+          (o) => !where.ownerId || o.ownerId === where.ownerId,
+        );
+        return typeof take === "number" ? rows.slice(0, take) : rows;
+      },
       findFirst: async ({
         where,
       }: {
@@ -554,7 +586,7 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     ).toBe(false);
   });
 
-  it("pins the owner's organisation when the job tenant is self", async () => {
+  it("pins the owner's organisation when the job tenant is self and they own one firm", async () => {
     staff("owner-a", "org-1");
     db.orgs["org-1"] = { id: "org-1", ownerId: "owner-a" };
     db.getResourceTenant.mockResolvedValue({
@@ -567,7 +599,7 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
         "owner-a",
         new Date("2026-06-01T00:00:00Z"),
       ),
-    ).toBe("org-1");
+    ).toEqual({ organizationId: "org-1", ambiguous: false });
   });
 
   it("does not guess a live firm when the job tenant is unproven", async () => {
@@ -579,7 +611,115 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
         "tech-a",
         new Date("2026-06-01T00:00:00Z"),
       ),
-    ).toBeNull();
+    ).toEqual({ organizationId: null, ambiguous: false });
+  });
+
+  it("does not bind a two-org owner's job to the oldest owned organisation", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "owner-a",
+      organizationId: null,
+    });
+
+    const jobOrg = await resolvePulseJobOrganisationId(
+      "owner-a",
+      new Date("2026-06-01T00:00:00Z"),
+    );
+    expect(jobOrg).toEqual({ organizationId: null, ambiguous: true });
+
+    process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+    const url = buildPulseUnsubscribeUrl(
+      "client_1",
+      "home@owner.test",
+      jobOrg.organizationId,
+    );
+    expect(
+      readPulseUnsubscribeToken(new URL(url).searchParams.get("token")!),
+    ).toMatchObject({ organizationId: null });
+  });
+
+  it("uses the job's proven organisation even when the owner owns two firms", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "owner-a",
+      organizationId: "org-new",
+    });
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "owner-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toEqual({ organizationId: "org-new", ambiguous: false });
+  });
+
+  it("uses membership, not the oldest owned firm, for a live two-org owner", async () => {
+    staff("owner-a", "org-new");
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+
+    expect(await resolvePulseOrganisationId("owner-a")).toBe("org-new");
+  });
+
+  it("does not lock the oldest firm when a two-org owner withdraws without membership", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+    client({
+      id: "client-a",
+      userId: "owner-a",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+
+    expect(await resolvePulseOrganisationId("owner-a")).toBeNull();
+    const result = await recordPulseOptOut({
+      clientId: "client-a",
+      ownerUserId: "owner-a",
+      email: "home@owner.test",
+    });
+    expect(result.organizationId).toBeNull();
+    expect(db.locks).toHaveLength(0);
+    expect(db.clients[0].pulseOptOut).toBe(true);
+  });
+
+  it("still honours an unsourced withdrawal after a sourced sibling row", async () => {
+    staff("staff-a", "org-1");
+    staff("staff-b", "org-1");
+    db.orgs["org-1"] = { id: "org-1", ownerId: "owner-1" };
+    client({
+      id: "client-sourced",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    client({
+      id: "client-withdrawn",
+      userId: "staff-b",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    db.locks.push({
+      organizationId: "org-other",
+      addressTag: pulseAddressTag("old@owner.test"),
+      sourceClientId: "client-sourced",
+    });
+
+    expect(
+      await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+    ).toBe(true);
+    expect(
+      db.locks.some(
+        (row) =>
+          row.organizationId === "org-1" &&
+          row.addressTag === pulseAddressTag("home@owner.test") &&
+          row.sourceClientId === "client-withdrawn",
+      ),
+    ).toBe(true);
   });
 
   it("fail-closes the address check when the unsubscribe secret is missing", async () => {

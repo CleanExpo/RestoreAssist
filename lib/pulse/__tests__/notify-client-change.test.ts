@@ -31,7 +31,13 @@ vi.mock("@/lib/prisma", () => ({
     inspection: { findUnique: h.inspectionFindUnique },
     reportApproval: { findMany: h.approvalFindMany },
     dryingGoalRecord: { findUnique: h.goalFindUnique },
-    client: { findFirst: h.clientFindFirst },
+    client: {
+      findFirst: h.clientFindFirst,
+      findMany: async (args: unknown) => {
+        const row = await h.clientFindFirst(args);
+        return row ? [row] : [];
+      },
+    },
     clientCommsLog: {
       create: async ({ data }: { data: Row }) => {
         if ((h.rows as Row[]).some((r) => r.idempotencyKey === data.idempotencyKey)) {

@@ -282,12 +282,15 @@ export async function dispatchPulseNotification(
   }
   if (!recipient || !client) return suppress("NO_RECIPIENT");
   // RA-7893: the job's firm, not whichever organisation its creator is in now.
-  // Owner/ADMIN self-tenants still resolve to the org they own, so the usual
-  // contractor send path binds unsubscribe to the firm.
-  const jobOrganizationId = await resolvePulseJobOrganisationId(
+  // Self-tenant owners who own exactly one organisation bind to that firm.
+  // Two or more owned organisations cannot be told apart from the job, so we
+  // do not send and do not mint a token for an arbitrary (oldest) firm.
+  const jobOrg = await resolvePulseJobOrganisationId(
     job.userId,
     job.createdAt,
   );
+  if (jobOrg.ambiguous) return suppress("OPT_OUT");
+  const jobOrganizationId = jobOrg.organizationId;
   if (await isPulseOptedOutByAddress(job.userId, recipient, jobOrganizationId)) {
     return suppress("OPT_OUT");
   }

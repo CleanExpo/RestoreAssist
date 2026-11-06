@@ -117,7 +117,7 @@ vi.mock("@/lib/prisma", () => ({
           ? { id: "fe", active: true }
           : null,
     },
-    client: { findFirst: async () => null },
+    client: { findFirst: async () => null, findMany: async () => [] },
     clientCommsLog: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         db.logs.push(data);

@@ -34,7 +34,7 @@ vi.mock("@/lib/prisma", () => ({
       updateMany: h.updateMany,
     },
     reportApproval: { findMany: async () => [] },
-    client: { findFirst: async () => null },
+    client: { findFirst: async () => null, findMany: async () => [] },
     auditLog: { create: async () => ({}) },
     clientCommsLog: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
