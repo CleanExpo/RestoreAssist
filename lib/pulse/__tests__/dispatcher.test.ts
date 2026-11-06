@@ -16,8 +16,14 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: (...args: unknown[]) => inspectionFindUnique(...args),
     },
     client: { findFirst: async () => null, findMany: async () => [] },
+    user: { findMany: async () => [] },
     organization: {
       findMany: (...args: unknown[]) => orgFindMany(...args),
+      findUnique: async () => null,
+    },
+    pulseOrgAddressOptOut: {
+      findUnique: async () => null,
+      findFirst: async () => null,
     },
     clientCommsLog: {
       create: (...args: unknown[]) => commsCreate(...args),
@@ -130,6 +136,7 @@ beforeEach(() => {
   process.env.PORTAL_SECRET = "test-secret";
   vi.clearAllMocks();
   orgFindMany.mockResolvedValue([]);
+  vi.mocked(getResourceTenant).mockReset();
   vi.mocked(getResourceTenant).mockResolvedValue({
     ownerId: "user_1",
     organizationId: "org_sent",
@@ -349,6 +356,32 @@ describe("dispatchPulseNotification — suppressions", () => {
     expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(orgFindMany).toHaveBeenCalled();
+  });
+
+  it("does not send when the job tenant is unproven and a colleague has withdrawn", async () => {
+    vi.mocked(getResourceTenant).mockResolvedValue(null);
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not send when the job tenant lookup throws and a colleague has withdrawn", async () => {
+    vi.mocked(getResourceTenant).mockRejectedValueOnce(new Error("tenant lookup failed"));
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 
   it("suppresses with NO_RECIPIENT when the client has no email", async () => {

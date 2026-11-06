@@ -285,10 +285,12 @@ export async function dispatchPulseNotification(
   // Self-tenant owners who own exactly one organisation bind to that firm.
   // Two or more owned organisations cannot be told apart from the job, so we
   // do not send and do not mint a token for an arbitrary (oldest) firm.
-  const jobOrg = await resolvePulseJobOrganisationId(
-    job.userId,
-    job.createdAt,
-  );
+  let jobOrg: Awaited<ReturnType<typeof resolvePulseJobOrganisationId>>;
+  try {
+    jobOrg = await resolvePulseJobOrganisationId(job.userId, job.createdAt);
+  } catch {
+    return suppress("OPT_OUT");
+  }
   if (jobOrg.ambiguous) return suppress("OPT_OUT");
   const jobOrganizationId = jobOrg.organizationId;
   if (await isPulseOptedOutByAddress(job.userId, recipient, jobOrganizationId)) {

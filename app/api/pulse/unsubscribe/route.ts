@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         ? await pulseOrganisationMemberIds(organizationId)
         : [];
       const scopeUserIds =
-        memberIds.length > 0 ? memberIds : [client.userId];
+        memberIds && memberIds.length > 0 ? memberIds : [client.userId];
       if (!email || pulseAddressTag(email) !== addressTag) {
         // The record's address was replaced after this link was sent. The new
         // address asked for nothing, so only records still holding the old one go.

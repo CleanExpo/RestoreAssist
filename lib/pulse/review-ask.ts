@@ -159,10 +159,12 @@ export async function dispatchReviewAskNotification(
     return suppress("OPT_OUT");
   }
   if (!recipient || !client) return suppress("NO_RECIPIENT");
-  const jobOrg = await resolvePulseJobOrganisationId(
-    job.userId,
-    job.createdAt,
-  );
+  let jobOrg: Awaited<ReturnType<typeof resolvePulseJobOrganisationId>>;
+  try {
+    jobOrg = await resolvePulseJobOrganisationId(job.userId, job.createdAt);
+  } catch {
+    return suppress("OPT_OUT");
+  }
   if (jobOrg.ambiguous) return suppress("OPT_OUT");
   const jobOrganizationId = jobOrg.organizationId;
   if (await isPulseOptedOutByAddress(job.userId, recipient, jobOrganizationId)) {

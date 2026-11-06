@@ -17,12 +17,16 @@ async function ownedOrganisationIds(
 ): Promise<string[] | null> {
   const findMany = db.organization?.findMany;
   if (typeof findMany !== "function") return null;
-  const rows = await findMany({
-    where: { ownerId: userId },
-    select: { id: true },
-    take: 2,
-  });
-  return rows.map((row) => row.id);
+  try {
+    const rows = await findMany({
+      where: { ownerId: userId },
+      select: { id: true },
+      take: 2,
+    });
+    return rows.map((row) => row.id);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -70,17 +74,18 @@ export async function resolvePulseOrganisationId(
 export async function pulseOrganisationMemberIds(
   organizationId: string,
   db: Db = prisma,
-): Promise<string[]> {
+): Promise<string[] | null> {
   const findMany = db.user?.findMany;
-  if (typeof findMany !== "function") return [];
-  const current = await findMany({
-    where: { organizationId },
-    select: { id: true },
-    take: MEMBER_SCAN_CAP,
-  });
-  const ids = current.map((row) => row.id);
-  const findOrg = db.organization?.findUnique;
-  if (typeof findOrg === "function") {
+  if (typeof findMany !== "function") return null;
+  try {
+    const current = await findMany({
+      where: { organizationId },
+      select: { id: true },
+      take: MEMBER_SCAN_CAP,
+    });
+    const ids = current.map((row) => row.id);
+    const findOrg = db.organization?.findUnique;
+    if (typeof findOrg !== "function") return null;
     const org = await findOrg({
       where: { id: organizationId },
       select: { ownerId: true },
@@ -88,16 +93,18 @@ export async function pulseOrganisationMemberIds(
     if (typeof org?.ownerId === "string" && org.ownerId.length > 0) {
       ids.push(org.ownerId);
     }
+    return [...new Set(ids)];
+  } catch {
+    return null;
   }
-  return [...new Set(ids)];
 }
 
 export type PulseJobOrganisation = {
   organizationId: string | null;
   /**
-   * The job's firm cannot be proven (a self-tenant who owns more than one
-   * organisation). Callers must not send and must not mint an org-bound
-   * unsubscribe token — never bind the oldest owned org.
+   * The job's firm cannot be proven. Callers must not send and must not mint
+   * an org-unbound unsubscribe token. Null, thrown, or mismatched tenants are
+   * ambiguous — never a user-scoped send that would miss a colleague lock.
    */
   ambiguous: boolean;
 };
@@ -110,7 +117,8 @@ export type PulseJobOrganisation = {
  * a self-tenant with `organizationId: null` for ADMIN / org-owner creators.
  * A self-tenant who owns exactly one organisation uses that firm. Two or more
  * owned organisations cannot be told apart from the job, so the result is
- * ambiguous (fail closed).
+ * ambiguous (fail closed). A null or thrown tenant is also ambiguous: the
+ * send is suppressed rather than mailed on the creator's rows alone.
  */
 export async function resolvePulseJobOrganisationId(
   userId: string,
@@ -120,16 +128,14 @@ export async function resolvePulseJobOrganisationId(
   try {
     tenant = await getResourceTenant(userId, jobCreatedAt);
   } catch {
-    // Unproven is safer than guessing the creator's live firm. Do not send
-    // an org-bound token; the caller still may mail with a user-scoped check.
-    return { organizationId: null, ambiguous: false };
+    return { organizationId: null, ambiguous: true };
   }
   if (tenant?.organizationId) {
     return { organizationId: tenant.organizationId, ambiguous: false };
   }
-  if (!tenant) return { organizationId: null, ambiguous: false };
+  if (!tenant) return { organizationId: null, ambiguous: true };
   if (tenant.ownerId !== userId) {
-    return { organizationId: null, ambiguous: false };
+    return { organizationId: null, ambiguous: true };
   }
   const owned = await ownedOrganisationIds(userId, prisma);
   if (owned === null) return { organizationId: null, ambiguous: true };
@@ -177,12 +183,16 @@ async function orgAddressLocked(
   db: Db,
 ): Promise<boolean> {
   const find = db.pulseOrgAddressOptOut?.findUnique;
-  if (typeof find !== "function") return false;
-  const row = await find({
-    where: { organizationId_addressTag: { organizationId, addressTag } },
-    select: { id: true },
-  });
-  return Boolean(row);
+  if (typeof find !== "function") return true;
+  try {
+    const row = await find({
+      where: { organizationId_addressTag: { organizationId, addressTag } },
+      select: { id: true },
+    });
+    return Boolean(row);
+  } catch {
+    return true;
+  }
 }
 
 /**
@@ -249,7 +259,7 @@ export async function recordPulseOptOut(input: {
     ? await pulseOrganisationMemberIds(organizationId)
     : [];
   const scopeUserIds =
-    memberIds.length > 0 ? memberIds : [input.ownerUserId];
+    memberIds && memberIds.length > 0 ? memberIds : [input.ownerUserId];
 
   await recordPulseAddressLock({
     ownerUserId: input.ownerUserId,
@@ -320,77 +330,84 @@ export async function isPulseOptedOutByAddress(
   const trimmed = email.trim();
   if (!trimmed) return false;
 
-  const organizationId =
-    pinnedOrganizationId !== undefined
-      ? pinnedOrganizationId
-      : await resolvePulseOrganisationId(userId);
-  const addressTag = tagFor(trimmed);
-  if (organizationId && !addressTag) return true;
+  try {
+    const organizationId =
+      pinnedOrganizationId !== undefined
+        ? pinnedOrganizationId
+        : await resolvePulseOrganisationId(userId);
+    const addressTag = tagFor(trimmed);
+    if (organizationId && !addressTag) return true;
 
-  return withConsentLock(organizationId, addressTag, async (tx) => {
-    if (organizationId && addressTag) {
-      if (await orgAddressLocked(organizationId, addressTag, tx)) return true;
+    return await withConsentLock(organizationId, addressTag, async (tx) => {
+      if (organizationId && addressTag) {
+        if (await orgAddressLocked(organizationId, addressTag, tx)) return true;
 
-      const memberIds = await pulseOrganisationMemberIds(organizationId, tx);
-      if (memberIds.length >= MEMBER_SCAN_CAP) return true;
-      const scopeUserIds = memberIds.length > 0 ? memberIds : [userId];
-      if (scopeUserIds.length > 0) {
-        const findLegacy = tx.client.findMany;
-        if (typeof findLegacy !== "function") return true;
-        const legacyRows = await findLegacy({
-          where: {
-            userId: { in: scopeUserIds },
-            pulseOptOut: true,
-            email: { equals: trimmed, mode: "insensitive" },
-          },
-          select: { id: true },
-          take: MEMBER_SCAN_CAP,
-        });
-        if (legacyRows.length >= MEMBER_SCAN_CAP) return true;
-        const findSourced = tx.pulseOrgAddressOptOut?.findFirst;
-        for (const legacy of legacyRows) {
-          // A row that already sourced an address lock is identity-only after
-          // that. Promoting its live email would lock a replacement address
-          // the person never withdrew. Another matching row may still be a
-          // real withdrawal — skip sourced rows, do not return false yet.
-          const alreadySourced =
-            typeof findSourced === "function"
-              ? await findSourced({
-                  where: { sourceClientId: legacy.id },
-                  select: { id: true, organizationId: true },
-                })
-              : null;
-          if (alreadySourced) continue;
-
-          const upsert = tx.pulseOrgAddressOptOut?.upsert;
-          if (typeof upsert === "function") {
-            await upsert({
-              where: {
-                organizationId_addressTag: { organizationId, addressTag },
-              },
-              create: {
-                organizationId,
-                addressTag,
-                sourceClientId: legacy.id,
-                sourceUserId: userId,
-              },
-              update: {},
-            });
+        const memberIds = await pulseOrganisationMemberIds(organizationId, tx);
+        if (memberIds === null) return true;
+        if (memberIds.length >= MEMBER_SCAN_CAP) return true;
+        const scopeUserIds = memberIds.length > 0 ? memberIds : [userId];
+        if (scopeUserIds.length > 0) {
+          const findLegacy = tx.client.findMany;
+          if (typeof findLegacy !== "function") return true;
+          const legacyRows = await findLegacy({
+            where: {
+              userId: { in: scopeUserIds },
+              pulseOptOut: true,
+              email: { equals: trimmed, mode: "insensitive" },
+            },
+            select: { id: true },
+            take: MEMBER_SCAN_CAP,
+          });
+          if (legacyRows.length >= MEMBER_SCAN_CAP) return true;
+          const findSourced = tx.pulseOrgAddressOptOut?.findFirst;
+          if (legacyRows.length > 0 && typeof findSourced !== "function") {
+            return true;
           }
-          return true;
-        }
-      }
-      return false;
-    }
+          for (const legacy of legacyRows) {
+            // A row that already sourced an address lock is identity-only after
+            // that. Promoting its live email would lock a replacement address
+            // the person never withdrew. Another matching row may still be a
+            // real withdrawal — skip sourced rows, do not return false yet.
+            const alreadySourced = await findSourced!({
+              where: { sourceClientId: legacy.id },
+              select: { id: true, organizationId: true },
+            });
+            if (alreadySourced) continue;
 
-    const match = await tx.client.findFirst({
-      where: {
-        userId,
-        pulseOptOut: true,
-        email: { equals: trimmed, mode: "insensitive" },
-      },
-      select: { id: true },
+            const upsert = tx.pulseOrgAddressOptOut?.upsert;
+            if (typeof upsert === "function") {
+              await upsert({
+                where: {
+                  organizationId_addressTag: { organizationId, addressTag },
+                },
+                create: {
+                  organizationId,
+                  addressTag,
+                  sourceClientId: legacy.id,
+                  sourceUserId: userId,
+                },
+                update: {},
+              });
+            }
+            return true;
+          }
+        }
+        return false;
+      }
+
+      const findOwn = tx.client.findFirst;
+      if (typeof findOwn !== "function") return true;
+      const match = await findOwn({
+        where: {
+          userId,
+          pulseOptOut: true,
+          email: { equals: trimmed, mode: "insensitive" },
+        },
+        select: { id: true },
+      });
+      return Boolean(match);
     });
-    return Boolean(match);
-  });
+  } catch {
+    return true;
+  }
 }

@@ -13,6 +13,12 @@ vi.mock("@/lib/prisma", () => ({
     inspection: { findUnique: h.inspectionFindUnique },
     reportApproval: { findMany: async () => [] },
     client: { findFirst: async () => null, findMany: async () => [] },
+    user: { findMany: async () => [] },
+    organization: { findUnique: async () => null, findMany: async () => [] },
+    pulseOrgAddressOptOut: {
+      findUnique: async () => null,
+      findFirst: async () => null,
+    },
     clientCommsLog: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row = { ...data, id: `log_${h.rows.length + 1}` };
@@ -34,6 +40,12 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: vi.fn(async () => ({
+    ownerId: "owner_1",
+    organizationId: "org_sent",
+  })),
+}));
 vi.mock("@/lib/entitlements", () => ({
   requireAddonForResource: async () => ({ allowed: true }),
 }));

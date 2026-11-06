@@ -35,6 +35,12 @@ vi.mock("@/lib/prisma", () => ({
     },
     reportApproval: { findMany: async () => [] },
     client: { findFirst: async () => null, findMany: async () => [] },
+    user: { findMany: async () => [] },
+    organization: { findUnique: async () => null, findMany: async () => [] },
+    pulseOrgAddressOptOut: {
+      findUnique: async () => null,
+      findFirst: async () => null,
+    },
     auditLog: { create: async () => ({}) },
     clientCommsLog: {
       create: async ({ data }: { data: Record<string, unknown> }) => {

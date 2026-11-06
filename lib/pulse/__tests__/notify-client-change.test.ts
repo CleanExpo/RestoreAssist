@@ -38,6 +38,12 @@ vi.mock("@/lib/prisma", () => ({
         return row ? [row] : [];
       },
     },
+    user: { findMany: async () => [] },
+    organization: { findUnique: async () => null, findMany: async () => [] },
+    pulseOrgAddressOptOut: {
+      findUnique: async () => null,
+      findFirst: async () => null,
+    },
     clientCommsLog: {
       create: async ({ data }: { data: Row }) => {
         if ((h.rows as Row[]).some((r) => r.idempotencyKey === data.idempotencyKey)) {

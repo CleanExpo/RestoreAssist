@@ -76,6 +76,28 @@ vi.mock("@/lib/prisma", () => ({
             : null,
         };
       },
+      findMany: async ({
+        where,
+      }: {
+        where: { organizationId?: string };
+      }) =>
+        Object.values(db.users).filter((u) =>
+          where.organizationId ? u.organizationId === where.organizationId : true,
+        ),
+    },
+    organization: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        db.orgOwners[where.id]
+          ? { id: where.id, ownerId: db.orgOwners[where.id] }
+          : null,
+      findMany: async ({ where }: { where: { ownerId?: string } }) =>
+        Object.entries(db.orgOwners)
+          .filter(([, ownerId]) => !where.ownerId || ownerId === where.ownerId)
+          .map(([id, ownerId]) => ({ id, ownerId })),
+    },
+    pulseOrgAddressOptOut: {
+      findUnique: async () => null,
+      findFirst: async () => null,
     },
     userInvite: {
       findFirst: async ({
@@ -199,7 +221,7 @@ describe("Pulse status dispatcher — moved technician (RA-7893)", () => {
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       status: "SUPPRESSED",
-      reason: "NOT_ENTITLED",
+      reason: "OPT_OUT",
     });
   });
 
@@ -220,7 +242,7 @@ describe("Pulse review-ask — moved technician (RA-7893)", () => {
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       status: "SUPPRESSED",
-      reason: "NOT_ENTITLED",
+      reason: "OPT_OUT",
     });
   });
 

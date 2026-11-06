@@ -258,6 +258,7 @@ vi.mock("@/lib/organization-credits", () => ({
   getResourceTenant: (...args: unknown[]) => db.getResourceTenant(...args),
 }));
 
+import { prisma } from "@/lib/prisma";
 import {
   isPulseOptedOutByAddress,
   recordPulseAddressLock,
@@ -602,7 +603,7 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     ).toEqual({ organizationId: "org-1", ambiguous: false });
   });
 
-  it("does not guess a live firm when the job tenant is unproven", async () => {
+  it("treats an unproven job tenant as ambiguous", async () => {
     staff("tech-a", "org-live");
     db.getResourceTenant.mockResolvedValue(null);
 
@@ -611,7 +612,34 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
         "tech-a",
         new Date("2026-06-01T00:00:00Z"),
       ),
-    ).toEqual({ organizationId: null, ambiguous: false });
+    ).toEqual({ organizationId: null, ambiguous: true });
+  });
+
+  it("treats a thrown job tenant lookup as ambiguous", async () => {
+    staff("tech-a", "org-live");
+    db.getResourceTenant.mockRejectedValue(new Error("tenant lookup failed"));
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "tech-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toEqual({ organizationId: null, ambiguous: true });
+  });
+
+  it("treats a non-self tenant with no organisation as ambiguous", async () => {
+    staff("tech-a", "org-live");
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "someone-else",
+      organizationId: null,
+    });
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "tech-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toEqual({ organizationId: null, ambiguous: true });
   });
 
   it("does not bind a two-org owner's job to the oldest owned organisation", async () => {
@@ -720,6 +748,69 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
           row.sourceClientId === "client-withdrawn",
       ),
     ).toBe(true);
+  });
+
+  it("fail-closes the address check when the lock table cannot be read", async () => {
+    staff("staff-a", "org-1");
+    const locks = prisma.pulseOrgAddressOptOut;
+    const findUnique = locks.findUnique;
+    // @ts-expect-error — simulate a client missing the lock reader
+    locks.findUnique = undefined;
+    try {
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      locks.findUnique = findUnique;
+    }
+  });
+
+  it("fail-closes the address check when the organisation owner cannot be proven", async () => {
+    staff("staff-a", "org-1");
+    const findUnique = prisma.organization.findUnique;
+    // @ts-expect-error — simulate a client missing the owner reader
+    prisma.organization.findUnique = undefined;
+    try {
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      prisma.organization.findUnique = findUnique;
+    }
+  });
+
+  it("fail-closes the address check when organisation members cannot be listed", async () => {
+    staff("staff-a", "org-1");
+    const findMany = prisma.user.findMany;
+    // @ts-expect-error — simulate a client missing the member reader
+    prisma.user.findMany = undefined;
+    try {
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      prisma.user.findMany = findMany;
+    }
+  });
+
+  it("fail-closes the address check when sourced-lock lookup is unavailable", async () => {
+    staff("staff-a", "org-1");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    const findFirst = prisma.pulseOrgAddressOptOut.findFirst;
+    // @ts-expect-error — simulate a client missing the source lookup
+    prisma.pulseOrgAddressOptOut.findFirst = undefined;
+    try {
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      prisma.pulseOrgAddressOptOut.findFirst = findFirst;
+    }
   });
 
   it("fail-closes the address check when the unsubscribe secret is missing", async () => {
