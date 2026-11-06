@@ -26,6 +26,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -45,6 +46,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   try {
     const acceptedAt = new Date();
+    // Read first: the client email compares against where the job was.
+    const before = await prisma.inspection.findFirst({
+      where: { id: inspectionId, userId },
+      select: { status: true },
+    });
 
     // Atomic CAS — only flip if not yet accepted. Prevents the
     // dashboard-alert TOCTOU race where two tabs both tap Accept.
@@ -78,6 +84,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         code: "CONFLICT",
         message: "Inspection already accepted",
         status: 409,
+      });
+    }
+
+    if (before) {
+      void notifyClientStepChange({
+        inspectionId,
+        fromStatus: before.status,
       });
     }
 

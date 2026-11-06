@@ -106,6 +106,8 @@ export interface PulseUpdateEmailData {
   subject: string;
   html: string;
   text: string;
+  /** One-click target for the List-Unsubscribe headers (RFC 8058). */
+  listUnsubscribeUrl?: string;
 }
 
 /**
@@ -119,15 +121,38 @@ export interface PulseUpdateEmailData {
 export async function sendPulseUpdateEmail(
   data: PulseUpdateEmailData,
 ): Promise<string | null> {
-  const result = await withEmailTimeout(
-    sendTransactionalEmail({
-      from: getFromEmail(),
-      to: data.to,
-      subject: sanitiseEmailField(data.subject),
-      html: data.html,
-      text: data.text,
-    }),
-  );
+  const send = (headers?: Record<string, string>) =>
+    withEmailTimeout(
+      sendTransactionalEmail({
+        from: getFromEmail(),
+        to: data.to,
+        subject: sanitiseEmailField(data.subject),
+        html: data.html,
+        text: data.text,
+        ...(headers ? { headers } : {}),
+      }),
+    );
+  const headers = data.listUnsubscribeUrl
+    ? {
+        "List-Unsubscribe": `<${data.listUnsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      }
+    : undefined;
+  let result = await send(headers);
+  // A 400 or 422 is a definite refusal, so a second try cannot double-send.
+  // The body still carries the unsubscribe link, and one unverified header must
+  // not stop every Pulse email.
+  if (
+    headers &&
+    (result.error?.name === "mailtrap_400" ||
+      result.error?.name === "mailtrap_422")
+  ) {
+    reportError(new Error(result.error.message ?? result.error.name), {
+      stage: "pulse:headers-rejected",
+      connector: "mailtrap",
+    });
+    result = await send();
+  }
   const ok = assertEmailSuccess(result, "pulse-update");
   return ok.data?.id ?? null;
 }

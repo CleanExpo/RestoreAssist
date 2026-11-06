@@ -16,6 +16,7 @@ interface ClientFormData {
   contactPerson: string;
   address: string;
   notes: string;
+  pulseOptOut: boolean;
   status: string;
 }
 
@@ -31,6 +32,7 @@ export default function ClientEditPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
+  const [savedOptOut, setSavedOptOut] = useState(false);
 
   const [form, setForm] = useState<ClientFormData>({
     name: "",
@@ -40,6 +42,7 @@ export default function ClientEditPage() {
     contactPerson: "",
     address: "",
     notes: "",
+    pulseOptOut: false,
     status: "ACTIVE",
   });
 
@@ -58,6 +61,7 @@ export default function ClientEditPage() {
         return;
       }
       const data = await response.json();
+      setSavedOptOut(data.pulseOptOut === true);
       setClientName(data.name ?? "");
       setForm({
         name: data.name ?? "",
@@ -67,6 +71,7 @@ export default function ClientEditPage() {
         contactPerson: data.contactPerson ?? "",
         address: data.address ?? "",
         notes: data.notes ?? "",
+        pulseOptOut: data.pulseOptOut === true,
         status: data.status ?? "ACTIVE",
       });
     } catch (err) {
@@ -333,6 +338,33 @@ export default function ClientEditPage() {
             <p className="text-xs text-slate-400">
               {form.notes.length.toLocaleString("en-AU")} / {CLIENT_NOTES_MAX_LENGTH.toLocaleString("en-AU")} characters
             </p>
+          </div>
+
+          {/* Automated email opt-out */}
+          <div className="flex items-start gap-3">
+            <input
+              id="pulseOptOut"
+              type="checkbox"
+              checked={form.pulseOptOut}
+              disabled={savedOptOut}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, pulseOptOut: e.target.checked }))
+              }
+              className="mt-0.5 h-4 w-4 accent-cyan-500"
+            />
+            <div>
+              <label
+                htmlFor="pulseOptOut"
+                className="block text-sm font-medium text-slate-300"
+              >
+                Client asked to stop automated job updates
+              </label>
+              <p className="text-xs text-slate-400">
+                {savedOptOut
+                  ? "This client has opted out. Only the client can opt back in, by contacting you directly."
+                  : "Once saved, this cannot be undone from this screen."}
+              </p>
+            </div>
           </div>
 
           {/* Save error */}

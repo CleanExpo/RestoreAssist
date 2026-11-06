@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveClientRecipient } from "@/lib/client-recipient";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -68,7 +69,12 @@ export async function POST(
           clientName: true,
           propertyAddress: true,
           client: { select: { name: true, email: true } },
-          inspection: { select: { id: true } },
+          inspection: {
+            select: {
+              id: true,
+              client: { select: { name: true, email: true } },
+            },
+          },
           user: {
             select: {
               name: true,
@@ -95,7 +101,11 @@ export async function POST(
         });
       }
 
-      const recipient = report.client?.email?.trim() ?? "";
+      const recipient =
+        resolveClientRecipient({
+          reportClient: report.client,
+          inspectionClient: report.inspection?.client,
+        })?.email ?? "";
       if (!EMAIL_SHAPE.test(recipient)) {
         return apiError(request, {
           code: "CONFLICT",

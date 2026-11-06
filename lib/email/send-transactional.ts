@@ -28,6 +28,8 @@ export interface TransactionalEmailInput {
   /** Alias for replyTo */
   reply_to?: string;
   attachments?: TransactionalAttachment[];
+  /** Extra message headers, e.g. List-Unsubscribe. */
+  headers?: Record<string, string>;
   organizationId?: string | null;
   /** Stable logical message identity (logged; Mailtrap has no idempotency key). */
   idempotencyKey?: string;
@@ -93,6 +95,9 @@ async function sendViaMailtrap(
   if (input.text) body.text = input.text;
   if (input.replyTo) {
     body.reply_to = parseFromAddress(input.replyTo);
+  }
+  if (input.headers && Object.keys(input.headers).length > 0) {
+    body.headers = input.headers;
   }
   if (input.attachments?.length) {
     body.attachments = input.attachments.map((a) => ({

@@ -1,0 +1,1230 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  buildPulseUnsubscribeUrl,
+  pulseAddressTag,
+  readPulseUnsubscribeToken,
+} from "../pulse-unsubscribe-token";
+
+type ClientRow = {
+  id: string;
+  userId: string;
+  email: string;
+  pulseOptOut: boolean;
+};
+type UserRow = {
+  id: string;
+  organizationId: string | null;
+  organizationLeftId?: string | null;
+  organizationLeftAt?: Date | null;
+};
+type OrgLock = {
+  organizationId: string;
+  addressTag: string;
+  sourceClientId?: string | null;
+  sourceUserId?: string | null;
+};
+
+const db = vi.hoisted(() => ({
+  users: {} as Record<string, UserRow>,
+  orgs: {} as Record<string, { id: string; ownerId: string }>,
+  clients: [] as ClientRow[],
+  locks: [] as OrgLock[],
+  lockCalls: [] as string[],
+  inspections: {} as Record<string, unknown>,
+  putUserId: null as string | null,
+  sendPulseUpdateEmail: vi.fn(),
+  getResourceTenant: vi.fn(),
+}));
+
+function eqEmail(left: string, right: string) {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+vi.mock("@/lib/prisma", () => {
+  const client = {
+    findFirst: async ({
+      where,
+    }: {
+      where: {
+        userId?: string | { in: string[] };
+        pulseOptOut?: boolean;
+        email?: string | { equals: string; mode: string };
+        id?: string | { not: string };
+      };
+    }) =>
+      db.clients.find((row) => {
+        if (where.pulseOptOut === true && !row.pulseOptOut) return false;
+        if (typeof where.userId === "string" && row.userId !== where.userId) {
+          return false;
+        }
+        if (
+          where.userId &&
+          typeof where.userId === "object" &&
+          !where.userId.in.includes(row.userId)
+        ) {
+          return false;
+        }
+        if (typeof where.email === "string") {
+          if (!eqEmail(row.email, where.email)) return false;
+        } else if (where.email && !eqEmail(row.email, where.email.equals)) {
+          return false;
+        }
+        if (typeof where.id === "string" && row.id !== where.id) return false;
+        if (
+          where.id &&
+          typeof where.id === "object" &&
+          row.id === where.id.not
+        ) {
+          return false;
+        }
+        return true;
+      }) ?? null,
+    findMany: async ({
+      where,
+      take,
+    }: {
+      where: {
+        userId?: string | { in: string[] };
+        pulseOptOut?: boolean;
+        email?: { equals: string; mode: string };
+      };
+      take?: number;
+    }) => {
+      const rows = db.clients.filter((row) => {
+        if (where.pulseOptOut === true && !row.pulseOptOut) return false;
+        if (typeof where.userId === "string" && row.userId !== where.userId) {
+          return false;
+        }
+        if (
+          where.userId &&
+          typeof where.userId === "object" &&
+          !where.userId.in.includes(row.userId)
+        ) {
+          return false;
+        }
+        if (where.email && !eqEmail(row.email, where.email.equals)) return false;
+        return true;
+      });
+      return typeof take === "number" ? rows.slice(0, take) : rows;
+    },
+    updateMany: async ({
+      where,
+      data,
+    }: {
+      where: {
+        userId?: string | { in: string[] };
+        email?: { equals: string; mode: string };
+        id?: string | { in: string[] };
+      };
+      data: { pulseOptOut: boolean };
+    }) => {
+      let count = 0;
+      for (const row of db.clients) {
+        if (typeof where.userId === "string" && row.userId !== where.userId) {
+          continue;
+        }
+        if (
+          where.userId &&
+          typeof where.userId === "object" &&
+          !where.userId.in.includes(row.userId)
+        ) {
+          continue;
+        }
+        if (where.email && !eqEmail(row.email, where.email.equals)) continue;
+        if (typeof where.id === "string" && row.id !== where.id) continue;
+        if (
+          where.id &&
+          typeof where.id === "object" &&
+          !where.id.in.includes(row.id)
+        ) {
+          continue;
+        }
+        row.pulseOptOut = data.pulseOptOut;
+        count += 1;
+      }
+      return { count };
+    },
+    update: async ({
+      where,
+      data,
+    }: {
+      where: { id: string; userId?: string };
+      data: Partial<ClientRow> & Record<string, unknown>;
+    }) => {
+      const row = db.clients.find(
+        (clientRow) =>
+          clientRow.id === where.id &&
+          (!where.userId || clientRow.userId === where.userId),
+      );
+      if (!row) {
+        const error = new Error("Record to update not found");
+        throw error;
+      }
+      Object.assign(row, data);
+      return { ...row, _count: { reports: 0 } };
+    },
+  };
+  const prisma = {
+    user: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        db.users[where.id] ?? null,
+      findMany: async ({
+        where,
+      }: {
+        where: {
+          organizationId?: string;
+          organizationLeftId?: string;
+          organizationLeftAt?: { not: null };
+        };
+      }) =>
+        Object.values(db.users).filter((u) => {
+          if (where.organizationLeftId) {
+            if (u.organizationLeftId !== where.organizationLeftId) return false;
+            if (!u.organizationLeftAt) return false;
+            if (where.organizationId === null && u.organizationId !== null) {
+              return false;
+            }
+            return true;
+          }
+          if (where.organizationId) {
+            return u.organizationId === where.organizationId;
+          }
+          return true;
+        }),
+    },
+    organization: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        db.orgs[where.id] ?? null,
+      findMany: async ({
+        where,
+        take,
+      }: {
+        where: { ownerId?: string };
+        take?: number;
+      }) => {
+        const rows = Object.values(db.orgs).filter(
+          (o) => !where.ownerId || o.ownerId === where.ownerId,
+        );
+        return typeof take === "number" ? rows.slice(0, take) : rows;
+      },
+      findFirst: async ({
+        where,
+      }: {
+        where: { ownerId?: string; id?: string };
+      }) => {
+        if (where.id) return db.orgs[where.id] ?? null;
+        if (where.ownerId) {
+          return (
+            Object.values(db.orgs).find((o) => o.ownerId === where.ownerId) ??
+            null
+          );
+        }
+        return null;
+      },
+    },
+    client,
+    pulseOrgAddressOptOut: {
+      findUnique: async ({
+        where,
+      }: {
+        where: {
+          organizationId_addressTag: {
+            organizationId: string;
+            addressTag: string;
+          };
+        };
+      }) => {
+        const key = where.organizationId_addressTag;
+        return (
+          db.locks.find(
+            (row) =>
+              row.organizationId === key.organizationId &&
+              row.addressTag === key.addressTag,
+          ) ?? null
+        );
+      },
+      findFirst: async ({
+        where,
+      }: {
+        where: { organizationId?: string; sourceClientId?: string };
+      }) =>
+        db.locks.find(
+          (row) =>
+            (!where.organizationId ||
+              row.organizationId === where.organizationId) &&
+            (!where.sourceClientId ||
+              row.sourceClientId === where.sourceClientId),
+        ) ?? null,
+      upsert: async ({
+        where,
+        create,
+      }: {
+        where: {
+          organizationId_addressTag: {
+            organizationId: string;
+            addressTag: string;
+          };
+        };
+        create: OrgLock;
+      }) => {
+        const key = where.organizationId_addressTag;
+        const existing = db.locks.find(
+          (row) =>
+            row.organizationId === key.organizationId &&
+            row.addressTag === key.addressTag,
+        );
+        if (existing) return existing;
+        db.locks.push(create);
+        return create;
+      },
+    },
+    inspection: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        db.inspections[where.id] ?? null,
+    },
+    clientCommsLog: {
+      create: async ({ data }: { data: Record<string, unknown> }) => ({
+        id: "log_1",
+        ...data,
+      }),
+      update: async () => ({}),
+    },
+    $transaction: async (fn: (tx: typeof prisma) => Promise<unknown>) => {
+      const clients = db.clients.map((row) => ({ ...row }));
+      const locks = db.locks.map((row) => ({ ...row }));
+      try {
+        return await fn(prisma);
+      } catch (error) {
+        db.clients.length = 0;
+        db.clients.push(...clients);
+        db.locks.length = 0;
+        db.locks.push(...locks);
+        throw error;
+      }
+    },
+    $executeRaw: async (strings: TemplateStringsArray, key: string) => {
+      db.lockCalls.push(String(strings.join("?") + key));
+    },
+  };
+  return { prisma };
+});
+
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: (...args: unknown[]) => db.getResourceTenant(...args),
+}));
+vi.mock("next-auth", () => ({
+  getServerSession: async () =>
+    db.putUserId ? { user: { id: db.putUserId } } : null,
+}));
+vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/integrations/zoho/queue", () => ({
+  scheduleZohoCustomerPush: vi.fn(),
+}));
+vi.mock("@/lib/entitlements", () => ({
+  requireAddonForResource: async () => ({
+    allowed: true,
+    sku: "CLIENT_COMMS",
+    workspaceId: "ws_1",
+  }),
+}));
+vi.mock("@/lib/email", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/email")>();
+  return {
+    ...actual,
+    sendPulseUpdateEmail: (...args: unknown[]) =>
+      db.sendPulseUpdateEmail(...args),
+  };
+});
+vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
+
+import { NextRequest } from "next/server";
+import { PUT } from "@/app/api/clients/[id]/route";
+import { buildClientStatusFeed } from "@/lib/portal/client-status-feed";
+import { prisma } from "@/lib/prisma";
+import { dispatchPulseNotification } from "../dispatcher";
+import {
+  isPulseOptedOutByAddress,
+  PulseAddressLockWriteError,
+  recordPulseAddressLock,
+  recordPulseOptOut,
+  resolvePulseJobOrganisationId,
+  resolvePulseOrganisationId,
+} from "../opt-out";
+
+beforeEach(() => {
+  process.env.PORTAL_SECRET = "test-secret";
+  db.users = {};
+  db.orgs = {};
+  db.clients = [];
+  db.locks = [];
+  db.lockCalls = [];
+  db.inspections = {};
+  db.putUserId = null;
+  db.sendPulseUpdateEmail.mockReset();
+  db.getResourceTenant.mockReset();
+});
+
+function staff(
+  id: string,
+  organizationId: string | null,
+  extra: Partial<UserRow> = {},
+) {
+  db.users[id] = { id, organizationId, ...extra };
+}
+
+function client(row: ClientRow) {
+  db.clients.push(row);
+}
+
+function pulseSendEnv() {
+  process.env.MAILTRAP_API_KEY = "mt_test";
+  process.env.SENDER_EMAIL = "updates@restoreassist.app";
+  process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+}
+
+function stepEvent() {
+  return {
+    type: "STEP_TRANSITION" as const,
+    feed: buildClientStatusFeed({
+      status: "SCOPED",
+      workflow: null,
+      reportStatus: null,
+      pendingApprovals: [],
+    }),
+  };
+}
+
+function putClientEmail(id: string, email: string) {
+  return PUT(
+    new NextRequest(`https://app.example.test/api/clients/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: "Pat",
+        email,
+        status: "ACTIVE",
+      }),
+    }),
+    { params: Promise.resolve({ id }) },
+  );
+}
+
+function colleagueJob(
+  inspectionId: string,
+  userId: string,
+  clientId: string,
+  email: string,
+) {
+  db.inspections[inspectionId] = {
+    id: inspectionId,
+    userId,
+    createdAt: new Date("2026-06-01T00:00:00Z"),
+    pulseEnabled: true,
+    report: {
+      client: {
+        id: clientId,
+        email,
+        pulseOptOut: false,
+        portalAccounts: [
+          { token: "tok_b", inspectionId: null, createdAt: new Date() },
+        ],
+      },
+    },
+    client: null,
+  };
+}
+
+describe("Pulse consent (RA-8156, RA-7979)", () => {
+  it("resolves the organisation, not the staff user, as the business identity", async () => {
+    staff("staff-a", "org-1");
+    staff("staff-b", "org-1");
+    db.orgs["org-1"] = { id: "org-1", ownerId: "owner-1" };
+
+    expect(await resolvePulseOrganisationId("staff-a")).toBe("org-1");
+    expect(await resolvePulseOrganisationId("staff-b")).toBe("org-1");
+  });
+
+  it("staff A withdrawal blocks staff B send in the same organisation", async () => {
+    staff("staff-a", "org-1");
+    staff("staff-b", "org-1");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+    client({
+      id: "client-b",
+      userId: "staff-b",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+
+    await recordPulseOptOut({
+      clientId: "client-a",
+      ownerUserId: "staff-a",
+      email: "home@owner.test",
+    });
+
+    expect(await isPulseOptedOutByAddress("staff-a", "home@owner.test")).toBe(
+      true,
+    );
+    expect(await isPulseOptedOutByAddress("staff-b", "HOME@owner.test")).toBe(
+      true,
+    );
+    expect(db.clients.every((row) => row.pulseOptOut)).toBe(true);
+  });
+
+  it("does not leak a withdrawal into a different organisation", async () => {
+    staff("staff-a", "org-1");
+    staff("staff-other", "org-2");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+    client({
+      id: "client-other",
+      userId: "staff-other",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+
+    await recordPulseOptOut({
+      clientId: "client-a",
+      ownerUserId: "staff-a",
+      email: "home@owner.test",
+    });
+
+    expect(await isPulseOptedOutByAddress("staff-a", "home@owner.test")).toBe(
+      true,
+    );
+    expect(
+      await isPulseOptedOutByAddress("staff-other", "home@owner.test"),
+    ).toBe(false);
+    expect(db.clients.find((row) => row.id === "client-other")?.pulseOptOut).toBe(
+      false,
+    );
+  });
+
+  it("users without an organisation stay isolated from each other", async () => {
+    staff("solo-a", null);
+    staff("solo-b", null);
+    client({
+      id: "client-a",
+      userId: "solo-a",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+    client({
+      id: "client-b",
+      userId: "solo-b",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+
+    await recordPulseOptOut({
+      clientId: "client-a",
+      ownerUserId: "solo-a",
+      email: "home@owner.test",
+    });
+
+    expect(await isPulseOptedOutByAddress("solo-a", "home@owner.test")).toBe(
+      true,
+    );
+    expect(await isPulseOptedOutByAddress("solo-b", "home@owner.test")).toBe(
+      false,
+    );
+  });
+
+  it("keeps the person's opt-out after their email is replaced", async () => {
+    staff("staff-a", "org-1");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "old@owner.test",
+      pulseOptOut: false,
+    });
+
+    await recordPulseOptOut({
+      clientId: "client-a",
+      ownerUserId: "staff-a",
+      email: "old@owner.test",
+    });
+
+    db.clients[0].email = "new@owner.test";
+
+    expect(db.clients[0].pulseOptOut).toBe(true);
+    expect(await isPulseOptedOutByAddress("staff-a", "old@owner.test")).toBe(
+      true,
+    );
+    expect(await isPulseOptedOutByAddress("staff-a", "new@owner.test")).toBe(
+      false,
+    );
+
+    client({
+      id: "client-other",
+      userId: "staff-a",
+      email: "new@owner.test",
+      pulseOptOut: false,
+    });
+    expect(await isPulseOptedOutByAddress("staff-a", "new@owner.test")).toBe(
+      false,
+    );
+  });
+
+  it("locks the withdrawn address so a new client row cannot resume mail", async () => {
+    staff("staff-a", "org-1");
+    staff("staff-b", "org-1");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "replacement@owner.test",
+      pulseOptOut: true,
+    });
+
+    await recordPulseAddressLock({
+      ownerUserId: "staff-a",
+      email: "old@owner.test",
+      sourceClientId: "client-a",
+    });
+    client({
+      id: "client-new",
+      userId: "staff-b",
+      email: "old@owner.test",
+      pulseOptOut: false,
+    });
+
+    expect(await isPulseOptedOutByAddress("staff-b", "old@owner.test")).toBe(
+      true,
+    );
+    expect(db.locks[0].addressTag).toBe(pulseAddressTag("old@owner.test"));
+  });
+
+  it("blocks a colleague when the owner has a null orgId and a legacy opt-out", async () => {
+    staff("owner-1", null);
+    staff("staff-b", "org-1");
+    db.orgs["org-1"] = { id: "org-1", ownerId: "owner-1" };
+    client({
+      id: "client-owner",
+      userId: "owner-1",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    client({
+      id: "client-b",
+      userId: "staff-b",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+
+    expect(await isPulseOptedOutByAddress("staff-b", "home@owner.test")).toBe(
+      true,
+    );
+    expect(db.clients.find((row) => row.id === "client-b")?.pulseOptOut).toBe(
+      false,
+    );
+  });
+
+  it("honours a legacy staff-level Client.pulseOptOut for a colleague", async () => {
+    staff("staff-a", "org-1");
+    staff("staff-b", "org-1");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+
+    expect(await isPulseOptedOutByAddress("staff-b", "home@owner.test")).toBe(
+      true,
+    );
+    expect(db.locks).toHaveLength(1);
+    expect(db.locks[0].organizationId).toBe("org-1");
+  });
+
+  it("does not let a former member's later opt-out lock the organisation they left", async () => {
+    staff("ex-staff", null, {
+      organizationLeftId: "org-1",
+      organizationLeftAt: new Date("2026-10-01"),
+    });
+    staff("staff-b", "org-1");
+    client({
+      id: "client-ex",
+      userId: "ex-staff",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+
+    expect(await isPulseOptedOutByAddress("staff-b", "home@owner.test")).toBe(
+      false,
+    );
+  });
+
+  it("does not scan a former member who has joined another organisation", async () => {
+    staff("ex-staff", "org-2", {
+      organizationLeftId: "org-1",
+      organizationLeftAt: new Date("2026-10-01"),
+    });
+    staff("staff-b", "org-1");
+    client({
+      id: "client-ex",
+      userId: "ex-staff",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+
+    expect(await isPulseOptedOutByAddress("staff-b", "home@owner.test")).toBe(
+      false,
+    );
+  });
+
+  it("locks the pinned organisation rather than the owner's live firm", async () => {
+    staff("staff-a", "org-live");
+    db.orgs["org-live"] = { id: "org-live", ownerId: "staff-a" };
+
+    await recordPulseAddressLock({
+      ownerUserId: "staff-a",
+      email: "home@owner.test",
+      sourceClientId: "client-a",
+      organizationId: "org-sent",
+    });
+
+    expect(db.locks).toHaveLength(1);
+    expect(db.locks[0].organizationId).toBe("org-sent");
+  });
+
+  it("does not copy a person flag into a different organisation than the lock it sourced", async () => {
+    staff("owner-a", "org-b");
+    db.orgs["org-b"] = { id: "org-b", ownerId: "owner-a" };
+    client({
+      id: "client-a",
+      userId: "owner-a",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    db.locks.push({
+      organizationId: "org-a",
+      addressTag: pulseAddressTag("home@owner.test"),
+      sourceClientId: "client-a",
+    });
+
+    expect(
+      await isPulseOptedOutByAddress("owner-a", "home@owner.test", "org-b"),
+    ).toBe(false);
+    expect(db.locks.map((row) => row.organizationId)).toEqual(["org-a"]);
+  });
+
+  it("uses the pinned organisation, not the owner's live firm", async () => {
+    staff("staff-a", "org-live");
+    db.orgs["org-live"] = { id: "org-live", ownerId: "staff-a" };
+    db.locks.push({
+      organizationId: "org-sent",
+      addressTag: pulseAddressTag("home@owner.test"),
+    });
+
+    expect(
+      await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-sent"),
+    ).toBe(true);
+    expect(
+      await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-live"),
+    ).toBe(false);
+  });
+
+  it("pins the owner's organisation when the job tenant is self and they own one firm", async () => {
+    staff("owner-a", "org-1");
+    db.orgs["org-1"] = { id: "org-1", ownerId: "owner-a" };
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "owner-a",
+      organizationId: null,
+    });
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "owner-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toEqual({ organizationId: "org-1", ambiguous: false });
+  });
+
+  it("treats an unproven job tenant as ambiguous", async () => {
+    staff("tech-a", "org-live");
+    db.getResourceTenant.mockResolvedValue(null);
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "tech-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toEqual({ organizationId: null, ambiguous: true });
+  });
+
+  it("treats a thrown job tenant lookup as ambiguous", async () => {
+    staff("tech-a", "org-live");
+    db.getResourceTenant.mockRejectedValue(new Error("tenant lookup failed"));
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "tech-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toEqual({ organizationId: null, ambiguous: true });
+  });
+
+  it("treats a non-self tenant with no organisation as ambiguous", async () => {
+    staff("tech-a", "org-live");
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "someone-else",
+      organizationId: null,
+    });
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "tech-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toEqual({ organizationId: null, ambiguous: true });
+  });
+
+  it("does not bind a two-org owner's job to the oldest owned organisation", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "owner-a",
+      organizationId: null,
+    });
+
+    const jobOrg = await resolvePulseJobOrganisationId(
+      "owner-a",
+      new Date("2026-06-01T00:00:00Z"),
+    );
+    expect(jobOrg).toEqual({ organizationId: null, ambiguous: true });
+
+    process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+    const url = buildPulseUnsubscribeUrl(
+      "client_1",
+      "home@owner.test",
+      jobOrg.organizationId,
+    );
+    expect(
+      readPulseUnsubscribeToken(new URL(url).searchParams.get("token")!),
+    ).toMatchObject({ organizationId: null });
+  });
+
+  it("uses the job's proven organisation even when the owner owns two firms", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "owner-a",
+      organizationId: "org-new",
+    });
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "owner-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toEqual({ organizationId: "org-new", ambiguous: false });
+  });
+
+  it("uses membership, not the oldest owned firm, for a live two-org owner", async () => {
+    staff("owner-a", "org-new");
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+
+    expect(await resolvePulseOrganisationId("owner-a")).toBe("org-new");
+  });
+
+  it("does not lock the oldest firm when a two-org owner withdraws without membership", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+    client({
+      id: "client-a",
+      userId: "owner-a",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+
+    expect(await resolvePulseOrganisationId("owner-a")).toBeNull();
+    const result = await recordPulseOptOut({
+      clientId: "client-a",
+      ownerUserId: "owner-a",
+      email: "home@owner.test",
+    });
+    expect(result.organizationId).toBeNull();
+    expect(db.locks).toHaveLength(0);
+    expect(db.clients[0].pulseOptOut).toBe(true);
+  });
+
+  it("still honours an unsourced withdrawal after a sourced sibling row", async () => {
+    staff("staff-a", "org-1");
+    staff("staff-b", "org-1");
+    db.orgs["org-1"] = { id: "org-1", ownerId: "owner-1" };
+    client({
+      id: "client-sourced",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    client({
+      id: "client-withdrawn",
+      userId: "staff-b",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    db.locks.push({
+      organizationId: "org-other",
+      addressTag: pulseAddressTag("old@owner.test"),
+      sourceClientId: "client-sourced",
+    });
+
+    expect(
+      await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+    ).toBe(true);
+    expect(
+      db.locks.some(
+        (row) =>
+          row.organizationId === "org-1" &&
+          row.addressTag === pulseAddressTag("home@owner.test") &&
+          row.sourceClientId === "client-withdrawn",
+      ),
+    ).toBe(true);
+  });
+
+  it("fail-closes the address check when the lock table cannot be read", async () => {
+    staff("staff-a", "org-1");
+    const locks = prisma.pulseOrgAddressOptOut;
+    const findUnique = locks.findUnique;
+    // @ts-expect-error — simulate a client missing the lock reader
+    locks.findUnique = undefined;
+    try {
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      locks.findUnique = findUnique;
+    }
+  });
+
+  it("fail-closes the address check when the organisation owner cannot be proven", async () => {
+    staff("staff-a", "org-1");
+    const findUnique = prisma.organization.findUnique;
+    // @ts-expect-error — simulate a client missing the owner reader
+    prisma.organization.findUnique = undefined;
+    try {
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      prisma.organization.findUnique = findUnique;
+    }
+  });
+
+  it("fail-closes the address check when organisation members cannot be listed", async () => {
+    staff("staff-a", "org-1");
+    const findMany = prisma.user.findMany;
+    // @ts-expect-error — simulate a client missing the member reader
+    prisma.user.findMany = undefined;
+    try {
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      prisma.user.findMany = findMany;
+    }
+  });
+
+  it("fail-closes the address check when sourced-lock lookup is unavailable", async () => {
+    staff("staff-a", "org-1");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+    const findFirst = prisma.pulseOrgAddressOptOut.findFirst;
+    // @ts-expect-error — simulate a client missing the source lookup
+    prisma.pulseOrgAddressOptOut.findFirst = undefined;
+    try {
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      prisma.pulseOrgAddressOptOut.findFirst = findFirst;
+    }
+  });
+
+  it("does not report a lock when the staff record cannot be read", async () => {
+    staff("staff-a", "org-1");
+    const findUnique = prisma.user.findUnique;
+    // @ts-expect-error — simulate a client missing the membership reader
+    prisma.user.findUnique = undefined;
+    try {
+      await expect(
+        recordPulseAddressLock({
+          ownerUserId: "staff-a",
+          email: "home@owner.test",
+          sourceClientId: "client-a",
+        }),
+      ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+      expect(db.locks).toHaveLength(0);
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test"),
+      ).toBe(true);
+    } finally {
+      prisma.user.findUnique = findUnique;
+    }
+  });
+
+  it("does not report a lock when owned organisations cannot be listed", async () => {
+    db.users["owner-a"] = { id: "owner-a", organizationId: null };
+    db.orgs["org-1"] = { id: "org-1", ownerId: "owner-a" };
+    const findMany = prisma.organization.findMany;
+    // @ts-expect-error — simulate a client missing the owned-org reader
+    prisma.organization.findMany = undefined;
+    try {
+      await expect(
+        recordPulseAddressLock({
+          ownerUserId: "owner-a",
+          email: "home@owner.test",
+          sourceClientId: "client-a",
+        }),
+      ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+      expect(db.locks).toHaveLength(0);
+    } finally {
+      prisma.organization.findMany = findMany;
+    }
+  });
+
+  it("does not report a lock when the writer is missing, and a later send to that address is suppressed", async () => {
+    staff("staff-a", "org-1");
+    const upsert = prisma.pulseOrgAddressOptOut.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    prisma.pulseOrgAddressOptOut.upsert = undefined;
+    try {
+      await expect(
+        recordPulseAddressLock({
+          ownerUserId: "staff-a",
+          email: "home@owner.test",
+          sourceClientId: "client-a",
+        }),
+      ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+      expect(db.locks).toHaveLength(0);
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      prisma.pulseOrgAddressOptOut.upsert = upsert;
+    }
+  });
+
+  it("retries an opted-out email replace after the lock writer recovers, then a send to the old address is suppressed by the lock", async () => {
+    staff("staff-a", "org-1");
+    staff("staff-b", "org-1");
+    db.orgs["org-1"] = { id: "org-1", ownerId: "staff-a" };
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "old@owner.test",
+      pulseOptOut: true,
+    });
+    db.putUserId = "staff-a";
+    pulseSendEnv();
+
+    const upsert = prisma.pulseOrgAddressOptOut.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    prisma.pulseOrgAddressOptOut.upsert = undefined;
+    try {
+      const failed = await putClientEmail("client-a", "new@owner.test");
+      expect(failed.status).not.toBe(200);
+      expect(failed.status).toBeGreaterThanOrEqual(400);
+      expect(db.clients.find((row) => row.id === "client-a")?.email).toBe(
+        "old@owner.test",
+      );
+      expect(db.locks).toHaveLength(0);
+    } finally {
+      prisma.pulseOrgAddressOptOut.upsert = upsert;
+    }
+
+    const retried = await putClientEmail("client-a", "new@owner.test");
+    expect(retried.status).toBe(200);
+    expect(db.clients.find((row) => row.id === "client-a")?.email).toBe(
+      "new@owner.test",
+    );
+    expect(db.locks).toEqual([
+      expect.objectContaining({
+        organizationId: "org-1",
+        addressTag: pulseAddressTag("old@owner.test"),
+      }),
+    ]);
+
+    client({
+      id: "client-b",
+      userId: "staff-b",
+      email: "old@owner.test",
+      pulseOptOut: false,
+    });
+    colleagueJob("insp-b", "staff-b", "client-b", "old@owner.test");
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "staff-b",
+      organizationId: "org-1",
+    });
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp-b",
+      event: stepEvent(),
+    });
+    expect(result.status).toBe("SUPPRESSED");
+    expect(result).toMatchObject({ reason: "OPT_OUT" });
+    expect(db.sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses an opted-out email replace for a two-org owner, and their job does not send", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+    client({
+      id: "client-a",
+      userId: "owner-a",
+      email: "old@owner.test",
+      pulseOptOut: true,
+    });
+    db.putUserId = "owner-a";
+    pulseSendEnv();
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "owner-a",
+      organizationId: null,
+    });
+
+    const upsert = prisma.pulseOrgAddressOptOut.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    prisma.pulseOrgAddressOptOut.upsert = undefined;
+    try {
+      const failed = await putClientEmail("client-a", "new@owner.test");
+      expect(failed.status).not.toBe(200);
+      expect(failed.status).toBeGreaterThanOrEqual(400);
+      expect(db.clients.find((row) => row.id === "client-a")?.email).toBe(
+        "old@owner.test",
+      );
+      expect(db.locks).toHaveLength(0);
+    } finally {
+      prisma.pulseOrgAddressOptOut.upsert = upsert;
+    }
+
+    const retried = await putClientEmail("client-a", "new@owner.test");
+    expect(retried.status).not.toBe(200);
+    expect(retried.status).toBeGreaterThanOrEqual(400);
+    expect(db.clients.find((row) => row.id === "client-a")?.email).toBe(
+      "old@owner.test",
+    );
+    expect(db.locks).toHaveLength(0);
+
+    client({
+      id: "job-client",
+      userId: "owner-a",
+      email: "other@owner.test",
+      pulseOptOut: false,
+    });
+    colleagueJob("insp-a", "owner-a", "job-client", "other@owner.test");
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp-a",
+      event: stepEvent(),
+    });
+    expect(result.status).toBe("SUPPRESSED");
+    expect(result).toMatchObject({ reason: "UNPROVEN_SCOPE" });
+    expect(db.sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not skip the lock when an email replace requires a proven organisation", async () => {
+    staff("owner-a", null);
+    db.orgs["org-old"] = { id: "org-old", ownerId: "owner-a" };
+    db.orgs["org-new"] = { id: "org-new", ownerId: "owner-a" };
+
+    await expect(
+      recordPulseAddressLock({
+        ownerUserId: "owner-a",
+        email: "old@owner.test",
+        sourceClientId: "client-a",
+        requireOrganisation: true,
+      }),
+    ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+    expect(db.locks).toHaveLength(0);
+  });
+
+  it("does not record a person withdrawal when the address lock cannot be written", async () => {
+    staff("staff-a", "org-1");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+    const upsert = prisma.pulseOrgAddressOptOut.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    prisma.pulseOrgAddressOptOut.upsert = undefined;
+    try {
+      await expect(
+        recordPulseOptOut({
+          clientId: "client-a",
+          ownerUserId: "staff-a",
+          email: "home@owner.test",
+        }),
+      ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+      expect(db.locks).toHaveLength(0);
+      expect(db.clients.find((row) => row.id === "client-a")?.pulseOptOut).toBe(
+        false,
+      );
+    } finally {
+      prisma.pulseOrgAddressOptOut.upsert = upsert;
+    }
+  });
+
+  it("does not report a lock when the address cannot be fingerprinted", async () => {
+    staff("staff-a", "org-1");
+    delete process.env.PORTAL_SECRET;
+    delete process.env.CLIENT_PORTAL_JWT_SECRET;
+
+    await expect(
+      recordPulseAddressLock({
+        ownerUserId: "staff-a",
+        email: "home@owner.test",
+        sourceClientId: "client-a",
+      }),
+    ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+    expect(db.locks).toHaveLength(0);
+  });
+
+  it("fail-closes the address check when the unsubscribe secret is missing", async () => {
+    staff("staff-a", "org-1");
+    delete process.env.PORTAL_SECRET;
+    delete process.env.CLIENT_PORTAL_JWT_SECRET;
+
+    expect(await isPulseOptedOutByAddress("staff-a", "home@owner.test")).toBe(
+      true,
+    );
+  });
+
+  it("takes an organisation+address advisory lock for a write", async () => {
+    staff("staff-a", "org-1");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+
+    await recordPulseOptOut({
+      clientId: "client-a",
+      ownerUserId: "staff-a",
+      email: "home@owner.test",
+    });
+
+    expect(db.lockCalls.some((sql) => sql.includes("pg_advisory_xact_lock"))).toBe(
+      true,
+    );
+  });
+});

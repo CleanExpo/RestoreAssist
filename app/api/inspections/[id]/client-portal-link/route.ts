@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveClientRecipient } from "@/lib/client-recipient";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { sendEmail } from "@/lib/email-send";
@@ -65,9 +66,10 @@ export async function POST(
       });
     }
     const client =
-      inspection?.client ??
-      inspection?.report?.client ??
-      null;
+      resolveClientRecipient({
+        reportClient: inspection.report?.client,
+        inspectionClient: inspection.client,
+      })?.client ?? null;
     if (!client?.id || !client.email) {
       return apiError(request, {
         code: "VALIDATION",

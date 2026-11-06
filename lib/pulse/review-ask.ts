@@ -23,16 +23,23 @@
  */
 
 import { randomUUID } from "crypto";
+import { resolveClientRecipient } from "@/lib/client-recipient";
 import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
 import { sendPulseUpdateEmail } from "@/lib/email";
 import { requireAddonForResource } from "@/lib/entitlements";
 import { renderReviewAskEmail } from "./templates";
-import { buildPulseUnsubscribeUrl } from "./pulse-unsubscribe-token";
+import {
+  buildPulseOneClickUnsubscribeUrl,
+  buildPulseUnsubscribeUrl,
+} from "./pulse-unsubscribe-token";
+import { gatePulseRecipientSend } from "./opt-out";
 
 export type ReviewAskSuppressionReason =
   | "TOGGLE_OFF"
   | "OPT_OUT"
+  | "UNPROVEN_SCOPE"
+  | "DEMO_RECIPIENT"
   | "NO_RECIPIENT"
   | "NO_URL"
   | "NOT_ENTITLED"
@@ -55,9 +62,9 @@ const TEMPLATE_KEY = "pulse-review-ask";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 
 /**
- * Hard dependency for a review-ask send. No portal/app-url dependency here
- * (the email links to the firm's external Google review page, not the
- * portal) — only the email connector itself needs to be configured.
+ * Hard dependency for a review-ask send. No portal dependency here (the email
+ * links to the firm's external Google review page). The unsubscribe link's
+ * secret and app URL are checked where that link is built.
  */
 function reviewAskEnvConfigured(): boolean {
   return isEmailServiceConfigured();
@@ -87,6 +94,7 @@ export async function dispatchReviewAskNotification(
           },
         },
       },
+      client: { select: { id: true, email: true, pulseOptOut: true } },
       workspace: {
         select: {
           name: true,
@@ -110,8 +118,12 @@ export async function dispatchReviewAskNotification(
     throw new Error(`[pulse] inspection ${inspectionId} not found`);
   }
 
-  const client = job.report?.client ?? null;
-  const recipient = client?.email ?? "";
+  const resolved = resolveClientRecipient({
+    reportClient: job.report?.client,
+    inspectionClient: job.client,
+  });
+  const client = resolved?.client ?? null;
+  const recipient = resolved?.email ?? "";
   const org = job.workspace?.owner?.organization ?? null;
   const reviewUrl = org?.googleReviewUrl ?? "";
   const orgName =
@@ -142,8 +154,17 @@ export async function dispatchReviewAskNotification(
   };
 
   if (!job.pulseEnabled) return suppress("TOGGLE_OFF");
-  if (client?.pulseOptOut) return suppress("OPT_OUT");
-  if (!recipient) return suppress("NO_RECIPIENT");
+  if (job.report?.client?.pulseOptOut || job.client?.pulseOptOut) {
+    return suppress("OPT_OUT");
+  }
+  if (!recipient || !client) return suppress("NO_RECIPIENT");
+  const sendGate = await gatePulseRecipientSend(
+    job.userId,
+    job.createdAt,
+    recipient,
+  );
+  if (!sendGate.allow) return suppress(sendGate.reason);
+  const jobOrganizationId = sendGate.organizationId;
   if (!reviewUrl) return suppress("NO_URL");
   // RA-6954 — client-comms send requires the CLIENT_COMMS entitlement.
   // RA-7893: the CLIENT_COMMS of the business the JOB belongs to — not of an
@@ -154,23 +175,49 @@ export async function dispatchReviewAskNotification(
     "CLIENT_COMMS",
   );
   if (!addonGate.allowed) return suppress("NOT_ENTITLED");
-  if (!reviewAskEnvConfigured()) {
+  // Fail closed with a row when the unsubscribe link cannot be built: an email
+  // with no way out must not go, and a throw here would leave no record.
+  let unsubscribeUrl: string | undefined;
+  let oneClickUrl: string | undefined;
+  try {
+    unsubscribeUrl = buildPulseUnsubscribeUrl(
+      client.id,
+      recipient,
+      jobOrganizationId,
+    );
+    oneClickUrl = buildPulseOneClickUnsubscribeUrl(
+      client.id,
+      recipient,
+      jobOrganizationId,
+    );
+  } catch {
+    unsubscribeUrl = undefined;
+  }
+  if (!reviewAskEnvConfigured() || !unsubscribeUrl) {
     reportError(
       new Error(
-        "[pulse] Mailtrap env not configured — review-ask suppressed",
+        "[pulse] Mailtrap or unsubscribe link env not configured — review-ask suppressed",
       ),
       { stage: "pulse:review-ask", inspectionId, connector: "mailtrap" },
     );
     return suppress("MISSING_ENV");
   }
 
+  const rendered = renderReviewAskEmail(
+    orgName,
+    job.inspectionNumber,
+    reviewUrl,
+    unsubscribeUrl,
+  );
+
   // Reserve the logical event atomically — mirrors dispatcher.ts. The unique
-  // idempotencyKey guarantees at most one SENT row per job, so a duplicate
-  // dispatch (retried/concurrent close) cannot send a second email.
+  // idempotencyKey guarantees at most one send per job, so a duplicate dispatch
+  // (retried/concurrent close) cannot send a second email. PENDING until
+  // Mailtrap accepts it, so a crash mid-send never reads as delivered.
   let reservedId: string;
   try {
     const reserved = await prisma.clientCommsLog.create({
-      data: { ...base, status: "SENT", idempotencyKey: logicalKey },
+      data: { ...base, status: "PENDING", idempotencyKey: logicalKey },
       select: { id: true },
     });
     reservedId = reserved.id;
@@ -181,34 +228,36 @@ export async function dispatchReviewAskNotification(
     throw err;
   }
 
-  const unsubscribeUrl = client?.id
-    ? buildPulseUnsubscribeUrl(client.id)
-    : undefined;
-  const rendered = renderReviewAskEmail(
-    orgName,
-    job.inspectionNumber,
-    reviewUrl,
-    unsubscribeUrl,
-  );
-
+  let messageId: string | null;
   try {
-    const messageId = await sendPulseUpdateEmail({
+    messageId = await sendPulseUpdateEmail({
       to: recipient,
       subject: rendered.subject,
       html: rendered.html,
       text: rendered.text,
+      listUnsubscribeUrl: oneClickUrl,
     });
-    await prisma.clientCommsLog.update({
-      where: { id: reservedId },
-      data: { providerMessageId: messageId },
-    });
-    return { status: "SENT", logId: reservedId };
   } catch (err) {
     reportError(err, { stage: "pulse:review-ask:send", inspectionId });
-    await prisma.clientCommsLog.update({
-      where: { id: reservedId },
-      data: { status: "SUPPRESSED", suppressionReason: "SEND_FAILED" },
-    });
+    try {
+      await prisma.clientCommsLog.update({
+        where: { id: reservedId },
+        data: { status: "SUPPRESSED", suppressionReason: "SEND_FAILED" },
+      });
+    } catch (writeErr) {
+      reportError(writeErr, { stage: "pulse:send-failed-write", inspectionId });
+    }
     return { status: "SUPPRESSED", reason: "SEND_FAILED", logId: reservedId };
   }
+
+  // The email has gone. A failed log write must not read as a failed send.
+  try {
+    await prisma.clientCommsLog.update({
+      where: { id: reservedId },
+      data: { status: "SENT", providerMessageId: messageId },
+    });
+  } catch (err) {
+    reportError(err, { stage: "pulse:log-update", inspectionId });
+  }
+  return { status: "SENT", logId: reservedId };
 }

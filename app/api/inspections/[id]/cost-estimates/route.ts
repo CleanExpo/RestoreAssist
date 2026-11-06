@@ -16,6 +16,7 @@ import {
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
+import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
 
 const postSchema = z.object({
   /** When true, regenerate even if estimates already exist (default true). */
@@ -201,6 +202,8 @@ export async function POST(
         orderBy: { createdAt: "asc" },
       });
     });
+
+    void notifyClientStepChange({ inspectionId: id, fromStatus: inspection.status });
 
     return NextResponse.json(
       {

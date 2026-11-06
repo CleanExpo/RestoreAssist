@@ -29,18 +29,58 @@ function fromBase64Url(input: string): string {
   return Buffer.from(paddedStr, "base64").toString("utf8");
 }
 
-function sign(clientId: string): string {
+function sign(subject: string): string {
   return createHmac("sha256", getSecret())
-    .update(`${PREFIX}:${clientId}`)
+    .update(`${PREFIX}:${subject}`)
     .digest("hex");
 }
 
-export function generatePulseUnsubscribeToken(clientId: string): string {
-  const payload = `${PREFIX}:${clientId}:${sign(clientId)}`;
-  return toBase64Url(payload);
+/**
+ * A keyed fingerprint of an address, so a token can name the address it was sent
+ * to without carrying it. Case and outer spaces do not change who it reaches.
+ */
+export function pulseAddressTag(email: string): string {
+  return createHmac("sha256", getSecret())
+    .update(`${PREFIX}-address:${email.trim().toLowerCase()}`)
+    .digest("hex")
+    .slice(0, 32);
 }
 
-export function verifyPulseUnsubscribeToken(token: string): string | null {
+/**
+ * Pass the address the email is going to, and the organisation the job belonged
+ * to when it was sent. A record's address or the owner's later firm must not
+ * then opt out a different address or lock another business. Leaving either
+ * out makes an older token form, which exists for links already in inboxes.
+ */
+export function generatePulseUnsubscribeToken(
+  clientId: string,
+  email?: string,
+  organizationId?: string | null,
+): string {
+  if (email === undefined) {
+    return toBase64Url(`${PREFIX}:${clientId}:${sign(clientId)}`);
+  }
+  const tag = pulseAddressTag(email);
+  const orgId = organizationId?.trim() || "";
+  if (orgId) {
+    return toBase64Url(
+      `${PREFIX}:${clientId}:${tag}:${orgId}:${sign(`${clientId}:${tag}:${orgId}`)}`,
+    );
+  }
+  return toBase64Url(`${PREFIX}:${clientId}:${tag}:${sign(`${clientId}:${tag}`)}`);
+}
+
+export interface PulseUnsubscribeToken {
+  clientId: string;
+  /** Null on a link issued before tokens named their address. */
+  addressTag: string | null;
+  /** Null on a link issued before tokens named the sending organisation. */
+  organizationId: string | null;
+}
+
+export function readPulseUnsubscribeToken(
+  token: string,
+): PulseUnsubscribeToken | null {
   let decoded: string;
   try {
     decoded = fromBase64Url(token);
@@ -48,11 +88,26 @@ export function verifyPulseUnsubscribeToken(token: string): string | null {
     return null;
   }
   const parts = decoded.split(":");
-  if (parts.length !== 3 || parts[0] !== PREFIX) return null;
+  if (
+    (parts.length !== 3 && parts.length !== 4 && parts.length !== 5) ||
+    parts[0] !== PREFIX
+  ) {
+    return null;
+  }
   const clientId = parts[1];
-  const provided = parts[2];
-  if (!clientId || !provided) return null;
-  const expected = sign(clientId);
+  const addressTag = parts.length >= 4 ? parts[2] : null;
+  const organizationId = parts.length === 5 ? parts[3] : null;
+  const provided = parts[parts.length - 1];
+  if (!clientId || !provided || addressTag === "" || organizationId === "") {
+    return null;
+  }
+  const expected = sign(
+    organizationId
+      ? `${clientId}:${addressTag}:${organizationId}`
+      : addressTag
+        ? `${clientId}:${addressTag}`
+        : clientId,
+  );
   try {
     const a = Buffer.from(provided, "hex");
     const b = Buffer.from(expected, "hex");
@@ -60,11 +115,46 @@ export function verifyPulseUnsubscribeToken(token: string): string | null {
   } catch {
     return null;
   }
-  return clientId;
+  return { clientId, addressTag, organizationId };
 }
 
-export function buildPulseUnsubscribeUrl(clientId: string): string {
-  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-  const token = generatePulseUnsubscribeToken(clientId);
+export function verifyPulseUnsubscribeToken(token: string): string | null {
+  return readPulseUnsubscribeToken(token)?.clientId ?? null;
+}
+
+/**
+ * An unsubscribe link only works from an inbox if it is absolute, and RFC 8058
+ * requires HTTPS. Throwing makes both senders suppress with MISSING_ENV rather
+ * than send an email with no working way out.
+ */
+function appOrigin(): string {
+  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim().replace(/\/$/, "");
+  if (!URL.canParse(base) || new URL(base).protocol !== "https:") {
+    throw new Error("NEXT_PUBLIC_APP_URL must be an https URL for Pulse unsubscribe links");
+  }
+  return base;
+}
+
+export function buildPulseUnsubscribeUrl(
+  clientId: string,
+  email: string,
+  organizationId?: string | null,
+): string {
+  const base = appOrigin();
+  const token = generatePulseUnsubscribeToken(clientId, email, organizationId);
   return `${base}/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * The RFC 8058 target a mail client POSTs to. The body link stays on the page,
+ * which asks first, because mail scanners open links without anyone clicking.
+ */
+export function buildPulseOneClickUnsubscribeUrl(
+  clientId: string,
+  email: string,
+  organizationId?: string | null,
+): string {
+  const base = appOrigin();
+  const token = generatePulseUnsubscribeToken(clientId, email, organizationId);
+  return `${base}/api/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
 }

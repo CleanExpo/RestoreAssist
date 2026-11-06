@@ -8,11 +8,23 @@ const commsUpdate = vi.fn();
 const sendPulseUpdateEmail = vi.fn();
 const reportError = vi.fn();
 const requireAddon = vi.fn();
+const orgFindMany = vi.fn(async () => [] as { id: string }[]);
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
       findUnique: (...args: unknown[]) => inspectionFindUnique(...args),
+    },
+    client: { findFirst: async () => null, findMany: async () => [] },
+    user: { findMany: async () => [] },
+    organization: {
+      findMany: (...args: unknown[]) => orgFindMany(...args),
+      findUnique: async () => null,
+    },
+    pulseOrgAddressOptOut: {
+      findUnique: async () => null,
+      findFirst: async () => null,
+      upsert: async () => ({}),
     },
     clientCommsLog: {
       create: (...args: unknown[]) => commsCreate(...args),
@@ -38,7 +50,17 @@ vi.mock("@/lib/observability", () => ({
   reportError: (...args: unknown[]) => reportError(...args),
 }));
 
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: vi.fn(async () => ({
+    ownerId: "user_1",
+    organizationId: "org_sent",
+  })),
+}));
+
+import { getResourceTenant } from "@/lib/organization-credits";
+import { prisma } from "@/lib/prisma";
 import { dispatchPulseNotification, type PulseEvent } from "../dispatcher";
+import { readPulseUnsubscribeToken } from "../pulse-unsubscribe-token";
 
 const STEP_EVENT: PulseEvent = {
   type: "STEP_TRANSITION",
@@ -52,6 +74,7 @@ const STEP_EVENT: PulseEvent = {
 
 const DRYING_EVENT: PulseEvent = {
   type: "DRYING_GOAL_CHANGE",
+  date: "2026-07-01",
   areas: [
     {
       areaId: "a1",
@@ -112,7 +135,14 @@ let commsSeq = 0;
 let seenKeys: Set<string>;
 
 beforeEach(() => {
+  process.env.PORTAL_SECRET = "test-secret";
   vi.clearAllMocks();
+  orgFindMany.mockResolvedValue([]);
+  vi.mocked(getResourceTenant).mockReset();
+  vi.mocked(getResourceTenant).mockResolvedValue({
+    ownerId: "user_1",
+    organizationId: "org_sent",
+  });
   commsSeq = 0;
   seenKeys = new Set();
   // Simulate the DB unique constraint on idempotencyKey.
@@ -138,7 +168,7 @@ beforeEach(() => {
 function sentCreateCall() {
   return commsCreate.mock.calls
     .map((c) => c[0].data)
-    .find((d: any) => d.status === "SENT");
+    .find((d: any) => d.status === "PENDING");
 }
 
 describe("dispatchPulseNotification — sends", () => {
@@ -159,13 +189,23 @@ describe("dispatchPulseNotification — sends", () => {
     // provider message id stamped after the send.
     expect(commsUpdate).toHaveBeenCalledWith({
       where: { id: "log_1" },
-      data: { providerMessageId: "mailtrap_msg_1" },
+      data: { status: "SENT", providerMessageId: "mailtrap_msg_1" },
     });
     // Deep-links to the client's portal token page.
     const arg = sendPulseUpdateEmail.mock.calls[0][0];
     expect(arg.html).toContain("https://app.example.com/portal/tok_abc");
     expect(arg.html).toContain("/pulse/unsubscribe?token=");
     expect(arg.text).toContain("Stop automated progress emails:");
+    const encoded = arg.html.match(
+      /\/pulse\/unsubscribe\?token=([^"'&\s]+)/,
+    )?.[1];
+    expect(encoded).toBeTruthy();
+    expect(
+      readPulseUnsubscribeToken(decodeURIComponent(encoded!)),
+    ).toMatchObject({
+      clientId: "client_1",
+      organizationId: "org_sent",
+    });
   });
 
   it("sends the drying-update template for a drying-goal change", async () => {
@@ -177,7 +217,7 @@ describe("dispatchPulseNotification — sends", () => {
     });
 
     expect(result.status).toBe("SENT");
-    expect(sentCreateCall().templateKey).toBe("pulse-drying-update");
+    expect(sentCreateCall().templateKey).toBe("pulse-drying-update#a1=on-track");
   });
 
   it("sends the daily-digest template for a DAILY_DIGEST event", async () => {
@@ -283,6 +323,118 @@ describe("dispatchPulseNotification — suppressions", () => {
     });
 
     expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("never sends to the legacy signup sample even when that row still exists", async () => {
+    inspectionFindUnique.mockResolvedValue(
+      jobFixture({ client: { email: "sample.client@example.com.au" } }),
+    );
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "DEMO_RECIPIENT",
+    });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    expect(commsCreate.mock.calls[0][0].data).toMatchObject({
+      status: "SUPPRESSED",
+      suppressionReason: "DEMO_RECIPIENT",
+      recipient: "sample.client@example.com.au",
+    });
+  });
+
+  it("still suppresses OPT_OUT after the opted-out person changes email", async () => {
+    inspectionFindUnique.mockResolvedValue(
+      jobFixture({
+        client: { pulseOptOut: true, email: "new@owner.test" },
+      }),
+    );
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not send when a self-tenant owner owns more than one organisation", async () => {
+    vi.mocked(getResourceTenant).mockResolvedValue({
+      ownerId: "user_1",
+      organizationId: null,
+    });
+    orgFindMany.mockResolvedValue([{ id: "org_old" }, { id: "org_new" }]);
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    expect(orgFindMany).toHaveBeenCalled();
+  });
+
+  it("does not send when the job tenant is unproven (resolver returns null)", async () => {
+    vi.mocked(getResourceTenant).mockResolvedValue(null);
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not send when the address-lock writer is missing", async () => {
+    const locks = prisma.pulseOrgAddressOptOut;
+    const upsert = locks.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    locks.upsert = undefined;
+    try {
+      inspectionFindUnique.mockResolvedValue(jobFixture());
+      const result = await dispatchPulseNotification({
+        inspectionId: "insp_1",
+        event: STEP_EVENT,
+      });
+      expect(result).toMatchObject({
+        status: "SUPPRESSED",
+        reason: "UNPROVEN_SCOPE",
+      });
+      expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    } finally {
+      locks.upsert = upsert;
+    }
+  });
+
+  it("does not send when the job tenant lookup throws", async () => {
+    vi.mocked(getResourceTenant).mockRejectedValueOnce(new Error("tenant lookup failed"));
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 

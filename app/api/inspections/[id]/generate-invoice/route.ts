@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
 import { getServerSession } from "next-auth";
 import { ClaimState, InspectionStatus, type Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
@@ -409,6 +410,10 @@ export async function POST(
             advanceInspectionToBilling(tx, billingActor),
           );
           if (billingResult === "transitioned") {
+            void notifyClientStepChange({
+              inspectionId: inspection.id,
+              fromStatus: InspectionStatus.SUBMITTED,
+            });
             void onNextAction(inspection.id, InspectionStatus.IN_BILLING).catch(
               (error) =>
                 console.error("[next-action] IN_BILLING nudge failed:", error),
@@ -788,6 +793,10 @@ export async function POST(
       }
 
       if (result.billingResult === "transitioned") {
+        void notifyClientStepChange({
+          inspectionId: inspection.id,
+          fromStatus: InspectionStatus.SUBMITTED,
+        });
         void onNextAction(inspection.id, InspectionStatus.IN_BILLING).catch(
           (error) =>
             console.error("[next-action] IN_BILLING nudge failed:", error),

@@ -50,6 +50,41 @@ describe("route-safety capability authentication", () => {
   });
 });
 
+const UNSUBSCRIBE_PATH = "app/api/pulse/unsubscribe/route.ts";
+const unsubscribeSource = readFileSync(
+  join(process.cwd(), UNSUBSCRIBE_PATH),
+  "utf8",
+);
+
+describe("route-safety one-click unsubscribe capability", () => {
+  it("accepts only the exact route with every reviewed control", () => {
+    expect(auditRouteSafety(UNSUBSCRIBE_PATH, unsubscribeSource)).toEqual([]);
+    expect(
+      auditRouteSafety("app/api/pulse/other/route.ts", unsubscribeSource),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ class: "mutation-no-auth" }),
+      ]),
+    );
+  });
+
+  it.each([
+    ["signed token check", "readPulseUnsubscribeToken(token)"],
+    ["address binding", "pulseAddressTag(email) !== addressTag"],
+    ["limit by address", 'prefix: "pulse-unsubscribe-ip"'],
+    ["limit by token", 'prefix: "pulse-unsubscribe-token"'],
+    ["business scope", "userId: client.userId"],
+  ])("reports the route when its %s control is removed", (_name, marker) => {
+    const mutated = unsubscribeSource.replaceAll(marker, "REMOVED_CONTROL");
+    expect(mutated).not.toBe(unsubscribeSource);
+    expect(auditRouteSafety(UNSUBSCRIBE_PATH, mutated)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ class: "mutation-no-auth" }),
+      ]),
+    );
+  });
+});
+
 // RA-7647 — every self-signup is role ADMIN, so a route whose only admin gate
 // is verifyAdminFromDb( admits every trial business. The class is flagged
 // even though the route IS gated: this is about the gate being insufficient,

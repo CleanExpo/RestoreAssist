@@ -1023,10 +1023,38 @@ model Organization {
   // RA-8043e: claim analysis batches run on this firm's own Drive (FIRM_OAUTH only)
   claimAnalysisBatches ClaimAnalysisBatch[]
 
+  // RA-8156: Pulse address withdrawal is organisation-wide, not per staff user.
+  pulseAddressOptOuts PulseOrgAddressOptOut[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
+}
+
+/// RA-8156 — durable Pulse consent lock for one address inside one organisation.
+///
+/// Client.pulseOptOut stays on the person (the client row). This table is the
+/// address lock: an unsubscribe still holds after that row's email is replaced
+/// or a colleague creates a new client with the same address. Keyed by
+/// organisation, never by staff userId, so two members of one firm cannot
+/// bypass each other, and two firms never share a withdrawal.
+///
+/// No FK to Client or User: deleting a client or a staff account must not
+/// restore mail to an address that already withdrew.
+model PulseOrgAddressOptOut {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// HMAC fingerprint from pulseAddressTag(); never the raw address.
+  addressTag     String
+  optedOutAt     DateTime @default(now())
+  sourceClientId String?
+  sourceUserId   String?
+
+  @@unique([organizationId, addressTag])
+  @@index([addressTag])
+  @@index([organizationId])
 }
 
 model UserInvite {

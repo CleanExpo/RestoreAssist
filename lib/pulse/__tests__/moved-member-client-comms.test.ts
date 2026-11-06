@@ -76,6 +76,29 @@ vi.mock("@/lib/prisma", () => ({
             : null,
         };
       },
+      findMany: async ({
+        where,
+      }: {
+        where: { organizationId?: string };
+      }) =>
+        Object.values(db.users).filter((u) =>
+          where.organizationId ? u.organizationId === where.organizationId : true,
+        ),
+    },
+    organization: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        db.orgOwners[where.id]
+          ? { id: where.id, ownerId: db.orgOwners[where.id] }
+          : null,
+      findMany: async ({ where }: { where: { ownerId?: string } }) =>
+        Object.entries(db.orgOwners)
+          .filter(([, ownerId]) => !where.ownerId || ownerId === where.ownerId)
+          .map(([id, ownerId]) => ({ id, ownerId })),
+    },
+    pulseOrgAddressOptOut: {
+      findUnique: async () => null,
+      findFirst: async () => null,
+      upsert: async () => ({}),
     },
     userInvite: {
       findFirst: async ({
@@ -117,6 +140,7 @@ vi.mock("@/lib/prisma", () => ({
           ? { id: "fe", active: true }
           : null,
     },
+    client: { findFirst: async () => null, findMany: async () => [] },
     clientCommsLog: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         db.logs.push(data);
@@ -156,6 +180,7 @@ const STEP_EVENT = {
 };
 
 beforeEach(() => {
+  process.env.PORTAL_SECRET = "test-secret";
   sendPulseUpdateEmail.mockReset().mockResolvedValue("mailtrap_msg_1");
   process.env.MAILTRAP_API_KEY = "mt_test";
   process.env.SENDER_EMAIL = "updates@restoreassist.app";
@@ -197,7 +222,7 @@ describe("Pulse status dispatcher — moved technician (RA-7893)", () => {
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       status: "SUPPRESSED",
-      reason: "NOT_ENTITLED",
+      reason: "UNPROVEN_SCOPE",
     });
   });
 
@@ -218,7 +243,7 @@ describe("Pulse review-ask — moved technician (RA-7893)", () => {
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       status: "SUPPRESSED",
-      reason: "NOT_ENTITLED",
+      reason: "UNPROVEN_SCOPE",
     });
   });
 

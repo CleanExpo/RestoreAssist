@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveClientRecipient } from "@/lib/client-recipient";
 import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
@@ -56,9 +57,10 @@ export async function GET(
     });
 
     const clientEmail =
-      inspection?.client?.email?.trim() ||
-      inspection?.report?.client?.email?.trim() ||
-      null;
+      resolveClientRecipient({
+        reportClient: inspection?.report?.client,
+        inspectionClient: inspection?.client,
+      })?.email ?? null;
     const reportId = inspection?.reportId ?? inspection?.report?.id ?? null;
     const reportStatus = inspection?.report?.status ?? null;
 
@@ -95,7 +97,9 @@ export async function GET(
           }),
         ];
 
-    let completenessBlockerCount = 0;
+    // A check that could not run is unknown, never "no blockers".
+    let completenessBlockerCount: number | null = 0;
+    let completenessCheckError = false;
     try {
       const claimType = normalizeClaimType(
         inspection?.claimType ?? "water_damage",
@@ -103,9 +107,15 @@ export async function GET(
       if (claimType) {
         const validation = await validateSubmission(id, claimType);
         completenessBlockerCount = validation.gaps?.length ?? 0;
+      } else {
+        // CONTENTS / ASBESTOS and other unmapped types have no workflow.
+        // That is unchecked, not "no blockers".
+        completenessBlockerCount = null;
       }
-    } catch {
-      completenessBlockerCount = 0;
+    } catch (error) {
+      console.error("[comms-readiness] completeness check failed:", error);
+      completenessBlockerCount = null;
+      completenessCheckError = true;
     }
 
     const reportDeliveredAt = reportDelivery?.timestamp?.toISOString() ?? null;
@@ -123,6 +133,7 @@ export async function GET(
       portalLinkEmailedAt,
       clientEmailSentAt: reportDeliveredAt ?? portalLinkEmailedAt,
       completenessBlockerCount,
+      completenessCheckError,
     };
 
     return NextResponse.json({ data });

@@ -4,6 +4,8 @@ import { dispatchPulseNotification } from "@/lib/pulse/dispatcher";
 import { buildDailyDigest } from "@/lib/pulse/digest";
 import { buildClientStatusFeed } from "@/lib/portal/client-status-feed";
 import { countBusinessDaysBetween } from "@/lib/pulse/business-days";
+import { auDateKey } from "@/lib/pulse/au-date";
+import { reportError } from "@/lib/observability";
 
 /**
  * Restoration Pulse daily digest + Code of Practice cron handler
@@ -41,20 +43,51 @@ const ACTIVE_STATUSES = [
 
 const COP_BUSINESS_DAYS_THRESHOLD = 20;
 
+// A send holds its row as PENDING for seconds. Older than this, the process died
+// mid-send, and whether the client got the email is unknown.
+const STALE_PENDING_MS = 10 * 60 * 1000;
+const SEND_HEALTH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 /**
- * Date-only key in Australia/Sydney. The once-per-day digest guarantee is
- * keyed to the AU-local calendar day (matching the AU-timezone-scheduled
- * cron and its AU homeowner audience), not UTC midnight.
+ * Counted every run, zero included, so a clean reading proves the check ran.
+ * A failure here reports and returns null rather than stopping the digest.
  */
-function auDateKey(now: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Sydney",
-  }).format(now);
+async function readSendHealth(now: Date) {
+  try {
+    const [stalePending, sendFailed] = await Promise.all([
+      prisma.clientCommsLog.count({
+        where: {
+          status: "PENDING",
+          createdAt: { lt: new Date(now.getTime() - STALE_PENDING_MS) },
+        },
+      }),
+      prisma.clientCommsLog.count({
+        where: {
+          status: "SUPPRESSED",
+          suppressionReason: "SEND_FAILED",
+          createdAt: { gte: new Date(now.getTime() - SEND_HEALTH_WINDOW_MS) },
+        },
+      }),
+    ]);
+    if (stalePending > 0 || sendFailed > 0) {
+      reportError(
+        new Error(
+          `[pulse] ${stalePending} stale pending and ${sendFailed} failed client emails`,
+        ),
+        { stage: "pulse:send-health", connector: "mailtrap" },
+      );
+    }
+    return { stalePending, sendFailed };
+  } catch (err) {
+    reportError(err, { stage: "pulse:send-health" });
+    return null;
+  }
 }
 
 export async function runPulseDigest(): Promise<CronJobResult> {
   const now = new Date();
   const dateKey = auDateKey(now);
+  const sendHealth = await readSendHealth(now);
 
   const jobs = await prisma.inspection.findMany({
     where: { pulseEnabled: true, status: { in: [...ACTIVE_STATUSES] } },
@@ -79,7 +112,12 @@ export async function runPulseDigest(): Promise<CronJobResult> {
   if (jobs.length === 0) {
     return {
       itemsProcessed: 0,
-      metadata: { digestsSent: 0, copUpdatesSent: 0, jobsConsidered: 0 },
+      metadata: {
+        digestsSent: 0,
+        copUpdatesSent: 0,
+        jobsConsidered: 0,
+        sendHealth,
+      },
     };
   }
 
@@ -182,6 +220,11 @@ export async function runPulseDigest(): Promise<CronJobResult> {
 
   return {
     itemsProcessed: jobs.length,
-    metadata: { digestsSent, copUpdatesSent, jobsConsidered: jobs.length },
+    metadata: {
+      digestsSent,
+      copUpdatesSent,
+      jobsConsidered: jobs.length,
+      sendHealth,
+    },
   };
 }

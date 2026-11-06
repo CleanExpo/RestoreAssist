@@ -61,7 +61,12 @@ export async function GET(
         },
         inspection: {
           // RA-7625: country and postcode feed lawJurisdiction below.
-          select: { id: true, propertyCountry: true, propertyPostcode: true },
+          select: {
+            id: true,
+            propertyCountry: true,
+            propertyPostcode: true,
+            client: { select: { email: true } },
+          },
         },
       },
     });

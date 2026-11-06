@@ -15,6 +15,11 @@ import {
 } from "@/lib/auth/assert-tenancy";
 import { EXCLUDED_FROM_REVENUE } from "@/lib/invoice-status";
 import { scheduleZohoCustomerPush } from "@/lib/integrations/zoho/queue";
+import {
+  recordPulseAddressLock,
+  recordPulseOptOut,
+  type PulseConsentDb,
+} from "@/lib/pulse/opt-out";
 
 const MAX_REPORT_ROWS = 200;
 
@@ -240,29 +245,72 @@ export async function PUT(
       }
     }
 
-    const client = await prisma.client.update({
-      where: { id, userId: session.user.id },
-      data: {
-        name,
-        email,
-        phone,
-        address,
-        company,
-        contactPerson,
-        notes,
-        status,
-        // P1 #10 — only set when the field appeared in the payload, so an
-        // omitted field leaves the existing value untouched. An explicit
-        // null clears it (back to RA defaults at render time).
-        ...(brandLogoUrl !== undefined ? { brandLogoUrl } : {}),
-        ...(brandPrimaryColor !== undefined ? { brandPrimaryColor } : {}),
-      },
-      include: {
-        _count: {
-          select: { reports: true },
+    const clientData = {
+      name,
+      email,
+      phone,
+      address,
+      company,
+      contactPerson,
+      notes,
+      status,
+      // Only ever sets it. A client's withdrawal is theirs to give, so a
+      // contractor's form can record one but can never clear one.
+      ...(body.pulseOptOut === true ? { pulseOptOut: true } : {}),
+      // P1 #10 — only set when the field appeared in the payload, so an
+      // omitted field leaves the existing value untouched. An explicit
+      // null clears it (back to RA defaults at render time).
+      ...(brandLogoUrl !== undefined ? { brandLogoUrl } : {}),
+      ...(brandPrimaryColor !== undefined ? { brandPrimaryColor } : {}),
+    };
+    const writeClient = (db: Pick<typeof prisma, "client">) =>
+      db.client.update({
+        where: { id, userId: session.user.id },
+        data: clientData,
+        include: {
+          _count: {
+            select: { reports: true },
+          },
         },
-      },
-    });
+      });
+
+    const lockReplacedAddress =
+      existingClient.pulseOptOut && email !== existingClient.email;
+
+    let client;
+    if (lockReplacedAddress) {
+      // Lock the withdrawn address and replace the email in one transaction:
+      // a missing writer must not leave the old address free to mail.
+      const lockThenReplace = async (db: PulseConsentDb) => {
+        await recordPulseAddressLock({
+          ownerUserId: session.user.id,
+          email: existingClient.email,
+          sourceClientId: id,
+          requireOrganisation: true,
+          db,
+        });
+        return writeClient(db);
+      };
+      client =
+        typeof prisma.$transaction === "function"
+          ? await prisma.$transaction(lockThenReplace)
+          : await lockThenReplace(prisma);
+    } else if (body.pulseOptOut === true && !existingClient.pulseOptOut) {
+      console.info("[pulse:opt-out]", {
+        clientId: id,
+        source: "contractor",
+        userId: session.user.id,
+      });
+      await recordPulseOptOut({
+        clientId: id,
+        ownerUserId: session.user.id,
+        email,
+        optOutNamedClient: true,
+      });
+      client = await writeClient(prisma);
+    } else {
+      client = await writeClient(prisma);
+    }
 
     scheduleZohoCustomerPush(session.user.id, {
       id: client.id,

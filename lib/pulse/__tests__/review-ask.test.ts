@@ -6,11 +6,30 @@ const commsUpdate = vi.fn();
 const sendPulseUpdateEmail = vi.fn();
 const reportError = vi.fn();
 const requireAddon = vi.fn();
+const clientFindFirst = vi.fn(async (..._args: unknown[]) => null as { id: string } | null);
+const orgFindMany = vi.fn(async () => [] as { id: string }[]);
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
       findUnique: (...args: unknown[]) => inspectionFindUnique(...args),
+    },
+    client: {
+      findFirst: (...args: unknown[]) => clientFindFirst(...args),
+      findMany: async (...args: unknown[]) => {
+        const row = await clientFindFirst(...args);
+        return row ? [row] : [];
+      },
+    },
+    user: { findMany: async () => [] },
+    organization: {
+      findMany: (...args: unknown[]) => orgFindMany(...args),
+      findUnique: async () => null,
+    },
+    pulseOrgAddressOptOut: {
+      findUnique: async () => null,
+      findFirst: async () => null,
+      upsert: async () => ({}),
     },
     clientCommsLog: {
       create: (...args: unknown[]) => commsCreate(...args),
@@ -36,6 +55,14 @@ vi.mock("@/lib/observability", () => ({
   reportError: (...args: unknown[]) => reportError(...args),
 }));
 
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: vi.fn(async () => ({
+    ownerId: "user_1",
+    organizationId: "org_sent",
+  })),
+}));
+
+import { getResourceTenant } from "@/lib/organization-credits";
 import { dispatchReviewAskNotification } from "../review-ask";
 
 interface JobOverrides {
@@ -83,7 +110,16 @@ let commsSeq = 0;
 let seenKeys: Set<string>;
 
 beforeEach(() => {
+  process.env.PORTAL_SECRET = "test-secret";
   vi.clearAllMocks();
+  orgFindMany.mockResolvedValue([]);
+  clientFindFirst.mockReset();
+  clientFindFirst.mockResolvedValue(null);
+  vi.mocked(getResourceTenant).mockReset();
+  vi.mocked(getResourceTenant).mockResolvedValue({
+    ownerId: "user_1",
+    organizationId: "org_sent",
+  });
   commsSeq = 0;
   seenKeys = new Set();
   // Simulate the DB unique constraint on idempotencyKey.
@@ -109,7 +145,7 @@ beforeEach(() => {
 function sentCreateCall() {
   return commsCreate.mock.calls
     .map((c) => c[0].data)
-    .find((d: any) => d.status === "SENT");
+    .find((d: any) => d.status === "PENDING");
 }
 
 describe("dispatchReviewAskNotification — sends", () => {
@@ -127,7 +163,7 @@ describe("dispatchReviewAskNotification — sends", () => {
     expect(sent.idempotencyKey).toBe("reviewask:insp_1");
     expect(commsUpdate).toHaveBeenCalledWith({
       where: { id: "log_1" },
-      data: { providerMessageId: "mailtrap_msg_1" },
+      data: { status: "SENT", providerMessageId: "mailtrap_msg_1" },
     });
     const arg = sendPulseUpdateEmail.mock.calls[0][0];
     expect(arg.html).toContain("https://g.page/r/acme-restoration/review");
@@ -152,6 +188,64 @@ describe("dispatchReviewAskNotification — suppressions", () => {
     const result = await dispatchReviewAskNotification("insp_1");
 
     expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("never sends a review-ask to the legacy signup sample", async () => {
+    inspectionFindUnique.mockResolvedValue(
+      jobFixture({ clientEmail: "sample.client@example.com.au" }),
+    );
+
+    const result = await dispatchReviewAskNotification("insp_1");
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "DEMO_RECIPIENT",
+    });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not send when a self-tenant owner owns more than one organisation", async () => {
+    vi.mocked(getResourceTenant).mockResolvedValue({
+      ownerId: "user_1",
+      organizationId: null,
+    });
+    orgFindMany.mockResolvedValue([{ id: "org_old" }, { id: "org_new" }]);
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchReviewAskNotification("insp_1");
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    expect(orgFindMany).toHaveBeenCalled();
+  });
+
+  it("does not send when the job tenant is unproven (resolver returns null)", async () => {
+    vi.mocked(getResourceTenant).mockResolvedValue(null);
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchReviewAskNotification("insp_1");
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not send when the job tenant lookup throws", async () => {
+    vi.mocked(getResourceTenant).mockRejectedValueOnce(new Error("tenant lookup failed"));
+    inspectionFindUnique.mockResolvedValue(jobFixture());
+
+    const result = await dispatchReviewAskNotification("insp_1");
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "UNPROVEN_SCOPE",
+    });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 
@@ -189,6 +283,20 @@ describe("dispatchReviewAskNotification — suppressions", () => {
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError.mock.calls[0][1]).toMatchObject({ connector: "mailtrap" });
   });
+
+  it.each([undefined, "", "/relative", "http://app.example.com"])(
+    "fails closed with MISSING_ENV when the app URL is %s",
+    async (value) => {
+      if (value === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+      else process.env.NEXT_PUBLIC_APP_URL = value;
+      inspectionFindUnique.mockResolvedValue(jobFixture());
+
+      const result = await dispatchReviewAskNotification("insp_1");
+
+      expect(result).toMatchObject({ status: "SUPPRESSED", reason: "MISSING_ENV" });
+      expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    },
+  );
 
   it("suppresses the second close / re-close of the same job as a duplicate (idempotent)", async () => {
     inspectionFindUnique.mockResolvedValue(jobFixture());
@@ -251,4 +359,33 @@ describe("dispatchReviewAskNotification — CLIENT_COMMS entitlement gate (RA-69
     expect(result.status).toBe("SENT");
     expect(sendPulseUpdateEmail).toHaveBeenCalledTimes(1);
   });
+
+describe("dispatchReviewAskNotification — reservation and opt-out", () => {
+  it("holds the row as PENDING until the provider accepts", async () => {
+    await dispatchReviewAskNotification("insp_1");
+    expect(sentCreateCall()).toMatchObject({ status: "PENDING" });
+    expect(commsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "SENT" }),
+      }),
+    );
+  });
+
+  it("suppresses when another record with the address opted out", async () => {
+    clientFindFirst.mockResolvedValueOnce({ id: "client_dup" });
+    const result = await dispatchReviewAskNotification("insp_1");
+    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("reports SENT when only the log write afterwards fails", async () => {
+    commsUpdate.mockRejectedValueOnce(new Error("db blip"));
+    const result = await dispatchReviewAskNotification("insp_1");
+    expect(result.status).toBe("SENT");
+    expect(reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ stage: "pulse:log-update" }),
+    );
+  });
+});
 });

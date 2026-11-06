@@ -18,6 +18,7 @@ import {
   Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { resolveClientRecipient } from "@/lib/client-recipient";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import InspectionReportViewer from "@/components/InspectionReportViewer";
@@ -198,7 +199,11 @@ export default function ReportDetailPage({
 
   // RA-7632: emailing the finished report is the delivery record Close Job
   // needs. The server enforces both conditions; this only explains the state.
-  const clientEmail: string = report.client?.email?.trim() ?? "";
+  const clientEmail: string =
+    resolveClientRecipient<{ email?: string | null }>({
+      reportClient: report.client,
+      inspectionClient: report.inspection?.client,
+    })?.email ?? "";
   const canEmailClient =
     report.status === "COMPLETED" && clientEmail.length > 0;
   const emailClientTitle =
@@ -282,11 +287,7 @@ export default function ReportDetailPage({
           inspectionId={
             report?.inspectionId ?? report?.inspection?.id ?? null
           }
-          clientEmailHint={
-            report?.client?.email ??
-            report?.clientEmail ??
-            null
-          }
+          clientEmailHint={clientEmail || report?.clientEmail || null}
           canSend={canEmailClient}
           sending={emailingClient}
           onSend={() => requestExport(handleEmailClient)}
