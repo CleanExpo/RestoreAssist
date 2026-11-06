@@ -39,7 +39,15 @@ vi.mock("@/lib/observability", () => ({
   reportError: (...args: unknown[]) => reportError(...args),
 }));
 
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: vi.fn(async () => ({
+    ownerId: "user_1",
+    organizationId: "org_sent",
+  })),
+}));
+
 import { dispatchPulseNotification, type PulseEvent } from "../dispatcher";
+import { readPulseUnsubscribeToken } from "../pulse-unsubscribe-token";
 
 const STEP_EVENT: PulseEvent = {
   type: "STEP_TRANSITION",
@@ -169,6 +177,16 @@ describe("dispatchPulseNotification — sends", () => {
     expect(arg.html).toContain("https://app.example.com/portal/tok_abc");
     expect(arg.html).toContain("/pulse/unsubscribe?token=");
     expect(arg.text).toContain("Stop automated progress emails:");
+    const encoded = arg.html.match(
+      /\/pulse\/unsubscribe\?token=([^"'&\s]+)/,
+    )?.[1];
+    expect(encoded).toBeTruthy();
+    expect(
+      readPulseUnsubscribeToken(decodeURIComponent(encoded!)),
+    ).toMatchObject({
+      clientId: "client_1",
+      organizationId: "org_sent",
+    });
   });
 
   it("sends the drying-update template for a drying-goal change", async () => {

@@ -124,14 +124,16 @@ vi.mock("@/lib/prisma", () => {
         };
       }) =>
         Object.values(db.users).filter((u) => {
+          if (where.organizationLeftId) {
+            if (u.organizationLeftId !== where.organizationLeftId) return false;
+            if (!u.organizationLeftAt) return false;
+            if (where.organizationId === null && u.organizationId !== null) {
+              return false;
+            }
+            return true;
+          }
           if (where.organizationId) {
             return u.organizationId === where.organizationId;
-          }
-          if (where.organizationLeftId) {
-            return (
-              u.organizationLeftId === where.organizationLeftId &&
-              Boolean(u.organizationLeftAt)
-            );
           }
           return true;
         }),
@@ -438,6 +440,55 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     expect(await isPulseOptedOutByAddress("staff-b", "home@owner.test")).toBe(
       true,
     );
+  });
+
+  it("does not scan a former member who has joined another organisation", async () => {
+    staff("ex-staff", "org-2", {
+      organizationLeftId: "org-1",
+      organizationLeftAt: new Date("2026-10-01"),
+    });
+    staff("staff-b", "org-1");
+    client({
+      id: "client-ex",
+      userId: "ex-staff",
+      email: "home@owner.test",
+      pulseOptOut: true,
+    });
+
+    expect(await isPulseOptedOutByAddress("staff-b", "home@owner.test")).toBe(
+      false,
+    );
+  });
+
+  it("locks the pinned organisation rather than the owner's live firm", async () => {
+    staff("staff-a", "org-live");
+    db.orgs["org-live"] = { id: "org-live", ownerId: "staff-a" };
+
+    await recordPulseAddressLock({
+      ownerUserId: "staff-a",
+      email: "home@owner.test",
+      sourceClientId: "client-a",
+      organizationId: "org-sent",
+    });
+
+    expect(db.locks).toHaveLength(1);
+    expect(db.locks[0].organizationId).toBe("org-sent");
+  });
+
+  it("uses the pinned organisation, not the owner's live firm", async () => {
+    staff("staff-a", "org-live");
+    db.orgs["org-live"] = { id: "org-live", ownerId: "staff-a" };
+    db.locks.push({
+      organizationId: "org-sent",
+      addressTag: pulseAddressTag("home@owner.test"),
+    });
+
+    expect(
+      await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-sent"),
+    ).toBe(true);
+    expect(
+      await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-live"),
+    ).toBe(false);
   });
 
   it("fail-closes the address check when the unsubscribe secret is missing", async () => {

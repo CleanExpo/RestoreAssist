@@ -38,8 +38,9 @@ export async function resolvePulseOrganisationId(
 }
 
 /**
- * Current members plus staff who left this organisation. Former members'
- * Client.pulseOptOut rows still count until promoted into the org lock.
+ * Current members plus staff who left this organisation and have not joined
+ * another. A former member's Client rows in a new firm must never be written
+ * or scanned for this organisation's consent.
  */
 export async function pulseOrganisationMemberIds(
   organizationId: string,
@@ -57,6 +58,7 @@ export async function pulseOrganisationMemberIds(
       where: {
         organizationLeftId: organizationId,
         organizationLeftAt: { not: null },
+        organizationId: null,
       },
       select: { id: true },
       take: MEMBER_SCAN_CAP,
@@ -117,11 +119,19 @@ export async function recordPulseAddressLock(input: {
   email?: string | null;
   addressTag?: string | null;
   sourceClientId?: string;
+  /**
+   * When set, this organisation is locked — not the owner's live membership.
+   * Unsubscribe tokens pin the job's firm here so a later join cannot.
+   */
+  organizationId?: string | null;
 }): Promise<{ organizationId: string | null; addressTag: string | null }> {
   const addressTag =
     input.addressTag ??
     (input.email && input.email.trim() ? tagFor(input.email) : null);
-  const organizationId = await resolvePulseOrganisationId(input.ownerUserId);
+  const organizationId =
+    input.organizationId !== undefined
+      ? input.organizationId
+      : await resolvePulseOrganisationId(input.ownerUserId);
   if (!organizationId || !addressTag) {
     return { organizationId, addressTag };
   }
@@ -229,11 +239,15 @@ export async function recordPulseOptOut(input: {
 export async function isPulseOptedOutByAddress(
   userId: string,
   email: string,
+  pinnedOrganizationId?: string | null,
 ): Promise<boolean> {
   const trimmed = email.trim();
   if (!trimmed) return false;
 
-  const organizationId = await resolvePulseOrganisationId(userId);
+  const organizationId =
+    pinnedOrganizationId !== undefined
+      ? pinnedOrganizationId
+      : await resolvePulseOrganisationId(userId);
   const addressTag = tagFor(trimmed);
   if (organizationId && !addressTag) return true;
 
@@ -242,10 +256,11 @@ export async function isPulseOptedOutByAddress(
       if (await orgAddressLocked(organizationId, addressTag, tx)) return true;
 
       const memberIds = await pulseOrganisationMemberIds(organizationId, tx);
-      if (memberIds.length > 0) {
+      const scopeUserIds = memberIds.length > 0 ? memberIds : [userId];
+      if (scopeUserIds.length > 0) {
         const legacy = await tx.client.findFirst({
           where: {
-            userId: { in: memberIds },
+            userId: { in: scopeUserIds },
             pulseOptOut: true,
             email: { equals: trimmed, mode: "insensitive" },
           },

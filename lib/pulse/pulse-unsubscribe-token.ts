@@ -47,18 +47,26 @@ export function pulseAddressTag(email: string): string {
 }
 
 /**
- * Pass the address the email is going to. A record's address can be replaced, and
- * an old link must not then opt out the new one. Leaving it out makes the older
- * token form, which exists for links already in inboxes.
+ * Pass the address the email is going to, and the organisation the job belonged
+ * to when it was sent. A record's address or the owner's later firm must not
+ * then opt out a different address or lock another business. Leaving either
+ * out makes an older token form, which exists for links already in inboxes.
  */
 export function generatePulseUnsubscribeToken(
   clientId: string,
   email?: string,
+  organizationId?: string | null,
 ): string {
   if (email === undefined) {
     return toBase64Url(`${PREFIX}:${clientId}:${sign(clientId)}`);
   }
   const tag = pulseAddressTag(email);
+  const orgId = organizationId?.trim() || "";
+  if (orgId) {
+    return toBase64Url(
+      `${PREFIX}:${clientId}:${tag}:${orgId}:${sign(`${clientId}:${tag}:${orgId}`)}`,
+    );
+  }
   return toBase64Url(`${PREFIX}:${clientId}:${tag}:${sign(`${clientId}:${tag}`)}`);
 }
 
@@ -66,6 +74,8 @@ export interface PulseUnsubscribeToken {
   clientId: string;
   /** Null on a link issued before tokens named their address. */
   addressTag: string | null;
+  /** Null on a link issued before tokens named the sending organisation. */
+  organizationId: string | null;
 }
 
 export function readPulseUnsubscribeToken(
@@ -78,14 +88,26 @@ export function readPulseUnsubscribeToken(
     return null;
   }
   const parts = decoded.split(":");
-  if ((parts.length !== 3 && parts.length !== 4) || parts[0] !== PREFIX) {
+  if (
+    (parts.length !== 3 && parts.length !== 4 && parts.length !== 5) ||
+    parts[0] !== PREFIX
+  ) {
     return null;
   }
   const clientId = parts[1];
-  const addressTag = parts.length === 4 ? parts[2] : null;
+  const addressTag = parts.length >= 4 ? parts[2] : null;
+  const organizationId = parts.length === 5 ? parts[3] : null;
   const provided = parts[parts.length - 1];
-  if (!clientId || !provided || addressTag === "") return null;
-  const expected = sign(addressTag ? `${clientId}:${addressTag}` : clientId);
+  if (!clientId || !provided || addressTag === "" || organizationId === "") {
+    return null;
+  }
+  const expected = sign(
+    organizationId
+      ? `${clientId}:${addressTag}:${organizationId}`
+      : addressTag
+        ? `${clientId}:${addressTag}`
+        : clientId,
+  );
   try {
     const a = Buffer.from(provided, "hex");
     const b = Buffer.from(expected, "hex");
@@ -93,7 +115,7 @@ export function readPulseUnsubscribeToken(
   } catch {
     return null;
   }
-  return { clientId, addressTag };
+  return { clientId, addressTag, organizationId };
 }
 
 export function verifyPulseUnsubscribeToken(token: string): string | null {
@@ -113,9 +135,13 @@ function appOrigin(): string {
   return base;
 }
 
-export function buildPulseUnsubscribeUrl(clientId: string, email: string): string {
+export function buildPulseUnsubscribeUrl(
+  clientId: string,
+  email: string,
+  organizationId?: string | null,
+): string {
   const base = appOrigin();
-  const token = generatePulseUnsubscribeToken(clientId, email);
+  const token = generatePulseUnsubscribeToken(clientId, email, organizationId);
   return `${base}/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
 }
 
@@ -126,8 +152,9 @@ export function buildPulseUnsubscribeUrl(clientId: string, email: string): strin
 export function buildPulseOneClickUnsubscribeUrl(
   clientId: string,
   email: string,
+  organizationId?: string | null,
 ): string {
   const base = appOrigin();
-  const token = generatePulseUnsubscribeToken(clientId, email);
+  const token = generatePulseUnsubscribeToken(clientId, email, organizationId);
   return `${base}/api/pulse/unsubscribe?token=${encodeURIComponent(token)}`;
 }

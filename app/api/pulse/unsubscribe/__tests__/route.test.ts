@@ -6,6 +6,8 @@ const h = vi.hoisted(() => ({
   findMany: vi.fn(),
   updateMany: vi.fn(),
   applyRateLimit: vi.fn(),
+  memberIds: vi.fn(),
+  recordLock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -18,6 +20,10 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: h.applyRateLimit }));
+vi.mock("@/lib/pulse/opt-out", () => ({
+  pulseOrganisationMemberIds: (...args: unknown[]) => h.memberIds(...args),
+  recordPulseAddressLock: (...args: unknown[]) => h.recordLock(...args),
+}));
 
 import { generatePulseUnsubscribeToken } from "@/lib/pulse/pulse-unsubscribe-token";
 import { POST } from "../route";
@@ -44,10 +50,12 @@ beforeEach(() => {
     email: "Homeowner@example.test",
   });
   h.updateMany.mockResolvedValue({ count: 2 });
+  h.memberIds.mockResolvedValue([]);
+  h.recordLock.mockResolvedValue({ organizationId: null, addressTag: null });
 });
 
 describe("POST /api/pulse/unsubscribe", () => {
-  it("opts out every record of the address in this business only", async () => {
+  it("an unbound link opts out only the named person, not the live address", async () => {
     const res = await POST(
       request(
         generatePulseUnsubscribeToken("client_a"),
@@ -57,13 +65,13 @@ describe("POST /api/pulse/unsubscribe", () => {
     );
 
     expect(res.status).toBe(200);
+    expect(h.updateMany).toHaveBeenCalledTimes(1);
     expect(h.updateMany).toHaveBeenCalledWith({
-      where: {
-        userId: { in: ["owner_1"] },
-        email: { equals: "Homeowner@example.test", mode: "insensitive" },
-      },
+      where: { id: "client_a", userId: "owner_1" },
       data: { pulseOptOut: true },
     });
+    expect(h.recordLock).not.toHaveBeenCalled();
+    expect(h.memberIds).not.toHaveBeenCalled();
   });
 
   it("accepts a bound link when the record still holds that address", async () => {
@@ -75,6 +83,10 @@ describe("POST /api/pulse/unsubscribe", () => {
 
     expect(res.status).toBe(200);
     expect(h.updateMany).toHaveBeenCalledWith({
+      where: { id: "client_a", userId: "owner_1" },
+      data: { pulseOptOut: true },
+    });
+    expect(h.updateMany).toHaveBeenCalledWith({
       where: {
         userId: { in: ["owner_1"] },
         email: { equals: "Homeowner@example.test", mode: "insensitive" },
@@ -82,6 +94,30 @@ describe("POST /api/pulse/unsubscribe", () => {
       data: { pulseOptOut: true },
     });
     expect(h.findMany).not.toHaveBeenCalled();
+    expect(h.recordLock).not.toHaveBeenCalled();
+  });
+
+  it("locks the token's organisation, not the owner's live firm", async () => {
+    h.memberIds.mockResolvedValue(["owner_1", "staff_b"]);
+
+    const res = await POST(
+      request(
+        generatePulseUnsubscribeToken(
+          "client_a",
+          "homeowner@example.test",
+          "org_sent",
+        ),
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(h.memberIds).toHaveBeenCalledWith("org_sent");
+    expect(h.recordLock).toHaveBeenCalledWith({
+      ownerUserId: "owner_1",
+      addressTag: expect.any(String),
+      sourceClientId: "client_a",
+      organizationId: "org_sent",
+    });
   });
 
   describe("a bound link after the record's address changed", () => {
@@ -104,7 +140,12 @@ describe("POST /api/pulse/unsubscribe", () => {
       const res = await POST(request(stale()));
 
       expect(res.status).toBe(200);
-      expect(h.updateMany).not.toHaveBeenCalled();
+      expect(h.updateMany).toHaveBeenCalledTimes(1);
+      expect(h.updateMany).toHaveBeenCalledWith({
+        where: { id: "client_a", userId: "owner_1" },
+        data: { pulseOptOut: true },
+      });
+      expect(h.recordLock).not.toHaveBeenCalled();
     });
 
     it("still opts out other records in this business holding the old address", async () => {

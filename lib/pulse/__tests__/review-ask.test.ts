@@ -38,6 +38,13 @@ vi.mock("@/lib/observability", () => ({
   reportError: (...args: unknown[]) => reportError(...args),
 }));
 
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: vi.fn(async () => ({
+    ownerId: "user_1",
+    organizationId: "org_sent",
+  })),
+}));
+
 import { dispatchReviewAskNotification } from "../review-ask";
 
 interface JobOverrides {

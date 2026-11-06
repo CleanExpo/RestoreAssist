@@ -30,6 +30,7 @@ describe("pulse unsubscribe token", () => {
     expect(readPulseUnsubscribeToken(token)).toEqual({
       clientId: "client_abc",
       addressTag: pulseAddressTag("home@example.test"),
+      organizationId: null,
     });
     expect(pulseAddressTag("other@example.test")).not.toBe(
       pulseAddressTag("home@example.test"),
@@ -42,6 +43,7 @@ describe("pulse unsubscribe token", () => {
     expect(readPulseUnsubscribeToken(token)).toEqual({
       clientId: "client_abc",
       addressTag: null,
+      organizationId: null,
     });
   });
 
@@ -57,6 +59,31 @@ describe("pulse unsubscribe token", () => {
     const token = generatePulseUnsubscribeToken("client_abc", "home@example.test");
     const parts = Buffer.from(token, "base64url").toString("utf8").split(":");
     const forged = Buffer.from([parts[0], parts[1], parts[3]].join(":")).toString("base64url");
+    expect(readPulseUnsubscribeToken(forged)).toBeNull();
+  });
+
+  it("binds a token to the organisation the job belonged to", () => {
+    const token = generatePulseUnsubscribeToken(
+      "client_abc",
+      "home@example.test",
+      "org_1",
+    );
+    expect(readPulseUnsubscribeToken(token)).toEqual({
+      clientId: "client_abc",
+      addressTag: pulseAddressTag("home@example.test"),
+      organizationId: "org_1",
+    });
+  });
+
+  it("refuses an organisation-bound token with its org changed", () => {
+    const token = generatePulseUnsubscribeToken(
+      "client_abc",
+      "home@example.test",
+      "org_1",
+    );
+    const parts = Buffer.from(token, "base64url").toString("utf8").split(":");
+    parts[3] = "org_other";
+    const forged = Buffer.from(parts.join(":")).toString("base64url");
     expect(readPulseUnsubscribeToken(forged)).toBeNull();
   });
 

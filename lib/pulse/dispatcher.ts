@@ -32,6 +32,7 @@ import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
 import { sendPulseUpdateEmail } from "@/lib/email";
 import { requireAddonForResource } from "@/lib/entitlements";
+import { getResourceTenant } from "@/lib/organization-credits";
 import {
   renderCodeOfPracticeUpdateEmail,
   renderDailyDigestEmail,
@@ -278,7 +279,10 @@ export async function dispatchPulseNotification(
     return suppress("OPT_OUT");
   }
   if (!recipient || !client) return suppress("NO_RECIPIENT");
-  if (await isPulseOptedOutByAddress(job.userId, recipient)) {
+  // RA-7893: the job's firm, not whichever organisation its creator is in now.
+  const tenant = await getResourceTenant(job.userId, job.createdAt);
+  const jobOrganizationId = tenant?.organizationId ?? null;
+  if (await isPulseOptedOutByAddress(job.userId, recipient, jobOrganizationId)) {
     return suppress("OPT_OUT");
   }
   // RA-6954 — client-comms send requires the CLIENT_COMMS entitlement.
@@ -298,8 +302,16 @@ export async function dispatchPulseNotification(
   let unsubscribeUrl: string | undefined;
   let oneClickUrl: string | undefined;
   try {
-    unsubscribeUrl = buildPulseUnsubscribeUrl(client.id, recipient);
-    oneClickUrl = buildPulseOneClickUnsubscribeUrl(client.id, recipient);
+    unsubscribeUrl = buildPulseUnsubscribeUrl(
+      client.id,
+      recipient,
+      jobOrganizationId,
+    );
+    oneClickUrl = buildPulseOneClickUnsubscribeUrl(
+      client.id,
+      recipient,
+      jobOrganizationId,
+    );
   } catch {
     unsubscribeUrl = undefined;
   }
