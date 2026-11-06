@@ -59,7 +59,7 @@ describe("POST /api/pulse/unsubscribe", () => {
     expect(res.status).toBe(200);
     expect(h.updateMany).toHaveBeenCalledWith({
       where: {
-        userId: "owner_1",
+        userId: { in: ["owner_1"] },
         email: { equals: "Homeowner@example.test", mode: "insensitive" },
       },
       data: { pulseOptOut: true },
@@ -76,7 +76,7 @@ describe("POST /api/pulse/unsubscribe", () => {
     expect(res.status).toBe(200);
     expect(h.updateMany).toHaveBeenCalledWith({
       where: {
-        userId: "owner_1",
+        userId: { in: ["owner_1"] },
         email: { equals: "Homeowner@example.test", mode: "insensitive" },
       },
       data: { pulseOptOut: true },
@@ -115,9 +115,11 @@ describe("POST /api/pulse/unsubscribe", () => {
 
       await POST(request(stale()));
 
-      expect(h.findMany.mock.calls[0][0].where.userId).toBe("owner_1");
+      expect(h.findMany.mock.calls[0][0].where.userId).toEqual({
+        in: ["owner_1"],
+      });
       expect(h.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ["client_b"] }, userId: "owner_1" },
+        where: { id: { in: ["client_b"] }, userId: { in: ["owner_1"] } },
         data: { pulseOptOut: true },
       });
     });
@@ -132,7 +134,10 @@ describe("POST /api/pulse/unsubscribe", () => {
 
     await POST(request(generatePulseUnsubscribeToken("client_a")));
 
-    expect(h.updateMany.mock.calls[0][0].where).toEqual({ id: "client_a" });
+    expect(h.updateMany.mock.calls[0][0].where).toEqual({
+      id: "client_a",
+      userId: "owner_1",
+    });
   });
 
   it("sends the page's button back to the confirmation", async () => {

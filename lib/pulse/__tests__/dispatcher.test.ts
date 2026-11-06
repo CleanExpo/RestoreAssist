@@ -53,6 +53,7 @@ const STEP_EVENT: PulseEvent = {
 
 const DRYING_EVENT: PulseEvent = {
   type: "DRYING_GOAL_CHANGE",
+  date: "2026-07-01",
   areas: [
     {
       areaId: "a1",
@@ -277,6 +278,22 @@ describe("dispatchPulseNotification — suppressions", () => {
   it("suppresses with OPT_OUT when the homeowner opted out (no send)", async () => {
     inspectionFindUnique.mockResolvedValue(
       jobFixture({ client: { pulseOptOut: true } }),
+    );
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("still suppresses OPT_OUT after the opted-out person changes email", async () => {
+    inspectionFindUnique.mockResolvedValue(
+      jobFixture({
+        client: { pulseOptOut: true, email: "new@owner.test" },
+      }),
     );
 
     const result = await dispatchPulseNotification({

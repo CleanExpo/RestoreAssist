@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth/assert-tenancy";
 import { EXCLUDED_FROM_REVENUE } from "@/lib/invoice-status";
 import { scheduleZohoCustomerPush } from "@/lib/integrations/zoho/queue";
+import { recordPulseAddressLock, recordPulseOptOut } from "@/lib/pulse/opt-out";
 
 const MAX_REPORT_ROWS = 200;
 
@@ -272,6 +273,23 @@ export async function PUT(
         clientId: id,
         source: "contractor",
         userId: session.user.id,
+      });
+      await recordPulseOptOut({
+        clientId: id,
+        ownerUserId: session.user.id,
+        email: client.email ?? email,
+        optOutNamedClient: true,
+      });
+    } else if (
+      existingClient.pulseOptOut &&
+      email !== existingClient.email
+    ) {
+      // The person stays opted out on this row. Lock the address they withdrew
+      // at so a new client with that address cannot resume mail.
+      await recordPulseAddressLock({
+        ownerUserId: session.user.id,
+        email: existingClient.email,
+        sourceClientId: id,
       });
     }
 

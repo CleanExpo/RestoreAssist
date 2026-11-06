@@ -545,4 +545,23 @@ describe("notifyClientDryingChange", () => {
     await notifyClientDryingChange("insp_1");
     expect(sends()).toBe(2);
   });
+
+  it("still runs a queued recheck when the first check throws", async () => {
+    let first = true;
+    h.inspectionFindUnique.mockImplementation(async () => {
+      if (first) {
+        first = false;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        throw new Error("db blip");
+      }
+      return job();
+    });
+
+    const pending = notifyClientDryingChange("insp_1");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const queued = notifyClientDryingChange("insp_1");
+    await Promise.all([pending, queued]);
+
+    expect(sends()).toBe(1);
+  });
 });

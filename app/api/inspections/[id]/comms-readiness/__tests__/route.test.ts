@@ -116,4 +116,23 @@ describe("GET /api/inspections/[id]/comms-readiness", () => {
     expect(body.data.completenessBlockerCount).toBeNull();
     expect(body.data.completenessCheckError).toBe(true);
   });
+
+  it("reports an unmapped claim type as unchecked, not clear", async () => {
+    p.inspection.findUnique.mockResolvedValue({
+      reportId: null,
+      claimType: "CONTENTS",
+      clientId: null,
+      client: null,
+      report: null,
+    });
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/inspections/i1/comms-readiness"),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+    const body = await res.json();
+
+    expect(body.data.completenessBlockerCount).toBeNull();
+    expect(body.data.completenessCheckError).toBe(false);
+  });
 });

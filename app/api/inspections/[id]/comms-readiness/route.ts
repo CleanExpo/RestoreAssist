@@ -107,6 +107,10 @@ export async function GET(
       if (claimType) {
         const validation = await validateSubmission(id, claimType);
         completenessBlockerCount = validation.gaps?.length ?? 0;
+      } else {
+        // CONTENTS / ASBESTOS and other unmapped types have no workflow.
+        // That is unchecked, not "no blockers".
+        completenessBlockerCount = null;
       }
     } catch (error) {
       console.error("[comms-readiness] completeness check failed:", error);

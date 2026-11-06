@@ -151,16 +151,18 @@ async function runDryingCheck(inspectionId: string): Promise<void> {
   try {
     do {
       dryingRecheck.delete(inspectionId);
-      await checkDryingChange(inspectionId);
+      try {
+        await checkDryingChange(inspectionId);
+      } catch (err) {
+        reportError(err, {
+          stage: "pulse:notify-drying",
+          inspectionId,
+          eventType: DRYING_EVENT,
+          kind: "drying",
+        });
+        logOutcome(inspectionId, "drying", "error");
+      }
     } while (dryingRecheck.has(inspectionId));
-  } catch (err) {
-    reportError(err, {
-      stage: "pulse:notify-drying",
-      inspectionId,
-      eventType: DRYING_EVENT,
-      kind: "drying",
-    });
-    logOutcome(inspectionId, "drying", "error");
   } finally {
     dryingInFlight.delete(inspectionId);
     dryingRecheck.delete(inspectionId);

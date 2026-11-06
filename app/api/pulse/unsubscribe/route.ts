@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, fromException } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import {
+  pulseOrganisationMemberIds,
+  recordPulseAddressLock,
+  resolvePulseOrganisationId,
+} from "@/lib/pulse/opt-out";
+import {
   pulseAddressTag,
   readPulseUnsubscribeToken,
   type PulseUnsubscribeToken,
@@ -78,15 +83,21 @@ export async function POST(request: NextRequest) {
         status: 404,
       });
     }
-    // The withdrawal is the person's: it covers every record this business
-    // holds for the address, and no other business's records.
+    // The withdrawal is the person's, and the address lock is the organisation's.
+    // Colleagues in the same firm share it; another firm never does.
     const email = client.email?.trim();
+    const organizationId = await resolvePulseOrganisationId(client.userId);
+    const memberIds = organizationId
+      ? await pulseOrganisationMemberIds(organizationId)
+      : [];
+    const scopeUserIds =
+      memberIds.length > 0 ? memberIds : [client.userId];
     let records: number;
     if (addressTag && (!email || pulseAddressTag(email) !== addressTag)) {
       // The record's address was replaced after this link was sent. The new
       // address asked for nothing, so only records still holding the old one go.
       const held = await prisma.client.findMany({
-        where: { userId: client.userId },
+        where: { userId: { in: scopeUserIds } },
         select: { id: true, email: true },
         take: MAX_CLIENTS_SCANNED,
       });
@@ -96,22 +107,32 @@ export async function POST(request: NextRequest) {
       records = ids.length
         ? (
             await prisma.client.updateMany({
-              where: { id: { in: ids }, userId: client.userId },
+              where: { id: { in: ids }, userId: { in: scopeUserIds } },
               data: { pulseOptOut: true },
             })
           ).count
         : 0;
+      await recordPulseAddressLock({
+        ownerUserId: client.userId,
+        addressTag,
+        sourceClientId: client.id,
+      });
     } else {
       const updated = await prisma.client.updateMany({
         where: email
           ? {
-              userId: client.userId,
+              userId: { in: scopeUserIds },
               email: { equals: email, mode: "insensitive" },
             }
-          : { id: client.id },
+          : { id: client.id, userId: client.userId },
         data: { pulseOptOut: true },
       });
       records = updated.count;
+      await recordPulseAddressLock({
+        ownerUserId: client.userId,
+        email,
+        sourceClientId: client.id,
+      });
     }
     console.info("[pulse:opt-out]", {
       outcome: "recorded",

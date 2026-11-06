@@ -46,7 +46,10 @@ export function InspectionJourneyGuide(props: Props) {
           return;
         }
         const body = (await res.json()) as { data: InspectionCommsReadiness };
-        if (!cancelled) setComms(body.data);
+        if (!cancelled) {
+          setComms(body.data);
+          setCommsUnavailable(false);
+        }
       } catch {
         if (!cancelled) setCommsUnavailable(true);
       }

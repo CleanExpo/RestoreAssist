@@ -5,12 +5,21 @@ const h = vi.hoisted(() => ({
   findFirst: vi.fn(),
   update: vi.fn(),
   session: vi.fn(),
+  recordPulseOptOut: vi.fn(),
+  recordPulseAddressLock: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: h.session }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { client: { findFirst: h.findFirst, update: h.update } },
+}));
+vi.mock("@/lib/pulse/opt-out", () => ({
+  recordPulseOptOut: h.recordPulseOptOut,
+  recordPulseAddressLock: h.recordPulseAddressLock,
+}));
+vi.mock("@/lib/integrations/zoho/queue", () => ({
+  scheduleZohoCustomerPush: vi.fn(),
 }));
 
 import { PUT } from "../route";
@@ -48,6 +57,12 @@ describe("contractor control of the client's opt-out", () => {
 
     expect(res.status).toBe(200);
     expect(written().pulseOptOut).toBe(true);
+    expect(h.recordPulseOptOut).toHaveBeenCalledWith({
+      clientId: "client_a",
+      ownerUserId: "owner_1",
+      email: "pat@example.test",
+      optOutNamedClient: true,
+    });
   });
 
   it("cannot clear a withdrawal", async () => {
@@ -60,6 +75,29 @@ describe("contractor control of the client's opt-out", () => {
     const res = await put({ pulseOptOut: false });
 
     expect(res.status).toBe(200);
+    expect(written()).not.toHaveProperty("pulseOptOut");
+    expect(h.recordPulseOptOut).not.toHaveBeenCalled();
+  });
+
+  it("locks the old address when an opted-out client's email is replaced", async () => {
+    h.findFirst.mockImplementation(async ({ where }: { where: { id?: string | { not: string } } }) => {
+      if (where.id && typeof where.id === "object") return null;
+      return {
+        id: "client_a",
+        email: "old@example.test",
+        pulseOptOut: true,
+      };
+    });
+
+    const res = await put({ email: "new@example.test" });
+
+    expect(res.status).toBe(200);
+    expect(h.recordPulseAddressLock).toHaveBeenCalledWith({
+      ownerUserId: "owner_1",
+      email: "old@example.test",
+      sourceClientId: "client_a",
+    });
+    expect(written().email).toBe("new@example.test");
     expect(written()).not.toHaveProperty("pulseOptOut");
   });
 
