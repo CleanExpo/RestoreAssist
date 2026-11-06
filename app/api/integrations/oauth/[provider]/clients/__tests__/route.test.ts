@@ -155,7 +155,7 @@ describe("POST /api/integrations/oauth/[provider]/clients", () => {
           workspaceId: null,
           userId_email: {
             userId: "user_1",
-            email: "ext-integration_1-xero-2@client.local",
+            email: "ext-integration_1-xero-2@client.invalid",
           },
         },
       }),

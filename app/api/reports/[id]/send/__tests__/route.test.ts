@@ -106,7 +106,7 @@ function completedReport(overrides: Record<string, unknown> = {}) {
       businessName: "Firm A <b>Restoration</b>",
       businessEmail: "office@firm-a.example",
     },
-    client: { name: HOSTILE, email: "bob@client.example" },
+    client: { name: HOSTILE, email: "bob@owner.test" },
     inspection: { id: INSPECTION_ID },
     ...overrides,
   };
@@ -289,6 +289,23 @@ describe("POST /api/reports/[id]/send — refusals send nothing and write nothin
     expectNothingSentOrWritten();
   });
 
+  it.each([
+    "sample.client@example.com.au",
+    "sample.client@restoreassist.invalid",
+    "bob@client.example",
+  ])("refuses a demo or reserved recipient %s before send, token, or record", async (email) => {
+    currentReport = completedReport({
+      client: { name: "Sample", email },
+    });
+
+    const res = await POST(makeRequest(), params());
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error.message).toMatch(/sample or reserved/i);
+    expectNothingSentOrWritten();
+  });
+
   it("refuses a report that is not linked to a job, because Close Job reads the record by job", async () => {
     currentReport = completedReport({ inspection: null });
 
@@ -349,7 +366,7 @@ describe("POST /api/reports/[id]/send — a good send", () => {
       html: string;
       text?: string;
     };
-    expect(email.to).toBe("bob@client.example");
+    expect(email.to).toBe("bob@owner.test");
     expect(email.subject).not.toMatch(/[\r\n]/);
 
     // Every user-supplied value is escaped; nothing hostile survives raw.
@@ -374,7 +391,7 @@ describe("POST /api/reports/[id]/send — a good send", () => {
       data: {
         userId: OWNER_ID,
         reportId: REPORT_ID,
-        recipient: "bob@client.example",
+        recipient: "bob@owner.test",
         success: true,
       },
     });

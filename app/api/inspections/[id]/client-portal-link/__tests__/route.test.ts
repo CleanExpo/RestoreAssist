@@ -84,16 +84,34 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
     expect(mEmail).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "sample.client@example.com.au",
+    "spine@example.com",
+    "ext-1-xero-2@client.local",
+  ])("refuses demo or reserved recipient %s before mint, send, or audit", async (email) => {
+    p.inspection.findUnique.mockResolvedValueOnce({
+      report: { client: { id: "c_1", email, name: "Sample" } },
+    });
+
+    const res = await POST(req(), params);
+    expect(res.status).toBe(422);
+    expect(mEmail).not.toHaveBeenCalled();
+    expect(p.clientPortalAccount.findFirst).not.toHaveBeenCalled();
+    expect(p.clientPortalAccount.create).not.toHaveBeenCalled();
+    expect(p.clientPortalAccount.update).not.toHaveBeenCalled();
+    expect(p.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it("uses inspection.client when report has no client (P3 spine)", async () => {
     p.inspection.findUnique.mockResolvedValueOnce({
       clientId: "c_spine",
-      client: { id: "c_spine", email: "spine@example.com" },
+      client: { id: "c_spine", email: "spine@owner.test" },
       report: { client: null },
     });
     const res = await POST(req(), params);
     expect(res.status).toBe(200);
     expect(mEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "spine@example.com" }),
+      expect.objectContaining({ to: "spine@owner.test" }),
     );
   });
 
