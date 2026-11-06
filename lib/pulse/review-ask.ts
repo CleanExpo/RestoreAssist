@@ -39,6 +39,7 @@ export type ReviewAskSuppressionReason =
   | "TOGGLE_OFF"
   | "OPT_OUT"
   | "UNPROVEN_SCOPE"
+  | "DEMO_RECIPIENT"
   | "NO_RECIPIENT"
   | "NO_URL"
   | "NOT_ENTITLED"

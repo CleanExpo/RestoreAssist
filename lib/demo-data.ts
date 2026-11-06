@@ -22,8 +22,9 @@ export async function seedDemoDataForNewUser(userId: string): Promise<void> {
       data: {
         userId,
         name: "Sample — Mrs Jane Smith",
-        // RFC 2606 reserved domain — every new signup gets this sample row.
-        email: "sample.client@example.com",
+        // RFC 6761 .invalid — every new signup gets this sample row.
+        // Never use a registrable host (example.com.au is deliverable).
+        email: "sample.client@restoreassist.invalid",
         phone: "0400 000 000",
         address: "42 Example Street, Sydney NSW 2000",
         company: "",

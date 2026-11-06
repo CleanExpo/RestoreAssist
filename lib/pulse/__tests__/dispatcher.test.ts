@@ -326,6 +326,28 @@ describe("dispatchPulseNotification — suppressions", () => {
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 
+  it("never sends to the legacy signup sample even when that row still exists", async () => {
+    inspectionFindUnique.mockResolvedValue(
+      jobFixture({ client: { email: "sample.client@example.com.au" } }),
+    );
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp_1",
+      event: STEP_EVENT,
+    });
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "DEMO_RECIPIENT",
+    });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    expect(commsCreate.mock.calls[0][0].data).toMatchObject({
+      status: "SUPPRESSED",
+      suppressionReason: "DEMO_RECIPIENT",
+      recipient: "sample.client@example.com.au",
+    });
+  });
+
   it("still suppresses OPT_OUT after the opted-out person changes email", async () => {
     inspectionFindUnique.mockResolvedValue(
       jobFixture({

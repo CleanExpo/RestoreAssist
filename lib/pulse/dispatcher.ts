@@ -15,8 +15,10 @@
  *
  * Suppression reasons: the per-job Pulse toggle is off (mid-dispute kill
  * switch, judge AC6), the homeowner opted out, the job firm or opt-out state
- * cannot be proven clear (UNPROVEN_SCOPE), no recipient, the workspace
- * lacks the CLIENT_COMMS entitlement (RA-6954), the Mailtrap/app env is unset
+ * cannot be proven clear (UNPROVEN_SCOPE), the address is a demo/sample or
+ * RFC-reserved host (DEMO_RECIPIENT — leftover signup rows on
+ * sample.client@example.com.au), no recipient, the workspace lacks the
+ * CLIENT_COMMS entitlement (RA-6954), the Mailtrap/app env is unset
  * (fail-closed with connector-health visibility, mirroring lib/email.ts), or
  * the logical event was already dispatched (duplicate).
  *
@@ -74,6 +76,7 @@ export type PulseSuppressionReason =
   | "TOGGLE_OFF"
   | "OPT_OUT"
   | "UNPROVEN_SCOPE"
+  | "DEMO_RECIPIENT"
   | "NO_RECIPIENT"
   | "NOT_ENTITLED"
   | "MISSING_ENV"

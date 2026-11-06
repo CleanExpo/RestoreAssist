@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { getResourceTenant } from "@/lib/organization-credits";
 import { prisma } from "@/lib/prisma";
 import { pulseAddressTag } from "./pulse-unsubscribe-token";
+import { isPulseDemoOrReservedRecipient } from "./undeliverable-recipient";
 
 const MEMBER_SCAN_CAP = 5000;
 
@@ -365,18 +366,23 @@ export type PulseConsentState = "clear" | "opted_out" | "unproven";
 
 export type PulseSendGate =
   | { allow: true; organizationId: string | null }
-  | { allow: false; reason: "OPT_OUT" | "UNPROVEN_SCOPE" };
+  | { allow: false; reason: "OPT_OUT" | "UNPROVEN_SCOPE" | "DEMO_RECIPIENT" };
 
 /**
  * Job organisation plus recipient consent. The send path must call this
  * (or an equivalent default-deny) before mailing: a missed upstream lock
- * still cannot send unless this returns `allow: true`.
+ * still cannot send unless this returns `allow: true`. Demo and RFC-reserved
+ * addresses are refused before the tenant lookup so a leftover signup sample
+ * cannot be mailed even when its Client row was never rewritten.
  */
 export async function gatePulseRecipientSend(
   userId: string,
   jobCreatedAt: Date,
   email: string,
 ): Promise<PulseSendGate> {
+  if (isPulseDemoOrReservedRecipient(email)) {
+    return { allow: false, reason: "DEMO_RECIPIENT" };
+  }
   let jobOrg: PulseJobOrganisation;
   try {
     jobOrg = await resolvePulseJobOrganisationId(userId, jobCreatedAt);

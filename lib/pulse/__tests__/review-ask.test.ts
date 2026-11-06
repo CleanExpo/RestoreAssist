@@ -191,6 +191,20 @@ describe("dispatchReviewAskNotification — suppressions", () => {
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 
+  it("never sends a review-ask to the legacy signup sample", async () => {
+    inspectionFindUnique.mockResolvedValue(
+      jobFixture({ clientEmail: "sample.client@example.com.au" }),
+    );
+
+    const result = await dispatchReviewAskNotification("insp_1");
+
+    expect(result).toMatchObject({
+      status: "SUPPRESSED",
+      reason: "DEMO_RECIPIENT",
+    });
+    expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
   it("does not send when a self-tenant owner owns more than one organisation", async () => {
     vi.mocked(getResourceTenant).mockResolvedValue({
       ownerId: "user_1",
