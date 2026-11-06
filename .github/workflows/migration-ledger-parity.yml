@@ -14,8 +14,21 @@ name: Migration ledger parity
 # No deployment_status trigger on purpose: Vercel posts one for every preview,
 # and a preview branch's migrations are not what the shared databases should
 # match, so every such run would be noise.
+#
+# RA-8227. On 6 Nov 2026 two merged migrations sat unapplied on production for
+# hours; this daily run was the only signal and a red run had no owner. So it
+# also runs on every push to main that adds or changes a migration, and the
+# production leg keeps exactly one open issue labelled migration-ledger-behind
+# while production is behind or cannot be checked. The next passing check
+# closes it. Nothing applies migrations automatically, so right after such a
+# merge production IS behind until someone runs the approved apply step: the
+# issue is that request. Interim alarm only; the permanent fix is RA-7942.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "prisma/migrations/**"
   schedule:
     # Daily, 21:41 UTC = 07:41 AEST. A database that stays behind should be
     # chased once a day, not every hour.
@@ -34,6 +47,11 @@ jobs:
     name: Ledger parity (${{ matrix.target.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    # issues: write is for the alarm step only. A matrix cannot vary
+    # permissions per leg; the sandbox leg never runs that step.
+    permissions:
+      contents: read
+      issues: write
     strategy:
       # Each database is reported on its own. A behind sandbox must not
       # cancel the production result, or the reverse.
@@ -46,6 +64,7 @@ jobs:
             origin: https://restoreassist.app
     steps:
       - name: Checkout this revision
+        id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
@@ -54,8 +73,33 @@ jobs:
           node-version-file: ".nvmrc"
 
       # Exit 1 = the database is behind or differs. Exit 2 = could not check.
-      # Both fail the job; the log line says which.
+      # Both fail the job; the log line says which. continue-on-error lets the
+      # alarm step below run; the last step turns the job red again.
       - name: Compare the deployed ledger with this revision
+        id: parity
+        continue-on-error: true
         env:
           TARGET_ORIGIN: ${{ matrix.target.origin }}
-        run: node scripts/ci/check-migration-ledger-parity.mjs "$TARGET_ORIGIN"
+        run: |
+          status=0
+          node scripts/ci/check-migration-ledger-parity.mjs "$TARGET_ORIGIN" >"$RUNNER_TEMP/parity.log" 2>&1 || status=$?
+          cat "$RUNNER_TEMP/parity.log"
+          exit "$status"
+
+      # Production on main only: a branch's migrations folder is not what
+      # production should match. Any outcome except "success" (failure,
+      # skipped) counts as behind, so an unclear result never closes the issue.
+      - name: Keep one issue open while production is behind
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && matrix.target.name == 'production' && github.ref == 'refs/heads/main' }}
+        env:
+          PARITY_OUTCOME: ${{ steps.parity.outcome }}
+          PARITY_LOG: ${{ runner.temp }}/parity.log
+          TARGET_ORIGIN: ${{ matrix.target.origin }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci/migration-ledger-issue.mjs
+
+      - name: Fail the job when the ledger is not in parity
+        if: ${{ !cancelled() && steps.parity.outcome != 'success' }}
+        run: |
+          echo "::error::Migration ledger is not in parity for ${{ matrix.target.name }} (see the compare step log)."
+          exit 1
