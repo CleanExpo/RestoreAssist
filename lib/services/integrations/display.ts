@@ -25,9 +25,15 @@ export interface AiIntegrationCard {
 const names: Record<AiProvider, string> = {
   ANTHROPIC: "Anthropic Claude", OPENAI: "OpenAI GPT", GOOGLE: "Google Gemini",
   GEMMA: "Self-hosted Gemma", OPENROUTER: "OpenRouter", ELEVENLABS: "ElevenLabs",
+  META: "Meta Llama",
 };
 function keyType(provider: AiProvider): UiAiKeyType | null {
-  return provider === "ANTHROPIC" ? "anthropic" : provider === "OPENAI" ? "openai" : provider === "GOOGLE" ? "gemini" : null;
+  // META and OPENROUTER are edited on the AI providers settings page.
+  // A null key type routes that card to the settings page.
+  if (provider === "ANTHROPIC") return "anthropic";
+  if (provider === "OPENAI") return "openai";
+  if (provider === "GOOGLE") return "gemini";
+  return null;
 }
 /** Canonical state is authoritative, including a deliberate disable or failure. */
 export function mergeAiIntegrationCards(legacy: LegacyIntegrationMetadata[], canonical: ConfiguredAiConnectionMetadata[]): AiIntegrationCard[] {

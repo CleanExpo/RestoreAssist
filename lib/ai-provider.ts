@@ -8,10 +8,12 @@ import { createCachedSystemPrompt } from "./anthropic/features/prompt-cache";
 import { listConfiguredAiConnections } from "./services/integrations/ai-connections";
 import {
   getProviderCredentials,
+  META_API_BASE_URL,
+  META_DEFAULT_CHAT_MODEL,
   type AiProvider,
 } from "./workspace/provider-connections";
 
-export type AIProvider = "anthropic" | "openai" | "gemini" | "openrouter";
+export type AIProvider = "anthropic" | "openai" | "gemini" | "openrouter" | "meta";
 
 export interface AIIntegration {
   id: string;
@@ -36,6 +38,7 @@ export interface AIIntegration {
  *               with the generic `sk-` prefix, so order is load-bearing here)
  *   OpenAI:     sk-… / sk-proj-…
  *   Google (Gemini): AIza…
+ *   Meta (Llama): LLM_…  (Meta Model API keys)
  */
 export function providerForKey(
   apiKey: string | null | undefined,
@@ -45,6 +48,7 @@ export function providerForKey(
   if (k.startsWith("sk-ant-")) return "anthropic";
   if (k.startsWith("sk-or-")) return "openrouter";
   if (k.startsWith("AIza")) return "gemini";
+  if (k.startsWith("LLM_")) return "meta";
   if (k.startsWith("sk-")) return "openai";
   return null;
 }
@@ -120,7 +124,16 @@ const CANONICAL_AI_PROVIDERS: Partial<
   OPENAI: { provider: "openai", name: "OpenAI GPT" },
   GOOGLE: { provider: "gemini", name: "Google Gemini" },
   OPENROUTER: { provider: "openrouter", name: "OpenRouter" },
+  META: { provider: "meta", name: "Meta Llama" },
 };
+
+function metaErrorStatus(err: unknown): number | undefined {
+  if (typeof err !== "object" || err === null || !("status" in err)) {
+    return undefined;
+  }
+  const status = Number((err as { status: unknown }).status);
+  return Number.isFinite(status) && status > 0 ? status : undefined;
+}
 
 function legacyAiProvider(integration: {
   apiKey: string;
@@ -433,6 +446,53 @@ export async function callAIProvider(
       }
 
       return content;
+    }
+
+    case "meta": {
+      // Meta Model API is OpenAI-compatible Chat Completions. META_API_BASE_URL
+      // is the base the Meta docs published on 2026-11-05 (api.meta.ai/v1),
+      // and META_DEFAULT_CHAT_MODEL is the current standard-mode chat model.
+      // Never rethrow the SDK error: its message/stack can echo the BYOK key
+      // and reportError / console.error would then write it to logs.
+      try {
+        const meta = new OpenAI({
+          apiKey: integration.apiKey,
+          baseURL: META_API_BASE_URL,
+        });
+
+        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+        if (system) {
+          messages.push({ role: "system", content: system });
+        }
+        messages.push({ role: "user", content: prompt });
+
+        const response = await meta.chat.completions.create({
+          model: META_DEFAULT_CHAT_MODEL,
+          messages,
+          max_tokens: maxTokens,
+          temperature,
+        });
+
+        const content = response.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error("No content in Meta response");
+        }
+
+        return content;
+      } catch (err) {
+        if (
+          err instanceof Error &&
+          err.message === "No content in Meta response"
+        ) {
+          throw err;
+        }
+        const status = metaErrorStatus(err);
+        throw new Error(
+          status
+            ? `Meta API request failed (${status})`
+            : "Meta API request failed",
+        );
+      }
     }
 
     case "gemini": {

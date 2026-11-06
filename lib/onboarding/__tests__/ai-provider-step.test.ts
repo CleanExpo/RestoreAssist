@@ -3,6 +3,7 @@ import {
   AI_PROVIDER_ROUTE,
   aiProviderSettingsHref,
   buildAiProviderOnboardingStep,
+  labelForAiProvider,
   parseAiProviderQueryParam,
 } from "../ai-provider-step";
 
@@ -154,6 +155,9 @@ describe("ai-provider settings deep-link (RA-7428)", () => {
   it("parses a provider query and ignores unknown values", () => {
     expect(parseAiProviderQueryParam("ANTHROPIC")).toBe("ANTHROPIC");
     expect(parseAiProviderQueryParam("anthropic")).toBe("ANTHROPIC");
+    expect(parseAiProviderQueryParam("META")).toBe("META");
+    expect(parseAiProviderQueryParam("meta")).toBe("META");
+    expect(labelForAiProvider("META")).toBe("Meta");
     expect(parseAiProviderQueryParam("not-a-provider")).toBeNull();
     expect(parseAiProviderQueryParam(null)).toBeNull();
     expect(aiProviderSettingsHref("ANTHROPIC")).toBe(

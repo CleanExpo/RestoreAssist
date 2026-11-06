@@ -58,7 +58,7 @@ describe("getFailedOperatingProviderConnection (RA-7428)", () => {
       where: {
         workspaceId: "ws_1",
         status: "FAILED",
-        provider: { in: ["ANTHROPIC", "OPENAI", "GOOGLE", "OPENROUTER"] },
+        provider: { in: ["ANTHROPIC", "OPENAI", "GOOGLE", "OPENROUTER", "META"] },
       },
       select: {
         provider: true,

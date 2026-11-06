@@ -77,6 +77,7 @@ describe("canonical AI credentials precede legacy integrations", () => {
     ["OPENAI", "sk-proj-synthetic-key", "openai"],
     ["GOOGLE", "AIzaSyntheticKey", "gemini"],
     ["OPENROUTER", "sk-or-synthetic-key", "openrouter"],
+    ["META", "LLM_1607358788850350_synthetic", "meta"],
   ])("resolves configured %s with its typed provider", async (provider, key, expected) => {
     mocks.connections.mockResolvedValue([canonical(provider)]);
     storedKey(key, { model: "synthetic/model" });

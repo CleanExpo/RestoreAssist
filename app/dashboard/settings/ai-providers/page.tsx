@@ -25,7 +25,8 @@ type AiProvider =
   | "OPENAI"
   | "GOOGLE"
   | "GEMMA"
-  | "OPENROUTER";
+  | "OPENROUTER"
+  | "META";
 type ConnectionStatus = "ACTIVE" | "DISABLED" | "FAILED";
 
 interface ProviderConnectionSummary {
@@ -84,6 +85,14 @@ const PROVIDERS: {
     keyPlaceholder:
       "(no API key required — uses RESTOREASSIST_AI_ENDPOINT env var)",
     docsUrl: "",
+  },
+  {
+    id: "META",
+    name: "Meta (Llama)",
+    description:
+      "Muse Spark on Meta Model API — used for report drafting and chat. Paste a key from the Meta dashboard. Keys start with LLM_.",
+    keyPlaceholder: "LLM_...",
+    docsUrl: "https://llama.developer.meta.com",
   },
   {
     id: "OPENROUTER",

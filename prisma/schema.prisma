@@ -6484,6 +6484,7 @@ enum AiProvider {
   GEMMA
   ELEVENLABS
   OPENROUTER
+  META
 }
 
 enum ProviderConnectionStatus {

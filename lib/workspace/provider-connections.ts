@@ -27,7 +27,18 @@ export type AiProvider =
   | "GOOGLE"
   | "GEMMA"
   | "ELEVENLABS"
-  | "OPENROUTER";
+  | "OPENROUTER"
+  | "META";
+
+/**
+ * Hosted Meta Llama API (Meta Model API). Checked against
+ * https://llama.developer.meta.com/docs/ on 2026-11-05: the official surface
+ * is OpenAI-compatible Chat Completions at this base, with Bearer auth.
+ * Keys are prefixed `LLM_`. GET `{base}/models` checks a key without running
+ * a completion. `muse-spark-1.3` is the current standard-mode chat model.
+ */
+export const META_API_BASE_URL = "https://api.meta.ai/v1";
+export const META_DEFAULT_CHAT_MODEL = "muse-spark-1.3";
 
 /** Mirrors the Prisma ProviderConnectionStatus enum */
 export type ProviderConnectionStatus = "ACTIVE" | "FAILED" | "DISABLED";
@@ -261,19 +272,22 @@ export async function getProviderCredentials(
  * a BYOK key for any one of these is enough to operate RestoreAssist. GEMMA is
  * the platform's own inference and ELEVENLABS is voice, so those do not count.
  * GOOGLE here is Gemini (Generative Language API), not Google Drive OAuth.
- * This is the SINGLE SOURCE OF TRUTH: the setup gate's `byokKeysCheck` and the
- * onboarding presence check below both consume it.
+ * META is Meta Model API (hosted Llama). This is the SINGLE SOURCE OF TRUTH:
+ * the setup gate's `byokKeysCheck` and the onboarding presence check below
+ * both consume it.
  */
 export const OPERATING_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
   "OPENAI",
   "GOOGLE",
   "OPENROUTER",
+  "META",
 ];
 
 /**
  * Lightweight presence check: does the user's workspace have at least one
- * ACTIVE Anthropic or OpenAI provider connection?
+ * ACTIVE operating-provider connection (Anthropic, OpenAI, Gemini,
+ * OpenRouter, or Meta)?
  *
  * This is the onboarding-grade signal — it mirrors the setup gate's
  * `byokKeysCheck` operating-provider filter but WITHOUT the live network probe,
@@ -459,8 +473,9 @@ export async function validateProviderKey(
     await testProviderKey(provider, apiKey);
     valid = true;
   } catch (err) {
-    errorMessage =
+    const raw =
       err instanceof Error ? err.message : "Validation failed — unknown error";
+    errorMessage = redactSecret(raw, apiKey);
   }
 
   const latencyMs = Date.now() - start;
@@ -510,6 +525,9 @@ async function testProviderKey(
         break;
       case "OPENROUTER":
         await testOpenRouterKey(apiKey, controller.signal);
+        break;
+      case "META":
+        await testMetaKey(apiKey, controller.signal);
         break;
       default:
         throw new Error(`Unknown provider: ${provider}`);
@@ -614,6 +632,65 @@ async function testGoogleKey(
       `Google AI server error ${res.status}: ${body.slice(0, 100)}`,
     );
   }
+}
+
+/**
+ * Probe a Meta Model API key without running a billed completion.
+ * GET /models is the documented unbilled auth check. A 200 is only valid when
+ * the catalog lists META_DEFAULT_CHAT_MODEL — listing models does not mean
+ * that model is enabled for the team. Non-2xx responses fail validation.
+ * Error text is status-only so a body that echoes the key never reaches
+ * lastError, logs, or the client.
+ */
+async function testMetaKey(
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${META_API_BASE_URL}/models`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal,
+  });
+
+  if (res.status === 401) throw new Error("Invalid Meta API key");
+  if (res.status === 403) throw new Error("Meta API key lacks permissions");
+  if (res.status >= 500) {
+    throw new Error(`Meta API server error ${res.status}`);
+  }
+  if (res.status !== 200) {
+    throw new Error(`Meta API validation failed with status ${res.status}`);
+  }
+
+  let catalog: unknown;
+  try {
+    catalog = await res.json();
+  } catch {
+    throw new Error("Meta API returned an unreadable models catalog");
+  }
+
+  if (!metaCatalogIncludesDefaultChatModel(catalog)) {
+    throw new Error(
+      `Meta API key cannot use the required chat model ${META_DEFAULT_CHAT_MODEL}`,
+    );
+  }
+}
+
+/** OpenAI-compatible `{ data: [{ id }] }` catalog used by Meta Model API. */
+function metaCatalogIncludesDefaultChatModel(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+  const data = (body as { data?: unknown }).data;
+  if (!Array.isArray(data)) return false;
+  return data.some(
+    (entry) =>
+      typeof entry === "object" &&
+      entry !== null &&
+      (entry as { id?: unknown }).id === META_DEFAULT_CHAT_MODEL,
+  );
+}
+
+/** Drop a customer secret from text that may be persisted or returned. */
+function redactSecret(text: string, secret: string): string {
+  if (!secret) return text;
+  return text.split(secret).join("[redacted]");
 }
 
 async function testGemmaKey(signal: AbortSignal): Promise<void> {

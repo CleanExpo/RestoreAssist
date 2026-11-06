@@ -5,6 +5,7 @@
  *   Claude (claude-opus-4-6, claude-sonnet-4-6)  — Anthropic vision API
  *   Gemini (gemini-3.1-pro, gemini-3.1-flash)    — Google multimodal API
  *   GPT (gpt-5.4, gpt-5.4-mini)                  — OpenAI vision API
+ *   Meta (muse-spark-1.3)                        — Meta Model API image understanding
  *
  * All output is structured as IICRC S500:2021-compliant analysis results that
  * populate inspection evidence fields automatically.
@@ -17,9 +18,25 @@ import OpenAI from "openai";
 import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import { getLatestAIIntegration } from "@/lib/ai-provider";
 import {
+  META_API_BASE_URL,
+  META_DEFAULT_CHAT_MODEL,
+} from "@/lib/workspace/provider-connections";
+import {
   BYOK_ALLOWED_MODELS,
   type AllowedModel,
 } from "@/mobile/constants/byok";
+
+/** Connected provider cannot analyse photos (OpenRouter, unknown). */
+export class VisionProviderUnsupportedError extends Error {
+  readonly provider: string;
+  constructor(provider: string) {
+    super(
+      `Photo analysis is not available for ${provider}. Add an Anthropic, OpenAI, Gemini, or Meta key in Settings → AI Providers.`,
+    );
+    this.name = "VisionProviderUnsupportedError";
+    this.provider = provider;
+  }
+}
 
 // ─── Evidence & damage taxonomy (IICRC S500:2021) ────────────────────────────
 
@@ -105,7 +122,7 @@ export interface S500VisionResult {
   /** Model that produced this result */
   model: string;
   /** Provider used */
-  provider: "anthropic" | "openai" | "gemini";
+  provider: "anthropic" | "openai" | "gemini" | "meta";
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────
@@ -138,7 +155,9 @@ Rules:
 
 /**
  * Analyse an image using the user's connected BYOK provider.
- * Falls back through providers in order: Anthropic → OpenAI → Gemini.
+ * Vision-capable: Anthropic, OpenAI, Gemini, and Meta (Muse Spark).
+ * OpenRouter and any other text-only provider throw
+ * VisionProviderUnsupportedError so the route can return 422, not 500.
  */
 export async function analyseImageWithBYOK(
   request: VisionAnalysisRequest,
@@ -192,8 +211,17 @@ export async function analyseImageWithBYOK(
       provider = "gemini";
       break;
     }
+    case "meta": {
+      ({ rawJson, model } = await callMetaVision(
+        integration.apiKey,
+        dataUri,
+        contextNote,
+      ));
+      provider = "meta";
+      break;
+    }
     default:
-      throw new Error(`Unsupported provider: ${integration.provider}`);
+      throw new VisionProviderUnsupportedError(integration.provider);
   }
 
   return parseS500Result(rawJson, model, provider);
@@ -322,6 +350,77 @@ async function callGeminiVision(
 
   const text = result.response.text();
   return { rawJson: text, model: geminiModel };
+}
+
+// ─── Meta vision (Muse Spark Chat Completions) ────────────────────────────────
+
+function metaErrorStatus(err: unknown): number | undefined {
+  if (typeof err !== "object" || err === null || !("status" in err)) {
+    return undefined;
+  }
+  const status = Number((err as { status: unknown }).status);
+  return Number.isFinite(status) && status > 0 ? status : undefined;
+}
+
+/**
+ * Muse Spark 1.3 accepts images on Chat Completions as OpenAI-style
+ * `image_url` parts (Meta Model API image-understanding docs, 2026-11-06).
+ * Never rethrow the SDK error: its message/stack can echo the BYOK key.
+ */
+async function callMetaVision(
+  apiKey: string,
+  dataUri: string,
+  contextNote: string,
+): Promise<{ rawJson: string; model: string }> {
+  try {
+    const meta = new OpenAI({
+      apiKey,
+      baseURL: META_API_BASE_URL,
+    });
+
+    const response = await meta.chat.completions.create({
+      model: META_DEFAULT_CHAT_MODEL,
+      max_tokens: 1024,
+      messages: [
+        {
+          role: "system",
+          content: S500_SYSTEM_PROMPT,
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: dataUri },
+            },
+            {
+              type: "text",
+              text: `Analyse this water damage site photograph using IICRC S500:2021 standards.${contextNote}`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const text = response.choices[0]?.message?.content ?? "";
+    if (!text) {
+      throw new Error("No content in Meta vision response");
+    }
+    return { rawJson: text, model: META_DEFAULT_CHAT_MODEL };
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message === "No content in Meta vision response"
+    ) {
+      throw err;
+    }
+    const status = metaErrorStatus(err);
+    throw new Error(
+      status
+        ? `Meta vision request failed (${status})`
+        : "Meta vision request failed",
+    );
+  }
 }
 
 // ─── Result parser ────────────────────────────────────────────────────────────

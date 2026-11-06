@@ -65,7 +65,7 @@ export async function listConfiguredAiConnections(
       updatedAt: true,
     },
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-    take: 6, // One row per workspace/provider; six providers in the schema.
+    take: 7, // One row per workspace/provider; seven AiProvider values in the schema.
   });
 
   return {

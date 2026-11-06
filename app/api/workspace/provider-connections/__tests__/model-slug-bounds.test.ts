@@ -13,6 +13,7 @@ const ensureWorkspaceForUser = vi.fn();
 const checkPaymentGate = vi.fn();
 const hasPermission = vi.fn();
 const upsertProviderConnection = vi.fn();
+const validateProviderKey = vi.fn();
 const findFirst = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -34,6 +35,7 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
   listProviderConnections: vi.fn(),
   upsertProviderConnection: (...a: unknown[]) => upsertProviderConnection(...a),
   disableProviderConnection: vi.fn(),
+  validateProviderKey: (...a: unknown[]) => validateProviderKey(...a),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { workspaceMember: { findFirst: (...a: unknown[]) => findFirst(...a) } },
@@ -48,6 +50,7 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 
 import { POST } from "../route";
+import { POST as validatePost } from "../validate/route";
 
 const KEY = "sk-or-v1-0123456789abcdefghij";
 
@@ -69,6 +72,42 @@ beforeEach(() => {
   hasPermission.mockResolvedValue(true);
   findFirst.mockResolvedValue({ id: "m1" });
   upsertProviderConnection.mockResolvedValue({ id: "c1" });
+});
+
+describe("POST /api/workspace/provider-connections — Meta key", () => {
+  it("saves a Meta key without a model slug and does not return the plaintext key", async () => {
+    const key = "LLM_1607358788850350_synthetic";
+    upsertProviderConnection.mockResolvedValue({
+      id: "c-meta",
+      provider: "META",
+      status: "ACTIVE",
+      maskedKey: "LLM_160735••••synthetic",
+    });
+    const res = await POST(post({ provider: "META", apiKey: key }));
+    expect(res.status).toBe(200);
+    expect(upsertProviderConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "META",
+        plaintextApiKey: key,
+        model: undefined,
+      }),
+    );
+    const body = await res.json();
+    expect(JSON.stringify(body)).not.toContain(key);
+  });
+
+  it("accepts META on the validate route", async () => {
+    validateProviderKey.mockResolvedValue({
+      provider: "META",
+      valid: true,
+      latencyMs: 12,
+    });
+    const res = await validatePost(post({ provider: "META" }));
+    expect(res.status).toBe(200);
+    expect(validateProviderKey).toHaveBeenCalledWith("w1", "META");
+    const body = await res.json();
+    expect(JSON.stringify(body)).not.toMatch(/LLM_|sk-/);
+  });
 });
 
 describe("POST /api/workspace/provider-connections — model slug bounds", () => {

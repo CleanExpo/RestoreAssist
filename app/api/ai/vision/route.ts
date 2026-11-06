@@ -5,7 +5,7 @@
  * Returns IICRC S500:2021-structured damage assessment that populates inspection fields.
  *
  * Auth: getServerSession required — no anonymous access.
- * Provider: whichever of Claude / GPT / Gemini the user has connected via BYOK.
+ * Provider: Claude, GPT, Gemini, or Meta (Muse Spark) via BYOK.
  *
  * Subscription gate: intentionally absent — this is a BYOK-only route. The user
  * supplies their own API key via Integrations; no platform credits are consumed.
@@ -20,6 +20,7 @@ import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   analyseImageWithBYOK,
+  VisionProviderUnsupportedError,
   type VisionAnalysisRequest,
 } from "@/lib/ai/byok-vision-client";
 import { z } from "zod";
@@ -113,6 +114,20 @@ export async function POST(request: NextRequest) {
           { error: VISION_PROVIDER_CONFIGURATION_ERROR },
           { status: 402 },
         );
+      }
+
+      if (
+        error instanceof VisionProviderUnsupportedError ||
+        message.startsWith("Unsupported provider:")
+      ) {
+        return apiError(request, {
+          code: "FEATURE_UNAVAILABLE",
+          message:
+            error instanceof VisionProviderUnsupportedError
+              ? error.message
+              : "Photo analysis is not available for this AI provider. Add an Anthropic, OpenAI, Gemini, or Meta key in Settings → AI Providers.",
+          status: 422,
+        });
       }
 
       return apiError(request, {
