@@ -16,6 +16,9 @@
 -- ADDITIVE
 --   CreateTable plus unique and lookup indexes. No backfill in SQL: the tag
 --   needs the app HMAC secret, so promotion is a backward-compatible read.
+--   RLS is enabled with no policy (default-deny for anon/authenticated), same
+--   as ReportShareAccess: this is not a PostgREST surface; Prisma writes as
+--   the table owner and owners bypass RLS.
 --
 -- REVERSIBLE
 --   DROP TABLE "PulseOrgAddressOptOut";
@@ -43,3 +46,7 @@ CREATE INDEX "PulseOrgAddressOptOut_organizationId_idx" ON "PulseOrgAddressOptOu
 
 -- AddForeignKey
 ALTER TABLE "PulseOrgAddressOptOut" ADD CONSTRAINT "PulseOrgAddressOptOut_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- RLS on, no policy: anon and authenticated are denied. The app writes
+-- through its own server connection (table owner, RLS not forced).
+ALTER TABLE "PulseOrgAddressOptOut" ENABLE ROW LEVEL SECURITY;
