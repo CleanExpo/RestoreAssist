@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
+import { isZohoEnabled } from "@/lib/flags/one-crm-flags";
 import { DEFAULT_RETRY_OPTIONS, retryWithExponentialBackoff } from "../retry";
 import {
   accountUpsertBody,
@@ -151,6 +152,9 @@ export async function enqueueZohoJob(userId: string, job: RaJobPush): Promise<vo
 export async function processZohoSyncBatch(
   maxJobs = 20,
 ): Promise<{ processed: number; failed: number }> {
+  // RA-8215: while Zoho is off nothing can be enqueued, and the ZohoSyncJob
+  // table may not exist yet (migration 20261105050000_ra8199_zoho_crm).
+  if (!isZohoEnabled()) return { processed: 0, failed: 0 };
   const jobs = await prisma.zohoSyncJob.findMany({
     where: { status: "PENDING" },
     orderBy: { createdAt: "asc" },

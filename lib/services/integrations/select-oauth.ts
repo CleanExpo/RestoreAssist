@@ -1,10 +1,23 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { getOAuthReadiness, isOAuthIntegration, LEGACY_AI_NAMES, OAUTH_PROVIDERS } from "@/lib/integrations/identity";
+import { getOAuthReadiness, isOAuthIntegration, LEGACY_AI_NAMES, OAUTH_PROVIDERS, type OAuthProvider } from "@/lib/integrations/identity";
+import { isZohoEnabled } from "@/lib/flags/one-crm-flags";
+
+/**
+ * Providers that may be named in SQL. RA-8215: ZOHO joined the
+ * IntegrationProvider enum in migration 20261105050000_ra8199_zoho_crm, and a
+ * database without that migration rejects any query naming it (P2007), which
+ * broke every XERO / QuickBooks / MYOB lookup sharing this filter. ZOHO stays
+ * out of SQL until the Zoho switch is on; apply the migration before turning
+ * the switch on.
+ */
+export function queryableOAuthProviders(zohoEnabled: boolean = isZohoEnabled()): OAuthProvider[] {
+  return OAUTH_PROVIDERS.filter(provider => provider !== "ZOHO" || zohoEnabled);
+}
 
 /** Apply positive identity and known-AI exclusions before a bounded query. */
 export const OAUTH_CANDIDATE_WHERE: Prisma.IntegrationWhereInput = {
   AND: [
-    { provider: { in: [...OAUTH_PROVIDERS] } },
+    { provider: { in: queryableOAuthProviders() } },
     { OR: [{ icon: null }, { icon: { not: "[ra:ai]" } }] },
     { name: { notIn: LEGACY_AI_NAMES, mode: "insensitive" } },
     { OR: [
@@ -35,7 +48,7 @@ export async function selectOAuthIntegration(input: {
   workspaceId?: string | null;
   requireReady?: boolean;
 }): Promise<OAuthSelectionResult> {
-  if (!OAUTH_PROVIDERS.includes(input.provider as typeof OAUTH_PROVIDERS[number])) {
+  if (!queryableOAuthProviders().includes(input.provider as OAuthProvider)) {
     return { ok: false, reason: "INVALID_PROVIDER" };
   }
   const where: Prisma.IntegrationWhereInput = {
