@@ -49,11 +49,21 @@ describe("switched-off providers never reach SQL", () => {
     expect(mod.queryableOAuthProviders()).toEqual(["XERO", "QUICKBOOKS", "MYOB", "SERVICEM8"]);
     vi.unstubAllEnvs();
   });
-  it("refuses a ZOHO selection without querying while Zoho is off", async () => {
+  it("a XERO selection names only XERO in SQL", async () => {
+    const mod = await load("true");
+    const prisma = db([xero]);
+    expect(await mod.selectOAuthIntegration({ prisma: prisma as never, userId: "owner", provider: "XERO" })).toEqual({ ok: true, data: xero });
+    const where = JSON.stringify(prisma.integration.findMany.mock.calls[0][0].where);
+    expect(where).not.toContain('"ZOHO"');
+    expect(prisma.integration.findMany.mock.calls[0][0].where.AND).toContainEqual({ provider: { in: ["XERO"] } });
+    vi.unstubAllEnvs();
+  });
+  it("still finds an existing ZOHO connection while Zoho is off (disconnect and reconnect need it)", async () => {
     const mod = await load("");
-    const prisma = db([]);
-    expect(await mod.selectOAuthIntegration({ prisma: prisma as never, userId: "owner", provider: "ZOHO" })).toEqual({ ok: false, reason: "INVALID_PROVIDER" });
-    expect(prisma.integration.findMany).not.toHaveBeenCalled();
+    const zoho = { ...xero, id: "zoho", provider: "ZOHO", name: "Zoho CRM", tenantId: null, companyId: "AU" };
+    const prisma = db([zoho]);
+    expect(await mod.selectOAuthIntegration({ prisma: prisma as never, userId: "owner", provider: "ZOHO" })).toEqual({ ok: true, data: zoho });
+    expect(prisma.integration.findMany.mock.calls[0][0].where.AND).toContainEqual({ provider: { in: ["ZOHO"] } });
     vi.unstubAllEnvs();
   });
   it("positive control: includes ZOHO once Zoho is switched on", async () => {

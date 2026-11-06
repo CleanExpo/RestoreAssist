@@ -3,31 +3,36 @@ import { getOAuthReadiness, isOAuthIntegration, LEGACY_AI_NAMES, OAUTH_PROVIDERS
 import { isZohoEnabled } from "@/lib/flags/one-crm-flags";
 
 /**
- * Providers that may be named in SQL. RA-8215: ZOHO joined the
- * IntegrationProvider enum in migration 20261105050000_ra8199_zoho_crm, and a
- * database without that migration rejects any query naming it (P2007), which
- * broke every XERO / QuickBooks / MYOB lookup sharing this filter. ZOHO stays
- * out of SQL until the Zoho switch is on; apply the migration before turning
- * the switch on.
+ * Providers a broad (not single-provider) query may name in SQL. RA-8215: ZOHO
+ * joined the IntegrationProvider enum in migration
+ * 20261105050000_ra8199_zoho_crm, and a database without that migration
+ * rejects any query naming it (P2007), which broke every XERO / QuickBooks /
+ * MYOB lookup sharing this filter. Broad queries leave ZOHO out until the Zoho
+ * switch is on; apply the migration before turning the switch on.
  */
 export function queryableOAuthProviders(zohoEnabled: boolean = isZohoEnabled()): OAuthProvider[] {
   return OAUTH_PROVIDERS.filter(provider => provider !== "ZOHO" || zohoEnabled);
 }
 
+/** Positive identity and known-AI exclusions for the given providers only. */
+export function oauthCandidateWhere(providers: readonly OAuthProvider[]): Prisma.IntegrationWhereInput {
+  return {
+    AND: [
+      { provider: { in: [...providers] } },
+      { OR: [{ icon: null }, { icon: { not: "[ra:ai]" } }] },
+      { name: { notIn: LEGACY_AI_NAMES, mode: "insensitive" } },
+      { OR: [
+        { name: { in: ["Xero", "QuickBooks", "QuickBooks Online", "MYOB", "ServiceM8", "Service M8", "Zoho", "Zoho CRM"], mode: "insensitive" } },
+        { icon: { in: OAUTH_PROVIDERS.map(provider => `/integrations/${provider.toLowerCase()}.svg`) } },
+        { tokenExpiresAt: { not: null } }, { tenantId: { not: null, notIn: [""] } },
+        { realmId: { not: null, notIn: [""] } }, { companyId: { not: null, notIn: [""] } },
+      ] },
+    ],
+  };
+}
+
 /** Apply positive identity and known-AI exclusions before a bounded query. */
-export const OAUTH_CANDIDATE_WHERE: Prisma.IntegrationWhereInput = {
-  AND: [
-    { provider: { in: queryableOAuthProviders() } },
-    { OR: [{ icon: null }, { icon: { not: "[ra:ai]" } }] },
-    { name: { notIn: LEGACY_AI_NAMES, mode: "insensitive" } },
-    { OR: [
-      { name: { in: ["Xero", "QuickBooks", "QuickBooks Online", "MYOB", "ServiceM8", "Service M8", "Zoho", "Zoho CRM"], mode: "insensitive" } },
-      { icon: { in: OAUTH_PROVIDERS.map(provider => `/integrations/${provider.toLowerCase()}.svg`) } },
-      { tokenExpiresAt: { not: null } }, { tenantId: { not: null, notIn: [""] } },
-      { realmId: { not: null, notIn: [""] } }, { companyId: { not: null, notIn: [""] } },
-    ] },
-  ],
-};
+export const OAUTH_CANDIDATE_WHERE: Prisma.IntegrationWhereInput = oauthCandidateWhere(queryableOAuthProviders());
 
 export const OAUTH_IDENTITY_SELECT = {
   id: true, userId: true, workspaceId: true, provider: true, name: true,
@@ -48,13 +53,17 @@ export async function selectOAuthIntegration(input: {
   workspaceId?: string | null;
   requireReady?: boolean;
 }): Promise<OAuthSelectionResult> {
-  if (!queryableOAuthProviders().includes(input.provider as OAuthProvider)) {
+  if (!OAUTH_PROVIDERS.includes(input.provider as OAuthProvider)) {
     return { ok: false, reason: "INVALID_PROVIDER" };
   }
+  const provider = input.provider as OAuthProvider;
+  // Name only the requested provider: a XERO lookup never sends ZOHO to SQL,
+  // and an existing ZOHO connection stays reachable (reconnect, disconnect)
+  // while the Zoho switch is off.
   const where: Prisma.IntegrationWhereInput = {
-    ...OAUTH_CANDIDATE_WHERE,
+    ...oauthCandidateWhere([provider]),
     userId: input.userId,
-    provider: input.provider as typeof OAUTH_PROVIDERS[number],
+    provider,
     ...(input.integrationId ? { id: input.integrationId } : {}),
     ...(input.workspaceId !== undefined ? { workspaceId: input.workspaceId } : {}),
   };

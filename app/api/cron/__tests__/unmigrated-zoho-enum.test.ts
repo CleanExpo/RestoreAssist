@@ -97,13 +97,18 @@ describe("cron routes against a database that has not applied the Zoho migration
     expect(integrationFindMany).toHaveBeenCalledTimes(1);
   });
 
-  it("sync-invoices returns 200, completes, and does not touch the missing Zoho queue table", async () => {
+  it("sync-invoices returns 200 and completes, containing the missing Zoho queue table", async () => {
     const { GET } = await import("../sync-invoices/route");
     const res = await GET(authorised("/api/cron/sync-invoices"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ success: true, status: "completed" });
+    expect(await res.json()).toMatchObject({
+      success: true,
+      status: "completed",
+      metadata: { zohoProcessed: 0, zohoFailed: 0 },
+    });
     expect(integrationFindMany).toHaveBeenCalledTimes(1);
-    expect(zohoSyncJobFindMany).not.toHaveBeenCalled();
+    // The drain is attempted and its P2021 is contained by drainZoho.
+    expect(zohoSyncJobFindMany).toHaveBeenCalledTimes(1);
   });
 
   it("positive control: with Zoho switched on, the same fake database refuses the query", async () => {
