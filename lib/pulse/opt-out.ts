@@ -5,7 +5,8 @@ import { pulseAddressTag } from "./pulse-unsubscribe-token";
 
 const MEMBER_SCAN_CAP = 5000;
 
-type Db = Prisma.TransactionClient | typeof prisma;
+export type PulseConsentDb = Prisma.TransactionClient | typeof prisma;
+type Db = PulseConsentDb;
 
 export class PulseAddressLockWriteError extends Error {
   constructor(message = "Pulse address lock could not be written") {
@@ -170,15 +171,19 @@ async function withConsentLock<T>(
   organizationId: string | null,
   addressTag: string | null,
   fn: (tx: Db) => Promise<T>,
+  db: Db = prisma,
 ): Promise<T> {
-  if (
-    !organizationId ||
-    !addressTag ||
-    typeof prisma.$transaction !== "function"
-  ) {
-    return fn(prisma);
+  const transact = (db as { $transaction?: unknown }).$transaction;
+  const executeRaw = (db as { $executeRaw?: unknown }).$executeRaw;
+  if (!organizationId || !addressTag || typeof transact !== "function") {
+    if (organizationId && addressTag && typeof executeRaw === "function") {
+      const lockKey = `pulse-opt-out:${organizationId}:${addressTag}`;
+      await (db as typeof prisma)
+        .$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+    }
+    return fn(db);
   }
-  return prisma.$transaction(async (tx) => {
+  return (db as typeof prisma).$transaction(async (tx) => {
     if (typeof tx.$executeRaw === "function") {
       const lockKey = `pulse-opt-out:${organizationId}:${addressTag}`;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
@@ -227,14 +232,17 @@ export async function recordPulseAddressLock(input: {
    * Unsubscribe tokens pin the job's firm here so a later join cannot.
    */
   organizationId?: string | null;
+  /** Join an existing transaction so a failed lock rolls the email replace back. */
+  db?: Db;
 }): Promise<{ organizationId: string | null; addressTag: string | null }> {
+  const db = input.db ?? prisma;
   const addressTag =
     input.addressTag ??
     (input.email && input.email.trim() ? tagFor(input.email) : null);
   const organizationId =
     input.organizationId !== undefined
       ? input.organizationId
-      : await resolvePulseOrganisationId(input.ownerUserId);
+      : await resolvePulseOrganisationId(input.ownerUserId, db);
   if (organizationId && (input.email?.trim() || input.addressTag) && !addressTag) {
     throw new PulseAddressLockWriteError(
       "Pulse address lock cannot be fingerprinted",
@@ -244,22 +252,27 @@ export async function recordPulseAddressLock(input: {
     return { organizationId, addressTag };
   }
 
-  await withConsentLock(organizationId, addressTag, async (tx) => {
-    const upsert = tx.pulseOrgAddressOptOut?.upsert;
-    if (typeof upsert !== "function") {
-      throw new PulseAddressLockWriteError();
-    }
-    await upsert({
-      where: { organizationId_addressTag: { organizationId, addressTag } },
-      create: {
-        organizationId,
-        addressTag,
-        sourceClientId: input.sourceClientId,
-        sourceUserId: input.ownerUserId,
-      },
-      update: {},
-    });
-  });
+  await withConsentLock(
+    organizationId,
+    addressTag,
+    async (tx) => {
+      const upsert = tx.pulseOrgAddressOptOut?.upsert;
+      if (typeof upsert !== "function") {
+        throw new PulseAddressLockWriteError();
+      }
+      await upsert({
+        where: { organizationId_addressTag: { organizationId, addressTag } },
+        create: {
+          organizationId,
+          addressTag,
+          sourceClientId: input.sourceClientId,
+          sourceUserId: input.ownerUserId,
+        },
+        update: {},
+      });
+    },
+    db,
+  );
   return { organizationId, addressTag };
 }
 

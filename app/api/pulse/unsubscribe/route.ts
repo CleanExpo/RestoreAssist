@@ -82,17 +82,27 @@ export async function POST(request: NextRequest) {
         status: 404,
       });
     }
-    // The withdrawal is the person's. An org-wide address lock is written only
-    // when the token names that organisation — never the owner's live firm.
-    // Colleagues in the same firm share it; another firm never does.
+    // The withdrawal is the person's. An org-wide address lock is written
+    // first, so a missing writer cannot leave person flags set with no lock.
+    // The lock is only for a token that names that organisation — never the
+    // owner's live firm. Colleagues in the same firm share it; another firm
+    // never does.
+    const email = client.email?.trim();
+    const organizationId = tokenOrgId;
+    if (organizationId && addressTag) {
+      await recordPulseAddressLock({
+        ownerUserId: client.userId,
+        addressTag,
+        sourceClientId: client.id,
+        organizationId,
+      });
+    }
     const named = await prisma.client.updateMany({
       where: { id: client.id, userId: client.userId },
       data: { pulseOptOut: true },
     });
     let records = named.count;
-    const email = client.email?.trim();
     if (addressTag) {
-      const organizationId = tokenOrgId;
       const memberIds = organizationId
         ? await pulseOrganisationMemberIds(organizationId)
         : [];
@@ -127,14 +137,6 @@ export async function POST(request: NextRequest) {
           data: { pulseOptOut: true },
         });
         records = Math.max(records, updated.count);
-      }
-      if (organizationId) {
-        await recordPulseAddressLock({
-          ownerUserId: client.userId,
-          addressTag,
-          sourceClientId: client.id,
-          organizationId,
-        });
       }
     }
     console.info("[pulse:opt-out]", {

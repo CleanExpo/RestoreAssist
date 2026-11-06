@@ -132,6 +132,8 @@ describe("POST /api/pulse/unsubscribe", () => {
 
     expect(res.status).not.toBe(200);
     expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(h.updateMany).not.toHaveBeenCalled();
+    expect(h.findMany).not.toHaveBeenCalled();
   });
 
   it("locks the token's organisation, not the owner's live firm", async () => {

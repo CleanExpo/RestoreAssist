@@ -30,6 +30,9 @@ const db = vi.hoisted(() => ({
   clients: [] as ClientRow[],
   locks: [] as OrgLock[],
   lockCalls: [] as string[],
+  inspections: {} as Record<string, unknown>,
+  putUserId: null as string | null,
+  sendPulseUpdateEmail: vi.fn(),
   getResourceTenant: vi.fn(),
 }));
 
@@ -45,8 +48,8 @@ vi.mock("@/lib/prisma", () => {
       where: {
         userId?: string | { in: string[] };
         pulseOptOut?: boolean;
-        email?: { equals: string; mode: string };
-        id?: string;
+        email?: string | { equals: string; mode: string };
+        id?: string | { not: string };
       };
     }) =>
       db.clients.find((row) => {
@@ -61,8 +64,19 @@ vi.mock("@/lib/prisma", () => {
         ) {
           return false;
         }
-        if (where.email && !eqEmail(row.email, where.email.equals)) return false;
-        if (where.id && row.id !== where.id) return false;
+        if (typeof where.email === "string") {
+          if (!eqEmail(row.email, where.email)) return false;
+        } else if (where.email && !eqEmail(row.email, where.email.equals)) {
+          return false;
+        }
+        if (typeof where.id === "string" && row.id !== where.id) return false;
+        if (
+          where.id &&
+          typeof where.id === "object" &&
+          row.id === where.id.not
+        ) {
+          return false;
+        }
         return true;
       }) ?? null,
     findMany: async ({
@@ -129,6 +143,25 @@ vi.mock("@/lib/prisma", () => {
         count += 1;
       }
       return { count };
+    },
+    update: async ({
+      where,
+      data,
+    }: {
+      where: { id: string; userId?: string };
+      data: Partial<ClientRow> & Record<string, unknown>;
+    }) => {
+      const row = db.clients.find(
+        (clientRow) =>
+          clientRow.id === where.id &&
+          (!where.userId || clientRow.userId === where.userId),
+      );
+      if (!row) {
+        const error = new Error("Record to update not found");
+        throw error;
+      }
+      Object.assign(row, data);
+      return { ...row, _count: { reports: 0 } };
     },
   };
   const prisma = {
@@ -245,8 +278,30 @@ vi.mock("@/lib/prisma", () => {
         return create;
       },
     },
-    $transaction: async (fn: (tx: typeof prisma) => Promise<unknown>) =>
-      fn(prisma),
+    inspection: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        db.inspections[where.id] ?? null,
+    },
+    clientCommsLog: {
+      create: async ({ data }: { data: Record<string, unknown> }) => ({
+        id: "log_1",
+        ...data,
+      }),
+      update: async () => ({}),
+    },
+    $transaction: async (fn: (tx: typeof prisma) => Promise<unknown>) => {
+      const clients = db.clients.map((row) => ({ ...row }));
+      const locks = db.locks.map((row) => ({ ...row }));
+      try {
+        return await fn(prisma);
+      } catch (error) {
+        db.clients.length = 0;
+        db.clients.push(...clients);
+        db.locks.length = 0;
+        db.locks.push(...locks);
+        throw error;
+      }
+    },
     $executeRaw: async (strings: TemplateStringsArray, key: string) => {
       db.lockCalls.push(String(strings.join("?") + key));
     },
@@ -257,8 +312,36 @@ vi.mock("@/lib/prisma", () => {
 vi.mock("@/lib/organization-credits", () => ({
   getResourceTenant: (...args: unknown[]) => db.getResourceTenant(...args),
 }));
+vi.mock("next-auth", () => ({
+  getServerSession: async () =>
+    db.putUserId ? { user: { id: db.putUserId } } : null,
+}));
+vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/integrations/zoho/queue", () => ({
+  scheduleZohoCustomerPush: vi.fn(),
+}));
+vi.mock("@/lib/entitlements", () => ({
+  requireAddonForResource: async () => ({
+    allowed: true,
+    sku: "CLIENT_COMMS",
+    workspaceId: "ws_1",
+  }),
+}));
+vi.mock("@/lib/email", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/email")>();
+  return {
+    ...actual,
+    sendPulseUpdateEmail: (...args: unknown[]) =>
+      db.sendPulseUpdateEmail(...args),
+  };
+});
+vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 
+import { NextRequest } from "next/server";
+import { PUT } from "@/app/api/clients/[id]/route";
+import { buildClientStatusFeed } from "@/lib/portal/client-status-feed";
 import { prisma } from "@/lib/prisma";
+import { dispatchPulseNotification } from "../dispatcher";
 import {
   isPulseOptedOutByAddress,
   PulseAddressLockWriteError,
@@ -275,6 +358,9 @@ beforeEach(() => {
   db.clients = [];
   db.locks = [];
   db.lockCalls = [];
+  db.inspections = {};
+  db.putUserId = null;
+  db.sendPulseUpdateEmail.mockReset();
   db.getResourceTenant.mockReset();
 });
 
@@ -876,6 +962,90 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     } finally {
       prisma.pulseOrgAddressOptOut.upsert = upsert;
     }
+  });
+
+  it("rolls back an opted-out email replace when the lock writer is missing, and a later send to the old address is not sent", async () => {
+    staff("staff-a", "org-1");
+    staff("staff-b", "org-1");
+    db.orgs["org-1"] = { id: "org-1", ownerId: "staff-a" };
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "old@owner.test",
+      pulseOptOut: true,
+    });
+    client({
+      id: "client-b",
+      userId: "staff-b",
+      email: "old@owner.test",
+      pulseOptOut: false,
+    });
+    db.putUserId = "staff-a";
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "staff-b",
+      organizationId: "org-1",
+    });
+    db.inspections["insp-b"] = {
+      id: "insp-b",
+      userId: "staff-b",
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+      pulseEnabled: true,
+      report: {
+        client: {
+          id: "client-b",
+          email: "old@owner.test",
+          pulseOptOut: false,
+          portalAccounts: [
+            { token: "tok_b", inspectionId: null, createdAt: new Date() },
+          ],
+        },
+      },
+      client: null,
+    };
+    process.env.MAILTRAP_API_KEY = "mt_test";
+    process.env.SENDER_EMAIL = "updates@restoreassist.app";
+    process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+
+    const upsert = prisma.pulseOrgAddressOptOut.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    prisma.pulseOrgAddressOptOut.upsert = undefined;
+    try {
+      const res = await PUT(
+        new NextRequest("https://app.example.test/api/clients/client-a", {
+          method: "PUT",
+          body: JSON.stringify({
+            name: "Pat",
+            email: "new@owner.test",
+            status: "ACTIVE",
+          }),
+        }),
+        { params: Promise.resolve({ id: "client-a" }) },
+      );
+      expect(res.status).not.toBe(200);
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(db.clients.find((row) => row.id === "client-a")?.email).toBe(
+        "old@owner.test",
+      );
+      expect(db.locks).toHaveLength(0);
+    } finally {
+      prisma.pulseOrgAddressOptOut.upsert = upsert;
+    }
+
+    const result = await dispatchPulseNotification({
+      inspectionId: "insp-b",
+      event: {
+        type: "STEP_TRANSITION",
+        feed: buildClientStatusFeed({
+          status: "SCOPED",
+          workflow: null,
+          reportStatus: null,
+          pendingApprovals: [],
+        }),
+      },
+    });
+    expect(result.status).toBe("SUPPRESSED");
+    expect(result).toMatchObject({ reason: "OPT_OUT" });
+    expect(db.sendPulseUpdateEmail).not.toHaveBeenCalled();
   });
 
   it("does not record a person withdrawal when the address lock cannot be written", async () => {

@@ -12,7 +12,14 @@ const h = vi.hoisted(() => ({
 vi.mock("next-auth", () => ({ getServerSession: h.session }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { client: { findFirst: h.findFirst, update: h.update } },
+  prisma: {
+    client: { findFirst: h.findFirst, update: h.update },
+    $transaction: async (
+      fn: (tx: {
+        client: { findFirst: typeof h.findFirst; update: typeof h.update };
+      }) => Promise<unknown>,
+    ) => fn({ client: { findFirst: h.findFirst, update: h.update } }),
+  },
 }));
 vi.mock("@/lib/pulse/opt-out", () => ({
   recordPulseOptOut: h.recordPulseOptOut,
@@ -105,6 +112,7 @@ describe("contractor control of the client's opt-out", () => {
       ownerUserId: "owner_1",
       email: "old@example.test",
       sourceClientId: "client_a",
+      db: expect.objectContaining({ client: expect.any(Object) }),
     });
     expect(written().email).toBe("new@example.test");
     expect(written()).not.toHaveProperty("pulseOptOut");
@@ -119,6 +127,7 @@ describe("contractor control of the client's opt-out", () => {
 
     expect(res.status).not.toBe(200);
     expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(h.update).not.toHaveBeenCalled();
   });
 
   it("does not report success when replacing an opted-out email cannot lock the old address", async () => {
@@ -138,6 +147,7 @@ describe("contractor control of the client's opt-out", () => {
 
     expect(res.status).not.toBe(200);
     expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(h.update).not.toHaveBeenCalled();
   });
 
   it("leaves it alone when the field is omitted", async () => {
