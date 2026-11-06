@@ -11,7 +11,17 @@ describe("isDemoOrReservedRecipient", () => {
     ).toBe(true);
   });
 
-  it("blocks RFC reserved and OAuth placeholder hosts", () => {
+  it("strips plus-tags before the exact leftover-sample match", () => {
+    expect(
+      isDemoOrReservedRecipient("sample.client+tag@example.com.au"),
+    ).toBe(true);
+    expect(
+      isDemoOrReservedRecipient("  SAMPLE.CLIENT+Promo@Example.Com.Au  "),
+    ).toBe(true);
+  });
+
+  it("blocks RFC 6761 .test as well as .invalid/.example, and leftover OAuth .local", () => {
+    expect(isDemoOrReservedRecipient("bob@owner.test")).toBe(true);
     expect(isDemoOrReservedRecipient("sample.client@restoreassist.invalid")).toBe(
       true,
     );
@@ -23,7 +33,6 @@ describe("isDemoOrReservedRecipient", () => {
   });
 
   it("does not block a real-looking homeowner address", () => {
-    expect(isDemoOrReservedRecipient("bob@owner.test")).toBe(false);
     expect(isDemoOrReservedRecipient("client@x.com")).toBe(false);
     expect(
       isDemoOrReservedRecipient("jane.smith@restoreassist.com.au"),

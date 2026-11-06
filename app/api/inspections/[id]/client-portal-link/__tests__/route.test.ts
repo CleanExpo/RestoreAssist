@@ -105,13 +105,13 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
   it("uses inspection.client when report has no client (P3 spine)", async () => {
     p.inspection.findUnique.mockResolvedValueOnce({
       clientId: "c_spine",
-      client: { id: "c_spine", email: "spine@owner.test" },
+      client: { id: "c_spine", email: "spine@restoreassist.com.au" },
       report: { client: null },
     });
     const res = await POST(req(), params);
     expect(res.status).toBe(200);
     expect(mEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "spine@owner.test" }),
+      expect.objectContaining({ to: "spine@restoreassist.com.au" }),
     );
   });
 

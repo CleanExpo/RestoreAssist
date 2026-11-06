@@ -129,6 +129,52 @@ describe("POST /api/integrations/oauth/[provider]/clients", () => {
     expect(externalClientUpdate).not.toHaveBeenCalled();
   });
 
+  it("reuses an unlinked leftover @client.local placeholder instead of creating @client.invalid", async () => {
+    const legacyEmail = "ext-integration_1-xero-2@client.local";
+    externalClientFindMany.mockResolvedValue([
+      {
+        id: "ext_2",
+        externalId: "xero-2",
+        name: "No Email Co",
+        email: null,
+        phone: null,
+        address: null,
+        contactId: null,
+      },
+    ]);
+    clientFindFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      const emailFilter = where.email as { in?: string[] } | string | undefined;
+      if (emailFilter && typeof emailFilter === "object" && emailFilter.in?.includes(legacyEmail)) {
+        return { id: "client_legacy", email: legacyEmail, workspaceId: null };
+      }
+      if (emailFilter === legacyEmail) {
+        return { workspaceId: null };
+      }
+      return null;
+    });
+    clientUpsert.mockResolvedValue({ id: "client_legacy" });
+    externalClientUpdate.mockResolvedValue({});
+
+    const response = await POST(postRequest({ clientIds: ["xero-2"] }), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.imported).toBe(1);
+    expect(clientUpsert).toHaveBeenCalledTimes(1);
+    expect(clientUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          workspaceId: null,
+          userId_email: { userId: "user_1", email: legacyEmail },
+        },
+      }),
+    );
+    expect(externalClientUpdate).toHaveBeenCalledWith({
+      where: { id: "ext_2", integrationId: "integration_1" },
+      data: { contactId: "client_legacy" },
+    });
+  });
+
   it("gives an email-less external client a stable placeholder email instead of colliding on empty string", async () => {
     externalClientFindMany.mockResolvedValue([
       {
