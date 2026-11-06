@@ -38,9 +38,15 @@ on:
 permissions:
   contents: read
 
+# One writer at a time (RA-8227). Every run that can touch the issue runs on
+# refs/heads/main, so all of them share this group. cancel-in-progress must
+# stay false: cancelling a run does not undo issue writes it already sent, so
+# an older run could close the issue after a newer failing run, or two runs
+# could each open one. With false, GitHub runs one at a time and holds the
+# next as pending, so each run sees the previous run's finished writes.
 concurrency:
   group: migration-ledger-parity-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   parity:

@@ -428,6 +428,25 @@ test("workflow: issues:write is granted to the job only, top level stays read-on
   );
 });
 
+test("workflow: issue writers are serialised, never cancelled mid-write", () => {
+  // A cancelled run's already-sent issue writes still land, so overlapping runs
+  // can leave two open issues or close one after a newer failure. The design
+  // answer is one writer at a time: a single group shared by every main run,
+  // and no cancellation of the run in progress.
+  const concurrency = topLevelBlock("concurrency");
+  assert.match(
+    concurrency,
+    /^ {2}group: migration-ledger-parity-\$\{\{ github\.ref \}\}$/m,
+  );
+  assert.match(concurrency, /^ {2}cancel-in-progress: false$/m);
+  assert.doesNotMatch(code, /cancel-in-progress:\s*true/);
+  assert.doesNotMatch(
+    code.slice(code.indexOf("\njobs:")),
+    /^\s+concurrency:/m,
+    "keep one workflow-level group so every writer shares it",
+  );
+});
+
 test("workflow: never applies, resolves or pushes migrations", () => {
   for (const banned of [
     /migrate\s+deploy/,
