@@ -28,13 +28,15 @@ import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
 import { sendPulseUpdateEmail } from "@/lib/email";
 import { requireAddonForResource } from "@/lib/entitlements";
-import { getResourceTenant } from "@/lib/organization-credits";
 import { renderReviewAskEmail } from "./templates";
 import {
   buildPulseOneClickUnsubscribeUrl,
   buildPulseUnsubscribeUrl,
 } from "./pulse-unsubscribe-token";
-import { isPulseOptedOutByAddress } from "./opt-out";
+import {
+  isPulseOptedOutByAddress,
+  resolvePulseJobOrganisationId,
+} from "./opt-out";
 
 export type ReviewAskSuppressionReason =
   | "TOGGLE_OFF"
@@ -157,8 +159,10 @@ export async function dispatchReviewAskNotification(
     return suppress("OPT_OUT");
   }
   if (!recipient || !client) return suppress("NO_RECIPIENT");
-  const tenant = await getResourceTenant(job.userId, job.createdAt);
-  const jobOrganizationId = tenant?.organizationId ?? null;
+  const jobOrganizationId = await resolvePulseJobOrganisationId(
+    job.userId,
+    job.createdAt,
+  );
   if (await isPulseOptedOutByAddress(job.userId, recipient, jobOrganizationId)) {
     return suppress("OPT_OUT");
   }

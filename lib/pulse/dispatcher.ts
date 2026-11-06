@@ -32,7 +32,6 @@ import { prisma } from "@/lib/prisma";
 import { reportError } from "@/lib/observability";
 import { sendPulseUpdateEmail } from "@/lib/email";
 import { requireAddonForResource } from "@/lib/entitlements";
-import { getResourceTenant } from "@/lib/organization-credits";
 import {
   renderCodeOfPracticeUpdateEmail,
   renderDailyDigestEmail,
@@ -51,7 +50,10 @@ import {
   buildPulseOneClickUnsubscribeUrl,
   buildPulseUnsubscribeUrl,
 } from "./pulse-unsubscribe-token";
-import { isPulseOptedOutByAddress } from "./opt-out";
+import {
+  isPulseOptedOutByAddress,
+  resolvePulseJobOrganisationId,
+} from "./opt-out";
 
 export type PulseEventType =
   | "STEP_TRANSITION"
@@ -280,8 +282,12 @@ export async function dispatchPulseNotification(
   }
   if (!recipient || !client) return suppress("NO_RECIPIENT");
   // RA-7893: the job's firm, not whichever organisation its creator is in now.
-  const tenant = await getResourceTenant(job.userId, job.createdAt);
-  const jobOrganizationId = tenant?.organizationId ?? null;
+  // Owner/ADMIN self-tenants still resolve to the org they own, so the usual
+  // contractor send path binds unsubscribe to the firm.
+  const jobOrganizationId = await resolvePulseJobOrganisationId(
+    job.userId,
+    job.createdAt,
+  );
   if (await isPulseOptedOutByAddress(job.userId, recipient, jobOrganizationId)) {
     return suppress("OPT_OUT");
   }

@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { getResourceTenant } from "@/lib/organization-credits";
 import { prisma } from "@/lib/prisma";
 import { pulseAddressTag } from "./pulse-unsubscribe-token";
 
@@ -38,9 +39,10 @@ export async function resolvePulseOrganisationId(
 }
 
 /**
- * Current members plus staff who left this organisation and have not joined
- * another. A former member's Client rows in a new firm must never be written
- * or scanned for this organisation's consent.
+ * Current members only. A former member can still hold Client rows after they
+ * leave; scanning those would let them lock this firm's address after they
+ * left. Org-wide consent lives on PulseOrgAddressOptOut, written while they
+ * were a member (or by a current colleague / the public unsubscribe token).
  */
 export async function pulseOrganisationMemberIds(
   organizationId: string,
@@ -48,23 +50,36 @@ export async function pulseOrganisationMemberIds(
 ): Promise<string[]> {
   const findMany = db.user?.findMany;
   if (typeof findMany !== "function") return [];
-  const [current, former] = await Promise.all([
-    findMany({
-      where: { organizationId },
-      select: { id: true },
-      take: MEMBER_SCAN_CAP,
-    }),
-    findMany({
-      where: {
-        organizationLeftId: organizationId,
-        organizationLeftAt: { not: null },
-        organizationId: null,
-      },
-      select: { id: true },
-      take: MEMBER_SCAN_CAP,
-    }),
-  ]);
-  return [...new Set([...current, ...former].map((row) => row.id))];
+  const current = await findMany({
+    where: { organizationId },
+    select: { id: true },
+    take: MEMBER_SCAN_CAP,
+  });
+  return [...new Set(current.map((row) => row.id))];
+}
+
+/**
+ * The organisation a Pulse send belongs to: the job's proven firm, not
+ * whoever the creator joined later.
+ *
+ * `getResourceTenant` names the organisation for invited members, and returns
+ * a self-tenant with `organizationId: null` for ADMIN / org-owner creators.
+ * In that self-tenant case we fill in the organisation they currently own or
+ * belong to, so owner-created jobs still bind unsubscribe and the address lock
+ * to the firm. Null tenant (unproven) stays unpinned — fail closed, no live
+ * membership guess.
+ */
+export async function resolvePulseJobOrganisationId(
+  userId: string,
+  jobCreatedAt: Date,
+): Promise<string | null> {
+  const tenant = await getResourceTenant(userId, jobCreatedAt);
+  if (tenant?.organizationId) return tenant.organizationId;
+  if (!tenant) return null;
+  if (tenant.ownerId === userId) {
+    return resolvePulseOrganisationId(userId);
+  }
+  return null;
 }
 
 async function withConsentLock<T>(

@@ -26,6 +26,7 @@ const db = vi.hoisted(() => ({
   clients: [] as ClientRow[],
   locks: [] as OrgLock[],
   lockCalls: [] as string[],
+  getResourceTenant: vi.fn(),
 }));
 
 function eqEmail(left: string, right: string) {
@@ -211,10 +212,15 @@ vi.mock("@/lib/prisma", () => {
   return { prisma };
 });
 
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: (...args: unknown[]) => db.getResourceTenant(...args),
+}));
+
 import {
   isPulseOptedOutByAddress,
   recordPulseAddressLock,
   recordPulseOptOut,
+  resolvePulseJobOrganisationId,
   resolvePulseOrganisationId,
 } from "../opt-out";
 
@@ -225,6 +231,7 @@ beforeEach(() => {
   db.clients = [];
   db.locks = [];
   db.lockCalls = [];
+  db.getResourceTenant.mockReset();
 });
 
 function staff(
@@ -424,7 +431,7 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     expect(db.locks[0].organizationId).toBe("org-1");
   });
 
-  it("honours a former member's legacy opt-out for the organisation they left", async () => {
+  it("does not let a former member's later opt-out lock the organisation they left", async () => {
     staff("ex-staff", null, {
       organizationLeftId: "org-1",
       organizationLeftAt: new Date("2026-10-01"),
@@ -438,7 +445,7 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     });
 
     expect(await isPulseOptedOutByAddress("staff-b", "home@owner.test")).toBe(
-      true,
+      false,
     );
   });
 
@@ -489,6 +496,34 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     expect(
       await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-live"),
     ).toBe(false);
+  });
+
+  it("pins the owner's organisation when the job tenant is self", async () => {
+    staff("owner-a", "org-1");
+    db.orgs["org-1"] = { id: "org-1", ownerId: "owner-a" };
+    db.getResourceTenant.mockResolvedValue({
+      ownerId: "owner-a",
+      organizationId: null,
+    });
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "owner-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toBe("org-1");
+  });
+
+  it("does not guess a live firm when the job tenant is unproven", async () => {
+    staff("tech-a", "org-live");
+    db.getResourceTenant.mockResolvedValue(null);
+
+    expect(
+      await resolvePulseJobOrganisationId(
+        "tech-a",
+        new Date("2026-06-01T00:00:00Z"),
+      ),
+    ).toBeNull();
   });
 
   it("fail-closes the address check when the unsubscribe secret is missing", async () => {
