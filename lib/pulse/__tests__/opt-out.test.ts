@@ -261,6 +261,7 @@ vi.mock("@/lib/organization-credits", () => ({
 import { prisma } from "@/lib/prisma";
 import {
   isPulseOptedOutByAddress,
+  PulseAddressLockWriteError,
   recordPulseAddressLock,
   recordPulseOptOut,
   resolvePulseJobOrganisationId,
@@ -811,6 +812,113 @@ describe("Pulse consent (RA-8156, RA-7979)", () => {
     } finally {
       prisma.pulseOrgAddressOptOut.findFirst = findFirst;
     }
+  });
+
+  it("does not report a lock when the staff record cannot be read", async () => {
+    staff("staff-a", "org-1");
+    const findUnique = prisma.user.findUnique;
+    // @ts-expect-error — simulate a client missing the membership reader
+    prisma.user.findUnique = undefined;
+    try {
+      await expect(
+        recordPulseAddressLock({
+          ownerUserId: "staff-a",
+          email: "home@owner.test",
+          sourceClientId: "client-a",
+        }),
+      ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+      expect(db.locks).toHaveLength(0);
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test"),
+      ).toBe(true);
+    } finally {
+      prisma.user.findUnique = findUnique;
+    }
+  });
+
+  it("does not report a lock when owned organisations cannot be listed", async () => {
+    db.users["owner-a"] = { id: "owner-a", organizationId: null };
+    db.orgs["org-1"] = { id: "org-1", ownerId: "owner-a" };
+    const findMany = prisma.organization.findMany;
+    // @ts-expect-error — simulate a client missing the owned-org reader
+    prisma.organization.findMany = undefined;
+    try {
+      await expect(
+        recordPulseAddressLock({
+          ownerUserId: "owner-a",
+          email: "home@owner.test",
+          sourceClientId: "client-a",
+        }),
+      ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+      expect(db.locks).toHaveLength(0);
+    } finally {
+      prisma.organization.findMany = findMany;
+    }
+  });
+
+  it("does not report a lock when the writer is missing, and a later send to that address is suppressed", async () => {
+    staff("staff-a", "org-1");
+    const upsert = prisma.pulseOrgAddressOptOut.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    prisma.pulseOrgAddressOptOut.upsert = undefined;
+    try {
+      await expect(
+        recordPulseAddressLock({
+          ownerUserId: "staff-a",
+          email: "home@owner.test",
+          sourceClientId: "client-a",
+        }),
+      ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+      expect(db.locks).toHaveLength(0);
+      expect(
+        await isPulseOptedOutByAddress("staff-a", "home@owner.test", "org-1"),
+      ).toBe(true);
+    } finally {
+      prisma.pulseOrgAddressOptOut.upsert = upsert;
+    }
+  });
+
+  it("does not record a person withdrawal when the address lock cannot be written", async () => {
+    staff("staff-a", "org-1");
+    client({
+      id: "client-a",
+      userId: "staff-a",
+      email: "home@owner.test",
+      pulseOptOut: false,
+    });
+    const upsert = prisma.pulseOrgAddressOptOut.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    prisma.pulseOrgAddressOptOut.upsert = undefined;
+    try {
+      await expect(
+        recordPulseOptOut({
+          clientId: "client-a",
+          ownerUserId: "staff-a",
+          email: "home@owner.test",
+        }),
+      ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+      expect(db.locks).toHaveLength(0);
+      expect(db.clients.find((row) => row.id === "client-a")?.pulseOptOut).toBe(
+        false,
+      );
+    } finally {
+      prisma.pulseOrgAddressOptOut.upsert = upsert;
+    }
+  });
+
+  it("does not report a lock when the address cannot be fingerprinted", async () => {
+    staff("staff-a", "org-1");
+    delete process.env.PORTAL_SECRET;
+    delete process.env.CLIENT_PORTAL_JWT_SECRET;
+
+    await expect(
+      recordPulseAddressLock({
+        ownerUserId: "staff-a",
+        email: "home@owner.test",
+        sourceClientId: "client-a",
+      }),
+    ).rejects.toBeInstanceOf(PulseAddressLockWriteError);
+    expect(db.locks).toHaveLength(0);
   });
 
   it("fail-closes the address check when the unsubscribe secret is missing", async () => {

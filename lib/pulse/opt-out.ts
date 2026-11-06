@@ -7,6 +7,13 @@ const MEMBER_SCAN_CAP = 5000;
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
+export class PulseAddressLockWriteError extends Error {
+  constructor(message = "Pulse address lock could not be written") {
+    super(message);
+    this.name = "PulseAddressLockWriteError";
+  }
+}
+
 /**
  * Organisations this user owns. Null means we cannot list them, so callers
  * fail closed instead of picking an arbitrary (e.g. oldest) firm.
@@ -42,7 +49,11 @@ export async function resolvePulseOrganisationId(
   db: Db = prisma,
 ): Promise<string | null> {
   const findUser = db.user?.findUnique;
-  if (typeof findUser !== "function") return null;
+  if (typeof findUser !== "function") {
+    throw new PulseAddressLockWriteError(
+      "Pulse organisation cannot be resolved",
+    );
+  }
   const user = await findUser({
     where: { id: userId },
     select: { organizationId: true },
@@ -52,7 +63,14 @@ export async function resolvePulseOrganisationId(
     return user.organizationId;
   }
   const owned = await ownedOrganisationIds(userId, db);
-  if (!owned || owned.length !== 1) return null;
+  // Cannot list owned firms is not the same as "no organisation" — a write
+  // that skipped the lock here would report success and mail after a change.
+  if (owned === null) {
+    throw new PulseAddressLockWriteError(
+      "Pulse organisation cannot be resolved",
+    );
+  }
+  if (owned.length !== 1) return null;
   return owned[0];
 }
 
@@ -217,13 +235,20 @@ export async function recordPulseAddressLock(input: {
     input.organizationId !== undefined
       ? input.organizationId
       : await resolvePulseOrganisationId(input.ownerUserId);
+  if (organizationId && (input.email?.trim() || input.addressTag) && !addressTag) {
+    throw new PulseAddressLockWriteError(
+      "Pulse address lock cannot be fingerprinted",
+    );
+  }
   if (!organizationId || !addressTag) {
     return { organizationId, addressTag };
   }
 
   await withConsentLock(organizationId, addressTag, async (tx) => {
     const upsert = tx.pulseOrgAddressOptOut?.upsert;
-    if (typeof upsert !== "function") return;
+    if (typeof upsert !== "function") {
+      throw new PulseAddressLockWriteError();
+    }
     await upsert({
       where: { organizationId_addressTag: { organizationId, addressTag } },
       create: {
@@ -340,6 +365,10 @@ export async function isPulseOptedOutByAddress(
 
     return await withConsentLock(organizationId, addressTag, async (tx) => {
       if (organizationId && addressTag) {
+        const upsert = tx.pulseOrgAddressOptOut?.upsert;
+        // A missing writer cannot persist a lock. Do not send; a later email
+        // change would otherwise resume mail to an address that withdrew.
+        if (typeof upsert !== "function") return true;
         if (await orgAddressLocked(organizationId, addressTag, tx)) return true;
 
         const memberIds = await pulseOrganisationMemberIds(organizationId, tx);
@@ -374,21 +403,18 @@ export async function isPulseOptedOutByAddress(
             });
             if (alreadySourced) continue;
 
-            const upsert = tx.pulseOrgAddressOptOut?.upsert;
-            if (typeof upsert === "function") {
-              await upsert({
-                where: {
-                  organizationId_addressTag: { organizationId, addressTag },
-                },
-                create: {
-                  organizationId,
-                  addressTag,
-                  sourceClientId: legacy.id,
-                  sourceUserId: userId,
-                },
-                update: {},
-              });
-            }
+            await upsert({
+              where: {
+                organizationId_addressTag: { organizationId, addressTag },
+              },
+              create: {
+                organizationId,
+                addressTag,
+                sourceClientId: legacy.id,
+                sourceUserId: userId,
+              },
+              update: {},
+            });
             return true;
           }
         }

@@ -21,6 +21,7 @@ vi.mock("@/lib/pulse/opt-out", () => ({
 vi.mock("@/lib/integrations/zoho/queue", () => ({
   scheduleZohoCustomerPush: vi.fn(),
 }));
+vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 
 import { PUT } from "../route";
 
@@ -47,6 +48,14 @@ beforeEach(() => {
     pulseOptOut: false,
   });
   h.update.mockResolvedValue({ id: "client_a", _count: { reports: 0 } });
+  h.recordPulseOptOut.mockResolvedValue({
+    records: 1,
+    organizationId: "org_1",
+  });
+  h.recordPulseAddressLock.mockResolvedValue({
+    organizationId: "org_1",
+    addressTag: "tag",
+  });
 });
 
 const written = () => h.update.mock.calls[0][0].data;
@@ -99,6 +108,36 @@ describe("contractor control of the client's opt-out", () => {
     });
     expect(written().email).toBe("new@example.test");
     expect(written()).not.toHaveProperty("pulseOptOut");
+  });
+
+  it("does not report success when the address lock cannot be written", async () => {
+    h.recordPulseOptOut.mockRejectedValue(
+      new Error("Pulse address lock could not be written"),
+    );
+
+    const res = await put({ pulseOptOut: true });
+
+    expect(res.status).not.toBe(200);
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+
+  it("does not report success when replacing an opted-out email cannot lock the old address", async () => {
+    h.findFirst.mockImplementation(async ({ where }: { where: { id?: string | { not: string } } }) => {
+      if (where.id && typeof where.id === "object") return null;
+      return {
+        id: "client_a",
+        email: "old@example.test",
+        pulseOptOut: true,
+      };
+    });
+    h.recordPulseAddressLock.mockRejectedValue(
+      new Error("Pulse address lock could not be written"),
+    );
+
+    const res = await put({ email: "new@example.test" });
+
+    expect(res.status).not.toBe(200);
+    expect(res.status).toBeGreaterThanOrEqual(400);
   });
 
   it("leaves it alone when the field is omitted", async () => {

@@ -24,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
     pulseOrgAddressOptOut: {
       findUnique: async () => null,
       findFirst: async () => null,
+      upsert: async () => ({}),
     },
     clientCommsLog: {
       create: (...args: unknown[]) => commsCreate(...args),
@@ -57,6 +58,7 @@ vi.mock("@/lib/organization-credits", () => ({
 }));
 
 import { getResourceTenant } from "@/lib/organization-credits";
+import { prisma } from "@/lib/prisma";
 import { dispatchPulseNotification, type PulseEvent } from "../dispatcher";
 import { readPulseUnsubscribeToken } from "../pulse-unsubscribe-token";
 
@@ -369,6 +371,24 @@ describe("dispatchPulseNotification — suppressions", () => {
 
     expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
     expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not send when the address-lock writer is missing", async () => {
+    const locks = prisma.pulseOrgAddressOptOut;
+    const upsert = locks.upsert;
+    // @ts-expect-error — simulate a client missing the lock writer
+    locks.upsert = undefined;
+    try {
+      inspectionFindUnique.mockResolvedValue(jobFixture());
+      const result = await dispatchPulseNotification({
+        inspectionId: "insp_1",
+        event: STEP_EVENT,
+      });
+      expect(result).toMatchObject({ status: "SUPPRESSED", reason: "OPT_OUT" });
+      expect(sendPulseUpdateEmail).not.toHaveBeenCalled();
+    } finally {
+      locks.upsert = upsert;
+    }
   });
 
   it("does not send when the job tenant lookup throws and a colleague has withdrawn", async () => {

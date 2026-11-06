@@ -18,6 +18,7 @@ vi.mock("@/lib/prisma", () => ({
     pulseOrgAddressOptOut: {
       findUnique: async () => null,
       findFirst: async () => null,
+      upsert: async () => ({}),
     },
     clientCommsLog: {
       create: async ({ data }: { data: Record<string, unknown> }) => {

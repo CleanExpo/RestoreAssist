@@ -24,6 +24,7 @@ vi.mock("@/lib/pulse/opt-out", () => ({
   pulseOrganisationMemberIds: (...args: unknown[]) => h.memberIds(...args),
   recordPulseAddressLock: (...args: unknown[]) => h.recordLock(...args),
 }));
+vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 
 import { generatePulseUnsubscribeToken } from "@/lib/pulse/pulse-unsubscribe-token";
 import { POST } from "../route";
@@ -113,6 +114,24 @@ describe("POST /api/pulse/unsubscribe", () => {
     });
     expect(h.findMany).not.toHaveBeenCalled();
     expect(h.recordLock).not.toHaveBeenCalled();
+  });
+
+  it("does not confirm a withdrawal when the address lock cannot be written", async () => {
+    h.memberIds.mockResolvedValue(["owner_1"]);
+    h.recordLock.mockRejectedValue(new Error("Pulse address lock could not be written"));
+
+    const res = await POST(
+      request(
+        generatePulseUnsubscribeToken(
+          "client_a",
+          "homeowner@example.test",
+          "org_sent",
+        ),
+      ),
+    );
+
+    expect(res.status).not.toBe(200);
+    expect(res.status).toBeGreaterThanOrEqual(400);
   });
 
   it("locks the token's organisation, not the owner's live firm", async () => {
