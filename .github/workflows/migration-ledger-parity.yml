@@ -1,0 +1,61 @@
+name: Migration ledger parity
+
+# RA-7939 (from RA-7938). Fails when a deployed database's applied migrations
+# do not match this revision's migrations folder. On 8 Oct 2026 the sandbox
+# database was about 29 migrations behind and sign-up and login returned 500;
+# nothing reported it.
+#
+# Read-only by construction: it calls each target's public
+# /api/health/migrations route and compares counts and the ledger fingerprint.
+# No credentials, no installs, no database writes, and it never applies a
+# migration. Applying migrations stays a separately approved step (see the
+# headers of scripts/build.sh and scripts/start-production.sh).
+#
+# No deployment_status trigger on purpose: Vercel posts one for every preview,
+# and a preview branch's migrations are not what the shared databases should
+# match, so every such run would be noise.
+
+on:
+  schedule:
+    # Daily, 21:41 UTC = 07:41 AEST. A database that stays behind should be
+    # chased once a day, not every hour.
+    - cron: "41 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-ledger-parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    name: Ledger parity (${{ matrix.target.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    strategy:
+      # Each database is reported on its own. A behind sandbox must not
+      # cancel the production result, or the reverse.
+      fail-fast: false
+      matrix:
+        target:
+          - name: sandbox
+            origin: https://restoreassist-sandbox.vercel.app
+          - name: production
+            origin: https://restoreassist.app
+    steps:
+      - name: Checkout this revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: ".nvmrc"
+
+      # Exit 1 = the database is behind or differs. Exit 2 = could not check.
+      # Both fail the job; the log line says which.
+      - name: Compare the deployed ledger with this revision
+        env:
+          TARGET_ORIGIN: ${{ matrix.target.origin }}
+        run: node scripts/ci/check-migration-ledger-parity.mjs "$TARGET_ORIGIN"

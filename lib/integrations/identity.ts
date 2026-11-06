@@ -1,5 +1,5 @@
 /** Public, browser-safe identity rules for legacy Integration records. */
-export const OAUTH_PROVIDERS = ["XERO", "QUICKBOOKS", "MYOB", "SERVICEM8"] as const;
+export const OAUTH_PROVIDERS = ["XERO", "QUICKBOOKS", "MYOB", "SERVICEM8", "ZOHO"] as const;
 export type OAuthProvider = (typeof OAUTH_PROVIDERS)[number];
 export type AiIntegrationProvider = "OPENAI" | "ANTHROPIC" | "GEMINI" | "OPENROUTER";
 
@@ -27,6 +27,7 @@ export const LEGACY_AI_NAMES = Object.keys(AI_NAMES);
 const OAUTH_NAMES: Record<OAuthProvider, readonly string[]> = {
   XERO: ["xero"], QUICKBOOKS: ["quickbooks", "quickbooks online"],
   MYOB: ["myob"], SERVICEM8: ["servicem8", "service m8"],
+  ZOHO: ["zoho", "zoho crm"],
 };
 
 export type IntegrationIdentity =
@@ -56,7 +57,9 @@ export function classifyIntegrationIdentity(row: IntegrationIdentityInput): Inte
     return { kind: "UNSUPPORTED", provider: null };
   }
   const provider = row.provider as OAuthProvider;
-  const canonical = OAUTH_NAMES[provider].includes(name) || row.icon === `/integrations/${provider.toLowerCase()}.svg`;
+  const canonical = OAUTH_NAMES[provider].includes(name)
+    || row.icon === `/integrations/${provider.toLowerCase()}.svg`
+    || row.icon === `/integrations/${provider.toLowerCase()}-logo.svg`;
   const evidence = Boolean(row.tokenExpiresAt || (
     provider === "QUICKBOOKS" ? row.realmId : provider === "SERVICEM8" ? row.companyId : row.tenantId
   ));
@@ -76,7 +79,7 @@ export function getOAuthReadiness(row: IntegrationIdentityInput, expectedProvide
   if (!isOAuthIntegration(row, expectedProvider)) return { ready: false, reason: "INVALID_IDENTITY" };
   if (!["CONNECTED", "SYNCING", "ERROR"].includes(row.status ?? "")) return { ready: false, reason: "DISCONNECTED" };
   if (!(row.hasOAuthCredentials ?? Boolean(row.accessToken?.trim()))) return { ready: false, reason: "CREDENTIALS_REQUIRED" };
-  if ((row.provider === "XERO" || row.provider === "MYOB") && !row.tenantId?.trim() || row.provider === "QUICKBOOKS" && !row.realmId?.trim()) {
+  if ((row.provider === "XERO" || row.provider === "MYOB" || row.provider === "ZOHO") && !row.tenantId?.trim() || row.provider === "QUICKBOOKS" && !row.realmId?.trim()) {
     return { ready: false, reason: "ORGANISATION_REQUIRED" };
   }
   return { ready: true };

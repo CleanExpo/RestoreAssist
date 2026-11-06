@@ -20,6 +20,11 @@ import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineRep
 
 import { sameOfflineOwner } from "@/lib/offline/ownership";
 import { notifySyncQueueChanged } from "@/lib/offline/sync-status-event";
+import {
+  FLOOR_REVISION_HEADER,
+  isFloorRevisionConflict,
+  readFloorRevision,
+} from "@/lib/sketch/floor-revision";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -93,6 +98,38 @@ export interface SketchSavePayload {
   userRemovedRooms?: boolean;
   /** Epoch ms at the moment the local sketch state was captured. */
   clientUpdatedAt: number;
+  /**
+   * RA-8056 — the floor revision the editor based this save on (the one it
+   * loaded or last saved, or `none` for a floor it never saw saved). Sent
+   * unchanged as `x-sketch-revision` on replay. Absent on entries queued
+   * before revisions existed; those keep the timestamp check.
+   */
+  baseRevision?: string;
+  /**
+   * RA-8056 — the editor session (one mounted editor) that queued the save.
+   * Coalescing collapses only this session's own saves for a floor.
+   */
+  editorSessionId?: string;
+  /**
+   * RA-8056 — the route refused this save as a revision conflict and the
+   * editor queued it so the user keeps it (it lands in Sync failed). It is
+   * never coalesced away or dropped as superseded: no later save holds it.
+   */
+  refusedAsConflict?: boolean;
+}
+
+/**
+ * RA-8056 — fired on `window` after a queued sketch save replays
+ * successfully, so the editor session that queued it adopts the floor's new
+ * revision instead of refusing its own next save as a conflict.
+ */
+export const SKETCH_SAVE_REPLAYED_EVENT = "restoreassist:sketch-save-replayed";
+export interface SketchSaveReplayedDetail {
+  inspectionId: string;
+  floorNumber: number;
+  editorSessionId: string | null;
+  baseRevision: string | null;
+  revision: string | null;
 }
 
 export interface SyncQueueEntry {
@@ -289,7 +326,17 @@ export async function enqueueSketchSave(
           existing.type === "sketch-save" &&
           existing.status === "pending" &&
           (existing.payload as SketchSavePayload | null)?.floorNumber ===
-            payload.floorNumber
+            payload.floorNumber &&
+          // RA-8056: another tab's queued edit for this floor is its own
+          // work; keep it and let the route's revision check decide. An edit
+          // the route refused as a conflict is kept whatever comes after it.
+          (existing.payload as SketchSavePayload | null)?.refusedAsConflict !==
+            true &&
+          (payload.editorSessionId == null ||
+            (existing.payload as SketchSavePayload | null)?.editorSessionId ==
+              null ||
+            (existing.payload as SketchSavePayload).editorSessionId ===
+              payload.editorSessionId)
         ) {
           cursor.delete();
         }
@@ -426,6 +473,51 @@ export async function retryFailedEntry(id: string): Promise<boolean> {
  * confirmation gate at this layer; the caller (UI) is responsible for
  * asking the user before invoking.
  */
+/**
+ * RA-8056 — a live save from an editor session carries that session's newest
+ * canvas for the floor, so its own older queued saves for the floor are
+ * superseded. Drop them: replayed with the older revision they would be
+ * refused and sit in Sync failed with nothing left to retry. Other sessions'
+ * entries, other floors and failed entries are left alone.
+ */
+export async function discardSupersededSketchSaves(
+  inspectionId: string,
+  floorNumber: number,
+  editorSessionId: string,
+): Promise<void> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite");
+    const index = tx.objectStore(QUEUE_STORE).index("by-inspection");
+    const cursorReq = index.openCursor(IDBKeyRange.only(inspectionId));
+    let removed = 0;
+    cursorReq.onsuccess = (evt) => {
+      const cursor = (evt.target as IDBRequest<IDBCursorWithValue>).result;
+      if (!cursor) return;
+      const entry = cursor.value as SyncQueueEntry;
+      const payload = entry.payload as SketchSavePayload | null;
+      if (
+        ownsOfflineEntry(entry) &&
+        entry.type === "sketch-save" &&
+        entry.status === "pending" &&
+        payload?.floorNumber === floorNumber &&
+        payload?.editorSessionId === editorSessionId &&
+        payload?.refusedAsConflict !== true
+      ) {
+        cursor.delete();
+        removed++;
+      }
+      cursor.continue();
+    };
+    cursorReq.onerror = () => reject(cursorReq.error);
+    tx.onerror = () => reject(tx.error);
+    tx.oncomplete = () => {
+      if (removed > 0) notifySyncQueueChanged();
+      resolve();
+    };
+  });
+}
+
 export async function removeFailedEntry(id: string): Promise<void> {
   const entry = (await getFailedEntries()).find((item) => item.id === id);
   if (!entry || !ownsOfflineEntry(entry)) return;
@@ -637,6 +729,10 @@ async function drainQueueImpl(): Promise<number> {
             sketchPayload.clientUpdatedAt,
           );
         }
+        // RA-8056: the revision the save was based on, replayed unchanged.
+        if (typeof sketchPayload?.baseRevision === "string") {
+          headers[FLOOR_REVISION_HEADER] = sketchPayload.baseRevision;
+        }
       }
 
       const response = await fetchOfflineReplay(entry.owner, entry.endpoint, {
@@ -679,6 +775,9 @@ async function drainQueueImpl(): Promise<number> {
           });
           continue;
         }
+        if (entry.type === "sketch-save") {
+          await announceSketchReplay(entry, response);
+        }
         await removeEntry(db, entry.id);
         syncedCount++;
       } else if (response.status === 409) {
@@ -693,6 +792,14 @@ async function drainQueueImpl(): Promise<number> {
           .catch(() => null);
         if (serverPayload?.stale === true) {
           await removeEntry(db, entry.id);
+        } else if (
+          entry.type === "sketch-save" &&
+          isFloorRevisionConflict(serverPayload)
+        ) {
+          // RA-8056 — the floor changed elsewhere after this save's revision.
+          // Keep the edit in the failed list the editor shows (retry, export,
+          // discard); applying it would delete or detach the newer rooms.
+          await markEntryFailed(db, entry.id);
         } else if (
           entry.type === "moisture-reading" ||
           entry.type === "environmental-data"
@@ -822,6 +929,33 @@ async function removeEntry(db: IDBDatabase, id: string): Promise<void> {
   });
 }
 
+/**
+ * RA-8056 — tell the editor session that queued a sketch save which revision
+ * the floor is at now. Best-effort: a missing or unreadable body announces no
+ * revision, and the editor then keeps the one it had.
+ */
+async function announceSketchReplay(
+  entry: SyncQueueEntry,
+  response: Response,
+): Promise<void> {
+  const payload = entry.payload as SketchSavePayload | null;
+  if (!payload || typeof window === "undefined") return;
+  const saved: unknown = await response
+    .clone()
+    .json()
+    .catch(() => null);
+  const detail: SketchSaveReplayedDetail = {
+    inspectionId: entry.inspectionId,
+    floorNumber: payload.floorNumber,
+    editorSessionId: payload.editorSessionId ?? null,
+    baseRevision: payload.baseRevision ?? null,
+    revision: readFloorRevision(saved),
+  };
+  window.dispatchEvent(
+    new CustomEvent(SKETCH_SAVE_REPLAYED_EVENT, { detail }),
+  );
+}
+
 async function markEntryFailed(db: IDBDatabase, id: string): Promise<void> {
   const entry = await new Promise<SyncQueueEntry>((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readonly");
@@ -829,6 +963,9 @@ async function markEntryFailed(db: IDBDatabase, id: string): Promise<void> {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+  // RA-8056: the entry was removed while its replay was in flight (a live
+  // save superseded it). There is nothing left to keep.
+  if (!entry) return;
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readwrite");

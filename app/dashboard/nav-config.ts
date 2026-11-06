@@ -126,9 +126,10 @@ export function buildSimpleNavItems(options?: { isManager?: boolean }): NavItem[
 }
 
 /**
- * Admin destinations shown whenever role === ADMIN — including Simple mode.
- * Without this, admins stuck in APPRENTICE never see Admin / Margot / etc.
- * Icons are filled in by DashboardShell (this module only owns href/label).
+ * Platform (RestoreAssist staff) destinations — including Simple mode.
+ * Shown only via `platformNavHrefs`, never on role alone: every business owner
+ * is ADMIN. Icons are filled in by DashboardShell (this module only owns
+ * href/label).
  */
 export const ADMIN_NAV_HREFS = [
   { label: "Admin", href: "/dashboard/admin" },
@@ -138,6 +139,22 @@ export const ADMIN_NAV_HREFS = [
   { label: "Restoration Insights", href: "/dashboard/admin/restoration-insights" },
   { label: "Margot", href: "/dashboard/margot/home" },
 ] as const;
+
+/**
+ * The platform destinations a user may see in the sidebar. `role: "ADMIN"` is
+ * granted to every self-registered business owner, so it is not enough: the
+ * caller must also be a platform support operator, resolved on the server
+ * (`isAllowlistedPlatformSupportOperator`) and passed down as a boolean. The allowlist
+ * widens an ADMIN only; it never promotes a MANAGER or USER.
+ */
+export function platformNavHrefs(options: {
+  role: string | undefined;
+  isPlatformOperator: boolean | undefined;
+}): ReadonlyArray<(typeof ADMIN_NAV_HREFS)[number]> {
+  return options.role === "ADMIN" && options.isPlatformOperator === true
+    ? ADMIN_NAV_HREFS
+    : [];
+}
 
 /** Manager/owner ops — appended in the shell (server routes enforce access). */
 /** Appended in Advanced nav for managers — schedule is already in simpleNavItems. */

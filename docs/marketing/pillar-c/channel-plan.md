@@ -93,7 +93,7 @@
 |---|---|
 | Recipients | All existing users with `Organization.setupCompletedAt = null` (grandfathered to the new wizard via the `scripts/backfill-setup-wizard.ts` migration) |
 | Frequency | One launch email at T-day; one follow-up at T+7 if they haven't completed setup |
-| Who sends | Phill, From: `phill@restoreassist.com.au` (founder address, not no-reply) |
+| Who sends | Phill, From: `phill@restoreassist.app` (founder address, not no-reply) |
 | Subject lines | 3 variants in `copy-pack.md`; A/B test 1/3 split |
 | Success metric | Open rate >40%, click-through to `/setup` >12%, setup-wizard completion within 48 hours >25% of clickers |
 | Anti-pattern | No "we are excited" openers. No urgency manufacturing ("offer ends Friday"). |

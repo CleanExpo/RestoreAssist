@@ -1320,6 +1320,7 @@ enum IntegrationProvider {
   MYOB
   SERVICEM8
   ASCORA
+  ZOHO
 }
 
 // External Client from integration (synced data)
@@ -7719,6 +7720,27 @@ model InvoiceSyncJob {
   @@unique([invoiceId, provider], name: "invoiceId_provider")
   @@index([status, priority, createdAt])
   @@index([invoiceId])
+}
+
+/// RA-8199 — durable Zoho CRM outbound upserts. The invoice-sync cron drains
+/// this queue; a create/update also kicks one batch. Payload is CRM fields
+/// only. Tokens never land here.
+model ZohoSyncJob {
+  id           String    @id @default(cuid())
+  userId       String
+  entityType   String
+  entityId     String
+  payload      Json
+  status       String    @default("PENDING")
+  retryCount   Int       @default(0)
+  errorMessage String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  completedAt  DateTime?
+
+  @@unique([userId, entityType, entityId])
+  @@index([status, createdAt])
+  @@index([userId])
 }
 
 // ─── RA-1132a: AI Live Teacher ───────────────────────────────────────────────

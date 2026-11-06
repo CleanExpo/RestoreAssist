@@ -198,7 +198,7 @@ export function BusinessDetailsCard() {
                 <label htmlFor="abn" className="text-sm font-medium">
                   ABN <span className="text-muted-foreground">(11 digits)</span>
                 </label>
-                <Input id="abn" placeholder="e.g. 53 004 085 616" value={abn} onChange={(event) => setAbn(event.target.value)} aria-describedby="business-number-help" autoComplete="off" />
+                <Input id="abn" placeholder="e.g. 12 345 678 901" value={abn} onChange={(event) => setAbn(event.target.value)} aria-describedby="business-number-help" autoComplete="off" />
               </div>
             ) : (
               <>

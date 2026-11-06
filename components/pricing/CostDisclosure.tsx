@@ -176,7 +176,8 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               checked it against the add-on table directly below and it is
               wrong: ElevenLabs Voice needs the customer's own ElevenLabs key,
               the Bookkeeping add-on needs their Xero / QuickBooks / MYOB
-              account, and the Service CRM add-on needs Ascora or DR-NRPG. Each
+              account, and the Migrate from Ascora add-on needs their Ascora
+              account. Each
               is a further party billing them directly. "Two" was true only for
               a buyer who switches none of those on.
 

@@ -47,7 +47,7 @@ export async function dryRun(): Promise<boolean> {
 
   // 2. Safety guard — rejects prod.
   try {
-    assertSandbox({ baseUrl: "https://app.restoreassist.com.au" });
+    assertSandbox({ baseUrl: "https://restoreassist.app" });
     checks.push({
       name: "safety: rejects prod",
       ok: false,

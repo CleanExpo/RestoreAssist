@@ -38,6 +38,10 @@ import {
   northArrowGeometry,
   scaleBarLayout,
 } from "@/lib/sketch/pdf-plan-chrome";
+import {
+  layoutMoistureStrip,
+  MOISTURE_SWATCH_W,
+} from "@/lib/sketch/pdf-moisture-strip";
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -570,14 +574,38 @@ async function addSketchPage(
   const { width: imgW, height: imgH } = pngImg.scale(1);
 
   const availW = CONTENT_W - legendW - (legendW > 0 ? 8 : 0);
-  const { drawW, drawH } = fitSketchImageInBox(
-    imgW,
-    imgH,
-    availW,
-    CONTENT_H,
-  );
+
+  // ── Reserved moisture strip (RA-8144) ──
+  // The moisture legend and the "not shown" note print in a strip below the
+  // drawing, not on it. Its height comes off the plan's frame BEFORE the image
+  // is fitted, so a room on the bottom edge of the plan can never run through
+  // the text. Which pins land on the image depends only on the PNG's own size,
+  // so the not-shown count is known before the image is placed.
+  const pins = floor.moisturePins ?? [];
+  const pinsOnFrame = placeMoisturePins(
+    pins,
+    { x: 0, y: 0, width: 1, height: 1 },
+    { width: imgW, height: imgH },
+  ).length;
+  const moisturePinsNotShown =
+    (floor.moisturePinsNotShown ?? 0) + (pins.length - pinsOnFrame);
+  const strip = layoutMoistureStrip({
+    classes: pins.length > 0 ? moistureLegendClasses(pins) : [],
+    notShown: moisturePinsNotShown,
+    width: availW,
+    // Wider of the two fonts, so a line never measures short.
+    measure: (text, size) =>
+      Math.max(
+        bold.widthOfTextAtSize(text, size),
+        helvetica.widthOfTextAtSize(text, size),
+      ),
+  });
+  const planBoxH = CONTENT_H - strip.height;
+  const contentBottom = CONTENT_Y_TOP - CONTENT_H;
+
+  const { drawW, drawH } = fitSketchImageInBox(imgW, imgH, availW, planBoxH);
   const imgX = MARGIN + (availW - drawW) / 2;
-  const imgY = CONTENT_Y_TOP - CONTENT_H + (CONTENT_H - drawH) / 2;
+  const imgY = contentBottom + strip.height + (planBoxH - drawH) / 2;
 
   // White background so transparent canvas shows as white
   page.drawRectangle({
@@ -625,7 +653,7 @@ async function addSketchPage(
 
     const bar = scaleBarLayout(pxPerMetre, drawW, imgW, 110);
     if (bar) {
-      // Bottom-right so moisture legend (bottom-left) never overlaps.
+      // Bottom-right of the drawing; the moisture legend is in its own strip.
       const barX = imgX + Math.max(10, drawW - bar.barLengthPt - 12);
       const barY = imgY + 14;
       page.drawLine({
@@ -667,8 +695,6 @@ async function addSketchPage(
   // rasterised sketch PNG, so the structural sketch alone reached the PDF. Draw
   // them here on the same image — colour + class per IICRC S500:2021 §8.1 — so
   // the structural sketch AND the moisture map are both present on the page.
-  const pins = floor.moisturePins ?? [];
-  let moisturePinsNotShown = floor.moisturePinsNotShown ?? 0;
   if (pins.length > 0) {
     const placed = placeMoisturePins(
       pins,
@@ -680,7 +706,6 @@ async function addSketchPage(
       },
       { width: imgW, height: imgH },
     );
-    moisturePinsNotShown += pins.length - placed.length;
     const PIN_R = 7;
     for (const p of placed) {
       const c = parseHexColor(p.color);
@@ -703,54 +728,43 @@ async function addSketchPage(
         color: rgb(1, 1, 1),
       });
     }
+  }
 
-    // Moisture legend — only the classes actually present, so a reader can
-    // decode the pin colours. Sits at the bottom-left of the drawn image.
-    const legend = moistureLegendClasses(pins);
-    let lx = imgX + 4;
-    const lyRow = imgY + 6;
-    page.drawText("Moisture (WME %):", {
-      x: lx,
-      y: lyRow,
-      size: 7,
-      font: bold,
-      color: TEXT_MAIN,
-    });
-    lx += bold.widthOfTextAtSize("Moisture (WME %):", 7) + 8;
-    for (const info of legend) {
-      const c = parseHexColor(info.color);
+  // Moisture legend (only the classes present, so a reader can decode the pin
+  // colours) and the not-shown note, in the strip reserved under the drawing.
+  // Line the strip up with the drawing's left edge when every row fits under
+  // the drawing; otherwise start at the margin, which the layout was sized for.
+  const stripRight = Math.max(0, ...strip.items.map((i) => i.x + i.width));
+  const stripX = stripRight <= drawW ? imgX : MARGIN;
+  for (const item of strip.items) {
+    const x = stripX + item.x;
+    const y = contentBottom + item.y;
+    if (item.kind === "class") {
+      const c = item.color ? parseHexColor(item.color) : null;
       page.drawCircle({
-        x: lx + 3,
-        y: lyRow + 2,
+        x: x + 3,
+        y: y + 2,
         size: 3,
         color: c ? rgb(c.r, c.g, c.b) : BRAND_CYAN,
         borderColor: rgb(1, 1, 1),
         borderWidth: 0.5,
       });
-      const text = `${info.label} (${info.thresholdMin}${info.thresholdMax === Infinity ? "+" : `-${info.thresholdMax}`}%)`;
-      page.drawText(text, {
-        x: lx + 9,
-        y: lyRow,
-        size: 7,
+      page.drawText(safe(item.text), {
+        x: x + MOISTURE_SWATCH_W,
+        y,
+        size: strip.fontSize,
         font: helvetica,
         color: TEXT_MUTED,
       });
-      lx += 9 + helvetica.widthOfTextAtSize(text, 7) + 12;
-    }
-  }
-  if (moisturePinsNotShown > 0) {
-    page.drawText(
-      safe(
-        `${moisturePinsNotShown} moisture ${moisturePinsNotShown === 1 ? "reading" : "readings"} not shown on this plan: no position on the drawing.`,
-      ),
-      {
-        x: imgX + 4,
-        y: imgY + (pins.length > 0 ? 16 : 6),
-        size: 7,
+    } else {
+      page.drawText(safe(item.text), {
+        x,
+        y,
+        size: strip.fontSize,
         font: bold,
         color: TEXT_MAIN,
-      },
-    );
+      });
+    }
   }
 
   const evidencePins = placeEvidencePins(floor.evidencePins ?? [], {

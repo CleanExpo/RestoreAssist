@@ -137,7 +137,7 @@ test("first tradie tomorrow: signup → setup → inspection → report → invo
     // e2e account, so hydrate refuses it as already registered and Next stays
     // disabled. A fresh valid ABN per attempt also keeps CI retries apart.
     const abn = uniqueAbn();
-    await page.getByPlaceholder(/e\.g\. 53 004 085 616/i).fill(abn);
+    await page.getByLabel(/^ABN \(11 digits\)$/).fill(abn);
     const [hydrate] = await Promise.all([
       page.waitForResponse(
         (r) => r.url().includes("/api/setup/hydrate") && r.request().method() === "POST",

@@ -8,6 +8,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { encrypt, decrypt } from "@/lib/credential-vault";
 import { isOAuthIntegration } from "./identity";
+import { accountsServerForRegion, resolveZohoRegion } from "./zoho/regions";
 
 /** Identity failures must never become provider calls or integration mutations. */
 export class InvalidOAuthIntegrationError extends Error {
@@ -164,6 +165,8 @@ function getProviderEnvCredential(
     SERVICEM8_CLIENT_SECRET: process.env.SERVICEM8_CLIENT_SECRET,
     ASCORA_CLIENT_ID: process.env.ASCORA_CLIENT_ID,
     ASCORA_CLIENT_SECRET: process.env.ASCORA_CLIENT_SECRET,
+    ZOHO_CLIENT_ID: process.env.ZOHO_CLIENT_ID,
+    ZOHO_CLIENT_SECRET: process.env.ZOHO_CLIENT_SECRET,
   };
   const key = `${provider}_${kind}`;
   return (Object.hasOwn(credentials, key) ? credentials[key] : undefined) || null;
@@ -198,6 +201,7 @@ async function revokeTokensAtProvider(
   provider: string,
   accessToken: string | null,
   refreshToken: string | null,
+  binding?: { tenantId?: string | null; companyId?: string | null },
 ): Promise<void> {
   if (!accessToken && !refreshToken) return;
 
@@ -246,6 +250,24 @@ async function revokeTokensAtProvider(
           signal: AbortSignal.timeout(8000),
         },
       );
+    } else if (provider === "ZOHO") {
+      const token = refreshToken || accessToken;
+      if (!token) return;
+      const region = resolveZohoRegion({
+        apiDomain: binding?.tenantId,
+        companyId: binding?.companyId,
+      });
+      // Zoho reads the token from the query string. Log a static message on
+      // failure so the URL, which contains the token, is never printed.
+      try {
+        await fetch(
+          `${accountsServerForRegion(region)}/oauth/v2/token/revoke?token=${encodeURIComponent(token)}`,
+          { method: "POST", signal: AbortSignal.timeout(8000) },
+        );
+      } catch {
+        console.error("[oauth-handler] Zoho token revoke failed");
+        return;
+      }
     }
     // MYOB, SERVICEM8, ASCORA: no documented programmatic token-revocation
     // endpoint. Tokens are still nulled locally below so this app can no
@@ -286,7 +308,10 @@ export async function disconnectIntegration(
     const refreshToken = integration.refreshToken
       ? safeDecryptToken(integration.refreshToken)
       : null;
-    await revokeTokensAtProvider(integration.provider, accessToken, refreshToken);
+    await revokeTokensAtProvider(integration.provider, accessToken, refreshToken, {
+      tenantId: integration.tenantId,
+      companyId: integration.companyId,
+    });
   }
 
   const data = {
@@ -492,6 +517,20 @@ export const PROVIDER_CONFIG = {
     tokenUrl: "https://api.ascora.com.au/oauth/token",
     apiBaseUrl: "https://api.ascora.com.au/api/v1",
     scopes: ["read"],
+    usePKCE: false,
+  },
+  ZOHO: {
+    name: "Zoho CRM",
+    icon: "/integrations/zoho-logo.svg",
+    authUrl: "https://accounts.zoho.com.au/oauth/v2/auth",
+    tokenUrl: "https://accounts.zoho.com.au/oauth/v2/token",
+    apiBaseUrl: "https://www.zohoapis.com.au/crm/v6",
+    scopes: [
+      "ZohoCRM.modules.contacts.ALL",
+      "ZohoCRM.modules.accounts.ALL",
+      "ZohoCRM.modules.deals.ALL",
+      "ZohoCRM.modules.leads.ALL",
+    ],
     usePKCE: false,
   },
 } as const;

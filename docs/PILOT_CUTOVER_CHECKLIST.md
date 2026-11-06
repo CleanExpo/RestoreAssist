@@ -38,7 +38,7 @@ two once the soft pilot has 24h of clean prod telemetry.
 
 ```bash
 # Phill or Claude runs this against prod with pilot creds in a private shell.
-BASE_URL=https://app.restoreassist.com.au \
+BASE_URL=https://restoreassist.app \
   PILOT_EMAIL="<pilot owner email>" \
   PILOT_PASSWORD="<one-time test pwd>" \
   npx playwright test e2e/pilot-workflow.spec.ts --reporter=line
