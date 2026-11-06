@@ -70,5 +70,42 @@ describe("callAIProvider — Meta branch", () => {
     await expect(
       callAIProvider(metaIntegration, { prompt: "hi" }),
     ).rejects.toThrow(/No content in Meta response/);
+    try {
+      await callAIProvider(metaIntegration, { prompt: "hi" });
+    } catch (err) {
+      expect(logPayload(err)).not.toContain(SYNTHETIC_KEY);
+    }
+  });
+
+  it("does not put the Meta key in thrown errors or log payloads when the SDK rejects", async () => {
+    const sdkError = Object.assign(
+      new Error(`401 Incorrect API key provided: ${SYNTHETIC_KEY}`),
+      { status: 401, error: { message: SYNTHETIC_KEY } },
+    );
+    createMock.mockRejectedValue(sdkError);
+
+    await expect(
+      callAIProvider(metaIntegration, { prompt: "hi" }),
+    ).rejects.toThrow(/Meta API request failed \(401\)/);
+
+    try {
+      await callAIProvider(metaIntegration, { prompt: "hi" });
+      throw new Error("expected callAIProvider to reject");
+    } catch (err) {
+      expect(err).not.toBe(sdkError);
+      expect(err instanceof Error ? err.cause : undefined).toBeUndefined();
+      const payload = logPayload(err);
+      expect(payload).not.toContain(SYNTHETIC_KEY);
+      expect(payload).not.toMatch(/LLM_/);
+    }
   });
 });
+
+function logPayload(error: unknown): string {
+  // Same fields reportError writes to console.error("[error]", JSON.stringify(...)).
+  return JSON.stringify({
+    message: error instanceof Error ? error.message : String(error),
+    name: error instanceof Error ? error.name : "UnknownError",
+    stack: error instanceof Error ? error.stack : undefined,
+  });
+}

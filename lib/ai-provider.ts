@@ -127,6 +127,14 @@ const CANONICAL_AI_PROVIDERS: Partial<
   META: { provider: "meta", name: "Meta Llama" },
 };
 
+function metaErrorStatus(err: unknown): number | undefined {
+  if (typeof err !== "object" || err === null || !("status" in err)) {
+    return undefined;
+  }
+  const status = Number((err as { status: unknown }).status);
+  return Number.isFinite(status) && status > 0 ? status : undefined;
+}
+
 function legacyAiProvider(integration: {
   apiKey: string;
   name: string;
@@ -444,30 +452,47 @@ export async function callAIProvider(
       // Meta Model API is OpenAI-compatible Chat Completions. META_API_BASE_URL
       // is the base the Meta docs published on 2026-11-05 (api.meta.ai/v1),
       // and META_DEFAULT_CHAT_MODEL is the current standard-mode chat model.
-      const meta = new OpenAI({
-        apiKey: integration.apiKey,
-        baseURL: META_API_BASE_URL,
-      });
+      // Never rethrow the SDK error: its message/stack can echo the BYOK key
+      // and reportError / console.error would then write it to logs.
+      try {
+        const meta = new OpenAI({
+          apiKey: integration.apiKey,
+          baseURL: META_API_BASE_URL,
+        });
 
-      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
-      if (system) {
-        messages.push({ role: "system", content: system });
+        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+        if (system) {
+          messages.push({ role: "system", content: system });
+        }
+        messages.push({ role: "user", content: prompt });
+
+        const response = await meta.chat.completions.create({
+          model: META_DEFAULT_CHAT_MODEL,
+          messages,
+          max_tokens: maxTokens,
+          temperature,
+        });
+
+        const content = response.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error("No content in Meta response");
+        }
+
+        return content;
+      } catch (err) {
+        if (
+          err instanceof Error &&
+          err.message === "No content in Meta response"
+        ) {
+          throw err;
+        }
+        const status = metaErrorStatus(err);
+        throw new Error(
+          status
+            ? `Meta API request failed (${status})`
+            : "Meta API request failed",
+        );
       }
-      messages.push({ role: "user", content: prompt });
-
-      const response = await meta.chat.completions.create({
-        model: META_DEFAULT_CHAT_MODEL,
-        messages,
-        max_tokens: maxTokens,
-        temperature,
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error("No content in Meta response");
-      }
-
-      return content;
     }
 
     case "gemini": {
