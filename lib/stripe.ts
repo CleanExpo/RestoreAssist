@@ -40,33 +40,65 @@ function getInstance(): Stripe {
     const key = process.env.STRIPE_SECRET_KEY;
     if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
 
-    // RA Shipit guard: in production the secret MUST be a live key, and a live
-    // key MUST NOT be used outside production. "production" = Vercel prod env,
-    // or (no Vercel) NODE_ENV=production. Vercel *preview* runs with
-    // NODE_ENV=production but VERCEL_ENV=preview, so we key off VERCEL_ENV first
-    // to avoid forcing sk_live on preview branches. Runs lazily at first call,
-    // never at build time (see file header).
-    const isProd =
-      process.env.VERCEL_ENV === "production" ||
-      (process.env.VERCEL_ENV === undefined &&
-        process.env.NODE_ENV === "production");
-    if (isProd && !key.startsWith("sk_live")) {
-      throw new Error(
-        "STRIPE_SECRET_KEY must be a live key (sk_live_…) in production",
-      );
-    }
-    if (!isProd && key.startsWith("sk_live")) {
-      console.warn(
-        "[stripe] live secret key (sk_live_…) detected outside production — refusing to charge real cards is your responsibility",
-      );
-    }
-    const pk =
-      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-      process.env.STRIPE_PUBLISHABLE_KEY;
-    if (isProd && pk && !pk.startsWith("pk_live")) {
-      throw new Error(
-        "Stripe publishable key must be a live key (pk_live_…) in production",
-      );
+    // Explicit opt-in is confined to the sandbox's Vercel runtime. A copied
+    // flag or project ID on DigitalOcean must never relax its live guards.
+    if (process.env.BILLING_MODE === "sandbox") {
+      if (
+        process.env.VERCEL !== "1" ||
+        process.env.VERCEL_PROJECT_ID !== "prj_i9clta3fzdpQwNhVmf9BMMddpG3k"
+      ) {
+        throw new Error(
+          "BILLING_MODE=sandbox is only allowed on the RestoreAssist sandbox Vercel project",
+        );
+      }
+      if (!key.startsWith("sk_test_")) {
+        throw new Error(
+          "STRIPE_SECRET_KEY must be a test key (sk_test_…) in sandbox billing mode",
+        );
+      }
+      // Require a publishable key and reject any configured live/wrong-mode
+      // fallback as well, so the client and server cannot select different modes.
+      const publishableKeys = [
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+        process.env.STRIPE_PUBLISHABLE_KEY,
+      ];
+      if (
+        !publishableKeys.some((pk) => pk) ||
+        publishableKeys.some((pk) => pk && !pk.startsWith("pk_test_"))
+      ) {
+        throw new Error(
+          "Stripe publishable key must be a test key (pk_test_…) in sandbox billing mode",
+        );
+      }
+    } else {
+      // RA Shipit guard: in production the secret MUST be a live key, and a live
+      // key MUST NOT be used outside production. "production" = Vercel prod env,
+      // or (no Vercel) NODE_ENV=production. Vercel *preview* runs with
+      // NODE_ENV=production but VERCEL_ENV=preview, so we key off VERCEL_ENV first
+      // to avoid forcing sk_live on preview branches. Runs lazily at first call,
+      // never at build time (see file header).
+      const isProd =
+        process.env.VERCEL_ENV === "production" ||
+        (process.env.VERCEL_ENV === undefined &&
+          process.env.NODE_ENV === "production");
+      if (isProd && !key.startsWith("sk_live")) {
+        throw new Error(
+          "STRIPE_SECRET_KEY must be a live key (sk_live_…) in production",
+        );
+      }
+      if (!isProd && key.startsWith("sk_live")) {
+        console.warn(
+          "[stripe] live secret key (sk_live_…) detected outside production — refusing to charge real cards is your responsibility",
+        );
+      }
+      const pk =
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
+        process.env.STRIPE_PUBLISHABLE_KEY;
+      if (isProd && pk && !pk.startsWith("pk_live")) {
+        throw new Error(
+          "Stripe publishable key must be a live key (pk_live_…) in production",
+        );
+      }
     }
 
     _stripe = new Stripe(key, {

@@ -11,6 +11,9 @@ const KEYS = [
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
   "VERCEL_ENV",
   "NODE_ENV",
+  "BILLING_MODE",
+  "VERCEL",
+  "VERCEL_PROJECT_ID",
 ];
 let saved: Record<string, string | undefined>;
 
@@ -74,6 +77,153 @@ describe("stripe test/live mode guard", () => {
     await expect(trigger()).resolves.toBeDefined();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("live secret key"),
+    );
+  });
+});
+
+describe("explicit sandbox billing", () => {
+  beforeEach(() => {
+    process.env.BILLING_MODE = "sandbox";
+    process.env.VERCEL = "1";
+    process.env.VERCEL_PROJECT_ID = "prj_i9clta3fzdpQwNhVmf9BMMddpG3k";
+    process.env.VERCEL_ENV = "production";
+    process.env.NODE_ENV = "production";
+    process.env.STRIPE_SECRET_KEY = "sk_test_abc123";
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_abc123";
+  });
+
+  it("accepts test keys in the sandbox Vercel Production project without rewriting its environment", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(trigger()).resolves.toBeDefined();
+    expect(process.env.VERCEL_ENV).toBe("production");
+    expect(process.env.NODE_ENV).toBe("production");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("accepts the existing server-side publishable key fallback", async () => {
+    delete process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    process.env.STRIPE_PUBLISHABLE_KEY = "pk_test_abc123";
+    await expect(trigger()).resolves.toBeDefined();
+  });
+
+  it("also enforces sandbox keys on Vercel preview", async () => {
+    process.env.VERCEL_ENV = "preview";
+    process.env.STRIPE_SECRET_KEY = "sk_live_abc123";
+    await expect(trigger()).rejects.toThrow(/must be a test key/);
+  });
+
+  it.each([undefined, "prj_other", "prj_i9clta3fzdpQwNhVmf9BMMddpG3k "])(
+    "rejects project identity %s even with otherwise valid live keys",
+    async (projectId) => {
+      if (projectId === undefined) delete process.env.VERCEL_PROJECT_ID;
+      else process.env.VERCEL_PROJECT_ID = projectId;
+      process.env.STRIPE_SECRET_KEY = "sk_live_abc123";
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_live_abc123";
+      await expect(trigger()).rejects.toThrow(/sandbox.*only.*Vercel project/);
+    },
+  );
+
+  it.each([undefined, "0", "true"])(
+    "rejects a non-Vercel runtime (%s) even with the sandbox project ID",
+    async (vercel) => {
+      if (vercel === undefined) delete process.env.VERCEL;
+      else process.env.VERCEL = vercel;
+      await expect(trigger()).rejects.toThrow(/sandbox.*only.*Vercel project/);
+    },
+  );
+
+  it.each(["sk_test_abc123", "sk_live_abc123"])(
+    "rejects an accidental sandbox flag on DigitalOcean with %s",
+    async (key) => {
+      delete process.env.VERCEL;
+      delete process.env.VERCEL_PROJECT_ID;
+      delete process.env.VERCEL_ENV;
+      process.env.STRIPE_SECRET_KEY = key;
+      await expect(trigger()).rejects.toThrow(/sandbox.*only.*Vercel project/);
+    },
+  );
+
+  it.each(["sk_live_abc123", "sk_testabc123", "pk_test_abc123", ""])(
+    "rejects a live, malformed, wrong-type or empty secret (%s)",
+    async (key) => {
+      process.env.STRIPE_SECRET_KEY = key;
+      await expect(trigger()).rejects.toThrow(
+        key ? "STRIPE_SECRET_KEY must be a test key (sk_test_…) in sandbox billing mode" : "STRIPE_SECRET_KEY is not set",
+      );
+    },
+  );
+
+  it("rejects a missing secret", async () => {
+    delete process.env.STRIPE_SECRET_KEY;
+    await expect(trigger()).rejects.toThrow("STRIPE_SECRET_KEY is not set");
+  });
+
+  it.each(["pk_live_abc123", "pk_testabc123", "sk_test_abc123", ""])(
+    "rejects a live, malformed, wrong-type or empty publishable key (%s)",
+    async (key) => {
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = key;
+      await expect(trigger()).rejects.toThrow(
+        /publishable key must be a test key/,
+      );
+    },
+  );
+
+  it("rejects a missing publishable key", async () => {
+    delete process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    await expect(trigger()).rejects.toThrow(
+      /publishable key must be a test key/,
+    );
+  });
+
+  it("rejects a live fallback even when the preferred publishable key is test mode", async () => {
+    process.env.STRIPE_PUBLISHABLE_KEY = "pk_live_abc123";
+    await expect(trigger()).rejects.toThrow(
+      /publishable key must be a test key/,
+    );
+  });
+
+  it.each([undefined, "", "Sandbox", "sandbox ", "live"])(
+    "preserves the exact live-production rejection without explicit opt-in (%s)",
+    async (mode) => {
+      if (mode === undefined) delete process.env.BILLING_MODE;
+      else process.env.BILLING_MODE = mode;
+      await expect(trigger()).rejects.toThrow(
+        "STRIPE_SECRET_KEY must be a live key (sk_live_…) in production",
+      );
+    },
+  );
+});
+
+describe("legacy production behaviour without BILLING_MODE", () => {
+  it("still rejects test keys on DigitalOcean", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.STRIPE_SECRET_KEY = "sk_test_abc123";
+    await expect(trigger()).rejects.toThrow(
+      "STRIPE_SECRET_KEY must be a live key (sk_live_…) in production",
+    );
+  });
+
+  it("still allows a missing publishable key with a live secret", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.STRIPE_SECRET_KEY = "sk_live_abc123";
+    await expect(trigger()).resolves.toBeDefined();
+  });
+
+  it("preserves the exact publishable-key error", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.STRIPE_SECRET_KEY = "sk_live_abc123";
+    process.env.STRIPE_PUBLISHABLE_KEY = "pk_test_abc123";
+    await expect(trigger()).rejects.toThrow(
+      "Stripe publishable key must be a live key (pk_live_…) in production",
+    );
+  });
+
+  it("preserves the exact warning outside production", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.STRIPE_SECRET_KEY = "sk_live_abc123";
+    await expect(trigger()).resolves.toBeDefined();
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      "[stripe] live secret key (sk_live_…) detected outside production — refusing to charge real cards is your responsibility",
     );
   });
 });
