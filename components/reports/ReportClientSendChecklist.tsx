@@ -46,6 +46,7 @@ export function ReportClientSendChecklist({
         portalLinkEmailedAt: null,
         clientEmailSentAt: null,
         completenessBlockerCount: 0,
+        requiredFieldEvidenceGapCount: null,
       });
       setLoading(false);
       return;
@@ -80,6 +81,8 @@ export function ReportClientSendChecklist({
       portalLinkEmailedAt: null,
       clientEmailSentAt: null,
       completenessBlockerCount: 0,
+      requiredFieldEvidenceGapCount: null,
+      inspectionId,
     };
 
   const items = buildClientSendChecklist(merged);
