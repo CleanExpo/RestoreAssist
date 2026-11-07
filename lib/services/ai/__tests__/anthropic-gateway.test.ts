@@ -153,4 +153,30 @@ describe("callAnthropic", () => {
     expect(r.ok).toBe(true);
     expect(vi.mocked(getAnthropicApiKey)).not.toHaveBeenCalled();
   });
+
+  // RA-8232 — a Messages-compatible backup vendor is reached by base URL only.
+  it("passes baseURL to the SDK client when given, and omits it otherwise", async () => {
+    const Anthropic = (await import("@anthropic-ai/sdk")).default as unknown as ReturnType<
+      typeof vi.fn
+    >;
+    mockMessagesCreate.mockResolvedValue({ id: "m", content: [] });
+
+    await callAnthropic({
+      userId: "user-1",
+      apiKey: "ak-backup",
+      baseURL: "https://api.abliteration.ai",
+      request: baseReq.request,
+    });
+    expect(Anthropic).toHaveBeenLastCalledWith({
+      apiKey: "ak-backup",
+      baseURL: "https://api.abliteration.ai",
+    });
+
+    await callAnthropic({
+      userId: "user-1",
+      apiKey: "sk-default",
+      request: baseReq.request,
+    });
+    expect(Anthropic).toHaveBeenLastCalledWith({ apiKey: "sk-default" });
+  });
 });
