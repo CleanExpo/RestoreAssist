@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  areaM2FromGeometryOnly,
   isMeasuredRoom,
   resolvePxPerMetre,
   resolveRoomAreaM2,
@@ -100,5 +101,20 @@ describe("room-area-from-geometry", () => {
       "Kitchen",
     );
     expect(roomLabel({})).toBe("Room");
+  });
+
+  it("areaM2FromGeometryOnly ignores forged m² and L×W", () => {
+    const obj = {
+      type: "polygon",
+      points: [
+        { x: 0, y: 0 },
+        { x: 300, y: 0 },
+        { x: 300, y: 300 },
+        { x: 0, y: 300 },
+      ],
+      data: { type: "room" as const, areaM2: 900, lengthM: 30, widthM: 30 },
+    };
+    expect(areaM2FromGeometryOnly(obj, 100)).toBe(9);
+    expect(resolveRoomAreaM2(obj, 100)).toBe(900);
   });
 });
