@@ -9,6 +9,12 @@
  *   `id` is server-issued so a first sketch save cannot claim operator_measured.
  *
  * Rate limit: 5 calls per 15 minutes per user to cap Vision API spend.
+ *
+ * RA-8232: when SKETCH_IMPORT_ABLITERATION_FALLBACK and ABLITERATION_API_KEY
+ * are both set, an availability or output failure of the workspace Anthropic
+ * read is retried once on abliteration.ai (platform-paid). Off by default.
+ * Backup rooms get the same ai-suggested ids, so they still carry zero
+ * billable quantity until independently measured.
  */
 
 import { randomUUID } from "node:crypto";
@@ -21,6 +27,10 @@ import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
 import { importSketchFromImage } from "@/lib/services/ai/import-sketch-from-image";
+import {
+  estimateAbliterationCostUsd,
+  resolveSketchReaderFallback,
+} from "@/lib/services/ai/sketch-reader-fallback";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { validateImageUpload } from "@/lib/media/validate-image-upload";
@@ -192,6 +202,7 @@ export async function POST(
       apiKey,
       base64Image: base64,
       mediaType,
+      fallback: resolveSketchReaderFallback(),
     });
 
     if (!result.ok) {
@@ -234,9 +245,45 @@ export async function POST(
       return NextResponse.json({ error: result.reason }, { status, headers });
     }
 
-    // RA-1707 / P0-2 — log post-call cost so the workspace daily budget
-    // accumulates. Fire-and-forget; never blocks the response.
-    if (workspace) {
+    const { primaryFailure, reader } = result.data;
+    if (primaryFailure) {
+      // RA-8232 — the backup reader produced these rooms. The workspace
+      // Anthropic read failed, so log that failure as a primary failure would
+      // be logged. The backup spend cannot go in AiUsageLog: its provider
+      // column is a Prisma enum with no ABLITERATION value, and filing it
+      // under ANTHROPIC would misstate Anthropic spend. It goes to the server
+      // log, with a cost estimate, until that enum value exists.
+      const { inputTokens, outputTokens } = result.data.usage;
+      console.warn("[InspectionsSketchImport]", {
+        userId,
+        inspectionId,
+        workspaceId: workspace?.id ?? null,
+        reader: reader.vendor,
+        model: reader.model,
+        primaryReason: primaryFailure.reason,
+        primaryDetail: primaryFailure.detail,
+        inputTokens,
+        outputTokens,
+        estimatedCostUsd: estimateAbliterationCostUsd(inputTokens, outputTokens),
+      });
+      if (workspace) {
+        logAiUsage({
+          workspaceId: workspace.id,
+          provider: "ANTHROPIC",
+          model: visionModel,
+          taskType: "vision_sketch_import",
+          inputTokens: 0,
+          outputTokens: 0,
+          estimatedCostUsd: 0,
+          latencyMs: Date.now() - callStart,
+          success: false,
+          errorType: primaryFailure.reason,
+          metadata: { inspectionId, backupReader: reader.model },
+        });
+      }
+    } else if (workspace) {
+      // RA-1707 / P0-2 — log post-call cost so the workspace daily budget
+      // accumulates. Fire-and-forget; never blocks the response.
       const { inputTokens, outputTokens } = result.data.usage;
       logAiUsage({
         workspaceId: workspace.id,

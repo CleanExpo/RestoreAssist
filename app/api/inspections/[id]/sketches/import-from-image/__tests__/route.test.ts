@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "../route";
 
@@ -161,6 +161,7 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
           },
         ],
         usage: { inputTokens: 1, outputTokens: 1 },
+        reader: { vendor: "anthropic", model: "claude-sonnet-4-6" },
       },
     });
     claimSketchFindFirst.mockResolvedValueOnce({
@@ -188,5 +189,109 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
     const saved = claimSketchUpdate.mock.calls[0][0].data.sketchData;
     expect(saved.raSketchMeta.aiSuggestedRoomIds).toEqual([body.rooms[0].id]);
     expect(claimSketchFindFirst.mock.calls[0][0].where.floorNumber).toBe(2);
+  });
+
+  // RA-8232 — abliteration.ai backup reader, flag-gated and off by default.
+  describe("backup reader (RA-8232)", () => {
+    const jpeg = () => new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+    const square = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 1, y: 1 },
+      { x: 0, y: 1 },
+    ];
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("passes no backup to the reader when the flag is off", async () => {
+      vi.stubEnv("SKETCH_IMPORT_ABLITERATION_FALLBACK", "");
+      vi.stubEnv("ABLITERATION_API_KEY", "ak-platform");
+      importSketchFromImage.mockResolvedValueOnce({ ok: false, reason: "API_ERROR" });
+
+      const res = await POST(makeRequest(jpeg()), ctx());
+
+      expect(res.status).toBe(500);
+      expect(importSketchFromImage.mock.calls[0][0].fallback).toBeNull();
+    });
+
+    it("passes the platform backup key when the flag and key are set", async () => {
+      vi.stubEnv("SKETCH_IMPORT_ABLITERATION_FALLBACK", "1");
+      vi.stubEnv("ABLITERATION_API_KEY", "ak-platform");
+      importSketchFromImage.mockResolvedValueOnce({ ok: false, reason: "API_ERROR" });
+
+      await POST(makeRequest(jpeg()), ctx());
+
+      expect(importSketchFromImage.mock.calls[0][0].fallback).toEqual({
+        apiKey: "ak-platform",
+      });
+      expect(importSketchFromImage.mock.calls[0][0].apiKey).toBe("sk-test");
+    });
+
+    it("never reaches the backup when the workspace has no Anthropic key (402)", async () => {
+      vi.stubEnv("SKETCH_IMPORT_ABLITERATION_FALLBACK", "1");
+      vi.stubEnv("ABLITERATION_API_KEY", "ak-platform");
+      const { NoWorkspaceKeyError } = await import(
+        "@/lib/ai/resolve-workspace-ai-key"
+      );
+      resolveWorkspaceAiKey.mockRejectedValueOnce(new NoWorkspaceKeyError());
+
+      const res = await POST(makeRequest(jpeg()), ctx());
+
+      expect(res.status).toBe(402);
+      expect(importSketchFromImage).not.toHaveBeenCalled();
+    });
+
+    it("a backup read returns ai-suggested rooms and logs only the primary failure under ANTHROPIC", async () => {
+      getWorkspaceForUser.mockResolvedValue({ id: "ws_1" });
+      importSketchFromImage.mockResolvedValueOnce({
+        ok: true,
+        data: {
+          rooms: [{ label: "Kitchen", vertices: square }],
+          usage: { inputTokens: 2000, outputTokens: 500 },
+          reader: { vendor: "abliteration", model: "abliterated-model-large-flash" },
+          primaryFailure: { reason: "MODEL_OVERLOADED", detail: "529" },
+        },
+      });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const res = await POST(makeRequest(jpeg()), ctx());
+      await new Promise((r) => setImmediate(r));
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.rooms).toHaveLength(1);
+      expect(body.rooms[0].id).toMatch(/^ai-suggested-/);
+      expect(body.rooms[0].label).toBe("Kitchen");
+      // The new floor sketch remembers the ids, so a first save cannot claim
+      // operator_measured — same zero-quantity path as a primary read.
+      const created = claimSketchCreate.mock.calls[0][0].data;
+      expect(created.sketchData.raSketchMeta.aiSuggestedRoomIds).toEqual([
+        body.rooms[0].id,
+      ]);
+
+      // Primary failure is logged honestly; the backup spend is NOT written
+      // under the ANTHROPIC provider (there is no ABLITERATION enum value yet).
+      expect(logAiUsage).toHaveBeenCalledTimes(1);
+      expect(logAiUsage.mock.calls[0][0]).toMatchObject({
+        provider: "ANTHROPIC",
+        success: false,
+        errorType: "MODEL_OVERLOADED",
+      });
+      // The backup spend is visible in the server log instead.
+      const line = warn.mock.calls.find((c) =>
+        String(c[0]).includes("[InspectionsSketchImport]"),
+      );
+      expect(line?.[1]).toMatchObject({
+        reader: "abliteration",
+        model: "abliterated-model-large-flash",
+        primaryReason: "MODEL_OVERLOADED",
+        inputTokens: 2000,
+        outputTokens: 500,
+      });
+      expect(line?.[1].estimatedCostUsd).toBeCloseTo(0.003, 6);
+      warn.mockRestore();
+    });
   });
 });
