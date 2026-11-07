@@ -33,7 +33,8 @@ import {
 } from "@/lib/services/ai/sketch-reader-fallback";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
-import { validateImageUpload } from "@/lib/media/validate-image-upload";
+import { validateImageUploadStrict } from "@/lib/media/validate-image-upload";
+import { formDataFromBytes, readBoundedBody } from "@/lib/media/bounded-body";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   resolveWorkspaceAiKey,
@@ -47,7 +48,7 @@ import { withAiSuggestedRoomIds } from "@/lib/sketch/sketch-field-status";
 // post-call from the API response's token counts.
 const VISION_COST_ESTIMATE_USD = 0.012;
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_REQUEST_BYTES = 12 * 1024 * 1024; // 10 MB file plus multipart overhead
 const ALLOWED_TYPES = ["image/jpeg", "image/png"] as const;
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -129,7 +130,16 @@ export async function POST(
     // Parse multipart
     let formData: FormData;
     try {
-      formData = await request.formData();
+      // Count the bytes that really arrive; Content-Length is only a hint.
+      const body = await readBoundedBody(request, MAX_REQUEST_BYTES);
+      if (!body) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "File too large — maximum 10 MB",
+          status: 400,
+        });
+      }
+      formData = await formDataFromBytes(request, body);
     } catch {
       return apiError(request, {
         code: "VALIDATION",
@@ -149,11 +159,9 @@ export async function POST(
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const imageCheck = validateImageUpload({
+    const imageCheck = validateImageUploadStrict({
       declaredType: file.type,
-      sizeBytes: file.size,
       buffer,
-      maxBytes: MAX_FILE_BYTES,
       allowedTypes: ALLOWED_TYPES,
     });
     if (!imageCheck.ok && imageCheck.reason === "too-large") {
@@ -166,7 +174,10 @@ export async function POST(
     if (!imageCheck.ok) {
       return apiError(request, {
         code: "VALIDATION",
-        message: "Unsupported file type — use JPEG or PNG",
+        message:
+          imageCheck.reason === "unsupported-type"
+            ? "Unsupported file type — use JPEG or PNG"
+            : "Image is damaged, mismatched or too large to process",
         status: 400,
       });
     }
