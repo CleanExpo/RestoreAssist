@@ -61,6 +61,15 @@ import {
 } from "@/lib/sketch/floor-revision";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { importSketchUserMessage } from "@/lib/sketch/import-sketch-user-message";
+import {
+  captureFloorsHaveDrawableContent,
+  sketchDataForCaptureEditor,
+} from "@/lib/sketch/capture-floor-hydration";
+import {
+  ImportSketchStatusBanner,
+  type ImportSketchBannerProps,
+} from "./ImportSketchStatusBanner";
 import { prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { startRoomPlanCapture } from "@/lib/capacitor-roomplan-bridge";
@@ -275,6 +284,11 @@ export interface SketchEditorV2Props {
    * `fullscreen` — legacy viewport-tall panel (capture / dedicated routes).
    */
   embedMode?: "hub" | "fullscreen";
+  /**
+   * RA-8241 — floors from GET /api/capture/[token] so homeowners resume
+   * quarantined work. Only used with captureToken + mode guided.
+   */
+  captureInitialFloors?: import("@/lib/sketch/capture-floor-hydration").CaptureHydrationFloor[];
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -325,6 +339,7 @@ export function SketchEditorV2({
   focusSketchRoomId = null,
   mapMoistureForRoom = false,
   embedMode = "fullscreen",
+  captureInitialFloors,
 }: SketchEditorV2Props) {
   const hubEmbed = embedMode === "hub";
   const guided = mode === "guided";
@@ -541,6 +556,8 @@ export function SketchEditorV2({
   // Capture mode (homeowner self-capture) has no offline queue, so a failed
   // save must surface as an explicit error rather than a false "Saved".
   const [captureSaveFailed, setCaptureSaveFailed] = useState(false);
+  const [importSketchBanner, setImportSketchBanner] =
+    useState<ImportSketchBannerProps | null>(null);
   // RA-1762 — running count of sketch saves currently held in the
   // offline queue (this tab's enqueues only; cross-tab counts come
   // from useNirOffline if the parent provider exposes them). Surfaced
@@ -560,7 +577,7 @@ export function SketchEditorV2({
   // Don't mount Fabric until GET /sketches finishes — avoids an empty canvas
   // winning the race against restore on full page refresh.
   const [sketchesHydrated, setSketchesHydrated] = useState(
-    () => !inspectionId || captureMode,
+    () => (captureMode ? false : !inspectionId),
   );
   const [loadedInspectionId, setLoadedInspectionId] = useState<string | null>(null);
   const [sketchLoadError, setSketchLoadError] = useState(false);
@@ -608,7 +625,8 @@ export function SketchEditorV2({
   useEffect(() => {
     // RA-7542 — job change must not keep the previous job's selection chrome.
     setSelectedObj(null);
-    if (!inspectionId || captureMode) {
+    if (captureMode) return;
+    if (!inspectionId) {
       setSketchesHydrated(true);
       return;
     }
@@ -768,6 +786,65 @@ export function SketchEditorV2({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inspectionId, sketchLoadAttempt]);
+
+  // RA-8241 — resume homeowner session from token GET payload.
+  useEffect(() => {
+    if (!captureMode) return;
+    if (!captureInitialFloors?.length) {
+      setSketchesHydrated(true);
+      return;
+    }
+    let cancelled = false;
+    setSketchesHydrated(false);
+
+    const loaded: FloorData[] = captureInitialFloors.map((s, i) => {
+      const canvasRef = makeFabricCanvas();
+      const stored = sketchDataForCaptureEditor(s);
+      const pendingSketchData = fabricJsonFromStoredSketchData(stored);
+      return {
+        floor: {
+          id: `${uid}-cf${s.floorNumber}`,
+          floorNumber: s.floorNumber,
+          floorLabel: s.floorLabel,
+        },
+        clientKey: `capture-${s.floorNumber}`,
+        canvasRef,
+        moisturePins: [],
+        evidencePins: [],
+        damageMarkers: parseDamageMarkers(
+          damageMarkersFromStoredSketchData(stored),
+        ),
+        backgroundUrl: null,
+        backgroundOpacity: 0.35,
+        backgroundScale: null,
+        backgroundOffsetX: null,
+        backgroundOffsetY: null,
+        backgroundLockAspect: true,
+        scaleConfig:
+          (scaleConfigFromStoredSketchData(
+            stored,
+          ) as ScaleConfig | null) ?? null,
+        pendingSketchData,
+        sketchSnapshot: pendingSketchData,
+        fieldComplete: isSketchFieldComplete(stored),
+        roomMoistureCrop: roomMoistureCropFromStoredSketchData(stored),
+      };
+    });
+
+    if (cancelled) return;
+    setFloorsData(loaded.length ? loaded : floorsData);
+    setActiveIdx(0);
+    if (captureFloorsHaveDrawableContent(captureInitialFloors)) {
+      setStartOverlayDismissed(true);
+      setPlanReadyBannerDismissed(true);
+      setPlanReadyAck(true);
+    }
+    setSketchesHydrated(true);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [captureMode, captureInitialFloors, uid]);
 
   useEffect(() => {
     if (sketchReloadToken === undefined) return;
@@ -2492,9 +2569,12 @@ export function SketchEditorV2({
           primaryFailure?: { reason: string; detail?: string };
         };
         if (!res.ok) {
-          throw new Error(
-            apiErrorMessage(body) ?? `Import failed (${res.status})`,
+          const msg = importSketchUserMessage(
+            res.status,
+            body,
+            res.headers.get("Retry-After"),
           );
+          throw new Error(msg);
         }
         const { rooms, reader, primaryFailure } = body;
         if (!rooms?.length) {
@@ -2503,6 +2583,13 @@ export function SketchEditorV2({
           toast.error(emptyMsg);
           throw new Error(emptyMsg);
         }
+
+        const vendor = reader?.vendor ?? "anthropic";
+        setImportSketchBanner({
+          roomCount: rooms.length,
+          vendor,
+          primaryFailureDetail: primaryFailure?.detail ?? primaryFailure?.reason,
+        });
 
         if (reader?.vendor === "abliteration") {
           toast(
@@ -2522,7 +2609,10 @@ export function SketchEditorV2({
           add: (...objs: unknown[]) => void;
           renderAll: () => void;
         } | null;
-        if (!fc) return;
+        if (!fc) {
+          toast.error("Canvas not ready — try import again in a moment.");
+          throw new Error("Canvas not ready");
+        }
 
         const fabric = await import("fabric");
         const FabricPolygon = (
@@ -4183,6 +4273,12 @@ export function SketchEditorV2({
           }}
         />
       </div>
+
+      {importSketchBanner && !guided && (
+        <div className="px-3 pb-2">
+          <ImportSketchStatusBanner {...importSketchBanner} />
+        </div>
+      )}
 
       {/* In-flow dock — full-width horizontal toolbar under the canvas row */}
       <SketchDockToolbar
