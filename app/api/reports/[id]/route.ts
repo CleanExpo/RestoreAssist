@@ -10,6 +10,10 @@ import {
   enhancedReportJurisdiction,
   resolveEnhancedReportStateInfo,
 } from "@/lib/services/ai/generate-enhanced-report";
+import {
+  isPaidReportDepth,
+  requirePaidBasePlan,
+} from "@/lib/billing/paid-base-plan";
 
 export async function GET(
   request: NextRequest,
@@ -260,6 +264,13 @@ export async function PUT(
         message: `Invalid reportDepthLevel`,
         status: 400,
       });
+    }
+    if (
+      body.reportDepthLevel !== undefined &&
+      isPaidReportDepth(body.reportDepthLevel as string)
+    ) {
+      const paidGate = await requirePaidBasePlan(request, session.user.id);
+      if (paidGate) return paidGate;
     }
     if (body.totalCost !== undefined && body.totalCost !== null) {
       const tc = Number(body.totalCost);

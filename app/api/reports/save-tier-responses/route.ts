@@ -3,6 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  hasPaidBasePlan,
+  requirePaidBasePlan,
+} from "@/lib/billing/paid-base-plan";
 
 // POST - Save tier responses (Tier 1, 2, or 3)
 export async function POST(request: NextRequest) {
@@ -47,6 +51,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (tier >= 2) {
+      const paidGate = await requirePaidBasePlan(request, session.user.id);
+      if (paidGate) return paidGate;
+    }
+
     // Verify report belongs to user
     const report = await prisma.report.findUnique({
       where: { id: reportId, userId: user.id },
@@ -64,8 +73,7 @@ export async function POST(request: NextRequest) {
     const updateData: any = {};
     if (tier === 1) {
       updateData.tier1Responses = JSON.stringify(responses);
-      // Also update report depth level if not set
-      if (!report.reportDepthLevel) {
+      if (!report.reportDepthLevel && (await hasPaidBasePlan(session.user.id))) {
         updateData.reportDepthLevel = "Enhanced";
       }
     } else if (tier === 2) {
