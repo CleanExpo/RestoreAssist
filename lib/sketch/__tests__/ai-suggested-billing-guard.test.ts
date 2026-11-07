@@ -708,6 +708,30 @@ describe("RA-7617 — server-derived provenance", () => {
     ).toEqual({ provenance: "ai_suggested", isExplicitConfirm: false });
   });
 
+  it("RA-8241: homeowner capture cannot bill without on-site measurement", () => {
+    expect(
+      resolveSketchRoomProvenance({
+        existingProvenance: "underlay_reference",
+        incomingProvenance: "operator_measured",
+        fabricObjectId: "home-1",
+        rememberedAiRoomIds: new Set(),
+        captureAdapter: "homeowner",
+        explicitlyConfirmedIds: new Set(["home-1"]),
+      }),
+    ).toEqual({ provenance: "underlay_reference", isExplicitConfirm: false });
+    expect(
+      resolveSketchRoomProvenance({
+        existingProvenance: "underlay_reference",
+        incomingProvenance: "operator_measured",
+        fabricObjectId: "home-1",
+        rememberedAiRoomIds: new Set(),
+        captureAdapter: "homeowner",
+        explicitlyConfirmedIds: new Set(["home-1"]),
+        measuredRoomIds: new Set(["home-1"]),
+      }),
+    ).toEqual({ provenance: "operator_measured", isExplicitConfirm: true });
+  });
+
   it("a measured Confirm on a remembered AI id bills even when no SketchRoom row exists yet", () => {
     // RA-8233: the Confirm alone is not enough.
     expect(

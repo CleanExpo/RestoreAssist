@@ -366,7 +366,11 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ rooms: roomsWithIds });
+    return NextResponse.json({
+      rooms: roomsWithIds,
+      reader: result.data.reader,
+      ...(primaryFailure ? { primaryFailure } : {}),
+    });
   } catch (err) {
     return fromException(request, err, { stage: "sketch:import-from-image" });
   }

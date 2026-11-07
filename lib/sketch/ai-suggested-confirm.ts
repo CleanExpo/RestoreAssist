@@ -20,6 +20,7 @@
 import {
   AI_SUGGESTED_PROVENANCE,
   OPERATOR_MEASURED_PROVENANCE,
+  UNDERLAY_REFERENCE_PROVENANCE,
 } from "./measured-provenance";
 import {
   appendRoomPlanCorrection,
@@ -352,6 +353,8 @@ export interface ResolveSketchRoomProvenanceInput {
    * outside this set never resolves to `operator_measured`.
    */
   measuredRoomIds?: ReadonlySet<string>;
+  /** Homeowner self-capture rooms (`captureAdapter === "homeowner"`). */
+  captureAdapter?: string | null;
 }
 
 export interface ResolveSketchRoomProvenanceResult {
@@ -402,6 +405,24 @@ export function resolveSketchRoomProvenance(
     }
     return {
       provenance: AI_SUGGESTED_PROVENANCE,
+      isExplicitConfirm: false,
+    };
+  }
+
+  if (input.captureAdapter === "homeowner") {
+    const measured = input.measuredRoomIds?.has(id) ?? false;
+    const confirmRequested =
+      existing === OPERATOR_MEASURED_PROVENANCE ||
+      incoming === OPERATOR_MEASURED_PROVENANCE ||
+      (input.explicitlyConfirmedIds?.has(id) ?? false);
+    if (measured && confirmRequested) {
+      return {
+        provenance: OPERATOR_MEASURED_PROVENANCE,
+        isExplicitConfirm: existing !== OPERATOR_MEASURED_PROVENANCE,
+      };
+    }
+    return {
+      provenance: UNDERLAY_REFERENCE_PROVENANCE,
       isExplicitConfirm: false,
     };
   }
@@ -500,6 +521,37 @@ export function parseRoomMeasurementInputs(
  * this before and after an edit to tell whether a pending measurement still
  * describes the room.
  */
+/** RA-8241 — canvas provenance after the server refuses a room measurement. */
+export function provenanceAfterRefusedMeasurement(
+  data: Record<string, unknown>,
+): typeof AI_SUGGESTED_PROVENANCE | typeof UNDERLAY_REFERENCE_PROVENANCE {
+  return data.captureAdapter === "homeowner"
+    ? UNDERLAY_REFERENCE_PROVENANCE
+    : AI_SUGGESTED_PROVENANCE;
+}
+
+/** User-facing copy when `roomMeasurements[].accepted === false`. */
+export function roomMeasurementRejectionToast(
+  reason: unknown,
+  captureAdapter?: unknown,
+): string {
+  const homeowner = captureAdapter === "homeowner";
+  if (reason === "measurement_disagrees_with_drawn_area") {
+    return homeowner
+      ? "The measurement did not match the drawn room, so it was not recorded. Correct the room or re-measure on site."
+      : "The measurement did not match the drawn room, so it was not recorded. Correct the room and confirm again.";
+  }
+  if (reason === "invalid_measurement") {
+    return "Enter a valid length, width, or floor area (m²) before confirming.";
+  }
+  if (reason === "room_not_on_canvas") {
+    return "That room is no longer on this floor. Reselect the room and confirm again.";
+  }
+  return homeowner
+    ? "The on-site measurement could not be recorded. Measure again and confirm."
+    : "The measurement could not be recorded. Correct the room and confirm again.";
+}
+
 export function roomShapeSnapshot(
   obj: unknown,
   pxPerMetre: number | null | undefined,
@@ -540,24 +592,26 @@ export function applyServerRoomProvenance(
     if (!data || data.type !== "room" || typeof data.id !== "string") continue;
     if (skipIds.has(data.id)) continue;
     const server = byId[data.id];
-    if (
-      server !== AI_SUGGESTED_PROVENANCE &&
-      server !== OPERATOR_MEASURED_PROVENANCE
-    ) {
-      continue;
-    }
-    // Only AI-related transitions; other tags (LiDAR, imported reference)
-    // keep their own confirm flows.
-    if (
-      server !== AI_SUGGESTED_PROVENANCE &&
-      data.provenance !== AI_SUGGESTED_PROVENANCE
-    ) {
-      continue;
-    }
-    if (data.provenance !== server) {
-      data.provenance = server;
-      changed.push(data.id);
-    }
+    if (typeof server !== "string") continue;
+
+    const homeowner = data.captureAdapter === "homeowner";
+    const participates =
+      data.provenance === AI_SUGGESTED_PROVENANCE ||
+      homeowner ||
+      (data.provenance === OPERATOR_MEASURED_PROVENANCE &&
+        data.captureAdapter === "cloud_ai");
+    if (!participates) continue;
+
+    const allowedServer = new Set<string>([
+      AI_SUGGESTED_PROVENANCE,
+      OPERATOR_MEASURED_PROVENANCE,
+    ]);
+    if (homeowner) allowedServer.add(UNDERLAY_REFERENCE_PROVENANCE);
+    if (!allowedServer.has(server)) continue;
+    if (data.provenance === server) continue;
+
+    data.provenance = server;
+    changed.push(data.id);
   }
   return changed;
 }

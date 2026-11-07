@@ -243,6 +243,28 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
       expect(importSketchFromImage).not.toHaveBeenCalled();
     });
 
+    it("a backup read returns reader metadata to the client", async () => {
+      importSketchFromImage.mockResolvedValueOnce({
+        ok: true,
+        data: {
+          rooms: [{ label: "Kitchen", vertices: square }],
+          usage: { inputTokens: 1, outputTokens: 1 },
+          reader: { vendor: "abliteration", model: "abliterated-model-large-flash" },
+          primaryFailure: { reason: "MODEL_OVERLOADED", detail: "529" },
+        },
+      });
+
+      const res = await POST(makeRequest(jpeg()), ctx());
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.reader).toEqual({
+        vendor: "abliteration",
+        model: "abliterated-model-large-flash",
+      });
+      expect(body.primaryFailure?.reason).toBe("MODEL_OVERLOADED");
+    });
+
     it("a backup read returns ai-suggested rooms and logs only the primary failure under ANTHROPIC", async () => {
       getWorkspaceForUser.mockResolvedValue({ id: "ws_1" });
       importSketchFromImage.mockResolvedValueOnce({

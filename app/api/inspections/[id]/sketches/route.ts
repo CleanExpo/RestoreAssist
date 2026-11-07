@@ -581,6 +581,7 @@ export async function POST(
             rememberedAiRoomIds,
             explicitlyConfirmedIds: confirmedFabricObjectIds,
             measuredRoomIds: measurement.measuredRoomIds,
+            captureAdapter: node.captureAdapter,
           }),
         );
       }

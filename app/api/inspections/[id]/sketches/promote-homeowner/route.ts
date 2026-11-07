@@ -5,6 +5,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  countHomeownerRoomsInSketch,
+  sanitizeClientPromotedSketchData,
+} from "@/lib/sketch/sanitize-client-promoted-sketch";
 
 /**
  * Promote homeowner-submitted capture out of quarantine (Homeowner Phase 5; D4).
@@ -54,9 +58,17 @@ export async function POST(
     });
 
     let promoted = 0;
+    let homeownerRooms = 0;
     for (const s of sketches) {
       const pending = s.pendingHomeownerCapture as PendingCapture | null;
       if (!pending) continue;
+      const sanitizedSketch = pending.sketchData
+        ? sanitizeClientPromotedSketchData(pending.sketchData)
+        : null;
+      if (sanitizedSketch) {
+        homeownerRooms += countHomeownerRoomsInSketch(sanitizedSketch);
+      }
+
       await prisma.claimSketch.update({
         where: {
           id: s.id,
@@ -65,7 +77,10 @@ export async function POST(
           }),
         },
         data: {
-          sketchData: pending.sketchData ?? Prisma.DbNull,
+          sketchData:
+            sanitizedSketch != null
+              ? (sanitizedSketch as Prisma.InputJsonValue)
+              : Prisma.DbNull,
           moisturePoints: pending.moisturePoints ?? Prisma.DbNull,
           country: pending.country ?? "AU",
           // Un-quarantine: clear the pending sidecar.
@@ -75,7 +90,7 @@ export async function POST(
       promoted++;
     }
 
-    return NextResponse.json({ data: { promoted } });
+    return NextResponse.json({ data: { promoted, homeownerRooms } });
   } catch (e) {
     return fromException(request, e);
   }

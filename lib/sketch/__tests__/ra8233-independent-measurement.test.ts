@@ -13,6 +13,8 @@ import { extractSketchEstimate } from "@/lib/sketch-estimate-extractor";
 import { measuredSketchData } from "../measured-sketch-data";
 import {
   applyServerRoomProvenance,
+  provenanceAfterRefusedMeasurement,
+  roomMeasurementRejectionToast,
   roomShapeSnapshot,
   measuredAreaFromInput,
   measurementAgreesWithDrawnArea,
@@ -445,6 +447,19 @@ describe("RA-8233 — editor stays in step with the server", () => {
     expect(objects[0].data.provenance).toBe("operator_measured");
   });
 
+  it("homeowner rooms sync when the server keeps them as underlay_reference", () => {
+    const objects = [
+      room("home-1", SQUARE_POINTS, 9, {
+        provenance: "operator_measured",
+        captureAdapter: "homeowner",
+      }),
+    ];
+    expect(
+      applyServerRoomProvenance(objects, { "home-1": "underlay_reference" }),
+    ).toEqual(["home-1"]);
+    expect(objects[0].data.provenance).toBe("underlay_reference");
+  });
+
   it("other confirm flows (LiDAR / imported reference) are not touched", () => {
     const objects = [
       room("ref-1", SQUARE_POINTS, 9, { provenance: "underlay_reference" }),
@@ -464,6 +479,29 @@ describe("RA-8233 — editor stays in step with the server", () => {
     expect(
       roomShapeSnapshot(room(SQUARE_ID, SQUARE_POINTS, 9.4), 100),
     ).not.toBe(snap);
+  });
+});
+
+describe("RA-8241 — refusal copy and provenance rollback", () => {
+  it("homeowner refusals return underlay_reference on the canvas", () => {
+    expect(
+      provenanceAfterRefusedMeasurement({ captureAdapter: "homeowner" }),
+    ).toBe("underlay_reference");
+    expect(provenanceAfterRefusedMeasurement({ captureAdapter: "cloud_ai" })).toBe(
+      "ai_suggested",
+    );
+  });
+
+  it("rejection toasts name the reason and homeowner context", () => {
+    expect(
+      roomMeasurementRejectionToast(
+        "measurement_disagrees_with_drawn_area",
+        "homeowner",
+      ),
+    ).toMatch(/re-measure on site/i);
+    expect(roomMeasurementRejectionToast("invalid_measurement")).toMatch(
+      /valid length/i,
+    );
   });
 });
 

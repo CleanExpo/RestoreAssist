@@ -70,7 +70,18 @@ describe("POST promote-homeowner", () => {
       {
         id: "cs_1",
         pendingHomeownerCapture: {
-          sketchData: { objects: [1] },
+          sketchData: {
+            objects: [
+              {
+                data: {
+                  type: "room",
+                  id: "r1",
+                  provenance: "operator_measured",
+                  areaM2: 99,
+                },
+              },
+            ],
+          },
           moisturePoints: [{ wme: 20 }],
           country: "NZ",
         },
@@ -79,11 +90,17 @@ describe("POST promote-homeowner", () => {
     ]);
     const res = await POST(req(), params);
     expect(res.status).toBe(200);
-    expect((await res.json()).data.promoted).toBe(1);
+    const json = await res.json();
+    expect(json.data.promoted).toBe(1);
+    expect(json.data.homeownerRooms).toBe(1);
     expect(p.claimSketch.update).toHaveBeenCalledTimes(1);
     const arg = p.claimSketch.update.mock.calls[0][0];
     expect(arg.where).toEqual({ id: "cs_1" });
-    expect(arg.data.sketchData).toEqual({ objects: [1] });
+    const saved = arg.data.sketchData as {
+      objects: { data: { provenance: string; captureAdapter: string } }[];
+    };
+    expect(saved.objects[0].data.provenance).toBe("underlay_reference");
+    expect(saved.objects[0].data.captureAdapter).toBe("homeowner");
     expect(arg.data.country).toBe("NZ");
     expect(arg.data.pendingHomeownerCapture).toBe("__DbNull__"); // cleared
   });
