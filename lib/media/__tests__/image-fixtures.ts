@@ -129,3 +129,22 @@ export async function genuineImage(
   });
   return image[format]().toBuffer();
 }
+
+/** Real sharp JPEG: headers kept, one entropy byte after SOS, then EOI. */
+export async function makeTruncatedScanJpeg(): Promise<Buffer> {
+  const real = await genuineImage("jpeg", 64, 64);
+  const sos = real.indexOf(Buffer.from([0xff, 0xda]));
+  const scanStart = sos + 2 + real.readUInt16BE(sos + 2);
+  return Buffer.concat([
+    real.subarray(0, scanStart + 1),
+    Buffer.from([0xff, 0xd9]),
+  ]);
+}
+
+/** Real sharp JPEG followed by camera-style trailer bytes (positive control). */
+export async function makeJpegWithTrailer(): Promise<Buffer> {
+  return Buffer.concat([
+    await genuineImage("jpeg", 64, 64),
+    Buffer.from("MPF-TRAILER-DATA"),
+  ]);
+}

@@ -19,7 +19,7 @@ export async function validateImageUploadDecoded(
     const sharp = (await import("sharp")).default;
     await sharp(args.buffer, {
       limitInputPixels: STRICT_UPLOAD_POLICY.maxPixels,
-      failOn: "error",
+      failOn: "warning", // sharp default: refuse truncated or corrupt data
     })
       .raw()
       .toBuffer();

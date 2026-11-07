@@ -3,7 +3,9 @@ import { validateImageUploadDecoded } from "../decode-check";
 import {
   genuineImage,
   makePng,
+  makeJpegWithTrailer,
   makePngWithGarbageIdat,
+  makeTruncatedScanJpeg,
 } from "./image-fixtures";
 
 const allowed = ["image/png", "image/jpeg", "image/webp"] as const;
@@ -42,6 +44,22 @@ describe("decoded upload check", () => {
     expect(await check("image/png", makePng(100_000, 100_000))).toEqual({
       ok: false,
       reason: "pixel-bomb",
+    });
+  });
+
+  it("rejects a JPEG whose scan is truncated but still terminated by EOI", async () => {
+    expect(await check("image/jpeg", await makeTruncatedScanJpeg())).toEqual({
+      ok: false,
+      reason: "undecodable",
+    });
+  });
+
+  it("positive control: a real JPEG with camera-style trailing bytes still passes", async () => {
+    expect(
+      await check("image/jpeg", await makeJpegWithTrailer()),
+    ).toMatchObject({
+      ok: true,
+      mediaType: "image/jpeg",
     });
   });
 });
