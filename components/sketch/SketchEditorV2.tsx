@@ -76,7 +76,9 @@ import {
 } from "@/lib/sketch/selected-object";
 import { applyRoomModifiedGeometry } from "@/lib/sketch/room-modified-geometry";
 import {
+  applyServerRoomProvenance,
   confirmAiSuggestedMeasurement,
+  roomShapeSnapshot,
   type RoomMeasurementInput,
 } from "@/lib/sketch/ai-suggested-confirm";
 import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
@@ -587,6 +589,8 @@ export function SketchEditorV2({
   const pendingRoomMeasurementsRef = useRef<Map<string, RoomMeasurementInput>>(
     new Map(),
   );
+  /** RA-8233 — room shape when each pending measurement was entered. */
+  const pendingMeasurementShapeRef = useRef<Map<string, string>>(new Map());
   /** RA-7091 — run pending RoomPlan custody recovery once per inspection. */
   const roomPlanRecoveryKeyRef = useRef<string | null>(null);
 
@@ -1153,6 +1157,45 @@ export function SketchEditorV2({
             .map((o) => o?.data?.id)
             .filter((v): v is string => typeof v === "string"),
         );
+        // A room reshaped (or the floor rescaled) after Confirm no longer
+        // matches what the technician measured: drop the measurement and put
+        // the room back to AI-suggested rather than bind it to the new shape.
+        const liveObjects =
+          (
+            fd.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+            } | null
+          )?.getObjects() ?? [];
+        for (const pending of [...pendingRoomMeasurementsRef.current.values()]) {
+          if (!floorRoomIds.has(pending.fabricObjectId)) continue;
+          const live = liveObjects.find(
+            (o) =>
+              (o as { data?: { id?: unknown } }).data?.id ===
+              pending.fabricObjectId,
+          ) as { data?: Record<string, unknown> } | undefined;
+          const shapeAtConfirm = pendingMeasurementShapeRef.current.get(
+            pending.fabricObjectId,
+          );
+          if (
+            live?.data &&
+            shapeAtConfirm !== undefined &&
+            roomShapeSnapshot(live, fd.scaleConfig?.pxPerMetre) !==
+              shapeAtConfirm
+          ) {
+            pendingRoomMeasurementsRef.current.delete(pending.fabricObjectId);
+            pendingMeasurementShapeRef.current.delete(pending.fabricObjectId);
+            confirmedFabricObjectIdsRef.current.delete(pending.fabricObjectId);
+            live.data.provenance = "ai_suggested";
+            setSelectedObj((prev) =>
+              prev && prev.id === pending.fabricObjectId
+                ? { ...prev, provenance: "ai_suggested" }
+                : prev,
+            );
+            toast.error(
+              "The room changed after it was measured. Measure it again and confirm.",
+            );
+          }
+        }
         const sentMeasurements = [
           ...pendingRoomMeasurementsRef.current.values(),
         ].filter((m) => floorRoomIds.has(m.fabricObjectId));
@@ -1225,6 +1268,7 @@ export function SketchEditorV2({
                 sent
               ) {
                 pendingRoomMeasurementsRef.current.delete(sent.fabricObjectId);
+                pendingMeasurementShapeRef.current.delete(sent.fabricObjectId);
               }
               if (answer.accepted === true) continue;
               confirmedFabricObjectIdsRef.current.delete(sent.fabricObjectId);
@@ -1255,6 +1299,45 @@ export function SketchEditorV2({
               toast.error(
                 "The measurement did not match the drawn room, so it was not recorded. Correct the room and confirm again.",
               );
+            }
+            // RA-8233: show every room as the server stored it, including a
+            // room whose measurement an edit invalidated on this save. A room
+            // confirmed while this save was in flight waits for its own save.
+            const fcSynced = fd.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (fcSynced) {
+              const inFlightConfirms = new Set(
+                [...pendingRoomMeasurementsRef.current.keys()].filter(
+                  (pid) => !sentMeasurements.some((s) => s.fabricObjectId === pid),
+                ),
+              );
+              const synced = applyServerRoomProvenance(
+                fcSynced.getObjects(),
+                (savedSketch as { roomProvenance?: unknown } | null)
+                  ?.roomProvenance,
+                inFlightConfirms,
+              );
+              if (synced.length > 0) {
+                fcSynced.renderAll();
+                const syncedObjects = fcSynced.getObjects();
+                setSelectedObj((prev) => {
+                  if (!prev || !synced.includes(prev.id)) return prev;
+                  const live = syncedObjects.find(
+                    (o) =>
+                      (o as { data?: { id?: unknown } }).data?.id === prev.id,
+                  ) as { data?: { provenance?: unknown } } | undefined;
+                  const provenance = live?.data?.provenance;
+                  return provenance === "ai_suggested" ||
+                    provenance === "operator_measured"
+                    ? { ...prev, provenance }
+                    : prev;
+                });
+                for (const sid of synced) {
+                  confirmedFabricObjectIdsRef.current.delete(sid);
+                }
+              }
             }
             // RA-8056: the next save of this floor is based on this one.
             const savedRevision = readFloorRevision(savedSketch);
@@ -3547,6 +3630,10 @@ export function SketchEditorV2({
                 fabricObjectId: id,
                 ...measurement,
               });
+              pendingMeasurementShapeRef.current.set(
+                id,
+                roomShapeSnapshot(obj, activeFloor?.scaleConfig?.pxPerMetre),
+              );
               confirmedFabricObjectIdsRef.current.add(id);
               fc.renderAll();
               const hist = (obj.data as { correctionHistory?: unknown[] })

@@ -255,10 +255,17 @@ export function SketchSelectionPanel({
     // the room it was recorded in and is shown only while that room is open.
     setVoiceLatch(false);
     setDetailsLostDismissed(false);
+  }, [selectedId]);
+
+  // RA-8233 — a measurement belongs to one Confirm of one room. Clear it when
+  // the room changes or its provenance changes (confirmed, or put back to
+  // AI-suggested by an edit), so an old entry is never re-sent.
+  const selectedProvenance = selected?.provenance;
+  useEffect(() => {
     setMeasuredLength("");
     setMeasuredWidth("");
     setMeasuredArea("");
-  }, [selectedId]);
+  }, [selectedId, selectedProvenance]);
 
   useEffect(() => {
     setMicSupported(getRecognitionCtor() !== null);

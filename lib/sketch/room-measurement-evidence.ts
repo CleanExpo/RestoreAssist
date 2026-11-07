@@ -26,8 +26,32 @@ const DEFAULT_PX_PER_M = 100;
 
 export interface RoomRevision {
   fabricObjectId: string;
+  /** The area that bills (the room's claimed `data.areaM2`, else geometry). */
   areaM2: number | null;
+  /**
+   * Area of the polygon as drawn: local points × transform scale, at the
+   * floor's px-per-metre. Null when the shape has no usable points.
+   */
+  geometryAreaM2: number | null;
   geometryRevision: string;
+}
+
+function polygonAreaM2(geometryJson: unknown, pxPerMetre: number): number | null {
+  const g = (geometryJson ?? {}) as Record<string, unknown>;
+  const pts = pointList(g.points);
+  if (pts.length < 3 || pts.some(([x, y]) => x === null || y === null)) {
+    return null;
+  }
+  let twice = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x1, y1] = pts[i] as [number, number];
+    const [x2, y2] = pts[(i + 1) % pts.length] as [number, number];
+    twice += x1 * y2 - x2 * y1;
+  }
+  const sx = typeof g.scaleX === "number" && Number.isFinite(g.scaleX) ? g.scaleX : 1;
+  const sy = typeof g.scaleY === "number" && Number.isFinite(g.scaleY) ? g.scaleY : 1;
+  // Rotation and skew preserve area; scale multiplies it.
+  return (Math.abs(twice) / 2) * Math.abs(sx * sy) / (pxPerMetre * pxPerMetre);
 }
 
 function round(v: unknown): number | null {
@@ -89,6 +113,7 @@ export function roomRevisionsFromSketchData(
   return extractRoomGraphNodes(sketchData).map((node) => ({
     fabricObjectId: node.fabricObjectId,
     areaM2: node.areaM2,
+    geometryAreaM2: polygonAreaM2(node.geometryJson, ppm),
     geometryRevision: roomGeometryRevision(node.geometryJson, ppm, node.areaM2),
   }));
 }
@@ -171,7 +196,13 @@ export function reconcileRoomMeasurementEvidence(
       });
       continue;
     }
-    if (!measurementAgreesWithDrawnArea(measured, room.areaM2)) {
+    // Must match the area that bills AND the polygon as drawn, so a claimed
+    // area that no longer matches a resized shape cannot be confirmed.
+    if (
+      !measurementAgreesWithDrawnArea(measured, room.areaM2) ||
+      (room.geometryAreaM2 !== null &&
+        !measurementAgreesWithDrawnArea(measured, room.geometryAreaM2))
+    ) {
       results.push({
         fabricObjectId: id,
         accepted: false,

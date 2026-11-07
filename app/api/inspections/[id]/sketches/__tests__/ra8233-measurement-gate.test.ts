@@ -348,7 +348,14 @@ describe("RA-8233 — POST /sketches requires independent measurement", () => {
       { x: 0, y: 350 },
     ];
     seedExisting(stored, [existingRow(SQUARE_ID, "operator_measured", true)]);
-    await post({ sketchData: blob([room(SQUARE_ID, edited, 10.5)]) });
+    const editedRes = await post({
+      sketchData: blob([room(SQUARE_ID, edited, 10.5)]),
+    });
+    // The editor syncs from this, so it stops showing the room as measured
+    // even though this save carried no measurement.
+    expect((await editedRes.json()).roomProvenance).toEqual({
+      [SQUARE_ID]: "ai_suggested",
+    });
     const data = p.sketchRoom.update.mock.calls[0][0].data;
     expect(data.provenance).toBe("ai_suggested");
     expect(data.confirmedAt).toBeNull();

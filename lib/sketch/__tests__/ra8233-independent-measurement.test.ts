@@ -12,6 +12,8 @@ import { describe, expect, it } from "vitest";
 import { extractSketchEstimate } from "@/lib/sketch-estimate-extractor";
 import { measuredSketchData } from "../measured-sketch-data";
 import {
+  applyServerRoomProvenance,
+  roomShapeSnapshot,
   measuredAreaFromInput,
   measurementAgreesWithDrawnArea,
   parseRoomMeasurementInputs,
@@ -280,6 +282,19 @@ describe("RA-8233 — server-recorded measurement qualifies the room", () => {
     expect(billedAreaM2(persisted)).toBe(0);
   });
 
+  it("rejects a measurement that matches a stale claimed area but not the resized polygon", () => {
+    // Claimed 9 m2, but the polygon is scaled to 3 m x 3.6 m = 10.8 m2.
+    const { reconciled, provenanceById } = serverSave({
+      incoming: blob([{ ...room(SQUARE_ID, SQUARE_POINTS, 9), scaleY: 1.2 }]),
+      submissions: [{ fabricObjectId: SQUARE_ID, lengthM: 3, widthM: 3 }],
+    });
+    expect(reconciled.results[0]).toMatchObject({
+      accepted: false,
+      reason: "measurement_disagrees_with_drawn_area",
+    });
+    expect(provenanceById.get(SQUARE_ID)).toBe("ai_suggested");
+  });
+
   it("rejects a measurement for a room that is not on the saved canvas", () => {
     const { reconciled } = serverSave({
       incoming: blob([room(SQUARE_ID, SQUARE_POINTS, 9)]),
@@ -390,6 +405,65 @@ describe("RA-8233 — geometry or scale edits invalidate evidence; history is ke
     const history = readRoomMeasurementEvidence(persisted);
     expect(history.map((e) => e.status)).toEqual(["invalidated", "current"]);
     expect(billedAreaM2(persisted)).toBeCloseTo(10.5, 6);
+  });
+});
+
+describe("RA-8233 — editor stays in step with the server", () => {
+  it("a room the server stored as ai_suggested stops showing as measured", () => {
+    const objects = [
+      room(SQUARE_ID, SQUARE_POINTS, 9),
+      room("hand-1", SQUARE_POINTS, 9, { captureAdapter: "manual" }),
+    ];
+    const changed = applyServerRoomProvenance(objects, {
+      [SQUARE_ID]: "ai_suggested",
+      "hand-1": "operator_measured",
+    });
+    expect(changed).toEqual([SQUARE_ID]);
+    expect(objects[0].data.provenance).toBe("ai_suggested");
+    expect(objects[1].data.provenance).toBe("operator_measured");
+  });
+
+  it("a room accepted by the server shows as measured", () => {
+    const objects = [
+      room(SQUARE_ID, SQUARE_POINTS, 9, { provenance: "ai_suggested" }),
+    ];
+    expect(
+      applyServerRoomProvenance(objects, { [SQUARE_ID]: "operator_measured" }),
+    ).toEqual([SQUARE_ID]);
+    expect(objects[0].data.provenance).toBe("operator_measured");
+  });
+
+  it("a Confirm made while the save was in flight is not overwritten", () => {
+    const objects = [room(SQUARE_ID, SQUARE_POINTS, 9)];
+    expect(
+      applyServerRoomProvenance(
+        objects,
+        { [SQUARE_ID]: "ai_suggested" },
+        new Set([SQUARE_ID]),
+      ),
+    ).toEqual([]);
+    expect(objects[0].data.provenance).toBe("operator_measured");
+  });
+
+  it("other confirm flows (LiDAR / imported reference) are not touched", () => {
+    const objects = [
+      room("ref-1", SQUARE_POINTS, 9, { provenance: "underlay_reference" }),
+    ];
+    expect(
+      applyServerRoomProvenance(objects, { "ref-1": "operator_measured" }),
+    ).toEqual([]);
+    expect(objects[0].data.provenance).toBe("underlay_reference");
+  });
+
+  it("shape snapshot changes on resize, rescale or area edit, not on move", () => {
+    const base = room(SQUARE_ID, SQUARE_POINTS, 9);
+    const snap = roomShapeSnapshot(base, 100);
+    expect(roomShapeSnapshot({ ...base, left: 400, top: 90 }, 100)).toBe(snap);
+    expect(roomShapeSnapshot({ ...base, scaleX: 1.2 }, 100)).not.toBe(snap);
+    expect(roomShapeSnapshot(base, 120)).not.toBe(snap);
+    expect(
+      roomShapeSnapshot(room(SQUARE_ID, SQUARE_POINTS, 9.4), 100),
+    ).not.toBe(snap);
   });
 });
 

@@ -494,6 +494,74 @@ export function parseRoomMeasurementInputs(
   return [...byId.values()];
 }
 
+/**
+ * RA-8233 — the size-defining parts of a canvas room (points, transform,
+ * claimed area, floor scale). Translation is left out. The editor compares
+ * this before and after an edit to tell whether a pending measurement still
+ * describes the room.
+ */
+export function roomShapeSnapshot(
+  obj: unknown,
+  pxPerMetre: number | null | undefined,
+): string {
+  const o = (obj ?? {}) as Record<string, unknown>;
+  const data = (o.data ?? {}) as Record<string, unknown>;
+  return JSON.stringify({
+    p: o.points ?? null,
+    w: o.width ?? null,
+    h: o.height ?? null,
+    sx: o.scaleX ?? 1,
+    sy: o.scaleY ?? 1,
+    a: o.angle ?? 0,
+    kx: o.skewX ?? 0,
+    ky: o.skewY ?? 0,
+    area: data.areaM2 ?? null,
+    ppm: pxPerMetre ?? null,
+  });
+}
+
+/**
+ * RA-8233 — apply the server's per-room provenance (sketch POST response
+ * `roomProvenance`) to canvas objects, so the editor never shows a room as
+ * measured that the server stored as AI-suggested, or the reverse. Rooms in
+ * `skipIds` (a Confirm made while this save was in flight) are left alone.
+ * Returns the ids whose provenance changed.
+ */
+export function applyServerRoomProvenance(
+  objects: unknown[],
+  serverProvenance: unknown,
+  skipIds: ReadonlySet<string> = new Set(),
+): string[] {
+  if (!serverProvenance || typeof serverProvenance !== "object") return [];
+  const byId = serverProvenance as Record<string, unknown>;
+  const changed: string[] = [];
+  for (const obj of objects) {
+    const data = (obj as { data?: Record<string, unknown> } | null)?.data;
+    if (!data || data.type !== "room" || typeof data.id !== "string") continue;
+    if (skipIds.has(data.id)) continue;
+    const server = byId[data.id];
+    if (
+      server !== AI_SUGGESTED_PROVENANCE &&
+      server !== OPERATOR_MEASURED_PROVENANCE
+    ) {
+      continue;
+    }
+    // Only AI-related transitions; other tags (LiDAR, imported reference)
+    // keep their own confirm flows.
+    if (
+      server !== AI_SUGGESTED_PROVENANCE &&
+      data.provenance !== AI_SUGGESTED_PROVENANCE
+    ) {
+      continue;
+    }
+    if (data.provenance !== server) {
+      data.provenance = server;
+      changed.push(data.id);
+    }
+  }
+  return changed;
+}
+
 /** Ids the client listed as technician-confirmed in this POST body. */
 export function parseConfirmedFabricObjectIds(raw: unknown): Set<string> {
   if (!Array.isArray(raw)) return new Set();

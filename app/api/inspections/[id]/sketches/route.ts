@@ -1028,6 +1028,15 @@ export async function POST(
         revision: floorRevisionOf(sketch.sketchData),
         // RA-8233: which submitted room measurements the server recorded.
         roomMeasurements: roomMeasurementResults,
+        // RA-8233: the provenance the server stored for each room in this
+        // save, so the editor shows what bills — including after an edit
+        // invalidated a measurement and no measurement was sent.
+        roomProvenance: Object.fromEntries(
+          [...resolvedByFabricId].map(([fabricId, r]) => [
+            fabricId,
+            r.provenance,
+          ]),
+        ),
         ...(canonicalRenderMeta
           ? { _saveMeta: { canonicalRender: canonicalRenderMeta } }
           : {}),
