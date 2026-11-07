@@ -17,6 +17,7 @@ import {
 import { aiDraftResetOnGenerate } from "@/lib/reports/ai-ownership";
 import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
 
 // Helper functions for standards retrieval query building
 function determineReportType(notes: string): string {
@@ -140,6 +141,9 @@ export async function POST(request: NextRequest) {
           { status: 402 },
         );
       }
+
+      const paidGate = await requirePaidBasePlan(request, userId);
+      if (paidGate) return paidGate;
 
       // RA-1298: pre-check credits BEFORE the Anthropic call so a zero-credit
       // user does not burn tokens we have to eat. Actual atomic deduct happens
