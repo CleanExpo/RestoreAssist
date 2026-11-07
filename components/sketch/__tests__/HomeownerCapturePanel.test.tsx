@@ -29,15 +29,25 @@ describe("HomeownerCapturePanel", () => {
     );
   });
 
-  it("reviews/promotes a submission and reports the count", async () => {
-    vi.stubGlobal("fetch", mockFetch({ data: { promoted: 2 } }));
-    render(<HomeownerCapturePanel inspectionId="i1" />);
+  it("reviews/promotes a submission and reports measurement follow-up", async () => {
+    const onPromoted = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({ data: { promoted: 1, homeownerRooms: 3 } }),
+    );
+    render(
+      <HomeownerCapturePanel inspectionId="i1" onPromoted={onPromoted} />,
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Review homeowner submission" }),
     );
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(/Promoted 2/),
-    );
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent(/Promoted 1/);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        /on-site measurement/i,
+      );
+    });
+    expect(onPromoted).toHaveBeenCalledTimes(1);
   });
 
   it("revokes active links", async () => {
@@ -63,7 +73,7 @@ describe("HomeownerCapturePanel", () => {
       screen.getByRole("button", { name: "Invite homeowner to capture" }),
     );
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(/Couldn’t create/),
+      expect(screen.getByRole("alert")).toHaveTextContent(/Couldn’t create/),
     );
   });
 });

@@ -60,6 +60,7 @@ import {
   readFloorRevision,
 } from "@/lib/sketch/floor-revision";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { startRoomPlanCapture } from "@/lib/capacitor-roomplan-bridge";
@@ -77,6 +78,8 @@ import {
 import { applyRoomModifiedGeometry } from "@/lib/sketch/room-modified-geometry";
 import {
   applyServerRoomProvenance,
+  provenanceAfterRefusedMeasurement,
+  roomMeasurementRejectionToast,
   confirmAiSuggestedMeasurement,
   roomShapeSnapshot,
   type RoomMeasurementInput,
@@ -258,6 +261,11 @@ export interface SketchEditorV2Props {
   autoFetchFloorPlan?: boolean;
   /** After a durable online save — parent can refresh sketch room lists. */
   onSketchPersisted?: () => void;
+  /**
+   * Bump when authoritative sketch data changed elsewhere (e.g. homeowner
+   * promote). The editor reloads floors from the API when this token changes.
+   */
+  sketchReloadToken?: number;
   /** Deep-link: select a room on the active floor (Fabric room id). */
   focusSketchRoomId?: string | null;
   /** When true with focusSketchRoomId, open the room moisture map tool. */
@@ -313,6 +321,7 @@ export function SketchEditorV2({
   height = 820,
   autoFetchFloorPlan = false,
   onSketchPersisted,
+  sketchReloadToken,
   focusSketchRoomId = null,
   mapMoistureForRoom = false,
   embedMode = "fullscreen",
@@ -556,6 +565,7 @@ export function SketchEditorV2({
   const [loadedInspectionId, setLoadedInspectionId] = useState<string | null>(null);
   const [sketchLoadError, setSketchLoadError] = useState(false);
   const [sketchLoadAttempt, setSketchLoadAttempt] = useState(0);
+  const sketchReloadTokenSeen = useRef<number | undefined>(undefined);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // RA-8056: the revision of each floor (by clientKey) this editor loaded or
@@ -758,6 +768,14 @@ export function SketchEditorV2({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inspectionId, sketchLoadAttempt]);
+
+  useEffect(() => {
+    if (sketchReloadToken === undefined) return;
+    if (sketchReloadTokenSeen.current === sketchReloadToken) return;
+    sketchReloadTokenSeen.current = sketchReloadToken;
+    if (sketchReloadToken < 1) return;
+    setSketchLoadAttempt((attempt) => attempt + 1);
+  }, [sketchReloadToken]);
 
   useEffect(() => {
     if (!inspectionId || captureMode) {
@@ -1256,7 +1274,11 @@ export function SketchEditorV2({
             // one puts the room back to AI-suggested on screen, matching
             // what the server stored and bills.
             const answered = Array.isArray(savedSketch?.roomMeasurements)
-              ? savedSketch.roomMeasurements
+              ? (savedSketch.roomMeasurements as Array<{
+                  fabricObjectId?: unknown;
+                  accepted?: unknown;
+                  reason?: unknown;
+                }>)
               : [];
             for (const sent of sentMeasurements) {
               const answer = answered.find(
@@ -1270,13 +1292,11 @@ export function SketchEditorV2({
                 pendingRoomMeasurementsRef.current.delete(sent.fabricObjectId);
                 pendingMeasurementShapeRef.current.delete(sent.fabricObjectId);
               }
-              if (answer.accepted === true) continue;
-              confirmedFabricObjectIdsRef.current.delete(sent.fabricObjectId);
-              const fcRefused = fd.canvasRef.current?.getFabricCanvas() as {
+              const fcMeasure = fd.canvasRef.current?.getFabricCanvas() as {
                 getObjects: () => unknown[];
                 renderAll: () => void;
               } | null;
-              const refusedObj = fcRefused
+              const liveObj = fcMeasure
                 ?.getObjects()
                 .find(
                   (o) =>
@@ -1286,18 +1306,44 @@ export function SketchEditorV2({
                         | undefined
                     )?.id === sent.fabricObjectId,
                 ) as Record<string, unknown> | undefined;
-              if (refusedObj?.data) {
-                (refusedObj.data as Record<string, unknown>).provenance =
-                  "ai_suggested";
-                fcRefused?.renderAll();
+              const liveData = liveObj?.data as
+                | Record<string, unknown>
+                | undefined;
+              const captureAdapter = liveData?.captureAdapter;
+
+              if (answer.accepted === true) {
+                toast.success(
+                  captureAdapter === "homeowner"
+                    ? "Homeowner room measurement recorded."
+                    : "On-site measurement recorded.",
+                  { duration: 3500 },
+                );
+                continue;
               }
+              confirmedFabricObjectIdsRef.current.delete(sent.fabricObjectId);
+              if (liveData) {
+                liveData.provenance = provenanceAfterRefusedMeasurement(
+                  liveData,
+                );
+                fcMeasure?.renderAll();
+              }
+              const rolledBack = liveData
+                ? provenanceAfterRefusedMeasurement(liveData)
+                : "ai_suggested";
               setSelectedObj((prev) =>
                 prev && prev.id === sent.fabricObjectId
-                  ? { ...prev, provenance: "ai_suggested" }
+                  ? {
+                      ...prev,
+                      provenance:
+                        rolledBack === "underlay_reference" ||
+                        rolledBack === "ai_suggested"
+                          ? rolledBack
+                          : prev.provenance,
+                    }
                   : prev,
               );
               toast.error(
-                "The measurement did not match the drawn room, so it was not recorded. Correct the room and confirm again.",
+                roomMeasurementRejectionToast(answer.reason, captureAdapter),
               );
             }
             // RA-8233: show every room as the server stored it, including a
@@ -1330,8 +1376,12 @@ export function SketchEditorV2({
                   ) as { data?: { provenance?: unknown } } | undefined;
                   const provenance = live?.data?.provenance;
                   return provenance === "ai_suggested" ||
-                    provenance === "operator_measured"
-                    ? { ...prev, provenance }
+                    provenance === "operator_measured" ||
+                    provenance === "underlay_reference"
+                    ? {
+                        ...prev,
+                        provenance: provenance as SelectedObject["provenance"],
+                      }
                     : prev;
                 });
                 for (const sid of synced) {
@@ -2420,108 +2470,159 @@ export function SketchEditorV2({
   const handleImportSketch = useCallback(
     async (file: File) => {
       if (!inspectionId) return;
+      const loadingToast = toast.loading("Reading sketch image…");
       const formData = new FormData();
       formData.append("file", file);
       formData.append(
         "floorNumber",
         String(activeFloor?.floor.floorNumber ?? 0),
       );
-      const res = await fetch(
-        `/api/inspections/${inspectionId}/sketches/import-from-image`,
-        { method: "POST", body: formData },
-      );
-      if (!res.ok) {
-        const { error } = (await res.json().catch(() => ({}))) as {
-          error?: string;
+      try {
+        const res = await fetch(
+          `/api/inspections/${inspectionId}/sketches/import-from-image`,
+          { method: "POST", body: formData },
+        );
+        const body = (await res.json().catch(() => ({}))) as {
+          rooms?: {
+            id?: string;
+            label: string;
+            vertices: { x: number; y: number }[];
+          }[];
+          reader?: { vendor: "anthropic" | "abliteration"; model: string };
+          primaryFailure?: { reason: string; detail?: string };
         };
-        throw new Error(error ?? `Import failed (${res.status})`);
+        if (!res.ok) {
+          throw new Error(
+            apiErrorMessage(body) ?? `Import failed (${res.status})`,
+          );
+        }
+        const { rooms, reader, primaryFailure } = body;
+        if (!rooms?.length) {
+          const emptyMsg =
+            "No rooms found in that image. Try a clearer photo with room outlines visible.";
+          toast.error(emptyMsg);
+          throw new Error(emptyMsg);
+        }
+
+        if (reader?.vendor === "abliteration") {
+          toast(
+            primaryFailure
+              ? "Primary reader was busy — rooms came from the backup reader. Measure and confirm each on site before billing."
+              : "Rooms imported via the backup reader — measure and confirm each on site before billing.",
+            { duration: 6000 },
+          );
+        } else {
+          toast.success(
+            `Imported ${rooms.length} room${rooms.length === 1 ? "" : "s"} — measure and confirm each before billing.`,
+            { duration: 5000 },
+          );
+        }
+
+        const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+          add: (...objs: unknown[]) => void;
+          renderAll: () => void;
+        } | null;
+        if (!fc) return;
+
+        const fabric = await import("fabric");
+        const FabricPolygon = (
+          fabric as unknown as {
+            Polygon: new (
+              pts: { x: number; y: number }[],
+              opts: object,
+            ) => unknown;
+          }
+        ).Polygon;
+        const FabricText = (
+          fabric as unknown as {
+            IText: new (text: string, opts: object) => unknown;
+          }
+        ).IText;
+
+        rooms.forEach((room, i) => {
+          const color = ROOM_COLORS[i % ROOM_COLORS.length];
+          const pts = room.vertices.map((v) => ({
+            x: v.x * width,
+            y: v.y * height,
+          }));
+          const areaM2 =
+            Math.round(
+              (shoelaceArea(pts) / (PX_PER_METRE * PX_PER_METRE)) * 100,
+            ) / 100;
+
+          const polygon = new FabricPolygon(pts, {
+            fill: color.fill,
+            stroke: color.stroke,
+            strokeWidth: 2,
+            selectable: true,
+            evented: true,
+            data: {
+              id: room.id ?? `imported-${Date.now()}-${i}`,
+              label: room.label,
+              type: "room",
+              // RA-7611: Vision-imported geometry is an AI suggestion until a
+              // technician confirms it. Distinct from underlay_reference (plans /
+              // pending LiDAR) so Confirm can keep correction history on SketchRoom.
+              provenance: "ai_suggested",
+              captureAdapter: "cloud_ai",
+              areaM2,
+              originalAreaM2: areaM2,
+              originalPoints: pts,
+              originalLabel: room.label,
+              correctionHistory: [],
+            },
+          });
+
+          const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+          const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+          const label = new FabricText(room.label, {
+            left: cx,
+            top: cy,
+            originX: "center",
+            originY: "center",
+            fontSize: 13,
+            fill: color.stroke,
+            selectable: true,
+            evented: true,
+            data: { id: `imported-label-${Date.now()}-${i}`, type: "text" },
+          });
+
+          fc.add(polygon, label);
+        });
+
+        fc.renderAll();
+        // Flush immediately so the ai_suggested SketchRoom row exists before
+        // Confirm. A debounced save here coalesces with Confirm within 1.5 s
+        // into one POST that already carries operator_measured.
+        await flushSaveNow();
+
+        const firstRoomId = rooms[0]?.id;
+        if (firstRoomId && fc) {
+          const canvasApi = fc as unknown as {
+            getObjects: () => unknown[];
+            setActiveObject: (o: unknown) => void;
+            renderAll: () => void;
+          };
+          const firstPoly = canvasApi
+            .getObjects()
+            .find(
+              (o) =>
+                (o as { data?: { id?: string; type?: string } }).data?.id ===
+                  firstRoomId &&
+                (o as { data?: { type?: string } }).data?.type === "room",
+            );
+          if (firstPoly) {
+            canvasApi.setActiveObject(firstPoly);
+            canvasApi.renderAll();
+            const sel = fabricObjectToSelected(
+              firstPoly as Parameters<typeof fabricObjectToSelected>[0],
+            );
+            if (sel) setSelectedObj(sel);
+          }
+        }
+      } finally {
+        toast.dismiss(loadingToast);
       }
-      const { rooms } = (await res.json()) as {
-        rooms: {
-          id?: string;
-          label: string;
-          vertices: { x: number; y: number }[];
-        }[];
-      };
-      if (!rooms?.length) return;
-
-      const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
-        add: (...objs: unknown[]) => void;
-        renderAll: () => void;
-      } | null;
-      if (!fc) return;
-
-      const fabric = await import("fabric");
-      const FabricPolygon = (
-        fabric as unknown as {
-          Polygon: new (
-            pts: { x: number; y: number }[],
-            opts: object,
-          ) => unknown;
-        }
-      ).Polygon;
-      const FabricText = (
-        fabric as unknown as {
-          IText: new (text: string, opts: object) => unknown;
-        }
-      ).IText;
-
-      rooms.forEach((room, i) => {
-        const color = ROOM_COLORS[i % ROOM_COLORS.length];
-        const pts = room.vertices.map((v) => ({
-          x: v.x * width,
-          y: v.y * height,
-        }));
-        const areaM2 =
-          Math.round(
-            (shoelaceArea(pts) / (PX_PER_METRE * PX_PER_METRE)) * 100,
-          ) / 100;
-
-        const polygon = new FabricPolygon(pts, {
-          fill: color.fill,
-          stroke: color.stroke,
-          strokeWidth: 2,
-          selectable: true,
-          evented: true,
-          data: {
-            id: room.id ?? `imported-${Date.now()}-${i}`,
-            label: room.label,
-            type: "room",
-            // RA-7611: Vision-imported geometry is an AI suggestion until a
-            // technician confirms it. Distinct from underlay_reference (plans /
-            // pending LiDAR) so Confirm can keep correction history on SketchRoom.
-            provenance: "ai_suggested",
-            captureAdapter: "cloud_ai",
-            areaM2,
-            originalAreaM2: areaM2,
-            originalPoints: pts,
-            originalLabel: room.label,
-            correctionHistory: [],
-          },
-        });
-
-        const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
-        const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-        const label = new FabricText(room.label, {
-          left: cx,
-          top: cy,
-          originX: "center",
-          originY: "center",
-          fontSize: 13,
-          fill: color.stroke,
-          selectable: true,
-          evented: true,
-          data: { id: `imported-label-${Date.now()}-${i}`, type: "text" },
-        });
-
-        fc.add(polygon, label);
-      });
-
-      fc.renderAll();
-      // Flush immediately so the ai_suggested SketchRoom row exists before
-      // Confirm. A debounced save here coalesces with Confirm within 1.5 s
-      // into one POST that already carries operator_measured.
-      await flushSaveNow();
     },
     [inspectionId, activeFloor, width, height, flushSaveNow],
   );
@@ -3618,13 +3719,18 @@ export function SketchEditorV2({
               scheduleSave();
               return;
             }
-            if (data.provenance === "ai_suggested") {
-              // RA-8233: the AI's own dimensions are not a measurement. The
-              // panel only offers Confirm once the technician has entered
-              // one; the server records it and decides billing.
+            const homeownerUnderlay =
+              data.provenance === "underlay_reference" &&
+              data.captureAdapter === "homeowner";
+            if (data.provenance === "ai_suggested" || homeownerUnderlay) {
+              // RA-8233: AI / homeowner sizes are not a measurement. The panel
+              // only offers Confirm once the technician has entered one; the
+              // server records it and decides billing.
               if (!measurement) return;
               obj.data = confirmAiSuggestedMeasurement(data, {
-                note: "Technician measured the room on site and confirmed",
+                note: homeownerUnderlay
+                  ? "Technician measured the homeowner-drawn room on site and confirmed"
+                  : "Technician measured the room on site and confirmed",
               });
               pendingRoomMeasurementsRef.current.set(id, {
                 fabricObjectId: id,

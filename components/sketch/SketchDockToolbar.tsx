@@ -11,6 +11,7 @@
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import {
   MousePointer2,
@@ -717,6 +718,10 @@ export function SketchDockToolbar({
               setIsImporting(true);
               try {
                 await onImportSketch(file);
+              } catch (err) {
+                toast.error(
+                  err instanceof Error ? err.message : "Sketch import failed",
+                );
               } finally {
                 setIsImporting(false);
               }

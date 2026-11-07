@@ -77,9 +77,9 @@ describe("SketchSelectionPanel — RA-8233 measurement before Confirm", () => {
       target: { value: "4" },
     });
     expect(screen.getByRole("button", { name: CONFIRM })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "does not match the drawn room",
-    );
+    expect(
+      screen.getByText(/does not match the drawn room/i),
+    ).toBeInTheDocument();
     expect(onConfirm).not.toHaveBeenCalled();
   });
 });

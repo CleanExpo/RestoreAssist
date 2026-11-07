@@ -431,6 +431,7 @@ export default function InspectionDetailPage({
   );
   const [sketchMapMoisture, setSketchMapMoisture] = useState(false);
   const [scopeRoomHint, setScopeRoomHint] = useState<string | null>(null);
+  const [sketchReloadToken, setSketchReloadToken] = useState(0);
 
   // Deep-link from field evidence checklist: ?tab=areas (etc.).
   // Re-read on job change so a previous inspection's Sketch tab does not
@@ -2554,6 +2555,7 @@ export default function InspectionDetailPage({
               propertyPostcode={inspection.propertyPostcode ?? undefined}
               autoFetchFloorPlan={autoFetchFloorPlan}
               onSketchPersisted={() => void refetchSketchRooms()}
+              sketchReloadToken={sketchReloadToken}
               focusSketchRoomId={sketchFocusRoomId}
               mapMoistureForRoom={sketchMapMoisture}
               className="w-full"
@@ -2595,7 +2597,13 @@ export default function InspectionDetailPage({
           <div className="space-y-3 flex-shrink-0">
             <ClientPortalLinkButton inspectionId={inspection.id} />
             <ClientEvidenceReviewPanel inspectionId={inspection.id} />
-            <HomeownerCapturePanel inspectionId={inspection.id} />
+            <HomeownerCapturePanel
+              inspectionId={inspection.id}
+              onPromoted={() => {
+                void refetchSketchRooms();
+                setSketchReloadToken((token) => token + 1);
+              }}
+            />
           </div>
         </div>
 

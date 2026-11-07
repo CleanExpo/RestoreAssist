@@ -13,30 +13,50 @@
  */
 
 import { useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type Busy = null | "invite" | "revoke" | "review";
+type PanelTone = "neutral" | "success" | "error";
+
+function responseMessage(res: Response, body: unknown, fallback: string): string {
+  return apiErrorMessage(body) ?? fallback;
+}
 
 export function HomeownerCapturePanel({
   inspectionId,
+  onPromoted,
 }: {
   inspectionId: string;
+  /** Called after a successful promote so the inspection can reload sketches. */
+  onPromoted?: () => void;
 }) {
   const [busy, setBusy] = useState<Busy>(null);
   const [link, setLink] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [tone, setTone] = useState<PanelTone>("neutral");
 
   async function invite() {
     setBusy("invite");
     setMessage("");
+    setTone("neutral");
     try {
       const res = await fetch(
         `/api/inspections/${inspectionId}/capture-invite`,
         { method: "POST" },
       );
       const body = await res.json();
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        setTone("error");
+        setMessage(
+          responseMessage(res, body, "Couldn’t create a capture link. Try again."),
+        );
+        return;
+      }
       setLink(body.data.url);
+      setTone("success");
+      setMessage("Capture link ready — send it to the homeowner.");
     } catch {
+      setTone("error");
       setMessage("Couldn’t create a capture link. Try again.");
     } finally {
       setBusy(null);
@@ -46,16 +66,23 @@ export function HomeownerCapturePanel({
   async function revoke() {
     setBusy("revoke");
     setMessage("");
+    setTone("neutral");
     try {
       const res = await fetch(
         `/api/inspections/${inspectionId}/capture-invite`,
         { method: "DELETE" },
       );
       const body = await res.json();
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        setTone("error");
+        setMessage(responseMessage(res, body, "Couldn’t revoke. Try again."));
+        return;
+      }
       setLink(null);
+      setTone("success");
       setMessage(`Revoked ${body.data.revoked} capture link(s).`);
     } catch {
+      setTone("error");
       setMessage("Couldn’t revoke. Try again.");
     } finally {
       setBusy(null);
@@ -65,19 +92,38 @@ export function HomeownerCapturePanel({
   async function review() {
     setBusy("review");
     setMessage("");
+    setTone("neutral");
     try {
       const res = await fetch(
         `/api/inspections/${inspectionId}/sketches/promote-homeowner`,
         { method: "POST" },
       );
       const body = await res.json();
-      if (!res.ok) throw new Error();
-      setMessage(
-        body.data.promoted > 0
-          ? `Promoted ${body.data.promoted} homeowner submission(s) into the sketch.`
-          : "No homeowner submissions to review yet.",
-      );
+      if (!res.ok) {
+        setTone("error");
+        setMessage(
+          responseMessage(res, body, "Couldn’t promote the submission. Try again."),
+        );
+        return;
+      }
+      const promoted = body.data?.promoted ?? 0;
+      const homeownerRooms = body.data?.homeownerRooms ?? 0;
+      if (promoted > 0) {
+        setTone("success");
+        const roomNote =
+          homeownerRooms > 0
+            ? ` ${homeownerRooms} room${homeownerRooms === 1 ? "" : "s"} need on-site measurement before billing — open the sketch and confirm each.`
+            : "";
+        setMessage(
+          `Promoted ${promoted} homeowner submission(s) into the sketch.${roomNote}`,
+        );
+        onPromoted?.();
+      } else {
+        setTone("neutral");
+        setMessage("No homeowner submissions to review yet.");
+      }
     } catch {
+      setTone("error");
       setMessage("Couldn’t promote the submission. Try again.");
     } finally {
       setBusy(null);
@@ -139,10 +185,20 @@ export function HomeownerCapturePanel({
         </div>
       )}
       {message && (
-        <p role="status" className="text-xs text-white/70">
+        <p
+          role={tone === "error" ? "alert" : "status"}
+          className={cnMessage(tone)}
+        >
           {message}
         </p>
       )}
     </section>
   );
+}
+
+function cnMessage(tone: PanelTone): string {
+  const base = "text-xs ";
+  if (tone === "error") return `${base} text-rose-200`;
+  if (tone === "success") return `${base} text-emerald-100/90`;
+  return `${base} text-white/70`;
 }

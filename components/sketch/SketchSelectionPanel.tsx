@@ -99,7 +99,12 @@ export interface SelectedObject {
    */
   provenance?: "operator_measured" | "underlay_reference" | "ai_suggested";
   /** RA-7091 — present when geometry came from RoomPlan LiDAR. */
-  captureAdapter?: "manual" | "roomplan" | "cloud_ai" | "underlay_import";
+  captureAdapter?:
+    | "manual"
+    | "roomplan"
+    | "cloud_ai"
+    | "underlay_import"
+    | "homeowner";
   /** Number of recorded RoomPlan corrections (label/confirm/geometry). */
   correctionCount?: number;
   /** Wall length or room length (metres) for typed dimension edit. */
@@ -289,9 +294,11 @@ export function SketchSelectionPanel({
   // RA-8233 — an AI-suggested room needs an on-site measurement before
   // Confirm. The same helpers decide on the server, so the button and the
   // API agree on what qualifies.
+  const isHomeownerCapture = selected.captureAdapter === "homeowner";
   const needsMeasurement =
-    selected.provenance === "ai_suggested" &&
-    selected.captureAdapter !== "roomplan";
+    (selected.provenance === "ai_suggested" &&
+      selected.captureAdapter !== "roomplan") ||
+    (selected.provenance === "underlay_reference" && isHomeownerCapture);
   const measurementEntry: Omit<RoomMeasurementInput, "fabricObjectId"> = {};
   // Area is m², so the feet-and-inches parsing used for lengths does not apply.
   const areaEntry =
@@ -536,9 +543,11 @@ export function SketchSelectionPanel({
             <span>
               {selected.captureAdapter === "roomplan"
                 ? "LiDAR scan — correct the room on the canvas if needed, then confirm before it counts toward measured quantities."
-                : selected.provenance === "ai_suggested"
-                  ? "AI-suggested geometry — excluded from measured quantities until confirmed."
-                  : "Reference geometry (imported) — excluded from measured quantities until confirmed."}
+                : isHomeownerCapture
+                  ? "Homeowner self-capture — excluded from measured quantities until you measure each room on site and confirm."
+                  : selected.provenance === "ai_suggested"
+                    ? "AI-suggested geometry — excluded from measured quantities until confirmed."
+                    : "Reference geometry (imported) — excluded from measured quantities until confirmed."}
             </span>
           </div>
           {(selected.captureAdapter === "roomplan" ||
@@ -552,7 +561,9 @@ export function SketchSelectionPanel({
           {needsMeasurement && (
             <fieldset className="space-y-1.5 pl-5">
               <legend className="text-[10px] text-amber-200/90">
-                Measure this room on site. AI dimensions are not billed.
+                {isHomeownerCapture
+                  ? "Measure this room on site. Homeowner-drawn sizes are not billed."
+                  : "Measure this room on site. AI dimensions are not billed."}
               </legend>
               <div className="flex gap-1.5">
                 <label className="flex-1 text-[10px] text-white/60">
@@ -587,12 +598,20 @@ export function SketchSelectionPanel({
                 />
               </label>
               {measurementMismatch && (
-                <p role="status" className="text-[10px] text-amber-200">
+                <p role="alert" className="text-[10px] text-amber-200">
                   The measured area does not match the drawn room
                   {typeof selected.areaM2 === "number"
                     ? ` (${selected.areaM2.toFixed(2)} m²)`
                     : ""}
                   . Correct the room on the canvas, then confirm.
+                </p>
+              )}
+              {measuredM2 !== null && measurementReady && (
+                <p className="text-[10px] text-emerald-200/90 pl-0.5">
+                  On-site area: {measuredM2.toFixed(2)} m²
+                  {typeof selected.areaM2 === "number"
+                    ? ` (drawn ${selected.areaM2.toFixed(2)} m²)`
+                    : ""}
                 </p>
               )}
             </fieldset>
@@ -610,10 +629,17 @@ export function SketchSelectionPanel({
           >
             {selected.captureAdapter === "roomplan"
               ? "Confirm LiDAR measurement"
-              : selected.provenance === "ai_suggested"
-                ? "Confirm AI-suggested measurement"
-                : "Confirm measurement"}
+              : isHomeownerCapture
+                ? "Confirm homeowner room measurement"
+                : selected.provenance === "ai_suggested"
+                  ? "Confirm AI-suggested measurement"
+                  : "Confirm measurement"}
           </button>
+          {needsMeasurement && !measurementReady && (
+            <p className="text-[10px] text-amber-200/80 pl-1">
+              Enter on-site dimensions above to enable Confirm.
+            </p>
+          )}
           {selected.captureAdapter === "roomplan" && onExcludeRoomPlan && (
             <button
               type="button"
