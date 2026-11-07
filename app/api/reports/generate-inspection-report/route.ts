@@ -44,6 +44,7 @@ import {
   workspaceBusiness,
 } from "@/lib/reports/workspace-business";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -111,6 +112,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { reportId, reportType = "enhanced" } = await request.json();
+
+    if (reportType !== "basic") {
+      const paidGate = await requirePaidBasePlan(request, session.user.id);
+      if (paidGate) return paidGate;
+    }
 
     if (!reportId) {
       return apiError(request, {
