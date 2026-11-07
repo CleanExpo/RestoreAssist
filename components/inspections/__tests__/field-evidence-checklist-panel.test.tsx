@@ -6,6 +6,7 @@ import { render, screen, waitFor, within, fireEvent } from "@testing-library/rea
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FieldEvidenceChecklistPanel } from "../field-evidence-checklist-panel";
 import type { FieldEvidenceChecklist } from "@/lib/evidence/field-evidence-checklist";
+import { buildBeforeYouLeaveActions } from "@/lib/evidence/before-you-leave";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -96,7 +97,10 @@ function mockFetchOk(data: FieldEvidenceChecklist) {
     "fetch",
     vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ data }),
+      json: async () => ({
+        data,
+        beforeYouLeave: buildBeforeYouLeaveActions(data),
+      }),
     }),
   );
 }
@@ -132,6 +136,10 @@ describe("FieldEvidenceChecklistPanel", () => {
     render(<FieldEvidenceChecklistPanel inspectionId="insp-1" />);
 
     await waitFor(() =>
+      expect(screen.getByTestId("before-you-leave")).toBeInTheDocument(),
+    );
+
+    await waitFor(() =>
       expect(screen.getByText(/required gaps/i)).toBeInTheDocument(),
     );
 
@@ -139,9 +147,11 @@ describe("FieldEvidenceChecklistPanel", () => {
     expect(screen.getByText(/0\/2 complete/i)).toBeInTheDocument();
     expect(screen.getByText(/0\/1 complete/i)).toBeInTheDocument();
     expect(screen.getByText("Moisture Reading")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /capture moisture reading/i }),
-    ).toHaveAttribute(
+    const captureLinks = screen.getAllByRole("link", {
+      name: /capture moisture reading/i,
+    });
+    expect(captureLinks.length).toBeGreaterThanOrEqual(1);
+    expect(captureLinks[0]).toHaveAttribute(
       "href",
       "/dashboard/inspections/insp-1/capture?step=moisture-survey",
     );
@@ -184,6 +194,7 @@ describe("FieldEvidenceChecklistPanel", () => {
         screen.getByText(/all required and recommended field evidence/i),
       ).toBeInTheDocument(),
     );
+    expect(screen.queryByTestId("before-you-leave")).not.toBeInTheDocument();
     expect(screen.queryByText(/required gaps/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/weak qa/i)).not.toBeInTheDocument();
   });
