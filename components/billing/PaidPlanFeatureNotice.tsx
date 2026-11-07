@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
   PAID_BASE_PLAN_MESSAGE,
   PAID_BASE_PLAN_UPGRADE_HREF,
-} from "@/lib/billing/paid-base-plan";
+} from "@/lib/billing/paid-base-plan-copy";
 
 /** L-2 — honest trial vs paid copy on dashboard billing surfaces. */
 export function PaidPlanFeatureNotice({
