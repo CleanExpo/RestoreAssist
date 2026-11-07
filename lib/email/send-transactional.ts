@@ -49,6 +49,10 @@ export async function sendTransactionalEmail(
 ): Promise<TransactionalSendResult> {
   const config = await resolvePlatformEmailConfig(input.organizationId);
   if (!config) {
+    // Secret-free: no key, sender or recipient is logged.
+    console.warn(
+      "[email] transactional send skipped: not_configured (MAILTRAP_API_KEY + SENDER_EMAIL missing)",
+    );
     return {
       data: null,
       error: {
@@ -61,7 +65,13 @@ export async function sendTransactionalEmail(
 
   const from = input.from?.trim() || config.from;
   const toList = Array.isArray(input.to) ? input.to : [input.to];
-  const replyTo = input.replyTo || input.reply_to;
+  // An explicit caller reply-to wins; otherwise default to EMAIL_REPLY_TO.
+  // Blank/missing env means no reply_to field at all.
+  const replyTo =
+    input.replyTo?.trim() ||
+    input.reply_to?.trim() ||
+    process.env.EMAIL_REPLY_TO?.trim() ||
+    undefined;
 
   try {
     return await sendViaMailtrap(config, {
