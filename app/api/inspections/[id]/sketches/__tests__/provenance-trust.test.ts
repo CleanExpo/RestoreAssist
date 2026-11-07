@@ -165,11 +165,29 @@ async function postRooms(
 }
 
 describe("RA-7617 — server does not trust the client provenance tag", () => {
-  it("confirms an existing ai_suggested room only when the client sends operator_measured, and stamps the session", async () => {
-    const before = Date.now();
+  it("RA-8233: a bare Confirm on an existing ai_suggested room no longer bills", async () => {
     const res = await postRooms([
       roomObject("ai-room-1", "operator_measured"),
     ]);
+    expect(res.status).toBe(201);
+    const data = p.sketchRoom.update.mock.calls[0][0].data;
+    expect(data.provenance).toBe("ai_suggested");
+    expect(data.confirmedAt).toBeNull();
+    expect(data.confirmedBy).toBeNull();
+  });
+
+  it("confirms an existing ai_suggested room with a recorded measurement, and stamps the session", async () => {
+    const before = Date.now();
+    const res = await postRooms(
+      [roomObject("ai-room-1", "operator_measured")],
+      existingSketch(),
+      [existingRoom()],
+      {
+        roomMeasurements: [
+          { fabricObjectId: "ai-room-1", lengthM: 3, widthM: 4 },
+        ],
+      },
+    );
     const after = Date.now();
 
     expect(res.status).toBe(201);
@@ -235,7 +253,7 @@ describe("RA-7617 — server does not trust the client provenance tag", () => {
     expect(data.confirmedBy).toBeNull();
   });
 
-  it("import then confirm before any save lands still bills the room", async () => {
+  it("import then confirm (with a measurement) before any save lands still bills the room", async () => {
     const before = Date.now();
     const res = await postRooms(
       [roomObject("ai-room-1", "operator_measured")],
@@ -246,7 +264,10 @@ describe("RA-7617 — server does not trust the client provenance tag", () => {
         },
       }),
       [],
-      { confirmedFabricObjectIds: ["ai-room-1"] },
+      {
+        confirmedFabricObjectIds: ["ai-room-1"],
+        roomMeasurements: [{ fabricObjectId: "ai-room-1", measuredAreaM2: 12 }],
+      },
     );
     const after = Date.now();
 

@@ -14,6 +14,11 @@ import { Trash2, X, AlertTriangle, Lock, Unlock } from "lucide-react";
 import { evaluateWhsGate } from "@/lib/anz/whs-gate";
 import { classifyCover, type DamageCause } from "@/lib/nz/nhcover";
 import { parseMetresInput } from "@/lib/sketch/room-defaults";
+import {
+  measuredAreaFromInput,
+  measurementAgreesWithDrawnArea,
+  type RoomMeasurementInput,
+} from "@/lib/sketch/ai-suggested-confirm";
 import { ROOM_COLORS } from "@/lib/sketch/room-colors";
 import { VoiceNoteButton } from "@/components/voice/voice-note-button";
 import { VoiceFieldSuggestionList } from "@/components/voice/voice-field-suggestions";
@@ -101,6 +106,8 @@ export interface SelectedObject {
   lengthM?: number;
   /** Room width or opening width (metres). */
   widthM?: number;
+  /** RA-8233 — drawn room area (m²) a technician measurement must match. */
+  areaM2?: number;
   /** magicplan-style dimension lock — typed dims survive later nudges. */
   dimLocked?: boolean;
   /** Door / window / missing when type === "opening". */
@@ -153,8 +160,15 @@ export interface SketchSelectionPanelProps {
     id: string,
     category: "cat1" | "cat2" | "cat3",
   ) => void;
-  /** Promote reference (AI/imported) geometry to operator_measured (RA-6760). */
-  onConfirmProvenance?: (id: string) => void;
+  /**
+   * Promote reference (AI/imported) geometry to operator_measured (RA-6760).
+   * RA-8233: for an AI-suggested room the technician's on-site measurement
+   * is passed; the Confirm button stays disabled until one is entered.
+   */
+  onConfirmProvenance?: (
+    id: string,
+    measurement?: Omit<RoomMeasurementInput, "fabricObjectId">,
+  ) => void;
   /** RA-7091 — exclude a RoomPlan room from measured quantities. */
   onExcludeRoomPlan?: (id: string) => void;
   /**
@@ -230,6 +244,10 @@ export function SketchSelectionPanel({
   const recognitionRef = useRef<RoomSpeechRecognition | null>(null);
   const roomAtStartRef = useRef<string | null>(null);
   const [detailsLostDismissed, setDetailsLostDismissed] = useState(false);
+  // RA-8233 — technician's on-site measurement for an AI-suggested room.
+  const [measuredLength, setMeasuredLength] = useState("");
+  const [measuredWidth, setMeasuredWidth] = useState("");
+  const [measuredArea, setMeasuredArea] = useState("");
 
   useEffect(() => {
     // The persisted latch lives on the room. Drop only the local raise so a
@@ -238,6 +256,16 @@ export function SketchSelectionPanel({
     setVoiceLatch(false);
     setDetailsLostDismissed(false);
   }, [selectedId]);
+
+  // RA-8233 — a measurement belongs to one Confirm of one room. Clear it when
+  // the room changes or its provenance changes (confirmed, or put back to
+  // AI-suggested by an edit), so an old entry is never re-sent.
+  const selectedProvenance = selected?.provenance;
+  useEffect(() => {
+    setMeasuredLength("");
+    setMeasuredWidth("");
+    setMeasuredArea("");
+  }, [selectedId, selectedProvenance]);
 
   useEffect(() => {
     setMicSupported(getRecognitionCtor() !== null);
@@ -257,6 +285,38 @@ export function SketchSelectionPanel({
   }, []);
 
   if (!selected) return null;
+
+  // RA-8233 — an AI-suggested room needs an on-site measurement before
+  // Confirm. The same helpers decide on the server, so the button and the
+  // API agree on what qualifies.
+  const needsMeasurement =
+    selected.provenance === "ai_suggested" &&
+    selected.captureAdapter !== "roomplan";
+  const measurementEntry: Omit<RoomMeasurementInput, "fabricObjectId"> = {};
+  // Area is m², so the feet-and-inches parsing used for lengths does not apply.
+  const areaEntry =
+    measuredArea.trim() !== "" && Number.isFinite(Number(measuredArea.trim()))
+      ? Number(measuredArea.trim())
+      : null;
+  if (areaEntry !== null && areaEntry > 0) {
+    measurementEntry.measuredAreaM2 = areaEntry;
+  } else {
+    const lengthEntry = parseMetresInput(measuredLength);
+    const widthEntry = parseMetresInput(measuredWidth);
+    if (lengthEntry !== null) measurementEntry.lengthM = lengthEntry;
+    if (widthEntry !== null) measurementEntry.widthM = widthEntry;
+  }
+  const measuredM2 = measuredAreaFromInput({
+    fabricObjectId: selected.id,
+    ...measurementEntry,
+  });
+  const measurementMismatch =
+    measuredM2 !== null &&
+    typeof selected.areaM2 === "number" &&
+    !measurementAgreesWithDrawnArea(measuredM2, selected.areaM2);
+  const measurementReady =
+    measuredM2 !== null &&
+    (typeof selected.areaM2 !== "number" || !measurementMismatch);
 
   const showDetailsLost = selected.detailsLost === true && !detailsLostDismissed;
   const noteRoomDetailsEdited = () => {
@@ -489,10 +549,64 @@ export function SketchSelectionPanel({
                 {selected.correctionCount === 1 ? "" : "s"} recorded
               </p>
             )}
+          {needsMeasurement && (
+            <fieldset className="space-y-1.5 pl-5">
+              <legend className="text-[10px] text-amber-200/90">
+                Measure this room on site. AI dimensions are not billed.
+              </legend>
+              <div className="flex gap-1.5">
+                <label className="flex-1 text-[10px] text-white/60">
+                  Measured length (m)
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={measuredLength}
+                    onChange={(e) => setMeasuredLength(e.target.value)}
+                    className="mt-0.5 w-full min-h-11 rounded-md bg-white/5 border border-white/10 px-2 text-xs text-white"
+                  />
+                </label>
+                <label className="flex-1 text-[10px] text-white/60">
+                  Measured width (m)
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={measuredWidth}
+                    onChange={(e) => setMeasuredWidth(e.target.value)}
+                    className="mt-0.5 w-full min-h-11 rounded-md bg-white/5 border border-white/10 px-2 text-xs text-white"
+                  />
+                </label>
+              </div>
+              <label className="block text-[10px] text-white/60">
+                Or measured floor area (m²), for irregular rooms
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={measuredArea}
+                  onChange={(e) => setMeasuredArea(e.target.value)}
+                  className="mt-0.5 w-full min-h-11 rounded-md bg-white/5 border border-white/10 px-2 text-xs text-white"
+                />
+              </label>
+              {measurementMismatch && (
+                <p role="status" className="text-[10px] text-amber-200">
+                  The measured area does not match the drawn room
+                  {typeof selected.areaM2 === "number"
+                    ? ` (${selected.areaM2.toFixed(2)} m²)`
+                    : ""}
+                  . Correct the room on the canvas, then confirm.
+                </p>
+              )}
+            </fieldset>
+          )}
           <button
             type="button"
-            onClick={() => onConfirmProvenance?.(selected.id)}
-            className="w-full min-h-11 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors text-xs font-medium"
+            disabled={needsMeasurement && !measurementReady}
+            onClick={() =>
+              needsMeasurement
+                ? measurementReady &&
+                  onConfirmProvenance?.(selected.id, measurementEntry)
+                : onConfirmProvenance?.(selected.id)
+            }
+            className="w-full min-h-11 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {selected.captureAdapter === "roomplan"
               ? "Confirm LiDAR measurement"

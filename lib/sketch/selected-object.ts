@@ -38,6 +38,7 @@ export function fabricObjectToSelected(
       : undefined,
     lengthM: typeof data.lengthM === "number" ? data.lengthM : undefined,
     widthM: typeof data.widthM === "number" ? data.widthM : undefined,
+    areaM2: typeof data.areaM2 === "number" ? data.areaM2 : undefined,
     dimLocked: data.dimLocked === true,
     openingKind:
       data.openingKind === "door" ||
