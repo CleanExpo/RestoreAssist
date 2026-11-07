@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createRequire } from "module";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
 
 const require = createRequire(import.meta.url);
 
@@ -42,6 +43,9 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
+
+    const paidGate = await requirePaidBasePlan(request, userId);
+    if (paidGate) return paidGate;
 
     // Rate limit: 15 PDF parses per 15 minutes per user
     const rateLimited = await applyRateLimit(request, {
