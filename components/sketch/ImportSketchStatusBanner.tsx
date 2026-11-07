@@ -5,7 +5,7 @@
  */
 
 import { useState } from "react";
-import { AlertTriangle, X } from "lucide-react";
+import { RAIcon } from "@/components/brand/RAIcon";
 
 export type ImportSketchBannerProps = {
   roomCount: number;
@@ -33,7 +33,7 @@ export function ImportSketchStatusBanner({
       className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
       data-testid="import-sketch-status-banner"
     >
-      <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
+      <RAIcon name="warning" size={16} decorative className="mt-0.5 shrink-0" />
       <div className="flex-1 space-y-0.5">
         <p className="font-medium">{headline}</p>
         <p className="text-amber-100/80">
@@ -52,7 +52,7 @@ export function ImportSketchStatusBanner({
         className="shrink-0 rounded p-1 text-amber-100/80 hover:bg-amber-500/20"
         aria-label="Dismiss import reminder"
       >
-        <X size={14} />
+        Dismiss
       </button>
     </div>
   );
