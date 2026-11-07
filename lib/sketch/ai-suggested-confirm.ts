@@ -11,6 +11,10 @@
  * `confirmedBy` / `confirmedAt` on the SketchRoom row are server-stamped in
  * the sketch save route (session user id + server clock). Client-supplied
  * values are ignored on the unconfirmed → confirmed transition.
+ *
+ * RA-8233: Confirm alone no longer bills an AI-origin room. The save route
+ * also needs a technician measurement (`roomMeasurements`), recorded and
+ * bound to the room's geometry by room-measurement-evidence.ts.
  */
 
 import {
@@ -342,6 +346,12 @@ export interface ResolveSketchRoomProvenanceInput {
    * exist yet (import then Confirm before the first save lands).
    */
   explicitlyConfirmedIds?: ReadonlySet<string>;
+  /**
+   * RA-8233 — fabric ids with current, server-recorded technician measurement
+   * evidence bound to the geometry and scale in this save. An AI-origin room
+   * outside this set never resolves to `operator_measured`.
+   */
+  measuredRoomIds?: ReadonlySet<string>;
 }
 
 export interface ResolveSketchRoomProvenanceResult {
@@ -350,15 +360,14 @@ export interface ResolveSketchRoomProvenanceResult {
 }
 
 /**
- * RA-7617 — SketchRoom.provenance is derived on the server.
+ * RA-7617 / RA-8233 — SketchRoom.provenance is derived on the server.
  *
- * - An existing `ai_suggested` row becomes `operator_measured` only as an
- *   explicit confirm (incoming tag is operator_measured). Any other tag is
- *   ignored; the row stays `ai_suggested`.
- * - An existing `operator_measured` row is never downgraded.
- * - A first save whose fabric id the server recorded as AI-produced cannot
- *   claim `operator_measured`, unless this POST lists that id in
- *   `confirmedFabricObjectIds` (a genuine Confirm that raced the first save).
+ * - An AI-origin room (existing `ai_suggested` row, an id the Vision import
+ *   recorded, or an `ai-suggested-` id) is `operator_measured` only when a
+ *   confirm is requested AND `measuredRoomIds` holds current technician
+ *   measurement evidence for it. Otherwise it is `ai_suggested` — including
+ *   a row promoted by a bare Confirm before RA-8233.
+ * - Any other existing `operator_measured` row is never downgraded.
  * - Otherwise the incoming tag is kept (hand-drawn, LiDAR, untagged default).
  */
 export function resolveSketchRoomProvenance(
@@ -370,10 +379,32 @@ export function resolveSketchRoomProvenance(
       ? input.existingProvenance
       : null;
   const incoming = input.incomingProvenance;
-  const remembered = input.rememberedAiRoomIds.has(input.fabricObjectId);
-  const explicitlyConfirmed =
-    incoming === OPERATOR_MEASURED_PROVENANCE &&
-    (input.explicitlyConfirmedIds?.has(input.fabricObjectId) ?? false);
+  const id = input.fabricObjectId;
+  const aiOrigin =
+    existing === AI_SUGGESTED_PROVENANCE ||
+    input.rememberedAiRoomIds.has(id) ||
+    id.startsWith(AI_SUGGESTED_ROOM_ID_PREFIX);
+
+  // RA-8233: an AI-origin room bills only while current technician
+  // measurement evidence exists for it. A Confirm (or a row confirmed
+  // before RA-8233) is not enough on its own.
+  if (aiOrigin) {
+    const measured = input.measuredRoomIds?.has(id) ?? false;
+    const confirmRequested =
+      existing === OPERATOR_MEASURED_PROVENANCE ||
+      incoming === OPERATOR_MEASURED_PROVENANCE ||
+      (input.explicitlyConfirmedIds?.has(id) ?? false);
+    if (measured && confirmRequested) {
+      return {
+        provenance: OPERATOR_MEASURED_PROVENANCE,
+        isExplicitConfirm: existing !== OPERATOR_MEASURED_PROVENANCE,
+      };
+    }
+    return {
+      provenance: AI_SUGGESTED_PROVENANCE,
+      isExplicitConfirm: false,
+    };
+  }
 
   if (existing === OPERATOR_MEASURED_PROVENANCE) {
     return {
@@ -382,33 +413,153 @@ export function resolveSketchRoomProvenance(
     };
   }
 
-  if (existing === AI_SUGGESTED_PROVENANCE) {
-    if (incoming === OPERATOR_MEASURED_PROVENANCE) {
-      return {
-        provenance: OPERATOR_MEASURED_PROVENANCE,
-        isExplicitConfirm: true,
-      };
-    }
-    return {
-      provenance: AI_SUGGESTED_PROVENANCE,
-      isExplicitConfirm: false,
-    };
-  }
-
-  if (!existing && remembered) {
-    if (explicitlyConfirmed) {
-      return {
-        provenance: OPERATOR_MEASURED_PROVENANCE,
-        isExplicitConfirm: true,
-      };
-    }
-    return {
-      provenance: AI_SUGGESTED_PROVENANCE,
-      isExplicitConfirm: false,
-    };
-  }
-
   return { provenance: incoming, isExplicitConfirm: false };
+}
+
+/** Fabric ids the Vision import assigns (import-from-image route). */
+export const AI_SUGGESTED_ROOM_ID_PREFIX = "ai-suggested-";
+
+/**
+ * RA-8233 — a technician's on-site measurement of one room, as entered.
+ * Either a direct area (irregular rooms) or length × width.
+ */
+export interface RoomMeasurementInput {
+  fabricObjectId: string;
+  measuredAreaM2?: number;
+  lengthM?: number;
+  widthM?: number;
+}
+
+/** A measurement may disagree with the drawn area by at most this share. */
+export const ROOM_MEASUREMENT_AREA_TOLERANCE = 0.05;
+/** …but never less than this many m² (rounding on very small rooms). */
+export const ROOM_MEASUREMENT_MIN_TOLERANCE_M2 = 0.1;
+
+/** Measured floor area in m², or null when the entry is not usable. */
+export function measuredAreaFromInput(
+  input: RoomMeasurementInput,
+): number | null {
+  if (isPositiveFiniteNumber(input.measuredAreaM2)) return input.measuredAreaM2;
+  if (
+    isPositiveFiniteNumber(input.lengthM) &&
+    isPositiveFiniteNumber(input.widthM)
+  ) {
+    return input.lengthM * input.widthM;
+  }
+  return null;
+}
+
+/**
+ * True when the technician's measured area matches the drawn room area
+ * closely enough for the drawn geometry to be billed.
+ */
+export function measurementAgreesWithDrawnArea(
+  measuredM2: number,
+  drawnM2: number | null | undefined,
+): boolean {
+  if (!isPositiveFiniteNumber(measuredM2) || !isPositiveFiniteNumber(drawnM2)) {
+    return false;
+  }
+  const tolerance = Math.max(
+    drawnM2 * ROOM_MEASUREMENT_AREA_TOLERANCE,
+    ROOM_MEASUREMENT_MIN_TOLERANCE_M2,
+  );
+  return Math.abs(measuredM2 - drawnM2) <= tolerance + 1e-9;
+}
+
+/**
+ * `roomMeasurements` from a sketch POST body. Keeps only the room id and the
+ * dimension fields; any actor, time, revision or status the client sends is
+ * dropped here. One entry per room (the last one wins).
+ */
+export function parseRoomMeasurementInputs(
+  raw: unknown,
+): RoomMeasurementInput[] {
+  if (!Array.isArray(raw)) return [];
+  const byId = new Map<string, RoomMeasurementInput>();
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    if (typeof r.fabricObjectId !== "string" || r.fabricObjectId.length === 0) {
+      continue;
+    }
+    const entry: RoomMeasurementInput = { fabricObjectId: r.fabricObjectId };
+    if (typeof r.measuredAreaM2 === "number") {
+      entry.measuredAreaM2 = r.measuredAreaM2;
+    }
+    if (typeof r.lengthM === "number") entry.lengthM = r.lengthM;
+    if (typeof r.widthM === "number") entry.widthM = r.widthM;
+    byId.set(entry.fabricObjectId, entry);
+  }
+  return [...byId.values()];
+}
+
+/**
+ * RA-8233 — the size-defining parts of a canvas room (points, transform,
+ * claimed area, floor scale). Translation is left out. The editor compares
+ * this before and after an edit to tell whether a pending measurement still
+ * describes the room.
+ */
+export function roomShapeSnapshot(
+  obj: unknown,
+  pxPerMetre: number | null | undefined,
+): string {
+  const o = (obj ?? {}) as Record<string, unknown>;
+  const data = (o.data ?? {}) as Record<string, unknown>;
+  return JSON.stringify({
+    p: o.points ?? null,
+    w: o.width ?? null,
+    h: o.height ?? null,
+    sx: o.scaleX ?? 1,
+    sy: o.scaleY ?? 1,
+    a: o.angle ?? 0,
+    kx: o.skewX ?? 0,
+    ky: o.skewY ?? 0,
+    area: data.areaM2 ?? null,
+    ppm: pxPerMetre ?? null,
+  });
+}
+
+/**
+ * RA-8233 — apply the server's per-room provenance (sketch POST response
+ * `roomProvenance`) to canvas objects, so the editor never shows a room as
+ * measured that the server stored as AI-suggested, or the reverse. Rooms in
+ * `skipIds` (a Confirm made while this save was in flight) are left alone.
+ * Returns the ids whose provenance changed.
+ */
+export function applyServerRoomProvenance(
+  objects: unknown[],
+  serverProvenance: unknown,
+  skipIds: ReadonlySet<string> = new Set(),
+): string[] {
+  if (!serverProvenance || typeof serverProvenance !== "object") return [];
+  const byId = serverProvenance as Record<string, unknown>;
+  const changed: string[] = [];
+  for (const obj of objects) {
+    const data = (obj as { data?: Record<string, unknown> } | null)?.data;
+    if (!data || data.type !== "room" || typeof data.id !== "string") continue;
+    if (skipIds.has(data.id)) continue;
+    const server = byId[data.id];
+    if (
+      server !== AI_SUGGESTED_PROVENANCE &&
+      server !== OPERATOR_MEASURED_PROVENANCE
+    ) {
+      continue;
+    }
+    // Only AI-related transitions; other tags (LiDAR, imported reference)
+    // keep their own confirm flows.
+    if (
+      server !== AI_SUGGESTED_PROVENANCE &&
+      data.provenance !== AI_SUGGESTED_PROVENANCE
+    ) {
+      continue;
+    }
+    if (data.provenance !== server) {
+      data.provenance = server;
+      changed.push(data.id);
+    }
+  }
+  return changed;
 }
 
 /** Ids the client listed as technician-confirmed in this POST body. */

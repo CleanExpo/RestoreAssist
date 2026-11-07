@@ -28,10 +28,19 @@ import {
   resolveSketchRoomConfirmAttribution,
   resolveSketchRoomProvenance,
   parseConfirmedFabricObjectIds,
+  parseRoomMeasurementInputs,
 } from "@/lib/sketch/ai-suggested-confirm";
+import { AI_SUGGESTED_PROVENANCE } from "@/lib/sketch/measured-provenance";
+import {
+  reconcileRoomMeasurementEvidence,
+  roomRevisionsFromSketchData,
+  type RoomMeasurementResult,
+} from "@/lib/sketch/room-measurement-evidence";
 import {
   readAiSuggestedRoomIds,
+  readRoomMeasurementEvidence,
   withAiSuggestedRoomIds,
+  withRoomMeasurementEvidence,
 } from "@/lib/sketch/sketch-field-status";
 import {
   FLOOR_REVISION_HEADER,
@@ -169,6 +178,7 @@ export async function POST(
       confirmUnderlayVerification,
       requestCanonicalRender,
       confirmedFabricObjectIds: confirmedFabricObjectIdsRaw,
+      roomMeasurements: roomMeasurementsRaw,
       userRemovedRooms: userRemovedRoomsRaw,
     } = body;
 
@@ -198,6 +208,12 @@ export async function POST(
     const confirmedFabricObjectIds = parseConfirmedFabricObjectIds(
       confirmedFabricObjectIdsRaw,
     );
+    // RA-8233: technician on-site measurements for AI-origin rooms. Only the
+    // room id and dimensions are read; actor and time are stamped below.
+    const roomMeasurementInputs = parseRoomMeasurementInputs(
+      roomMeasurementsRaw,
+    );
+    let roomMeasurementResults: RoomMeasurementResult[] = [];
 
     // RA-120 (PR4): underlay opacity is a 0..1 slider value; clamp defensively
     // so a malformed client can't store an out-of-range opacity.
@@ -539,6 +555,19 @@ export async function POST(
       const previewNodes = extractRoomGraphNodes(
         securedSketchData as Record<string, unknown>,
       );
+      // RA-8233: measurement evidence comes only from what this route stored
+      // on the floor earlier. Entries whose room geometry or scale changed
+      // are invalidated (kept as history); new measurements are stamped with
+      // the session user and server clock and bound to this save's geometry.
+      const measurement = reconcileRoomMeasurementEvidence({
+        stored: readRoomMeasurementEvidence(existing?.sketchData),
+        rooms: roomRevisionsFromSketchData(
+          securedSketchData as Record<string, unknown>,
+        ),
+        submissions: roomMeasurementInputs,
+        sessionUserId: session.user.id,
+      });
+      roomMeasurementResults = measurement.results;
       for (const node of previewNodes) {
         const existingRoom = byFabric.get(node.fabricObjectId) as
           | { provenance: string | null }
@@ -551,6 +580,7 @@ export async function POST(
             fabricObjectId: node.fabricObjectId,
             rememberedAiRoomIds,
             explicitlyConfirmedIds: confirmedFabricObjectIds,
+            measuredRoomIds: measurement.measuredRoomIds,
           }),
         );
       }
@@ -567,6 +597,8 @@ export async function POST(
           ...rememberedAiRoomIds,
         ]);
       }
+      // Always written, so a client-posted evidence list never persists.
+      nextData = withRoomMeasurementEvidence(nextData, measurement.evidence);
       authoritativeSketchData = nextData;
     }
 
@@ -767,14 +799,20 @@ export async function POST(
             };
             // RA-7611 P1 / RA-7617: confirmedBy/confirmedAt are server-stamped.
             // Client values are ignored. An already-confirmed row keeps its stamp.
-            const confirmStamp = resolveSketchRoomConfirmAttribution({
-              existingConfirmedAt: existingRoom?.confirmedAt ?? null,
-              existingConfirmedBy: existingRoom?.confirmedBy ?? null,
-              incomingConfirmedAt: node.confirmedAt,
-              incomingConfirmedBy: node.confirmedBy,
-              sessionUserId: session.user.id,
-              isExplicitConfirm: resolved.isExplicitConfirm,
-            });
+            // RA-8233: a room that resolved to ai_suggested (never measured,
+            // or its measurement was invalidated by an edit) carries no
+            // confirm stamp; the measurement history keeps who measured what.
+            const confirmStamp =
+              resolved.provenance === AI_SUGGESTED_PROVENANCE
+                ? { confirmedAt: null, confirmedBy: null }
+                : resolveSketchRoomConfirmAttribution({
+                    existingConfirmedAt: existingRoom?.confirmedAt ?? null,
+                    existingConfirmedBy: existingRoom?.confirmedBy ?? null,
+                    incomingConfirmedAt: node.confirmedAt,
+                    incomingConfirmedBy: node.confirmedBy,
+                    sessionUserId: session.user.id,
+                    isExplicitConfirm: resolved.isExplicitConfirm,
+                  });
             if (existingRoom) {
               await db.sketchRoom.update({
                 where: { id: existingRoom.id },
@@ -988,6 +1026,17 @@ export async function POST(
       {
         ...sketch,
         revision: floorRevisionOf(sketch.sketchData),
+        // RA-8233: which submitted room measurements the server recorded.
+        roomMeasurements: roomMeasurementResults,
+        // RA-8233: the provenance the server stored for each room in this
+        // save, so the editor shows what bills — including after an edit
+        // invalidated a measurement and no measurement was sent.
+        roomProvenance: Object.fromEntries(
+          [...resolvedByFabricId].map(([fabricId, r]) => [
+            fabricId,
+            r.provenance,
+          ]),
+        ),
         ...(canonicalRenderMeta
           ? { _saveMeta: { canonicalRender: canonicalRenderMeta } }
           : {}),
