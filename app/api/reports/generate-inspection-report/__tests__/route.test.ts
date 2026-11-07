@@ -9,6 +9,7 @@ const getServerSession = vi.fn();
 const applyRateLimit = vi.fn();
 const userFindUnique = vi.fn();
 const reportFindUnique = vi.fn();
+const featureEntitlementFindFirst = vi.fn();
 const resolveReportProvider = vi.fn();
 const getLatestAIIntegration = vi.fn();
 const resolveWorkspaceAiKey = vi.fn();
@@ -27,6 +28,9 @@ vi.mock("@/lib/prisma", () => ({
     user: { findUnique: (...args: unknown[]) => userFindUnique(...args) },
     report: {
       findUnique: (...args: unknown[]) => reportFindUnique(...args),
+    },
+    featureEntitlement: {
+      findFirst: (...args: unknown[]) => featureEntitlementFindFirst(...args),
     },
   },
 }));
@@ -123,6 +127,8 @@ beforeEach(() => {
   applyRateLimit.mockReset();
   userFindUnique.mockReset();
   reportFindUnique.mockReset();
+  featureEntitlementFindFirst.mockReset();
+  featureEntitlementFindFirst.mockResolvedValue(null);
   resolveReportProvider.mockReset();
   getLatestAIIntegration.mockReset();
   resolveWorkspaceAiKey.mockReset();
