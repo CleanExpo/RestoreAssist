@@ -5,12 +5,15 @@ import {
   genuineImage,
   makeJpeg,
   makeJpegWithoutScan,
+  makeTruncatedScanJpeg,
   makePng,
   makePngWithGarbageIdat,
   makePngWithoutIdat,
   makeWebp,
   makeWebpCanvasOnly,
 } from "@/lib/media/__tests__/image-fixtures";
+
+const truncatedScanJpeg = new Uint8Array(await makeTruncatedScanJpeg());
 
 const genuine = {
   png: new Uint8Array(await genuineImage("png", 40, 30)),
@@ -347,6 +350,11 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
         "PNG with garbage IDAT",
         () => new Uint8Array(makePngWithGarbageIdat()),
         "image/png",
+      ],
+      [
+        "JPEG with one-byte truncated scan",
+        () => truncatedScanJpeg,
+        "image/jpeg",
       ],
       [
         "JPEG with no scan",
