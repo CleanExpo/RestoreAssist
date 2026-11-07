@@ -67,6 +67,7 @@ vi.mock("@/lib/report-limits", () => ({
 
 import { POST } from "../route";
 import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
+import { PAID_BASE_PLAN_MESSAGE } from "@/lib/billing/paid-base-plan-copy";
 import {
   REPORT_GEN_PLATFORM_NOT_READY_BODY,
   reportGenByokRequiredBody,
@@ -453,8 +454,22 @@ describe("POST /api/reports/generate-enhanced — RA-7893 invited technician", (
     getServerSession.mockResolvedValue({ user: { id: "tech-1" } });
   }
 
-  it("a technician of a trialing owner passes the subscription gate and generates", async () => {
+  it("a technician of a trialing owner is 402'd — Enhanced is paid-plan only", async () => {
     seedOrg("TRIAL");
+
+    const res = await POST(
+      makeRequest({ technicianNotes: "Water damage to bedroom wall." }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.error.code).toBe("PAYMENT_REQUIRED");
+    expect(body.error.message).toBe(PAID_BASE_PLAN_MESSAGE);
+    expect(generateEnhancedReport).not.toHaveBeenCalled();
+  });
+
+  it("a technician of an ACTIVE owner passes the subscription gate and generates", async () => {
+    seedOrg("ACTIVE");
     generateEnhancedReport.mockResolvedValueOnce({
       ok: true,
       data: { enhancedReport: "Enhanced report body" },

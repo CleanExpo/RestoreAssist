@@ -111,7 +111,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { reportId, reportType = "enhanced" } = await request.json();
+    // L-2: trial keeps Basic. Default to basic so callers that omit
+    // reportType (older clients, RA-7601 platform-key tests) are not
+    // 402'd as Enhanced. UI that wants Enhanced / Optimised sends it.
+    const { reportId, reportType = "basic" } = await request.json();
 
     if (reportType !== "basic") {
       const paidGate = await requirePaidBasePlan(request, session.user.id);

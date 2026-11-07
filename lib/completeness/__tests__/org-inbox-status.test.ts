@@ -33,6 +33,7 @@ beforeEach(() => {
       propertyAddress: "1 Test St",
       inspectionNumber: status,
       clientId: null,
+      createdAt: new Date(2026, 8, 1),
       updatedAt: new Date(2026, 9, 1),
     })),
     inspectionPhoto: [],
