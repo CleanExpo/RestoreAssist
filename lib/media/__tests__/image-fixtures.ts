@@ -70,3 +70,62 @@ export function makeWebp(width = 2, height = 2): Buffer {
   riff.writeUInt32LE(body.length, 4);
   return Buffer.concat([riff, body]);
 }
+
+/** Terminated, correctly signed files that no decoder can open. */
+export function makePngWithoutIdat(): Buffer {
+  const png = makePng();
+  // signature + IHDR + IEND, dropping the IDAT chunk
+  const idatStart = 8 + 25;
+  const idatLength = png.readUInt32BE(idatStart);
+  return Buffer.concat([
+    png.subarray(0, idatStart),
+    png.subarray(idatStart + 12 + idatLength),
+  ]);
+}
+
+export function makePngWithGarbageIdat(): Buffer {
+  const png = makePng();
+  const idatStart = 8 + 25;
+  const idatLength = png.readUInt32BE(idatStart);
+  const garbage = Buffer.from(png);
+  garbage.fill(0xa5, idatStart + 8, idatStart + 8 + idatLength);
+  return garbage;
+}
+
+export function makeJpegWithoutScan(): Buffer {
+  const jpeg = makeJpeg();
+  const sos = jpeg.indexOf(Buffer.from([0xff, 0xda]));
+  return Buffer.concat([jpeg.subarray(0, sos), Buffer.from([0xff, 0xd9])]);
+}
+
+export function makeWebpCanvasOnly(): Buffer {
+  const head = Buffer.alloc(8);
+  head.write("VP8X", 0, "latin1");
+  head.writeUInt32LE(10, 4);
+  const canvas = Buffer.alloc(10);
+  canvas.writeUIntLE(1, 4, 3); // width - 1
+  canvas.writeUIntLE(1, 7, 3); // height - 1
+  const body = Buffer.concat([Buffer.from("WEBP", "latin1"), head, canvas]);
+  const riff = Buffer.alloc(8);
+  riff.write("RIFF", 0, "latin1");
+  riff.writeUInt32LE(body.length, 4);
+  return Buffer.concat([riff, body]);
+}
+
+/** A real, decoder-valid image made by sharp (no network). */
+export async function genuineImage(
+  format: "png" | "jpeg" | "webp",
+  width = 64,
+  height = 48,
+): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  const image = sharp({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: 240, g: 240, b: 240 },
+    },
+  });
+  return image[format]().toBuffer();
+}

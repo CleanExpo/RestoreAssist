@@ -102,6 +102,7 @@ export type StrictImageRejection =
   | "unsupported-type"
   | "mime-mismatch"
   | "malformed"
+  | "undecodable"
   | "pixel-bomb";
 
 export type StrictImageUploadResult =
@@ -124,13 +125,16 @@ function pngDimensions(b: Buffer): Dimensions | null {
   }
   // Walk the chunk list: every chunk must fit and IEND must end the file.
   let offset = 8;
+  let sawImageData = false;
   while (offset + 12 <= b.length) {
     const length = b.readUInt32BE(offset);
     const type = b.toString("latin1", offset + 4, offset + 8);
     const next = offset + 12 + length;
     if (next > b.length) return null;
+    if (type === "IDAT" && length > 0) sawImageData = true;
     if (type === "IEND") {
-      if (next !== b.length) return null;
+      // A decoder needs at least one non-empty IDAT before IEND.
+      if (next !== b.length || !sawImageData) return null;
       return { width: b.readUInt32BE(16), height: b.readUInt32BE(20) };
     }
     offset = next;
@@ -141,6 +145,7 @@ function pngDimensions(b: Buffer): Dimensions | null {
 function jpegDimensions(b: Buffer): Dimensions | null {
   if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null;
   let offset = 2;
+  let dims: Dimensions | null = null;
   while (offset + 4 <= b.length) {
     if (b[offset] !== 0xff) return null;
     const marker = b[offset + 1];
@@ -148,7 +153,7 @@ function jpegDimensions(b: Buffer): Dimensions | null {
       offset++; // fill byte
       continue;
     }
-    if (marker === 0xd9 || marker === 0xda) return null; // ended before a frame header
+    if (marker === 0xd9) return null; // ended before a scan
     if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
       offset += 2;
       continue;
@@ -159,15 +164,19 @@ function jpegDimensions(b: Buffer): Dimensions | null {
       marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker);
     if (isFrame) {
       if (length < 8) return null;
-      // Truncation check: an end-of-image marker must follow the frame header.
-      // Trailing data after it (some cameras append it) is tolerated.
-      if (b.lastIndexOf(Buffer.from([0xff, 0xd9])) < offset + 2 + length) {
-        return null;
-      }
-      return {
+      dims = {
         height: b.readUInt16BE(offset + 5),
         width: b.readUInt16BE(offset + 7),
       };
+    }
+    if (marker === 0xda) {
+      // Start of scan: needs a frame header before it, scan data, and an
+      // end-of-image marker after it. Trailing camera data is tolerated.
+      const scanStart = offset + 2 + length;
+      if (!dims || b.lastIndexOf(Buffer.from([0xff, 0xd9])) < scanStart + 1) {
+        return null;
+      }
+      return dims;
     }
     offset += 2 + length;
   }
@@ -206,6 +215,20 @@ function webpDimensions(b: Buffer): Dimensions | null {
   }
   if (fourcc === "VP8X") {
     if (size < 10) return null;
+    // The canvas alone is not an image: a VP8/VP8L bitstream chunk must follow.
+    let chunk = d + size + (size % 2);
+    let hasImage = false;
+    while (chunk + 8 <= b.length) {
+      const type = b.toString("latin1", chunk, chunk + 4);
+      const chunkSize = b.readUInt32LE(chunk + 4);
+      if (chunk + 8 + chunkSize > b.length) return null;
+      if ((type === "VP8 " || type === "VP8L") && chunkSize > 0) {
+        hasImage = true;
+        break;
+      }
+      chunk += 8 + chunkSize + (chunkSize % 2);
+    }
+    if (!hasImage) return null;
     return {
       width: 1 + (b[d + 4] | (b[d + 5] << 8) | (b[d + 6] << 16)),
       height: 1 + (b[d + 7] | (b[d + 8] << 8) | (b[d + 9] << 16)),
