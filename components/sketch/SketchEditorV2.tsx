@@ -75,7 +75,10 @@ import {
   fabricObjectToSelected,
 } from "@/lib/sketch/selected-object";
 import { applyRoomModifiedGeometry } from "@/lib/sketch/room-modified-geometry";
-import { confirmAiSuggestedMeasurement } from "@/lib/sketch/ai-suggested-confirm";
+import {
+  confirmAiSuggestedMeasurement,
+  type RoomMeasurementInput,
+} from "@/lib/sketch/ai-suggested-confirm";
 import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
 import { polygonAbsolutePoints } from "@/lib/sketch/fabric-absolute";
 import {
@@ -575,6 +578,15 @@ export function SketchEditorV2({
   // then says it exists only on this screen.
   const [revisionConflictKept, setRevisionConflictKept] = useState(true);
   const confirmedFabricObjectIdsRef = useRef<Set<string>>(new Set());
+  /**
+   * RA-8233 — on-site measurements entered at Confirm for AI-suggested
+   * rooms, sent with the next save of the room's floor. Cleared once the
+   * server answers for them, so a later geometry edit is never re-bound to
+   * an old measurement.
+   */
+  const pendingRoomMeasurementsRef = useRef<Map<string, RoomMeasurementInput>>(
+    new Map(),
+  );
   /** RA-7091 — run pending RoomPlan custody recovery once per inspection. */
   const roomPlanRecoveryKeyRef = useRef<string | null>(null);
 
@@ -1130,6 +1142,21 @@ export function SketchEditorV2({
           await import("@/lib/sketch/ingest-roomplan");
         const captureAdapter = resolveSketchCaptureAdapter({ sketchData });
 
+        // RA-8233: only this floor's rooms, so the server does not refuse a
+        // measurement for a room that lives on another floor.
+        const floorObjects = (sketchData as { objects?: unknown }).objects;
+        const floorRoomIds = new Set(
+          (Array.isArray(floorObjects)
+            ? (floorObjects as Array<{ data?: { id?: unknown } } | null>)
+            : []
+          )
+            .map((o) => o?.data?.id)
+            .filter((v): v is string => typeof v === "string"),
+        );
+        const sentMeasurements = [
+          ...pendingRoomMeasurementsRef.current.values(),
+        ].filter((m) => floorRoomIds.has(m.fabricObjectId));
+
         const body = {
           floorNumber: fd.floor.floorNumber,
           floorLabel: fd.floor.floorLabel,
@@ -1148,6 +1175,9 @@ export function SketchEditorV2({
           confirmedFabricObjectIds: [
             ...confirmedFabricObjectIdsRef.current,
           ],
+          ...(sentMeasurements.length > 0
+            ? { roomMeasurements: sentMeasurements }
+            : {}),
           ...(removalMark > 0 ? { userRemovedRooms: true as const } : {}),
         };
 
@@ -1174,7 +1204,58 @@ export function SketchEditorV2({
             const savedSketch = (await res.json().catch(() => null)) as {
               id?: string;
               revision?: string;
+              roomMeasurements?: Array<{
+                fabricObjectId?: unknown;
+                accepted?: unknown;
+              }>;
             } | null;
+            // RA-8233: settle the measurements this save carried. A refused
+            // one puts the room back to AI-suggested on screen, matching
+            // what the server stored and bills.
+            const answered = Array.isArray(savedSketch?.roomMeasurements)
+              ? savedSketch.roomMeasurements
+              : [];
+            for (const sent of sentMeasurements) {
+              const answer = answered.find(
+                (a) => a?.fabricObjectId === sent.fabricObjectId,
+              );
+              if (!answer) continue;
+              if (
+                pendingRoomMeasurementsRef.current.get(sent.fabricObjectId) ===
+                sent
+              ) {
+                pendingRoomMeasurementsRef.current.delete(sent.fabricObjectId);
+              }
+              if (answer.accepted === true) continue;
+              confirmedFabricObjectIdsRef.current.delete(sent.fabricObjectId);
+              const fcRefused = fd.canvasRef.current?.getFabricCanvas() as {
+                getObjects: () => unknown[];
+                renderAll: () => void;
+              } | null;
+              const refusedObj = fcRefused
+                ?.getObjects()
+                .find(
+                  (o) =>
+                    (
+                      (o as Record<string, unknown>).data as
+                        | Record<string, unknown>
+                        | undefined
+                    )?.id === sent.fabricObjectId,
+                ) as Record<string, unknown> | undefined;
+              if (refusedObj?.data) {
+                (refusedObj.data as Record<string, unknown>).provenance =
+                  "ai_suggested";
+                fcRefused?.renderAll();
+              }
+              setSelectedObj((prev) =>
+                prev && prev.id === sent.fabricObjectId
+                  ? { ...prev, provenance: "ai_suggested" }
+                  : prev,
+              );
+              toast.error(
+                "The measurement did not match the drawn room, so it was not recorded. Correct the room and confirm again.",
+              );
+            }
             // RA-8056: the next save of this floor is based on this one.
             const savedRevision = readFloorRevision(savedSketch);
             if (!captureToken && savedRevision) {
@@ -3416,7 +3497,7 @@ export function SketchEditorV2({
             );
             scheduleSave();
           }}
-          onConfirmProvenance={(id) => {
+          onConfirmProvenance={(id, measurement) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
               getObjects: () => unknown[];
               renderAll: () => void;
@@ -3455,16 +3536,16 @@ export function SketchEditorV2({
               return;
             }
             if (data.provenance === "ai_suggested") {
-              const lengthM =
-                typeof data.lengthM === "number" ? data.lengthM : undefined;
-              const widthM =
-                typeof data.widthM === "number" ? data.widthM : undefined;
-              const areaM2 =
-                typeof data.areaM2 === "number" ? data.areaM2 : undefined;
+              // RA-8233: the AI's own dimensions are not a measurement. The
+              // panel only offers Confirm once the technician has entered
+              // one; the server records it and decides billing.
+              if (!measurement) return;
               obj.data = confirmAiSuggestedMeasurement(data, {
-                areaM2,
-                lengthM,
-                widthM,
+                note: "Technician measured the room on site and confirmed",
+              });
+              pendingRoomMeasurementsRef.current.set(id, {
+                fabricObjectId: id,
+                ...measurement,
               });
               confirmedFabricObjectIdsRef.current.add(id);
               fc.renderAll();
