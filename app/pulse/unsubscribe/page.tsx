@@ -37,7 +37,7 @@ export default async function PulseUnsubscribePage({
 
   if (done === "1") {
     return (
-      <main className={PAGE_CLASS}>
+      <main className={PAGE_CLASS} role="status" aria-live="polite">
         <h1 className="mx-auto max-w-md text-xl font-semibold">You are unsubscribed</h1>
         <p className="mx-auto mt-3 max-w-md text-sm text-slate-600">
           Automated restoration progress emails will no longer be sent to this
@@ -50,7 +50,7 @@ export default async function PulseUnsubscribePage({
 
   if (!isValidToken(token)) {
     return (
-      <main className={PAGE_CLASS}>
+      <main className={PAGE_CLASS} role="alert">
         <h1 className="mx-auto max-w-md text-xl font-semibold">Link not valid</h1>
         <p className="mx-auto mt-3 max-w-md text-sm text-slate-600">
           This unsubscribe link is invalid or incomplete. Contact your
@@ -61,8 +61,13 @@ export default async function PulseUnsubscribePage({
   }
 
   return (
-    <main className={PAGE_CLASS}>
-      <h1 className="mx-auto max-w-md text-xl font-semibold">Stop job update emails?</h1>
+    <main className={PAGE_CLASS} aria-labelledby="pulse-unsub-heading">
+      <h1
+        id="pulse-unsub-heading"
+        className="mx-auto max-w-md text-xl font-semibold"
+      >
+        Stop job update emails?
+      </h1>
       <p className="mx-auto mt-3 max-w-md text-sm text-slate-600">
         You will no longer get automated progress emails about restoration jobs
         from this business. Your contractor can still contact you directly about

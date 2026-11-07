@@ -585,7 +585,11 @@ export function FloorPlanUnderlayLoader({
 
           {/* Error state */}
           {error && (
-            <div className="flex items-start gap-2 p-2 rounded-lg bg-destructive-subtle text-destructive-subtle-foreground text-xs">
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="flex items-start gap-2 p-2 rounded-lg bg-destructive-subtle text-destructive-subtle-foreground text-xs"
+            >
               <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
               {error}
             </div>

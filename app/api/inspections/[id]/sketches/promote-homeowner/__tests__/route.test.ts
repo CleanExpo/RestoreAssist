@@ -105,6 +105,46 @@ describe("POST promote-homeowner", () => {
     expect(arg.data.pendingHomeownerCapture).toBe("__DbNull__"); // cleared
   });
 
+  it("RA-8241 — reconciles forged client areaM2 from polygon on promote", async () => {
+    p.claimSketch.findMany.mockResolvedValue([
+      {
+        id: "cs_geo",
+        pendingHomeownerCapture: {
+          sketchData: {
+            scaleConfig: { pxPerMetre: 100 },
+            objects: [
+              {
+                type: "polygon",
+                points: [
+                  { x: 0, y: 0 },
+                  { x: 300, y: 0 },
+                  { x: 300, y: 300 },
+                  { x: 0, y: 300 },
+                ],
+                data: {
+                  type: "room",
+                  id: "forged",
+                  provenance: "operator_measured",
+                  areaM2: 900,
+                  lengthM: 30,
+                  widthM: 30,
+                },
+              },
+            ],
+          },
+        },
+      },
+    ]);
+    const res = await POST(req(), params);
+    expect(res.status).toBe(200);
+    const arg = p.claimSketch.update.mock.calls[0][0];
+    const room = (arg.data.sketchData as { objects: { data: Record<string, unknown> }[] })
+      .objects[0].data;
+    expect(room.areaM2).toBe(9);
+    expect(room.lengthM).toBeUndefined();
+    expect(room.provenance).toBe("underlay_reference");
+  });
+
   it("promotes nothing when there are no pending submissions", async () => {
     p.claimSketch.findMany.mockResolvedValue([
       { id: "cs_1", pendingHomeownerCapture: null },

@@ -96,7 +96,7 @@ const VALID_BODY = {
 
 const VALID_CLAIMS = {
   sub: "google_sub",
-  email: "USER@EXAMPLE.COM",
+  email: "USER@ACME-RESTORATION.COM.AU",
   email_verified: true,
   name: "Test User",
   picture: null,
@@ -151,7 +151,7 @@ describe("POST /api/auth/native-token-exchange", () => {
   it("consumes a server-issued nonce once and refuses replay", async () => {
     jwtVerify.mockResolvedValue({ payload: VALID_CLAIMS });
     userFindUnique.mockResolvedValue({
-      id: "u1", email: "user@example.com", name: "User", image: null,
+      id: "u1", email: "user@acme-restoration.com.au", name: "User", image: null,
       role: "USER", needsOnboarding: false, organization: { setupCompletedAt: null },
     });
     encodeJwt.mockResolvedValue("session");
@@ -195,7 +195,7 @@ describe("POST /api/auth/native-token-exchange", () => {
       id: "account-apple",
       user: {
         id: "apple-user",
-        email: "relay@example.com",
+        email: "relay@acme-restoration.com.au",
         name: "Apple User",
         image: null,
         role: "USER",
@@ -279,7 +279,7 @@ describe("POST /api/auth/native-token-exchange", () => {
     userFindUnique
       .mockResolvedValueOnce({
         id: "victim",
-        email: "user@example.com",
+        email: "user@acme-restoration.com.au",
         name: "Victim",
         image: null,
         role: "ADMIN",
@@ -308,7 +308,7 @@ describe("POST /api/auth/native-token-exchange", () => {
     jwtVerify.mockResolvedValueOnce({ payload: VALID_CLAIMS });
     userFindUnique.mockResolvedValueOnce({
       id: "u-2fa",
-      email: "user@example.com",
+      email: "user@acme-restoration.com.au",
       name: "Protected User",
       image: null,
       role: "ADMIN",
@@ -347,7 +347,7 @@ describe("POST /api/auth/native-token-exchange", () => {
     userFindUnique
       .mockResolvedValueOnce({
         id: "user_1",
-        email: "user@example.com",
+        email: "user@acme-restoration.com.au",
         name: "Test User",
         image: null,
         role: "ADMIN",
@@ -393,7 +393,7 @@ function findSessionCookie(response: Awaited<ReturnType<typeof POST>>) {
 describe("POST /api/auth/native-token-exchange — persistence contract", () => {
   const EXISTING_USER = {
     id: "user_1",
-    email: "user@example.com",
+    email: "user@acme-restoration.com.au",
     name: "Test User",
     image: null,
     role: "ADMIN",
@@ -416,7 +416,7 @@ describe("POST /api/auth/native-token-exchange — persistence contract", () => 
     // Existing user is redeemed, not re-created.
     expect(userCreate).not.toHaveBeenCalled();
     expect(userFindUnique).toHaveBeenNthCalledWith(1, {
-      where: { email: "user@example.com" },
+      where: { email: "user@acme-restoration.com.au" },
     });
     expect(accountCreate).toHaveBeenCalledWith({
       data: {
@@ -481,7 +481,7 @@ describe("POST /api/auth/native-token-exchange — persistence contract", () => 
     expect(userCreate).toHaveBeenCalledTimes(1);
     expect(userCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ email: "user@example.com" }),
+        data: expect.objectContaining({ email: "user@acme-restoration.com.au" }),
       }),
     );
 
@@ -489,5 +489,20 @@ describe("POST /api/auth/native-token-exchange — persistence contract", () => 
     expect(cookie).toBeDefined();
     expect(cookie!.maxAge).toBe(NINETY_DAYS_S);
     expect(cookie!.httpOnly).toBe(true);
+  });
+
+  it("RA-8156 — rejects reserved .test email on native new-user signup", async () => {
+    jwtVerify.mockResolvedValueOnce({
+      payload: {
+        ...VALID_CLAIMS,
+        email: "owner@company.test",
+      },
+    });
+    userFindUnique.mockResolvedValueOnce(null);
+    const response = await POST(postRequest(VALID_BODY));
+    expect(response.status).toBe(400);
+    expect(userCreate).not.toHaveBeenCalled();
+    const body = await response.json();
+    expect(body.error?.message).toMatch(/reserved|cannot/i);
   });
 });

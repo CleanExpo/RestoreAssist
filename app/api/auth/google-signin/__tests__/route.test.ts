@@ -121,16 +121,30 @@ describe("Firebase Google identity boundary", () => {
     expect(userCreate).not.toHaveBeenCalled();
   });
 
+  it("rejects reserved .test email on new Google signup", async () => {
+    verifyIdToken.mockResolvedValue({
+      email: "owner@company.test",
+      email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
+    });
+    userFindUnique.mockResolvedValueOnce(null);
+    const response = await POST(request({ name: "Test" }));
+    expect(response.status).toBe(400);
+    expect(userCreate).not.toHaveBeenCalled();
+    const json = await response.json();
+    expect(json.error.message).toMatch(/reserved|cannot/i);
+  });
+
   it("waits for durable welcome delivery before committing the serverless response", async () => {
     verifyIdToken.mockResolvedValue({
-      email: "new@example.com",
+      email: "new@acme-restoration.com.au",
       email_verified: true,
       firebase: { sign_in_provider: "google.com" },
     });
     userFindUnique.mockResolvedValueOnce(null);
     userCreate.mockResolvedValueOnce({
       id: "new-user",
-      email: "new@example.com",
+      email: "new@acme-restoration.com.au",
       name: "New User",
       image: null,
       role: "ADMIN",

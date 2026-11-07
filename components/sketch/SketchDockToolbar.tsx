@@ -731,6 +731,7 @@ export function SketchDockToolbar({
             type="button"
             title="Import hand-drawn sketch (Claude Vision)"
             aria-label="Import hand-drawn sketch"
+            aria-busy={isImporting}
             disabled={isImporting || isScanning}
             onClick={() => fileInputRef.current?.click()}
             className={cn(

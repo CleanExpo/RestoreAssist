@@ -151,6 +151,29 @@ export function resolveRoomAreaM2(
   return null;
 }
 
+/**
+ * RA-8241 — homeowner / client-origin blobs may lie about m². Promotion and
+ * billing guards must derive area from the drawn polygon only.
+ */
+export function areaM2FromGeometryOnly(
+  obj: RoomGeometryObject,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): number | null {
+  const data = obj.data;
+  const stripped: RoomGeometryObject = {
+    ...obj,
+    data: data
+      ? {
+          ...data,
+          areaM2: undefined,
+          lengthM: undefined,
+          widthM: undefined,
+        }
+      : undefined,
+  };
+  return resolveRoomAreaM2(stripped, pxPerMetre);
+}
+
 export function resolveRoomPerimeterM(
   obj: RoomGeometryObject,
   pxPerMetre = DEFAULT_PX_PER_METRE,
