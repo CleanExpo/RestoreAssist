@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import BillingGate from "@/components/capacitor/BillingGate";
 import { OrganizationLocaleSetting } from "@/components/settings/OrganizationLocaleSetting";
+import { OrganizationProfileSetting } from "@/components/settings/OrganizationProfileSetting";
 import { BusinessDetailsSetting } from "@/components/settings/BusinessDetailsSetting";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
@@ -368,6 +369,8 @@ export default function SettingsPage() {
 
       {/* Appearance — theme control (reuses the existing next-themes provider) */}
       <AppearanceSetting />
+
+      <OrganizationProfileSetting />
 
       <OrganizationLocaleSetting />
 

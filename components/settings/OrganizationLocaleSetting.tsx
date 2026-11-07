@@ -82,7 +82,11 @@ export function OrganizationLocaleSetting() {
   };
 
   return (
-    <section className="rounded-xl border border-slate-700/80 bg-slate-800/40 p-5" aria-labelledby="organisation-locale-title">
+    <section
+      id="organisation-locale"
+      className="rounded-xl border border-slate-700/80 bg-slate-800/40 p-5 scroll-mt-24"
+      aria-labelledby="organisation-locale-title"
+    >
       <div className="mb-4">
         <h2 id="organisation-locale-title" className="font-medium text-white">
           Organisation locale and tax
