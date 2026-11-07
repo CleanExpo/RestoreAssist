@@ -29,7 +29,18 @@ describe("Homeowner /capture/[token] page", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ propertyAddress: "12 Test St, Brisbane" }),
+        json: async () => ({
+          propertyAddress: "12 Test St, Brisbane",
+          floors: [
+            {
+              floorNumber: 0,
+              floorLabel: "Ground",
+              pendingHomeownerCapture: {
+                sketchData: { objects: [{ data: { type: "room", id: "r1" } }] },
+              },
+            },
+          ],
+        }),
       }),
     );
     render(<HomeownerCapturePage />);
@@ -39,6 +50,7 @@ describe("Homeowner /capture/[token] page", () => {
     expect(screen.getByText(/12 Test St/)).toBeInTheDocument();
     expect(editorProps.mode).toBe("guided");
     expect(editorProps.captureToken).toBe("tok123");
+    expect(editorProps.captureInitialFloors).toHaveLength(1);
   });
 
   it("shows a dead-end (never the editor) on an invalid/expired token", async () => {
