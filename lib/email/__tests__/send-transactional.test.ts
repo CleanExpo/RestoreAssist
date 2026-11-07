@@ -122,3 +122,75 @@ describe("sendTransactionalEmail (Mailtrap)", () => {
     expect(result.error).toMatchObject({ name: "mailtrap_missing_receipt" });
   });
 });
+
+describe("sendTransactionalEmail default reply-to (EMAIL_REPLY_TO)", () => {
+  const originalReplyTo = process.env.EMAIL_REPLY_TO;
+  const ok = () =>
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({ success: true, message_ids: ["mt-msg-r"] }),
+    });
+  const sentBody = () => JSON.parse(fetchMock.mock.calls[0][1].body);
+  const base = { to: "c@example.com", subject: "S", html: "<p>h</p>" };
+
+  afterEach(() => {
+    if (originalReplyTo === undefined) delete process.env.EMAIL_REPLY_TO;
+    else process.env.EMAIL_REPLY_TO = originalReplyTo;
+  });
+
+  it("applies EMAIL_REPLY_TO when the caller gives no replyTo", async () => {
+    process.env.EMAIL_REPLY_TO = "inbox@example.com";
+    ok();
+    await sendTransactionalEmail(base);
+    expect(sentBody().reply_to).toEqual({ email: "inbox@example.com" });
+  });
+
+  it("lets an explicit caller replyTo (or reply_to alias) win", async () => {
+    process.env.EMAIL_REPLY_TO = "inbox@example.com";
+    ok();
+    await sendTransactionalEmail({ ...base, replyTo: "tech@biz.example" });
+    expect(sentBody().reply_to).toEqual({ email: "tech@biz.example" });
+    fetchMock.mockClear();
+    await sendTransactionalEmail({ ...base, reply_to: "alias@biz.example" });
+    expect(sentBody().reply_to).toEqual({ email: "alias@biz.example" });
+  });
+
+  it.each([undefined, "", "   "])(
+    "omits reply_to entirely when EMAIL_REPLY_TO is %j",
+    async (v) => {
+      if (v === undefined) delete process.env.EMAIL_REPLY_TO;
+      else process.env.EMAIL_REPLY_TO = v;
+      ok();
+      await sendTransactionalEmail(base);
+      expect("reply_to" in sentBody()).toBe(false);
+    },
+  );
+
+  it("changes nothing else in the payload", async () => {
+    delete process.env.EMAIL_REPLY_TO;
+    ok();
+    await sendTransactionalEmail({ ...base, text: "t", headers: { "X-A": "1" } });
+    const without = sentBody();
+    fetchMock.mockClear();
+    process.env.EMAIL_REPLY_TO = "inbox@example.com";
+    await sendTransactionalEmail({ ...base, text: "t", headers: { "X-A": "1" } });
+    const { reply_to, ...rest } = sentBody();
+    expect(reply_to).toEqual({ email: "inbox@example.com" });
+    expect(rest).toEqual(without);
+  });
+
+  it("logs a secret-free warning when skipped as not_configured", async () => {
+    delete process.env.MAILTRAP_API_KEY;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const r = await sendTransactionalEmail({ ...base, replyTo: "x@y.example" });
+    expect(r.error?.name).toBe("not_configured");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const msg = String(warn.mock.calls[0][0]);
+    expect(msg).toContain("not_configured");
+    expect(msg).not.toContain("c@example.com");
+    expect(msg).not.toContain("mt_test_key");
+    warn.mockRestore();
+  });
+});
