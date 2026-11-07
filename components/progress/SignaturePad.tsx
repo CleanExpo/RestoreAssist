@@ -4,12 +4,14 @@
  * SignaturePad — RA-1703 / Pi-Sign client capture surface.
  *
  * Canvas-based signature capture. Supports pointer events (mouse + touch
- * + stylus). On submit, exports the canvas as base64 PNG and POSTs to
+ * + stylus). On submit, calls /pre-attest (RA-1708 consent), then POSTs to
  * /api/progress/[reportId]/attest. The route validates + integrity-hashes
  * + stores on ProgressAttestation.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import { buildAttestationConsentSummary } from "@/lib/progress/attestation-consent-summary";
 
 export interface SignaturePadProps {
   reportId: string;
@@ -22,6 +24,8 @@ export interface SignaturePadProps {
     | "LABOUR_HIRE_SELF";
   transitionId?: string;
   attestationNote?: string;
+  /** Human label for the transition step (shown in consent prose). */
+  actionLabel?: string;
   /** Optional CSRF token sourced from the page. */
   csrfToken?: string;
   /** Max width in CSS pixels (will shrink to fit container on mobile). */
@@ -37,11 +41,18 @@ export interface SignaturePadProps {
   onError?: (message: string) => void;
 }
 
+function consentTokenStaleMessage(body: unknown, status: number): boolean {
+  const msg = apiErrorMessage(body) ?? "";
+  if (status === 409) return true;
+  return /consentToken|pre-attest/i.test(msg);
+}
+
 export default function SignaturePad({
   reportId,
   attestationType,
   transitionId,
   attestationNote,
+  actionLabel,
   csrfToken,
   maxWidth = 600,
   aspectRatio = 3,
@@ -54,6 +65,25 @@ export default function SignaturePad({
   const last = useRef<{ x: number; y: number } | null>(null);
   const [hasInk, setHasInk] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [consentAcknowledged, setConsentAcknowledged] = useState(false);
+  const [consentToken, setConsentToken] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const contentSummary = useMemo(
+    () =>
+      buildAttestationConsentSummary({
+        attestationType,
+        actionLabel,
+        reportId,
+      }),
+    [attestationType, actionLabel, reportId],
+  );
+
+  useEffect(() => {
+    setConsentToken(null);
+    setConsentAcknowledged(false);
+    setSuccessMessage(null);
+  }, [contentSummary]);
 
   // Set up the canvas with retina scaling so the stored PNG looks crisp.
   // Sizing is responsive: caps at maxWidth, but shrinks to the wrapper's
@@ -134,16 +164,58 @@ export default function SignaturePad({
     setHasInk(false);
   };
 
+  const issueConsentToken = async (
+    headers: Record<string, string>,
+  ): Promise<string> => {
+    const resp = await fetch(
+      `/api/progress/${encodeURIComponent(reportId)}/pre-attest`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          attestationType,
+          contentSummary,
+          consentAcknowledged: true,
+        }),
+      },
+    );
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const msg =
+        apiErrorMessage(json) ?? `Consent step failed (${resp.status})`;
+      throw new Error(msg);
+    }
+    const token = (json as { consentToken?: string }).consentToken;
+    if (!token) {
+      throw new Error("Consent token missing from server response");
+    }
+    return token;
+  };
+
   const submit = async () => {
     const c = canvasRef.current;
     if (!c || !hasInk || submitting) return;
+    if (!consentAcknowledged) {
+      onError?.(
+        "Read the attestation statement and tick the consent box before signing.",
+      );
+      return;
+    }
     setSubmitting(true);
+    setSuccessMessage(null);
     try {
-      const dataUrl = c.toDataURL("image/png");
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
       if (csrfToken) headers["x-csrf-token"] = csrfToken;
+
+      let token = consentToken;
+      if (!token) {
+        token = await issueConsentToken(headers);
+        setConsentToken(token);
+      }
+
+      const dataUrl = c.toDataURL("image/png");
       const resp = await fetch(
         `/api/progress/${encodeURIComponent(reportId)}/attest`,
         {
@@ -153,15 +225,18 @@ export default function SignaturePad({
             attestationType,
             transitionId,
             attestationNote,
+            consentToken: token,
             signatureDataUrl: dataUrl,
           }),
         },
       );
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
+        if (consentTokenStaleMessage(json, resp.status)) {
+          setConsentToken(null);
+        }
         const msg =
-          (json as { error?: string }).error ??
-          `Attestation failed (${resp.status})`;
+          apiErrorMessage(json) ?? `Attestation failed (${resp.status})`;
         onError?.(msg);
         return;
       }
@@ -175,6 +250,9 @@ export default function SignaturePad({
           };
         }
       ).data;
+      setConsentToken(null);
+      setConsentAcknowledged(false);
+      setSuccessMessage("Signature recorded. Updating claim…");
       onAttested?.(data);
       clear();
     } catch (err) {
@@ -184,8 +262,34 @@ export default function SignaturePad({
     }
   };
 
+  const onConsentChange = (checked: boolean) => {
+    setConsentAcknowledged(checked);
+    if (!checked) setConsentToken(null);
+  };
+
+  const canSubmit = hasInk && consentAcknowledged && !submitting;
+
   return (
     <div className="space-y-3">
+      <fieldset className="rounded-md border bg-background/60 p-3 space-y-2">
+        <legend className="text-xs font-medium uppercase tracking-wide text-muted-foreground px-1">
+          Electronic attestation
+        </legend>
+        <p className="text-sm leading-relaxed">{contentSummary}</p>
+        <label className="flex gap-2 items-start text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-1 min-h-4 min-w-4"
+            checked={consentAcknowledged}
+            onChange={(e) => onConsentChange(e.target.checked)}
+            disabled={submitting}
+          />
+          <span>
+            I have read and agree to sign this statement electronically.
+          </span>
+        </label>
+      </fieldset>
+
       <div
         ref={wrapperRef}
         className="rounded-md border bg-white w-full max-w-full overflow-hidden"
@@ -200,20 +304,20 @@ export default function SignaturePad({
           aria-label="Signature canvas — draw to sign"
         />
       </div>
-      <div className="flex gap-2 items-center">
+      <div className="flex flex-wrap gap-2 items-center">
         <button
           type="button"
           onClick={clear}
           disabled={!hasInk || submitting}
-          className="px-3 py-1.5 text-sm rounded border disabled:opacity-50"
+          className="min-h-11 px-3 py-1.5 text-sm rounded border disabled:opacity-50"
         >
-          Clear
+          Clear signature
         </button>
         <button
           type="button"
           onClick={submit}
-          disabled={!hasInk || submitting}
-          className="px-3 py-1.5 text-sm rounded bg-foreground text-background disabled:opacity-50"
+          disabled={!canSubmit}
+          className="min-h-11 px-3 py-1.5 text-sm rounded bg-foreground text-background disabled:opacity-50"
         >
           {submitting ? "Signing…" : "Attest & sign"}
         </button>
@@ -221,8 +325,17 @@ export default function SignaturePad({
           <span className="text-xs text-muted-foreground">
             Sign above with mouse, finger, or stylus.
           </span>
+        ) : !consentAcknowledged ? (
+          <span className="text-xs text-muted-foreground">
+            Tick consent above to enable Attest &amp; sign.
+          </span>
         ) : null}
       </div>
+      {successMessage ? (
+        <p className="text-sm text-green-700 dark:text-green-400" role="status">
+          {successMessage}
+        </p>
+      ) : null}
     </div>
   );
 }

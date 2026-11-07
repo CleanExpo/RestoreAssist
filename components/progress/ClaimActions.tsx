@@ -241,6 +241,7 @@ function AttestFlow({
   csrfToken,
   onSubmitTransition,
   onAttested,
+  note,
   disabled,
 }: {
   action: LegalAction;
@@ -264,7 +265,13 @@ function AttestFlow({
     setCommitting(true);
     setError(null);
     const data = await onSubmitTransition();
-    if (data) setTransitionId(data.id);
+    if (data) {
+      setTransitionId(data.id);
+    } else {
+      setError(
+        "The transition could not be committed. Check the message below and try again.",
+      );
+    }
     setCommitting(false);
   };
 
@@ -285,13 +292,38 @@ function AttestFlow({
   }
 
   return (
-    <SignaturePad
-      reportId={reportId}
-      attestationType={action.attestationType ?? "TECHNICIAN_SIGN_OFF"}
-      transitionId={transitionId}
-      csrfToken={csrfToken}
-      onAttested={onAttested}
-      onError={setError}
-    />
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        The claim has already moved to the next stage. Your signature is still
+        required for this transition — if signing fails, you can retry below
+        without committing the transition again.
+      </p>
+      <SignaturePad
+        reportId={reportId}
+        attestationType={action.attestationType ?? "TECHNICIAN_SIGN_OFF"}
+        transitionId={transitionId}
+        actionLabel={action.label}
+        attestationNote={note.trim() || undefined}
+        csrfToken={csrfToken}
+        onAttested={(result) => {
+          setError(null);
+          onAttested(result);
+        }}
+        onError={setError}
+      />
+      {error ? (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive space-y-1"
+        >
+          <p>{error}</p>
+          <p className="text-xs font-normal text-destructive/90">
+            The stage change is already saved. Fix the issue and press Attest
+            &amp; sign again — you do not need to use Commit transition a
+            second time.
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
