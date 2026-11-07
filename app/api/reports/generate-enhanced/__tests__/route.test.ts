@@ -7,6 +7,7 @@ const withIdempotency = vi.fn();
 const resolveWorkspaceAiKey = vi.fn();
 const generateEnhancedReport = vi.fn();
 const userFindUnique = vi.fn();
+const featureEntitlementFindFirst = vi.fn();
 const reportCreate = vi.fn();
 const reportUpdate = vi.fn();
 const reportFindUnique = vi.fn();
@@ -50,6 +51,9 @@ vi.mock("@/lib/services/ai/generate-enhanced-report", async () => {
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: (...args: unknown[]) => userFindUnique(...args) },
+    featureEntitlement: {
+      findFirst: (...args: unknown[]) => featureEntitlementFindFirst(...args),
+    },
     report: {
       create: (...args: unknown[]) => reportCreate(...args),
       update: (...args: unknown[]) => reportUpdate(...args),
@@ -67,6 +71,8 @@ vi.mock("@/lib/report-limits", () => ({
 
 import { POST } from "../route";
 import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
+import { PAID_BASE_PLAN_MESSAGE } from "@/lib/billing/paid-base-plan-copy";
+import { COMPLIMENTARY_PRICE_ID } from "@/lib/billing/founding-trial-grant";
 import {
   REPORT_GEN_PLATFORM_NOT_READY_BODY,
   reportGenByokRequiredBody,
@@ -87,6 +93,8 @@ beforeEach(() => {
   resolveWorkspaceAiKey.mockReset();
   generateEnhancedReport.mockReset();
   userFindUnique.mockReset();
+  featureEntitlementFindFirst.mockReset();
+  featureEntitlementFindFirst.mockResolvedValue(null);
   reportCreate.mockReset();
   reportUpdate.mockReset();
   reportFindUnique.mockReset();
@@ -453,8 +461,22 @@ describe("POST /api/reports/generate-enhanced — RA-7893 invited technician", (
     getServerSession.mockResolvedValue({ user: { id: "tech-1" } });
   }
 
-  it("a technician of a trialing owner passes the subscription gate and generates", async () => {
+  it("a technician of a trialing owner is 402'd — Enhanced is paid-plan only", async () => {
     seedOrg("TRIAL");
+
+    const res = await POST(
+      makeRequest({ technicianNotes: "Water damage to bedroom wall." }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.error.code).toBe("PAYMENT_REQUIRED");
+    expect(body.error.message).toBe(PAID_BASE_PLAN_MESSAGE);
+    expect(generateEnhancedReport).not.toHaveBeenCalled();
+  });
+
+  it("a technician of an ACTIVE owner passes the subscription gate and generates", async () => {
+    seedOrg("ACTIVE");
     generateEnhancedReport.mockResolvedValueOnce({
       ok: true,
       data: { enhancedReport: "Enhanced report body" },
@@ -483,6 +505,81 @@ describe("POST /api/reports/generate-enhanced — RA-7893 invited technician", (
 
   it("refuses a technician removed from the organisation", async () => {
     seedOrg("TRIAL", null);
+    const res = await POST(
+      makeRequest({ technicianNotes: "Water damage to bedroom wall." }),
+    );
+    expect(res.status).toBe(402);
+    expect(generateEnhancedReport).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/reports/generate-enhanced — founding-trial grant vs plain TRIAL", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  function seedOwner(opts: {
+    status: string;
+    trialEndsAt: Date | null;
+    founding: boolean;
+  }) {
+    userFindUnique.mockResolvedValue({
+      id: "user-1",
+      name: "Taylor",
+      email: "taylor@example.com",
+      role: "ADMIN",
+      organizationId: "org-a",
+      organization: { ownerId: "user-1", country: "AU" },
+      subscriptionStatus: opts.status,
+      trialEndsAt: opts.trialEndsAt,
+      lifetimeAccess: false,
+      creditsRemaining: 10,
+      totalCreditsUsed: 0,
+    });
+    featureEntitlementFindFirst.mockImplementation(
+      async (args: { where?: { stripePriceId?: string } } = {}) =>
+        opts.founding && args.where?.stripePriceId === COMPLIMENTARY_PRICE_ID
+          ? { id: "fe_1" }
+          : null,
+    );
+  }
+
+  it("unexpired founding-trial grant gets 200 on Enhanced", async () => {
+    seedOwner({
+      status: "TRIAL",
+      trialEndsAt: new Date(Date.now() + 40 * DAY),
+      founding: true,
+    });
+    generateEnhancedReport.mockResolvedValueOnce({
+      ok: true,
+      data: { enhancedReport: "Enhanced report body" },
+    });
+    reportCreate.mockResolvedValueOnce({ id: "new-ft" });
+
+    const res = await POST(
+      makeRequest({ technicianNotes: "Water damage to bedroom wall." }),
+    );
+    expect(res.status).toBe(200);
+    expect(generateEnhancedReport).toHaveBeenCalledTimes(1);
+  });
+
+  it("expired founding-trial grant gets 402 on Enhanced", async () => {
+    seedOwner({
+      status: "TRIAL",
+      trialEndsAt: new Date(Date.now() - DAY),
+      founding: true,
+    });
+    const res = await POST(
+      makeRequest({ technicianNotes: "Water damage to bedroom wall." }),
+    );
+    expect(res.status).toBe(402);
+    expect(generateEnhancedReport).not.toHaveBeenCalled();
+  });
+
+  it("plain TRIAL without the grant still 402s on Enhanced", async () => {
+    seedOwner({
+      status: "TRIAL",
+      trialEndsAt: new Date(Date.now() + 40 * DAY),
+      founding: false,
+    });
     const res = await POST(
       makeRequest({ technicianNotes: "Water damage to bedroom wall." }),
     );

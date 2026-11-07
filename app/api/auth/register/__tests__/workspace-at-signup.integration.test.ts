@@ -31,7 +31,7 @@ vi.mock("@/lib/analytics/track", () => ({ track: vi.fn().mockResolvedValue(undef
 const { POST } = await import("../route");
 
 describe.skipIf(!process.env.DATABASE_URL)("POST /api/auth/register — workspace at signup (J-10)", () => {
-  const email = `j10-owner-${Date.now()}@example.com`;
+  const email = `j10-owner-${Date.now()}@acme-restoration.com.au`;
 
   afterAll(async () => {
     const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });

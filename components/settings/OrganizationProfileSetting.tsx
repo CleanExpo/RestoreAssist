@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PAID_BASE_PLAN_UPGRADE_HREF } from "@/lib/billing/paid-base-plan";
+import { PAID_BASE_PLAN_UPGRADE_HREF } from "@/lib/billing/paid-base-plan-copy";
 
 type ProfileForm = {
   legalName: string;
