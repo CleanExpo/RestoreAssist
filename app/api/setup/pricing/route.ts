@@ -112,7 +112,8 @@ export async function PATCH(req: Request) {
   if (org.setupCompletedAt) {
     return apiError(undefined, {
       code: "CONFLICT",
-      message: "Setup already complete; edit in Settings instead",
+      message:
+        "Setup is complete. Edit pricing in Dashboard → Pricing configuration (Settings links there when setup is done).",
       status: 409,
     });
   }
