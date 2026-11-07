@@ -164,3 +164,46 @@ export async function makeOrientedJpeg(orientation: number): Promise<Buffer> {
     .withMetadata({ orientation })
     .toBuffer();
 }
+
+/** Opaque flat-colour PNG of any size (decoder-valid, made by sharp). */
+export async function flatPng(width: number, height: number): Promise<Buffer> {
+  return genuineImage("png", width, height);
+}
+
+/**
+ * Pixel-level watermark proof: decode the source (orientation applied) and the
+ * stored output to raw RGBA and count pixels that differ. Byte inequality is
+ * not enough: composing changes RGB to RGBA even when nothing is painted.
+ */
+export async function countChangedPixels(
+  source: Uint8Array,
+  output: Uint8Array,
+): Promise<number> {
+  const sharp = (await import("sharp")).default;
+  const a = await sharp(source)
+    .rotate()
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const b = await sharp(output)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  if (a.info.width !== b.info.width || a.info.height !== b.info.height) {
+    throw new Error(
+      `size mismatch ${a.info.width}x${a.info.height} vs ${b.info.width}x${b.info.height}`,
+    );
+  }
+  let changed = 0;
+  for (let i = 0; i < a.data.length; i += 4) {
+    if (
+      a.data[i] !== b.data[i] ||
+      a.data[i + 1] !== b.data[i + 1] ||
+      a.data[i + 2] !== b.data[i + 2] ||
+      a.data[i + 3] !== b.data[i + 3]
+    ) {
+      changed++;
+    }
+  }
+  return changed;
+}
