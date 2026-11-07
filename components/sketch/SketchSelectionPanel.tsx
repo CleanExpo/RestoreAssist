@@ -566,39 +566,63 @@ export function SketchSelectionPanel({
                   : "Measure this room on site. AI dimensions are not billed."}
               </legend>
               <div className="flex gap-1.5">
-                <label className="flex-1 text-[10px] text-white/60">
+                <label
+                  className="flex-1 text-[10px] text-white/60"
+                  htmlFor={`${selected.id}-meas-l`}
+                >
                   Measured length (m)
                   <input
+                    id={`${selected.id}-meas-l`}
                     type="text"
                     inputMode="decimal"
+                    autoComplete="off"
                     value={measuredLength}
                     onChange={(e) => setMeasuredLength(e.target.value)}
                     className="mt-0.5 w-full min-h-11 rounded-md bg-white/5 border border-white/10 px-2 text-xs text-white"
                   />
                 </label>
-                <label className="flex-1 text-[10px] text-white/60">
+                <label
+                  className="flex-1 text-[10px] text-white/60"
+                  htmlFor={`${selected.id}-meas-w`}
+                >
                   Measured width (m)
                   <input
+                    id={`${selected.id}-meas-w`}
                     type="text"
                     inputMode="decimal"
+                    autoComplete="off"
                     value={measuredWidth}
                     onChange={(e) => setMeasuredWidth(e.target.value)}
                     className="mt-0.5 w-full min-h-11 rounded-md bg-white/5 border border-white/10 px-2 text-xs text-white"
                   />
                 </label>
               </div>
-              <label className="block text-[10px] text-white/60">
+              <label
+                className="block text-[10px] text-white/60"
+                htmlFor={`${selected.id}-meas-a`}
+              >
                 Or measured floor area (m²), for irregular rooms
                 <input
+                  id={`${selected.id}-meas-a`}
                   type="text"
                   inputMode="decimal"
+                  autoComplete="off"
                   value={measuredArea}
                   onChange={(e) => setMeasuredArea(e.target.value)}
+                  aria-describedby={
+                    measurementMismatch
+                      ? `${selected.id}-meas-mismatch`
+                      : undefined
+                  }
                   className="mt-0.5 w-full min-h-11 rounded-md bg-white/5 border border-white/10 px-2 text-xs text-white"
                 />
               </label>
               {measurementMismatch && (
-                <p role="alert" className="text-[10px] text-amber-200">
+                <p
+                  id={`${selected.id}-meas-mismatch`}
+                  role="alert"
+                  className="text-[10px] text-amber-200"
+                >
                   The measured area does not match the drawn room
                   {typeof selected.areaM2 === "number"
                     ? ` (${selected.areaM2.toFixed(2)} m²)`
@@ -680,6 +704,16 @@ export function SketchSelectionPanel({
             {(selected.correctionCount ?? 0) > 0
               ? ` · ${selected.correctionCount} correction${selected.correctionCount === 1 ? "" : "s"}`
               : ""}
+          </div>
+        )}
+
+      {selected.provenance === "operator_measured" &&
+        selected.captureAdapter === "homeowner" && (
+          <div
+            role="status"
+            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] text-emerald-100/90"
+          >
+            Homeowner room measurement confirmed on site
           </div>
         )}
 

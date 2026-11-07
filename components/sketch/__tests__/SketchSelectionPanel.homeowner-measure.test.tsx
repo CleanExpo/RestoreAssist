@@ -41,4 +41,22 @@ describe("SketchSelectionPanel — homeowner promoted rooms (RA-8241)", () => {
       widthM: 3,
     });
   });
+
+  it("shows confirmed badge after homeowner measurement", () => {
+    render(
+      <SketchSelectionPanel
+        selected={{
+          id: "home-2",
+          type: "room",
+          label: "Lounge",
+          provenance: "operator_measured",
+          captureAdapter: "homeowner",
+          areaM2: 20,
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(/Homeowner room measurement confirmed on site/i),
+    ).toBeInTheDocument();
+  });
 });
