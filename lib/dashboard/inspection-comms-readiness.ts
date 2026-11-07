@@ -21,6 +21,10 @@ export type InspectionCommsReadiness = {
   /** null when the check could not run: unknown, not zero. */
   completenessBlockerCount: number | null;
   completenessCheckError?: boolean;
+  /** Required field-evidence gaps (RA-8184). null when audit could not run. */
+  requiredFieldEvidenceGapCount: number | null;
+  fieldEvidenceCheckError?: boolean;
+  inspectionId?: string | null;
 };
 
 /** Checklist for emailing a secure job link (PDF completion not required). */
@@ -85,6 +89,24 @@ export function buildClientSendChecklist(
         : "Complete the report before emailing the client.",
       href: reportHref,
     },
+    ...(input.requiredFieldEvidenceGapCount !== null
+      ? [
+          {
+            id: "field-evidence",
+            label: "Required field evidence captured",
+            ok: input.requiredFieldEvidenceGapCount === 0,
+            hint:
+              input.requiredFieldEvidenceGapCount === 0
+                ? "Required on-site capture items are on the job."
+                : `${input.requiredFieldEvidenceGapCount} required item${
+                    input.requiredFieldEvidenceGapCount === 1 ? "" : "s"
+                  } still missing — finish capture before emailing the client.`,
+            href: input.inspectionId
+              ? `/dashboard/inspections/${input.inspectionId}#field-evidence-checklist`
+              : undefined,
+          } satisfies ClientSendChecklistItem,
+        ]
+      : []),
   ];
 }
 

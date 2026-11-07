@@ -37,8 +37,30 @@ describe("inspection comms readiness", () => {
       portalLinkEmailedAt: null,
       clientEmailSentAt: null,
       completenessBlockerCount: 0,
+      requiredFieldEvidenceGapCount: 0,
     });
     expect(items.find((i) => i.id === "mailtrap")?.ok).toBe(false);
     expect(items.every((i) => i.id === "mailtrap" || i.ok)).toBe(true);
+  });
+
+  it("blocks send checklist when required field evidence is missing", () => {
+    const items = buildClientSendChecklist({
+      emailServiceConfigured: true,
+      clientHasEmail: true,
+      clientEmail: "a@b.com",
+      reportId: "r1",
+      reportStatus: "COMPLETED",
+      reportPdfReady: true,
+      reportDeliveredAt: null,
+      portalLinkEmailedAt: null,
+      clientEmailSentAt: null,
+      completenessBlockerCount: 0,
+      requiredFieldEvidenceGapCount: 2,
+      inspectionId: "insp-1",
+    });
+    const row = items.find((i) => i.id === "field-evidence");
+    expect(row?.ok).toBe(false);
+    expect(row?.href).toContain("insp-1");
+    expect(row?.href).toContain("#field-evidence-checklist");
   });
 });
