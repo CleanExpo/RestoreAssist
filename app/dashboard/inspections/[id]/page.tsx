@@ -42,6 +42,11 @@ import { InspectionWorkflowStrip } from "@/components/inspection/InspectionWorkf
 import { InspectionWorkspaceLinks } from "@/components/inspection/InspectionWorkspaceLinks";
 import { InspectionJourneyGuide } from "@/components/inspection/InspectionJourneyGuide";
 import { SketchRoomCoveragePanel } from "@/components/inspection/SketchRoomCoveragePanel";
+import { SketchMeasurementChecklistLoader } from "@/components/inspection/SketchMeasurementChecklistLoader";
+import {
+  PULSE_JOB_TOGGLE_HINT,
+  PULSE_JOB_TOGGLE_LABEL,
+} from "@/lib/pulse/pulse-inspection-ui-copy";
 import { FloorPlanFieldGuide } from "@/components/inspection/FloorPlanFieldGuide";
 import EnvironmentalSummary from "@/components/inspection/EnvironmentalSummary";
 import {
@@ -1627,16 +1632,14 @@ export default function InspectionDetailPage({
                       disabled={pulseSaving}
                       onChange={(e) => handleTogglePulse(e.target.checked)}
                       className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500"
-                      aria-label="Send automatic progress updates to the client for this job"
+                      aria-label={PULSE_JOB_TOGGLE_LABEL}
                     />
                     <span className="text-sm">
                       <span className="font-medium text-neutral-800 dark:text-slate-200">
-                        Automatic progress updates
+                        {PULSE_JOB_TOGGLE_LABEL}
                       </span>
                       <span className="block text-xs text-neutral-500 dark:text-slate-400">
-                        Email the client when this job reaches a new stage or the
-                        drying status changes. Turn off to pause updates (for
-                        example, during a dispute).
+                        {PULSE_JOB_TOGGLE_HINT}
                       </span>
                     </span>
                   </label>
@@ -2597,8 +2600,13 @@ export default function InspectionDetailPage({
           <div className="space-y-3 flex-shrink-0">
             <ClientPortalLinkButton inspectionId={inspection.id} />
             <ClientEvidenceReviewPanel inspectionId={inspection.id} />
+            <SketchMeasurementChecklistLoader
+              inspectionId={inspection.id}
+              refreshToken={sketchReloadToken}
+            />
             <HomeownerCapturePanel
               inspectionId={inspection.id}
+              refreshToken={sketchReloadToken}
               onPromoted={() => {
                 void refetchSketchRooms();
                 setSketchReloadToken((token) => token + 1);

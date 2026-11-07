@@ -38,6 +38,7 @@ import { prisma } from "@/lib/prisma";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
+import { reservedEmailSignUpMessage } from "@/lib/auth/reserved-email-user-message";
 import { applyRateLimit } from "@/lib/rate-limiter";
 
 // Free-trial grant — sourced from PRICING_CONFIG (the SSOT) so the native iOS
@@ -376,6 +377,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return { kind: "EXISTING" as const, user: existing };
       }
 
+      const reservedMsg = reservedEmailSignUpMessage(email);
+      if (reservedMsg) {
+        return { kind: "RESERVED" as const, message: reservedMsg };
+      }
+
       const created = await tx.user.create({
         data: {
           email,
@@ -429,6 +435,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         "A team invitation is waiting for this email. Use the secure invitation link instead.",
         email ?? undefined,
       );
+    }
+    if (result.kind === "RESERVED") {
+      return jsonError(request, 400, "VALIDATION", result.message, email ?? undefined);
     }
     user = result.user;
     email = canonicalEmail(user.email);

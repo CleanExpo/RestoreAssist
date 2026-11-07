@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { CLIENT_NOTES_MAX_LENGTH } from "@/lib/clients/notes";
+import { PULSE_OPT_OUT_STAFF_NOTE } from "@/lib/pulse/pulse-inspection-ui-copy";
 
 interface ClientFormData {
   name: string;
@@ -361,7 +362,7 @@ export default function ClientEditPage() {
               </label>
               <p className="text-xs text-slate-400">
                 {savedOptOut
-                  ? "This client has opted out. Only the client can opt back in, by contacting you directly."
+                  ? PULSE_OPT_OUT_STAFF_NOTE
                   : "Once saved, this cannot be undone from this screen."}
               </p>
             </div>
