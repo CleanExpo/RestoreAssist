@@ -19,6 +19,15 @@ vi.mock("@/lib/evidence/submission-gate", () => ({
     warnings: [],
   })),
 }));
+vi.mock("@/lib/evidence/field-evidence-audit", () => ({
+  auditInspectionById: vi.fn(async () => ({
+    categories: {
+      required: [{ status: "missing" }, { status: "present" }],
+      recommended: [],
+      optional: [],
+    },
+  })),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: vi.fn() },
@@ -64,6 +73,8 @@ describe("GET /api/inspections/[id]/comms-readiness", () => {
     expect(body.data.clientHasEmail).toBe(true);
     expect(body.data.reportPdfReady).toBe(true);
     expect(body.data.completenessBlockerCount).toBe(1);
+    expect(body.data.requiredFieldEvidenceGapCount).toBe(1);
+    expect(body.data.inspectionId).toBe("i1");
     expect(body.data.reportDeliveredAt).toBeTruthy();
   });
 

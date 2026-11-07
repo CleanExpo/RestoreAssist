@@ -13,6 +13,8 @@ import {
   REPORT_DELIVERY_ACTIONS,
   type InspectionCommsReadiness,
 } from "@/lib/dashboard/inspection-comms-readiness";
+import { auditInspectionById } from "@/lib/evidence/field-evidence-audit";
+import { requiredFieldEvidenceGapCount as countRequiredFieldEvidenceGaps } from "@/lib/reports/field-evidence-send-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +124,19 @@ export async function GET(
     const portalLinkEmailedAt =
       portalDelivery?.timestamp?.toISOString() ?? null;
 
+    let requiredFieldEvidenceGapCount: number | null = 0;
+    let fieldEvidenceCheckError = false;
+    try {
+      const fieldChecklist = await auditInspectionById(id);
+      requiredFieldEvidenceGapCount = countRequiredFieldEvidenceGaps(
+        fieldChecklist,
+      );
+    } catch (error) {
+      console.error("[comms-readiness] field evidence audit failed:", error);
+      requiredFieldEvidenceGapCount = null;
+      fieldEvidenceCheckError = true;
+    }
+
     const data: InspectionCommsReadiness = {
       emailServiceConfigured: isEmailServiceConfigured(),
       clientHasEmail: Boolean(clientEmail),
@@ -134,6 +149,9 @@ export async function GET(
       clientEmailSentAt: reportDeliveredAt ?? portalLinkEmailedAt,
       completenessBlockerCount,
       completenessCheckError,
+      requiredFieldEvidenceGapCount,
+      fieldEvidenceCheckError,
+      inspectionId: id,
     };
 
     return NextResponse.json({ data });
