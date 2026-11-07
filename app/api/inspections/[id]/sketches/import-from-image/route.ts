@@ -275,7 +275,10 @@ export async function POST(
         primaryDetail: primaryFailure.detail,
         inputTokens,
         outputTokens,
-        estimatedCostUsd: estimateAbliterationCostUsd(inputTokens, outputTokens),
+        estimatedCostUsd: estimateAbliterationCostUsd(
+          inputTokens,
+          outputTokens,
+        ),
       });
       if (workspace) {
         logAiUsage({

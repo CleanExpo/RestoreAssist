@@ -217,7 +217,7 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
 
   // RA-8232 — abliteration.ai backup reader, flag-gated and off by default.
   describe("backup reader (RA-8232)", () => {
-    const jpeg = () => new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+    const jpeg = () => genuine.jpeg; // RA-8234: bytes must now be a decodable JPEG
     const square = [
       { x: 0, y: 0 },
       { x: 1, y: 0 },
@@ -232,7 +232,10 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
     it("passes no backup to the reader when the flag is off", async () => {
       vi.stubEnv("SKETCH_IMPORT_ABLITERATION_FALLBACK", "");
       vi.stubEnv("ABLITERATION_API_KEY", "ak-platform");
-      importSketchFromImage.mockResolvedValueOnce({ ok: false, reason: "API_ERROR" });
+      importSketchFromImage.mockResolvedValueOnce({
+        ok: false,
+        reason: "API_ERROR",
+      });
 
       const res = await POST(makeRequest(jpeg()), ctx());
 
@@ -243,7 +246,10 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
     it("passes the platform backup key when the flag and key are set", async () => {
       vi.stubEnv("SKETCH_IMPORT_ABLITERATION_FALLBACK", "1");
       vi.stubEnv("ABLITERATION_API_KEY", "ak-platform");
-      importSketchFromImage.mockResolvedValueOnce({ ok: false, reason: "API_ERROR" });
+      importSketchFromImage.mockResolvedValueOnce({
+        ok: false,
+        reason: "API_ERROR",
+      });
 
       await POST(makeRequest(jpeg()), ctx());
 
@@ -256,9 +262,8 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
     it("never reaches the backup when the workspace has no Anthropic key (402)", async () => {
       vi.stubEnv("SKETCH_IMPORT_ABLITERATION_FALLBACK", "1");
       vi.stubEnv("ABLITERATION_API_KEY", "ak-platform");
-      const { NoWorkspaceKeyError } = await import(
-        "@/lib/ai/resolve-workspace-ai-key"
-      );
+      const { NoWorkspaceKeyError } =
+        await import("@/lib/ai/resolve-workspace-ai-key");
       resolveWorkspaceAiKey.mockRejectedValueOnce(new NoWorkspaceKeyError());
 
       const res = await POST(makeRequest(jpeg()), ctx());
@@ -274,7 +279,10 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
         data: {
           rooms: [{ label: "Kitchen", vertices: square }],
           usage: { inputTokens: 2000, outputTokens: 500 },
-          reader: { vendor: "abliteration", model: "abliterated-model-large-flash" },
+          reader: {
+            vendor: "abliteration",
+            model: "abliterated-model-large-flash",
+          },
           primaryFailure: { reason: "MODEL_OVERLOADED", detail: "529" },
         },
       });
