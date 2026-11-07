@@ -171,9 +171,9 @@ const GROUPS: readonly ComparisonGroup[] = [
         // about a minute, so the row says what is true now and flags the intent
         // rather than asserting a boundary that is not there.
         capability: "Report types",
-        free: { included: true, label: "Basic, and currently Enhanced and Optimised too" },
+        free: { included: true, label: "Basic" },
         paid: { included: true, label: "Basic, Enhanced and Optimised" },
-        note: "Enhanced and Optimised are meant to be part of the paid plan and we are still wiring that up, so during the trial you can reach them as well. We would rather say so than claim a limit that is not switched on.",
+        note: "Trial includes Basic reports only. Enhanced and Optimised depth unlock when you move to the paid plan — enforced on the server.",
         headline: true,
       },
       {
@@ -195,9 +195,9 @@ const GROUPS: readonly ComparisonGroup[] = [
         // — and app/api/reports/upload allows "TRIAL" in its
         // ALLOWED_SUBSCRIPTION_STATUSES. The gate is a client-side toast.
         capability: PAID_ONLY.pdfUpload,
-        free: { included: true, label: "Currently available during the trial" },
+        free: { included: false, label: "Paid plan" },
         paid: { included: true },
-        note: "Also meant to be part of the paid plan, and also not yet enforced on the server. Same reasoning as report types.",
+        note: "PDF import and upload-to-report are paid-plan features. Trial workspaces receive a clear upgrade prompt if they try to import.",
       },
       // "Priority processing" was removed, not reworded. Unlike the report-type
       // rows — which are real capabilities merely gated client-side — this one
