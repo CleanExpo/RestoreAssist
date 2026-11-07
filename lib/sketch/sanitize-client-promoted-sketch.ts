@@ -14,6 +14,11 @@ import {
   withAiSuggestedRoomIds,
   readAiSuggestedRoomIds,
 } from "./sketch-field-status";
+import {
+  areaM2FromGeometryOnly,
+  resolvePxPerMetre,
+  type RoomGeometryObject,
+} from "./room-area-from-geometry";
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v)
@@ -44,6 +49,9 @@ export function sanitizeClientPromotedSketchData(
   const root: Record<string, unknown> = { ...(sketchData as Record<string, unknown>) };
   const objects = root.objects;
   const rememberedAiIds: string[] = [];
+  const pxPerMetre = resolvePxPerMetre(
+    root as { scaleConfig?: { pxPerMetre?: number } },
+  );
 
   if (Array.isArray(objects)) {
     root.objects = objects.map((raw) => {
@@ -75,6 +83,19 @@ export function sanitizeClientPromotedSketchData(
 
       delete nextData.confirmedAt;
       delete nextData.confirmedBy;
+
+      if (nextData.captureAdapter === "homeowner") {
+        const geometryArea = areaM2FromGeometryOnly(
+          { ...obj, data: nextData } as RoomGeometryObject,
+          pxPerMetre,
+        );
+        if (geometryArea !== null) {
+          nextData.areaM2 = Math.round(geometryArea * 100) / 100;
+        }
+        delete nextData.lengthM;
+        delete nextData.widthM;
+        delete nextData.perimeterM;
+      }
 
       return { ...obj, data: nextData };
     });
