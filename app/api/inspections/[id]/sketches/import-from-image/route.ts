@@ -33,7 +33,7 @@ import {
 } from "@/lib/services/ai/sketch-reader-fallback";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
-import { validateImageUploadStrict } from "@/lib/media/validate-image-upload";
+import { validateImageUploadDecoded } from "@/lib/media/decode-check";
 import { formDataFromBytes, readBoundedBody } from "@/lib/media/bounded-body";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
@@ -159,7 +159,7 @@ export async function POST(
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const imageCheck = validateImageUploadStrict({
+    const imageCheck = await validateImageUploadDecoded({
       declaredType: file.type,
       buffer,
       allowedTypes: ALLOWED_TYPES,
@@ -366,7 +366,8 @@ export async function POST(
           data: {
             inspectionId,
             floorNumber,
-            floorLabel: floorNumber === 0 ? "Ground Floor" : `Floor ${floorNumber}`,
+            floorLabel:
+              floorNumber === 0 ? "Ground Floor" : `Floor ${floorNumber}`,
             sketchData: withAiSuggestedRoomIds(
               {},
               rememberedIds,

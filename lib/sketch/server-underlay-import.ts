@@ -149,7 +149,9 @@ export async function prepareUnderlayBytes(
   assertAllowedImage(source, declaredMime);
   const sourceSizeBytes = source.byteLength;
   const sharp = (await import("sharp")).default;
-  const pipeline = sharp(source, { limitInputPixels: STRICT_UPLOAD_POLICY.maxPixels }).rotate();
+  const pipeline = sharp(source, {
+    limitInputPixels: STRICT_UPLOAD_POLICY.maxPixels,
+  }).rotate();
   const meta = await pipeline.metadata();
   if (
     !meta.width ||

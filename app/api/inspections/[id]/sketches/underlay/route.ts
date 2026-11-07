@@ -13,11 +13,8 @@ import {
   evaluateUnderlayAttestation,
   type UnderlaySource,
 } from "@/lib/sketch/underlay-attestation";
-import {
-  formDataFromBytes,
-  readBoundedBody,
-} from "@/lib/media/bounded-body";
-import { validateImageUploadStrict } from "@/lib/media/validate-image-upload";
+import { formDataFromBytes, readBoundedBody } from "@/lib/media/bounded-body";
+import { validateImageUploadDecoded } from "@/lib/media/decode-check";
 import {
   prepareUnderlayBytes,
   removeStoredUnderlay,
@@ -32,6 +29,7 @@ const UPLOAD_REJECTION_MESSAGES = {
   "unsupported-type": "A PNG, JPEG or WebP floor-plan file is required.",
   "mime-mismatch": "The file content does not match its declared type.",
   malformed: "The floor-plan image is damaged or incomplete.",
+  undecodable: "The floor-plan image could not be decoded.",
   "pixel-bomb": "The floor-plan image dimensions are too large.",
 } as const;
 
@@ -135,7 +133,7 @@ export async function POST(
       sourceBytes = Buffer.from(await file.arrayBuffer());
       // Strict policy on the actual bytes: nothing invalid reaches prepare,
       // storage or the database.
-      const check = validateImageUploadStrict({
+      const check = await validateImageUploadDecoded({
         declaredType: file.type,
         buffer: sourceBytes,
         allowedTypes: ["image/png", "image/jpeg", "image/webp"],
@@ -194,7 +192,9 @@ export async function POST(
                 inspectionId: id,
                 floorNumber,
                 floorLabel:
-                  floorNumber === 0 ? "Ground Floor" : `Floor ${floorNumber + 1}`,
+                  floorNumber === 0
+                    ? "Ground Floor"
+                    : `Floor ${floorNumber + 1}`,
                 backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
                 captureAdapter: "underlay_import",
               },

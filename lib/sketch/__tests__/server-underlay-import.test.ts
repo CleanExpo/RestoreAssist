@@ -67,3 +67,26 @@ describe("prepareUnderlayBytes", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("prepareUnderlayBytes structural rejects", () => {
+  it("rejects terminated files with no image data, and undecodable pixel data", async () => {
+    const {
+      makePngWithoutIdat,
+      makePngWithGarbageIdat,
+      makeJpegWithoutScan,
+      makeWebpCanvasOnly,
+    } = await import("@/lib/media/__tests__/image-fixtures");
+    await expect(
+      prepareUnderlayBytes(makePngWithoutIdat(), "image/png"),
+    ).rejects.toThrow();
+    await expect(
+      prepareUnderlayBytes(makeJpegWithoutScan(), "image/jpeg"),
+    ).rejects.toThrow();
+    await expect(
+      prepareUnderlayBytes(makeWebpCanvasOnly(), "image/webp"),
+    ).rejects.toThrow();
+    await expect(
+      prepareUnderlayBytes(makePngWithGarbageIdat(), "image/png"),
+    ).rejects.toThrow();
+  });
+});

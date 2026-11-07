@@ -1,7 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "../route";
-import { makeJpeg, makePng, makeWebp } from "@/lib/media/__tests__/image-fixtures";
+import {
+  genuineImage,
+  makeJpeg,
+  makeJpegWithoutScan,
+  makePng,
+  makePngWithGarbageIdat,
+  makePngWithoutIdat,
+  makeWebp,
+  makeWebpCanvasOnly,
+} from "@/lib/media/__tests__/image-fixtures";
+
+const genuine = {
+  png: new Uint8Array(await genuineImage("png", 40, 30)),
+  jpeg: new Uint8Array(await genuineImage("jpeg", 40, 30)),
+  webp: new Uint8Array(await genuineImage("webp", 40, 30)),
+};
 
 const getServerSession = vi.fn();
 const userFindUnique = vi.fn();
@@ -81,7 +96,9 @@ beforeEach(() => {
   getServerSession.mockReset().mockResolvedValue({
     user: { id: "user_1" },
   });
-  userFindUnique.mockReset().mockResolvedValue({ subscriptionStatus: "ACTIVE" });
+  userFindUnique
+    .mockReset()
+    .mockResolvedValue({ subscriptionStatus: "ACTIVE" });
   inspectionFindFirst.mockReset().mockResolvedValue({ id: "inspection_1" });
   getWorkspaceForUser.mockReset().mockResolvedValue(null);
   checkWorkspaceBudget.mockReset().mockResolvedValue({ ok: true });
@@ -171,9 +188,12 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
     });
     claimSketchUpdate.mockResolvedValueOnce({ id: "s_1" });
 
-    const bytes = new Uint8Array(makeJpeg());
+    const bytes = genuine.jpeg;
     const form = new FormData();
-    form.append("file", new File([bytes], "sketch.jpg", { type: "image/jpeg" }));
+    form.append(
+      "file",
+      new File([bytes], "sketch.jpg", { type: "image/jpeg" }),
+    );
     form.append("floorNumber", "2");
     const req = new NextRequest(
       "http://localhost/api/inspections/inspection_1/sketches/import-from-image",
@@ -298,22 +318,69 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
 
   describe("RA-8234 strict upload policy", () => {
     const rejected: [string, () => Uint8Array, string][] = [
-      ["HTML renamed .jpg", () => new TextEncoder().encode("<html><body>x</body></html>"), "image/jpeg"],
-      ["bare JPEG magic spoof", () => new Uint8Array([0xff, 0xd8, 0xff, 0xe0]), "image/jpeg"],
-      ["truncated PNG", () => new Uint8Array(makePng(10, 10).subarray(0, 40)), "image/png"],
-      ["pixel bomb PNG", () => new Uint8Array(makePng(100_000, 100_000)), "image/png"],
-      ["declared PNG but JPEG bytes", () => new Uint8Array(makeJpeg()), "image/png"],
-      ["WebP (not accepted by the extractor)", () => new Uint8Array(makeWebp()), "image/webp"],
+      [
+        "HTML renamed .jpg",
+        () => new TextEncoder().encode("<html><body>x</body></html>"),
+        "image/jpeg",
+      ],
+      [
+        "bare JPEG magic spoof",
+        () => new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+        "image/jpeg",
+      ],
+      [
+        "truncated PNG",
+        () => new Uint8Array(makePng(10, 10).subarray(0, 40)),
+        "image/png",
+      ],
+      [
+        "pixel bomb PNG",
+        () => new Uint8Array(makePng(100_000, 100_000)),
+        "image/png",
+      ],
+      [
+        "PNG with no IDAT (terminated, undecodable)",
+        () => new Uint8Array(makePngWithoutIdat()),
+        "image/png",
+      ],
+      [
+        "PNG with garbage IDAT",
+        () => new Uint8Array(makePngWithGarbageIdat()),
+        "image/png",
+      ],
+      [
+        "JPEG with no scan",
+        () => new Uint8Array(makeJpegWithoutScan()),
+        "image/jpeg",
+      ],
+      [
+        "WebP canvas only (no image chunk)",
+        () => new Uint8Array(makeWebpCanvasOnly()),
+        "image/webp",
+      ],
+      [
+        "declared PNG but JPEG bytes",
+        () => new Uint8Array(makeJpeg()),
+        "image/png",
+      ],
+      [
+        "WebP (not accepted by the extractor)",
+        () => new Uint8Array(makeWebp()),
+        "image/webp",
+      ],
     ];
-    it.each(rejected)("rejects %s: no key lookup, no extractor call, no write", async (_n, bytes, type) => {
-      const res = await POST(makeRequest(bytes(), type), ctx());
-      expect(res.status).toBe(400);
-      expect((await res.json()).error.code).toBe("VALIDATION");
-      expect(importSketchFromImage).not.toHaveBeenCalled();
-      expect(resolveWorkspaceAiKey).not.toHaveBeenCalled();
-      expect(claimSketchCreate).not.toHaveBeenCalled();
-      expect(claimSketchUpdate).not.toHaveBeenCalled();
-    });
+    it.each(rejected)(
+      "rejects %s: no key lookup, no extractor call, no write",
+      async (_n, bytes, type) => {
+        const res = await POST(makeRequest(bytes(), type), ctx());
+        expect(res.status).toBe(400);
+        expect((await res.json()).error.code).toBe("VALIDATION");
+        expect(importSketchFromImage).not.toHaveBeenCalled();
+        expect(resolveWorkspaceAiKey).not.toHaveBeenCalled();
+        expect(claimSketchCreate).not.toHaveBeenCalled();
+        expect(claimSketchUpdate).not.toHaveBeenCalled();
+      },
+    );
 
     it("rejects more than 10 MB of actual bytes", async () => {
       const big = new Uint8Array(10 * 1024 * 1024 + 1);
@@ -326,23 +393,26 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
     });
 
     it.each([
-      ["image/png", () => makePng(40, 30)],
-      ["image/jpeg", () => makeJpeg(40, 30)],
-    ])("still passes a genuine %s to the extractor with the canonical type", async (type, make) => {
-      importSketchFromImage.mockResolvedValueOnce({
-        ok: true,
-        data: { rooms: [], usage: { inputTokens: 1, outputTokens: 1 } },
-      });
-      const res = await POST(makeRequest(new Uint8Array(make()), type), ctx());
-      expect(res.status).toBe(200);
-      expect(importSketchFromImage).toHaveBeenCalledWith(
-        expect.objectContaining({ mediaType: type }),
-      );
-    });
+      ["image/png", () => genuine.png],
+      ["image/jpeg", () => genuine.jpeg],
+    ])(
+      "still passes a genuine %s to the extractor with the canonical type",
+      async (type, make) => {
+        importSketchFromImage.mockResolvedValueOnce({
+          ok: true,
+          data: { rooms: [], usage: { inputTokens: 1, outputTokens: 1 } },
+        });
+        const res = await POST(makeRequest(make(), type), ctx());
+        expect(res.status).toBe(200);
+        expect(importSketchFromImage).toHaveBeenCalledWith(
+          expect.objectContaining({ mediaType: type }),
+        );
+      },
+    );
 
     it("tenant B: a foreign inspection is 404 even for a valid file, with no extractor, key or write", async () => {
       inspectionFindFirst.mockResolvedValue(null);
-      const res = await POST(makeRequest(new Uint8Array(makePng()), "image/png"), ctx());
+      const res = await POST(makeRequest(genuine.png, "image/png"), ctx());
       expect(res.status).toBe(404);
       expect(inspectionFindFirst.mock.calls[0][0].where).toEqual({
         id: "inspection_1",

@@ -3,7 +3,14 @@ import {
   STRICT_UPLOAD_POLICY,
   validateImageUploadStrict,
 } from "../validate-image-upload";
-import { makeJpeg, makePng, makeWebp } from "./image-fixtures";
+import {
+  makeJpeg,
+  makeJpegWithoutScan,
+  makePng,
+  makePngWithoutIdat,
+  makeWebp,
+  makeWebpCanvasOnly,
+} from "./image-fixtures";
 
 const allowed = ["image/png", "image/jpeg", "image/webp"] as const;
 const check = (declaredType: string, buffer: Buffer) =>
@@ -94,6 +101,23 @@ describe("strict upload policy", () => {
   it("tolerates trailing camera data after the JPEG end-of-image marker", () => {
     const withTrailer = Buffer.concat([makeJpeg(), Buffer.from("MPF-TRAILER")]);
     expect(check("image/jpeg", withTrailer)).toMatchObject({ ok: true });
+  });
+
+  it("rejects terminated files that lack the structure a decoder needs", () => {
+    const png = makePngWithoutIdat();
+    expect(png.length).toBe(45);
+    expect(check("image/png", png)).toMatchObject({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(check("image/jpeg", makeJpegWithoutScan())).toMatchObject({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(check("image/webp", makeWebpCanvasOnly())).toMatchObject({
+      ok: false,
+      reason: "malformed",
+    });
   });
 
   it("rejects a declared MIME that differs from the sniffed type", () => {
