@@ -62,6 +62,8 @@ import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { DELETE, POST } from "../route";
 import {
+  countChangedPixels,
+  flatPng,
   genuineImage,
   makeJpeg,
   makeJpegWithoutScan,
@@ -456,6 +458,10 @@ describe("RA-8234 EXIF-oriented phone photos (real prepare step)", () => {
       expect([meta.width, meta.height]).toEqual(
         orientation === 3 ? [64, 48] : [48, 64],
       );
+      // Pixel-level: the stored output must carry painted watermark pixels.
+      expect(
+        await countChangedPixels(jpeg, stored.bytes),
+      ).toBeGreaterThanOrEqual(20);
       expect(stored.contentSha256).toBe(
         (await import("node:crypto"))
           .createHash("sha256")
@@ -464,6 +470,44 @@ describe("RA-8234 EXIF-oriented phone photos (real prepare step)", () => {
       );
     },
   );
+});
+
+describe("RA-8234 stored output carries a painted watermark (real prepare step)", () => {
+  it.each([
+    [64, 48],
+    [48, 64],
+    [320, 240],
+  ])("%ix%i opaque PNG", async (width, height) => {
+    const actual = await vi.importActual<
+      typeof import("@/lib/sketch/server-underlay-import")
+    >("@/lib/sketch/server-underlay-import");
+    prepareUnderlayBytes.mockImplementation(actual.prepareUnderlayBytes);
+    const tx = {
+      claimSketch: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: "s" })),
+        update: vi.fn(),
+      },
+      sketchUnderlayReference: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        create: vi.fn(async () => ({ id: "r" })),
+      },
+      auditLog: { create: vi.fn(async () => ({ id: "a" })) },
+    };
+    transaction.mockImplementation(async (cb: (c: typeof tx) => unknown) =>
+      cb(tx),
+    );
+    const png = new Uint8Array(await flatPng(width, height));
+    const res = await POST(
+      uploadRequest({}, { bytes: png, type: "image/png" }),
+      context,
+    );
+    expect(res.status).toBe(201);
+    const stored = storeUnderlay.mock.calls[0][2];
+    expect(await countChangedPixels(png, stored.bytes)).toBeGreaterThanOrEqual(
+      20,
+    );
+  });
 });
 
 describe("DELETE floor-plan reference underlay", () => {

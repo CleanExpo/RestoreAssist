@@ -111,3 +111,37 @@ describe("prepareUnderlayBytes EXIF orientation", () => {
     },
   );
 });
+
+describe("prepareUnderlayBytes paints a visible watermark on every size", () => {
+  // [label, width, height, minimum changed pixels]
+  const sizes: [string, number, number, number][] = [
+    ["1x1 (smallest the policy accepts)", 1, 1, 1],
+    ["16x16", 16, 16, 10],
+    ["64x48", 64, 48, 20],
+    ["48x64", 48, 64, 20],
+    ["320x240", 320, 240, 300],
+    ["large 3000x2000", 3000, 2000, 5000],
+  ];
+  it.each(sizes)("%s", async (_n, width, height, min) => {
+    const { flatPng, countChangedPixels } =
+      await import("@/lib/media/__tests__/image-fixtures");
+    const src = await flatPng(width, height);
+    const out = await prepareUnderlayBytes(src, "image/png");
+    expect(await countChangedPixels(src, out.bytes)).toBeGreaterThanOrEqual(
+      min,
+    );
+  });
+
+  it.each([1, 3, 6, 8])(
+    "EXIF orientation %i small JPEG",
+    async (orientation) => {
+      const { makeOrientedJpeg, countChangedPixels } =
+        await import("@/lib/media/__tests__/image-fixtures");
+      const src = await makeOrientedJpeg(orientation);
+      const out = await prepareUnderlayBytes(src, "image/jpeg");
+      expect(await countChangedPixels(src, out.bytes)).toBeGreaterThanOrEqual(
+        20,
+      );
+    },
+  );
+});

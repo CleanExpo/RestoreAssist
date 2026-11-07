@@ -126,15 +126,34 @@ export async function fetchRemoteUnderlay(
 function watermarkSvg(width: number, height: number): Buffer {
   const tile = 300;
   const fontSize = Math.max(18, Math.round(Math.min(width, height) / 24));
+  const label = (x: number, y: number, size: number) =>
+    `<text x="${x}" y="${y}" transform="rotate(-35 ${x} ${y})" ` +
+    `fill="rgba(220,38,38,0.20)" font-family="sans-serif" ` +
+    `font-size="${size}" font-weight="700" text-anchor="middle">REFERENCE ONLY</text>`;
   const labels: string[] = [];
   for (let y = -tile; y <= height + tile; y += tile) {
     for (let x = -tile; x <= width + tile; x += tile) {
-      labels.push(
-        `<text x="${x}" y="${y}" transform="rotate(-35 ${x} ${y})" ` +
-          `fill="rgba(220,38,38,0.20)" font-family="sans-serif" ` +
-          `font-size="${fontSize}" font-weight="700" text-anchor="middle">REFERENCE ONLY</text>`,
-      );
+      labels.push(label(x, y, fontSize));
     }
+  }
+  const shortSide = Math.min(width, height);
+  if (shortSide < tile * 2) {
+    // The corner-anchored grid can miss a small canvas entirely. Always put
+    // one whole label at the centre, sized so its rotated extent (about 7.1
+    // font sizes wide) stays inside the shorter side.
+    labels.push(
+      label(
+        width / 2,
+        height / 2,
+        Math.max(2, Math.min(fontSize, Math.floor(shortSide / 10))),
+      ),
+    );
+  }
+  if (shortSide < 32) {
+    // Too small for readable text: tint the whole canvas so it is still marked.
+    labels.push(
+      `<rect width="${width}" height="${height}" fill="rgba(220,38,38,0.20)"/>`,
+    );
   }
   return Buffer.from(
     `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${labels.join("")}</svg>`,
