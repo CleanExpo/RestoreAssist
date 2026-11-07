@@ -278,7 +278,10 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
         data: {
           rooms: [{ label: "Kitchen", vertices: square }],
           usage: { inputTokens: 1, outputTokens: 1 },
-          reader: { vendor: "abliteration", model: "abliterated-model-large-flash" },
+          reader: {
+            vendor: "abliteration",
+            model: "abliterated-model-large-flash",
+          },
           primaryFailure: { reason: "MODEL_OVERLOADED", detail: "529" },
         },
       });
