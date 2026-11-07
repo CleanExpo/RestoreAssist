@@ -60,6 +60,7 @@ import { getServerSession } from "next-auth";
 import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { DELETE, POST } from "../route";
+import { makeJpeg, makePng, makeWebp } from "@/lib/media/__tests__/image-fixtures";
 
 const session = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const tenancy = assertInspectionAssignedWrite as unknown as ReturnType<typeof vi.fn>;
@@ -68,7 +69,13 @@ const transaction = (
 ).$transaction;
 const context = { params: Promise.resolve({ id: "inspection-1" }) };
 
-function uploadRequest(overrides: Record<string, string> = {}): NextRequest {
+function uploadRequest(
+  overrides: Record<string, string> = {},
+  file: { bytes: Uint8Array; type: string; name?: string } = {
+    bytes: new Uint8Array(makePng()),
+    type: "image/png",
+  },
+): NextRequest {
   const form = new FormData();
   form.set("source", overrides.source ?? "upload");
   form.set("floorNumber", overrides.floorNumber ?? "0");
@@ -79,9 +86,7 @@ function uploadRequest(overrides: Record<string, string> = {}): NextRequest {
   );
   form.set(
     "file",
-    new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "plan.png", {
-      type: "image/png",
-    }),
+    new File([file.bytes], file.name ?? "plan.png", { type: file.type }),
   );
   return new NextRequest(
     "http://localhost/api/inspections/inspection-1/sketches/underlay",
@@ -250,6 +255,73 @@ describe("POST floor-plan reference underlay", () => {
     expect(response.status).toBe(201);
     expect(tx.sketchUnderlayReference.create).toHaveBeenCalled();
     expect(removeStoredUnderlay).not.toHaveBeenCalled();
+  });
+});
+
+describe("RA-8234 strict upload policy (underlay)", () => {
+  const rejected: [string, () => Uint8Array, string][] = [
+    ["HTML renamed .png", () => new TextEncoder().encode("<html><script>1</script></html>"), "image/png"],
+    ["bare PNG magic spoof", () => new Uint8Array([0x89, 0x50, 0x4e, 0x47]), "image/png"],
+    ["truncated PNG", () => new Uint8Array(makePng(10, 10).subarray(0, 40)), "image/png"],
+    ["pixel bomb", () => new Uint8Array(makePng(100_000, 100_000)), "image/png"],
+    ["PNG bytes declared as JPEG", () => new Uint8Array(makePng()), "image/jpeg"],
+    ["GIF", () => new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]), "image/gif"],
+  ];
+  it.each(rejected)("rejects %s before the prepare step, storage or the database", async (_n, bytes, type) => {
+    const res = await POST(uploadRequest({}, { bytes: bytes(), type }), context);
+    expect(res.status).toBe(400);
+    expect(prepareUnderlayBytes).not.toHaveBeenCalled();
+    expect(storeUnderlay).not.toHaveBeenCalled();
+    expect(removeStoredUnderlay).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects more than 10 MB of actual bytes with 413", async () => {
+    const big = new Uint8Array(10 * 1024 * 1024 + 1);
+    big.set(makePng());
+    const res = await POST(uploadRequest({}, { bytes: big, type: "image/png" }), context);
+    expect(res.status).toBe(413);
+    expect(prepareUnderlayBytes).not.toHaveBeenCalled();
+    expect(storeUnderlay).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["image/png", () => makePng(40, 30)],
+    ["image/jpeg", () => makeJpeg(40, 30)],
+    ["image/webp", () => makeWebp(40, 30)],
+  ])("passes a genuine %s to prepare with its canonical type", async (type, make) => {
+    const tx = {
+      claimSketch: { findFirst: vi.fn(async () => null), create: vi.fn(async () => ({ id: "s" })), update: vi.fn() },
+      sketchUnderlayReference: { updateMany: vi.fn(async () => ({ count: 0 })), create: vi.fn(async () => ({ id: "r" })) },
+      auditLog: { create: vi.fn(async () => ({ id: "a" })) },
+    };
+    transaction.mockImplementation(async (cb: (c: typeof tx) => unknown) => cb(tx));
+    const bytes = new Uint8Array(make());
+    const res = await POST(uploadRequest({}, { bytes, type }), context);
+    expect(res.status).toBe(201);
+    expect(prepareUnderlayBytes).toHaveBeenCalledTimes(1);
+    const [sent, mime] = prepareUnderlayBytes.mock.calls[0];
+    expect(Buffer.from(sent).equals(Buffer.from(bytes))).toBe(true);
+    expect(mime).toBe(type);
+  });
+
+  it("tenant B: an invalid file from a foreign inspection is 404, not a validation answer", async () => {
+    tenancy.mockResolvedValue({ ok: false, status: 404, reason: "Not found" });
+    const res = await POST(
+      uploadRequest({}, { bytes: new TextEncoder().encode("<html>"), type: "image/png" }),
+      context,
+    );
+    expect(res.status).toBe(404);
+    expect(prepareUnderlayBytes).not.toHaveBeenCalled();
+    expect(storeUnderlay).not.toHaveBeenCalled();
+  });
+
+  it("source=url stays refused even with a valid file attached", async () => {
+    const res = await POST(uploadRequest({ source: "url" }), context);
+    expect(res.status).toBe(409);
+    expect(fetchRemoteUnderlay).not.toHaveBeenCalled();
+    expect(prepareUnderlayBytes).not.toHaveBeenCalled();
+    expect(storeUnderlay).not.toHaveBeenCalled();
   });
 });
 

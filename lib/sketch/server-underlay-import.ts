@@ -4,10 +4,15 @@ import { createHash } from "node:crypto";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 import { sanitizeScrapedImageUrl } from "@/lib/scraping/safe-fetch";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  STRICT_UPLOAD_POLICY,
+  detectImageMediaType,
+  validateImageUploadStrict,
+} from "@/lib/media/validate-image-upload";
 
-export const MAX_SERVER_UNDERLAY_BYTES = 10 * 1024 * 1024;
+export const MAX_SERVER_UNDERLAY_BYTES = STRICT_UPLOAD_POLICY.maxBytes;
 const MAX_REMOTE_REDIRECTS = 1;
-const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
+const ALLOWED_MIME = ["image/png", "image/jpeg", "image/webp"] as const;
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
 export interface PreparedUnderlay {
@@ -23,51 +28,21 @@ export interface StoredUnderlay {
   created: boolean;
 }
 
-function detectedMime(
-  bytes: Uint8Array,
-): "image/png" | "image/jpeg" | "image/webp" | null {
-  if (
-    bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a
-  )
-    return "image/png";
-  if (
-    bytes.length >= 3 &&
-    bytes[0] === 0xff &&
-    bytes[1] === 0xd8 &&
-    bytes[2] === 0xff
-  ) {
-    return "image/jpeg";
-  }
-  if (
-    bytes.length >= 12 &&
-    String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
-    String.fromCharCode(...bytes.slice(8, 12)) === "WEBP"
-  )
-    return "image/webp";
-  return null;
-}
-
 function assertAllowedImage(
   bytes: Uint8Array,
   declaredMime?: string | null,
 ): void {
-  if (!bytes.length || bytes.length > MAX_SERVER_UNDERLAY_BYTES) {
-    throw new Error("Floor-plan image must be between 1 byte and 10 MB.");
-  }
-  const magicMime = detectedMime(bytes);
-  if (
-    !magicMime ||
-    (declaredMime && !ALLOWED_MIME.has(declaredMime.split(";")[0].trim()))
-  ) {
-    throw new Error("Floor-plan image must be a PNG, JPEG or WebP file.");
+  const buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  // No declared type (internal callers): require the bytes to be self-consistent.
+  const declaredType =
+    declaredMime?.split(";")[0].trim() || detectImageMediaType(buffer) || "";
+  const check = validateImageUploadStrict({
+    declaredType,
+    buffer,
+    allowedTypes: ALLOWED_MIME,
+  });
+  if (!check.ok) {
+    throw new Error(`Floor-plan image rejected: ${check.reason}.`);
   }
 }
 
@@ -174,7 +149,7 @@ export async function prepareUnderlayBytes(
   assertAllowedImage(source, declaredMime);
   const sourceSizeBytes = source.byteLength;
   const sharp = (await import("sharp")).default;
-  const pipeline = sharp(source, { limitInputPixels: 40_000_000 }).rotate();
+  const pipeline = sharp(source, { limitInputPixels: STRICT_UPLOAD_POLICY.maxPixels }).rotate();
   const meta = await pipeline.metadata();
   if (
     !meta.width ||
