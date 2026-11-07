@@ -39,10 +39,15 @@ function heroFor(reason: Reason, feature?: string): HeroCopy {
     };
   }
   if (reason === "feature") {
+    const label =
+      feature === "paid-plan"
+        ? "Enhanced reports, Optimised depth and PDF import"
+        : (feature ?? "this feature");
     return {
       headline: "Continue with RestoreAssist",
-      support: `Subscribe to the Monthly Plan to use ${feature ?? "this feature"}.`,
-      reasonLabel: feature ? `Needs ${feature}` : "Feature access",
+      support: `Subscribe to the Monthly Plan to use ${label}.`,
+      reasonLabel:
+        feature === "paid-plan" ? "Paid plan feature" : feature ? `Needs ${feature}` : "Feature access",
     };
   }
   if (reason === "canceled") {

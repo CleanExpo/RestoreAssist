@@ -81,6 +81,16 @@ export default async function UpgradePage({
       <BillingUpgradeShell className="space-y-8 pb-16">
         {cancelled && <CancelledCheckoutNotice />}
         <UpgradeHeader reason={reason} feature={feature} />
+        {user.subscriptionStatus === "TRIAL" && (
+          <p
+            role="note"
+            className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950"
+          >
+            Trial workspaces get Basic reports only. The paid plan unlocks
+            Enhanced and Optimised depth plus PDF import — those limits are
+            enforced when you subscribe.
+          </p>
+        )}
         <UpgradeTrustStrip
           backHref={isHardPaywall ? "/login" : "/dashboard"}
           backLabel={isHardPaywall ? "Switch account" : "Back to dashboard"}
