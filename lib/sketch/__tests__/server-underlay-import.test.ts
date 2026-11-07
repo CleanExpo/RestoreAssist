@@ -90,3 +90,24 @@ describe("prepareUnderlayBytes structural rejects", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("prepareUnderlayBytes EXIF orientation", () => {
+  it.each([
+    [3, 64, 48],
+    [6, 48, 64],
+    [8, 48, 64],
+  ])(
+    "orientation %i yields a %ix%i PNG with exact-byte hash",
+    async (orientation, width, height) => {
+      const { makeOrientedJpeg } =
+        await import("@/lib/media/__tests__/image-fixtures");
+      const src = await makeOrientedJpeg(orientation);
+      const out = await prepareUnderlayBytes(src, "image/jpeg");
+      const meta = await sharp(out.bytes).metadata();
+      expect([meta.width, meta.height]).toEqual([width, height]);
+      expect(out.contentSha256).toBe(
+        createHash("sha256").update(out.bytes).digest("hex"),
+      );
+    },
+  );
+});

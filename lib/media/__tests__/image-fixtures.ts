@@ -148,3 +148,19 @@ export async function makeJpegWithTrailer(): Promise<Buffer> {
     Buffer.from("MPF-TRAILER-DATA"),
   ]);
 }
+
+/** Non-square sharp JPEG carrying an EXIF orientation tag (stored 64x48). */
+export async function makeOrientedJpeg(orientation: number): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  return sharp({
+    create: {
+      width: 64,
+      height: 48,
+      channels: 3,
+      background: { r: 200, g: 200, b: 200 },
+    },
+  })
+    .jpeg()
+    .withMetadata({ orientation })
+    .toBuffer();
+}
