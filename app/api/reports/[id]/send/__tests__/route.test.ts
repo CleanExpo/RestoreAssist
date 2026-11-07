@@ -42,6 +42,11 @@ const txAuditLogCreate = vi.fn();
 const topLevelEmailAuditCreate = vi.fn();
 const topLevelAuditLogCreate = vi.fn();
 const emailSend = vi.fn();
+const auditInspectionById = vi.fn();
+
+vi.mock("@/lib/evidence/field-evidence-audit", () => ({
+  auditInspectionById: (...args: unknown[]) => auditInspectionById(...args),
+}));
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -172,9 +177,36 @@ beforeEach(() => {
     topLevelEmailAuditCreate,
     topLevelAuditLogCreate,
     emailSend,
+    auditInspectionById,
   ]) {
     fn.mockReset();
   }
+
+  auditInspectionById.mockResolvedValue({
+    inspectionId: INSPECTION_ID,
+    claimType: "WATER_DAMAGE",
+    generatedAt: "2026-11-01T00:00:00.000Z",
+    categories: {
+      required: [
+        {
+          evidenceClass: "MOISTURE_READING",
+          displayName: "Moisture",
+          stepKey: "moisture",
+          stepTitle: "Moisture",
+          riskTier: 1,
+          requiredCount: 1,
+          capturedCount: 1,
+          status: "present",
+          averageQaScore: 90,
+          s500Ref: null,
+        },
+      ],
+      recommended: [],
+    },
+    gapsByEvidenceClass: {},
+    gapsByAffectedArea: [],
+    unlinkedEvidence: [],
+  });
 
   currentReport = completedReport();
   idempotencyCache = new Map();
@@ -241,6 +273,39 @@ beforeEach(() => {
 });
 
 describe("POST /api/reports/[id]/send — refusals send nothing and write nothing", () => {
+  it("refuses when required field evidence is still missing on the linked job", async () => {
+    auditInspectionById.mockResolvedValue({
+      inspectionId: INSPECTION_ID,
+      claimType: "WATER_DAMAGE",
+      generatedAt: "2026-11-01T00:00:00.000Z",
+      categories: {
+        required: [
+          {
+            evidenceClass: "MOISTURE_READING",
+            displayName: "Moisture",
+            stepKey: "moisture",
+            stepTitle: "Moisture",
+            riskTier: 1,
+            requiredCount: 1,
+            capturedCount: 0,
+            status: "missing",
+            averageQaScore: null,
+            s500Ref: null,
+          },
+        ],
+        recommended: [],
+      },
+      gapsByEvidenceClass: {},
+      gapsByAffectedArea: [],
+      unlinkedEvidence: [],
+    });
+    const res = await POST(makeRequest(), params());
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error?.message).toMatch(/required field evidence/i);
+    expectNothingSentOrWritten();
+  });
+
   it.each(["DRAFT", "PENDING", "APPROVED", "ARCHIVED"])(
     "refuses a %s report",
     async (status) => {

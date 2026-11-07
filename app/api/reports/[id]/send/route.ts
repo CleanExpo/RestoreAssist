@@ -13,6 +13,11 @@ import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { sanitiseEmailField } from "@/lib/email/sanitise-header";
 import { escapeHtml, getFromEmail, withEmailTimeout } from "@/lib/email";
 import { recordReportSent } from "@/lib/lifecycle/report-delivery";
+import { auditInspectionById } from "@/lib/evidence/field-evidence-audit";
+import {
+  blocksReportSendForFieldEvidence,
+  FIELD_EVIDENCE_SEND_REFUSAL_MESSAGE,
+} from "@/lib/reports/field-evidence-send-gate";
 
 /** Same lifetime as the insurer link (`generateInsurerToken`). */
 const LINK_VALID_DAYS = 30;
@@ -135,6 +140,15 @@ export async function POST(
         });
       }
       const inspectionId = report.inspection.id;
+
+      const fieldChecklist = await auditInspectionById(inspectionId);
+      if (blocksReportSendForFieldEvidence(fieldChecklist)) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: FIELD_EVIDENCE_SEND_REFUSAL_MESSAGE,
+          status: 409,
+        });
+      }
 
       if (!isEmailServiceConfigured()) {
         return apiError(request, {
