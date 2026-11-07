@@ -1126,6 +1126,19 @@ function readEnvExample(): string {
 const REPO_SCAN_TIMEOUT_MS = 120_000;
 
 describe("runtime env names are documented in .env.example (RA-7477)", () => {
+  it("documents sandbox billing as optional and disabled by default", () => {
+    const example = readEnvExample();
+    const entries = example.split(/\r?\n/).filter((line) => /^\s*BILLING_MODE\s*=/.test(line));
+    expect(entries).toEqual(["BILLING_MODE="]);
+    const comments = example.match(/((?:^#.*\r?\n)+)BILLING_MODE=/m)?.[1];
+    expect(comments).toContain("Optional");
+    expect(comments).toContain("Unset/empty preserves existing live-production behaviour");
+    expect(comments).toContain("sandbox");
+    expect(comments).toContain("VERCEL=1");
+    expect(comments).toContain("VERCEL_PROJECT_ID=prj_i9clta3fzdpQwNhVmf9BMMddpG3k");
+    expect(comments).toContain("Never set sandbox on DigitalOcean or another project");
+  });
+
   it("reads dot, quoted bracket, optional, and destructure access", () => {
     const result = scanSourceText(
       "snippet.ts",
