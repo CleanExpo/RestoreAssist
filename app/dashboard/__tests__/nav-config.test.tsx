@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildAdvancedNavGroups,
+  buildSimpleNavItems,
   simpleNavItems,
   ADMIN_NAV_HREFS,
   type NavItem,
@@ -89,5 +90,13 @@ describe("dashboard nav — create-report gate href", () => {
         "/dashboard/governance",
       ]),
     );
+  });
+});
+
+describe("buildSimpleNavItems — manager landing", () => {
+  it("puts completeness inbox first and summary with stay=1", () => {
+    const items = buildSimpleNavItems({ isManager: true });
+    expect(items[0]?.href).toBe("/dashboard/operations/completeness-inbox");
+    expect(items.some((i) => i.href === "/dashboard?stay=1")).toBe(true);
   });
 });

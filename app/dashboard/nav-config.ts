@@ -121,6 +121,21 @@ export function buildSimpleNavItems(options?: { isManager?: boolean }): NavItem[
         });
       }
     }
+    const inbox = MANAGER_NAV_HREFS[0];
+    const withoutOverview = items.filter((i) => i.href !== "/dashboard");
+    return [
+      {
+        icon: Inbox,
+        label: inbox.label,
+        href: inbox.href,
+      },
+      ...withoutOverview,
+      {
+        icon: LayoutDashboard,
+        label: "Workspace summary",
+        href: "/dashboard?stay=1",
+      },
+    ];
   }
   return items;
 }

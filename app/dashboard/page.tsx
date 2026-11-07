@@ -553,6 +553,13 @@ function DashboardContent({
   }, []);
 
   const simpleMode = experienceMode !== null && !isAdvancedMode(experienceMode);
+
+  useEffect(() => {
+    if (role !== "MANAGER" || !simpleMode) return;
+    if (searchParams.get("stay") === "1") return;
+    router.replace("/dashboard/operations/completeness-inbox");
+  }, [role, simpleMode, router, searchParams]);
+
   const hubLinks = simpleMode
     ? simpleWorkspaceHubLinks({ omitHref: "/dashboard", isManager })
     : workspaceHubLinks({ omitHref: "/dashboard", includeCompletenessInbox: isManager });

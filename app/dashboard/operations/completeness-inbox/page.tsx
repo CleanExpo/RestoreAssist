@@ -17,6 +17,10 @@ import {
 } from "@/lib/dashboard/completeness-blocker-links";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import { cn } from "@/lib/utils";
+import {
+  inboxAgeingBand,
+  inboxAgeingLabel,
+} from "@/lib/completeness/inbox-ageing";
 
 type Row = {
   inspectionId: string;
@@ -25,9 +29,10 @@ type Row = {
   status: string;
   completionPercent: number;
   blocking: string[];
+  daysIdle?: number;
 };
 
-type SortKey = "gaps-desc" | "completion-asc";
+type SortKey = "gaps-desc" | "completion-asc" | "age-desc";
 
 const BLOCKER_ORDER: CompletenessBlockerId[] = [
   "client",
@@ -131,6 +136,9 @@ export default function CompletenessInboxPage() {
       if (sort === "gaps-desc") {
         return b.blocking.length - a.blocking.length;
       }
+      if (sort === "age-desc") {
+        return (b.daysIdle ?? 0) - (a.daysIdle ?? 0);
+      }
       return 0;
     });
     return list;
@@ -138,6 +146,11 @@ export default function CompletenessInboxPage() {
 
   const totalGaps = useMemo(
     () => rows.reduce((n, r) => n + r.blocking.length, 0),
+    [rows],
+  );
+
+  const staleCount = useMemo(
+    () => rows.filter((r) => (r.daysIdle ?? 0) >= 7).length,
     [rows],
   );
 
@@ -182,6 +195,12 @@ export default function CompletenessInboxPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Jobs with gaps" value={rows.length} accent="amber" />
           <StatCard label="Open blockers" value={totalGaps} accent="cyan" />
+          <StatCard
+            label="Stale (7+ days)"
+            value={staleCount}
+            accent="amber"
+            hint="No job update in a week"
+          />
           <StatCard
             label="Avg completion"
             value={
@@ -256,6 +275,7 @@ export default function CompletenessInboxPage() {
               >
                 <option value="gaps-desc">Most blockers first</option>
                 <option value="completion-asc">Lowest completion first</option>
+                <option value="age-desc">Longest idle first</option>
               </select>
             </label>
           </div>
@@ -365,6 +385,9 @@ export default function CompletenessInboxPage() {
                             {formatStatus(row.status)}
                           </span>
                           <span>{row.blocking.length} blocker(s)</span>
+                          {typeof row.daysIdle === "number" ? (
+                            <AgeingBadge days={row.daysIdle} />
+                          ) : null}
                         </p>
                       </div>
                     </div>
@@ -473,6 +496,21 @@ function StatCard({
         <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>
       ) : null}
     </div>
+  );
+}
+
+function AgeingBadge({ days }: { days: number }) {
+  const band = inboxAgeingBand(days);
+  const tone =
+    band === "stale"
+      ? "bg-red-500/15 text-red-800 dark:text-red-300"
+      : band === "ageing"
+        ? "bg-amber-500/15 text-amber-900 dark:text-amber-200"
+        : "bg-muted text-muted-foreground";
+  return (
+    <span className={cn("rounded px-1.5 py-0.5 font-medium", tone)}>
+      {inboxAgeingLabel(days)}
+    </span>
   );
 }
 
