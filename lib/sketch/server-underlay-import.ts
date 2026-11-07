@@ -153,18 +153,16 @@ export async function prepareUnderlayBytes(
     limitInputPixels: STRICT_UPLOAD_POLICY.maxPixels,
   }).rotate();
   const meta = await pipeline.metadata();
-  if (
-    !meta.width ||
-    !meta.height ||
-    meta.width > 10_000 ||
-    meta.height > 10_000
-  ) {
+  // metadata() reports stored (pre-rotation) axes; EXIF orientations 5-8
+  // swap them once rotate() has applied the tag.
+  const swapAxes = (meta.orientation ?? 1) >= 5;
+  const width = swapAxes ? meta.height : meta.width;
+  const height = swapAxes ? meta.width : meta.height;
+  if (!width || !height || width > 10_000 || height > 10_000) {
     throw new Error("Floor-plan image dimensions are not supported.");
   }
   const bytes = await pipeline
-    .composite([
-      { input: watermarkSvg(meta.width, meta.height), top: 0, left: 0 },
-    ])
+    .composite([{ input: watermarkSvg(width, height), top: 0, left: 0 }])
     .png({ compressionLevel: 9 })
     .toBuffer();
   if (bytes.length > MAX_SERVER_UNDERLAY_BYTES) {
