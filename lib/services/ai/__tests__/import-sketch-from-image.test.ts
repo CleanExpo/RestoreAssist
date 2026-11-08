@@ -254,3 +254,40 @@ describe("importSketchFromImage output validation (RA-8235)", () => {
     }
   });
 });
+
+describe("importSketchFromImage reference plan context (RA-8236)", () => {
+  const promptSent = () => {
+    const call = vi.mocked(callAnthropic).mock.calls[0][0] as unknown as {
+      request: { messages: { content: { type: string; text?: string }[] }[] };
+    };
+    return call.request.messages[0].content.find((b) => b.type === "text")
+      ?.text;
+  };
+
+  beforeEach(() => {
+    vi.mocked(callAnthropic)
+      .mockReset()
+      .mockResolvedValue({
+        ok: true,
+        data: {
+          id: "msg_1",
+          usage: { input_tokens: 1, output_tokens: 1 },
+          content: [{ type: "text", text: '{"rooms":[]}' }],
+        } as never,
+      });
+  });
+
+  it("tells the reader to ignore the watermark on a reference plan", async () => {
+    await importSketchFromImage({
+      ...sampleArgs,
+      sourceContext: "reference_plan",
+    });
+    expect(promptSent()).toMatch(/REFERENCE ONLY/);
+    expect(promptSent()).toMatch(/ignore/i);
+  });
+
+  it("keeps the hand-drawn prompt unchanged by default", async () => {
+    await importSketchFromImage(sampleArgs);
+    expect(promptSent()).not.toMatch(/REFERENCE ONLY/);
+  });
+});

@@ -63,6 +63,12 @@ import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { importSketchUserMessage } from "@/lib/sketch/import-sketch-user-message";
 import {
+  omitRoomsAlreadyOnCanvas,
+  referenceImportFailureMessage,
+  requestReferenceRooms,
+  type UnderlayReferenceBinding,
+} from "@/lib/sketch/reference-room-import";
+import {
   captureFloorsHaveDrawableContent,
   sketchDataForCaptureEditor,
 } from "@/lib/sketch/capture-floor-hydration";
@@ -553,6 +559,9 @@ export function SketchEditorV2({
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  // RA-8236: the reference applied in this session, bound to its exact floor.
+  const [underlayReference, setUnderlayReference] =
+    useState<UnderlayReferenceBinding | null>(null);
   // Capture mode (homeowner self-capture) has no offline queue, so a failed
   // save must surface as an explicit error rather than a false "Saved".
   const [captureSaveFailed, setCaptureSaveFailed] = useState(false);
@@ -2034,7 +2043,12 @@ export function SketchEditorV2({
 
   // ── Background ──────────────────────────────────────────
   const handleApplyBackground = useCallback(
-    (url: string, opacity: number) => {
+    (
+      url: string,
+      opacity: number,
+      reference?: UnderlayReferenceBinding,
+    ) => {
+      setUnderlayReference(reference ?? null);
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -2075,6 +2089,7 @@ export function SketchEditorV2({
   );
 
   const handleClearBackground = useCallback(() => {
+    setUnderlayReference(null);
     setFloorsData((prev) =>
       prev.map((fd, i) =>
         i === activeIdx ? { ...fd, backgroundUrl: null } : fd,
@@ -2544,21 +2559,25 @@ export function SketchEditorV2({
   }, [activeFloor]);
 
   // ── RA-1607: Import hand-drawn sketch via Claude Vision ─
-  const handleImportSketch = useCallback(
-    async (file: File) => {
+  const runRoomImport = useCallback(
+    async ({
+      send,
+      failureMessage,
+      emptyReferenceMessage,
+    }: {
+      send: () => Promise<Response>;
+      failureMessage: (
+        status: number,
+        body: unknown,
+        retryAfter: string | null,
+      ) => string;
+      /** RA-8236: set for a reference read, whose caller shows the error. */
+      emptyReferenceMessage?: string;
+    }) => {
       if (!inspectionId) return;
       const loadingToast = toast.loading("Reading sketch image…");
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append(
-        "floorNumber",
-        String(activeFloor?.floor.floorNumber ?? 0),
-      );
       try {
-        const res = await fetch(
-          `/api/inspections/${inspectionId}/sketches/import-from-image`,
-          { method: "POST", body: formData },
-        );
+        const res = await send();
         const body = (await res.json().catch(() => ({}))) as {
           rooms?: {
             id?: string;
@@ -2569,19 +2588,45 @@ export function SketchEditorV2({
           primaryFailure?: { reason: string; detail?: string };
         };
         if (!res.ok) {
-          const msg = importSketchUserMessage(
+          const msg = failureMessage(
             res.status,
             body,
             res.headers.get("Retry-After"),
           );
           throw new Error(msg);
         }
-        const { rooms, reader, primaryFailure } = body;
-        if (!rooms?.length) {
+        const { reader, primaryFailure } = body;
+        if (!body.rooms?.length) {
+          if (emptyReferenceMessage) throw new Error(emptyReferenceMessage);
           const emptyMsg =
             "No rooms found in that image. Try a clearer photo with room outlines visible.";
           toast.error(emptyMsg);
           throw new Error(emptyMsg);
+        }
+
+        const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+          add: (...objs: unknown[]) => void;
+          renderAll: () => void;
+          getObjects: () => { data?: { id?: string } }[];
+        } | null;
+        if (!fc) {
+          toast.error("Canvas not ready — try import again in a moment.");
+          throw new Error("Canvas not ready");
+        }
+
+        // RA-8236: a replayed read returns the same ids; never place one twice.
+        const rooms = omitRoomsAlreadyOnCanvas(
+          body.rooms,
+          new Set(
+            fc
+              .getObjects()
+              .map((o) => o.data?.id)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        if (rooms.length === 0) {
+          toast("These suggested rooms are already on the plan.");
+          return;
         }
 
         const vendor = reader?.vendor ?? "anthropic";
@@ -2603,15 +2648,6 @@ export function SketchEditorV2({
             `Imported ${rooms.length} room${rooms.length === 1 ? "" : "s"} — measure and confirm each before billing.`,
             { duration: 5000 },
           );
-        }
-
-        const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
-          add: (...objs: unknown[]) => void;
-          renderAll: () => void;
-        } | null;
-        if (!fc) {
-          toast.error("Canvas not ready — try import again in a moment.");
-          throw new Error("Canvas not ready");
         }
 
         const fabric = await import("fabric");
@@ -2716,6 +2752,43 @@ export function SketchEditorV2({
     },
     [inspectionId, activeFloor, width, height, flushSaveNow],
   );
+
+  const handleImportSketch = useCallback(
+    (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append(
+        "floorNumber",
+        String(activeFloor?.floor.floorNumber ?? 0),
+      );
+      return runRoomImport({
+        send: () =>
+          fetch(`/api/inspections/${inspectionId}/sketches/import-from-image`, {
+            method: "POST",
+            body: formData,
+          }),
+        failureMessage: importSketchUserMessage,
+      });
+    },
+    [inspectionId, activeFloor, runRoomImport],
+  );
+
+  // RA-8236: read the stored reference. A failure leaves the plan in place.
+  const handleSuggestReferenceRooms = useCallback(async () => {
+    if (!inspectionId || !underlayReference) return;
+    try {
+      await runRoomImport({
+        send: () => requestReferenceRooms(inspectionId, underlayReference),
+        failureMessage: referenceImportFailureMessage,
+        emptyReferenceMessage:
+          "No rooms found on page 1 of that plan. The plan is still on the canvas, so you can trace the rooms by hand.",
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't read that plan.",
+      );
+    }
+  }, [inspectionId, underlayReference, runRoomImport]);
 
   // ── RA-7091: apply CapturedRoom JSON onto a floor canvas ─
   const applyCapturedRoomToFloor = useCallback(
@@ -3584,8 +3657,8 @@ export function SketchEditorV2({
               writeEditorMode("advanced");
               setToolMode("room");
             }}
-            onApplyUnderlay={(url, opacity) => {
-              handleApplyBackground(url, opacity);
+            onApplyUnderlay={(url, opacity, reference) => {
+              handleApplyBackground(url, opacity, reference);
               setStartOverlayDismissed(true);
               setCreateCoachDismissed(true);
               editorModeUserSetRef.current = true;
@@ -4393,7 +4466,7 @@ export function SketchEditorV2({
       {!readonly && !guided && (
         <div
           ref={underlayPanelRef}
-          className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/10 bg-brand-deep"
+          className="relative z-10 flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/10 bg-brand-deep"
         >
           <FloorPlanUnderlayLoader
             defaultAddress={propertyAddress}
@@ -4402,6 +4475,13 @@ export function SketchEditorV2({
             floorNumber={activeFloor?.floor.floorNumber ?? 0}
             onApply={handleApplyBackground}
             onClear={handleClearBackground}
+            onSuggestRooms={
+              underlayReference &&
+              !readonly &&
+              underlayReference.floorNumber === activeFloor?.floor.floorNumber
+                ? handleSuggestReferenceRooms
+                : undefined
+            }
             hasBackground={!!activeFloor?.backgroundUrl}
             autoFetch={autoFetchFloorPlan && !!propertyAddress}
             openUploadRef={underlayOpenUploadRef}

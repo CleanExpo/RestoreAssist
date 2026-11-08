@@ -68,6 +68,17 @@ Output schema (JSON only):
   ]
 }`;
 
+/** RA-8236: recorded with each reference read so results stay traceable. */
+export const SKETCH_READER_PROMPT_VERSION = "2026-11-08-reference-plan-1";
+
+/** RA-8236: stored references carry the server's baked watermark. */
+const REFERENCE_PLAN_NOTE = `
+
+This image is page 1 of an uploaded floor plan, not a photo of a sketch. Faint diagonal "REFERENCE ONLY" text repeats across it. Ignore that text: it is a watermark, never a room label or a wall.`;
+
+/** Where the image came from, when that changes how it should be read. */
+export type SketchSourceContext = "reference_plan";
+
 export type ImportSketchReason = AnthropicReason | "PARSE_FAILED";
 
 export interface SketchRoom {
@@ -106,12 +117,14 @@ export async function importSketchFromImage(args: {
   base64Image: string;
   mediaType: "image/jpeg" | "image/png";
   fallback?: SketchReaderFallback | null;
+  sourceContext?: SketchSourceContext;
 }): Promise<ServiceResult<ImportSketchResult, ImportSketchReason>> {
   const primary = await readSketch({
     apiKey: args.apiKey,
     model: PRIMARY_VISION_MODEL,
     base64Image: args.base64Image,
     mediaType: args.mediaType,
+    sourceContext: args.sourceContext,
   });
   if (primary.ok) {
     return ok({
@@ -129,6 +142,7 @@ export async function importSketchFromImage(args: {
     model: ABLITERATION_VISION_MODEL,
     base64Image: args.base64Image,
     mediaType: args.mediaType,
+    sourceContext: args.sourceContext,
   });
   if (backup.ok) {
     return ok({
@@ -150,6 +164,7 @@ async function readSketch(args: {
   model: string;
   base64Image: string;
   mediaType: "image/jpeg" | "image/png";
+  sourceContext?: SketchSourceContext;
 }): Promise<
   ServiceResult<Pick<ImportSketchResult, "rooms" | "outcome" | "usage">, ImportSketchReason>
 > {
@@ -172,7 +187,13 @@ async function readSketch(args: {
                 data: args.base64Image,
               },
             },
-            { type: "text", text: SYSTEM_PROMPT },
+            {
+              type: "text",
+              text:
+                args.sourceContext === "reference_plan"
+                  ? `${SYSTEM_PROMPT}${REFERENCE_PLAN_NOTE}`
+                  : SYSTEM_PROMPT,
+            },
           ],
         },
       ],

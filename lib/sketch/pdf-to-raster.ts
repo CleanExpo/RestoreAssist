@@ -32,14 +32,46 @@ export function computeRasterScale(
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, raw));
 }
 
+export type PdfUnderlayErrorCode = "encrypted" | "unreadable";
+
+/** Why a PDF could not become a raster, so the UI can offer the right fallback. */
+export class PdfUnderlayError extends Error {
+  constructor(readonly code: PdfUnderlayErrorCode) {
+    super(`PDF underlay ${code}`);
+    this.name = "PdfUnderlayError";
+  }
+}
+
+export interface PdfFirstPageRaster {
+  dataUrl: string;
+  /** Pages in the whole document. Only page 1 is ever rendered (RA-8236). */
+  pageCount: number;
+}
+
 /**
- * Render page 1 of a PDF file to a PNG data URL (browser-only).
- * @throws if the PDF cannot be parsed or has no pages.
+ * Render page 1 of a PDF file to a PNG data URL (browser-only). Page 1 is the
+ * whole contract: later pages are never read.
+ * @throws PdfUnderlayError if the PDF is password-protected or unreadable.
  */
-export async function pdfFileToPngDataUrl(
+export async function pdfFirstPageToPng(
   file: Blob,
   targetWidth = UNDERLAY_RASTER_TARGET_WIDTH,
-): Promise<string> {
+): Promise<PdfFirstPageRaster> {
+  try {
+    return await renderFirstPage(file, targetWidth);
+  } catch (err) {
+    throw new PdfUnderlayError(
+      (err as { name?: string } | null)?.name === "PasswordException"
+        ? "encrypted"
+        : "unreadable",
+    );
+  }
+}
+
+async function renderFirstPage(
+  file: Blob,
+  targetWidth: number,
+): Promise<PdfFirstPageRaster> {
   const pdfjs = await import("pdfjs-dist");
   // pdfjs v5 ships an ESM worker; point the worker at the bundled asset URL so
   // it resolves under Next without a separate copy step.
@@ -88,5 +120,5 @@ export async function pdfFileToPngDataUrl(
     }
   ).render({ canvasContext: ctx, viewport }).promise;
 
-  return canvas.toDataURL("image/png");
+  return { dataUrl: canvas.toDataURL("image/png"), pageCount: numPages };
 }
