@@ -14,6 +14,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { useAsyncAction } from "@/lib/client/use-async-action";
 import { parseApiError } from "@/lib/client/parse-api-error";
 import { ContractorsBackLink } from "../ContractorsBackLink";
@@ -646,7 +647,9 @@ export default function ContractorProfileDashboard() {
         {/* Certifications List */}
         {certifications.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
-            No certifications added yet
+            {isConfirmedEmpty(loadError, certifications.length)
+              ? "No certifications added yet"
+              : "Certifications could not be loaded"}
           </div>
         ) : (
           <div className="space-y-4">
@@ -798,7 +801,9 @@ export default function ContractorProfileDashboard() {
         {/* Service Areas List */}
         {serviceAreas.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
-            No service areas added yet
+            {isConfirmedEmpty(loadError, serviceAreas.length)
+              ? "No service areas added yet"
+              : "Service areas could not be loaded"}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
