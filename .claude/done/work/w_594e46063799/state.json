@@ -1,8 +1,75 @@
 {
   "schema": "done/1",
-  "criterion_evidence": "UNPROVEN",
-  "verification_status": "NOT_RUN",
+  "criterion_evidence": "PROVEN",
+  "verification_status": "PASS",
   "delivery_status": "NOT_STARTED",
-  "verified_head": null,
-  "updated_at_utc": "2026-11-08T18:01:32Z"
+  "verified_head": "aa72697a02f380d6e31e5ed56373c6f691c89180",
+  "updated_at_utc": "2026-11-08T18:09:58Z",
+  "last_verify": {
+    "head": "aa72697a02f380d6e31e5ed56373c6f691c89180",
+    "at_utc": "2026-11-08T18:09:58Z",
+    "matrix": [
+      {
+        "id": "C1",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node node_modules/vitest/vitest.mjs run --config config/vitest.config.js lib/__tests__/nir-sync-queue-permanent-reject.test.ts lib/__tests__/nir-sync-queue-revision.test.ts lib/__tests__/nir-sync-queue-sketch.test.ts",
+        "exit_code": 0,
+        "timeout_s": 600,
+        "duration_s": 2.5,
+        "output_digest": "79897fd056e82fd4fa02c912eed8fff5496132e414ccc23e0d097360141855ff",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_594e46063799/aa72697a02f3/C1-ab861dc170dc-79897fd056e82fd4.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242\u001b[39m\n\n \u001b[32m✓\u001b[39m lib/__tests__/nir-sync-queue-permanent-reject.test.ts \u001b[2m(\u001b[22m\u001b[2m14 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 40\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/nir-sync-queue-revision.test.ts \u001b[2m(\u001b[22m\u001b[2m9 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 35\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/nir-sync-queue-sketch.test.ts \u001b[2m(\u001b[22m\u001b[2m6 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 23\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m3 passed\u001b[39m\u001b[22m\u001b[90m (3)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m29 passed\u001b[39m\u001b[22m\u001b[90m (29)\u001b[39m\n\u001b[2m   Start at \u001b[22m 04:02:38\n\u001b[2m   Duration \u001b[22m 1.91s\u001b[2m (transform 62ms, setup 79ms, import 30ms, tests 98ms, environment 1.49s)\u001b[22m"
+      },
+      {
+        "id": "C2",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node scripts/check-au-english.mjs && /Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node scripts/check-no-emoji.mjs && /Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node scripts/check-no-lucide.mjs && /Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node node_modules/tsx/dist/cli.mjs scripts/check-standards-citations.ts",
+        "exit_code": 0,
+        "timeout_s": 600,
+        "duration_s": 2.2,
+        "output_digest": "1345b8d855b33cb5f3148e8eb2d2f4b7849d33d4f64877b69a067347e809be50",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_594e46063799/aa72697a02f3/C2-9685eb765661-1345b8d855b33cb5.log",
+        "output_tail": "✓ Australian-English content guard passed (v1.0.1, 68 files scanned).\ncheck:no-emoji - OK. No new emojis beyond baseline (0 known, ratcheting down).\ncheck:no-lucide - OK. No new lucide-react imports beyond baseline (354 known, ratcheting down).\n✓ All IICRC citations match STANDARDS_VERSIONS and reference real S500/S700 sections."
+      },
+      {
+        "id": "C3",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node scripts/type-check.mjs",
+        "exit_code": 0,
+        "timeout_s": 1800,
+        "duration_s": 45.8,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_594e46063799/aa72697a02f3/C3-8a214cef6d47-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      },
+      {
+        "id": "C4",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node node_modules/eslint/bin/eslint.js -c config/eslint.config.mjs . --max-warnings 851",
+        "exit_code": 0,
+        "timeout_s": 1800,
+        "duration_s": 19.4,
+        "output_digest": "aa2b0c1a15e140ec5f0358af7fdc7d2a5889fad000bba50e9d10bcefec194a82",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_594e46063799/aa72697a02f3/C4-08d1623c441b-aa2b0c1a15e140ec.log",
+        "output_tail": "t-eslint/no-unused-vars\n  149:7  warning  'airMoversQty' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars\n  150:7  warning  'dehumidifiersQty' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars\n  151:7  warning  'afdQty' is assigned a value but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/restore/__tests__/plan.test.ts\n  1:10  warning  'describe' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/revolutionary-gap-analysis.ts\n  12:10  warning  'extractTextFromPDF' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars\n  14:3   warning  'retrieveRelevantStandards' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars\n  15:3   warning  'buildStandardsContextPrompt' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n  16:3   warning  'RetrievalQuery' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/services/ai/generate-interview-question.ts\n  15:14  warning  'fail' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/setup/__tests__/checks.test.ts\n  11:51  warning  'CheckResult' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/storage/__tests__/supabase-provider.restore.test.ts\n  3:10  warning  'BUCKET_ORIGINALS' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/storage/compression.ts\n  41:3  warning  'mimeType' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/usage/log-usage.ts\n  64:11  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/voice/transcript-parser.ts\n  165:9  warning  'lower' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/workspace/provider-connections.ts\n  128:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/workspace/scraping-provider-connections.ts\n  102:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/lib/youtube/metadata.ts\n  32:45  warning  'voiceoverText' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/mobile/app/(tabs)/inspections/new.tsx\n  97:41  warning  'required' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8242/proxy.ts\n  7:3  warning  'TRIAL_EXPIRED_PAY_PATH' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n✖ 698 problems (0 errors, 698 warnings)\n  0 errors and 86 warnings potentially fixable with the `--fix` option."
+      },
+      {
+        "id": "C5",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node node_modules/vitest/vitest.mjs run --config config/vitest.config.js",
+        "exit_code": 0,
+        "timeout_s": 3000,
+        "duration_s": 370.1,
+        "output_digest": "e623b285981961aef128ec9aaf69bfdc5bc35a1ae9758172ec4a5820087b51f0",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_594e46063799/aa72697a02f3/C5-1d96682bdb05-e623b285981961ae.log",
+        "output_tail": "ipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/auth/register/__tests__/workspace-at-signup.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m | \u001b[22m\u001b[33m1 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/inspections/[id]/__tests__/assign-technician.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m7 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/inspections/[id]/__tests__/technician-field-capture.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m103 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m103 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/reports/initial-entry/__tests__/route.inspection-link.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m5 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/setup/checks/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m3 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/setup/hydrate/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m7 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/setup/activate/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m5 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/setup/pricing/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m6 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m6 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/setup/state/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m11 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m11 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/team/invites/__tests__/route-concurrency.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m2 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/webhooks/stripe/__tests__/checkout-completed.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m2 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/webhooks/stripe/__tests__/subscription-lifecycle.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m3 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/ai/auto-classify-photo/[photoId]/__tests__/latch-race.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m | \u001b[22m\u001b[33m1 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/inspections/[id]/draft-snapshot/__tests__/draft-snapshot.model.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m5 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/inspections/[id]/evidence/__tests__/route.readback-reach.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m3 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/inspections/[id]/generate-scope/__tests__/regenerate-keeps-manual-items.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m | \u001b[22m\u001b[33m1 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/oauth/google-drive/start/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m3 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/oauth/google-drive/status/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m4 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/oauth/google-drive/callback/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m5 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/reports/[id]/share-link/__tests__/route.org-reach.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m4 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/setup/hydrate/stream/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m3 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/agents/workflows/[id]/execute/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m5 skipped\u001b[39m\u001b[2m)\u001b[22m\n \u001b[2m\u001b[90m↓\u001b[39m\u001b[22m app/api/integrations/oauth/[provider]/jobs/__tests__/route.import-truth.integration.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m | \u001b[22m\u001b[33m1 skipped\u001b[39m\u001b[2m)\u001b[22m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1551 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m56 skipped\u001b[39m\u001b[90m (1607)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m14127 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m446 skipped\u001b[39m\u001b[90m (14573)\u001b[39m\n\u001b[2m   Start at \u001b[22m 04:03:48\n\u001b[2m   Duration \u001b[22m 369.25s\u001b[2m (transform 12.78s, setup 18.62s, import 92.05s, tests 97.82s, environment 66.20s)\u001b[22m"
+      }
+    ],
+    "blockers": []
+  }
 }
