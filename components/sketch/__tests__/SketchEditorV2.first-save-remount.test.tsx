@@ -158,15 +158,39 @@ vi.mock("../SketchCanvas", async () => {
   return { default: SketchCanvas };
 });
 
+const toastSpy = vi.hoisted(() => {
+  const error = vi.fn();
+  const fn = Object.assign(vi.fn(), { error, success: vi.fn(), loading: vi.fn(), dismiss: vi.fn() });
+  return { fn, error };
+});
+
+vi.mock("react-hot-toast", () => ({ default: toastSpy.fn, toast: toastSpy.fn, Toaster: () => null }));
+
 vi.mock("../SketchEvidenceLayer", () => ({
-  SketchEvidenceLayer: ({ pins, existingPhotos, onPlace, onPlaceExisting }: {
-    pins: unknown[];
+  SketchEvidenceLayer: ({ pins, existingPhotos, onPlace, onPlaceExisting, onMove, onRemove }: {
+    pins: Array<{ id: string; x: number; y: number }>;
     existingPhotos: unknown[];
     onPlace: (coords: { x: number; y: number; nx: number; ny: number; file: File }) => void;
     onPlaceExisting?: (coords: { x: number; y: number; nx: number; ny: number; photo: { id: string; url: string; mimeType: string } }) => void;
+    onMove?: (id: string, x: number, y: number, nx: number, ny: number) => void;
+    onRemove?: (id: string) => void;
   }) => (
     <>
       <span data-testid="pin-count">{pins.length}</span>
+      {pins.map((pin) => (
+        <span key={pin.id}>
+          <span data-testid={`pin-xy-${pin.id}`}>{`${pin.x},${pin.y}`}</span>
+          <button type="button" data-testid={`move-pin-${pin.id}`} onClick={() => onMove?.(pin.id, 300, 400, 0.3, 0.4)}>
+            Move synthetic pin
+          </button>
+          <button type="button" data-testid={`move-pin-again-${pin.id}`} onClick={() => onMove?.(pin.id, 500, 600, 0.5, 0.6)}>
+            Move synthetic pin again
+          </button>
+          <button type="button" data-testid={`remove-pin-${pin.id}`} onClick={() => onRemove?.(pin.id)}>
+            Remove synthetic pin
+          </button>
+        </span>
+      ))}
       <span data-testid="existing-photo-count">{existingPhotos.length}</span>
       <button type="button" data-testid="place-pin-photo" onClick={() => onPlace({ x: 10, y: 20, nx: 0.1, ny: 0.2,
         file: new File([new Uint8Array([0xff, 0xd8, 0xff])], "room.jpg", { type: "image/jpeg" }) })}>
@@ -284,6 +308,7 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
       },
     });
     installFetch();
+    toastSpy.error.mockClear();
     return import("@/lib/sketch/ingest-roomplan");
   });
 
@@ -772,5 +797,149 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry existing photo pin" }));
     await nextMacrotask();
     expect(pinPosts).toBe(0);
+  });
+
+  describe("RA-8088 failed pin move or delete", () => {
+    const pinUrl = "/api/inspections/job-pins/sketches/floor-1/evidence-pins/pin-1";
+
+    function installPinFetch(mutation: (call: number, method: string) => Promise<Response>) {
+      const calls: string[] = [];
+      vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (url === "/api/inspections/job-pins/sketches" && method === "GET") {
+          return jsonResponse({ sketches: [{ id: "floor-1", floorNumber: 0, floorLabel: "Ground Floor", sketchData: null }] });
+        }
+        if (url === "/api/inspections/job-pins/sketches/floor-1/evidence-pins") {
+          return jsonResponse({ pins: [{ id: "pin-1", kind: "photo", x: 10, y: 20, nx: 0.1, ny: 0.2 }] });
+        }
+        if (url === pinUrl) {
+          calls.push(method);
+          return mutation(calls.length - 1, method);
+        }
+        if (url.endsWith("/photos")) return jsonResponse({ photos: [] });
+        if (url === "/api/materials") return jsonResponse({ materials: [] });
+        return jsonResponse({});
+      }));
+      return calls;
+    }
+
+    async function renderSavedPin() {
+      render(<SketchEditorV2 inspectionId="job-pins" />);
+      await settle(0);
+      expect(screen.getByTestId("pin-count").textContent).toBe("1");
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("10,20");
+    }
+
+    it("restores a deleted pin and tells the technician when DELETE returns 500", async () => {
+      const calls = installPinFetch(async () => jsonResponse({ error: "boom" }, 500));
+      await renderSavedPin();
+      fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
+      await settle(0);
+      expect(calls).toEqual(["DELETE"]);
+      expect(screen.getByTestId("pin-count").textContent).toBe("1");
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("10,20");
+      expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not deleted/i));
+    });
+
+    it("restores a deleted pin when the DELETE request never reaches the server", async () => {
+      installPinFetch(async () => { throw new TypeError("Failed to fetch"); });
+      await renderSavedPin();
+      fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
+      await settle(0);
+      expect(screen.getByTestId("pin-count").textContent).toBe("1");
+      expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not deleted/i));
+    });
+
+    it("puts a moved pin back and tells the technician when PATCH returns 500", async () => {
+      const calls = installPinFetch(async () => jsonResponse({ error: "boom" }, 500));
+      await renderSavedPin();
+      fireEvent.click(screen.getByTestId("move-pin-pin-1"));
+      await settle(0);
+      expect(calls).toEqual(["PATCH"]);
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("10,20");
+      expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not moved/i));
+    });
+
+    it("puts a moved pin back when the PATCH request never reaches the server", async () => {
+      installPinFetch(async () => { throw new TypeError("Failed to fetch"); });
+      await renderSavedPin();
+      fireEvent.click(screen.getByTestId("move-pin-pin-1"));
+      await settle(0);
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("10,20");
+      expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not moved/i));
+    });
+
+    it("keeps a successful move and delete without an error", async () => {
+      installPinFetch(async () => jsonResponse({ pin: { id: "pin-1", sketchRoomId: null, roomName: null, captureAdapter: null } }));
+      await renderSavedPin();
+      fireEvent.click(screen.getByTestId("move-pin-pin-1"));
+      await settle(0);
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("300,400");
+      fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
+      await settle(0);
+      expect(screen.getByTestId("pin-count").textContent).toBe("0");
+      expect(toastSpy.error).not.toHaveBeenCalled();
+    });
+
+    it("does not overwrite a newer move when an older move fails late", async () => {
+      let failFirst: (() => void) | undefined;
+      installPinFetch((call) =>
+        call === 0
+          ? new Promise<Response>((resolve) => { failFirst = () => resolve(jsonResponse({ error: "boom" }, 500)); })
+          : Promise.resolve(jsonResponse({ pin: { id: "pin-1" } })),
+      );
+      await renderSavedPin();
+      fireEvent.click(screen.getByTestId("move-pin-pin-1"));
+      await settle(0);
+      fireEvent.click(screen.getByTestId("move-pin-again-pin-1"));
+      await settle(0);
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("500,600");
+      await act(async () => { failFirst?.(); });
+      await settle(0);
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("500,600");
+      expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not moved/i));
+    });
+
+    it("puts a pin back where the technician last saw it when DELETE fails after a pending move", async () => {
+      let finishMove: (() => void) | undefined;
+      installPinFetch((_call, method) =>
+        method === "PATCH"
+          ? new Promise<Response>((resolve) => { finishMove = () => resolve(jsonResponse({ pin: { id: "pin-1" } })); })
+          : Promise.resolve(jsonResponse({ error: "boom" }, 500)),
+      );
+      await renderSavedPin();
+      fireEvent.click(screen.getByTestId("move-pin-pin-1"));
+      await settle(0);
+      fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
+      await settle(0);
+      expect(screen.getByTestId("pin-count").textContent).toBe("1");
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("300,400");
+      await act(async () => { finishMove?.(); });
+      await settle(0);
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("300,400");
+      expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not deleted/i));
+    });
+
+    it("restores to the last position the server accepted when overlapping moves resolve out of order", async () => {
+      let finishFirst: (() => void) | undefined;
+      let failSecond: (() => void) | undefined;
+      installPinFetch((call) =>
+        call === 0
+          ? new Promise<Response>((resolve) => { finishFirst = () => resolve(jsonResponse({ pin: { id: "pin-1" } })); })
+          : new Promise<Response>((resolve) => { failSecond = () => resolve(jsonResponse({ error: "boom" }, 500)); }),
+      );
+      await renderSavedPin();
+      fireEvent.click(screen.getByTestId("move-pin-pin-1"));
+      await settle(0);
+      fireEvent.click(screen.getByTestId("move-pin-again-pin-1"));
+      await settle(0);
+      await act(async () => { finishFirst?.(); });
+      await settle(0);
+      await act(async () => { failSecond?.(); });
+      await settle(0);
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("300,400");
+      expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not moved/i));
+    });
   });
 });
