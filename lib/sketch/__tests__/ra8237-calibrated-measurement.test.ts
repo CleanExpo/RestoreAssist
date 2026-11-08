@@ -619,3 +619,271 @@ describe("RA-8237 — recalibration, undo/redo and reload", () => {
     }
   });
 });
+
+// RA-8237 K1 design (round 4): typed or cached figures may only bill when
+// they agree with the drawing; a drawing with any invalid vertex is refused.
+describe("RA-8237 K1 — typed and cached figures cannot bill more than the drawing", () => {
+  type Room = Parameters<typeof resolveRoomQuantities>[0];
+  const NONE = { areaM2: null, perimeterM: null, source: null };
+
+  function billed(r: Room, ppm: number) {
+    const sk = sketch(ppm, [r]);
+    const node = extractRoomGraphNodes(sk)[0];
+    return {
+      resolver: resolveRoomQuantities(r, ppm),
+      graph: node ? node.areaM2 : undefined,
+      estimate: extractSketchEstimate([{ floorLabel: "G", sketchData: sk }])
+        .totalRoomAreaM2,
+      confirm: confirmRoomAreaFields(r, ppm),
+    };
+  }
+
+  function gateAccepts(r: Room, ppm: number, measuredAreaM2: number) {
+    const id = (r.data as { id: string }).id;
+    return reconcileRoomMeasurementEvidence({
+      stored: [],
+      rooms: roomRevisionsFromSketchData(sketch(ppm, [r])),
+      submissions: [{ fabricObjectId: id, measuredAreaM2 }],
+      sessionUserId: "tech-1",
+    }).measuredRoomIds.has(id);
+  }
+
+  function withPoints(points: unknown, data: Record<string, unknown>): Room {
+    return {
+      type: "polygon",
+      points,
+      data: {
+        type: "room",
+        id: "k1-room",
+        provenance: "operator_measured",
+        ...data,
+      },
+    } as unknown as Room;
+  }
+
+  const TYPED_3x3 = {
+    areaSource: "dimensions",
+    dimensionsPxPerMetre: 100,
+    lengthM: 3,
+    widthM: 3,
+    areaM2: 9,
+  };
+  const ROOM_FORMS: Array<[string, Record<string, unknown>]> = [
+    ["tagged dimensions (typed 3 × 3)", TYPED_3x3],
+    ["tagged geometry with a cached 9 m²", { areaSource: "geometry", areaM2: 9 }],
+    ["untagged with a claimed 9 m²", { areaM2: 9, lengthM: 3, widthM: 3 }],
+    ["untagged with typed 3 × 3 and no claim", { lengthM: 3, widthM: 3 }],
+  ];
+
+  // Each bad coordinate replaces the x of the fourth corner of a 3 × 3 m
+  // square at 100 px/m; the numeric coercion of every one of them is 0 or
+  // finite, which would make the square whole again.
+  const BAD_COORDS: Array<[string, unknown]> = [
+    ["null", null],
+    ['""', ""],
+    ['"0"', "0"],
+    ["false", false],
+    ["true", true],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["-Infinity", Number.NEGATIVE_INFINITY],
+    ["[] (empty array)", []],
+  ];
+
+  describe.each(BAD_COORDS)("a vertex coordinate of %s", (_label, bad) => {
+    const objectForm = [
+      { x: 0, y: 0 },
+      { x: 300, y: 0 },
+      { x: 300, y: 300 },
+      { x: bad, y: 300 },
+    ];
+    const arrayForm = [
+      [0, 0],
+      [300, 0],
+      [300, 300],
+      [300, bad],
+    ];
+    it.each(ROOM_FORMS)("is refused, %s, object and [x, y] forms", (_f, data) => {
+      for (const points of [objectForm, arrayForm]) {
+        const r = withPoints(points, data);
+        const b = billed(r, 100);
+        expect(b.resolver).toEqual(NONE);
+        expect(b.graph).toBeNull();
+        expect(b.estimate).toBe(0);
+        expect(b.confirm).toEqual({ areaSource: "geometry" });
+        expect(gateAccepts(r, 100, 9)).toBe(false);
+      }
+    });
+  });
+
+  // Shapes inside the same 3 × 3 m box as the typed room, at 100 px/m.
+  const pts = (xy: Array<[number, number]>) => xy.map(([x, y]) => ({ x, y }));
+  const SHAPES: Array<[string, Array<[number, number]>, number | null]> = [
+    ["a repeated corner", [[0, 0], [300, 0], [300, 300], [300, 300]], 4.5],
+    ["a near-duplicate corner", [[0, 0], [300, 0], [300, 300], [299, 299]], 4.5],
+    ["a self-crossing outline", [[0, 0], [300, 300], [0, 300], [300, 0]], null],
+    // Pentagon whose bounding box is exactly 3 × 3 m.
+    ["a non-rectangle in the same 3 × 3 box", [[0, 0], [300, 0], [300, 300], [150, 250], [0, 300]], 8.25],
+    // Six-sided notch, every vertex on the box edges.
+    ["an L inside the same 3 × 3 box", [[0, 0], [300, 0], [300, 150], [150, 150], [150, 300], [0, 300]], 6.75],
+  ];
+
+  it.each(SHAPES)("typed 3 × 3 over %s never bills 9 m²", (_label, xy, drawnM2) => {
+    const r = withPoints(pts(xy), TYPED_3x3);
+    const b = billed(r, 100);
+    if (drawnM2 === null) {
+      expect(b.resolver).toEqual(NONE);
+      expect(b.graph).toBeNull();
+      expect(b.estimate).toBe(0);
+      expect(b.confirm).toEqual({ areaSource: "geometry" });
+    } else {
+      expect(b.resolver.source).toBe("geometry");
+      expect(b.resolver.areaM2).toBeCloseTo(drawnM2, 6);
+      expect(b.graph).toBeCloseTo(drawnM2, 6);
+      expect(b.estimate).toBeCloseTo(drawnM2, 6);
+      expect(b.confirm).toEqual({ areaM2: drawnM2, areaSource: "geometry" });
+    }
+    expect(gateAccepts(r, 100, 9)).toBe(false);
+  });
+
+  it("area alone is not agreement: a 4.5 × 2 m drawing keeps its own 13 m perimeter", () => {
+    const r = withPoints(pts([[0, 0], [450, 0], [450, 200], [0, 200]]), TYPED_3x3);
+    expect(resolveRoomQuantities(r, 100)).toMatchObject({ source: "geometry" });
+    expect(resolveRoomPerimeterM(r, 100)).toBeCloseTo(13, 6);
+  });
+
+  it("perimeter alone is not agreement: a 4 × 2 m drawing bills 8 m², not the typed 9", () => {
+    const r = withPoints(pts([[0, 0], [400, 0], [400, 200], [0, 200]]), TYPED_3x3);
+    const b = billed(r, 100);
+    expect(b.resolver).toMatchObject({ source: "geometry" });
+    expect(b.resolver.areaM2).toBeCloseTo(8, 6);
+    expect(b.estimate).toBeCloseTo(8, 6);
+  });
+
+  it("agreement is within 2%: a drawing 3% larger than typed bills its own area", () => {
+    const r = withPoints(pts([[0, 0], [300, 0], [300, 309], [0, 309]]), TYPED_3x3);
+    expect(resolveRoomQuantities(r, 100)).toMatchObject({ source: "geometry" });
+    expect(resolveRoomAreaM2(r, 100)).toBeCloseTo(9.27, 6);
+    const within = withPoints(pts([[0, 0], [300, 0], [300, 303], [0, 303]]), TYPED_3x3);
+    expect(resolveRoomQuantities(within, 100)).toMatchObject({
+      areaM2: 9,
+      perimeterM: 12,
+      source: "dimensions",
+    });
+  });
+
+  it("a closing vertex that repeats the first is the same square, not a malformed one", () => {
+    const closed = withPoints(
+      pts([[0, 0], [300, 0], [300, 300], [0, 300], [0, 0]]),
+      { areaSource: "geometry" },
+    );
+    expect(resolveRoomQuantities(closed, 100)).toMatchObject({
+      areaM2: 9,
+      perimeterM: 12,
+      source: "geometry",
+    });
+  });
+
+  it("a room without points is judged by its width × height box", () => {
+    const box = (width: unknown, height: unknown) =>
+      ({
+        type: "rect",
+        width,
+        height,
+        data: { type: "room", id: "k1-room", provenance: "operator_measured", ...TYPED_3x3 },
+      }) as unknown as Room;
+    expect(resolveRoomQuantities(box(300, 300), 100)).toMatchObject({
+      areaM2: 9,
+      source: "dimensions",
+    });
+    expect(resolveRoomQuantities(box(150, 300), 100)).toMatchObject({
+      areaM2: 4.5,
+      source: "geometry",
+    });
+    for (const [w, h] of [["bad", 300], [300, null], [0, 300], [300, undefined]] as const) {
+      const r = box(w, h);
+      expect(resolveRoomQuantities(r, 100)).toEqual(NONE);
+      expect(billed(r, 100).estimate).toBe(0);
+    }
+  });
+
+  describe.each(SCALES)("the RA-8237 rooms at %s px/m", (ppm) => {
+    it("typed 3 × 3 over the drawn square bills 9 m² / 12 m everywhere", () => {
+      const r = room("k1-room", SQUARE_M, ppm, {
+        ...TYPED_3x3,
+        dimensionsPxPerMetre: ppm,
+      });
+      const b = billed(r, ppm);
+      expect(b.resolver).toMatchObject({ areaM2: 9, perimeterM: 12, source: "dimensions" });
+      expect(b.graph).toBeCloseTo(9, 6);
+      expect(b.estimate).toBeCloseTo(9, 6);
+      expect(b.confirm).toEqual({ areaM2: 9, areaSource: "dimensions" });
+      expect(gateAccepts(r, ppm, 9)).toBe(true);
+    });
+
+    it("typed 4 × 4 over the drawn L bills the L's 12 m² / 16 m, never 16 m²", () => {
+      const r = room("k1-room", L_SHAPE_M, ppm, {
+        areaSource: "dimensions",
+        dimensionsPxPerMetre: ppm,
+        lengthM: 4,
+        widthM: 4,
+        areaM2: 16,
+      });
+      const b = billed(r, ppm);
+      expect(b.resolver.source).toBe("geometry");
+      expect(b.resolver.areaM2).toBeCloseTo(12, 6);
+      expect(b.resolver.perimeterM).toBeCloseTo(16, 6);
+      expect(b.graph).toBeCloseTo(12, 6);
+      expect(b.estimate).toBeCloseTo(12, 6);
+      expect(b.confirm).toEqual({ areaM2: 12, areaSource: "geometry" });
+      expect(gateAccepts(r, ppm, 16)).toBe(false);
+      expect(gateAccepts(r, ppm, 12)).toBe(true);
+    });
+  });
+
+  it("over many shapes in the typed box, a typed figure never exceeds the drawing by more than 2%", () => {
+    // Deterministic sweep: quadrilaterals and pentagons with vertices on a
+    // 25 px grid inside the 3 × 3 m box at 100 px/m.
+    let seed = 8237;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    const grid = () => Math.round(rand() * 12) * 25;
+    const shapes: Array<Array<[number, number]>> = [
+      // The typed square in every starting corner and both windings, plus
+      // rectangles inside and just outside the 2% band: these reach the
+      // typed branch, so the sweep cannot pass by never testing it.
+      [[0, 0], [300, 0], [300, 300], [0, 300]],
+      [[300, 0], [300, 300], [0, 300], [0, 0]],
+      [[0, 0], [0, 300], [300, 300], [300, 0]],
+      [[0, 300], [300, 300], [300, 0], [0, 0]],
+      [[0, 0], [303, 0], [303, 300], [0, 300]],
+      [[0, 0], [306, 0], [306, 300], [0, 300]],
+    ];
+    for (let i = 0; i < 400; i++) {
+      const n = 4 + (i % 2);
+      const xy: Array<[number, number]> = [];
+      for (let k = 0; k < n; k++) xy.push([grid(), grid()]);
+      shapes.push(xy);
+    }
+    let typedBranch = 0;
+    for (const xy of shapes) {
+      const q = resolveRoomQuantities(withPoints(pts(xy), TYPED_3x3), 100);
+      if (q.source !== "dimensions") continue;
+      typedBranch++;
+      const drawn = resolveRoomQuantities(
+        withPoints(pts(xy), { areaSource: "geometry" }),
+        100,
+      );
+      expect(drawn.areaM2).not.toBeNull();
+      expect(q.areaM2 as number).toBeLessThanOrEqual(
+        (drawn.areaM2 as number) * 1.02 + 1e-9,
+      );
+      expect(q.perimeterM as number).toBeLessThanOrEqual(
+        (drawn.perimeterM as number) * 1.02 + 1e-9,
+      );
+    }
+    expect(typedBranch).toBeGreaterThanOrEqual(5);
+  });
+});
