@@ -380,13 +380,28 @@ describe("RA-8233 — geometry or scale edits invalidate evidence; history is ke
   });
 
   it("a claimed-area edit with unchanged points drops the room to nonbillable", () => {
+    // RA-8237 widen: 9.15 is within 2% of the 9 m² drawing, so it would
+    // bill; the changed billed figure invalidates the measurement.
     const stored = measuredSquare();
     const { provenanceById } = serverSave({
-      incoming: blob([room(SQUARE_ID, SQUARE_POINTS, 9.4)]),
+      incoming: blob([room(SQUARE_ID, SQUARE_POINTS, 9.15)]),
       stored,
       existingProvenance: { [SQUARE_ID]: "operator_measured" },
     });
     expect(provenanceById.get(SQUARE_ID)).toBe("ai_suggested");
+  });
+
+  it("a claimed-area edit the drawing does not support never bills (RA-8237 widen)", () => {
+    // 9.4 disagrees with the 9 m² drawing by more than 2%, so the drawing
+    // bills; the billed figure is unchanged and still the measured 3 × 3.
+    const stored = measuredSquare();
+    const { provenanceById, persisted } = serverSave({
+      incoming: blob([room(SQUARE_ID, SQUARE_POINTS, 9.4)]),
+      stored,
+      existingProvenance: { [SQUARE_ID]: "operator_measured" },
+    });
+    expect(provenanceById.get(SQUARE_ID)).toBe("operator_measured");
+    expect(billedAreaM2(persisted)).toBeCloseTo(9, 6);
   });
 
   it("re-measuring after an edit qualifies again and keeps both entries", () => {

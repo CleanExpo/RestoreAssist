@@ -869,6 +869,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           // Enrich room selection with derived L×W for the typed-dim panel.
           const base = fabricObjectToSelected(
             active as Parameters<typeof fabricObjectToSelected>[0],
+            pxPerMetreRef.current,
           );
           if (base?.type === "room") {
             const pts = polygonAbsolutePoints(active);

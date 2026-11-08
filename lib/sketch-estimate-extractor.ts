@@ -12,7 +12,6 @@
 
 import {
   isMeasuredRoom,
-  objectPoints,
   resolvePxPerMetre,
   resolveRoomAreaM2,
   resolveWallAreaM2,
@@ -21,10 +20,7 @@ import {
 } from "@/lib/sketch/room-area-from-geometry";
 import { isOperatorMeasuredProvenance } from "@/lib/sketch/measured-provenance";
 
-// ── Scale ─────────────────────────────────────────────────
-/** Default: 100 canvas pixels = 1 metre */
-const PX_PER_METRE = 100;
-const PX2_PER_M2 = PX_PER_METRE * PX_PER_METRE;
+// Pixel-to-metre conversion uses each floor's own scaleConfig (RA-8237).
 const MIN_BILLED_AREA_M2 = 0.1;
 
 // ── IICRC S500 Equipment Ratios ───────────────────────────
@@ -68,29 +64,6 @@ export interface SketchEstimate {
   extractedAt: string;
 }
 
-// ── Geometry helpers ──────────────────────────────────────
-
-/** Shoelace formula — area of a closed polygon given vertices. */
-function shoelaceAreaPx2(pts: { x: number; y: number }[]): number {
-  let area = 0;
-  const n = pts.length;
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    area += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
-  }
-  return Math.abs(area) / 2;
-}
-
-/** Convert canvas-pixel² area to m², applying object scale. */
-function pxAreaToM2(
-  points: { x: number; y: number }[],
-  scaleX = 1,
-  scaleY = 1,
-): number {
-  const scaledPts = points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
-  return shoelaceAreaPx2(scaledPts) / PX2_PER_M2;
-}
-
 // ── Fabric.js polygon extraction ──────────────────────────
 
 interface FabricObject extends RoomGeometryObject {
@@ -115,12 +88,18 @@ function isFabricDamageZone(obj: FabricObject): boolean {
 function extractRoomsFromFabricJson(
   fabricJson: Record<string, unknown> | null | undefined,
   floorLabel: string,
-): { rooms: EstimateLineItem[]; damage: EstimateLineItem[] } {
+): {
+  rooms: EstimateLineItem[];
+  damage: EstimateLineItem[];
+  /** Measured room objects on the canvas, billed or refused. */
+  measuredRoomCount: number;
+} {
   const rooms: EstimateLineItem[] = [];
   const damage: EstimateLineItem[] = [];
+  let measuredRoomCount = 0;
 
   if (!fabricJson?.objects || !Array.isArray(fabricJson.objects)) {
-    return { rooms, damage };
+    return { rooms, damage, measuredRoomCount };
   }
 
   const objects = fabricJson.objects as FabricObject[];
@@ -134,11 +113,8 @@ function extractRoomsFromFabricJson(
     if (!isOperatorMeasuredProvenance(obj.data?.provenance)) continue;
 
     if (isFabricDamageZone(obj)) {
-      const areaM2 =
-        resolveRoomAreaM2(obj, pxPerMetre) ??
-        (obj.points?.length
-          ? pxAreaToM2(objectPoints(obj), obj.scaleX, obj.scaleY)
-          : 0);
+      // RA-8237: floor scale only; no hardcoded 100 px/m fallback.
+      const areaM2 = resolveRoomAreaM2(obj, pxPerMetre) ?? 0;
       if (areaM2 < MIN_BILLED_AREA_M2) continue;
       damageIdx++;
       const label = roomLabel(obj);
@@ -158,6 +134,7 @@ function extractRoomsFromFabricJson(
     // RA-7572: rooms are `data.type === "room"` (or a measured polygon).
     // Area is metres-first so a saved 3×3 room cannot yield 0 silently.
     if (!isMeasuredRoom(obj)) continue;
+    measuredRoomCount++;
     const areaM2 = resolveRoomAreaM2(obj, pxPerMetre);
     if (areaM2 == null || areaM2 < MIN_BILLED_AREA_M2) continue;
 
@@ -191,7 +168,7 @@ function extractRoomsFromFabricJson(
     }
   }
 
-  return { rooms, damage };
+  return { rooms, damage, measuredRoomCount };
 }
 
 // ── Equipment point extraction ────────────────────────────
@@ -286,7 +263,7 @@ export function recommendEquipment(affectedAreaM2: number): {
 
 // ── Main export ───────────────────────────────────────────
 
-/** RoomGraph row already stored in metres — used when Fabric parse yields none. */
+/** RoomGraph row already stored in metres — used only when the Fabric blob has no measured room. */
 export interface SavedSketchRoom {
   name?: string | null;
   areaM2?: number | null;
@@ -379,14 +356,17 @@ export function extractSketchEstimate(
   let totalDamageAreaM2 = 0;
 
   for (const floor of floors) {
-    const { rooms, damage } = extractRoomsFromFabricJson(
+    const { rooms, damage, measuredRoomCount } = extractRoomsFromFabricJson(
       floor.sketchData,
       floor.floorLabel,
     );
-    // RA-7572: SketchRoom.areaM2 is already metres. If the Fabric blob did
-    // not yield room lines, the saved room graph still must reach the estimate.
+    // RA-7572: SketchRoom.areaM2 is already metres. If the Fabric blob has no
+    // measured room at all, the saved room graph still must reach the
+    // estimate. RA-8237: a measured canvas room the resolver refused (or that
+    // is too small to bill) keeps that result; its saved row, which may be
+    // stale until the next sketch save, never bills in its place.
     const roomLines =
-      rooms.length > 0
+      measuredRoomCount > 0
         ? rooms
         : roomsFromSavedGraph(floor.savedRooms, floor.floorLabel);
 
