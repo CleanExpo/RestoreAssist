@@ -2354,9 +2354,30 @@ export function SketchEditorV2({
     setPendingExistingPin(null);
   };
 
+  // RA-8088: move and delete change the screen first. When the server refuses
+  // or cannot be reached, put the pin back and say so; otherwise the technician
+  // believes a pin is gone (or moved) that is still on the report.
+  //
+  // Requests for one pin run one at a time, so the server always ends on the
+  // last request and the screen can be put back to a known state: `saved`, the
+  // last position the server accepted. While a request runs, newer moves
+  // replace `queued` (only the newest is sent next), and a delete waits for
+  // the running request, so a late response can never undo a newer edit.
+  const pinSyncRef = useRef(
+    new Map<
+      string,
+      {
+        saved: Pick<EvidencePinView, "x" | "y" | "nx" | "ny">;
+        queued?: { x: number; y: number; nx: number; ny: number; w: number; h: number };
+        done: Promise<void>;
+      }
+    >(),
+  );
+
   const handleEvidenceMove = useCallback(
-    (id: string, x: number, y: number, nx: number, ny: number) => {
+    async (id: string, x: number, y: number, nx: number, ny: number) => {
       const sketchId = floorsData[activeIdx]?.floor.id;
+      const previous = floorsData[activeIdx]?.evidencePins.find((p) => p.id === id);
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -2370,60 +2391,126 @@ export function SketchEditorV2({
         ),
       );
       if (!inspectionId || !sketchId || sketchId.startsWith(uid)) return;
-      void fetch(
-        `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            x,
-            y,
-            nx,
-            ny,
-            canvasWidth: width,
-            canvasHeight: height,
-          }),
-        },
-      )
-        .then(async (res) => {
-          if (!res.ok) return;
-          const json = (await res.json()) as {
-            pin?: {
-              sketchRoomId?: string | null;
-              roomName?: string | null;
-              captureAdapter?: string | null;
-            };
-          };
-          const updated = json.pin;
-          if (!updated) return;
+      const syncs = pinSyncRef.current;
+      const next = { x, y, nx, ny, w: width, h: height };
+      const running = syncs.get(id);
+      if (running) {
+        running.queued = next;
+        return;
+      }
+      const state: NonNullable<ReturnType<typeof syncs.get>> = {
+        saved: previous
+          ? { x: previous.x, y: previous.y, nx: previous.nx, ny: previous.ny }
+          : { x, y, nx, ny },
+        queued: next,
+        done: Promise.resolve(),
+      };
+      syncs.set(id, state);
+
+      const sendOne = async (c: NonNullable<typeof state.queued>) => {
+        const fail = (message: string) => {
+          // Only undo this request: if the pin shows other coordinates, a newer
+          // move owns the screen.
           setFloorsData((prev) =>
-            prev.map((fd, i) =>
-              i === activeIdx
+            prev.map((fd) =>
+              fd.floor.id === sketchId
                 ? {
                     ...fd,
                     evidencePins: fd.evidencePins.map((p) =>
-                      p.id === id
-                        ? {
-                            ...p,
-                            sketchRoomId: updated.sketchRoomId ?? null,
-                            roomName: updated.roomName ?? null,
-                            captureAdapter: updated.captureAdapter ?? null,
-                          }
+                      p.id === id && p.x === c.x && p.y === c.y && p.nx === c.nx && p.ny === c.ny
+                        ? { ...p, ...state.saved }
                         : p,
                     ),
                   }
                 : fd,
             ),
           );
-        })
-        .catch(() => {});
+          toast.error(message);
+        };
+        let res: Response;
+        try {
+          res = await fetch(
+            `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                x: c.x,
+                y: c.y,
+                nx: c.nx,
+                ny: c.ny,
+                canvasWidth: c.w,
+                canvasHeight: c.h,
+              }),
+            },
+          );
+        } catch {
+          fail("Photo pin not moved: no connection. It is back in its saved place.");
+          return;
+        }
+        if (!res.ok) {
+          fail(`Photo pin not moved (${res.status}). It is back in its saved place.`);
+          return;
+        }
+        state.saved = { x: c.x, y: c.y, nx: c.nx, ny: c.ny };
+        let updated:
+          | {
+              sketchRoomId?: string | null;
+              roomName?: string | null;
+              captureAdapter?: string | null;
+            }
+          | undefined;
+        try {
+          updated = ((await res.json()) as { pin?: typeof updated }).pin;
+        } catch {
+          // The move saved; only the room label refresh is lost.
+          return;
+        }
+        if (!updated) return;
+        const room = updated;
+        setFloorsData((prev) =>
+          prev.map((fd) =>
+            fd.floor.id === sketchId
+              ? {
+                  ...fd,
+                  evidencePins: fd.evidencePins.map((p) =>
+                    p.id === id
+                      ? {
+                          ...p,
+                          sketchRoomId: room.sketchRoomId ?? null,
+                          roomName: room.roomName ?? null,
+                          captureAdapter: room.captureAdapter ?? null,
+                        }
+                      : p,
+                  ),
+                }
+              : fd,
+          ),
+        );
+      };
+
+      state.done = (async () => {
+        try {
+          while (state.queued) {
+            const c = state.queued;
+            state.queued = undefined;
+            await sendOne(c);
+          }
+        } finally {
+          if (syncs.get(id) === state) syncs.delete(id);
+        }
+      })();
+      await state.done;
     },
     [activeIdx, floorsData, height, inspectionId, uid, width],
   );
 
   const handleEvidenceRemove = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const sketchId = floorsData[activeIdx]?.floor.id;
+      const pinsBefore = floorsData[activeIdx]?.evidencePins ?? [];
+      const removedIndex = pinsBefore.findIndex((p) => p.id === id);
+      const removed = removedIndex >= 0 ? pinsBefore[removedIndex] : undefined;
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -2435,10 +2522,46 @@ export function SketchEditorV2({
         ),
       );
       if (!inspectionId || !sketchId || sketchId.startsWith(uid)) return;
-      void fetch(
-        `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
-        { method: "DELETE" },
-      );
+      // A move still on its way is dropped or finished first, so the server
+      // sees the requests in order and we know where it holds the pin.
+      const running = pinSyncRef.current.get(id);
+      if (running) {
+        running.queued = undefined;
+        await running.done;
+      }
+      const restore = (message: string) => {
+        if (removed) {
+          const back = running ? { ...removed, ...running.saved } : removed;
+          setFloorsData((prev) =>
+            prev.map((fd) =>
+              fd.floor.id === sketchId && !fd.evidencePins.some((p) => p.id === id)
+                ? {
+                    ...fd,
+                    evidencePins: [
+                      ...fd.evidencePins.slice(0, removedIndex),
+                      back,
+                      ...fd.evidencePins.slice(removedIndex),
+                    ],
+                  }
+                : fd,
+            ),
+          );
+        }
+        toast.error(message);
+      };
+      let res: Response;
+      try {
+        res = await fetch(
+          `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
+          { method: "DELETE" },
+        );
+      } catch {
+        restore("Photo pin not deleted: no connection. It is still on the report.");
+        return;
+      }
+      if (!res.ok) {
+        restore(`Photo pin not deleted (${res.status}). It is still on the report.`);
+      }
     },
     [activeIdx, floorsData, inspectionId, uid],
   );
