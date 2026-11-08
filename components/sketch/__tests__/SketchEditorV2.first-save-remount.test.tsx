@@ -802,7 +802,7 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
   describe("RA-8088 failed pin move or delete", () => {
     const pinUrl = "/api/inspections/job-pins/sketches/floor-1/evidence-pins/pin-1";
 
-    function installPinFetch(mutation: (call: number, method: string) => Promise<Response>) {
+    function installPinFetch(mutation: (call: number, method: string, body?: BodyInit | null) => Promise<Response>) {
       const calls: string[] = [];
       vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
@@ -815,7 +815,7 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
         }
         if (url === pinUrl) {
           calls.push(method);
-          return mutation(calls.length - 1, method);
+          return mutation(calls.length - 1, method, init?.body);
         }
         if (url.endsWith("/photos")) return jsonResponse({ photos: [] });
         if (url === "/api/materials") return jsonResponse({ materials: [] });
@@ -901,9 +901,9 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
       expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not moved/i));
     });
 
-    it("puts a pin back where the technician last saw it when DELETE fails after a pending move", async () => {
+    it("puts a pin back where the server holds it when DELETE fails after a pending move", async () => {
       let finishMove: (() => void) | undefined;
-      installPinFetch((_call, method) =>
+      const calls = installPinFetch((_call, method) =>
         method === "PATCH"
           ? new Promise<Response>((resolve) => { finishMove = () => resolve(jsonResponse({ pin: { id: "pin-1" } })); })
           : Promise.resolve(jsonResponse({ error: "boom" }, 500)),
@@ -913,15 +913,43 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
       await settle(0);
       fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
       await settle(0);
-      expect(screen.getByTestId("pin-count").textContent).toBe("1");
-      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("300,400");
+      // The DELETE waits for the move so the server sees them in order.
+      expect(calls).toEqual(["PATCH"]);
+      expect(screen.getByTestId("pin-count").textContent).toBe("0");
       await act(async () => { finishMove?.(); });
       await settle(0);
+      expect(calls).toEqual(["PATCH", "DELETE"]);
+      expect(screen.getByTestId("pin-count").textContent).toBe("1");
       expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("300,400");
       expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not deleted/i));
     });
 
-    it("restores to the last position the server accepted when overlapping moves resolve out of order", async () => {
+    it("sends moves of one pin one at a time and only the newest after a busy request", async () => {
+      let finishFirst: (() => void) | undefined;
+      const bodies: string[] = [];
+      const calls = installPinFetch((call, _method, body) => {
+        bodies.push(String(body));
+        return call === 0
+          ? new Promise<Response>((resolve) => { finishFirst = () => resolve(jsonResponse({ pin: { id: "pin-1" } })); })
+          : Promise.resolve(jsonResponse({ pin: { id: "pin-1" } }));
+      });
+      await renderSavedPin();
+      fireEvent.click(screen.getByTestId("move-pin-pin-1"));
+      await settle(0);
+      fireEvent.click(screen.getByTestId("move-pin-again-pin-1"));
+      await settle(0);
+      fireEvent.click(screen.getByTestId("move-pin-pin-1"));
+      await settle(0);
+      expect(calls).toEqual(["PATCH"]);
+      await act(async () => { finishFirst?.(); });
+      await settle(0);
+      expect(calls).toEqual(["PATCH", "PATCH"]);
+      expect(JSON.parse(bodies[1])).toMatchObject({ x: 300, y: 400 });
+      expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("300,400");
+      expect(toastSpy.error).not.toHaveBeenCalled();
+    });
+
+    it("restores to the last position the server accepted when a later overlapping move fails", async () => {
       let finishFirst: (() => void) | undefined;
       let failSecond: (() => void) | undefined;
       installPinFetch((call) =>
