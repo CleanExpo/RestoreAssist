@@ -158,14 +158,37 @@ function transformScale(obj: RoomGeometryObject): { sx: number; sy: number } {
   return { sx, sy };
 }
 
-function scaledPoints(obj: RoomGeometryObject): { x: number; y: number }[] {
-  const { sx, sy } = transformScale(obj);
-  return objectPoints(obj).map((p) => ({ x: p.x * sx, y: p.y * sy }));
+/**
+ * True when the room carries a point list at all: any `points` value other
+ * than missing, null or an empty array. A present list is judged as a
+ * polygon even when it is malformed; it is never treated as absent.
+ */
+function hasPolygon(obj: RoomGeometryObject): boolean {
+  const raw = (obj as { points?: unknown }).points;
+  if (raw === undefined || raw === null) return false;
+  return !(Array.isArray(raw) && raw.length === 0);
 }
 
-/** True when the room carries a polygon (>= 3 points), valid or not. */
-function hasPolygon(obj: RoomGeometryObject): boolean {
-  return objectPoints(obj).length >= 3;
+/**
+ * Every vertex with the transform scale applied, or null when the point
+ * list is present but malformed (not an array, or any vertex without finite
+ * x and y). Invalid vertices are never dropped silently: dropping one can
+ * turn a malformed outline into a smaller shape or into "no polygon".
+ */
+function scaledPoints(
+  obj: RoomGeometryObject,
+): { x: number; y: number }[] | null {
+  if (!hasPolygon(obj)) return [];
+  const raw = (obj as { points?: unknown }).points;
+  if (!Array.isArray(raw)) return null;
+  const { sx, sy } = transformScale(obj);
+  const out: { x: number; y: number }[] = [];
+  for (const p of raw as PointLike[]) {
+    const xy = normalizePoint(p);
+    if (!xy) return null;
+    out.push({ x: xy.x * sx, y: xy.y * sy });
+  }
+  return out;
 }
 
 /** Drop consecutive repeated vertices (including last-to-first). */
@@ -249,9 +272,9 @@ function isSimplePolygon(pts: { x: number; y: number }[]): boolean {
 
 /**
  * Area and perimeter of the drawn shape at the floor scale, or null when the
- * shape is not usable. A polygon (>= 3 points) must have >= 3 distinct
- * vertices, be simple and enclose positive area; an object with no points
- * may use its width × height box.
+ * shape is not usable. A room with a point list must have every vertex
+ * valid, >= 3 distinct vertices, no self-crossing edges and positive area;
+ * only an object with no point list may use its width × height box.
  */
 export function geometryQuantities(
   obj: RoomGeometryObject,
@@ -259,7 +282,8 @@ export function geometryQuantities(
 ): { areaM2: number; perimeterM: number } | null {
   const scale = positiveFinite(pxPerMetre) ? pxPerMetre : DEFAULT_PX_PER_METRE;
   const raw = scaledPoints(obj);
-  if (raw.length >= 3) {
+  if (hasPolygon(obj)) {
+    if (!raw || raw.length < 3) return null;
     const pts = distinctVertices(raw);
     if (pts.length < 3 || !isSimplePolygon(pts)) return null;
     const areaM2 = shoelacePx2(pts) / (scale * scale);
@@ -269,7 +293,7 @@ export function geometryQuantities(
     }
     return null;
   }
-  if (raw.length === 0 && positiveFinite(obj.width) && positiveFinite(obj.height)) {
+  if (positiveFinite(obj.width) && positiveFinite(obj.height)) {
     const { sx, sy } = transformScale(obj);
     const w = Math.abs(obj.width * sx);
     const h = Math.abs(obj.height * sy);
@@ -296,7 +320,9 @@ function polygonIsTypedRectangle(
   widthM: number,
   pxPerMetre: number,
 ): boolean {
-  const pts = distinctVertices(scaledPoints(obj));
+  const raw = scaledPoints(obj);
+  if (!raw) return false;
+  const pts = distinctVertices(raw);
   if (pts.length !== 4) return false;
   const xs = pts.map((p) => p.x);
   const ys = pts.map((p) => p.y);

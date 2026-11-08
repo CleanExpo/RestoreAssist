@@ -504,6 +504,78 @@ describe("RA-8237 — recalibration, undo/redo and reload", () => {
     expect(result.measuredRoomIds.has("ai-bow")).toBe(false);
   });
 
+  // Codex round 2 (921bffcd): a point list with a bad vertex is a malformed
+  // polygon, never an absent one.
+  const MALFORMED_POINT_LISTS: Array<[string, unknown]> = [
+    ["a non-numeric vertex", [{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: "bad", y: 300 }]],
+    ["a NaN vertex", [{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: Number.NaN, y: 300 }, { x: 0, y: 300 }]],
+    ["a null vertex", [{ x: 0, y: 0 }, { x: 300, y: 0 }, null, { x: 0, y: 300 }]],
+    ["only two vertices", [{ x: 0, y: 0 }, { x: 300, y: 0 }]],
+    ["a non-array points value", { x: 0, y: 0 }],
+  ];
+
+  describe.each(MALFORMED_POINT_LISTS)("a room whose points have %s", (_label, points) => {
+    const base = {
+      type: "polygon",
+      points,
+      data: {
+        type: "room",
+        id: "bad-room",
+        provenance: "operator_measured",
+        dimensionsPxPerMetre: 100,
+        lengthM: 3,
+        widthM: 3,
+        areaM2: 9,
+      },
+    } as unknown as Parameters<typeof resolveRoomQuantities>[0];
+
+    it.each(["dimensions", "geometry"])("tagged %s bills nothing", (areaSource) => {
+      const r = { ...base, data: { ...base.data, areaSource } };
+      expect(resolveRoomQuantities(r, 100)).toEqual({
+        areaM2: null,
+        perimeterM: null,
+        source: null,
+      });
+      expect(extractRoomGraphNodes(sketch(100, [r]))[0].areaM2).toBeNull();
+      expect(
+        extractSketchEstimate([{ floorLabel: "G", sketchData: sketch(100, [r]) }])
+          .totalRoomAreaM2,
+      ).toBe(0);
+      expect(confirmRoomAreaFields(r, 100)).toEqual({ areaSource: "geometry" });
+      const gate = reconcileRoomMeasurementEvidence({
+        stored: [],
+        rooms: roomRevisionsFromSketchData(sketch(100, [r])),
+        submissions: [{ fabricObjectId: "bad-room", lengthM: 3, widthM: 3 }],
+        sessionUserId: "tech-1",
+      });
+      expect(gate.measuredRoomIds.has("bad-room")).toBe(false);
+    });
+
+    it("untagged with no claim does not fall back to its L × W box", () => {
+      const r = { ...base, data: { ...base.data, areaM2: undefined } };
+      expect(resolveRoomAreaM2(r, 100)).toBeNull();
+      expect(resolveRoomPerimeterM(r, 100)).toBeNull();
+    });
+  });
+
+  it("an empty point list is no polygon: a typed rectangle still bills", () => {
+    const r = {
+      type: "rect",
+      points: [],
+      data: {
+        type: "room",
+        provenance: "operator_measured",
+        areaSource: "dimensions",
+        lengthM: 3,
+        widthM: 3,
+      },
+    };
+    expect(resolveRoomQuantities(r, 100)).toMatchObject({
+      areaM2: 9,
+      source: "dimensions",
+    });
+  });
+
   it("legacy untagged rooms keep their claimed area (RA-7572)", () => {
     const legacy = room("legacy", SQUARE_M, 1, { areaM2: 9 });
     expect(resolveRoomAreaM2(legacy, 100)).toBe(9);
