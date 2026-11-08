@@ -1,0 +1,111 @@
+{
+  "schema": "done/1",
+  "criterion_evidence": "PROVEN",
+  "verification_status": "PASS",
+  "delivery_status": "NOT_STARTED",
+  "verified_head": "6ad52a80cf981d2c50f27af59a9d3ce79ffe531c",
+  "updated_at_utc": "2026-11-08T15:48:23Z",
+  "last_verify": {
+    "head": "6ad52a80cf981d2c50f27af59a9d3ce79ffe531c",
+    "at_utc": "2026-11-08T15:48:23Z",
+    "matrix": [
+      {
+        "id": "C1",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npx vitest run --config config/vitest.config.js components/attestation/__tests__/EngagementLicenceModal.test.tsx -t 'GET throws'",
+        "exit_code": 0,
+        "timeout_s": 600,
+        "duration_s": 0.8,
+        "output_digest": "f8d784e9473686ed09bf871ba7acf68e2bcb8cd6800e1d73e3f2a40bbacacad0",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_2f7e7b9a6d81/6ad52a80cf98/C1-ab861dc170dc-f8d784e9473686ed.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt\u001b[39m\n\n \u001b[32m✓\u001b[39m components/attestation/__tests__/EngagementLicenceModal.test.tsx \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m6 skipped\u001b[39m\u001b[2m)\u001b[22m\u001b[32m 81\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m6 skipped\u001b[39m\u001b[90m (7)\u001b[39m\n\u001b[2m   Start at \u001b[22m 01:42:20\n\u001b[2m   Duration \u001b[22m 490ms\u001b[2m (transform 40ms, setup 24ms, import 120ms, tests 81ms, environment 214ms)\u001b[22m"
+      },
+      {
+        "id": "C2",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npx vitest run --config config/vitest.config.js components/attestation/__tests__/EngagementLicenceModal.test.tsx -t 'GET is non-OK'",
+        "exit_code": 0,
+        "timeout_s": 600,
+        "duration_s": 0.8,
+        "output_digest": "44a240618acb97047b9402a2b8be349606e806dde144424b463479d4c6521286",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_2f7e7b9a6d81/6ad52a80cf98/C2-9685eb765661-44a240618acb9704.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt\u001b[39m\n\n \u001b[32m✓\u001b[39m components/attestation/__tests__/EngagementLicenceModal.test.tsx \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m4 skipped\u001b[39m\u001b[2m)\u001b[22m\u001b[32m 118\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m3 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m4 skipped\u001b[39m\u001b[90m (7)\u001b[39m\n\u001b[2m   Start at \u001b[22m 01:42:21\n\u001b[2m   Duration \u001b[22m 543ms\u001b[2m (transform 41ms, setup 25ms, import 118ms, tests 118ms, environment 217ms)\u001b[22m"
+      },
+      {
+        "id": "C3",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npx vitest run --config config/vitest.config.js components/attestation/__tests__/EngagementLicenceModal.test.tsx -t 'POST'",
+        "exit_code": 0,
+        "timeout_s": 600,
+        "duration_s": 0.9,
+        "output_digest": "e4feaeffb85892f885451fcae789aee7d6fc3414270e8568d3692c4a295bd9f6",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_2f7e7b9a6d81/6ad52a80cf98/C3-8a214cef6d47-e4feaeffb85892f8.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt\u001b[39m\n\n \u001b[32m✓\u001b[39m components/attestation/__tests__/EngagementLicenceModal.test.tsx \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m5 skipped\u001b[39m\u001b[2m)\u001b[22m\u001b[32m 117\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m2 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m5 skipped\u001b[39m\u001b[90m (7)\u001b[39m\n\u001b[2m   Start at \u001b[22m 01:42:21\n\u001b[2m   Duration \u001b[22m 564ms\u001b[2m (transform 47ms, setup 26ms, import 130ms, tests 117ms, environment 231ms)\u001b[22m"
+      },
+      {
+        "id": "C4",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npx vitest run --config config/vitest.config.js components/attestation/__tests__/EngagementLicenceModal.test.tsx -t 'OK row null'",
+        "exit_code": 0,
+        "timeout_s": 600,
+        "duration_s": 0.8,
+        "output_digest": "4a4474d32d68862463c1e7ac8c46e073a2b09c9f9687279ce13611a368458013",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_2f7e7b9a6d81/6ad52a80cf98/C4-08d1623c441b-4a4474d32d688624.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt\u001b[39m\n\n \u001b[32m✓\u001b[39m components/attestation/__tests__/EngagementLicenceModal.test.tsx \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m6 skipped\u001b[39m\u001b[2m)\u001b[22m\u001b[32m 75\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m6 skipped\u001b[39m\u001b[90m (7)\u001b[39m\n\u001b[2m   Start at \u001b[22m 01:42:22\n\u001b[2m   Duration \u001b[22m 513ms\u001b[2m (transform 52ms, setup 26ms, import 136ms, tests 75ms, environment 223ms)\u001b[22m"
+      },
+      {
+        "id": "C5",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npm run type-check",
+        "exit_code": 0,
+        "timeout_s": 1800,
+        "duration_s": 39.2,
+        "output_digest": "c6c706ce05850b029fe7a3334e260f6384587f61b09bebc237832b0552c172ea",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_2f7e7b9a6d81/6ad52a80cf98/C5-1d96682bdb05-c6c706ce05850b02.log",
+        "output_tail": "> restoreassist@1.0.0 pretype-check\n> prisma generate\n\nLoaded Prisma config from prisma.config.ts.\n\nPrisma schema loaded from prisma/schema.prisma.\n\n✔ Generated Prisma Client (v7.9.1) to ./node_modules/.prisma/client in 1.15s\n\nStart by importing your Prisma Client (See: https://pris.ly/d/importing-client)\n\n\n\n> restoreassist@1.0.0 type-check\n> node scripts/type-check.mjs"
+      },
+      {
+        "id": "C6",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npm run lint",
+        "exit_code": 0,
+        "timeout_s": 1800,
+        "duration_s": 15.4,
+        "output_digest": "eb3f416a0a7d959df7e20369b72ee1e31290051e41266eb4ed7ccf24580a5a97",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_2f7e7b9a6d81/6ad52a80cf98/C6-90fce73cb7c1-eb3f416a0a7d959d.log",
+        "output_tail": "ed. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n  149:7  warning  'airMoversQty' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars\n  150:7  warning  'dehumidifiersQty' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars\n  151:7  warning  'afdQty' is assigned a value but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/restore/__tests__/plan.test.ts\n  1:10  warning  'describe' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/revolutionary-gap-analysis.ts\n  12:10  warning  'extractTextFromPDF' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars\n  14:3   warning  'retrieveRelevantStandards' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars\n  15:3   warning  'buildStandardsContextPrompt' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n  16:3   warning  'RetrievalQuery' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/services/ai/generate-interview-question.ts\n  15:14  warning  'fail' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/setup/__tests__/checks.test.ts\n  11:51  warning  'CheckResult' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/storage/__tests__/supabase-provider.restore.test.ts\n  3:10  warning  'BUCKET_ORIGINALS' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/storage/compression.ts\n  41:3  warning  'mimeType' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/usage/log-usage.ts\n  64:11  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/voice/transcript-parser.ts\n  165:9  warning  'lower' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/workspace/provider-connections.ts\n  128:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/workspace/scraping-provider-connections.ts\n  102:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/lib/youtube/metadata.ts\n  32:45  warning  'voiceoverText' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/mobile/app/(tabs)/inspections/new.tsx\n  97:41  warning  'required' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars\n\n/Volumes/MacBook SSD EXT/agent-work/ra-8090-licence-mb/wt/proxy.ts\n  7:3  warning  'TRIAL_EXPIRED_PAY_PATH' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n\n✖ 698 problems (0 errors, 698 warnings)\n  0 errors and 86 warnings potentially fixable with the `--fix` option."
+      },
+      {
+        "id": "C7",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npm run test:unit",
+        "exit_code": 0,
+        "timeout_s": 3000,
+        "duration_s": 304.1,
+        "output_digest": "33392cf21d5c1541917dd8f017a801d2eac1c211c63e51f18ff9a01f941882d9",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_2f7e7b9a6d81/6ad52a80cf98/C7-f167717fb2ed-33392cf21d5c1541.log",
+        "output_tail": "\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 53\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/offline/__tests__/sync-status-event.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/sketch/__tests__/import-sketch-user-message.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m scripts/lib/__tests__/script-to-vtt.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/exports/__tests__/report-package-zip.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/ai-ownership-export-meta.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/setup/__tests__/hydration-state-machine.test.ts \u001b[2m(\u001b[22m\u001b[2m9 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/estimate/__tests__/approval-snapshot.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/portal/__tests__/consumer-report-attendance.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 12\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/exports/__tests__/report-docx.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 19\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/restore/__tests__/schema.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/compliance/__tests__/disposal-authority-gate.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/portal/__tests__/portal-content.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m app/__tests__/subscribe-redirect.test.tsx \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 11\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/sketch/__tests__/sketch-data-guards-homeowner.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m app/dashboard/settings/ai-providers/__tests__/meta-provider-copy.test.tsx \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/portal/__tests__/consumer-plain-language.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m scripts/lib/__tests__/elevenlabs-tts.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/ai-ownership-watermark.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/scraping/__tests__/platform-firecrawl-key.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/sketch/__tests__/room-derived-metrics.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/billing/__tests__/constants.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/auth/__tests__/reserved-email-user-message.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/should-warn-ai-draft-export.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/pulse/__tests__/pulse-inspection-ui-copy.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/ai-ownership-public.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/email/__tests__/reserved-recipient-signup-path.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/ai-ownership-footer.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m app/api/onboarding/__tests__/status-ai-provider.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/workspace/__tests__/provider-connections.status.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1551 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m56 skipped\u001b[39m\u001b[90m (1607)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m14120 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m446 skipped\u001b[39m\u001b[90m (14566)\u001b[39m\n\u001b[2m   Start at \u001b[22m 01:43:18\n\u001b[2m   Duration \u001b[22m 303.59s\u001b[2m (transform 9.54s, setup 15.84s, import 68.67s, tests 83.76s, environment 54.39s)\u001b[22m"
+      },
+      {
+        "id": "C8",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp sh -c 'npm run check:au-english && npm run check:no-emoji && npm run check:no-lucide'",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 0.8,
+        "output_digest": "f84bc29372a19f80ed9d93d692fac958b1b1a3b99c9c0f893d9a505e57a01df4",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_2f7e7b9a6d81/6ad52a80cf98/C8-f09d8479566a-f84bc29372a19f80.log",
+        "output_tail": "> restoreassist@1.0.0 check:au-english\n> node scripts/check-au-english.mjs\n\n✓ Australian-English content guard passed (v1.0.1, 68 files scanned).\n\n> restoreassist@1.0.0 check:no-emoji\n> node scripts/check-no-emoji.mjs\n\ncheck:no-emoji - OK. No new emojis beyond baseline (0 known, ratcheting down).\n\n> restoreassist@1.0.0 check:no-lucide\n> node scripts/check-no-lucide.mjs\n\ncheck:no-lucide - OK. No new lucide-react imports beyond baseline (354 known, ratcheting down)."
+      }
+    ],
+    "blockers": []
+  }
+}

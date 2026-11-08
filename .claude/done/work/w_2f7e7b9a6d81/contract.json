@@ -1,0 +1,64 @@
+{
+  "schema": "done/1",
+  "work_id": "w_2f7e7b9a6d81",
+  "version": 1,
+  "supersedes": null,
+  "goal": "RA-8090: licence check pop-up shows a real error when the credentials read or save fails, never Loading forever or an empty form",
+  "created_at_utc": "2026-11-08T15:40:53Z",
+  "identity_key": "fix/ra-8090-licence-modal-errors@/Users/phillmcgurk/RestoreAssist/.git/worktrees/wt3",
+  "baseline_observed": {
+    "head": "a6498e82fd477431edecf47e9a32829b5b30ff49",
+    "branch": "fix/ra-8090-licence-modal-errors",
+    "dirty_count": 0
+  },
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "A thrown GET leaves Loading, shows an error with Retry, no empty-account form; Retry reloads",
+      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npx vitest run --config config/vitest.config.js components/attestation/__tests__/EngagementLicenceModal.test.tsx -t 'GET throws'",
+      "timeout": 600
+    },
+    {
+      "id": "C2",
+      "text": "A non-OK GET (401/500, including non-OK carrying row null) shows an error, not Add your credentials",
+      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npx vitest run --config config/vitest.config.js components/attestation/__tests__/EngagementLicenceModal.test.tsx -t 'GET is non-OK'",
+      "timeout": 600
+    },
+    {
+      "id": "C3",
+      "text": "A thrown or non-OK POST shows a toast and the submit button resets",
+      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npx vitest run --config config/vitest.config.js components/attestation/__tests__/EngagementLicenceModal.test.tsx -t 'POST'",
+      "timeout": 600
+    },
+    {
+      "id": "C4",
+      "text": "Only an OK { row: null } shows the Add your credentials form",
+      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npx vitest run --config config/vitest.config.js components/attestation/__tests__/EngagementLicenceModal.test.tsx -t 'OK row null'",
+      "timeout": 600
+    },
+    {
+      "id": "C5",
+      "text": "type-check passes",
+      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npm run type-check",
+      "timeout": 1800
+    },
+    {
+      "id": "C6",
+      "text": "lint passes",
+      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npm run lint",
+      "timeout": 1800
+    },
+    {
+      "id": "C7",
+      "text": "full unit suite passes",
+      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp npm run test:unit",
+      "timeout": 3000
+    },
+    {
+      "id": "C8",
+      "text": "au-english, no-emoji, no-lucide guards pass",
+      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=/tmp/ra8090tmp sh -c 'npm run check:au-english && npm run check:no-emoji && npm run check:no-lucide'",
+      "timeout": 900
+    }
+  ]
+}
