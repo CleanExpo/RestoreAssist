@@ -1,0 +1,10 @@
+{
+  "schema": "done/1",
+  "work_id": "w_594e46063799",
+  "contract_digest": "aab74211b0e5d0eef3fa0de5adada543ca6409cee0d5bfc3345f15fb887ecaf9",
+  "baseline_head": "a6498e82fd477431edecf47e9a32829b5b30ff49",
+  "identity_key": "fix/ra-8242-offline-queue-permanent-reject@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-8242",
+  "locked_at_utc": "2026-11-08T18:01:39Z",
+  "criteria_count": 5,
+  "recipe_pins": {}
+}

@@ -20,6 +20,7 @@ import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineRep
 
 import { sameOfflineOwner } from "@/lib/offline/ownership";
 import { notifySyncQueueChanged } from "@/lib/offline/sync-status-event";
+import toast from "react-hot-toast";
 import {
   FLOOR_REVISION_HEADER,
   isFloorRevisionConflict,
@@ -151,6 +152,28 @@ export interface SyncQueueEntry {
   verifyPending?: boolean;
   /** Moisture / environmental row id from a successful POST body. */
   serverResourceId?: string;
+  /**
+   * RA-8242 - the HTTP status of a permanent rejection. Set only when the
+   * server refused the save for good; the entry is then `failed` and the
+   * payload is kept untouched for the technician to fix, export or discard.
+   */
+  rejectedStatus?: number;
+}
+
+/**
+ * RA-8242 - a 4xx the server will give again for the same payload. 408
+ * (timeout), 409 (handled on its own below) and 429 (rate limit) can succeed
+ * later, so they are not permanent. 401 and 403 never reach this check:
+ * `fetchOfflineReplay` pauses the queue on them.
+ */
+function isPermanentRejection(status: number): boolean {
+  return (
+    status >= 400 &&
+    status < 500 &&
+    status !== 408 &&
+    status !== 409 &&
+    status !== 429
+  );
 }
 
 export interface SyncConflict {
@@ -812,6 +835,15 @@ async function drainQueueImpl(): Promise<number> {
           await storeConflict(db, entry, serverPayload);
           await removeEntry(db, entry.id);
         }
+      } else if (
+        entry.type === "sketch-save" &&
+        isPermanentRejection(response.status)
+      ) {
+        // RA-8242 - the server will never accept this payload (for example
+        // two rooms sharing one id). Stop replaying it, keep the technician's
+        // work in the failed list (retry, export, discard) and say so.
+        await markEntryFailed(db, entry.id, response.status);
+        announceSketchRejection(entry, response.status);
       } else {
         // Retriable error
         await incrementRetry(db, entry);
@@ -956,7 +988,21 @@ async function announceSketchReplay(
   );
 }
 
-async function markEntryFailed(db: IDBDatabase, id: string): Promise<void> {
+function announceSketchRejection(entry: SyncQueueEntry, status: number): void {
+  const payload = entry.payload as Partial<SketchSavePayload> | null;
+  const floor = payload?.floorLabel ?? `Floor ${payload?.floorNumber ?? "?"}`;
+  toast.error(
+    `${floor} is not saved. The server rejected it (error ${status}) and will not accept it as it is. ` +
+      "Your work is kept on this device under Sync failed. Fix the problem, then press Retry, or export it.",
+    { id: `sketch-rejected-${entry.id}`, duration: 15000 },
+  );
+}
+
+async function markEntryFailed(
+  db: IDBDatabase,
+  id: string,
+  rejectedStatus?: number,
+): Promise<void> {
   const entry = await new Promise<SyncQueueEntry>((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readonly");
     const req = tx.objectStore(QUEUE_STORE).get(id);
@@ -969,7 +1015,11 @@ async function markEntryFailed(db: IDBDatabase, id: string): Promise<void> {
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readwrite");
-    const req = tx.objectStore(QUEUE_STORE).put({ ...entry, status: "failed" });
+    const req = tx.objectStore(QUEUE_STORE).put({
+      ...entry,
+      status: "failed",
+      ...(rejectedStatus !== undefined ? { rejectedStatus } : {}),
+    });
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
   });
