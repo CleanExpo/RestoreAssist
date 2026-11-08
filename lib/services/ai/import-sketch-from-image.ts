@@ -118,6 +118,8 @@ export async function importSketchFromImage(args: {
   mediaType: "image/jpeg" | "image/png";
   fallback?: SketchReaderFallback | null;
   sourceContext?: SketchSourceContext;
+  /** RA-8236: one paid attempt that must finish inside this many milliseconds. */
+  timeoutMs?: number;
 }): Promise<ServiceResult<ImportSketchResult, ImportSketchReason>> {
   const primary = await readSketch({
     apiKey: args.apiKey,
@@ -125,6 +127,7 @@ export async function importSketchFromImage(args: {
     base64Image: args.base64Image,
     mediaType: args.mediaType,
     sourceContext: args.sourceContext,
+    timeoutMs: args.timeoutMs,
   });
   if (primary.ok) {
     return ok({
@@ -165,6 +168,7 @@ async function readSketch(args: {
   base64Image: string;
   mediaType: "image/jpeg" | "image/png";
   sourceContext?: SketchSourceContext;
+  timeoutMs?: number;
 }): Promise<
   ServiceResult<Pick<ImportSketchResult, "rooms" | "outcome" | "usage">, ImportSketchReason>
 > {
@@ -172,6 +176,9 @@ async function readSketch(args: {
     userId: "system",
     apiKey: args.apiKey,
     ...(args.baseURL ? { baseURL: args.baseURL } : {}),
+    ...(args.timeoutMs
+      ? { requestOptions: { timeout: args.timeoutMs, maxRetries: 0 } }
+      : {}),
     request: {
       model: args.model,
       max_tokens: 2048,

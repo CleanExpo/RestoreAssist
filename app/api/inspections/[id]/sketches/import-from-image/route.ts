@@ -47,7 +47,11 @@ import {
   readBoundReferenceBytes,
   REFERENCE_EXTRACTION_ACTION,
   REFERENCE_EXTRACTION_ENTITY,
+  REFERENCE_READ_DEADLINE_MS,
+  REFERENCE_READ_LEASE_MS,
+  REFERENCE_READ_MIN_WINDOW_MS,
   type BoundReference,
+  type RecordedRead,
   type ReferenceBinding,
 } from "@/lib/sketch/server-reference-extraction";
 import {
@@ -83,6 +87,22 @@ class ReferenceReadRefused extends Error {
   constructor(readonly response: NextResponse) {
     super("reference read refused");
   }
+}
+
+function replayRecordedRead(
+  recorded: RecordedRead,
+  reference: BoundReference,
+  binding: ReferenceBinding,
+): NextResponse {
+  return NextResponse.json({
+    ...recorded,
+    reference: {
+      id: reference.id,
+      contentSha256: binding.contentSha256,
+      floorNumber: binding.floorNumber,
+    },
+    replayed: true,
+  });
 }
 
 interface ImportedRoom {
@@ -152,17 +172,7 @@ export async function POST(
         });
       }
       const recorded = await findRecordedExtraction(inspectionId, binding);
-      if (recorded) {
-        return NextResponse.json({
-          ...recorded,
-          reference: {
-            id: reference.id,
-            contentSha256: binding.contentSha256,
-            floorNumber: binding.floorNumber,
-          },
-          replayed: true,
-        });
-      }
+      if (recorded) return replayRecordedRead(recorded, reference, binding);
     }
 
     // Rule 5 — subscription gate before the Claude Vision call below.
@@ -291,6 +301,7 @@ export async function POST(
       imageBytes: Buffer,
       mediaType: (typeof ALLOWED_TYPES)[number],
       floorNumber: number,
+      timeoutMs?: number,
     ): Promise<NextResponse> => {
       // Convert to base64
       const base64 = imageBytes.toString("base64");
@@ -305,6 +316,7 @@ export async function POST(
         // RA-8236: reference artwork stays with the workspace's own reader.
         fallback: binding ? null : resolveSketchReaderFallback(),
         ...(binding ? { sourceContext: "reference_plan" as const } : {}),
+        ...(timeoutMs ? { timeoutMs } : {}),
       });
 
       if (!result.ok) {
@@ -470,10 +482,16 @@ export async function POST(
 
       if (binding && reference) {
         const bound = binding;
+        const boundReference = reference;
         const boundReferenceId = reference.id;
+        const writerLock = `${inspectionId}:${extractionEntityId(bound)}`;
         // The rooms and the replay record commit together, so a retry can
-        // never see one without the other.
-        await prisma.$transaction(async (tx) => {
+        // never see one without the other. Writers for one floor and hash go
+        // through one at a time, and only the first keeps its rooms.
+        const alreadyRecorded = await prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${writerLock}, 0))`;
+          const earlier = await findRecordedExtraction(inspectionId, bound, tx);
+          if (earlier) return earlier;
           await persistRooms(tx);
           await tx.auditLog.create({
             data: {
@@ -493,7 +511,11 @@ export async function POST(
               }),
             },
           });
+          return null;
         });
+        if (alreadyRecorded) {
+          return replayRecordedRead(alreadyRecorded, boundReference, bound);
+        }
         return NextResponse.json({
           rooms: roomsWithIds,
           reader: result.data.reader,
@@ -516,6 +538,7 @@ export async function POST(
 
     if (binding && reference) {
       const boundReference = reference;
+      const boundBinding = binding;
       const lockKey = `${inspectionId}:${extractionEntityId(binding)}`;
       const floorNumber = binding.floorNumber;
       try {
@@ -525,7 +548,17 @@ export async function POST(
           method: "POST",
           path: request.nextUrl.pathname,
           fingerprint: lockKey,
+          pendingLeaseMs: REFERENCE_READ_LEASE_MS,
           handler: async () => {
+            const startedAt = Date.now();
+            // Another request may have finished while this one waited.
+            const finished = await findRecordedExtraction(
+              inspectionId,
+              boundBinding,
+            );
+            if (finished) {
+              return replayRecordedRead(finished, boundReference, boundBinding);
+            }
             const stored = await readBoundReferenceBytes(boundReference);
             if (!stored.ok) {
               throw new ReferenceReadRefused(
@@ -543,10 +576,22 @@ export async function POST(
                     }),
               );
             }
+            const readWindowMs =
+              REFERENCE_READ_DEADLINE_MS - (Date.now() - startedAt);
+            if (readWindowMs < REFERENCE_READ_MIN_WINDOW_MS) {
+              throw new ReferenceReadRefused(
+                apiError(request, {
+                  code: "UPSTREAM_FAILED",
+                  message: "The stored floor plan took too long to read.",
+                  status: 503,
+                }),
+              );
+            }
             const response = await runRead(
               stored.bytes,
               "image/png",
               floorNumber,
+              readWindowMs,
             );
             // Only a completed read may be kept; anything else stays retryable.
             if (response.status !== 200) {

@@ -10,12 +10,22 @@ import "server-only";
  */
 
 import { createHash } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 export const REFERENCE_EXTRACTION_ACTION =
   "Reference floor plan read for room suggestions";
 export const REFERENCE_EXTRACTION_ENTITY = "SketchUnderlayExtraction";
+
+/**
+ * A running read holds its key for the lease. The whole read must end inside
+ * the deadline, so the key can never expire while a paid call is still open.
+ */
+export const REFERENCE_READ_LEASE_MS = 150_000;
+export const REFERENCE_READ_DEADLINE_MS = 120_000;
+/** Below this, there is not enough time left to start a paid call. */
+export const REFERENCE_READ_MIN_WINDOW_MS = 5_000;
 
 const MAX_FLOOR = 50;
 const MAX_STORED_BYTES = 10 * 1024 * 1024;
@@ -113,8 +123,9 @@ export function extractionEntityId(binding: ReferenceBinding): string {
 export async function findRecordedExtraction(
   inspectionId: string,
   binding: ReferenceBinding,
+  db: Pick<Prisma.TransactionClient, "auditLog"> = prisma,
 ): Promise<RecordedRead | null> {
-  const row = await prisma.auditLog.findFirst({
+  const row = await db.auditLog.findFirst({
     where: {
       inspectionId,
       action: REFERENCE_EXTRACTION_ACTION,

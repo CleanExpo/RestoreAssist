@@ -27,6 +27,7 @@ const getWorkspaceForUser = vi.fn();
 const resolveWorkspaceAiKey = vi.fn();
 const logAiUsage = vi.fn();
 const download = vi.fn();
+const executeRaw = vi.fn();
 
 vi.mock("server-only", () => ({}));
 vi.mock("next-auth", () => ({
@@ -50,6 +51,7 @@ vi.mock("@/lib/prisma", () => {
       create: (...a: unknown[]) => claimSketchCreate(...a),
     },
     $transaction: async (work: (tx: unknown) => unknown) => work(client),
+    $executeRaw: (...a: unknown[]) => executeRaw(...a),
   };
   return { prisma: client };
 });
@@ -87,12 +89,15 @@ vi.mock("@/lib/rate-limiter", () => ({
 // Same contract as lib/idempotency.ts (covered by its own tests): a key held
 // by a running request answers 409, a throw frees the key.
 const held = new Set<string>();
+const lockInputs: Record<string, unknown>[] = [];
 vi.mock("@/lib/idempotency", () => ({
   withIdempotencyFingerprint: async (input: {
     scope: string;
     key: string;
+    pendingLeaseMs?: number;
     handler: () => Promise<NextResponse>;
   }) => {
+    lockInputs.push(input);
     const slot = `${input.scope}:${input.key}`;
     if (held.has(slot)) {
       return NextResponse.json({ error: "in progress" }, { status: 409 });
@@ -157,6 +162,8 @@ const fetchSpy = vi.fn();
 
 beforeEach(() => {
   held.clear();
+  lockInputs.length = 0;
+  executeRaw.mockReset().mockResolvedValue(1);
   fetchSpy.mockReset();
   vi.stubGlobal("fetch", fetchSpy);
   getServerSession.mockReset().mockResolvedValue({ user: { id: "user_1" } });
@@ -414,6 +421,86 @@ describe("reference bridge: retries", () => {
     expect(JSON.parse(auditCreate.mock.calls[0][0].data.changes).rooms).toEqual(
       [],
     );
+  });
+});
+
+describe("reference bridge: the lock outlasts the paid read", () => {
+  function recordedRead() {
+    return {
+      changes: JSON.stringify({
+        referenceId: "ref_1",
+        contentSha256: SHA,
+        floorNumber: 1,
+        promptVersion: "test-prompt-version",
+        reader: { vendor: "anthropic", model: "claude-sonnet-4-6" },
+        rooms: [{ id: "ai-suggested-first-writer", ...ROOM }],
+      }),
+    };
+  }
+
+  afterEach(() => vi.useRealTimers());
+
+  it("gives the provider a deadline shorter than the lock it holds", async () => {
+    const res = await POST(request(), ctx());
+    expect(res.status).toBe(200);
+    expect(lockInputs).toHaveLength(1);
+    const lease = lockInputs[0].pendingLeaseMs as number;
+    const timeoutMs = importSketchFromImage.mock.calls[0][0].timeoutMs;
+    expect(timeoutMs).toBeGreaterThan(0);
+    expect(lease).toBeGreaterThan(timeoutMs);
+  });
+
+  it("does not spend when reading storage used up the time", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    download.mockImplementation(async () => {
+      vi.setSystemTime(Date.now() + 10 * 60_000);
+      return { data: new Blob([STORED]), error: null };
+    });
+    const res = await POST(request(), ctx());
+    expect(res.status).toBe(503);
+    expect(importSketchFromImage).not.toHaveBeenCalled();
+    expect(auditCreate).not.toHaveBeenCalled();
+  });
+
+  it("replays a read recorded while it waited for the lock, without spending", async () => {
+    auditFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(recordedRead());
+    const res = await POST(request(), ctx());
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.replayed).toBe(true);
+    expect(body.rooms[0].id).toBe("ai-suggested-first-writer");
+    expect(download).not.toHaveBeenCalled();
+    expect(importSketchFromImage).not.toHaveBeenCalled();
+  });
+
+  it("keeps the first writer's rooms when two reads finish together", async () => {
+    auditFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(recordedRead());
+    const res = await POST(request(), ctx());
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.replayed).toBe(true);
+    expect(body.rooms[0].id).toBe("ai-suggested-first-writer");
+    expect(auditCreate).not.toHaveBeenCalled();
+    expect(claimSketchUpdate).not.toHaveBeenCalled();
+    expect(claimSketchCreate).not.toHaveBeenCalled();
+  });
+
+  it("serialises writers before it checks for a recorded read", async () => {
+    await POST(request(), ctx());
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(String(executeRaw.mock.calls[0][0])).toContain(
+      "pg_advisory_xact_lock",
+    );
+    expect(executeRaw.mock.calls[0][1]).toBe(`inspection_1:1:${SHA}`);
+    const lockOrder = executeRaw.mock.invocationCallOrder[0];
+    const finalCheckOrder = auditFindFirst.mock.invocationCallOrder[2];
+    expect(lockOrder).toBeLessThan(finalCheckOrder);
+    expect(finalCheckOrder).toBeLessThan(auditCreate.mock.invocationCallOrder[0]);
   });
 });
 

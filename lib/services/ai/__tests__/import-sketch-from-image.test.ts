@@ -290,4 +290,16 @@ describe("importSketchFromImage reference plan context (RA-8236)", () => {
     await importSketchFromImage(sampleArgs);
     expect(promptSent()).not.toMatch(/REFERENCE ONLY/);
   });
+
+  it("bounds a reference read to one attempt inside its deadline", async () => {
+    await importSketchFromImage({ ...sampleArgs, timeoutMs: 90_000 });
+    const call = vi.mocked(callAnthropic).mock.calls[0][0];
+    expect(call.requestOptions).toEqual({ timeout: 90_000, maxRetries: 0 });
+  });
+
+  it("leaves the photo path on the provider defaults", async () => {
+    await importSketchFromImage(sampleArgs);
+    const call = vi.mocked(callAnthropic).mock.calls[0][0];
+    expect(call.requestOptions).toBeUndefined();
+  });
 });
