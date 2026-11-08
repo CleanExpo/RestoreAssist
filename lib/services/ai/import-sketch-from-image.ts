@@ -13,7 +13,14 @@
  *
  * Reasons:
  *  - <AnthropicReason>  — bubbled from the gateway
- *  - PARSE_FAILED       — model output was not valid JSON
+ *  - PARSE_FAILED       — model output was not valid JSON (or was JSON null)
+ *
+ * RA-8235: whatever either reader returns is validated by
+ * validateSketchReaderOutput (lib/sketch/validate-ai-sketch-output.ts) before
+ * any caller sees it. A read that worked but gave nothing usable is still
+ * `ok`, with `data.outcome` saying no_plan / invalid and offering the
+ * manual-drawing fallback, so the token usage is still returned for logging.
+ * `data.rooms` holds only validated proposals, each tagged ai_suggested.
  *
  * RA-8232: an optional, flag-gated abliteration.ai backup reader retries
  * availability and output failures. See ./sketch-reader-fallback.ts.
@@ -30,6 +37,10 @@ import {
   BACKUP_ELIGIBLE_REASONS,
   type SketchReaderFallback,
 } from "./sketch-reader-fallback";
+import {
+  validateSketchReaderOutput,
+  type SketchReaderOutcome,
+} from "@/lib/sketch/validate-ai-sketch-output";
 
 const SYSTEM_PROMPT = `You are analyzing a hand-drawn floor-plan sketch photo.
 
@@ -67,7 +78,15 @@ export interface SketchRoom {
 const PRIMARY_VISION_MODEL = "claude-sonnet-4-6";
 
 export interface ImportSketchResult {
+  /**
+   * Validated proposals only (same array as `outcome.proposals`). Every room
+   * is tagged ai_suggested and carries no area: billing uses server
+   * measurement only (RA-8233). Typed as SketchRoom[] so existing callers
+   * keep compiling; the runtime objects are AiSuggestedRoomProposal.
+   */
   rooms: SketchRoom[];
+  /** RA-8235: validation outcome, incl. no_plan / invalid and the manual-drawing fallback flag. */
+  outcome: SketchReaderOutcome;
   usage: { inputTokens: number; outputTokens: number };
   /** Which reader produced these rooms (RA-8232). */
   reader: { vendor: "anthropic" | "abliteration"; model: string };
@@ -132,7 +151,7 @@ async function readSketch(args: {
   base64Image: string;
   mediaType: "image/jpeg" | "image/png";
 }): Promise<
-  ServiceResult<Pick<ImportSketchResult, "rooms" | "usage">, ImportSketchReason>
+  ServiceResult<Pick<ImportSketchResult, "rooms" | "outcome" | "usage">, ImportSketchReason>
 > {
   const gatewayResult = await callAnthropic({
     userId: "system",
@@ -179,13 +198,25 @@ async function readSketch(args: {
     .replace(/\n?```$/m, "")
     .trim();
 
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(cleaned) as { rooms?: SketchRoom[] };
-    return ok({ rooms: parsed.rooms ?? [], usage });
+    parsed = JSON.parse(cleaned);
   } catch (err) {
     return fail("PARSE_FAILED", {
       detail: `Model output was not valid JSON: ${raw.slice(0, 200)}`,
       cause: err,
     });
   }
+  // JSON null has always been a parse failure here (it used to throw on
+  // `.rooms`), which makes it backup-eligible. Keep that, so RA-8232's choice
+  // of when the backup runs does not change.
+  if (parsed === null) {
+    return fail("PARSE_FAILED", {
+      detail: `Model output was JSON null: ${raw.slice(0, 200)}`,
+    });
+  }
+
+  // RA-8235: one validator for the output of BOTH readers.
+  const outcome = validateSketchReaderOutput(parsed);
+  return ok({ rooms: outcome.proposals, outcome, usage });
 }
