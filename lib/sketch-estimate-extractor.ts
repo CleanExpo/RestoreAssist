@@ -88,12 +88,18 @@ function isFabricDamageZone(obj: FabricObject): boolean {
 function extractRoomsFromFabricJson(
   fabricJson: Record<string, unknown> | null | undefined,
   floorLabel: string,
-): { rooms: EstimateLineItem[]; damage: EstimateLineItem[] } {
+): {
+  rooms: EstimateLineItem[];
+  damage: EstimateLineItem[];
+  /** Measured room objects on the canvas, billed or refused. */
+  measuredRoomCount: number;
+} {
   const rooms: EstimateLineItem[] = [];
   const damage: EstimateLineItem[] = [];
+  let measuredRoomCount = 0;
 
   if (!fabricJson?.objects || !Array.isArray(fabricJson.objects)) {
-    return { rooms, damage };
+    return { rooms, damage, measuredRoomCount };
   }
 
   const objects = fabricJson.objects as FabricObject[];
@@ -128,6 +134,7 @@ function extractRoomsFromFabricJson(
     // RA-7572: rooms are `data.type === "room"` (or a measured polygon).
     // Area is metres-first so a saved 3×3 room cannot yield 0 silently.
     if (!isMeasuredRoom(obj)) continue;
+    measuredRoomCount++;
     const areaM2 = resolveRoomAreaM2(obj, pxPerMetre);
     if (areaM2 == null || areaM2 < MIN_BILLED_AREA_M2) continue;
 
@@ -161,7 +168,7 @@ function extractRoomsFromFabricJson(
     }
   }
 
-  return { rooms, damage };
+  return { rooms, damage, measuredRoomCount };
 }
 
 // ── Equipment point extraction ────────────────────────────
@@ -256,7 +263,7 @@ export function recommendEquipment(affectedAreaM2: number): {
 
 // ── Main export ───────────────────────────────────────────
 
-/** RoomGraph row already stored in metres — used when Fabric parse yields none. */
+/** RoomGraph row already stored in metres — used only when the Fabric blob has no measured room. */
 export interface SavedSketchRoom {
   name?: string | null;
   areaM2?: number | null;
@@ -349,14 +356,17 @@ export function extractSketchEstimate(
   let totalDamageAreaM2 = 0;
 
   for (const floor of floors) {
-    const { rooms, damage } = extractRoomsFromFabricJson(
+    const { rooms, damage, measuredRoomCount } = extractRoomsFromFabricJson(
       floor.sketchData,
       floor.floorLabel,
     );
-    // RA-7572: SketchRoom.areaM2 is already metres. If the Fabric blob did
-    // not yield room lines, the saved room graph still must reach the estimate.
+    // RA-7572: SketchRoom.areaM2 is already metres. If the Fabric blob has no
+    // measured room at all, the saved room graph still must reach the
+    // estimate. RA-8237: a measured canvas room the resolver refused (or that
+    // is too small to bill) keeps that result; its saved row, which may be
+    // stale until the next sketch save, never bills in its place.
     const roomLines =
-      rooms.length > 0
+      measuredRoomCount > 0
         ? rooms
         : roomsFromSavedGraph(floor.savedRooms, floor.floorLabel);
 

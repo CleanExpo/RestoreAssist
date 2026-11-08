@@ -222,8 +222,20 @@ describe("RA-8237 — Confirm cannot promote a rough hardcoded pixel area", () =
     expect(fabricObjectToSelected(drawn, PPM)?.areaM2).toBeCloseTo(12, 6);
   });
 
-  it("the rough figure on its own cannot be confirmed by a 3×3 measurement", () => {
-    expect(measure([aiRoom(ROUGH)]).measuredRoomIds.has("ai-sq")).toBe(false);
+  it("the rough figure on its own is never the figure a measurement is checked against", () => {
+    // RA-8237 widen: the untagged rough claim disagrees with the drawing at
+    // the floor scale, so the room graph carries the calibrated 9 m², never
+    // 2.25 m². A measurement of the rough figure is refused; 3 × 3 matches.
+    expect(extractRoomGraphNodes(sketch(PPM, [aiRoom(ROUGH)]))[0].areaM2).toBeCloseTo(9, 6);
+    const rough = reconcileRoomMeasurementEvidence({
+      stored: [],
+      rooms: roomRevisionsFromSketchData(sketch(PPM, [aiRoom(ROUGH)])),
+      submissions: [{ fabricObjectId: "ai-sq", measuredAreaM2: ROUGH }],
+      sessionUserId: "tech-1",
+      now: new Date("2026-11-09T00:00:00Z"),
+    });
+    expect(rough.measuredRoomIds.has("ai-sq")).toBe(false);
+    expect(measure([aiRoom(ROUGH)]).measuredRoomIds.has("ai-sq")).toBe(true);
   });
 
   it("Confirm canonicalises to 9 m² geometry, which the 3×3 measurement matches", () => {
@@ -576,11 +588,15 @@ describe("RA-8237 — recalibration, undo/redo and reload", () => {
     });
   });
 
-  it("legacy untagged rooms keep their claimed area (RA-7572)", () => {
-    const legacy = room("legacy", SQUARE_M, 1, { areaM2: 9 });
-    expect(resolveRoomAreaM2(legacy, 100)).toBe(9);
-    // Perimeter follows the same source: shape kept, scale from the claim.
+  it("legacy untagged rooms keep a claimed area the drawing supports (RA-7572)", () => {
+    const legacy = room("legacy", SQUARE_M, 100, { areaM2: 9.1 });
+    expect(resolveRoomAreaM2(legacy, 100)).toBe(9.1);
+    // Perimeter comes from the drawing the claim agrees with.
     expect(resolveRoomPerimeterM(legacy, 100)).toBeCloseTo(12, 6);
+    // RA-8237 widen: a claim the drawing does not support bills the drawing.
+    const tiny = room("legacy", SQUARE_M, 1, { areaM2: 9 });
+    expect(resolveRoomAreaM2(tiny, 100)).toBeCloseTo(0.0009, 9);
+    expect(resolveRoomPerimeterM(tiny, 100)).toBeCloseTo(0.12, 9);
   });
 
   it("recalibration keeps the previous calibration as history and reloads it", () => {
@@ -885,5 +901,228 @@ describe("RA-8237 K1 — typed and cached figures cannot bill more than the draw
       );
     }
     expect(typedBranch).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// RA-8237 widen (founder decision, 09/11/2026): every cached figure honours
+// the same invariant. A saved SketchRoom row never bills for a canvas room
+// the resolver refused (R4a), and an untagged legacy areaM2 claim bills only
+// when it agrees with a valid drawing at the floor scale (R4b).
+describe("RA-8237 widen — saved rows and legacy claims cannot outbill the drawing", () => {
+  type Room = Parameters<typeof resolveRoomQuantities>[0];
+  const SAVED_9 = [
+    {
+      name: "Saved",
+      areaM2: 9,
+      perimeterM: 12,
+      heightM: 2.7,
+      provenance: "operator_measured",
+    },
+  ];
+
+  function poly(points: unknown, data: Record<string, unknown>): Room {
+    return {
+      type: "polygon",
+      points,
+      data: {
+        type: "room",
+        id: "w-room",
+        provenance: "operator_measured",
+        ...data,
+      },
+    } as unknown as Room;
+  }
+
+  function estimate(objects: unknown[] | null, ppm = 100) {
+    return extractSketchEstimate([
+      {
+        floorLabel: "G",
+        sketchData: objects === null ? null : sketch(ppm, objects),
+        savedRooms: SAVED_9,
+      },
+    ]);
+  }
+
+  function roomLines(e: ReturnType<typeof extractSketchEstimate>) {
+    return e.lineItems.filter((l) => l.category === "room");
+  }
+
+  const MALFORMED = [
+    { x: 0, y: 0 },
+    { x: 300, y: 0 },
+    { x: 300, y: 300 },
+    { x: null, y: 300 },
+  ];
+
+  describe("R4a — the saved-graph fallback", () => {
+    it.each([
+      ["tagged dimensions (typed 3 × 3)", {
+        areaSource: "dimensions",
+        dimensionsPxPerMetre: 100,
+        lengthM: 3,
+        widthM: 3,
+        areaM2: 9,
+      }],
+      ["tagged geometry with a cached 9 m²", { areaSource: "geometry", areaM2: 9 }],
+      ["untagged with a claimed 9 m²", { areaM2: 9 }],
+      ["untagged with no figures", {}],
+    ])("a refused malformed canvas room (%s) never bills its saved row", (_l, data) => {
+      const e = estimate([poly(MALFORMED, data)]);
+      expect(e.totalRoomAreaM2).toBe(0);
+      expect(roomLines(e)).toEqual([]);
+    });
+
+    it("a canvas room too small to bill still stops the saved row", () => {
+      const tiny = poly(
+        [
+          { x: 0, y: 0 },
+          { x: 10, y: 0 },
+          { x: 10, y: 10 },
+          { x: 0, y: 10 },
+        ],
+        { areaSource: "geometry" },
+      );
+      const e = estimate([tiny]);
+      expect(e.totalRoomAreaM2).toBe(0);
+      expect(roomLines(e)).toEqual([]);
+    });
+
+    it("a valid canvas room bills its drawing, not the saved row", () => {
+      const tri = poly(
+        [
+          { x: 0, y: 0 },
+          { x: 300, y: 0 },
+          { x: 300, y: 300 },
+        ],
+        { areaSource: "geometry" },
+      );
+      expect(estimate([tri]).totalRoomAreaM2).toBeCloseTo(4.5, 6);
+    });
+
+    // Positive controls: with no measured room object on the canvas the
+    // saved graph still reaches the estimate (RA-7572 coverage kept).
+    it.each([
+      ["no sketch blob", null],
+      ["an empty canvas", []],
+      ["only an ai_suggested room", [
+        poly(MALFORMED, { provenance: "ai_suggested", areaM2: 9 }),
+      ]],
+      ["only a wall line and a room label", [
+        {
+          type: "line",
+          x1: 0,
+          y1: 0,
+          x2: 300,
+          y2: 0,
+          data: { type: "wall", provenance: "operator_measured" },
+        },
+        {
+          type: "i-text",
+          text: "Bedroom",
+          data: { type: "room-label", provenance: "operator_measured" },
+        },
+      ]],
+      ["only a damage zone", [
+        poly(
+          [
+            { x: 0, y: 0 },
+            { x: 100, y: 0 },
+            { x: 100, y: 100 },
+            { x: 0, y: 100 },
+          ],
+          { type: "damage", isDamageZone: true },
+        ),
+      ]],
+    ])("with %s the saved row still bills", (_l, objects) => {
+      const e = estimate(objects as unknown[] | null);
+      expect(e.totalRoomAreaM2).toBe(9);
+      const walls = roomLines(e).find((l) => l.id.endsWith("-walls"));
+      expect(walls?.areaM2).toBeCloseTo(32.4, 6);
+    });
+  });
+
+  describe("R4b — the untagged legacy areaM2 claim", () => {
+    const TRIANGLE = [
+      { x: 0, y: 0 },
+      { x: 300, y: 0 },
+      { x: 300, y: 300 },
+    ];
+    const SQUARE = [
+      { x: 0, y: 0 },
+      { x: 300, y: 0 },
+      { x: 300, y: 300 },
+      { x: 0, y: 300 },
+    ];
+
+    it("a valid 4.5 m² triangle with a claimed 9 m² bills 4.5 m² everywhere", () => {
+      const r = poly(TRIANGLE, { areaM2: 9 });
+      const q = resolveRoomQuantities(r, 100);
+      expect(q.areaM2).toBeCloseTo(4.5, 6);
+      expect(q.perimeterM).toBeCloseTo(6 + Math.sqrt(18), 6);
+      expect(q.source).toBe("geometry");
+      const sk = sketch(100, [r]);
+      expect(extractRoomGraphNodes(sk)[0].areaM2).toBeCloseTo(4.5, 6);
+      expect(extractRooms(sk)[0].areaM2).toBeCloseTo(4.5, 6);
+      expect(
+        extractSketchEstimate([{ floorLabel: "G", sketchData: sk }]).totalRoomAreaM2,
+      ).toBeCloseTo(4.5, 6);
+    });
+
+    it("a claim that agrees with the drawing within 2% bills the claim", () => {
+      const r = poly(SQUARE, { areaM2: 9.15 });
+      expect(resolveRoomQuantities(r, 100)).toMatchObject({
+        areaM2: 9.15,
+        source: "claimed",
+      });
+      expect(resolveRoomPerimeterM(r, 100)).toBeCloseTo(12, 6);
+    });
+
+    it("a claim just outside 2% bills the drawing", () => {
+      const r = poly(SQUARE, { areaM2: 9.2 });
+      expect(resolveRoomQuantities(r, 100)).toMatchObject({ source: "geometry" });
+      expect(resolveRoomAreaM2(r, 100)).toBeCloseTo(9, 6);
+    });
+
+    it("a claim below the drawing also bills the drawing", () => {
+      const r = poly(SQUARE, { areaM2: 4 });
+      expect(resolveRoomAreaM2(r, 100)).toBeCloseTo(9, 6);
+    });
+
+    it("an agreeing area with a cached perimeter the drawing does not support bills the drawing", () => {
+      const r = poly(SQUARE, { areaM2: 9, perimeterM: 20, heightM: 2.7 });
+      const q = resolveRoomQuantities(r, 100);
+      expect(q.source).toBe("geometry");
+      expect(q.perimeterM).toBeCloseTo(12, 6);
+      expect(resolveWallAreaM2(r, 100)).toBeCloseTo(32.4, 6);
+    });
+
+    it("the claim is checked at the floor scale, not the 100 px/m default", () => {
+      // Square drawn as 3 m at 100 px/m; the floor is calibrated at 50 px/m,
+      // so the drawing is 6 m × 6 m there.
+      const r = poly(SQUARE, { areaM2: 9 });
+      expect(resolveRoomAreaM2(r, 50)).toBeCloseTo(36, 6);
+      const agreeing = poly(SQUARE, { areaM2: 36 });
+      expect(resolveRoomQuantities(agreeing, 50)).toMatchObject({
+        areaM2: 36,
+        source: "claimed",
+      });
+    });
+
+    it("a room with no drawing at all still bills its claim (RA-7572)", () => {
+      const r = {
+        data: {
+          type: "room",
+          provenance: "operator_measured",
+          areaM2: 9,
+          lengthM: 3,
+          widthM: 3,
+        },
+      } as unknown as Room;
+      expect(resolveRoomQuantities(r, 100)).toMatchObject({
+        areaM2: 9,
+        perimeterM: 12,
+        source: "claimed",
+      });
+    });
   });
 });

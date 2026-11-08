@@ -9,9 +9,22 @@ import {
 } from "../room-area-from-geometry";
 
 describe("room-area-from-geometry", () => {
-  it("prefers data.areaM2 over pixel shoelace", () => {
+  it("prefers data.areaM2 over pixel shoelace when the drawing supports it (RA-7572, RA-8237)", () => {
     const obj = {
       type: "polygon",
+      points: [
+        { x: 0, y: 0 },
+        { x: 300, y: 0 },
+        { x: 300, y: 300 },
+        { x: 0, y: 300 },
+      ],
+      data: { type: "room" as const, areaM2: 9.1 },
+    };
+    // Within 2% of the 9 m² drawing: the claim bills.
+    expect(resolveRoomAreaM2(obj)).toBe(9.1);
+    // RA-8237 widen: a claim the drawing does not support bills the drawing.
+    const tiny = {
+      ...obj,
       points: [
         { x: 0, y: 0 },
         { x: 3, y: 0 },
@@ -20,7 +33,9 @@ describe("room-area-from-geometry", () => {
       ],
       data: { type: "room" as const, areaM2: 9 },
     };
-    expect(resolveRoomAreaM2(obj)).toBe(9);
+    expect(resolveRoomAreaM2(tiny)).toBeCloseTo(0.0009, 9);
+    // With no drawing at all the claim still bills.
+    expect(resolveRoomAreaM2({ data: { type: "room", areaM2: 9 } })).toBe(9);
   });
 
   it("uses L×W metres when areaM2 is missing", () => {
@@ -115,6 +130,7 @@ describe("room-area-from-geometry", () => {
       data: { type: "room" as const, areaM2: 900, lengthM: 30, widthM: 30 },
     };
     expect(areaM2FromGeometryOnly(obj, 100)).toBe(9);
-    expect(resolveRoomAreaM2(obj, 100)).toBe(900);
+    // RA-8237 widen: the billing resolver refuses the forged claim too.
+    expect(resolveRoomAreaM2(obj, 100)).toBe(9);
   });
 });

@@ -138,12 +138,11 @@ export interface RoomQuantities {
   source: RoomQuantitySource | null;
 }
 
-/** Relative tolerance for "the claimed area matches the drawn polygon". */
-const CLAIM_AGREES_REL = 0.05;
 /**
  * Relative tolerance for "typed L × W agrees with the drawing": both the
  * area (L × W) and the perimeter (2(L + W)) of the drawing at the scale the
- * dimensions were typed at must be within 2%.
+ * dimensions were typed at must be within 2%. An untagged legacy claim uses
+ * the same 2% at the floor scale (claimAgreesWithDrawing).
  */
 const TYPED_AGREES_REL = 0.02;
 
@@ -349,6 +348,28 @@ function typedAgreesWithDrawing(
   );
 }
 
+/**
+ * RA-8237 widen (founder decision, 09/11/2026) — the same invariant for an
+ * untagged legacy claim: its `areaM2`, and its cached `perimeterM` when it has
+ * one, must each be within 2% of the valid drawing at the floor scale. There
+ * is no typed-at scale for a legacy claim, so the floor scale is the only
+ * reference.
+ */
+function claimAgreesWithDrawing(
+  claimedArea: number,
+  claimedPerimeter: number | null,
+  drawn: { areaM2: number; perimeterM: number },
+): boolean {
+  if (Math.abs(claimedArea - drawn.areaM2) > drawn.areaM2 * TYPED_AGREES_REL) {
+    return false;
+  }
+  return (
+    claimedPerimeter === null ||
+    Math.abs(claimedPerimeter - drawn.perimeterM) <=
+      drawn.perimeterM * TYPED_AGREES_REL
+  );
+}
+
 const NO_QUANTITIES: RoomQuantities = {
   areaM2: null,
   perimeterM: null,
@@ -370,9 +391,11 @@ const NO_QUANTITIES: RoomQuantities = {
  * 2. `areaSource: "geometry"` (or typed L × W that disagrees with the
  *    drawing): the drawing at the floor scale. The cached `areaM2` is display
  *    only, so recalibration, undo/redo and reload re-derive the same figure.
- * 3. Untagged legacy room with a claimed `areaM2` (RA-7572): the claim. Its
- *    perimeter is `perimeterM`, else the polygon perimeter rescaled to the
- *    claimed area (shape kept), else 2(L + W) when there is no drawing.
+ * 3. Untagged legacy room with a claimed `areaM2` (RA-7572): the claim only
+ *    when it, and any cached `perimeterM`, agrees with the valid drawing at
+ *    the floor scale within 2% (claimAgreesWithDrawing); otherwise the
+ *    drawing. With no drawing at all the claim bills, with `perimeterM`, else
+ *    2(L + W).
  * 4. Untagged without a claim: the drawing; L × W only when there is no
  *    drawing at all. A bounding box never stands in for an irregular room.
  */
@@ -407,16 +430,23 @@ export function resolveRoomQuantities(
 
   if (positiveFinite(data?.areaM2)) {
     const claimed = data.areaM2;
-    let perimeterM: number | null = null;
-    if (positiveFinite(data?.perimeterM)) {
-      perimeterM = data.perimeterM;
-    } else if (geom) {
-      const agrees =
-        Math.abs(claimed - geom.areaM2) <= geom.areaM2 * CLAIM_AGREES_REL;
-      perimeterM = agrees
-        ? geom.perimeterM
-        : geom.perimeterM * Math.sqrt(claimed / geom.areaM2);
-    } else if (lengthM !== null && widthM !== null) {
+    const claimedPerimeter = positiveFinite(data?.perimeterM)
+      ? data.perimeterM
+      : null;
+    if (geom) {
+      // RA-8237 widen: a legacy claim bills only when it (and any cached
+      // perimeter) agrees with the valid drawing at the floor scale.
+      if (!claimAgreesWithDrawing(claimed, claimedPerimeter, geom)) {
+        return { ...geom, source: "geometry" };
+      }
+      return {
+        areaM2: claimed,
+        perimeterM: claimedPerimeter ?? geom.perimeterM,
+        source: "claimed",
+      };
+    }
+    let perimeterM = claimedPerimeter;
+    if (perimeterM === null && lengthM !== null && widthM !== null) {
       perimeterM = 2 * (lengthM + widthM);
     }
     return { areaM2: claimed, perimeterM, source: "claimed" };
