@@ -121,6 +121,12 @@ import {
   DEFAULT_PX_PER_METRE,
 } from "@/lib/sketch/tool-objects";
 import {
+  canonicalRoomAreaFields,
+  DIMENSIONS_AREA_SOURCE,
+  GEOMETRY_AREA_SOURCE,
+} from "@/lib/sketch/room-area-from-geometry";
+import { withCalibrationHistory } from "@/lib/sketch/scale-calibration";
+import {
   clampWallThicknessM,
   wallThicknessPx,
 } from "@/lib/sketch/wall-thickness";
@@ -1007,11 +1013,14 @@ export function SketchEditorV2({
       if (!obj) return false;
       fc?.setActiveObject?.(obj);
       fc?.renderAll?.();
-      const sel = fabricObjectToSelected(obj);
+      const sel = fabricObjectToSelected(
+        obj,
+        activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
+      );
       if (sel) setSelectedObj(sel);
       return true;
     },
-    [activeFloor?.canvasRef],
+    [activeFloor?.canvasRef, activeFloor?.scaleConfig?.pxPerMetre],
   );
 
   const focusFirstUnconfirmedRoom = useCallback(() => {
@@ -2448,7 +2457,17 @@ export function SketchEditorV2({
     (config: ScaleConfig) => {
       setFloorsData((prev) =>
         prev.map((fd, i) =>
-          i === activeIdx ? { ...fd, scaleConfig: config } : fd,
+          i === activeIdx
+            ? {
+                ...fd,
+                // RA-8237: keep the replaced calibration as source history.
+                scaleConfig: withCalibrationHistory(
+                  fd.scaleConfig,
+                  config,
+                  new Date().toISOString(),
+                ),
+              }
+            : fd,
         ),
       );
       scheduleSave();
@@ -2635,10 +2654,12 @@ export function SketchEditorV2({
             x: v.x * width,
             y: v.y * height,
           }));
+          // RA-8237: size at this floor's calibrated scale, not 100 px/m.
           const areaM2 =
-            Math.round(
-              (shoelaceArea(pts) / (PX_PER_METRE * PX_PER_METRE)) * 100,
-            ) / 100;
+            canonicalRoomAreaFields(
+              { type: "polygon", points: pts, data: {} },
+              activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
+            )?.areaM2 ?? 0;
 
           const polygon = new FabricPolygon(pts, {
             fill: color.fill,
@@ -2656,6 +2677,7 @@ export function SketchEditorV2({
               provenance: "ai_suggested",
               captureAdapter: "cloud_ai",
               areaM2,
+              areaSource: GEOMETRY_AREA_SOURCE,
               originalAreaM2: areaM2,
               originalPoints: pts,
               originalLabel: room.label,
@@ -2706,6 +2728,7 @@ export function SketchEditorV2({
             canvasApi.renderAll();
             const sel = fabricObjectToSelected(
               firstPoly as Parameters<typeof fabricObjectToSelected>[0],
+              activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
             );
             if (sel) setSelectedObj(sel);
           }
@@ -3465,7 +3488,7 @@ export function SketchEditorV2({
                     areaM2,
                   });
                   if (!audited) return;
-                  obj.data = audited;
+                  obj.data = { ...audited, areaSource: GEOMETRY_AREA_SOURCE };
                   const hist = obj.data.correctionHistory as
                     | unknown[]
                     | undefined;
@@ -3822,6 +3845,18 @@ export function SketchEditorV2({
                   ? "Technician measured the homeowner-drawn room on site and confirmed"
                   : "Technician measured the room on site and confirmed",
               });
+              // RA-8237: the area sent for billing is the drawing at this
+              // floor's scale, never a cached figure from import.
+              const canonical = canonicalRoomAreaFields(
+                obj,
+                activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
+              );
+              if (canonical) {
+                obj.data = {
+                  ...(obj.data as Record<string, unknown>),
+                  ...canonical,
+                };
+              }
               pendingRoomMeasurementsRef.current.set(id, {
                 fabricObjectId: id,
                 ...measurement,
@@ -4161,6 +4196,8 @@ export function SketchEditorV2({
                 lengthM,
                 widthM,
                 areaM2: Math.round(areaM2 * 100) / 100,
+                areaSource: DIMENSIONS_AREA_SOURCE,
+                dimensionsPxPerMetre: pxPerM,
               };
               const roomLabel = fc.getObjects().find((o) => {
                 const d = (o as { data?: { type?: string; roomFor?: string } })

@@ -219,6 +219,9 @@ export function describeToolObject(
           // Non-LiDAR path — same room/evidence workflow without RoomPlan.
           captureAdapter: "manual",
           areaM2,
+          // RA-8237: area is derived from the drawing at the floor scale, so
+          // a later recalibration re-derives it (resolveRoomQuantities).
+          areaSource: "geometry",
           dimLocked: false,
           ...(rectDims
             ? { lengthM: rectDims.lengthM, widthM: rectDims.widthM }

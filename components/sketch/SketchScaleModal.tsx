@@ -13,6 +13,7 @@ import { useState, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Ruler, X, Check, Info } from "lucide-react";
 import { distance } from "@/lib/sketch/geometry-utils";
+import type { CalibrationEntry } from "@/lib/sketch/scale-calibration";
 
 export interface ScaleConfig {
   pxPerMetre: number;
@@ -21,6 +22,10 @@ export interface ScaleConfig {
   pointA: { x: number; y: number };
   pointB: { x: number; y: number };
   realMetres: number;
+  /** RA-8237 — when this calibration was applied (set by the editor). */
+  calibratedAt?: string;
+  /** RA-8237 — earlier calibrations of this floor, oldest first. */
+  history?: CalibrationEntry[];
 }
 
 export interface SketchScaleModalProps {

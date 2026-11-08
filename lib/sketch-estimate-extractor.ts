@@ -12,7 +12,6 @@
 
 import {
   isMeasuredRoom,
-  objectPoints,
   resolvePxPerMetre,
   resolveRoomAreaM2,
   resolveWallAreaM2,
@@ -21,10 +20,7 @@ import {
 } from "@/lib/sketch/room-area-from-geometry";
 import { isOperatorMeasuredProvenance } from "@/lib/sketch/measured-provenance";
 
-// ── Scale ─────────────────────────────────────────────────
-/** Default: 100 canvas pixels = 1 metre */
-const PX_PER_METRE = 100;
-const PX2_PER_M2 = PX_PER_METRE * PX_PER_METRE;
+// Pixel-to-metre conversion uses each floor's own scaleConfig (RA-8237).
 const MIN_BILLED_AREA_M2 = 0.1;
 
 // ── IICRC S500 Equipment Ratios ───────────────────────────
@@ -66,29 +62,6 @@ export interface SketchEstimate {
   totalRoomAreaM2: number;
   totalDamageAreaM2: number;
   extractedAt: string;
-}
-
-// ── Geometry helpers ──────────────────────────────────────
-
-/** Shoelace formula — area of a closed polygon given vertices. */
-function shoelaceAreaPx2(pts: { x: number; y: number }[]): number {
-  let area = 0;
-  const n = pts.length;
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    area += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
-  }
-  return Math.abs(area) / 2;
-}
-
-/** Convert canvas-pixel² area to m², applying object scale. */
-function pxAreaToM2(
-  points: { x: number; y: number }[],
-  scaleX = 1,
-  scaleY = 1,
-): number {
-  const scaledPts = points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
-  return shoelaceAreaPx2(scaledPts) / PX2_PER_M2;
 }
 
 // ── Fabric.js polygon extraction ──────────────────────────
@@ -134,11 +107,8 @@ function extractRoomsFromFabricJson(
     if (!isOperatorMeasuredProvenance(obj.data?.provenance)) continue;
 
     if (isFabricDamageZone(obj)) {
-      const areaM2 =
-        resolveRoomAreaM2(obj, pxPerMetre) ??
-        (obj.points?.length
-          ? pxAreaToM2(objectPoints(obj), obj.scaleX, obj.scaleY)
-          : 0);
+      // RA-8237: floor scale only; no hardcoded 100 px/m fallback.
+      const areaM2 = resolveRoomAreaM2(obj, pxPerMetre) ?? 0;
       if (areaM2 < MIN_BILLED_AREA_M2) continue;
       damageIdx++;
       const label = roomLabel(obj);

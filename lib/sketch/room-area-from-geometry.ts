@@ -35,6 +35,10 @@ export interface RoomGeometryObject {
     lengthM?: number;
     widthM?: number;
     perimeterM?: number;
+    /** RA-8237 — see resolveRoomQuantities. */
+    areaSource?: string;
+    /** RA-8237 — floor scale when L × W was typed (areaSource "dimensions"). */
+    dimensionsPxPerMetre?: number;
     heightM?: number;
     ceilingHeightM?: number;
     isDamageZone?: boolean;
@@ -122,33 +126,218 @@ export function isMeasuredRoom(obj: RoomGeometryObject): boolean {
 }
 
 /**
+ * RA-8237 — where a room's billed quantities come from.
+ *
+ * - `geometry`: the drawn polygon (local points × transform scale) at the
+ *   floor's calibrated px-per-metre.
+ * - `dimensions`: technician-typed length × width on a rectangle.
+ * - `claimed`: a persisted `data.areaM2` with no source tag (legacy blobs).
+ */
+export type RoomQuantitySource = "geometry" | "dimensions" | "claimed";
+
+/** `data.areaSource` written by every editor path that sets a room's size. */
+export const GEOMETRY_AREA_SOURCE = "geometry" as const;
+export const DIMENSIONS_AREA_SOURCE = "dimensions" as const;
+
+export interface RoomQuantities {
+  areaM2: number | null;
+  perimeterM: number | null;
+  source: RoomQuantitySource | null;
+}
+
+/** Relative tolerance for "the claimed area matches the drawn polygon". */
+const CLAIM_AGREES_REL = 0.05;
+/** Relative tolerance for "each side is still the typed length / width". */
+const RECT_SIDE_REL = 0.02;
+
+function transformScale(obj: RoomGeometryObject): { sx: number; sy: number } {
+  const sx =
+    typeof obj.scaleX === "number" && Number.isFinite(obj.scaleX) ? obj.scaleX : 1;
+  const sy =
+    typeof obj.scaleY === "number" && Number.isFinite(obj.scaleY) ? obj.scaleY : 1;
+  return { sx, sy };
+}
+
+function scaledPoints(obj: RoomGeometryObject): { x: number; y: number }[] {
+  const { sx, sy } = transformScale(obj);
+  return objectPoints(obj).map((p) => ({ x: p.x * sx, y: p.y * sy }));
+}
+
+/**
+ * Area and perimeter of the drawn shape at the floor scale, or null when the
+ * object has no usable polygon (>= 3 points) or width × height box.
+ */
+export function geometryQuantities(
+  obj: RoomGeometryObject,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): { areaM2: number; perimeterM: number } | null {
+  const scale = positiveFinite(pxPerMetre) ? pxPerMetre : DEFAULT_PX_PER_METRE;
+  const pts = scaledPoints(obj);
+  if (pts.length >= 3) {
+    const areaM2 = shoelacePx2(pts) / (scale * scale);
+    const perimeterM = perimeterPx(pts) / scale;
+    if (positiveFinite(areaM2) && positiveFinite(perimeterM)) {
+      return { areaM2, perimeterM };
+    }
+    return null;
+  }
+  if (pts.length === 0 && positiveFinite(obj.width) && positiveFinite(obj.height)) {
+    const { sx, sy } = transformScale(obj);
+    const w = Math.abs(obj.width * sx);
+    const h = Math.abs(obj.height * sy);
+    const areaM2 = (w * h) / (scale * scale);
+    const perimeterM = (2 * (w + h)) / scale;
+    if (positiveFinite(areaM2) && positiveFinite(perimeterM)) {
+      return { areaM2, perimeterM };
+    }
+  }
+  return null;
+}
+
+/**
+ * True when the polygon is still the axis-aligned L × W rectangle the
+ * technician typed, measured at the scale it was typed at
+ * (`data.dimensionsPxPerMetre`, else the current floor scale). A later
+ * recalibration keeps it; any reshape or resize does not.
+ */
+function polygonIsTypedRectangle(
+  obj: RoomGeometryObject,
+  lengthM: number,
+  widthM: number,
+  pxPerMetre: number,
+): boolean {
+  const pts = scaledPoints(obj);
+  if (pts.length !== 4) return false;
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const bw = maxX - minX;
+  const bh = maxY - minY;
+  if (!(bw > 0) || !(bh > 0)) return false;
+  const tol = Math.max(bw, bh) * 0.01;
+  for (const p of pts) {
+    const onV = Math.abs(p.x - minX) <= tol || Math.abs(p.x - maxX) <= tol;
+    const onH = Math.abs(p.y - minY) <= tol || Math.abs(p.y - maxY) <= tol;
+    if (!onV || !onH) return false;
+  }
+  const typedAt = positiveFinite(obj.data?.dimensionsPxPerMetre)
+    ? obj.data.dimensionsPxPerMetre
+    : positiveFinite(pxPerMetre)
+      ? pxPerMetre
+      : DEFAULT_PX_PER_METRE;
+  const wM = bw / typedAt;
+  const hM = bh / typedAt;
+  const close = (a: number, b: number) => Math.abs(a - b) <= b * RECT_SIDE_REL;
+  return (
+    (close(wM, lengthM) && close(hM, widthM)) ||
+    (close(wM, widthM) && close(hM, lengthM))
+  );
+}
+
+/**
+ * RA-8237 — the one place a room's floor area and perimeter are resolved.
+ * Area and perimeter always come from the same source.
+ *
+ * 1. `areaSource: "dimensions"` with L × W, while the polygon is still that
+ *    rectangle at the scale it was typed at: L × W and 2(L + W). Typed metres are an
+ *    independent measurement, so recalibrating the floor does not move them.
+ * 2. `areaSource: "geometry"` (or a typed rectangle since reshaped or resized): the
+ *    polygon at the floor scale. The cached `areaM2` is display only, so
+ *    recalibration, undo/redo and reload re-derive the same figure.
+ * 3. Untagged legacy room with a claimed `areaM2` (RA-7572): the claim. Its
+ *    perimeter is `perimeterM`, else the polygon perimeter rescaled to the
+ *    claimed area (shape kept), else 2(L + W) when there is no polygon.
+ * 4. Untagged without a claim: the polygon; L × W only when there is no
+ *    polygon at all. A bounding box never stands in for an irregular room.
+ */
+export function resolveRoomQuantities(
+  obj: RoomGeometryObject,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): RoomQuantities {
+  const data = obj.data;
+  const geom = geometryQuantities(obj, pxPerMetre);
+  const lengthM = positiveFinite(data?.lengthM) ? data.lengthM : null;
+  const widthM = positiveFinite(data?.widthM) ? data.widthM : null;
+  const tag = data?.areaSource;
+
+  if (tag === DIMENSIONS_AREA_SOURCE && lengthM !== null && widthM !== null) {
+    if (!geom || polygonIsTypedRectangle(obj, lengthM, widthM, pxPerMetre)) {
+      return {
+        areaM2: lengthM * widthM,
+        perimeterM: 2 * (lengthM + widthM),
+        source: "dimensions",
+      };
+    }
+  }
+  if ((tag === GEOMETRY_AREA_SOURCE || tag === DIMENSIONS_AREA_SOURCE) && geom) {
+    return { ...geom, source: "geometry" };
+  }
+
+  if (positiveFinite(data?.areaM2)) {
+    const claimed = data.areaM2;
+    let perimeterM: number | null = null;
+    if (positiveFinite(data?.perimeterM)) {
+      perimeterM = data.perimeterM;
+    } else if (geom) {
+      const agrees =
+        Math.abs(claimed - geom.areaM2) <= geom.areaM2 * CLAIM_AGREES_REL;
+      perimeterM = agrees
+        ? geom.perimeterM
+        : geom.perimeterM * Math.sqrt(claimed / geom.areaM2);
+    } else if (lengthM !== null && widthM !== null) {
+      perimeterM = 2 * (lengthM + widthM);
+    }
+    return { areaM2: claimed, perimeterM, source: "claimed" };
+  }
+
+  if (geom) return { ...geom, source: "geometry" };
+  if (lengthM !== null && widthM !== null) {
+    return {
+      areaM2: lengthM * widthM,
+      perimeterM: 2 * (lengthM + widthM),
+      source: "dimensions",
+    };
+  }
+  return { areaM2: null, perimeterM: null, source: null };
+}
+
+/**
  * Floor area in m², or null when the object has no usable geometry.
- * Prefer persisted metre fields so a 3×3 room cannot collapse to 0.
+ * See resolveRoomQuantities for the precedence.
  */
 export function resolveRoomAreaM2(
   obj: RoomGeometryObject,
   pxPerMetre = DEFAULT_PX_PER_METRE,
 ): number | null {
-  const data = obj.data;
-  if (positiveFinite(data?.areaM2)) return data.areaM2;
-  if (positiveFinite(data?.lengthM) && positiveFinite(data?.widthM)) {
-    return data.lengthM * data.widthM;
-  }
+  return resolveRoomQuantities(obj, pxPerMetre).areaM2;
+}
 
-  const scale = pxPerMetre > 0 ? pxPerMetre : DEFAULT_PX_PER_METRE;
-  const scaleX = typeof obj.scaleX === "number" && Number.isFinite(obj.scaleX) ? obj.scaleX : 1;
-  const scaleY = typeof obj.scaleY === "number" && Number.isFinite(obj.scaleY) ? obj.scaleY : 1;
-  const pts = objectPoints(obj);
-  if (pts.length >= 3) {
-    const scaled = pts.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
-    const area = shoelacePx2(scaled) / (scale * scale);
-    if (positiveFinite(area)) return area;
+/**
+ * RA-8237 — the size fields an editor path writes when it sets a room from
+ * its drawing: area at the floor's calibrated scale, tagged as geometry (a
+ * typed rectangle keeps its `dimensions` tag). Used by AI import and by
+ * Confirm, so a cached figure computed at another scale cannot be promoted.
+ * Null when the shape has no usable area.
+ */
+export function canonicalRoomAreaFields(
+  obj: RoomGeometryObject,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): { areaM2: number; areaSource: "geometry" | "dimensions" } | null {
+  const tag =
+    obj.data?.areaSource === DIMENSIONS_AREA_SOURCE
+      ? DIMENSIONS_AREA_SOURCE
+      : GEOMETRY_AREA_SOURCE;
+  const q = resolveRoomQuantities(
+    { ...obj, data: { ...(obj.data ?? {}), areaSource: tag } },
+    pxPerMetre,
+  );
+  if (!positiveFinite(q.areaM2) || (q.source !== "geometry" && q.source !== "dimensions")) {
+    return null;
   }
-  if (positiveFinite(obj.width) && positiveFinite(obj.height)) {
-    const area = (obj.width * scaleX * obj.height * scaleY) / (scale * scale);
-    if (positiveFinite(area)) return area;
-  }
-  return null;
+  return { areaM2: Math.round(q.areaM2 * 100) / 100, areaSource: q.source };
 }
 
 /**
@@ -168,6 +357,7 @@ export function areaM2FromGeometryOnly(
           areaM2: undefined,
           lengthM: undefined,
           widthM: undefined,
+          areaSource: undefined,
         }
       : undefined,
   };
@@ -178,18 +368,7 @@ export function resolveRoomPerimeterM(
   obj: RoomGeometryObject,
   pxPerMetre = DEFAULT_PX_PER_METRE,
 ): number | null {
-  if (positiveFinite(obj.data?.perimeterM)) return obj.data.perimeterM;
-  if (positiveFinite(obj.data?.lengthM) && positiveFinite(obj.data?.widthM)) {
-    return 2 * (obj.data.lengthM + obj.data.widthM);
-  }
-  const scale = pxPerMetre > 0 ? pxPerMetre : DEFAULT_PX_PER_METRE;
-  const scaleX = typeof obj.scaleX === "number" && Number.isFinite(obj.scaleX) ? obj.scaleX : 1;
-  const scaleY = typeof obj.scaleY === "number" && Number.isFinite(obj.scaleY) ? obj.scaleY : 1;
-  const pts = objectPoints(obj);
-  if (pts.length < 2) return null;
-  const scaled = pts.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
-  const peri = perimeterPx(scaled) / scale;
-  return positiveFinite(peri) ? peri : null;
+  return resolveRoomQuantities(obj, pxPerMetre).perimeterM;
 }
 
 export function resolveCeilingHeightM(obj: RoomGeometryObject): number | null {
