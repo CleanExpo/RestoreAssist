@@ -13,6 +13,7 @@ import {
   Send,
 } from "lucide-react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { ContractorsBackLink } from "../ContractorsBackLink";
 
 interface Review {
@@ -300,7 +301,11 @@ export default function ContractorReviewsPage() {
       {/* Reviews List */}
       {reviews.length === 0 ? (
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-12 text-center">
-          <p className="text-slate-400 text-lg">No reviews yet</p>
+          <p className="text-slate-400 text-lg">
+            {isConfirmedEmpty(loadError, reviews.length)
+              ? "No reviews yet"
+              : "Reviews could not be loaded"}
+          </p>
         </div>
       ) : (
         <div className="space-y-6">

@@ -168,6 +168,7 @@ export default function InvoiceAnalyticsPage() {
   const [invoices, setInvoices] = useState<InvoiceForComputed[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     async function loadData() {
@@ -195,7 +196,7 @@ export default function InvoiceAnalyticsPage() {
     }
 
     loadData();
-  }, []);
+  }, [reloadKey]);
 
   // Derived data from invoices list
   const agingBuckets = computeAgingBuckets(invoices);
@@ -240,6 +241,13 @@ export default function InvoiceAnalyticsPage() {
         <div className="flex items-center gap-2 p-4 bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-lg text-destructive-subtle-foreground text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {error}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => setReloadKey((k) => k + 1)}
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -254,6 +262,11 @@ export default function InvoiceAnalyticsPage() {
               <SummaryCardSkeleton key={i} />
             ))}
           </div>
+        ) : error ? (
+          // RA-8084: a failed load is unknown, not empty. The banner above carries Retry.
+          <p className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+            Invoice analytics could not be loaded.
+          </p>
         ) : !hasData ? (
           <div className="text-center py-16 text-slate-400 dark:text-slate-500">
             <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-40" />
