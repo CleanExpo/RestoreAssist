@@ -163,17 +163,105 @@ function scaledPoints(obj: RoomGeometryObject): { x: number; y: number }[] {
   return objectPoints(obj).map((p) => ({ x: p.x * sx, y: p.y * sy }));
 }
 
+/** True when the room carries a polygon (>= 3 points), valid or not. */
+function hasPolygon(obj: RoomGeometryObject): boolean {
+  return objectPoints(obj).length >= 3;
+}
+
+/** Drop consecutive repeated vertices (including last-to-first). */
+function distinctVertices(
+  pts: { x: number; y: number }[],
+): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  for (const p of pts) {
+    const prev = out[out.length - 1];
+    if (!prev || prev.x !== p.x || prev.y !== p.y) out.push(p);
+  }
+  while (
+    out.length > 1 &&
+    out[0].x === out[out.length - 1].x &&
+    out[0].y === out[out.length - 1].y
+  ) {
+    out.pop();
+  }
+  return out;
+}
+
+function orient(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+): number {
+  const v = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  return v > 0 ? 1 : v < 0 ? -1 : 0;
+}
+
+function onSegment(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  p: { x: number; y: number },
+): boolean {
+  return (
+    Math.min(a.x, b.x) <= p.x &&
+    p.x <= Math.max(a.x, b.x) &&
+    Math.min(a.y, b.y) <= p.y &&
+    p.y <= Math.max(a.y, b.y)
+  );
+}
+
+function segmentsTouch(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+  d: { x: number; y: number },
+): boolean {
+  const o1 = orient(a, b, c);
+  const o2 = orient(a, b, d);
+  const o3 = orient(c, d, a);
+  const o4 = orient(c, d, b);
+  if (o1 !== o2 && o3 !== o4) return true;
+  if (o1 === 0 && onSegment(a, b, c)) return true;
+  if (o2 === 0 && onSegment(a, b, d)) return true;
+  if (o3 === 0 && onSegment(c, d, a)) return true;
+  if (o4 === 0 && onSegment(c, d, b)) return true;
+  return false;
+}
+
+/**
+ * RA-8237 — a room outline is billable only as a simple polygon: no edge
+ * crosses or touches a non-adjacent edge. A self-crossing outline's shoelace
+ * cancels or double-counts area, so it cannot be a floor area.
+ */
+function isSimplePolygon(pts: { x: number; y: number }[]): boolean {
+  const n = pts.length;
+  if (n < 3) return false;
+  for (let i = 0; i < n; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % n];
+    for (let j = i + 1; j < n; j++) {
+      // Skip the edge itself and its two neighbours.
+      if (j === i || (j + 1) % n === i || (i + 1) % n === j) continue;
+      if (segmentsTouch(a, b, pts[j], pts[(j + 1) % n])) return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Area and perimeter of the drawn shape at the floor scale, or null when the
- * object has no usable polygon (>= 3 points) or width × height box.
+ * shape is not usable. A polygon (>= 3 points) must have >= 3 distinct
+ * vertices, be simple and enclose positive area; an object with no points
+ * may use its width × height box.
  */
 export function geometryQuantities(
   obj: RoomGeometryObject,
   pxPerMetre = DEFAULT_PX_PER_METRE,
 ): { areaM2: number; perimeterM: number } | null {
   const scale = positiveFinite(pxPerMetre) ? pxPerMetre : DEFAULT_PX_PER_METRE;
-  const pts = scaledPoints(obj);
-  if (pts.length >= 3) {
+  const raw = scaledPoints(obj);
+  if (raw.length >= 3) {
+    const pts = distinctVertices(raw);
+    if (pts.length < 3 || !isSimplePolygon(pts)) return null;
     const areaM2 = shoelacePx2(pts) / (scale * scale);
     const perimeterM = perimeterPx(pts) / scale;
     if (positiveFinite(areaM2) && positiveFinite(perimeterM)) {
@@ -181,7 +269,7 @@ export function geometryQuantities(
     }
     return null;
   }
-  if (pts.length === 0 && positiveFinite(obj.width) && positiveFinite(obj.height)) {
+  if (raw.length === 0 && positiveFinite(obj.width) && positiveFinite(obj.height)) {
     const { sx, sy } = transformScale(obj);
     const w = Math.abs(obj.width * sx);
     const h = Math.abs(obj.height * sy);
@@ -197,8 +285,10 @@ export function geometryQuantities(
 /**
  * True when the polygon is still the axis-aligned L × W rectangle the
  * technician typed, measured at the scale it was typed at
- * (`data.dimensionsPxPerMetre`, else the current floor scale). A later
- * recalibration keeps it; any reshape or resize does not.
+ * (`data.dimensionsPxPerMetre`, else the current floor scale): four distinct
+ * vertices on the bounding-box corners. Call only when geometryQuantities
+ * succeeded (simple polygon). A later recalibration keeps it; any reshape or
+ * resize does not.
  */
 function polygonIsTypedRectangle(
   obj: RoomGeometryObject,
@@ -206,7 +296,7 @@ function polygonIsTypedRectangle(
   widthM: number,
   pxPerMetre: number,
 ): boolean {
-  const pts = scaledPoints(obj);
+  const pts = distinctVertices(scaledPoints(obj));
   if (pts.length !== 4) return false;
   const xs = pts.map((p) => p.x);
   const ys = pts.map((p) => p.y);
@@ -218,9 +308,13 @@ function polygonIsTypedRectangle(
   const bh = maxY - minY;
   if (!(bw > 0) || !(bh > 0)) return false;
   const tol = Math.max(bw, bh) * 0.01;
+  const near = (a: number, b: number) => Math.abs(a - b) <= tol;
+  // Four distinct vertices, each on a bounding-box corner, forming a simple
+  // polygon (the caller requires geometryQuantities to succeed): that is
+  // exactly the rectangle in boundary order.
   for (const p of pts) {
-    const onV = Math.abs(p.x - minX) <= tol || Math.abs(p.x - maxX) <= tol;
-    const onH = Math.abs(p.y - minY) <= tol || Math.abs(p.y - maxY) <= tol;
+    const onV = near(p.x, minX) || near(p.x, maxX);
+    const onH = near(p.y, minY) || near(p.y, maxY);
     if (!onV || !onH) return false;
   }
   const typedAt = positiveFinite(obj.data?.dimensionsPxPerMetre)
@@ -237,16 +331,26 @@ function polygonIsTypedRectangle(
   );
 }
 
+const NO_QUANTITIES: RoomQuantities = {
+  areaM2: null,
+  perimeterM: null,
+  source: null,
+};
+
 /**
  * RA-8237 — the one place a room's floor area and perimeter are resolved.
  * Area and perimeter always come from the same source.
  *
- * 1. `areaSource: "dimensions"` with L × W, while the polygon is still that
- *    rectangle at the scale it was typed at: L × W and 2(L + W). Typed metres are an
- *    independent measurement, so recalibrating the floor does not move them.
- * 2. `areaSource: "geometry"` (or a typed rectangle since reshaped or resized): the
- *    polygon at the floor scale. The cached `areaM2` is display only, so
- *    recalibration, undo/redo and reload re-derive the same figure.
+ * 1. `areaSource: "dimensions"` with L × W: L × W and 2(L + W) when the room
+ *    has no polygon, or while its polygon is still that rectangle at the
+ *    scale it was typed at. Typed metres are an independent measurement, so
+ *    recalibrating the floor does not move them.
+ * 2. `areaSource: "geometry"` (or a typed rectangle since reshaped or
+ *    resized): the polygon at the floor scale. The cached `areaM2` is display
+ *    only, so recalibration, undo/redo and reload re-derive the same figure.
+ *    A tagged room whose polygon is malformed (too few distinct vertices,
+ *    self-crossing, zero area) bills nothing: it never falls back to a typed
+ *    or cached figure.
  * 3. Untagged legacy room with a claimed `areaM2` (RA-7572): the claim. Its
  *    perimeter is `perimeterM`, else the polygon perimeter rescaled to the
  *    claimed area (shape kept), else 2(L + W) when there is no polygon.
@@ -258,13 +362,18 @@ export function resolveRoomQuantities(
   pxPerMetre = DEFAULT_PX_PER_METRE,
 ): RoomQuantities {
   const data = obj.data;
+  const polygon = hasPolygon(obj);
   const geom = geometryQuantities(obj, pxPerMetre);
   const lengthM = positiveFinite(data?.lengthM) ? data.lengthM : null;
   const widthM = positiveFinite(data?.widthM) ? data.widthM : null;
   const tag = data?.areaSource;
+  const tagged = tag === GEOMETRY_AREA_SOURCE || tag === DIMENSIONS_AREA_SOURCE;
 
   if (tag === DIMENSIONS_AREA_SOURCE && lengthM !== null && widthM !== null) {
-    if (!geom || polygonIsTypedRectangle(obj, lengthM, widthM, pxPerMetre)) {
+    if (
+      !polygon ||
+      (geom && polygonIsTypedRectangle(obj, lengthM, widthM, pxPerMetre))
+    ) {
       return {
         areaM2: lengthM * widthM,
         perimeterM: 2 * (lengthM + widthM),
@@ -272,8 +381,9 @@ export function resolveRoomQuantities(
       };
     }
   }
-  if ((tag === GEOMETRY_AREA_SOURCE || tag === DIMENSIONS_AREA_SOURCE) && geom) {
-    return { ...geom, source: "geometry" };
+  if (tagged) {
+    if (geom) return { ...geom, source: "geometry" };
+    if (polygon) return NO_QUANTITIES;
   }
 
   if (positiveFinite(data?.areaM2)) {
@@ -287,21 +397,21 @@ export function resolveRoomQuantities(
       perimeterM = agrees
         ? geom.perimeterM
         : geom.perimeterM * Math.sqrt(claimed / geom.areaM2);
-    } else if (lengthM !== null && widthM !== null) {
+    } else if (!polygon && lengthM !== null && widthM !== null) {
       perimeterM = 2 * (lengthM + widthM);
     }
     return { areaM2: claimed, perimeterM, source: "claimed" };
   }
 
   if (geom) return { ...geom, source: "geometry" };
-  if (lengthM !== null && widthM !== null) {
+  if (!polygon && lengthM !== null && widthM !== null) {
     return {
       areaM2: lengthM * widthM,
       perimeterM: 2 * (lengthM + widthM),
       source: "dimensions",
     };
   }
-  return { areaM2: null, perimeterM: null, source: null };
+  return NO_QUANTITIES;
 }
 
 /**
@@ -338,6 +448,23 @@ export function canonicalRoomAreaFields(
     return null;
   }
   return { areaM2: Math.round(q.areaM2 * 100) / 100, areaSource: q.source };
+}
+
+/**
+ * RA-8237 — the size fields Confirm writes onto a room before its measurement
+ * is queued: the calibrated area when the drawing has one, otherwise just the
+ * geometry tag, so a malformed drawing bills nothing instead of its cached
+ * figure.
+ */
+export function confirmRoomAreaFields(
+  obj: RoomGeometryObject,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): { areaM2?: number; areaSource: "geometry" | "dimensions" } {
+  return (
+    canonicalRoomAreaFields(obj, pxPerMetre) ?? {
+      areaSource: GEOMETRY_AREA_SOURCE,
+    }
+  );
 }
 
 /**

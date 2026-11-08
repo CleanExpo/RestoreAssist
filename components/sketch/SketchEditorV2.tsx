@@ -122,6 +122,7 @@ import {
 } from "@/lib/sketch/tool-objects";
 import {
   canonicalRoomAreaFields,
+  confirmRoomAreaFields,
   DIMENSIONS_AREA_SOURCE,
   GEOMETRY_AREA_SOURCE,
 } from "@/lib/sketch/room-area-from-geometry";
@@ -3847,16 +3848,13 @@ export function SketchEditorV2({
               });
               // RA-8237: the area sent for billing is the drawing at this
               // floor's scale, never a cached figure from import.
-              const canonical = canonicalRoomAreaFields(
-                obj,
-                activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
-              );
-              if (canonical) {
-                obj.data = {
-                  ...(obj.data as Record<string, unknown>),
-                  ...canonical,
-                };
-              }
+              obj.data = {
+                ...(obj.data as Record<string, unknown>),
+                ...confirmRoomAreaFields(
+                  obj,
+                  activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
+                ),
+              };
               pendingRoomMeasurementsRef.current.set(id, {
                 fabricObjectId: id,
                 ...measurement,

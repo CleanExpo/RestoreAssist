@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canonicalRoomAreaFields,
+  confirmRoomAreaFields,
   resolveRoomAreaM2,
   resolveRoomPerimeterM,
   resolveRoomQuantities,
@@ -334,6 +335,173 @@ describe("RA-8237 — recalibration, undo/redo and reload", () => {
     });
     expect(resolveRoomAreaM2(reshaped, 100)).toBeCloseTo(12, 6);
     expect(resolveRoomPerimeterM(reshaped, 100)).toBeCloseTo(16, 6);
+  });
+
+  // Codex round 1 (713833df): a tagged room whose polygon is malformed must
+  // not fall back to a typed or cached figure.
+  const pts = (xy: Array<[number, number]>) => xy.map(([x, y]) => ({ x, y }));
+  const BOWTIE = pts([
+    [0, 0],
+    [300, 300],
+    [0, 300],
+    [300, 0],
+  ]);
+  const DUP_CORNER_TRIANGLE = pts([
+    [0, 0],
+    [300, 0],
+    [300, 300],
+    [300, 300],
+  ]);
+
+  it("typed L × W needs four distinct rectangle corners (duplicate-corner triangle)", () => {
+    const tri = {
+      type: "polygon",
+      points: DUP_CORNER_TRIANGLE,
+      data: {
+        type: "room",
+        provenance: "operator_measured",
+        areaSource: "dimensions",
+        dimensionsPxPerMetre: 100,
+        lengthM: 3,
+        widthM: 3,
+        areaM2: 9,
+      },
+    };
+    const q = resolveRoomQuantities(tri, 100);
+    expect(q.source).toBe("geometry");
+    expect(q.areaM2).toBeCloseTo(4.5, 6);
+    const est = extractSketchEstimate([
+      { floorLabel: "Ground", sketchData: sketch(100, [tri]) },
+    ]);
+    expect(est.totalRoomAreaM2).toBeCloseTo(4.5, 6);
+  });
+
+  it("typed L × W does not cover a four-sided non-rectangle in the same box", () => {
+    const trapezoid = {
+      type: "polygon",
+      points: pts([
+        [0, 0],
+        [300, 0],
+        [300, 300],
+        [100, 300],
+      ]),
+      data: {
+        type: "room",
+        provenance: "operator_measured",
+        areaSource: "dimensions",
+        dimensionsPxPerMetre: 100,
+        lengthM: 3,
+        widthM: 3,
+      },
+    };
+    expect(resolveRoomQuantities(trapezoid, 100)).toMatchObject({
+      source: "geometry",
+    });
+    expect(resolveRoomAreaM2(trapezoid, 100)).toBeCloseTo(7.5, 6);
+  });
+
+  it.each(["geometry", "dimensions"])(
+    "a self-crossing polygon tagged %s bills nothing, not its cached figure",
+    (areaSource) => {
+      const bow = {
+        type: "polygon",
+        points: BOWTIE,
+        data: {
+          type: "room",
+          provenance: "operator_measured",
+          areaSource,
+          dimensionsPxPerMetre: 100,
+          lengthM: 3,
+          widthM: 3,
+          areaM2: 9,
+        },
+      };
+      expect(resolveRoomQuantities(bow, 100)).toEqual({
+        areaM2: null,
+        perimeterM: null,
+        source: null,
+      });
+      const est = extractSketchEstimate([
+        { floorLabel: "Ground", sketchData: sketch(100, [bow]) },
+      ]);
+      expect(est.totalRoomAreaM2).toBe(0);
+      expect(extractRoomGraphNodes(sketch(100, [bow]))[0].areaM2).toBeNull();
+      expect(canonicalRoomAreaFields(bow, 100)).toBeNull();
+    },
+  );
+
+  it("Confirm on a malformed drawing tags it so its cached figure cannot bill", () => {
+    const looped = {
+      type: "polygon",
+      points: pts([
+        [0, 100],
+        [300, 100],
+        [300, 200],
+        [100, 200],
+        [100, 0],
+        [200, 0],
+        [200, 300],
+        [0, 300],
+      ]),
+      data: {
+        type: "room",
+        id: "ai-loop",
+        provenance: "operator_measured",
+        captureAdapter: "cloud_ai",
+        areaM2: 9,
+      },
+    };
+    const fields = confirmRoomAreaFields(looped, 100);
+    expect(fields).toEqual({ areaSource: "geometry" });
+    const confirmed = { ...looped, data: { ...looped.data, ...fields } };
+    expect(resolveRoomAreaM2(confirmed, 100)).toBeNull();
+    expect(extractRoomGraphNodes(sketch(100, [confirmed]))[0].areaM2).toBeNull();
+    // A valid drawing gets its calibrated area.
+    expect(confirmRoomAreaFields(room("ok", SQUARE_M, 50), 50)).toEqual({
+      areaM2: 9,
+      areaSource: "geometry",
+    });
+  });
+
+  it("a self-crossing polygon whose loops overlap is not billed by its shoelace", () => {
+    // Winds twice round the centre square: shoelace would overstate it.
+    const looped = {
+      type: "polygon",
+      points: pts([
+        [0, 100],
+        [300, 100],
+        [300, 200],
+        [100, 200],
+        [100, 0],
+        [200, 0],
+        [200, 300],
+        [0, 300],
+      ]),
+      data: { type: "room", provenance: "operator_measured", areaSource: "geometry" },
+    };
+    expect(resolveRoomAreaM2(looped, 100)).toBeNull();
+  });
+
+  it("an imported self-crossing polygon cannot be confirmed by any measurement", () => {
+    const bow = {
+      type: "polygon",
+      points: BOWTIE,
+      data: {
+        type: "room",
+        id: "ai-bow",
+        provenance: "ai_suggested",
+        captureAdapter: "cloud_ai",
+        areaSource: "geometry",
+        areaM2: 9,
+      },
+    };
+    const result = reconcileRoomMeasurementEvidence({
+      stored: [],
+      rooms: roomRevisionsFromSketchData(sketch(100, [bow])),
+      submissions: [{ fabricObjectId: "ai-bow", measuredAreaM2: 9 }],
+      sessionUserId: "tech-1",
+    });
+    expect(result.measuredRoomIds.has("ai-bow")).toBe(false);
   });
 
   it("legacy untagged rooms keep their claimed area (RA-7572)", () => {
