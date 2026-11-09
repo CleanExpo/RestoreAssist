@@ -67,6 +67,23 @@ describe("callAnthropic", () => {
     if (r.ok) expect(r.data).toEqual(fakeMessage);
   });
 
+  it("passes request options to the SDK only when given (RA-8236)", async () => {
+    vi.mocked(getAnthropicApiKey).mockResolvedValue("sk-test");
+    mockMessagesCreate.mockResolvedValue({ id: "msg_1", content: [] });
+
+    await callAnthropic({
+      ...baseReq,
+      requestOptions: { timeout: 90_000, maxRetries: 0 },
+    });
+    expect(mockMessagesCreate.mock.calls[0]).toEqual([
+      baseReq.request,
+      { timeout: 90_000, maxRetries: 0 },
+    ]);
+
+    await callAnthropic(baseReq);
+    expect(mockMessagesCreate.mock.calls[1]).toEqual([baseReq.request]);
+  });
+
   it("returns KEY_MISSING when getAnthropicApiKey throws", async () => {
     vi.mocked(getAnthropicApiKey).mockRejectedValueOnce(new Error("no key"));
 

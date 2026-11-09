@@ -59,10 +59,18 @@ describe("SketchStartOverlay", () => {
     prepareUnderlayFile.mockResolvedValue({
       ok: true,
       dataUrl: "data:image/png;base64,xx",
+      previewUrl: "data:image/png;base64,marked",
+      original: { mimeType: "image/png", page: null, pageCount: null },
     });
+    const reference = {
+      referenceId: "ref_1",
+      contentSha256: "a".repeat(64),
+      floorNumber: 0,
+    };
     commitUnderlayImport.mockResolvedValue({
       ok: true,
       imageUrl: "https://cdn.example/plan.png",
+      reference,
     });
     const onApplyUnderlay = vi.fn();
 
@@ -102,7 +110,15 @@ describe("SketchStartOverlay", () => {
       expect(onApplyUnderlay).toHaveBeenCalledWith(
         "https://cdn.example/plan.png",
         0.35,
+        reference,
       );
     });
+    // RA-8236: the unmarked raster is uploaded; the watermark is the server's.
+    expect(commitUnderlayImport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedImage: "data:image/png;base64,xx",
+        original: { mimeType: "image/png", page: null, pageCount: null },
+      }),
+    );
   });
 });

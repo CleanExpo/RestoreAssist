@@ -10,9 +10,20 @@ import {
   type UnderlaySource,
 } from "@/lib/sketch/underlay-attestation";
 
+import { dataUrlToBlob } from "@/lib/sketch/data-url-blob";
+import type { UnderlayReferenceBinding } from "@/lib/sketch/reference-room-import";
+
 export type CommitUnderlayResult =
-  | { ok: true; imageUrl: string }
+  | { ok: true; imageUrl: string; reference?: UnderlayReferenceBinding }
   | { ok: false; error: string };
+
+/** What the technician chose in the browser, before it became a raster. */
+export interface UnderlayOriginalSource {
+  mimeType: string;
+  /** 1 for a PDF (page 1 is the only page read), null for an image. */
+  page: number | null;
+  pageCount: number | null;
+}
 
 export interface CommitUnderlayImportInput {
   selectedImage: string;
@@ -22,6 +33,7 @@ export interface CommitUnderlayImportInput {
   compliesWithSourceTerms: boolean;
   source: UnderlaySource;
   sourcePageUrl?: string;
+  original?: UnderlayOriginalSource;
   submit?: (url: string, body: FormData) => Promise<Response>;
 }
 
@@ -62,8 +74,16 @@ export async function commitUnderlayImport(
       form.set("remoteImageUrl", input.selectedImage);
       form.set("sourcePageUrl", input.sourcePageUrl ?? "");
     } else {
-      const { dataUrlToBlob } = await import("@/lib/sketch-storage");
       form.set("file", dataUrlToBlob(input.selectedImage), "floor-plan.png");
+      if (input.original) {
+        form.set("originalMimeType", input.original.mimeType);
+        if (input.original.page != null) {
+          form.set("originalPage", String(input.original.page));
+        }
+        if (input.original.pageCount != null) {
+          form.set("originalPageCount", String(input.original.pageCount));
+        }
+      }
     }
     const submit = input.submit ?? defaultSubmit;
     const res = await submit(
@@ -85,14 +105,34 @@ export async function commitUnderlayImport(
           "Couldn't store the reference floor plan — please try again.",
       };
     }
-    const payload = (await res.json()) as { imageUrl?: unknown };
+    const payload = (await res.json()) as {
+      imageUrl?: unknown;
+      referenceId?: unknown;
+      contentSha256?: unknown;
+    };
     if (typeof payload.imageUrl !== "string" || !payload.imageUrl) {
       return {
         ok: false,
         error: "The stored floor plan did not return a preview.",
       };
     }
-    return { ok: true, imageUrl: payload.imageUrl };
+    // No binding means no room suggestions; the reference itself still applies.
+    const bound =
+      typeof payload.referenceId === "string" &&
+      typeof payload.contentSha256 === "string";
+    return {
+      ok: true,
+      imageUrl: payload.imageUrl,
+      ...(bound
+        ? {
+            reference: {
+              referenceId: payload.referenceId as string,
+              contentSha256: payload.contentSha256 as string,
+              floorNumber: input.floorNumber ?? 0,
+            },
+          }
+        : {}),
+    };
   } catch {
     return {
       ok: false,
