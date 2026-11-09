@@ -1,9 +1,10 @@
 /**
  * Hard Floor add-on — safety and quality gates.
  *
- * 1. Asbestos gate (SOP 1): vinyl/lino-type floors laid before 1990, or of
- *    unknown age, are presumed to contain asbestos unless an assessment says
- *    otherwise (NSW Asbestos Awareness; WHSQ "Asbestos flooring" PN10167).
+ * 1. Asbestos gate (SOP 1): on vinyl/lino-type floors, presume asbestos when
+ *    the laying year falls inside the national presumption era (owned by
+ *    lib/compliance/asbestos-era.ts and the regulatory registry, never
+ *    restated here) or a register entry / visual identification suspects it.
  *    A presume result locks out dry and abrasive methods; damage stops work.
  * 2. Seal gate (SOP 3/6): sealer and finish may only go down once the
  *    rinsed floor reads pH 7–8. Stripper residue stops new finish curing.
@@ -11,10 +12,13 @@
  *    type's window for the purpose (clean or strip).
  */
 
+import {
+  asbestosEraBasis,
+  presumeAsbestosFromEra,
+  type AsbestosJurisdiction,
+} from "@/lib/compliance/asbestos-era";
 import { getFloorSop } from "./sop-library";
 import type { FloorType, RestrictedAction } from "./types";
-
-export const ASBESTOS_CUTOFF_YEAR = 1990;
 
 /** Restricted actions under a presume-asbestos result. */
 export const ASBESTOS_RESTRICTED_ACTIONS: readonly RestrictedAction[] = [
@@ -27,8 +31,11 @@ export const ASBESTOS_RESTRICTED_ACTIONS: readonly RestrictedAction[] = [
 
 export interface AsbestosGateInput {
   floorType: FloorType;
-  /** Year the floor was laid, or null when nobody knows. */
+  /** Year the floor (or building) was laid, or null when nobody knows. */
   yearLaid: number | null;
+  jurisdiction: AsbestosJurisdiction;
+  /** Asbestos register lists it, or the technician's visual ID suspects ACM. */
+  acmSuspected: boolean;
   /** A licensed assessor or the asbestos register confirms it is asbestos-free. */
   confirmedAsbestosFree: boolean;
   /** Any tile broken, lifting or crumbling. */
@@ -48,9 +55,17 @@ export function evaluateAsbestosGate(input: AsbestosGateInput): AsbestosGateResu
   if (input.confirmedAsbestosFree) {
     return { result: "clear", restricted: [], reason: "Confirmed asbestos-free." };
   }
-  const oldOrUnknown = input.yearLaid === null || input.yearLaid < ASBESTOS_CUTOFF_YEAR;
-  if (!oldOrUnknown) {
-    return { result: "clear", restricted: [], reason: `Laid ${input.yearLaid}, after ${ASBESTOS_CUTOFF_YEAR}.` };
+  const byEra = presumeAsbestosFromEra(input.yearLaid, input.jurisdiction);
+  if (!byEra && !input.acmSuspected) {
+    const basis = asbestosEraBasis(input.jurisdiction);
+    return {
+      result: "clear",
+      restricted: [],
+      reason:
+        input.yearLaid === null
+          ? "Laying year unknown and no register entry or visual suspicion. Keep watching for ACM."
+          : `Laid ${input.yearLaid}, outside the presumption era (${basis.authority}).`,
+    };
   }
   if (input.damaged) {
     return {

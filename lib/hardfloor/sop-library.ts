@@ -18,7 +18,7 @@ export interface FloorSop {
   services: readonly ServiceType[];
   /** Pad colours that must never touch this floor. */
   forbiddenPads: readonly ("black" | "brown" | "blue" | "green")[];
-  /** Vinyl/lino-type floors that may contain asbestos if laid before 1990. */
+  /** Vinyl/lino-type floors that may contain asbestos (era from lib/compliance/asbestos-era). */
   asbestosRisk: boolean;
   /** Plain-English warning shown on the scope screen. */
   warning?: string;

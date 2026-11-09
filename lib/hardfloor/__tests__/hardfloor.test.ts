@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ASBESTOS_PRESUMPTION_YEAR } from "@/lib/compliance/asbestos-era";
 import {
   buildQuoteOptions,
   canSeal,
@@ -16,29 +17,44 @@ import {
 } from "@/lib/hardfloor";
 
 describe("asbestos gate", () => {
-  it("presumes asbestos on pre-1990 VCT and locks out dry and abrasive methods", () => {
-    const gate = evaluateAsbestosGate({ floorType: "vct", yearLaid: 1984, confirmedAsbestosFree: false, damaged: false });
+  const base = { confirmedAsbestosFree: false, damaged: false, acmSuspected: false } as const;
+  const auYear = ASBESTOS_PRESUMPTION_YEAR.AU;
+  const nzYear = ASBESTOS_PRESUMPTION_YEAR.NZ;
+
+  it("presumes asbestos on AU VCT laid inside the era and locks out dry and abrasive methods", () => {
+    const gate = evaluateAsbestosGate({ ...base, floorType: "vct", yearLaid: auYear - 1, jurisdiction: "AU" });
     expect(gate.result).toBe("presume");
     expect(isActionAllowed(gate, "dry_strip")).toBe(false);
     expect(isActionAllowed(gate, "black_pad")).toBe(false);
     expect(isActionAllowed(gate, "brown_pad")).toBe(false);
   });
 
-  it("treats an unknown laying year as presume", () => {
-    const gate = evaluateAsbestosGate({ floorType: "linoleum", yearLaid: null, confirmedAsbestosFree: false, damaged: false });
+  it("does not apply the old flat Queensland register year as a national threshold", () => {
+    // A mid-1990s floor in Australia is still inside the presumption era.
+    const gate = evaluateAsbestosGate({ ...base, floorType: "vct", yearLaid: 1995, jurisdiction: "AU" }); // regulatory-year-ignore
     expect(gate.result).toBe("presume");
   });
 
+  it("uses the NZ year for NZ jobs", () => {
+    expect(evaluateAsbestosGate({ ...base, floorType: "vct", yearLaid: nzYear - 1, jurisdiction: "NZ" }).result).toBe("presume");
+    expect(evaluateAsbestosGate({ ...base, floorType: "vct", yearLaid: nzYear, jurisdiction: "NZ" }).result).toBe("clear");
+  });
+
+  it("presumes when the register or a visual ID suspects ACM, even with an unknown year", () => {
+    expect(evaluateAsbestosGate({ ...base, floorType: "linoleum", yearLaid: null, jurisdiction: "AU" }).result).toBe("clear");
+    expect(evaluateAsbestosGate({ ...base, acmSuspected: true, floorType: "linoleum", yearLaid: null, jurisdiction: "AU" }).result).toBe("presume");
+  });
+
   it("stops work when presumed asbestos is damaged", () => {
-    const gate = evaluateAsbestosGate({ floorType: "vct", yearLaid: 1975, confirmedAsbestosFree: false, damaged: true });
+    const gate = evaluateAsbestosGate({ ...base, damaged: true, floorType: "vct", yearLaid: auYear - 20, jurisdiction: "AU" });
     expect(gate.result).toBe("stop");
     expect(isActionAllowed(gate, "dry_strip")).toBe(false);
   });
 
-  it("clears post-1990 floors, confirmed-free floors and non-risk materials", () => {
-    expect(evaluateAsbestosGate({ floorType: "vct", yearLaid: 1995, confirmedAsbestosFree: false, damaged: false }).result).toBe("clear");
-    expect(evaluateAsbestosGate({ floorType: "vct", yearLaid: 1980, confirmedAsbestosFree: true, damaged: false }).result).toBe("clear");
-    expect(evaluateAsbestosGate({ floorType: "porcelain", yearLaid: 1970, confirmedAsbestosFree: false, damaged: true }).result).toBe("clear");
+  it("clears post-era floors, confirmed-free floors and non-risk materials", () => {
+    expect(evaluateAsbestosGate({ ...base, floorType: "vct", yearLaid: auYear, jurisdiction: "AU" }).result).toBe("clear");
+    expect(evaluateAsbestosGate({ ...base, confirmedAsbestosFree: true, floorType: "vct", yearLaid: auYear - 20, jurisdiction: "AU" }).result).toBe("clear");
+    expect(evaluateAsbestosGate({ ...base, damaged: true, floorType: "porcelain", yearLaid: auYear - 30, jurisdiction: "AU" }).result).toBe("clear");
   });
 });
 

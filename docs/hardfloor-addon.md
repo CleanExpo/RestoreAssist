@@ -20,7 +20,7 @@ Cards v1 (CARSI Certified course, not an IICRC or ATFA certification).
 | Module | Does |
 | --- | --- |
 | `sop-library.ts` | Per floor type: safe cleaning pH window, strip pH limit, allowed services, forbidden pads, asbestos risk |
-| `gates.ts` | Asbestos gate (pre-1990 or unknown = presume; damaged = stop), Seal gate (latest floor pH 7–8), solution pH check |
+| `gates.ts` | Asbestos gate (era from `lib/compliance/asbestos-era.ts`, or register/visual suspicion = presume; damaged = stop), Seal gate (latest floor pH 7–8), solution pH check |
 | `walkthrough.ts` | 10 steps with required captures, guided tests by floor type, in-order completion, maintenance loop |
 | `estimate.ts` | m² × organisation rate card, edges, furniture; GST via `lib/gst-rules.ts`; three-option quote |
 | `maintenance.ts` | Next visit and restorative due dates; built-in default only for high traffic (6/12 months) |
