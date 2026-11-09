@@ -227,8 +227,15 @@ jobs:
           E2E_ORG_LEGAL_NAME: E2E Non-Admin Pty Ltd
           E2E_ORG_ABN: "29002589460"
 
+      # Two steps, because the combined install flag always runs apt-get through
+      # sudo, so the local release gate cannot run it. The gate skips a standalone
+      # `npx playwright install-deps` line only in this exact form, so this one
+      # line has no `--no-install`. `npm ci` has already installed the same binary.
+      - name: Install Playwright OS dependencies
+        run: npx playwright install-deps chromium
+
       - name: Install Playwright (chromium)
-        run: npx --no-install playwright install --with-deps chromium
+        run: npx --no-install playwright install chromium
 
       # playwright.config boots `npm run dev` (PLAYWRIGHT_BASE_URL unset) and the
       # "setup" project logs in before the specs run. We run the deterministic
