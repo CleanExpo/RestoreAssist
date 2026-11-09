@@ -1268,7 +1268,10 @@ export default function InspectionDetailPage({
     }
   }
 
-  if (loading) {
+  // Spinner only for the first load (or a different job). A refetch after a
+  // save keeps the page mounted; swapping it for a spinner collapsed the
+  // layout and threw the technician back to the top of the page.
+  if (loading && (!inspection || inspection.id !== id)) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="animate-spin text-cyan-500" size={32} />
