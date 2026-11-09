@@ -30,7 +30,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
@@ -489,7 +489,9 @@ export async function POST(
         // never see one without the other. Writers for one floor and hash go
         // through one at a time, and only the first keeps its rooms.
         const alreadyRecorded = await prisma.$transaction(async (tx) => {
-          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${writerLock}, 0))`;
+          await tx.$executeRaw(
+            Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${writerLock}, 0))`,
+          );
           const earlier = await findRecordedExtraction(inspectionId, bound, tx);
           if (earlier) return earlier;
           await persistRooms(tx);

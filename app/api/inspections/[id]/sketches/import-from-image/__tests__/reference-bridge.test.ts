@@ -493,10 +493,14 @@ describe("reference bridge: the lock outlasts the paid read", () => {
   it("serialises writers before it checks for a recorded read", async () => {
     await POST(request(), ctx());
     expect(executeRaw).toHaveBeenCalledTimes(1);
-    expect(String(executeRaw.mock.calls[0][0])).toContain(
-      "pg_advisory_xact_lock",
-    );
-    expect(executeRaw.mock.calls[0][1]).toBe(`inspection_1:1:${SHA}`);
+    // One Prisma.sql object, so the writer key stays a bound parameter.
+    expect(executeRaw.mock.calls[0]).toHaveLength(1);
+    const statement = executeRaw.mock.calls[0][0] as {
+      sql: string;
+      values: unknown[];
+    };
+    expect(statement.sql).toContain("pg_advisory_xact_lock");
+    expect(statement.values).toEqual([`inspection_1:1:${SHA}`]);
     const lockOrder = executeRaw.mock.invocationCallOrder[0];
     const finalCheckOrder = auditFindFirst.mock.invocationCallOrder[2];
     expect(lockOrder).toBeLessThan(finalCheckOrder);
