@@ -477,6 +477,89 @@ describe("POST /evidence (multipart, RA-7090)", () => {
     });
   });
 
+  describe("video walkthrough evidence", () => {
+    // ISO-BMFF header: 4-byte box size, then "ftyp" + brand.
+    const MP4 = new Uint8Array([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d,
+    ]);
+    const WEBM = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86]);
+
+    function videoForm(bytes: Uint8Array, evidenceClass: string, type = "video/mp4") {
+      const form = baseForm(bytes);
+      form.set("file", new File([bytes], "walkthrough.mp4", { type }));
+      form.set("evidenceClass", evidenceClass);
+      return form;
+    }
+
+    it("accepts an MP4 for VIDEO_WALKTHROUGH and stores it as video", async () => {
+      const res = await POST(
+        multipartRequest(videoForm(MP4, "VIDEO_WALKTHROUGH")),
+        params,
+      );
+      expect(res.status).toBe(201);
+      expect(uploadMock).toHaveBeenCalledWith(
+        expect.objectContaining({ mimeType: "video/mp4" }),
+      );
+    });
+
+    it("accepts a WebM for VIDEO_WALKTHROUGH", async () => {
+      const res = await POST(
+        multipartRequest(videoForm(WEBM, "VIDEO_WALKTHROUGH", "video/webm")),
+        params,
+      );
+      expect(res.status).toBe(201);
+    });
+
+    it("rejects a video sent as a photo class", async () => {
+      const res = await POST(
+        multipartRequest(videoForm(MP4, "PHOTO_DAMAGE")),
+        params,
+      );
+      expect(res.status).toBe(400);
+      expect(uploadMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a HEIC still (ISO-BMFF ftyp, image brand) sent as a video walkthrough", async () => {
+      const HEIC = new Uint8Array([
+        0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63,
+      ]);
+      const res = await POST(
+        multipartRequest(videoForm(HEIC, "VIDEO_WALKTHROUGH", "image/heic")),
+        params,
+      );
+      expect(res.status).toBe(400);
+      expect(uploadMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a still image sent as a video walkthrough", async () => {
+      const form = baseForm(FIXTURE_BYTES);
+      form.set("evidenceClass", "VIDEO_WALKTHROUGH");
+      const res = await POST(multipartRequest(form), params);
+      expect(res.status).toBe(400);
+      expect(uploadMock).not.toHaveBeenCalled();
+    });
+
+    it("allows video over the 20 MB photo cap but rejects over 100 MiB", async () => {
+      const big = new Uint8Array(20 * 1024 * 1024 + 1);
+      big.set(MP4);
+      const ok = await POST(
+        multipartRequest(videoForm(big, "VIDEO_WALKTHROUGH")),
+        params,
+      );
+      expect(ok.status).toBe(201);
+
+      const tooBig = new Uint8Array(100 * 1024 * 1024 + 1);
+      tooBig.set(MP4);
+      uploadMock.mockClear();
+      const res = await POST(
+        multipartRequest(videoForm(tooBig, "VIDEO_WALKTHROUGH")),
+        params,
+      );
+      expect(res.status).toBe(413);
+      expect(uploadMock).not.toHaveBeenCalled();
+    });
+  });
+
   describe("authz", () => {
     it("returns 401 when unauthenticated", async () => {
       mSession.mockResolvedValueOnce(null);

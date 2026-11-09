@@ -54,12 +54,15 @@ export class CloudinaryStorageProvider implements StorageProvider {
     }
 
     // PDFs / docs / video — auto resource type (no image transforms).
+    // Content-addressed id: identical bytes map to one asset, different bytes
+    // never collide, whatever the filename (e.g. every iPhone clip can arrive
+    // with the same name).
     const result = await uploadFileToCloudinary(
       input.buffer,
       input.filename,
       input.mimeType || "application/octet-stream",
       folder,
-      { resourceType: "auto" },
+      { resourceType: "auto", publicId: sha256 },
     );
     return {
       originalUrl: result.url,

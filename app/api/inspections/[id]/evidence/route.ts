@@ -33,6 +33,7 @@ import {
 } from "@/lib/evidence/manifest-verify";
 import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
 import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
+import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
 
 export async function GET(
@@ -336,16 +337,6 @@ async function handleMultipartEvidencePost(
       });
     }
 
-    // Guard before arrayBuffer() — multipart bypasses Next.js body size limits.
-    const MAX_EVIDENCE_BYTES = 20 * 1024 * 1024; // 20 MB — matches /photos
-    if (file.size > MAX_EVIDENCE_BYTES) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "File too large — maximum 20 MB per evidence photo",
-        status: 413,
-      });
-    }
-
     const evidenceClassRaw = formData.get("evidenceClass");
     if (
       typeof evidenceClassRaw !== "string" ||
@@ -358,6 +349,21 @@ async function handleMultipartEvidencePost(
       });
     }
     const evidenceClass = evidenceClassRaw as EvidenceClass;
+    const isVideoClass = isVideoEvidenceClass(evidenceClass);
+
+    // Guard before arrayBuffer() — multipart bypasses Next.js body size limits.
+    const MAX_EVIDENCE_BYTES = 20 * 1024 * 1024; // 20 MB — matches /photos
+    const MAX_VIDEO_EVIDENCE_BYTES = 100 * 1024 * 1024; // Cloudinary video cap
+    const maxBytes = isVideoClass ? MAX_VIDEO_EVIDENCE_BYTES : MAX_EVIDENCE_BYTES;
+    if (file.size > maxBytes) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: isVideoClass
+          ? "Video too large — maximum 100 MB. Record a shorter clip."
+          : "File too large — maximum 20 MB per evidence photo",
+        status: 413,
+      });
+    }
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -383,10 +389,30 @@ async function handleMultipartEvidencePost(
       buffer[9] === 0x45 &&
       buffer[10] === 0x42 &&
       buffer[11] === 0x50;
-    if (!isJpeg && !isPng && !isGif && !isWebp) {
+    // MP4 / MOV carry an ISO-BMFF "ftyp" box at offset 4; WebM is EBML.
+    // HEIF/AVIF stills share the ftyp box, so their image brands are refused.
+    const ftypBrand = buffer.subarray(8, 12).toString("latin1");
+    const IMAGE_FTYP_BRANDS = new Set([
+      "heic", "heix", "heim", "heis", "hevc", "hevx", "hevm", "hevs",
+      "mif1", "msf1", "avif", "avis",
+    ]);
+    const isVideo =
+      (buffer[4] === 0x66 &&
+        buffer[5] === 0x74 &&
+        buffer[6] === 0x79 &&
+        buffer[7] === 0x70 &&
+        !IMAGE_FTYP_BRANDS.has(ftypBrand)) ||
+      (buffer[0] === 0x1a &&
+        buffer[1] === 0x45 &&
+        buffer[2] === 0xdf &&
+        buffer[3] === 0xa3);
+    const isImage = isJpeg || isPng || isGif || isWebp;
+    if (isVideoClass ? !isVideo : !isImage) {
       return apiError(request, {
         code: "VALIDATION",
-        message: "Invalid file type. Only images are allowed.",
+        message: isVideoClass
+          ? "Invalid file type. Video walkthroughs must be MP4, MOV or WebM."
+          : "Invalid file type. Only images are allowed.",
         status: 400,
       });
     }
