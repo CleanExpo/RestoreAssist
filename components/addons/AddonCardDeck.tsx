@@ -163,6 +163,64 @@ export function isFinalCheckoutAnswer(
   return true;
 }
 
+/**
+ * Review round 5: a pack's Idempotency-Key must outlive the component. The
+ * setup wizard unmounts this deck on Next/Back, and a page can reload, while
+ * an earlier press's outcome is still unknown; a fresh key would let the next
+ * press buy again. Keys live in localStorage per pack (an in-memory map when
+ * storage is unavailable) and are cleared only on a final answer.
+ *
+ * Not scoped per account: the server scopes every key to the signed-in user
+ * (withIdempotency(request, userId)), so a key left by another account on
+ * this browser can never replay that account's outcome; it simply runs once.
+ * Entries older than 23 hours are ignored: the server keeps a key for 24.
+ */
+type PendingKey = { key: string; unresolved: boolean; savedAt: number };
+
+const PENDING_KEY_PREFIX = "restoreassist:addon-checkout-key:";
+const PENDING_KEY_MAX_AGE_MS = 23 * 60 * 60 * 1000;
+const memoryPendingKeys = new Map<string, PendingKey>();
+
+function readPendingKey(sku: string): PendingKey | null {
+  let entry: unknown;
+  try {
+    const raw = window.localStorage.getItem(PENDING_KEY_PREFIX + sku);
+    entry = raw === null ? null : JSON.parse(raw);
+  } catch {
+    entry = memoryPendingKeys.get(sku) ?? null;
+  }
+  const e = entry as Partial<PendingKey> | null;
+  if (
+    !e ||
+    typeof e.key !== "string" ||
+    typeof e.savedAt !== "number" ||
+    Date.now() - e.savedAt > PENDING_KEY_MAX_AGE_MS
+  ) {
+    return null;
+  }
+  return { key: e.key, unresolved: e.unresolved === true, savedAt: e.savedAt };
+}
+
+function writePendingKey(sku: string, entry: PendingKey): void {
+  try {
+    window.localStorage.setItem(
+      PENDING_KEY_PREFIX + sku,
+      JSON.stringify(entry),
+    );
+  } catch {
+    memoryPendingKeys.set(sku, entry);
+  }
+}
+
+function clearPendingKey(sku: string): void {
+  memoryPendingKeys.delete(sku);
+  try {
+    window.localStorage.removeItem(PENDING_KEY_PREFIX + sku);
+  } catch {
+    // Storage unavailable: the in-memory entry is already gone.
+  }
+}
+
 type CardNotice = { text: string; link?: { href: string; label: string } };
 
 export interface AddonCardDeckProps {
@@ -199,14 +257,6 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
   const [loadError, setLoadError] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
   const [notices, setNotices] = useState<Record<string, CardNotice>>({});
-  // One Idempotency-Key per pack, kept until the server gives a definite
-  // answer. A retry after a dropped connection reuses it, so the server
-  // replays the first result rather than starting a second purchase.
-  // One Idempotency-Key per pack until a final answer. `unresolved` is set
-  // once a press with this key ended with an unknown outcome.
-  const pendingKeys = useRef<
-    Record<string, { key: string; unresolved: boolean }>
-  >({});
   const mounted = useRef(true);
 
   const loadCatalog = useCallback(async (): Promise<void> => {
@@ -244,11 +294,17 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
       delete next[sku];
       return next;
     });
-    const pending = pendingKeys.current[sku] ?? {
+    // One Idempotency-Key per pack until a final answer (see readPendingKey).
+    // `pending.unresolved` says whether an EARLIER press with this key ended
+    // with an unknown outcome. The key is stored as unresolved before the
+    // request goes out: if the page goes away mid-request, the outcome is
+    // unknown.
+    const pending = readPendingKey(sku) ?? {
       key: crypto.randomUUID(),
       unresolved: false,
+      savedAt: Date.now(),
     };
-    pendingKeys.current[sku] = pending;
+    writePendingKey(sku, { ...pending, unresolved: true });
     try {
       const res = await fetch("/api/addons/checkout", {
         method: "POST",
@@ -267,13 +323,12 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
       if (!final) {
         // Unknown outcome: keep the key, say so, and re-read the catalog so a
         // pack that did go through shows as Active.
-        pending.unresolved = true;
         setNotice(sku, { text: PURCHASE_UNCONFIRMED_MESSAGE });
         loadCatalog().catch(() => {});
         setBuying(null);
         return;
       }
-      delete pendingKeys.current[sku];
+      clearPendingKey(sku);
       switch (reply.kind) {
         case "redirect":
           window.location.href = reply.url;
@@ -311,7 +366,6 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
       // The request may have reached the server before the connection
       // dropped. Keep the key, say the result is unknown, and re-read the
       // catalog so a pack that did go through shows as Active.
-      pending.unresolved = true;
       setNotice(sku, { text: PURCHASE_UNCONFIRMED_MESSAGE });
       loadCatalog().catch(() => {});
     }

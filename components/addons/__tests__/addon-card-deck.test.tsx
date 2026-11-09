@@ -54,6 +54,8 @@ const catalog = {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  // Pending purchase keys persist in localStorage (review round 5).
+  window.localStorage.clear();
 });
 
 describe("AddonCardDeck (RA-8271)", () => {
@@ -514,6 +516,130 @@ describe("AddonCardDeck (RA-8271)", () => {
     // Lost reply, 429 and owner-check 403 all kept the key; the stored 402 settled it.
     expect(new Set(keys.slice(0, 4)).size).toBe(1);
     expect(keys[4]).not.toBe(keys[0]);
+  });
+
+  // Review round 5: the key must outlive the deck. The setup wizard unmounts
+  // it on Next/Back, and the page can reload, while an outcome is unknown.
+  function stubCheckout(replies: Array<Record<string, unknown> | Error>) {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/addons/catalog") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => catalog,
+        });
+      }
+      const next = replies.shift();
+      return next instanceof Error
+        ? Promise.reject(next)
+        : Promise.resolve(next);
+    });
+    vi.stubGlobal("fetch", fetchMock as never);
+    return fetchMock;
+  }
+  const checkoutKeys = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls
+      .filter(([u]) => u === "/api/addons/checkout")
+      .map(
+        ([, init]) =>
+          (init as { headers: Record<string, string> }).headers[
+            "Idempotency-Key"
+          ],
+      );
+  const STORED = "restoreassist:addon-checkout-key:BOOKKEEPING";
+  const redirectReply = () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ url: "https://checkout.example/s" }),
+  });
+
+  it("review r5: leaving the step and coming back reuses the unresolved key", async () => {
+    const fetchMock = stubCheckout([
+      new TypeError("Failed to fetch"),
+      redirectReply(),
+    ]);
+    const first = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    expect(
+      await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+    first.unmount(); // the wizard moves to another step
+
+    render(<AddonCardDeck />); // and back
+    books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(2));
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[1]).toBe(keys[0]);
+    // The success settled it: nothing left in storage.
+    await waitFor(() => expect(window.localStorage.getItem(STORED)).toBeNull());
+  });
+
+  it("review r5: a reload (storage only) reuses the unresolved key; a stale one is ignored", async () => {
+    window.localStorage.setItem(
+      STORED,
+      JSON.stringify({
+        key: "key-from-before-reload",
+        unresolved: true,
+        savedAt: Date.now(),
+      }),
+    );
+    let fetchMock = stubCheckout([redirectReply()]);
+    const view = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() =>
+      expect(checkoutKeys(fetchMock)).toEqual(["key-from-before-reload"]),
+    );
+    view.unmount();
+
+    window.localStorage.setItem(
+      STORED,
+      JSON.stringify({
+        key: "key-from-yesterday",
+        unresolved: true,
+        savedAt: Date.now() - 25 * 60 * 60 * 1000,
+      }),
+    );
+    fetchMock = stubCheckout([redirectReply()]);
+    render(<AddonCardDeck />);
+    books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
+    expect(checkoutKeys(fetchMock)[0]).not.toBe("key-from-yesterday");
+  });
+
+  it("review r5: the key is stored as unresolved before the reply arrives", async () => {
+    let answer: (value: unknown) => void = () => {};
+    const fetchMock = vi.fn((url: string) =>
+      url === "/api/addons/catalog"
+        ? Promise.resolve({ ok: true, status: 200, json: async () => catalog })
+        : new Promise((resolve) => {
+            answer = resolve;
+          }),
+    );
+    vi.stubGlobal("fetch", fetchMock as never);
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
+    const stored = JSON.parse(window.localStorage.getItem(STORED) ?? "null");
+    expect(stored).toMatchObject({
+      key: checkoutKeys(fetchMock)[0],
+      unresolved: true,
+    });
+    answer({
+      ok: false,
+      status: 402,
+      json: async () => ({
+        error: { code: "UNPAID", message: "Pay the open invoice first." },
+      }),
+    });
+    expect(
+      await within(books).findByText(/Pay the open invoice first/),
+    ).toBeInTheDocument();
+    expect(window.localStorage.getItem(STORED)).toBeNull();
   });
 
   it("review r2: isFinalCheckoutAnswer releases the key only for a readable reply that names an outcome", () => {

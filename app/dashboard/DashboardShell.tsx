@@ -88,7 +88,10 @@ import {
 } from "@/lib/dashboard/simple-dashboard-theme";
 
 /** Icons for the six Admin destinations — shared by Advanced + Simple mode. */
-const ADMIN_NAV_ICONS: Record<(typeof ADMIN_NAV_HREFS)[number]["label"], typeof Shield> = {
+const ADMIN_NAV_ICONS: Record<
+  (typeof ADMIN_NAV_HREFS)[number]["label"],
+  typeof Shield
+> = {
   Admin: Shield,
   "NIR Pilot": FlaskConical,
   "Content Gate": Lock,
@@ -134,7 +137,13 @@ export default function DashboardShell({
       setSidebarOpen(false);
     }
   }, []);
-  const [profile, setProfile] = useState<{ userId: string; scopeKey: string; subscriptionStatus: string | null; businessName?: string | null; organizationId?: string | null } | null>(null);
+  const [profile, setProfile] = useState<{
+    userId: string;
+    scopeKey: string;
+    subscriptionStatus: string | null;
+    businessName?: string | null;
+    organizationId?: string | null;
+  } | null>(null);
   const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const logoutInFlight = useRef(false);
@@ -152,8 +161,13 @@ export default function DashboardShell({
   const accountId = session?.user?.id;
   const organizationId = session?.user?.organizationId;
   const scopeVerified = session?.user?.organizationScopeVerified !== false;
-  const profileScopeKey = JSON.stringify([accountId, organizationId, scopeVerified]);
-  const currentProfile = scopeVerified && profile?.scopeKey === profileScopeKey ? profile : null;
+  const profileScopeKey = JSON.stringify([
+    accountId,
+    organizationId,
+    scopeVerified,
+  ]);
+  const currentProfile =
+    scopeVerified && profile?.scopeKey === profileScopeKey ? profile : null;
   const subscriptionStatus = currentProfile?.subscriptionStatus ?? null;
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -177,14 +191,25 @@ export default function DashboardShell({
         if (response.status === 401) return;
         if (response.ok) {
           const data = await response.json();
-          if (!cancelled && accountId && data.profile?.id === accountId &&
-            (organizationId === undefined || (data.profile.organizationId ?? null) === organizationId)) {
+          if (
+            !cancelled &&
+            accountId &&
+            data.profile?.id === accountId &&
+            (organizationId === undefined ||
+              (data.profile.organizationId ?? null) === organizationId)
+          ) {
             setProfileLoadError(null);
-            setProfile({ userId: accountId, scopeKey: profileScopeKey, subscriptionStatus: data.profile.subscriptionStatus ?? null, businessName: data.profile.businessName, organizationId: data.profile.organizationId });
+            setProfile({
+              userId: accountId,
+              scopeKey: profileScopeKey,
+              subscriptionStatus: data.profile.subscriptionStatus ?? null,
+              businessName: data.profile.businessName,
+              organizationId: data.profile.organizationId,
+            });
           }
         } else if (!cancelled) {
-          const parsed = await import("@/lib/client/parse-api-error").then((m) =>
-            m.parseApiError(response),
+          const parsed = await import("@/lib/client/parse-api-error").then(
+            (m) => m.parseApiError(response),
           );
           setProfileLoadError(parsed.message);
         }
@@ -205,7 +230,10 @@ export default function DashboardShell({
       const handleFocus = () => fetchSubscriptionStatus();
       window.addEventListener("focus", handleFocus);
 
-      return () => { cancelled = true; window.removeEventListener("focus", handleFocus); };
+      return () => {
+        cancelled = true;
+        window.removeEventListener("focus", handleFocus);
+      };
     }
   }, [status, accountId, organizationId, scopeVerified, profileScopeKey]);
 
@@ -379,8 +407,12 @@ export default function DashboardShell({
             label: "Subscription",
             href: "/dashboard/subscription",
           },
-          FIELD_ADDONS_NAV_ITEM,
         ]),
+    // Review round 5: the same fail-closed rule as Simple mode (ADMIN only,
+    // never in the iOS shell). An absent or unknown role does not see it.
+    ...(fieldAddonsTabVisible({ role: session?.user?.role, hideBillingNav })
+      ? [FIELD_ADDONS_NAV_ITEM]
+      : []),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
     { icon: MessageCircle, label: "Feedback", href: "/dashboard/feedback" },
     { icon: PlayCircle, label: "Tutorials", href: "/dashboard/learn" },
@@ -898,7 +930,11 @@ export default function DashboardShell({
                 type="button"
                 className="rounded-md border border-amber-400/50 px-2 py-0.5 text-xs font-medium hover:bg-amber-900/60"
                 onClick={() => {
-                  if (status === "authenticated" && accountId && scopeVerified) {
+                  if (
+                    status === "authenticated" &&
+                    accountId &&
+                    scopeVerified
+                  ) {
                     void fetch("/api/user/profile", { credentials: "include" })
                       .then(async (response) => {
                         if (response.ok) {
