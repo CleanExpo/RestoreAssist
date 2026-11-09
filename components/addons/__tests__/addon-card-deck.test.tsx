@@ -2,7 +2,14 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import { AddonCardDeck, PLAN_REQUIRED_MESSAGE, cardMark } from "../AddonCardDeck";
+import {
+  AddonCardDeck,
+  IOS_ADDONS_MESSAGE,
+  PLAN_REQUIRED_MESSAGE,
+  PURCHASE_UNCONFIRMED_MESSAGE,
+  cardMark,
+} from "../AddonCardDeck";
+import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 
 const catalog = {
   addons: [
@@ -131,6 +138,94 @@ describe("AddonCardDeck (RA-8271)", () => {
     const [, init] = fetchMock.mock.calls[1];
     expect(JSON.parse(init.body)).toEqual({ addonKey: "BOOKKEEPING" });
     expect(init.headers["Idempotency-Key"]).toEqual(expect.any(String));
+  });
+
+  it("review r1: a dropped connection never says nothing was bought, and the retry reuses the same key", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => catalog })
+      // The checkout request may have reached the server; the reply is lost.
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      // The deck re-reads the catalog after the drop.
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => catalog })
+      // The retry: the server replays the first result for the same key.
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "https://checkout.example/s2" }) });
+    vi.stubGlobal("fetch", fetchMock as never);
+    Object.defineProperty(window, "location", { value: { href: "" }, writable: true });
+
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+
+    const status = await within(books).findByRole("status");
+    expect(status).toHaveTextContent(PURCHASE_UNCONFIRMED_MESSAGE);
+    expect(status).not.toHaveTextContent(/nothing was bought/i);
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter(([u]) => u === "/api/addons/catalog")).toHaveLength(2),
+    );
+
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(window.location.href).toBe("https://checkout.example/s2"));
+    const checkoutCalls = fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout");
+    expect(checkoutCalls).toHaveLength(2);
+    expect(checkoutCalls[1][1].headers["Idempotency-Key"]).toBe(
+      checkoutCalls[0][1].headers["Idempotency-Key"],
+    );
+  });
+
+  it("review r1: a request still in progress (409) keeps the key; a definite answer releases it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => catalog })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({ error: "A request with this Idempotency-Key is already in progress. Retry shortly." }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 402,
+        json: async () => ({ error: { code: "UNPAID", message: "Pay the open invoice first." } }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 402,
+        json: async () => ({ error: { code: "UNPAID", message: "Pay the open invoice first." } }),
+      });
+    vi.stubGlobal("fetch", fetchMock as never);
+
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    const press = () => fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+
+    press();
+    expect(await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE)).toBeInTheDocument();
+    press();
+    expect(await within(books).findByText(/Pay the open invoice first/)).toBeInTheDocument();
+    press();
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout")).toHaveLength(3),
+    );
+    const keys = fetchMock.mock.calls
+      .filter(([u]) => u === "/api/addons/checkout")
+      .map(([, init]) => init.headers["Idempotency-Key"]);
+    expect(keys[1]).toBe(keys[0]); // 409 was not an answer
+    expect(keys[2]).not.toBe(keys[1]); // the 402 was
+  });
+
+  it("review r1: in the iOS app the deck shows no prices, buttons or links, and loads nothing", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock as never);
+    render(
+      <ShellPlatformProvider isIosShell>
+        <AddonCardDeck />
+      </ShellPlatformProvider>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(IOS_ADDONS_MESSAGE);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByText(/\$/)).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("gives every pack in the registry its own card mark", async () => {

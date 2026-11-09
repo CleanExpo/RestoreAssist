@@ -12,10 +12,11 @@
  * reason instead of a guess.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { parseCheckoutReply } from "@/lib/billing/checkout-return";
+import BillingGate from "@/components/capacitor/BillingGate";
 
 export interface CatalogAddon {
   sku: string;
@@ -42,6 +43,23 @@ export const PLAN_PAGE_HREF = "/dashboard/subscription";
  */
 export const PLAN_REQUIRED_MESSAGE =
   "Packs start once your plan is active. Choose a plan, then add this pack from Field Add-Ons in the side panel.";
+
+/**
+ * Shown when the request may have reached the server but no answer came back
+ * (connection dropped), or the server says the same request is still being
+ * worked on. The purchase may or may not have happened, so this never says
+ * "nothing was bought". Pressing again resends the SAME Idempotency-Key, which
+ * the server answers with the first request's result instead of buying twice.
+ */
+export const PURCHASE_UNCONFIRMED_MESSAGE =
+  "We couldn't confirm whether this went through. Wait a moment, then press the button again to check. It will not charge you twice.";
+
+/**
+ * What the iOS app shows instead of the deck (App Review 3.1.1): no prices,
+ * no buttons and no links to an outside purchase.
+ */
+export const IOS_ADDONS_MESSAGE =
+  "Field Add-Ons are managed by your workspace administrator.";
 
 /**
  * Geometric card marks. Every character sits outside the ranges
@@ -81,7 +99,26 @@ export interface AddonCardDeckProps {
   className?: string;
 }
 
-export function AddonCardDeck({ className }: AddonCardDeckProps) {
+/**
+ * The deck is a purchase surface, so it carries its own BillingGate: every
+ * screen that shows it (the setup step, the Field Add-Ons page, any later one)
+ * hides prices and buttons in the iOS app without having to remember to.
+ */
+export function AddonCardDeck(props: AddonCardDeckProps) {
+  return (
+    <BillingGate
+      fallback={
+        <p role="status" className="py-6 text-center text-sm text-muted-foreground">
+          {IOS_ADDONS_MESSAGE}
+        </p>
+      }
+    >
+      <AddonCardDeckContent {...props} />
+    </BillingGate>
+  );
+}
+
+function AddonCardDeckContent({ className }: AddonCardDeckProps) {
   const [addons, setAddons] = useState<CatalogAddon[]>([]);
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<CatalogResponse["technicianSeats"]>(null);
@@ -89,23 +126,35 @@ export function AddonCardDeck({ className }: AddonCardDeckProps) {
   const [loadError, setLoadError] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
   const [notices, setNotices] = useState<Record<string, CardNotice>>({});
+  // One Idempotency-Key per pack, kept until the server gives a definite
+  // answer. A retry after a dropped connection reuses it, so the server
+  // replays the first result rather than starting a second purchase.
+  const pendingKeys = useRef<Record<string, string>>({});
+  const mounted = useRef(true);
+
+  const loadCatalog = useCallback(async (): Promise<void> => {
+    const r = await fetch("/api/addons/catalog");
+    if (!r.ok) throw new Error("catalog");
+    const data = (await r.json()) as CatalogResponse;
+    if (!mounted.current) return;
+    setAddons(data.addons ?? []);
+    setOwned(new Set(data.owned ?? []));
+    setSeats(data.technicianSeats ?? null);
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    fetch("/api/addons/catalog")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("catalog"))))
-      .then((data: CatalogResponse) => {
-        if (!active) return;
-        setAddons(data.addons ?? []);
-        setOwned(new Set(data.owned ?? []));
-        setSeats(data.technicianSeats ?? null);
+    mounted.current = true;
+    loadCatalog()
+      .catch(() => {
+        if (mounted.current) setLoadError(true);
       })
-      .catch(() => active && setLoadError(true))
-      .finally(() => active && setLoading(false));
+      .finally(() => {
+        if (mounted.current) setLoading(false);
+      });
     return () => {
-      active = false;
+      mounted.current = false;
     };
-  }, []);
+  }, [loadCatalog]);
 
   function setNotice(sku: string, notice: CardNotice) {
     setNotices((prev) => ({ ...prev, [sku]: notice }));
@@ -118,18 +167,28 @@ export function AddonCardDeck({ className }: AddonCardDeckProps) {
       delete next[sku];
       return next;
     });
+    const pending = pendingKeys.current[sku] ?? crypto.randomUUID();
+    pendingKeys.current[sku] = pending;
     try {
       const res = await fetch("/api/addons/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // One key per click: a retried request replays, never buys twice.
-          "Idempotency-Key": crypto.randomUUID(),
+          "Idempotency-Key": pending,
         },
         body: JSON.stringify({ addonKey: sku }),
       });
       const json = await res.json().catch(() => null);
       const reply = parseCheckoutReply(res.status, json);
+      // A 409 that is not the billing-portal case is the idempotency layer
+      // saying this request is still in progress or its result could not be
+      // confirmed. Not a definite answer: keep the key for the next press.
+      if (res.status === 409 && reply.kind !== "portalRequired") {
+        setNotice(sku, { text: PURCHASE_UNCONFIRMED_MESSAGE });
+        setBuying(null);
+        return;
+      }
+      delete pendingKeys.current[sku];
       switch (reply.kind) {
         case "redirect":
           window.location.href = reply.url;
@@ -161,9 +220,11 @@ export function AddonCardDeck({ className }: AddonCardDeckProps) {
           break;
       }
     } catch {
-      setNotice(sku, {
-        text: "No connection, so nothing was bought. Check your connection and try again.",
-      });
+      // The request may have reached the server before the connection
+      // dropped. Keep the key, say the result is unknown, and re-read the
+      // catalog so a pack that did go through shows as Active.
+      setNotice(sku, { text: PURCHASE_UNCONFIRMED_MESSAGE });
+      loadCatalog().catch(() => {});
     }
     setBuying(null);
   }
