@@ -390,11 +390,18 @@ async function handleMultipartEvidencePost(
       buffer[10] === 0x42 &&
       buffer[11] === 0x50;
     // MP4 / MOV carry an ISO-BMFF "ftyp" box at offset 4; WebM is EBML.
+    // HEIF/AVIF stills share the ftyp box, so their image brands are refused.
+    const ftypBrand = buffer.subarray(8, 12).toString("latin1");
+    const IMAGE_FTYP_BRANDS = new Set([
+      "heic", "heix", "heim", "heis", "hevc", "hevx", "hevm", "hevs",
+      "mif1", "msf1", "avif", "avis",
+    ]);
     const isVideo =
       (buffer[4] === 0x66 &&
         buffer[5] === 0x74 &&
         buffer[6] === 0x79 &&
-        buffer[7] === 0x70) ||
+        buffer[7] === 0x70 &&
+        !IMAGE_FTYP_BRANDS.has(ftypBrand)) ||
       (buffer[0] === 0x1a &&
         buffer[1] === 0x45 &&
         buffer[2] === 0xdf &&

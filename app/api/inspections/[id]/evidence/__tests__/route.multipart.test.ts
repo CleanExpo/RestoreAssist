@@ -519,6 +519,18 @@ describe("POST /evidence (multipart, RA-7090)", () => {
       expect(uploadMock).not.toHaveBeenCalled();
     });
 
+    it("rejects a HEIC still (ISO-BMFF ftyp, image brand) sent as a video walkthrough", async () => {
+      const HEIC = new Uint8Array([
+        0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63,
+      ]);
+      const res = await POST(
+        multipartRequest(videoForm(HEIC, "VIDEO_WALKTHROUGH", "image/heic")),
+        params,
+      );
+      expect(res.status).toBe(400);
+      expect(uploadMock).not.toHaveBeenCalled();
+    });
+
     it("rejects a still image sent as a video walkthrough", async () => {
       const form = baseForm(FIXTURE_BYTES);
       form.set("evidenceClass", "VIDEO_WALKTHROUGH");
