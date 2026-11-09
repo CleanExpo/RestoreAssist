@@ -400,6 +400,39 @@ describe("RA-8233 editor stays in step with the server (real canvas, real route)
     expect((screen.getByRole("button", { name: CONFIRM }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("RA-8237: on a 50 px/m floor, Confirm bills the calibrated 9 m², not the rough import figure", async () => {
+    // A 3 m × 3 m room drawn at 50 px/m whose cached area was computed at
+    // the hardcoded 100 px/m on import (150² / 100² = 2.25 m²).
+    db.sketchData = {
+      scaleConfig: { pxPerMetre: 50, description: "Calibrated: 3.00 m = 150 px" },
+      objects: [
+        {
+          ...aiRoom,
+          points: [
+            { x: 0, y: 0 },
+            { x: 150, y: 0 },
+            { x: 150, y: 150 },
+            { x: 0, y: 150 },
+          ],
+          data: { ...aiRoom.data, areaM2: 2.25, originalAreaM2: 2.25 },
+        },
+      ],
+      raSketchMeta: { aiSuggestedRoomIds: [ROOM_ID] },
+    };
+    const fc = await renderJob();
+    await measureAndConfirm(fc);
+    await nextSave();
+
+    expect(posts.at(-1)?.roomMeasurements).toEqual([
+      { fabricObjectId: ROOM_ID, lengthM: 3, widthM: 3 },
+    ]);
+    expect(storedRow()?.provenance).toBe("operator_measured");
+    expect(storedRow()?.areaM2).toBeCloseTo(9, 6);
+    expect(lounge(fc).data?.areaM2).toBe(9);
+    // The import's source figure is kept as history.
+    expect(lounge(fc).data?.originalAreaM2).toBe(2.25);
+  });
+
   it("a resize before the save drops the pending measurement instead of binding it to the new shape", async () => {
     const fc = await renderJob();
     await measureAndConfirm(fc);

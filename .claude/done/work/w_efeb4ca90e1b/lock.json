@@ -1,0 +1,10 @@
+{
+  "schema": "done/1",
+  "work_id": "w_efeb4ca90e1b",
+  "contract_digest": "ac30bb978a74e4bdefc9dbf5f7298a6b4bc8088ee7a523e22f24c50034f7fa53",
+  "baseline_head": "a6498e82fd477431edecf47e9a32829b5b30ff49",
+  "identity_key": "fix/ra-8088-evidence-pin-failures@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-8088",
+  "locked_at_utc": "2026-11-08T15:45:32Z",
+  "criteria_count": 6,
+  "recipe_pins": {}
+}

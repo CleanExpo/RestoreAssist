@@ -19,6 +19,7 @@ import {
   measurementAgreesWithDrawnArea,
   type RoomMeasurementInput,
 } from "./ai-suggested-confirm";
+import { resolvePxPerMetre } from "./room-area-from-geometry";
 import type { RoomMeasurementEvidence } from "./sketch-field-status";
 import { extractRoomGraphNodes } from "./sync-room-graph";
 
@@ -103,14 +104,12 @@ export function roomGeometryRevision(
 export function roomRevisionsFromSketchData(
   sketchData: Record<string, unknown>,
 ): RoomRevision[] {
-  const scale = (sketchData?.scaleConfig ?? null) as {
-    pxPerMetre?: unknown;
-  } | null;
-  const ppm =
-    typeof scale?.pxPerMetre === "number" && Number.isFinite(scale.pxPerMetre)
-      ? scale.pxPerMetre
-      : DEFAULT_PX_PER_M;
-  return extractRoomGraphNodes(sketchData).map((node) => ({
+  // RA-8237: the same floor scale the room graph and the estimate use.
+  const ppm = resolvePxPerMetre(
+    sketchData as { scaleConfig?: { pxPerMetre?: number } },
+    DEFAULT_PX_PER_M,
+  );
+  return extractRoomGraphNodes(sketchData, { pxPerMetre: ppm }).map((node) => ({
     fabricObjectId: node.fabricObjectId,
     areaM2: node.areaM2,
     geometryAreaM2: polygonAreaM2(node.geometryJson, ppm),
