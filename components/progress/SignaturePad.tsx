@@ -79,11 +79,16 @@ export default function SignaturePad({
     [attestationType, actionLabel, reportId],
   );
 
-  useEffect(() => {
+  // Consent covers one exact statement, so a changed statement clears it. This
+  // runs during render on purpose: an effect also fires just after first paint
+  // and wipes a tick made in that gap, leaving Attest & sign disabled (RA-8237).
+  const [consentedStatement, setConsentedStatement] = useState(contentSummary);
+  if (consentedStatement !== contentSummary) {
+    setConsentedStatement(contentSummary);
     setConsentToken(null);
     setConsentAcknowledged(false);
     setSuccessMessage(null);
-  }, [contentSummary]);
+  }
 
   // Set up the canvas with retina scaling so the stored PNG looks crisp.
   // Sizing is responsive: caps at maxWidth, but shrinks to the wrapper's
