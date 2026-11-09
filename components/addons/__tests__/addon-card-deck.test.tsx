@@ -642,6 +642,80 @@ describe("AddonCardDeck (RA-8271)", () => {
     expect(window.localStorage.getItem(STORED)).toBeNull();
   });
 
+  // Review round 6: a press that outlived its deck must not clear the key a
+  // newer, still-unresolved press with the same key needs.
+  it("review r6: a late reply from an unmounted press keeps the newer press's key", async () => {
+    let answerFirst: (value: unknown) => void = () => {};
+    const laterReplies: Array<Record<string, unknown>> = [
+      {
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error:
+            "A request with this Idempotency-Key is already in progress. Retry shortly.",
+        }),
+      },
+      {
+        ok: true,
+        status: 200,
+        headers: new Headers({ "Idempotent-Replayed": "true" }),
+        json: async () => ({ updated: true, seats: 2 }),
+      },
+    ];
+    let checkoutCount = 0;
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/addons/catalog") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => catalog,
+        });
+      }
+      checkoutCount += 1;
+      if (checkoutCount === 1) {
+        return new Promise((resolve) => {
+          answerFirst = resolve;
+        });
+      }
+      return Promise.resolve(laterReplies.shift());
+    });
+    vi.stubGlobal("fetch", fetchMock as never);
+
+    // Press 1 goes out, then the wizard leaves the step mid-request.
+    const first = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
+    first.unmount();
+
+    // Back on the step, press 2 reuses the key and hears "still in progress".
+    render(<AddonCardDeck />);
+    books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    expect(
+      await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+
+    // Press 1's final answer arrives late, for a deck that is gone.
+    answerFirst({
+      ok: true,
+      status: 200,
+      json: async () => ({ updated: true, seats: 2 }),
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(window.localStorage.getItem(STORED)).not.toBeNull();
+
+    // Press 3 still carries the same key, and the stored reply settles it.
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    expect(
+      await within(books).findByText(/You now have 2 field technician seats/),
+    ).toBeInTheDocument();
+    const keys = checkoutKeys(fetchMock);
+    expect(keys).toHaveLength(3);
+    expect(new Set(keys).size).toBe(1);
+    expect(window.localStorage.getItem(STORED)).toBeNull();
+  });
+
   it("review r2: isFinalCheckoutAnswer releases the key only for a readable reply that names an outcome", () => {
     const final = (status: number, body: unknown) =>
       isFinalCheckoutAnswer(status, body, parseCheckoutReply(status, body));

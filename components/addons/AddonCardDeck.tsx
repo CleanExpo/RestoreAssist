@@ -174,8 +174,19 @@ export function isFinalCheckoutAnswer(
  * (withIdempotency(request, userId)), so a key left by another account on
  * this browser can never replay that account's outcome; it simply runs once.
  * Entries older than 23 hours are ignored: the server keeps a key for 24.
+ *
+ * Review round 6: each press stamps the entry with its own `attempt` id, and
+ * a press clears the entry only while the stamp is still its own. A press
+ * that outlived its deck (unmounted mid-request) can otherwise answer late
+ * and clear a key that a newer, still-unresolved press with the same key
+ * needs; the next press would then mint a new key and could buy again.
  */
-type PendingKey = { key: string; unresolved: boolean; savedAt: number };
+type PendingKey = {
+  key: string;
+  unresolved: boolean;
+  savedAt: number;
+  attempt: string;
+};
 
 const PENDING_KEY_PREFIX = "restoreassist:addon-checkout-key:";
 const PENDING_KEY_MAX_AGE_MS = 23 * 60 * 60 * 1000;
@@ -198,7 +209,12 @@ function readPendingKey(sku: string): PendingKey | null {
   ) {
     return null;
   }
-  return { key: e.key, unresolved: e.unresolved === true, savedAt: e.savedAt };
+  return {
+    key: e.key,
+    unresolved: e.unresolved === true,
+    savedAt: e.savedAt,
+    attempt: typeof e.attempt === "string" ? e.attempt : "",
+  };
 }
 
 function writePendingKey(sku: string, entry: PendingKey): void {
@@ -212,7 +228,8 @@ function writePendingKey(sku: string, entry: PendingKey): void {
   }
 }
 
-function clearPendingKey(sku: string): void {
+function clearPendingKeyIfOwner(sku: string, attempt: string): void {
+  if (readPendingKey(sku)?.attempt !== attempt) return; // a newer press owns it
   memoryPendingKeys.delete(sku);
   try {
     window.localStorage.removeItem(PENDING_KEY_PREFIX + sku);
@@ -299,12 +316,14 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
     // with an unknown outcome. The key is stored as unresolved before the
     // request goes out: if the page goes away mid-request, the outcome is
     // unknown.
+    const attempt = crypto.randomUUID();
     const pending = readPendingKey(sku) ?? {
       key: crypto.randomUUID(),
       unresolved: false,
       savedAt: Date.now(),
+      attempt,
     };
-    writePendingKey(sku, { ...pending, unresolved: true });
+    writePendingKey(sku, { ...pending, unresolved: true, attempt });
     try {
       const res = await fetch("/api/addons/checkout", {
         method: "POST",
@@ -328,7 +347,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
         setBuying(null);
         return;
       }
-      clearPendingKey(sku);
+      clearPendingKeyIfOwner(sku, attempt);
       switch (reply.kind) {
         case "redirect":
           window.location.href = reply.url;
