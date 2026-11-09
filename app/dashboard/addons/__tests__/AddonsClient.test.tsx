@@ -49,9 +49,12 @@ describe("AddonsClient", () => {
     expect(
       screen.getByRole("link", { name: /manage/i }),
     ).toHaveAttribute("href", "/dashboard/subscription");
-    // Per-seat pricing: amount + period/seat (split for hierarchy).
-    expect(screen.getByText("$9.00")).toBeInTheDocument();
-    expect(screen.getByText(/\/mo per seat/)).toBeInTheDocument();
+    // Per-seat pricing reads as one plain phrase on the card.
+    expect(screen.getByText("$9.00 a month per seat")).toBeInTheDocument();
+    // RA-8271: the page is called Field Add-Ons.
+    expect(
+      screen.getByRole("heading", { name: "Field Add-Ons" }),
+    ).toBeInTheDocument();
     // Unowned pack shows an Add button.
     expect(
       screen.getByRole("button", { name: /add pack/i }),
@@ -64,7 +67,7 @@ describe("AddonsClient", () => {
       // first call: catalog
       .mockResolvedValueOnce({ ok: true, json: async () => catalog })
       // second call: checkout
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ url: "/pay" }) });
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: "/pay" }) });
     vi.stubGlobal("fetch", fetchMock as never);
     // Prevent jsdom navigation noise.
     Object.defineProperty(window, "location", {
@@ -112,7 +115,7 @@ describe("AddonsClient", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => seatCatalog })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ updated: true, seats: 3 }) });
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ updated: true, seats: 3 }) });
     vi.stubGlobal("fetch", fetchMock as never);
 
     render(<AddonsClient />);

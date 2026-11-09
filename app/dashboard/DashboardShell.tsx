@@ -22,7 +22,6 @@ import {
   Plus,
   HelpCircle,
   CreditCard,
-  Package,
   Crown,
   FileSearch,
   ClipboardCheck,
@@ -69,6 +68,8 @@ import { cn } from "@/lib/utils";
 import {
   buildSimpleNavItems,
   buildAdvancedNavGroups,
+  FIELD_ADDONS_NAV_ITEM,
+  fieldAddonsTabVisible,
   isAdvancedMode,
   ADMIN_NAV_HREFS,
   platformNavHrefs,
@@ -378,11 +379,7 @@ export default function DashboardShell({
             label: "Subscription",
             href: "/dashboard/subscription",
           },
-          {
-            icon: Package,
-            label: "Add-ons",
-            href: "/dashboard/addons",
-          },
+          FIELD_ADDONS_NAV_ITEM,
         ]),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
     { icon: MessageCircle, label: "Feedback", href: "/dashboard/feedback" },
@@ -425,7 +422,16 @@ export default function DashboardShell({
     ? fieldTechNavItems
     : advanced
       ? fullNavItems
-      : [...buildSimpleNavItems({ isManager }), ...adminNavItems];
+      : [
+          ...buildSimpleNavItems({
+            isManager,
+            showFieldAddons: fieldAddonsTabVisible({
+              role: session?.user?.role,
+              hideBillingNav,
+            }),
+          }),
+          ...adminNavItems,
+        ];
 
   // Advanced mode renders the full nav grouped under section headers instead of
   // one flat 24-item list. Only computed when relevant. Simple mode with admin

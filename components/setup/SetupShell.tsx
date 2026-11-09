@@ -12,6 +12,7 @@ import { FeatureHealthCard } from './FeatureHealthCard';
 import { VideoExplainer } from './VideoExplainer';
 import { WelcomeOverview } from './WelcomeOverview';
 import { AiKeyCard } from './AiKeyCard';
+import { AddonCardDeck } from '@/components/addons/AddonCardDeck';
 import { SetupStepper, type SetupStepperItem } from './SetupStepper';
 import {
   SETUP_AI_KEY_OPTIONAL_HINT,
@@ -57,7 +58,9 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     if (!(initial.legalName && id && initial.state && initial.timezone)) return 2; // Business details
     if (!(initial.logoUrl || initial.primaryColor)) return 3; // Branding
     if (!initial.pricingConfig) return 4; // Pricing
-    return 5; // Integrations, the step before the finish
+    // RA-8271: Field Add-Ons follows Pricing, so a returning business sees the
+    // packs before it reaches Integrations and the finish.
+    return 5; // Field Add-Ons
   });
 
   // AI-key completion is the one gate the store doesn't already carry, so read
@@ -259,6 +262,19 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       complete: pricingComplete,
       description: 'Set your rate card once — estimates and invoices pick it up automatically.',
       content: <PricingCard />,
+    },
+    {
+      // RA-8271: RestoreAssist is the CRM; the packs add field and admin
+      // features on top. Every pack is shown here as a card so a new owner
+      // sees what can be added before reaching the dashboard. Optional: it
+      // never blocks, and a pack can be added any time from Field Add-Ons in
+      // the side panel.
+      key: 'add_ons',
+      title: 'Field Add-Ons',
+      required: false,
+      complete: false,
+      description: 'Optional packs that add field and admin features to your CRM. Add one now, or any time later from Field Add-Ons in the side panel.',
+      content: <AddonCardDeck />,
     },
     {
       key: 'integrations',
