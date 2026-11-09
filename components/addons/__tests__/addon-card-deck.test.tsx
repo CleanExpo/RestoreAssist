@@ -8,7 +8,9 @@ import {
   PLAN_REQUIRED_MESSAGE,
   PURCHASE_UNCONFIRMED_MESSAGE,
   cardMark,
+  isFinalCheckoutAnswer,
 } from "../AddonCardDeck";
+import { parseCheckoutReply } from "@/lib/billing/checkout-return";
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 
 const catalog = {
@@ -173,44 +175,94 @@ describe("AddonCardDeck (RA-8271)", () => {
     );
   });
 
-  it("review r1: a request still in progress (409) keeps the key; a definite answer releases it", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => catalog })
-      .mockResolvedValueOnce({
+  // Review rounds 1 and 2: every reply that does not name an outcome must keep
+  // the key. Each case: press -> "couldn't confirm"; press again -> same key;
+  // a final 402 -> next press gets a new key.
+  const UNKNOWN_OUTCOMES: Array<[string, () => Record<string, unknown>]> = [
+    [
+      "409 still in progress",
+      () => ({
         ok: false,
         status: 409,
         json: async () => ({ error: "A request with this Idempotency-Key is already in progress. Retry shortly." }),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 402,
-        json: async () => ({ error: { code: "UNPAID", message: "Pay the open invoice first." } }),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 402,
-        json: async () => ({ error: { code: "UNPAID", message: "Pay the open invoice first." } }),
-      });
-    vi.stubGlobal("fetch", fetchMock as never);
+      }),
+    ],
+    [
+      "200 with an unreadable (truncated) body",
+      () => ({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError("Unexpected end of JSON input");
+        },
+      }),
+    ],
+    [
+      "500 server error",
+      () => ({ ok: false, status: 500, json: async () => ({ error: { code: "INTERNAL", message: "Something went wrong." } }) }),
+    ],
+    ["200 that names no outcome", () => ({ ok: true, status: 200, json: async () => ({}) })],
+  ];
 
-    render(<AddonCardDeck />);
-    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
-    const press = () => fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+  it.each(UNKNOWN_OUTCOMES)(
+    "review r2: %s keeps the key and says the result is unknown; a final answer releases it",
+    async (_label, unknownReply) => {
+      const checkoutReplies = [
+        unknownReply(),
+        { ok: false, status: 402, json: async () => ({ error: { code: "UNPAID", message: "Pay the open invoice first." } }) },
+        { ok: false, status: 402, json: async () => ({ error: { code: "UNPAID", message: "Pay the open invoice first." } }) },
+      ];
+      const fetchMock = vi.fn((url: string) =>
+        Promise.resolve(
+          url === "/api/addons/catalog"
+            ? { ok: true, status: 200, json: async () => catalog }
+            : checkoutReplies.shift(),
+        ),
+      );
+      vi.stubGlobal("fetch", fetchMock as never);
 
-    press();
-    expect(await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE)).toBeInTheDocument();
-    press();
-    expect(await within(books).findByText(/Pay the open invoice first/)).toBeInTheDocument();
-    press();
-    await waitFor(() =>
-      expect(fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout")).toHaveLength(3),
-    );
-    const keys = fetchMock.mock.calls
-      .filter(([u]) => u === "/api/addons/checkout")
-      .map(([, init]) => init.headers["Idempotency-Key"]);
-    expect(keys[1]).toBe(keys[0]); // 409 was not an answer
-    expect(keys[2]).not.toBe(keys[1]); // the 402 was
+      render(<AddonCardDeck />);
+      const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+      const press = () => fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+
+      press();
+      const status = await within(books).findByRole("status");
+      expect(status).toHaveTextContent(PURCHASE_UNCONFIRMED_MESSAGE);
+      expect(status).not.toHaveTextContent(/try again\.$/i);
+      press();
+      expect(await within(books).findByText(/Pay the open invoice first/)).toBeInTheDocument();
+      press();
+      await waitFor(() =>
+        expect(fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout")).toHaveLength(3),
+      );
+      const keys = fetchMock.mock.calls
+        .filter(([u]) => u === "/api/addons/checkout")
+        .map(([, init]) => (init as { headers: Record<string, string> }).headers["Idempotency-Key"]);
+      expect(keys[1]).toBe(keys[0]); // the unknown outcome was not an answer
+      expect(keys[2]).not.toBe(keys[1]); // the 402 was
+      // The catalog was re-read after the unknown outcome.
+      expect(fetchMock.mock.calls.filter(([u]) => u === "/api/addons/catalog").length).toBeGreaterThanOrEqual(2);
+    },
+  );
+
+  it("review r2: isFinalCheckoutAnswer releases the key only for a readable reply that names an outcome", () => {
+    const final = (status: number, body: unknown) =>
+      isFinalCheckoutAnswer(status, body, parseCheckoutReply(status, body));
+    // Final
+    expect(final(200, { url: "https://checkout.example/s" })).toBe(true);
+    expect(final(200, { updated: true, seats: 2 })).toBe(true);
+    expect(final(403, { error: "Active subscription required to purchase add-ons", upgradeRequired: true })).toBe(true);
+    expect(final(402, { error: { message: "Pay first." } })).toBe(true);
+    expect(final(409, { error: "Use the portal.", portalRequired: true, url: null })).toBe(true);
+    expect(final(400, { error: { message: "Invalid add-on" } })).toBe(true);
+    // Not final
+    expect(final(200, null)).toBe(false);
+    expect(final(200, {})).toBe(false);
+    expect(final(200, "ok")).toBe(false);
+    expect(final(409, { error: "already in progress" })).toBe(false);
+    expect(final(500, { error: { message: "boom" } })).toBe(false);
+    expect(final(502, null)).toBe(false);
+    expect(final(403, null)).toBe(false);
   });
 
   it("review r1: in the iOS app the deck shows no prices, buttons or links, and loads nothing", async () => {

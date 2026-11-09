@@ -15,7 +15,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { parseCheckoutReply } from "@/lib/billing/checkout-return";
+import {
+  parseCheckoutReply,
+  type CheckoutReply,
+} from "@/lib/billing/checkout-return";
 import BillingGate from "@/components/capacitor/BillingGate";
 
 export interface CatalogAddon {
@@ -91,6 +94,32 @@ function formatPrice(addon: CatalogAddon): string {
   }).format(addon.amount);
   const period = addon.interval === "year" ? "a year" : "a month";
   return addon.perSeat ? `${money} ${period} per seat` : `${money} ${period}`;
+}
+
+/**
+ * Review rounds 1 and 2: whether a checkout reply is a FINAL answer, so the
+ * pack's Idempotency-Key can be released and the next press may start a new
+ * purchase. Decided positively: only a reply we could read and that names an
+ * outcome counts. Everything else means the purchase may or may not have
+ * happened, and the key must be kept so a retry replays the first result:
+ *   - no readable body (connection cut mid-reply, truncated or non-JSON body);
+ *   - a server error (5xx): the work may have run before it failed;
+ *   - a 409 that is not the billing-portal case: the idempotency layer saying
+ *     the same request is still running or its result could not be verified;
+ *   - a 2xx that names no outcome (no checkout link, no seat count).
+ */
+export function isFinalCheckoutAnswer(
+  status: number,
+  body: unknown,
+  reply: CheckoutReply,
+): boolean {
+  if (body === null || typeof body !== "object") return false;
+  if (status >= 500) return false;
+  if (status === 409 && reply.kind !== "portalRequired") return false;
+  if (status >= 200 && status < 300) {
+    return reply.kind === "redirect" || reply.kind === "updated";
+  }
+  return true;
 }
 
 type CardNotice = { text: string; link?: { href: string; label: string } };
@@ -178,13 +207,13 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
         },
         body: JSON.stringify({ addonKey: sku }),
       });
-      const json = await res.json().catch(() => null);
+      const json: unknown = await res.json().catch(() => null);
       const reply = parseCheckoutReply(res.status, json);
-      // A 409 that is not the billing-portal case is the idempotency layer
-      // saying this request is still in progress or its result could not be
-      // confirmed. Not a definite answer: keep the key for the next press.
-      if (res.status === 409 && reply.kind !== "portalRequired") {
+      if (!isFinalCheckoutAnswer(res.status, json, reply)) {
+        // Unknown outcome: keep the key, say so, and re-read the catalog so a
+        // pack that did go through shows as Active.
         setNotice(sku, { text: PURCHASE_UNCONFIRMED_MESSAGE });
+        loadCatalog().catch(() => {});
         setBuying(null);
         return;
       }
