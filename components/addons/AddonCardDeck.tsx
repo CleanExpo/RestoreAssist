@@ -108,6 +108,27 @@ function formatPrice(addon: CatalogAddon): string {
  *     the same request is still running or its result could not be verified;
  *   - a 2xx that names no outcome (no checkout link, no seat count).
  */
+/**
+ * Review round 3: the checkout route and the idempotency layer both send 409.
+ * Every 409 either can send, and what it means:
+ *   - route, apiError envelope `{ error: { code: "CONFLICT", message } }`:
+ *     the pack is free in the Founding Trial, or another seat checkout won the
+ *     race. Nothing was bought; final. (The idempotency layer caches this reply,
+ *     so keeping the key would replay it for ever.)
+ *   - billing-portal reply (`portalRequired: true`): final.
+ *   - idempotency layer, plain-string `error`: the same request is still
+ *     running, or its completion could not be verified, or the key was reused
+ *     with another body. Outcome unknown; keep the key.
+ */
+function isRouteConflict(body: unknown): boolean {
+  const error = (body as { error?: unknown }).error;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "CONFLICT"
+  );
+}
+
 export function isFinalCheckoutAnswer(
   status: number,
   body: unknown,
@@ -115,7 +136,8 @@ export function isFinalCheckoutAnswer(
 ): boolean {
   if (body === null || typeof body !== "object") return false;
   if (status >= 500) return false;
-  if (status === 409 && reply.kind !== "portalRequired") return false;
+  if (status === 409)
+    return reply.kind === "portalRequired" || isRouteConflict(body);
   if (status >= 200 && status < 300) {
     return reply.kind === "redirect" || reply.kind === "updated";
   }
@@ -137,7 +159,10 @@ export function AddonCardDeck(props: AddonCardDeckProps) {
   return (
     <BillingGate
       fallback={
-        <p role="status" className="py-6 text-center text-sm text-muted-foreground">
+        <p
+          role="status"
+          className="py-6 text-center text-sm text-muted-foreground"
+        >
           {IOS_ADDONS_MESSAGE}
         </p>
       }
@@ -224,7 +249,10 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
           return;
         case "updated":
           // An extra seat on an active seat pack is added in place.
-          setSeats((prev) => ({ purchased: reply.seats, used: prev?.used ?? 0 }));
+          setSeats((prev) => ({
+            purchased: reply.seats,
+            used: prev?.used ?? 0,
+          }));
           setNotice(sku, {
             text: `Seat added. You now have ${reply.seats} field technician seat${reply.seats === 1 ? "" : "s"}.`,
           });
@@ -261,7 +289,10 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
   if (loading) {
     return (
       <div
-        className={cn("grid grid-cols-[repeat(auto-fill,minmax(15rem,17rem))] justify-center gap-5", className)}
+        className={cn(
+          "grid grid-cols-[repeat(auto-fill,minmax(15rem,17rem))] justify-center gap-5",
+          className,
+        )}
         aria-busy="true"
       >
         {Array.from({ length: 4 }).map((_, i) => (
@@ -382,7 +413,10 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
                   </button>
                 )}
                 {notice ? (
-                  <p role="status" className="mt-2 text-xs leading-relaxed text-brand-navy dark:text-slate-100">
+                  <p
+                    role="status"
+                    className="mt-2 text-xs leading-relaxed text-brand-navy dark:text-slate-100"
+                  >
                     {notice.text}{" "}
                     {notice.link ? (
                       <Link
