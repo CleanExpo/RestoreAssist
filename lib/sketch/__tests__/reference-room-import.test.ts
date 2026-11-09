@@ -61,6 +61,15 @@ describe("referenceImportFailureMessage", () => {
     expect(referenceImportFailureMessage(409, {})).toMatch(/already being read/i);
   });
 
+  it("says a possible charge stopped the read, and keeps the manual route", () => {
+    const message = referenceImportFailureMessage(409, {
+      code: "READ_POSSIBLY_CHARGED",
+    });
+    expect(message).toMatch(/may already have been charged/i);
+    expect(message).toMatch(/trace the rooms by hand/i);
+    expect(message).not.toMatch(/already being read/i);
+  });
+
   it("passes the retry time through", () => {
     expect(
       referenceImportFailureMessage(429, { error: "RATE_LIMITED" }, "30"),

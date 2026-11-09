@@ -16,6 +16,9 @@ export interface UnderlayReferenceBinding {
 const MANUAL_ROUTE =
   "The plan is still on the canvas, so you can trace the rooms by hand.";
 
+/** The server's code for "an earlier read may have been billed, so none ran". */
+export const READ_POSSIBLY_CHARGED = "READ_POSSIBLY_CHARGED";
+
 export function requestReferenceRooms(
   inspectionId: string,
   binding: UnderlayReferenceBinding,
@@ -43,6 +46,12 @@ export function referenceImportFailureMessage(
 ): string {
   if (status === 404) {
     return "That floor plan is no longer the active reference for this floor. Upload it again to get room suggestions.";
+  }
+  if (
+    status === 409 &&
+    (body as { code?: unknown } | null)?.code === READ_POSSIBLY_CHARGED
+  ) {
+    return `An earlier read of this floor plan may already have been charged, so it was not run again. ${MANUAL_ROUTE}`;
   }
   if (status === 409) {
     return `This floor plan is already being read. Wait a moment and try again. ${MANUAL_ROUTE}`;

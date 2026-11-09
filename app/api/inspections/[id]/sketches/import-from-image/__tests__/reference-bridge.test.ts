@@ -6,6 +6,12 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 import { POST } from "../route";
+import {
+  REFERENCE_EXTRACTION_ACTION,
+  REFERENCE_PAID_READ_ENTITY,
+  REFERENCE_PAID_READ_NOT_CHARGED,
+  REFERENCE_PAID_READ_STARTED,
+} from "@/lib/sketch/server-reference-extraction";
 
 const STORED = Buffer.from("stored-watermarked-png-bytes");
 const SHA = createHash("sha256").update(STORED).digest("hex");
@@ -15,6 +21,7 @@ const inspectionFindFirst = vi.fn();
 const referenceFindFirst = vi.fn();
 const auditFindFirst = vi.fn();
 const auditCreate = vi.fn();
+const auditCount = vi.fn();
 const claimSketchFindFirst = vi.fn();
 const claimSketchUpdate = vi.fn();
 const claimSketchCreate = vi.fn();
@@ -44,6 +51,7 @@ vi.mock("@/lib/prisma", () => {
     auditLog: {
       findFirst: (...a: unknown[]) => auditFindFirst(...a),
       create: (...a: unknown[]) => auditCreate(...a),
+      count: (...a: unknown[]) => auditCount(...a),
     },
     claimSketch: {
       findFirst: (...a: unknown[]) => claimSketchFindFirst(...a),
@@ -160,6 +168,14 @@ function request(body: Record<string, unknown> = {}): NextRequest {
 const ctx = () => ({ params: Promise.resolve({ id: "inspection_1" }) });
 const fetchSpy = vi.fn();
 
+// The audit trail as the route sees it: rows persist across requests in a test.
+type AuditRow = Record<string, unknown>;
+const auditRows: AuditRow[] = [];
+const finalWrites = () =>
+  auditCreate.mock.calls
+    .map((call) => call[0].data as AuditRow & { changes: string })
+    .filter((data) => data.action === REFERENCE_EXTRACTION_ACTION);
+
 beforeEach(() => {
   held.clear();
   lockInputs.length = 0;
@@ -173,7 +189,20 @@ beforeEach(() => {
   inspectionFindFirst.mockReset().mockResolvedValue({ id: "inspection_1" });
   referenceFindFirst.mockReset().mockResolvedValue(reference);
   auditFindFirst.mockReset().mockResolvedValue(null);
-  auditCreate.mockReset().mockResolvedValue({ id: "audit_1" });
+  auditRows.length = 0;
+  auditCreate.mockReset().mockImplementation(async ({ data }) => {
+    auditRows.push(data);
+    return { id: `audit_${auditRows.length}` };
+  });
+  auditCount
+    .mockReset()
+    .mockImplementation(
+      async ({ where }: { where: AuditRow }) =>
+        auditRows.filter(
+          (row) =>
+            row.action === where.action && row.entityId === where.entityId,
+        ).length,
+    );
   claimSketchFindFirst
     .mockReset()
     .mockResolvedValue({ id: "sketch_1", sketchData: {} });
@@ -279,7 +308,7 @@ describe("reference bridge: binding", () => {
 describe("reference bridge: provenance", () => {
   it("records hash, floor, reference and prompt version in the audit trail", async () => {
     await POST(request(), ctx());
-    const data = auditCreate.mock.calls[0][0].data;
+    const data = finalWrites()[0];
     expect(data.inspectionId).toBe("inspection_1");
     expect(data.userId).toBe("user_1");
     const changes = JSON.parse(data.changes);
@@ -417,10 +446,8 @@ describe("reference bridge: retries", () => {
     });
     const res = await POST(request(), ctx());
     expect(res.status).toBe(200);
-    expect(auditCreate).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(auditCreate.mock.calls[0][0].data.changes).rooms).toEqual(
-      [],
-    );
+    expect(finalWrites()).toHaveLength(1);
+    expect(JSON.parse(finalWrites()[0].changes).rooms).toEqual([]);
   });
 });
 
@@ -459,7 +486,7 @@ describe("reference bridge: the lock outlasts the paid read", () => {
     const res = await POST(request(), ctx());
     expect(res.status).toBe(503);
     expect(importSketchFromImage).not.toHaveBeenCalled();
-    expect(auditCreate).not.toHaveBeenCalled();
+    expect(finalWrites()).toHaveLength(0);
   });
 
   it("replays a read recorded while it waited for the lock, without spending", async () => {
@@ -476,7 +503,9 @@ describe("reference bridge: the lock outlasts the paid read", () => {
   });
 
   it("keeps the first writer's rooms when two reads finish together", async () => {
+    // Early check, re-check under the lease, the claim, then the final write.
     auditFindFirst
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(recordedRead());
@@ -485,32 +514,32 @@ describe("reference bridge: the lock outlasts the paid read", () => {
     expect(res.status).toBe(200);
     expect(body.replayed).toBe(true);
     expect(body.rooms[0].id).toBe("ai-suggested-first-writer");
-    expect(auditCreate).not.toHaveBeenCalled();
+    expect(finalWrites()).toHaveLength(0);
     expect(claimSketchUpdate).not.toHaveBeenCalled();
     expect(claimSketchCreate).not.toHaveBeenCalled();
   });
 
   it("serialises writers before it checks for a recorded read", async () => {
     await POST(request(), ctx());
-    expect(executeRaw).toHaveBeenCalledTimes(1);
-    // One Prisma.sql object, so the writer key stays a bound parameter.
-    expect(executeRaw.mock.calls[0]).toHaveLength(1);
-    const statement = executeRaw.mock.calls[0][0] as {
-      sql: string;
-      values: unknown[];
-    };
-    expect(statement.sql).toContain("pg_advisory_xact_lock");
-    expect(statement.values).toEqual([`inspection_1:1:${SHA}`]);
-    const lockOrder = executeRaw.mock.invocationCallOrder[0];
-    const finalCheckOrder = auditFindFirst.mock.invocationCallOrder[2];
-    expect(lockOrder).toBeLessThan(finalCheckOrder);
-    expect(finalCheckOrder).toBeLessThan(auditCreate.mock.invocationCallOrder[0]);
+    // Once to claim the paid read, once to write its result.
+    expect(executeRaw).toHaveBeenCalledTimes(2);
+    for (const call of executeRaw.mock.calls) {
+      // One Prisma.sql object, so the writer key stays a bound parameter.
+      expect(call).toHaveLength(1);
+      const statement = call[0] as { sql: string; values: unknown[] };
+      expect(statement.sql).toContain("pg_advisory_xact_lock");
+      expect(statement.values).toEqual([`inspection_1:1:${SHA}`]);
+    }
+    const finalLockOrder = executeRaw.mock.invocationCallOrder[1];
+    const finalCheckOrder = auditFindFirst.mock.invocationCallOrder[3];
+    expect(finalLockOrder).toBeLessThan(finalCheckOrder);
+    expect(finalCheckOrder).toBeLessThan(auditCreate.mock.invocationCallOrder[1]);
   });
 });
 
 describe("reference bridge: failures leave the reference usable", () => {
   function expectNothingWritten() {
-    expect(auditCreate).not.toHaveBeenCalled();
+    expect(finalWrites()).toHaveLength(0);
     expect(claimSketchUpdate).not.toHaveBeenCalled();
     expect(claimSketchCreate).not.toHaveBeenCalled();
   }
@@ -565,7 +594,7 @@ describe("reference bridge: failures leave the reference usable", () => {
     const retry = await POST(request(), ctx());
     expect(retry.status).toBe(200);
     expect(importSketchFromImage).toHaveBeenCalledTimes(2);
-    expect(auditCreate).toHaveBeenCalledTimes(1);
+    expect(finalWrites()).toHaveLength(1);
   });
 
   it("reports a storage read failure without calling the provider", async () => {
@@ -574,5 +603,137 @@ describe("reference bridge: failures leave the reference usable", () => {
     expect(res.status).toBe(503);
     expect(importSketchFromImage).not.toHaveBeenCalled();
     expectNothingWritten();
+  });
+});
+
+describe("reference bridge: a possible charge is never repeated", () => {
+  const rowsWith = (action: string) =>
+    auditRows.filter((row) => row.action === action);
+
+  async function expectRefusedWithoutSpend() {
+    const callsBefore = importSketchFromImage.mock.calls.length;
+    const retry = await POST(request(), ctx());
+    expect(retry.status).toBe(409);
+    expect((await retry.json()).code).toBe("READ_POSSIBLY_CHARGED");
+    expect(importSketchFromImage).toHaveBeenCalledTimes(callsBefore);
+  }
+
+  it("records the paid read before it calls the provider", async () => {
+    await POST(request(), ctx());
+    expect(auditCreate.mock.calls[0][0].data).toMatchObject({
+      action: REFERENCE_PAID_READ_STARTED,
+      entityType: REFERENCE_PAID_READ_ENTITY,
+      entityId: `1:${SHA}`,
+      inspectionId: "inspection_1",
+      userId: "user_1",
+    });
+    expect(auditCreate.mock.invocationCallOrder[0]).toBeLessThan(
+      importSketchFromImage.mock.invocationCallOrder[0],
+    );
+    expect(executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      auditCreate.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("does not pay again when saving a finished read fails", async () => {
+    auditCreate
+      .mockImplementationOnce(async ({ data }) => {
+        auditRows.push(data);
+        return { id: "audit_started" };
+      })
+      .mockRejectedValueOnce(new Error("database unavailable"));
+    const first = await POST(request(), ctx());
+    expect(first.status).toBe(500);
+    expect(importSketchFromImage).toHaveBeenCalledTimes(1);
+    await expectRefusedWithoutSpend();
+  });
+
+  it("does not pay again when the rooms cannot be saved", async () => {
+    claimSketchFindFirst.mockRejectedValueOnce(new Error("connection lost"));
+    expect((await POST(request(), ctx())).status).toBe(500);
+    expect(importSketchFromImage).toHaveBeenCalledTimes(1);
+    await expectRefusedWithoutSpend();
+  });
+
+  it.each([
+    ["a timeout or network failure", "API_ERROR", 500],
+    ["output that could not be read", "PARSE_FAILED", 502],
+  ])("does not pay again after %s", async (_name, reason, status) => {
+    importSketchFromImage.mockResolvedValueOnce({
+      ok: false,
+      reason,
+      detail: "x",
+    });
+    expect((await POST(request(), ctx())).status).toBe(status);
+    expect(rowsWith(REFERENCE_PAID_READ_NOT_CHARGED)).toHaveLength(0);
+    await expectRefusedWithoutSpend();
+  });
+
+  it("does not pay again after the provider call throws", async () => {
+    importSketchFromImage.mockRejectedValueOnce(new Error("socket hang up"));
+    expect((await POST(request(), ctx())).status).toBe(500);
+    await expectRefusedWithoutSpend();
+  });
+
+  it("holds an earlier started read even after the running lock has gone", async () => {
+    auditRows.push({
+      action: REFERENCE_PAID_READ_STARTED,
+      entityId: `1:${SHA}`,
+    });
+    await expectRefusedWithoutSpend();
+    expect(importSketchFromImage).not.toHaveBeenCalled();
+    expect(rowsWith(REFERENCE_PAID_READ_STARTED)).toHaveLength(1);
+  });
+
+  it("keeps holding the read when the not-charged row cannot be written", async () => {
+    importSketchFromImage.mockResolvedValueOnce({
+      ok: false,
+      reason: "RATE_LIMITED",
+      detail: "busy",
+    });
+    auditCreate
+      .mockImplementationOnce(async ({ data }) => {
+        auditRows.push(data);
+        return { id: "audit_started" };
+      })
+      .mockRejectedValueOnce(new Error("database unavailable"));
+    expect((await POST(request(), ctx())).status).toBe(500);
+    await expectRefusedWithoutSpend();
+  });
+
+  it.each([
+    ["KEY_MISSING", 402],
+    ["KEY_INVALID", 500],
+    ["RATE_LIMITED", 429],
+    ["MODEL_OVERLOADED", 503],
+  ])("lets a %s refusal be retried and pays once", async (reason, status) => {
+    importSketchFromImage.mockResolvedValueOnce({
+      ok: false,
+      reason,
+      detail: "x",
+    });
+    expect((await POST(request(), ctx())).status).toBe(status);
+    expect(rowsWith(REFERENCE_PAID_READ_STARTED)).toHaveLength(1);
+    expect(rowsWith(REFERENCE_PAID_READ_NOT_CHARGED)).toHaveLength(1);
+    const retry = await POST(request(), ctx());
+    expect(retry.status).toBe(200);
+    expect(importSketchFromImage).toHaveBeenCalledTimes(2);
+    expect(finalWrites()).toHaveLength(1);
+  });
+
+  it("frees the read when no time was left to call the provider", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      download.mockImplementationOnce(async () => {
+        vi.setSystemTime(Date.now() + 10 * 60_000);
+        return { data: new Blob([STORED]), error: null };
+      });
+      expect((await POST(request(), ctx())).status).toBe(503);
+      expect(rowsWith(REFERENCE_PAID_READ_NOT_CHARGED)).toHaveLength(1);
+      expect((await POST(request(), ctx())).status).toBe(200);
+      expect(importSketchFromImage).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

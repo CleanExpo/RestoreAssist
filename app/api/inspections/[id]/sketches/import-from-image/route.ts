@@ -20,8 +20,9 @@
  * stored, attested floor-plan reference instead of an uploaded photo. The
  * bytes come from private storage and must match the recorded hash. No URL is
  * fetched, the backup vendor never receives reference artwork, and a completed
- * read replays from the audit trail without a second model call. Access stays
- * with the job owner: spending the workspace key at a technician's request is
+ * read replays from the audit trail without a second model call. A paid read
+ * is recorded as started before the call, so a read that may have been billed
+ * is never run again automatically. Access stays with the job owner: spending the workspace key at a technician's request is
  * a cost decision D-028 has not made.
  */
 
@@ -39,12 +40,16 @@ import {
   SKETCH_READER_PROMPT_VERSION,
 } from "@/lib/services/ai/import-sketch-from-image";
 import { withIdempotencyFingerprint } from "@/lib/idempotency";
+import { READ_POSSIBLY_CHARGED } from "@/lib/sketch/reference-room-import";
 import {
+  claimPaidRead,
   extractionEntityId,
   findBoundReference,
   findRecordedExtraction,
   parseReferenceBinding,
+  providerRefusedWithoutReading,
   readBoundReferenceBytes,
+  releasePaidRead,
   REFERENCE_EXTRACTION_ACTION,
   REFERENCE_EXTRACTION_ENTITY,
   REFERENCE_READ_DEADLINE_MS,
@@ -87,6 +92,16 @@ class ReferenceReadRefused extends Error {
   constructor(readonly response: NextResponse) {
     super("reference read refused");
   }
+}
+
+/** One at a time for a floor and hash, until this transaction ends. */
+function lockReferenceWriters(
+  tx: Prisma.TransactionClient,
+  writerLock: string,
+) {
+  return tx.$executeRaw(
+    Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${writerLock}, 0))`,
+  );
 }
 
 function replayRecordedRead(
@@ -297,6 +312,7 @@ export async function POST(
       });
     }
 
+    let providerFailureReason: string | null = null;
     const runRead = async (
       imageBytes: Buffer,
       mediaType: (typeof ALLOWED_TYPES)[number],
@@ -320,6 +336,7 @@ export async function POST(
       });
 
       if (!result.ok) {
+        providerFailureReason = result.reason;
         console.error("[InspectionsSketchImport]", {
           userId,
           inspectionId,
@@ -489,9 +506,7 @@ export async function POST(
         // never see one without the other. Writers for one floor and hash go
         // through one at a time, and only the first keeps its rooms.
         const alreadyRecorded = await prisma.$transaction(async (tx) => {
-          await tx.$executeRaw(
-            Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${writerLock}, 0))`,
-          );
+          await lockReferenceWriters(tx, writerLock);
           const earlier = await findRecordedExtraction(inspectionId, bound, tx);
           if (earlier) return earlier;
           await persistRooms(tx);
@@ -578,9 +593,34 @@ export async function POST(
                     }),
               );
             }
+            // Written before the paid call, so no failure after it can pay twice.
+            const claim = await prisma.$transaction(async (tx) => {
+              await lockReferenceWriters(tx, lockKey);
+              return claimPaidRead(inspectionId, boundBinding, userId, tx);
+            });
+            if (claim.kind === "recorded") {
+              return replayRecordedRead(
+                claim.recorded,
+                boundReference,
+                boundBinding,
+              );
+            }
+            if (claim.kind === "possibly_charged") {
+              throw new ReferenceReadRefused(
+                NextResponse.json(
+                  {
+                    error:
+                      "An earlier read of this floor plan may already have been charged, so it was not run again.",
+                    code: READ_POSSIBLY_CHARGED,
+                  },
+                  { status: 409 },
+                ),
+              );
+            }
             const readWindowMs =
               REFERENCE_READ_DEADLINE_MS - (Date.now() - startedAt);
             if (readWindowMs < REFERENCE_READ_MIN_WINDOW_MS) {
+              await releasePaidRead(inspectionId, boundBinding, userId);
               throw new ReferenceReadRefused(
                 apiError(request, {
                   code: "UPSTREAM_FAILED",
@@ -595,8 +635,15 @@ export async function POST(
               floorNumber,
               readWindowMs,
             );
-            // Only a completed read may be kept; anything else stays retryable.
+            // Only a completed read may be kept. Only a refusal that returned
+            // no output frees the read for a retry; anything else may be billed.
             if (response.status !== 200) {
+              if (
+                providerFailureReason &&
+                providerRefusedWithoutReading(providerFailureReason)
+              ) {
+                await releasePaidRead(inspectionId, boundBinding, userId);
+              }
               throw new ReferenceReadRefused(response);
             }
             return response;

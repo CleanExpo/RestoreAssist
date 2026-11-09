@@ -149,6 +149,91 @@ export async function findRecordedExtraction(
   }
 }
 
+/**
+ * Spending is decided by a row written before the paid call, never by the
+ * absence of a row written after it. A started read with no "not charged" row
+ * may have been billed, whatever happened next: an expired lock, a crash, a
+ * timeout, or a failed save. Counting rows keeps the trail append-only.
+ */
+export const REFERENCE_PAID_READ_ENTITY = "SketchUnderlayPaidRead";
+export const REFERENCE_PAID_READ_STARTED =
+  "Reference floor plan paid read started";
+export const REFERENCE_PAID_READ_NOT_CHARGED =
+  "Reference floor plan paid read not charged";
+
+/**
+ * The only provider outcomes that free a read for a retry: each is a refusal
+ * that returned no model output. Every other outcome stays held, because a
+ * charge cannot be ruled out. An allow-list, so a new reason starts out held.
+ */
+const PROVIDER_REFUSED_WITHOUT_READING: ReadonlySet<string> = new Set([
+  "KEY_MISSING",
+  "KEY_INVALID",
+  "RATE_LIMITED",
+  "MODEL_OVERLOADED",
+]);
+
+export function providerRefusedWithoutReading(reason: string): boolean {
+  return PROVIDER_REFUSED_WITHOUT_READING.has(reason);
+}
+
+export type PaidReadClaim =
+  | { kind: "claimed" }
+  | { kind: "recorded"; recorded: RecordedRead }
+  | { kind: "possibly_charged" };
+
+function paidReadRow(
+  inspectionId: string,
+  binding: ReferenceBinding,
+  action: string,
+) {
+  return {
+    inspectionId,
+    action,
+    entityType: REFERENCE_PAID_READ_ENTITY,
+    entityId: extractionEntityId(binding),
+  };
+}
+
+/** The caller must hold the writer lock for this floor and hash on `db`. */
+export async function claimPaidRead(
+  inspectionId: string,
+  binding: ReferenceBinding,
+  userId: string,
+  db: Pick<Prisma.TransactionClient, "auditLog">,
+): Promise<PaidReadClaim> {
+  const recorded = await findRecordedExtraction(inspectionId, binding, db);
+  if (recorded) return { kind: "recorded", recorded };
+  const started = await db.auditLog.count({
+    where: paidReadRow(inspectionId, binding, REFERENCE_PAID_READ_STARTED),
+  });
+  const notCharged = await db.auditLog.count({
+    where: paidReadRow(inspectionId, binding, REFERENCE_PAID_READ_NOT_CHARGED),
+  });
+  if (started > notCharged) return { kind: "possibly_charged" };
+  await db.auditLog.create({
+    data: {
+      ...paidReadRow(inspectionId, binding, REFERENCE_PAID_READ_STARTED),
+      userId,
+    },
+  });
+  return { kind: "claimed" };
+}
+
+/** Call only when the paid call provably did not run or returned no output. */
+export async function releasePaidRead(
+  inspectionId: string,
+  binding: ReferenceBinding,
+  userId: string,
+): Promise<void> {
+  await prisma.auditLog.create({
+    data: {
+      ...paidReadRow(inspectionId, binding, REFERENCE_PAID_READ_NOT_CHARGED),
+      userId,
+    },
+  });
+}
+
 /** Read the private stored bytes and prove they are the attested bytes. */
 export async function readBoundReferenceBytes(
   reference: BoundReference,
