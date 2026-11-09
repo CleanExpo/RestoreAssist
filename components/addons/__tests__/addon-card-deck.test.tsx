@@ -348,9 +348,20 @@ describe("AddonCardDeck (RA-8271)", () => {
     async (_label, unknownReply) => {
       const checkoutReplies = [
         unknownReply(),
+        // Round 4: a rate-limit refusal runs before the key is looked up, so
+        // it says nothing about the first press and must not settle the key.
+        {
+          ok: false,
+          status: 429,
+          json: async () => ({
+            error: "Too many requests. Please try again later.",
+          }),
+        },
+        // The server's stored reply for the key settles it (round 4).
         {
           ok: false,
           status: 402,
+          headers: new Headers({ "Idempotent-Replayed": "true" }),
           json: async () => ({
             error: { code: "UNPAID", message: "Pay the open invoice first." },
           }),
@@ -384,6 +395,15 @@ describe("AddonCardDeck (RA-8271)", () => {
       expect(status).toHaveTextContent(PURCHASE_UNCONFIRMED_MESSAGE);
       expect(status).not.toHaveTextContent(/try again\.$/i);
       press();
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout"),
+        ).toHaveLength(2),
+      );
+      expect(
+        await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+      ).toBeInTheDocument();
+      press();
       expect(
         await within(books).findByText(/Pay the open invoice first/),
       ).toBeInTheDocument();
@@ -391,7 +411,7 @@ describe("AddonCardDeck (RA-8271)", () => {
       await waitFor(() =>
         expect(
           fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout"),
-        ).toHaveLength(3),
+        ).toHaveLength(4),
       );
       const keys = fetchMock.mock.calls
         .filter(([u]) => u === "/api/addons/checkout")
@@ -402,7 +422,8 @@ describe("AddonCardDeck (RA-8271)", () => {
             ],
         );
       expect(keys[1]).toBe(keys[0]); // the unknown outcome was not an answer
-      expect(keys[2]).not.toBe(keys[1]); // the 402 was
+      expect(keys[2]).toBe(keys[0]); // nor was the fresh 429
+      expect(keys[3]).not.toBe(keys[2]); // the stored 402 was
       // The catalog was re-read after the unknown outcome.
       expect(
         fetchMock.mock.calls.filter(([u]) => u === "/api/addons/catalog")
@@ -410,6 +431,90 @@ describe("AddonCardDeck (RA-8271)", () => {
       ).toBeGreaterThanOrEqual(2);
     },
   );
+
+  // Review round 4: after an unknown outcome, a refusal from a check the route
+  // runs before it looks up the key (rate limit, owner check) says nothing
+  // about the earlier press. Only the server's stored reply settles the key.
+  it("review r4: after an unknown outcome, fresh refusals keep the key; the stored reply releases it", async () => {
+    const replayed = new Headers({ "Idempotent-Replayed": "true" });
+    const checkoutReplies: Array<Record<string, unknown> | Error> = [
+      new TypeError("Failed to fetch"),
+      {
+        ok: false,
+        status: 429,
+        json: async () => ({
+          error: "Too many requests. Please try again later.",
+        }),
+      },
+      {
+        ok: false,
+        status: 403,
+        json: async () => ({
+          error: {
+            code: "FORBIDDEN",
+            message: "Billing is managed by your business owner.",
+          },
+        }),
+      },
+      {
+        ok: false,
+        status: 402,
+        headers: replayed,
+        json: async () => ({
+          error: { code: "UNPAID", message: "Pay the open invoice first." },
+        }),
+      },
+      {
+        ok: true,
+        status: 200,
+        json: async () => ({ url: "https://checkout.example/s" }),
+      },
+    ];
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/addons/catalog") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => catalog,
+        });
+      }
+      const next = checkoutReplies.shift();
+      return next instanceof Error
+        ? Promise.reject(next)
+        : Promise.resolve(next);
+    });
+    vi.stubGlobal("fetch", fetchMock as never);
+
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    const press = () =>
+      fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    const checkoutCalls = () =>
+      fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout");
+
+    for (let n = 1; n <= 3; n += 1) {
+      press();
+      await waitFor(() => expect(checkoutCalls()).toHaveLength(n));
+      expect(
+        await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+      ).toBeInTheDocument();
+    }
+    press();
+    expect(
+      await within(books).findByText(/Pay the open invoice first/),
+    ).toBeInTheDocument();
+    press();
+    await waitFor(() => expect(checkoutCalls()).toHaveLength(5));
+    const keys = checkoutCalls().map(
+      ([, init]) =>
+        (init as { headers: Record<string, string> }).headers[
+          "Idempotency-Key"
+        ],
+    );
+    // Lost reply, 429 and owner-check 403 all kept the key; the stored 402 settled it.
+    expect(new Set(keys.slice(0, 4)).size).toBe(1);
+    expect(keys[4]).not.toBe(keys[0]);
+  });
 
   it("review r2: isFinalCheckoutAnswer releases the key only for a readable reply that names an outcome", () => {
     const final = (status: number, body: unknown) =>
@@ -448,6 +553,42 @@ describe("AddonCardDeck (RA-8271)", () => {
       false,
     );
     expect(final(409, { error: null })).toBe(false);
+    // Round 4: once a key is unresolved, only a success or the stored reply settles it.
+    const settles = (status: number, body: unknown, replayed: boolean) =>
+      isFinalCheckoutAnswer(status, body, parseCheckoutReply(status, body), {
+        unresolved: true,
+        replayed,
+      });
+    expect(
+      settles(
+        429,
+        { error: "Too many requests. Please try again later." },
+        false,
+      ),
+    ).toBe(false);
+    expect(
+      settles(403, { error: { code: "FORBIDDEN", message: "x" } }, false),
+    ).toBe(false);
+    expect(
+      settles(
+        401,
+        { error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
+        false,
+      ),
+    ).toBe(false);
+    expect(settles(402, { error: { message: "Pay first." } }, true)).toBe(true);
+    expect(
+      settles(409, { error: { code: "CONFLICT", message: "free" } }, true),
+    ).toBe(true);
+    expect(settles(200, { url: "https://checkout.example/s" }, false)).toBe(
+      true,
+    );
+    expect(settles(500, { error: { message: "boom" } }, true)).toBe(false);
+    expect(settles(409, { error: "already in progress" }, true)).toBe(false);
+    // A first press (nothing unresolved) is settled by a fresh refusal.
+    expect(
+      final(429, { error: "Too many requests. Please try again later." }),
+    ).toBe(true);
     expect(final(500, { error: { message: "boom" } })).toBe(false);
     expect(final(502, null)).toBe(false);
     expect(final(403, null)).toBe(false);

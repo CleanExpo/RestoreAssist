@@ -129,18 +129,37 @@ function isRouteConflict(body: unknown): boolean {
   );
 }
 
+/**
+ * Review round 4: some refusals come from checks the route runs BEFORE it
+ * looks up the Idempotency-Key (iOS block, sign-in, owner check, rate limit).
+ * They refuse this press only and say nothing about an earlier press with the
+ * same key. So once a key has an unknown outcome (`unresolved`), a refusal
+ * settles it only when it is the server's stored reply for that key, which
+ * the idempotency layer marks with `Idempotent-Replayed: true` (`replayed`).
+ * Keeping a key is always safe: the server either replays the stored outcome
+ * or, if nothing was stored, runs the request once.
+ */
 export function isFinalCheckoutAnswer(
   status: number,
   body: unknown,
   reply: CheckoutReply,
+  context: { unresolved: boolean; replayed: boolean } = {
+    unresolved: false,
+    replayed: false,
+  },
 ): boolean {
   if (body === null || typeof body !== "object") return false;
   if (status >= 500) return false;
-  if (status === 409)
-    return reply.kind === "portalRequired" || isRouteConflict(body);
   if (status >= 200 && status < 300) {
     return reply.kind === "redirect" || reply.kind === "updated";
   }
+  if (
+    status === 409 &&
+    !(reply.kind === "portalRequired" || isRouteConflict(body))
+  ) {
+    return false;
+  }
+  if (context.unresolved && !context.replayed) return false;
   return true;
 }
 
@@ -183,7 +202,11 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
   // One Idempotency-Key per pack, kept until the server gives a definite
   // answer. A retry after a dropped connection reuses it, so the server
   // replays the first result rather than starting a second purchase.
-  const pendingKeys = useRef<Record<string, string>>({});
+  // One Idempotency-Key per pack until a final answer. `unresolved` is set
+  // once a press with this key ended with an unknown outcome.
+  const pendingKeys = useRef<
+    Record<string, { key: string; unresolved: boolean }>
+  >({});
   const mounted = useRef(true);
 
   const loadCatalog = useCallback(async (): Promise<void> => {
@@ -221,22 +244,30 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
       delete next[sku];
       return next;
     });
-    const pending = pendingKeys.current[sku] ?? crypto.randomUUID();
+    const pending = pendingKeys.current[sku] ?? {
+      key: crypto.randomUUID(),
+      unresolved: false,
+    };
     pendingKeys.current[sku] = pending;
     try {
       const res = await fetch("/api/addons/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Idempotency-Key": pending,
+          "Idempotency-Key": pending.key,
         },
         body: JSON.stringify({ addonKey: sku }),
       });
       const json: unknown = await res.json().catch(() => null);
       const reply = parseCheckoutReply(res.status, json);
-      if (!isFinalCheckoutAnswer(res.status, json, reply)) {
+      const final = isFinalCheckoutAnswer(res.status, json, reply, {
+        unresolved: pending.unresolved,
+        replayed: res.headers?.get?.("Idempotent-Replayed") === "true",
+      });
+      if (!final) {
         // Unknown outcome: keep the key, say so, and re-read the catalog so a
         // pack that did go through shows as Active.
+        pending.unresolved = true;
         setNotice(sku, { text: PURCHASE_UNCONFIRMED_MESSAGE });
         loadCatalog().catch(() => {});
         setBuying(null);
@@ -280,6 +311,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
       // The request may have reached the server before the connection
       // dropped. Keep the key, say the result is unknown, and re-read the
       // catalog so a pack that did go through shows as Active.
+      pending.unresolved = true;
       setNotice(sku, { text: PURCHASE_UNCONFIRMED_MESSAGE });
       loadCatalog().catch(() => {});
     }
