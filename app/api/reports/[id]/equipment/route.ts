@@ -85,7 +85,7 @@ export async function POST(
       if (priced.total === null) {
         return apiError(request, {
           code: "VALIDATION",
-          message: priced.unset.map((u) => u.note).join(" "),
+          message: priced.problems.join(" "),
           status: 422,
         });
       }

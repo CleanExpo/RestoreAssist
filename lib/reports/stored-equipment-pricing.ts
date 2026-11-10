@@ -42,11 +42,47 @@ export interface PricedEquipment {
   total: number | null;
   /** Every unset rate, one entry per field. */
   unset: UnsetRate[];
+  /**
+   * Every reason a line could not be priced (unset rates and malformed lines),
+   * once each. Empty exactly when `total` is not null.
+   */
+  problems: string[];
 }
 
-function finiteOr(value: unknown, fallback: number): number {
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : fallback;
+/**
+ * RA-8281 B1 review round 10: a stored line that cannot be read (no equipment
+ * type, or a quantity that is not a non-negative number) is never dropped and
+ * never priced at $0. It stays in the list as a blocked line with this note.
+ */
+export const MALFORMED_LINE_NOTE =
+  "An equipment line has no equipment type or no valid quantity, so it cannot be priced. Fix the line before the total can be given.";
+
+/** A quantity read from a stored line: a finite number >= 0, else null. */
+function readQuantity(value: unknown): number | null {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function malformedLine(raw: unknown, durationDays: number): PricedEquipmentLine {
+  const groupId =
+    raw && typeof (raw as { groupId?: unknown }).groupId === "string"
+      ? (raw as { groupId: string }).groupId
+      : "";
+  return {
+    groupId,
+    name: groupId || "Unknown equipment",
+    quantity: 0,
+    durationDays,
+    dailyRate: null,
+    dailyTotal: null,
+    total: null,
+    note: MALFORMED_LINE_NOTE,
+  };
 }
 
 /**
@@ -59,16 +95,28 @@ export function priceStoredEquipment(
   pricingConfig: unknown,
   durationDays: number,
 ): PricedEquipment {
-  const list = Array.isArray(selections) ? selections : [];
+  // No list at all is no equipment. Anything else that is not a list is one
+  // line that cannot be read: blocked, never silently empty.
+  const list =
+    selections === null || selections === undefined
+      ? []
+      : Array.isArray(selections)
+        ? selections
+        : [selections];
   const unset = new Map<string, UnsetRate>();
-  const lines = list
-    .filter(
-      (sel): sel is { groupId: string; quantity?: unknown } =>
-        !!sel && typeof sel.groupId === "string",
-    )
-    .map((sel): PricedEquipmentLine => {
-      const group = getEquipmentGroupById(sel.groupId);
-      const quantity = finiteOr(sel.quantity, 0);
+  const lines = list.map((raw: unknown): PricedEquipmentLine => {
+      const sel = raw as { groupId?: unknown; quantity?: unknown } | null;
+      const quantity = sel ? readQuantity(sel.quantity) : null;
+      if (
+        !sel ||
+        typeof sel.groupId !== "string" ||
+        sel.groupId === "" ||
+        quantity === null
+      ) {
+        return malformedLine(raw, durationDays);
+      }
+      const groupId = sel.groupId;
+      const group = getEquipmentGroupById(groupId);
       let dailyRate: number | null;
       let note: string | null = null;
       try {
@@ -83,8 +131,8 @@ export function priceStoredEquipment(
         for (const u of err.unset) unset.set(u.field, u);
       }
       return {
-        groupId: sel.groupId,
-        name: group?.name ?? sel.groupId,
+        groupId,
+        name: group?.name ?? groupId,
         quantity,
         durationDays,
         dailyRate,
@@ -103,6 +151,9 @@ export function priceStoredEquipment(
       ? null
       : lines.reduce((sum, l) => sum + (l.total as number), 0),
     unset: [...unset.values()],
+    problems: [
+      ...new Set(lines.flatMap((l) => (l.note === null ? [] : [l.note]))),
+    ],
   };
 }
 

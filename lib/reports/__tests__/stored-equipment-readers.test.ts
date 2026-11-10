@@ -81,6 +81,49 @@ describe("structured report (generate-inspection-report basic/enhanced)", () => 
   );
 });
 
+describe("structured report with inspection cost estimates (review round 10)", () => {
+  const withEstimate = (pricingConfig: unknown, selections: unknown[] = [...CACHED_STALE]) =>
+    buildStructuredBasicReport({
+      report: { id: "abcdef1234567890", estimatedDryingDuration: DAYS },
+      analysis: null,
+      stateInfo: null,
+      equipmentSelection: selections,
+      pricingConfig,
+      inspectionData: {
+        costEstimates: [{ description: "Other", quantity: 1, rate: 100, total: 100 }],
+      },
+    } as Parameters<typeof buildStructuredBasicReport>[0]);
+
+  it("an unset equipment rate blocks the summary total even when estimates exist", () => {
+    const r = withEstimate(CLEARED);
+    expect(r.equipment[0].dailyRate).toBeNull();
+    expect(r.summary.totalCost).toBeNull();
+  });
+
+  it("a malformed stored line is kept as a blocked line, never dropped", () => {
+    const r = withEstimate(SET, [{ quantity: 1, dailyRate: 61 }]);
+    expect(r.equipment).toHaveLength(1);
+    expect(r.equipment[0].totalCost).toBeNull();
+    expect(r.equipment[0].rateNote).toMatch(/cannot be priced/);
+    expect(r.summary.totalCost).toBeNull();
+  });
+
+  it("a stored value that is not a list is read as one line, never dropped", () => {
+    const one = withEstimate(SET, { groupId: "lgr-85", quantity: 1 } as never);
+    expect(one.equipment).toHaveLength(1);
+    expect(one.equipment[0].totalCost).toBe(70 * DAYS);
+    const junk = withEstimate(SET, "lgr-85" as never);
+    expect(junk.equipment).toHaveLength(1);
+    expect(junk.summary.totalCost).toBeNull();
+  });
+
+  it("control: with every equipment rate set, the summary is the estimates' total as before", () => {
+    const r = withEstimate(SET);
+    expect(r.equipment[0].dailyRate).toBe(70);
+    expect(r.summary.totalCost).toBe(100);
+  });
+});
+
 // ---------------------------------------------------------------- AI prompt
 
 function prompt(reportType: string, selections: unknown[], pricingConfig: unknown) {

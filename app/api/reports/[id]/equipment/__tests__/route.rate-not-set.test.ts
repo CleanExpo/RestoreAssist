@@ -92,6 +92,22 @@ describe("POST /api/reports/[id]/equipment prices on the server", () => {
     },
   );
 
+  // RA-8281 B1 review round 10: a line that cannot be read is never dropped
+  // and saved as an empty list with a $0 total.
+  it.each([
+    { label: "no equipment type", sel: { quantity: 1, dailyRate: 61 } },
+    { label: "empty equipment type", sel: { groupId: "", quantity: 1 } },
+    { label: "non-numeric quantity", sel: { groupId: "lgr-85", quantity: "abc" } },
+    { label: "negative quantity", sel: { groupId: "lgr-85", quantity: -1 } },
+    { label: "not an object", sel: "lgr-85" },
+  ])("a malformed line ($label) refuses the save with 422, nothing stored", async ({ sel }) => {
+    priceListNow(70);
+    const res = await save({ equipmentSelection: [sel], equipmentCostTotal: 0, estimatedDryingDuration: DAYS });
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(await res.json())).toMatch(/cannot be priced/);
+    expect(reportUpdate).not.toHaveBeenCalled();
+  });
+
   it("control: stores the server's own rate and total, not the client's cached 61 / 244", async () => {
     priceListNow(70);
     const res = await save(body(61, 244));

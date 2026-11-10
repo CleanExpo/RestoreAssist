@@ -583,13 +583,14 @@ export function buildStructuredBasicReport(data: {
     pricingConfig,
     Number(report.estimatedDryingDuration) || 1,
   );
-  // Set when an equipment line's rate is not set: the summary total is then
-  // blocked (null), never a sum that silently leaves the line out.
-  let equipmentTotalBlocked = false;
+  // An equipment line that cannot be priced blocks the summary total (null),
+  // whether or not inspection cost estimates exist (RA-8281 B1 review round
+  // 10): a sum that silently leaves the line out is never shown as complete.
+  const equipmentTotalBlocked =
+    pricedEquipment.lines.length > 0 && pricedEquipment.total === null;
 
   // If no cost estimates but we have equipment costs, create cost estimates from equipment
   if (costEstimates.length === 0 && pricedEquipment.lines.length > 0) {
-    equipmentTotalBlocked = pricedEquipment.total === null;
     pricedEquipment.lines.forEach((line) => {
       if (line.total === null || line.total > 0) {
         costEstimates.push({
