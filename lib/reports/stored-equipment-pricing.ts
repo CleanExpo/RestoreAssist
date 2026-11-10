@@ -100,18 +100,22 @@ export const AMOUNT_TOO_LARGE_NOTE =
   "Equipment cannot be priced: the quantity or the number of days is too large to price exactly, or the number of days is not a positive number.";
 
 /**
- * A money figure in whole cents, or null when it is not a price: negative, or
- * too large for its cents to be an exact whole number (Infinity and NaN fail
- * both comparisons). A part cent is rounded half up ONCE, here, so the figure
- * that is stored, summed and shown is the same number. toPrecision(15) first
- * removes binary noise (35.005 * 100 is 3500.4999999999995 in floating point).
+ * A money figure in whole cents, or null when it is negative or not a number
+ * (NaN fails the comparison). A part cent is rounded half up ONCE, here, so
+ * the figure that is stored, summed and shown is the same number.
+ * toPrecision(15) first removes binary noise (1.005 * 100 is
+ * 100.49999999999999 in floating point). A figure too large for exact cents,
+ * Infinity included, is refused by fromCents.
  */
 function toCents(value: number): number | null {
-  if (!(value >= 0 && value * 100 <= Number.MAX_SAFE_INTEGER)) return null;
+  if (!(value >= 0)) return null;
   return Math.round(Number((value * 100).toPrecision(15)));
 }
 
-/** Whole cents back to dollars; null stays null (blocked). */
+/**
+ * Whole cents back to dollars; null stays null (blocked), and so does a count
+ * of cents too large to be an exact whole number.
+ */
 function fromCents(cents: number | null): number | null {
   return cents === null || cents > Number.MAX_SAFE_INTEGER ? null : cents / 100;
 }

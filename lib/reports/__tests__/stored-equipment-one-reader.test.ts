@@ -482,6 +482,8 @@ describe("the one reader: every amount is a whole number of cents", () => {
   it.each([
     ["half a day at $70.01", 70.01, 1, 0.5, 35.01],
     ["a rate with a part cent", 70.015, 1, 1, 70.02],
+    // 1.005 * 100 is 100.49999999999999 in floating point; half up is still $1.01.
+    ["a part cent that binary arithmetic lands just under the half", 1.005, 1, 1, 1.01],
     ["a rate with a part cent over three units", 33.335, 3, 1, 100.01],
     ["control: whole cents are unchanged", 70.01, 3, 4, 840.12],
     ["control: whole dollars are unchanged", 70, 2, 4, 560],
