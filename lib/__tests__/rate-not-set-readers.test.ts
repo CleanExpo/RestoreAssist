@@ -880,8 +880,19 @@ describe("no price list loaded never prices equipment at $0 (RA-8281 B1 review)"
     expect(getEquipmentDailyRateOrNull("lgr-85", undefined)).toBeNull();
   });
 
-  it("control: a cached rate with no price list is still used", async () => {
+  // Round 8: a cached rate, including a 0 the screen stored while the price
+  // list was missing, never stands in for a price list that is not loaded.
+  it("a cached rate (61 or 0) with no price list is unset, not used", async () => {
+    const { selectionDailyRate, calculateTotalDailyCost } = await import("@/lib/equipment-matrix");
+    expect(() => selectionDailyRate({ groupId: "lgr-85", dailyRate: 61 })).toThrow(RateNotSetError);
+    expect(() => selectionDailyRate({ groupId: "lgr-85", dailyRate: 0 }, null)).toThrow(RateNotSetError);
+    expect(() =>
+      calculateTotalDailyCost([{ groupId: "lgr-85", quantity: 2, dailyRate: 0 }], undefined),
+    ).toThrow(RateNotSetError);
+  });
+
+  it("control: a group with no price-list field still uses its cached rate", async () => {
     const { selectionDailyRate } = await import("@/lib/equipment-matrix");
-    expect(selectionDailyRate({ groupId: "lgr-85", dailyRate: 61 })).toBe(61);
+    expect(selectionDailyRate({ groupId: "no-such-group", dailyRate: 61 })).toBe(61);
   });
 });

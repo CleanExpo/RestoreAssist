@@ -426,13 +426,18 @@ export function getEquipmentDailyRate(
  * contractor's current rate is the only rate. A rate cached on the selection
  * when it was made is ignored, so a rate cleared later blocks the total
  * (RateNotSetError) instead of reusing the old figure. The cached rate is
- * used only when there is no price-list field to read.
+ * used only when there is no price-list field to read; with no price list
+ * loaded, a group that has a field is unset (RA-8281 B1 review round 8).
  */
 export function selectionDailyRate(
   selection: Pick<EquipmentSelection, "groupId" | "dailyRate">,
   pricingConfig?: any,
 ): number {
-  if (pricingConfig && getEquipmentPricingField(selection.groupId)) {
+  // RA-8281 B1 review round 8: a group with a price-list field is priced only
+  // from a loaded price list. With none (still loading, or the fetch failed)
+  // the current rate is unknown, so it throws RateNotSetError — a rate cached
+  // on the selection, including a 0 the screen once stored, is never used.
+  if (getEquipmentPricingField(selection.groupId)) {
     return getEquipmentDailyRate(selection.groupId, pricingConfig);
   }
   return typeof selection.dailyRate === "number"
