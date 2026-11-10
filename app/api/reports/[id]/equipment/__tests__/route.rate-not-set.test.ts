@@ -30,7 +30,7 @@ vi.mock("@/lib/pricing/report-pricing", () => ({
 }));
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 
-import { POST } from "../route";
+import { GET, POST } from "../route";
 
 const DAYS = 4;
 
@@ -166,5 +166,113 @@ describe("POST /api/reports/[id]/equipment prices on the server", () => {
     expect(data.equipmentSelection).toBe("[]");
     expect(data.equipmentCostTotal).toBeNull();
     expect(resolveReportPricing).not.toHaveBeenCalled();
+  });
+});
+
+// RA-8281 B1 round 13 (review round 12, P1 2): the screen reloads from GET.
+// It answers with the stored lines priced NOW; the rate cached on the stored
+// line and the cached report.equipmentCostTotal are never returned.
+describe("GET /api/reports/[id]/equipment prices the stored lines now", () => {
+  function load() {
+    return GET(
+      new NextRequest("http://localhost/api/reports/report-1/equipment"),
+      { params: Promise.resolve({ id: "report-1" }) },
+    );
+  }
+  function stored(equipmentSelection: string | null, equipmentCostTotal: number | null) {
+    reportFindUnique.mockResolvedValue({
+      id: "report-1",
+      userId: "owner-a",
+      createdAt: new Date("2026-10-01T00:00:00Z"),
+      psychrometricAssessment: null,
+      scopeAreas: null,
+      equipmentSelection,
+      equipmentCostTotal,
+      estimatedDryingDuration: DAYS,
+    });
+  }
+  const STALE = JSON.stringify([{ groupId: "lgr-85", quantity: 1, dailyRate: 61 }]);
+
+  it("stale stored 61 / 244 with the price-list rate cleared: rate not set, no 61, no 244", async () => {
+    stored(STALE, 244);
+    priceListNow(null);
+    const res = await load();
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.equipmentSelection).toHaveLength(1);
+    expect(data.equipmentSelection[0].dailyRate).toBeNull();
+    expect(data.equipmentSelection[0].note).toMatch(/Rate not set/);
+    expect(data.equipmentCostTotal).toBeNull();
+    expect(data.equipmentProblems.join(" ")).toMatch(/Rate not set/);
+    const text = JSON.stringify(data);
+    expect(text).not.toContain("244");
+    expect(text).not.toContain("61");
+  });
+
+  it("control: a set rate returns the current price (70), not the cached 61 / 244", async () => {
+    stored(STALE, 244);
+    priceListNow(70);
+    const data = await (await load()).json();
+    expect(data.equipmentSelection[0]).toMatchObject({
+      groupId: "lgr-85",
+      quantity: 1,
+      usable: true,
+      dailyRate: 70,
+      note: null,
+    });
+    expect(data.equipmentCostTotal).toBe(70 * DAYS);
+    expect(data.equipmentProblems).toEqual([]);
+    const [creatorId, , createdAt] = resolveReportPricing.mock.calls[0];
+    expect(creatorId).toBe("owner-a");
+    expect(createdAt).toEqual(new Date("2026-10-01T00:00:00Z"));
+  });
+
+  it("an unconfirmed business gets no price list: every rate reads not set, never the cached figure", async () => {
+    stored(STALE, 244);
+    resolveReportPricing.mockResolvedValue({ ok: false });
+    const data = await (await load()).json();
+    expect(data.equipmentSelection[0].dailyRate).toBeNull();
+    expect(data.equipmentCostTotal).toBeNull();
+  });
+
+  it.each([
+    { label: "a null entry", column: "[null]" },
+    { label: "a line with no equipment type", column: JSON.stringify([{ quantity: 2, dailyRate: 61 }]) },
+    { label: "text that is not JSON", column: "{not json" },
+  ])("$label is returned as one line that is not usable, with a blocked total (no 500)", async ({ column }) => {
+    stored(column, 244);
+    priceListNow(70);
+    const res = await load();
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.equipmentSelection).toHaveLength(1);
+    expect(data.equipmentSelection[0]).toMatchObject({ usable: false, dailyRate: null });
+    expect(data.equipmentSelection[0].note).toMatch(/cannot be priced/);
+    expect(data.equipmentCostTotal).toBeNull();
+    expect(JSON.stringify(data)).not.toContain("244");
+  });
+
+  it("a usable line beside an unusable one: the usable line is priced, the total stays blocked", async () => {
+    stored(JSON.stringify([null, { groupId: "lgr-85", quantity: 2, dailyRate: 61 }]), 244);
+    priceListNow(70);
+    const data = await (await load()).json();
+    expect(data.equipmentSelection.map((l: { usable: boolean }) => l.usable)).toEqual([false, true]);
+    expect(data.equipmentSelection[1].dailyRate).toBe(70);
+    expect(data.equipmentCostTotal).toBeNull();
+  });
+
+  it("control: nothing stored answers null and reads no price list; a stale cached total is not returned", async () => {
+    stored(null, 244);
+    const data = await (await load()).json();
+    expect(data.equipmentSelection).toBeNull();
+    expect(data.equipmentCostTotal).toBeNull();
+    expect(resolveReportPricing).not.toHaveBeenCalled();
+  });
+
+  it("control: a stored empty list answers [] with no total", async () => {
+    stored("[]", null);
+    const data = await (await load()).json();
+    expect(data.equipmentSelection).toEqual([]);
+    expect(data.equipmentCostTotal).toBeNull();
   });
 });

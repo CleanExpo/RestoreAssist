@@ -64,9 +64,9 @@ const EXCEPTIONS: Record<string, Exception> = {
     reason: "writes PricedEquipmentLine values returned by priceStoredEquipment",
   },
   "components/InitialDataEntryForm.tsx": {
-    receivers: ["line", "sel", "s", "group"],
+    receivers: ["sel", "s"],
     reason:
-      "saved lines arrive through readStoredEquipment (line); sel and s are the editor's own typed in-memory EquipmentSelection state, which carries no rate",
+      "saved lines arrive through editableStoredEquipment; sel and s are the editor's own typed in-memory EquipmentSelection state, which carries no rate",
   },
 
   // ── The editor's own typed in-memory state (not the stored value) ────────
@@ -80,9 +80,9 @@ const EXCEPTIONS: Record<string, Exception> = {
     reason: "power maths over the editor's typed EquipmentSelection state; no money",
   },
   "components/EquipmentToolsSelection.tsx": {
-    receivers: ["line", "sel", "s", "selection"],
+    receivers: ["sel", "s", "selection"],
     reason:
-      "saved lines arrive through readStoredEquipment (line); the rest is editor state typed EquipmentSelection[], priced from the price list through selectionDailyRateOrNull",
+      "saved lines arrive through editableStoredEquipment; the rest is editor state typed EquipmentSelection[], priced from the price list through selectionDailyRateOrNull",
   },
 
   // ── Writers that validate a posted body strictly before pricing it ───────

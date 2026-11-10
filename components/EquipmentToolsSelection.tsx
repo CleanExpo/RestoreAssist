@@ -40,7 +40,7 @@ import {
 } from "@/lib/equipment-matrix";
 import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 import {
-  readStoredEquipment,
+  editableStoredEquipment,
   type StoredEquipmentSelections,
 } from "@/lib/reports/stored-equipment-pricing";
 
@@ -113,9 +113,7 @@ export default function EquipmentToolsSelection({
   >(() =>
     // RA-8281 B1 round 13: saved lines are read through the one reader; a
     // line that cannot be read is not loaded into the editor.
-    readStoredEquipment(initialData?.equipmentSelection)
-      .filter((line) => line.usable)
-      .map((line) => ({ groupId: line.groupId, quantity: line.quantity })),
+    editableStoredEquipment(initialData?.equipmentSelection).selections,
   );
   const [durationDays, setDurationDays] = useState(4);
 

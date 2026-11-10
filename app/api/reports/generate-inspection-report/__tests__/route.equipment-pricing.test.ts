@@ -39,9 +39,10 @@ vi.mock("@/lib/pricing/report-pricing", () => ({
 vi.mock("../provider", () => ({
   resolveReportProvider: (...args: unknown[]) => resolveReportProvider(...args),
 }));
+const callAIProvider = vi.fn();
 vi.mock("@/lib/ai-provider", () => ({
   getLatestAIIntegration: vi.fn().mockResolvedValue(null),
-  callAIProvider: vi.fn(),
+  callAIProvider: (...args: unknown[]) => callAIProvider(...args),
 }));
 vi.mock("@/lib/standards-retrieval", () => ({
   retrieveRelevantStandards: vi.fn().mockRejectedValue(new Error("offline")),
@@ -51,12 +52,17 @@ vi.mock("@/lib/rag/retrieve", () => ({
   retrieveForCitation: vi.fn().mockRejectedValue(new Error("offline")),
 }));
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
+// The AI report path is a paid-plan feature; the plan gate is not under test.
+vi.mock("@/lib/billing/paid-base-plan", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/billing/paid-base-plan")>()),
+  requirePaidBasePlan: vi.fn().mockResolvedValue(null),
+}));
 
 import { POST } from "../route";
 
 const DAYS = 4;
 
-function storedReport(cachedRate: number, asObject = false) {
+function storedReport(cachedRate: number, asObject = false, column?: string) {
   return {
     id: "report-1",
     userId: "owner-a",
@@ -67,11 +73,13 @@ function storedReport(cachedRate: number, asObject = false) {
     tier3Responses: null,
     psychrometricAssessment: null,
     scopeAreas: null,
-    equipmentSelection: JSON.stringify(
-      asObject
-        ? { groupId: "lgr-85", quantity: 1, dailyRate: cachedRate }
-        : [{ groupId: "lgr-85", quantity: 1, dailyRate: cachedRate }],
-    ),
+    equipmentSelection:
+      column ??
+      JSON.stringify(
+        asObject
+          ? { groupId: "lgr-85", quantity: 1, dailyRate: cachedRate }
+          : [{ groupId: "lgr-85", quantity: 1, dailyRate: cachedRate }],
+      ),
     equipmentCostTotal: cachedRate * DAYS,
     estimatedDryingDuration: DAYS,
     propertyPostcode: "4000",
@@ -160,5 +168,74 @@ describe("POST generate-inspection-report: stored equipment is priced from the c
     expect(resolveReportPricing).toHaveBeenCalledTimes(1);
     expect(s.equipment).toHaveLength(1);
     expect(s.equipment[0].dailyRate).toBe(70);
+  });
+});
+
+// RA-8281 B1 round 13 (review round 12, P1 1): a stored list holding an entry
+// that cannot be read (null) used to throw inside the prompt builder's
+// non-money sections, and the route answered 500. Every section now reads the
+// validated lines, so the request succeeds and the line is shown as not usable.
+describe("POST generate-inspection-report: a stored line that cannot be read", () => {
+  async function generate(column: string, reportType: string) {
+    const fixture = makeTwoWorkspaces();
+    getServerSession.mockResolvedValue({ user: { id: "owner-a" } });
+    userFindUnique.mockImplementation(
+      async (args: { where: { id: string }; select: Record<string, unknown> }) => {
+        const row = fixture.userRow(args.where.id);
+        return row
+          ? {
+              ...(project(row, args.select) as object),
+              subscriptionStatus: "TRIAL",
+              trialEndsAt: new Date("2099-01-01"),
+            }
+          : null;
+      },
+    );
+    reportFindUnique.mockResolvedValue(storedReport(61, false, column));
+    resolveReportPricing.mockResolvedValue({
+      ok: true,
+      pricingConfig: { dehumidifierLGRDailyRate: 70 },
+    });
+    callAIProvider.mockReset();
+    callAIProvider.mockResolvedValue("Generated inspection report text.");
+    return POST(
+      new NextRequest("http://localhost/api/reports/generate-inspection-report", {
+        method: "POST",
+        body: JSON.stringify({ reportId: "report-1", reportType }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  }
+
+  it.each(["[null]", JSON.stringify([null, { groupId: "lgr-85", quantity: 2 }])])(
+    "AI report path with stored %s: no 500, the prompt names the line as not usable and gives no total",
+    async (column) => {
+      const res = await generate(column, "detailed");
+      expect(res.status).toBe(200);
+      expect(callAIProvider).toHaveBeenCalledTimes(1);
+      const prompt: string = callAIProvider.mock.calls[0][1].prompt;
+      expect(prompt).toContain("Equipment line not usable");
+      expect(prompt).toContain("Total Daily Equipment Cost: Rate not set");
+      expect(prompt).not.toMatch(/Total Daily Equipment Cost: \$/);
+    },
+  );
+
+  it("structured report path with stored [null]: no 500, the line is blocked and so is the total", async () => {
+    const res = await generate("[null]", "basic");
+    expect(res.status).toBe(200);
+    const s = (await res.json()).report.structuredData;
+    expect(s.equipment).toHaveLength(1);
+    expect(s.equipment[0].dailyRate).toBeNull();
+    expect(s.equipment[0].rateNote).toMatch(/cannot be priced/);
+    expect(s.summary.totalCost).toBeNull();
+  });
+
+  it("control: the same AI path with a readable line prices it from the current price list (70)", async () => {
+    const res = await generate(JSON.stringify([{ groupId: "lgr-85", quantity: 2, dailyRate: 61 }]), "detailed");
+    expect(res.status).toBe(200);
+    const prompt: string = callAIProvider.mock.calls[0][1].prompt;
+    expect(prompt).not.toContain("Equipment line not usable");
+    expect(prompt).toContain("Total Daily Equipment Cost: $140.00");
+    expect(prompt).not.toContain("$61.00");
   });
 });

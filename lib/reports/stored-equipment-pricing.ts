@@ -166,6 +166,26 @@ export function readStoredEquipment(
 }
 
 /**
+ * Saved lines as an equipment editor loads them: the readable lines only,
+ * with no rate (the editor prices from the price list), and how many saved
+ * lines could not be read so the screen can say so.
+ */
+export function editableStoredEquipment(value: StoredEquipmentSelections): {
+  selections: Array<{ groupId: string; quantity: number }>;
+  unusableCount: number;
+  hasLines: boolean;
+} {
+  const lines = readStoredEquipment(value);
+  return {
+    selections: lines
+      .filter((line) => line.usable)
+      .map((line) => ({ groupId: line.groupId, quantity: line.quantity })),
+    unusableCount: lines.filter((line) => !line.usable).length,
+    hasLines: lines.length > 0,
+  };
+}
+
+/**
  * The rate cached on a line. selectionDailyRate uses it only for a group that
  * has no price-list field; a group with one is priced from the price list.
  */

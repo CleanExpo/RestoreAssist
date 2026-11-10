@@ -1,0 +1,362 @@
+/**
+ * RA-8281 B1 round 13: every consumer of a stored equipment selection goes
+ * through lib/reports/stored-equipment-pricing.ts. These tests feed the
+ * consumers the values that broke earlier rounds (a null entry, text that is
+ * not JSON, a rate cleared since the save) and check each one answers with a
+ * named, blocked result. Never a crash, never $0, never the cached figure.
+ */
+import { describe, expect, it } from "vitest";
+import { getGstTreatment } from "@/lib/gst-rules";
+import { RateNotSetError } from "@/lib/pricing/rate-not-set";
+import { buildCostEstimationData } from "@/lib/restoration/cost-estimation-builder";
+import { buildScopeOfWorksData } from "@/lib/restoration/scope-of-works-builder";
+import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
+import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
+import {
+  assertEquipmentPriced,
+  editableStoredEquipment,
+  equipmentAmps,
+  equipmentUnitCount,
+  hasStoredEquipment,
+  MALFORMED_LINE_NOTE,
+  priceStoredEquipment,
+  readEquipmentDeploymentLog,
+  readStoredEquipment,
+  storedEquipmentResponse,
+  UNUSABLE_LINE_LABEL,
+} from "@/lib/reports/stored-equipment-pricing";
+
+const LGR = { dehumidifierLGRDailyRate: 70 };
+const STALE = [{ groupId: "lgr-85", quantity: 2, dailyRate: 61 }];
+
+describe("the one reader: the stored column, parsed or not", () => {
+  it("reads the database column (a JSON string) the same as its parsed value", () => {
+    const fromText = priceStoredEquipment(JSON.stringify(STALE), LGR, 4);
+    const fromValue = priceStoredEquipment(STALE, LGR, 4);
+    expect(fromText).toEqual(fromValue);
+    expect(fromText.total).toBe(70 * 2 * 4);
+  });
+
+  it.each([
+    ["null", null],
+    ["undefined", undefined],
+    ["blank text", "   "],
+    ['the text "null"', "null"],
+    ['the text "[]"', "[]"],
+    ["an empty list", []],
+  ])("%s is no equipment", (_label, value) => {
+    expect(hasStoredEquipment(value)).toBe(false);
+    expect(readStoredEquipment(value)).toEqual([]);
+  });
+
+  it.each([
+    ["text that is not JSON", "{not json"],
+    ["a null entry", [null]],
+    ['the text "[null]"', "[null]"],
+    ["a number", 7],
+    ["a nested list entry", [[{ groupId: "lgr-85", quantity: 1 }]]],
+    ["a line with no quantity", [{ groupId: "lgr-85" }]],
+  ])("%s is one line that is not usable: kept, quantity 0, blocked", (_label, value) => {
+    expect(hasStoredEquipment(value)).toBe(true);
+    const lines = readStoredEquipment(value);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ usable: false, quantity: 0 });
+    const priced = priceStoredEquipment(value, LGR, 4);
+    expect(priced.lines[0]).toMatchObject({
+      usable: false,
+      dailyRate: null,
+      total: null,
+      note: MALFORMED_LINE_NOTE,
+    });
+    expect(priced.total).toBeNull();
+  });
+
+  it("a readable line is usable and carries its name and unit count, no money", () => {
+    expect(readStoredEquipment(STALE)).toEqual([
+      {
+        groupId: "lgr-85",
+        name: expect.any(String),
+        quantity: 2,
+        usable: true,
+      },
+    ]);
+    expect(Object.keys(readStoredEquipment(STALE)[0])).not.toContain("dailyRate");
+  });
+
+  it("unit count and power draw skip a line that is not usable", () => {
+    const lines = readStoredEquipment([null, ...STALE]);
+    expect(equipmentUnitCount(lines)).toBe(2);
+    expect(equipmentAmps(lines)).toBe(equipmentAmps(readStoredEquipment(STALE)));
+    expect(equipmentAmps(lines)).toBeGreaterThan(0);
+  });
+
+  it("an editor loads the readable lines only, with no rate, and is told how many were left out", () => {
+    expect(editableStoredEquipment(JSON.stringify([null, ...STALE, "x"]))).toEqual({
+      selections: [{ groupId: "lgr-85", quantity: 2 }],
+      unusableCount: 2,
+      hasLines: true,
+    });
+    expect(editableStoredEquipment(null)).toEqual({
+      selections: [],
+      unusableCount: 0,
+      hasLines: false,
+    });
+  });
+
+  it("assertEquipmentPriced names an unset rate and an unusable line; passes when priced", () => {
+    expect(() =>
+      assertEquipmentPriced(priceStoredEquipment(STALE, { dehumidifierLGRDailyRate: null }, 4)),
+    ).toThrow(RateNotSetError);
+    expect(() =>
+      assertEquipmentPriced(priceStoredEquipment([null], LGR, 4)),
+    ).toThrow(/cannot be priced/);
+    expect(() =>
+      assertEquipmentPriced(priceStoredEquipment(STALE, LGR, 4)),
+    ).not.toThrow();
+    expect(() => assertEquipmentPriced(priceStoredEquipment(null, LGR, 4))).not.toThrow();
+  });
+});
+
+describe("storedEquipmentResponse: what a GET returns in place of the stored column", () => {
+  it("a cleared rate: null rate with its note, null total, and neither cached figure", () => {
+    const res = storedEquipmentResponse(
+      JSON.stringify(STALE),
+      { dehumidifierLGRDailyRate: null },
+      4,
+    );
+    expect(res.equipmentSelection?.[0].dailyRate).toBeNull();
+    expect(res.equipmentSelection?.[0].note).toMatch(/Rate not set/);
+    expect(res.equipmentCostTotal).toBeNull();
+    expect(JSON.stringify(res)).not.toContain("61");
+  });
+
+  it("control: a set rate gives the current price and total", () => {
+    const res = storedEquipmentResponse(JSON.stringify(STALE), LGR, 4);
+    expect(res.equipmentSelection?.[0].dailyRate).toBe(70);
+    expect(res.equipmentCostTotal).toBe(560);
+    expect(res.equipmentProblems).toEqual([]);
+  });
+
+  it("nothing stored is null; a stored empty list is [] with no total", () => {
+    expect(storedEquipmentResponse(null, LGR, 4).equipmentSelection).toBeNull();
+    const empty = storedEquipmentResponse("[]", LGR, 4);
+    expect(empty.equipmentSelection).toEqual([]);
+    expect(empty.equipmentCostTotal).toBeNull();
+  });
+});
+
+describe("the deployment log (IICRC PDF and insurer portal): no money, never throws", () => {
+  it("a null entry and a non-object entry are rows of blanks", () => {
+    expect(readEquipmentDeploymentLog([null, "x", 3])).toEqual(
+      Array(3).fill({
+        type: null,
+        brandModel: null,
+        serial: null,
+        location: null,
+        date: null,
+      }),
+    );
+  });
+
+  it("reads a list, and an older object holding its list under equipment, items or selected", () => {
+    const row = {
+      type: "LGR dehumidifier",
+      make: "Acme",
+      model: "X1",
+      serial: "S-1",
+      room: "Kitchen",
+      date: "2026-10-01",
+    };
+    const expected = [
+      {
+        type: "LGR dehumidifier",
+        brandModel: "Acme X1",
+        serial: "S-1",
+        location: "Kitchen",
+        date: "2026-10-01",
+      },
+    ];
+    expect(readEquipmentDeploymentLog([row])).toEqual(expected);
+    expect(readEquipmentDeploymentLog(JSON.stringify([row]))).toEqual(expected);
+    for (const key of ["equipment", "items", "selected"]) {
+      expect(readEquipmentDeploymentLog({ [key]: [row] })).toEqual(expected);
+    }
+  });
+
+  it("nothing stored, text that is not JSON, and an object with no list are an empty log", () => {
+    for (const value of [null, undefined, "", "{not json", { dehumidifiers: [{}] }, 5]) {
+      expect(readEquipmentDeploymentLog(value)).toEqual([]);
+    }
+  });
+
+  it("a stored selection never puts its cached rate in the log", () => {
+    expect(JSON.stringify(readEquipmentDeploymentLog(STALE))).not.toContain("61");
+  });
+
+  it("the IICRC PDF renders with a stored null entry instead of throwing", async () => {
+    const bytes = await generateIICRCReportPDF({
+      id: "synthetic-report",
+      equipmentSelection: "[null]",
+      user: { businessName: "Synthetic Restoration" },
+    } as Parameters<typeof generateIICRCReportPDF>[0]);
+    expect(bytes.byteLength).toBeGreaterThan(1024);
+  });
+});
+
+describe("the inspection prompt: every section reads the validated lines", () => {
+  function prompt(equipmentSelection: unknown, pricingConfig: unknown = LGR) {
+    return buildInspectionReportPrompt({
+      report: { estimatedDryingDuration: 4 },
+      analysis: null,
+      stateInfo: null,
+      reportType: "detailed",
+      // The loadout schedule sits inside the psychrometric section.
+      psychrometricAssessment: {
+        waterClass: 2,
+        temperature: 25,
+        humidity: 60,
+        systemType: "closed",
+        dryingPotential: { dryingIndex: 40, status: "FAIR", recommendation: "Add air movement" },
+      },
+      equipmentSelection,
+      pricingConfig,
+    } as Parameters<typeof buildInspectionReportPrompt>[0]);
+  }
+
+  it.each([
+    ["a null entry", [null]],
+    ["the stored text [null]", "[null]"],
+    ["text that is not JSON", "{not json"],
+    ["a null entry beside a readable line", [null, ...STALE]],
+  ])("%s: no throw, the line is named as not usable, no total is stated", (_label, value) => {
+    const text = prompt(value);
+    // The loadout schedule, the deployed list and the power-draw list each
+    // name the line.
+    expect(text).toContain(`- ${UNUSABLE_LINE_LABEL}. `);
+    expect(text).toMatch(new RegExp(`Equipment Deployed: .*${UNUSABLE_LINE_LABEL.replace(/[()]/g, "\\$&")}`));
+    expect(text).toMatch(new RegExp(`Equipment Load: .*${UNUSABLE_LINE_LABEL.replace(/[()]/g, "\\$&")}`));
+    expect(text).toContain("Total Daily Equipment Cost: Rate not set");
+    expect(text).not.toMatch(/Total Daily Equipment Cost: \$/);
+  });
+
+  it("unit count, deployed list and power draw come from the readable lines only", () => {
+    const amps = equipmentAmps(readStoredEquipment(STALE));
+    const text = prompt([null, ...STALE]);
+    expect(text).toContain("2 Total Units");
+    expect(text).toMatch(/Equipment Deployed: .*2x /);
+    expect(text).toContain(`Power Draw Calculation: ${amps.toFixed(1)} Amps total`);
+  });
+
+  it("control: readable lines list no unusable line and state the current total", () => {
+    const text = prompt(STALE);
+    expect(text).not.toContain(UNUSABLE_LINE_LABEL);
+    expect(text).toContain("Total Daily Equipment Cost: $140.00");
+    expect(text).not.toContain("$61.00");
+  });
+
+  it("the basic (visual) prompt also reads the validated lines", () => {
+    const text = buildInspectionReportPrompt({
+      report: { estimatedDryingDuration: 4 },
+      analysis: null,
+      stateInfo: null,
+      reportType: "basic",
+      scopeAreas: [{ name: "Kitchen" }],
+      equipmentSelection: [null, ...STALE],
+      pricingConfig: LGR,
+    } as Parameters<typeof buildInspectionReportPrompt>[0]);
+    expect(text).toContain(`- ${UNUSABLE_LINE_LABEL}`);
+    expect(text).toContain("**2 Drying Units Deployed**");
+    expect(text).toContain("LGR Dehumidifier");
+  });
+});
+
+describe("the priced documents (cost estimation, scope of works)", () => {
+  const PRICING = new Proxy(
+    {},
+    { get: (_t, key) => (key === "dehumidifierLGRDailyRate" ? 70 : 50) },
+  ) as Record<string, number>;
+  const CLEARED = new Proxy(
+    {},
+    { get: (_t, key) => (key === "dehumidifierLGRDailyRate" ? null : 50) },
+  ) as Record<string, number>;
+  const report = {
+    id: "rep_1",
+    reportNumber: "RA-1",
+    claimReferenceNumber: "CLM-1",
+    waterCategory: "2",
+    biologicalMouldDetected: false,
+    biologicalMouldCategory: null,
+    hazardType: "water damage",
+    technicianFieldReport: "Burst flexi hose under the vanity.",
+    estimatedDryingDuration: 4,
+    inspection: null,
+  };
+  const common = {
+    report,
+    analysis: null,
+    tier1: { T1_Q7_hazards: ["None identified"] },
+    tier2: null,
+    tier3: null,
+    stateInfo: null,
+    scopeAreas: [{ length: 8, width: 5, wetPercentage: 100 }],
+  };
+  const cost = (equipmentSelection: unknown, pricingConfig: unknown = PRICING) =>
+    buildCostEstimationData({
+      ...common,
+      pricingConfig,
+      scopeData: { lineItems: [] },
+      equipmentSelection,
+      gstTreatment: getGstTreatment("AU"),
+    }) as any;
+  const scope = (equipmentSelection: unknown, pricingConfig: unknown = PRICING) =>
+    buildScopeOfWorksData({
+      ...common,
+      pricingConfig,
+      equipmentSelection,
+    } as Parameters<typeof buildScopeOfWorksData>[0]) as any;
+
+  describe.each([
+    ["cost estimation", cost],
+    ["scope of works", scope],
+  ])("%s", (_name, build) => {
+    it.each([
+      ["a null entry", [null]],
+      ["the stored text [null]", "[null]"],
+      ["text that is not JSON", "{not json"],
+      ["a line with no equipment type", [{ quantity: 2, dailyRate: 61 }]],
+    ])("%s refuses the document by name (RateNotSetError), not a TypeError", (_label, value) => {
+      expect(() => build(value)).toThrow(RateNotSetError);
+      expect(() => build(value)).toThrow(/cannot be priced/);
+    });
+
+    it("a stale cached 61 with the rate cleared refuses the document; the cached rate is not used", () => {
+      expect(() => build(STALE, CLEARED)).toThrow(RateNotSetError);
+      expect(() => build(STALE, CLEARED)).toThrow(/Rate not set/);
+    });
+
+    it("control: no equipment at all still builds", () => {
+      expect(() => build(null)).not.toThrow();
+      expect(() => build("[]")).not.toThrow();
+    });
+  });
+
+  it("control: cost estimation prices the stored line at the current 70, from the column text too", () => {
+    for (const value of [STALE, JSON.stringify(STALE)]) {
+      const item = cost(value).categories.equipment.lineItems[0];
+      expect(item).toMatchObject({ qty: 2, days: 4, dailyRate: 70, subtotal: 560 });
+      expect(cost(value).categories.equipment.total).toBe(560);
+    }
+  });
+
+  it("control: scope of works prices the stored line at the current 70", () => {
+    const rw3 = scope(STALE).lineItems.find((i: { id: string }) => i.id === "RW_3");
+    expect(rw3.equipment.lgr).toMatchObject({ qty: 2, days: 4, rate: 70 });
+    expect(rw3.subtotal).toBe(4 * 50 + 6 * 50 + 560);
+  });
+
+  it("the air-mover safety gate counts stored air movers from the validated lines", () => {
+    const movers = [{ groupId: "airmover-1500", quantity: 6, dailyRate: 25 }];
+    expect(cost(movers).safety.airMoverQty).toBe(6);
+    expect(scope(movers).safety.airMoverQty).toBe(6);
+  });
+});

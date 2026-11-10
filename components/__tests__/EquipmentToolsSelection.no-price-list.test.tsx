@@ -93,3 +93,35 @@ describe("equipment screen with no price list (RA-8281 B1 review)", () => {
     expect(toastError).not.toHaveBeenCalled();
   });
 });
+
+// RA-8281 B1 round 13: saved lines reach the editor through the one reader.
+// A saved entry that cannot be read is not loaded, so it cannot crash the
+// screen or ride along into the next save.
+describe("equipment screen loading saved lines (RA-8281 B1 round 13)", () => {
+  async function saveLoaded(equipmentSelection: unknown) {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/pricing-config")) {
+        return { ok: true, json: async () => ({ pricingConfig: { dehumidifierLGRDailyRate: 70 } }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    render(<EquipmentToolsSelection reportId="r1" initialData={{ equipmentSelection }} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/pricing-config"));
+    fireEvent.click(screen.getByText("Next: Scope Areas"));
+    fireEvent.click(screen.getByText("Next: Select Equipment"));
+    fireEvent.click(screen.getByText("Save & Complete"));
+    await waitFor(() => expect(equipmentPosts()).toHaveLength(1));
+    return JSON.parse(String((equipmentPosts()[0][1] as RequestInit).body));
+  }
+
+  it.each([
+    ["a null entry beside a readable line", [null, { groupId: "lgr-85", quantity: 2, dailyRate: 61 }]],
+    ["the stored column text", JSON.stringify([null, { groupId: "lgr-85", quantity: 2, dailyRate: 61 }])],
+  ])("%s: the screen renders and saves only the readable line at the price-list rate", async (_label, saved) => {
+    const body = await saveLoaded(saved);
+    expect(body.equipmentSelection).toHaveLength(1);
+    expect(body.equipmentSelection[0]).toMatchObject({ groupId: "lgr-85", quantity: 2 });
+    expect(body.equipmentSelection[0].dailyRate).not.toBe(61);
+    expect(body.equipmentCostTotal).toBe(70 * 2 * body.estimatedDryingDuration);
+  });
+});

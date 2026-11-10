@@ -174,6 +174,16 @@ export const RATE_READERS = [
   "components/RestorationInspectionReportViewer.tsx",
   "components/VisualDashboardReport.tsx",
   "components/VisualCostEstimationViewer.tsx",
+  // RA-8281 B1 round 13: the remaining consumers of a stored selection, now
+  // all behind the one reader.
+  "app/api/reports/[id]/route.ts",
+  "app/api/reports/[id]/pdf/route.ts",
+  "app/api/reports/[id]/generate-forensic-pdf/route.ts",
+  "app/api/reports/initial-entry/route.ts",
+  "app/portal/insurer/[token]/page.tsx",
+  "lib/generate-iicrc-report-pdf.ts",
+  "lib/restoration/reconcile-pricing-safety.ts",
+  "components/InitialDataEntryForm.tsx",
 ];
 
 const RATE_NAMES = new Set<string>([

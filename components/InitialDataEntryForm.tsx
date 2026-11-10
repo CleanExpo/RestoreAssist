@@ -55,7 +55,7 @@ import { useRouter } from "next/navigation";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { readStoredEquipment } from "@/lib/reports/stored-equipment-pricing";
+import { editableStoredEquipment } from "@/lib/reports/stored-equipment-pricing";
 import type { InitialDataEntryFormProps } from "./initial-data-entry/types";
 import { normalizeDate } from "./initial-data-entry/normalize-date";
 import { shouldCreateReport } from "@/lib/reports/should-create-report";
@@ -741,19 +741,12 @@ export default function InitialDataEntryForm({
           // RA-8281 B1 round 13: saved lines are read through the one
           // reader. A line that cannot be read is left out of the editable
           // list and the user is told, so saving again stores a clean list.
-          const savedLines = readStoredEquipment(
+          const saved = editableStoredEquipment(
             equipmentData.equipmentSelection,
           );
-          if (savedLines.length > 0) {
-            setEquipmentSelections(
-              savedLines
-                .filter((line) => line.usable)
-                .map((line) => ({
-                  groupId: line.groupId,
-                  quantity: line.quantity,
-                })),
-            );
-            if (savedLines.some((line) => !line.usable)) {
+          if (saved.hasLines) {
+            setEquipmentSelections(saved.selections);
+            if (saved.unusableCount > 0) {
               toast.error(
                 "A saved equipment line could not be read and was left out. Check the equipment list and save again.",
               );
