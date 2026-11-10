@@ -412,6 +412,36 @@ describe("RA-8275 — the job lines the ticket listed exist", () => {
   });
 });
 
+describe("RA-8275 — a role with no staff adds no labour line", () => {
+  // Review finding (Codex, 8d0f4bb): a job with no supervisor produced a
+  // supervisor line with "quantity needed" and blocked a complete total.
+  function labourJob(technicians: number, supervisors: number) {
+    return generateFireScope({
+      smokeType: "protein",
+      charLevel: 1,
+      affectedAreaM2: 100,
+      pricingConfig: CONTRACTOR_PRICE_LIST,
+      job: { ...LABOUR_JOB, technicians, supervisors },
+    });
+  }
+
+  it("no supervisors: no supervisor line, total completes", () => {
+    const items = labourJob(2, 0);
+    const types = items.map((i) => i.itemType);
+    expect(types).toContain("labour_technician_hours");
+    expect(types).not.toContain("labour_supervisor_hours");
+    expect(priceFireScope(items, AU).status).toBe("complete");
+  });
+
+  it("no technicians: no technician line, total completes", () => {
+    const items = labourJob(0, 1);
+    const types = items.map((i) => i.itemType);
+    expect(types).not.toContain("labour_technician_hours");
+    expect(types).toContain("labour_supervisor_hours");
+    expect(priceFireScope(items, AU).status).toBe("complete");
+  });
+});
+
 describe("RA-8275 — light, medium and heavy protein smoke", () => {
   function protein(severity: "light" | "medium" | "heavy") {
     return generateFireScope({

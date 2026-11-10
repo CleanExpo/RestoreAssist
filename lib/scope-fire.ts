@@ -614,30 +614,36 @@ export function generateFireScope(params: {
   if (labourPriced) {
     const hoursPerHead = labourDays * FIRE_LABOUR_HOURS_PER_DAY;
     const daysNote = `${job.buildingDays ?? 0} building day(s) and ${job.contentsDays ?? 0} contents day(s) at ${FIRE_LABOUR_HOURS_PER_DAY} hours`;
-    specs.push(
-      {
+    const technicians = job.technicians ?? 0;
+    const supervisors = job.supervisors ?? 0;
+    // A role with no staff on the job adds no line: a zero-head line would
+    // read as "quantity needed" and block a complete total.
+    if (technicians > 0) {
+      specs.push({
         itemType: "labour_technician_hours",
         description: "Technician Labour",
-        justification: `${job.technicians ?? 0} technician(s) for ${daysNote}. Cleaning tasks above are carried by these hours.`,
+        justification: `${technicians} technician(s) for ${daysNote}. Cleaning tasks above are carried by these hours.`,
         iicrcReference: S700_CLEANING,
         unit: "hr",
         group: "labour",
-        quantity: (job.technicians ?? 0) * hoursPerHead,
+        quantity: technicians * hoursPerHead,
         source: { field: "qualifiedTechnicianNormalHours" },
         labourTask: false,
-      },
-      {
+      });
+    }
+    if (supervisors > 0) {
+      specs.push({
         itemType: "labour_supervisor_hours",
         description: "Supervisor Labour",
-        justification: `${job.supervisors ?? 0} supervisor(s) for ${daysNote}.`,
+        justification: `${supervisors} supervisor(s) for ${daysNote}.`,
         iicrcReference: S700_CLEANING,
         unit: "hr",
         group: "labour",
-        quantity: (job.supervisors ?? 0) * hoursPerHead,
+        quantity: supervisors * hoursPerHead,
         source: { field: "masterQualifiedNormalHours" },
         labourTask: false,
-      },
-    );
+      });
+    }
   }
   // Without crew and days the job is area-priced: each cleaning line's own
   // price-list rate carries its labour, so no separate labour line is added.
