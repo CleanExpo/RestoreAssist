@@ -415,12 +415,10 @@ export function getEquipmentDailyRate(
     return requireRate(pricingConfig, pricingField);
   }
 
-  // No fallback - pricing config is required
-  // Return 0 if pricing config is not available (should not happen in production)
-  console.warn(
-    `[Pricing Config] No rate found for equipment group: ${groupId} (field: ${pricingField}). Please configure pricing.`,
-  );
-  return 0;
+  // RA-8281 B1 review: no price list (still loading, or the fetch failed) or no
+  // price-list field for this group means the rate is unset. It throws
+  // RateNotSetError like any other unset rate; it is never priced at $0.
+  return requireRate(pricingConfig ?? null, pricingField ?? groupId);
 }
 
 /**

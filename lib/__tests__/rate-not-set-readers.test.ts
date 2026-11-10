@@ -853,3 +853,35 @@ describe("a cached equipment rate never bypasses the current price list (RA-8281
     ).toThrow(RateNotSetError);
   });
 });
+
+// RA-8281 B1 review (CodeRabbit on #2533): with no price list loaded (still
+// loading, or the fetch failed) and no cached rate, the equipment rate fell
+// through to `return 0` after a console.warn, so the screen showed $0.00 and
+// a save could send equipmentCostTotal 0. No price list means the rate is unset.
+describe("no price list loaded never prices equipment at $0 (RA-8281 B1 review)", () => {
+  it("getEquipmentDailyRate with no price list throws RateNotSetError", () => {
+    expect(() => getEquipmentDailyRate("lgr-85", undefined)).toThrow(RateNotSetError);
+    expect(() => getEquipmentDailyRate("lgr-85", null)).toThrow(RateNotSetError);
+  });
+
+  it("an unknown group with a price list is unset, not $0", () => {
+    expect(() =>
+      getEquipmentDailyRate("no-such-group", { dehumidifierLGRDailyRate: 61 }),
+    ).toThrow(RateNotSetError);
+  });
+
+  it("a selection with no price list and no cached rate is unset; the screen reads null", async () => {
+    const { selectionDailyRate, selectionDailyRateOrNull, getEquipmentDailyRateOrNull } =
+      await import("@/lib/equipment-matrix");
+    expect(() => selectionDailyRate({ groupId: "lgr-85", dailyRate: undefined })).toThrow(
+      RateNotSetError,
+    );
+    expect(selectionDailyRateOrNull({ groupId: "lgr-85", dailyRate: undefined })).toBeNull();
+    expect(getEquipmentDailyRateOrNull("lgr-85", undefined)).toBeNull();
+  });
+
+  it("control: a cached rate with no price list is still used", async () => {
+    const { selectionDailyRate } = await import("@/lib/equipment-matrix");
+    expect(selectionDailyRate({ groupId: "lgr-85", dailyRate: 61 })).toBe(61);
+  });
+});

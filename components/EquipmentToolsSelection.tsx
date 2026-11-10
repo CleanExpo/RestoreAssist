@@ -254,7 +254,7 @@ export default function EquipmentToolsSelection({
         // This ensures we use the correct rate for each capacity group
         const rate = pricingConfig
           ? (getEquipmentDailyRateOrNull(groupId, pricingConfig) ?? undefined)
-          : 0;
+          : undefined; // RA-8281: no price list loaded = rate not set, never $0
         return [
           ...prev,
           {
@@ -284,7 +284,7 @@ export default function EquipmentToolsSelection({
           const rate = pricingConfig
             ? (getEquipmentDailyRateOrNull(group.id, pricingConfig) ??
               undefined)
-            : 0;
+            : undefined; // RA-8281: no price list loaded = rate not set, never $0
           selections.push({
             groupId: group.id,
             quantity: needed,
@@ -306,7 +306,7 @@ export default function EquipmentToolsSelection({
       const rate = pricingConfig
         ? (getEquipmentDailyRateOrNull(preferredAirMover, pricingConfig) ??
           undefined)
-        : 0;
+        : undefined; // RA-8281: no price list loaded = rate not set, never $0
       selections.push({
         groupId: preferredAirMover,
         quantity: airMoversRequired,
