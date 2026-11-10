@@ -15,6 +15,8 @@
  * the narrative in the S500/S520/S540/S700/RIA RAG at generation time.
  */
 import type { HazardProfile } from "@/lib/restoration/ppe-requirements";
+import { standardCite } from "@/lib/nir-standards-mapping";
+import { whsTechLabel } from "@/lib/claim-intelligence/whs-sources";
 
 export type RecCategory =
   | "habitability"
@@ -49,10 +51,28 @@ export interface ClaimHazardInputs extends HazardProfile {
   timberFloorCupping?: boolean;
   /** Property was unoccupied at loss (elevates security + secondary damage). */
   unoccupiedAtLoss?: boolean;
+  /**
+   * RA-8276: water is present even though category and class are not yet
+   * known (e.g. a water claim before the tech has classified it). When unset,
+   * water is present only if waterCategory or waterClass is set.
+   */
+  waterPresent?: boolean;
+  /**
+   * RA-8276: the scope includes ceilings, light fittings, fans, high windows
+   * or HVAC heads.
+   */
+  highLevelWork?: boolean;
+  /** RA-8276: number of storeys, when known. */
+  storeys?: number | null;
+  /** RA-8276: ceiling height in metres, when known. */
+  ceilingHeightM?: number | null;
 }
 
 const CAT3 = (h: ClaimHazardInputs) => h.waterCategory === "3";
 const MOULD = (h: ClaimHazardInputs) => (h.mouldCondition ?? 0) >= 2;
+/** RA-8276: water items are only emitted when water is actually present. */
+export const WATER_PRESENT = (h: ClaimHazardInputs): boolean =>
+  h.waterPresent ?? (h.waterCategory != null || h.waterClass != null);
 const CONTAMINATED = (h: ClaimHazardInputs) =>
   CAT3(h) || MOULD(h) || Boolean(h.biohazard) || Boolean(h.chemical);
 
@@ -73,6 +93,7 @@ export function claimRecommendations(
   ) => recs.push({ category, severity, text, clause });
 
   const contaminated = CONTAMINATED(h);
+  const water = WATER_PRESENT(h);
 
   // ── Habitability / occupancy ──────────────────────────────────────────────
   if (contaminated) {
@@ -111,18 +132,23 @@ export function claimRecommendations(
     "Trip hazards: tape down or ramp all power leads/cords (particularly a multi-air-mover run across circulation paths).",
     "WHS / IICRC S500:2021 §8",
   );
-  add(
-    "safety",
-    "required",
-    "Slip/wet-floor signage at every affected threshold; containment + biohazard signage on contaminated zones.",
-    "WHS / IICRC S520:2024 §12",
-  );
-  add(
-    "safety",
-    "advisory",
-    "Working at height (ceiling/cornice moisture): use rated ladders/scaffold with fall controls; do not overreach.",
-    "WHS (working at height) / RIA CR Manual",
-  );
+  if (water) {
+    add(
+      "safety",
+      "required",
+      "Slip/wet-floor signage at every affected threshold; containment + biohazard signage on contaminated zones.",
+      `WHS / IICRC ${standardCite("S520", "12")}`,
+    );
+  } else if (contaminated) {
+    add(
+      "safety",
+      "required",
+      "Containment + biohazard signage on contaminated zones.",
+      `WHS / IICRC ${standardCite("S520", "12")}`,
+    );
+  }
+  const height = workingAtHeight(h);
+  add("safety", height.severity, height.text, whsTechLabel("falls-cop"));
   add(
     "safety",
     "required",
@@ -141,12 +167,21 @@ export function claimRecommendations(
   }
 
   // ── Contents ──────────────────────────────────────────────────────────────
-  add(
-    "contents",
-    "required",
-    "Block-and-elevate salvageable items off wet floors immediately; itemised inventory with photographs; log valuables/irreplaceables separately.",
-    "IICRC S500:2021 §14 (Contents Evaluation, Restoration, and Remediation)",
-  );
+  if (water) {
+    add(
+      "contents",
+      "required",
+      "Block-and-elevate salvageable items off wet floors immediately; itemised inventory with photographs; log valuables/irreplaceables separately.",
+      `IICRC ${standardCite("S500", "14")} (Contents Evaluation, Restoration, and Remediation)`,
+    );
+  } else {
+    add(
+      "contents",
+      "required",
+      "Itemised contents inventory with photographs; log valuables/irreplaceables separately.",
+      nonWaterClause(h),
+    );
+  }
   if (contaminated) {
     add(
       "contents",
@@ -189,12 +224,14 @@ export function claimRecommendations(
   }
 
   // ── Secondary damage ──────────────────────────────────────────────────────
-  add(
-    "secondary_damage",
-    "required",
-    "Prevent secondary damage: protect metal fixtures, fasteners, appliance bases and hardware from rust/corrosion; treat tannin/water-mark bleed on timber, cabinetry and skirting before it sets.",
-    "RIA CR Manual (corrosion / water marks) / IICRC S500:2021 §12",
-  );
+  if (water) {
+    add(
+      "secondary_damage",
+      "required",
+      "Prevent secondary damage: protect metal fixtures, fasteners, appliance bases and hardware from rust/corrosion; treat tannin/water-mark bleed on timber, cabinetry and skirting before it sets.",
+      `RIA CR Manual (corrosion / water marks) / IICRC ${standardCite("S500", "12")}`,
+    );
+  }
   if (MOULD(h) || CAT3(h)) {
     add(
       "secondary_damage",
@@ -243,12 +280,21 @@ export function claimRecommendations(
   }
 
   // ── Documentation & monitoring ────────────────────────────────────────────
-  add(
-    "documentation",
-    "required",
-    "Maintain daily psychrometric and moisture logs, per-stage photographs, and moisture maps; verify drying goals are met before reinstatement.",
-    "IICRC S500:2021 §12.5.7 / §9 (documentation)",
-  );
+  if (water) {
+    add(
+      "documentation",
+      "required",
+      "Maintain daily psychrometric and moisture logs, per-stage photographs, and moisture maps; verify drying goals are met before reinstatement.",
+      `IICRC ${standardCite("S500", "12.5.7")} / §9 (documentation)`,
+    );
+  } else {
+    add(
+      "documentation",
+      "required",
+      "Per-stage photographs (before, during, after) referenced to each room; record every test and reading taken, with its result.",
+      nonWaterClause(h),
+    );
+  }
 
   // Dedupe by category + text.
   const seen = new Set<string>();
@@ -258,6 +304,56 @@ export function claimRecommendations(
     seen.add(k);
     return true;
   });
+}
+
+/**
+ * The standard a non-water contents/documentation item cites: S700 for fire,
+ * S520 for mould, S540 for biohazard, otherwise the general duty of care.
+ */
+function nonWaterClause(h: ClaimHazardInputs): string {
+  if (h.fireSmoke) return `IICRC ${standardCite("S700")}`;
+  if (MOULD(h)) return `IICRC ${standardCite("S520")}`;
+  if (h.biohazard) return `IICRC ${standardCite("S540")}`;
+  return "General duty of care";
+}
+
+/**
+ * RA-8276 defect 2. Working at height is required whenever the scope includes
+ * ceilings, light fittings, fans, high windows or HVAC heads (a fire/smoke
+ * clean always does: residue deposits on ceilings first), or the property has
+ * two or more storeys, or ceilings of 2.4 m or more. The wording names the
+ * actual tasks rather than a water-only "ceiling moisture" case.
+ */
+export function workingAtHeight(h: ClaimHazardInputs): {
+  severity: RecSeverity;
+  text: string;
+} {
+  const tasks: string[] = [];
+  if (h.fireSmoke) {
+    tasks.push(
+      "cleaning smoke residue from ceilings, cornices, light fittings, fans, high windows and HVAC heads",
+    );
+  } else if (h.highLevelWork) {
+    tasks.push(
+      "work on ceilings, light fittings, fans, high windows or HVAC heads",
+    );
+  }
+  if ((h.storeys ?? 0) >= 2) tasks.push("stairwell and upper-floor access");
+  if (h.ceilingHeightM != null && h.ceilingHeightM >= 2.4) {
+    tasks.push(`ceilings at ${h.ceilingHeightM} m`);
+  }
+  const controls =
+    "use a rated platform ladder or scaffold with fall controls and do not overreach.";
+  if (tasks.length > 0) {
+    return {
+      severity: "required",
+      text: `Working at height is required for this job (${tasks.join("; ")}): ${controls}`,
+    };
+  }
+  return {
+    severity: "advisory",
+    text: `Working at height: if any task needs a ladder (for example ceiling moisture checks), ${controls}`,
+  };
 }
 
 /** True when the profile is a "caution" class needing the mandatory items. */

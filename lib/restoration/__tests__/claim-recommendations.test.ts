@@ -90,3 +90,60 @@ describe("severity + citations", () => {
     }
   });
 });
+
+// ── RA-8276 guards ──────────────────────────────────────────────────────────
+
+const WATER_ONLY =
+  /wet.?floor|block-and-elevate|psychrometric|moisture logs|tannin|water.?mark/i;
+
+describe("RA-8276 defect 1: water items only when water is present", () => {
+  it("a dry fire job gets no water-only items", () => {
+    const recs = claimRecommendations({ fireSmoke: true });
+    const leaks = recs.filter((r) => WATER_ONLY.test(r.text));
+    expect(leaks.map((r) => r.text)).toEqual([]);
+  });
+  it("a dry fire job still gets contents and documentation items", () => {
+    const c = cats(claimRecommendations({ fireSmoke: true }));
+    expect(c.has("contents")).toBe(true);
+    expect(c.has("documentation")).toBe(true);
+  });
+  it.each([
+    [{ waterCategory: "2" as const }],
+    [{ waterClass: 2 }],
+    [{ fireSmoke: true, waterCategory: "1" as const }],
+  ])("water present (%o) keeps the water items", (h) => {
+    const txt = claimRecommendations(h)
+      .map((r) => r.text)
+      .join(" ");
+    expect(txt).toMatch(/wet.?floor/i);
+    expect(txt).toMatch(/block-and-elevate/i);
+    expect(txt).toMatch(/psychrometric/i);
+    expect(txt).toMatch(/tannin/i);
+  });
+});
+
+describe("RA-8276 defect 2: working at height is required for high-level scope", () => {
+  const height = (h: Parameters<typeof claimRecommendations>[0]) =>
+    claimRecommendations(h).find((r) => /working at height/i.test(r.text));
+
+  it.each([
+    ["fire/smoke clean (ceilings in scope)", { fireSmoke: true }],
+    ["ceilings, fittings, fans, high windows or HVAC heads", { highLevelWork: true }],
+    ["two storeys", { storeys: 2 }],
+    ["ceiling at 2.4 m", { ceilingHeightM: 2.4 }],
+  ])("required for %s", (_label, h) => {
+    const rec = height(h);
+    expect(rec?.severity).toBe("required");
+    expect(rec?.text).not.toMatch(/ceiling\/cornice moisture/i);
+  });
+
+  it("fire wording names the actual high-level tasks", () => {
+    expect(height({ fireSmoke: true })?.text).toMatch(/light fittings/i);
+  });
+
+  it("a single-storey, low-ceiling water job stays advisory", () => {
+    expect(
+      height({ waterCategory: "1", storeys: 1, ceilingHeightM: 2.3 })?.severity,
+    ).toBe("advisory");
+  });
+});

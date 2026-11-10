@@ -9,6 +9,7 @@
  */
 
 import type { EvidenceClass } from "@/lib/types/evidence";
+import { standardCite } from "@/lib/nir-standards-mapping";
 
 /** Supported job types — maps to InspectionWorkflow.jobType */
 export const JOB_TYPES = [
@@ -233,6 +234,32 @@ const STEP_COMPLETION_VERIFICATION: WorkflowStepDefinition = {
     "AUTHORITY_FORM",
   ],
   optionalEvidenceClasses: ["TECHNICIAN_NOTE"],
+  minimumEvidenceCount: 3,
+  isMandatory: true,
+  riskTier: 2,
+  escalationNote:
+    "Elevated: Completion verification is insurance audit trigger.",
+};
+
+/**
+ * RA-8276: fire/smoke completion. The shared step above requires
+ * MOISTURE_READING, which a dry fire job cannot honestly supply. Fire
+ * completion is proven by clearance (residue and odour) and completion
+ * photos. Where water is also present, the Claim Pathway engine adds the
+ * final moisture readings as a separate item.
+ */
+const STEP_FIRE_COMPLETION_VERIFICATION: WorkflowStepDefinition = {
+  stepKey: "completion_verification",
+  stepTitle: "Completion Verification & Sign-Off",
+  stepDescription:
+    "Repeat the residue test in each treated room and record the odour " +
+    "clearance result against the baseline. Photograph restored areas " +
+    "showing completion standard. Obtain client sign-off on completed works. " +
+    `Per IICRC ${standardCite("S700")}.`,
+  stepDescriptionShort:
+    "Clearance residue + odour results + completion photos + client sign-off.",
+  requiredEvidenceClasses: ["PHOTO_COMPLETION", "AUTHORITY_FORM"],
+  optionalEvidenceClasses: ["TECHNICIAN_NOTE", "LAB_RESULT"],
   minimumEvidenceCount: 3,
   isMandatory: true,
   riskTier: 2,
@@ -469,7 +496,7 @@ const WORKFLOW_FIRE_SMOKE: WorkflowTemplate = {
     STEP_FLOOR_PLAN_SKETCH,
     STEP_EQUIPMENT_DEPLOYMENT,
     STEP_SCOPE_OF_WORKS,
-    STEP_COMPLETION_VERIFICATION,
+    STEP_FIRE_COMPLETION_VERIFICATION,
   ],
   riskEscalationTriggers: [
     "Structural damage detected — engineer referral mandatory",
