@@ -441,6 +441,16 @@ describe("the one reader: a figure that is not an exact amount is blocked, with 
     expect(priced.problems).toEqual([]);
   });
 
+  it("a negative quantity is a line that is not usable for every reader, named as malformed", () => {
+    const stored = [{ groupId: "lgr-85", quantity: -2 }, { groupId: "lgr-85", quantity: 3 }];
+    const lines = readStoredEquipment(stored);
+    expect(lines[0].usable).toBe(false);
+    expect(equipmentUnitCount(lines)).toBe(3);
+    const priced = priceStoredEquipment(stored, LGR, 4);
+    expect(priced.lines[0].note).toBe(MALFORMED_LINE_NOTE);
+    expect(priced.total).toBeNull();
+  });
+
   it("non-money readers never see an overflowing quantity either", () => {
     const lines = readStoredEquipment([{ groupId: "lgr-85", quantity: 1e308 }, { groupId: "lgr-85", quantity: 2 }]);
     expect(lines[0].usable).toBe(false);
