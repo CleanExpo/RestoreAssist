@@ -131,7 +131,14 @@ export function equipmentLineAmount(
   quantity: number,
   durationDays: number,
 ): number | null {
-  return fromCents(toCents(dailyRate * quantity * durationDays));
+  // Whole cents at every step: the rate in cents (the same half-up rule as
+  // billableDailyRate in equipment-matrix.ts), times whole units
+  // (the daily amount, exact), times the days. So rate x units = daily amount
+  // and daily amount x days = job total, to the cent.
+  const rateCents = toCents(dailyRate);
+  if (rateCents === null) return null;
+  const dailyCents = rateCents * quantity;
+  return fromCents(toCents((dailyCents * durationDays) / 100));
 }
 
 /** The sum of two whole-cent amounts, or null when it is not a price. */

@@ -527,6 +527,15 @@ describe("RA-8281 B1 round 13 rule E: equipment money is multiplied only in the 
     expect(hits).toEqual([]);
   });
 
+  it("the initial-entry writer prices and stores the billable rate, not the raw price-list figure", () => {
+    const src = readFileSync(join(ROOT, "app/api/reports/initial-entry/route.ts"), "utf8");
+    // The only variable named dailyRate in the pricing loop is the billable one.
+    expect(src.match(/const dailyRate = /g)).toHaveLength(1);
+    expect(src).toContain("const dailyRate = billableDailyRate(listRate);");
+    expect(src).toContain("equipmentLineAmount(dailyRate, item.quantity, durationDays)");
+    expect(src).toContain("priced.push({ ...item, dailyRate, totalCost });");
+  });
+
   it("every rule E exception is reasoned and still needed", () => {
     for (const [file, reason] of Object.entries(QUANTITY_MONEY_EXCEPTIONS)) {
       expect(reason.length, file).toBeGreaterThan(20);

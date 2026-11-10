@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getGstTreatment } from "@/lib/gst-rules";
+import { billableDailyRate, selectionDailyRate } from "@/lib/equipment-matrix";
 import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 import { buildCostEstimationData } from "@/lib/restoration/cost-estimation-builder";
 import { buildScopeOfWorksData } from "@/lib/restoration/scope-of-works-builder";
@@ -17,6 +18,7 @@ import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import {
   assertEquipmentPriced,
   editableStoredEquipment,
+  equipmentLineAmount,
   equipmentAmps,
   equipmentUnitCount,
   hasStoredEquipment,
@@ -484,14 +486,15 @@ describe("the one reader: every amount is a whole number of cents", () => {
     ["a rate with a part cent", 70.015, 1, 1, 70.02],
     // 1.005 * 100 is 100.49999999999999 in floating point; half up is still $1.01.
     ["a part cent that binary arithmetic lands just under the half", 1.005, 1, 1, 1.01],
-    ["a rate with a part cent over three units", 33.335, 3, 1, 100.01],
+    ["a rate with a part cent over three units", 33.335, 3, 1, 100.02],
     ["control: whole cents are unchanged", 70.01, 3, 4, 840.12],
     ["control: whole dollars are unchanged", 70, 2, 4, 560],
   ])("%s: the line and the total are the same whole-cent figure that is displayed", (_label, rate, quantity, days, expected) => {
     const priced = priceStoredEquipment([{ groupId: "lgr-85", quantity }], { dehumidifierLGRDailyRate: rate }, days);
     expect(priced.lines[0].total).toBe(expected);
     expect(priced.total).toBe(expected);
-    expect(priced.lines[0].dailyRate).toBe(rate); // the contractor's own rate is never altered
+    // The rate a line carries is the billable rate: the price-list rate to the cent.
+    expect(priced.lines[0].dailyRate).toBe(billableDailyRate(rate));
     expect(wholeCents(priced.lines[0].dailyTotal)).toBe(true);
     expect(wholeCents(priced.dailyTotal)).toBe(true);
     expect(moneyOrRateNotSet(priced.total)).toBe(`$${expected.toFixed(2)}`);
@@ -559,5 +562,107 @@ describe("the one reader: the stored text is parsed exactly once", () => {
     expect(src.match(/\bparseStored\(/g)).toHaveLength(3);
     // Everything that prices goes through the one line reader.
     expect(src.match(/\bstoredRawLines\(/g)).toHaveLength(3);
+  });
+});
+
+// Review round 13 (fourth review): with a price-list rate of 33.335, one unit
+// for two days showed $33.34 a day and $66.67 for the job; and a rate of 1.005
+// showed $1.00 a day beside a daily amount of $1.01. Third finding on the same
+// root cause (a figure that is not an exact amount), so the rule now starts at
+// the source: the BILLABLE daily rate is the price-list rate to the whole cent
+// (half up), set once where the rate is read. Every amount is that rate times
+// whole units, times days, so the rate, the daily amount and the job total
+// reconcile wherever they are shown.
+describe("the billable rate: rate, daily amount and job total reconcile to the cent", () => {
+  const cents = (v: number | null) => Math.round((v as number) * 100);
+
+  it.each([
+    [33.335, 33.34],
+    [1.005, 1.01],
+    [70.015, 70.02],
+    [63.636363, 63.64],
+    [70.014, 70.01],
+    [70, 70],
+    [70.01, 70.01],
+    [0, 0],
+  ])("a price-list rate of %s is billed at %s", (rate, billable) => {
+    expect(billableDailyRate(rate)).toBe(billable);
+    expect(selectionDailyRate({ groupId: "lgr-85" }, { dehumidifierLGRDailyRate: rate })).toBe(billable);
+  });
+
+  it("the reviewer's case: 33.335 for one unit over two days is $33.34 a day and $66.68", () => {
+    const priced = priceStoredEquipment([{ groupId: "lgr-85", quantity: 1 }], { dehumidifierLGRDailyRate: 33.335 }, 2);
+    expect(priced.lines[0]).toMatchObject({ dailyRate: 33.34, dailyTotal: 33.34, total: 66.68 });
+    expect(priced.dailyTotal).toBe(33.34);
+    expect(priced.total).toBe(66.68);
+    expect(moneyOrRateNotSet(priced.lines[0].dailyRate)).toBe("$33.34");
+  });
+
+  it("the reviewer's second case: 1.005 shows $1.01 a day as the rate and as the daily amount", () => {
+    const priced = priceStoredEquipment([{ groupId: "lgr-85", quantity: 1 }], { dehumidifierLGRDailyRate: 1.005 }, 1);
+    expect(moneyOrRateNotSet(priced.lines[0].dailyRate)).toBe("$1.01");
+    expect(moneyOrRateNotSet(priced.lines[0].dailyTotal)).toBe("$1.01");
+  });
+
+  it("for every rate, quantity and whole number of days: shown rate x units = daily amount, x days = job total, and totals are the sums", () => {
+    const rates = [33.335, 1.005, 70.015, 63.636363, 0.105, 70, 70.01, 99.995, 12.345];
+    const quantities = [1, 2, 3, 7, 40];
+    const days = [1, 2, 3, 4, 30];
+    for (const rate of rates) {
+      for (const d of days) {
+        const priced = priceStoredEquipment(
+          quantities.map((quantity) => ({ groupId: "lgr-85", quantity })),
+          { dehumidifierLGRDailyRate: rate },
+          d,
+        );
+        for (const line of priced.lines) {
+          const shownRate = Number(moneyOrRateNotSet(line.dailyRate).slice(1));
+          expect(cents(line.dailyTotal), `${rate} x ${line.quantity}`).toBe(cents(shownRate) * line.quantity);
+          expect(cents(line.total), `${rate} x ${line.quantity} x ${d}`).toBe(cents(line.dailyTotal) * d);
+        }
+        expect(cents(priced.dailyTotal)).toBe(priced.lines.reduce((sum, l) => sum + cents(l.dailyTotal), 0));
+        expect(cents(priced.total)).toBe(priced.lines.reduce((sum, l) => sum + cents(l.total), 0));
+        expect(cents(priced.total)).toBe(cents(priced.dailyTotal) * d);
+      }
+    }
+  });
+
+  it("equipmentLineAmount bills a raw price-list rate to the cent before multiplying", () => {
+    // A caller that hands in the unrounded rate still gets $33.34 x 2 = $66.68.
+    expect(equipmentLineAmount(33.335, 1, 2)).toBe(66.68);
+    // 1.005 * 100 is 100.49999999999999 in floating point; half up is $1.01.
+    expect(equipmentLineAmount(1.005, 1, 1)).toBe(1.01);
+    // 201 cents over half a day is 100.5 cents: $1.01, not $1.00.
+    expect(equipmentLineAmount(2.01, 1, 0.5)).toBe(1.01);
+  });
+
+  it("a rate cached on a line with no price-list field is billed to the cent too", () => {
+    expect(selectionDailyRate({ groupId: "zz-no-price-list-field", dailyRate: 33.335 }, {})).toBe(33.34);
+  });
+
+  it("part of a day is the daily amount times the days, to the cent", () => {
+    const priced = priceStoredEquipment([{ groupId: "lgr-85", quantity: 1 }], { dehumidifierLGRDailyRate: 33.335 }, 0.5);
+    expect(priced.lines[0]).toMatchObject({ dailyTotal: 33.34, total: 16.67 });
+  });
+
+  it("the AI prompt prints figures that reconcile", () => {
+    const text = buildInspectionReportPrompt({
+      report: { estimatedDryingDuration: 2 },
+      analysis: null,
+      stateInfo: null,
+      reportType: "detailed",
+      psychrometricAssessment: {
+        waterClass: 2,
+        temperature: 25,
+        humidity: 60,
+        systemType: "closed",
+        dryingPotential: { dryingIndex: 40, status: "FAIR", recommendation: "Add air movement" },
+      },
+      equipmentSelection: [{ groupId: "lgr-85", quantity: 1 }],
+      pricingConfig: { dehumidifierLGRDailyRate: 33.335 },
+    } as Parameters<typeof buildInspectionReportPrompt>[0]);
+    expect(text).toContain("$33.34");
+    expect(text).not.toContain("$66.67");
+    expect(text).not.toContain("33.335");
   });
 });

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addEquipmentAmounts, equipmentLineAmount } from "@/lib/reports/stored-equipment-pricing";
+import { billableDailyRate } from "@/lib/equipment-matrix";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   completeIdempotentSuccessInTransaction,
@@ -379,8 +380,8 @@ export async function POST(request: NextRequest) {
           let total = 0;
           for (const item of items) {
             const field = getEquipmentPricingField(item.groupId) as string;
-            const dailyRate = (pricing as unknown as Record<string, unknown>)[field];
-            if (typeof dailyRate !== "number" || !Number.isFinite(dailyRate) || dailyRate < 0) {
+            const listRate = (pricing as unknown as Record<string, unknown>)[field];
+            if (typeof listRate !== "number" || !Number.isFinite(listRate) || listRate < 0) {
               return apiError(request, {
                 code: "VALIDATION",
                 message: "A selected equipment type has no usable daily rate. An administrator must set it in Pricing settings before this estimate can be saved.",
@@ -390,6 +391,9 @@ export async function POST(request: NextRequest) {
             }
             // RA-8281 B1 round 13: whole cents, made by the one reader's own
             // arithmetic, so what is stored is the figure every reader shows.
+            // The billable rate (the price-list rate to the cent) is the only
+            // rate used or stored from here on.
+            const dailyRate = billableDailyRate(listRate);
             const totalCost = equipmentLineAmount(dailyRate, item.quantity, durationDays);
             const nextTotal = totalCost === null ? null : addEquipmentAmounts(total, totalCost);
             if (totalCost === null || nextTotal === null) {

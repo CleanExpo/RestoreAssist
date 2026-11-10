@@ -344,3 +344,35 @@ describe("equipment route: whole cents, and the stored text parsed once", () => 
     },
   );
 });
+
+// Review round 13 (fourth review): the figures a save stores and a read
+// returns reconcile for a part-cent price-list rate.
+describe("equipment route: rate, and total reconcile for a part-cent rate", () => {
+  it("POST at 33.335 for one unit over two days stores the billable rate 33.34 and 66.68", async () => {
+    priceListNow(33.335);
+    reportUpdate.mockResolvedValue({});
+    const res = await save({ equipmentSelection: [{ groupId: "lgr-85", quantity: 1 }], estimatedDryingDuration: 2 });
+    expect(res.status).toBe(200);
+    const data = reportUpdate.mock.calls[0][0].data;
+    expect(data.equipmentCostTotal).toBe(66.68);
+    expect(JSON.parse(data.equipmentSelection)).toEqual([{ groupId: "lgr-85", quantity: 1, dailyRate: 33.34 }]);
+  });
+
+  it("GET at 33.335 answers the billable rate 33.34 and 66.68", async () => {
+    reportFindUnique.mockResolvedValue({
+      id: "report-1",
+      userId: "owner-a",
+      createdAt: new Date("2026-10-01T00:00:00Z"),
+      equipmentSelection: JSON.stringify([{ groupId: "lgr-85", quantity: 1, dailyRate: 61 }]),
+      equipmentCostTotal: 244,
+      estimatedDryingDuration: 2,
+    });
+    priceListNow(33.335);
+    const res = await GET(new NextRequest("http://localhost/api/reports/report-1/equipment"), {
+      params: Promise.resolve({ id: "report-1" }),
+    });
+    const body = await res.json();
+    expect(body.equipmentSelection[0].dailyRate).toBe(33.34);
+    expect(body.equipmentCostTotal).toBe(66.68);
+  });
+});

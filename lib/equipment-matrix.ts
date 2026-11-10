@@ -400,6 +400,17 @@ export function getEquipmentPricingField(groupId: string): string | null {
   return null;
 }
 
+/**
+ * RA-8281 B1 round 13: the BILLABLE daily rate is the price-list rate to the
+ * whole cent (half up; toPrecision(15) first removes binary noise, so 1.005
+ * is $1.01). It is applied once, here, where an equipment rate is read, so
+ * the rate a screen or document shows, the daily amount and the job total are
+ * all made from the same figure and reconcile to the cent.
+ */
+export function billableDailyRate(rate: number): number {
+  return Math.round(Number((rate * 100).toPrecision(15))) / 100;
+}
+
 // Get daily rate from pricing config for an equipment group
 export function getEquipmentDailyRate(
   groupId: string,
@@ -412,13 +423,15 @@ export function getEquipmentDailyRate(
   // RA-8281: with a price list, the contractor's own rate is the only rate.
   // An unset rate throws RateNotSetError; it is never priced at $0.
   if (pricingField && pricingConfig) {
-    return requireRate(pricingConfig, pricingField);
+    return billableDailyRate(requireRate(pricingConfig, pricingField));
   }
 
   // RA-8281 B1 review: no price list (still loading, or the fetch failed) or no
   // price-list field for this group means the rate is unset. It throws
   // RateNotSetError like any other unset rate; it is never priced at $0.
-  return requireRate(pricingConfig ?? null, pricingField ?? groupId);
+  return billableDailyRate(
+    requireRate(pricingConfig ?? null, pricingField ?? groupId),
+  );
 }
 
 /**
@@ -445,7 +458,7 @@ export function selectionDailyRate(
   // unset and throws RateNotSetError; a cached 0 is never priced at $0.
   const cached = selection.dailyRate;
   return typeof cached === "number" && Number.isFinite(cached) && cached > 0
-    ? cached
+    ? billableDailyRate(cached)
     : getEquipmentDailyRate(selection.groupId, pricingConfig);
 }
 
