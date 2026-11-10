@@ -50,6 +50,27 @@ describe("gstTreatmentForStoredLines", () => {
     ).toBeNull();
   });
 
+  // RA-8281 review round 4: a small line fits both rates inside the cent of
+  // rounding. Checking AU first labelled 15% NZ dollars as 10% AUD.
+  it("a line too small to tell 10% from 15% is never labelled by check order", () => {
+    const tiny = { lineTotalExGst: 0.2, lineTotalIncGst: 0.23 };
+    expect(gstTreatmentForStoredLines([tiny], NZ)).toBeNull();
+    expect(gstTreatmentForStoredLines([tiny], AU)).toBeNull();
+  });
+
+  it("an ambiguous small line takes the rate the other lines prove", () => {
+    const tiny = { lineTotalExGst: 0.2, lineTotalIncGst: 0.23 };
+    expect(
+      gstTreatmentForStoredLines([tiny, line(200, 0.15)], AU)?.country,
+    ).toBe("NZ");
+    expect(
+      gstTreatmentForStoredLines([line(200, 0.15), tiny], AU)?.country,
+    ).toBe("NZ");
+    expect(
+      gstTreatmentForStoredLines([tiny, line(200, 0.1)], NZ)?.country,
+    ).toBe("AU");
+  });
+
   it("lines carrying different rates give null", () => {
     expect(
       gstTreatmentForStoredLines([line(200, 0.1), line(100, 0.15)], AU),
