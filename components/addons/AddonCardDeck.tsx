@@ -190,6 +190,12 @@ type PendingKey = {
   key: string;
   unresolved: boolean;
   attempt: string;
+  /**
+   * RA-8271: the seat count sent with this key. Kept with the key because the
+   * server refuses a reused key whose body differs, so every retry must send
+   * the count of the first press, not a re-read one.
+   */
+  expectedSeats?: number;
 };
 
 const PENDING_KEY_PREFIX = "restoreassist:addon-checkout-key:";
@@ -199,7 +205,10 @@ function readPendingKey(slot: string): PendingKey | null {
   let entry: unknown;
   try {
     const raw = window.localStorage.getItem(PENDING_KEY_PREFIX + slot);
-    entry = raw === null ? null : JSON.parse(raw);
+    // Review round 9: storage that reads but refuses writes (full, read-only)
+    // sent the entry to memory, so look there when storage has none.
+    entry =
+      raw === null ? (memoryPendingKeys.get(slot) ?? null) : JSON.parse(raw);
   } catch {
     entry = memoryPendingKeys.get(slot) ?? null;
   }
@@ -209,6 +218,9 @@ function readPendingKey(slot: string): PendingKey | null {
     key: e.key,
     unresolved: e.unresolved === true,
     attempt: typeof e.attempt === "string" ? e.attempt : "",
+    ...(typeof e.expectedSeats === "number"
+      ? { expectedSeats: e.expectedSeats }
+      : {}),
   };
 }
 
@@ -317,10 +329,15 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
     // unknown.
     const attempt = crypto.randomUUID();
     const slot = `${accountId}:${sku}`;
+    // A seat pack sends the seat count this page shows, so the server adds a
+    // seat only to that count: a repeated press can no longer buy twice even
+    // if its key was lost (RA-8271, app/api/addons/checkout).
+    const seatPack = addons.find((a) => a.sku === sku)?.perSeat === true;
     const pending = readPendingKey(slot) ?? {
       key: crypto.randomUUID(),
       unresolved: false,
       attempt,
+      ...(seatPack && seats ? { expectedSeats: seats.purchased } : {}),
     };
     writePendingKey(slot, { ...pending, unresolved: true, attempt });
     try {
@@ -330,7 +347,12 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
           "Content-Type": "application/json",
           "Idempotency-Key": pending.key,
         },
-        body: JSON.stringify({ addonKey: sku }),
+        body: JSON.stringify({
+          addonKey: sku,
+          ...(pending.expectedSeats !== undefined
+            ? { expectedSeats: pending.expectedSeats }
+            : {}),
+        }),
       });
       const json: unknown = await res.json().catch(() => null);
       const reply = parseCheckoutReply(res.status, json);
@@ -378,6 +400,8 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
         case "unpaidInvoice":
         case "refused":
           setNotice(sku, { text: reply.message });
+          // A refusal can mean the seat count moved: show the current one.
+          loadCatalog().catch(() => {});
           break;
       }
     } catch {

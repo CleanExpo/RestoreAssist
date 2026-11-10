@@ -153,7 +153,11 @@ describe("AddonsClient", () => {
     expect(screen.getByText("1 of 3 seats in use")).toBeInTheDocument();
     const [url, init] = fetchMock.mock.calls[1];
     expect(url).toBe("/api/addons/checkout");
-    expect(JSON.parse(init.body)).toEqual({ addonKey: "TECHNICIAN_SEATS" });
+    // RA-8271: the seat count shown is sent, so the server adds a seat only to it.
+    expect(JSON.parse(init.body)).toEqual({
+      addonKey: "TECHNICIAN_SEATS",
+      expectedSeats: 2,
+    });
     expect(init.headers["Idempotency-Key"]).toEqual(expect.any(String));
   });
 });

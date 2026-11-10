@@ -203,6 +203,50 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
     });
   });
 
+  // RA-8271: the buyer's page sends the seat count it last saw. A press whose
+  // reply was lost and is repeated with a new Idempotency-Key must not buy a
+  // second seat: Stripe already holds the raised count, so it no longer
+  // matches and nothing is charged.
+  describe("expectedSeats: a seat is added only to the count the buyer saw", () => {
+    beforeEach(() => {
+      vi.mocked(prisma.featureEntitlement.findUnique).mockResolvedValue({
+        active: true,
+        stripeSubscriptionId: "sub_seats_1",
+      } as never);
+      stripeMock.subscriptions.retrieve.mockResolvedValue({
+        id: "sub_seats_1",
+        status: "active",
+        items: { data: [{ id: "si_1", quantity: 2 }] },
+      });
+      stripeMock.subscriptions.update.mockResolvedValue({ id: "sub_seats_1" });
+    });
+
+    it("adds the seat when Stripe still holds the count the buyer saw", async () => {
+      const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS", expectedSeats: 2 }));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ updated: true, seats: 3 });
+      expect(stripeMock.subscriptions.update).toHaveBeenCalledTimes(1);
+    });
+
+    it("charges nothing and says so when the count already moved (a repeated press)", async () => {
+      const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS", expectedSeats: 1 }));
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.error.code).toBe("CONFLICT");
+      expect(body.error.message).toMatch(/already has 2 field technician seats/);
+      expect(body.error.message).toMatch(/Nothing was charged/);
+      expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+      expect(prisma.featureEntitlement.update).not.toHaveBeenCalled();
+    });
+
+    it.each([[-1], [1.5], ["2"], [null]])("rejects expectedSeats %j before touching Stripe", async (bad) => {
+      const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS", expectedSeats: bad }));
+      expect(res.status).toBe(400);
+      expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
+      expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    });
+  });
+
   it("J-09: a cancelled seat pack starts a fresh checkout", async () => {
     vi.mocked(prisma.featureEntitlement.findUnique).mockResolvedValue({
       active: false,

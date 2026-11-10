@@ -801,6 +801,153 @@ describe("AddonCardDeck (RA-8271)", () => {
     expect(checkoutKeys(fetchMock)).toHaveLength(0);
   });
 
+  // Review round 9: storage that reads but refuses writes (quota, read-only).
+  it("review r9: when storage refuses writes, a lost reply still reuses the key", async () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const fetchMock = stubCheckout([
+      new TypeError("Failed to fetch"),
+      redirectReply(),
+    ]);
+    const first = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    expect(
+      await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+    first.unmount();
+    render(<AddonCardDeck />);
+    books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(2));
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  // RA-8271 server-side guard: a seat pack sends the seat count the page
+  // shows, and every retry with the same key sends the same count.
+  const seatCatalog = (purchased: number) => ({
+    addons: [
+      ...catalog.addons,
+      {
+        sku: "TECHNICIAN_SEATS",
+        name: "Field technician seats",
+        description: "One seat per field technician.",
+        amount: 9,
+        currency: "AUD",
+        interval: "month" as const,
+        perSeat: true,
+      },
+    ],
+    owned: ["VOICE", "TECHNICIAN_SEATS"],
+    technicianSeats: { purchased, used: 1 },
+  });
+  const sentBodies = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls
+      .filter(([u]) => u === "/api/addons/checkout")
+      .map(([, init]) => JSON.parse((init as { body: string }).body));
+
+  it("RA-8271: a seat press sends the shown count; a retry with the same key sends the same count", async () => {
+    let purchased = 2;
+    const replies: Array<Record<string, unknown> | Error> = [
+      new TypeError("Failed to fetch"),
+      // The same key gets the server's stored reply for the first press.
+      {
+        ok: true,
+        status: 200,
+        headers: new Headers({ "Idempotent-Replayed": "true" }),
+        json: async () => ({ updated: true, seats: 3 }),
+      },
+    ];
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/addons/catalog") {
+        const body = seatCatalog(purchased);
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => body,
+        });
+      }
+      // The first press did add the seat before its reply was lost.
+      purchased = 3;
+      const next = replies.shift();
+      return next instanceof Error
+        ? Promise.reject(next)
+        : Promise.resolve(next);
+    });
+    vi.stubGlobal("fetch", fetchMock as never);
+
+    render(<AddonCardDeck />);
+    const card = await screen.findByTestId("addon-card-TECHNICIAN_SEATS");
+    fireEvent.click(within(card).getByRole("button", { name: /add a seat/i }));
+    expect(
+      await within(card).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+    fireEvent.click(within(card).getByRole("button", { name: /add a seat/i }));
+    expect(
+      await within(card).findByText(/You now have 3 field technician seats/),
+    ).toBeInTheDocument();
+
+    const bodies = sentBodies(fetchMock);
+    expect(bodies).toEqual([
+      { addonKey: "TECHNICIAN_SEATS", expectedSeats: 2 },
+      { addonKey: "TECHNICIAN_SEATS", expectedSeats: 2 }, // same body as the first press
+    ]);
+    // The catalogue was re-read after the lost reply.
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([u]) => u === "/api/addons/catalog")
+          .length,
+      ).toBeGreaterThanOrEqual(2),
+    );
+  });
+
+  it("RA-8271: the server's 'nothing was charged' answer is shown and the count is re-read", async () => {
+    const message =
+      "Your business already has 3 field technician seats. Nothing was charged. Check the count, then add another seat if you still need one.";
+    const replies = [
+      {
+        ok: false,
+        status: 409,
+        json: async () => ({ error: { code: "CONFLICT", message } }),
+      },
+    ];
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(
+        url === "/api/addons/catalog"
+          ? { ok: true, status: 200, json: async () => seatCatalog(2) }
+          : replies.shift(),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock as never);
+    render(<AddonCardDeck />);
+    const card = await screen.findByTestId("addon-card-TECHNICIAN_SEATS");
+    fireEvent.click(within(card).getByRole("button", { name: /add a seat/i }));
+    expect(
+      await within(card).findByText(/Nothing was charged/),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([u]) => u === "/api/addons/catalog"),
+      ).toHaveLength(2),
+    );
+    expect(
+      window.localStorage.getItem(
+        "restoreassist:addon-checkout-key:owner-A:TECHNICIAN_SEATS",
+      ),
+    ).toBeNull();
+  });
+
+  it("RA-8271: a flat pack sends no seat count", async () => {
+    const fetchMock = stubCheckout([redirectReply()]);
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
+    expect(sentBodies(fetchMock)).toEqual([{ addonKey: "BOOKKEEPING" }]);
+  });
+
   it("review r2: isFinalCheckoutAnswer releases the key only for a readable reply that names an outcome", () => {
     const final = (status: number, body: unknown) =>
       isFinalCheckoutAnswer(status, body, parseCheckoutReply(status, body));
