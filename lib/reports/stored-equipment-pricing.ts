@@ -100,12 +100,41 @@ export const AMOUNT_TOO_LARGE_NOTE =
   "Equipment cannot be priced: the quantity or the number of days is too large to price exactly, or the number of days is not a positive number.";
 
 /**
- * A money figure the reader may return: not negative, and small enough that
- * its cents are still an exact whole number. Anything else (Infinity and NaN
- * fail both comparisons) is null, which every consumer treats as blocked.
+ * A money figure in whole cents, or null when it is not a price: negative, or
+ * too large for its cents to be an exact whole number (Infinity and NaN fail
+ * both comparisons). A part cent is rounded half up ONCE, here, so the figure
+ * that is stored, summed and shown is the same number. toPrecision(15) first
+ * removes binary noise (35.005 * 100 is 3500.4999999999995 in floating point).
  */
-function exactAmount(value: number): number | null {
-  return value >= 0 && value * 100 <= Number.MAX_SAFE_INTEGER ? value : null;
+function toCents(value: number): number | null {
+  if (!(value >= 0 && value * 100 <= Number.MAX_SAFE_INTEGER)) return null;
+  return Math.round(Number((value * 100).toPrecision(15)));
+}
+
+/** Whole cents back to dollars; null stays null (blocked). */
+function fromCents(cents: number | null): number | null {
+  return cents === null || cents > Number.MAX_SAFE_INTEGER ? null : cents / 100;
+}
+
+/**
+ * One equipment line's amount (rate x units x days) in whole cents, or null
+ * when it is not a price. The ONLY place a rate is multiplied by an equipment
+ * quantity for money that is stored or put in a document: this file's pricing
+ * and the initial-entry writer both call it.
+ */
+export function equipmentLineAmount(
+  dailyRate: number,
+  quantity: number,
+  durationDays: number,
+): number | null {
+  return fromCents(toCents(dailyRate * quantity * durationDays));
+}
+
+/** The sum of two whole-cent amounts, or null when it is not a price. */
+export function addEquipmentAmounts(a: number, b: number): number | null {
+  const x = toCents(a);
+  const y = toCents(b);
+  return x === null || y === null ? null : fromCents(x + y);
 }
 
 function quantityNumber(value: unknown): number {
@@ -116,12 +145,13 @@ function quantityNumber(value: unknown): number {
       : NaN;
 }
 
-/** A quantity read from a stored line: an exact number >= 0, else null. */
+/**
+ * A quantity read from a stored line: a whole number of units >= 0 that is
+ * exactly representable, else null. Equipment is counted in whole units.
+ */
 function readQuantity(value: unknown): number | null {
   const n = quantityNumber(value);
-  return Number.isFinite(n) && n >= 0 && n <= Number.MAX_SAFE_INTEGER
-    ? n
-    : null;
+  return Number.isSafeInteger(n) && n >= 0 ? n : null;
 }
 
 /** True when a line is unusable only because its quantity is too large. */
@@ -153,10 +183,22 @@ function parseStored(value: unknown): unknown {
  * one line. Every reader and writer goes through this, so no path can treat
  * an unexpected shape as "no equipment" and skip pricing.
  */
-function normaliseStoredSelections(value: unknown): unknown[] {
+/**
+ * The stored value as raw lines, or null when nothing is stored. parseStored
+ * has two callers, this and readEquipmentDeploymentLog, each on a public
+ * function's own argument: the text is parsed exactly once, and no function
+ * in this file hands a value it has already parsed to another that would
+ * parse it again (a column holding the JSON string "null" would otherwise
+ * become the string "null" and then nothing at all).
+ */
+function storedRawLines(value: unknown): unknown[] | null {
   const parsed = parseStored(value);
-  if (parsed === null || parsed === undefined) return [];
+  if (parsed === null || parsed === undefined) return null;
   return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+function normaliseStoredSelections(value: unknown): unknown[] {
+  return storedRawLines(value) ?? [];
 }
 
 /** True when the stored value holds at least one line, readable or not. */
@@ -257,8 +299,21 @@ export function priceStoredEquipment(
   pricingConfig: unknown,
   durationDays: number,
 ): PricedEquipment {
+  return priceRawLines(
+    normaliseStoredSelections(selections),
+    pricingConfig,
+    durationDays,
+  );
+}
+
+/** Prices lines that have ALREADY been parsed; never parses. */
+function priceRawLines(
+  rawLines: unknown[],
+  pricingConfig: unknown,
+  durationDays: number,
+): PricedEquipment {
   const unset = new Map<string, UnsetRate>();
-  const lines = normaliseStoredSelections(selections).map(
+  const lines = rawLines.map(
     (raw: unknown): PricedEquipmentLine => {
       const read = readLine(raw);
       if (!read.usable) {
@@ -287,8 +342,12 @@ export function priceStoredEquipment(
         for (const u of err.unset) unset.set(u.field, u);
       }
       if (dailyRate !== null) {
-        const dailyTotal = exactAmount(dailyRate * read.quantity);
-        const total = exactAmount(dailyRate * read.quantity * durationDays);
+        const dailyTotal = equipmentLineAmount(dailyRate, read.quantity, 1);
+        const total = equipmentLineAmount(
+          dailyRate,
+          read.quantity,
+          durationDays,
+        );
         if (dailyTotal !== null && total !== null) {
           return { ...read, durationDays, dailyRate, dailyTotal, total, note };
         }
@@ -306,12 +365,16 @@ export function priceStoredEquipment(
     },
   );
   const blocked = lines.some((l) => l.dailyRate === null);
-  const dailyTotal = blocked
-    ? null
-    : exactAmount(lines.reduce((sum, l) => sum + (l.dailyTotal as number), 0));
-  const total = blocked
-    ? null
-    : exactAmount(lines.reduce((sum, l) => sum + (l.total as number), 0));
+  // Sums are made in whole cents of the line figures, so the total is the sum
+  // of what each line shows.
+  const sumCents = (pick: (l: PricedEquipmentLine) => number | null) =>
+    lines.reduce(
+      (sum: number | null, l) =>
+        sum === null ? null : addEquipmentAmounts(sum, pick(l) as number),
+      0,
+    );
+  const dailyTotal = blocked ? null : sumCents((l) => l.dailyTotal);
+  const total = blocked ? null : sumCents((l) => l.total);
   const notes = lines.flatMap((l) => (l.note === null ? [] : [l.note]));
   // Lines that are each exact can still sum past an exact amount.
   if (!blocked && (dailyTotal === null || total === null)) {
@@ -455,15 +518,15 @@ export function storedEquipmentResponse(
   pricingConfig: unknown,
   durationDays: number,
 ): StoredEquipmentResponse {
-  const parsed = parseStored(stored);
-  if (parsed === null || parsed === undefined) {
+  const rawLines = storedRawLines(stored);
+  if (rawLines === null) {
     return {
       equipmentSelection: null,
       equipmentCostTotal: null,
       equipmentProblems: [],
     };
   }
-  const priced = priceStoredEquipment(parsed, pricingConfig, durationDays);
+  const priced = priceRawLines(rawLines, pricingConfig, durationDays);
   return {
     equipmentSelection: priced.lines.map((line) => ({
       groupId: line.groupId,

@@ -302,3 +302,45 @@ describe("POST /api/reports/[id]/equipment refuses a figure that is not an exact
     expect(reportUpdate.mock.calls[0][0].data.equipmentCostTotal).toBe(70 * 3 * DAYS);
   });
 });
+
+// Review round 13 (third review): sub-cent totals and a twice-parsed column.
+describe("equipment route: whole cents, and the stored text parsed once", () => {
+  it("POST with a fractional quantity is refused (422), nothing stored", async () => {
+    priceListNow(70.01);
+    const res = await save({ equipmentSelection: [{ groupId: "lgr-85", quantity: 0.5 }], estimatedDryingDuration: 1 });
+    expect(res.status).toBe(422);
+    expect(reportUpdate).not.toHaveBeenCalled();
+  });
+
+  it("POST with a part-cent rate stores a whole-cent total", async () => {
+    priceListNow(70.015);
+    reportUpdate.mockResolvedValue({});
+    const res = await save({ equipmentSelection: [{ groupId: "lgr-85", quantity: 1 }], estimatedDryingDuration: 1 });
+    expect(res.status).toBe(200);
+    expect(reportUpdate.mock.calls[0][0].data.equipmentCostTotal).toBe(70.02);
+  });
+
+  it.each([JSON.stringify("null"), JSON.stringify("[]")])(
+    "GET with the stored column %s answers one line that is not usable, with the problem named",
+    async (column) => {
+      reportFindUnique.mockResolvedValue({
+        id: "report-1",
+        userId: "owner-a",
+        createdAt: new Date("2026-10-01T00:00:00Z"),
+        equipmentSelection: column,
+        equipmentCostTotal: 244,
+        estimatedDryingDuration: DAYS,
+      });
+      priceListNow(70);
+      const res = await GET(new NextRequest("http://localhost/api/reports/report-1/equipment"), {
+        params: Promise.resolve({ id: "report-1" }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.equipmentSelection).toHaveLength(1);
+      expect(body.equipmentSelection[0]).toMatchObject({ usable: false, dailyRate: null });
+      expect(body.equipmentProblems.length).toBeGreaterThan(0);
+      expect(body.equipmentCostTotal).toBeNull();
+    },
+  );
+});

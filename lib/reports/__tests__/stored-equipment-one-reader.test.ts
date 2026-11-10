@@ -6,6 +6,8 @@
  * named, blocked result. Never a crash, never $0, never the cached figure.
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getGstTreatment } from "@/lib/gst-rules";
 import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 import { buildCostEstimationData } from "@/lib/restoration/cost-estimation-builder";
@@ -18,6 +20,8 @@ import {
   equipmentAmps,
   equipmentUnitCount,
   hasStoredEquipment,
+  moneyOrRateNotSet,
+  withoutCachedEquipmentMoney,
   MALFORMED_LINE_NOTE,
   priceStoredEquipment,
   readEquipmentDeploymentLog,
@@ -456,5 +460,102 @@ describe("the one reader: a figure that is not an exact amount is blocked, with 
     expect(lines[0].usable).toBe(false);
     expect(equipmentUnitCount(lines)).toBe(2);
     expect(Number.isFinite(equipmentAmps(lines))).toBe(true);
+  });
+});
+
+// Review round 13 (third review, finding 1): quantity 0.5 at $70.01 returned
+// 35.005 and was saved, while the same figure displayed as $35.01. Every amount
+// the reader returns is a whole number of cents, so what is stored, summed and
+// shown are the same number. Equipment is counted in whole units.
+describe("the one reader: every amount is a whole number of cents", () => {
+  const wholeCents = (v: number | null) =>
+    v !== null && Math.abs(v * 100 - Math.round(v * 100)) < 1e-9;
+
+  it("a fractional quantity is a line that is not usable (equipment is counted in whole units)", () => {
+    const priced = priceStoredEquipment([{ groupId: "lgr-85", quantity: 0.5 }], { dehumidifierLGRDailyRate: 70.01 }, 1);
+    expect(priced.lines[0]).toMatchObject({ usable: false, dailyRate: null, total: null, note: MALFORMED_LINE_NOTE });
+    expect(priced.total).toBeNull();
+    expect(() => assertEquipmentPriced(priced)).toThrow(RateNotSetError);
+    expect(readStoredEquipment([{ groupId: "lgr-85", quantity: 0.5 }])[0].usable).toBe(false);
+  });
+
+  it.each([
+    ["half a day at $70.01", 70.01, 1, 0.5, 35.01],
+    ["a rate with a part cent", 70.015, 1, 1, 70.02],
+    ["a rate with a part cent over three units", 33.335, 3, 1, 100.01],
+    ["control: whole cents are unchanged", 70.01, 3, 4, 840.12],
+    ["control: whole dollars are unchanged", 70, 2, 4, 560],
+  ])("%s: the line and the total are the same whole-cent figure that is displayed", (_label, rate, quantity, days, expected) => {
+    const priced = priceStoredEquipment([{ groupId: "lgr-85", quantity }], { dehumidifierLGRDailyRate: rate }, days);
+    expect(priced.lines[0].total).toBe(expected);
+    expect(priced.total).toBe(expected);
+    expect(priced.lines[0].dailyRate).toBe(rate); // the contractor's own rate is never altered
+    expect(wholeCents(priced.lines[0].dailyTotal)).toBe(true);
+    expect(wholeCents(priced.dailyTotal)).toBe(true);
+    expect(moneyOrRateNotSet(priced.total)).toBe(`$${expected.toFixed(2)}`);
+  });
+
+  it("the total is the sum of the line figures as shown, not of the unrounded products", () => {
+    // 33.335 x 1 x 1 shows $33.34 on each of two lines; the total is $66.68, not $66.67.
+    const priced = priceStoredEquipment(
+      [{ groupId: "lgr-85", quantity: 1 }, { groupId: "lgr-85", quantity: 1 }],
+      { dehumidifierLGRDailyRate: 33.335 },
+      1,
+    );
+    expect(priced.lines.map((l) => l.total)).toEqual([33.34, 33.34]);
+    expect(priced.total).toBe(66.68);
+    expect(priced.dailyTotal).toBe(66.68);
+  });
+});
+
+// Review round 13 (third review, finding 2): storedEquipmentResponse parsed the
+// column and then handed the PARSED value to priceStoredEquipment, which parsed
+// it again. A column holding the JSON string "null" became the string "null"
+// and then null: an unusable stored entry vanished with no problem named. The
+// stored text is parsed exactly once, by one function.
+describe("the one reader: the stored text is parsed exactly once", () => {
+  const ONCE_ENCODED = JSON.stringify([{ groupId: "lgr-85", quantity: 2, dailyRate: 61 }]);
+  const NASTY: Array<[string, unknown, number]> = [
+    ["the JSON string \"null\"", JSON.stringify("null"), 1],
+    ["the JSON string \"[]\"", JSON.stringify("[]"), 1],
+    ["a twice-encoded list", JSON.stringify(ONCE_ENCODED), 1],
+    ["the JSON string \"\"", JSON.stringify(""), 1],
+    ["a parsed value that is the string \"null\"... as column text", "\"null\"", 1],
+    ["control: the column text null", "null", 0],
+    ["control: the column text []", "[]", 0],
+    ["control: a once-encoded list", ONCE_ENCODED, 1],
+    ["control: nothing stored", null, 0],
+  ];
+
+  it.each(NASTY)("%s: every reader sees the same number of lines", (_label, stored, count) => {
+    const priced = priceStoredEquipment(stored, LGR, 4);
+    const response = storedEquipmentResponse(stored, LGR, 4);
+    expect(readStoredEquipment(stored)).toHaveLength(count);
+    expect(priced.lines).toHaveLength(count);
+    expect(response.equipmentSelection ?? []).toHaveLength(count);
+    expect(hasStoredEquipment(stored)).toBe(count > 0);
+    expect(editableStoredEquipment(stored).hasLines).toBe(count > 0);
+    // The response says exactly what the pricing says.
+    expect(response.equipmentProblems).toEqual(priced.problems);
+    expect(response.equipmentCostTotal).toBe(count > 0 ? priced.total : null);
+  });
+
+  it.each(NASTY.slice(0, 5))("%s: one line that is not usable, with the problem named", (_label, stored) => {
+    const response = storedEquipmentResponse(stored, LGR, 4);
+    expect(response.equipmentSelection).toHaveLength(1);
+    expect(response.equipmentSelection?.[0]).toMatchObject({ usable: false, dailyRate: null });
+    expect(response.equipmentProblems).toEqual([MALFORMED_LINE_NOTE]);
+    expect(response.equipmentCostTotal).toBeNull();
+    expect(withoutCachedEquipmentMoney({ equipmentSelection: stored }).equipmentSelection).toEqual([]);
+  });
+
+  it("only one function in the reader parses stored text", () => {
+    const src = readFileSync(join(__dirname, "..", "stored-equipment-pricing.ts"), "utf8");
+    expect(src.match(/JSON\.parse\(/g)).toHaveLength(1);
+    // Its definition plus its two callers (the line reader and the deployment
+    // log), each on a public function's own argument.
+    expect(src.match(/\bparseStored\(/g)).toHaveLength(3);
+    // Everything that prices goes through the one line reader.
+    expect(src.match(/\bstoredRawLines\(/g)).toHaveLength(3);
   });
 });

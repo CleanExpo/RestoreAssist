@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { addEquipmentAmounts, equipmentLineAmount } from "@/lib/reports/stored-equipment-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   completeIdempotentSuccessInTransaction,
@@ -387,9 +388,11 @@ export async function POST(request: NextRequest) {
                 fields: { [field]: "Missing or invalid daily rate" },
               });
             }
-            const totalCost = dailyRate * item.quantity * durationDays;
-            total += totalCost;
-            if (!Number.isFinite(totalCost) || !Number.isFinite(total)) {
+            // RA-8281 B1 round 13: whole cents, made by the one reader's own
+            // arithmetic, so what is stored is the figure every reader shows.
+            const totalCost = equipmentLineAmount(dailyRate, item.quantity, durationDays);
+            const nextTotal = totalCost === null ? null : addEquipmentAmounts(total, totalCost);
+            if (totalCost === null || nextTotal === null) {
               return apiError(request, {
                 code: "VALIDATION",
                 message: "Equipment estimate is too large to calculate",
@@ -397,6 +400,7 @@ export async function POST(request: NextRequest) {
                 fields: { equipmentSelection: "Estimate exceeds the calculable range" },
               });
             }
+            total = nextTotal;
             priced.push({ ...item, dailyRate, totalCost });
           }
 

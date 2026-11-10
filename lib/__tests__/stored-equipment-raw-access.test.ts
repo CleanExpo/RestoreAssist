@@ -484,6 +484,73 @@ describe("RA-8281 B1 round 13 rule D: a whole Report row is never answered as is
   });
 });
 
+// ── Rule E (review round 13): equipment money is multiplied in one place ──
+//
+// The third review found a part-cent total stored because a writer did its
+// own rate x quantity arithmetic. A rate (or cost) multiplied by a `.quantity`
+// outside the owner is reported; the owner's equipmentLineAmount is the one
+// place it happens, in whole cents.
+const MONEY_TIMES_QUANTITY = /\*\s*\(?\s*\w+\.quantity\b|\.quantity\s*\)?\s*\*/;
+const MONEY_WORD = /rate|cost|price/i;
+
+function quantityMoneyLines(source: string): number[] {
+  const out: number[] = [];
+  stripComments(source)
+    .split("\n")
+    .forEach((line, i) => {
+      if (MONEY_TIMES_QUANTITY.test(line) && MONEY_WORD.test(line)) out.push(i + 1);
+    });
+  return out;
+}
+
+const QUANTITY_MONEY_EXCEPTIONS: Record<string, string> = {
+  "lib/equipment-matrix.ts":
+    "calculateTotalDailyCost: the editor's on-screen daily figure; the server reprices through the owner on save",
+  "components/InitialDataEntryForm.tsx":
+    "the form's on-screen running total; the server reprices through the owner on save and refuses what it cannot price",  "lib/forms/calculations/equipment-cost-calculator.ts":
+    "the guided-interview calculator with its own hard-coded prices; it never reads or writes a stored selection (RA-8290, separate ticket)",
+};
+
+describe("RA-8281 B1 round 13 rule E: equipment money is multiplied only in the owner", () => {
+  const all = SCAN_DIRS.flatMap((d) => sourceFiles(join(ROOT, d))).map(posix);
+  const EQUIPMENT_FILE = /equipment|initial-entry|InitialDataEntry|restoration\/|reports\//i;
+
+  it("finds no rate x quantity arithmetic for equipment outside the owner", () => {
+    const hits: string[] = [];
+    for (const file of all) {
+      if (file === OWNER || file in QUANTITY_MONEY_EXCEPTIONS) continue;
+      if (!EQUIPMENT_FILE.test(file)) continue;
+      const src = readFileSync(join(ROOT, file), "utf8");
+      if (!/equipment/i.test(src)) continue;
+      for (const line of quantityMoneyLines(src)) hits.push(`${file}:${line} [rule E]`);
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("every rule E exception is reasoned and still needed", () => {
+    for (const [file, reason] of Object.entries(QUANTITY_MONEY_EXCEPTIONS)) {
+      expect(reason.length, file).toBeGreaterThan(20);
+      expect(quantityMoneyLines(readFileSync(join(ROOT, file), "utf8")), file).not.toEqual([]);
+    }
+  });
+
+  it.each([
+    "const totalCost = dailyRate * item.quantity * durationDays;",
+    "total += sel.quantity * rate;",
+    "const cost = (rates[i] as number) * sel.quantity * days;",
+  ])("planted defect is reported: %s", (line) => {
+    expect(quantityMoneyLines(line)).toEqual([1]);
+  });
+
+  it.each([
+    "const totalCost = equipmentLineAmount(dailyRate, item.quantity, durationDays);",
+    "return total + group.amps * selection.quantity;",
+    "// dailyRate * item.quantity in a comment",
+  ])("permitted form is not reported: %s", (line) => {
+    expect(quantityMoneyLines(line)).toEqual([]);
+  });
+});
+
 /*
  * What this scan does not see (stated so a green run is not over-read):
  *   - a raw value laundered through a helper whose parameter has another name
