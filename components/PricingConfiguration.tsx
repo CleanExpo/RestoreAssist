@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { parseRateInput, rateInputValue } from "@/lib/pricing/rate-input";
+import {
+  parseRateInput,
+  pricingSaveErrorText,
+  rateInputValue,
+} from "@/lib/pricing/rate-input";
+import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { DollarSign, Save, RefreshCw, Plus, Trash2, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -254,8 +259,10 @@ export default function PricingConfiguration({
           }
         }
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to save pricing configuration");
+        const body = await response.json().catch(() => null);
+        toast.error(
+          pricingSaveErrorText(body, (f) => NRPG_RATE_RANGES[f]?.label),
+        );
       }
     } catch (error) {
       console.error("Error saving pricing config:", error);

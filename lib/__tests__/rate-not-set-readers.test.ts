@@ -2,10 +2,11 @@
  * RA-8281 B1 — a price-list rate the contractor has not set is never priced
  * at $0. Two guards:
  *   1. the helpers throw / report instead of returning a number;
- *   2. no changed reader coerces a rate field to 0 with `?? 0` or `|| 0`.
+ *   2. no changed reader coerces a rate field to 0 (parsed, not regex-matched).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import {
   BASE_RATE_FIELDS,
@@ -164,70 +165,245 @@ export const RATE_READERS = [
   "lib/pricing/rate-input.ts",
 ];
 
-const RATE_NAMES = [...BASE_RATE_FIELDS, ...FIRE_FIELDS, "dailyRate"];
-const ZERO_COERCION = new RegExp(
-  String.raw`(?:\b(?:${RATE_NAMES.join("|")})\b\)?|(?:rates|config|pricingConfig|priceList)\[[^\]]+\])\s*(?:\?\?|\|\|)\s*0(?![.\d])`,
-);
+const RATE_NAMES = new Set<string>([
+  ...BASE_RATE_FIELDS,
+  ...FIRE_FIELDS,
+  "dailyRate",
+]);
+const PRICE_LIST_OBJECTS = new Set([
+  "rates",
+  "config",
+  "pricingConfig",
+  "priceList",
+]);
+
+/** Strip wrappers that do not change the value: (x), x as T, x!, <T>x, x satisfies T. */
+function unwrap(e: ts.Expression): ts.Expression {
+  for (;;) {
+    if (
+      ts.isParenthesizedExpression(e) ||
+      ts.isAsExpression(e) ||
+      ts.isNonNullExpression(e) ||
+      ts.isTypeAssertionExpression(e) ||
+      ts.isSatisfiesExpression(e)
+    ) {
+      e = e.expression;
+    } else {
+      return e;
+    }
+  }
+}
+
+function isZero(e: ts.Expression): boolean {
+  let x = unwrap(e);
+  if (
+    ts.isPrefixUnaryExpression(x) &&
+    (x.operator === ts.SyntaxKind.PlusToken ||
+      x.operator === ts.SyntaxKind.MinusToken)
+  ) {
+    x = unwrap(x.operand);
+  }
+  if (ts.isNumericLiteral(x) || ts.isBigIntLiteral(x)) {
+    return Number(x.text.replace(/n$/, "").replace(/_/g, "")) === 0;
+  }
+  return false;
+}
+
+/** Does this expression read a price-list rate (by field name or by price-list index)? */
+function readsRate(node: ts.Node): boolean {
+  let hit = false;
+  const visit = (n: ts.Node): void => {
+    if (hit) return;
+    if (ts.isIdentifier(n) && RATE_NAMES.has(n.text)) {
+      hit = true;
+      return;
+    }
+    if (ts.isElementAccessExpression(n)) {
+      const obj = unwrap(n.expression);
+      const arg = unwrap(n.argumentExpression);
+      const objName = ts.isIdentifier(obj)
+        ? obj.text
+        : ts.isPropertyAccessExpression(obj)
+          ? obj.name.text
+          : "";
+      if (
+        PRICE_LIST_OBJECTS.has(objName) ||
+        (ts.isStringLiteralLike(arg) && RATE_NAMES.has(arg.text))
+      ) {
+        hit = true;
+        return;
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(node);
+  return hit;
+}
+
+const COALESCE = new Set([
+  ts.SyntaxKind.QuestionQuestionToken,
+  ts.SyntaxKind.BarBarToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+]);
 
 /**
- * Scan the whole source, not line by line: a coercion split across a line
- * break (`rates.callOutFee` newline `?? 0`) must still be caught. Returns the
- * 1-based line of each hit.
+ * Parse the source and return the 1-based line of every expression that turns
+ * an unset rate into 0. Parsing, not a regex, so parentheses, casts, `!`,
+ * line breaks and comments cannot hide a coercion (RA-8281 review rounds 1-2):
+ *   - `<rate read> ?? 0`, `|| 0`, `??= 0`, `||= 0`, at any nesting;
+ *   - `<rate read> ? x : 0` and `? 0 : x`;
+ *   - `Number(<rate read>)` and `+<rate read>` (both turn null into 0).
  */
-function scanHits(src: string, pattern: RegExp): number[] {
-  const global = new RegExp(pattern.source, "g");
-  return [...src.matchAll(global)].map(
-    (m) => src.slice(0, m.index).split("\n").length,
+function zeroCoercions(src: string, file = "probe.ts"): number[] {
+  const sf = ts.createSourceFile(
+    file,
+    src,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
+  const lines: number[] = [];
+  const flag = (n: ts.Node) =>
+    lines.push(sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1);
+  const visit = (n: ts.Node): void => {
+    if (
+      ts.isBinaryExpression(n) &&
+      COALESCE.has(n.operatorToken.kind) &&
+      isZero(n.right) &&
+      readsRate(n.left)
+    ) {
+      flag(n);
+    } else if (
+      ts.isConditionalExpression(n) &&
+      (isZero(n.whenTrue) || isZero(n.whenFalse)) &&
+      readsRate(n.condition)
+    ) {
+      flag(n);
+    } else if (
+      ts.isCallExpression(n) &&
+      ts.isIdentifier(n.expression) &&
+      n.expression.text === "Number" &&
+      n.arguments.some((a) => readsRate(a))
+    ) {
+      flag(n);
+    } else if (
+      ts.isPrefixUnaryExpression(n) &&
+      n.operator === ts.SyntaxKind.PlusToken &&
+      readsRate(n.operand)
+    ) {
+      flag(n);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return lines;
 }
 
 /**
  * A cached selection rate preferred over the current price list
- * (`sel.dailyRate || getEquipmentDailyRate(...)`) skips the unset-rate check
- * when the contractor later clears that rate (RA-8281 review round 1).
+ * (`sel.dailyRate || getEquipmentDailyRate(...)`, or `??`) skips the unset-rate
+ * check when the contractor later clears that rate (RA-8281 review round 1).
  */
-const CACHED_RATE_FALLBACK = /\bdailyRate\s*\|\|/;
+function cachedRateFallbacks(src: string, file = "probe.ts"): number[] {
+  const sf = ts.createSourceFile(
+    file,
+    src,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const lines: number[] = [];
+  const visit = (n: ts.Node): void => {
+    if (ts.isBinaryExpression(n) && COALESCE.has(n.operatorToken.kind)) {
+      const left = unwrap(n.left);
+      if (
+        ts.isPropertyAccessExpression(left) &&
+        left.name.text === "dailyRate"
+      ) {
+        lines.push(sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1);
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return lines;
+}
+
+const read = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
 
 describe("no changed reader coerces a rate field to 0", () => {
   it.each(RATE_READERS)("%s", (file) => {
-    const src = readFileSync(join(process.cwd(), file), "utf8");
-    expect(scanHits(src, ZERO_COERCION)).toEqual([]);
+    expect(zeroCoercions(read(file), file)).toEqual([]);
   });
 
   it.each(RATE_READERS)(
     "%s prefers no cached rate over the price list",
     (file) => {
-      const src = readFileSync(join(process.cwd(), file), "utf8");
-      expect(scanHits(src, CACHED_RATE_FALLBACK)).toEqual([]);
+      expect(cachedRateFallbacks(read(file), file)).toEqual([]);
     },
   );
 
-  it("control: the pattern catches a planted coercion", () => {
-    expect(ZERO_COERCION.test("rate: config.callOutFee ?? 0,")).toBe(true);
+  it("control: planted coercions are caught", () => {
+    expect(zeroCoercions("const r = config.callOutFee ?? 0;")).toEqual([1]);
     expect(
-      ZERO_COERCION.test("pricingConfig.dehumidifierLGRDailyRate || 0"),
-    ).toBe(true);
-    expect(ZERO_COERCION.test("rate = rates[config.nrpgField] ?? 0;")).toBe(
-      true,
-    );
-    expect(ZERO_COERCION.test("const x = callOutFee ?? 0.5")).toBe(false);
+      zeroCoercions("const r = pricingConfig.dehumidifierLGRDailyRate || 0;"),
+    ).toEqual([1]);
+    expect(zeroCoercions("const r = rates[config.nrpgField] ?? 0;")).toEqual([
+      1,
+    ]);
+    expect(zeroCoercions('const r = cfg["callOutFee"] ?? 0;')).toEqual([1]);
+    expect(zeroCoercions("const r = ((rates.callOutFee)) ?? 0;")).toEqual([1]);
+    expect(
+      zeroCoercions("const r = (rates.callOutFee as number | null) ?? 0;"),
+    ).toEqual([1]);
+    expect(zeroCoercions("const r = rates.callOutFee! || (0);")).toEqual([1]);
+    expect(
+      zeroCoercions("const r = rates.callOutFee ?? /* none */ 0;"),
+    ).toEqual([1]);
+    expect(zeroCoercions("rates.callOutFee ??= 0;")).toEqual([1]);
+    expect(
+      zeroCoercions("const r = rates.callOutFee ?? (0 as number);"),
+    ).toEqual([1]);
+    expect(zeroCoercions("const r = (rates as any)[field] ?? 0;")).toEqual([1]);
+    expect(
+      zeroCoercions("const r = rates.callOutFee == null ? 0 : 1;"),
+    ).toEqual([1]);
+    expect(zeroCoercions("const r = Number(rates.callOutFee);")).toEqual([1]);
+    expect(zeroCoercions("const r = +rates.callOutFee;")).toEqual([1]);
+  });
+
+  it("control: a non-zero fallback and an unrelated field are not flagged", () => {
+    expect(zeroCoercions("const x = callOutFee ?? 0.5;")).toEqual([]);
+    expect(zeroCoercions("const x = report.total ?? 0;")).toEqual([]);
   });
 
   it("control: a coercion split across a line break is caught, on its line", () => {
     const src = "const a = 1;\nconst probe = rates.callOutFee\n  ?? 0;\n";
-    expect(scanHits(src, ZERO_COERCION)).toEqual([2]);
+    expect(zeroCoercions(src)).toEqual([2]);
   });
 
-  it("control: a cached rate fallback is caught, split or not", () => {
+  it("control: the exact review round 2 mutation, planted in the real org-pricing reader, is caught", () => {
+    const file = "lib/pricing/org-pricing.ts";
+    const src = read(file);
+    expect(src).toContain("rate(rates.callOutFee)");
+    const planted = src.replace(
+      "rate(rates.callOutFee)",
+      "rate(((rates.callOutFee)) ?? 0)",
+    );
+    expect(zeroCoercions(planted, file)).toHaveLength(1);
+  });
+
+  it("control: a cached rate fallback is caught, split, parenthesised or with ??", () => {
+    expect(cachedRateFallbacks("x = sel.dailyRate || get(id, cfg);")).toEqual([
+      1,
+    ]);
     expect(
-      scanHits("x = sel.dailyRate || get(id, cfg);", CACHED_RATE_FALLBACK),
-    ).toEqual([1]);
-    expect(
-      scanHits(
-        "x =\n  sel.dailyRate\n  || get(id, cfg);",
-        CACHED_RATE_FALLBACK,
-      ),
+      cachedRateFallbacks("x =\n  sel.dailyRate\n  || get(id, cfg);"),
     ).toEqual([2]);
+    expect(
+      cachedRateFallbacks("x = (sel.dailyRate!) ?? get(id, cfg);"),
+    ).toEqual([1]);
   });
 });
 
