@@ -186,6 +186,28 @@ export function editableStoredEquipment(value: StoredEquipmentSelections): {
 }
 
 /**
+ * A Report row for a bulk export that cannot reprice every row: the readable
+ * stored lines WITHOUT their cached rate, and no cached equipmentCostTotal.
+ * (A single-report response reprices instead: see withCurrentEquipment in
+ * report-equipment-response.ts.)
+ */
+export function withoutCachedEquipmentMoney<
+  T extends { equipmentSelection: StoredEquipmentSelections },
+>(
+  report: T,
+): Omit<T, "equipmentSelection" | "equipmentCostTotal"> & {
+  equipmentSelection: Array<{ groupId: string; quantity: number }> | null;
+} {
+  const copy: Record<string, unknown> = { ...report };
+  delete copy.equipmentCostTotal;
+  const saved = editableStoredEquipment(report.equipmentSelection);
+  copy.equipmentSelection = saved.hasLines ? saved.selections : null;
+  return copy as Omit<T, "equipmentSelection" | "equipmentCostTotal"> & {
+    equipmentSelection: Array<{ groupId: string; quantity: number }> | null;
+  };
+}
+
+/**
  * The rate cached on a line. selectionDailyRate uses it only for a group that
  * has no price-list field; a group with one is priced from the price list.
  */

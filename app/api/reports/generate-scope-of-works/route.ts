@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withCurrentEquipment } from "@/lib/reports/report-equipment-response";
 import { resolveStateInfo } from "@/lib/state-detection";
 import {
   buildScopeOfWorksData,
@@ -262,7 +263,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         report: {
-          ...updatedReport,
+          ...(await withCurrentEquipment(updatedReport)),
           scopeOfWorksDocument: scopeDocument,
           scopeOfWorksData: scopeData,
         },

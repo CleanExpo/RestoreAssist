@@ -341,6 +341,149 @@ describe("RA-8281 B1 round 13: only stored-equipment-pricing.ts reads a stored e
   });
 });
 
+// ── Rule D (review round 13): a whole Report row is never answered as is ──
+//
+// Round 13's review found PUT /api/reports/[id] answering with the row that
+// prisma returned, cached rate and cached total included. Rules A to C cannot
+// see that: nothing reads inside the selection, the row is serialised whole.
+// So: wherever a non-test file loads or writes a Report row WITHOUT a
+// top-level `select` (the whole row), the variable holding it may not be
+// handed whole to NextResponse.json / JSON.stringify, by name, by shorthand or
+// by spread. It goes through withCurrentEquipment (reprices) or
+// withoutCachedEquipmentMoney (bulk export) first, or the response names the
+// fields it returns.
+
+const ROW_CALL =
+  /(?:const|let)\s+(\w+)\s*=\s*await\s+\w+\.report\.(?:findMany|findFirst|findUnique|findUniqueOrThrow|findFirstOrThrow|update|create|upsert)\(|^\s*(\w+)\s*=\s*await\s+\w+\.report\.(?:update|create|upsert|findFirst|findUnique)\(/gm;
+
+function balancedEnd(src: string, open: number): number {
+  let depth = 1;
+  let i = open;
+  while (depth > 0 && i < src.length) {
+    const c = src[i];
+    if (c === "(" || c === "[" || c === "{") depth += 1;
+    else if (c === ")" || c === "]" || c === "}") depth -= 1;
+    i += 1;
+  }
+  return i;
+}
+
+function hasTopLevelSelect(args: string): boolean {
+  let depth = 0;
+  let top = "";
+  for (const c of args) {
+    if (c === "(" || c === "[" || c === "{") depth += 1;
+    else if (c === ")" || c === "]" || c === "}") depth -= 1;
+    if (depth === 1) top += c;
+  }
+  return /\bselect\s*[:,}]/.test(top) || /\bselect\s*$/.test(top.trim());
+}
+
+/** Names of variables holding a whole Report row in this source. */
+function wholeRowVariables(src: string): string[] {
+  const names = new Set<string>();
+  for (const m of src.matchAll(ROW_CALL)) {
+    const open = (m.index ?? 0) + m[0].length;
+    const args = src.slice(open, balancedEnd(src, open) - 1);
+    if (!hasTopLevelSelect(args)) names.add(m[1] ?? m[2]);
+  }
+  return [...names];
+}
+
+const SAFE_WRAP = /(?:withCurrentEquipment|withoutCachedEquipmentMoney)\(\s*$/;
+
+/** Blank out string text so a word inside a message is not read as code. */
+function blankStrings(src: string): string {
+  return src
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, (m) => `"${" ".repeat(m.length - 2)}"`)
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, (m) => `'${" ".repeat(m.length - 2)}'`)
+    .replace(/`(?:[^`\\]|\\.)*`/g, (m) =>
+      m.replace(/[^\n]/g, " ").replace(/^ /, "`").replace(/ $/, "`"),
+    );
+}
+
+/** Lines where a whole Report row is serialised into a response as is. */
+function wholeRowResponses(source: string): string[] {
+  const src = blankStrings(source);
+  const hits: string[] = [];
+  const rows = wholeRowVariables(src);
+  if (rows.length === 0) return hits;
+  for (const call of src.matchAll(/NextResponse\.json\(|JSON\.stringify\(/g)) {
+    const open = (call.index ?? 0) + call[0].length;
+    const end = balancedEnd(src, open) - 1;
+    const args = src.slice(open, end);
+    for (const name of rows) {
+      const whole = new RegExp(
+        `(?<![\\w$])(?<!(?<!\\.\\.)\\.)${name}(?![\\w$]|\\s*\\??\\.(?!\\.)|\\s*\\[|\\s*:)`,
+        "g",
+      );
+      for (const use of args.matchAll(whole)) {
+        const before = args.slice(0, use.index);
+        if (SAFE_WRAP.test(before)) continue;
+        const line = src.slice(0, open + (use.index ?? 0)).split("\n").length;
+        hits.push(`${line} [rule D] whole Report row \`${name}\` answered as is`);
+      }
+    }
+  }
+  return hits;
+}
+
+/**
+ * Files where a whole row is handed on whole for a reason that is not a
+ * response carrying the cached money. One line each.
+ */
+const ROW_EXCEPTIONS: Record<string, string> = {};
+
+describe("RA-8281 B1 round 13 rule D: a whole Report row is never answered as is", () => {
+  it("finds no whole-row response in app/, lib/ or components/", () => {
+    const hits: string[] = [];
+    let filesWithRows = 0;
+    for (const file of SCAN_DIRS.flatMap((d) => sourceFiles(join(ROOT, d))).map(posix)) {
+      const src = stripComments(readFileSync(join(ROOT, file), "utf8"));
+      if (wholeRowVariables(src).length > 0) filesWithRows += 1;
+      if (file in ROW_EXCEPTIONS) continue;
+      for (const hit of wholeRowResponses(src)) hits.push(`${file}:${hit}`);
+    }
+    // Positive control on the detector's reach: dozens of files hold a whole row.
+    expect(filesWithRows).toBeGreaterThan(30);
+    expect(hits).toEqual([]);
+  });
+
+  it("every rule D exception is real, reasoned and still needed", () => {
+    for (const [file, reason] of Object.entries(ROW_EXCEPTIONS)) {
+      expect(reason.length, file).toBeGreaterThan(20);
+      const src = readFileSync(join(ROOT, file), "utf8");
+      expect(wholeRowResponses(src), `${file} no longer needs its exception`).not.toEqual([]);
+    }
+  });
+
+  const ROW = "const saved = await prisma.report.update({ where: { id }, data });\n";
+  it.each([
+    ["the row itself", `${ROW}return NextResponse.json(saved);`],
+    ["shorthand", `${ROW}return NextResponse.json({ saved, ok: true });`],
+    ["a named field", `${ROW}return NextResponse.json({ report: saved });`],
+    ["a spread", `${ROW}return NextResponse.json({ ...saved, extra: 1 }, { status: 201 });`],
+    ["JSON.stringify", `${ROW}const body = JSON.stringify(saved);`],
+    ["include but no select", `const row = await prisma.report.findFirst({ where: { id }, include: { client: { select: { name: true } } } });\nreturn NextResponse.json(row);`],
+    ["assigned to a let", `let made;\n  made = await tx.report.create({ data });\nreturn NextResponse.json(made);`],
+    ["a wrapped row beside a bare one", `${ROW}return NextResponse.json({ a: await withCurrentEquipment(saved), b: saved });`],
+  ])("planted defect is reported: %s", (_label, src) => {
+    expect(wholeRowResponses(src)).not.toEqual([]);
+  });
+
+  it.each([
+    ["repriced", `${ROW}return NextResponse.json(await withCurrentEquipment(saved));`],
+    ["repriced in a spread", `${ROW}return NextResponse.json({ ...(await withCurrentEquipment(saved)), extra: 1 });`],
+    ["bulk export", `${ROW}return NextResponse.json({ r: withoutCachedEquipmentMoney(saved) });`],
+    ["named fields only", `${ROW}return NextResponse.json({ id: saved.id, title: saved?.title });`],
+    ["a selected row", `const row = await prisma.report.findFirst({ where: { id }, select: { id: true } });\nreturn NextResponse.json(row);`],
+    ["a key of the same name", `${ROW}return NextResponse.json({ saved: true });`],
+    ["the word inside a message", `${ROW}return NextResponse.json({ message: "saved", note: 'saved ok' });`],
+  ])("permitted form is not reported: %s", (_label, src) => {
+    expect(wholeRowResponses(src)).toEqual([]);
+  });
+});
+
 /*
  * What this scan does not see (stated so a green run is not over-read):
  *   - a raw value laundered through a helper whose parameter has another name
@@ -348,8 +491,13 @@ describe("RA-8281 B1 round 13: only stored-equipment-pricing.ts reads a stored e
  *   - a destructuring rename (`{ equipmentSelection: rows }`);
  *   - `.quantity`, which is too common a property name to scan; it cannot be
  *     reached on a raw element without first tripping rule A or B;
- *   - a route that serialises a whole Report row without naming these fields.
- *     GET /api/reports/[id] is the one such route and has its own test.
+ *   - rule D follows a whole Report row only under the name it was loaded
+ *     into. It does not follow a rest-destructure (`{ a, ...rest } = report`;
+ *     GET /api/reports/[id] does this and has its own test), a row returned
+ *     out of a transaction closure or a helper, rows destructured from
+ *     Promise.all (GET /api/user/export does this and has its own test), a
+ *     row inside a template literal, or a Report row reached through another
+ *     model's `include` (none exists today).
  * The compiler covers the first two wherever the value is typed
  * StoredEquipmentSelections (`unknown`).
  */

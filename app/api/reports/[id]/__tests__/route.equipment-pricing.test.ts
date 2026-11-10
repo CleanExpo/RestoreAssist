@@ -9,6 +9,7 @@ import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
 const reportFindFirst = vi.fn();
+const reportUpdate = vi.fn();
 const userFindUnique = vi.fn();
 const resolveReportPricing = vi.fn();
 
@@ -24,7 +25,10 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    report: { findFirst: (...a: unknown[]) => reportFindFirst(...a) },
+    report: {
+      findFirst: (...a: unknown[]) => reportFindFirst(...a),
+      update: (...a: unknown[]) => reportUpdate(...a),
+    },
     user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
   },
 }));
@@ -32,7 +36,7 @@ vi.mock("@/lib/pricing/report-pricing", () => ({
   resolveReportPricing: (...a: unknown[]) => resolveReportPricing(...a),
 }));
 
-import { GET } from "../route";
+import { GET, PUT } from "../route";
 
 const DAYS = 4;
 const CREATED = new Date("2026-10-01T00:00:00Z");
@@ -65,7 +69,7 @@ async function get() {
 const STALE = JSON.stringify([{ groupId: "lgr-85", quantity: 1, dailyRate: 61 }]);
 
 beforeEach(() => {
-  for (const m of [getServerSession, reportFindFirst, userFindUnique, resolveReportPricing]) {
+  for (const m of [getServerSession, reportFindFirst, reportUpdate, userFindUnique, resolveReportPricing]) {
     m.mockReset();
   }
   getServerSession.mockResolvedValue({ user: { id: "viewer-1" } });
@@ -132,6 +136,84 @@ describe("GET /api/reports/[id] prices stored equipment now", () => {
     expect(body.equipmentSelection).toBeNull();
     expect(body.equipmentCostTotal).toBeNull();
     expect(userFindUnique).not.toHaveBeenCalled();
+    expect(resolveReportPricing).not.toHaveBeenCalled();
+  });
+});
+
+// Review round 13 finding: PUT answered with the whole saved row, so it echoed
+// the stored column text (cached rate 61) and the cached total 244 that GET no
+// longer returns. A saved report answers with the same repriced equipment.
+describe("PUT /api/reports/[id] answers with stored equipment priced now", () => {
+  function saved(equipmentSelection: string | null, equipmentCostTotal: number | null) {
+    reportFindFirst.mockResolvedValue({ id: "r1", userId: "viewer-1" });
+    reportUpdate.mockResolvedValue({
+      id: "r1",
+      userId: "viewer-1",
+      createdAt: CREATED,
+      title: "Synthetic report",
+      equipmentSelection,
+      equipmentCostTotal,
+      estimatedDryingDuration: DAYS,
+      client: null,
+    });
+  }
+
+  async function put() {
+    const res = await PUT(
+      new NextRequest("http://localhost/api/reports/r1", {
+        method: "PUT",
+        body: JSON.stringify({ title: "Synthetic report" }),
+      }),
+      { params: Promise.resolve({ id: "r1" }) },
+    );
+    expect(res.status).toBe(200);
+    return res.json();
+  }
+
+  it("stale stored 61 / 244 with the price-list rate cleared: rate not set, no 61, no 244", async () => {
+    saved(STALE, 244);
+    resolveReportPricing.mockResolvedValue({
+      ok: true,
+      pricingConfig: { dehumidifierLGRDailyRate: null },
+    });
+    const body = await put();
+    expect(body.title).toBe("Synthetic report");
+    expect(body.equipmentSelection).toHaveLength(1);
+    expect(body.equipmentSelection[0].dailyRate).toBeNull();
+    expect(body.equipmentSelection[0].note).toMatch(/Rate not set/);
+    expect(body.equipmentCostTotal).toBeNull();
+    const text = JSON.stringify(body);
+    expect(text).not.toContain("244");
+    expect(text).not.toContain("61");
+  });
+
+  it("control: a set rate answers with the current price, never the cached one", async () => {
+    saved(STALE, 244);
+    resolveReportPricing.mockResolvedValue({
+      ok: true,
+      pricingConfig: { dehumidifierLGRDailyRate: 70 },
+    });
+    const body = await put();
+    expect(body.equipmentSelection[0]).toMatchObject({ groupId: "lgr-85", dailyRate: 70 });
+    expect(body.equipmentCostTotal).toBe(70 * DAYS);
+  });
+
+  it.each(["[null]", "{not json"])("stored %s: one line that is not usable, blocked total, no 500", async (column) => {
+    saved(column, 244);
+    resolveReportPricing.mockResolvedValue({
+      ok: true,
+      pricingConfig: { dehumidifierLGRDailyRate: 70 },
+    });
+    const body = await put();
+    expect(body.equipmentSelection[0]).toMatchObject({ usable: false, dailyRate: null });
+    expect(body.equipmentCostTotal).toBeNull();
+  });
+
+  it("control: nothing stored answers null and drops a stale cached total", async () => {
+    saved(null, 244);
+    const body = await put();
+    expect(body.equipmentSelection).toBeNull();
+    expect(body.equipmentCostTotal).toBeNull();
     expect(resolveReportPricing).not.toHaveBeenCalled();
   });
 });

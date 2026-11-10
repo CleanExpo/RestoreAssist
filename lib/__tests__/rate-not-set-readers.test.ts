@@ -184,6 +184,13 @@ export const RATE_READERS = [
   "lib/generate-iicrc-report-pdf.ts",
   "lib/restoration/reconcile-pricing-safety.ts",
   "components/InitialDataEntryForm.tsx",
+  // Review round 13: every response that answers with a whole Report row.
+  "lib/reports/report-equipment-response.ts",
+  "app/api/reports/[id]/sections/route.ts",
+  "app/api/reports/[id]/duplicate/route.ts",
+  "app/api/reports/save-tier-responses/route.ts",
+  "app/api/reports/route.ts",
+  "app/api/user/export/route.ts",
 ];
 
 const RATE_NAMES = new Set<string>([
