@@ -6,6 +6,7 @@
  */
 import { describe, it, expect } from "vitest";
 import {
+  CLAIM_HAZARD_FLAGS,
   claimRecommendations,
   isCautionClaim,
   type RecCategory,
@@ -171,13 +172,9 @@ describe("RA-8276 defect 2: working at height is required for high-level scope",
 describe("RA-8276: no water wording on any dry hazard combination", () => {
   const DRY_LEAK =
     /S500|contaminated water|Category.?3|air.?mover|dehumidif|\bdrying\b|psychromet|wet.?floor|block-and-elevate|tannin|moisture checks/i;
-  const flags = [
-    "fireSmoke",
-    "biohazard",
-    "chemical",
-    "asbestos",
-    "unoccupiedAtLoss",
-  ] as const;
+  // Round 8: every on/off input except waterPresent, so a new flag is
+  // covered automatically (a hand-picked list missed timberFloorCupping).
+  const flags = CLAIM_HAZARD_FLAGS.filter((f) => f !== "waterPresent");
   type H = Parameters<typeof claimRecommendations>[0];
   const combos: H[] = [];
   for (let m = 0; m < 1 << flags.length; m++) {
@@ -195,6 +192,28 @@ describe("RA-8276: no water wording on any dry hazard combination", () => {
       .filter((r) => DRY_LEAK.test(`${r.text} ${r.clause}`))
       .map((r) => `${r.category}: ${r.text.slice(0, 60)} [${r.clause}]`);
     expect(leaks).toEqual([]);
+  });
+
+  it("dry cupping gets a cause check, not specialty drying", () => {
+    const recs = claimRecommendations({
+      fireSmoke: true,
+      timberFloorCupping: true,
+    });
+    expect(recs.some((r) => r.category === "specialty_drying")).toBe(false);
+    expect(recs.map((r) => r.text).join(" ")).toMatch(
+      /Floor cupping is recorded/,
+    );
+  });
+
+  it("cupping with water keeps specialty drying", () => {
+    const recs = claimRecommendations({
+      waterCategory: "1",
+      timberFloorCupping: true,
+    });
+    expect(recs.some((r) => r.category === "specialty_drying")).toBe(true);
+    expect(recs.map((r) => r.text).join(" ")).not.toMatch(
+      /Floor cupping is recorded/,
+    );
   });
 
   it("Category 3 water keeps its water items unchanged", () => {

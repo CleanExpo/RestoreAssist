@@ -14,6 +14,20 @@ import {
 import { PATHWAY_SECTIONS, type ClaimFacts, type PathwayItem } from "../types";
 import { standardCite } from "@/lib/nir-standards-mapping";
 import { JOB_TYPES } from "@/lib/evidence/workflow-definitions";
+import { CLAIM_HAZARD_FLAGS } from "@/lib/restoration/claim-recommendations";
+
+/**
+ * Every on/off hazard a claim can carry (round 8: a hand-picked list left out
+ * timberFloorCupping). waterPresent and highLevelWork are not ClaimFacts
+ * hazards: the engine derives them.
+ */
+type FactFlag = Exclude<
+  (typeof CLAIM_HAZARD_FLAGS)[number],
+  "waterPresent" | "highLevelWork"
+>;
+const FACT_FLAGS = CLAIM_HAZARD_FLAGS.filter(
+  (f): f is FactFlag => f !== "waterPresent" && f !== "highLevelWork",
+);
 
 const KALOLO: ClaimFacts = {
   claimType: "FIRE_SMOKE",
@@ -424,12 +438,9 @@ describe("RA-8276: dry claims with mixed hazards stay dry", () => {
     /wet.?floor|block-and-elevate|psychromet|dew point|moisture|tannin|water.?mark|drying|dehumidif|water categor|water class|contaminated water|Category.?3|air.?mover|S500/i;
   const MOULD_SAFE =
     /S500|contaminated water|Category.?3|air.?mover|dehumidif|psychromet/i;
-  const flags = [
-    "biohazard",
-    "chemical",
-    "asbestos",
-    "unoccupiedAtLoss",
-  ] as const;
+  // fireSmoke is left out on purpose: this block asserts no fire content on
+  // a claim without fire. Every other flag is included automatically.
+  const flags = FACT_FLAGS.filter((f) => f !== "fireSmoke");
   const cases: [string, number, ClaimFacts][] = [];
   for (const claimType of JOB_TYPES) {
     if (composePathway({ claimType }).waterPresent) continue;
@@ -541,13 +552,7 @@ describe("RA-8276: every text on a dry pathway is free of water instructions", (
   ];
   /** A mould hazard keeps its moisture wording: the moisture source is part of mould work. */
   const MOULD_ALLOWED = /moisture/gi;
-  const flags = [
-    "biohazard",
-    "chemical",
-    "asbestos",
-    "unoccupiedAtLoss",
-    "fireSmoke",
-  ] as const;
+  const flags = FACT_FLAGS;
   const PROPS: ClaimFacts["property"][] = [
     {},
     {
@@ -600,5 +605,49 @@ describe("RA-8276: every text on a dry pathway is free of water instructions", (
     }
     expect(checked).toBeGreaterThan(500);
     expect([...leaks].sort()).toEqual([]);
+  });
+});
+
+/**
+ * RA-8276 review round 8: floor cupping on a claim with no water pulled the
+ * specialty drying item and an S500 citation into the pathway.
+ */
+describe("RA-8276: floor cupping on a dry claim", () => {
+  // Every claim type that is dry by default, except MOULD (its template
+  // steps are mould work under S520).
+  const DRY_TYPES = JOB_TYPES.filter(
+    (t) => t !== "MOULD" && !composePathway({ claimType: t }).waterPresent,
+  );
+  it("covers the dry claim types", () => {
+    expect(DRY_TYPES).toContain("FIRE_SMOKE");
+    expect(DRY_TYPES.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it.each(DRY_TYPES)(
+    "%s with cupping and no water has no drying item and no S500",
+    (claimType) => {
+      const p = composePathway({
+        claimType,
+        hazards: { timberFloorCupping: true },
+      });
+      expect(p.waterPresent).toBe(false);
+      const text = p.techPathway.map(itemText).join(" ");
+      expect(p.techPathway.some((i) => i.id.includes("specialty_drying"))).toBe(
+        false,
+      );
+      expect(text).not.toMatch(/S500|bound water|mat\/injection drying/i);
+      expect(text).toMatch(/Floor cupping is recorded/);
+    },
+  );
+
+  it("a water claim with cupping keeps the specialty drying item", () => {
+    const p = composePathway({
+      claimType: "WATER_DAMAGE",
+      hazards: { timberFloorCupping: true },
+    });
+    expect(p.waterPresent).toBe(true);
+    expect(p.techPathway.some((i) => i.id.includes("specialty_drying"))).toBe(
+      true,
+    );
   });
 });

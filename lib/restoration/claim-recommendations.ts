@@ -67,6 +67,33 @@ export interface ClaimHazardInputs extends HazardProfile {
   ceilingHeightM?: number | null;
 }
 
+/** Keys of T whose value is a boolean flag. */
+type BooleanKeys<T> = {
+  [K in keyof T]-?: NonNullable<T[K]> extends boolean ? K : never;
+}[keyof T];
+
+/**
+ * RA-8276: every on/off hazard input. Guard tests run every combination of
+ * these, so a flag left off this list is a flag nobody tests. The check
+ * below fails the type check if a boolean input is added without listing it.
+ */
+export const CLAIM_HAZARD_FLAGS = [
+  "asbestos",
+  "biohazard",
+  "chemical",
+  "fireSmoke",
+  "timberFloorCupping",
+  "unoccupiedAtLoss",
+  "waterPresent",
+  "highLevelWork",
+] as const satisfies readonly BooleanKeys<ClaimHazardInputs>[];
+const _everyHazardFlagListed: [
+  Exclude<BooleanKeys<ClaimHazardInputs>, (typeof CLAIM_HAZARD_FLAGS)[number]>,
+] extends [never]
+  ? true
+  : never = true;
+void _everyHazardFlagListed;
+
 const CAT3 = (h: ClaimHazardInputs) => h.waterCategory === "3";
 const MOULD = (h: ClaimHazardInputs) => (h.mouldCondition ?? 0) >= 2;
 /** RA-8276: water items are only emitted when water is actually present. */
@@ -277,12 +304,22 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
   }
 
   // ── Specialty drying (Class 4 / bound water) ─────────────────────────────
-  if (h.timberFloorCupping || h.waterClass === 4) {
+  // RA-8276: drying is water work. Cupping recorded on a claim with no water
+  // gets a check of the cause instead.
+  if (water && (h.timberFloorCupping || h.waterClass === 4)) {
     add(
       "specialty_drying",
       "caution",
       "Cupping/buckling engineered or timber flooring indicates bound water (Class 4) with low evaporation — deploy specialty mat/injection drying and monitor; if cupping is permanent after dry-down, replace rather than sand.",
       "IICRC S500:2021 §12.2 (specialty drying) / RIA CR Manual (bound water)",
+    );
+  }
+  if (!water && h.timberFloorCupping) {
+    add(
+      "documentation",
+      "advisory",
+      "Floor cupping is recorded on this claim: confirm the cause with the claim owner and record it before scoping any floor work.",
+      "General duty of care",
     );
   }
 
