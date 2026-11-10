@@ -868,3 +868,70 @@ describe("the cents model: screens, the prompt table and the viewers add in whol
     expect(text).not.toContain("$1.00");
   });
 });
+
+// Review 5: a rate shown is the rate billed, wherever an equipment price-list
+// rate is read. 49.995 is $50.00 a day, never "$49.99" beside a $50.00 bill.
+describe("the billable rate is the rate every screen and document shows", () => {
+  it("the rate the entry form and the editor read is the billable rate", async () => {
+    const { getEquipmentDailyRateOrNull, selectionDailyRateOrNull } = await import("@/lib/equipment-matrix");
+    const cfg = { dehumidifierLGRDailyRate: 49.995 };
+    expect(getEquipmentDailyRateOrNull("lgr-85", cfg)).toBe(50);
+    expect(`$${(getEquipmentDailyRateOrNull("lgr-85", cfg) as number).toFixed(2)}/day`).toBe("$50.00/day");
+    expect(selectionDailyRateOrNull({ groupId: "lgr-85" }, cfg)).toBe(50);
+    expect(getEquipmentDailyRateOrNull("lgr-85", null)).toBeNull();
+    // A group with no price-list field reads a rate keyed by its own id: billable too.
+    expect(getEquipmentDailyRateOrNull("zz-no-price-list-field", { "zz-no-price-list-field": 49.995 })).toBe(50);
+    expect(getEquipmentDailyRateOrNull("lgr-85", { dehumidifierLGRDailyRate: null })).toBeNull();
+  });
+
+  const pricing = (injection: number) =>
+    new Proxy({}, { get: (_t, key) => (key === "injectionDryingSystemDailyRate" ? injection : 50) }) as Record<
+      string,
+      number
+    >;
+  const class4 = {
+    report: {
+      id: "rep_1",
+      reportNumber: "RA-1",
+      claimReferenceNumber: "CLM-1",
+      waterCategory: "2",
+      biologicalMouldDetected: false,
+      biologicalMouldCategory: null,
+      hazardType: "water damage",
+      technicianFieldReport: "Burst flexi hose under the vanity.",
+      estimatedDryingDuration: 3,
+      inspection: null,
+    },
+    analysis: null,
+    tier1: { T1_Q7_hazards: ["None identified"], T1_Q6_materialsAffected: ["Yellow tongue particleboard"] },
+    tier2: null,
+    tier3: { T3_Q5_class4DryingAssessment: "Class 4 specialty drying required" },
+    stateInfo: null,
+    scopeAreas: [{ length: 8, width: 5, wetPercentage: 100 }],
+  };
+
+  it("cost estimation: the injection drying line shows and bills the billable rate", () => {
+    const doc = buildCostEstimationData({
+      ...class4,
+      pricingConfig: pricing(49.995),
+      scopeData: { lineItems: [] },
+      equipmentSelection: null,
+      gstTreatment: getGstTreatment("AU"),
+    }) as any;
+    const row = doc.categories.dryingSystems.lineItems[0];
+    expect(row.dailyRate).toBe(50);
+    expect(row.subtotal).toBe(50 * row.days);
+    expect(doc.categories.dryingSystems.total).toBe(row.subtotal);
+  });
+
+  it("scope of works: the injection drying line shows and bills the billable rate", () => {
+    const doc = buildScopeOfWorksData({
+      ...class4,
+      pricingConfig: pricing(49.995),
+      equipmentSelection: null,
+    } as Parameters<typeof buildScopeOfWorksData>[0]) as any;
+    const item = doc.lineItems.find((i: any) => i.equipment?.injectionSystem);
+    expect(item.equipment.injectionSystem.rate).toBe(50);
+    expect(item.subtotal).toBe(12 * 50 + 8 * 50 + 50 * item.equipment.injectionSystem.days);
+  });
+});

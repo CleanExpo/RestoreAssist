@@ -10,7 +10,7 @@ import {
   calculateTotalAmps,
   desiccantDehumidifiers,
   getEquipmentGroupById,
-  getEquipmentPricingField,
+  getEquipmentDailyRateOrNull,
   lgrDehumidifiers,
   type EquipmentSelection,
 } from "@/lib/equipment-matrix";
@@ -1182,12 +1182,12 @@ export default function InitialDataEntryForm({
       ?.circuitsRequired ?? 0;
   // A preview price exists only when the actual rate card has a finite,
   // non-negative rate for the group. Zero is a real configured price.
+  // It is the BILLABLE rate (the price-list rate to the whole cent) from the
+  // rate reader, so the rate shown here is the rate the running total and the
+  // server use: 49.995 reads $50.00/day, never $49.99 beside a $50.00 bill.
   const knownDailyRate = (groupId: string): number | null => {
-    const field = getEquipmentPricingField(groupId);
-    const rate = field && pricingConfig ? pricingConfig[field] : undefined;
-    return typeof rate === "number" && Number.isFinite(rate) && rate >= 0
-      ? rate
-      : null;
+    const rate = getEquipmentDailyRateOrNull(groupId, pricingConfig);
+    return rate !== null && rate >= 0 ? rate : null;
   };
   const selectionRates = equipmentSelections.map((sel) =>
     knownDailyRate(sel.groupId),

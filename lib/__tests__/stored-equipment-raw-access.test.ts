@@ -574,3 +574,98 @@ describe("RA-8281 B1 round 13 rule E: equipment money is multiplied only in the 
  * The compiler covers the first two wherever the value is typed
  * StoredEquipmentSelections (`unknown`).
  */
+
+/*
+ * Rule F (review 5): an equipment price-list daily rate is read as the
+ * BILLABLE rate (billableDailyRate, the rate to the whole cent) wherever it is
+ * shown or multiplied. A raw read shows one figure ($49.99 for 49.995) while
+ * the job is billed on another ($50.00). The rate reader is
+ * lib/equipment-matrix.ts; a file that reads one of these fields for itself
+ * must pass it through billableDailyRate on that line or the line before, or
+ * be a reasoned exception below.
+ */
+const EQUIPMENT_RATE_FIELDS = [
+  "afdUnitLargeDailyRate",
+  "airMoverAxialDailyRate",
+  "airMoverCentrifugalDailyRate",
+  "dehumidifierDesiccantDailyRate",
+  "dehumidifierLGRDailyRate",
+  "injectionDryingSystemDailyRate",
+];
+const RATE_READER = "lib/equipment-matrix.ts";
+const RAW_RATE_READ = new RegExp(`\\.(${EQUIPMENT_RATE_FIELDS.join("|")})\\b|getEquipmentPricingField\\(`);
+
+function rawRateReadLines(source: string): number[] {
+  const lines = stripComments(source).split("\n");
+  const out: number[] = [];
+  lines.forEach((line, i) => {
+    if (!RAW_RATE_READ.test(line)) return;
+    if (/^\s*import\b/.test(line)) return;
+    if (line.includes("billableDailyRate(") || (lines[i - 1] ?? "").includes("billableDailyRate(")) return;
+    out.push(i + 1);
+  });
+  return out;
+}
+
+const RAW_RATE_READ_EXCEPTIONS: Record<string, string> = {
+  // The price list itself: these read, validate, store or show the contractor's own figure.
+  "app/api/pricing-config/route.ts": "the price-list writer: validates and stores what the contractor entered",
+  "components/PricingConfiguration.tsx": "the price-list editor: shows the contractor's own entry back to them",
+  "lib/pricing/org-pricing.ts": "prints the organisation's price list as AI grounding text; no job is priced from it here",
+  "lib/nir-cost-estimation.ts": "copies the price list into its own rate table for the NIR estimate domain (RA-8292)",
+  // The one writer that reads the field for itself, then bills the billable rate.
+  "app/api/reports/initial-entry/route.ts":
+    "validates the raw price-list value, then prices and stores billableDailyRate(listRate); held by the source test in rule E",
+  // Other pricing domains with their own arithmetic; not equipment selections on a report (RA-8292).
+  "app/api/calculate/route.ts": "the quick calculator domain: its own unit-day arithmetic and defaults (RA-8292)",
+  "lib/scope-biohazard.ts": "the biohazard scope domain: a unit cost on a scope item, not a stored selection (RA-8292)",
+  "lib/scope-mould.ts": "the mould scope domain: a unit cost on a scope item, not a stored selection (RA-8292)",
+  "lib/scope-storm.ts": "the storm scope domain: a unit cost on a scope item, not a stored selection (RA-8292)",
+};
+
+describe("RA-8281 B1 round 13 rule F: an equipment price-list rate is read as the billable rate", () => {
+  const all = SCAN_DIRS.flatMap((d) => sourceFiles(join(ROOT, d))).map(posix);
+
+  it("finds no raw read of an equipment daily rate outside the rate reader", () => {
+    const hits: string[] = [];
+    for (const file of all) {
+      if (file === RATE_READER || file in RAW_RATE_READ_EXCEPTIONS) continue;
+      const src = readFileSync(join(ROOT, file), "utf8");
+      for (const line of rawRateReadLines(src)) hits.push(`${file}:${line} [rule F]`);
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("every rule F exception is reasoned and still needed", () => {
+    for (const [file, reason] of Object.entries(RAW_RATE_READ_EXCEPTIONS)) {
+      expect(reason.length, file).toBeGreaterThan(20);
+      expect(rawRateReadLines(readFileSync(join(ROOT, file), "utf8")), file).not.toEqual([]);
+    }
+  });
+
+  it("the entry form shows and totals the billable rate from the rate reader", () => {
+    const src = readFileSync(join(ROOT, "components/InitialDataEntryForm.tsx"), "utf8");
+    expect(src).toContain("const rate = getEquipmentDailyRateOrNull(groupId, pricingConfig);");
+    expect(src).not.toContain("getEquipmentPricingField");
+  });
+
+  it.each([
+    "const rate = pricingConfig.dehumidifierLGRDailyRate;",
+    "const rate = field && pricingConfig ? pricingConfig[getEquipmentPricingField(groupId)] : undefined;",
+    "total: dryingDuration * pricingConfig.injectionDryingSystemDailyRate,",
+    "return `$${rates?.airMoverAxialDailyRate.toFixed(2)}/day`;",
+  ])("planted defect is reported: %s", (line) => {
+    expect(rawRateReadLines(line)).toEqual([1]);
+  });
+
+  it.each([
+    "const rate = billableDailyRate(pricingConfig.dehumidifierLGRDailyRate);",
+    "const rate = billableDailyRate(\n  pricingConfig.injectionDryingSystemDailyRate,\n);",
+    "select: { dehumidifierLGRDailyRate: true },",
+    'const FIELDS = ["airMoverAxialDailyRate"];',
+    "// pricingConfig.dehumidifierLGRDailyRate in a comment",
+    'import { getEquipmentPricingField } from "@/lib/equipment-matrix";',
+  ])("permitted form is not reported: %s", (line) => {
+    expect(rawRateReadLines(line)).toEqual([]);
+  });
+});

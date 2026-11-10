@@ -1,6 +1,9 @@
 import { assertRatesSet } from "@/lib/pricing/rate-not-set";
+import { billableDailyRate } from "@/lib/equipment-matrix";
 import {
+  AMOUNT_TOO_LARGE_NOTE,
   assertEquipmentPriced,
+  equipmentLineAmount,
   priceStoredEquipment,
   readStoredEquipment,
   type StoredEquipmentSelections,
@@ -84,16 +87,12 @@ export function buildScopeOfWorksData(data: {
       pricingConfig.qualifiedTechnicianNormalHours,
     ),
     labourerNormalHours: ensureNumber(pricingConfig.labourerNormalHours),
-    airMoverAxialDailyRate: ensureNumber(pricingConfig.airMoverAxialDailyRate),
-    dehumidifierLGRDailyRate: ensureNumber(
-      pricingConfig.dehumidifierLGRDailyRate,
-    ),
-    afdUnitLargeDailyRate: ensureNumber(pricingConfig.afdUnitLargeDailyRate),
     extractionTruckMountedHourlyRate: ensureNumber(
       pricingConfig.extractionTruckMountedHourlyRate,
     ),
-    injectionDryingSystemDailyRate: ensureNumber(
-      pricingConfig.injectionDryingSystemDailyRate,
+    // The billable rate (to the whole cent), as for every equipment line.
+    injectionRate: billableDailyRate(
+      ensureNumber(pricingConfig.injectionDryingSystemDailyRate),
     ),
     thermalCameraUseCostPerAssessment: ensureNumber(
       pricingConfig.thermalCameraUseCostPerAssessment,
@@ -331,6 +330,14 @@ export function buildScopeOfWorksData(data: {
 
   // Add Class 4 drying if needed
   if (needsClass4 && hasYellowTongue) {
+    // A whole-cent amount; a figure that is not an exact amount is refused,
+    // never shown as $0.
+    const injectionTotal = equipmentLineAmount(
+      rates.injectionRate,
+      1,
+      dryingDuration,
+    );
+    if (injectionTotal === null) throw new RangeError(AMOUNT_TOO_LARGE_NOTE);
     lineItems.push({
       id: "RW_6",
       description: "Drying Protocol — Yellow Tongue Sandwich Drying",
@@ -344,13 +351,13 @@ export function buildScopeOfWorksData(data: {
         injectionSystem: {
           qty: 1,
           days: dryingDuration,
-          rate: rates.injectionDryingSystemDailyRate,
+          rate: rates.injectionRate,
         },
       },
       subtotal:
         12 * rates.masterQualifiedNormalHours +
         8 * rates.qualifiedTechnicianNormalHours +
-        dryingDuration * rates.injectionDryingSystemDailyRate,
+        injectionTotal,
     });
   }
 

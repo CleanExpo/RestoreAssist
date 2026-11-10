@@ -1,6 +1,9 @@
 import { assertRatesSet } from "@/lib/pricing/rate-not-set";
+import { billableDailyRate } from "@/lib/equipment-matrix";
 import {
+  AMOUNT_TOO_LARGE_NOTE,
   assertEquipmentPriced,
+  equipmentLineAmount,
   priceStoredEquipment,
   readStoredEquipment,
   type PricedEquipmentLine,
@@ -340,6 +343,12 @@ export function buildCostEstimationData(data: {
 
   // Equipment Rental - Drying Systems (if Class 4)
   if (needsClass4 && hasYellowTongue) {
+    // The billable rate and a whole-cent amount, as for every equipment line.
+    const injectionRate = billableDailyRate(
+      pricingConfig.injectionDryingSystemDailyRate,
+    );
+    const injectionTotal = equipmentLineAmount(injectionRate, 1, dryingDuration);
+    if (injectionTotal === null) throw new RangeError(AMOUNT_TOO_LARGE_NOTE);
     categories.dryingSystems = {
       name: "Equipment Rental — Drying Systems (Class 3/4)",
       lineItems: [
@@ -348,12 +357,11 @@ export function buildCostEstimationData(data: {
             "Injection Drying System (thermal mats, injection equipment)",
           qty: 1,
           days: dryingDuration,
-          dailyRate: pricingConfig.injectionDryingSystemDailyRate,
-          subtotal:
-            dryingDuration * pricingConfig.injectionDryingSystemDailyRate,
+          dailyRate: injectionRate,
+          subtotal: injectionTotal,
         },
       ],
-      total: dryingDuration * pricingConfig.injectionDryingSystemDailyRate,
+      total: injectionTotal,
     };
   }
 

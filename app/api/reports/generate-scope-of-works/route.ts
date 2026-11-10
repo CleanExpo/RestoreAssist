@@ -291,23 +291,6 @@ export async function POST(request: NextRequest) {
   });
 }
 
-function calculateRW3Subtotal(
-  rates: any,
-  airMovers: number,
-  dehumidifiers: number,
-  afd: number,
-  days: number,
-): number {
-  const labour =
-    4 * rates.masterQualifiedNormalHours +
-    6 * rates.qualifiedTechnicianNormalHours;
-  const equipment =
-    airMovers * days * rates.airMoverAxialDailyRate +
-    dehumidifiers * days * rates.dehumidifierLGRDailyRate +
-    afd * days * rates.afdUnitLargeDailyRate;
-  return labour + equipment;
-}
-
 // Build the complete scope of works document server-side with exact values
 function buildScopeOfWorksDocument(scopeData: any): string {
   // Format line items with actual calculations
