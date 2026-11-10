@@ -10,50 +10,36 @@
  *   - scope   — ScopeItem[] from lib/scope-fire::generateFireScope
  *               (smoke-type-specific cleaning items + char-level
  *               structural items, all with S700 clause refs inline)
- *   - estimate — line items × default AU rates × 10% GST
+ *   - estimate — priced by lib/scope-fire::priceFireScope from the
+ *               contractor's OWN price list (resolveEffectivePricing),
+ *               GST from lib/gst-rules. RA-8275: no default rates; an unset
+ *               rate blocks the total instead of pricing at $0.
  *
  * Rule-based + deterministic; AI prose is a follow-up under same ticket.
  */
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import type { GstTreatment } from "@/lib/gst-rules";
-import { generateFireScope, type SmokeType } from "@/lib/scope-fire";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveAreaSqm } from "@/lib/units";
+import {
+  generateFireScope,
+  priceFireScope,
+  type FireJobInputs,
+  type FireSeverity,
+  type SmokeType,
+} from "@/lib/scope-fire";
 import type {
   AssessmentEstimate,
   AssessmentReport,
   DomainGenerateInput,
   DomainGenerateResult,
   DomainPlugin,
-  EstimateLine,
   ReportSection,
   ScopeCategory,
   ScopeItem,
   StandardCitation,
 } from "../types";
-
-// ─── Pricing defaults (AU mid-2026 ex GST) ────────────────────────────────────
-
-const DEFAULT_AU_PRICING = {
-  masterQualifiedNormalHours: 125,
-  qualifiedTechnicianNormalHours: 100,
-  labourerNormalHours: 70,
-  airMoverAxialDailyRate: 35,
-  airMoverCentrifugalDailyRate: 45,
-  dehumidifierLGRDailyRate: 110,
-  dehumidifierDesiccantDailyRate: 250,
-  afdUnitLargeDailyRate: 95,
-  extractionTruckMountedHourlyRate: 220,
-  extractionElectricHourlyRate: 90,
-  injectionDryingSystemDailyRate: 180,
-  antimicrobialTreatmentRate: 4.5,
-  // RA-7001: floor of the NRPG $65-145/m² range (founder-approved 2026-07-06).
-  mouldRemediationTreatmentRate: 65,
-  biohazardTreatmentRate: 65,
-  administrationFee: 195,
-  callOutFee: 250,
-  thermalCameraUseCostPerAssessment: 95,
-};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -93,43 +79,8 @@ function categoryFromItemType(itemType: string): ScopeCategory {
   return "MATERIALS";
 }
 
-function buildEstimate(
-  scope: ScopeItem[],
-  rateByDescription: Map<string, number>,
-  gst: GstTreatment,
-): AssessmentEstimate {
-  const lines: EstimateLine[] = scope.map((item) => {
-    const rate = rateByDescription.get(item.description) ?? 0;
-    const lineTotalExGst = +(item.quantity * rate).toFixed(2);
-    const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
-    const lineTotalIncGst = +(lineTotalExGst + gstAmount).toFixed(2);
-    return {
-      description: item.description,
-      category: item.category,
-      quantity: item.quantity,
-      unit: item.unit,
-      rate,
-      lineTotalExGst,
-      gstAmount,
-      lineTotalIncGst,
-    };
-  });
-  const subtotalExGst = +lines
-    .reduce((s, l) => s + l.lineTotalExGst, 0)
-    .toFixed(2);
-  const gstTotal = +lines.reduce((s, l) => s + l.gstAmount, 0).toFixed(2);
-  const totalIncGst = +(subtotalExGst + gstTotal).toFixed(2);
-  return {
-    lines,
-    totals: {
-      subtotalExGst,
-      gstTotal,
-      totalIncGst,
-      gstRate: gst.rate,
-      currency: gst.currency,
-    },
-  };
-}
+// RA-8275: the estimate is priced only by lib/scope-fire::priceFireScope.
+// This domain maps its result onto the shared AssessmentEstimate shape.
 
 // ─── Options narrowing ──────────────────────────────────────────────────────
 
@@ -143,6 +94,44 @@ const VALID_SMOKE_TYPES: readonly SmokeType[] = [
 interface FireSmokeOptions {
   smokeType: SmokeType;
   charLevel: 1 | 2 | 3 | 4;
+  job: FireJobInputs;
+}
+
+const VALID_SEVERITIES: readonly FireSeverity[] = ["light", "medium", "heavy"];
+
+/** RA-8275: optional job counts a technician may supply with the options. */
+const JOB_COUNT_KEYS = [
+  "contentsItemCount",
+  "windowCount",
+  "cupboardBenchAreaM2",
+  "carpetAreaM2",
+  "softFurnishingCount",
+  "hvacSystemCount",
+  "lightFittingCount",
+  "technicians",
+  "supervisors",
+  "buildingDays",
+  "contentsDays",
+  "airScrubbers",
+  "hepaVacuumUnitDays",
+  "ozoneUnitDays",
+  "hydroxylUnitDays",
+] as const satisfies readonly (keyof FireJobInputs)[];
+
+function narrowJob(options: Record<string, unknown>): FireJobInputs {
+  const job: FireJobInputs = {};
+  const sev = options.severity;
+  if (
+    typeof sev === "string" &&
+    VALID_SEVERITIES.includes(sev as FireSeverity)
+  ) {
+    job.severity = sev as FireSeverity;
+  }
+  for (const key of JOB_COUNT_KEYS) {
+    const v = options[key];
+    if (typeof v === "number" && Number.isFinite(v) && v >= 0) job[key] = v;
+  }
+  return job;
 }
 
 function narrowOptions(
@@ -155,7 +144,11 @@ function narrowOptions(
   }
   const c = options.charLevel;
   if (typeof c !== "number" || ![1, 2, 3, 4].includes(c)) return null;
-  return { smokeType: s as SmokeType, charLevel: c as 1 | 2 | 3 | 4 };
+  return {
+    smokeType: s as SmokeType,
+    charLevel: c as 1 | 2 | 3 | 4,
+    job: narrowJob(options),
+  };
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────
@@ -305,7 +298,10 @@ export const fireSmokeDomain: DomainPlugin = {
         select: {
           id: true,
           propertyAddress: true,
-          affectedAreas: { select: { affectedSquareFootage: true } },
+          affectedAreas: {
+            select: { affectedAreaSqm: true, affectedSquareFootage: true },
+          },
+          _count: { select: { contentsPackOutItems: true } },
         },
       });
       if (!inspection) {
@@ -316,8 +312,10 @@ export const fireSmokeDomain: DomainPlugin = {
         };
       }
 
+      // RA-8275: affectedSquareFootage is sq ft. resolveAreaSqm prefers the
+      // m² column and converts a legacy sq ft value exactly once.
       const affectedAreaM2 = inspection.affectedAreas.reduce(
-        (sum, a) => sum + (a.affectedSquareFootage ?? 0),
+        (sum, a) => sum + resolveAreaSqm(a),
         0,
       );
       if (affectedAreaM2 <= 0) {
@@ -329,29 +327,67 @@ export const fireSmokeDomain: DomainPlugin = {
         };
       }
 
+      // Contents count from the inspection's pack-out register unless the
+      // technician supplied one.
+      const packOutCount = inspection._count?.contentsPackOutItems;
+      const job: FireJobInputs = {
+        ...opts.job,
+        contentsItemCount:
+          opts.job.contentsItemCount ??
+          (packOutCount && packOutCount > 0 ? packOutCount : undefined),
+      };
+
+      // RA-8275: price only from the contractor's own price list. No
+      // default rates: an unset field shows as "rate not set".
+      const pricingConfig =
+        (await resolveEffectivePricing(prisma, input.userId)) ?? {};
+
       const drafts = generateFireScope({
         smokeType: opts.smokeType,
         charLevel: opts.charLevel,
         affectedAreaM2,
-        pricingConfig: DEFAULT_AU_PRICING,
+        pricingConfig,
+        job,
       });
 
       const scope: ScopeItem[] = drafts.map((d) => ({
         description: d.description,
         category: categoryFromItemType(d.itemType),
-        quantity: d.quantity ?? 1,
+        quantity: d.quantity ?? null,
         unit: d.unit ?? "ea",
         iicrcRef: d.iicrcReference?.trim() || "IICRC S700:2025",
         notes: d.justification,
       }));
 
-      const rateByDescription = new Map<string, number>(
-        drafts
-          .filter((d) => typeof d.unitCostAud === "number")
-          .map((d) => [d.description, d.unitCostAud as number]),
-      );
       const gst = await gstForInspection(input.inspectionId);
-      const estimate = buildEstimate(scope, rateByDescription, gst);
+      const priced = priceFireScope(drafts, gst);
+      const estimate: AssessmentEstimate = {
+        lines: priced.lines.map((l, i) => ({
+          description: l.description,
+          category: scope[i].category,
+          quantity: l.quantity,
+          unit: l.unit ?? "ea",
+          rate: l.rate,
+          lineTotalExGst: l.lineTotalExGst,
+          gstAmount: l.gstAmount,
+          lineTotalIncGst: l.lineTotalIncGst,
+          pricingStatus: l.pricingStatus,
+          pricingNote: l.pricingNote,
+        })),
+        totals: {
+          subtotalExGst: priced.subtotalExGst,
+          gstTotal: priced.gstTotal,
+          totalIncGst: priced.totalIncGst,
+          gstRate: priced.gstRate,
+          currency: priced.currency,
+          status: priced.status,
+          missing: priced.missing.map((m) => ({
+            description: m.description,
+            note: m.note,
+          })),
+          basis: priced.basis,
+        },
+      };
 
       const { report, citations } = buildReport({
         propertyAddress: inspection.propertyAddress,
