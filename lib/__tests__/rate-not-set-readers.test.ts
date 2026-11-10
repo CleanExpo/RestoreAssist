@@ -194,19 +194,138 @@ function unwrap(e: ts.Expression): ts.Expression {
   }
 }
 
+const NO_VALUE = Symbol("not a constant");
+const MATH_FNS = new Set([
+  "trunc",
+  "floor",
+  "ceil",
+  "round",
+  "abs",
+  "min",
+  "max",
+  "sign",
+]);
+const NUMBER_FNS: Record<string, (...a: never[]) => unknown> = {
+  Number: Number as never,
+  parseInt: parseInt as never,
+  parseFloat: parseFloat as never,
+  String: String as never,
+  Boolean: Boolean as never,
+  BigInt: BigInt as never,
+};
+
+/**
+ * The value of an expression built only from literals, operators and pure
+ * number functions, or NO_VALUE. Review round 3 showed a literal-only check is
+ * evaded by `?? Number(0)`; folding the constant closes the class
+ * (`Number(0)`, `1 - 1`, `0 * 5`, `Math.max(0)`, `false`, `"0"`, `void 0`...).
+ */
+function constantValue(e: ts.Expression): unknown {
+  const x = unwrap(e);
+  if (ts.isNumericLiteral(x)) return Number(x.text.replace(/_/g, ""));
+  if (ts.isBigIntLiteral(x))
+    return BigInt(x.text.replace(/n$/, "").replace(/_/g, ""));
+  if (ts.isStringLiteralLike(x)) return x.text;
+  if (x.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (x.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (x.kind === ts.SyntaxKind.NullKeyword) return null;
+  if (ts.isVoidExpression(x)) return undefined;
+  if (ts.isPrefixUnaryExpression(x)) {
+    const v = constantValue(x.operand) as never;
+    if (v === NO_VALUE) return NO_VALUE;
+    switch (x.operator) {
+      case ts.SyntaxKind.PlusToken:
+        return +v;
+      case ts.SyntaxKind.MinusToken:
+        return -v;
+      case ts.SyntaxKind.ExclamationToken:
+        return !v;
+      case ts.SyntaxKind.TildeToken:
+        return ~v;
+      default:
+        return NO_VALUE;
+    }
+  }
+  if (ts.isBinaryExpression(x)) {
+    const a = constantValue(x.left) as never;
+    const b = constantValue(x.right) as never;
+    if (a === NO_VALUE || b === NO_VALUE) return NO_VALUE;
+    try {
+      switch (x.operatorToken.kind) {
+        case ts.SyntaxKind.PlusToken:
+          return (a as number) + (b as number);
+        case ts.SyntaxKind.MinusToken:
+          return a - b;
+        case ts.SyntaxKind.AsteriskToken:
+          return a * b;
+        case ts.SyntaxKind.SlashToken:
+          return a / b;
+        case ts.SyntaxKind.PercentToken:
+          return a % b;
+        case ts.SyntaxKind.BarToken:
+          return a | b;
+        case ts.SyntaxKind.AmpersandToken:
+          return a & b;
+        case ts.SyntaxKind.CaretToken:
+          return a ^ b;
+        case ts.SyntaxKind.BarBarToken:
+          return a || b;
+        case ts.SyntaxKind.AmpersandAmpersandToken:
+          return a && b;
+        case ts.SyntaxKind.QuestionQuestionToken:
+          return a ?? b;
+        default:
+          return NO_VALUE;
+      }
+    } catch {
+      return NO_VALUE;
+    }
+  }
+  if (ts.isConditionalExpression(x)) {
+    const c = constantValue(x.condition);
+    if (c === NO_VALUE) return NO_VALUE;
+    return constantValue(c ? x.whenTrue : x.whenFalse);
+  }
+  if (ts.isCallExpression(x)) {
+    const args = x.arguments.map((a) => constantValue(a));
+    if (args.some((v) => v === NO_VALUE)) return NO_VALUE;
+    const callee = unwrap(x.expression);
+    let fn: ((...a: never[]) => unknown) | undefined;
+    if (ts.isIdentifier(callee)) fn = NUMBER_FNS[callee.text];
+    if (
+      ts.isPropertyAccessExpression(callee) &&
+      ts.isIdentifier(callee.expression) &&
+      ((callee.expression.text === "Math" && MATH_FNS.has(callee.name.text)) ||
+        (callee.expression.text === "Number" &&
+          ["parseInt", "parseFloat"].includes(callee.name.text)))
+    ) {
+      const host = callee.expression.text === "Math" ? Math : Number;
+      fn = (host as unknown as Record<string, (...a: never[]) => unknown>)[
+        callee.name.text
+      ];
+    }
+    if (!fn) return NO_VALUE;
+    try {
+      return fn(...(args as never[]));
+    } catch {
+      return NO_VALUE;
+    }
+  }
+  return NO_VALUE;
+}
+
+/**
+ * A fallback that stands in for an unset rate as 0: any constant (not
+ * null/undefined, which keep the rate unset) whose number value is 0.
+ */
 function isZero(e: ts.Expression): boolean {
-  let x = unwrap(e);
-  if (
-    ts.isPrefixUnaryExpression(x) &&
-    (x.operator === ts.SyntaxKind.PlusToken ||
-      x.operator === ts.SyntaxKind.MinusToken)
-  ) {
-    x = unwrap(x.operand);
+  const v = constantValue(e);
+  if (v === NO_VALUE || v === null || v === undefined) return false;
+  try {
+    return Number(v) === 0;
+  } catch {
+    return false;
   }
-  if (ts.isNumericLiteral(x) || ts.isBigIntLiteral(x)) {
-    return Number(x.text.replace(/n$/, "").replace(/_/g, "")) === 0;
-  }
-  return false;
 }
 
 /** Does this expression read a price-list rate (by field name or by price-list index)? */
@@ -366,6 +485,22 @@ describe("no changed reader coerces a rate field to 0", () => {
       zeroCoercions("const r = rates.callOutFee ?? (0 as number);"),
     ).toEqual([1]);
     expect(zeroCoercions("const r = (rates as any)[field] ?? 0;")).toEqual([1]);
+    // Review round 3: a zero that is not a bare literal.
+    for (const zero of [
+      "Number(0)",
+      "1 - 1",
+      "0 * 5",
+      "Math.max(0, -1)",
+      "false",
+      '"0"',
+      'parseInt("0")',
+      "(0n)",
+      "-0",
+    ]) {
+      expect(
+        zeroCoercions(`const r = rates.masterQualifiedNormalHours ?? ${zero};`),
+      ).toEqual([1]);
+    }
     expect(
       zeroCoercions("const r = rates.callOutFee == null ? 0 : 1;"),
     ).toEqual([1]);
@@ -375,6 +510,9 @@ describe("no changed reader coerces a rate field to 0", () => {
 
   it("control: a non-zero fallback and an unrelated field are not flagged", () => {
     expect(zeroCoercions("const x = callOutFee ?? 0.5;")).toEqual([]);
+    expect(zeroCoercions("const x = callOutFee ?? null;")).toEqual([]);
+    expect(zeroCoercions("const x = callOutFee ?? undefined;")).toEqual([]);
+    expect(zeroCoercions("const x = callOutFee ?? Number(other);")).toEqual([]);
     expect(zeroCoercions("const x = report.total ?? 0;")).toEqual([]);
   });
 
@@ -390,6 +528,17 @@ describe("no changed reader coerces a rate field to 0", () => {
     const planted = src.replace(
       "rate(rates.callOutFee)",
       "rate(((rates.callOutFee)) ?? 0)",
+    );
+    expect(zeroCoercions(planted, file)).toHaveLength(1);
+  });
+
+  it("control: the exact review round 3 mutation, planted in the real org-pricing reader, is caught", () => {
+    const file = "lib/pricing/org-pricing.ts";
+    const src = read(file);
+    expect(src).toContain("rate(rates.masterQualifiedNormalHours)");
+    const planted = src.replace(
+      "rate(rates.masterQualifiedNormalHours)",
+      "rate(rates.masterQualifiedNormalHours ?? Number(0))",
     );
     expect(zeroCoercions(planted, file)).toHaveLength(1);
   });
@@ -484,6 +633,79 @@ describe("each changed reader blocks an unset rate (RA-8281 B1)", () => {
     );
     expect(block).toContain("administration 70");
   });
+
+  /** Every base rate Margot's price block renders through rate(). */
+  const MARGOT_RATES = [
+    "labourerNormalHours",
+    "qualifiedTechnicianNormalHours",
+    "masterQualifiedNormalHours",
+    "airMoverAxialDailyRate",
+    "airMoverCentrifugalDailyRate",
+    "dehumidifierLGRDailyRate",
+    "dehumidifierDesiccantDailyRate",
+    "afdUnitLargeDailyRate",
+    "administrationFee",
+    "callOutFee",
+    "thermalCameraUseCostPerAssessment",
+  ];
+  const NOT_SET = "not set (do not quote a figure for this)";
+  const margotRates = (overrides: Record<string, number | null>) => ({
+    ...FULL,
+    negativeAirMachineDailyRate: null,
+    hepaVacuumDailyRate: null,
+    mobilisationFee: null,
+    afterHoursMultiplier: 1.5,
+    saturdayMultiplier: 1.5,
+    sundayMultiplier: 2,
+    publicHolidayMultiplier: 2.5,
+    ...overrides,
+  });
+
+  it("control: Margot's swept rates are real price-list fields, and a full price list shows no 'not set'", async () => {
+    const { formatOrgPricingBlock } = await import("@/lib/pricing/org-pricing");
+    for (const f of MARGOT_RATES) expect(BASE_RATE_FIELDS).toContain(f);
+    const src = read("lib/pricing/org-pricing.ts");
+    const rendered = [...src.matchAll(/rate\(rates\.(\w+)\)/g)].map(
+      (m) => m[1],
+    );
+    expect([...rendered].sort()).toEqual([...MARGOT_RATES].sort());
+    expect(formatOrgPricingBlock(margotRates({}) as never)).not.toContain(
+      NOT_SET,
+    );
+  });
+
+  it.each(MARGOT_RATES)(
+    "Margot's price block says 'not set' for an unset %s, never 0 or another figure",
+    async (field) => {
+      const { formatOrgPricingBlock } =
+        await import("@/lib/pricing/org-pricing");
+      const full = formatOrgPricingBlock(margotRates({}) as never);
+      const block = formatOrgPricingBlock(
+        margotRates({ [field]: null }) as never,
+      );
+      expect(block.split(NOT_SET)).toHaveLength(2);
+      // Exactly one figure left the block: the unset one became "not set".
+      const figures = (t: string) => (t.match(/\b70\b/g) ?? []).length;
+      expect(figures(block)).toBe(figures(full) - 1);
+      expect(block).not.toMatch(/\$?\b0(?:\.00)?\b(?!\.\d)/);
+    },
+  );
+
+  it.each(BASE_RATE_FIELDS)(
+    "the rate engine refuses an unset %s",
+    async (field) => {
+      const { lookupRate } = await import("@/lib/billing/rate-engine");
+      const prisma = {
+        user: { findUnique: async () => ({ organizationId: "org_1" }) },
+        organizationPricingConfig: {
+          findUnique: async () => ({ ...FULL, [field]: null }),
+        },
+      };
+      await expect(
+        lookupRate(prisma as never, { userId: "u_1", field }),
+      ).rejects.toBeInstanceOf(RateNotSetError);
+    },
+  );
 
   it("the rate engine throws for an unset price-list rate instead of falling back", async () => {
     const { lookupRate } = await import("@/lib/billing/rate-engine");
