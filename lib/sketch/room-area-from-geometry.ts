@@ -35,6 +35,10 @@ export interface RoomGeometryObject {
     lengthM?: number;
     widthM?: number;
     perimeterM?: number;
+    /** RA-8237 — see resolveRoomQuantities. */
+    areaSource?: string;
+    /** RA-8237 — floor scale when L × W was typed (areaSource "dimensions"). */
+    dimensionsPxPerMetre?: number;
     heightM?: number;
     ceilingHeightM?: number;
     isDamageZone?: boolean;
@@ -51,29 +55,22 @@ export function resolvePxPerMetre(
   return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-export function normalizePoint(p: PointLike | null | undefined): {
-  x: number;
-  y: number;
-} | null {
-  if (!p) return null;
-  if (Array.isArray(p)) {
-    const x = Number(p[0]);
-    const y = Number(p[1]);
-    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
-  }
-  const x = Number(p.x);
-  const y = Number(p.y);
-  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+function finiteNumber(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n);
 }
 
-export function objectPoints(obj: RoomGeometryObject): { x: number; y: number }[] {
-  if (!Array.isArray(obj.points)) return [];
-  const out: { x: number; y: number }[] = [];
-  for (const p of obj.points) {
-    const xy = normalizePoint(p);
-    if (xy) out.push(xy);
+/**
+ * RA-8237 — a vertex as `{ x, y }` or `[x, y]`, or null unless both
+ * coordinates are finite numbers. No coercion: `null`, `""`, `"0"` and
+ * booleans are invalid, never 0.
+ */
+export function normalizePoint(p: unknown): { x: number; y: number } | null {
+  if (Array.isArray(p)) {
+    return finiteNumber(p[0]) && finiteNumber(p[1]) ? { x: p[0], y: p[1] } : null;
   }
-  return out;
+  if (p === null || typeof p !== "object") return null;
+  const { x, y } = p as { x?: unknown; y?: unknown };
+  return finiteNumber(x) && finiteNumber(y) ? { x, y } : null;
 }
 
 function positiveFinite(n: unknown): n is number {
@@ -122,33 +119,401 @@ export function isMeasuredRoom(obj: RoomGeometryObject): boolean {
 }
 
 /**
+ * RA-8237 — where a room's billed quantities come from.
+ *
+ * - `geometry`: the drawn polygon (local points × transform scale) at the
+ *   floor's calibrated px-per-metre.
+ * - `dimensions`: technician-typed length × width on a rectangle.
+ * - `claimed`: a persisted `data.areaM2` with no source tag (legacy blobs).
+ */
+export type RoomQuantitySource = "geometry" | "dimensions" | "claimed";
+
+/** `data.areaSource` written by every editor path that sets a room's size. */
+export const GEOMETRY_AREA_SOURCE = "geometry" as const;
+export const DIMENSIONS_AREA_SOURCE = "dimensions" as const;
+
+export interface RoomQuantities {
+  areaM2: number | null;
+  perimeterM: number | null;
+  source: RoomQuantitySource | null;
+}
+
+/**
+ * Relative tolerance for "typed L × W agrees with the drawing": both the
+ * area (L × W) and the perimeter (2(L + W)) of the drawing at the scale the
+ * dimensions were typed at must be within 2%. An untagged legacy claim uses
+ * the same 2% at the floor scale (claimAgreesWithDrawing).
+ */
+const TYPED_AGREES_REL = 0.02;
+
+function transformScale(obj: RoomGeometryObject): { sx: number; sy: number } {
+  const sx = finiteNumber(obj.scaleX) ? obj.scaleX : 1;
+  const sy = finiteNumber(obj.scaleY) ? obj.scaleY : 1;
+  return { sx, sy };
+}
+
+/**
+ * True when the room carries a point list at all: any `points` value other
+ * than missing, null or an empty array. A present list is judged as a
+ * polygon even when it is malformed; it is never treated as absent.
+ */
+function hasPolygon(obj: RoomGeometryObject): boolean {
+  const raw = (obj as { points?: unknown }).points;
+  if (raw === undefined || raw === null) return false;
+  return !(Array.isArray(raw) && raw.length === 0);
+}
+
+/**
+ * True when the room carries any drawing: a point list, or (without one) a
+ * `width` / `height` box. A present drawing is judged even when malformed;
+ * only a room with no drawing at all may bill from typed or claimed figures
+ * without comparing them to it.
+ */
+function hasDrawing(obj: RoomGeometryObject): boolean {
+  if (hasPolygon(obj)) return true;
+  const { width, height } = obj as { width?: unknown; height?: unknown };
+  return (width !== undefined && width !== null) ||
+    (height !== undefined && height !== null);
+}
+
+/**
+ * Every vertex with the transform scale applied, or null when the point
+ * list is present but malformed (not an array, or any vertex whose x or y is
+ * not a finite number; see normalizePoint). Invalid vertices are never
+ * dropped or coerced: either can turn a malformed outline into a smaller
+ * shape, a whole rectangle, or "no polygon".
+ */
+function scaledPoints(
+  obj: RoomGeometryObject,
+): { x: number; y: number }[] | null {
+  if (!hasPolygon(obj)) return [];
+  const raw = (obj as { points?: unknown }).points;
+  if (!Array.isArray(raw)) return null;
+  const { sx, sy } = transformScale(obj);
+  const out: { x: number; y: number }[] = [];
+  for (const p of raw) {
+    const xy = normalizePoint(p);
+    if (!xy) return null;
+    out.push({ x: xy.x * sx, y: xy.y * sy });
+  }
+  return out;
+}
+
+/** Drop consecutive repeated vertices (including last-to-first). */
+function distinctVertices(
+  pts: { x: number; y: number }[],
+): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  for (const p of pts) {
+    const prev = out[out.length - 1];
+    if (!prev || prev.x !== p.x || prev.y !== p.y) out.push(p);
+  }
+  while (
+    out.length > 1 &&
+    out[0].x === out[out.length - 1].x &&
+    out[0].y === out[out.length - 1].y
+  ) {
+    out.pop();
+  }
+  return out;
+}
+
+function orient(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+): number {
+  const v = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  return v > 0 ? 1 : v < 0 ? -1 : 0;
+}
+
+function onSegment(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  p: { x: number; y: number },
+): boolean {
+  return (
+    Math.min(a.x, b.x) <= p.x &&
+    p.x <= Math.max(a.x, b.x) &&
+    Math.min(a.y, b.y) <= p.y &&
+    p.y <= Math.max(a.y, b.y)
+  );
+}
+
+function segmentsTouch(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+  d: { x: number; y: number },
+): boolean {
+  const o1 = orient(a, b, c);
+  const o2 = orient(a, b, d);
+  const o3 = orient(c, d, a);
+  const o4 = orient(c, d, b);
+  if (o1 !== o2 && o3 !== o4) return true;
+  if (o1 === 0 && onSegment(a, b, c)) return true;
+  if (o2 === 0 && onSegment(a, b, d)) return true;
+  if (o3 === 0 && onSegment(c, d, a)) return true;
+  if (o4 === 0 && onSegment(c, d, b)) return true;
+  return false;
+}
+
+/**
+ * RA-8237 — a room outline is billable only as a simple polygon: no edge
+ * crosses or touches a non-adjacent edge. A self-crossing outline's shoelace
+ * cancels or double-counts area, so it cannot be a floor area.
+ */
+function isSimplePolygon(pts: { x: number; y: number }[]): boolean {
+  const n = pts.length;
+  if (n < 3) return false;
+  for (let i = 0; i < n; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % n];
+    for (let j = i + 1; j < n; j++) {
+      // Skip the edge itself and its two neighbours.
+      if (j === i || (j + 1) % n === i || (i + 1) % n === j) continue;
+      if (segmentsTouch(a, b, pts[j], pts[(j + 1) % n])) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Area and perimeter of the drawn shape at the floor scale, or null when the
+ * shape is not usable. A room with a point list must have every vertex
+ * valid, >= 3 distinct vertices, no self-crossing edges and positive area;
+ * only an object with no point list may use its width × height box.
+ */
+export function geometryQuantities(
+  obj: RoomGeometryObject,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): { areaM2: number; perimeterM: number } | null {
+  const scale = positiveFinite(pxPerMetre) ? pxPerMetre : DEFAULT_PX_PER_METRE;
+  const raw = scaledPoints(obj);
+  if (hasPolygon(obj)) {
+    if (!raw || raw.length < 3) return null;
+    const pts = distinctVertices(raw);
+    if (pts.length < 3 || !isSimplePolygon(pts)) return null;
+    const areaM2 = shoelacePx2(pts) / (scale * scale);
+    const perimeterM = perimeterPx(pts) / scale;
+    if (positiveFinite(areaM2) && positiveFinite(perimeterM)) {
+      return { areaM2, perimeterM };
+    }
+    return null;
+  }
+  if (positiveFinite(obj.width) && positiveFinite(obj.height)) {
+    const { sx, sy } = transformScale(obj);
+    const w = Math.abs(obj.width * sx);
+    const h = Math.abs(obj.height * sy);
+    const areaM2 = (w * h) / (scale * scale);
+    const perimeterM = (2 * (w + h)) / scale;
+    if (positiveFinite(areaM2) && positiveFinite(perimeterM)) {
+      return { areaM2, perimeterM };
+    }
+  }
+  return null;
+}
+
+/**
+ * RA-8237 — the invariant that lets typed L × W override the drawing: the
+ * drawing's own area and perimeter, measured at the scale the dimensions were
+ * typed at (`data.dimensionsPxPerMetre`, else the current floor scale), must
+ * each be within 2% of L × W and 2(L + W). A typed figure can therefore never
+ * bill more than the drawing supports at its typed scale, whatever the vertex
+ * arrangement. A later recalibration keeps the typed figure (the comparison
+ * uses the typed-at scale); a reshape or resize does not.
+ *
+ * A room with no drawing at all has nothing to disagree with. A room whose
+ * drawing is malformed (invalid vertex, too few distinct vertices,
+ * self-crossing, zero area, invalid box) never agrees.
+ */
+function typedAgreesWithDrawing(
+  obj: RoomGeometryObject,
+  lengthM: number,
+  widthM: number,
+  pxPerMetre: number,
+): boolean {
+  if (!hasDrawing(obj)) return true;
+  const typedAt = positiveFinite(obj.data?.dimensionsPxPerMetre)
+    ? obj.data.dimensionsPxPerMetre
+    : pxPerMetre;
+  const drawn = geometryQuantities(obj, typedAt);
+  if (!drawn) return false;
+  const typedArea = lengthM * widthM;
+  const typedPerimeter = 2 * (lengthM + widthM);
+  return (
+    Math.abs(drawn.areaM2 - typedArea) <= typedArea * TYPED_AGREES_REL &&
+    Math.abs(drawn.perimeterM - typedPerimeter) <=
+      typedPerimeter * TYPED_AGREES_REL
+  );
+}
+
+/**
+ * RA-8237 widen (founder decision, 09/11/2026) — the same invariant for an
+ * untagged legacy claim: its `areaM2`, and its cached `perimeterM` when it has
+ * one, must each be within 2% of the valid drawing at the floor scale. There
+ * is no typed-at scale for a legacy claim, so the floor scale is the only
+ * reference.
+ */
+function claimAgreesWithDrawing(
+  claimedArea: number,
+  claimedPerimeter: number | null,
+  drawn: { areaM2: number; perimeterM: number },
+): boolean {
+  if (Math.abs(claimedArea - drawn.areaM2) > drawn.areaM2 * TYPED_AGREES_REL) {
+    return false;
+  }
+  return (
+    claimedPerimeter === null ||
+    Math.abs(claimedPerimeter - drawn.perimeterM) <=
+      drawn.perimeterM * TYPED_AGREES_REL
+  );
+}
+
+const NO_QUANTITIES: RoomQuantities = {
+  areaM2: null,
+  perimeterM: null,
+  source: null,
+};
+
+/**
+ * RA-8237 — the one place a room's floor area and perimeter are resolved.
+ * Area and perimeter always come from the same source. A room whose drawing
+ * is present but malformed (any invalid vertex, too few distinct vertices,
+ * self-crossing, zero area, invalid width × height box) bills nothing: it
+ * never falls back to a typed or cached figure.
+ *
+ * 1. `areaSource: "dimensions"` with L × W: L × W and 2(L + W) when the
+ *    drawing agrees with them at the scale they were typed at
+ *    (typedAgreesWithDrawing), or when there is no drawing at all. Typed
+ *    metres are an independent measurement, so recalibrating the floor does
+ *    not move them.
+ * 2. `areaSource: "geometry"` (or typed L × W that disagrees with the
+ *    drawing): the drawing at the floor scale. The cached `areaM2` is display
+ *    only, so recalibration, undo/redo and reload re-derive the same figure.
+ * 3. Untagged legacy room with a claimed `areaM2` (RA-7572): the claim only
+ *    when it, and any cached `perimeterM`, agrees with the valid drawing at
+ *    the floor scale within 2% (claimAgreesWithDrawing); otherwise the
+ *    drawing. With no drawing at all the claim bills, with `perimeterM`, else
+ *    2(L + W).
+ * 4. Untagged without a claim: the drawing; L × W only when there is no
+ *    drawing at all. A bounding box never stands in for an irregular room.
+ */
+export function resolveRoomQuantities(
+  obj: RoomGeometryObject,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): RoomQuantities {
+  const scale = positiveFinite(pxPerMetre) ? pxPerMetre : DEFAULT_PX_PER_METRE;
+  const data = obj.data;
+  const drawing = hasDrawing(obj);
+  const geom = geometryQuantities(obj, scale);
+  if (drawing && !geom) return NO_QUANTITIES;
+  const lengthM = positiveFinite(data?.lengthM) ? data.lengthM : null;
+  const widthM = positiveFinite(data?.widthM) ? data.widthM : null;
+  const tag = data?.areaSource;
+
+  if (
+    tag === DIMENSIONS_AREA_SOURCE &&
+    lengthM !== null &&
+    widthM !== null &&
+    typedAgreesWithDrawing(obj, lengthM, widthM, scale)
+  ) {
+    return {
+      areaM2: lengthM * widthM,
+      perimeterM: 2 * (lengthM + widthM),
+      source: "dimensions",
+    };
+  }
+  if (tag === GEOMETRY_AREA_SOURCE || tag === DIMENSIONS_AREA_SOURCE) {
+    return geom ? { ...geom, source: "geometry" } : NO_QUANTITIES;
+  }
+
+  if (positiveFinite(data?.areaM2)) {
+    const claimed = data.areaM2;
+    const claimedPerimeter = positiveFinite(data?.perimeterM)
+      ? data.perimeterM
+      : null;
+    if (geom) {
+      // RA-8237 widen: a legacy claim bills only when it (and any cached
+      // perimeter) agrees with the valid drawing at the floor scale.
+      if (!claimAgreesWithDrawing(claimed, claimedPerimeter, geom)) {
+        return { ...geom, source: "geometry" };
+      }
+      return {
+        areaM2: claimed,
+        perimeterM: claimedPerimeter ?? geom.perimeterM,
+        source: "claimed",
+      };
+    }
+    let perimeterM = claimedPerimeter;
+    if (perimeterM === null && lengthM !== null && widthM !== null) {
+      perimeterM = 2 * (lengthM + widthM);
+    }
+    return { areaM2: claimed, perimeterM, source: "claimed" };
+  }
+
+  if (geom) return { ...geom, source: "geometry" };
+  if (lengthM !== null && widthM !== null) {
+    return {
+      areaM2: lengthM * widthM,
+      perimeterM: 2 * (lengthM + widthM),
+      source: "dimensions",
+    };
+  }
+  return NO_QUANTITIES;
+}
+
+/**
  * Floor area in m², or null when the object has no usable geometry.
- * Prefer persisted metre fields so a 3×3 room cannot collapse to 0.
+ * See resolveRoomQuantities for the precedence.
  */
 export function resolveRoomAreaM2(
   obj: RoomGeometryObject,
   pxPerMetre = DEFAULT_PX_PER_METRE,
 ): number | null {
-  const data = obj.data;
-  if (positiveFinite(data?.areaM2)) return data.areaM2;
-  if (positiveFinite(data?.lengthM) && positiveFinite(data?.widthM)) {
-    return data.lengthM * data.widthM;
-  }
+  return resolveRoomQuantities(obj, pxPerMetre).areaM2;
+}
 
-  const scale = pxPerMetre > 0 ? pxPerMetre : DEFAULT_PX_PER_METRE;
-  const scaleX = typeof obj.scaleX === "number" && Number.isFinite(obj.scaleX) ? obj.scaleX : 1;
-  const scaleY = typeof obj.scaleY === "number" && Number.isFinite(obj.scaleY) ? obj.scaleY : 1;
-  const pts = objectPoints(obj);
-  if (pts.length >= 3) {
-    const scaled = pts.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
-    const area = shoelacePx2(scaled) / (scale * scale);
-    if (positiveFinite(area)) return area;
+/**
+ * RA-8237 — the size fields an editor path writes when it sets a room from
+ * its drawing: area at the floor's calibrated scale, tagged as geometry (a
+ * typed rectangle keeps its `dimensions` tag). Used by AI import and by
+ * Confirm, so a cached figure computed at another scale cannot be promoted.
+ * Null when the shape has no usable area.
+ */
+export function canonicalRoomAreaFields(
+  obj: RoomGeometryObject,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): { areaM2: number; areaSource: "geometry" | "dimensions" } | null {
+  const tag =
+    obj.data?.areaSource === DIMENSIONS_AREA_SOURCE
+      ? DIMENSIONS_AREA_SOURCE
+      : GEOMETRY_AREA_SOURCE;
+  const q = resolveRoomQuantities(
+    { ...obj, data: { ...(obj.data ?? {}), areaSource: tag } },
+    pxPerMetre,
+  );
+  if (!positiveFinite(q.areaM2) || (q.source !== "geometry" && q.source !== "dimensions")) {
+    return null;
   }
-  if (positiveFinite(obj.width) && positiveFinite(obj.height)) {
-    const area = (obj.width * scaleX * obj.height * scaleY) / (scale * scale);
-    if (positiveFinite(area)) return area;
-  }
-  return null;
+  return { areaM2: Math.round(q.areaM2 * 100) / 100, areaSource: q.source };
+}
+
+/**
+ * RA-8237 — the size fields Confirm writes onto a room before its measurement
+ * is queued: the calibrated area when the drawing has one, otherwise just the
+ * geometry tag, so a malformed drawing bills nothing instead of its cached
+ * figure.
+ */
+export function confirmRoomAreaFields(
+  obj: RoomGeometryObject,
+  pxPerMetre = DEFAULT_PX_PER_METRE,
+): { areaM2?: number; areaSource: "geometry" | "dimensions" } {
+  return (
+    canonicalRoomAreaFields(obj, pxPerMetre) ?? {
+      areaSource: GEOMETRY_AREA_SOURCE,
+    }
+  );
 }
 
 /**
@@ -168,6 +533,7 @@ export function areaM2FromGeometryOnly(
           areaM2: undefined,
           lengthM: undefined,
           widthM: undefined,
+          areaSource: undefined,
         }
       : undefined,
   };
@@ -178,18 +544,7 @@ export function resolveRoomPerimeterM(
   obj: RoomGeometryObject,
   pxPerMetre = DEFAULT_PX_PER_METRE,
 ): number | null {
-  if (positiveFinite(obj.data?.perimeterM)) return obj.data.perimeterM;
-  if (positiveFinite(obj.data?.lengthM) && positiveFinite(obj.data?.widthM)) {
-    return 2 * (obj.data.lengthM + obj.data.widthM);
-  }
-  const scale = pxPerMetre > 0 ? pxPerMetre : DEFAULT_PX_PER_METRE;
-  const scaleX = typeof obj.scaleX === "number" && Number.isFinite(obj.scaleX) ? obj.scaleX : 1;
-  const scaleY = typeof obj.scaleY === "number" && Number.isFinite(obj.scaleY) ? obj.scaleY : 1;
-  const pts = objectPoints(obj);
-  if (pts.length < 2) return null;
-  const scaled = pts.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
-  const peri = perimeterPx(scaled) / scale;
-  return positiveFinite(peri) ? peri : null;
+  return resolveRoomQuantities(obj, pxPerMetre).perimeterM;
 }
 
 export function resolveCeilingHeightM(obj: RoomGeometryObject): number | null {

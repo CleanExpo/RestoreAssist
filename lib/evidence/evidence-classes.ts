@@ -192,6 +192,11 @@ export function getEvidenceClassMeta(
   return EVIDENCE_CLASSES[cls as string];
 }
 
+/** Evidence classes captured and stored as video rather than stills. */
+export function isVideoEvidenceClass(cls: EvidenceClass | string): boolean {
+  return cls === "VIDEO_WALKTHROUGH";
+}
+
 /** Get all evidence classes that require measurement data */
 export function getMeasurementClasses(): string[] {
   return Object.values(EVIDENCE_CLASSES)

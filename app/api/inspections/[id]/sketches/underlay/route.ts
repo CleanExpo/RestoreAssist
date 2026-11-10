@@ -21,6 +21,8 @@ import {
   storeUnderlay,
 } from "@/lib/sketch/server-underlay-import";
 
+import { ALLOWED_UNDERLAY_TYPES } from "@/lib/sketch/validate-underlay-upload";
+
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
 
 const UPLOAD_REJECTION_MESSAGES = {
@@ -38,6 +40,30 @@ function floorNumberFrom(
 ): number | null {
   const floor = Number(value ?? "0");
   return Number.isInteger(floor) && floor >= 0 && floor <= 50 ? floor : null;
+}
+
+/**
+ * RA-8236: what the browser says the file was before it became a raster. The
+ * server only ever sees the raster, so this is recorded as browser-declared.
+ * A PDF is recorded only as page 1: no other page is ever imported.
+ */
+function originalSourceFrom(form: FormData) {
+  const mimeType = form.get("originalMimeType");
+  if (
+    typeof mimeType !== "string" ||
+    !ALLOWED_UNDERLAY_TYPES.includes(mimeType as never)
+  ) {
+    return null;
+  }
+  const isPdf = mimeType === "application/pdf";
+  if (isPdf && form.get("originalPage") !== "1") return null;
+  const count = Number(form.get("originalPageCount"));
+  return {
+    mimeType,
+    page: isPdf ? 1 : null,
+    pageCount: isPdf && Number.isInteger(count) && count > 0 ? count : null,
+    declaredBy: "browser",
+  };
 }
 
 /**
@@ -244,6 +270,7 @@ export async function POST(
                 floorNumber,
                 source,
                 contentSha256: prepared.contentSha256,
+                originalSource: originalSourceFrom(form),
                 exportPolicy: "reference_only_never_export",
               }),
             },
@@ -275,6 +302,7 @@ export async function POST(
         sketchId: saved.sketchId,
         referenceId: saved.referenceId,
         contentSha256: prepared.contentSha256,
+        floorNumber,
       },
       { status: 201 },
     );

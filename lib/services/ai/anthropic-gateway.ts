@@ -46,6 +46,8 @@ export interface AnthropicGatewayRequest {
    *  Anthropic itself. Pair it with an explicit `apiKey` for that vendor. */
   baseURL?: string;
   request: MessageCreateParams;
+  /** SDK per-call limits. Omit to keep the SDK defaults. */
+  requestOptions?: { timeout?: number; maxRetries?: number };
 }
 
 export async function callAnthropic(
@@ -76,7 +78,9 @@ export async function callAnthropic(
   );
 
   try {
-    const message = await client.messages.create(args.request);
+    const message = args.requestOptions
+      ? await client.messages.create(args.request, args.requestOptions)
+      : await client.messages.create(args.request);
     return ok(message as Anthropic.Message);
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError) {

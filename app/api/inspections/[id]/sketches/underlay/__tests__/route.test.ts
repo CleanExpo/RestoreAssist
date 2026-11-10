@@ -108,6 +108,13 @@ function uploadRequest(
     "compliesWithSourceTerms",
     overrides.compliesWithSourceTerms ?? "true",
   );
+  for (const field of [
+    "originalMimeType",
+    "originalPage",
+    "originalPageCount",
+  ]) {
+    if (overrides[field]) form.set(field, overrides[field]);
+  }
   form.set(
     "file",
     new File([file.bytes], file.name ?? "plan.png", { type: file.type }),
@@ -531,5 +538,72 @@ describe("DELETE floor-plan reference underlay", () => {
       where: { inspectionId: "inspection-1", floorNumber: 0 },
       data: { backgroundImageUrl: null, renderedPngUrl: null },
     });
+  });
+});
+
+describe("RA-8236 original source details", () => {
+  function txCapture() {
+    const tx = {
+      claimSketch: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: "sketch-1" })),
+        update: vi.fn(),
+      },
+      sketchUnderlayReference: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        create: vi.fn(async () => ({ id: "reference-1" })),
+      },
+      auditLog: { create: vi.fn(async () => ({ id: "audit-1" })) },
+    };
+    transaction.mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+    return tx;
+  }
+  const audited = (tx: ReturnType<typeof txCapture>) =>
+    JSON.parse(
+      (tx.auditLog.create.mock.calls[0] as unknown as [
+        { data: { changes: string } },
+      ])[0].data.changes,
+    );
+
+  it("records a PDF as browser-declared page 1 of its page count", async () => {
+    const tx = txCapture();
+    const response = await POST(
+      uploadRequest({
+        originalMimeType: "application/pdf",
+        originalPage: "1",
+        originalPageCount: "4",
+      }),
+      context,
+    );
+    expect(response.status).toBe(201);
+    expect(audited(tx).originalSource).toEqual({
+      mimeType: "application/pdf",
+      page: 1,
+      pageCount: 4,
+      declaredBy: "browser",
+    });
+  });
+
+  it("drops a declared type outside the allow-list", async () => {
+    const tx = txCapture();
+    await POST(uploadRequest({ originalMimeType: "text/html" }), context);
+    expect(audited(tx).originalSource).toBeNull();
+  });
+
+  it("refuses to record a PDF page other than page 1", async () => {
+    const tx = txCapture();
+    await POST(
+      uploadRequest({ originalMimeType: "application/pdf", originalPage: "2" }),
+      context,
+    );
+    expect(audited(tx).originalSource).toBeNull();
+  });
+
+  it("returns the floor with the reference binding", async () => {
+    txCapture();
+    const response = await POST(uploadRequest({ floorNumber: "0" }), context);
+    await expect(response.json()).resolves.toMatchObject({ floorNumber: 0 });
   });
 });

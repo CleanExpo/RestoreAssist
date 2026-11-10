@@ -93,6 +93,13 @@ export function scaleConfigFromStoredSketchData(
 ): unknown | null {
   if (!sketchData || typeof sketchData !== "object") return null;
   const scaleConfig = (sketchData as StoredSketchData).scaleConfig;
+  // RA-8237: a scale that cannot convert pixels to metres is not a scale.
+  // Reload falls back to the default instead of carrying it into billing.
+  const ppm = (scaleConfig as { pxPerMetre?: unknown } | null | undefined)
+    ?.pxPerMetre;
+  if (typeof ppm !== "number" || !Number.isFinite(ppm) || ppm <= 0) {
+    return null;
+  }
   return scaleConfig ?? null;
 }
 

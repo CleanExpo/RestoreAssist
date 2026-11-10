@@ -32,7 +32,11 @@ import {
 } from "lucide-react";
 import type { ScrapedPropertyData } from "@/lib/property-data-parser";
 import { prepareUnderlayFile } from "@/lib/sketch/prepare-underlay-file";
-import { commitUnderlayImport } from "@/lib/sketch/commit-underlay-import";
+import {
+  commitUnderlayImport,
+  type UnderlayOriginalSource,
+} from "@/lib/sketch/commit-underlay-import";
+import type { UnderlayReferenceBinding } from "@/lib/sketch/reference-room-import";
 import { isUnderlayUrlImportEnabled } from "@/lib/sketch/underlay-import-flag";
 import {
   FLOORPLAN_UNDERLAY_SKU,
@@ -89,7 +93,13 @@ export interface FloorPlanUnderlayLoaderProps {
   /** Active ClaimSketch floor number; binds custody to the exact floor. */
   floorNumber?: number;
   /** Called when the user confirms an image + opacity. */
-  onApply: (imageUrl: string, opacity: number) => void;
+  onApply: (
+    imageUrl: string,
+    opacity: number,
+    reference?: UnderlayReferenceBinding,
+  ) => void;
+  /** RA-8236: read the applied reference for room suggestions. Absent = no bound reference. */
+  onSuggestRooms?: () => Promise<void>;
   /** Called when the user removes the current underlay. */
   onClear: () => void;
   /** Whether a background image is currently set. */
@@ -112,6 +122,7 @@ export function FloorPlanUnderlayLoader({
   floorNumber = 0,
   onApply,
   onClear,
+  onSuggestRooms,
   hasBackground = false,
   autoFetch = false,
   openUploadRef,
@@ -139,6 +150,14 @@ export function FloorPlanUnderlayLoader({
   // plan is applied. Reset per selected plan (below).
   const [holdsRights, setHoldsRights] = useState(false);
   const [compliesTerms, setCompliesTerms] = useState(false);
+  // RA-8236: the watermarked preview and details of the file behind it.
+  // `selectedImage` stays the unmarked raster that is uploaded.
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [uploadOriginal, setUploadOriginal] =
+    useState<UnderlayOriginalSource | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const suggestingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   // Track whether we've already auto-applied so we don't re-trigger on re-renders
@@ -380,9 +399,24 @@ export function FloorPlanUnderlayLoader({
       return;
     }
     setSelectedImage(result.dataUrl);
+    setUploadPreview(result.previewUrl);
+    setUploadNotice(result.notice ?? null);
+    setUploadOriginal(result.original);
     setResults(null);
     setExpanded(true);
   }, []);
+
+  const handleSuggestRooms = useCallback(async () => {
+    if (!onSuggestRooms || suggestingRef.current) return;
+    suggestingRef.current = true;
+    setSuggesting(true);
+    try {
+      await onSuggestRooms();
+    } finally {
+      suggestingRef.current = false;
+      setSuggesting(false);
+    }
+  }, [onSuggestRooms]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -407,13 +441,14 @@ export function FloorPlanUnderlayLoader({
       compliesWithSourceTerms: compliesTerms,
       source,
       sourcePageUrl: source === "url" ? results?.url : undefined,
+      original: source === "upload" ? (uploadOriginal ?? undefined) : undefined,
     });
     setApplying(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    onApply(result.imageUrl, opacity);
+    onApply(result.imageUrl, opacity, result.reference);
     setExpanded(false);
   };
 
@@ -432,6 +467,9 @@ export function FloorPlanUnderlayLoader({
     }
     onClear();
     setSelectedImage(null);
+    setUploadPreview(null);
+    setUploadNotice(null);
+    setUploadOriginal(null);
     setResults(null);
     setExpanded(false);
   };
@@ -464,6 +502,29 @@ export function FloorPlanUnderlayLoader({
           <ChevronDown size={14} className="text-neutral-400 flex-shrink-0" />
         )}
       </button>
+
+      {/* RA-8236: stays visible after Apply collapses the panel. */}
+      {onSuggestRooms && hasBackground && (
+        <div className="px-3 py-2 border-t border-neutral-100 dark:border-slate-700/50 space-y-1">
+          <button
+            type="button"
+            onClick={() => void handleSuggestRooms()}
+            disabled={suggesting}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium border border-cyan-400/40 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {suggesting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Sparkles size={13} />
+            )}
+            {suggesting ? "Reading plan…" : "Suggest rooms from this plan"}
+          </button>
+          <p className="text-[11px] leading-snug text-neutral-500 dark:text-slate-400">
+            Reads page 1 only. Suggested rooms carry no measurements: measure
+            and confirm each one before it can be billed.
+          </p>
+        </div>
+      )}
 
       {/* Expanded body */}
       {expanded && (
@@ -674,12 +735,17 @@ export function FloorPlanUnderlayLoader({
               <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-900">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={selectedImage}
+                  src={uploadPreview ?? selectedImage}
                   alt="Uploaded floor plan preview"
                   className="mx-auto max-h-36 w-full object-contain"
                   style={{ opacity }}
                 />
               </div>
+              {uploadNotice && (
+                <p className="text-[11px] leading-snug text-neutral-600 dark:text-slate-300">
+                  {uploadNotice}
+                </p>
+              )}
             </div>
           )}
 
