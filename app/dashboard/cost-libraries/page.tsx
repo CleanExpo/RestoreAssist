@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, Edit, Trash2, Download, Upload, X } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 
 interface CostItem {
   id: string;
@@ -514,7 +515,11 @@ export default function CostLibrariesPage() {
                 Your Libraries
               </p>
               {libraries.length === 0 ? (
-                <p className="text-slate-400 text-sm">No libraries yet</p>
+                <p className="text-slate-400 text-sm">
+                  {isConfirmedEmpty(loadError, libraries.length)
+                    ? "No libraries yet"
+                    : "Libraries could not be loaded"}
+                </p>
               ) : (
                 libraries.map((lib) => (
                   <button

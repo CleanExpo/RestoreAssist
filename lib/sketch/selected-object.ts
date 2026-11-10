@@ -4,6 +4,15 @@
  * wiring (which can't be unit-tested without a live Fabric canvas) stays thin.
  */
 import type { SelectedObject } from "@/components/sketch/SketchSelectionPanel";
+import {
+  AI_SUGGESTED_PROVENANCE,
+  UNDERLAY_REFERENCE_PROVENANCE,
+} from "./measured-provenance";
+import {
+  canonicalRoomAreaFields,
+  resolveRoomAreaM2,
+  type RoomGeometryObject,
+} from "./room-area-from-geometry";
 
 export interface FabricLike {
   type?: string;
@@ -13,8 +22,33 @@ export interface FabricLike {
   data?: Record<string, unknown>;
 }
 
+/**
+ * RA-8237 — the room area the panel shows and checks a measurement against.
+ * A room waiting for Confirm uses the figure Confirm will send (the drawing
+ * at the floor scale); any other room uses the area that bills. Without a
+ * floor scale the cached `data.areaM2` is returned unchanged.
+ */
+function selectedRoomAreaM2(
+  obj: FabricLike,
+  data: Record<string, unknown>,
+  pxPerMetre: number | undefined,
+): number | undefined {
+  const cached = typeof data.areaM2 === "number" ? data.areaM2 : undefined;
+  if (data.type !== "room" || typeof pxPerMetre !== "number") return cached;
+  const geo = obj as unknown as RoomGeometryObject;
+  const pendingConfirm =
+    data.provenance === AI_SUGGESTED_PROVENANCE ||
+    (data.provenance === UNDERLAY_REFERENCE_PROVENANCE &&
+      data.captureAdapter === "homeowner");
+  const area = pendingConfirm
+    ? canonicalRoomAreaFields(geo, pxPerMetre)?.areaM2
+    : resolveRoomAreaM2(geo, pxPerMetre);
+  return typeof area === "number" ? area : cached;
+}
+
 export function fabricObjectToSelected(
   obj: FabricLike | null | undefined,
+  pxPerMetre?: number,
 ): SelectedObject | null {
   const data = obj?.data;
   const id = data?.id;
@@ -38,7 +72,7 @@ export function fabricObjectToSelected(
       : undefined,
     lengthM: typeof data.lengthM === "number" ? data.lengthM : undefined,
     widthM: typeof data.widthM === "number" ? data.widthM : undefined,
-    areaM2: typeof data.areaM2 === "number" ? data.areaM2 : undefined,
+    areaM2: selectedRoomAreaM2(obj as FabricLike, data, pxPerMetre),
     dimLocked: data.dimLocked === true,
     openingKind:
       data.openingKind === "door" ||

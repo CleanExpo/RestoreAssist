@@ -67,7 +67,9 @@ import {
   evidenceIdempotencyKey,
   evidencePhotoFromFile,
   pickEvidencePhotoFile,
+  VIDEO_EVIDENCE_ACCEPT,
 } from "@/lib/evidence/ios-capture";
+import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
 import type { IOSCaptureResult } from "@/lib/evidence/ios-capture";
 import { verifyEvidenceReadback } from "@/lib/evidence/verified-readback";
 import {
@@ -598,8 +600,12 @@ export default function CaptureWorkflowPage({
         return;
       }
 
+      // Video evidence always goes through the file input: the native Camera
+      // plugin only takes stills, while a video-only input opens the camera
+      // in video mode on iOS, Android and the Capacitor WebView alike.
+      const wantsVideo = isVideoEvidenceClass(evidenceClass);
       let capture: IOSCaptureResult;
-      if (isNative) {
+      if (isNative && !wantsVideo) {
         capture = await captureEvidencePhoto();
       } else {
         const controller = new AbortController();
@@ -607,7 +613,10 @@ export default function CaptureWorkflowPage({
         setPickerPending(true);
         let selected: File;
         try {
-          selected = await pickEvidencePhotoFile({ signal: controller.signal });
+          selected = await pickEvidencePhotoFile({
+            signal: controller.signal,
+            ...(wantsVideo ? { accept: VIDEO_EVIDENCE_ACCEPT } : {}),
+          });
         } finally {
           pickerAbortRef.current = null;
           setPickerPending(false);
@@ -752,7 +761,9 @@ export default function CaptureWorkflowPage({
   // ============================================
   // LOADING STATE
   // ============================================
-  if (loading) {
+  // Spinner only before the first workflow arrives. Refetching after a step
+  // completes must not unmount the page, or the scroll jumps to the top.
+  if (loading && !workflow) {
     return (
       <div
         role="status"
@@ -1323,7 +1334,12 @@ export default function CaptureWorkflowPage({
                             className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 rounded p-1.5"
                           >
                             <div className="flex items-center gap-1.5 min-w-0">
-                              {ev.thumbnailUrl || ev.fileUrl ? (
+                              {ev.fileMimeType?.startsWith("video/") ? (
+                                <Video
+                                  className="h-3 w-3 flex-shrink-0"
+                                  aria-label="Video"
+                                />
+                              ) : ev.thumbnailUrl || ev.fileUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={ev.thumbnailUrl || ev.fileUrl || ""}

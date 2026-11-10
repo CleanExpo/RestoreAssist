@@ -100,4 +100,26 @@ describe("CloudinaryStorageProvider.upload", () => {
     expect(uploadFileToCloudinary).toHaveBeenCalled();
     expect(out.compressedUrl).toContain("doc.pdf");
   });
+
+  it("gives different files with the same filename different immutable asset ids", async () => {
+    uploadFileToCloudinary.mockResolvedValue({
+      url: "https://res.cloudinary.com/demo/video/upload/v1/x.mp4",
+      publicId: "x",
+      format: "mp4",
+    });
+    const provider = new CloudinaryStorageProvider();
+    const base = {
+      filename: "capturedvideo.MOV",
+      mimeType: "video/quicktime",
+      folder: "evidence",
+      orgId: "org_1",
+      inspectionId: "insp_1",
+    };
+    const first = await provider.upload({ ...base, buffer: Buffer.from("clip-one") });
+    const second = await provider.upload({ ...base, buffer: Buffer.from("clip-two") });
+
+    const ids = uploadFileToCloudinary.mock.calls.map((c) => c[4]?.publicId);
+    expect(ids).toEqual([first.sha256, second.sha256]);
+    expect(ids[0]).not.toBe(ids[1]);
+  });
 });

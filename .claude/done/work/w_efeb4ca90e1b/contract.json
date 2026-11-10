@@ -1,43 +1,49 @@
 {
   "schema": "done/1",
-  "work_id": "w_594e46063799",
+  "work_id": "w_efeb4ca90e1b",
   "version": 1,
   "supersedes": null,
-  "goal": "RA-8242: sketch offline queue stops retrying permanently rejected saves, keeps local copy, tells technician",
-  "created_at_utc": "2026-11-08T18:01:32Z",
-  "identity_key": "fix/ra-8242-offline-queue-permanent-reject@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-8242",
+  "goal": "RA-8088: failed evidence pin move or delete restores the pin and tells the technician",
+  "created_at_utc": "2026-11-08T15:45:20Z",
+  "identity_key": "fix/ra-8088-evidence-pin-failures@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-8088",
   "baseline_observed": {
     "head": "a6498e82fd477431edecf47e9a32829b5b30ff49",
-    "branch": "fix/ra-8242-offline-queue-permanent-reject",
+    "branch": "fix/ra-8088-evidence-pin-failures",
     "dirty_count": 1
   },
   "criteria": [
     {
       "id": "C1",
-      "text": "Permanent-reject, retryable-class and 409 queue tests pass",
-      "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node node_modules/vitest/vitest.mjs run --config config/vitest.config.js lib/__tests__/nir-sync-queue-permanent-reject.test.ts lib/__tests__/nir-sync-queue-revision.test.ts lib/__tests__/nir-sync-queue-sketch.test.ts",
+      "text": "Pin move/delete failure tests (500 and network, plus race) pass",
+      "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node node_modules/vitest/vitest.mjs run --config config/vitest.config.js components/sketch/__tests__/SketchEditorV2.first-save-remount.test.tsx",
       "timeout": 600
     },
     {
       "id": "C2",
+      "text": "No swallowed catch or un-awaited fetch on evidence pin move/delete",
+      "recipe": "! sed -n '/const handleEvidenceMove/,/Scale calibration/p' components/sketch/SketchEditorV2.tsx | grep -E 'catch \\(\\) => \\{\\}|void fetch'",
+      "timeout": 60
+    },
+    {
+      "id": "C3",
       "text": "Repo guard scripts pass",
       "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node scripts/check-au-english.mjs && /Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node scripts/check-no-emoji.mjs && /Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node scripts/check-no-lucide.mjs && /Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node node_modules/tsx/dist/cli.mjs scripts/check-standards-citations.ts",
       "timeout": 600
     },
     {
-      "id": "C3",
+      "id": "C4",
       "text": "type-check passes",
       "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node scripts/type-check.mjs",
       "timeout": 1800
     },
     {
-      "id": "C4",
+      "id": "C5",
       "text": "lint passes",
       "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node node_modules/eslint/bin/eslint.js -c config/eslint.config.mjs . --max-warnings 851",
       "timeout": 1800
     },
     {
-      "id": "C5",
+      "id": "C6",
       "text": "full unit suite passes",
       "recipe": "/Users/phill-mac/.nvm/versions/node/v22.23.3/bin/node node_modules/vitest/vitest.mjs run --config config/vitest.config.js",
       "timeout": 3000
