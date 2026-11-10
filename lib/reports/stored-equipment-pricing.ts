@@ -90,15 +90,45 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** A quantity read from a stored line: a finite number >= 0, else null. */
+/**
+ * A line that cannot be priced because a figure would not be an exact amount:
+ * the quantity, the number of days, a line total or the sum is too large (or
+ * the number of days is not a positive number). JavaScript arithmetic turns
+ * such a product into Infinity or a rounded value, and neither is a price.
+ */
+export const AMOUNT_TOO_LARGE_NOTE =
+  "Equipment cannot be priced: the quantity or the number of days is too large to price exactly, or the number of days is not a positive number.";
+
+/**
+ * A money figure the reader may return: not negative, and small enough that
+ * its cents are still an exact whole number. Anything else (Infinity and NaN
+ * fail both comparisons) is null, which every consumer treats as blocked.
+ */
+function exactAmount(value: number): number | null {
+  return value >= 0 && value * 100 <= Number.MAX_SAFE_INTEGER ? value : null;
+}
+
+function quantityNumber(value: unknown): number {
+  return typeof value === "number"
+    ? value
+    : typeof value === "string" && value.trim() !== ""
+      ? Number(value)
+      : NaN;
+}
+
+/** A quantity read from a stored line: an exact number >= 0, else null. */
 function readQuantity(value: unknown): number | null {
-  const n =
-    typeof value === "number"
-      ? value
-      : typeof value === "string" && value.trim() !== ""
-        ? Number(value)
-        : NaN;
-  return Number.isFinite(n) && n >= 0 ? n : null;
+  const n = quantityNumber(value);
+  return Number.isFinite(n) && n >= 0 && n <= Number.MAX_SAFE_INTEGER
+    ? n
+    : null;
+}
+
+/** True when a line is unusable only because its quantity is too large. */
+function hasOversizeQuantity(raw: unknown): boolean {
+  if (!isRecord(raw)) return false;
+  const n = quantityNumber(raw.quantity);
+  return n > Number.MAX_SAFE_INTEGER;
 }
 
 /**
@@ -238,7 +268,9 @@ export function priceStoredEquipment(
           dailyRate: null,
           dailyTotal: null,
           total: null,
-          note: MALFORMED_LINE_NOTE,
+          note: hasOversizeQuantity(raw)
+            ? AMOUNT_TOO_LARGE_NOTE
+            : MALFORMED_LINE_NOTE,
         };
       }
       let dailyRate: number | null;
@@ -254,30 +286,43 @@ export function priceStoredEquipment(
         note = err.message;
         for (const u of err.unset) unset.set(u.field, u);
       }
+      if (dailyRate !== null) {
+        const dailyTotal = exactAmount(dailyRate * read.quantity);
+        const total = exactAmount(dailyRate * read.quantity * durationDays);
+        if (dailyTotal !== null && total !== null) {
+          return { ...read, durationDays, dailyRate, dailyTotal, total, note };
+        }
+        // Not an exact amount: blocked like an unset rate, with its reason.
+        note = AMOUNT_TOO_LARGE_NOTE;
+      }
       return {
         ...read,
         durationDays,
-        dailyRate,
-        dailyTotal: dailyRate === null ? null : dailyRate * read.quantity,
-        total:
-          dailyRate === null ? null : dailyRate * read.quantity * durationDays,
+        dailyRate: null,
+        dailyTotal: null,
+        total: null,
         note,
       };
     },
   );
   const blocked = lines.some((l) => l.dailyRate === null);
+  const dailyTotal = blocked
+    ? null
+    : exactAmount(lines.reduce((sum, l) => sum + (l.dailyTotal as number), 0));
+  const total = blocked
+    ? null
+    : exactAmount(lines.reduce((sum, l) => sum + (l.total as number), 0));
+  const notes = lines.flatMap((l) => (l.note === null ? [] : [l.note]));
+  // Lines that are each exact can still sum past an exact amount.
+  if (!blocked && (dailyTotal === null || total === null)) {
+    notes.push(AMOUNT_TOO_LARGE_NOTE);
+  }
   return {
     lines,
-    dailyTotal: blocked
-      ? null
-      : lines.reduce((sum, l) => sum + (l.dailyTotal as number), 0),
-    total: blocked
-      ? null
-      : lines.reduce((sum, l) => sum + (l.total as number), 0),
+    dailyTotal: total === null ? null : dailyTotal,
+    total: dailyTotal === null ? null : total,
     unset: [...unset.values()],
-    problems: [
-      ...new Set(lines.flatMap((l) => (l.note === null ? [] : [l.note]))),
-    ],
+    problems: [...new Set(notes)],
   };
 }
 

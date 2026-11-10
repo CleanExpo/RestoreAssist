@@ -360,3 +360,91 @@ describe("the priced documents (cost estimation, scope of works)", () => {
     expect(scope(movers).safety.airMoverQty).toBe(6);
   });
 });
+
+// Review round 13 (second finding): a finite quantity whose product overflows
+// priced a line at Infinity, which is not null, so the "total is blocked"
+// refusal let it through and JSON showed null with no reason. Every figure the
+// reader returns is an exact, non-negative amount or it is blocked with a note.
+describe("the one reader: a figure that is not an exact amount is blocked, with a reason", () => {
+  const TOO_LARGE = /too large to price/;
+
+  it.each([
+    ["a quantity whose line total overflows", [{ groupId: "lgr-85", quantity: 1e308 }], 4],
+    ["a quantity beyond exact whole numbers", [{ groupId: "lgr-85", quantity: 2 ** 60 }], 1],
+    ["a line total beyond exact arithmetic", [{ groupId: "lgr-85", quantity: 1e14 }], 4],
+    ["a duration that overflows", [{ groupId: "lgr-85", quantity: 1 }], Infinity],
+    ["a duration that is not a number", [{ groupId: "lgr-85", quantity: 1 }], NaN],
+    ["a negative duration", [{ groupId: "lgr-85", quantity: 1 }], -4],
+  ])("%s: no figure, a named problem, and priced documents refuse", (_label, stored, days) => {
+    const priced = priceStoredEquipment(stored, LGR, days as number);
+    expect(priced.total).toBeNull();
+    expect(priced.dailyTotal).toBeNull();
+    expect(priced.lines[0].total).toBeNull();
+    expect(priced.lines[0].dailyTotal).toBeNull();
+    expect(priced.lines[0].dailyRate).toBeNull();
+    expect(priced.problems.join(" ")).toMatch(TOO_LARGE);
+    expect(() => assertEquipmentPriced(priced)).toThrow(RateNotSetError);
+    const text = JSON.stringify(priced);
+    expect(text).not.toContain("Infinity");
+    for (const line of priced.lines) {
+      for (const figure of [line.dailyRate, line.dailyTotal, line.total]) {
+        expect(figure === null || Number.isSafeInteger(Math.round(figure))).toBe(true);
+      }
+    }
+  });
+
+  it("lines that are each exact but whose sum is not: the total is blocked with the reason", () => {
+    const priced = priceStoredEquipment(
+      [
+        { groupId: "lgr-85", quantity: 5e11 },
+        { groupId: "lgr-85", quantity: 5e11 },
+        { groupId: "lgr-85", quantity: 5e11 },
+      ],
+      LGR,
+      1,
+    );
+    expect(priced.lines.every((l) => l.total === 70 * 5e11)).toBe(true);
+    expect(priced.total).toBeNull();
+    expect(priced.dailyTotal).toBeNull();
+    expect(priced.problems.join(" ")).toMatch(TOO_LARGE);
+    expect(() => assertEquipmentPriced(priced)).toThrow(RateNotSetError);
+  });
+
+  it.each([
+    // 2 lines x 5e11 x $70: $7e13 a day is exact; over 2 days the sum is not.
+    ["only the job total", 2, 2],
+    // 3 lines x 5e11 x $70: the daily sum is not exact; over half a day the job total is.
+    ["only the daily total", 3, 0.5],
+  ])("when %s sums past an exact amount, both totals are blocked with the reason", (_label, count, days) => {
+    const priced = priceStoredEquipment(
+      Array.from({ length: count }, () => ({ groupId: "lgr-85", quantity: 5e11 })),
+      LGR,
+      days,
+    );
+    expect(priced.lines.every((l) => l.total !== null && l.dailyTotal !== null)).toBe(true);
+    expect(priced.total).toBeNull();
+    expect(priced.dailyTotal).toBeNull();
+    expect(priced.problems.join(" ")).toMatch(TOO_LARGE);
+  });
+
+  it("the response for an overflowing stored line carries the reason, never a bare null", () => {
+    const res = storedEquipmentResponse(JSON.stringify([{ groupId: "lgr-85", quantity: 1e308 }]), LGR, 4);
+    expect(res.equipmentCostTotal).toBeNull();
+    expect(res.equipmentSelection?.[0]).toMatchObject({ dailyRate: null });
+    expect(res.equipmentSelection?.[0].note).toMatch(TOO_LARGE);
+    expect(res.equipmentProblems.join(" ")).toMatch(TOO_LARGE);
+  });
+
+  it("control: a large but exact job still prices", () => {
+    const priced = priceStoredEquipment([{ groupId: "lgr-85", quantity: 5000 }], LGR, 365);
+    expect(priced.total).toBe(70 * 5000 * 365);
+    expect(priced.problems).toEqual([]);
+  });
+
+  it("non-money readers never see an overflowing quantity either", () => {
+    const lines = readStoredEquipment([{ groupId: "lgr-85", quantity: 1e308 }, { groupId: "lgr-85", quantity: 2 }]);
+    expect(lines[0].usable).toBe(false);
+    expect(equipmentUnitCount(lines)).toBe(2);
+    expect(Number.isFinite(equipmentAmps(lines))).toBe(true);
+  });
+});

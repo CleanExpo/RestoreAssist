@@ -276,3 +276,29 @@ describe("GET /api/reports/[id]/equipment prices the stored lines now", () => {
     expect(data.equipmentCostTotal).toBeNull();
   });
 });
+
+// Review round 13 (second finding): POST with quantity 1e308 and a set rate
+// priced the line at Infinity, passed the "total is null" refusal and wrote
+// Infinity to the report. A figure that is not an exact amount is refused.
+describe("POST /api/reports/[id]/equipment refuses a figure that is not an exact amount", () => {
+  it.each([
+    ["a quantity whose total overflows", { equipmentSelection: [{ groupId: "lgr-85", quantity: 1e308 }], estimatedDryingDuration: DAYS }],
+    ["a duration that overflows", { equipmentSelection: [{ groupId: "lgr-85", quantity: 1 }], estimatedDryingDuration: "1e999" }],
+    ["a negative duration", { equipmentSelection: [{ groupId: "lgr-85", quantity: 1 }], estimatedDryingDuration: -4 }],
+    ["a total beyond exact arithmetic", { equipmentSelection: [{ groupId: "lgr-85", quantity: 1e14 }], estimatedDryingDuration: DAYS }],
+  ])("%s: 422 with the reason, nothing stored", async (_label, posted) => {
+    priceListNow(70);
+    const res = await save(posted);
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(await res.json())).toMatch(/too large to price/);
+    expect(reportUpdate).not.toHaveBeenCalled();
+  });
+
+  it("control: an ordinary quantity at the same rate is stored", async () => {
+    priceListNow(70);
+    reportUpdate.mockResolvedValue({});
+    const res = await save({ equipmentSelection: [{ groupId: "lgr-85", quantity: 3 }], estimatedDryingDuration: DAYS });
+    expect(res.status).toBe(200);
+    expect(reportUpdate.mock.calls[0][0].data.equipmentCostTotal).toBe(70 * 3 * DAYS);
+  });
+});
