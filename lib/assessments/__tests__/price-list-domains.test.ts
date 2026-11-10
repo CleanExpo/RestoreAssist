@@ -210,6 +210,37 @@ describe("mould positive control: a complete price list gives a complete total",
   });
 });
 
+describe("a rate is never applied to a quantity in another unit (review round 1)", () => {
+  it("storm water extraction (m²) is not priced from the hourly extraction rate", async () => {
+    const est = await estimateFor(
+      stormDomain,
+      { entryType: "roof_penetration", waterCategory: 2 },
+      FULL_PRICE_LIST,
+    );
+    const extraction = est.lines.find(
+      (l) => l.description === "Water extraction",
+    );
+    expect(extraction?.unit).toBe("m²");
+    expect(extraction?.pricingStatus).toBe("needs_price_list_field");
+    expect(extraction?.lineTotalExGst).toBeNull();
+    expect(est.totals.totalIncGst).toBeNull();
+  });
+
+  it("the biohazard HEPA air scrubber (once per job) is not priced from a daily hire rate", async () => {
+    const est = await estimateFor(
+      biohazardDomain,
+      { biohazardType: "sewage_overflow" },
+      FULL_PRICE_LIST,
+    );
+    const scrubber = est.lines.find(
+      (l) => l.description === "HEPA air scrubber",
+    );
+    expect(scrubber?.unit).toBe("job");
+    expect(scrubber?.pricingStatus).toBe("needs_price_list_field");
+    expect(scrubber?.lineTotalExGst).toBeNull();
+  });
+});
+
 // Domains whose lines have no price-list field today.
 const NO_FIELD: {
   name: string;

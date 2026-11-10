@@ -14,6 +14,8 @@ import {
   type BiohazardType,
 } from "@/lib/scope-biohazard";
 import type { ScopeItemDraft } from "@/lib/scope-fire";
+import { generatePrelims } from "@/lib/scope-prelims";
+import { unitMatchesField } from "@/lib/assessments/price-list-estimate";
 
 // Every field a distinct value, so a mismatched tag cannot match by chance.
 const CONFIG = Object.fromEntries(
@@ -27,8 +29,33 @@ function expectTagsMatch(drafts: ScopeItemDraft[]) {
     expect(d.unitCostAud).toBe(
       (CONFIG as unknown as Record<string, number>)[d.rateField as string],
     );
+    // A tag is only valid when the line's unit is the unit the field is
+    // priced in (no hourly rate x m², no daily rate x once-per-job).
+    expect(
+      unitMatchesField(d.unit ?? "", d.rateField as string),
+      `${d.description}: unit ${d.unit} vs ${d.rateField}`,
+    ).toBe(true);
   }
 }
+
+describe("prelims tags are priced in the line's own unit", () => {
+  it("every tagged prelims line has a unit its field can price", () => {
+    const drafts = generatePrelims({
+      damageType: "water_damage",
+      affectedAreaM2: 40,
+      estimatedDays: 5,
+      pricingConfig: CONFIG,
+    });
+    const tagged = drafts.filter((d) => d.rateField);
+    expect(tagged.map((d) => d.rateField).sort()).toEqual([
+      "mobilisationFee",
+      "monitoringVisitDailyRate",
+    ]);
+    for (const d of tagged) {
+      expect(unitMatchesField(d.unit ?? "", d.rateField as string)).toBe(true);
+    }
+  });
+});
 
 describe("rateField tags match the field each generator reads", () => {
   it.each([1, 2, 3, 4] as ContaminationClass[])("mould class %s", (c) => {

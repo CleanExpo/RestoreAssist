@@ -18,6 +18,7 @@
  */
 
 import type { GstTreatment } from "@/lib/gst-rules";
+import { getFieldRange } from "@/lib/nrpg-rate-ranges";
 import {
   priceFireScope,
   readRate,
@@ -38,6 +39,35 @@ export interface PriceListLine {
   unit: string;
   /** The contractor price-list field this line is priced from, if any. */
   rateField?: string;
+}
+
+/**
+ * The line units each NRPG rate unit can price. A rate is only multiplied by
+ * a quantity measured in the same unit: an hourly rate never prices square
+ * metres, and a daily hire rate never prices a once-per-job line (RA-8281
+ * review). A rate unit missing here prices nothing.
+ */
+const LINE_UNITS_BY_RATE_UNIT: Record<string, readonly string[]> = {
+  "$/m²": ["m²"],
+  "$/day": ["day", "unit·day"],
+  "$/hr": ["hr"],
+  "$/visit": ["visit"],
+  $: ["job"],
+};
+
+export function unitMatchesField(lineUnit: string, field: string): boolean {
+  const range = getFieldRange(field);
+  // No NRPG range: the field's unit is not recorded, so it cannot be checked.
+  if (!range) return true;
+  return (LINE_UNITS_BY_RATE_UNIT[range.unit] ?? []).includes(lineUnit);
+}
+
+function unitMismatchNote(lineUnit: string, field: string): string {
+  const rateUnit = getFieldRange(field)?.unit ?? "";
+  const per = rateUnit.startsWith("$/")
+    ? `per ${rateUnit.slice(2)}`
+    : "as a flat fee";
+  return `Your ${field} is priced ${per}, but this line is measured in ${lineUnit}. It needs its own price-list field.`;
 }
 
 function usableQuantity(q: number | null | undefined): number | undefined {
@@ -64,6 +94,13 @@ function toDraft(
       ...base,
       pricingStatus: "needs_price_list_field",
       pricingNote: NO_PRICE_LIST_FIELD_NOTE,
+    };
+  }
+  if (!unitMatchesField(line.unit, line.rateField)) {
+    return {
+      ...base,
+      pricingStatus: "needs_price_list_field",
+      pricingNote: unitMismatchNote(line.unit, line.rateField),
     };
   }
   const read = readRate(config, line.rateField);

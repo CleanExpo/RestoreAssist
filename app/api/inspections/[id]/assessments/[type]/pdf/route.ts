@@ -17,7 +17,10 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { isRegisteredDomain } from "@/lib/assessments/registry";
 import { generateAssessmentPdf } from "@/lib/assessments/generate-assessment-pdf";
 import { isBlockingLine } from "@/lib/assessments/estimate-status";
-import { gstForInspection } from "@/lib/assessments/gst";
+import {
+  gstForInspection,
+  gstTreatmentForStoredLines,
+} from "@/lib/assessments/gst";
 import type {
   AssessmentReport,
   EstimateLine,
@@ -58,9 +61,9 @@ export async function GET(
       );
     }
 
-    // RA-8281: GST and currency come from the organisation's country via
-    // lib/gst-rules (AU 10% AUD, NZ 15% NZD), never a hard-coded 10% AUD.
-    const [latest, inspection, gst] = await Promise.all([
+    // RA-8281: GST and currency come from lib/gst-rules (AU 10% AUD, NZ 15%
+    // NZD), never a hard-coded 10% AUD.
+    const [latest, inspection, orgGst] = await Promise.all([
       prisma.assessmentGeneration.findFirst({
         where: { inspectionId, assessmentType: type },
         orderBy: { generatedAt: "desc" },
@@ -101,7 +104,21 @@ export async function GET(
       : estimateLinesRaw.lines;
     // Recompute totals from the stored lines for safety. RA-8275: an
     // unpriced line blocks the total; it is never summed as $0.
-    const blocking = lines.filter(isBlockingLine);
+    const missing = lines.filter(isBlockingLine).map((l) => ({
+      description: l.description,
+      note: l.pricingNote ?? "Not priced.",
+    }));
+    // RA-8281 review: label the GST the stored lines were priced at, not the
+    // org's current country, which can change after generation. The org
+    // country is used only when no line is priced.
+    const storedGst = gstTreatmentForStoredLines(lines, orgGst);
+    if (!storedGst) {
+      missing.push({
+        description: "GST",
+        note: "The stored lines do not carry one consistent AU (10%) or NZ (15%) GST rate. Regenerate this estimate.",
+      });
+    }
+    const gst = storedGst ?? orgGst;
     const subtotalExGst = lines.reduce(
       (sum, l) => sum + (l.lineTotalExGst ?? 0),
       0,
@@ -110,16 +127,13 @@ export async function GET(
       (sum, l) => sum + ((l.lineTotalIncGst ?? 0) - (l.lineTotalExGst ?? 0)),
       0,
     );
-    const blocked = blocking.length > 0;
+    const blocked = missing.length > 0;
     const totals: EstimateTotals = {
       subtotalExGst: blocked ? null : subtotalExGst,
       gstTotal: blocked ? null : gstTotal,
       totalIncGst: blocked ? null : subtotalExGst + gstTotal,
       status: blocked ? "blocked" : "complete",
-      missing: blocking.map((l) => ({
-        description: l.description,
-        note: l.pricingNote ?? "Not priced.",
-      })),
+      missing,
       gstRate: gst.rate,
       currency: gst.currency,
     };

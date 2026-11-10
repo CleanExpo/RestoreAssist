@@ -97,7 +97,8 @@ export function generateStormScope(params: {
     quantity: area,
     unit: "m²",
     unitCostAud: pricingConfig.extractionElectricHourlyRate,
-    rateField: "extractionElectricHourlyRate",
+    // RA-8281: not tagged. The quantity is m² and this field is $/hr, so the
+    // assessment domains must not price it from the price list.
     isRequired: true,
   });
 

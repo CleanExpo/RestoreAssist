@@ -51,8 +51,8 @@ async function pdfText(bytes: Uint8Array): Promise<string> {
   }
 }
 
-function storedGeneration(gstRate: number) {
-  const line = (description: string, ex: number) => ({
+function storedGeneration(gstRate: number, secondLineRate = gstRate) {
+  const line = (description: string, ex: number, gstRate: number) => ({
     description,
     category: "EQUIPMENT",
     quantity: 1,
@@ -70,13 +70,20 @@ function storedGeneration(gstRate: number) {
     latencyMs: 5,
     reportSections: { sections: [{ heading: "Situation", body: "Test." }] },
     scopeItems: [],
-    estimateLines: [line("LGR dehumidifier", 200), line("Air mover", 100)],
+    estimateLines: [
+      line("LGR dehumidifier", 200, gstRate),
+      line("Air mover", 100, secondLineRate),
+    ],
     citations: [],
   };
 }
 
-async function renderFor(country: "AU" | "NZ", gstRate: number) {
-  findFirst.mockResolvedValue(storedGeneration(gstRate));
+async function renderFor(
+  country: "AU" | "NZ",
+  gstRate: number,
+  secondLineRate = gstRate,
+) {
+  findFirst.mockResolvedValue(storedGeneration(gstRate, secondLineRate));
   inspectionFindUnique.mockResolvedValue({
     inspectionNumber: "INS-1",
     propertyAddress: "1 Queen St",
@@ -113,5 +120,29 @@ describe("assessment PDF GST follows the organisation's country", () => {
     expect(text).toContain("AUD");
     expect(text).not.toContain("NZD");
     expect(text).toContain("$330.00");
+  });
+});
+
+describe("the PDF labels the GST the stored lines were priced at (review round 1)", () => {
+  it("stored AU 10% lines stay labelled AUD 10% after the org moves to NZ", async () => {
+    const text = await renderFor("NZ", 0.1);
+    expect(text).toContain(
+      "AUD ex GST $300.00 | GST 10% $30.00 | total $330.00",
+    );
+    expect(text).not.toContain("15%");
+    expect(text).not.toContain("NZD");
+  });
+
+  it("stored NZ 15% lines stay labelled NZD 15% for an AU org", async () => {
+    const text = await renderFor("AU", 0.15);
+    expect(text).toContain(
+      "NZD ex GST $300.00 | GST 15% $45.00 | total $345.00",
+    );
+  });
+
+  it("lines carrying different GST rates print no total", async () => {
+    const text = await renderFor("NZ", 0.1, 0.15);
+    expect(text).toContain("total not available");
+    expect(text).not.toMatch(/total \$\d/);
   });
 });

@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { getGstTreatment } from "@/lib/gst-rules";
+import { getFieldRange } from "@/lib/nrpg-rate-ranges";
 import {
   NO_PRICE_LIST_FIELD_NOTE,
   QUANTITY_NEEDED_NOTE,
@@ -13,6 +14,12 @@ import {
 
 const AU = getGstTreatment("AU");
 const NZ = getGstTreatment("NZ");
+
+// A value inside the field's NRPG range.
+const inRange = (field: string): number => {
+  const r = getFieldRange(field);
+  return r ? (r.min + r.max) / 2 : 100;
+};
 
 const line = (
   rateField: string | undefined,
@@ -28,7 +35,10 @@ const line = (
 describe("estimateFromPriceList", () => {
   it("positive control: every rate set and in range gives a complete total", () => {
     const est = estimateFromPriceList(
-      [line("dehumidifierLGRDailyRate", 3), line("mobilisationFee", 1)],
+      [
+        line("dehumidifierLGRDailyRate", 3),
+        { ...line("mobilisationFee", 1), unit: "job" },
+      ],
       { dehumidifierLGRDailyRate: 100, mobilisationFee: 200 },
       AU,
     );
@@ -54,7 +64,10 @@ describe("estimateFromPriceList", () => {
 
   it("an unset rate reads 'rate not set' with its national range and blocks the total", () => {
     const est = estimateFromPriceList(
-      [line("dehumidifierLGRDailyRate"), line("mobilisationFee", 1)],
+      [
+        line("dehumidifierLGRDailyRate"),
+        { ...line("mobilisationFee", 1), unit: "job" },
+      ],
       { mobilisationFee: 200 },
       AU,
     );
@@ -106,6 +119,42 @@ describe("estimateFromPriceList", () => {
       expect(est.totals.status).toBe("blocked");
     },
   );
+
+  it.each([
+    ["m²", "extractionElectricHourlyRate", "per hr"],
+    ["job", "afdUnitLargeDailyRate", "per day"],
+    ["hr", "mobilisationFee", "as a flat fee"],
+    ["day", "biohazardTreatmentRate", "per m²"],
+  ])(
+    "a %s line never prices from %s (unit mismatch blocks the total)",
+    (unit, field, per) => {
+      const est = estimateFromPriceList(
+        [{ ...line(field, 20), unit }],
+        { [field]: 100 },
+        AU,
+      );
+      expect(est.lines[0].pricingStatus).toBe("needs_price_list_field");
+      expect(est.lines[0].pricingNote).toContain(per);
+      expect(est.lines[0].lineTotalExGst).toBeNull();
+      expect(est.totals.totalIncGst).toBeNull();
+    },
+  );
+
+  it.each([
+    ["m²", "biohazardTreatmentRate"],
+    ["day", "afdUnitLargeDailyRate"],
+    ["unit·day", "negativeAirMachineDailyRate"],
+    ["visit", "monitoringVisitDailyRate"],
+    ["job", "mobilisationFee"],
+    ["hr", "extractionElectricHourlyRate"],
+  ])("control: a %s line prices from %s", (unit, field) => {
+    const est = estimateFromPriceList(
+      [{ ...line(field, 2), unit }],
+      { [field]: inRange(field) },
+      AU,
+    );
+    expect(est.lines[0].pricingStatus).toBe("priced");
+  });
 
   it("no price list at all: every line reads rate not set", () => {
     const est = estimateFromPriceList(
