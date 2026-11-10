@@ -210,6 +210,8 @@ const STEP_EQUIPMENT_DEPLOYMENT: WorkflowStepDefinition = {
   minimumEvidenceCount: 2,
   isMandatory: true,
   riskTier: 1,
+  // RA-8276: drying equipment; the Claim Pathway leaves it out with no water.
+  waterOnly: true,
 };
 
 const STEP_SCOPE_OF_WORKS: WorkflowStepDefinition = {
@@ -280,6 +282,8 @@ const STEP_FIRE_EQUIPMENT_DEPLOYMENT: WorkflowStepDefinition = {
     "of equipment in position showing serial number/asset tag. Record " +
     "equipment type, serial number, and placement location. " +
     `Per IICRC ${standardCite("S700")}.`,
+  // Air filtration is fire work, needed with or without water.
+  waterOnly: false,
 };
 
 const STEP_FIRE_SCOPE_OF_WORKS: WorkflowStepDefinition = {

@@ -687,18 +687,9 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
   // the moisture source is part of the mould work itself.
   const keepWaterSteps = waterPresent || claimType === "MOULD";
   const dryTemplate = !keepWaterSteps;
-  const steps: WorkflowStepDefinition[] = template.steps
-    .filter((s) => keepWaterSteps || !s.waterOnly)
-    // Drying equipment means nothing on a dry job; record air filtration and
-    // other equipment with the fire template's equipment step instead.
-    .map((s) =>
-      dryTemplate && s.stepKey === "equipment_deployment"
-        ? (getWorkflowTemplate("FIRE_SMOKE").steps.find(
-            (f) => f.stepKey === "equipment_setup",
-          ) ?? s)
-        : s,
-    )
-    .filter((s, i, all) => all.findIndex((x) => x.stepKey === s.stepKey) === i);
+  const steps: WorkflowStepDefinition[] = template.steps.filter(
+    (s) => keepWaterSteps || !s.waterOnly,
+  );
   const has = (key: string) => steps.some((s) => s.stepKey === key);
   const borrow = (from: JobType, key: string) => {
     if (has(key)) return;
@@ -710,6 +701,7 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
     borrow("WATER_DAMAGE", "environmental_readings");
     borrow("WATER_DAMAGE", "moisture_survey");
     borrow("WATER_DAMAGE", "progress_monitoring");
+    borrow("WATER_DAMAGE", "equipment_deployment");
     if (waterCategory === "2" || waterCategory === "3") {
       borrow("WATER_DAMAGE", "contamination_assessment");
     }

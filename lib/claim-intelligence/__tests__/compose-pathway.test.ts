@@ -466,11 +466,55 @@ describe("RA-8276: dry claims with mixed hazards stay dry", () => {
       .map((i) => i.id);
     expect(leaks).toEqual([]);
     if (!mouldy) expect(JSON.stringify(p.customerBrief)).not.toMatch(STRICT);
+    // Round 4: no fire-only content on a claim with no fire, and no drying
+    // equipment on a dry claim.
+    if (claimType !== "FIRE_SMOKE") {
+      const fireOnly = p.techPathway
+        .filter(
+          (i) =>
+            i.id === "workflow.equipment_setup" || /S700/.test(itemText(i)),
+        )
+        .map((i) => i.id);
+      expect(fireOnly).toEqual([]);
+    }
+    if (claimType !== "MOULD") {
+      expect(
+        p.techPathway.some((i) => i.id === "workflow.equipment_deployment"),
+      ).toBe(false);
+    }
     if (claimType !== "MOULD") {
       const moisture = p.techPathway.filter((i) =>
         i.evidence.some((e) => e.evidenceClass === "MOISTURE_READING"),
       );
       expect(moisture.map((i) => i.id)).toEqual([]);
     }
+  });
+});
+
+describe("RA-8276 round 4: equipment steps follow the job", () => {
+  it("a fire job with water records drying equipment as well as air filtration", () => {
+    const ids = composePathway({
+      claimType: "FIRE_SMOKE",
+      loss: { waterCategory: "1" },
+    }).techPathway.map((i) => i.id);
+    expect(ids).toContain("workflow.equipment_setup");
+    expect(ids).toContain("workflow.equipment_deployment");
+  });
+
+  it("a dry fire job keeps air filtration and has no drying equipment", () => {
+    const ids = composePathway({ claimType: "FIRE_SMOKE" }).techPathway.map(
+      (i) => i.id,
+    );
+    expect(ids).toContain("workflow.equipment_setup");
+    expect(ids).not.toContain("workflow.equipment_deployment");
+  });
+
+  it("a storm job with water keeps its drying equipment step", () => {
+    const ids = composePathway({
+      claimType: "STORM",
+      loss: { waterCategory: "2" },
+    }).techPathway.map((i) => i.id);
+    expect(ids).toContain("workflow.equipment_deployment");
+    expect(ids).not.toContain("workflow.equipment_setup");
   });
 });
