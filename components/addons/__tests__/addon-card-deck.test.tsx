@@ -19,6 +19,17 @@ import {
 import { parseCheckoutReply } from "@/lib/billing/checkout-return";
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 
+// Review round 8: pending purchase keys are stored per signed-in account.
+const { sessionRef } = vi.hoisted(() => ({
+  sessionRef: {
+    current: {
+      data: { user: { id: "owner-A" } },
+      status: "authenticated",
+    } as unknown,
+  },
+}));
+vi.mock("next-auth/react", () => ({ useSession: () => sessionRef.current }));
+
 const catalog = {
   addons: [
     {
@@ -56,6 +67,10 @@ beforeEach(() => {
   vi.restoreAllMocks();
   // Pending purchase keys persist in localStorage (review round 5).
   window.localStorage.clear();
+  sessionRef.current = {
+    data: { user: { id: "owner-A" } },
+    status: "authenticated",
+  };
 });
 
 describe("AddonCardDeck (RA-8271)", () => {
@@ -546,7 +561,7 @@ describe("AddonCardDeck (RA-8271)", () => {
             "Idempotency-Key"
           ],
       );
-  const STORED = "restoreassist:addon-checkout-key:BOOKKEEPING";
+  const STORED = "restoreassist:addon-checkout-key:owner-A:BOOKKEEPING";
   const redirectReply = () => ({
     ok: true,
     status: 200,
@@ -721,6 +736,69 @@ describe("AddonCardDeck (RA-8271)", () => {
     expect(keys).toHaveLength(3);
     expect(new Set(keys).size).toBe(1);
     expect(window.localStorage.getItem(STORED)).toBeNull();
+  });
+
+  it("review r8: another account's answer on this browser keeps the first account's key", async () => {
+    const replayed402 = {
+      ok: false,
+      status: 402,
+      headers: new Headers({ "Idempotent-Replayed": "true" }),
+      json: async () => ({
+        error: { code: "UNPAID", message: "Pay the open invoice first." },
+      }),
+    };
+    const fresh402 = { ...replayed402, headers: new Headers() };
+    const fetchMock = stubCheckout([
+      new TypeError("Failed to fetch"), // A: reply lost
+      fresh402, // B: first press
+      replayed402, // B: settled
+      redirectReply(), // A again
+    ]);
+    const press = async (n: number) => {
+      const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+      fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+      await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(n));
+    };
+
+    const a = render(<AddonCardDeck />);
+    await press(1);
+    expect(
+      await screen.findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+    a.unmount();
+
+    sessionRef.current = {
+      data: { user: { id: "owner-B" } },
+      status: "authenticated",
+    };
+    const b = render(<AddonCardDeck />);
+    await press(2);
+    await press(3);
+    expect(
+      await screen.findByText(/Pay the open invoice first/),
+    ).toBeInTheDocument();
+    b.unmount();
+
+    sessionRef.current = {
+      data: { user: { id: "owner-A" } },
+      status: "authenticated",
+    };
+    render(<AddonCardDeck />);
+    await press(4);
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[3]).toBe(keys[0]); // A's unresolved key survived B
+    expect(keys[1]).not.toBe(keys[0]); // B never used A's key
+  });
+
+  it("review r8: no purchase starts before the signed-in account is known", async () => {
+    sessionRef.current = { data: null, status: "loading" };
+    const fetchMock = stubCheckout([redirectReply()]);
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    const button = within(books).getByRole("button", { name: /add pack/i });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(checkoutKeys(fetchMock)).toHaveLength(0);
   });
 
   it("review r2: isFinalCheckoutAnswer releases the key only for a readable reply that names an outcome", () => {

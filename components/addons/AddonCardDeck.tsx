@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
@@ -170,9 +171,10 @@ export function isFinalCheckoutAnswer(
  * press buy again. Keys live in localStorage per pack (an in-memory map when
  * storage is unavailable) and are cleared only on a final answer.
  *
- * Not scoped per account: the server scopes every key to the signed-in user
- * (withIdempotency(request, userId)), so a key left by another account on
- * this browser can never replay that account's outcome; it simply runs once.
+ * Review round 8: stored per signed-in account AND pack ("slot"). The server
+ * scopes every key to the user (withIdempotency(request, userId)), so each
+ * account's unresolved key must survive another account using this browser;
+ * a shared per-pack entry let account B's answer clear account A's key.
  * Review round 7: an entry never expires on the client. The server replays a
  * completed reply for 24 hours after completion, so dropping a key on age
  * could buy twice; once the server's record has expired, reusing the old key
@@ -193,13 +195,13 @@ type PendingKey = {
 const PENDING_KEY_PREFIX = "restoreassist:addon-checkout-key:";
 const memoryPendingKeys = new Map<string, PendingKey>();
 
-function readPendingKey(sku: string): PendingKey | null {
+function readPendingKey(slot: string): PendingKey | null {
   let entry: unknown;
   try {
-    const raw = window.localStorage.getItem(PENDING_KEY_PREFIX + sku);
+    const raw = window.localStorage.getItem(PENDING_KEY_PREFIX + slot);
     entry = raw === null ? null : JSON.parse(raw);
   } catch {
-    entry = memoryPendingKeys.get(sku) ?? null;
+    entry = memoryPendingKeys.get(slot) ?? null;
   }
   const e = entry as Partial<PendingKey> | null;
   if (!e || typeof e.key !== "string") return null;
@@ -210,22 +212,22 @@ function readPendingKey(sku: string): PendingKey | null {
   };
 }
 
-function writePendingKey(sku: string, entry: PendingKey): void {
+function writePendingKey(slot: string, entry: PendingKey): void {
   try {
     window.localStorage.setItem(
-      PENDING_KEY_PREFIX + sku,
+      PENDING_KEY_PREFIX + slot,
       JSON.stringify(entry),
     );
   } catch {
-    memoryPendingKeys.set(sku, entry);
+    memoryPendingKeys.set(slot, entry);
   }
 }
 
-function clearPendingKeyIfOwner(sku: string, attempt: string): void {
-  if (readPendingKey(sku)?.attempt !== attempt) return; // a newer press owns it
-  memoryPendingKeys.delete(sku);
+function clearPendingKeyIfOwner(slot: string, attempt: string): void {
+  if (readPendingKey(slot)?.attempt !== attempt) return; // a newer press owns it
+  memoryPendingKeys.delete(slot);
   try {
-    window.localStorage.removeItem(PENDING_KEY_PREFIX + sku);
+    window.localStorage.removeItem(PENDING_KEY_PREFIX + slot);
   } catch {
     // Storage unavailable: the in-memory entry is already gone.
   }
@@ -260,6 +262,9 @@ export function AddonCardDeck(props: AddonCardDeckProps) {
 }
 
 function AddonCardDeckContent({ className }: AddonCardDeckProps) {
+  // Pending purchase keys are stored per account (see readPendingKey). No
+  // purchase starts until the signed-in account is known.
+  const accountId = useSession().data?.user?.id ?? null;
   const [addons, setAddons] = useState<CatalogAddon[]>([]);
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<CatalogResponse["technicianSeats"]>(null);
@@ -298,6 +303,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
   }
 
   async function handleAdd(sku: string) {
+    if (!accountId) return; // the button is disabled until the account is known
     setBuying(sku);
     setNotices((prev) => {
       const next = { ...prev };
@@ -310,12 +316,13 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
     // request goes out: if the page goes away mid-request, the outcome is
     // unknown.
     const attempt = crypto.randomUUID();
-    const pending = readPendingKey(sku) ?? {
+    const slot = `${accountId}:${sku}`;
+    const pending = readPendingKey(slot) ?? {
       key: crypto.randomUUID(),
       unresolved: false,
       attempt,
     };
-    writePendingKey(sku, { ...pending, unresolved: true, attempt });
+    writePendingKey(slot, { ...pending, unresolved: true, attempt });
     try {
       const res = await fetch("/api/addons/checkout", {
         method: "POST",
@@ -339,7 +346,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
         setBuying(null);
         return;
       }
-      clearPendingKeyIfOwner(sku, attempt);
+      clearPendingKeyIfOwner(slot, attempt);
       switch (reply.kind) {
         case "redirect":
           window.location.href = reply.url;
@@ -499,7 +506,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
                   <button
                     type="button"
                     onClick={() => handleAdd(addon.sku)}
-                    disabled={busy}
+                    disabled={busy || !accountId}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-brand-navy px-4 text-sm font-medium text-white hover:bg-brand-navy-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-bronze disabled:opacity-60"
                   >
                     {busy
