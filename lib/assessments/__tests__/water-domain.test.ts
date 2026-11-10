@@ -48,8 +48,8 @@ describe("waterDomain — happy path", () => {
       propertyAddress: "12 Smith St, Brisbane QLD 4000",
       classifications: [{ category: "2", class: "2" }],
       affectedAreas: [
-        { affectedSquareFootage: 18 },
-        { affectedSquareFootage: 7.5 },
+        { affectedAreaSqm: 18 },
+        { affectedAreaSqm: 7.5 },
       ],
       moistureReadings: [
         // timber dryThreshold 19, wetThreshold 25
@@ -118,7 +118,7 @@ describe("waterDomain — happy path", () => {
       id: "i_1",
       propertyAddress: "1 Test St",
       classifications: [{ category: "Cat 3", class: "Class 4" }],
-      affectedAreas: [{ affectedSquareFootage: 200 }],
+      affectedAreas: [{ affectedAreaSqm: 200 }],
       moistureReadings: [],
     });
 
@@ -147,7 +147,7 @@ describe("waterDomain — error paths", () => {
       id: "i_1",
       propertyAddress: "x",
       classifications: [],
-      affectedAreas: [{ affectedSquareFootage: 10 }],
+      affectedAreas: [{ affectedAreaSqm: 10 }],
       moistureReadings: [],
     });
     const r = await waterDomain.generate(baseInput);
@@ -161,7 +161,7 @@ describe("waterDomain — error paths", () => {
       id: "i_1",
       propertyAddress: "x",
       classifications: [{ category: "weird", class: "1" }],
-      affectedAreas: [{ affectedSquareFootage: 10 }],
+      affectedAreas: [{ affectedAreaSqm: 10 }],
       moistureReadings: [],
     });
     const r = await waterDomain.generate(baseInput);
@@ -187,7 +187,7 @@ describe("waterDomain — moisture summary", () => {
       id: "i_1",
       propertyAddress: "x",
       classifications: [{ category: "1", class: "1" }],
-      affectedAreas: [{ affectedSquareFootage: 5 }],
+      affectedAreas: [{ affectedAreaSqm: 5 }],
       moistureReadings: [],
     });
 
@@ -205,7 +205,7 @@ describe("waterDomain — moisture summary", () => {
       id: "i_1",
       propertyAddress: "x",
       classifications: [{ category: "2", class: "2" }],
-      affectedAreas: [{ affectedSquareFootage: 10 }],
+      affectedAreas: [{ affectedAreaSqm: 10 }],
       moistureReadings: [
         // timber: dryThreshold 19, wetThreshold 25
         { surfaceType: "timber", moistureLevel: 30 }, // WET (> 25)

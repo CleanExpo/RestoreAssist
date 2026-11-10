@@ -27,6 +27,7 @@ import { biohazardDomain } from "../domains/biohazard";
 import { hvacDomain } from "../domains/hvac";
 import { australianComplianceDomain } from "../domains/australian-compliance";
 import type { DomainPlugin, EstimateLine } from "../types";
+import { sqmToSqft } from "@/lib/units";
 
 const inspectionFindUnique = (
   prisma as unknown as { inspection: { findUnique: ReturnType<typeof vi.fn> } }
@@ -53,7 +54,8 @@ const INSPECTION = {
   propertyAddress: "12 Smith St, Brisbane QLD 4000",
   propertyPostcode: "4000",
   classifications: [{ category: "2", class: "2" }],
-  affectedAreas: [{ affectedSquareFootage: 20, affectedAreaSqm: 20 }],
+  // As the capture API stores it: m2 canonical, sq ft dual-written (RA-7001).
+  affectedAreas: [{ affectedAreaSqm: 20, affectedSquareFootage: sqmToSqft(20) }],
   moistureReadings: [],
   _count: { contentsPackOutItems: 0 },
 };
@@ -278,3 +280,90 @@ describe.each(NO_FIELD)(
     });
   },
 );
+
+// Review round 2 (P1-AREA-UNIT-PRICING): affectedSquareFootage is square feet.
+// A 20 m2 job dual-writes 215.28 sq ft; reading that column as m2 priced it
+// 10.76 times over. The same area must give the same estimate however the
+// row stores it, and per-m2 lines must carry 20, not 215.28.
+const AREA_SCENARIOS: {
+  name: string;
+  domain: DomainPlugin;
+  options: Record<string, unknown> | null;
+}[] = [
+  { name: "water", domain: waterDomain, options: null },
+  {
+    name: "mould",
+    domain: mouldDomain,
+    options: { condition: "CONDITION_3", ambientRelativeHumidity: 70 },
+  },
+  {
+    name: "storm",
+    domain: stormDomain,
+    options: { entryType: "roof_penetration", waterCategory: 2 },
+  },
+  {
+    name: "biohazard",
+    domain: biohazardDomain,
+    options: { biohazardType: "sewage_overflow" },
+  },
+];
+
+async function estimateWithAreas(
+  domain: DomainPlugin,
+  options: Record<string, unknown> | null,
+  affectedAreas: Record<string, number>[],
+) {
+  inspectionFindUnique.mockResolvedValue({ ...INSPECTION, affectedAreas });
+  return estimateFor(domain, options, FULL_PRICE_LIST);
+}
+
+describe.each(AREA_SCENARIOS)(
+  "$name domain reads the affected area in m2, never the sq-ft column as m2",
+  ({ domain, options }) => {
+    it("a dual-written row, an m2-only row and a legacy sq-ft-only row give the same estimate", async () => {
+      const metricOnly = await estimateWithAreas(domain, options, [
+        { affectedAreaSqm: 20 },
+      ]);
+      const dual = await estimateWithAreas(domain, options, [
+        { affectedAreaSqm: 20, affectedSquareFootage: sqmToSqft(20) },
+      ]);
+      const legacy = await estimateWithAreas(domain, options, [
+        { affectedSquareFootage: sqmToSqft(20) },
+      ]);
+      expect(dual.lines.length).toBeGreaterThan(0);
+      expect(dual).toEqual(metricOnly);
+      expect(legacy.lines.length).toBe(metricOnly.lines.length);
+      legacy.lines.forEach((l, i) => {
+        const m = metricOnly.lines[i];
+        expect(l.description).toBe(m.description);
+        expect(l.quantity as number).toBeCloseTo(m.quantity as number, 6);
+        if (m.lineTotalExGst === null) expect(l.lineTotalExGst).toBeNull();
+        else expect(l.lineTotalExGst as number).toBeCloseTo(m.lineTotalExGst, 2);
+      });
+      for (const l of dual.lines) {
+        if (l.unit === "m²") {
+          expect(l.quantity as number).toBeLessThanOrEqual(20 + 1e-9);
+        }
+      }
+    });
+  },
+);
+
+describe("biohazard sanitation is priced on 20 m2, not 215.28 (review round 2)", () => {
+  it("quantity 20 at the contractor's treatment rate", async () => {
+    const est = await estimateWithAreas(
+      biohazardDomain,
+      { biohazardType: "sewage_overflow" },
+      [{ affectedAreaSqm: 20, affectedSquareFootage: sqmToSqft(20) }],
+    );
+    const rate = FULL_PRICE_LIST.biohazardTreatmentRate;
+    const perM2 = est.lines.filter(
+      (l) => l.unit === "m²" && l.rate === rate && l.pricingStatus === "priced",
+    );
+    expect(perM2.length).toBeGreaterThan(0);
+    for (const l of perM2) {
+      expect(l.quantity).toBeCloseTo(20, 6);
+      expect(l.lineTotalExGst as number).toBeCloseTo(20 * rate, 2);
+    }
+  });
+});

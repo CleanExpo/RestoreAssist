@@ -40,6 +40,7 @@ import type {
   QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
+import { resolveAreaSqm } from "@/lib/units";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -219,7 +220,7 @@ export const waterDomain: DomainPlugin = {
             select: { category: true, class: true },
           },
           affectedAreas: {
-            select: { affectedSquareFootage: true },
+            select: { affectedAreaSqm: true, affectedSquareFootage: true },
           },
           moistureReadings: {
             select: { surfaceType: true, moistureLevel: true },
@@ -247,11 +248,11 @@ export const waterDomain: DomainPlugin = {
         };
       }
 
-      // Note: AffectedArea.affectedSquareFootage is the canonical numeric
-      // area on the model (legacy field name; treated as the inspection's
-      // working area unit — kept consistent with the rest of the app).
+      // RA-8281 review: affectedSquareFootage is sq ft. resolveAreaSqm prefers the
+      // m2 column and converts a legacy sq-ft-only row once, so a contractor's
+      // per-m2 rate is never applied to a square-foot quantity.
       const affectedAreaM2 = inspection.affectedAreas.reduce(
-        (sum, a) => sum + (a.affectedSquareFootage ?? 0),
+        (sum, a) => sum + resolveAreaSqm(a),
         0,
       );
       const days = estimatedDaysForClass(dc);

@@ -45,7 +45,7 @@ const baseInspection = {
   id: "i_1",
   propertyAddress: "12 Smith St, Brisbane",
   propertyPostcode: "4000", // QLD
-  affectedAreas: [{ affectedSquareFootage: 12 }],
+  affectedAreas: [{ affectedAreaSqm: 12 }],
 };
 
 describe("biohazardDomain — happy paths per type", () => {

@@ -44,7 +44,7 @@ const baseInput = {
 const baseInspection = {
   id: "i_1",
   propertyAddress: "12 Smith St, Brisbane",
-  affectedAreas: [{ affectedSquareFootage: 30 }],
+  affectedAreas: [{ affectedAreaSqm: 30 }],
 };
 
 describe("stormDomain — happy paths per entry type", () => {
@@ -112,7 +112,7 @@ describe("stormDomain — duration heuristics", () => {
   it("flash_flood with ≥50 m² → 14 days", async () => {
     inspectionFindUnique.mockResolvedValueOnce({
       ...baseInspection,
-      affectedAreas: [{ affectedSquareFootage: 75 }],
+      affectedAreas: [{ affectedAreaSqm: 75 }],
     });
     const r = await stormDomain.generate({
       ...baseInput,

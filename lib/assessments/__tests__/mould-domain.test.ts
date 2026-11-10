@@ -47,8 +47,8 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
       id: "i_1",
       propertyAddress: "12 Smith St, Brisbane QLD 4000",
       affectedAreas: [
-        { affectedSquareFootage: 18 },
-        { affectedSquareFootage: 7 },
+        { affectedAreaSqm: 18 },
+        { affectedAreaSqm: 7 },
       ],
     });
 
@@ -120,7 +120,7 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
     inspectionFindUnique.mockResolvedValueOnce({
       id: "i_1",
       propertyAddress: "x",
-      affectedAreas: [{ affectedSquareFootage: 12 }],
+      affectedAreas: [{ affectedAreaSqm: 12 }],
     });
     const r = await mouldDomain.generate({
       ...baseInput,
@@ -138,7 +138,7 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
     inspectionFindUnique.mockResolvedValueOnce({
       id: "i_1",
       propertyAddress: "x",
-      affectedAreas: [{ affectedSquareFootage: 12 }],
+      affectedAreas: [{ affectedAreaSqm: 12 }],
     });
     const r = await mouldDomain.generate({
       ...baseInput,
@@ -158,7 +158,7 @@ describe("mouldDomain — Condition 2 / small area", () => {
     inspectionFindUnique.mockResolvedValueOnce({
       id: "i_1",
       propertyAddress: "x",
-      affectedAreas: [{ affectedSquareFootage: 5 }],
+      affectedAreas: [{ affectedAreaSqm: 5 }],
     });
     const r = await mouldDomain.generate({
       ...baseInput,
@@ -176,7 +176,7 @@ describe("mouldDomain — Condition 2 / small area", () => {
     inspectionFindUnique.mockResolvedValueOnce({
       id: "i_1",
       propertyAddress: "x",
-      affectedAreas: [{ affectedSquareFootage: 4 }],
+      affectedAreas: [{ affectedAreaSqm: 4 }],
     });
     const r = await mouldDomain.generate({
       ...baseInput,
@@ -196,7 +196,7 @@ describe("mouldDomain — overrides", () => {
     inspectionFindUnique.mockResolvedValueOnce({
       id: "i_1",
       propertyAddress: "x",
-      affectedAreas: [{ affectedSquareFootage: 10 }],
+      affectedAreas: [{ affectedAreaSqm: 10 }],
     });
     const r = await mouldDomain.generate({
       ...baseInput,
@@ -218,7 +218,7 @@ describe("mouldDomain — overrides", () => {
     inspectionFindUnique.mockResolvedValueOnce({
       id: "i_1",
       propertyAddress: "x",
-      affectedAreas: [{ affectedSquareFootage: 50 }],
+      affectedAreas: [{ affectedAreaSqm: 50 }],
     });
     const r = await mouldDomain.generate({
       ...baseInput,
