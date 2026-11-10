@@ -10,6 +10,7 @@ import {
   getMandatoryEvidenceCount,
   getWorkflowTemplate,
 } from "../workflow-definitions";
+import { getStepGuidance } from "../adaptive-guidance";
 
 describe("FIRE_SMOKE workflow completion", () => {
   const fire = getWorkflowTemplate("FIRE_SMOKE");
@@ -66,14 +67,41 @@ describe("FIRE_SMOKE workflow wording", () => {
     expect(getMandatoryEvidenceCount("FIRE_SMOKE")).toBe(20);
   });
 
-  it("marks shared water-only steps, and the fire step is not one", () => {
+  it("the fire site-conditions step has its own key and is not water-only", () => {
+    const keys = getWorkflowTemplate("FIRE_SMOKE").steps.map((s) => s.stepKey);
+    expect(keys).toContain("site_conditions");
+    expect(keys).not.toContain("environmental_readings");
     const water = getWorkflowTemplate("WATER_DAMAGE").steps.find(
       (s) => s.stepKey === "environmental_readings",
     );
-    const fire = getWorkflowTemplate("FIRE_SMOKE").steps.find(
-      (s) => s.stepKey === "environmental_readings",
-    );
     expect(water?.waterOnly).toBe(true);
-    expect(fire?.waterOnly).not.toBe(true);
+  });
+
+  /**
+   * Round 2 P1: guidance is looked up by stepKey, so a fire step that kept a
+   * water key inherited "set up psychrometer" and "calculate dew point".
+   * Every reader keyed on stepKey must see fire wording.
+   */
+  it("no fire step's guidance (looked up by key) carries water wording", () => {
+    const GUIDANCE_WATER =
+      /S500|psychromet|dew point|moisture|drying|dehumidif|air.?mover|grains/i;
+    const leaks = getWorkflowTemplate("FIRE_SMOKE").steps.flatMap((step) => {
+      const g = getStepGuidance(step.stepKey);
+      const text = [
+        ...g.subSteps.flatMap((x) => [x.label, x.detail ?? ""]),
+        ...g.confirmingQuestions.map((q) => q.question),
+        ...g.tips,
+        ...g.commonMistakes,
+        ...g.experiencedAlerts,
+      ].join(" ");
+      return GUIDANCE_WATER.test(text) ? [step.stepKey] : [];
+    });
+    expect(leaks).toEqual([]);
+  });
+
+  it("gives the site-conditions step real guidance", () => {
+    expect(getStepGuidance("site_conditions").subSteps.length).toBeGreaterThan(
+      0,
+    );
   });
 });

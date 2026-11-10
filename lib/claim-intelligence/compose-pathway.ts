@@ -696,6 +696,8 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
     if (step) steps.push(step);
   };
   if (waterPresent) {
+    // A fire job with water also needs the drying baseline.
+    borrow("WATER_DAMAGE", "environmental_readings");
     borrow("WATER_DAMAGE", "moisture_survey");
     borrow("WATER_DAMAGE", "progress_monitoring");
     if (waterCategory === "2" || waterCategory === "3") {
@@ -862,6 +864,7 @@ function sectionForStep(stepKey: string): PathwaySection {
       return "investigate";
     case "scope_of_works":
     case "equipment_deployment":
+    case "equipment_setup":
       return "scope";
     default:
       return "evidence";

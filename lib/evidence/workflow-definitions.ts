@@ -270,6 +270,10 @@ const STEP_FIRE_FLOOR_PLAN_SKETCH: WorkflowStepDefinition = {
 
 const STEP_FIRE_EQUIPMENT_DEPLOYMENT: WorkflowStepDefinition = {
   ...STEP_EQUIPMENT_DEPLOYMENT,
+  // Own key for the same reason: the shared key's guidance is for drying
+  // equipment (air movers, dehumidifiers) and cites S500.
+  stepKey: "equipment_setup",
+  stepTitle: "Air Filtration & Equipment Setup",
   stepDescription:
     "Deploy air filtration (HEPA air scrubbers, with carbon filtration where " +
     "odour is present) and any odour control equipment. Photograph each piece " +
@@ -296,6 +300,10 @@ const STEP_FIRE_SCOPE_OF_WORKS: WorkflowStepDefinition = {
  */
 const STEP_FIRE_ENVIRONMENTAL_READINGS: WorkflowStepDefinition = {
   ...STEP_ENVIRONMENTAL_READINGS,
+  // Own key: guidance and validator references are looked up by stepKey,
+  // and the shared key carries psychrometric/S500 wording (review round 2).
+  stepKey: "site_conditions",
+  stepTitle: "Site Conditions Recording",
   stepDescription:
     "Record ambient temperature and relative humidity for each affected room " +
     "and at least one unaffected reference room. Use a calibrated " +

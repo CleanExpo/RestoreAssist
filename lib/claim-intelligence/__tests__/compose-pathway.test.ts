@@ -55,7 +55,7 @@ const MOULD_C3: ClaimFacts = {
 
 /** Water-specific wording. "Fire and water damage" in an asbestos note is not a water item. */
 const WATER_ITEM =
-  /wet.?floor|block-and-elevate|psychrometric|moisture|tannin|water.?mark|drying|dehumidif|water categor|water class/i;
+  /wet.?floor|block-and-elevate|psychromet|dew point|moisture|tannin|water.?mark|drying|dehumidif|water categor|water class/i;
 
 const itemText = (i: PathwayItem) =>
   [
