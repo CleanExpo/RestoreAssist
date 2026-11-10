@@ -4,6 +4,7 @@ import {
   equipmentUnitsLabel,
   moneyOrRateNotSet,
   priceStoredEquipment,
+  sumOrNull,
   UNUSABLE_LINE_LABEL,
   type PricedEquipment,
   type PricedEquipmentLine,
@@ -458,11 +459,11 @@ ${
         // current price list. Any unset rate in a kind blocks that row.
         const row = (label: string, lines: PricedEquipmentLine[]) => {
           const qty = lines.reduce((sum, l) => sum + l.quantity, 0);
-          const blocked = lines.some((l) => l.dailyRate === null);
-          const daily = blocked
-            ? null
-            : lines.reduce((sum, l) => sum + (l.dailyTotal as number), 0);
-          return `| ${label} (${qty}) | ${moneyOrRateNotSet(daily)} | ${moneyOrRateNotSet(daily === null ? null : daily * estimatedDays)} |`;
+          // The lines' own figures, added in whole cents; a blocked line
+          // (null) blocks the row.
+          const daily = sumOrNull(lines.map((l) => l.dailyTotal));
+          const reserve = sumOrNull(lines.map((l) => l.total));
+          return `| ${label} (${qty}) | ${moneyOrRateNotSet(daily)} | ${moneyOrRateNotSet(reserve)} |`;
         };
         const dehumidifiers = pricedEquipment.lines.filter(
           (l) => l.groupId.includes("lgr") || l.groupId.includes("desiccant"),

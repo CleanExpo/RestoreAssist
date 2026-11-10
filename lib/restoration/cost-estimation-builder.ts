@@ -316,9 +316,12 @@ export function buildCostEstimationData(data: {
           dailyRate: line.dailyRate,
           subtotal: line.total,
         });
-        categories.equipment.total += line.total as number;
       }
     }
+    // The category total is the reader's job total, summed there in whole
+    // cents. Adding the rows here as binary numbers drifts (three rows of
+    // $66.68 came to 200.04000000000002).
+    categories.equipment.total = pricedEquipment.total as number;
   }
 
   // Equipment Rental - Extraction

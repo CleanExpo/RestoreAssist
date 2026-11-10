@@ -594,7 +594,9 @@ export function buildStructuredBasicReport(data: {
     pricedEquipment.lines.length > 0 && pricedEquipment.total === null;
 
   // If no cost estimates but we have equipment costs, create cost estimates from equipment
-  if (costEstimates.length === 0 && pricedEquipment.lines.length > 0) {
+  const estimatesAreEquipmentOnly =
+    costEstimates.length === 0 && pricedEquipment.lines.length > 0;
+  if (estimatesAreEquipmentOnly) {
     pricedEquipment.lines.forEach((line) => {
       if (line.total === null || line.total > 0) {
         costEstimates.push({
@@ -650,7 +652,10 @@ export function buildStructuredBasicReport(data: {
   // and the cached report.equipmentCostTotal is never read back as money.
   const totalCost = equipmentTotalBlocked
     ? null
-    : costEstimates.length > 0
+    : estimatesAreEquipmentOnly
+      ? // Only equipment rows: the reader's job total, summed in whole cents.
+        pricedEquipment.total
+      : costEstimates.length > 0
       ? costEstimates.reduce((sum, c) => sum + (Number(c.total) || 0), 0)
       : 0;
   const roomsAffected =

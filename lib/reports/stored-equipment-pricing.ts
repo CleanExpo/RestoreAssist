@@ -22,6 +22,7 @@
 import {
   getEquipmentGroupById,
   selectionDailyRate,
+  type EquipmentSelection,
 } from "@/lib/equipment-matrix";
 import { RateNotSetError, type UnsetRate } from "@/lib/pricing/rate-not-set";
 
@@ -146,6 +147,50 @@ export function addEquipmentAmounts(a: number, b: number): number | null {
   const x = toCents(a);
   const y = toCents(b);
   return x === null || y === null ? null : fromCents(x + y);
+}
+
+/**
+ * The editor screens' running total for selections that are still being
+ * edited: each line through equipmentLineAmount, the lines added in whole
+ * cents. It is the figure the server will store for the same lines. An unset
+ * price-list rate throws RateNotSetError (selectionDailyRate); null means the
+ * figure is not an exact amount.
+ */
+function selectionsAmount(
+  selections: ReadonlyArray<EquipmentSelection>,
+  durationDays: number,
+  pricingConfig: unknown,
+): number | null {
+  let total: number | null = 0;
+  for (const selection of selections) {
+    const amount = equipmentLineAmount(
+      selectionDailyRate(selection, pricingConfig),
+      selection.quantity,
+      durationDays,
+    );
+    total =
+      total === null || amount === null
+        ? null
+        : addEquipmentAmounts(total, amount);
+  }
+  return total;
+}
+
+/** The daily amount for the selections on an editor screen. */
+export function calculateTotalDailyCost(
+  selections: ReadonlyArray<EquipmentSelection>,
+  pricingConfig?: unknown,
+): number | null {
+  return selectionsAmount(selections, 1, pricingConfig);
+}
+
+/** The job amount for the selections on an editor screen. */
+export function calculateTotalCost(
+  selections: ReadonlyArray<EquipmentSelection>,
+  durationDays: number,
+  pricingConfig?: unknown,
+): number | null {
+  return selectionsAmount(selections, durationDays, pricingConfig);
 }
 
 function quantityNumber(value: unknown): number {
@@ -423,12 +468,15 @@ export function moneyOrRateNotSet(value: number | null): string {
  * counted as $0.
  */
 export function sumOrNull(values: ReadonlyArray<unknown>): number | null {
-  let sum = 0;
+  // Added in whole cents: three rows of $66.68 are $200.04, not
+  // 200.04000000000002.
+  let cents = 0;
   for (const v of values) {
-    if (typeof v !== "number" || !Number.isFinite(v)) return null;
-    sum += v;
+    const c = typeof v === "number" ? toCents(v) : null;
+    if (c === null) return null;
+    cents += c;
   }
-  return sum;
+  return fromCents(cents);
 }
 
 /** Total rated current (amps) of the lines. An unusable line adds nothing. */

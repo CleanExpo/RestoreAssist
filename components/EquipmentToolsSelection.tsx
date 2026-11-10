@@ -31,8 +31,6 @@ import {
   getAllEquipmentGroups,
   getEquipmentGroupById,
   calculateTotalAmps,
-  calculateTotalDailyCost,
-  calculateTotalCost,
   getEquipmentDailyRateOrNull,
   selectionDailyRateOrNull,
   type EquipmentSelection,
@@ -40,6 +38,8 @@ import {
 } from "@/lib/equipment-matrix";
 import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 import {
+  calculateTotalCost,
+  calculateTotalDailyCost,
   editableStoredEquipment,
   type StoredEquipmentSelections,
 } from "@/lib/reports/stored-equipment-pricing";

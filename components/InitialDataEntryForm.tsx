@@ -55,7 +55,11 @@ import { useRouter } from "next/navigation";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { editableStoredEquipment } from "@/lib/reports/stored-equipment-pricing";
+import {
+  addEquipmentAmounts,
+  editableStoredEquipment,
+  equipmentLineAmount,
+} from "@/lib/reports/stored-equipment-pricing";
 import type { InitialDataEntryFormProps } from "./initial-data-entry/types";
 import { normalizeDate } from "./initial-data-entry/normalize-date";
 import { shouldCreateReport } from "@/lib/reports/should-create-report";
@@ -1189,11 +1193,17 @@ export default function InitialDataEntryForm({
     knownDailyRate(sel.groupId),
   );
   const totalCost = selectionRates.every((rate) => rate !== null)
-    ? equipmentSelections.reduce(
-        (total, sel, i) =>
-          total + (selectionRates[i] as number) * sel.quantity * durationDays,
-        0,
-      )
+    ? equipmentSelections.reduce<number | null>((total, sel, i) => {
+        // Whole cents, through the same arithmetic the server stores.
+        const amount = equipmentLineAmount(
+          selectionRates[i] as number,
+          sel.quantity,
+          durationDays,
+        );
+        return total === null || amount === null
+          ? null
+          : addEquipmentAmounts(total, amount);
+      }, 0)
     : null;
   const dailyRateLabel = (groupId: string) => {
     const rate = knownDailyRate(groupId);

@@ -812,21 +812,21 @@ describe("a cached equipment rate never bypasses the current price list (RA-8281
   const LGR = [{ groupId: "lgr-85", quantity: 1, dailyRate: 61 }];
 
   it("totals refuse a selection whose price-list rate is now unset", async () => {
-    const { calculateTotalDailyCost } = await import("@/lib/equipment-matrix");
+    const { calculateTotalDailyCost } = await import("@/lib/reports/stored-equipment-pricing");
     expect(() =>
       calculateTotalDailyCost(LGR, { dehumidifierLGRDailyRate: null }),
     ).toThrow(RateNotSetError);
   });
 
   it("totals price at the current price-list rate, not the cached one", async () => {
-    const { calculateTotalDailyCost } = await import("@/lib/equipment-matrix");
+    const { calculateTotalDailyCost } = await import("@/lib/reports/stored-equipment-pricing");
     expect(calculateTotalDailyCost(LGR, { dehumidifierLGRDailyRate: 70 })).toBe(
       70,
     );
   });
 
   it("control: a deliberate current 0 stays a set rate", async () => {
-    const { calculateTotalDailyCost } = await import("@/lib/equipment-matrix");
+    const { calculateTotalDailyCost } = await import("@/lib/reports/stored-equipment-pricing");
     expect(calculateTotalDailyCost(LGR, { dehumidifierLGRDailyRate: 0 })).toBe(
       0,
     );
@@ -911,7 +911,8 @@ describe("no price list loaded never prices equipment at $0 (RA-8281 B1 review)"
   // Round 8: a cached rate, including a 0 the screen stored while the price
   // list was missing, never stands in for a price list that is not loaded.
   it("a cached rate (61 or 0) with no price list is unset, not used", async () => {
-    const { selectionDailyRate, calculateTotalDailyCost } = await import("@/lib/equipment-matrix");
+    const { selectionDailyRate } = await import("@/lib/equipment-matrix");
+    const { calculateTotalDailyCost } = await import("@/lib/reports/stored-equipment-pricing");
     expect(() => selectionDailyRate({ groupId: "lgr-85", dailyRate: 61 })).toThrow(RateNotSetError);
     expect(() => selectionDailyRate({ groupId: "lgr-85", dailyRate: 0 }, null)).toThrow(RateNotSetError);
     expect(() =>

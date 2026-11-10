@@ -504,10 +504,7 @@ function quantityMoneyLines(source: string): number[] {
 }
 
 const QUANTITY_MONEY_EXCEPTIONS: Record<string, string> = {
-  "lib/equipment-matrix.ts":
-    "calculateTotalDailyCost: the editor's on-screen daily figure; the server reprices through the owner on save",
-  "components/InitialDataEntryForm.tsx":
-    "the form's on-screen running total; the server reprices through the owner on save and refuses what it cannot price",  "lib/forms/calculations/equipment-cost-calculator.ts":
+  "lib/forms/calculations/equipment-cost-calculator.ts":
     "the guided-interview calculator with its own hard-coded prices; it never reads or writes a stored selection (RA-8290, separate ticket)",
 };
 

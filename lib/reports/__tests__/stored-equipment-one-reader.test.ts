@@ -666,3 +666,205 @@ describe("the billable rate: rate, daily amount and job total reconcile to the c
     expect(text).not.toContain("33.335");
   });
 });
+
+// Lead requirement (widened class fix): one property-style check of the cents
+// model across fractional and edge values, and the documents downstream of it.
+describe("the cents model: every equipment figure is an exact cent amount and reconciles", () => {
+  /** True when the double is exactly the value its two-decimal text names. */
+  const exactCents = (v: number | null) => v !== null && Number(v.toFixed(2)) === v;
+  const c = (v: number | null) => Math.round((v as number) * 100);
+  /** Half up on whole cents x days, done in integers (days given in hundredths). */
+  const halfUp = (centsTimesHundredths: number) => Math.floor((centsTimesHundredths + 50) / 100);
+
+  const RATES = [
+    0, 0.005, 0.01, 0.994, 0.995, 1.005, 2.675, 12.345, 33.335, 49.995, 63.636363, 70, 70.01, 70.014, 70.015,
+    99.995, 250.125, 1234.565,
+  ];
+  const QUANTITIES = [0, 1, 2, 3, 7, 40, 999];
+  const DAYS = [0.25, 0.5, 1, 1.5, 2, 2.75, 3, 4, 30, 365];
+
+  it("rate x units = daily amount, daily amount x days = line total (half up), totals = sums of lines", () => {
+    let checked = 0;
+    for (const rate of RATES) {
+      for (const days of DAYS) {
+        const priced = priceStoredEquipment(
+          QUANTITIES.map((quantity) => ({ groupId: "lgr-85", quantity })),
+          { dehumidifierLGRDailyRate: rate },
+          days,
+        );
+        expect(priced.problems, `${rate} over ${days}`).toEqual([]);
+        for (const line of priced.lines) {
+          const where = `${rate} x ${line.quantity} x ${days}`;
+          // Every figure is exactly a cent amount, as a number, not only as text.
+          expect(exactCents(line.dailyRate), where).toBe(true);
+          expect(exactCents(line.dailyTotal), where).toBe(true);
+          expect(exactCents(line.total), where).toBe(true);
+          // The rate shown is the rate billed.
+          expect(line.dailyRate, where).toBe(billableDailyRate(rate));
+          expect(moneyOrRateNotSet(line.dailyRate), where).toBe(`$${billableDailyRate(rate).toFixed(2)}`);
+          // rate x units = daily amount, in whole cents.
+          expect(c(line.dailyTotal), where).toBe(c(line.dailyRate) * line.quantity);
+          // daily amount x days = line total, half up to the cent.
+          expect(c(line.total), where).toBe(halfUp(c(line.dailyTotal) * Math.round(days * 100)));
+          checked += 1;
+        }
+        expect(exactCents(priced.dailyTotal)).toBe(true);
+        expect(exactCents(priced.total)).toBe(true);
+        expect(c(priced.dailyTotal)).toBe(priced.lines.reduce((sum, l) => sum + c(l.dailyTotal), 0));
+        expect(c(priced.total)).toBe(priced.lines.reduce((sum, l) => sum + c(l.total), 0));
+        // For a whole number of days the job total is also the daily total x days.
+        if (Number.isInteger(days)) expect(c(priced.total)).toBe(c(priced.dailyTotal) * days);
+      }
+    }
+    expect(checked).toBe(RATES.length * QUANTITIES.length * DAYS.length);
+  });
+
+  it("the half-up cases land on the upper cent", () => {
+    expect(billableDailyRate(0.005)).toBe(0.01);
+    expect(billableDailyRate(0.995)).toBe(1);
+    expect(billableDailyRate(2.675)).toBe(2.68);
+    expect(billableDailyRate(49.995)).toBe(50);
+    expect(billableDailyRate(1234.565)).toBe(1234.57);
+    expect(billableDailyRate(0.994)).toBe(0.99);
+    expect(billableDailyRate(70.014)).toBe(70.01);
+  });
+
+  // Downstream documents built from the reader's lines.
+  const pricing = (lgr: number) =>
+    new Proxy({}, { get: (_t, key) => (key === "dehumidifierLGRDailyRate" ? lgr : 50) }) as Record<string, number>;
+  const common = {
+    report: {
+      id: "rep_1",
+      reportNumber: "RA-1",
+      claimReferenceNumber: "CLM-1",
+      waterCategory: "2",
+      biologicalMouldDetected: false,
+      biologicalMouldCategory: null,
+      hazardType: "water damage",
+      technicianFieldReport: "Burst flexi hose under the vanity.",
+      estimatedDryingDuration: 2,
+      inspection: null,
+    },
+    analysis: null,
+    tier1: { T1_Q7_hazards: ["None identified"] },
+    tier2: null,
+    tier3: null,
+    stateInfo: null,
+    scopeAreas: [{ length: 8, width: 5, wetPercentage: 100 }],
+  };
+  const THREE = [
+    { groupId: "lgr-85", quantity: 1 },
+    { groupId: "lgr-85", quantity: 1 },
+    { groupId: "lgr-85", quantity: 1 },
+  ];
+
+  it("cost estimation: each equipment row and the equipment total are the reader's cent figures", () => {
+    const doc = buildCostEstimationData({
+      ...common,
+      pricingConfig: pricing(33.335),
+      scopeData: { lineItems: [] },
+      equipmentSelection: THREE,
+      gstTreatment: getGstTreatment("AU"),
+    }) as any;
+    const days = doc.categories.equipment.lineItems[0].days;
+    const reader = priceStoredEquipment(THREE, pricing(33.335), days);
+    for (const row of doc.categories.equipment.lineItems) {
+      expect(row.dailyRate).toBe(33.34);
+      expect(c(row.subtotal)).toBe(3334 * row.qty * row.days);
+      expect(exactCents(row.subtotal)).toBe(true);
+    }
+    // The category total is exactly the reader's job total: no float drift from adding rows.
+    expect(doc.categories.equipment.total).toBe(reader.total);
+    expect(exactCents(doc.categories.equipment.total)).toBe(true);
+  });
+
+  it("scope of works: the equipment group carries the billable rate and the reader's job total", () => {
+    const doc = buildScopeOfWorksData({
+      ...common,
+      pricingConfig: pricing(33.335),
+      equipmentSelection: THREE,
+    } as Parameters<typeof buildScopeOfWorksData>[0]) as any;
+    const rw3 = doc.lineItems.find((i: { id: string }) => i.id === "RW_3");
+    const reader = priceStoredEquipment(THREE, pricing(33.335), rw3.equipment.lgr.days);
+    expect(rw3.equipment.lgr).toMatchObject({ qty: 3, rate: 33.34 });
+    expect(rw3.subtotal).toBe(4 * 50 + 6 * 50 + (reader.total as number));
+  });
+});
+
+// Widened class fix, second part: the last places that multiplied or added
+// equipment money for themselves now use the same cents model.
+describe("the cents model: screens, the prompt table and the viewers add in whole cents", () => {
+  it("sumOrNull adds in whole cents (three rows of $66.68 are $200.04 exactly)", async () => {
+    const owner = await import("@/lib/reports/stored-equipment-pricing");
+    expect(owner.sumOrNull([66.68, 66.68, 66.68])).toBe(200.04);
+    expect(owner.sumOrNull([33.34, 33.34, 33.34])).toBe(100.02);
+    expect(owner.sumOrNull([])).toBe(0);
+    expect(owner.sumOrNull([1, null])).toBeNull();
+    expect(owner.sumOrNull([1, Number.NaN])).toBeNull();
+  });
+
+  it("the editor's running totals are the owner's figures, exact to the cent", async () => {
+    const owner = (await import("@/lib/reports/stored-equipment-pricing")) as any;
+    const matrix = (await import("@/lib/equipment-matrix")) as any;
+    // One home: the editor totals live with the cents model, not beside the catalogue.
+    expect("calculateTotalDailyCost" in matrix).toBe(false);
+    expect("calculateTotalCost" in matrix).toBe(false);
+    const cfg = { dehumidifierLGRDailyRate: 33.335 };
+    const three = [
+      { groupId: "lgr-85", quantity: 1 },
+      { groupId: "lgr-85", quantity: 1 },
+      { groupId: "lgr-85", quantity: 1 },
+    ];
+    expect(owner.calculateTotalDailyCost(three, cfg)).toBe(100.02);
+    expect(owner.calculateTotalCost(three, 2, cfg)).toBe(200.04);
+    expect(owner.calculateTotalDailyCost([{ groupId: "lgr-85", quantity: 3 }], cfg)).toBe(100.02);
+    // The screen's figure is the figure the server stores, line by line.
+    for (const days of [0.5, 1, 2, 2.75, 30]) {
+      expect(owner.calculateTotalCost(three, days, cfg), String(days)).toBe(
+        priceStoredEquipment(three, cfg, days).total,
+      );
+      expect(owner.calculateTotalDailyCost(three, cfg)).toBe(priceStoredEquipment(three, cfg, days).dailyTotal);
+    }
+    // Each line is rounded half up, then the lines are added: 2 x $1.01, not $2.01.
+    const half = [
+      { groupId: "lgr-85", quantity: 1 },
+      { groupId: "lgr-85", quantity: 1 },
+    ];
+    expect(owner.calculateTotalCost(half, 0.5, { dehumidifierLGRDailyRate: 2.01 })).toBe(2.02);
+    // An unset rate still refuses the total.
+    expect(() => owner.calculateTotalDailyCost(three, { dehumidifierLGRDailyRate: null })).toThrow(RateNotSetError);
+    expect(() => owner.calculateTotalCost(three, 2, { dehumidifierLGRDailyRate: null })).toThrow(RateNotSetError);
+  });
+
+  it("the structured report's summary total is the reader's job total, exact to the cent", async () => {
+    const { buildStructuredBasicReport } = await import("@/lib/reports/build-structured-report");
+    const three = [
+      { groupId: "lgr-85", quantity: 1 },
+      { groupId: "lgr-85", quantity: 1 },
+      { groupId: "lgr-85", quantity: 1 },
+    ];
+    const doc = buildStructuredBasicReport({
+      report: { id: "abcdef1234567890", estimatedDryingDuration: 2 },
+      analysis: null,
+      stateInfo: null,
+      equipmentSelection: three,
+      pricingConfig: { dehumidifierLGRDailyRate: 33.335 },
+    } as Parameters<typeof buildStructuredBasicReport>[0]) as any;
+    expect(doc.equipmentTotal ?? doc.summary.equipmentTotal).toBe(200.04);
+    expect(doc.summary.totalCost).toBe(200.04);
+  });
+
+  it("the overview prompt's cost table prints the lines' own totals", () => {
+    const text = buildInspectionReportPrompt({
+      report: { estimatedDryingDuration: 0.5 },
+      analysis: null,
+      stateInfo: null,
+      reportType: "basic",
+      equipmentSelection: [{ groupId: "lgr-85", quantity: 1 }],
+      pricingConfig: { dehumidifierLGRDailyRate: 2.01 },
+    } as Parameters<typeof buildInspectionReportPrompt>[0]);
+    // $2.01 a day over half a day is 100.5 cents: $1.01 on the line, so $1.01 in the table.
+    expect(text).toContain("| LGR (1) | $2.01 | $1.01 |");
+    expect(text).not.toContain("$1.00");
+  });
+});

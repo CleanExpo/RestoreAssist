@@ -475,27 +475,9 @@ export function selectionDailyRateOrNull(
   }
 }
 
-// Calculate total daily cost for selected equipment using pricing config
-export function calculateTotalDailyCost(
-  selections: EquipmentSelection[],
-  pricingConfig?: any,
-): number {
-  return selections.reduce(
-    (total, selection) =>
-      total + selectionDailyRate(selection, pricingConfig) * selection.quantity,
-    0,
-  );
-}
-
-// Calculate total cost for selected equipment over duration
-export function calculateTotalCost(
-  selections: EquipmentSelection[],
-  durationDays: number,
-  pricingConfig?: any,
-): number {
-  const dailyCost = calculateTotalDailyCost(selections, pricingConfig);
-  return dailyCost * durationDays;
-}
+// RA-8281 B1 round 13: calculateTotalDailyCost and calculateTotalCost live in
+// lib/reports/stored-equipment-pricing.ts, beside the whole-cent arithmetic
+// they use. No equipment money is multiplied or added in this file.
 
 /**
  * RA-8281: the same rate for screens that must not crash. null means the
