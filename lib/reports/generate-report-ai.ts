@@ -1,6 +1,7 @@
 import { getEquipmentGroupById } from "@/lib/equipment-matrix";
 import {
   moneyOrRateNotSet,
+  normaliseStoredSelections,
   priceStoredEquipment,
   type PricedEquipment,
   type PricedEquipmentLine,
@@ -558,10 +559,13 @@ export function buildInspectionReportPrompt(data: {
     standardsContext,
     psychrometricAssessment,
     scopeAreas,
-    equipmentSelection,
     pricingConfig,
     businessInfo,
   } = data;
+
+  // RA-8281 B1 review round 11: one reading of the stored shape for every
+  // section below (money and non-money alike).
+  const equipmentSelection = normaliseStoredSelections(data.equipmentSelection);
 
   // RA-8281 B1 class fix: stored selections priced from the current price
   // list; the cached report.equipmentCostTotal and cached rates are not read.

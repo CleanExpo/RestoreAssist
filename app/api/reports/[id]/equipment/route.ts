@@ -4,7 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
-import { priceStoredEquipment } from "@/lib/reports/stored-equipment-pricing";
+import {
+  normaliseStoredSelections,
+  priceStoredEquipment,
+} from "@/lib/reports/stored-equipment-pricing";
 
 export async function POST(
   request: NextRequest,
@@ -54,15 +57,13 @@ export async function POST(
     // business's CURRENT price list. The client's rates and total are not
     // trusted: a rate the price list leaves unset refuses the save (422) and
     // is never stored as $0, and the stored total is the server's own.
-    const selections = Array.isArray(body.equipmentSelection)
-      ? body.equipmentSelection
-      : [];
-    // An empty list is stored as [] (as before); no list at all as null.
-    let equipmentSelection: unknown[] | null = Array.isArray(
-      body.equipmentSelection,
-    )
-      ? []
-      : null;
+    // RA-8281 B1 review round 11: any posted shape is read through the one
+    // normaliser, so a non-list value is priced (or refused), never cleared.
+    const supplied =
+      body.equipmentSelection !== null && body.equipmentSelection !== undefined;
+    const selections = normaliseStoredSelections(body.equipmentSelection);
+    // An empty list is stored as [] (as before); no selection at all as null.
+    let equipmentSelection: unknown[] | null = supplied ? [] : null;
     let equipmentCostTotal: number | null = null;
     if (selections.length > 0) {
       const reportPricing = await resolveReportPricing(
@@ -105,10 +106,9 @@ export async function POST(
           ? JSON.stringify(body.psychrometricAssessment)
           : null,
         scopeAreas: body.scopeAreas ? JSON.stringify(body.scopeAreas) : null,
-        equipmentSelection:
-          equipmentSelection && body.equipmentSelection
-            ? JSON.stringify(equipmentSelection)
-            : null,
+        equipmentSelection: equipmentSelection
+          ? JSON.stringify(equipmentSelection)
+          : null,
         equipmentCostTotal,
         estimatedDryingDuration: body.estimatedDryingDuration || null,
         // Update related fields if provided

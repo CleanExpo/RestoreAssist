@@ -807,11 +807,9 @@ export async function generateSingleReportExcel(
   // ============================================
   // SHEET 12: EQUIPMENT DEPLOYMENT
   // ============================================
-  if (
-    equipmentSelection &&
-    Array.isArray(equipmentSelection) &&
-    equipmentSelection.length > 0
-  ) {
+  // RA-8281 B1 review round 11: every stored shape is read through the
+  // priced lines, so a legacy single object is priced, never dumped raw.
+  if (pricedEquipment.lines.length > 0) {
     const equipmentDeploySheet = workbook.addWorksheet("Equipment Deployment");
     equipmentDeploySheet.columns = [
       { header: "Equipment", key: "name", width: 30 },
@@ -1116,57 +1114,34 @@ export async function generateSingleReportExcel(
   // ============================================
   // SHEET 11: EQUIPMENT SELECTION
   // ============================================
-  if (equipmentSelection) {
+  if (pricedEquipment.lines.length > 0) {
     const equipmentSheet = workbook.addWorksheet("Equipment Selection");
+    equipmentSheet.columns = [
+      { header: "Equipment Name", key: "name", width: 30 },
+      { header: "Type", key: "type", width: 25 },
+      { header: "Quantity", key: "quantity", width: 15 },
+      { header: "Daily Rate", key: "dailyRate", width: 20 },
+      { header: "Duration (days)", key: "duration", width: 20 },
+      { header: "Total Cost", key: "totalCost", width: 20 },
+      { header: "Specifications", key: "specifications", width: 40 },
+    ];
 
-    if (Array.isArray(equipmentSelection)) {
-      equipmentSheet.columns = [
-        { header: "Equipment Name", key: "name", width: 30 },
-        { header: "Type", key: "type", width: 25 },
-        { header: "Quantity", key: "quantity", width: 15 },
-        { header: "Daily Rate", key: "dailyRate", width: 20 },
-        { header: "Duration (days)", key: "duration", width: 20 },
-        { header: "Total Cost", key: "totalCost", width: 20 },
-        { header: "Specifications", key: "specifications", width: 40 },
-      ];
-
-      // RA-8281 B1 class fix: money from the current price list, never the
-      // rate cached on the selection; an unset rate reads "Rate not set".
-      pricedEquipment.lines.forEach((line) => {
-        equipmentSheet.addRow({
-          name: line.name || "N/A",
-          type: line.groupId,
-          quantity: line.quantity,
-          dailyRate: moneyOrRateNotSet(line.dailyRate),
-          duration: line.durationDays,
-          totalCost: moneyOrRateNotSet(line.total),
-          specifications: getEquipmentGroupById(line.groupId)?.capacity ?? "N/A",
-        });
+    // RA-8281 B1 class fix: money from the current price list, never the
+    // rate cached on the selection; an unset rate reads "Rate not set".
+    pricedEquipment.lines.forEach((line) => {
+      equipmentSheet.addRow({
+        name: line.name || "N/A",
+        type: line.groupId,
+        quantity: line.quantity,
+        dailyRate: moneyOrRateNotSet(line.dailyRate),
+        duration: line.durationDays,
+        totalCost: moneyOrRateNotSet(line.total),
+        specifications: getEquipmentGroupById(line.groupId)?.capacity ?? "N/A",
       });
+    });
 
-      formatHeaderRow(equipmentSheet, 1);
-      applyAlternatingRows(equipmentSheet, 2, pricedEquipment.lines.length + 1);
-    } else if (typeof equipmentSelection === "object") {
-      equipmentSheet.columns = [
-        { header: "Field", key: "field", width: 40 },
-        { header: "Value", key: "value", width: 60 },
-      ];
-
-      const equipRows: Array<{ field: string; value: string }> = [];
-      Object.entries(equipmentSelection).forEach(([key, value]) => {
-        equipRows.push({
-          field: formatKey(key),
-          value:
-            typeof value === "object"
-              ? JSON.stringify(value, null, 2)
-              : String(value || "N/A"),
-        });
-      });
-
-      equipmentSheet.addRows(equipRows);
-      formatHeaderRow(equipmentSheet, 1);
-      applyAlternatingRows(equipmentSheet, 2, equipRows.length + 1);
-    }
+    formatHeaderRow(equipmentSheet, 1);
+    applyAlternatingRows(equipmentSheet, 2, pricedEquipment.lines.length + 1);
   }
 
   // ============================================

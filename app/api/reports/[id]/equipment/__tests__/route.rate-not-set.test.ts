@@ -108,6 +108,39 @@ describe("POST /api/reports/[id]/equipment prices on the server", () => {
     expect(reportUpdate).not.toHaveBeenCalled();
   });
 
+  // RA-8281 B1 review round 11: a posted value that is not a list is read as
+  // one line and priced (or refused), never treated as "no equipment".
+  it("a single posted object with the current rate cleared is refused (422), nothing stored", async () => {
+    priceListNow(null);
+    const res = await save({
+      equipmentSelection: { groupId: "lgr-85", quantity: 1, dailyRate: 61 },
+      estimatedDryingDuration: DAYS,
+    });
+    expect(res.status).toBe(422);
+    expect(reportUpdate).not.toHaveBeenCalled();
+  });
+
+  it("a posted bare string is a malformed line: 422, nothing stored", async () => {
+    priceListNow(70);
+    const res = await save({ equipmentSelection: "lgr-85", estimatedDryingDuration: DAYS });
+    expect(res.status).toBe(422);
+    expect(reportUpdate).not.toHaveBeenCalled();
+  });
+
+  it("control: a single posted object with a set rate is stored as one priced line", async () => {
+    priceListNow(70);
+    const res = await save({
+      equipmentSelection: { groupId: "lgr-85", quantity: 1, dailyRate: 61 },
+      estimatedDryingDuration: DAYS,
+    });
+    expect(res.status).toBe(200);
+    const data = reportUpdate.mock.calls[0][0].data;
+    expect(JSON.parse(data.equipmentSelection)).toEqual([
+      { groupId: "lgr-85", quantity: 1, dailyRate: 70 },
+    ]);
+    expect(data.equipmentCostTotal).toBe(70 * DAYS);
+  });
+
   it("control: stores the server's own rate and total, not the client's cached 61 / 244", async () => {
     priceListNow(70);
     const res = await save(body(61, 244));

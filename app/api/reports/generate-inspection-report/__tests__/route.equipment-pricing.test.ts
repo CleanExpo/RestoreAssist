@@ -56,7 +56,7 @@ import { POST } from "../route";
 
 const DAYS = 4;
 
-function storedReport(cachedRate: number) {
+function storedReport(cachedRate: number, asObject = false) {
   return {
     id: "report-1",
     userId: "owner-a",
@@ -67,9 +67,11 @@ function storedReport(cachedRate: number) {
     tier3Responses: null,
     psychrometricAssessment: null,
     scopeAreas: null,
-    equipmentSelection: JSON.stringify([
-      { groupId: "lgr-85", quantity: 1, dailyRate: cachedRate },
-    ]),
+    equipmentSelection: JSON.stringify(
+      asObject
+        ? { groupId: "lgr-85", quantity: 1, dailyRate: cachedRate }
+        : [{ groupId: "lgr-85", quantity: 1, dailyRate: cachedRate }],
+    ),
     equipmentCostTotal: cachedRate * DAYS,
     estimatedDryingDuration: DAYS,
     propertyPostcode: "4000",
@@ -80,7 +82,11 @@ function storedReport(cachedRate: number) {
   };
 }
 
-async function structured(cachedRate: number, currentRate: number | null) {
+async function structured(
+  cachedRate: number,
+  currentRate: number | null,
+  asObject = false,
+) {
   const fixture = makeTwoWorkspaces();
   getServerSession.mockResolvedValue({ user: { id: "owner-a" } });
   userFindUnique.mockImplementation(
@@ -95,7 +101,7 @@ async function structured(cachedRate: number, currentRate: number | null) {
         : null;
     },
   );
-  reportFindUnique.mockResolvedValue(storedReport(cachedRate));
+  reportFindUnique.mockResolvedValue(storedReport(cachedRate, asObject));
   resolveReportPricing.mockResolvedValue({
     ok: true,
     pricingConfig: { dehumidifierLGRDailyRate: currentRate },
@@ -147,5 +153,12 @@ describe("POST generate-inspection-report: stored equipment is priced from the c
     expect(createdAt).toEqual(new Date("2026-10-01T00:00:00Z"));
     expect(s.equipment[0].dailyRate).toBe(70);
     expect(s.summary.totalCost).toBe(70 * DAYS);
+  });
+
+  it("control: a stored single object (legacy shape) is priced from the business's price list too", async () => {
+    const s = await structured(61, 70, true);
+    expect(resolveReportPricing).toHaveBeenCalledTimes(1);
+    expect(s.equipment).toHaveLength(1);
+    expect(s.equipment[0].dailyRate).toBe(70);
   });
 });

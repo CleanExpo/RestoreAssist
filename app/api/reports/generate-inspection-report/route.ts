@@ -45,6 +45,7 @@ import {
 } from "@/lib/reports/workspace-business";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
+import { normaliseStoredSelections } from "@/lib/reports/stored-equipment-pricing";
 import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
 
 // POST - Generate complete professional inspection report with all 13 sections
@@ -236,7 +237,7 @@ export async function POST(request: NextRequest) {
     // selection. A business that cannot be confirmed gets no price list, so
     // every equipment rate reads "Rate not set" rather than a figure.
     let equipmentPricingConfig: unknown = null;
-    if (Array.isArray(equipmentSelection) && equipmentSelection.length > 0) {
+    if (normaliseStoredSelections(equipmentSelection).length > 0) {
       const reportPricing = await resolveReportPricing(
         user.id,
         user.pricingConfig,

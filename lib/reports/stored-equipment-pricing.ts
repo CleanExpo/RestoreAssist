@@ -86,6 +86,18 @@ function malformedLine(raw: unknown, durationDays: number): PricedEquipmentLine 
 }
 
 /**
+ * RA-8281 B1 review round 11: the ONE reading of a stored or posted equipment
+ * selection's shape. No value at all is no equipment; a list is its lines;
+ * any other value (a legacy single object, a string that failed to parse) is
+ * one line. Every reader and writer goes through this, so no path can treat
+ * an unexpected shape as "no equipment" and skip pricing.
+ */
+export function normaliseStoredSelections(value: unknown): unknown[] {
+  if (value === null || value === undefined) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+/**
  * Price stored selections against the current price list. `pricingConfig`
  * is the report business's price list (resolveReportPricing); null or
  * undefined means none could be loaded, so every rate is unset.
@@ -95,14 +107,7 @@ export function priceStoredEquipment(
   pricingConfig: unknown,
   durationDays: number,
 ): PricedEquipment {
-  // No list at all is no equipment. Anything else that is not a list is one
-  // line that cannot be read: blocked, never silently empty.
-  const list =
-    selections === null || selections === undefined
-      ? []
-      : Array.isArray(selections)
-        ? selections
-        : [selections];
+  const list = normaliseStoredSelections(selections);
   const unset = new Map<string, UnsetRate>();
   const lines = list.map((raw: unknown): PricedEquipmentLine => {
       const sel = raw as { groupId?: unknown; quantity?: unknown } | null;

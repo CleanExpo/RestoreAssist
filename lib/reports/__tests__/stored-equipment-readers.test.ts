@@ -184,7 +184,7 @@ describe.each(["basic", "enhanced"])("AI report prompt (%s)", (reportType) => {
 
 // ---------------------------------------------------------------- Excel
 
-async function excelCells(selections: unknown[], pricingConfig: unknown) {
+async function excelCells(selections: unknown, pricingConfig: unknown) {
   const wb = await generateSingleReportExcel(
     {
       id: "synthetic-report",
@@ -235,6 +235,33 @@ describe("Excel export (single report)", () => {
     expect(deploy).toContain("$70.00");
     expect(deploy).toContain(`$${(70 * DAYS).toFixed(2)}`);
     expect(all).not.toContain("$61.00");
+  });
+});
+
+// ------------------------------------------- legacy single-object shape (round 11)
+
+const OBJECT_SHAPE = { groupId: "lgr-85", quantity: 1, dailyRate: 61 };
+
+describe("a stored selection that is a single object, not a list (review round 11)", () => {
+  it("Excel: priced like a list line; the cached 61 never appears", async () => {
+    const { selection, deploy, all } = await excelCells(OBJECT_SHAPE, CLEARED);
+    expect(selection).toContain("Rate not set");
+    expect(deploy).toContain("Rate not set");
+    expect(all).not.toContain("61");
+    expect(all).not.toContain("$61.00");
+  });
+
+  it("control, Excel: a set rate prices the object at the contractor's own 70", async () => {
+    const { selection } = await excelCells(OBJECT_SHAPE, SET);
+    expect(selection).toContain("$70.00");
+  });
+
+  it.each(["basic", "enhanced"])("AI prompt (%s): the object is priced, never the cached 61", (reportType) => {
+    const cleared = prompt(reportType, OBJECT_SHAPE as never, CLEARED);
+    expect(cleared).toMatch(/Rate not set/);
+    expect(cleared).not.toContain("$61.00");
+    const set = prompt(reportType, OBJECT_SHAPE as never, SET);
+    expect(set).toContain("$70.00");
   });
 });
 
