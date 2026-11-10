@@ -164,7 +164,13 @@ function usableQuantity(q: number | undefined): number | undefined {
 }
 
 function formatRange(range: NRPGRateRange): string {
-  return `national range $${range.min}-$${range.max} ${range.unit.replace(/^\$\//, "per ")}`;
+  // "$/m²" -> " per m²"; a flat "$" fee needs no unit suffix.
+  const per = range.unit.startsWith("$/")
+    ? ` per ${range.unit.slice(2)}`
+    : range.unit === "$"
+      ? ""
+      : ` ${range.unit}`;
+  return `national range $${range.min}-$${range.max}${per}`;
 }
 
 /** Read one field from the contractor's price list. Never supplies a value. */
