@@ -317,7 +317,8 @@ export async function POST(request: NextRequest) {
         // card. USER/MANAGER cannot read that card (GET /api/pricing-config is
         // ADMIN-only), so any rate or total the browser sends is discarded.
         // No selection means no estimate: nothing is priced or stored.
-        const selection = equipmentData.equipmentSelection ?? null;
+        // Typed unknown: every entry is checked below before it is read.
+        const selection: unknown = equipmentData.equipmentSelection ?? null;
         if (selection !== null && !Array.isArray(selection)) {
           return apiError(request, {
             code: "VALIDATION",

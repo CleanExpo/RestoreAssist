@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 import {
-  normaliseStoredSelections,
+  hasStoredEquipment,
   priceStoredEquipment,
+  storedEquipmentResponse,
+  type StoredEquipmentSelections,
 } from "@/lib/reports/stored-equipment-pricing";
 
 export async function POST(
@@ -59,13 +61,18 @@ export async function POST(
     // is never stored as $0, and the stored total is the server's own.
     // RA-8281 B1 review round 11: any posted shape is read through the one
     // normaliser, so a non-list value is priced (or refused), never cleared.
-    const supplied =
-      body.equipmentSelection !== null && body.equipmentSelection !== undefined;
-    const selections = normaliseStoredSelections(body.equipmentSelection);
+    // Round 13: the posted value stays opaque here; only
+    // stored-equipment-pricing.ts reads inside it.
+    const selections: StoredEquipmentSelections = body.equipmentSelection;
+    const supplied = selections !== null && selections !== undefined;
     // An empty list is stored as [] (as before); no selection at all as null.
-    let equipmentSelection: unknown[] | null = supplied ? [] : null;
+    let pricedLines: Array<{
+      groupId: string;
+      quantity: number;
+      dailyRate: number | null;
+    }> | null = supplied ? [] : null;
     let equipmentCostTotal: number | null = null;
-    if (selections.length > 0) {
+    if (hasStoredEquipment(selections)) {
       const reportPricing = await resolveReportPricing(
         user.id,
         user.pricingConfig,
@@ -90,7 +97,7 @@ export async function POST(
           status: 422,
         });
       }
-      equipmentSelection = priced.lines.map((line) => ({
+      pricedLines = priced.lines.map((line) => ({
         groupId: line.groupId,
         quantity: line.quantity,
         dailyRate: line.dailyRate,
@@ -106,8 +113,8 @@ export async function POST(
           ? JSON.stringify(body.psychrometricAssessment)
           : null,
         scopeAreas: body.scopeAreas ? JSON.stringify(body.scopeAreas) : null,
-        equipmentSelection: equipmentSelection
-          ? JSON.stringify(equipmentSelection)
+        equipmentSelection: pricedLines
+          ? JSON.stringify(pricedLines)
           : null,
         equipmentCostTotal,
         estimatedDryingDuration: body.estimatedDryingDuration || null,
@@ -153,6 +160,7 @@ export async function GET(
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
+      include: { pricingConfig: true },
     });
 
     if (!user) {
@@ -178,15 +186,34 @@ export async function GET(
       });
     }
 
+    // RA-8281 B1 round 13: the screen reloads from here, so this answers with
+    // the lines priced NOW from the report business's price list. The rate
+    // cached on each stored line and the cached report.equipmentCostTotal are
+    // never returned: a rate cleared since the save reads null with its
+    // "Rate not set" note and the total is null. A business that cannot be
+    // confirmed gets no price list, so every rate reads as not set.
+    const stored: StoredEquipmentSelections = report.equipmentSelection;
+    let currentPricing: unknown = null;
+    if (hasStoredEquipment(stored)) {
+      const reportPricing = await resolveReportPricing(
+        user.id,
+        user.pricingConfig,
+        report.createdAt,
+      );
+      currentPricing = reportPricing.ok ? reportPricing.pricingConfig : null;
+    }
+    const equipment = storedEquipmentResponse(
+      stored,
+      currentPricing,
+      Number(report.estimatedDryingDuration) || 1,
+    );
+
     return NextResponse.json({
       psychrometricAssessment: report.psychrometricAssessment
         ? JSON.parse(report.psychrometricAssessment)
         : null,
       scopeAreas: report.scopeAreas ? JSON.parse(report.scopeAreas) : null,
-      equipmentSelection: report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection)
-        : null,
-      equipmentCostTotal: report.equipmentCostTotal,
+      ...equipment,
       estimatedDryingDuration: report.estimatedDryingDuration,
     });
   } catch (error) {

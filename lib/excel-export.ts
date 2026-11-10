@@ -158,11 +158,11 @@ export async function generateSingleReportExcel(
   const moistureReadings = safeParse(report.moistureReadings);
   const psychrometricAssessment = safeParse(report.psychrometricAssessment);
   const scopeAreas = safeParse(report.scopeAreas);
-  const equipmentSelection = safeParse(report.equipmentSelection);
   // RA-8281 B1 class fix: priced from the current price list. The cached
   // report.equipmentCostTotal and each selection's cached rate are never read.
+  // Round 13: the stored value goes to the one reader as it is.
   const pricedEquipment = priceStoredEquipment(
-    equipmentSelection,
+    report.equipmentSelection,
     options.pricingConfig,
     Number(report.estimatedDryingDuration) || 1,
   );

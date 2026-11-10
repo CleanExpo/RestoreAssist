@@ -6,6 +6,12 @@ import { sanitizeString } from "@/lib/sanitize";
 import { parseDate } from "@/lib/parse-date";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
+import { resolveReportPricing } from "@/lib/pricing/report-pricing";
+import {
+  hasStoredEquipment,
+  storedEquipmentResponse,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import {
   enhancedReportJurisdiction,
   resolveEnhancedReportStateInfo,
@@ -14,6 +20,38 @@ import {
   isPaidReportDepth,
   requirePaidBasePlan,
 } from "@/lib/billing/paid-base-plan";
+
+/**
+ * RA-8281 B1 round 13: the report's stored equipment as this detail returns
+ * it. Priced from the report business's CURRENT price list by the one reader;
+ * a business that cannot be confirmed gets no price list, so every rate reads
+ * as not set. No stored equipment answers null with a null total.
+ */
+async function currentEquipment(report: {
+  userId: string;
+  createdAt: Date;
+  equipmentSelection: StoredEquipmentSelections;
+  estimatedDryingDuration: number | null;
+}) {
+  let currentPricing: unknown = null;
+  if (hasStoredEquipment(report.equipmentSelection)) {
+    const creator = await prisma.user.findUnique({
+      where: { id: report.userId },
+      select: { pricingConfig: true },
+    });
+    const reportPricing = await resolveReportPricing(
+      report.userId,
+      creator?.pricingConfig ?? null,
+      report.createdAt,
+    );
+    currentPricing = reportPricing.ok ? reportPricing.pricingConfig : null;
+  }
+  return storedEquipmentResponse(
+    report.equipmentSelection,
+    currentPricing,
+    Number(report.estimatedDryingDuration) || 1,
+  );
+}
 
 export async function GET(
   request: NextRequest,
@@ -137,9 +175,9 @@ export async function GET(
         ? JSON.parse(report.psychrometricAssessment)
         : null,
       scopeAreas: report.scopeAreas ? JSON.parse(report.scopeAreas) : null,
-      equipmentSelection: report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection)
-        : null,
+      // RA-8281 B1 round 13: the stored lines priced NOW, never the cached
+      // rate or the cached report.equipmentCostTotal (both overridden here).
+      ...(await currentEquipment(report)),
     };
 
     // RA-7625: the law the report screens name, resolved with the same

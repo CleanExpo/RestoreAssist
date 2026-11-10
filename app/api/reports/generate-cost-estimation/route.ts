@@ -14,6 +14,7 @@ import {
 import { RateNotSetError, unsetRates } from "@/lib/pricing/rate-not-set";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
+import type { StoredEquipmentSelections } from "@/lib/reports/stored-equipment-pricing";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
@@ -158,10 +159,11 @@ export async function POST(request: NextRequest) {
         ? JSON.parse(report.tier3Responses)
         : null;
 
-      // Parse equipment selection data (from Equipment Tools Selection step)
-      const equipmentSelection = report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection)
-        : [];
+      // Equipment selection (from Equipment Tools Selection step). RA-8281 B1
+      // round 13: passed on as stored. Only stored-equipment-pricing.ts parses
+      // it or reads inside it.
+      const equipmentSelection: StoredEquipmentSelections =
+        report.equipmentSelection;
 
       // Parse psychrometric assessment and scope areas
       const psychrometricAssessment = report.psychrometricAssessment

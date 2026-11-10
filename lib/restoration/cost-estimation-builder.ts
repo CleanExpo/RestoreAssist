@@ -1,5 +1,11 @@
 import { assertRatesSet } from "@/lib/pricing/rate-not-set";
-import { getEquipmentGroupById, selectionDailyRate } from "@/lib/equipment-matrix";
+import {
+  assertEquipmentPriced,
+  priceStoredEquipment,
+  readStoredEquipment,
+  type PricedEquipmentLine,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
 import { getGstTreatment } from "@/lib/gst-rules";
@@ -36,7 +42,8 @@ export function buildCostEstimationData(data: {
   pricingConfig: any;
   stateInfo: any;
   scopeData: any;
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: StoredEquipmentSelections;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
   gstTreatment: ReturnType<typeof getGstTreatment>;
@@ -49,7 +56,7 @@ export function buildCostEstimationData(data: {
     pricingConfig,
     stateInfo,
     scopeData,
-    equipmentSelection = [],
+    equipmentSelection,
     psychrometricAssessment,
     scopeAreas = [],
     gstTreatment,
@@ -99,28 +106,25 @@ export function buildCostEstimationData(data: {
         ? parseFloat(areaMatch[1])
         : 0; // No default - only use if provided
 
-  // Use actual equipment selection data if available, otherwise use 0 (no defaults)
-  const equipmentSelections = Array.isArray(equipmentSelection)
-    ? equipmentSelection
-    : [];
+  // RA-8281 B1 round 13: the stored selection is read only through
+  // stored-equipment-pricing.ts. Unit counts come from its validated lines.
+  const storedEquipmentLines = readStoredEquipment(equipmentSelection);
 
   // Calculate equipment quantities from actual selections
   let airMoversQty = 0;
   let dehumidifiersQty = 0;
   let afdQty = 0;
 
-  equipmentSelections.forEach((sel: any) => {
-    if (sel.groupId && sel.quantity) {
-      if (sel.groupId.startsWith("airmover-")) {
-        airMoversQty += sel.quantity || 0;
-      } else if (
-        sel.groupId.startsWith("lgr-") ||
-        sel.groupId.startsWith("desiccant-")
-      ) {
-        dehumidifiersQty += sel.quantity || 0;
-      } else if (sel.groupId.includes("afd")) {
-        afdQty += sel.quantity || 0;
-      }
+  storedEquipmentLines.forEach((line) => {
+    if (line.groupId.startsWith("airmover-")) {
+      airMoversQty += line.quantity;
+    } else if (
+      line.groupId.startsWith("lgr-") ||
+      line.groupId.startsWith("desiccant-")
+    ) {
+      dehumidifiersQty += line.quantity;
+    } else if (line.groupId.includes("afd")) {
+      afdQty += line.quantity;
     }
   });
 
@@ -270,114 +274,51 @@ export function buildCostEstimationData(data: {
   };
 
   // Equipment Rental - Use actual equipment selection data (only include if user selected)
-  if (equipmentSelections.length > 0) {
+  if (storedEquipmentLines.length > 0) {
+    // RA-8281 B1 round 13: priced from the current price list by the one
+    // reader. This document cannot show a blocked line, so an unset rate or a
+    // line that cannot be read refuses the whole document (RateNotSetError,
+    // 422 from the route). It is never a $0 line and never an unnamed 500.
+    const pricedEquipment = priceStoredEquipment(
+      equipmentSelection,
+      pricingConfig,
+      dryingDuration,
+    );
+    assertEquipmentPriced(pricedEquipment);
+
     categories.equipment = {
       name: "Equipment Rental",
       lineItems: [],
       total: 0,
     };
 
-    // Group equipment by type for better organization
-    const lgrSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.startsWith("lgr-"),
-    );
-    const desiccantSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.startsWith("desiccant-"),
-    );
-    const airMoverSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.startsWith("airmover-"),
-    );
-    const heatSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.startsWith("heat-"),
-    );
-    const afdSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.includes("afd"),
-    );
-
-    // Add LGR Dehumidifiers
-    lgrSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate = selectionDailyRate(sel, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
+    // Group equipment by type for better organization. Each line lands in the
+    // first kind it matches; a line of no known kind is listed last, so no
+    // priced line is left out of the total.
+    const kinds: Array<(line: PricedEquipmentLine) => boolean> = [
+      (l) => l.groupId.startsWith("lgr-"),
+      (l) => l.groupId.startsWith("desiccant-"),
+      (l) => l.groupId.startsWith("airmover-"),
+      (l) => l.groupId.startsWith("heat-"),
+      (l) => l.groupId.includes("afd"),
+      () => true,
+    ];
+    const placed = new Set<PricedEquipmentLine>();
+    for (const matches of kinds) {
+      for (const line of pricedEquipment.lines) {
+        if (placed.has(line) || !matches(line)) continue;
+        placed.add(line);
+        if (line.quantity <= 0) continue;
         categories.equipment.lineItems.push({
-          description: group?.name || `LGR Dehumidifier (${sel.groupId})`,
-          qty: sel.quantity,
+          description: line.name,
+          qty: line.quantity,
           days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
+          dailyRate: line.dailyRate,
+          subtotal: line.total,
         });
-        categories.equipment.total += itemTotal;
+        categories.equipment.total += line.total as number;
       }
-    });
-
-    // Add Desiccant Dehumidifiers
-    desiccantSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate = selectionDailyRate(sel, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
-        categories.equipment.lineItems.push({
-          description: group?.name || `Desiccant Dehumidifier (${sel.groupId})`,
-          qty: sel.quantity,
-          days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
-        });
-        categories.equipment.total += itemTotal;
-      }
-    });
-
-    // Add Air Movers
-    airMoverSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate = selectionDailyRate(sel, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
-        categories.equipment.lineItems.push({
-          description: group?.name || `Air Mover (${sel.groupId})`,
-          qty: sel.quantity,
-          days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
-        });
-        categories.equipment.total += itemTotal;
-      }
-    });
-
-    // Add Heat Drying Systems
-    heatSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate = selectionDailyRate(sel, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
-        categories.equipment.lineItems.push({
-          description: group?.name || `Heat Drying System (${sel.groupId})`,
-          qty: sel.quantity,
-          days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
-        });
-        categories.equipment.total += itemTotal;
-      }
-    });
-
-    // Add AFD Units
-    afdSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate = selectionDailyRate(sel, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
-        categories.equipment.lineItems.push({
-          description: group?.name || `AFD Unit (${sel.groupId})`,
-          qty: sel.quantity,
-          days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
-        });
-        categories.equipment.total += itemTotal;
-      }
-    });
+    }
   }
 
   // Equipment Rental - Extraction
@@ -601,7 +542,12 @@ export function buildCostEstimationData(data: {
     // `affectedAreaM2` takes precedence only when it is > 0, so a job with real
     // scope rows is unaffected.
     affectedAreaM2: affectedAreaSqm > 0 ? affectedAreaSqm : undefined,
-    equipmentSelection,
+    // The validated lines, not the raw stored value. `type` carries the
+    // equipment group id so the air-mover gate sees stored selections.
+    equipmentSelection: storedEquipmentLines.map((line) => ({
+      type: line.groupId,
+      quantity: line.quantity,
+    })),
     waterCategory: report.waterCategory,
     mouldActive: mouldActiveForSafety,
     hazards,

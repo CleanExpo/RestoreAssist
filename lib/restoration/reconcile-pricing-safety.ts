@@ -46,14 +46,28 @@ function normaliseWaterCategory(v?: string | null): WaterCategory | null {
   return m ? (m[0] as WaterCategory) : null;
 }
 
-function isAirMover(sel: any): boolean {
+/**
+ * One equipment item as the reconciler reads it. Callers build these
+ * themselves (the quote calculator from its inputs, the report builders from
+ * the validated lines of stored-equipment-pricing.ts); a raw stored selection
+ * is never passed here (RA-8281 B1 round 13).
+ */
+export interface PricingSafetyItem {
+  type?: string;
+  category?: string;
+  name?: string;
+  equipmentType?: string;
+  quantity?: number;
+}
+
+function isAirMover(sel: PricingSafetyItem): boolean {
   const s = `${sel?.type ?? ""} ${sel?.category ?? ""} ${sel?.name ?? ""} ${sel?.equipmentType ?? ""}`.toLowerCase();
   return /air.?mover|axial|centrifugal/.test(s);
 }
 
-function sumAirMovers(equipmentSelection?: any[]): number {
-  if (!Array.isArray(equipmentSelection)) return 0;
-  return equipmentSelection
+function sumAirMovers(items?: ReadonlyArray<PricingSafetyItem>): number {
+  if (!Array.isArray(items)) return 0;
+  return items
     .filter(isAirMover)
     .reduce((acc, sel) => acc + (Number(sel?.quantity) || 0), 0);
 }
@@ -74,7 +88,7 @@ export function reconcilePricingSafety(input: {
    * geometry in the one place an estimator might later read one.
    */
   affectedAreaM2?: number;
-  equipmentSelection?: any[];
+  equipmentSelection?: ReadonlyArray<PricingSafetyItem>;
   waterCategory?: string | null;
   mouldActive: boolean;
   hazards?: string[];

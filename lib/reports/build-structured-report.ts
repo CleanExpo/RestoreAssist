@@ -1,4 +1,7 @@
-import { priceStoredEquipment } from "@/lib/reports/stored-equipment-pricing";
+import {
+  priceStoredEquipment,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import {
   asbestosEraBasis,
   presumeAsbestosFromEra,
@@ -86,7 +89,8 @@ export function buildStructuredBasicReport(data: {
   stateInfo: any;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: StoredEquipmentSelections;
   /**
    * RA-8281 B1 class fix: the report business's CURRENT price list
    * (resolveReportPricing). Stored selections are priced from it, never from

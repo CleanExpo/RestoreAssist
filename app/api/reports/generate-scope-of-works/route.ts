@@ -8,6 +8,7 @@ import {
   SCOPE_OF_WORKS_RATE_FIELDS,
 } from "@/lib/restoration/scope-of-works-builder";
 import { RateNotSetError, unsetRates } from "@/lib/pricing/rate-not-set";
+import type { StoredEquipmentSelections } from "@/lib/reports/stored-equipment-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -203,10 +204,11 @@ export async function POST(request: NextRequest) {
       // leak. Re-add via resolveWorkspaceAiKey if AI narrative enhancement is
       // ever introduced here.
 
-      // Parse equipment selection data (from Equipment Tools Selection step)
-      const equipmentSelection = report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection)
-        : [];
+      // Equipment selection (from Equipment Tools Selection step). RA-8281 B1
+      // round 13: passed on as stored. Only stored-equipment-pricing.ts parses
+      // it or reads inside it.
+      const equipmentSelection: StoredEquipmentSelections =
+        report.equipmentSelection;
 
       // Parse psychrometric assessment and scope areas
       const psychrometricAssessment = report.psychrometricAssessment

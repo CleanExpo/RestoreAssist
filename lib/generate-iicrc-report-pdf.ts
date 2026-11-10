@@ -22,6 +22,7 @@ import {
 } from "@/lib/clients/brand";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
+import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,8 @@ export interface IICRCReportData {
   moistureReadings?: any;
   psychrometricReadings?: any;
   psychrometricAssessment?: any;
-  equipmentSelection?: any;
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: unknown;
   scopeAreas?: any;
   user?: {
     name?: string | null;
@@ -650,10 +652,8 @@ export async function generateIICRCReportPDF(
   }
 
   // ── SECTION 5: Equipment Deployment Log (S500:2021 §6) ─────────────────────
-  const eqData = data.equipmentSelection;
-  const eqArr: any[] = Array.isArray(eqData)
-    ? eqData
-    : (eqData?.equipment ?? eqData?.items ?? eqData?.selected ?? []);
+  // RA-8281 B1 round 13: read by the one reader of the stored value.
+  const eqArr = readEquipmentDeploymentLog(data.equipmentSelection);
 
   if (eqArr.length > 0) {
     w.sectionHeader("SECTION 5 — EQUIPMENT DEPLOYMENT LOG (S500:2021 §6)");
@@ -667,17 +667,14 @@ export async function generateIICRCReportPDF(
     ];
     const eWidths = [110, 100, 90, 100, 95];
     w.tableRow(eCols, eWidths, true);
-    eqArr.forEach((eq: any, i: number) => {
+    eqArr.forEach((row, i: number) => {
       w.tableRow(
         [
-          eq.type ?? eq.equipmentType ?? eq.name ?? "—",
-          `${eq.brand ?? eq.make ?? ""}${eq.model ? ` ${eq.model}` : ""}`.trim() ||
-            "—",
-          eq.serialNumber ?? eq.serial ?? "—",
-          eq.location ?? eq.placement ?? eq.room ?? "—",
-          (eq.deployedDate ?? eq.date)
-            ? fmtDate(eq.deployedDate ?? eq.date)
-            : "—",
+          row.type ?? "—",
+          row.brandModel ?? "—",
+          row.serial ?? "—",
+          row.location ?? "—",
+          row.date ? fmtDate(row.date) : "—",
         ],
         eWidths,
         false,

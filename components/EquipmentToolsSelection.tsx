@@ -39,6 +39,10 @@ import {
   type EquipmentGroup,
 } from "@/lib/equipment-matrix";
 import { RateNotSetError } from "@/lib/pricing/rate-not-set";
+import {
+  readStoredEquipment,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 
 interface EquipmentToolsSelectionProps {
   reportId: string;
@@ -46,7 +50,8 @@ interface EquipmentToolsSelectionProps {
   initialData?: {
     psychrometricAssessment?: any;
     scopeAreas?: any[];
-    equipmentSelection?: EquipmentSelection[];
+    /** Opaque: read through readStoredEquipment below. */
+    equipmentSelection?: StoredEquipmentSelections;
   };
 }
 
@@ -105,7 +110,13 @@ export default function EquipmentToolsSelection({
   // Step 3: Equipment Selection
   const [equipmentSelections, setEquipmentSelections] = useState<
     EquipmentSelection[]
-  >(initialData?.equipmentSelection || []);
+  >(() =>
+    // RA-8281 B1 round 13: saved lines are read through the one reader; a
+    // line that cannot be read is not loaded into the editor.
+    readStoredEquipment(initialData?.equipmentSelection)
+      .filter((line) => line.usable)
+      .map((line) => ({ groupId: line.groupId, quantity: line.quantity })),
+  );
   const [durationDays, setDurationDays] = useState(4);
 
   // Fetch pricing config on mount

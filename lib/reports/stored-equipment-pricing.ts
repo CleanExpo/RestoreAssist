@@ -1,6 +1,6 @@
 /**
- * RA-8281 B1 (class fix): the one way a stored equipment selection is priced
- * when a report, prompt or export reads it back.
+ * RA-8281 B1 (class fix): the one way a stored equipment selection is read
+ * and priced when a report, prompt, export, route or screen reads it back.
  *
  * A selection stored on a report carries the daily rate the screen saw when
  * it was made. That rate is a cache: the contractor may have changed or
@@ -9,6 +9,15 @@
  * selectionDailyRate. A rate the price list leaves unset makes that line
  * "rate not set" and blocks the equipment total. It is never $0, never the
  * cached figure, and never a midpoint.
+ *
+ * RA-8281 B1 round 13: this file is the ONLY code that looks inside the
+ * stored value. Every other consumer, money or not (unit counts, power draw,
+ * labels, the deployment log, the GET routes, the editors), receives the
+ * typed lines this file returns. Two things hold that line:
+ *   - consumers type the value as StoredEquipmentSelections (`unknown`), so
+ *     the compiler rejects element access;
+ *   - lib/__tests__/stored-equipment-raw-access.test.ts scans every source
+ *     file under app/, lib/ and components/ for raw access.
  */
 import {
   getEquipmentGroupById,
@@ -19,12 +28,27 @@ import { RateNotSetError, type UnsetRate } from "@/lib/pricing/rate-not-set";
 /** What a report shows in place of a money figure it cannot compute. */
 export const RATE_NOT_SET_LABEL = "Rate not set";
 
-export interface PricedEquipmentLine {
+/**
+ * What a consumer holds before it is read: the database column (a JSON
+ * string), an already parsed value, or a posted body field. It is `unknown`
+ * on purpose, so nothing outside this file can reach into it.
+ */
+export type StoredEquipmentSelections = unknown;
+
+/** One stored line as every non-money consumer sees it. */
+export interface StoredEquipmentLine {
+  /** "" when the line has no equipment type. */
   groupId: string;
   name: string;
+  /** 0 when the line cannot be read. */
   quantity: number;
+  /** false: no equipment type or no valid quantity. Shown, never dropped. */
+  usable: boolean;
+}
+
+export interface PricedEquipmentLine extends StoredEquipmentLine {
   durationDays: number;
-  /** null: the contractor has not set this rate. */
+  /** null: the contractor has not set this rate, or the line is not usable. */
   dailyRate: number | null;
   /** dailyRate × quantity, or null when the rate is not set. */
   dailyTotal: number | null;
@@ -57,6 +81,15 @@ export interface PricedEquipment {
 export const MALFORMED_LINE_NOTE =
   "An equipment line has no equipment type or no valid quantity, so it cannot be priced. Fix the line before the total can be given.";
 
+/** How a line that cannot be read is named wherever lines are listed. */
+export const UNUSABLE_LINE_LABEL =
+  "Equipment line not usable (no equipment type or no valid quantity)";
+
+/** True for a plain JSON object (not null, not a list). */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** A quantity read from a stored line: a finite number >= 0, else null. */
 function readQuantity(value: unknown): number | null {
   const n =
@@ -68,21 +101,19 @@ function readQuantity(value: unknown): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-function malformedLine(raw: unknown, durationDays: number): PricedEquipmentLine {
-  const groupId =
-    raw && typeof (raw as { groupId?: unknown }).groupId === "string"
-      ? (raw as { groupId: string }).groupId
-      : "";
-  return {
-    groupId,
-    name: groupId || "Unknown equipment",
-    quantity: 0,
-    durationDays,
-    dailyRate: null,
-    dailyTotal: null,
-    total: null,
-    note: MALFORMED_LINE_NOTE,
-  };
+/**
+ * The stored column is a JSON string. Text that parses is its parsed value;
+ * blank text is no value; text that does not parse stays as it is, so it
+ * becomes one unreadable line below instead of an exception or "no equipment".
+ */
+function parseStored(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  if (value.trim() === "") return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
 }
 
 /**
@@ -92,9 +123,56 @@ function malformedLine(raw: unknown, durationDays: number): PricedEquipmentLine 
  * one line. Every reader and writer goes through this, so no path can treat
  * an unexpected shape as "no equipment" and skip pricing.
  */
-export function normaliseStoredSelections(value: unknown): unknown[] {
-  if (value === null || value === undefined) return [];
-  return Array.isArray(value) ? value : [value];
+function normaliseStoredSelections(value: unknown): unknown[] {
+  const parsed = parseStored(value);
+  if (parsed === null || parsed === undefined) return [];
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+/** True when the stored value holds at least one line, readable or not. */
+export function hasStoredEquipment(value: StoredEquipmentSelections): boolean {
+  return normaliseStoredSelections(value).length > 0;
+}
+
+function readLine(raw: unknown): StoredEquipmentLine {
+  const groupId =
+    isRecord(raw) && typeof raw.groupId === "string" ? raw.groupId : "";
+  const quantity = isRecord(raw) ? readQuantity(raw.quantity) : null;
+  if (groupId === "" || quantity === null) {
+    return {
+      groupId,
+      name: groupId || "Unknown equipment",
+      quantity: 0,
+      usable: false,
+    };
+  }
+  return {
+    groupId,
+    name: getEquipmentGroupById(groupId)?.name ?? groupId,
+    quantity,
+    usable: true,
+  };
+}
+
+/**
+ * The stored lines without money: equipment type, name and unit count. For
+ * unit counts, power draw, labels and editors. A line that cannot be read is
+ * kept with `usable: false` and a quantity of 0.
+ */
+export function readStoredEquipment(
+  value: StoredEquipmentSelections,
+): StoredEquipmentLine[] {
+  return normaliseStoredSelections(value).map(readLine);
+}
+
+/**
+ * The rate cached on a line. selectionDailyRate uses it only for a group that
+ * has no price-list field; a group with one is priced from the price list.
+ */
+function cachedRate(raw: unknown): number | undefined {
+  return isRecord(raw) && typeof raw.dailyRate === "number"
+    ? raw.dailyRate
+    : undefined;
 }
 
 /**
@@ -103,30 +181,29 @@ export function normaliseStoredSelections(value: unknown): unknown[] {
  * undefined means none could be loaded, so every rate is unset.
  */
 export function priceStoredEquipment(
-  selections: unknown,
+  selections: StoredEquipmentSelections,
   pricingConfig: unknown,
   durationDays: number,
 ): PricedEquipment {
-  const list = normaliseStoredSelections(selections);
   const unset = new Map<string, UnsetRate>();
-  const lines = list.map((raw: unknown): PricedEquipmentLine => {
-      const sel = raw as { groupId?: unknown; quantity?: unknown } | null;
-      const quantity = sel ? readQuantity(sel.quantity) : null;
-      if (
-        !sel ||
-        typeof sel.groupId !== "string" ||
-        sel.groupId === "" ||
-        quantity === null
-      ) {
-        return malformedLine(raw, durationDays);
+  const lines = normaliseStoredSelections(selections).map(
+    (raw: unknown): PricedEquipmentLine => {
+      const read = readLine(raw);
+      if (!read.usable) {
+        return {
+          ...read,
+          durationDays,
+          dailyRate: null,
+          dailyTotal: null,
+          total: null,
+          note: MALFORMED_LINE_NOTE,
+        };
       }
-      const groupId = sel.groupId;
-      const group = getEquipmentGroupById(groupId);
       let dailyRate: number | null;
       let note: string | null = null;
       try {
         dailyRate = selectionDailyRate(
-          sel as { groupId: string; dailyRate?: number },
+          { groupId: read.groupId, dailyRate: cachedRate(raw) },
           pricingConfig ?? undefined,
         );
       } catch (err) {
@@ -136,16 +213,16 @@ export function priceStoredEquipment(
         for (const u of err.unset) unset.set(u.field, u);
       }
       return {
-        groupId,
-        name: group?.name ?? groupId,
-        quantity,
+        ...read,
         durationDays,
         dailyRate,
-        dailyTotal: dailyRate === null ? null : dailyRate * quantity,
-        total: dailyRate === null ? null : dailyRate * quantity * durationDays,
+        dailyTotal: dailyRate === null ? null : dailyRate * read.quantity,
+        total:
+          dailyRate === null ? null : dailyRate * read.quantity * durationDays,
         note,
       };
-    });
+    },
+  );
   const blocked = lines.some((l) => l.dailyRate === null);
   return {
     lines,
@@ -160,6 +237,18 @@ export function priceStoredEquipment(
       ...new Set(lines.flatMap((l) => (l.note === null ? [] : [l.note]))),
     ],
   };
+}
+
+/**
+ * For documents that cannot show a blocked line: throws RateNotSetError naming
+ * every unset rate and unreadable line, so the route answers 422 with the
+ * reason. Never a $0 line and never an unnamed 500.
+ */
+export function assertEquipmentPriced(priced: PricedEquipment): void {
+  if (priced.total !== null) return;
+  throw new RateNotSetError(
+    priced.problems.map((note) => ({ field: "equipmentSelection", note })),
+  );
 }
 
 /** "$45.00", or "Rate not set" for a figure that could not be computed. */
@@ -179,4 +268,125 @@ export function sumOrNull(values: ReadonlyArray<unknown>): number | null {
     sum += v;
   }
   return sum;
+}
+
+/** Total rated current (amps) of the lines. An unusable line adds nothing. */
+export function equipmentAmps(
+  lines: ReadonlyArray<StoredEquipmentLine>,
+): number {
+  return lines.reduce(
+    (total, line) =>
+      total + (getEquipmentGroupById(line.groupId)?.amps ?? 0) * line.quantity,
+    0,
+  );
+}
+
+/** Total unit count of the lines. An unusable line adds nothing. */
+export function equipmentUnitCount(
+  lines: ReadonlyArray<StoredEquipmentLine>,
+): number {
+  return lines.reduce((sum, line) => sum + line.quantity, 0);
+}
+
+/** "2x LGR Dehumidifier", or the unusable-line wording. No money. */
+export function equipmentUnitsLabel(line: StoredEquipmentLine): string {
+  return line.usable ? `${line.quantity}x ${line.name}` : UNUSABLE_LINE_LABEL;
+}
+
+/** One row of the equipment deployment log (no money). */
+export interface EquipmentDeploymentRow {
+  type: string | null;
+  brandModel: string | null;
+  serial: string | null;
+  location: string | null;
+  date: string | null;
+}
+
+function text(...values: unknown[]): string | null {
+  for (const v of values) {
+    if (typeof v === "string" && v.trim() !== "") return v;
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  }
+  return null;
+}
+
+/**
+ * The deployment log the IICRC PDF and the insurer portal list: type, brand
+ * and model, serial, location, date placed. Reads a list, or an older object
+ * that holds its list under equipment, items or selected. An entry that is
+ * not an object is a row of blanks; it never throws. No money is read.
+ */
+export function readEquipmentDeploymentLog(
+  value: StoredEquipmentSelections,
+): EquipmentDeploymentRow[] {
+  const parsed = parseStored(value);
+  const list: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : isRecord(parsed)
+      ? ([parsed.equipment, parsed.items, parsed.selected].find((v) =>
+          Array.isArray(v),
+        ) as unknown[] | undefined) ?? []
+      : [];
+  return list.map((raw) => {
+    const eq = isRecord(raw) ? raw : {};
+    const brand = text(eq.brand, eq.make) ?? "";
+    const model = text(eq.model);
+    return {
+      type: text(eq.type, eq.equipmentType, eq.name),
+      brandModel: `${brand}${model ? ` ${model}` : ""}`.trim() || null,
+      serial: text(eq.serialNumber, eq.serial),
+      location: text(eq.location, eq.placement, eq.room),
+      date: text(eq.deployedDate, eq.date),
+    };
+  });
+}
+
+/** What an API returns in place of the stored column and cached total. */
+export interface StoredEquipmentResponse {
+  /** null: nothing stored. Otherwise every stored line, priced now. */
+  equipmentSelection: Array<{
+    groupId: string;
+    name: string;
+    quantity: number;
+    usable: boolean;
+    dailyRate: number | null;
+    note: string | null;
+  }> | null;
+  /** null: no lines, or a line is blocked. Never the cached total. */
+  equipmentCostTotal: number | null;
+  equipmentProblems: string[];
+}
+
+/**
+ * What an API returns in place of the stored column and the cached
+ * report.equipmentCostTotal: the lines priced now from `pricingConfig`, a
+ * total that is null when any line is blocked, and the reasons. The stored
+ * rate and stored total are never echoed.
+ */
+export function storedEquipmentResponse(
+  stored: StoredEquipmentSelections,
+  pricingConfig: unknown,
+  durationDays: number,
+): StoredEquipmentResponse {
+  const parsed = parseStored(stored);
+  if (parsed === null || parsed === undefined) {
+    return {
+      equipmentSelection: null,
+      equipmentCostTotal: null,
+      equipmentProblems: [],
+    };
+  }
+  const priced = priceStoredEquipment(parsed, pricingConfig, durationDays);
+  return {
+    equipmentSelection: priced.lines.map((line) => ({
+      groupId: line.groupId,
+      name: line.name,
+      quantity: line.quantity,
+      usable: line.usable,
+      dailyRate: line.dailyRate,
+      note: line.note,
+    })),
+    equipmentCostTotal: priced.lines.length > 0 ? priced.total : null,
+    equipmentProblems: priced.problems,
+  };
 }

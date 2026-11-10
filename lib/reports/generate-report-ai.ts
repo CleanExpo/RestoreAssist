@@ -1,10 +1,13 @@
-import { getEquipmentGroupById } from "@/lib/equipment-matrix";
 import {
+  equipmentAmps,
+  equipmentUnitCount,
+  equipmentUnitsLabel,
   moneyOrRateNotSet,
-  normaliseStoredSelections,
   priceStoredEquipment,
+  UNUSABLE_LINE_LABEL,
   type PricedEquipment,
   type PricedEquipmentLine,
+  type StoredEquipmentSelections,
 } from "@/lib/reports/stored-equipment-pricing";
 import {
   extractWaterCategory,
@@ -24,6 +27,9 @@ const AU_LAW_INVENTION_GUARD =
  * not to state a price for it; it is never written as $0 or the cached rate.
  */
 function equipmentPromptLine(line: PricedEquipmentLine, type?: string): string {
+  if (!line.usable) {
+    return `- ${UNUSABLE_LINE_LABEL}. ${line.note ?? ""} Do not state or estimate a price for this equipment.`;
+  }
   const name = type ? `${line.name} (${type})` : line.name;
   if (line.dailyRate === null) {
     return `- ${name}: ${line.quantity} units × daily rate not set. ${line.note ?? ""} Do not state or estimate a price for this equipment.`;
@@ -139,7 +145,7 @@ export function buildVisualCentricReportPrompt(data: {
   standardsContext?: string;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
-  equipmentSelection?: any[];
+  equipmentSelection?: StoredEquipmentSelections;
   waterCategory: string | null;
   materials: string[];
   affectedAreas: string | null;
@@ -332,27 +338,24 @@ ${
           const roomMoisture = avgMoisture ? avgMoisture.toFixed(0) : "32";
           const targetMoisture = "12";
           const isSaturated = parseFloat(roomMoisture) > 20;
+          // RA-8281 B1 round 13: read from the validated lines, never the
+          // raw stored value.
+          const roomEquipmentLines = pricedEquipment.lines.filter(
+            (line) =>
+              line.groupId.includes("airmover") ||
+              line.groupId.includes("lgr") ||
+              line.groupId.includes("desiccant"),
+          );
           const roomEquipment =
-            equipmentSelection && equipmentSelection.length > 0
-              ? equipmentSelection
-                  .filter((sel: any) => {
-                    const group = getEquipmentGroupById(sel.groupId);
-                    return (
-                      group?.id.includes("airmover") ||
-                      group?.id.includes("lgr") ||
-                      group?.id.includes("desiccant")
-                    );
-                  })
-                  .map((sel: any) => {
-                    const group = getEquipmentGroupById(sel.groupId);
-                    const isAirMover = group?.id.includes("airmover");
-                    const isLGR = group?.id.includes("lgr");
-                    return isAirMover
-                      ? `Air Mover (x${sel.quantity})`
-                      : isLGR
+            pricedEquipment.lines.length > 0
+              ? roomEquipmentLines
+                  .map((line) =>
+                    line.groupId.includes("airmover")
+                      ? `Air Mover (x${line.quantity})`
+                      : line.groupId.includes("lgr")
                         ? `LGR Dehumidifier`
-                        : `${group?.name || sel.groupId}`;
-                  })
+                        : line.name,
+                  )
                   .join(", ")
               : "Air Mover, LGR Dehumidifier";
 
@@ -417,14 +420,14 @@ ${
 **${totalEquipmentUnits} Drying Units Deployed**
 
 ${
-  equipmentSelection && equipmentSelection.length > 0
-    ? equipmentSelection
-        .map((sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
+  pricedEquipment.lines.length > 0
+    ? pricedEquipment.lines
+        .map((line) => {
+          if (!line.usable) return `- ${UNUSABLE_LINE_LABEL}`;
           const isDehumidifier =
-            group?.id.includes("lgr") || group?.id.includes("desiccant");
-          const isAirMover = group?.id.includes("airmover");
-          return `- ${isDehumidifier ? "💨" : isAirMover ? "🌀" : "⚙️"} ${group?.name || sel.groupId}: **${sel.quantity}** units`;
+            line.groupId.includes("lgr") || line.groupId.includes("desiccant");
+          const isAirMover = line.groupId.includes("airmover");
+          return `- ${isDehumidifier ? "💨" : isAirMover ? "🌀" : "⚙️"} ${line.name}: **${line.quantity}** units`;
         })
         .join("\n")
     : ""
@@ -536,7 +539,7 @@ export function buildInspectionReportPrompt(data: {
   standardsContext?: string;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
-  equipmentSelection?: any[];
+  equipmentSelection?: StoredEquipmentSelections;
   /** RA-8281 B1: the report business's current price list. */
   pricingConfig?: unknown;
   businessInfo?: {
@@ -563,9 +566,11 @@ export function buildInspectionReportPrompt(data: {
     businessInfo,
   } = data;
 
-  // RA-8281 B1 review round 11: one reading of the stored shape for every
-  // section below (money and non-money alike).
-  const equipmentSelection = normaliseStoredSelections(data.equipmentSelection);
+  // RA-8281 B1 round 13: the stored value stays opaque here. Every section
+  // below, money and non-money alike (unit counts, power draw, labels), reads
+  // pricedEquipment.lines, so a line that cannot be read is shown as not
+  // usable and never throws.
+  const equipmentSelection = data.equipmentSelection;
 
   // RA-8281 B1 class fix: stored selections priced from the current price
   // list; the cached report.equipmentCostTotal and cached rates are not read.
@@ -651,19 +656,7 @@ export function buildInspectionReportPrompt(data: {
   const stateRegulatoryText = inspectionRegulatoryText(stateInfo);
 
   // Calculate total amps from equipment selection (only if equipment exists)
-  const totalAmps =
-    equipmentSelection && equipmentSelection.length > 0
-      ? equipmentSelection.reduce((total: number, sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
-          return total + (group?.amps || 0) * (sel.quantity || 0);
-        }, 0)
-      : 0;
-
-  // Ensure totalAmps is always a number
-  const totalAmpsNumber =
-    typeof totalAmps === "number"
-      ? totalAmps
-      : parseFloat(String(totalAmps)) || 0;
+  const totalAmpsNumber = equipmentAmps(pricedEquipment.lines);
 
   // Calculate visual metrics for basic reports
   const roomsAffectedCount = affectedAreas
@@ -676,13 +669,7 @@ export function buildInspectionReportPrompt(data: {
   const avgMoisture = moistureReadings
     ? extractAverageMoisture(moistureReadings)
     : null;
-  const totalEquipmentUnits =
-    equipmentSelection && equipmentSelection.length > 0
-      ? equipmentSelection.reduce(
-          (sum: number, sel: any) => sum + sel.quantity,
-          0,
-        )
-      : 0;
+  const totalEquipmentUnits = equipmentUnitCount(pricedEquipment.lines);
   const totalLitresExtracted = report.dehumidificationCapacity || null;
   const dryingIndex =
     psychrometricAssessment?.dryingPotential?.dryingIndex || null;
@@ -991,9 +978,9 @@ ${psychrometricAssessment.dryingPotential.recommendation}`
 
 
 ${
-  equipmentSelection && equipmentSelection.length > 0
+  pricedEquipment.lines.length > 0
     ? `### EQUIPMENT LOADOUT SCHEDULE
-${equipmentSelection.reduce((sum: number, sel: any) => sum + sel.quantity, 0)} Total Units
+${totalEquipmentUnits} Total Units
 
 ${pricedEquipment.lines
   .map((line) => {
@@ -1064,13 +1051,8 @@ ${
 ## SECTION 7: INITIAL REMEDIATION ACTIONS COMPLETED
 - Standing Water Extraction
 ${
-  equipmentSelection && equipmentSelection.length > 0
-    ? `- Equipment Deployed: ${equipmentSelection
-        .map((sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
-          return `${sel.quantity}x ${group?.name || sel.groupId}`;
-        })
-        .join(", ")}`
+  pricedEquipment.lines.length > 0
+    ? `- Equipment Deployed: ${pricedEquipment.lines.map(equipmentUnitsLabel).join(", ")}`
     : equipmentDeployed
       ? `- Equipment Deployed: ${equipmentDeployed}`
       : "- Equipment Deployed: (To be specified)"
@@ -1099,13 +1081,14 @@ ${occupancyStatus && occupancyStatus.includes("Vacant") ? "Include: Security, Ti
 
 ## SECTION 11: POWER AND EQUIPMENT REQUIREMENTS
 ${
-  equipmentSelection && equipmentSelection.length > 0
+  pricedEquipment.lines.length > 0
     ? `- Power Draw Calculation: ${totalAmpsNumber.toFixed(1)} Amps total (calculated from selected equipment)
-- Equipment Load: ${equipmentSelection
-        .map((sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
-          return `${sel.quantity}x ${group?.name || sel.groupId} (${(group?.amps || 0) * sel.quantity}A)`;
-        })
+- Equipment Load: ${pricedEquipment.lines
+        .map((line) =>
+          line.usable
+            ? `${equipmentUnitsLabel(line)} (${equipmentAmps([line])}A)`
+            : equipmentUnitsLabel(line),
+        )
         .join(", ")}
 - Total Daily Equipment Cost: ${moneyOrRateNotSet(pricedEquipment.dailyTotal)}`
     : "- Power Draw Calculation: (calculate from equipment deployed)"

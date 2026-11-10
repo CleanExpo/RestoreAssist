@@ -119,7 +119,8 @@ export async function GET(
       costEstimationData: safeParse(report.costEstimationData),
       psychrometricAssessment: safeParse(report.psychrometricAssessment),
       scopeAreas: safeParse(report.scopeAreas),
-      equipmentSelection: safeParse(report.equipmentSelection),
+      // Passed as stored: only stored-equipment-pricing.ts reads inside it.
+      equipmentSelection: report.equipmentSelection,
     };
 
     // RA-8281 B1 class fix: stored equipment is priced from the report

@@ -45,7 +45,10 @@ import {
 } from "@/lib/reports/workspace-business";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
-import { normaliseStoredSelections } from "@/lib/reports/stored-equipment-pricing";
+import {
+  hasStoredEquipment,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
 
 // POST - Generate complete professional inspection report with all 13 sections
@@ -229,15 +232,16 @@ export async function POST(request: NextRequest) {
       ? JSON.parse(report.psychrometricAssessment)
       : null;
     const scopeAreas = report.scopeAreas ? JSON.parse(report.scopeAreas) : null;
-    const equipmentSelection = report.equipmentSelection
-      ? JSON.parse(report.equipmentSelection)
-      : null;
+    // RA-8281 B1 round 13: the stored value is passed on as it is. Only
+    // stored-equipment-pricing.ts parses it or reads inside it.
+    const equipmentSelection: StoredEquipmentSelections =
+      report.equipmentSelection;
     // RA-8281 B1 class fix: stored equipment is priced from the report
     // business's CURRENT price list, never from the rate cached on each
     // selection. A business that cannot be confirmed gets no price list, so
     // every equipment rate reads "Rate not set" rather than a figure.
     let equipmentPricingConfig: unknown = null;
-    if (normaliseStoredSelections(equipmentSelection).length > 0) {
+    if (hasStoredEquipment(equipmentSelection)) {
       const reportPricing = await resolveReportPricing(
         user.id,
         user.pricingConfig,

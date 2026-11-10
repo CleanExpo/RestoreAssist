@@ -36,7 +36,8 @@ interface ReportData {
   stateInfo: any;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: unknown;
   standardsContext?: string;
   businessInfo?: BusinessInfo;
 }
@@ -248,7 +249,7 @@ export async function generateAssessmentReportPDF(
     jobRef,
     scopeItems,
     report,
-    equipmentSelection: equipmentSelection ?? [],
+    equipmentSelection,
     hvacAffected: report.hvacAffected || false,
   });
 
@@ -761,7 +762,7 @@ async function renderPage2(
     jobRef: string;
     scopeItems: ScopeItem[];
     report: any;
-    equipmentSelection: any[];
+    equipmentSelection?: unknown;
     hvacAffected: boolean;
   },
 ): Promise<void> {
