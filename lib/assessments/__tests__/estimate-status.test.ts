@@ -84,6 +84,23 @@ describe("formatLineMoney", () => {
     expect(formatLineMoney(null, inLabour)).toBe("In labour");
     expect(formatLineMoney(151, priced)).toBe("$151.00");
   });
+
+  // RA-8281 review (CodeRabbit on #2533): a stored pre-RA-8275 line priced a
+  // missing rate at $0; its cells must read "Not priced", not "$0.00".
+  it("never renders a legacy $0 line as $0.00", () => {
+    const { pricingStatus: _s, ...legacy } = priced;
+    const zero = { ...legacy, rate: 0, lineTotalExGst: 0, gstAmount: 0, lineTotalIncGst: 0 } as EstimateLine;
+    expect(formatLineMoney(zero.rate, zero)).toBe("Not priced");
+    expect(formatLineMoney(zero.lineTotalExGst, zero)).toBe("Not priced");
+    expect(formatLineMoney(zero.lineTotalIncGst, zero)).toBe("Not priced");
+  });
+
+  it("a deliberate $0 priced line and a legacy real rate still show money", () => {
+    const free = { ...priced, rate: 0, lineTotalExGst: 0, gstAmount: 0, lineTotalIncGst: 0 };
+    expect(formatLineMoney(0, free)).toBe("$0.00");
+    const { pricingStatus: _s, ...legacy } = priced;
+    expect(formatLineMoney(151, legacy as EstimateLine)).toBe("$151.00");
+  });
 });
 
 /** Text of every page, so a wrong heading or cell is visible to the test. */

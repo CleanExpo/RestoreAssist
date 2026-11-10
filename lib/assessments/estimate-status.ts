@@ -9,24 +9,32 @@
 
 import type { EstimateLine } from "./types";
 
+/**
+ * RA-8281 review: rows stored before RA-8275 carry no pricingStatus and
+ * priced a missing rate at $0. Every current domain sets pricingStatus, so a
+ * status-less line without a positive rate is one of those. A line marked
+ * "priced" at $0 is the contractor's own choice and is not.
+ */
+function isLegacyZeroLine(
+  line: Pick<EstimateLine, "pricingStatus" | "rate">,
+): boolean {
+  return !line.pricingStatus && !(line.rate !== null && line.rate > 0);
+}
+
 /** True when this line stops the estimate from having a total. */
 export function isBlockingLine(line: EstimateLine): boolean {
   if (line.pricingStatus === "included_in_labour") return false;
   if (line.pricingStatus && line.pricingStatus !== "priced") return true;
   if (line.rate === null || line.lineTotalExGst === null) return true;
-  // RA-8281 review: rows stored before RA-8275 carry no pricingStatus and
-  // priced a missing rate at $0. Every current domain sets pricingStatus, so a
-  // status-less line without a positive rate is one of those and blocks.
-  // A line marked "priced" at $0 is the contractor's own choice and does not.
-  return !line.pricingStatus && !(line.rate > 0);
+  return isLegacyZeroLine(line);
 }
 
 /** Plain text for a money cell: "$1,234.00", or the line's reason. */
 export function formatLineMoney(
   value: number | null,
-  line: Pick<EstimateLine, "pricingStatus">,
+  line: Pick<EstimateLine, "pricingStatus" | "rate">,
 ): string {
-  if (value !== null) return `$${value.toFixed(2)}`;
+  if (value !== null && !isLegacyZeroLine(line)) return `$${value.toFixed(2)}`;
   if (line.pricingStatus === "included_in_labour") return "In labour";
   return "Not priced";
 }
