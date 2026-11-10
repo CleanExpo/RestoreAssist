@@ -13,12 +13,12 @@ vi.mock("@/lib/assessments/gst", async () => {
   const { getGstTreatment } = await import("@/lib/gst-rules");
   return { gstForInspection: vi.fn(async () => getGstTreatment("AU")) };
 });
-vi.mock("@/lib/pricing/effective-pricing", () => ({
-  resolveEffectivePricing: vi.fn(),
+vi.mock("@/lib/assessments/inspection-price-list", () => ({
+  resolveInspectionPriceList: vi.fn(),
 }));
 
 import { prisma } from "@/lib/prisma";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { waterDomain } from "../domains/water";
 import { mouldDomain } from "../domains/mould";
@@ -32,7 +32,7 @@ import { sqmToSqft } from "@/lib/units";
 const inspectionFindUnique = (
   prisma as unknown as { inspection: { findUnique: ReturnType<typeof vi.fn> } }
 ).inspection.findUnique;
-const resolvePricing = resolveEffectivePricing as unknown as ReturnType<
+const resolvePricing = resolveInspectionPriceList as unknown as ReturnType<
   typeof vi.fn
 >;
 

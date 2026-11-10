@@ -20,7 +20,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
 import { estimateFromPriceList } from "../price-list-estimate";
 import {
   calculateMouldEquipment,
@@ -264,6 +264,8 @@ export const mouldDomain: DomainPlugin = {
         where: { id: input.inspectionId },
         select: {
           id: true,
+          userId: true,
+          createdAt: true,
           propertyAddress: true,
           affectedAreas: { select: { affectedAreaSqm: true, affectedSquareFootage: true } },
         },
@@ -306,7 +308,7 @@ export const mouldDomain: DomainPlugin = {
         equipmentToScopeItem(it, days),
       );
 
-      const priceList = await resolveEffectivePricing(prisma, input.userId);
+      const priceList = await resolveInspectionPriceList(inspection);
       const gst = await gstForInspection(input.inspectionId);
       const estimate = estimateFromPriceList(
         scope.map((item, i) => ({

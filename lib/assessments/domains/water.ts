@@ -20,7 +20,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
 import type { CompanyPricingRates } from "@/lib/nir-cost-estimation";
 import { estimateFromPriceList } from "../price-list-estimate";
 import {
@@ -213,6 +213,8 @@ export const waterDomain: DomainPlugin = {
         where: { id: input.inspectionId },
         select: {
           id: true,
+          userId: true,
+          createdAt: true,
           propertyAddress: true,
           classifications: {
             orderBy: { createdAt: "desc" },
@@ -259,7 +261,7 @@ export const waterDomain: DomainPlugin = {
 
       // RA-8281: price only from the contractor's own price list. No
       // default rates: an unset field reads "rate not set".
-      const priceList = await resolveEffectivePricing(prisma, input.userId);
+      const priceList = await resolveInspectionPriceList(inspection);
 
       // Hand to the existing scope-dispatcher pathway.
       const drafts = generateScopeItems({
