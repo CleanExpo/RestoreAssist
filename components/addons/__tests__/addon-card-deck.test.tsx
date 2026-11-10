@@ -1,0 +1,1108 @@
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import {
+  AddonCardDeck,
+  IOS_ADDONS_MESSAGE,
+  PLAN_REQUIRED_MESSAGE,
+  PURCHASE_UNCONFIRMED_MESSAGE,
+  cardMark,
+  isFinalCheckoutAnswer,
+} from "../AddonCardDeck";
+import { parseCheckoutReply } from "@/lib/billing/checkout-return";
+import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
+
+// Review round 8: pending purchase keys are stored per signed-in account.
+const { sessionRef } = vi.hoisted(() => ({
+  sessionRef: {
+    current: {
+      data: { user: { id: "owner-A" } },
+      status: "authenticated",
+    } as unknown,
+  },
+}));
+vi.mock("next-auth/react", () => ({ useSession: () => sessionRef.current }));
+
+const catalog = {
+  addons: [
+    {
+      sku: "VOICE",
+      name: "ElevenLabs Voice",
+      description: "Voiceovers with your own key.",
+      amount: 11,
+      currency: "AUD",
+      interval: "month" as const,
+      perSeat: false,
+    },
+    {
+      sku: "BOOKKEEPING",
+      name: "Bookkeeping",
+      description: "Sync invoices to your books.",
+      amount: 11,
+      currency: "AUD",
+      interval: "month" as const,
+      perSeat: false,
+    },
+    {
+      sku: "AI_COPILOT",
+      name: "Margot AI Co-pilot",
+      description: "An assistant inside the CRM.",
+      amount: 11,
+      currency: "AUD",
+      interval: "month" as const,
+      perSeat: false,
+    },
+  ],
+  owned: ["VOICE"],
+};
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+  // Pending purchase keys persist in localStorage (review round 5).
+  window.localStorage.clear();
+  sessionRef.current = {
+    data: { user: { id: "owner-A" } },
+    status: "authenticated",
+  };
+});
+
+describe("AddonCardDeck (RA-8271)", () => {
+  it("shows every pack as its own card with price, and an owned pack as Active", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => catalog }) as never,
+    );
+    render(<AddonCardDeck />);
+
+    const voice = await screen.findByTestId("addon-card-VOICE");
+    expect(within(voice).getByText("Active")).toBeInTheDocument();
+    expect(
+      within(voice).queryByRole("button", { name: /add pack/i }),
+    ).toBeNull();
+
+    const books = screen.getByTestId("addon-card-BOOKKEEPING");
+    expect(
+      within(books).getByRole("heading", { name: "Bookkeeping" }),
+    ).toBeInTheDocument();
+    expect(within(books).getByText("$11.00 a month")).toBeInTheDocument();
+    expect(
+      within(books).getByRole("button", { name: /add pack/i }),
+    ).toBeInTheDocument();
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("tells a trial owner plainly that packs start with the plan, on the card they pressed", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => catalog })
+        // The checkout route's real refusal for an inactive plan.
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          json: async () => ({
+            error: "Active subscription required to purchase add-ons",
+            upgradeRequired: true,
+          }),
+        }) as never,
+    );
+    render(<AddonCardDeck />);
+
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+
+    const status = await within(books).findByRole("status");
+    expect(status).toHaveTextContent(PLAN_REQUIRED_MESSAGE);
+    expect(status).not.toHaveTextContent(/seat/i);
+    expect(
+      within(status).getByRole("link", { name: "Choose a plan" }),
+    ).toHaveAttribute("href", "/dashboard/subscription");
+    // The message stays on the card that was pressed.
+    expect(
+      within(screen.getByTestId("addon-card-AI_COPILOT")).queryByRole("status"),
+    ).toBeNull();
+  });
+
+  it("shows the server's own reason for any other refusal", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => catalog })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 402,
+          json: async () => ({
+            error: { code: "UNPAID", message: "Pay the open invoice first." },
+          }),
+        }) as never,
+    );
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    expect(await within(books).findByRole("status")).toHaveTextContent(
+      "Pay the open invoice first.",
+    );
+  });
+
+  it("goes to Stripe when checkout returns a link", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => catalog })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ url: "https://checkout.example/s1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock as never);
+    Object.defineProperty(window, "location", {
+      value: { href: "" },
+      writable: true,
+    });
+
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+
+    await waitFor(() =>
+      expect(window.location.href).toBe("https://checkout.example/s1"),
+    );
+    const [, init] = fetchMock.mock.calls[1];
+    expect(JSON.parse(init.body)).toEqual({ addonKey: "BOOKKEEPING" });
+    expect(init.headers["Idempotency-Key"]).toEqual(expect.any(String));
+  });
+
+  it("review r1: a dropped connection never says nothing was bought, and the retry reuses the same key", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => catalog,
+      })
+      // The checkout request may have reached the server; the reply is lost.
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      // The deck re-reads the catalog after the drop.
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => catalog,
+      })
+      // The retry: the server replays the first result for the same key.
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ url: "https://checkout.example/s2" }),
+      });
+    vi.stubGlobal("fetch", fetchMock as never);
+    Object.defineProperty(window, "location", {
+      value: { href: "" },
+      writable: true,
+    });
+
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+
+    const status = await within(books).findByRole("status");
+    expect(status).toHaveTextContent(PURCHASE_UNCONFIRMED_MESSAGE);
+    expect(status).not.toHaveTextContent(/nothing was bought/i);
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([u]) => u === "/api/addons/catalog"),
+      ).toHaveLength(2),
+    );
+
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() =>
+      expect(window.location.href).toBe("https://checkout.example/s2"),
+    );
+    const checkoutCalls = fetchMock.mock.calls.filter(
+      ([u]) => u === "/api/addons/checkout",
+    );
+    expect(checkoutCalls).toHaveLength(2);
+    expect(checkoutCalls[1][1].headers["Idempotency-Key"]).toBe(
+      checkoutCalls[0][1].headers["Idempotency-Key"],
+    );
+  });
+
+  // Review rounds 1 and 2: every reply that does not name an outcome must keep
+  // the key. Each case: press -> "couldn't confirm"; press again -> same key;
+  // a final 402 -> next press gets a new key.
+  const UNKNOWN_OUTCOMES: Array<[string, () => Record<string, unknown>]> = [
+    [
+      "409 still in progress",
+      () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error:
+            "A request with this Idempotency-Key is already in progress. Retry shortly.",
+        }),
+      }),
+    ],
+    [
+      "200 with an unreadable (truncated) body",
+      () => ({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError("Unexpected end of JSON input");
+        },
+      }),
+    ],
+    [
+      "500 server error",
+      () => ({
+        ok: false,
+        status: 500,
+        json: async () => ({
+          error: { code: "INTERNAL", message: "Something went wrong." },
+        }),
+      }),
+    ],
+    [
+      "200 that names no outcome",
+      () => ({ ok: true, status: 200, json: async () => ({}) }),
+    ],
+    [
+      "409 completion could not be verified",
+      () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error:
+            "Request completion could not be verified; check its status before retrying",
+        }),
+      }),
+    ],
+    [
+      "409 key reused with a different body",
+      () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error:
+            "Idempotency-Key reused with a different request body. Use a new key for new requests.",
+        }),
+      }),
+    ],
+  ];
+
+  // Review round 3: the route's own 409s say nothing was bought. They are
+  // final: show the server's reason and release the key, because the
+  // idempotency layer caches them and the same key would replay them for ever.
+  const ROUTE_CONFLICTS = [
+    "Another seat checkout has just started for this business. Please try again.",
+    "This add-on is included free in your Founding Trial, so there is nothing to buy.",
+  ];
+
+  it.each(ROUTE_CONFLICTS)(
+    "review r3: route conflict 409 %s is final",
+    async (message) => {
+      const checkoutReplies = [
+        {
+          ok: false,
+          status: 409,
+          json: async () => ({ error: { code: "CONFLICT", message } }),
+        },
+        {
+          ok: true,
+          status: 200,
+          json: async () => ({ url: "https://checkout.example/s" }),
+        },
+      ];
+      const fetchMock = vi.fn((url: string) =>
+        Promise.resolve(
+          url === "/api/addons/catalog"
+            ? { ok: true, status: 200, json: async () => catalog }
+            : checkoutReplies.shift(),
+        ),
+      );
+      vi.stubGlobal("fetch", fetchMock as never);
+
+      render(<AddonCardDeck />);
+      const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+      const press = () =>
+        fireEvent.click(
+          within(books).getByRole("button", { name: /add pack/i }),
+        );
+      press();
+      const status = await within(books).findByRole("status");
+      expect(status).toHaveTextContent(message);
+      expect(status).not.toHaveTextContent(PURCHASE_UNCONFIRMED_MESSAGE);
+      press();
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout"),
+        ).toHaveLength(2),
+      );
+      const keys = fetchMock.mock.calls
+        .filter(([u]) => u === "/api/addons/checkout")
+        .map(
+          ([, init]) =>
+            (init as { headers: Record<string, string> }).headers[
+              "Idempotency-Key"
+            ],
+        );
+      expect(keys[1]).not.toBe(keys[0]);
+    },
+  );
+
+  it.each(UNKNOWN_OUTCOMES)(
+    "review r2: %s keeps the key and says the result is unknown; a final answer releases it",
+    async (_label, unknownReply) => {
+      const checkoutReplies = [
+        unknownReply(),
+        // Round 4: a rate-limit refusal runs before the key is looked up, so
+        // it says nothing about the first press and must not settle the key.
+        {
+          ok: false,
+          status: 429,
+          json: async () => ({
+            error: "Too many requests. Please try again later.",
+          }),
+        },
+        // The server's stored reply for the key settles it (round 4).
+        {
+          ok: false,
+          status: 402,
+          headers: new Headers({ "Idempotent-Replayed": "true" }),
+          json: async () => ({
+            error: { code: "UNPAID", message: "Pay the open invoice first." },
+          }),
+        },
+        {
+          ok: false,
+          status: 402,
+          json: async () => ({
+            error: { code: "UNPAID", message: "Pay the open invoice first." },
+          }),
+        },
+      ];
+      const fetchMock = vi.fn((url: string) =>
+        Promise.resolve(
+          url === "/api/addons/catalog"
+            ? { ok: true, status: 200, json: async () => catalog }
+            : checkoutReplies.shift(),
+        ),
+      );
+      vi.stubGlobal("fetch", fetchMock as never);
+
+      render(<AddonCardDeck />);
+      const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+      const press = () =>
+        fireEvent.click(
+          within(books).getByRole("button", { name: /add pack/i }),
+        );
+
+      press();
+      const status = await within(books).findByRole("status");
+      expect(status).toHaveTextContent(PURCHASE_UNCONFIRMED_MESSAGE);
+      expect(status).not.toHaveTextContent(/try again\.$/i);
+      press();
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout"),
+        ).toHaveLength(2),
+      );
+      expect(
+        await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+      ).toBeInTheDocument();
+      press();
+      expect(
+        await within(books).findByText(/Pay the open invoice first/),
+      ).toBeInTheDocument();
+      press();
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout"),
+        ).toHaveLength(4),
+      );
+      const keys = fetchMock.mock.calls
+        .filter(([u]) => u === "/api/addons/checkout")
+        .map(
+          ([, init]) =>
+            (init as { headers: Record<string, string> }).headers[
+              "Idempotency-Key"
+            ],
+        );
+      expect(keys[1]).toBe(keys[0]); // the unknown outcome was not an answer
+      expect(keys[2]).toBe(keys[0]); // nor was the fresh 429
+      expect(keys[3]).not.toBe(keys[2]); // the stored 402 was
+      // The catalog was re-read after the unknown outcome.
+      expect(
+        fetchMock.mock.calls.filter(([u]) => u === "/api/addons/catalog")
+          .length,
+      ).toBeGreaterThanOrEqual(2);
+    },
+  );
+
+  // Review round 4: after an unknown outcome, a refusal from a check the route
+  // runs before it looks up the key (rate limit, owner check) says nothing
+  // about the earlier press. Only the server's stored reply settles the key.
+  it("review r4: after an unknown outcome, fresh refusals keep the key; the stored reply releases it", async () => {
+    const replayed = new Headers({ "Idempotent-Replayed": "true" });
+    const checkoutReplies: Array<Record<string, unknown> | Error> = [
+      new TypeError("Failed to fetch"),
+      {
+        ok: false,
+        status: 429,
+        json: async () => ({
+          error: "Too many requests. Please try again later.",
+        }),
+      },
+      {
+        ok: false,
+        status: 403,
+        json: async () => ({
+          error: {
+            code: "FORBIDDEN",
+            message: "Billing is managed by your business owner.",
+          },
+        }),
+      },
+      {
+        ok: false,
+        status: 402,
+        headers: replayed,
+        json: async () => ({
+          error: { code: "UNPAID", message: "Pay the open invoice first." },
+        }),
+      },
+      {
+        ok: true,
+        status: 200,
+        json: async () => ({ url: "https://checkout.example/s" }),
+      },
+    ];
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/addons/catalog") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => catalog,
+        });
+      }
+      const next = checkoutReplies.shift();
+      return next instanceof Error
+        ? Promise.reject(next)
+        : Promise.resolve(next);
+    });
+    vi.stubGlobal("fetch", fetchMock as never);
+
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    const press = () =>
+      fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    const checkoutCalls = () =>
+      fetchMock.mock.calls.filter(([u]) => u === "/api/addons/checkout");
+
+    for (let n = 1; n <= 3; n += 1) {
+      press();
+      await waitFor(() => expect(checkoutCalls()).toHaveLength(n));
+      expect(
+        await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+      ).toBeInTheDocument();
+    }
+    press();
+    expect(
+      await within(books).findByText(/Pay the open invoice first/),
+    ).toBeInTheDocument();
+    press();
+    await waitFor(() => expect(checkoutCalls()).toHaveLength(5));
+    const keys = checkoutCalls().map(
+      ([, init]) =>
+        (init as { headers: Record<string, string> }).headers[
+          "Idempotency-Key"
+        ],
+    );
+    // Lost reply, 429 and owner-check 403 all kept the key; the stored 402 settled it.
+    expect(new Set(keys.slice(0, 4)).size).toBe(1);
+    expect(keys[4]).not.toBe(keys[0]);
+  });
+
+  // Review round 5: the key must outlive the deck. The setup wizard unmounts
+  // it on Next/Back, and the page can reload, while an outcome is unknown.
+  function stubCheckout(replies: Array<Record<string, unknown> | Error>) {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/addons/catalog") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => catalog,
+        });
+      }
+      const next = replies.shift();
+      return next instanceof Error
+        ? Promise.reject(next)
+        : Promise.resolve(next);
+    });
+    vi.stubGlobal("fetch", fetchMock as never);
+    return fetchMock;
+  }
+  const checkoutKeys = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls
+      .filter(([u]) => u === "/api/addons/checkout")
+      .map(
+        ([, init]) =>
+          (init as { headers: Record<string, string> }).headers[
+            "Idempotency-Key"
+          ],
+      );
+  const STORED = "restoreassist:addon-checkout-key:owner-A:BOOKKEEPING";
+  const redirectReply = () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ url: "https://checkout.example/s" }),
+  });
+
+  it("review r5: leaving the step and coming back reuses the unresolved key", async () => {
+    const fetchMock = stubCheckout([
+      new TypeError("Failed to fetch"),
+      redirectReply(),
+    ]);
+    const first = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    expect(
+      await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+    first.unmount(); // the wizard moves to another step
+
+    render(<AddonCardDeck />); // and back
+    books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(2));
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[1]).toBe(keys[0]);
+    // The success settled it: nothing left in storage.
+    await waitFor(() => expect(window.localStorage.getItem(STORED)).toBeNull());
+  });
+
+  it("review r5: a reload (storage only) reuses the unresolved key, however old", async () => {
+    window.localStorage.setItem(
+      STORED,
+      JSON.stringify({
+        key: "key-from-before-reload",
+        unresolved: true,
+        savedAt: Date.now(),
+      }),
+    );
+    let fetchMock = stubCheckout([redirectReply()]);
+    const view = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() =>
+      expect(checkoutKeys(fetchMock)).toEqual(["key-from-before-reload"]),
+    );
+    view.unmount();
+
+    // Review round 7: age never turns an unresolved key into a new purchase.
+    // The server replays a completed reply for 24 hours after completion, so
+    // a key dropped at 23 hours could buy twice; past the server's expiry,
+    // reusing the old key runs once, exactly as a new key would.
+    for (const hours of [23.5, 25, 24 * 7]) {
+      const old = `key-from-${hours}-hours-ago`;
+      window.localStorage.setItem(
+        STORED,
+        JSON.stringify({
+          key: old,
+          unresolved: true,
+          savedAt: Date.now() - hours * 60 * 60 * 1000,
+        }),
+      );
+      fetchMock = stubCheckout([redirectReply()]);
+      const again = render(<AddonCardDeck />);
+      books = await screen.findByTestId("addon-card-BOOKKEEPING");
+      fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+      await waitFor(() => expect(checkoutKeys(fetchMock)).toEqual([old]));
+      again.unmount();
+    }
+  });
+
+  it("review r5: the key is stored as unresolved before the reply arrives", async () => {
+    let answer: (value: unknown) => void = () => {};
+    const fetchMock = vi.fn((url: string) =>
+      url === "/api/addons/catalog"
+        ? Promise.resolve({ ok: true, status: 200, json: async () => catalog })
+        : new Promise((resolve) => {
+            answer = resolve;
+          }),
+    );
+    vi.stubGlobal("fetch", fetchMock as never);
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
+    const stored = JSON.parse(window.localStorage.getItem(STORED) ?? "null");
+    expect(stored).toMatchObject({
+      key: checkoutKeys(fetchMock)[0],
+      unresolved: true,
+    });
+    answer({
+      ok: false,
+      status: 402,
+      json: async () => ({
+        error: { code: "UNPAID", message: "Pay the open invoice first." },
+      }),
+    });
+    expect(
+      await within(books).findByText(/Pay the open invoice first/),
+    ).toBeInTheDocument();
+    expect(window.localStorage.getItem(STORED)).toBeNull();
+  });
+
+  // Review round 6: a press that outlived its deck must not clear the key a
+  // newer, still-unresolved press with the same key needs.
+  it("review r6: a late reply from an unmounted press keeps the newer press's key", async () => {
+    let answerFirst: (value: unknown) => void = () => {};
+    const laterReplies: Array<Record<string, unknown>> = [
+      {
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error:
+            "A request with this Idempotency-Key is already in progress. Retry shortly.",
+        }),
+      },
+      {
+        ok: true,
+        status: 200,
+        headers: new Headers({ "Idempotent-Replayed": "true" }),
+        json: async () => ({ updated: true, seats: 2 }),
+      },
+    ];
+    let checkoutCount = 0;
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/addons/catalog") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => catalog,
+        });
+      }
+      checkoutCount += 1;
+      if (checkoutCount === 1) {
+        return new Promise((resolve) => {
+          answerFirst = resolve;
+        });
+      }
+      return Promise.resolve(laterReplies.shift());
+    });
+    vi.stubGlobal("fetch", fetchMock as never);
+
+    // Press 1 goes out, then the wizard leaves the step mid-request.
+    const first = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
+    first.unmount();
+
+    // Back on the step, press 2 reuses the key and hears "still in progress".
+    render(<AddonCardDeck />);
+    books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    expect(
+      await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+
+    // Press 1's final answer arrives late, for a deck that is gone.
+    answerFirst({
+      ok: true,
+      status: 200,
+      json: async () => ({ updated: true, seats: 2 }),
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(window.localStorage.getItem(STORED)).not.toBeNull();
+
+    // Press 3 still carries the same key, and the stored reply settles it.
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    expect(
+      await within(books).findByText(/You now have 2 field technician seats/),
+    ).toBeInTheDocument();
+    const keys = checkoutKeys(fetchMock);
+    expect(keys).toHaveLength(3);
+    expect(new Set(keys).size).toBe(1);
+    expect(window.localStorage.getItem(STORED)).toBeNull();
+  });
+
+  it("review r8: another account's answer on this browser keeps the first account's key", async () => {
+    const replayed402 = {
+      ok: false,
+      status: 402,
+      headers: new Headers({ "Idempotent-Replayed": "true" }),
+      json: async () => ({
+        error: { code: "UNPAID", message: "Pay the open invoice first." },
+      }),
+    };
+    const fresh402 = { ...replayed402, headers: new Headers() };
+    const fetchMock = stubCheckout([
+      new TypeError("Failed to fetch"), // A: reply lost
+      fresh402, // B: first press
+      replayed402, // B: settled
+      redirectReply(), // A again
+    ]);
+    const press = async (n: number) => {
+      const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+      fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+      await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(n));
+    };
+
+    const a = render(<AddonCardDeck />);
+    await press(1);
+    expect(
+      await screen.findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+    a.unmount();
+
+    sessionRef.current = {
+      data: { user: { id: "owner-B" } },
+      status: "authenticated",
+    };
+    const b = render(<AddonCardDeck />);
+    await press(2);
+    await press(3);
+    expect(
+      await screen.findByText(/Pay the open invoice first/),
+    ).toBeInTheDocument();
+    b.unmount();
+
+    sessionRef.current = {
+      data: { user: { id: "owner-A" } },
+      status: "authenticated",
+    };
+    render(<AddonCardDeck />);
+    await press(4);
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[3]).toBe(keys[0]); // A's unresolved key survived B
+    expect(keys[1]).not.toBe(keys[0]); // B never used A's key
+  });
+
+  it("review r8: no purchase starts before the signed-in account is known", async () => {
+    sessionRef.current = { data: null, status: "loading" };
+    const fetchMock = stubCheckout([redirectReply()]);
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    const button = within(books).getByRole("button", { name: /add pack/i });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(checkoutKeys(fetchMock)).toHaveLength(0);
+  });
+
+  // Review round 9: storage that reads but refuses writes (quota, read-only).
+  it("review r9: when storage refuses writes, a lost reply still reuses the key", async () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const fetchMock = stubCheckout([
+      new TypeError("Failed to fetch"),
+      redirectReply(),
+    ]);
+    const first = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    expect(
+      await within(books).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+    first.unmount();
+    render(<AddonCardDeck />);
+    books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(2));
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  // Review round 10: an older readable entry plus storage that refuses writes.
+  it("review r10: with an old stored entry and writes refused, a final reply still frees the key", async () => {
+    window.localStorage.setItem(
+      STORED,
+      JSON.stringify({
+        key: "old-key",
+        unresolved: true,
+        attempt: "old-attempt",
+      }),
+    );
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const fetchMock = stubCheckout([redirectReply(), redirectReply()]);
+    const first = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 0)); // let the final reply settle
+    first.unmount();
+    render(<AddonCardDeck />);
+    books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(2));
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[0]).toBe("old-key"); // the unresolved purchase is retried first
+    expect(keys[1]).not.toBe("old-key"); // then a new purchase gets a new key
+  });
+
+  it("review r10: storage that refuses one write and then recovers does not pin an old key", async () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const fetchMock = stubCheckout([
+      new TypeError("Failed to fetch"),
+      redirectReply(),
+      redirectReply(),
+    ]);
+    const press = async (count: number) => {
+      const view = render(<AddonCardDeck />);
+      const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+      fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+      await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(count));
+      await new Promise((r) => setTimeout(r, 0));
+      view.unmount();
+    };
+    await press(1); // lost reply; the key lives only in memory
+    await press(2); // storage works again; the same key is retried and settles
+    await press(3); // a new purchase
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  // RA-8271 server-side guard: a seat pack sends the seat count the page
+  // shows, and every retry with the same key sends the same count.
+  const seatCatalog = (purchased: number) => ({
+    addons: [
+      ...catalog.addons,
+      {
+        sku: "TECHNICIAN_SEATS",
+        name: "Field technician seats",
+        description: "One seat per field technician.",
+        amount: 9,
+        currency: "AUD",
+        interval: "month" as const,
+        perSeat: true,
+      },
+    ],
+    owned: ["VOICE", "TECHNICIAN_SEATS"],
+    technicianSeats: { purchased, used: 1 },
+  });
+  const sentBodies = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls
+      .filter(([u]) => u === "/api/addons/checkout")
+      .map(([, init]) => JSON.parse((init as { body: string }).body));
+
+  it("RA-8271: a seat press sends the shown count; a retry with the same key sends the same count", async () => {
+    let purchased = 2;
+    const replies: Array<Record<string, unknown> | Error> = [
+      new TypeError("Failed to fetch"),
+      // The same key gets the server's stored reply for the first press.
+      {
+        ok: true,
+        status: 200,
+        headers: new Headers({ "Idempotent-Replayed": "true" }),
+        json: async () => ({ updated: true, seats: 3 }),
+      },
+    ];
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/addons/catalog") {
+        const body = seatCatalog(purchased);
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => body,
+        });
+      }
+      // The first press did add the seat before its reply was lost.
+      purchased = 3;
+      const next = replies.shift();
+      return next instanceof Error
+        ? Promise.reject(next)
+        : Promise.resolve(next);
+    });
+    vi.stubGlobal("fetch", fetchMock as never);
+
+    render(<AddonCardDeck />);
+    const card = await screen.findByTestId("addon-card-TECHNICIAN_SEATS");
+    fireEvent.click(within(card).getByRole("button", { name: /add a seat/i }));
+    expect(
+      await within(card).findByText(PURCHASE_UNCONFIRMED_MESSAGE),
+    ).toBeInTheDocument();
+    fireEvent.click(within(card).getByRole("button", { name: /add a seat/i }));
+    expect(
+      await within(card).findByText(/You now have 3 field technician seats/),
+    ).toBeInTheDocument();
+
+    const bodies = sentBodies(fetchMock);
+    expect(bodies).toEqual([
+      { addonKey: "TECHNICIAN_SEATS", expectedSeats: 2 },
+      { addonKey: "TECHNICIAN_SEATS", expectedSeats: 2 }, // same body as the first press
+    ]);
+    // The catalogue was re-read after the lost reply.
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([u]) => u === "/api/addons/catalog")
+          .length,
+      ).toBeGreaterThanOrEqual(2),
+    );
+  });
+
+  it("RA-8271: the server's 'nothing was charged' answer is shown and the count is re-read", async () => {
+    const message =
+      "Your business already has 3 field technician seats. Nothing was charged. Check the count, then add another seat if you still need one.";
+    const replies = [
+      {
+        ok: false,
+        status: 409,
+        json: async () => ({ error: { code: "CONFLICT", message } }),
+      },
+    ];
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(
+        url === "/api/addons/catalog"
+          ? { ok: true, status: 200, json: async () => seatCatalog(2) }
+          : replies.shift(),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock as never);
+    render(<AddonCardDeck />);
+    const card = await screen.findByTestId("addon-card-TECHNICIAN_SEATS");
+    fireEvent.click(within(card).getByRole("button", { name: /add a seat/i }));
+    expect(
+      await within(card).findByText(/Nothing was charged/),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([u]) => u === "/api/addons/catalog"),
+      ).toHaveLength(2),
+    );
+    expect(
+      window.localStorage.getItem(
+        "restoreassist:addon-checkout-key:owner-A:TECHNICIAN_SEATS",
+      ),
+    ).toBeNull();
+  });
+
+  it("RA-8271: a flat pack sends no seat count", async () => {
+    const fetchMock = stubCheckout([redirectReply()]);
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
+    expect(sentBodies(fetchMock)).toEqual([{ addonKey: "BOOKKEEPING" }]);
+  });
+
+  it("review r2: isFinalCheckoutAnswer releases the key only for a readable reply that names an outcome", () => {
+    const final = (status: number, body: unknown) =>
+      isFinalCheckoutAnswer(status, body, parseCheckoutReply(status, body));
+    // Final
+    expect(final(200, { url: "https://checkout.example/s" })).toBe(true);
+    expect(final(200, { updated: true, seats: 2 })).toBe(true);
+    expect(
+      final(403, {
+        error: "Active subscription required to purchase add-ons",
+        upgradeRequired: true,
+      }),
+    ).toBe(true);
+    expect(final(402, { error: { message: "Pay first." } })).toBe(true);
+    expect(
+      final(409, { error: "Use the portal.", portalRequired: true, url: null }),
+    ).toBe(true);
+    expect(final(400, { error: { message: "Invalid add-on" } })).toBe(true);
+    // Not final
+    expect(final(200, null)).toBe(false);
+    expect(final(200, {})).toBe(false);
+    expect(final(200, "ok")).toBe(false);
+    expect(
+      final(409, {
+        error: {
+          code: "CONFLICT",
+          message: "Another seat checkout has just started.",
+        },
+      }),
+    ).toBe(true);
+    expect(final(409, { error: "already in progress" })).toBe(false);
+    expect(
+      final(409, { error: "Request completion could not be verified" }),
+    ).toBe(false);
+    expect(final(409, { error: { code: "INTERNAL", message: "x" } })).toBe(
+      false,
+    );
+    expect(final(409, { error: null })).toBe(false);
+    // Round 4: once a key is unresolved, only a success or the stored reply settles it.
+    const settles = (status: number, body: unknown, replayed: boolean) =>
+      isFinalCheckoutAnswer(status, body, parseCheckoutReply(status, body), {
+        unresolved: true,
+        replayed,
+      });
+    expect(
+      settles(
+        429,
+        { error: "Too many requests. Please try again later." },
+        false,
+      ),
+    ).toBe(false);
+    expect(
+      settles(403, { error: { code: "FORBIDDEN", message: "x" } }, false),
+    ).toBe(false);
+    expect(
+      settles(
+        401,
+        { error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
+        false,
+      ),
+    ).toBe(false);
+    expect(settles(402, { error: { message: "Pay first." } }, true)).toBe(true);
+    expect(
+      settles(409, { error: { code: "CONFLICT", message: "free" } }, true),
+    ).toBe(true);
+    expect(settles(200, { url: "https://checkout.example/s" }, false)).toBe(
+      true,
+    );
+    expect(settles(500, { error: { message: "boom" } }, true)).toBe(false);
+    expect(settles(409, { error: "already in progress" }, true)).toBe(false);
+    // A first press (nothing unresolved) is settled by a fresh refusal.
+    expect(
+      final(429, { error: "Too many requests. Please try again later." }),
+    ).toBe(true);
+    expect(final(500, { error: { message: "boom" } })).toBe(false);
+    expect(final(502, null)).toBe(false);
+    expect(final(403, null)).toBe(false);
+  });
+
+  it("review r1: in the iOS app the deck shows no prices, buttons or links, and loads nothing", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock as never);
+    render(
+      <ShellPlatformProvider isIosShell>
+        <AddonCardDeck />
+      </ShellPlatformProvider>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(IOS_ADDONS_MESSAGE);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByText(/\$/)).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("gives every pack in the registry its own card mark", async () => {
+    const { RECURRING_ADDONS } = await import("@/lib/billing/addon-registry");
+    for (const addon of Object.values(RECURRING_ADDONS)) {
+      const mark = cardMark(addon.sku, addon.name);
+      // A fallback is the first letter of the name; a real mark is a symbol.
+      expect(mark, addon.sku).not.toBe(
+        addon.name.trim().charAt(0).toUpperCase(),
+      );
+    }
+  });
+});

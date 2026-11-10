@@ -19,6 +19,7 @@ vi.mock("../BrandCard", () => ({ BrandCard: () => <div>BRAND_BODY</div> }));
 vi.mock("../PricingCard", () => ({ PricingCard: () => <div>PRICING_BODY</div> }));
 vi.mock("../IntegrationsCard", () => ({ IntegrationsCard: () => <div>INTEG_BODY</div> }));
 vi.mock("../FeatureHealthCard", () => ({ FeatureHealthCard: () => <div>HEALTH_BODY</div> }));
+vi.mock("@/components/addons/AddonCardDeck", () => ({ AddonCardDeck: () => <div>ADDON_DECK_BODY</div> }));
 
 const storeState = { org: null as Record<string, unknown> | null, setOrg: vi.fn(), setSectionStatus: vi.fn() };
 vi.mock("../store", () => ({
@@ -85,10 +86,10 @@ describe("SetupShell — Skip setup for now (RA-7427)", () => {
     assign.mockImplementation(() => order.push("navigate"));
 
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 7/);
+    await screen.findByText(/Step 1 of 8/);
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     expect(
-      await screen.findByText(/Step 2 of 7: Trial report generation is not ready/),
+      await screen.findByText(/Step 2 of 8: Trial report generation is not ready/),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^next$/i })).not.toBeDisabled();
@@ -116,12 +117,12 @@ describe("SetupShell — Skip setup for now (RA-7427)", () => {
     );
 
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 7/);
+    await screen.findByText(/Step 1 of 8/);
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^next$/i })).toBeDisabled();
     });
-    expect(screen.getByText(/Step 2 of 7: Add your AI key/)).toBeInTheDocument();
+    expect(screen.getByText(/Step 2 of 8: Add your AI key/)).toBeInTheDocument();
     expect(screen.getByText(/complete this step to continue/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /skip setup for now/i }));
@@ -134,7 +135,7 @@ describe("SetupShell — Skip setup for now (RA-7427)", () => {
   it("treats 409 'already activated' as success", async () => {
     stubFetch(() => ({ ok: false, status: 409, json: async () => ({ error: { code: "CONFLICT" } }) }));
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 7/);
+    await screen.findByText(/Step 1 of 8/);
     fireEvent.click(screen.getByRole("button", { name: /skip setup for now/i }));
     await waitFor(() => expect(assign).toHaveBeenCalledWith("/dashboard"));
   });
@@ -142,7 +143,7 @@ describe("SetupShell — Skip setup for now (RA-7427)", () => {
   it("surfaces a server refusal in place and does not navigate", async () => {
     stubFetch(() => ({ ok: false, status: 500, json: async () => ({ error: { message: "boom" } }) }));
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 7/);
+    await screen.findByText(/Step 1 of 8/);
     fireEvent.click(screen.getByRole("button", { name: /skip setup for now/i }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(assign).not.toHaveBeenCalled();

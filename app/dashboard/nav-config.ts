@@ -11,6 +11,7 @@ import {
   CalendarDays,
   ScrollText,
   Inbox,
+  Package,
 } from "lucide-react";
 
 /**
@@ -108,9 +109,51 @@ export const simpleNavItems: NavItem[] = [
   { icon: HelpCircle, label: "Help", href: "/dashboard/help" },
 ];
 
-/** Simple-mode sidebar — optional manager inbox appended by the shell. */
-export function buildSimpleNavItems(options?: { isManager?: boolean }): NavItem[] {
+/**
+ * RA-8271 — the side-panel tab for the optional packs. RestoreAssist is the
+ * CRM; the packs add field and admin features on top. Before this tab, the
+ * packs were only reachable in Advanced mode, and every new owner starts in
+ * Simple mode, so a new owner never saw them.
+ */
+export const FIELD_ADDONS_NAV_ITEM: NavItem = {
+  icon: Package,
+  label: "Field Add-Ons",
+  href: "/dashboard/addons",
+};
+
+/**
+ * Whether the Field Add-Ons tab shows: the business owner only (managers
+ * and technicians never buy packs), and never in the iOS app, which hides
+ * every purchase surface (Apple 3.1.1).
+ */
+export function fieldAddonsTabVisible(input: {
+  role: string | null | undefined;
+  hideBillingNav: boolean;
+}): boolean {
+  if (input.hideBillingNav) return false;
+  // The page is ADMIN-only (lib/auth/dashboard-page-access.ts); a tab that
+  // opened onto a refusal would be worse than no tab.
+  return input.role === "ADMIN";
+}
+
+/**
+ * Simple-mode sidebar — optional manager inbox appended by the shell.
+ *
+ * `showFieldAddons` is decided by the shell from the same rule as the
+ * Subscription link: the business owner only, and never in the iOS app
+ * (Apple 3.1.1). The page itself is owner-only (dashboard-page-access.ts).
+ */
+export function buildSimpleNavItems(options?: {
+  isManager?: boolean;
+  showFieldAddons?: boolean;
+}): NavItem[] {
   const items: NavItem[] = [...simpleNavItems];
+  if (options?.showFieldAddons) {
+    // Straight after Invoices, above Account & Billing, so it reads as part of
+    // the product rather than a billing setting.
+    const at = items.findIndex((i) => i.href === "/dashboard/subscription");
+    items.splice(at === -1 ? items.length : at, 0, FIELD_ADDONS_NAV_ITEM);
+  }
   if (options?.isManager) {
     for (const extra of MANAGER_NAV_HREFS) {
       if (!items.some((i) => i.href === extra.href)) {
@@ -231,6 +274,7 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/interviews": "Insights",
     // Setup — Team, Integrations, Pricing Configuration, Settings (+ Feedback,
     // Tutorials, Help)
+    "/dashboard/addons": "Setup",
     "/dashboard/team": "Setup",
     "/dashboard/contractors": "Setup",
     "/dashboard/integrations": "Setup",

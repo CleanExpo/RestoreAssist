@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       let parsedBody: {
         addonKey?: string;
         quantity?: number;
+        expectedSeats?: unknown;
         returnTo?: unknown;
         addingTechnician?: unknown;
       } = {};
@@ -95,6 +96,26 @@ export async function POST(request: NextRequest) {
         return apiError(request, {
           code: "VALIDATION",
           message: "Add-on key is required",
+          status: 400,
+        });
+      }
+
+      // RA-8271: the seat count the buyer's page last showed. When present, a
+      // seat is added only while Stripe still holds that count (see the
+      // in-place raise below). Optional: callers that omit it keep today's
+      // behaviour.
+      const expectedSeats = parsedBody.expectedSeats;
+      if (
+        expectedSeats !== undefined &&
+        !(
+          typeof expectedSeats === "number" &&
+          Number.isInteger(expectedSeats) &&
+          expectedSeats >= 0
+        )
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Expected seat count must be a whole number of 0 or more",
           status: 400,
         });
       }
@@ -305,7 +326,19 @@ export async function POST(request: NextRequest) {
               if (live && !item)
                 throw new Error("Seat subscription has no line item");
               if (live && item) {
-                const seats = (item.quantity ?? 0) + quantity;
+                // RA-8271: a repeated press (its first reply lost, sent again
+                // with a new Idempotency-Key) still carries the count the buyer
+                // saw before the first seat was added. Stripe already holds
+                // more, so nothing is charged and the buyer is told the count.
+                const current = item.quantity ?? 0;
+                if (expectedSeats !== undefined && current !== expectedSeats) {
+                  return apiError(request, {
+                    code: "CONFLICT",
+                    message: `Your business already has ${current} field technician seat${current === 1 ? "" : "s"}. Nothing was charged. Check the count, then add another seat if you still need one.`,
+                    status: 409,
+                  });
+                }
+                const seats = current + quantity;
                 const requestKey = getIdempotencyKey(request);
                 await stripe.subscriptions.update(
                   seatSubscription.id,
