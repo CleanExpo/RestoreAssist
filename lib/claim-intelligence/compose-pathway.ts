@@ -714,7 +714,7 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
     // boundaries, scope with drying, completion at drying goal) get dry
     // wording on a job with no water, and lose the moisture reading.
     const dryText =
-      dryTemplate && WATER_ALERT.test(step.stepDescription)
+      dryTemplate && DRY_TRIGGER.test(step.stepDescription)
         ? DRY_STEP_TEXT[step.stepKey]
         : undefined;
     const allReq = step.requiredEvidenceClasses;
@@ -847,6 +847,12 @@ const WATER_ALERT =
  * Used only when the pathway has no water and the claim is not mould, and
  * only when the step's own description carries water wording.
  */
+/** Water wording in a shared step description, including plain "water" and "wet". */
+const DRY_TRIGGER = new RegExp(
+  `${WATER_ALERT.source}|\\bwater\\b|\\bwet\\b`,
+  "i",
+);
+
 const DRY_STEP_TEXT: Record<string, { description: string; short: string }> = {
   floor_plan_sketch: {
     description:
@@ -862,6 +868,21 @@ const DRY_STEP_TEXT: Record<string, { description: string; short: string }> = {
     description:
       "Photograph restored areas showing the completion standard, record the final result of every test taken during the works, and obtain client sign-off on completed works.",
     short: "Completion photos, final test results and client sign-off.",
+  },
+  structural_assessment: {
+    description:
+      "Assess structural integrity of affected areas. Check for sagging ceilings, warped or charred framing, foundation cracks and damaged bearers/joists. If structural compromise is suspected, recommend structural engineer. Document all observations with photos and measurements.",
+    short: "Check structure + refer engineer if compromised.",
+  },
+  make_safe_actions: {
+    description:
+      "Perform immediate stabilisation (make-safe): isolate electrical where wiring is damaged, board up broken windows/doors, tarp damaged roof areas, remove trip hazards. Photograph before AND after each stabilisation action.",
+    short: "Isolate hazards + secure openings + before/after photos.",
+  },
+  strata_common_areas: {
+    description:
+      "Inspect common areas (corridors, stairwells, basement) and adjacent lots for spread of the damage. Record which lots are affected and contact strata manager. Document common property vs lot property boundaries.",
+    short: "Common areas + adjacent lots + strata boundary docs.",
   },
   contamination_assessment: {
     description:

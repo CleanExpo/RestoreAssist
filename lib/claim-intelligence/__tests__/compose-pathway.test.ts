@@ -518,3 +518,87 @@ describe("RA-8276 round 4: equipment steps follow the job", () => {
     expect(ids).not.toContain("workflow.equipment_setup");
   });
 });
+
+/**
+ * RA-8276 review round 5: plain "water" and "wet" wording (extract standing
+ * water, water-damaged joists, water migration) reached dry pathways. This
+ * walks every text a dry pathway can produce, for every claim type, hazard
+ * mix and property variant, and allows only the named phrases below.
+ */
+describe("RA-8276: every text on a dry pathway is free of water instructions", () => {
+  const WATERISH =
+    /\bwater|\bwet\b|wetted|flood|\bdamp|extract|leak|moist|\bdrying\b|dehumid|psychro|dew point|S500/i;
+  /** Legitimate on a dry job: questions about water, residue names, the asbestos note. */
+  const ALLOWED = [
+    /\(water, mould, fire or smoke, biohazard\)/g,
+    /Water, mould, smoke and biohazards/g,
+    /whether water entered the building/gi,
+    /Water entry adds the water damage steps/g,
+    /Whether water got inside the building/g,
+    /dry smoke, wet smoke/g,
+    /dry chemical sponge/g,
+    /Fire and water damage can turn bonded asbestos friable/g,
+  ];
+  /** A mould hazard keeps its moisture wording: the moisture source is part of mould work. */
+  const MOULD_ALLOWED = /moisture/gi;
+  const flags = [
+    "biohazard",
+    "chemical",
+    "asbestos",
+    "unoccupiedAtLoss",
+    "fireSmoke",
+  ] as const;
+  const PROPS: ClaimFacts["property"][] = [
+    {},
+    {
+      storeys: 2,
+      buildYear: 1990,
+      furnished: true,
+      hvacType: "ducted",
+      hvacRanSinceLoss: true,
+      ceilingHeightM: 2.7,
+      state: "NSW",
+    },
+  ];
+
+  it("finds no water instruction on any dry, non-mould claim", () => {
+    const leaks = new Set<string>();
+    let checked = 0;
+    for (const claimType of JOB_TYPES) {
+      if (claimType === "MOULD") continue;
+      for (let m = 0; m < 1 << flags.length; m++) {
+        for (const mould of [null, 3] as const) {
+          for (const property of PROPS) {
+            const hazards: NonNullable<ClaimFacts["hazards"]> = {
+              mouldCondition: mould,
+            };
+            flags.forEach((f, i) => {
+              if (m & (1 << i)) hazards[f] = true;
+            });
+            const p = composePathway({ claimType, hazards, property });
+            if (p.waterPresent) continue;
+            checked++;
+            const texts: [string, string][] = [
+              ...p.techPathway.map((i): [string, string] => [
+                i.id,
+                itemText(i),
+              ]),
+              ...Object.entries(p.customerBrief).flatMap(([k, v]) =>
+                v.lines.map((l: string): [string, string] => [`brief.${k}`, l]),
+              ),
+            ];
+            for (const [id, raw] of texts) {
+              let txt = raw;
+              for (const a of ALLOWED) txt = txt.replace(a, "");
+              if (mould != null) txt = txt.replace(MOULD_ALLOWED, "");
+              const hit = txt.match(WATERISH);
+              if (hit) leaks.add(`${claimType} ${id}: ${hit[0]}`);
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(500);
+    expect([...leaks].sort()).toEqual([]);
+  });
+});
