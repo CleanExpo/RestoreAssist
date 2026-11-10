@@ -576,7 +576,7 @@ describe("AddonCardDeck (RA-8271)", () => {
     await waitFor(() => expect(window.localStorage.getItem(STORED)).toBeNull());
   });
 
-  it("review r5: a reload (storage only) reuses the unresolved key; a stale one is ignored", async () => {
+  it("review r5: a reload (storage only) reuses the unresolved key, however old", async () => {
     window.localStorage.setItem(
       STORED,
       JSON.stringify({
@@ -594,20 +594,27 @@ describe("AddonCardDeck (RA-8271)", () => {
     );
     view.unmount();
 
-    window.localStorage.setItem(
-      STORED,
-      JSON.stringify({
-        key: "key-from-yesterday",
-        unresolved: true,
-        savedAt: Date.now() - 25 * 60 * 60 * 1000,
-      }),
-    );
-    fetchMock = stubCheckout([redirectReply()]);
-    render(<AddonCardDeck />);
-    books = await screen.findByTestId("addon-card-BOOKKEEPING");
-    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
-    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
-    expect(checkoutKeys(fetchMock)[0]).not.toBe("key-from-yesterday");
+    // Review round 7: age never turns an unresolved key into a new purchase.
+    // The server replays a completed reply for 24 hours after completion, so
+    // a key dropped at 23 hours could buy twice; past the server's expiry,
+    // reusing the old key runs once, exactly as a new key would.
+    for (const hours of [23.5, 25, 24 * 7]) {
+      const old = `key-from-${hours}-hours-ago`;
+      window.localStorage.setItem(
+        STORED,
+        JSON.stringify({
+          key: old,
+          unresolved: true,
+          savedAt: Date.now() - hours * 60 * 60 * 1000,
+        }),
+      );
+      fetchMock = stubCheckout([redirectReply()]);
+      const again = render(<AddonCardDeck />);
+      books = await screen.findByTestId("addon-card-BOOKKEEPING");
+      fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+      await waitFor(() => expect(checkoutKeys(fetchMock)).toEqual([old]));
+      again.unmount();
+    }
   });
 
   it("review r5: the key is stored as unresolved before the reply arrives", async () => {

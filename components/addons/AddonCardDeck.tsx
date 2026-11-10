@@ -173,7 +173,10 @@ export function isFinalCheckoutAnswer(
  * Not scoped per account: the server scopes every key to the signed-in user
  * (withIdempotency(request, userId)), so a key left by another account on
  * this browser can never replay that account's outcome; it simply runs once.
- * Entries older than 23 hours are ignored: the server keeps a key for 24.
+ * Review round 7: an entry never expires on the client. The server replays a
+ * completed reply for 24 hours after completion, so dropping a key on age
+ * could buy twice; once the server's record has expired, reusing the old key
+ * runs the request once, exactly as a new key would. Reuse is never worse.
  *
  * Review round 6: each press stamps the entry with its own `attempt` id, and
  * a press clears the entry only while the stamp is still its own. A press
@@ -184,12 +187,10 @@ export function isFinalCheckoutAnswer(
 type PendingKey = {
   key: string;
   unresolved: boolean;
-  savedAt: number;
   attempt: string;
 };
 
 const PENDING_KEY_PREFIX = "restoreassist:addon-checkout-key:";
-const PENDING_KEY_MAX_AGE_MS = 23 * 60 * 60 * 1000;
 const memoryPendingKeys = new Map<string, PendingKey>();
 
 function readPendingKey(sku: string): PendingKey | null {
@@ -201,18 +202,10 @@ function readPendingKey(sku: string): PendingKey | null {
     entry = memoryPendingKeys.get(sku) ?? null;
   }
   const e = entry as Partial<PendingKey> | null;
-  if (
-    !e ||
-    typeof e.key !== "string" ||
-    typeof e.savedAt !== "number" ||
-    Date.now() - e.savedAt > PENDING_KEY_MAX_AGE_MS
-  ) {
-    return null;
-  }
+  if (!e || typeof e.key !== "string") return null;
   return {
     key: e.key,
     unresolved: e.unresolved === true,
-    savedAt: e.savedAt,
     attempt: typeof e.attempt === "string" ? e.attempt : "",
   };
 }
@@ -320,7 +313,6 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
     const pending = readPendingKey(sku) ?? {
       key: crypto.randomUUID(),
       unresolved: false,
-      savedAt: Date.now(),
       attempt,
     };
     writePendingKey(sku, { ...pending, unresolved: true, attempt });
