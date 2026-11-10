@@ -3,7 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveStateInfo } from "@/lib/state-detection";
-import { buildScopeOfWorksData } from "@/lib/restoration/scope-of-works-builder";
+import {
+  buildScopeOfWorksData,
+  SCOPE_OF_WORKS_RATE_FIELDS,
+} from "@/lib/restoration/scope-of-works-builder";
+import { RateNotSetError, unsetRates } from "@/lib/pricing/rate-not-set";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -177,6 +181,16 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-8281: an unset price-list rate blocks the document; never $0.
+      const unset = unsetRates(pricingConfig, SCOPE_OF_WORKS_RATE_FIELDS);
+      if (unset.length > 0) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: unset.map((u) => u.note).join(" "),
+          status: 422,
+        });
+      }
+
       const stateInfo = resolveStateInfo({
         postcode: report.propertyPostcode,
         country: report.inspection?.propertyCountry,
@@ -259,6 +273,14 @@ export async function POST(request: NextRequest) {
         message: "Scope of Works generated successfully",
       });
     } catch (error) {
+      // RA-8281: an unset equipment rate (via getEquipmentDailyRate) blocks.
+      if (error instanceof RateNotSetError) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: error.message,
+          status: 422,
+        });
+      }
       return fromException(request, error, {
         stage: "generate-scope-of-works",
       });

@@ -1748,39 +1748,39 @@ model CompanyPricingConfig {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Labour Rates - Master Qualified Technician
-  masterQualifiedNormalHours Float
-  masterQualifiedSaturday    Float
-  masterQualifiedSunday      Float
+  masterQualifiedNormalHours Float?
+  masterQualifiedSaturday    Float?
+  masterQualifiedSunday      Float?
 
   // Labour Rates - Qualified Technician
-  qualifiedTechnicianNormalHours Float
-  qualifiedTechnicianSaturday    Float
-  qualifiedTechnicianSunday      Float
+  qualifiedTechnicianNormalHours Float?
+  qualifiedTechnicianSaturday    Float?
+  qualifiedTechnicianSunday      Float?
 
   // Labour Rates - Labourer
-  labourerNormalHours Float
-  labourerSaturday    Float
-  labourerSunday      Float
+  labourerNormalHours Float?
+  labourerSaturday    Float?
+  labourerSunday      Float?
 
   // Equipment Daily Rental Rates
-  airMoverAxialDailyRate           Float
-  airMoverCentrifugalDailyRate     Float
-  dehumidifierLGRDailyRate         Float
-  dehumidifierDesiccantDailyRate   Float
-  afdUnitLargeDailyRate            Float
-  extractionTruckMountedHourlyRate Float
-  extractionElectricHourlyRate     Float
-  injectionDryingSystemDailyRate   Float
+  airMoverAxialDailyRate           Float?
+  airMoverCentrifugalDailyRate     Float?
+  dehumidifierLGRDailyRate         Float?
+  dehumidifierDesiccantDailyRate   Float?
+  afdUnitLargeDailyRate            Float?
+  extractionTruckMountedHourlyRate Float?
+  extractionElectricHourlyRate     Float?
+  injectionDryingSystemDailyRate   Float?
 
   // Chemical Treatment Rates (per sqm)
-  antimicrobialTreatmentRate    Float
-  mouldRemediationTreatmentRate Float
-  biohazardTreatmentRate        Float
+  antimicrobialTreatmentRate    Float?
+  mouldRemediationTreatmentRate Float?
+  biohazardTreatmentRate        Float?
 
   // Fees
-  administrationFee                 Float
-  callOutFee                        Float
-  thermalCameraUseCostPerAssessment Float
+  administrationFee                 Float?
+  callOutFee                        Float?
+  thermalCameraUseCostPerAssessment Float?
 
   // Custom Fields (JSON: { category: [{ name: string, value: number }] })
   customFields String? @db.Text
@@ -1792,6 +1792,24 @@ model CompanyPricingConfig {
   mobilisationFee             Float?
   wasteDisposalPerBinRate     Float?
   photoDocumentationFee       Float?
+
+  // RA-8281: fire and contents price-list fields (nullable = not yet set; never priced at $0)
+  rateFireRestoration          Float?
+  rateOzoneGenerator           Float?
+  rateHydroxylUnit             Float?
+  rateContentsClean            Float?
+  rateFireEnzymeAdditionalPass Float?
+  rateFireSolventClean         Float?
+  rateFireDeodorisation        Float?
+  rateFireWallCeilingWash      Float?
+  rateFireWindowTrackClean     Float?
+  rateFireCupboardBenchClean   Float?
+  rateCarpetClean              Float?
+  rateSoftFurnishingClean      Float?
+  rateHvacDuctClean            Float?
+  rateLightFittingClean        Float?
+  rateStructuralAssessment     Float?
+  rateFireDebrisRemoval        Float?
 
   // RA-848: Multipliers (NRPG standard defaults)
   afterHoursMultiplier     Float @default(1.5)
@@ -8454,39 +8472,39 @@ model OrganizationPricingConfig {
   organizationId String @unique
 
   // Labour Rates - Master Qualified Technician
-  masterQualifiedNormalHours Float
-  masterQualifiedSaturday    Float
-  masterQualifiedSunday      Float
+  masterQualifiedNormalHours Float?
+  masterQualifiedSaturday    Float?
+  masterQualifiedSunday      Float?
 
   // Labour Rates - Qualified Technician
-  qualifiedTechnicianNormalHours Float
-  qualifiedTechnicianSaturday    Float
-  qualifiedTechnicianSunday      Float
+  qualifiedTechnicianNormalHours Float?
+  qualifiedTechnicianSaturday    Float?
+  qualifiedTechnicianSunday      Float?
 
   // Labour Rates - Labourer
-  labourerNormalHours Float
-  labourerSaturday    Float
-  labourerSunday      Float
+  labourerNormalHours Float?
+  labourerSaturday    Float?
+  labourerSunday      Float?
 
   // Equipment Daily Rental Rates
-  airMoverAxialDailyRate           Float
-  airMoverCentrifugalDailyRate     Float
-  dehumidifierLGRDailyRate         Float
-  dehumidifierDesiccantDailyRate   Float
-  afdUnitLargeDailyRate            Float
-  extractionTruckMountedHourlyRate Float
-  extractionElectricHourlyRate     Float
-  injectionDryingSystemDailyRate   Float
+  airMoverAxialDailyRate           Float?
+  airMoverCentrifugalDailyRate     Float?
+  dehumidifierLGRDailyRate         Float?
+  dehumidifierDesiccantDailyRate   Float?
+  afdUnitLargeDailyRate            Float?
+  extractionTruckMountedHourlyRate Float?
+  extractionElectricHourlyRate     Float?
+  injectionDryingSystemDailyRate   Float?
 
   // Chemical Treatment Rates (per sqm)
-  antimicrobialTreatmentRate    Float
-  mouldRemediationTreatmentRate Float
-  biohazardTreatmentRate        Float
+  antimicrobialTreatmentRate    Float?
+  mouldRemediationTreatmentRate Float?
+  biohazardTreatmentRate        Float?
 
   // Fees
-  administrationFee                 Float
-  callOutFee                        Float
-  thermalCameraUseCostPerAssessment Float
+  administrationFee                 Float?
+  callOutFee                        Float?
+  thermalCameraUseCostPerAssessment Float?
 
   // Custom Fields (JSON: { category: [{ name: string, value: number }] })
   customFields String? @db.Text
@@ -8498,6 +8516,24 @@ model OrganizationPricingConfig {
   mobilisationFee             Float?
   wasteDisposalPerBinRate     Float?
   photoDocumentationFee       Float?
+
+  // RA-8281: fire and contents price-list fields (nullable = not yet set; never priced at $0)
+  rateFireRestoration          Float?
+  rateOzoneGenerator           Float?
+  rateHydroxylUnit             Float?
+  rateContentsClean            Float?
+  rateFireEnzymeAdditionalPass Float?
+  rateFireSolventClean         Float?
+  rateFireDeodorisation        Float?
+  rateFireWallCeilingWash      Float?
+  rateFireWindowTrackClean     Float?
+  rateFireCupboardBenchClean   Float?
+  rateCarpetClean              Float?
+  rateSoftFurnishingClean      Float?
+  rateHvacDuctClean            Float?
+  rateLightFittingClean        Float?
+  rateStructuralAssessment     Float?
+  rateFireDebrisRemoval        Float?
 
   // RA-848: Multipliers (NRPG standard defaults)
   afterHoursMultiplier     Float @default(1.5)

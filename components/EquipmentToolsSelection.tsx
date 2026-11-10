@@ -33,10 +33,11 @@ import {
   calculateTotalAmps,
   calculateTotalDailyCost,
   calculateTotalCost,
-  getEquipmentDailyRate,
+  getEquipmentDailyRateOrNull,
   type EquipmentSelection,
   type EquipmentGroup,
 } from "@/lib/equipment-matrix";
+import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 
 interface EquipmentToolsSelectionProps {
   reportId: string;
@@ -57,6 +58,20 @@ interface ScopeArea {
   width: number;
   height: number;
   wetPercentage: number;
+}
+
+/** RA-8281: run a total; an unset price-list rate gives null, never $0. */
+function equipmentTotalsOrNull<T>(compute: () => T): T | null {
+  try {
+    return compute();
+  } catch (err) {
+    if (err instanceof RateNotSetError) return null;
+    throw err;
+  }
+}
+/** RA-8281: an unset daily rate reads "rate not set", never $0.00. */
+function formatDailyRate(rate: number | null | undefined): string {
+  return rate == null ? "rate not set" : `$${rate.toFixed(2)}/day`;
 }
 
 export default function EquipmentToolsSelection({
@@ -113,7 +128,9 @@ export default function EquipmentToolsSelection({
                 ...sel,
                 // Only update if selection doesn't already have a rate
                 dailyRate:
-                  sel.dailyRate || getEquipmentDailyRate(sel.groupId, config),
+                  sel.dailyRate ||
+                  (getEquipmentDailyRateOrNull(sel.groupId, config) ??
+                    undefined),
               })),
             );
           }
@@ -147,15 +164,13 @@ export default function EquipmentToolsSelection({
 
   // Calculate equipment totals using pricing config
   const totalAmps = calculateTotalAmps(equipmentSelections);
-  const totalDailyCost = calculateTotalDailyCost(
-    equipmentSelections,
-    pricingConfig,
-  );
-  const totalCost = calculateTotalCost(
-    equipmentSelections,
-    durationDays,
-    pricingConfig,
-  );
+  // RA-8281: an unset price-list rate blocks the totals (null), never $0.
+  const totals = equipmentTotalsOrNull(() => ({
+    daily: calculateTotalDailyCost(equipmentSelections, pricingConfig),
+    total: calculateTotalCost(equipmentSelections, durationDays, pricingConfig),
+  }));
+  const totalDailyCost = totals?.daily ?? null;
+  const totalCost = totals?.total ?? null;
 
   // Calculate efficiency targets
   // Only count dehumidifiers (LGR/Desiccant) for water removal capacity, not air movers
@@ -240,7 +255,7 @@ export default function EquipmentToolsSelection({
         // Use pricing config rate if available, otherwise use default from equipment matrix
         // This ensures we use the correct rate for each capacity group
         const rate = pricingConfig
-          ? getEquipmentDailyRate(groupId, pricingConfig)
+          ? (getEquipmentDailyRateOrNull(groupId, pricingConfig) ?? undefined)
           : 0;
         return [
           ...prev,
@@ -269,7 +284,8 @@ export default function EquipmentToolsSelection({
         const needed = Math.ceil(remainingCapacity / capacity);
         if (needed > 0) {
           const rate = pricingConfig
-            ? getEquipmentDailyRate(group.id, pricingConfig)
+            ? (getEquipmentDailyRateOrNull(group.id, pricingConfig) ??
+              undefined)
             : 0;
           selections.push({
             groupId: group.id,
@@ -290,7 +306,8 @@ export default function EquipmentToolsSelection({
             ? "airmover-1500"
             : "airmover-800";
       const rate = pricingConfig
-        ? getEquipmentDailyRate(preferredAirMover, pricingConfig)
+        ? (getEquipmentDailyRateOrNull(preferredAirMover, pricingConfig) ??
+          undefined)
         : 0;
       selections.push({
         groupId: preferredAirMover,
@@ -314,6 +331,12 @@ export default function EquipmentToolsSelection({
         dryingPotential,
       };
 
+      if (totalCost === null) {
+        toast.error(
+          "A daily rate in your price list is not set. Set it before saving.",
+        );
+        return;
+      }
       const equipmentData = {
         psychrometricAssessment,
         scopeAreas: areas,
@@ -801,7 +824,9 @@ export default function EquipmentToolsSelection({
                 <div className="p-4 bg-slate-900/50 rounded-lg">
                   <h4 className="font-semibold mb-3">ESTIMATED CONSUMPTION</h4>
                   <div className="text-2xl font-bold mb-2">
-                    ${totalCost.toFixed(2)}
+                    {totalCost === null
+                      ? "Total not available: rate not set"
+                      : `$${totalCost.toFixed(2)}`}
                   </div>
                   <div className="flex items-center gap-2 mb-2">
                     <input
@@ -857,17 +882,15 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              $
-                              {(
+                              {formatDailyRate(
                                 selection?.dailyRate ||
-                                (pricingConfig
-                                  ? getEquipmentDailyRate(
-                                      group.id,
-                                      pricingConfig,
-                                    )
-                                  : 0)
-                              ).toFixed(2)}
-                              /day
+                                  (pricingConfig
+                                    ? (getEquipmentDailyRateOrNull(
+                                        group.id,
+                                        pricingConfig,
+                                      ) ?? undefined)
+                                    : 0),
+                              )}
                             </div>
                           </div>
                           {quantity > 0 && (
@@ -925,17 +948,15 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              $
-                              {(
+                              {formatDailyRate(
                                 selection?.dailyRate ||
-                                (pricingConfig
-                                  ? getEquipmentDailyRate(
-                                      group.id,
-                                      pricingConfig,
-                                    )
-                                  : 0)
-                              ).toFixed(2)}
-                              /day
+                                  (pricingConfig
+                                    ? (getEquipmentDailyRateOrNull(
+                                        group.id,
+                                        pricingConfig,
+                                      ) ?? undefined)
+                                    : 0),
+                              )}
                             </div>
                           </div>
                           {quantity > 0 && (
@@ -995,17 +1016,15 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              $
-                              {(
+                              {formatDailyRate(
                                 selection?.dailyRate ||
-                                (pricingConfig
-                                  ? getEquipmentDailyRate(
-                                      group.id,
-                                      pricingConfig,
-                                    )
-                                  : 0)
-                              ).toFixed(2)}
-                              /day
+                                  (pricingConfig
+                                    ? (getEquipmentDailyRateOrNull(
+                                        group.id,
+                                        pricingConfig,
+                                      ) ?? undefined)
+                                    : 0),
+                              )}
                             </div>
                           </div>
                           {quantity > 0 && (
@@ -1069,17 +1088,15 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              $
-                              {(
+                              {formatDailyRate(
                                 selection?.dailyRate ||
-                                (pricingConfig
-                                  ? getEquipmentDailyRate(
-                                      group.id,
-                                      pricingConfig,
-                                    )
-                                  : 0)
-                              ).toFixed(2)}
-                              /day
+                                  (pricingConfig
+                                    ? (getEquipmentDailyRateOrNull(
+                                        group.id,
+                                        pricingConfig,
+                                      ) ?? undefined)
+                                    : 0),
+                              )}
                             </div>
                           </div>
                           {quantity > 0 && (

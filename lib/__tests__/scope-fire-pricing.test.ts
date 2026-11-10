@@ -11,8 +11,8 @@
  * (lib/nrpg-rate-ranges.ts). These tests pin:
  *   - which price-list field each line reads, never a mould field;
  *   - every priced line's rate equals the contractor's value and is in range;
- *   - an unset field, an out-of-range value, a line with no price-list field
- *     or a missing quantity blocks the total; none is ever $0;
+ *   - an unset field, an out-of-range value or a missing quantity blocks
+ *     the total; none is ever $0;
  *   - the ticket's job lines exist, with surfaces split from contents;
  *   - light, medium and heavy protein smoke scale the enzyme passes.
  * No test asserts an expected dollar total: that depends on each company.
@@ -40,8 +40,8 @@ const TICKET_REPRO_PRICING = {
 /**
  * A contractor price list. Each value is inside its NRPG range and distinct
  * from every other, so a line reading the wrong field is caught. These are
- * test fixtures, not recommended rates. The rate* keys model fields that
- * have an NRPG range today but no price-list column yet.
+ * test fixtures, not recommended rates. The rate* keys are the fire columns
+ * RA-8281 added to the price list.
  */
 const CONTRACTOR_PRICE_LIST: Record<string, number> = {
   qualifiedTechnicianNormalHours: 91,
@@ -299,22 +299,68 @@ describe("RA-8275 — a missing rate blocks the total and is never $0", () => {
     }
   });
 
-  it("a line with no price-list field says so and invents no range", () => {
+  it("RA-8281: an unset new fire column reads rate not set, invents no range, blocks the total", () => {
     const items = generateFireScope({
       smokeType: "protein",
       charLevel: 1,
       affectedAreaM2: 100,
-      pricingConfig: CONTRACTOR_PRICE_LIST,
+      pricingConfig: {
+        ...CONTRACTOR_PRICE_LIST,
+        rateFireWallCeilingWash: null,
+      },
       job: FULL_JOB,
     });
     const wash = items.find((i) => i.itemType === "wall_ceiling_wash");
-    expect(wash?.pricingStatus).toBe("needs_price_list_field");
-    expect(wash?.rateField).toBeUndefined();
-    expect(wash?.proposedRateField).toBe("rateFireWallCeilingWash");
+    expect(wash?.rateField).toBe("rateFireWallCeilingWash");
+    expect(wash?.pricingStatus).toBe("rate_not_set");
+    expect(wash?.unitCostAud).toBeUndefined();
+    expect(wash?.pricingNote).toMatch(/Rate not set/);
     expect(wash?.pricingNote).not.toContain("national range");
     expect(getFieldRange("rateFireWallCeilingWash")).toBeUndefined();
     expect(priceFireScope(items, AU).status).toBe("blocked");
   });
+
+  /**
+   * RA-8281 item 1: the twelve lines that had no price-list column now read
+   * the column of the same name. Distinct fixture values (test data, not
+   * recommended rates) catch a line reading the wrong column.
+   */
+  const NEW_COLUMN_LINES: Record<string, string> = {
+    enzyme_treatment_2: "rateFireEnzymeAdditionalPass",
+    deodorisation: "rateFireDeodorisation",
+    solvent_clean: "rateFireSolventClean",
+    wall_ceiling_wash: "rateFireWallCeilingWash",
+    window_track_clean: "rateFireWindowTrackClean",
+    cupboard_bench_clean: "rateFireCupboardBenchClean",
+    light_fitting_clean: "rateLightFittingClean",
+    hvac_duct_clean: "rateHvacDuctClean",
+    carpet_clean: "rateCarpetClean",
+    soft_furnishing_clean: "rateSoftFurnishingClean",
+    structural_assessment: "rateStructuralAssessment",
+    debris_removal: "rateFireDebrisRemoval",
+  };
+  const NEW_COLUMN_RATES = Object.fromEntries(
+    Object.values(NEW_COLUMN_LINES).map((f, i) => [f, 301 + i]),
+  );
+
+  it.each(Object.entries(NEW_COLUMN_LINES))(
+    "RA-8281: %s prices from %s at the contractor's own rate",
+    (itemType, field) => {
+      const smokeType = itemType === "solvent_clean" ? "fuel_oil" : "protein";
+      const items = generateFireScope({
+        smokeType,
+        charLevel: 3,
+        affectedAreaM2: 100,
+        pricingConfig: { ...CONTRACTOR_PRICE_LIST, ...NEW_COLUMN_RATES },
+        job: FULL_JOB,
+      });
+      const line = items.find((i) => i.itemType === itemType);
+      expect(line?.rateField).toBe(field);
+      expect(line?.proposedRateField).toBeUndefined();
+      expect(line?.pricingStatus).toBe("priced");
+      expect(line?.unitCostAud).toBe(NEW_COLUMN_RATES[field]);
+    },
+  );
 
   it("GST on a complete total comes from gst-rules", () => {
     const items = generateFireScope({
@@ -585,8 +631,8 @@ describe("RA-8275 — light, medium and heavy protein smoke", () => {
     const pass2 = protein("medium").find(
       (i) => i.itemType === "enzyme_treatment_2",
     );
-    expect(pass2?.rateField).toBeUndefined();
-    expect(pass2?.proposedRateField).toBe("rateFireEnzymeAdditionalPass");
-    expect(pass2?.pricingStatus).toBe("needs_price_list_field");
+    expect(pass2?.rateField).toBe("rateFireEnzymeAdditionalPass");
+    expect(pass2?.rateField).not.toBe("rateFireRestoration");
+    expect(pass2?.pricingStatus).toBe("rate_not_set");
   });
 });

@@ -10,6 +10,7 @@
 // be verified from a published source have been removed rather than guessed.
 // Rating conditions matter for dehumidifiers: AHAM = 26.7C/60%RH; AU-relevant
 // hot-humid rating = 30C/80%RH; each capacity states its condition.
+import { RateNotSetError, requireRate } from "@/lib/pricing/rate-not-set";
 import { FT3_TO_M3 } from "@/lib/anz/localisation";
 
 export interface EquipmentModel {
@@ -408,15 +409,10 @@ export function getEquipmentDailyRate(
   // Pricing config has one rate per equipment type (e.g., all LGR use dehumidifierLGRDailyRate)
   const pricingField = getEquipmentPricingField(groupId);
 
-  if (
-    pricingField &&
-    pricingConfig &&
-    pricingConfig[pricingField] !== undefined &&
-    pricingConfig[pricingField] !== null
-  ) {
-    // Use pricing config rate - this is the user's configured rate
-    const rate = pricingConfig[pricingField];
-    return rate;
+  // RA-8281: with a price list, the contractor's own rate is the only rate.
+  // An unset rate throws RateNotSetError; it is never priced at $0.
+  if (pricingField && pricingConfig) {
+    return requireRate(pricingConfig, pricingField);
   }
 
   // No fallback - pricing config is required
@@ -451,4 +447,20 @@ export function calculateTotalCost(
 ): number {
   const dailyCost = calculateTotalDailyCost(selections, pricingConfig);
   return dailyCost * durationDays;
+}
+
+/**
+ * RA-8281: the same rate for screens that must not crash. null means the
+ * contractor has not set this rate; show "rate not set", never $0.
+ */
+export function getEquipmentDailyRateOrNull(
+  groupId: string,
+  pricingConfig: any,
+): number | null {
+  try {
+    return getEquipmentDailyRate(groupId, pricingConfig);
+  } catch (err) {
+    if (err instanceof RateNotSetError) return null;
+    throw err;
+  }
 }

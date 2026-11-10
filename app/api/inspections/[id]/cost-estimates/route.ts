@@ -5,6 +5,7 @@
  * POST — generate from selected scope items via estimateCosts (replaces prior rows)
  */
 
+import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -141,12 +142,25 @@ export async function POST(
       });
     }
 
-    const costEstimate = await estimateCosts(
-      inspection.scopeItems,
-      region,
-      pricing.rates,
-      null,
-    );
+    let costEstimate: Awaited<ReturnType<typeof estimateCosts>>;
+    try {
+      costEstimate = await estimateCosts(
+        inspection.scopeItems,
+        region,
+        pricing.rates,
+        null,
+      );
+    } catch (err) {
+      // RA-8281: an unset price-list rate blocks the estimate; never $0.
+      if (err instanceof RateNotSetError) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: err.message,
+          status: 422,
+        });
+      }
+      throw err;
+    }
 
     // Unpriced item types now come back as $0 warning lines (RA-7708), so
     // count priced lines: an estimate with nothing priced is still rejected.

@@ -1,3 +1,4 @@
+import { assertRatesSet } from "@/lib/pricing/rate-not-set";
 import { getEquipmentGroupById, getEquipmentDailyRate } from "@/lib/equipment-matrix";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
@@ -9,6 +10,23 @@ import { getGstTreatment } from "@/lib/gst-rules";
  * report for the same job. Reaching it through POST would mean mocking an
  * AI call and a credit ledger to assert a boolean.
  */
+/** RA-8281: every price-list rate this builder reads. An unset one blocks the document. */
+export const COST_ESTIMATION_RATE_FIELDS = [
+  "administrationFee",
+  "antimicrobialTreatmentRate",
+  "biohazardTreatmentRate",
+  "callOutFee",
+  "extractionTruckMountedHourlyRate",
+  "injectionDryingSystemDailyRate",
+  "labourerNormalHours",
+  "masterQualifiedNormalHours",
+  "masterQualifiedSaturday",
+  "mouldRemediationTreatmentRate",
+  "qualifiedTechnicianNormalHours",
+  "qualifiedTechnicianSaturday",
+  "thermalCameraUseCostPerAssessment",
+] as const;
+
 export function buildCostEstimationData(data: {
   report: any;
   analysis: any;
@@ -36,6 +54,8 @@ export function buildCostEstimationData(data: {
     scopeAreas = [],
     gstTreatment,
   } = data;
+  // RA-8281: never price an unset rate at $0 (null * n === 0 in JS).
+  assertRatesSet(pricingConfig, COST_ESTIMATION_RATE_FIELDS);
 
   // Extract information
   const timelineRequirements =

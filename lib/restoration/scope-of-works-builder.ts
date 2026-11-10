@@ -1,3 +1,4 @@
+import { assertRatesSet } from "@/lib/pricing/rate-not-set";
 import { getEquipmentGroupById, getEquipmentDailyRate } from "@/lib/equipment-matrix";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
@@ -9,6 +10,24 @@ import { extractWaterCategory } from "@/lib/reports/extract-report-data";
  * report for the same job. Reaching it through POST would mean mocking an
  * AI call and a credit ledger to assert a boolean.
  */
+/** RA-8281: every price-list rate this builder reads. An unset one blocks the document. */
+export const SCOPE_OF_WORKS_RATE_FIELDS = [
+  "administrationFee",
+  "afdUnitLargeDailyRate",
+  "airMoverAxialDailyRate",
+  "antimicrobialTreatmentRate",
+  "biohazardTreatmentRate",
+  "callOutFee",
+  "dehumidifierLGRDailyRate",
+  "extractionTruckMountedHourlyRate",
+  "injectionDryingSystemDailyRate",
+  "labourerNormalHours",
+  "masterQualifiedNormalHours",
+  "mouldRemediationTreatmentRate",
+  "qualifiedTechnicianNormalHours",
+  "thermalCameraUseCostPerAssessment",
+] as const;
+
 export function buildScopeOfWorksData(data: {
   report: any;
   analysis: any;
@@ -33,6 +52,8 @@ export function buildScopeOfWorksData(data: {
     psychrometricAssessment,
     scopeAreas = [],
   } = data;
+  // RA-8281: never price an unset rate at $0 (null * n === 0 in JS).
+  assertRatesSet(pricingConfig, SCOPE_OF_WORKS_RATE_FIELDS);
 
   if (!pricingConfig) {
     throw new Error("Pricing configuration is required");

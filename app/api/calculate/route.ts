@@ -15,6 +15,11 @@ import {
   wholeCentRate,
 } from "@/lib/quotes/quote-calc";
 import { lineTotal } from "@/lib/estimate-lines";
+import {
+  BASE_RATE_FIELDS,
+  requireRate,
+  unsetRates,
+} from "@/lib/pricing/rate-not-set";
 import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
 
@@ -124,34 +129,26 @@ export async function POST(request: NextRequest) {
     const config = await resolveEffectivePricing(prisma, session.user.id, {
       legacyUserId: effective.id,
     });
+    // RA-8281: a rate the contractor has not set is never priced at $0 or at a
+    // default. Until this route can show a blocked line (B2), an incomplete
+    // price list refuses the quote and names every unset rate.
+    if (config) {
+      const unset = unsetRates(config, BASE_RATE_FIELDS);
+      if (unset.length > 0) {
+        return NextResponse.json(
+          {
+            error: "Your price list has rates that are not set",
+            code: "RATE_NOT_SET",
+            missing: unset,
+          },
+          { status: 422 },
+        );
+      }
+    }
     const storedRates: Record<string, number> = config
-      ? {
-          masterQualifiedNormalHours: config.masterQualifiedNormalHours,
-          masterQualifiedSaturday: config.masterQualifiedSaturday,
-          masterQualifiedSunday: config.masterQualifiedSunday,
-          qualifiedTechnicianNormalHours: config.qualifiedTechnicianNormalHours,
-          qualifiedTechnicianSaturday: config.qualifiedTechnicianSaturday,
-          qualifiedTechnicianSunday: config.qualifiedTechnicianSunday,
-          labourerNormalHours: config.labourerNormalHours,
-          labourerSaturday: config.labourerSaturday,
-          labourerSunday: config.labourerSunday,
-          airMoverAxialDailyRate: config.airMoverAxialDailyRate,
-          airMoverCentrifugalDailyRate: config.airMoverCentrifugalDailyRate,
-          dehumidifierLGRDailyRate: config.dehumidifierLGRDailyRate,
-          dehumidifierDesiccantDailyRate: config.dehumidifierDesiccantDailyRate,
-          afdUnitLargeDailyRate: config.afdUnitLargeDailyRate,
-          extractionTruckMountedHourlyRate:
-            config.extractionTruckMountedHourlyRate,
-          extractionElectricHourlyRate: config.extractionElectricHourlyRate,
-          injectionDryingSystemDailyRate: config.injectionDryingSystemDailyRate,
-          antimicrobialTreatmentRate: config.antimicrobialTreatmentRate,
-          mouldRemediationTreatmentRate: config.mouldRemediationTreatmentRate,
-          biohazardTreatmentRate: config.biohazardTreatmentRate,
-          administrationFee: config.administrationFee,
-          callOutFee: config.callOutFee,
-          thermalCameraUseCostPerAssessment:
-            config.thermalCameraUseCostPerAssessment,
-        }
+      ? Object.fromEntries(
+          BASE_RATE_FIELDS.map((f) => [f, requireRate(config, f)]),
+        )
       : getDefaultRates();
     // Price on whole-cent rates: the invoice draft can only carry cents.
     const rates: Record<string, number> = Object.fromEntries(

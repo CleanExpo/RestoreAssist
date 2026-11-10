@@ -7,7 +7,11 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getGstTreatment } from "@/lib/gst-rules";
-import { buildCostEstimationData } from "@/lib/restoration/cost-estimation-builder";
+import {
+  buildCostEstimationData,
+  COST_ESTIMATION_RATE_FIELDS,
+} from "@/lib/restoration/cost-estimation-builder";
+import { RateNotSetError, unsetRates } from "@/lib/pricing/rate-not-set";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 
@@ -191,6 +195,16 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-8281: an unset price-list rate blocks the document; never $0.
+      const unset = unsetRates(pricingConfig, COST_ESTIMATION_RATE_FIELDS);
+      if (unset.length > 0) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: unset.map((u) => u.note).join(" "),
+          status: 422,
+        });
+      }
+
       const stateInfo = resolveStateInfo({
         postcode: report.propertyPostcode,
         country: report.inspection?.propertyCountry,
@@ -250,6 +264,14 @@ export async function POST(request: NextRequest) {
         message: "Cost Estimation generated successfully",
       });
     } catch (error) {
+      // RA-8281: an unset equipment rate (via getEquipmentDailyRate) blocks.
+      if (error instanceof RateNotSetError) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: error.message,
+          status: 422,
+        });
+      }
       return fromException(request, error, { stage: "generate-cost-estimation" });
     }
   });
@@ -272,18 +294,19 @@ function buildCostEstimationDocument(costData: any): string {
         cat.lineItems.forEach((item: any) => {
           const qty = item.qty || 1;
           const days = item.days || 1;
-          const rate = item.dailyRate || 0;
+          // RA-8281: an unset rate reads "rate not set", never $0.00.
+          const rate = rateCell(item.dailyRate);
           const subtotal = item.subtotal || 0;
-          output += `| ${item.description} | ${qty} | ${days} | $${rate.toFixed(2)} | $${subtotal.toFixed(2)} |\n`;
+          output += `| ${item.description} | ${qty} | ${days} | ${rate} | $${subtotal.toFixed(2)} |\n`;
         });
       } else if (hasSqm) {
         output += `| Description | Sqm | Rate per Sqm | Subtotal |\n`;
         output += `|-------------|-----|--------------|----------|\n`;
         cat.lineItems.forEach((item: any) => {
           const sqm = item.sqm || 0;
-          const rate = item.ratePerSqm || 0;
+          const rate = rateCell(item.ratePerSqm);
           const subtotal = item.subtotal || 0;
-          output += `| ${item.description} | ${sqm} | $${rate.toFixed(2)} | $${subtotal.toFixed(2)} |\n`;
+          output += `| ${item.description} | ${sqm} | ${rate} | $${subtotal.toFixed(2)} |\n`;
         });
       } else {
         // Default: Hours/Qty, Rate, Subtotal
@@ -433,4 +456,11 @@ ${formatFlaggedItems(costData.flaggedItems || [])}
   }
 
   return document;
+}
+
+/** RA-8281: a rate cell; an unset rate reads "rate not set", never $0.00. */
+function rateCell(rate: unknown): string {
+  return typeof rate === "number" && Number.isFinite(rate)
+    ? `$${rate.toFixed(2)}`
+    : "rate not set";
 }

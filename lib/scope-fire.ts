@@ -153,11 +153,11 @@ const S700_CLEANING = standardCite("S700", "6");
 // ─── LINE BUILDING ───────────────────────────────────────────────────────────
 
 /**
- * How a line is priced: from an existing price-list field, or (when none
- * exists) the field name we propose adding. Proposed fields carry no range;
- * range values are a founder decision.
+ * How a line is priced: the named price-list column it reads. RA-8281 added
+ * the columns the fire lines lacked; most carry no NRPG range (range values
+ * are a founder decision), so an unset one reads "rate not set" with no range.
  */
-type RateSource = { field: string } | { proposed: string };
+type RateSource = { field: string };
 
 function usableQuantity(q: number | undefined): number | undefined {
   return typeof q === "number" && Number.isFinite(q) && q > 0 ? q : undefined;
@@ -252,9 +252,7 @@ function buildLine(
     unit: spec.unit,
     isRequired: true,
     group: spec.group,
-    ...("field" in spec.source
-      ? { rateField: spec.source.field }
-      : { proposedRateField: spec.source.proposed }),
+    rateField: spec.source.field,
   };
   // A labour-priced task is billed through hours, so its own count is
   // informative only and a missing count does not block the total.
@@ -266,13 +264,6 @@ function buildLine(
       ...base,
       pricingStatus: "quantity_needed",
       pricingNote: "Quantity needed from the inspection.",
-    };
-  }
-  if (!("field" in spec.source)) {
-    return {
-      ...base,
-      pricingStatus: "needs_price_list_field",
-      pricingNote: `Needs a price-list field (proposed: ${spec.source.proposed}).`,
     };
   }
   const read = readRate(config, spec.source.field);
@@ -446,7 +437,7 @@ export function generateFireScope(params: {
             description: "Enzyme Treatment (Pass 2)",
             justification: `Second enzyme pass for ${severity} protein residue, for complete breakdown before odour control per IICRC S700:2025 §4.3.`,
             iicrcReference: S700_SMOKE_CLASSIFICATION,
-            source: { proposed: "rateFireEnzymeAdditionalPass" },
+            source: { field: "rateFireEnzymeAdditionalPass" },
           }),
         );
       }
@@ -468,7 +459,7 @@ export function generateFireScope(params: {
           justification:
             "Deodorisation eliminates residual protein odours following enzyme and ozone treatments per IICRC S700:2025 §7.1.",
           iicrcReference: S700_ODOUR_CONTROL,
-          source: { proposed: "rateFireDeodorisation" },
+          source: { field: "rateFireDeodorisation" },
         }),
       );
       break;
@@ -490,7 +481,7 @@ export function generateFireScope(params: {
           justification:
             "Solvent cleaning dissolves petroleum-based fuel oil soot deposits that cannot be removed by water-based methods per IICRC S700:2025 §6.2.",
           iicrcReference: S700_DRY_RESIDUE,
-          source: { proposed: "rateFireSolventClean" },
+          source: { field: "rateFireSolventClean" },
         }),
         ozone(
           "Ozone treatment neutralises fuel oil odour compounds at the molecular level per IICRC S700:2025 §7.1.",
@@ -503,17 +494,10 @@ export function generateFireScope(params: {
   // ── Job lines every smoke clean needs (RA-8275) ───────────────────────────
 
   const counted = (
-    s: Omit<LineSpec, "labourTask" | "source"> & {
-      proposed?: string;
-      field?: string;
-    },
+    s: Omit<LineSpec, "labourTask" | "source"> & { field: string },
   ): LineSpec => {
-    const { proposed, field, ...rest } = s;
-    return {
-      ...rest,
-      source: field ? { field } : { proposed: proposed as string },
-      labourTask: true,
-    };
+    const { field, ...rest } = s;
+    return { ...rest, source: { field }, labourTask: true };
   };
 
   specs.push(
@@ -523,7 +507,7 @@ export function generateFireScope(params: {
       justification:
         "Smoke residue settles on walls and ceilings; affected surfaces are washed after residue-specific cleaning per IICRC S700:2025 §6.",
       iicrcReference: S700_CLEANING,
-      source: { proposed: "rateFireWallCeilingWash" },
+      source: { field: "rateFireWallCeilingWash" },
     }),
     counted({
       itemType: "window_track_clean",
@@ -534,7 +518,7 @@ export function generateFireScope(params: {
       unit: "window",
       group: "surfaces",
       quantity: job.windowCount,
-      proposed: "rateFireWindowTrackClean",
+      field: "rateFireWindowTrackClean",
     }),
     counted({
       itemType: "cupboard_bench_clean",
@@ -545,7 +529,7 @@ export function generateFireScope(params: {
       unit: "m²",
       group: "surfaces",
       quantity: job.cupboardBenchAreaM2,
-      proposed: "rateFireCupboardBenchClean",
+      field: "rateFireCupboardBenchClean",
     }),
     counted({
       itemType: "light_fitting_clean",
@@ -556,7 +540,7 @@ export function generateFireScope(params: {
       unit: "fitting",
       group: "surfaces",
       quantity: job.lightFittingCount,
-      proposed: "rateLightFittingClean",
+      field: "rateLightFittingClean",
     }),
     counted({
       itemType: "hvac_duct_clean",
@@ -567,7 +551,7 @@ export function generateFireScope(params: {
       unit: "system",
       group: "surfaces",
       quantity: job.hvacSystemCount,
-      proposed: "rateHvacDuctClean",
+      field: "rateHvacDuctClean",
     }),
     counted({
       itemType: "carpet_clean",
@@ -578,7 +562,7 @@ export function generateFireScope(params: {
       unit: "m²",
       group: "surfaces",
       quantity: job.carpetAreaM2,
-      proposed: "rateCarpetClean",
+      field: "rateCarpetClean",
     }),
     counted({
       itemType: "contents_clean",
@@ -600,7 +584,7 @@ export function generateFireScope(params: {
       unit: "item",
       group: "contents",
       quantity: job.softFurnishingCount,
-      proposed: "rateSoftFurnishingClean",
+      field: "rateSoftFurnishingClean",
     }),
   );
 
@@ -616,7 +600,7 @@ export function generateFireScope(params: {
         unit: "ea",
         group: "structure",
         quantity: undefined,
-        source: { proposed: "rateStructuralAssessment" },
+        source: { field: "rateStructuralAssessment" },
         labourTask: false,
         fixed: true,
       },
@@ -628,7 +612,7 @@ export function generateFireScope(params: {
         unit: "m²",
         group: "structure",
         quantity: affectedAreaM2,
-        source: { proposed: "rateFireDebrisRemoval" },
+        source: { field: "rateFireDebrisRemoval" },
         labourTask: false,
         fromArea: true,
       },
