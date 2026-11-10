@@ -34,6 +34,7 @@ import {
   calculateTotalDailyCost,
   calculateTotalCost,
   getEquipmentDailyRateOrNull,
+  selectionDailyRateOrNull,
   type EquipmentSelection,
   type EquipmentGroup,
 } from "@/lib/equipment-matrix";
@@ -126,11 +127,8 @@ export default function EquipmentToolsSelection({
             setEquipmentSelections((prev) =>
               prev.map((sel) => ({
                 ...sel,
-                // Only update if selection doesn't already have a rate
-                dailyRate:
-                  sel.dailyRate ||
-                  (getEquipmentDailyRateOrNull(sel.groupId, config) ??
-                    undefined),
+                // RA-8281: the current price list wins over a cached rate.
+                dailyRate: selectionDailyRateOrNull(sel, config) ?? undefined,
               })),
             );
           }
@@ -883,13 +881,10 @@ export default function EquipmentToolsSelection({
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
                               {formatDailyRate(
-                                selection?.dailyRate ||
-                                  (pricingConfig
-                                    ? (getEquipmentDailyRateOrNull(
-                                        group.id,
-                                        pricingConfig,
-                                      ) ?? undefined)
-                                    : 0),
+                                selectionDailyRateOrNull(
+                                  { groupId: group.id, dailyRate: selection?.dailyRate },
+                                  pricingConfig,
+                                ),
                               )}
                             </div>
                           </div>
@@ -949,13 +944,10 @@ export default function EquipmentToolsSelection({
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
                               {formatDailyRate(
-                                selection?.dailyRate ||
-                                  (pricingConfig
-                                    ? (getEquipmentDailyRateOrNull(
-                                        group.id,
-                                        pricingConfig,
-                                      ) ?? undefined)
-                                    : 0),
+                                selectionDailyRateOrNull(
+                                  { groupId: group.id, dailyRate: selection?.dailyRate },
+                                  pricingConfig,
+                                ),
                               )}
                             </div>
                           </div>
@@ -1017,13 +1009,10 @@ export default function EquipmentToolsSelection({
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
                               {formatDailyRate(
-                                selection?.dailyRate ||
-                                  (pricingConfig
-                                    ? (getEquipmentDailyRateOrNull(
-                                        group.id,
-                                        pricingConfig,
-                                      ) ?? undefined)
-                                    : 0),
+                                selectionDailyRateOrNull(
+                                  { groupId: group.id, dailyRate: selection?.dailyRate },
+                                  pricingConfig,
+                                ),
                               )}
                             </div>
                           </div>
@@ -1089,13 +1078,10 @@ export default function EquipmentToolsSelection({
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
                               {formatDailyRate(
-                                selection?.dailyRate ||
-                                  (pricingConfig
-                                    ? (getEquipmentDailyRateOrNull(
-                                        group.id,
-                                        pricingConfig,
-                                      ) ?? undefined)
-                                    : 0),
+                                selectionDailyRateOrNull(
+                                  { groupId: group.id, dailyRate: selection?.dailyRate },
+                                  pricingConfig,
+                                ),
                               )}
                             </div>
                           </div>

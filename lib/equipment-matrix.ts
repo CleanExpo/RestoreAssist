@@ -423,20 +423,48 @@ export function getEquipmentDailyRate(
   return 0;
 }
 
+/**
+ * RA-8281: the daily rate for one selected item. With a price list, the
+ * contractor's current rate is the only rate. A rate cached on the selection
+ * when it was made is ignored, so a rate cleared later blocks the total
+ * (RateNotSetError) instead of reusing the old figure. The cached rate is
+ * used only when there is no price-list field to read.
+ */
+export function selectionDailyRate(
+  selection: Pick<EquipmentSelection, "groupId" | "dailyRate">,
+  pricingConfig?: any,
+): number {
+  if (pricingConfig && getEquipmentPricingField(selection.groupId)) {
+    return getEquipmentDailyRate(selection.groupId, pricingConfig);
+  }
+  return typeof selection.dailyRate === "number"
+    ? selection.dailyRate
+    : getEquipmentDailyRate(selection.groupId, pricingConfig);
+}
+
+/** The same rate for screens: null when the contractor has not set it. */
+export function selectionDailyRateOrNull(
+  selection: Pick<EquipmentSelection, "groupId" | "dailyRate">,
+  pricingConfig?: any,
+): number | null {
+  try {
+    return selectionDailyRate(selection, pricingConfig);
+  } catch (err) {
+    if (err instanceof RateNotSetError) return null;
+    throw err;
+  }
+}
+
 // Calculate total daily cost for selected equipment using pricing config
 export function calculateTotalDailyCost(
   selections: EquipmentSelection[],
   pricingConfig?: any,
 ): number {
-  return selections.reduce((total, selection) => {
-    // Use the rate from selection (which should come from pricing config), or get from pricing config
-    const rate =
-      selection.dailyRate ||
-      (pricingConfig
-        ? getEquipmentDailyRate(selection.groupId, pricingConfig)
-        : 0);
-    return total + rate * selection.quantity;
-  }, 0);
+  return selections.reduce(
+    (total, selection) =>
+      total + selectionDailyRate(selection, pricingConfig) * selection.quantity,
+    0,
+  );
 }
 
 // Calculate total cost for selected equipment over duration

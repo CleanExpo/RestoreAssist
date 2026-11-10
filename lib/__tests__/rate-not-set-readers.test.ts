@@ -169,15 +169,38 @@ const ZERO_COERCION = new RegExp(
   String.raw`(?:\b(?:${RATE_NAMES.join("|")})\b\)?|(?:rates|config|pricingConfig|priceList)\[[^\]]+\])\s*(?:\?\?|\|\|)\s*0(?![.\d])`,
 );
 
+/**
+ * Scan the whole source, not line by line: a coercion split across a line
+ * break (`rates.callOutFee` newline `?? 0`) must still be caught. Returns the
+ * 1-based line of each hit.
+ */
+function scanHits(src: string, pattern: RegExp): number[] {
+  const global = new RegExp(pattern.source, "g");
+  return [...src.matchAll(global)].map(
+    (m) => src.slice(0, m.index).split("\n").length,
+  );
+}
+
+/**
+ * A cached selection rate preferred over the current price list
+ * (`sel.dailyRate || getEquipmentDailyRate(...)`) skips the unset-rate check
+ * when the contractor later clears that rate (RA-8281 review round 1).
+ */
+const CACHED_RATE_FALLBACK = /\bdailyRate\s*\|\|/;
+
 describe("no changed reader coerces a rate field to 0", () => {
   it.each(RATE_READERS)("%s", (file) => {
     const src = readFileSync(join(process.cwd(), file), "utf8");
-    const hits = src
-      .split("\n")
-      .map((line, i) => ({ line: line.trim(), n: i + 1 }))
-      .filter(({ line }) => ZERO_COERCION.test(line));
-    expect(hits).toEqual([]);
+    expect(scanHits(src, ZERO_COERCION)).toEqual([]);
   });
+
+  it.each(RATE_READERS)(
+    "%s prefers no cached rate over the price list",
+    (file) => {
+      const src = readFileSync(join(process.cwd(), file), "utf8");
+      expect(scanHits(src, CACHED_RATE_FALLBACK)).toEqual([]);
+    },
+  );
 
   it("control: the pattern catches a planted coercion", () => {
     expect(ZERO_COERCION.test("rate: config.callOutFee ?? 0,")).toBe(true);
@@ -188,6 +211,23 @@ describe("no changed reader coerces a rate field to 0", () => {
       true,
     );
     expect(ZERO_COERCION.test("const x = callOutFee ?? 0.5")).toBe(false);
+  });
+
+  it("control: a coercion split across a line break is caught, on its line", () => {
+    const src = "const a = 1;\nconst probe = rates.callOutFee\n  ?? 0;\n";
+    expect(scanHits(src, ZERO_COERCION)).toEqual([2]);
+  });
+
+  it("control: a cached rate fallback is caught, split or not", () => {
+    expect(
+      scanHits("x = sel.dailyRate || get(id, cfg);", CACHED_RATE_FALLBACK),
+    ).toEqual([1]);
+    expect(
+      scanHits(
+        "x =\n  sel.dailyRate\n  || get(id, cfg);",
+        CACHED_RATE_FALLBACK,
+      ),
+    ).toEqual([2]);
   });
 });
 
@@ -339,5 +379,79 @@ describe("each changed reader blocks an unset rate (RA-8281 B1)", () => {
     expect(
       getEquipmentDailyRateOrNull("lgr-85", { dehumidifierLGRDailyRate: 61 }),
     ).toBe(61);
+  });
+});
+
+describe("a cached equipment rate never bypasses the current price list (RA-8281 review)", () => {
+  const LGR = [{ groupId: "lgr-85", quantity: 1, dailyRate: 61 }];
+
+  it("totals refuse a selection whose price-list rate is now unset", async () => {
+    const { calculateTotalDailyCost } = await import("@/lib/equipment-matrix");
+    expect(() =>
+      calculateTotalDailyCost(LGR, { dehumidifierLGRDailyRate: null }),
+    ).toThrow(RateNotSetError);
+  });
+
+  it("totals price at the current price-list rate, not the cached one", async () => {
+    const { calculateTotalDailyCost } = await import("@/lib/equipment-matrix");
+    expect(calculateTotalDailyCost(LGR, { dehumidifierLGRDailyRate: 70 })).toBe(
+      70,
+    );
+  });
+
+  it("control: a deliberate current 0 stays a set rate", async () => {
+    const { calculateTotalDailyCost } = await import("@/lib/equipment-matrix");
+    expect(calculateTotalDailyCost(LGR, { dehumidifierLGRDailyRate: 0 })).toBe(
+      0,
+    );
+  });
+
+  it("the cost report refuses cached equipment whose rate is now unset", async () => {
+    const { buildCostEstimationData, COST_ESTIMATION_RATE_FIELDS } =
+      await import("@/lib/restoration/cost-estimation-builder");
+    const { getGstTreatment } = await import("@/lib/gst-rules");
+    const pricingConfig: Record<string, number | null> = Object.fromEntries(
+      COST_ESTIMATION_RATE_FIELDS.map((f) => [f, 70]),
+    );
+    pricingConfig.dehumidifierLGRDailyRate = null;
+    expect(() =>
+      buildCostEstimationData({
+        report: { id: "r", reportNumber: "RA-1", inspection: null },
+        analysis: null,
+        tier1: null,
+        tier2: null,
+        tier3: null,
+        pricingConfig,
+        stateInfo: null,
+        scopeData: null,
+        equipmentSelection: LGR,
+        gstTreatment: getGstTreatment("AU"),
+      }),
+    ).toThrow(RateNotSetError);
+  });
+
+  it("the scope of works refuses cached equipment whose rate is now unset", async () => {
+    const { buildScopeOfWorksData, SCOPE_OF_WORKS_RATE_FIELDS } =
+      await import("@/lib/restoration/scope-of-works-builder");
+    const pricingConfig: Record<string, number | null> = Object.fromEntries(
+      SCOPE_OF_WORKS_RATE_FIELDS.map((f) => [f, 70]),
+    );
+    // Desiccant is not in SCOPE_OF_WORKS_RATE_FIELDS, so only the equipment
+    // path can catch it.
+    pricingConfig.dehumidifierDesiccantDailyRate = null;
+    expect(() =>
+      buildScopeOfWorksData({
+        report: { id: "r", reportNumber: "RA-1", inspection: null },
+        analysis: null,
+        tier1: null,
+        tier2: null,
+        tier3: null,
+        pricingConfig,
+        stateInfo: null,
+        equipmentSelection: [
+          { groupId: "desiccant-20", quantity: 1, dailyRate: 61 },
+        ],
+      }),
+    ).toThrow(RateNotSetError);
   });
 });

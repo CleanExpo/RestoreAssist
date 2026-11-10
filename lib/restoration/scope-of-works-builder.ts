@@ -1,5 +1,5 @@
 import { assertRatesSet } from "@/lib/pricing/rate-not-set";
-import { getEquipmentGroupById, getEquipmentDailyRate } from "@/lib/equipment-matrix";
+import { getEquipmentGroupById, selectionDailyRate } from "@/lib/equipment-matrix";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
 import { extractWaterCategory } from "@/lib/reports/extract-report-data";
@@ -237,9 +237,7 @@ export function buildScopeOfWorksData(data: {
           ? equipmentSelections.reduce((acc: any, sel: any) => {
               if (sel.quantity > 0) {
                 const group = getEquipmentGroupById(sel.groupId);
-                const dailyRate =
-                  sel.dailyRate ||
-                  getEquipmentDailyRate(sel.groupId, pricingConfig);
+                const dailyRate = selectionDailyRate(sel, pricingConfig);
                 const key = sel.groupId.startsWith("lgr-")
                   ? "lgr"
                   : sel.groupId.startsWith("desiccant-")
@@ -280,9 +278,7 @@ export function buildScopeOfWorksData(data: {
               const equipmentCost = equipmentSelections.reduce(
                 (total: number, sel: any) => {
                   if (sel.quantity > 0) {
-                    const dailyRate =
-                      sel.dailyRate ||
-                      getEquipmentDailyRate(sel.groupId, pricingConfig);
+                    const dailyRate = selectionDailyRate(sel, pricingConfig);
                     return total + dailyRate * sel.quantity * dryingDuration;
                   }
                   return total;

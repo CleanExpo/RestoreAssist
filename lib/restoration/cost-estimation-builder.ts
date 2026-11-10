@@ -1,5 +1,5 @@
 import { assertRatesSet } from "@/lib/pricing/rate-not-set";
-import { getEquipmentGroupById, getEquipmentDailyRate } from "@/lib/equipment-matrix";
+import { getEquipmentGroupById, selectionDailyRate } from "@/lib/equipment-matrix";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
 import { getGstTreatment } from "@/lib/gst-rules";
@@ -298,8 +298,7 @@ export function buildCostEstimationData(data: {
     lgrSelections.forEach((sel: any) => {
       if (sel.quantity > 0) {
         const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
+        const dailyRate = selectionDailyRate(sel, pricingConfig);
         const itemTotal = dailyRate * sel.quantity * dryingDuration;
         categories.equipment.lineItems.push({
           description: group?.name || `LGR Dehumidifier (${sel.groupId})`,
@@ -316,8 +315,7 @@ export function buildCostEstimationData(data: {
     desiccantSelections.forEach((sel: any) => {
       if (sel.quantity > 0) {
         const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
+        const dailyRate = selectionDailyRate(sel, pricingConfig);
         const itemTotal = dailyRate * sel.quantity * dryingDuration;
         categories.equipment.lineItems.push({
           description: group?.name || `Desiccant Dehumidifier (${sel.groupId})`,
@@ -334,8 +332,7 @@ export function buildCostEstimationData(data: {
     airMoverSelections.forEach((sel: any) => {
       if (sel.quantity > 0) {
         const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
+        const dailyRate = selectionDailyRate(sel, pricingConfig);
         const itemTotal = dailyRate * sel.quantity * dryingDuration;
         categories.equipment.lineItems.push({
           description: group?.name || `Air Mover (${sel.groupId})`,
@@ -352,8 +349,7 @@ export function buildCostEstimationData(data: {
     heatSelections.forEach((sel: any) => {
       if (sel.quantity > 0) {
         const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
+        const dailyRate = selectionDailyRate(sel, pricingConfig);
         const itemTotal = dailyRate * sel.quantity * dryingDuration;
         categories.equipment.lineItems.push({
           description: group?.name || `Heat Drying System (${sel.groupId})`,
@@ -370,8 +366,7 @@ export function buildCostEstimationData(data: {
     afdSelections.forEach((sel: any) => {
       if (sel.quantity > 0) {
         const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
+        const dailyRate = selectionDailyRate(sel, pricingConfig);
         const itemTotal = dailyRate * sel.quantity * dryingDuration;
         categories.equipment.lineItems.push({
           description: group?.name || `AFD Unit (${sel.groupId})`,
