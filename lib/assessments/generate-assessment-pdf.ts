@@ -401,7 +401,10 @@ export async function generateAssessmentPdf(
         header: "Qty",
         width: CONTENT_W * 0.1,
         align: "right",
-        get: (r) => String((r as ScopeItem).quantity),
+        get: (r) => {
+          const q = (r as ScopeItem).quantity;
+          return q === null ? "Needed" : String(q);
+        },
       },
       {
         header: "Unit",

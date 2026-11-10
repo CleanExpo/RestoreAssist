@@ -211,6 +211,20 @@ interface LineSpec {
   labourTask: boolean;
   /** Fixed-scope line with no quantity (e.g. an assessment). */
   fixed?: boolean;
+  /**
+   * Quantity is the measured affected area. Zero area means none was
+   * recorded, so the line stays and reads "quantity needed".
+   */
+  fromArea?: boolean;
+}
+
+/**
+ * A count the job explicitly gives as zero (no windows, no scrubbers, no
+ * HEPA days) means the job has none, so the line is left out. Only a
+ * count that was never given reads "quantity needed" and blocks the total.
+ */
+function isExplicitNone(spec: LineSpec): boolean {
+  return !spec.fixed && !spec.fromArea && spec.quantity === 0;
 }
 
 function buildLine(
@@ -292,6 +306,7 @@ export function generateFireScope(params: {
     group: "surfaces",
     quantity: affectedAreaM2,
     labourTask: true,
+    fromArea: true,
   });
 
   /**
@@ -605,6 +620,7 @@ export function generateFireScope(params: {
         quantity: affectedAreaM2,
         source: { proposed: "rateFireDebrisRemoval" },
         labourTask: false,
+        fromArea: true,
       },
     );
   }
@@ -616,10 +632,10 @@ export function generateFireScope(params: {
     const daysNote = `${job.buildingDays ?? 0} building day(s) and ${job.contentsDays ?? 0} contents day(s) at ${FIRE_LABOUR_HOURS_PER_DAY} hours`;
     const technicians = job.technicians ?? 0;
     const supervisors = job.supervisors ?? 0;
-    // A role with no staff on the job adds no line: a zero-head line would
-    // read as "quantity needed" and block a complete total.
-    if (technicians > 0) {
-      specs.push({
+    // A role with no staff gives a zero-hour line, which isExplicitNone
+    // leaves out, so it cannot block a complete total.
+    specs.push(
+      {
         itemType: "labour_technician_hours",
         description: "Technician Labour",
         justification: `${technicians} technician(s) for ${daysNote}. Cleaning tasks above are carried by these hours.`,
@@ -629,10 +645,8 @@ export function generateFireScope(params: {
         quantity: technicians * hoursPerHead,
         source: { field: "qualifiedTechnicianNormalHours" },
         labourTask: false,
-      });
-    }
-    if (supervisors > 0) {
-      specs.push({
+      },
+      {
         itemType: "labour_supervisor_hours",
         description: "Supervisor Labour",
         justification: `${supervisors} supervisor(s) for ${daysNote}.`,
@@ -642,12 +656,13 @@ export function generateFireScope(params: {
         quantity: supervisors * hoursPerHead,
         source: { field: "masterQualifiedNormalHours" },
         labourTask: false,
-      });
-    }
+      },
+    );
   }
   // Without crew and days the job is area-priced: each cleaning line's own
   // price-list rate carries its labour, so no separate labour line is added.
 
+  // Zero scrubbers give a zero quantity, which isExplicitNone leaves out.
   if (job.airScrubbers !== undefined) {
     specs.push({
       itemType: "air_scrubber_hire",
@@ -688,7 +703,9 @@ export function generateFireScope(params: {
     },
   );
 
-  return specs.map((s) => buildLine(s, pricingConfig, labourPriced));
+  return specs
+    .filter((s) => !isExplicitNone(s))
+    .map((s) => buildLine(s, pricingConfig, labourPriced));
 }
 
 // ─── PRICING ─────────────────────────────────────────────────────────────────

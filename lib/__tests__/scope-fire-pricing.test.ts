@@ -442,6 +442,62 @@ describe("RA-8275 — a role with no staff adds no labour line", () => {
   });
 });
 
+describe("RA-8275 — a count given as zero means none, not missing", () => {
+  // Review finding (Codex, 6304c63): airScrubbers: 0 produced an air
+  // scrubber line with "quantity needed" and blocked a complete total.
+  // Every explicit zero count is the same case and is left out.
+  function scope(job: FireJobInputs, affectedAreaM2 = 100) {
+    return generateFireScope({
+      smokeType: "protein",
+      charLevel: 1,
+      affectedAreaM2,
+      pricingConfig: CONTRACTOR_PRICE_LIST,
+      job,
+    });
+  }
+
+  it("zero air scrubbers: no scrubber line, total completes", () => {
+    const items = scope({ ...LABOUR_JOB, airScrubbers: 0 });
+    expect(items.map((i) => i.itemType)).not.toContain("air_scrubber_hire");
+    expect(priceFireScope(items, AU).status).toBe("complete");
+  });
+
+  it("zero HEPA days on a heavy job: no HEPA line, total completes", () => {
+    const items = scope({
+      ...LABOUR_JOB,
+      severity: "heavy",
+      hepaVacuumUnitDays: 0,
+    });
+    expect(items.map((i) => i.itemType)).not.toContain("hepa_vacuum");
+    expect(
+      items.filter(
+        (i) => i.pricingStatus === "quantity_needed" && i.group === "equipment",
+      ),
+    ).toEqual([]);
+  });
+
+  it("zero windows on an area-priced job: no window line", () => {
+    const items = scope({ ...FULL_JOB, windowCount: 0 });
+    expect(items.map((i) => i.itemType)).not.toContain("window_track_clean");
+  });
+
+  it("a count never given still reads quantity needed", () => {
+    const noWindows: FireJobInputs = { ...FULL_JOB };
+    delete noWindows.windowCount;
+    const line = scope(noWindows).find(
+      (i) => i.itemType === "window_track_clean",
+    );
+    expect(line?.pricingStatus).toBe("quantity_needed");
+  });
+
+  it("zero affected area keeps the surface lines and blocks the total", () => {
+    const items = scope({ ...FULL_JOB }, 0);
+    const wash = items.find((i) => i.itemType === "wall_ceiling_wash");
+    expect(wash?.pricingStatus).toBe("quantity_needed");
+    expect(priceFireScope(items, AU).status).toBe("blocked");
+  });
+});
+
 describe("RA-8275 — light, medium and heavy protein smoke", () => {
   function protein(severity: "light" | "medium" | "heavy") {
     return generateFireScope({

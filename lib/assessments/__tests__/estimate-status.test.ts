@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { PDFDocument } from "pdf-lib";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { formatLineMoney, isBlockingLine } from "../estimate-status";
 import { generateAssessmentPdf } from "../generate-assessment-pdf";
 import type { EstimateLine } from "../types";
@@ -67,8 +67,29 @@ describe("formatLineMoney", () => {
   });
 });
 
+/** Text of every page, so a wrong heading or cell is visible to the test. */
+async function pdfText(bytes: Uint8Array): Promise<string> {
+  const task = getDocument({
+    data: new Uint8Array(bytes),
+    useSystemFonts: true,
+  });
+  const pdf = await task.promise;
+  try {
+    const parts: string[] = [];
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const content = await (await pdf.getPage(n)).getTextContent();
+      for (const item of content.items) {
+        if ("str" in item) parts.push(item.str);
+      }
+    }
+    return parts.join(" ");
+  } finally {
+    await task.destroy();
+  }
+}
+
 describe("generateAssessmentPdf with a blocked total", () => {
-  it("renders without throwing", async () => {
+  it("states the total is not available and never prints $0.00", async () => {
     const bytes = await generateAssessmentPdf({
       domain: "FIRE_SMOKE",
       report: { sections: [{ heading: "Situation", body: "Protein smoke." }] },
@@ -107,7 +128,13 @@ describe("generateAssessmentPdf with a blocked total", () => {
         propertyAddress: "1 Test St",
       },
     });
-    const doc = await PDFDocument.load(bytes);
-    expect(doc.getPageCount()).toBeGreaterThan(0);
+    const text = await pdfText(bytes);
+    expect(text).toContain("total not available");
+    expect(text).not.toContain("$0.00");
+    expect(text).toContain("Not priced");
+    expect(text).toContain("In labour");
+    expect(text).toContain("$151.00");
+    expect(text).toContain("Needed");
+    expect(text).not.toContain("null");
   });
 });
