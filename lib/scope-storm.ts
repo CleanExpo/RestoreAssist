@@ -97,6 +97,8 @@ export function generateStormScope(params: {
     quantity: area,
     unit: "m²",
     unitCostAud: pricingConfig.extractionElectricHourlyRate,
+    // RA-8281: not tagged. The quantity is m² and this field is $/hr, so the
+    // assessment domains must not price it from the price list.
     isRequired: true,
   });
 
@@ -109,6 +111,7 @@ export function generateStormScope(params: {
     quantity: days,
     unit: "day",
     unitCostAud: pricingConfig.dehumidifierLGRDailyRate,
+    rateField: "dehumidifierLGRDailyRate",
     isRequired: true,
   });
 
@@ -121,6 +124,7 @@ export function generateStormScope(params: {
     quantity: 1,
     unit: "job",
     unitCostAud: pricingConfig.thermalCameraUseCostPerAssessment,
+    rateField: "thermalCameraUseCostPerAssessment",
     isRequired: true,
   });
 
@@ -170,6 +174,7 @@ export function generateStormScope(params: {
       quantity: days,
       unit: "day",
       unitCostAud: pricingConfig.injectionDryingSystemDailyRate,
+      rateField: "injectionDryingSystemDailyRate",
       isRequired: true,
     });
   }
@@ -200,6 +205,7 @@ export function generateStormScope(params: {
       quantity: area,
       unit: "m²",
       unitCostAud: pricingConfig.antimicrobialTreatmentRate,
+      rateField: "antimicrobialTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -211,6 +217,7 @@ export function generateStormScope(params: {
       quantity: area,
       unit: "m²",
       unitCostAud: pricingConfig.antimicrobialTreatmentRate,
+      rateField: "antimicrobialTreatmentRate",
       isRequired: true,
     });
     items.push({

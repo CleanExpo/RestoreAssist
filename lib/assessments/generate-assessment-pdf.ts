@@ -428,7 +428,8 @@ export async function generateAssessmentPdf(
   const estimateHeading =
     t.subtotalExGst === null || t.gstTotal === null || t.totalIncGst === null
       ? `Estimate (total not available: ${t.missing?.length ?? "some"} line(s) not priced)`
-      : `Estimate (AUD ex GST $${t.subtotalExGst.toFixed(2)} | GST $${t.gstTotal.toFixed(2)} | total $${t.totalIncGst.toFixed(2)})`;
+      : // RA-8281: currency and GST rate from the totals (lib/gst-rules), not "AUD".
+        `Estimate (${t.currency} ex GST $${t.subtotalExGst.toFixed(2)} | GST ${+(t.gstRate * 100).toFixed(2)}% $${t.gstTotal.toFixed(2)} | total $${t.totalIncGst.toFixed(2)})`;
   drawWrappedText(ctx, estimateHeading, input.meta, title, {
     size: 14,
     font: ctx.fontBold,

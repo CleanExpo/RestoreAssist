@@ -49,7 +49,8 @@ export default function AssessmentResultDisplay({
     totals.gstTotal === null ||
     totals.totalIncGst === null
       ? `total not available: ${totals.missing?.length ?? "some"} line(s) not priced`
-      : `AUD ex GST ${totals.subtotalExGst.toFixed(2)} · GST ${totals.gstTotal.toFixed(2)} · total ${totals.totalIncGst.toFixed(2)}`;
+      : // RA-8281: currency and GST rate come from the estimate (lib/gst-rules), never a fixed "AUD".
+        `${totals.currency} ex GST ${totals.subtotalExGst.toFixed(2)} · GST ${+(totals.gstRate * 100).toFixed(2)}% ${totals.gstTotal.toFixed(2)} · total ${totals.totalIncGst.toFixed(2)}`;
 
   function downloadJson() {
     const blob = new Blob([JSON.stringify(result, null, 2)], {

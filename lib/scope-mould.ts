@@ -85,6 +85,7 @@ export function generateMouldScope(params: {
     quantity: area,
     unit: "m²",
     unitCostAud: pricingConfig.mouldRemediationTreatmentRate,
+    rateField: "mouldRemediationTreatmentRate",
     isRequired: true,
   });
 
@@ -115,6 +116,7 @@ export function generateMouldScope(params: {
       quantity: days,
       unit: "day",
       unitCostAud: pricingConfig.afdUnitLargeDailyRate,
+      rateField: "afdUnitLargeDailyRate",
       isRequired: true,
     });
 
@@ -143,6 +145,7 @@ export function generateMouldScope(params: {
       quantity: days,
       unit: "day",
       unitCostAud: pricingConfig.afdUnitLargeDailyRate,
+      rateField: "afdUnitLargeDailyRate",
       isRequired: true,
     });
 

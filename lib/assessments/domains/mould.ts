@@ -11,7 +11,8 @@
  *   - scope   — ScopeItem[] from lib/equipment-calculator-mould +
  *               lib/equipment-hepa-negative-air, with IICRC clause
  *               refs inline
- *   - estimate — equipment line-rates × estimated days × 10% GST
+ *   - estimate — equipment unit-days priced from the contractor's own
+ *               price list (RA-8281); an unset rate blocks the total.
  *
  * Rule-based + deterministic — no AI required for V1. AI prose
  * enhancement is wired in later under the same RA-1717 epic.
@@ -19,7 +20,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import type { GstTreatment } from "@/lib/gst-rules";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
+import { estimateFromPriceList } from "../price-list-estimate";
 import {
   calculateMouldEquipment,
   type ContainmentLevel,
@@ -27,25 +29,26 @@ import {
   type MouldEquipmentLineItem,
 } from "@/lib/equipment-calculator-mould";
 import type {
-  AssessmentEstimate,
   AssessmentReport,
   DomainGenerateInput,
   DomainGenerateResult,
   DomainPlugin,
-  PricedEstimateLine,
   ReportSection,
   ScopeCategory,
   QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
+import { resolveAreaSqm } from "@/lib/units";
 
-// ─── Pricing defaults (per-day equipment hire, AU mid-2026 ex GST) ──────────
+// ─── Price-list fields (RA-8281) ─────────────────────────────────────────────
+// Each equipment line is priced per unit-day from the contractor's own price
+// list. No default rates: an unset field reads "rate not set".
 
-const DAILY_RATES_AUD: Record<MouldEquipmentLineItem["type"], number> = {
-  negative_air_machine: 95,
-  air_scrubber_hepa: 85,
-  hepa_vacuum: 35,
-  dehumidifier_lgr: 110,
+const RATE_FIELD_BY_TYPE: Record<MouldEquipmentLineItem["type"], string> = {
+  negative_air_machine: "negativeAirMachineDailyRate",
+  air_scrubber_hepa: "afdUnitLargeDailyRate",
+  hepa_vacuum: "hepaVacuumDailyRate",
+  dehumidifier_lgr: "dehumidifierLGRDailyRate",
 };
 
 /**
@@ -82,44 +85,6 @@ function equipmentToScopeItem(
     unit: "unit·day",
     iicrcRef: it.iicrcReference,
     notes: it.justification,
-  };
-}
-
-function buildEstimate(
-  scope: QuantifiedScopeItem[],
-  rateByDescription: Map<string, number>,
-  gst: GstTreatment,
-): AssessmentEstimate {
-  const lines: PricedEstimateLine[] = scope.map((item) => {
-    const rate = rateByDescription.get(item.description) ?? 0;
-    const lineTotalExGst = +(item.quantity * rate).toFixed(2);
-    const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
-    const lineTotalIncGst = +(lineTotalExGst + gstAmount).toFixed(2);
-    return {
-      description: item.description,
-      category: item.category,
-      quantity: item.quantity,
-      unit: item.unit,
-      rate,
-      lineTotalExGst,
-      gstAmount,
-      lineTotalIncGst,
-    };
-  });
-  const subtotalExGst = +lines
-    .reduce((s, l) => s + l.lineTotalExGst, 0)
-    .toFixed(2);
-  const gstTotal = +lines.reduce((s, l) => s + l.gstAmount, 0).toFixed(2);
-  const totalIncGst = +(subtotalExGst + gstTotal).toFixed(2);
-  return {
-    lines,
-    totals: {
-      subtotalExGst,
-      gstTotal,
-      totalIncGst,
-      gstRate: gst.rate,
-      currency: gst.currency,
-    },
   };
 }
 
@@ -299,8 +264,10 @@ export const mouldDomain: DomainPlugin = {
         where: { id: input.inspectionId },
         select: {
           id: true,
+          userId: true,
+          createdAt: true,
           propertyAddress: true,
-          affectedAreas: { select: { affectedSquareFootage: true } },
+          affectedAreas: { select: { affectedAreaSqm: true, affectedSquareFootage: true } },
         },
       });
       if (!inspection) {
@@ -311,8 +278,11 @@ export const mouldDomain: DomainPlugin = {
         };
       }
 
+      // RA-8281 review: affectedSquareFootage is sq ft. resolveAreaSqm prefers the
+      // m2 column and converts a legacy sq-ft-only row once, so a contractor's
+      // per-m2 rate is never applied to a square-foot quantity.
       const affectedAreaM2 = inspection.affectedAreas.reduce(
-        (sum, a) => sum + (a.affectedSquareFootage ?? 0),
+        (sum, a) => sum + resolveAreaSqm(a),
         0,
       );
       if (affectedAreaM2 <= 0) {
@@ -320,7 +290,7 @@ export const mouldDomain: DomainPlugin = {
           ok: false,
           code: "INSUFFICIENT_DATA",
           message:
-            "Inspection has no affected-area data. Capture at least one AffectedArea row (with affectedSquareFootage > 0) before generating.",
+            "Inspection has no affected-area data. Capture at least one AffectedArea row (with an affected area greater than zero) before generating.",
         };
       }
 
@@ -338,16 +308,16 @@ export const mouldDomain: DomainPlugin = {
         equipmentToScopeItem(it, days),
       );
 
-      // Build a description-keyed rate map for the estimate. Same description
-      // shape used in equipmentToScopeItem above.
-      const rateByDescription = new Map<string, number>(
-        calc.equipmentList.map((it) => [
-          `${it.label} — ${days}-day hire`,
-          DAILY_RATES_AUD[it.type],
-        ]),
-      );
+      const priceList = await resolveInspectionPriceList(inspection);
       const gst = await gstForInspection(input.inspectionId);
-      const estimate = buildEstimate(scope, rateByDescription, gst);
+      const estimate = estimateFromPriceList(
+        scope.map((item, i) => ({
+          ...item,
+          rateField: RATE_FIELD_BY_TYPE[calc.equipmentList[i].type],
+        })),
+        priceList,
+        gst,
+      );
 
       const { report, citations } = buildReport({
         propertyAddress: inspection.propertyAddress,

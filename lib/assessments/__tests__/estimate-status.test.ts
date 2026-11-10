@@ -54,6 +54,25 @@ describe("isBlockingLine", () => {
     expect(isBlockingLine(legacy as EstimateLine)).toBe(true);
   });
 
+  // RA-8281 review (CodeRabbit): rows stored before RA-8275 priced a missing
+  // rate at $0 and carry no pricingStatus. The PDF route re-reads them; they
+  // must block the total, not sum as a complete $0 line.
+  it("a legacy line priced at $0 with no status blocks", () => {
+    const { pricingStatus: _s, ...legacy } = priced;
+    const zero = { ...legacy, rate: 0, lineTotalExGst: 0, gstAmount: 0, lineTotalIncGst: 0 };
+    expect(isBlockingLine(zero as EstimateLine)).toBe(true);
+  });
+
+  it("a legacy line with a real rate and no status does not block", () => {
+    const { pricingStatus: _s, ...legacy } = priced;
+    expect(isBlockingLine(legacy as EstimateLine)).toBe(false);
+  });
+
+  it("a line the contractor priced at $0 on purpose does not block", () => {
+    const free = { ...priced, rate: 0, lineTotalExGst: 0, gstAmount: 0, lineTotalIncGst: 0 };
+    expect(isBlockingLine(free)).toBe(false);
+  });
+
   it("a line carried by labour hours does not block", () => {
     expect(isBlockingLine(inLabour)).toBe(false);
   });
@@ -64,6 +83,23 @@ describe("formatLineMoney", () => {
     expect(formatLineMoney(null, rateNotSet)).toBe("Not priced");
     expect(formatLineMoney(null, inLabour)).toBe("In labour");
     expect(formatLineMoney(151, priced)).toBe("$151.00");
+  });
+
+  // RA-8281 review (CodeRabbit on #2533): a stored pre-RA-8275 line priced a
+  // missing rate at $0; its cells must read "Not priced", not "$0.00".
+  it("never renders a legacy $0 line as $0.00", () => {
+    const { pricingStatus: _s, ...legacy } = priced;
+    const zero = { ...legacy, rate: 0, lineTotalExGst: 0, gstAmount: 0, lineTotalIncGst: 0 } as EstimateLine;
+    expect(formatLineMoney(zero.rate, zero)).toBe("Not priced");
+    expect(formatLineMoney(zero.lineTotalExGst, zero)).toBe("Not priced");
+    expect(formatLineMoney(zero.lineTotalIncGst, zero)).toBe("Not priced");
+  });
+
+  it("a deliberate $0 priced line and a legacy real rate still show money", () => {
+    const free = { ...priced, rate: 0, lineTotalExGst: 0, gstAmount: 0, lineTotalIncGst: 0 };
+    expect(formatLineMoney(0, free)).toBe("$0.00");
+    const { pricingStatus: _s, ...legacy } = priced;
+    expect(formatLineMoney(151, legacy as EstimateLine)).toBe("$151.00");
   });
 });
 
