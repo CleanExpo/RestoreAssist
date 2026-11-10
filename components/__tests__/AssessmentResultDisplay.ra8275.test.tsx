@@ -92,3 +92,36 @@ describe("AssessmentResultDisplay — RA-8275 blocked estimate", () => {
     ).toBeInTheDocument();
   });
 });
+
+// RA-8281 review (CodeRabbit): the summary printed a fixed "AUD", so an NZ
+// estimate (15% GST, NZD) was labelled AUD on screen while its PDF said NZD.
+describe("AssessmentResultDisplay — RA-8281 summary currency and GST rate", () => {
+  const complete = (gstRate: number, currency: string): GenerateResultPayload => ({
+    ...blocked,
+    estimate: {
+      lines: [blocked.estimate.lines[0]],
+      totals: {
+        subtotalExGst: 151,
+        gstTotal: +(151 * gstRate).toFixed(2),
+        totalIncGst: +(151 * (1 + gstRate)).toFixed(2),
+        gstRate,
+        currency,
+        status: "complete",
+        missing: [],
+      },
+    },
+  });
+
+  it("an NZ estimate reads NZD and 15% GST, never AUD", () => {
+    const { container } = render(
+      <AssessmentResultDisplay result={complete(0.15, "NZD")} />,
+    );
+    expect(screen.getByText(/NZD ex GST 151\.00 · GST 15% 22\.65/)).toBeInTheDocument();
+    expect(container.textContent).not.toContain("AUD");
+  });
+
+  it("an AU estimate reads AUD and 10% GST", () => {
+    render(<AssessmentResultDisplay result={complete(0.1, "AUD")} />);
+    expect(screen.getByText(/AUD ex GST 151\.00 · GST 10% 15\.10/)).toBeInTheDocument();
+  });
+});

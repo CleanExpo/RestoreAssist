@@ -54,6 +54,25 @@ describe("isBlockingLine", () => {
     expect(isBlockingLine(legacy as EstimateLine)).toBe(true);
   });
 
+  // RA-8281 review (CodeRabbit): rows stored before RA-8275 priced a missing
+  // rate at $0 and carry no pricingStatus. The PDF route re-reads them; they
+  // must block the total, not sum as a complete $0 line.
+  it("a legacy line priced at $0 with no status blocks", () => {
+    const { pricingStatus: _s, ...legacy } = priced;
+    const zero = { ...legacy, rate: 0, lineTotalExGst: 0, gstAmount: 0, lineTotalIncGst: 0 };
+    expect(isBlockingLine(zero as EstimateLine)).toBe(true);
+  });
+
+  it("a legacy line with a real rate and no status does not block", () => {
+    const { pricingStatus: _s, ...legacy } = priced;
+    expect(isBlockingLine(legacy as EstimateLine)).toBe(false);
+  });
+
+  it("a line the contractor priced at $0 on purpose does not block", () => {
+    const free = { ...priced, rate: 0, lineTotalExGst: 0, gstAmount: 0, lineTotalIncGst: 0 };
+    expect(isBlockingLine(free)).toBe(false);
+  });
+
   it("a line carried by labour hours does not block", () => {
     expect(isBlockingLine(inLabour)).toBe(false);
   });

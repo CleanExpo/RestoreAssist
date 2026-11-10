@@ -13,7 +13,12 @@ import type { EstimateLine } from "./types";
 export function isBlockingLine(line: EstimateLine): boolean {
   if (line.pricingStatus === "included_in_labour") return false;
   if (line.pricingStatus && line.pricingStatus !== "priced") return true;
-  return line.rate === null || line.lineTotalExGst === null;
+  if (line.rate === null || line.lineTotalExGst === null) return true;
+  // RA-8281 review: rows stored before RA-8275 carry no pricingStatus and
+  // priced a missing rate at $0. Every current domain sets pricingStatus, so a
+  // status-less line without a positive rate is one of those and blocks.
+  // A line marked "priced" at $0 is the contractor's own choice and does not.
+  return !line.pricingStatus && !(line.rate > 0);
 }
 
 /** Plain text for a money cell: "$1,234.00", or the line's reason. */
