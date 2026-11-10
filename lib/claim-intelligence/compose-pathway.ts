@@ -28,6 +28,7 @@ import {
   type JobType,
   type WorkflowStepDefinition,
 } from "@/lib/evidence/workflow-definitions";
+import { ASBESTOS_PRESUMPTION_YEAR } from "@/lib/compliance/asbestos-era";
 import { getStepGuidance } from "@/lib/evidence/adaptive-guidance";
 import type { EvidenceClass } from "@/lib/types/evidence";
 import {
@@ -58,6 +59,9 @@ import {
   type PathwayItem,
   type PathwaySection,
 } from "./types";
+
+/** Presume asbestos before this build year (AU, from the regulatory registry). */
+const ASBESTOS_YEAR = ASBESTOS_PRESUMPTION_YEAR.AU;
 
 export class UnknownClaimTypeError extends Error {
   constructor(raw: string) {
@@ -207,8 +211,9 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
   ) => drafts.push({ item: { ...item, status: "proposed" }, customer });
 
   // ── Safety ───────────────────────────────────────────────────────────────
-  // Asbestos: the lead-verified rule. Before 2004, or unknown: required.
-  // 2004 on: advisory (recycled or imported materials are possible).
+  // Asbestos: built before the AU presumption year (from the regulatory
+  // registry), or unknown: required. From that year on: advisory (recycled or
+  // imported materials are possible).
   {
     const year = prop.buildYear;
     let severity: PathwayItem["severity"] = "required";
@@ -219,8 +224,8 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
     } else if (!known(year)) {
       action =
         "Check for asbestos before disturbing any material: the build year is not known.";
-    } else if (year < 2004) {
-      action = `Check for asbestos before disturbing any material: the building was built in ${year}, before 2004.`;
+    } else if (year < ASBESTOS_YEAR) {
+      action = `Check for asbestos before disturbing any material: the building was built in ${year}, before ${ASBESTOS_YEAR}.`;
     } else {
       severity = "advisory";
       action = `Asbestos is unlikely in a building from ${year}, but check before disturbing any material that looks recycled or imported.`;
@@ -414,7 +419,7 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
     investigate(
       "build-year",
       "Confirm the build year.",
-      "Buildings before 2004 need an asbestos check before any material is disturbed.",
+      `Buildings before ${ASBESTOS_YEAR} need an asbestos check before any material is disturbed.`,
       "When the home was built, which decides the asbestos check.",
     );
   }
