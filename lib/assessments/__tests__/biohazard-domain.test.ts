@@ -8,10 +8,10 @@ vi.mock("@/lib/prisma", () => ({
 
 // RA-8281: estimates price from the contractor's own price list. These
 // tests cover report and scope content, so give a complete price list.
-vi.mock("@/lib/pricing/effective-pricing", async () => {
+vi.mock("@/lib/assessments/inspection-price-list", async () => {
   const { NRPG_RATE_RANGES } = await import("@/lib/nrpg-rate-ranges");
   return {
-    resolveEffectivePricing: vi.fn(async () =>
+    resolveInspectionPriceList: vi.fn(async () =>
       Object.fromEntries(
         Object.entries(NRPG_RATE_RANGES).map(([k, r]) => [
           k,
@@ -45,7 +45,7 @@ const baseInspection = {
   id: "i_1",
   propertyAddress: "12 Smith St, Brisbane",
   propertyPostcode: "4000", // QLD
-  affectedAreas: [{ affectedSquareFootage: 12 }],
+  affectedAreas: [{ affectedAreaSqm: 12 }],
 };
 
 describe("biohazardDomain — happy paths per type", () => {

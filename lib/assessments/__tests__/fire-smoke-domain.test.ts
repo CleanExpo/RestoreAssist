@@ -9,6 +9,15 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// The inspection's creator owns its business (RA-7893 owner path).
+vi.mock("@/lib/organization-credits", async (orig) => ({
+  ...(await orig<typeof import("@/lib/organization-credits")>()),
+  getResourceTenant: vi.fn(async (creatorId: string) => ({
+    ownerId: creatorId,
+    organizationId: null,
+  })),
+}));
+
 import { prisma } from "@/lib/prisma";
 import { fireSmokeDomain } from "../domains/fire-smoke";
 
@@ -69,6 +78,8 @@ const baseInput = {
 const baseInspection = {
   id: "i_1",
   propertyAddress: "12 Smith St, Brisbane",
+  userId: "u_1",
+  createdAt: new Date("2026-10-01T00:00:00Z"),
   affectedAreas: [{ affectedSquareFootage: 50 }],
 };
 

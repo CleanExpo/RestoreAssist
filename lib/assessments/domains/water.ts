@@ -20,7 +20,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
 import type { CompanyPricingRates } from "@/lib/nir-cost-estimation";
 import { estimateFromPriceList } from "../price-list-estimate";
 import {
@@ -40,6 +40,7 @@ import type {
   QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
+import { resolveAreaSqm } from "@/lib/units";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -212,6 +213,8 @@ export const waterDomain: DomainPlugin = {
         where: { id: input.inspectionId },
         select: {
           id: true,
+          userId: true,
+          createdAt: true,
           propertyAddress: true,
           classifications: {
             orderBy: { createdAt: "desc" },
@@ -219,7 +222,7 @@ export const waterDomain: DomainPlugin = {
             select: { category: true, class: true },
           },
           affectedAreas: {
-            select: { affectedSquareFootage: true },
+            select: { affectedAreaSqm: true, affectedSquareFootage: true },
           },
           moistureReadings: {
             select: { surfaceType: true, moistureLevel: true },
@@ -247,18 +250,18 @@ export const waterDomain: DomainPlugin = {
         };
       }
 
-      // Note: AffectedArea.affectedSquareFootage is the canonical numeric
-      // area on the model (legacy field name; treated as the inspection's
-      // working area unit — kept consistent with the rest of the app).
+      // RA-8281 review: affectedSquareFootage is sq ft. resolveAreaSqm prefers the
+      // m2 column and converts a legacy sq-ft-only row once, so a contractor's
+      // per-m2 rate is never applied to a square-foot quantity.
       const affectedAreaM2 = inspection.affectedAreas.reduce(
-        (sum, a) => sum + (a.affectedSquareFootage ?? 0),
+        (sum, a) => sum + resolveAreaSqm(a),
         0,
       );
       const days = estimatedDaysForClass(dc);
 
       // RA-8281: price only from the contractor's own price list. No
       // default rates: an unset field reads "rate not set".
-      const priceList = await resolveEffectivePricing(prisma, input.userId);
+      const priceList = await resolveInspectionPriceList(inspection);
 
       // Hand to the existing scope-dispatcher pathway.
       const drafts = generateScopeItems({

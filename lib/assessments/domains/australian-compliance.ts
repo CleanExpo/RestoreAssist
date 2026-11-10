@@ -30,7 +30,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
 import { estimateFromPriceList } from "../price-list-estimate";
 import { detectStateFromPostcode } from "@/lib/state-detection";
 import type {
@@ -363,6 +363,8 @@ export const australianComplianceDomain: DomainPlugin = {
         where: { id: input.inspectionId },
         select: {
           id: true,
+          userId: true,
+          createdAt: true,
           propertyAddress: true,
           propertyPostcode: true,
         },
@@ -385,7 +387,7 @@ export const australianComplianceDomain: DomainPlugin = {
         state,
       );
       const gst = await gstForInspection(input.inspectionId);
-      const priceList = await resolveEffectivePricing(prisma, input.userId);
+      const priceList = await resolveInspectionPriceList(inspection);
       const estimate = estimateFromPriceList(scope, priceList, gst);
       const { report, citations } = buildReport({
         propertyAddress: inspection.propertyAddress,

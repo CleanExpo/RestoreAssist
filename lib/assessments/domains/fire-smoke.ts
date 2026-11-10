@@ -11,7 +11,7 @@
  *               (smoke-type-specific cleaning items + char-level
  *               structural items, all with S700 clause refs inline)
  *   - estimate — priced by lib/scope-fire::priceFireScope from the
- *               contractor's OWN price list (resolveEffectivePricing),
+ *               contractor's OWN price list (resolveInspectionPriceList),
  *               GST from lib/gst-rules. RA-8275: no default rates; an unset
  *               rate blocks the total instead of pricing at $0.
  *
@@ -20,7 +20,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
 import { resolveAreaSqm } from "@/lib/units";
 import {
   generateFireScope,
@@ -297,6 +297,8 @@ export const fireSmokeDomain: DomainPlugin = {
         where: { id: input.inspectionId },
         select: {
           id: true,
+          userId: true,
+          createdAt: true,
           propertyAddress: true,
           affectedAreas: {
             select: { affectedAreaSqm: true, affectedSquareFootage: true },
@@ -340,7 +342,7 @@ export const fireSmokeDomain: DomainPlugin = {
       // RA-8275: price only from the contractor's own price list. No
       // default rates: an unset field shows as "rate not set".
       const pricingConfig =
-        (await resolveEffectivePricing(prisma, input.userId)) ?? {};
+        (await resolveInspectionPriceList(inspection)) ?? {};
 
       const drafts = generateFireScope({
         smokeType: opts.smokeType,

@@ -36,7 +36,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
 import { estimateFromPriceList } from "../price-list-estimate";
 import type {
   AssessmentReport,
@@ -403,7 +403,12 @@ export const hvacDomain: DomainPlugin = {
 
       const inspection = await prisma.inspection.findUnique({
         where: { id: input.inspectionId },
-        select: { id: true, propertyAddress: true },
+        select: {
+          id: true,
+          userId: true,
+          createdAt: true,
+          propertyAddress: true,
+        },
       });
       if (!inspection) {
         return {
@@ -414,7 +419,7 @@ export const hvacDomain: DomainPlugin = {
       }
 
       const scope = buildScope(opts);
-      const priceList = await resolveEffectivePricing(prisma, input.userId);
+      const priceList = await resolveInspectionPriceList(inspection);
       const gst = await gstForInspection(input.inspectionId);
       const estimate = estimateFromPriceList(scope, priceList, gst);
       const { report, citations } = buildReport({

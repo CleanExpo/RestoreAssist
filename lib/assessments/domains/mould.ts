@@ -20,7 +20,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
 import { estimateFromPriceList } from "../price-list-estimate";
 import {
   calculateMouldEquipment,
@@ -38,6 +38,7 @@ import type {
   QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
+import { resolveAreaSqm } from "@/lib/units";
 
 // ─── Price-list fields (RA-8281) ─────────────────────────────────────────────
 // Each equipment line is priced per unit-day from the contractor's own price
@@ -263,8 +264,10 @@ export const mouldDomain: DomainPlugin = {
         where: { id: input.inspectionId },
         select: {
           id: true,
+          userId: true,
+          createdAt: true,
           propertyAddress: true,
-          affectedAreas: { select: { affectedSquareFootage: true } },
+          affectedAreas: { select: { affectedAreaSqm: true, affectedSquareFootage: true } },
         },
       });
       if (!inspection) {
@@ -275,8 +278,11 @@ export const mouldDomain: DomainPlugin = {
         };
       }
 
+      // RA-8281 review: affectedSquareFootage is sq ft. resolveAreaSqm prefers the
+      // m2 column and converts a legacy sq-ft-only row once, so a contractor's
+      // per-m2 rate is never applied to a square-foot quantity.
       const affectedAreaM2 = inspection.affectedAreas.reduce(
-        (sum, a) => sum + (a.affectedSquareFootage ?? 0),
+        (sum, a) => sum + resolveAreaSqm(a),
         0,
       );
       if (affectedAreaM2 <= 0) {
@@ -284,7 +290,7 @@ export const mouldDomain: DomainPlugin = {
           ok: false,
           code: "INSUFFICIENT_DATA",
           message:
-            "Inspection has no affected-area data. Capture at least one AffectedArea row (with affectedSquareFootage > 0) before generating.",
+            "Inspection has no affected-area data. Capture at least one AffectedArea row (with an affected area greater than zero) before generating.",
         };
       }
 
@@ -302,7 +308,7 @@ export const mouldDomain: DomainPlugin = {
         equipmentToScopeItem(it, days),
       );
 
-      const priceList = await resolveEffectivePricing(prisma, input.userId);
+      const priceList = await resolveInspectionPriceList(inspection);
       const gst = await gstForInspection(input.inspectionId);
       const estimate = estimateFromPriceList(
         scope.map((item, i) => ({

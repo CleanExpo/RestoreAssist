@@ -16,7 +16,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
 import type { CompanyPricingRates } from "@/lib/nir-cost-estimation";
 import { estimateFromPriceList } from "../price-list-estimate";
 import {
@@ -35,6 +35,7 @@ import type {
   QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
+import { resolveAreaSqm } from "@/lib/units";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -311,9 +312,11 @@ export const biohazardDomain: DomainPlugin = {
         where: { id: input.inspectionId },
         select: {
           id: true,
+          userId: true,
+          createdAt: true,
           propertyAddress: true,
           propertyPostcode: true,
-          affectedAreas: { select: { affectedSquareFootage: true } },
+          affectedAreas: { select: { affectedAreaSqm: true, affectedSquareFootage: true } },
         },
       });
       if (!inspection) {
@@ -324,8 +327,11 @@ export const biohazardDomain: DomainPlugin = {
         };
       }
 
+      // RA-8281 review: affectedSquareFootage is sq ft. resolveAreaSqm prefers the
+      // m2 column and converts a legacy sq-ft-only row once, so a contractor's
+      // per-m2 rate is never applied to a square-foot quantity.
       const affectedAreaM2 = inspection.affectedAreas.reduce(
-        (sum, a) => sum + (a.affectedSquareFootage ?? 0),
+        (sum, a) => sum + resolveAreaSqm(a),
         0,
       );
       if (affectedAreaM2 <= 0) {
@@ -341,7 +347,7 @@ export const biohazardDomain: DomainPlugin = {
 
       // RA-8281: price only from the contractor's own price list. No
       // default rates: an unset field reads "rate not set".
-      const priceList = await resolveEffectivePricing(prisma, input.userId);
+      const priceList = await resolveInspectionPriceList(inspection);
 
       const drafts = generateBiohazardScope({
         biohazardType: opts.biohazardType,
