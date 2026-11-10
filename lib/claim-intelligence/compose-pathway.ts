@@ -686,9 +686,19 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
   // monitoring) stay out of a pathway with no water. Mould keeps them: finding
   // the moisture source is part of the mould work itself.
   const keepWaterSteps = waterPresent || claimType === "MOULD";
-  const steps: WorkflowStepDefinition[] = template.steps.filter(
-    (s) => keepWaterSteps || !s.waterOnly,
-  );
+  const dryTemplate = !keepWaterSteps;
+  const steps: WorkflowStepDefinition[] = template.steps
+    .filter((s) => keepWaterSteps || !s.waterOnly)
+    // Drying equipment means nothing on a dry job; record air filtration and
+    // other equipment with the fire template's equipment step instead.
+    .map((s) =>
+      dryTemplate && s.stepKey === "equipment_deployment"
+        ? (getWorkflowTemplate("FIRE_SMOKE").steps.find(
+            (f) => f.stepKey === "equipment_setup",
+          ) ?? s)
+        : s,
+    )
+    .filter((s, i, all) => all.findIndex((x) => x.stepKey === s.stepKey) === i);
   const has = (key: string) => steps.some((s) => s.stepKey === key);
   const borrow = (from: JobType, key: string) => {
     if (has(key)) return;
@@ -708,15 +718,33 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
 
   for (const step of steps) {
     const g = getStepGuidance(step.stepKey);
-    const req = step.requiredEvidenceClasses;
+    // Shared steps written for water jobs (floor plan with moisture
+    // boundaries, scope with drying, completion at drying goal) get dry
+    // wording on a job with no water, and lose the moisture reading.
+    const dryText =
+      dryTemplate && WATER_ALERT.test(step.stepDescription)
+        ? DRY_STEP_TEXT[step.stepKey]
+        : undefined;
+    const allReq = step.requiredEvidenceClasses;
+    const req = dryTemplate
+      ? allReq.filter((c) => c !== "MOISTURE_READING")
+      : allReq;
+    const minimum = Math.max(
+      req.length,
+      step.minimumEvidenceCount - (allReq.length - req.length),
+    );
     const evidence = req.map((cls, i) =>
-      ev(
-        cls,
-        i === 0 ? Math.max(1, step.minimumEvidenceCount - (req.length - 1)) : 1,
-      ),
+      ev(cls, i === 0 ? Math.max(1, minimum - (req.length - 1)) : 1),
     );
     const subSteps = g.subSteps.map((s) => s.label).join("; ");
-    const customerLine = customerLineForStep(step.stepKey, fire, waterPresent);
+    const description = dryText?.description ?? step.stepDescription;
+    const descriptionShort = dryText?.short ?? step.stepDescriptionShort;
+    // Mould claims keep their moisture wording, as the tech steps do.
+    const customerLine = customerLineForStep(
+      step.stepKey,
+      fire,
+      keepWaterSteps,
+    );
     push(
       {
         id: `workflow.${step.stepKey}`,
@@ -730,10 +758,10 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
         evidence,
         guidance: {
           apprentice: subSteps
-            ? `${step.stepDescription} Steps: ${subSteps}.`
-            : step.stepDescription,
+            ? `${description} Steps: ${subSteps}.`
+            : description,
           experienced: [
-            step.stepDescriptionShort,
+            descriptionShort,
             // Shared guidance is keyed by stepKey and some alerts are written
             // for water jobs only; keep them out of a pathway with no water.
             ...g.experiencedAlerts.filter(
@@ -819,7 +847,36 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
   };
 }
 
-const WATER_ALERT = /\bCat(egory)?\s?[123]\b|drying|moisture|dehumidif/i;
+const WATER_ALERT =
+  /\bCat(egory)?\s?[123]\b|drying|moisture|dehumidif|psychromet|dew point|air.?mover|S500/i;
+
+/**
+ * Dry wording for shared template steps that are written for water jobs.
+ * Used only when the pathway has no water and the claim is not mould, and
+ * only when the step's own description carries water wording.
+ */
+const DRY_STEP_TEXT: Record<string, { description: string; short: string }> = {
+  floor_plan_sketch: {
+    description:
+      "Create or annotate a floor plan showing all affected areas and where each photo, test and reading was taken. Mark room dimensions if creating from scratch. This becomes the reference document for the scope.",
+    short: "Annotated floor plan with affected areas and evidence points.",
+  },
+  scope_of_works: {
+    description:
+      "Document the full scope of restoration works required. Include demolition, cleaning, repairs and any specialist works. Reference affected areas and evidence collected.",
+    short: "Full scope document referencing evidence collected.",
+  },
+  completion_verification: {
+    description:
+      "Photograph restored areas showing the completion standard, record the final result of every test taken during the works, and obtain client sign-off on completed works.",
+    short: "Completion photos, final test results and client sign-off.",
+  },
+  contamination_assessment: {
+    description:
+      "Assess the contamination: document its source and type (biohazard, chemical or other), the affected materials and the PPE level in use. Take samples for lab analysis if the contaminant is uncertain.",
+    short: "Contamination source and type, PPE level, samples if needed.",
+  },
+};
 
 /** Plain-English customer line for a workflow step, where one helps. */
 function customerLineForStep(
@@ -833,7 +890,9 @@ function customerLineForStep(
     case "structural_assessment":
       return "A structural check, with an engineer referral if it is needed.";
     case "contamination_assessment":
-      return "An assessment of how contaminated the water is, which decides what can be kept and what must be removed.";
+      return water
+        ? "An assessment of how contaminated the water is, which decides what can be kept and what must be removed."
+        : "An assessment of the contamination, which decides what can be kept and what must be removed.";
     case "mould_sampling":
       return "A mould assessment, with samples where needed, to set the remediation method.";
     case "moisture_survey":
@@ -845,9 +904,12 @@ function customerLineForStep(
         ? null
         : "Equipment set up and recorded unit by unit, with photos.";
     case "completion_verification":
-      return fire && !water
+      if (water) {
+        return "A completion check: final readings at the drying goal, completion photos, and your sign-off.";
+      }
+      return fire
         ? "A completion check: residue and odour retested, completion photos, and your sign-off."
-        : "A completion check: final readings at the drying goal, completion photos, and your sign-off.";
+        : "A completion check: final test results, completion photos, and your sign-off.";
     default:
       return null;
   }

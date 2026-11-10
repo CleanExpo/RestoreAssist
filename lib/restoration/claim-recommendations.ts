@@ -97,20 +97,28 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
     add(
       "habitability",
       "caution",
-      "Assess habitability: contaminated (Category 3 / mould / biohazard) works under containment generally make the dwelling unsafe to occupy — recommend temporary accommodation / decant for the works.",
-      "IICRC S500:2021 §10 / S520:2024 (occupant protection)",
+      water
+        ? "Assess habitability: contaminated (Category 3 / mould / biohazard) works under containment generally make the dwelling unsafe to occupy — recommend temporary accommodation / decant for the works."
+        : "Assess habitability: contaminated (mould / biohazard / chemical) works under containment generally make the dwelling unsafe to occupy — recommend temporary accommodation / decant for the works.",
+      water
+        ? "IICRC S500:2021 §10 / S520:2024 (occupant protection)"
+        : contaminantClause(h),
     );
     add(
       "habitability",
       "required",
-      "Equipment noise: LGR dehumidifiers and AFD/HEPA scrubbers run 24/7 at ~55–70 dB — over sleeping thresholds. If anyone remains on site, document noise and do not run air movers overnight in occupied rooms.",
-      "WHS (noise) / S500:2021 §8",
+      water
+        ? "Equipment noise: LGR dehumidifiers and AFD/HEPA scrubbers run 24/7 at ~55–70 dB — over sleeping thresholds. If anyone remains on site, document noise and do not run air movers overnight in occupied rooms."
+        : "Equipment noise: AFD/HEPA air scrubbers run 24/7 at ~55–70 dB — over sleeping thresholds. If anyone remains on site, document noise and do not run them overnight in occupied rooms.",
+      water ? "WHS (noise) / S500:2021 §8" : "WHS (noise)",
     );
     add(
       "habitability",
       "required",
       "Vulnerable occupants (infants, elderly, asthmatic, immunocompromised) must not remain in the affected/containment zone.",
-      "IICRC S520:2024 §5 (Safety and Health)",
+      water || MOULD(h)
+        ? "IICRC S520:2024 §5 (Safety and Health)"
+        : contaminantClause(h),
     );
   }
   if (h.chemical) {
@@ -162,8 +170,12 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
     add(
       "security",
       "advisory",
-      "Secure the property during unoccupied drying: lock/board-up any access points opened for works, key register, alarm/monitoring; photo-document pre-existing condition to cap liability.",
-      "IICRC S500:2021 §9 (administrative procedures & risk)",
+      water
+        ? "Secure the property during unoccupied drying: lock/board-up any access points opened for works, key register, alarm/monitoring; photo-document pre-existing condition to cap liability."
+        : "Secure the property while it is unoccupied for the works: lock/board-up any access points opened for works, key register, alarm/monitoring; photo-document pre-existing condition to cap liability.",
+      water
+        ? "IICRC S500:2021 §9 (administrative procedures & risk)"
+        : "General duty of care",
     );
   }
 
@@ -187,8 +199,10 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
     add(
       "contents",
       "caution",
-      "Pack-out affected/at-risk contents to off-site climate-controlled storage for the works; pack-back and re-place on completion. Porous contents with Category 3 / mould exposure are generally non-restorable.",
-      "IICRC S500:2021 §14 / S520:2024 §12",
+      water
+        ? "Pack-out affected/at-risk contents to off-site climate-controlled storage for the works; pack-back and re-place on completion. Porous contents with Category 3 / mould exposure are generally non-restorable."
+        : "Pack-out affected/at-risk contents to off-site climate-controlled storage for the works; pack-back and re-place on completion. Porous contents exposed to mould, biohazard or chemical contamination are generally non-restorable.",
+      water ? "IICRC S500:2021 §14 / S520:2024 §12" : contaminantClause(h),
     );
   }
 
@@ -197,14 +211,20 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
     add(
       "perishables",
       "caution",
-      "Dispose of Category-3-exposed / spoiled food and refrigerator/freezer contents; clean and sanitise the appliances.",
-      "IICRC S500:2021 §14 / public-health guidance",
+      water
+        ? "Dispose of Category-3-exposed / spoiled food and refrigerator/freezer contents; clean and sanitise the appliances."
+        : "Dispose of contaminated or spoiled food and refrigerator/freezer contents; clean and sanitise the appliances.",
+      water
+        ? "IICRC S500:2021 §14 / public-health guidance"
+        : "Public-health guidance",
     );
     add(
       "perishables",
       "caution",
-      "Medications, cosmetics and makeup exposed to contaminated water are porous/absorbent — dispose; do not attempt to salvage.",
-      "IICRC S500:2021 §12.2 (porous materials)",
+      water
+        ? "Medications, cosmetics and makeup exposed to contaminated water are porous/absorbent — dispose; do not attempt to salvage."
+        : "Medications, cosmetics and makeup exposed to the contamination are porous/absorbent — dispose; do not attempt to salvage.",
+      water ? "IICRC S500:2021 §12.2 (porous materials)" : contaminantClause(h),
     );
   }
 
@@ -219,7 +239,9 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
     add(
       "animals_plants",
       "caution",
-      "Relocate pets/animals for the works — contaminated water, antimicrobials, containment and equipment noise present a welfare and safety risk.",
+      water
+        ? "Relocate pets/animals for the works — contaminated water, antimicrobials, containment and equipment noise present a welfare and safety risk."
+        : "Relocate pets/animals for the works — contamination, antimicrobials, containment and equipment noise present a welfare and safety risk.",
       "WHS / animal welfare duty",
     );
   }
@@ -237,8 +259,12 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
     add(
       "secondary_damage",
       "caution",
-      "Uncontrolled moisture will amplify microbial growth within 24–72h and can delaminate engineered materials — maintain drying and containment continuously.",
-      "IICRC S520:2024 §12 / S500:2021 §12.5",
+      water
+        ? "Uncontrolled moisture will amplify microbial growth within 24–72h and can delaminate engineered materials — maintain drying and containment continuously."
+        : "Uncontrolled moisture will amplify microbial growth within 24–72h and can delaminate engineered materials — find and correct the moisture source and keep containment in place continuously.",
+      water
+        ? "IICRC S520:2024 §12 / S500:2021 §12.5"
+        : `IICRC ${standardCite("S520")}`,
     );
   }
   if (h.fireSmoke) {
@@ -265,8 +291,10 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
     add(
       "soft_goods",
       "required",
-      "Remove curtains/blinds; launder or dispose if wicked with contaminated water. Antimicrobial-launder affected clothing, linen and bedding, or dispose where Category 3.",
-      "IICRC S500:2021 §14 / §12.2",
+      water
+        ? "Remove curtains/blinds; launder or dispose if wicked with contaminated water. Antimicrobial-launder affected clothing, linen and bedding, or dispose where Category 3."
+        : "Remove curtains/blinds; clean or dispose if contaminated. Antimicrobial-launder affected clothing, linen and bedding, or dispose where heavily contaminated.",
+      water ? "IICRC S500:2021 §14 / §12.2" : contaminantClause(h),
     );
   }
 
@@ -276,7 +304,9 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
       "replacement",
       "advisory",
       "Allow like-for-like replacement of removed non-restorable materials (carpet, underlay, skirting, paint) in addition to structural reinstatement.",
-      "IICRC S500:2021 §12 (structural restoration & reinstatement)",
+      water
+        ? "IICRC S500:2021 §12 (structural restoration & reinstatement)"
+        : `IICRC ${standardCite("S520")}`,
     );
   }
 
@@ -305,6 +335,17 @@ export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
     seen.add(k);
     return true;
   });
+}
+
+/**
+ * RA-8276: the clause a contaminated item cites when no water is present.
+ * Without water, "contaminated" means mould, biohazard or chemical.
+ */
+function contaminantClause(h: ClaimHazardInputs): string {
+  if (MOULD(h)) return `IICRC ${standardCite("S520")}`;
+  if (h.biohazard) return `IICRC ${standardCite("S540")}`;
+  if (h.chemical) return "AU meth remediation guideline / WHS";
+  return "General duty of care";
 }
 
 /**
@@ -353,7 +394,11 @@ export function workingAtHeight(h: ClaimHazardInputs): {
   }
   return {
     severity: "advisory",
-    text: `Working at height: if any task needs a ladder (for example ceiling moisture checks), ${controls}`,
+    text: `Working at height: if any task needs a ladder (for example ${
+      WATER_PRESENT(h)
+        ? "ceiling moisture checks"
+        : "high-level cleaning or inspection"
+    }), ${controls}`,
   };
 }
 

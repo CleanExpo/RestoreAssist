@@ -161,3 +161,63 @@ describe("RA-8276 defect 2: working at height is required for high-level scope",
     ).toBe("advisory");
   });
 });
+
+/**
+ * RA-8276 review round 3: a dry job with another hazard (biohazard, chemical,
+ * mould, unoccupied at loss) still pulled water-only wording and S500 clauses
+ * from the contaminated and security branches. Every combination of the
+ * non-water hazard flags, with no water, must carry no water wording.
+ */
+describe("RA-8276: no water wording on any dry hazard combination", () => {
+  const DRY_LEAK =
+    /S500|contaminated water|Category.?3|air.?mover|dehumidif|\bdrying\b|psychromet|wet.?floor|block-and-elevate|tannin|moisture checks/i;
+  const flags = [
+    "fireSmoke",
+    "biohazard",
+    "chemical",
+    "asbestos",
+    "unoccupiedAtLoss",
+  ] as const;
+  type H = Parameters<typeof claimRecommendations>[0];
+  const combos: H[] = [];
+  for (let m = 0; m < 1 << flags.length; m++) {
+    for (const mould of [null, 2, 3] as const) {
+      const h: H = { mouldCondition: mould };
+      flags.forEach((f, i) => {
+        if (m & (1 << i)) h[f] = true;
+      });
+      combos.push(h);
+    }
+  }
+
+  it.each(combos)("dry %o carries no water wording or S500 clause", (h) => {
+    const leaks = claimRecommendations(h)
+      .filter((r) => DRY_LEAK.test(`${r.text} ${r.clause}`))
+      .map((r) => `${r.category}: ${r.text.slice(0, 60)} [${r.clause}]`);
+    expect(leaks).toEqual([]);
+  });
+
+  it("Category 3 water keeps its water items unchanged", () => {
+    const txt = claimRecommendations({ waterCategory: "3", biohazard: true })
+      .map((r) => `${r.text} ${r.clause}`)
+      .join(" ");
+    expect(txt).toMatch(/contaminated water/i);
+    expect(txt).toMatch(/S500/);
+    expect(txt).toMatch(/unoccupied drying/i);
+  });
+
+  it("dry contaminated jobs still get the occupant-safety items", () => {
+    const got = claimRecommendations({ biohazard: true }).map(
+      (r) => r.category,
+    );
+    for (const c of [
+      "habitability",
+      "security",
+      "contents",
+      "perishables",
+      "soft_goods",
+    ]) {
+      expect(got).toContain(c);
+    }
+  });
+});

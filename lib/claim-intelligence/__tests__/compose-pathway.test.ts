@@ -13,6 +13,7 @@ import {
 } from "../compose-pathway";
 import { PATHWAY_SECTIONS, type ClaimFacts, type PathwayItem } from "../types";
 import { standardCite } from "@/lib/nir-standards-mapping";
+import { JOB_TYPES } from "@/lib/evidence/workflow-definitions";
 
 const KALOLO: ClaimFacts = {
   claimType: "FIRE_SMOKE",
@@ -408,5 +409,68 @@ describe("Shape and determinism", () => {
     expect(() => composePathway({ claimType: "volcano" })).toThrow(
       UnknownClaimTypeError,
     );
+  });
+});
+
+/**
+ * RA-8276 review round 3: every claim type with no water, with every
+ * combination of the extra hazard flags, must carry no water wording or S500
+ * basis. Mould claims and mould hazards keep moisture wording (a mould job
+ * needs its moisture source found), so for those only S500 and drying
+ * equipment are checked.
+ */
+describe("RA-8276: dry claims with mixed hazards stay dry", () => {
+  const STRICT =
+    /wet.?floor|block-and-elevate|psychromet|dew point|moisture|tannin|water.?mark|drying|dehumidif|water categor|water class|contaminated water|Category.?3|air.?mover|S500/i;
+  const MOULD_SAFE =
+    /S500|contaminated water|Category.?3|air.?mover|dehumidif|psychromet/i;
+  const flags = [
+    "biohazard",
+    "chemical",
+    "asbestos",
+    "unoccupiedAtLoss",
+  ] as const;
+  const cases: [string, number, ClaimFacts][] = [];
+  for (const claimType of JOB_TYPES) {
+    if (composePathway({ claimType }).waterPresent) continue;
+    for (let m = 0; m < 1 << flags.length; m++) {
+      for (const mould of [null, 3] as const) {
+        const hazards: NonNullable<ClaimFacts["hazards"]> = {
+          mouldCondition: mould,
+        };
+        flags.forEach((f, i) => {
+          if (m & (1 << i)) hazards[f] = true;
+        });
+        cases.push([claimType, m * 10 + (mould ?? 0), { claimType, hazards }]);
+      }
+    }
+  }
+
+  it("covers at least the fire, mould and biohazard claim types", () => {
+    const types = new Set(cases.map((c) => c[0]));
+    expect(types.has("FIRE_SMOKE")).toBe(true);
+    expect(types.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(cases)("%s combo %i", (claimType, _n, facts) => {
+    const p = composePathway(facts);
+    expect(p.waterPresent).toBe(false);
+    const mouldy =
+      claimType === "MOULD" || facts.hazards?.mouldCondition != null;
+    const re = mouldy ? MOULD_SAFE : STRICT;
+    // A mould claim's own template steps (moisture survey, drying) are
+    // mould work under S520; only the recommendation items are checked.
+    const leaks = p.techPathway
+      .filter((i) => !(claimType === "MOULD" && i.id.startsWith("workflow.")))
+      .filter((i) => re.test(itemText(i)))
+      .map((i) => i.id);
+    expect(leaks).toEqual([]);
+    if (!mouldy) expect(JSON.stringify(p.customerBrief)).not.toMatch(STRICT);
+    if (claimType !== "MOULD") {
+      const moisture = p.techPathway.filter((i) =>
+        i.evidence.some((e) => e.evidenceClass === "MOISTURE_READING"),
+      );
+      expect(moisture.map((i) => i.id)).toEqual([]);
+    }
   });
 });
