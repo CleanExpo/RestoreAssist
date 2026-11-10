@@ -199,18 +199,22 @@ type PendingKey = {
 };
 
 const PENDING_KEY_PREFIX = "restoreassist:addon-checkout-key:";
-const memoryPendingKeys = new Map<string, PendingKey>();
+// When a storage write or removal fails, memory is the authority for that slot
+// for the rest of the page's life (review round 10): an older readable storage
+// entry must not shadow it. null means "cleared here; ignore storage".
+const memoryPendingKeys = new Map<string, PendingKey | null>();
 
 function readPendingKey(slot: string): PendingKey | null {
   let entry: unknown;
-  try {
-    const raw = window.localStorage.getItem(PENDING_KEY_PREFIX + slot);
-    // Review round 9: storage that reads but refuses writes (full, read-only)
-    // sent the entry to memory, so look there when storage has none.
-    entry =
-      raw === null ? (memoryPendingKeys.get(slot) ?? null) : JSON.parse(raw);
-  } catch {
-    entry = memoryPendingKeys.get(slot) ?? null;
+  if (memoryPendingKeys.has(slot)) {
+    entry = memoryPendingKeys.get(slot);
+  } else {
+    try {
+      const raw = window.localStorage.getItem(PENDING_KEY_PREFIX + slot);
+      entry = raw === null ? null : JSON.parse(raw);
+    } catch {
+      entry = null;
+    }
   }
   const e = entry as Partial<PendingKey> | null;
   if (!e || typeof e.key !== "string") return null;
@@ -230,6 +234,7 @@ function writePendingKey(slot: string, entry: PendingKey): void {
       PENDING_KEY_PREFIX + slot,
       JSON.stringify(entry),
     );
+    memoryPendingKeys.delete(slot);
   } catch {
     memoryPendingKeys.set(slot, entry);
   }
@@ -237,11 +242,11 @@ function writePendingKey(slot: string, entry: PendingKey): void {
 
 function clearPendingKeyIfOwner(slot: string, attempt: string): void {
   if (readPendingKey(slot)?.attempt !== attempt) return; // a newer press owns it
-  memoryPendingKeys.delete(slot);
   try {
     window.localStorage.removeItem(PENDING_KEY_PREFIX + slot);
+    memoryPendingKeys.delete(slot);
   } catch {
-    // Storage unavailable: the in-memory entry is already gone.
+    memoryPendingKeys.set(slot, null);
   }
 }
 

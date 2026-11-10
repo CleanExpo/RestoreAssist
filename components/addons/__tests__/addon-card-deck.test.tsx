@@ -825,6 +825,60 @@ describe("AddonCardDeck (RA-8271)", () => {
     expect(keys[1]).toBe(keys[0]);
   });
 
+  // Review round 10: an older readable entry plus storage that refuses writes.
+  it("review r10: with an old stored entry and writes refused, a final reply still frees the key", async () => {
+    window.localStorage.setItem(
+      STORED,
+      JSON.stringify({
+        key: "old-key",
+        unresolved: true,
+        attempt: "old-attempt",
+      }),
+    );
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const fetchMock = stubCheckout([redirectReply(), redirectReply()]);
+    const first = render(<AddonCardDeck />);
+    let books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 0)); // let the final reply settle
+    first.unmount();
+    render(<AddonCardDeck />);
+    books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+    await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(2));
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[0]).toBe("old-key"); // the unresolved purchase is retried first
+    expect(keys[1]).not.toBe("old-key"); // then a new purchase gets a new key
+  });
+
+  it("review r10: storage that refuses one write and then recovers does not pin an old key", async () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const fetchMock = stubCheckout([
+      new TypeError("Failed to fetch"),
+      redirectReply(),
+      redirectReply(),
+    ]);
+    const press = async (count: number) => {
+      const view = render(<AddonCardDeck />);
+      const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+      fireEvent.click(within(books).getByRole("button", { name: /add pack/i }));
+      await waitFor(() => expect(checkoutKeys(fetchMock)).toHaveLength(count));
+      await new Promise((r) => setTimeout(r, 0));
+      view.unmount();
+    };
+    await press(1); // lost reply; the key lives only in memory
+    await press(2); // storage works again; the same key is retried and settles
+    await press(3); // a new purchase
+    const keys = checkoutKeys(fetchMock);
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
   // RA-8271 server-side guard: a seat pack sends the seat count the page
   // shows, and every retry with the same key sends the same count.
   const seatCatalog = (purchased: number) => ({
