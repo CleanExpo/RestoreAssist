@@ -174,7 +174,7 @@ function formatRange(range: NRPGRateRange): string {
 }
 
 /** Read one field from the contractor's price list. Never supplies a value. */
-function readRate(
+export function readRate(
   config: FirePricingConfig,
   field: string,
 ):

@@ -6,6 +6,22 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// RA-8281: estimates price from the contractor's own price list. These
+// tests cover report and scope content, so give a complete price list.
+vi.mock("@/lib/pricing/effective-pricing", async () => {
+  const { NRPG_RATE_RANGES } = await import("@/lib/nrpg-rate-ranges");
+  return {
+    resolveEffectivePricing: vi.fn(async () =>
+      Object.fromEntries(
+        Object.entries(NRPG_RATE_RANGES).map(([k, r]) => [
+          k,
+          (r.min + r.max) / 2,
+        ]),
+      ),
+    ),
+  };
+});
+
 import { prisma } from "@/lib/prisma";
 import { stormDomain } from "../domains/storm";
 

@@ -6,6 +6,22 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// RA-8281: estimates price from the contractor's own price list. These
+// tests cover report and scope content, so give a complete price list.
+vi.mock("@/lib/pricing/effective-pricing", async () => {
+  const { NRPG_RATE_RANGES } = await import("@/lib/nrpg-rate-ranges");
+  return {
+    resolveEffectivePricing: vi.fn(async () =>
+      Object.fromEntries(
+        Object.entries(NRPG_RATE_RANGES).map(([k, r]) => [
+          k,
+          (r.min + r.max) / 2,
+        ]),
+      ),
+    ),
+  };
+});
+
 import { prisma } from "@/lib/prisma";
 import { mouldDomain } from "../domains/mould";
 
@@ -76,18 +92,19 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
     }
 
     // Estimate self-consistency.
+    expect(r.data.estimate.totals.status).toBe("complete");
     const subtotal = r.data.estimate.lines.reduce(
-      (s, l) => s + l.lineTotalExGst,
+      (s, l) => s + (l.lineTotalExGst as number),
       0,
     );
     expect(
-      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
+      Math.abs(subtotal - (r.data.estimate.totals.subtotalExGst as number)),
     ).toBeLessThan(0.05);
     expect(
       Math.abs(
-        r.data.estimate.totals.totalIncGst -
-          (r.data.estimate.totals.subtotalExGst +
-            r.data.estimate.totals.gstTotal),
+        (r.data.estimate.totals.totalIncGst as number) -
+          ((r.data.estimate.totals.subtotalExGst as number) +
+            (r.data.estimate.totals.gstTotal as number)),
       ),
     ).toBeLessThan(0.05);
     expect(r.data.estimate.totals.gstRate).toBe(0.1);

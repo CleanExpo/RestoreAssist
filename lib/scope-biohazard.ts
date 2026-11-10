@@ -139,6 +139,7 @@ export function generateBiohazardScope(params: {
       quantity: area,
       unit: "m²",
       unitCostAud: pricingConfig.biohazardTreatmentRate,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -150,6 +151,7 @@ export function generateBiohazardScope(params: {
       quantity: area,
       unit: "m²",
       unitCostAud: pricingConfig.biohazardTreatmentRate,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -161,6 +163,7 @@ export function generateBiohazardScope(params: {
       quantity: area,
       unit: "m²",
       unitCostAud: pricingConfig.biohazardTreatmentRate,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -172,6 +175,7 @@ export function generateBiohazardScope(params: {
       quantity: 1,
       unit: "job",
       unitCostAud: pricingConfig.afdUnitLargeDailyRate,
+      rateField: "afdUnitLargeDailyRate",
       isRequired: true,
     });
   }
@@ -186,6 +190,7 @@ export function generateBiohazardScope(params: {
       quantity: area,
       unit: "m²",
       unitCostAud: pricingConfig.biohazardTreatmentRate,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -241,6 +246,7 @@ export function generateBiohazardScope(params: {
       quantity: area,
       unit: "m²",
       unitCostAud: pricingConfig.biohazardTreatmentRate,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -275,6 +281,7 @@ export function generateBiohazardScope(params: {
       quantity: area,
       unit: "m²",
       unitCostAud: pricingConfig.biohazardTreatmentRate,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({

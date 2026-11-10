@@ -6,6 +6,22 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// RA-8281: estimates price from the contractor's own price list. These
+// tests cover report and scope content, so give a complete price list.
+vi.mock("@/lib/pricing/effective-pricing", async () => {
+  const { NRPG_RATE_RANGES } = await import("@/lib/nrpg-rate-ranges");
+  return {
+    resolveEffectivePricing: vi.fn(async () =>
+      Object.fromEntries(
+        Object.entries(NRPG_RATE_RANGES).map(([k, r]) => [
+          k,
+          (r.min + r.max) / 2,
+        ]),
+      ),
+    ),
+  };
+});
+
 import { prisma } from "@/lib/prisma";
 import { hvacDomain } from "../domains/hvac";
 
@@ -232,7 +248,7 @@ describe("hvacDomain — error paths", () => {
 });
 
 describe("hvacDomain — estimate self-consistency", () => {
-  it("subtotal=sum(lines), total=sub+GST, GST=10%, AUD", async () => {
+  it("no hard-coded rates: total blocked, GST 10% AUD", async () => {
     inspectionFindUnique.mockResolvedValueOnce(baseInspection);
     const r = await hvacDomain.generate({
       ...baseInput,
@@ -245,20 +261,13 @@ describe("hvacDomain — estimate self-consistency", () => {
     });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
-    const subtotal = r.data.estimate.lines.reduce(
-      (s, l) => s + l.lineTotalExGst,
-      0,
-    );
-    expect(
-      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
-    ).toBeLessThan(0.05);
-    expect(
-      Math.abs(
-        r.data.estimate.totals.totalIncGst -
-          (r.data.estimate.totals.subtotalExGst +
-            r.data.estimate.totals.gstTotal),
-      ),
-    ).toBeLessThan(0.05);
+    // RA-8281: no hard-coded rates. Lines with no price-list field read
+    // "needs a price-list field" and the total is blocked, never $0.
+    expect(r.data.estimate.totals.status).toBe("blocked");
+    expect(r.data.estimate.totals.totalIncGst).toBeNull();
+    for (const l of r.data.estimate.lines) {
+      expect(l.lineTotalExGst).not.toBe(0);
+    }
     expect(r.data.estimate.totals.gstRate).toBe(0.1);
     expect(r.data.estimate.totals.currency).toBe("AUD");
   });

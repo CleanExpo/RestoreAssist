@@ -8,7 +8,8 @@
  *               classification, scope rationale, drying targets)
  *   - scope   — ScopeItem[] from lib/scope-dispatcher (prelims +
  *               water pathway, with IICRC clause refs inline)
- *   - estimate — line items × default AU rates × 10% GST
+ *   - estimate — priced from the contractor's own price list (RA-8281);
+ *               an unset rate blocks the total. GST from lib/gst-rules.
  *
  * Output is **rule-based and deterministic** — no AI required for V1.
  * AI prose enhancement is a follow-up wired through the budget guard.
@@ -19,7 +20,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import type { GstTreatment } from "@/lib/gst-rules";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import type { CompanyPricingRates } from "@/lib/nir-cost-estimation";
+import { estimateFromPriceList } from "../price-list-estimate";
 import {
   generateScopeItems,
   type DamageType,
@@ -28,43 +31,15 @@ import {
 } from "@/lib/scope-dispatcher";
 import { IICRC_DRY_STANDARDS } from "@/lib/iicrc-dry-standards";
 import type {
-  AssessmentEstimate,
   AssessmentReport,
   DomainGenerateInput,
   DomainGenerateResult,
   DomainPlugin,
-  PricedEstimateLine,
   ReportSection,
   ScopeCategory,
   QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
-
-// ─── Pricing defaults ────────────────────────────────────────────────────────
-// Conservative AU mid-2026 rates (ex GST). Workspaces with their own
-// CostLibrary override these by passing `pricing` through; for V1 we
-// fall back to baselines so the plug-in is usable out-of-the-box.
-
-const DEFAULT_AU_PRICING = {
-  masterQualifiedNormalHours: 120,
-  qualifiedTechnicianNormalHours: 95,
-  labourerNormalHours: 65,
-  airMoverAxialDailyRate: 35,
-  airMoverCentrifugalDailyRate: 45,
-  dehumidifierLGRDailyRate: 110,
-  dehumidifierDesiccantDailyRate: 250,
-  afdUnitLargeDailyRate: 95,
-  extractionTruckMountedHourlyRate: 220,
-  extractionElectricHourlyRate: 90,
-  injectionDryingSystemDailyRate: 180,
-  antimicrobialTreatmentRate: 4.5, // per m²
-  // RA-7001: floor of the NRPG $65-145/m² range (founder-approved 2026-07-06).
-  mouldRemediationTreatmentRate: 65, // per m²
-  biohazardTreatmentRate: 65, // per m²
-  administrationFee: 165,
-  callOutFee: 220,
-  thermalCameraUseCostPerAssessment: 95,
-};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -131,44 +106,6 @@ function categoryToScopeCategory(itemType: string): ScopeCategory {
     return "ADMIN";
   }
   return "MATERIALS";
-}
-
-function buildEstimate(
-  scope: QuantifiedScopeItem[],
-  unitCostByItem: Map<string, number>,
-  gst: GstTreatment,
-): AssessmentEstimate {
-  const lines: PricedEstimateLine[] = scope.map((item) => {
-    const rate = unitCostByItem.get(item.description) ?? 0;
-    const lineTotalExGst = +(item.quantity * rate).toFixed(2);
-    const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
-    const lineTotalIncGst = +(lineTotalExGst + gstAmount).toFixed(2);
-    return {
-      description: item.description,
-      category: item.category,
-      quantity: item.quantity,
-      unit: item.unit,
-      rate,
-      lineTotalExGst,
-      gstAmount,
-      lineTotalIncGst,
-    };
-  });
-  const subtotalExGst = +lines
-    .reduce((s, l) => s + l.lineTotalExGst, 0)
-    .toFixed(2);
-  const gstTotal = +lines.reduce((s, l) => s + l.gstAmount, 0).toFixed(2);
-  const totalIncGst = +(subtotalExGst + gstTotal).toFixed(2);
-  return {
-    lines,
-    totals: {
-      subtotalExGst,
-      gstTotal,
-      totalIncGst,
-      gstRate: gst.rate,
-      currency: gst.currency,
-    },
-  };
 }
 
 function buildReport(args: {
@@ -319,12 +256,16 @@ export const waterDomain: DomainPlugin = {
       );
       const days = estimatedDaysForClass(dc);
 
+      // RA-8281: price only from the contractor's own price list. No
+      // default rates: an unset field reads "rate not set".
+      const priceList = await resolveEffectivePricing(prisma, input.userId);
+
       // Hand to the existing scope-dispatcher pathway.
       const drafts = generateScopeItems({
         damageType: "WATER" as DamageType,
         affectedAreaM2: Math.max(affectedAreaM2, 1),
         estimatedDays: days,
-        pricingConfig: DEFAULT_AU_PRICING,
+        pricingConfig: (priceList ?? {}) as CompanyPricingRates,
         waterCategory: cat,
         waterClass: dc,
       });
@@ -343,14 +284,12 @@ export const waterDomain: DomainPlugin = {
         notes: d.justification,
       }));
 
-      const unitCostByDescription = new Map(
-        drafts
-          .filter((d) => typeof d.unitCostAud === "number")
-          .map((d) => [d.description, d.unitCostAud as number]),
-      );
-
       const gst = await gstForInspection(input.inspectionId);
-      const estimate = buildEstimate(scope, unitCostByDescription, gst);
+      const estimate = estimateFromPriceList(
+        scope.map((item, i) => ({ ...item, rateField: drafts[i].rateField })),
+        priceList,
+        gst,
+      );
 
       // Moisture summary — classify each reading against the IICRC dry
       // standard for its surface type. Unknown materials count toward

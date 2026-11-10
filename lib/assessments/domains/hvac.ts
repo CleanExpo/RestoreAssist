@@ -25,7 +25,9 @@
  *   - scope    — coil clean, blower clean, ductwork clean, condensate
  *                pan sanitise, filter replacement, ATP verification —
  *                each with a ref inline (NADCA ACR + AS/NZS 3666)
- *   - estimate — line items × default AU rates × 10% GST → totals (AUD)
+ *   - estimate — priced from the contractor's own price list (RA-8281);
+ *               no HVAC line has a price-list field yet, so the total
+ *               is blocked. GST from lib/gst-rules.
  *
  * Note: HVAC has no upstream "scope-hvac.ts" library yet, so this
  * plug-in builds the line items inline. The same shape can be lifted
@@ -34,28 +36,22 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import type { GstTreatment } from "@/lib/gst-rules";
+import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import { estimateFromPriceList } from "../price-list-estimate";
 import type {
-  AssessmentEstimate,
   AssessmentReport,
   DomainGenerateInput,
   DomainGenerateResult,
   DomainPlugin,
-  PricedEstimateLine,
   ReportSection,
   QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
 
-// ─── Pricing defaults (AU mid-2026 ex GST) ────────────────────────────────────
-
-const COIL_CLEAN_PER_UNIT_AUD = 320;
-const BLOWER_CLEAN_PER_UNIT_AUD = 280;
-const DUCT_CLEAN_PER_LINEAR_METRE_AUD = 28;
-const CONDENSATE_SANITISE_PER_UNIT_AUD = 95;
-const FILTER_REPLACE_PER_UNIT_AUD = 120;
-const ATP_TEST_PER_SAMPLE_AUD = 45;
-const SANITISER_FOG_PER_M2_SERVED_AUD = 2.5;
+// ─── Pricing (RA-8281) ───────────────────────────────────────────────────────
+// No hard-coded rates. None of these lines has a field in the contractor's
+// price list yet, so each reads "needs a price-list field" and the total is
+// blocked until that field exists. Adding fields is a founder decision.
 
 // ─── Options narrowing ──────────────────────────────────────────────────────
 
@@ -129,14 +125,8 @@ const AS_NZS_3666_2 =
 const S520_HVAC = "IICRC S520:2024 §6 (HVAC involvement in mould)";
 const S700_HVAC = "IICRC S700:2025 §6.3 (HVAC after fire/smoke)";
 
-interface BuiltScope {
-  items: QuantifiedScopeItem[];
-  rateByDescription: Map<string, number>;
-}
-
-function buildScope(opts: HvacOptions): BuiltScope {
+function buildScope(opts: HvacOptions): QuantifiedScopeItem[] {
   const items: QuantifiedScopeItem[] = [];
-  const rates = new Map<string, number>();
 
   // Coil clean — every system
   const coilDesc = "Cooling/heating coil clean (de-greaser + rinse)";
@@ -149,7 +139,6 @@ function buildScope(opts: HvacOptions): BuiltScope {
     notes:
       "Coil clean is mandatory irrespective of condition — NADCA ACR §5 baseline.",
   });
-  rates.set(coilDesc, COIL_CLEAN_PER_UNIT_AUD);
 
   // Blower / fan-coil clean — every system
   const blowerDesc = "Blower / fan-coil clean (HEPA vacuum + wipe)";
@@ -162,7 +151,6 @@ function buildScope(opts: HvacOptions): BuiltScope {
     notes:
       "Blower wheel + housing accumulates particulate; clean before air-handler is restarted.",
   });
-  rates.set(blowerDesc, BLOWER_CLEAN_PER_UNIT_AUD);
 
   // Ductwork clean — when ducted system + non-CLEAN condition
   if (
@@ -183,7 +171,6 @@ function buildScope(opts: HvacOptions): BuiltScope {
       notes:
         "NADCA mechanical-agitation cleaning under HEPA negative pressure to capture dislodged debris.",
     });
-    rates.set(ductDesc, DUCT_CLEAN_PER_LINEAR_METRE_AUD);
   }
 
   // Condensate pan sanitise — every system except evaporative
@@ -198,7 +185,6 @@ function buildScope(opts: HvacOptions): BuiltScope {
       notes:
         "Condensate pan is the most common biofilm reservoir; AS/NZS 3666.1 requires periodic sanitise.",
     });
-    rates.set(conDesc, CONDENSATE_SANITISE_PER_UNIT_AUD);
   }
 
   // Filter replacement — every system
@@ -213,7 +199,6 @@ function buildScope(opts: HvacOptions): BuiltScope {
     notes:
       "Replace at conclusion to prevent re-distribution of dislodged contaminants.",
   });
-  rates.set(filterDesc, FILTER_REPLACE_PER_UNIT_AUD);
 
   // Sanitisation fog — for microbial / fire-smoke conditions
   if (
@@ -231,7 +216,6 @@ function buildScope(opts: HvacOptions): BuiltScope {
       notes:
         "Fog distribution after mechanical cleaning per NADCA ACR §6; agent selection per condition.",
     });
-    rates.set(fogDesc, SANITISER_FOG_PER_M2_SERVED_AUD);
   }
 
   // ATP verification — always 3 samples (return, supply, near-coil)
@@ -245,47 +229,8 @@ function buildScope(opts: HvacOptions): BuiltScope {
     notes:
       "Target < 30 RLU on AccuPoint or equivalent meter; document with photographs of meter readings.",
   });
-  rates.set(atpDesc, ATP_TEST_PER_SAMPLE_AUD);
 
-  return { items, rateByDescription: rates };
-}
-
-function buildEstimate(
-  scope: QuantifiedScopeItem[],
-  rateByDescription: Map<string, number>,
-  gst: GstTreatment,
-): AssessmentEstimate {
-  const lines: PricedEstimateLine[] = scope.map((item) => {
-    const rate = rateByDescription.get(item.description) ?? 0;
-    const lineTotalExGst = +(item.quantity * rate).toFixed(2);
-    const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
-    const lineTotalIncGst = +(lineTotalExGst + gstAmount).toFixed(2);
-    return {
-      description: item.description,
-      category: item.category,
-      quantity: item.quantity,
-      unit: item.unit,
-      rate,
-      lineTotalExGst,
-      gstAmount,
-      lineTotalIncGst,
-    };
-  });
-  const subtotalExGst = +lines
-    .reduce((s, l) => s + l.lineTotalExGst, 0)
-    .toFixed(2);
-  const gstTotal = +lines.reduce((s, l) => s + l.gstAmount, 0).toFixed(2);
-  const totalIncGst = +(subtotalExGst + gstTotal).toFixed(2);
-  return {
-    lines,
-    totals: {
-      subtotalExGst,
-      gstTotal,
-      totalIncGst,
-      gstRate: gst.rate,
-      currency: gst.currency,
-    },
-  };
+  return items;
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────
@@ -468,9 +413,10 @@ export const hvacDomain: DomainPlugin = {
         };
       }
 
-      const { items: scope, rateByDescription } = buildScope(opts);
+      const scope = buildScope(opts);
+      const priceList = await resolveEffectivePricing(prisma, input.userId);
       const gst = await gstForInspection(input.inspectionId);
-      const estimate = buildEstimate(scope, rateByDescription, gst);
+      const estimate = estimateFromPriceList(scope, priceList, gst);
       const { report, citations } = buildReport({
         propertyAddress: inspection.propertyAddress,
         systemType: opts.systemType,

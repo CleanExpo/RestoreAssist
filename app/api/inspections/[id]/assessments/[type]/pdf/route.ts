@@ -17,6 +17,7 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { isRegisteredDomain } from "@/lib/assessments/registry";
 import { generateAssessmentPdf } from "@/lib/assessments/generate-assessment-pdf";
 import { isBlockingLine } from "@/lib/assessments/estimate-status";
+import { gstForInspection } from "@/lib/assessments/gst";
 import type {
   AssessmentReport,
   EstimateLine,
@@ -57,7 +58,9 @@ export async function GET(
       );
     }
 
-    const [latest, inspection] = await Promise.all([
+    // RA-8281: GST and currency come from the organisation's country via
+    // lib/gst-rules (AU 10% AUD, NZ 15% NZD), never a hard-coded 10% AUD.
+    const [latest, inspection, gst] = await Promise.all([
       prisma.assessmentGeneration.findFirst({
         where: { inspectionId, assessmentType: type },
         orderBy: { generatedAt: "desc" },
@@ -66,6 +69,7 @@ export async function GET(
         where: { id: inspectionId },
         select: { inspectionNumber: true, propertyAddress: true },
       }),
+      gstForInspection(inspectionId),
     ]);
 
     if (!latest) {
@@ -116,8 +120,8 @@ export async function GET(
         description: l.description,
         note: l.pricingNote ?? "Not priced.",
       })),
-      gstRate: 0.1,
-      currency: "AUD",
+      gstRate: gst.rate,
+      currency: gst.currency,
     };
 
     const citations = latest.citations as unknown as StandardCitation[];
