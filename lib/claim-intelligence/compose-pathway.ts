@@ -687,7 +687,7 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
   // the moisture source is part of the mould work itself.
   const keepWaterSteps = waterPresent || claimType === "MOULD";
   const steps: WorkflowStepDefinition[] = template.steps.filter(
-    (s) => keepWaterSteps || !WATER_ONLY_STEPS.has(s.stepKey),
+    (s) => keepWaterSteps || !s.waterOnly,
   );
   const has = (key: string) => steps.some((s) => s.stepKey === key);
   const borrow = (from: JobType, key: string) => {
@@ -818,13 +818,6 @@ export function composePathway(facts: ClaimFacts): ClaimPathway {
 }
 
 const WATER_ALERT = /\bCat(egory)?\s?[123]\b|drying|moisture|dehumidif/i;
-
-const WATER_ONLY_STEPS = new Set([
-  "environmental_readings",
-  "moisture_survey",
-  "thermal_imaging",
-  "progress_monitoring",
-]);
 
 /** Plain-English customer line for a workflow step, where one helps. */
 function customerLineForStep(

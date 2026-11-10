@@ -59,6 +59,12 @@ export interface WorkflowStepDefinition {
   isMandatory: boolean;
   riskTier: 1 | 2 | 3;
   escalationNote?: string;
+  /**
+   * RA-8276: the step only makes sense when water is present (psychrometric
+   * baseline, moisture mapping, drying monitoring). The Claim Pathway engine
+   * leaves these out of a pathway with no water.
+   */
+  waterOnly?: boolean;
 }
 
 /** Full workflow template for a job type */
@@ -134,6 +140,7 @@ const STEP_ENVIRONMENTAL_READINGS: WorkflowStepDefinition = {
   minimumEvidenceCount: 2,
   isMandatory: true,
   riskTier: 1,
+  waterOnly: true,
 };
 
 const STEP_MOISTURE_SURVEY: WorkflowStepDefinition = {
@@ -153,6 +160,7 @@ const STEP_MOISTURE_SURVEY: WorkflowStepDefinition = {
   riskTier: 2,
   escalationNote:
     "Elevated: Accurate moisture mapping is critical for drying scope.",
+  waterOnly: true,
 };
 
 const STEP_THERMAL_IMAGING: WorkflowStepDefinition = {
@@ -170,6 +178,7 @@ const STEP_THERMAL_IMAGING: WorkflowStepDefinition = {
   minimumEvidenceCount: 2,
   isMandatory: false,
   riskTier: 1,
+  waterOnly: true,
 };
 
 const STEP_FLOOR_PLAN_SKETCH: WorkflowStepDefinition = {
@@ -277,6 +286,23 @@ const STEP_FIRE_SCOPE_OF_WORKS: WorkflowStepDefinition = {
     "of anything the test patches show cannot be cleaned, and any specialist " +
     "works. Reference affected areas and evidence collected. This forms the " +
     "basis of the cost estimate.",
+};
+
+/**
+ * RA-8276 review P1: the shared environmental step establishes a
+ * psychrometric baseline for drying (S500). A fire job records site
+ * conditions instead. Same key, evidence class and count, so the submission
+ * gate is unchanged.
+ */
+const STEP_FIRE_ENVIRONMENTAL_READINGS: WorkflowStepDefinition = {
+  ...STEP_ENVIRONMENTAL_READINGS,
+  stepDescription:
+    "Record ambient temperature and relative humidity for each affected room " +
+    "and at least one unaffected reference room. Use a calibrated " +
+    "thermo-hygrometer. Note air circulation status (HVAC, windows). These " +
+    "readings record the site conditions the cleaning was carried out in.",
+  stepDescriptionShort: "Temp/RH per room + reference room.",
+  waterOnly: false,
 };
 
 /**
@@ -447,6 +473,7 @@ const STEP_PROGRESS_MONITORING: WorkflowStepDefinition = {
   minimumEvidenceCount: 3,
   isMandatory: true,
   riskTier: 1,
+  waterOnly: true,
 };
 
 const STEP_STRATA_COMMON_AREAS: WorkflowStepDefinition = {
@@ -530,7 +557,7 @@ const WORKFLOW_FIRE_SMOKE: WorkflowTemplate = {
     STEP_STRUCTURAL_ASSESSMENT,
     STEP_HAZMAT_ASSESSMENT,
     STEP_CONTENTS_INVENTORY,
-    STEP_ENVIRONMENTAL_READINGS,
+    STEP_FIRE_ENVIRONMENTAL_READINGS,
     STEP_FIRE_FLOOR_PLAN_SKETCH,
     STEP_FIRE_EQUIPMENT_DEPLOYMENT,
     STEP_FIRE_SCOPE_OF_WORKS,

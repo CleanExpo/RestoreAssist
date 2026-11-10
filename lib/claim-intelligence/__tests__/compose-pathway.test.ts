@@ -309,6 +309,26 @@ describe("HVAC that ran after the fire", () => {
   });
 });
 
+describe("Storm without known water entry", () => {
+  const ids = (f: ClaimFacts) => composePathway(f).techPathway.map((i) => i.id);
+  it("leaves the water-only steps out and asks whether water got in", () => {
+    const dry = ids({ claimType: "STORM" });
+    expect(dry).toContain("investigate.storm-water-entry");
+    for (const id of [
+      "workflow.environmental_readings",
+      "workflow.moisture_survey",
+      "workflow.progress_monitoring",
+    ]) {
+      expect(dry, id).not.toContain(id);
+    }
+  });
+  it("adds them back once water is known", () => {
+    const wet = ids({ claimType: "STORM", loss: { waterClass: 2 } });
+    expect(wet).toContain("workflow.moisture_survey");
+    expect(wet).not.toContain("investigate.storm-water-entry");
+  });
+});
+
 describe("Fire with water present", () => {
   const p = composePathway({
     ...KALOLO,
