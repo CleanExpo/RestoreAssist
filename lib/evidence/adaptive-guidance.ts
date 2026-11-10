@@ -362,6 +362,73 @@ export const STEP_GUIDANCE: Record<string, StepGuidance> = {
     experiencedAlerts: [],
   },
 
+  // RA-8276: fire/smoke steps with their own keys, so a fire job never
+  // inherits water guidance (psychrometer, dew point, air movers).
+  site_conditions: {
+    subSteps: [
+      {
+        id: "sc_1",
+        label: "Set up a calibrated thermo-hygrometer",
+        detail:
+          "Let the meter settle for two minutes before recording. Check the calibration date on the device.",
+      },
+      {
+        id: "sc_2",
+        label: "Record temperature and relative humidity in each affected room",
+        detail:
+          "Take the reading in the centre of the room at breathing height.",
+      },
+      {
+        id: "sc_3",
+        label: "Record one unaffected reference room",
+        detail:
+          "Use a room with no smoke damage, so the affected rooms have a comparison.",
+      },
+      {
+        id: "sc_4",
+        label: "Note HVAC and window status",
+        detail:
+          "Record whether the HVAC is running and which windows are open.",
+      },
+    ],
+    confirmingQuestions: [],
+    tips: [
+      "Record conditions before cleaning starts, so the report shows the conditions the work was done in.",
+    ],
+    commonMistakes: [
+      "Forgetting the unaffected reference room: without it the affected readings have nothing to compare against.",
+    ],
+    experiencedAlerts: [],
+  },
+
+  equipment_setup: {
+    subSteps: [
+      {
+        id: "es_1",
+        label: "Place air scrubbers so they pull air away from the work area",
+        detail:
+          "Fit carbon filtration where odour is present. Keep exhaust away from cleaned rooms.",
+      },
+      {
+        id: "es_2",
+        label: "Photograph each unit with its serial number visible",
+      },
+      {
+        id: "es_3",
+        label: "Record equipment details in the app",
+        detail: "Type, serial number and the room it is in.",
+      },
+    ],
+    confirmingQuestions: [],
+    tips: [
+      "Serial numbers on every unit are what insurers check first in an equipment record.",
+    ],
+    commonMistakes: [
+      "Placing an air scrubber so it blows soot from a dirty room into a cleaned one.",
+    ],
+    experiencedAlerts: [],
+  },
+
   equipment_deployment: {
     subSteps: [
       {

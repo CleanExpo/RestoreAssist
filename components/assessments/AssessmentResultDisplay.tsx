@@ -15,6 +15,7 @@ import type {
   ScopeItem,
   StandardCitation,
 } from "@/lib/assessments/types";
+import { formatLineMoney } from "@/lib/assessments/estimate-status";
 
 export interface GenerateResultPayload {
   assessmentGenerationId: string;
@@ -41,9 +42,14 @@ export default function AssessmentResultDisplay({
   inspectionId?: string;
   domain?: string;
 }) {
-  const subtotal = result.estimate.totals.subtotalExGst.toFixed(2);
-  const gst = result.estimate.totals.gstTotal.toFixed(2);
-  const total = result.estimate.totals.totalIncGst.toFixed(2);
+  // RA-8275: a blocked total is shown as blocked, never as $0.
+  const totals = result.estimate.totals;
+  const estimateSummary =
+    totals.subtotalExGst === null ||
+    totals.gstTotal === null ||
+    totals.totalIncGst === null
+      ? `total not available: ${totals.missing?.length ?? "some"} line(s) not priced`
+      : `AUD ex GST ${totals.subtotalExGst.toFixed(2)} · GST ${totals.gstTotal.toFixed(2)} · total ${totals.totalIncGst.toFixed(2)}`;
 
   function downloadJson() {
     const blob = new Blob([JSON.stringify(result, null, 2)], {
@@ -101,7 +107,7 @@ export default function AssessmentResultDisplay({
                 <tr key={i} className="border-t">
                   <td className="px-2 py-1">{item.description}</td>
                   <td className="px-2 py-1 text-right font-mono">
-                    {item.quantity}
+                    {item.quantity ?? "Needed"}
                   </td>
                   <td className="px-2 py-1">{item.unit}</td>
                   <td className="px-2 py-1 font-mono text-[10px]">
@@ -116,7 +122,7 @@ export default function AssessmentResultDisplay({
 
       <details className="group">
         <summary className="cursor-pointer text-sm font-medium">
-          Estimate (AUD ex GST {subtotal} · GST {gst} · total {total})
+          Estimate ({estimateSummary})
         </summary>
         <div className="mt-2 overflow-x-auto rounded border">
           <table className="min-w-full text-xs">
@@ -132,24 +138,34 @@ export default function AssessmentResultDisplay({
             <tbody>
               {result.estimate.lines.map((line, i) => (
                 <tr key={i} className="border-t">
-                  <td className="px-2 py-1">{line.description}</td>
-                  <td className="px-2 py-1 text-right font-mono">
-                    {line.quantity}
+                  <td className="px-2 py-1">
+                    {line.description}
+                    {line.pricingNote ? (
+                      <span className="block text-[10px] text-muted-foreground">
+                        {line.pricingNote}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-2 py-1 text-right font-mono">
-                    ${line.rate.toFixed(2)}
+                    {line.quantity ?? "Needed"}
                   </td>
                   <td className="px-2 py-1 text-right font-mono">
-                    ${line.lineTotalExGst.toFixed(2)}
+                    {formatLineMoney(line.rate, line)}
                   </td>
                   <td className="px-2 py-1 text-right font-mono">
-                    ${line.lineTotalIncGst.toFixed(2)}
+                    {formatLineMoney(line.lineTotalExGst, line)}
+                  </td>
+                  <td className="px-2 py-1 text-right font-mono">
+                    {formatLineMoney(line.lineTotalIncGst, line)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {totals.basis ? (
+          <p className="mt-1 text-xs text-muted-foreground">{totals.basis}</p>
+        ) : null}
       </details>
 
       <div className="flex flex-wrap gap-2 items-center pt-1">

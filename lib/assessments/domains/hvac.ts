@@ -41,9 +41,9 @@ import type {
   DomainGenerateInput,
   DomainGenerateResult,
   DomainPlugin,
-  EstimateLine,
+  PricedEstimateLine,
   ReportSection,
-  ScopeItem,
+  QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
 
@@ -67,10 +67,7 @@ type SystemType =
   | "evaporative";
 
 type Condition =
-  | "CLEAN"
-  | "DUST_ACCUMULATION"
-  | "MICROBIAL_GROWTH"
-  | "FIRE_SMOKE_RESIDUE";
+  "CLEAN" | "DUST_ACCUMULATION" | "MICROBIAL_GROWTH" | "FIRE_SMOKE_RESIDUE";
 
 const VALID_SYSTEMS: readonly SystemType[] = [
   "split",
@@ -133,12 +130,12 @@ const S520_HVAC = "IICRC S520:2024 §6 (HVAC involvement in mould)";
 const S700_HVAC = "IICRC S700:2025 §6.3 (HVAC after fire/smoke)";
 
 interface BuiltScope {
-  items: ScopeItem[];
+  items: QuantifiedScopeItem[];
   rateByDescription: Map<string, number>;
 }
 
 function buildScope(opts: HvacOptions): BuiltScope {
-  const items: ScopeItem[] = [];
+  const items: QuantifiedScopeItem[] = [];
   const rates = new Map<string, number>();
 
   // Coil clean — every system
@@ -254,11 +251,11 @@ function buildScope(opts: HvacOptions): BuiltScope {
 }
 
 function buildEstimate(
-  scope: ScopeItem[],
+  scope: QuantifiedScopeItem[],
   rateByDescription: Map<string, number>,
   gst: GstTreatment,
 ): AssessmentEstimate {
-  const lines: EstimateLine[] = scope.map((item) => {
+  const lines: PricedEstimateLine[] = scope.map((item) => {
     const rate = rateByDescription.get(item.description) ?? 0;
     const lineTotalExGst = +(item.quantity * rate).toFixed(2);
     const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
