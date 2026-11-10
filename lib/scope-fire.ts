@@ -227,6 +227,16 @@ function isExplicitNone(spec: LineSpec): boolean {
   return !spec.fixed && !spec.fromArea && spec.quantity === 0;
 }
 
+/**
+ * Units hired per day across the job's work days. An explicit zero count
+ * stays zero (none on the job) even when the days are not known, so the
+ * line is left out rather than read as a missing quantity.
+ */
+function perDay(count: number, days: number): number | undefined {
+  if (count === 0) return 0;
+  return days > 0 ? count * days : undefined;
+}
+
 function buildLine(
   spec: LineSpec,
   config: FirePricingConfig,
@@ -672,7 +682,7 @@ export function generateFireScope(params: {
       iicrcReference: S700_CLEANING,
       unit: "unit-day",
       group: "equipment",
-      quantity: labourDays > 0 ? job.airScrubbers * labourDays : undefined,
+      quantity: perDay(job.airScrubbers, labourDays),
       source: { field: "afdUnitLargeDailyRate" },
       labourTask: false,
     });

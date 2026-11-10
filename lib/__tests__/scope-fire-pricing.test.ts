@@ -476,6 +476,55 @@ describe("RA-8275 — a count given as zero means none, not missing", () => {
     ).toEqual([]);
   });
 
+  // Review finding (Codex, d16db3a): zero scrubbers with no work days still
+  // read "quantity needed", because the zero was multiplied away before the
+  // filter saw it. Every count is now checked together, with and without
+  // work days, so no reader of a job count can turn zero into "missing".
+  const EVERY_COUNT_ZERO: FireJobInputs = {
+    contentsItemCount: 0,
+    windowCount: 0,
+    cupboardBenchAreaM2: 0,
+    carpetAreaM2: 0,
+    softFurnishingCount: 0,
+    hvacSystemCount: 0,
+    lightFittingCount: 0,
+    hepaVacuumUnitDays: 0,
+    ozoneUnitDays: 0,
+    hydroxylUnitDays: 0,
+    airScrubbers: 0,
+    technicians: 0,
+    supervisors: 0,
+  };
+
+  for (const severity of ["light", "medium", "heavy"] as const) {
+    for (const days of [undefined, 3]) {
+      it(`every count zero (${severity}, work days ${days ?? "not given"}): no line reads quantity needed`, () => {
+        const items = scope({
+          ...EVERY_COUNT_ZERO,
+          severity,
+          buildingDays: days,
+        });
+        expect(
+          items
+            .filter((i) => i.pricingStatus === "quantity_needed")
+            .map((i) => i.itemType),
+        ).toEqual([]);
+      });
+    }
+  }
+
+  it("zero scrubbers with no work days: no scrubber line", () => {
+    const items = scope({ ...FULL_JOB, airScrubbers: 0 });
+    expect(items.map((i) => i.itemType)).not.toContain("air_scrubber_hire");
+  });
+
+  it("scrubbers given but no work days still reads quantity needed", () => {
+    const line = scope({ ...FULL_JOB, airScrubbers: 2 }).find(
+      (i) => i.itemType === "air_scrubber_hire",
+    );
+    expect(line?.pricingStatus).toBe("quantity_needed");
+  });
+
   it("zero windows on an area-priced job: no window line", () => {
     const items = scope({ ...FULL_JOB, windowCount: 0 });
     expect(items.map((i) => i.itemType)).not.toContain("window_track_clean");
