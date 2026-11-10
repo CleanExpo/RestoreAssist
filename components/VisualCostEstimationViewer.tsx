@@ -12,6 +12,7 @@ import {
   Wrench,
   AlertCircle,
 } from "lucide-react";
+import { moneyOrRateNotSet } from "@/lib/reports/stored-equipment-pricing";
 
 interface VisualCostEstimationData {
   header: {
@@ -588,7 +589,14 @@ export default function VisualCostEstimationViewer({
                                 </td>
                               )}
                               <td className="border border-slate-300 px-4 py-3 text-right text-slate-700">
-                                ${(item.dailyRate || item.rate || 0).toFixed(2)}
+                                {/* RA-8281 B1: a line with no rate reads "Rate not set", never $0.00. */}
+                                {moneyOrRateNotSet(
+                                  typeof item.dailyRate === "number"
+                                    ? item.dailyRate
+                                    : typeof item.rate === "number"
+                                      ? item.rate
+                                      : null,
+                                )}
                               </td>
                               <td className="border border-slate-300 px-4 py-3 text-right font-semibold text-slate-900">
                                 ${(item.subtotal || 0).toFixed(2)}

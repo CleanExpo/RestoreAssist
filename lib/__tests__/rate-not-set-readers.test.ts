@@ -163,6 +163,17 @@ export const RATE_READERS = [
   "components/PricingConfiguration.tsx",
   "components/setup/PricingCard.tsx",
   "lib/pricing/rate-input.ts",
+  // RA-8281 B1 class fix: every reader and writer of a stored equipment rate.
+  "lib/reports/stored-equipment-pricing.ts",
+  "lib/reports/build-structured-report.ts",
+  "lib/reports/generate-report-ai.ts",
+  "lib/excel-export.ts",
+  "app/api/reports/[id]/equipment/route.ts",
+  "app/api/reports/[id]/export-excel/route.ts",
+  "app/api/reports/generate-inspection-report/route.ts",
+  "components/RestorationInspectionReportViewer.tsx",
+  "components/VisualDashboardReport.tsx",
+  "components/VisualCostEstimationViewer.tsx",
 ];
 
 const RATE_NAMES = new Set<string>([

@@ -1,0 +1,121 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+
+// RA-8281 B1 class fix: the WRITER of stored equipment. The server prices the
+// selections from the report business's CURRENT price list. The client's
+// cached rates and total are not trusted, an unset rate refuses the save, and
+// nothing is ever stored as $0.
+
+const getServerSession = vi.fn();
+const userFindUnique = vi.fn();
+const reportFindUnique = vi.fn();
+const reportUpdate = vi.fn();
+const resolveReportPricing = vi.fn();
+
+vi.mock("next-auth", () => ({
+  getServerSession: (...args: unknown[]) => getServerSession(...args),
+}));
+vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    user: { findUnique: (...args: unknown[]) => userFindUnique(...args) },
+    report: {
+      findUnique: (...args: unknown[]) => reportFindUnique(...args),
+      update: (...args: unknown[]) => reportUpdate(...args),
+    },
+  },
+}));
+vi.mock("@/lib/pricing/report-pricing", () => ({
+  resolveReportPricing: (...args: unknown[]) => resolveReportPricing(...args),
+}));
+vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
+
+import { POST } from "../route";
+
+const DAYS = 4;
+
+function save(body: Record<string, unknown>) {
+  return POST(
+    new NextRequest("http://localhost/api/reports/report-1/equipment", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+    }),
+    { params: Promise.resolve({ id: "report-1" }) },
+  );
+}
+
+function body(cachedRate: number | undefined, clientTotal: number) {
+  return {
+    equipmentSelection: [
+      { groupId: "lgr-85", quantity: 1, dailyRate: cachedRate },
+    ],
+    equipmentCostTotal: clientTotal,
+    estimatedDryingDuration: DAYS,
+  };
+}
+
+function priceListNow(rate: number | null) {
+  resolveReportPricing.mockResolvedValue({
+    ok: true,
+    pricingConfig: { dehumidifierLGRDailyRate: rate },
+  });
+}
+
+beforeEach(() => {
+  for (const m of [getServerSession, userFindUnique, reportFindUnique, reportUpdate, resolveReportPricing]) {
+    m.mockReset();
+  }
+  getServerSession.mockResolvedValue({ user: { id: "owner-a" } });
+  userFindUnique.mockResolvedValue({ id: "owner-a", pricingConfig: null });
+  reportFindUnique.mockResolvedValue({
+    id: "report-1",
+    userId: "owner-a",
+    createdAt: new Date("2026-10-01T00:00:00Z"),
+  });
+  reportUpdate.mockResolvedValue({});
+});
+
+describe("POST /api/reports/[id]/equipment prices on the server", () => {
+  it.each([
+    { label: "cached 0, client total 0", cached: 0, total: 0 },
+    { label: "stale cached 61, client total 244", cached: 61, total: 244 },
+    { label: "no cached rate, client total 0", cached: undefined, total: 0 },
+  ])(
+    "$label with the current rate cleared: 422 naming the unset rate, nothing stored",
+    async ({ cached, total }) => {
+      priceListNow(null);
+      const res = await save(body(cached, total));
+      expect(res.status).toBe(422);
+      expect(JSON.stringify(await res.json())).toMatch(/Rate not set/);
+      expect(reportUpdate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("control: stores the server's own rate and total, not the client's cached 61 / 244", async () => {
+    priceListNow(70);
+    const res = await save(body(61, 244));
+    expect(res.status).toBe(200);
+    const data = reportUpdate.mock.calls[0][0].data;
+    expect(data.equipmentCostTotal).toBe(70 * DAYS);
+    expect(JSON.parse(data.equipmentSelection)).toEqual([
+      { groupId: "lgr-85", quantity: 1, dailyRate: 70 },
+    ]);
+  });
+
+  it("an unconfirmed business stores nothing (403)", async () => {
+    resolveReportPricing.mockResolvedValue({ ok: false });
+    const res = await save(body(61, 244));
+    expect(res.status).toBe(403);
+    expect(reportUpdate).not.toHaveBeenCalled();
+  });
+
+  it("control: an empty selection list still saves, with no total", async () => {
+    const res = await save({ equipmentSelection: [], estimatedDryingDuration: DAYS });
+    expect(res.status).toBe(200);
+    const data = reportUpdate.mock.calls[0][0].data;
+    expect(data.equipmentSelection).toBe("[]");
+    expect(data.equipmentCostTotal).toBeNull();
+    expect(resolveReportPricing).not.toHaveBeenCalled();
+  });
+});

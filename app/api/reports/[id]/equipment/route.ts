@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { resolveReportPricing } from "@/lib/pricing/report-pricing";
+import { priceStoredEquipment } from "@/lib/reports/stored-equipment-pricing";
 
 export async function POST(
   request: NextRequest,
@@ -21,6 +23,7 @@ export async function POST(
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
+      include: { pricingConfig: true },
     });
 
     if (!user) {
@@ -47,6 +50,53 @@ export async function POST(
       });
     }
 
+    // RA-8281 B1 class fix: the server prices the selections from the report
+    // business's CURRENT price list. The client's rates and total are not
+    // trusted: a rate the price list leaves unset refuses the save (422) and
+    // is never stored as $0, and the stored total is the server's own.
+    const selections = Array.isArray(body.equipmentSelection)
+      ? body.equipmentSelection
+      : [];
+    // An empty list is stored as [] (as before); no list at all as null.
+    let equipmentSelection: unknown[] | null = Array.isArray(
+      body.equipmentSelection,
+    )
+      ? []
+      : null;
+    let equipmentCostTotal: number | null = null;
+    if (selections.length > 0) {
+      const reportPricing = await resolveReportPricing(
+        user.id,
+        user.pricingConfig,
+        report.createdAt,
+      );
+      if (!reportPricing.ok) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "This report's business could not be confirmed.",
+          status: 403,
+        });
+      }
+      const priced = priceStoredEquipment(
+        selections,
+        reportPricing.pricingConfig,
+        Number(body.estimatedDryingDuration) || 1,
+      );
+      if (priced.total === null) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: priced.unset.map((u) => u.note).join(" "),
+          status: 422,
+        });
+      }
+      equipmentSelection = priced.lines.map((line) => ({
+        groupId: line.groupId,
+        quantity: line.quantity,
+        dailyRate: line.dailyRate,
+      }));
+      equipmentCostTotal = priced.total;
+    }
+
     // Update report with equipment data
     await prisma.report.update({
       where: { id, userId: user.id },
@@ -55,10 +105,11 @@ export async function POST(
           ? JSON.stringify(body.psychrometricAssessment)
           : null,
         scopeAreas: body.scopeAreas ? JSON.stringify(body.scopeAreas) : null,
-        equipmentSelection: body.equipmentSelection
-          ? JSON.stringify(body.equipmentSelection)
-          : null,
-        equipmentCostTotal: body.equipmentCostTotal || null,
+        equipmentSelection:
+          equipmentSelection && body.equipmentSelection
+            ? JSON.stringify(equipmentSelection)
+            : null,
+        equipmentCostTotal,
         estimatedDryingDuration: body.estimatedDryingDuration || null,
         // Update related fields if provided
         waterClass:

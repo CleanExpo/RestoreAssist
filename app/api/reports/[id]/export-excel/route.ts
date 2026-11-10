@@ -6,6 +6,7 @@ import {
   generateSingleReportExcel,
   saveWorkbookAsBuffer,
 } from "@/lib/excel-export";
+import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 import { uploadExcelToCloudinary } from "@/lib/cloudinary";
 import { format } from "date-fns";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -54,6 +55,8 @@ export async function GET(
             businessABN: true,
             businessPhone: true,
             businessEmail: true,
+            // RA-8281 B1: the creator's own price list, for resolveReportPricing.
+            pricingConfig: true,
           },
         },
         client: {
@@ -119,11 +122,22 @@ export async function GET(
       equipmentSelection: safeParse(report.equipmentSelection),
     };
 
+    // RA-8281 B1 class fix: stored equipment is priced from the report
+    // business's CURRENT price list, never from the rate cached on each
+    // selection. A business that cannot be confirmed gets no price list, so
+    // every equipment rate reads "Rate not set" rather than a figure.
+    const reportPricing = await resolveReportPricing(
+      report.userId,
+      report.user?.pricingConfig ?? null,
+      report.createdAt,
+    );
+
     // Generate Excel workbook
     const workbook = await generateSingleReportExcel(parsedReport, {
       includeScope,
       includeEstimate,
       includePhotos,
+      pricingConfig: reportPricing.ok ? reportPricing.pricingConfig : null,
     });
 
     // Save as buffer

@@ -440,8 +440,12 @@ export function selectionDailyRate(
   if (getEquipmentPricingField(selection.groupId)) {
     return getEquipmentDailyRate(selection.groupId, pricingConfig);
   }
-  return typeof selection.dailyRate === "number"
-    ? selection.dailyRate
+  // RA-8281 B1 class fix: older rows stored 0 for an unset rate, so a cached
+  // rate counts only when it is a positive finite number. Anything else is
+  // unset and throws RateNotSetError; a cached 0 is never priced at $0.
+  const cached = selection.dailyRate;
+  return typeof cached === "number" && Number.isFinite(cached) && cached > 0
+    ? cached
     : getEquipmentDailyRate(selection.groupId, pricingConfig);
 }
 
