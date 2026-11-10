@@ -33,10 +33,10 @@ import type {
   DomainGenerateInput,
   DomainGenerateResult,
   DomainPlugin,
-  EstimateLine,
+  PricedEstimateLine,
   ReportSection,
   ScopeCategory,
-  ScopeItem,
+  QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
 
@@ -107,11 +107,11 @@ function categoryFromItemType(itemType: string): ScopeCategory {
 }
 
 function buildEstimate(
-  scope: ScopeItem[],
+  scope: QuantifiedScopeItem[],
   rateByDescription: Map<string, number>,
   gst: GstTreatment,
 ): AssessmentEstimate {
-  const lines: EstimateLine[] = scope.map((item) => {
+  const lines: PricedEstimateLine[] = scope.map((item) => {
     const rate = rateByDescription.get(item.description) ?? 0;
     const lineTotalExGst = +(item.quantity * rate).toFixed(2);
     const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
@@ -411,7 +411,7 @@ export const stormDomain: DomainPlugin = {
         pricingConfig: DEFAULT_AU_PRICING,
       });
 
-      const scope: ScopeItem[] = drafts.map((d) => ({
+      const scope: QuantifiedScopeItem[] = drafts.map((d) => ({
         description: d.description,
         category: categoryFromItemType(d.itemType),
         quantity: d.quantity ?? 1,

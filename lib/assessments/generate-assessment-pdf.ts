@@ -24,6 +24,7 @@ import type {
   ScopeItem,
   StandardCitation,
 } from "./types";
+import { formatLineMoney } from "./estimate-status";
 
 // ── Page geometry (A4 portrait) ──────────────────────────────────────────────
 
@@ -419,18 +420,18 @@ export async function generateAssessmentPdf(
 
   // Estimate table.
   ctx.y -= 12;
-  drawWrappedText(
-    ctx,
-    `Estimate (AUD ex GST $${input.estimate.totals.subtotalExGst.toFixed(2)} | GST $${input.estimate.totals.gstTotal.toFixed(2)} | total $${input.estimate.totals.totalIncGst.toFixed(2)})`,
-    input.meta,
-    title,
-    {
-      size: 14,
-      font: ctx.fontBold,
-      color: BRAND_DARK,
-      lineHeight: 20,
-    },
-  );
+  const t = input.estimate.totals;
+  // RA-8275: a blocked total is stated as blocked, never printed as $0.
+  const estimateHeading =
+    t.subtotalExGst === null || t.gstTotal === null || t.totalIncGst === null
+      ? `Estimate (total not available: ${t.missing?.length ?? "some"} line(s) not priced)`
+      : `Estimate (AUD ex GST $${t.subtotalExGst.toFixed(2)} | GST $${t.gstTotal.toFixed(2)} | total $${t.totalIncGst.toFixed(2)})`;
+  drawWrappedText(ctx, estimateHeading, input.meta, title, {
+    size: 14,
+    font: ctx.fontBold,
+    color: BRAND_DARK,
+    lineHeight: 20,
+  });
   renderTable(
     ctx,
     input.estimate.lines,
@@ -444,30 +445,52 @@ export async function generateAssessmentPdf(
         header: "Qty",
         width: CONTENT_W * 0.1,
         align: "right",
-        get: (r) => String((r as EstimateLine).quantity),
+        get: (r) => {
+          const q = (r as EstimateLine).quantity;
+          return q === null ? "Needed" : String(q);
+        },
       },
       {
         header: "Rate",
         width: CONTENT_W * 0.15,
         align: "right",
-        get: (r) => `$${(r as EstimateLine).rate.toFixed(2)}`,
+        get: (r) =>
+          formatLineMoney((r as EstimateLine).rate, r as EstimateLine),
       },
       {
         header: "Ex GST",
         width: CONTENT_W * 0.15,
         align: "right",
-        get: (r) => `$${(r as EstimateLine).lineTotalExGst.toFixed(2)}`,
+        get: (r) =>
+          formatLineMoney(
+            (r as EstimateLine).lineTotalExGst,
+            r as EstimateLine,
+          ),
       },
       {
         header: "Inc GST",
         width: CONTENT_W * 0.15,
         align: "right",
-        get: (r) => `$${(r as EstimateLine).lineTotalIncGst.toFixed(2)}`,
+        get: (r) =>
+          formatLineMoney(
+            (r as EstimateLine).lineTotalIncGst,
+            r as EstimateLine,
+          ),
       },
     ],
     input.meta,
     title,
   );
+  const pricingNotes = [
+    ...(t.missing ?? []).map((m) => `${m.description}: ${m.note}`),
+    ...(t.basis ? [t.basis] : []),
+  ];
+  for (const note of pricingNotes) {
+    drawWrappedText(ctx, note, input.meta, title, {
+      size: 9,
+      font: ctx.fontReg,
+    });
+  }
 
   // Standards index.
   if (input.citations.length > 0) {

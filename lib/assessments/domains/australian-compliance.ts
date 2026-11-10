@@ -38,9 +38,9 @@ import type {
   DomainGenerateInput,
   DomainGenerateResult,
   DomainPlugin,
-  EstimateLine,
+  PricedEstimateLine,
   ReportSection,
-  ScopeItem,
+  QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
 
@@ -50,14 +50,7 @@ const ADMIN_HOUR_AUD = 95;
 // ─── Options narrowing ──────────────────────────────────────────────────────
 
 type AustralianState =
-  | "NSW"
-  | "VIC"
-  | "QLD"
-  | "WA"
-  | "SA"
-  | "TAS"
-  | "ACT"
-  | "NT";
+  "NSW" | "VIC" | "QLD" | "WA" | "SA" | "TAS" | "ACT" | "NT";
 
 const VALID_STATES: readonly AustralianState[] = [
   "NSW",
@@ -135,10 +128,10 @@ function buildScope(
   opts: ComplianceOptions,
   state: AustralianState,
 ): {
-  items: ScopeItem[];
+  items: QuantifiedScopeItem[];
   rateByDescription: Map<string, number>;
 } {
-  const items: ScopeItem[] = [];
+  const items: QuantifiedScopeItem[] = [];
   const rates = new Map<string, number>();
 
   function add(
@@ -220,11 +213,11 @@ function buildScope(
 }
 
 function buildEstimate(
-  scope: ScopeItem[],
+  scope: QuantifiedScopeItem[],
   rateByDescription: Map<string, number>,
   gst: GstTreatment,
 ): AssessmentEstimate {
-  const lines: EstimateLine[] = scope.map((item) => {
+  const lines: PricedEstimateLine[] = scope.map((item) => {
     const rate = rateByDescription.get(item.description) ?? 0;
     const lineTotalExGst = +(item.quantity * rate).toFixed(2);
     const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);

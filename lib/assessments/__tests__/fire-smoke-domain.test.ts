@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn() },
+    organizationPricingConfig: { findUnique: vi.fn() },
+    companyPricingConfig: { findUnique: vi.fn() },
   },
 }));
 
@@ -15,9 +18,47 @@ const inspectionFindUnique = (
   }
 ).inspection.findUnique;
 
+const pricingMocks = prisma as unknown as {
+  user: { findUnique: ReturnType<typeof vi.fn> };
+  organizationPricingConfig: { findUnique: ReturnType<typeof vi.fn> };
+  companyPricingConfig: { findUnique: ReturnType<typeof vi.fn> };
+};
+
 beforeEach(() => {
   inspectionFindUnique.mockReset();
+  // Default: the contractor has no price list configured.
+  pricingMocks.user.findUnique.mockReset().mockResolvedValue(null);
+  pricingMocks.organizationPricingConfig.findUnique
+    .mockReset()
+    .mockResolvedValue(null);
+  pricingMocks.companyPricingConfig.findUnique
+    .mockReset()
+    .mockResolvedValue(null);
 });
+
+/** A contractor price list (test fixture values, each inside its NRPG range). */
+const CONTRACTOR_CONFIG = {
+  qualifiedTechnicianNormalHours: 91,
+  masterQualifiedNormalHours: 121,
+  afdUnitLargeDailyRate: 61,
+  hepaVacuumDailyRate: 57,
+  callOutFee: 151,
+  administrationFee: 201,
+  rateOzoneGenerator: 111,
+  rateContentsClean: 53,
+  mouldRemediationTreatmentRate: 66,
+  antimicrobialTreatmentRate: 6,
+};
+
+const LABOUR_OPTIONS = {
+  technicians: 2,
+  supervisors: 1,
+  buildingDays: 2,
+  contentsDays: 1,
+  airScrubbers: 2,
+  hepaVacuumUnitDays: 2,
+  ozoneUnitDays: 2,
+};
 
 const baseInput = {
   inspectionId: "i_1",
@@ -145,7 +186,7 @@ describe("fireSmokeDomain — citations + scope", () => {
     expect(r.data.citations.length).toBeGreaterThan(2);
   });
 
-  it("every scope item carries an IICRC ref + positive quantity", async () => {
+  it("every scope item carries an IICRC ref + positive or 'needed' quantity", async () => {
     inspectionFindUnique.mockResolvedValueOnce(baseInspection);
     const r = await fireSmokeDomain.generate({
       ...baseInput,
@@ -156,7 +197,8 @@ describe("fireSmokeDomain — citations + scope", () => {
     expect(r.data.scope.items.length).toBeGreaterThan(0);
     for (const item of r.data.scope.items) {
       expect(item.iicrcRef.length).toBeGreaterThan(0);
-      expect(item.quantity).toBeGreaterThan(0);
+      // RA-8275: null means "quantity needed"; never a guessed 1 or a 0.
+      if (item.quantity !== null) expect(item.quantity).toBeGreaterThan(0);
     }
   });
 });
@@ -231,28 +273,149 @@ describe("fireSmokeDomain — error paths", () => {
 describe("fireSmokeDomain — estimate self-consistency", () => {
   it("subtotal=sum(lines), total=sub+GST, GST=10%, AUD", async () => {
     inspectionFindUnique.mockResolvedValueOnce(baseInspection);
+    pricingMocks.companyPricingConfig.findUnique.mockResolvedValue(
+      CONTRACTOR_CONFIG,
+    );
     const r = await fireSmokeDomain.generate({
       ...baseInput,
-      options: { smokeType: "wet", charLevel: 2 },
+      options: { smokeType: "wet", charLevel: 2, ...LABOUR_OPTIONS },
     });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
+    const { totals } = r.data.estimate;
+    expect(totals.status).toBe("complete");
     const subtotal = r.data.estimate.lines.reduce(
-      (s, l) => s + l.lineTotalExGst,
+      (s, l) => s + (l.lineTotalExGst ?? 0),
       0,
     );
-    expect(
-      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
-    ).toBeLessThan(0.05);
+    expect(Math.abs(subtotal - (totals.subtotalExGst as number))).toBeLessThan(
+      0.05,
+    );
     expect(
       Math.abs(
-        r.data.estimate.totals.totalIncGst -
-          (r.data.estimate.totals.subtotalExGst +
-            r.data.estimate.totals.gstTotal),
+        (totals.totalIncGst as number) -
+          ((totals.subtotalExGst as number) + (totals.gstTotal as number)),
       ),
     ).toBeLessThan(0.05);
     expect(r.data.estimate.totals.gstRate).toBe(0.1);
     expect(r.data.estimate.totals.currency).toBe("AUD");
+  });
+});
+
+describe("RA-8275 — a missing rate blocks the estimate total", () => {
+  it("protein smoke with no fire rates: total is blocked and no line is $0", async () => {
+    inspectionFindUnique.mockResolvedValueOnce(baseInspection);
+    const r = await fireSmokeDomain.generate({
+      ...baseInput,
+      options: { smokeType: "protein", charLevel: 1 },
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    const { lines, totals } = r.data.estimate;
+    for (const line of lines) {
+      expect(line.rate).not.toBe(0);
+      expect(line.lineTotalExGst).not.toBe(0);
+    }
+    expect(totals.status).toBe("blocked");
+    expect(totals.subtotalExGst).toBeNull();
+    expect(totals.totalIncGst).toBeNull();
+    expect(totals.missing?.length).toBeGreaterThan(0);
+  });
+});
+
+describe("RA-8275 — prices come from the contractor's own price list", () => {
+  it("labour lines use the contractor's rates, not built-in defaults", async () => {
+    inspectionFindUnique.mockResolvedValueOnce(baseInspection);
+    pricingMocks.companyPricingConfig.findUnique.mockResolvedValue(
+      CONTRACTOR_CONFIG,
+    );
+    const r = await fireSmokeDomain.generate({
+      ...baseInput,
+      options: { smokeType: "protein", charLevel: 1, ...LABOUR_OPTIONS },
+    });
+    if (!r.ok) throw new Error(r.message);
+    const line = (d: string) =>
+      r.data.estimate.lines.find((l) => l.description === d);
+    expect(line("Technician Labour")?.rate).toBe(91);
+    expect(line("Supervisor Labour")?.rate).toBe(121);
+    expect(line("Call-out Fee")?.rate).toBe(151);
+    expect(r.data.estimate.totals.basis).toBe(
+      "Priced from your contractor's own rates, within the NRPG national average range.",
+    );
+    for (const l of r.data.estimate.lines) {
+      expect([66, 6, 65, 4.5]).not.toContain(l.rate);
+    }
+  });
+
+  it("with no price list, every line says why it is unpriced", async () => {
+    inspectionFindUnique.mockResolvedValueOnce(baseInspection);
+    const r = await fireSmokeDomain.generate({
+      ...baseInput,
+      options: { smokeType: "protein", charLevel: 1 },
+    });
+    if (!r.ok) throw new Error(r.message);
+    const fee = r.data.estimate.lines.find(
+      (l) => l.description === "Call-out Fee",
+    );
+    expect(fee?.rate).toBeNull();
+    expect(fee?.pricingStatus).toBe("rate_not_set");
+    expect(fee?.pricingNote).toContain("national range $100-$350");
+  });
+
+  it("contents count comes from the inspection's pack-out register", async () => {
+    inspectionFindUnique.mockResolvedValueOnce({
+      ...baseInspection,
+      _count: { contentsPackOutItems: 37 },
+    });
+    const r = await fireSmokeDomain.generate({
+      ...baseInput,
+      options: { smokeType: "protein", charLevel: 1 },
+    });
+    if (!r.ok) throw new Error(r.message);
+    const contents = r.data.scope.items.find((i) =>
+      i.description.startsWith("Contents"),
+    );
+    expect(contents?.quantity).toBe(37);
+    expect(contents?.unit).toBe("item");
+  });
+});
+
+describe("RA-8275 — affected area is m², converted from sq ft once", () => {
+  async function enzymeQuantity(affectedAreas: unknown[]) {
+    inspectionFindUnique.mockResolvedValueOnce({
+      ...baseInspection,
+      affectedAreas,
+    });
+    const r = await fireSmokeDomain.generate({
+      ...baseInput,
+      options: { smokeType: "protein", charLevel: 1 },
+    });
+    if (!r.ok) throw new Error(r.message);
+    return r.data.scope.items.find((i) =>
+      i.description.startsWith("Enzyme Treatment"),
+    )?.quantity;
+  }
+
+  it("a legacy sq ft row of 1076.39 sq ft is 100 m², not 1076 m²", async () => {
+    const q = await enzymeQuantity([
+      { affectedSquareFootage: 1076.391041670972, affectedAreaSqm: null },
+    ]);
+    expect(q).toBeCloseTo(100, 2);
+  });
+
+  it("a row with the m² column set is not converted a second time", async () => {
+    const q = await enzymeQuantity([
+      { affectedSquareFootage: 1076.391041670972, affectedAreaSqm: 100 },
+    ]);
+    expect(q).toBeCloseTo(100, 2);
+  });
+
+  it("mixed rows sum in m²", async () => {
+    const q = await enzymeQuantity([
+      { affectedSquareFootage: 538.195520835486, affectedAreaSqm: null },
+      { affectedSquareFootage: 0, affectedAreaSqm: 25 },
+    ]);
+    expect(q).toBeCloseTo(75, 2);
   });
 });
 

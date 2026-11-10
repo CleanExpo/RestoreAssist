@@ -32,10 +32,10 @@ import type {
   DomainGenerateInput,
   DomainGenerateResult,
   DomainPlugin,
-  EstimateLine,
+  PricedEstimateLine,
   ReportSection,
   ScopeCategory,
-  ScopeItem,
+  QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
 
@@ -74,7 +74,7 @@ function estimatedDaysFromCondition(
 function equipmentToScopeItem(
   it: MouldEquipmentLineItem,
   days: number,
-): ScopeItem {
+): QuantifiedScopeItem {
   return {
     description: `${it.label} — ${days}-day hire`,
     category: "EQUIPMENT" satisfies ScopeCategory,
@@ -86,11 +86,11 @@ function equipmentToScopeItem(
 }
 
 function buildEstimate(
-  scope: ScopeItem[],
+  scope: QuantifiedScopeItem[],
   rateByDescription: Map<string, number>,
   gst: GstTreatment,
 ): AssessmentEstimate {
-  const lines: EstimateLine[] = scope.map((item) => {
+  const lines: PricedEstimateLine[] = scope.map((item) => {
     const rate = rateByDescription.get(item.description) ?? 0;
     const lineTotalExGst = +(item.quantity * rate).toFixed(2);
     const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
@@ -334,7 +334,7 @@ export const mouldDomain: DomainPlugin = {
       const days =
         opts.days ?? estimatedDaysFromCondition(opts.condition, affectedAreaM2);
 
-      const scope: ScopeItem[] = calc.equipmentList.map((it) =>
+      const scope: QuantifiedScopeItem[] = calc.equipmentList.map((it) =>
         equipmentToScopeItem(it, days),
       );
 
