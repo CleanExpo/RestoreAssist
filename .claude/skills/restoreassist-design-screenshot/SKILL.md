@@ -1,5 +1,5 @@
 ---
-name: playwright-cli
+name: restoreassist-design-screenshot
 description: Capture browser screenshots for visual design verification (DESIGN.md Verification Gate). Use when a UI change needs an actual rendered screenshot — de-gradient passes, layout/spacing checks, light/dark comparison — rather than a static class diff. Covers the managed/remote-env quirks (browser install via resumable download, full-chrome headless launch, localhost-only page loads).
 ---
 
