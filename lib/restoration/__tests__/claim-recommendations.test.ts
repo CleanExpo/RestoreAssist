@@ -46,7 +46,9 @@ describe("claimRecommendations — mould + timber cupping (Class 4)", () => {
     expect(c.has("animals_plants")).toBe(true);
     expect(
       recs.some(
-        (r) => r.category === "specialty_drying" && /bound water|Class 4/i.test(r.text),
+        (r) =>
+          r.category === "specialty_drying" &&
+          /bound water|Class 4/i.test(r.text),
       ),
     ).toBe(true);
   });
@@ -56,13 +58,19 @@ describe("claimRecommendations — meth + fire", () => {
   it("meth requires unoccupied-until-clearance", () => {
     const recs = claimRecommendations({ chemical: true });
     expect(
-      recs.some((r) => r.category === "habitability" && /clearance/i.test(r.text)),
+      recs.some(
+        (r) => r.category === "habitability" && /clearance/i.test(r.text),
+      ),
     ).toBe(true);
   });
   it("fire/smoke adds corrosion/off-gassing secondary damage", () => {
     const recs = claimRecommendations({ fireSmoke: true });
     expect(
-      recs.some((r) => r.category === "secondary_damage" && /smoke|off.?gas|corrode/i.test(r.text)),
+      recs.some(
+        (r) =>
+          r.category === "secondary_damage" &&
+          /smoke|off.?gas|corrode/i.test(r.text),
+      ),
     ).toBe(true);
   });
 });
@@ -82,7 +90,10 @@ describe("claimRecommendations — clean Category 1 stays lean", () => {
 
 describe("severity + citations", () => {
   it("every recommendation carries a clause citation and a severity", () => {
-    const recs = claimRecommendations({ waterCategory: "3", mouldCondition: 3 });
+    const recs = claimRecommendations({
+      waterCategory: "3",
+      mouldCondition: 3,
+    });
     expect(recs.length).toBeGreaterThan(8);
     for (const r of recs) {
       expect(r.clause.length).toBeGreaterThan(3);
@@ -128,7 +139,10 @@ describe("RA-8276 defect 2: working at height is required for high-level scope",
 
   it.each([
     ["fire/smoke clean (ceilings in scope)", { fireSmoke: true }],
-    ["ceilings, fittings, fans, high windows or HVAC heads", { highLevelWork: true }],
+    [
+      "ceilings, fittings, fans, high windows or HVAC heads",
+      { highLevelWork: true },
+    ],
     ["two storeys", { storeys: 2 }],
     ["ceiling at 2.4 m", { ceilingHeightM: 2.4 }],
   ])("required for %s", (_label, h) => {

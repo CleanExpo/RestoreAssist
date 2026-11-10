@@ -16,7 +16,6 @@
  */
 import type { HazardProfile } from "@/lib/restoration/ppe-requirements";
 import { standardCite } from "@/lib/nir-standards-mapping";
-import { whsTechLabel } from "@/lib/claim-intelligence/whs-sources";
 
 export type RecCategory =
   | "habitability"
@@ -81,9 +80,7 @@ const CONTAMINATED = (h: ClaimHazardInputs) =>
  * additive across the hazards present; the caution classes add the mandatory
  * occupant/health items. Deduped by (category + text).
  */
-export function claimRecommendations(
-  h: ClaimHazardInputs,
-): Recommendation[] {
+export function claimRecommendations(h: ClaimHazardInputs): Recommendation[] {
   const recs: Recommendation[] = [];
   const add = (
     category: RecCategory,
@@ -129,8 +126,10 @@ export function claimRecommendations(
   add(
     "safety",
     "required",
-    "Trip hazards: tape down or ramp all power leads/cords (particularly a multi-air-mover run across circulation paths).",
-    "WHS / IICRC S500:2021 §8",
+    water
+      ? "Trip hazards: tape down or ramp all power leads/cords (particularly a multi-air-mover run across circulation paths)."
+      : "Trip hazards: tape down or ramp all power leads/cords (particularly leads to air scrubbers and work lights across circulation paths).",
+    water ? `WHS / IICRC ${standardCite("S500", "8")}` : "WHS",
   );
   if (water) {
     add(
@@ -148,12 +147,14 @@ export function claimRecommendations(
     );
   }
   const height = workingAtHeight(h);
-  add("safety", height.severity, height.text, whsTechLabel("falls-cop"));
+  add("safety", height.severity, height.text, "WHS (working at height)");
   add(
     "safety",
     "required",
     "Electrical: lock out isolated circuits; all equipment on RCD-protected leads; licensed electrician to certify re-energisation.",
-    "AS/NZS 3000 / IICRC S500:2021 §10.1",
+    water
+      ? `AS/NZS 3000 / IICRC ${standardCite("S500", "10.1")}`
+      : "AS/NZS 3000 / WHS (electrical)",
   );
 
   // ── Property security ─────────────────────────────────────────────────────
@@ -358,7 +359,5 @@ export function workingAtHeight(h: ClaimHazardInputs): {
 
 /** True when the profile is a "caution" class needing the mandatory items. */
 export function isCautionClaim(h: ClaimHazardInputs): boolean {
-  return (
-    CONTAMINATED(h) || Boolean(h.fireSmoke) || Boolean(h.asbestos)
-  );
+  return CONTAMINATED(h) || Boolean(h.fireSmoke) || Boolean(h.asbestos);
 }

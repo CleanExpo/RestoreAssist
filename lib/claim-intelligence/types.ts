@@ -20,11 +20,7 @@ export type HvacType = "split" | "ducted" | "none" | "unknown";
 
 /** Smoke residue hint from the intake. A hint, never a finding. */
 export type SmokeResidueHint =
-  | "protein"
-  | "dry"
-  | "wet"
-  | "fuel_oil"
-  | "unknown";
+  "protein" | "dry" | "wet" | "fuel_oil" | "unknown";
 
 export interface PropertyFacts {
   storeys?: number | null;
@@ -98,7 +94,8 @@ export interface EvidenceRequirement {
  * Every item starts `proposed`. The technician confirms, changes or rejects
  * it; nothing becomes job data until then.
  */
-export type PathwayItemStatus = "proposed" | "confirmed" | "changed" | "rejected";
+export type PathwayItemStatus =
+  "proposed" | "confirmed" | "changed" | "rejected";
 
 export interface PathwayItem {
   /** Stable for the same input. */

@@ -242,6 +242,44 @@ const STEP_COMPLETION_VERIFICATION: WorkflowStepDefinition = {
 };
 
 /**
+ * RA-8276: fire/smoke versions of three shared steps whose wording was
+ * written for water (moisture boundaries, drying equipment, drying scope).
+ * Same stepKey, evidence classes and counts as the shared steps, so existing
+ * workflows, guidance lookups and the submission gate are unchanged; only the
+ * instructions a fire technician reads change.
+ */
+const STEP_FIRE_FLOOR_PLAN_SKETCH: WorkflowStepDefinition = {
+  ...STEP_FLOOR_PLAN_SKETCH,
+  stepDescription:
+    "Create or annotate a floor plan showing all affected areas, the fire " +
+    "origin, smoke spread, equipment placement and where each residue test " +
+    "was taken. Mark room dimensions if creating from scratch. This becomes " +
+    "the reference document for the cleaning plan.",
+  stepDescriptionShort:
+    "Annotated floor plan: affected areas, origin, test points, equipment.",
+};
+
+const STEP_FIRE_EQUIPMENT_DEPLOYMENT: WorkflowStepDefinition = {
+  ...STEP_EQUIPMENT_DEPLOYMENT,
+  stepDescription:
+    "Deploy air filtration (HEPA air scrubbers, with carbon filtration where " +
+    "odour is present) and any odour control equipment. Photograph each piece " +
+    "of equipment in position showing serial number/asset tag. Record " +
+    "equipment type, serial number, and placement location. " +
+    `Per IICRC ${standardCite("S700")}.`,
+};
+
+const STEP_FIRE_SCOPE_OF_WORKS: WorkflowStepDefinition = {
+  ...STEP_SCOPE_OF_WORKS,
+  stepDescription:
+    "Document the full scope of restoration works required. Include " +
+    "cleaning by surface type, contents handling, odour control, removal " +
+    "of anything the test patches show cannot be cleaned, and any specialist " +
+    "works. Reference affected areas and evidence collected. This forms the " +
+    "basis of the cost estimate.",
+};
+
+/**
  * RA-8276: fire/smoke completion. The shared step above requires
  * MOISTURE_READING, which a dry fire job cannot honestly supply. Fire
  * completion is proven by clearance (residue and odour) and completion
@@ -493,9 +531,9 @@ const WORKFLOW_FIRE_SMOKE: WorkflowTemplate = {
     STEP_HAZMAT_ASSESSMENT,
     STEP_CONTENTS_INVENTORY,
     STEP_ENVIRONMENTAL_READINGS,
-    STEP_FLOOR_PLAN_SKETCH,
-    STEP_EQUIPMENT_DEPLOYMENT,
-    STEP_SCOPE_OF_WORKS,
+    STEP_FIRE_FLOOR_PLAN_SKETCH,
+    STEP_FIRE_EQUIPMENT_DEPLOYMENT,
+    STEP_FIRE_SCOPE_OF_WORKS,
     STEP_FIRE_COMPLETION_VERIFICATION,
   ],
   riskEscalationTriggers: [
