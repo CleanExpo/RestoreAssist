@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { isRegisteredDomain } from "@/lib/assessments/registry";
 import { generateAssessmentPdf } from "@/lib/assessments/generate-assessment-pdf";
+import { isBlockingLine } from "@/lib/assessments/estimate-status";
 import type {
   AssessmentReport,
   EstimateLine,
@@ -90,12 +91,13 @@ export async function GET(
 
     const scopeItems = latest.scopeItems as unknown as ScopeItem[];
     const estimateLinesRaw = latest.estimateLines as unknown as
-      | EstimateLine[]
-      | { lines: EstimateLine[]; totals?: EstimateTotals };
+      EstimateLine[] | { lines: EstimateLine[]; totals?: EstimateTotals };
     const lines = Array.isArray(estimateLinesRaw)
       ? estimateLinesRaw
       : estimateLinesRaw.lines;
-    // Recompute totals from the stored lines for safety.
+    // Recompute totals from the stored lines for safety. RA-8275: an
+    // unpriced line blocks the total; it is never summed as $0.
+    const blocking = lines.filter(isBlockingLine);
     const subtotalExGst = lines.reduce(
       (sum, l) => sum + (l.lineTotalExGst ?? 0),
       0,
@@ -104,10 +106,16 @@ export async function GET(
       (sum, l) => sum + ((l.lineTotalIncGst ?? 0) - (l.lineTotalExGst ?? 0)),
       0,
     );
+    const blocked = blocking.length > 0;
     const totals: EstimateTotals = {
-      subtotalExGst,
-      gstTotal,
-      totalIncGst: subtotalExGst + gstTotal,
+      subtotalExGst: blocked ? null : subtotalExGst,
+      gstTotal: blocked ? null : gstTotal,
+      totalIncGst: blocked ? null : subtotalExGst + gstTotal,
+      status: blocked ? "blocked" : "complete",
+      missing: blocking.map((l) => ({
+        description: l.description,
+        note: l.pricingNote ?? "Not priced.",
+      })),
       gstRate: 0.1,
       currency: "AUD",
     };
