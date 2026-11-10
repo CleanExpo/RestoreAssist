@@ -274,9 +274,12 @@ describe("selectionDailyRate, group with no price-list field", () => {
     ).toThrow(RateNotSetError);
   });
 
-  it("control: a positive cached rate is still used where no field exists", () => {
-    expect(
+  // Round 13 review 6: was a control asserting 61 was used. Refused now: no
+  // catalogue group lacks a field, so this only priced unknown ids from a
+  // posted or stored figure.
+  it("a positive cached rate is unset too where no field exists", () => {
+    expect(() =>
       selectionDailyRate({ groupId: "no-such-group", dailyRate: 61 }, SET),
-    ).toBe(61);
+    ).toThrow(RateNotSetError);
   });
 });

@@ -21,6 +21,7 @@
  */
 import {
   getEquipmentGroupById,
+  isPricedEquipmentType,
   selectionDailyRate,
   type EquipmentSelection,
 } from "@/lib/equipment-matrix";
@@ -266,10 +267,14 @@ function readLine(raw: unknown): StoredEquipmentLine {
   const groupId =
     isRecord(raw) && typeof raw.groupId === "string" ? raw.groupId : "";
   const quantity = isRecord(raw) ? readQuantity(raw.quantity) : null;
-  if (groupId === "" || quantity === null) {
+  // Usable only when the price list prices this type. Every catalogue group
+  // has a price-list field; a blank id, spaces, or any id outside the
+  // catalogue has none, so there is no rate it could lawfully carry (the rate
+  // cached on the line is whatever was posted or stored, never a price).
+  if (!isPricedEquipmentType(groupId) || quantity === null) {
     return {
       groupId,
-      name: groupId || "Unknown equipment",
+      name: groupId.trim() || "Unknown equipment",
       quantity: 0,
       usable: false,
     };
@@ -336,16 +341,6 @@ export function withoutCachedEquipmentMoney<
 }
 
 /**
- * The rate cached on a line. selectionDailyRate uses it only for a group that
- * has no price-list field; a group with one is priced from the price list.
- */
-function cachedRate(raw: unknown): number | undefined {
-  return isRecord(raw) && typeof raw.dailyRate === "number"
-    ? raw.dailyRate
-    : undefined;
-}
-
-/**
  * Price stored selections against the current price list. `pricingConfig`
  * is the report business's price list (resolveReportPricing); null or
  * undefined means none could be loaded, so every rate is unset.
@@ -388,7 +383,7 @@ function priceRawLines(
       let note: string | null = null;
       try {
         dailyRate = selectionDailyRate(
-          { groupId: read.groupId, dailyRate: cachedRate(raw) },
+          { groupId: read.groupId },
           pricingConfig ?? undefined,
         );
       } catch (err) {

@@ -636,8 +636,10 @@ describe("the billable rate: rate, daily amount and job total reconcile to the c
     expect(equipmentLineAmount(2.01, 1, 0.5)).toBe(1.01);
   });
 
-  it("a rate cached on a line with no price-list field is billed to the cent too", () => {
-    expect(selectionDailyRate({ groupId: "zz-no-price-list-field", dailyRate: 33.335 }, {})).toBe(33.34);
+  it("a rate cached on a line with no price-list field is never billed (review 6)", () => {
+    expect(() => selectionDailyRate({ groupId: "zz-no-price-list-field", dailyRate: 33.335 }, {})).toThrow(
+      RateNotSetError,
+    );
   });
 
   it("part of a day is the daily amount times the days, to the cent", () => {
@@ -879,8 +881,8 @@ describe("the billable rate is the rate every screen and document shows", () => 
     expect(`$${(getEquipmentDailyRateOrNull("lgr-85", cfg) as number).toFixed(2)}/day`).toBe("$50.00/day");
     expect(selectionDailyRateOrNull({ groupId: "lgr-85" }, cfg)).toBe(50);
     expect(getEquipmentDailyRateOrNull("lgr-85", null)).toBeNull();
-    // A group with no price-list field reads a rate keyed by its own id: billable too.
-    expect(getEquipmentDailyRateOrNull("zz-no-price-list-field", { "zz-no-price-list-field": 49.995 })).toBe(50);
+    // An id with no price-list field never reads the price list by its own name (review 6).
+    expect(getEquipmentDailyRateOrNull("zz-no-price-list-field", { "zz-no-price-list-field": 49.995 })).toBeNull();
     expect(getEquipmentDailyRateOrNull("lgr-85", { dehumidifierLGRDailyRate: null })).toBeNull();
   });
 
@@ -933,5 +935,54 @@ describe("the billable rate is the rate every screen and document shows", () => 
     const item = doc.lineItems.find((i: any) => i.equipment?.injectionSystem);
     expect(item.equipment.injectionSystem.rate).toBe(50);
     expect(item.subtotal).toBe(12 * 50 + 8 * 50 + 50 * item.equipment.injectionSystem.days);
+  });
+});
+
+// Review 6: every catalogue group has a price-list rate, so there is no line
+// the cached rate can lawfully price. A type the price list does not price is
+// an unusable line for every reader; its cached rate is never money.
+describe("an equipment type the price list does not price is unusable, never priced from its cached rate", () => {
+  const CFG = { dehumidifierLGRDailyRate: 70, callOutFee: 99 };
+  it.each([["   "], ["no-such-group"], ["callOutFee"], [" lgr-85 "], ["\t"]])("id %j", (groupId) => {
+    for (const config of [null, CFG]) {
+      const priced = priceStoredEquipment([{ groupId, quantity: 1, dailyRate: 61 }], config, 4);
+      expect(priced.lines[0]).toMatchObject({ usable: false, dailyRate: null, dailyTotal: null, total: null });
+      expect(priced.total).toBeNull();
+      expect(priced.dailyTotal).toBeNull();
+      expect(priced.problems.length).toBeGreaterThan(0);
+      expect(JSON.stringify(priced)).not.toContain("61");
+      expect(JSON.stringify(priced)).not.toContain("244");
+      expect(() => assertEquipmentPriced(priced)).toThrow();
+    }
+    expect(readStoredEquipment([{ groupId, quantity: 1, dailyRate: 61 }])[0].usable).toBe(false);
+  });
+
+  it("a usable line beside one is still priced, and the total stays blocked", () => {
+    const priced = priceStoredEquipment(
+      [
+        { groupId: "lgr-85", quantity: 1 },
+        { groupId: "no-such-group", quantity: 1, dailyRate: 61 },
+      ],
+      CFG,
+      4,
+    );
+    expect(priced.lines[0]).toMatchObject({ usable: true, dailyRate: 70, total: 280 });
+    expect(priced.lines[1].usable).toBe(false);
+    expect(priced.total).toBeNull();
+  });
+
+  it("the rate reader never uses a cached rate and never reads the price list by an arbitrary id", async () => {
+    const m = await import("@/lib/equipment-matrix");
+    expect(() => m.selectionDailyRate({ groupId: "no-such-group", dailyRate: 61 }, CFG)).toThrow(RateNotSetError);
+    expect(() => m.selectionDailyRate({ groupId: "   ", dailyRate: 61 }, CFG)).toThrow(RateNotSetError);
+    expect(m.selectionDailyRateOrNull({ groupId: "no-such-group", dailyRate: 61 }, CFG)).toBeNull();
+    expect(m.getEquipmentDailyRateOrNull("callOutFee", CFG)).toBeNull();
+    expect(() => m.getEquipmentDailyRate("callOutFee", CFG)).toThrow(RateNotSetError);
+    // Control: every catalogue group has a price-list field, so none depends on a cached rate.
+    for (const group of m.getAllEquipmentGroups()) {
+      expect(m.getEquipmentPricingField(group.id), group.id).not.toBeNull();
+    }
+    // Control: a catalogue line ignores its cached rate and takes the price list's.
+    expect(m.selectionDailyRate({ groupId: "lgr-85", dailyRate: 61 }, CFG)).toBe(70);
   });
 });

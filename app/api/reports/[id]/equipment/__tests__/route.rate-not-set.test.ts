@@ -376,3 +376,27 @@ describe("equipment route: rate, and total reconcile for a part-cent rate", () =
     expect(body.equipmentCostTotal).toBe(66.68);
   });
 });
+
+// Review 6: an equipment type that is not one the price list prices (blank,
+// spaces, or any id outside the catalogue) is never priced from the rate
+// posted or cached on the line.
+describe("POST /api/reports/[id]/equipment refuses an equipment type the price list does not price", () => {
+  it.each([
+    ["spaces only", "   "],
+    ["an id outside the catalogue", "no-such-group"],
+    ["a price-list column name used as an id", "callOutFee"],
+    ["a catalogue id with spaces around it", " lgr-85 "],
+  ])("%s with a posted rate of 61: 422, nothing stored", async (_label, groupId) => {
+    resolveReportPricing.mockResolvedValue({
+      ok: true,
+      pricingConfig: { dehumidifierLGRDailyRate: 70, callOutFee: 99 },
+    });
+    const res = await save({
+      equipmentSelection: [{ groupId, quantity: 1, dailyRate: 61 }],
+      equipmentCostTotal: 244,
+      estimatedDryingDuration: DAYS,
+    });
+    expect(res.status).toBe(422);
+    expect(reportUpdate).not.toHaveBeenCalled();
+  });
+});

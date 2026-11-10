@@ -401,6 +401,15 @@ export function getEquipmentPricingField(groupId: string): string | null {
 }
 
 /**
+ * True when the price list prices this equipment type. Every catalogue group
+ * does. A blank id, spaces, or any id outside the catalogue does not, and
+ * such a line has no rate at all (round 13 review 6).
+ */
+export function isPricedEquipmentType(groupId: string): boolean {
+  return getEquipmentPricingField(groupId) !== null;
+}
+
+/**
  * RA-8281 B1 round 13: the BILLABLE daily rate is the price-list rate to the
  * whole cent (half up; toPrecision(15) first removes binary noise, so 1.005
  * is $1.01). It is applied once, here, where an equipment rate is read, so
@@ -427,20 +436,25 @@ export function getEquipmentDailyRate(
   }
 
   // RA-8281 B1 review: no price list (still loading, or the fetch failed) or no
-  // price-list field for this group means the rate is unset. It throws
-  // RateNotSetError like any other unset rate; it is never priced at $0.
-  return billableDailyRate(
-    requireRate(pricingConfig ?? null, pricingField ?? groupId),
-  );
+  // price-list field for this id means the rate is unset. It always throws
+  // RateNotSetError; it is never priced at $0, and the price list is never
+  // read by an arbitrary id (an id that happened to name another price-list
+  // column would otherwise be priced at that column's figure).
+  return requireRate(null, pricingField ?? groupId);
 }
 
 /**
  * RA-8281: the daily rate for one selected item. With a price list, the
  * contractor's current rate is the only rate. A rate cached on the selection
  * when it was made is ignored, so a rate cleared later blocks the total
- * (RateNotSetError) instead of reusing the old figure. The cached rate is
- * used only when there is no price-list field to read; with no price list
- * loaded, a group that has a field is unset (RA-8281 B1 review round 8).
+ * (RateNotSetError) instead of reusing the old figure. With no price list
+ * loaded the rate is unset (RA-8281 B1 review round 8).
+ *
+ * Round 13 review 6: the cached rate is NEVER used. Every catalogue group has
+ * a price-list field, so the only lines the cached rate could price were ids
+ * outside the catalogue, where the "rate" is whatever was posted or stored.
+ * Such an id has no rate (RateNotSetError); the one reader treats the line as
+ * unusable before it gets here.
  */
 export function selectionDailyRate(
   selection: Pick<EquipmentSelection, "groupId" | "dailyRate">,
@@ -450,16 +464,7 @@ export function selectionDailyRate(
   // from a loaded price list. With none (still loading, or the fetch failed)
   // the current rate is unknown, so it throws RateNotSetError — a rate cached
   // on the selection, including a 0 the screen once stored, is never used.
-  if (getEquipmentPricingField(selection.groupId)) {
-    return getEquipmentDailyRate(selection.groupId, pricingConfig);
-  }
-  // RA-8281 B1 class fix: older rows stored 0 for an unset rate, so a cached
-  // rate counts only when it is a positive finite number. Anything else is
-  // unset and throws RateNotSetError; a cached 0 is never priced at $0.
-  const cached = selection.dailyRate;
-  return typeof cached === "number" && Number.isFinite(cached) && cached > 0
-    ? billableDailyRate(cached)
-    : getEquipmentDailyRate(selection.groupId, pricingConfig);
+  return getEquipmentDailyRate(selection.groupId, pricingConfig);
 }
 
 /** The same rate for screens: null when the contractor has not set it. */

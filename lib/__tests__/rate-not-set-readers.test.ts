@@ -920,8 +920,12 @@ describe("no price list loaded never prices equipment at $0 (RA-8281 B1 review)"
     ).toThrow(RateNotSetError);
   });
 
-  it("control: a group with no price-list field still uses its cached rate", async () => {
+  // Round 13 review 6: this was a control asserting the cached 61 was used.
+  // No catalogue group lacks a price-list field, so that path only ever priced
+  // ids outside the catalogue from a posted or stored figure. It is refused.
+  it("an id with no price-list field is unset; its cached rate is never used", async () => {
     const { selectionDailyRate } = await import("@/lib/equipment-matrix");
-    expect(selectionDailyRate({ groupId: "no-such-group", dailyRate: 61 })).toBe(61);
+    expect(() => selectionDailyRate({ groupId: "no-such-group", dailyRate: 61 })).toThrow(RateNotSetError);
+    expect(() => selectionDailyRate({ groupId: "no-such-group", dailyRate: 61 }, {})).toThrow(RateNotSetError);
   });
 });
