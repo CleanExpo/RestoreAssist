@@ -184,6 +184,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/**
+ * While a save is unconfirmed, every form control on the screen (buttons,
+ * text boxes, ticks, lists) must be disabled except this exact allow-list.
+ * Checks what the browser enforces (:disabled), so a control inside a child
+ * component cannot slip past.
+ */
+function expectOnlyAllowedControlsOpen() {
+  const allowed = new Set([FIRE_COPY.retryButton, "Back", FIRE_COPY.toggleOn, FIRE_COPY.toggleOff]);
+  const open = Array.from(document.body.querySelectorAll("button, input, textarea, select")).filter(
+    (el) => !el.matches(":disabled"),
+  );
+  const names = open.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim() ?? el.tagName);
+  expect(names).toContain(FIRE_COPY.retryButton);
+  for (const name of names) expect(allowed.has(name)).toBe(true);
+}
+
 async function renderScreen() {
   const initial = await snapshot();
   render(<FireWalkthrough inspectionId="insp-1" initial={initial} />);
@@ -390,12 +406,7 @@ describe("filing answers", () => {
     await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
 
     // Every control that could give a new answer or change place is locked.
-    const open = screen.getAllByRole("button").filter((b) => !(b as HTMLButtonElement).disabled);
-    const allowed = new Set([FIRE_COPY.retryButton, "Back", FIRE_COPY.toggleOn, FIRE_COPY.toggleOff]);
-    expect(open.map((b) => b.getAttribute("aria-label") ?? b.textContent?.trim())).toEqual(
-      expect.arrayContaining([FIRE_COPY.retryButton]),
-    );
-    for (const b of open) expect(allowed.has(b.getAttribute("aria-label") ?? b.textContent?.trim() ?? "")).toBe(true);
+    expectOnlyAllowedControlsOpen();
     expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toBeDisabled();
 
     // Speech heard while pending is not taken as a new answer.
@@ -560,6 +571,34 @@ describe("sign-off", () => {
     expect(await screen.findByText("Late note from another device")).toBeInTheDocument();
     expect(screen.getByText(FIRE_COPY.reviewStale)).toBeInTheDocument();
     expect(rows.some((r) => r.type === "fire_walkthrough_signoff")).toBe(false);
+  });
+
+  it("while a sign-off is unconfirmed the name and declaration cannot change; Try again signs the held name (K17)", async () => {
+    await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, { action: "acknowledge_notice", sessionId: "vs-1", spoken: false, recognitionMode: "typed" });
+    for (const sectionId of FIRE_SECTION_IDS) {
+      await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, { action: "file", sessionId: "vs-1", sectionId, transcript: `Synthetic note for ${sectionId}`, routedBy: "technician_chose" });
+    }
+    const initial = await snapshot();
+    render(<FireWalkthrough inspectionId="insp-1" initial={initial} />);
+    const button = await screen.findByRole("button", { name: FIRE_COPY.signoffButton });
+    const nameBox = screen.getByRole("textbox", { name: FIRE_COPY.signoffNamePlaceholder });
+    fireEvent.change(nameBox, { target: { value: "Sam Earlier" } });
+    fireEvent.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(button).toBeEnabled());
+    holdNextPost = 409;
+    fireEvent.click(button);
+    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+
+    expect(nameBox).toBeDisabled();
+    expect(screen.getByRole("checkbox")).toBeDisabled();
+    expectOnlyAllowedControlsOpen();
+
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.retryButton }));
+    await waitFor(() => expect(rows.some((r) => r.type === "fire_walkthrough_signoff")).toBe(true));
+    const signs = calls.filter((c) => c.action === "sign_off");
+    expect(signs).toHaveLength(2);
+    expect(signs[1].key).toBe(signs[0].key);
+    expect(signs[1].body.typedName).toBe("Sam Earlier");
   });
 
   it("is not offered while sections are open", async () => {

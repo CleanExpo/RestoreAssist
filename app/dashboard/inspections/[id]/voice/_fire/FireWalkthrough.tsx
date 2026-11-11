@@ -83,23 +83,7 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
           </div>
         )}
 
-        {!acknowledged ? (
-          <section aria-label={FIRE_COPY.noticeTitle} className="space-y-3 rounded-xl border border-white/15 bg-white/5 p-4">
-            <h1 className="text-lg font-semibold">{FIRE_COPY.noticeTitle}</h1>
-            <p className="text-sm text-white/80">{FIRE_COPY.notice}</p>
-            <button type="button" onClick={w.readNotice} className="min-h-12 w-full rounded-xl border border-white/20 text-sm">
-              Read it to me
-            </button>
-            <button
-              type="button"
-              disabled={!w.sessionReady || w.locked}
-              onClick={() => void w.acknowledge()}
-              className="min-h-16 w-full rounded-xl bg-brand-navy text-base font-semibold disabled:opacity-40"
-            >
-              {FIRE_COPY.noticeAccept}
-            </button>
-          </section>
-        ) : (
+        {acknowledged && (
           <ListeningToggle
             supported={w.speech.supported}
             wanted={w.speech.wanted}
@@ -108,70 +92,93 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
           />
         )}
 
-        {w.ask && (
-          <div role="group" aria-label="Margot's question" className="space-y-2">
-            <p className="text-sm text-white/90">{w.ask.say}</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" disabled={w.locked} onClick={() => w.answerAsk(true)} className="min-h-16 rounded-xl bg-green-800 text-base font-semibold">
-                Yes
+        {/* One lock for every input on this screen. While a save is unconfirmed
+            the browser refuses all of them; only Back, Try again and the
+            listening toggle sit outside it. Any new control goes inside. */}
+        <fieldset disabled={w.locked} data-testid="fire-inputs" className="m-0 min-w-0 space-y-4 border-0 p-0">
+          {!acknowledged && (
+            <section aria-label={FIRE_COPY.noticeTitle} className="space-y-3 rounded-xl border border-white/15 bg-white/5 p-4">
+              <h1 className="text-lg font-semibold">{FIRE_COPY.noticeTitle}</h1>
+              <p className="text-sm text-white/80">{FIRE_COPY.notice}</p>
+              <button type="button" onClick={w.readNotice} className="min-h-12 w-full rounded-xl border border-white/20 text-sm">
+                Read it to me
               </button>
-              <button type="button" disabled={w.locked} onClick={() => w.answerAsk(false)} className="min-h-16 rounded-xl bg-white/10 text-base font-semibold">
-                No
-              </button>
-            </div>
-          </div>
-        )}
-        {w.picking !== null && <FireSectionPicker disabled={w.locked} onPick={w.pick} onCancel={w.cancelPick} />}
-
-        <form
-          method="post"
-          className="space-y-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            w.submitTyped();
-          }}
-        >
-          <textarea
-            value={w.typed}
-            onChange={(e) => w.setTyped(e.target.value)}
-            disabled={inputDisabled}
-            rows={3}
-            aria-label={FIRE_COPY.typedPlaceholder}
-            placeholder={w.naFor ? FIRE_COPY.naAskReason : FIRE_COPY.typedPlaceholder}
-            className="w-full rounded-xl border border-white/20 bg-white/5 p-3 text-base text-white disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={inputDisabled || !w.typed.trim()}
-            className="min-h-14 w-full rounded-xl bg-brand-navy text-base font-semibold disabled:opacity-40"
-          >
-            {w.saving ? "Saving" : FIRE_COPY.typedSubmit}
-          </button>
-        </form>
-
-        {acknowledged && (
-          <>
-            {!allClosed && (
               <button
                 type="button"
-                disabled={w.locked}
-                onClick={w.nextSection}
-                className="min-h-14 w-full rounded-xl border border-brand-gold/50 text-base"
+                disabled={!w.sessionReady || w.locked}
+                onClick={() => void w.acknowledge()}
+                className="min-h-16 w-full rounded-xl bg-brand-navy text-base font-semibold disabled:opacity-40"
               >
-                Next section
-                {w.currentSectionId ? ` (now: ${getFireSection(w.currentSectionId)?.title ?? ""})` : ""}
+                {FIRE_COPY.noticeAccept}
               </button>
-            )}
-            {allClosed && <FireSignOff signoff={status.signoff} saving={w.locked} onSign={(n) => w.signOff(n)} />}
-            <FireSectionList
-              sections={status.sections}
-              currentSectionId={w.currentSectionId}
-              disabled={w.locked}
-              onSelect={w.selectSection}
-              onMarkNa={w.markNa}
+            </section>
+          )}
+
+          {w.ask && (
+            <div role="group" aria-label="Margot's question" className="space-y-2">
+              <p className="text-sm text-white/90">{w.ask.say}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" disabled={w.locked} onClick={() => w.answerAsk(true)} className="min-h-16 rounded-xl bg-green-800 text-base font-semibold">
+                  Yes
+                </button>
+                <button type="button" disabled={w.locked} onClick={() => w.answerAsk(false)} className="min-h-16 rounded-xl bg-white/10 text-base font-semibold">
+                  No
+                </button>
+              </div>
+            </div>
+          )}
+          {w.picking !== null && <FireSectionPicker disabled={w.locked} onPick={w.pick} onCancel={w.cancelPick} />}
+
+          <form
+            method="post"
+            className="space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              w.submitTyped();
+            }}
+          >
+            <textarea
+              value={w.typed}
+              onChange={(e) => w.setTyped(e.target.value)}
+              disabled={inputDisabled}
+              rows={3}
+              aria-label={FIRE_COPY.typedPlaceholder}
+              placeholder={w.naFor ? FIRE_COPY.naAskReason : FIRE_COPY.typedPlaceholder}
+              className="w-full rounded-xl border border-white/20 bg-white/5 p-3 text-base text-white disabled:opacity-50"
             />
-          </>
-        )}
+            <button
+              type="submit"
+              disabled={inputDisabled || !w.typed.trim()}
+              className="min-h-14 w-full rounded-xl bg-brand-navy text-base font-semibold disabled:opacity-40"
+            >
+              {w.saving ? "Saving" : FIRE_COPY.typedSubmit}
+            </button>
+          </form>
+
+          {acknowledged && (
+            <>
+              {!allClosed && (
+                <button
+                  type="button"
+                  disabled={w.locked}
+                  onClick={w.nextSection}
+                  className="min-h-14 w-full rounded-xl border border-brand-gold/50 text-base"
+                >
+                  Next section
+                  {w.currentSectionId ? ` (now: ${getFireSection(w.currentSectionId)?.title ?? ""})` : ""}
+                </button>
+              )}
+              {allClosed && <FireSignOff signoff={status.signoff} saving={w.locked} onSign={(n) => w.signOff(n)} />}
+              <FireSectionList
+                sections={status.sections}
+                currentSectionId={w.currentSectionId}
+                disabled={w.locked}
+                onSelect={w.selectSection}
+                onMarkNa={w.markNa}
+              />
+            </>
+          )}
+        </fieldset>
       </main>
     </div>
   );
