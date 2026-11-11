@@ -101,7 +101,7 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
       {
         id: "incident_notification",
         prompt:
-          "Has anyone been hurt, or has anything dangerous happened on site? If it may be a notifiable incident, for example a death, a serious injury or a dangerous occurrence, WorkSafe must be told straight away on 13 23 60, and the scene left as it is unless you need to make it safe or help someone.",
+          "Has anyone been hurt, or has anything dangerous happened on site? If so, has your employer been told straight away so they can decide whether it is a notifiable incident for WorkSafe, and is the scene being left as it is until they decide, unless you need to make it safe or help someone?",
         cites: [{ source: "S08", pinpoint: "s37, s38, s39" }],
       },
     ],
@@ -185,7 +185,7 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
       {
         id: "suspected_acm",
         prompt:
-          "Do you suspect asbestos in damaged areas or debris? Do not cut, break or sweep it. Has a competent person been arranged to sample it and judge its condition? If fire-damaged asbestos is friable, may become friable, or its condition cannot be judged, only a Class A licensed removalist may remove it; where it is confirmed non-friable, a Class B licence holder can.",
+          "Do you suspect asbestos in damaged areas or debris? Do not cut, break or sweep it. Has a competent person been arranged to sample it and judge whether it is friable, so the right removalist can be booked: Class A if it is friable, may become friable or its condition cannot be judged, or Class B if it is confirmed non-friable?",
         cites: [{ source: "S09", pinpoint: "r304 to r307, r264, r265" }, { source: "S32" }, { source: "S40" }],
       },
       {
@@ -316,7 +316,7 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
     id: "evidence",
     title: "Photos and evidence",
     intro:
-      "Now evidence. Tell me what photos and video you have taken, and whether anything must not be disturbed.",
+      "Now evidence. What photos and video have you taken, and is there anything that must not be disturbed?",
     keywords: [
       "photo", "photos", "picture", "pictures", "video", "evidence",
       "documented", "documentation", "recorded", "captured", "wide shot",

@@ -36,8 +36,10 @@ const STATUTORY_REASSIGNED_DELEGATES = [
   "restorationDocument",
   "creditNote",
   "invoicePayment",
-  // Fire and smoke walkthrough sign-offs (VoiceCopilotObservation) cascade
-  // from the session, so the session is kept like a report.
+  // Fire walkthrough records (VoiceCopilotObservation) cascade from the
+  // technician's session, so the session is re-homed and a technician leaving
+  // never erases a walkthrough on another user's inspection. They are kept for
+  // as long as the inspection is, not beyond it.
   "voiceCopilotSession",
 ] as const;
 

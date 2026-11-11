@@ -205,8 +205,12 @@ export async function POST(request: NextRequest) {
         await tx.restorationDocument.updateMany(reassignToRetentionOwner);
         await tx.creditNote.updateMany(reassignToRetentionOwner);
         await tx.invoicePayment.updateMany(reassignToRetentionOwner);
-        // Fire walkthrough sign-offs live on the technician's voice sessions;
-        // the signer id stays inside each sign-off record.
+        // Fire walkthrough records hang off the technician's voice sessions.
+        // Re-homing the sessions means a technician closing their account
+        // never erases a walkthrough on someone else's job. The records still
+        // go with the inspection itself, like every other part of the
+        // inspection record (privacy policy 2.7), including when the
+        // inspection's owner closes their account.
         await tx.voiceCopilotSession.updateMany(reassignToRetentionOwner);
         await tx.user.delete({ where: { id: user.id } });
       });

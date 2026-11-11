@@ -72,13 +72,13 @@ describe("fire checklist", () => {
     }
   });
 
-  // Design rule (kind K6): a spoken prompt never states a legal duty as if it
-  // always applies. A sentence that names a duty is either a question or
-  // carries its condition (if, when, where, unless, whether), because the
-  // cited law sets conditions the technician must check on site.
-  it("every spoken legal duty is a question or carries its condition", () => {
+  // Design rule (kind K6): Margot asks, she never rules. A spoken sentence
+  // that names a legal duty is always a question, so the technician and their
+  // employer decide whether the cited law's conditions are met. A stated
+  // condition is not enough: round 6 showed a condition can be present and
+  // still be the wrong one.
+  it("every spoken legal duty is asked as a question", () => {
     const DUTY = /\b(must|is required|are required|needs? an? (?:Class|licen)|Class [AB]|high-risk construction work)\b/i;
-    const CONDITION = /\b(if|when|where|unless|whether)\b/i;
     const spoken = FIRE_CHECKLIST.flatMap((s) => [
       { id: `${s.id}.intro`, text: s.intro },
       ...s.items.map((i) => ({ id: `${s.id}.${i.id}`, text: i.prompt })),
@@ -87,7 +87,7 @@ describe("fire checklist", () => {
       text
         .split(/(?<=[.?!])\s+/)
         .filter((sentence) => DUTY.test(sentence))
-        .filter((sentence) => !sentence.trim().endsWith("?") && !CONDITION.test(sentence))
+        .filter((sentence) => !sentence.trim().endsWith("?"))
         .map((sentence) => `${id}: ${sentence}`),
     );
     expect(unconditional).toEqual([]);
@@ -103,7 +103,10 @@ describe("fire checklist", () => {
     expect(acm).toMatch(/Class B/);
     const swms = prompt("safety_brief", "swms_reviewed");
     expect(swms.startsWith("Will any work today be high-risk construction work")).toBe(true);
-    expect(prompt("safety_brief", "incident_notification")).toMatch(/notifiable incident/);
+    const incident = prompt("safety_brief", "incident_notification");
+    expect(incident).toMatch(/notifiable incident/);
+    expect(incident).toMatch(/employer/);
+    expect(incident).not.toMatch(/\bmay be a notifiable\b/);
   });
 
   it("the research pack carries no real client details", () => {

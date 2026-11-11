@@ -114,6 +114,7 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
         {w.picking !== null && <FireSectionPicker disabled={w.saving} onPick={w.pick} onCancel={w.cancelPick} />}
 
         <form
+          method="post"
           className="space-y-2"
           onSubmit={(e) => {
             e.preventDefault();
