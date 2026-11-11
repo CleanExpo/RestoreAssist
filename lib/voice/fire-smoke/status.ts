@@ -80,9 +80,15 @@ function latestSignoff(ordered: FireObservationRow[]) {
   return null;
 }
 
+/**
+ * Sections and sign-off are job-wide. The privacy notice is personal: it
+ * counts only when the viewing technician acknowledged it in a session
+ * they own. Pass null where no technician is viewing (the submit gate).
+ */
 export function computeWalkthroughStatus(
   sectionIds: readonly string[],
   observations: readonly FireObservationRow[],
+  viewerUserId: string | null,
 ): WalkthroughStatus {
   const ordered = [...observations].sort(byCreatedAt);
   const { tallies, newestSectionAt, sectionRowIds } = tallySections(
@@ -97,9 +103,12 @@ export function computeWalkthroughStatus(
     .filter((s) => s.state === "todo")
     .map((s) => s.sectionId);
   const started = newestSectionAt > 0;
-  const noticeAcknowledged = ordered.some(
-    (row) =>
-      row.type === FIRE_OBSERVATION_TYPES.notice &&
+  const noticeAcknowledged =
+    viewerUserId !== null &&
+    ordered.some(
+      (row) =>
+        row.type === FIRE_OBSERVATION_TYPES.notice &&
+        row.userId === viewerUserId &&
       noticeParsedSchema.safeParse(row.parsed).success,
   );
 

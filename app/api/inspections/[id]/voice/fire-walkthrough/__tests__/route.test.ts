@@ -35,7 +35,8 @@ vi.mock("@/lib/prisma", () => {
         return store.observations
           .filter((o) => args.where.type.in.includes(o.type))
           .filter((o) => store.sessions.get(o.sessionId)?.inspectionId === args.where.session.inspectionId)
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+          .map((o) => ({ ...o, session: { userId: store.sessions.get(o.sessionId)?.userId ?? null } }));
       },
       create: async ({ data }: { data: { id: string; sessionId: string; type: string; parsed: unknown } }) => {
         store.clock += 1000;
@@ -151,6 +152,18 @@ describe("refusals", () => {
     expect((await post("{not json")).status).toBe(400);
     expect((await post({ action: "delete_everything", sessionId: "vs-1" })).status).toBe(400);
     expect((await post({ action: "file", sessionId: "vs-1", sectionId: "made_up", transcript: "x", routedBy: "technician_chose" })).status).toBe(400);
+  });
+
+  it("another technician's notice does not open the microphone for this one", async () => {
+    auth.getServerSession.mockResolvedValue({ user: { id: "tech-2" } });
+    const theirs = await post({ action: "acknowledge_notice", sessionId: "vs-other-user", spoken: true, recognitionMode: "cloud" });
+    expect(theirs.status).toBe(200);
+    auth.getServerSession.mockResolvedValue({ user: { id: "tech-1" } });
+    expect((await (await get()).json()).status.noticeAcknowledged).toBe(false);
+    const res = await post({ action: "capture", sessionId: "vs-1", transcript: "Power isolated at the switchboard" });
+    expect(res.status).toBe(422);
+    expect((await res.json()).code).toBe("NOTICE_REQUIRED");
+    expect(store.observations.filter((o) => o.type !== "fire_notice_acknowledged")).toHaveLength(0);
   });
 
   it("422 NOTICE_REQUIRED: nothing is recorded before the notice", async () => {

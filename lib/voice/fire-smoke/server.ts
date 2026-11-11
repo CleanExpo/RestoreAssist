@@ -38,6 +38,7 @@ export interface LoadedFireWalkthrough {
 export async function loadFireWalkthrough(
   inspectionId: string,
   db: FireDb = prisma as unknown as FireDb,
+  viewerUserId: string | null = null,
 ): Promise<LoadedFireWalkthrough> {
   const rows = (await db.voiceCopilotObservation.findMany({
     where: {
@@ -45,10 +46,23 @@ export async function loadFireWalkthrough(
       session: { inspectionId },
     },
     orderBy: { createdAt: "asc" },
-    select: { id: true, type: true, parsed: true, createdAt: true, sessionId: true },
-  })) as Array<FireObservationRow & { sessionId: string }>;
-  const observations = rows.map(({ id, type, parsed, createdAt }) => ({
+    select: {
+      id: true,
+      type: true,
+      parsed: true,
+      createdAt: true,
+      sessionId: true,
+      session: { select: { userId: true } },
+    },
+  })) as Array<
+    Omit<FireObservationRow, "userId"> & {
+      sessionId: string;
+      session?: { userId?: string | null } | null;
+    }
+  >;
+  const observations: FireObservationRow[] = rows.map(({ id, type, parsed, createdAt, session }) => ({
     id,
+    userId: session?.userId ?? null,
     type,
     parsed,
     createdAt,
@@ -57,7 +71,7 @@ export async function loadFireWalkthrough(
   return {
     observations,
     sessionCount,
-    status: computeWalkthroughStatus(FIRE_SECTION_IDS, observations),
+    status: computeWalkthroughStatus(FIRE_SECTION_IDS, observations, viewerUserId),
   };
 }
 

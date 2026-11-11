@@ -82,6 +82,8 @@ export type SignoffParsed = z.infer<typeof signoffParsedSchema>;
 /** A stored observation as the status function sees it. */
 export interface FireObservationRow {
   id: string;
+  /** Owner of the voice session that wrote the row (server truth), or null if unknown. */
+  userId: string | null;
   type: string;
   parsed: unknown;
   createdAt: Date | string;

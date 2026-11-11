@@ -19,15 +19,24 @@ import { FIRE_COPY } from "@/lib/voice/fire-smoke/copy";
 import { fireActionSchema, type FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
 
 // ── in-memory server ──────────────────────────────────────────────────────
-type Row = { id: string; sessionId: string; type: string; parsed: unknown; rawTranscript: string; createdAt: Date };
+type Row = {
+  id: string;
+  sessionId: string;
+  type: string;
+  parsed: unknown;
+  rawTranscript: string;
+  createdAt: Date;
+  session: { userId: string };
+};
 let rows: Row[] = [];
 let clock = 0;
 const db: FireActionDb = {
   voiceCopilotObservation: {
     findMany: (async () => [...rows].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) as never,
-    create: async ({ data }: { data: Omit<Row, "createdAt"> }) => {
+    create: async ({ data }: { data: Omit<Row, "createdAt" | "session"> }) => {
       clock += 1000;
-      const row = { ...data, createdAt: new Date(Date.parse("2026-11-11T09:00:00Z") + clock) };
+      // Every session in this fake belongs to the signed-in technician.
+      const row = { ...data, session: { userId: "tech-1" }, createdAt: new Date(Date.parse("2026-11-11T09:00:00Z") + clock) };
       rows.push(row);
       return row;
     },
@@ -40,7 +49,7 @@ let calls: Call[] = [];
 let failNextPost = false;
 
 async function snapshot(): Promise<FireWalkthroughResponse> {
-  const loaded = await loadFireWalkthrough("insp-1", db);
+  const loaded = await loadFireWalkthrough("insp-1", db, "tech-1");
   return { applicable: true, status: loaded.status, ...nextStep(loaded.status) };
 }
 
@@ -68,9 +77,31 @@ class FakeUtterance {
   onerror: (() => void) | null = null;
   lang = "";
   rate = 1;
+  ended = false;
   constructor(public text: string) {}
+  /** Margot finishes speaking: the engine stops, then fires onend. */
+  end() {
+    this.ended = true;
+    this.onend?.();
+  }
 }
 const spoken: FakeUtterance[] = [];
+const fakeSynth = {
+  speak: (u: FakeUtterance) => spoken.push(u),
+  /** Like a browser: cancelling stops every queued utterance and fires its onerror. */
+  cancel: () => {
+    for (const u of spoken) {
+      if (!u.ended) {
+        u.ended = true;
+        u.onerror?.();
+      }
+    }
+  },
+  get speaking() {
+    return spoken.some((u) => !u.ended);
+  },
+  pending: false,
+};
 
 class FakeRecognition {
   static live: FakeRecognition[] = [];
@@ -112,7 +143,7 @@ beforeEach(() => {
   FakeRecognition.starts = 0;
   vi.stubGlobal("fetch", fakeFetch);
   vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
-  vi.stubGlobal("speechSynthesis", { speak: (u: FakeUtterance) => spoken.push(u), cancel: () => {} });
+  vi.stubGlobal("speechSynthesis", fakeSynth);
   vi.stubGlobal("webkitSpeechRecognition", FakeRecognition);
 });
 afterEach(() => {
@@ -130,7 +161,7 @@ async function acknowledgeAndFinishSpeaking() {
   fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.noticeAccept }));
   await waitFor(() => expect(fireCalls()).toContain("acknowledge_notice"));
   await waitFor(() => expect(lastUtterance()?.text).toBe(getFireSection("site_access")!.intro));
-  act(() => lastUtterance().onend?.());
+  act(() => lastUtterance().end());
   await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
 }
 
@@ -159,10 +190,28 @@ describe("notice comes first", () => {
     await new Promise((r) => setTimeout(r, 400));
     expect(FakeRecognition.starts).toBe(0);
 
-    act(() => lastUtterance().onend?.());
+    act(() => lastUtterance().end());
     await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
     expect(screen.getByTestId("fire-listen-state")).toHaveTextContent(FIRE_COPY.listening);
     expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toBeEnabled();
+  });
+});
+
+describe("notice belongs to the technician", () => {
+  it("shows the notice to a second technician even after another acknowledged it", async () => {
+    rows.push({
+      id: "obs-other",
+      sessionId: "vs-other",
+      type: "fire_notice_acknowledged",
+      parsed: { checklistVersion: 1, noticeVersion: "fire-voice-notice-v1", spoken: true, recognitionMode: "cloud" },
+      rawTranscript: "",
+      createdAt: new Date("2026-11-11T08:00:00Z"),
+      session: { userId: "tech-2" },
+    });
+    await renderScreen();
+    expect(screen.getByText(FIRE_COPY.notice)).toBeInTheDocument();
+    expect(screen.queryByTestId("fire-listen-toggle")).toBeNull();
+    expect(FakeRecognition.starts).toBe(0);
   });
 });
 

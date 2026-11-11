@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { computeWalkthroughStatus, newestSectionObservationAt } from "../status";
 import { FIRE_SECTION_IDS } from "../checklist";
-import { allFilled, entry, lastAt, na, notice, resetClock, signoff } from "./helpers";
+import { TECH, allFilled, entry, lastAt, na, notice, resetClock, signoff } from "./helpers";
 
 const status = (rows: Parameters<typeof computeWalkthroughStatus>[1]) =>
-  computeWalkthroughStatus(FIRE_SECTION_IDS, rows);
+  computeWalkthroughStatus(FIRE_SECTION_IDS, rows, TECH);
 
 beforeEach(resetClock);
 
@@ -21,6 +21,13 @@ describe("computeWalkthroughStatus", () => {
     const s = status([notice()]);
     expect(s.noticeAcknowledged).toBe(true);
     expect(s.started).toBe(false);
+  });
+
+  it("a notice counts only for the technician who acknowledged it", () => {
+    const rows = [{ ...notice(), userId: "user-tech-2" }];
+    expect(status(rows).noticeAcknowledged).toBe(false);
+    expect(computeWalkthroughStatus(FIRE_SECTION_IDS, rows, "user-tech-2").noticeAcknowledged).toBe(true);
+    expect(computeWalkthroughStatus(FIRE_SECTION_IDS, [notice()], null).noticeAcknowledged).toBe(false);
   });
 
   it("an entry fills its section; N/A with a reason marks it N/A", () => {

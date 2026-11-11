@@ -106,9 +106,9 @@ describe("checkFireSubmitGate", () => {
 
 describe("evaluateFireGate", () => {
   it("never-started passes, started-unsigned refuses", () => {
-    expect(evaluateFireGate(computeWalkthroughStatus(FIRE_SECTION_IDS, [])).canSubmit).toBe(true);
+    expect(evaluateFireGate(computeWalkthroughStatus(FIRE_SECTION_IDS, [], null)).canSubmit).toBe(true);
     expect(
-      evaluateFireGate(computeWalkthroughStatus(FIRE_SECTION_IDS, [entry("structure")])).outcome,
+      evaluateFireGate(computeWalkthroughStatus(FIRE_SECTION_IDS, [entry("structure")], null)).outcome,
     ).toBe("refused_unsigned");
   });
 });

@@ -54,7 +54,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     if (!inspection) return notFound(req);
 
     const db = prisma as unknown as FireDb;
-    const loaded = await loadFireWalkthrough(inspection.id, db);
+    const loaded = await loadFireWalkthrough(inspection.id, db, session.user.id);
     const applicable = await isFireWalkthroughApplicable(inspection, loaded, db);
     console.warn("[fire-walkthrough-applicability]", {
       inspectionId: inspection.id,

@@ -108,7 +108,7 @@ export async function runFireAction(
   ctx: { inspectionId: string; userId: string },
   action: FireAction,
 ): Promise<FireActionResult> {
-  const before = await loadFireWalkthrough(ctx.inspectionId, db);
+  const before = await loadFireWalkthrough(ctx.inspectionId, db, ctx.userId);
   let outcome: CaptureOutcome | undefined;
 
   if (action.action === "acknowledge_notice") {
@@ -129,7 +129,7 @@ export async function runFireAction(
     outcome = (await recordAnswer(db, action)).outcome;
   }
 
-  const after = await loadFireWalkthrough(ctx.inspectionId, db);
+  const after = await loadFireWalkthrough(ctx.inspectionId, db, ctx.userId);
   return { ok: true, status: after.status, outcome };
 }
 

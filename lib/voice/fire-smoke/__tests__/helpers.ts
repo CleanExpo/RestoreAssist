@@ -1,6 +1,7 @@
 import { FIRE_CHECKLIST_VERSION, FIRE_OBSERVATION_TYPES, type FireObservationRow } from "../schema";
 import { FIRE_SECTION_IDS } from "../checklist";
 
+export const TECH = "user-tech-1";
 let clock = Date.parse("2026-11-11T09:00:00Z");
 let seq = 0;
 export function resetClock(): void {
@@ -19,6 +20,7 @@ function tick(): Date {
 export function entry(sectionId: string, note = "Synthetic note for testing"): FireObservationRow {
   return {
     id: nextId(),
+    userId: TECH,
     type: FIRE_OBSERVATION_TYPES.entry,
     parsed: { checklistVersion: FIRE_CHECKLIST_VERSION, sectionId, note, routedBy: "router" },
     createdAt: tick(),
@@ -28,6 +30,7 @@ export function entry(sectionId: string, note = "Synthetic note for testing"): F
 export function na(sectionId: string, reason = "No gas connected to this property"): FireObservationRow {
   return {
     id: nextId(),
+    userId: TECH,
     type: FIRE_OBSERVATION_TYPES.na,
     parsed: { checklistVersion: FIRE_CHECKLIST_VERSION, sectionId, reason, failedAttemptsBefore: 0 },
     createdAt: tick(),
@@ -37,6 +40,7 @@ export function na(sectionId: string, reason = "No gas connected to this propert
 export function notice(): FireObservationRow {
   return {
     id: nextId(),
+    userId: TECH,
     type: FIRE_OBSERVATION_TYPES.notice,
     parsed: {
       checklistVersion: FIRE_CHECKLIST_VERSION,
@@ -53,6 +57,7 @@ export function signoff(covered: FireObservationRow[]): FireObservationRow {
   const at = lastAt(covered).toISOString();
   return {
     id: nextId(),
+    userId: TECH,
     type: FIRE_OBSERVATION_TYPES.signoff,
     parsed: {
       checklistVersion: FIRE_CHECKLIST_VERSION,

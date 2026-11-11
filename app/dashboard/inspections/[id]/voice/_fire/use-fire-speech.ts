@@ -62,6 +62,8 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
   const speakingRef = useRef(false);
   const busyRef = useRef(false);
   const lastPromptRef = useRef("");
+  /** Generation of the current utterance; an older one's end event is ignored. */
+  const speechGenRef = useRef(0);
   const handlersRef = useRef({ onFinal, onBlocked });
   handlersRef.current = { onFinal, onBlocked };
 
@@ -111,10 +113,17 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
     (text: string, after?: () => void) => {
       lastPromptRef.current = text;
       stopRecognition();
+      const gen = (speechGenRef.current += 1);
       let finished = false;
+      let poll: ReturnType<typeof setInterval> | undefined;
+      // Only a confirmed end may reopen the mic: the utterance's own end or
+      // error event, or the engine reporting it is no longer speaking.
+      // Elapsed time is never proof that Margot has stopped talking.
       const finish = () => {
         if (finished) return;
         finished = true;
+        if (poll !== undefined) clearInterval(poll);
+        if (gen !== speechGenRef.current) return; // superseded by a newer prompt
         speakingRef.current = false;
         setSpeaking(false);
         after?.();
@@ -124,17 +133,21 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
         finish();
         return;
       }
+      const synth = window.speechSynthesis;
       speakingRef.current = true;
       setSpeaking(true);
-      window.speechSynthesis.cancel();
+      synth.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "en-AU";
       utterance.rate = 0.95;
       utterance.onend = finish;
       utterance.onerror = finish;
-      window.speechSynthesis.speak(utterance);
-      // Some mobile browsers never fire onend; do not leave the mic stuck off.
-      setTimeout(finish, text.split(/\s+/).length * 500 + 3000);
+      synth.speak(utterance);
+      // Some mobile browsers never fire onend. Ask the engine itself whether
+      // it has finished rather than guessing from the length of the text.
+      poll = setInterval(() => {
+        if (!synth.speaking && !synth.pending) finish();
+      }, 500);
     },
     [startRecognition, stopRecognition],
   );
