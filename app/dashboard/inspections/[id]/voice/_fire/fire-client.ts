@@ -46,14 +46,36 @@ async function readRefusal(res: Response): Promise<{ message: string; body?: Fir
  */
 export const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 401, 403, 404, 422]);
 
-async function call<T>(input: string, init?: RequestInit): Promise<FireCallResult<T>> {
+/** A fire reply is usable only if it carries the walkthrough status. */
+const hasStatus = (data: unknown): boolean =>
+  typeof data === "object" && data !== null && typeof (data as { status?: unknown }).status === "object";
+
+/**
+ * Never throws (round 15). A save is "ok" only when the reply is a 2xx whose
+ * body was read, parsed and accepted; anything that cannot be proven, from a
+ * dropped connection to an unreadable or malformed 2xx body, is "unconfirmed",
+ * so the caller keeps the save frozen and can retry it with the same key.
+ */
+async function call<T>(
+  input: string,
+  init?: RequestInit,
+  accept: (data: unknown) => boolean = () => true,
+): Promise<FireCallResult<T>> {
   let res: Response;
   try {
     res = await fetch(input, init);
   } catch {
     return { ok: false, kind: "unconfirmed" };
   }
-  if (res.ok) return { ok: true, data: (await res.json()) as T };
+  if (res.ok) {
+    try {
+      const data: unknown = await res.json();
+      if (accept(data)) return { ok: true, data: data as T };
+    } catch {
+      // Unreadable body: fall through to unconfirmed.
+    }
+    return { ok: false, kind: "unconfirmed", status: res.status };
+  }
   if (FINAL_REFUSAL_STATUSES.has(res.status)) {
     return { ok: false, kind: "refused", status: res.status, ...(await readRefusal(res)) };
   }
@@ -61,15 +83,19 @@ async function call<T>(input: string, init?: RequestInit): Promise<FireCallResul
 }
 
 export function getFireWalkthrough(inspectionId: string) {
-  return call<FireWalkthroughResponse>(base(inspectionId), { cache: "no-store" });
+  return call<FireWalkthroughResponse>(base(inspectionId), { cache: "no-store" }, hasStatus);
 }
 
 export function postFireAction(inspectionId: string, action: FireAction, idempotencyKey: string) {
-  return call<FireActionResponse>(base(inspectionId), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify(action),
-  });
+  return call<FireActionResponse>(
+    base(inspectionId),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(action),
+    },
+    hasStatus,
+  );
 }
 
 export async function startVoiceSession(inspectionId: string): Promise<string | null> {

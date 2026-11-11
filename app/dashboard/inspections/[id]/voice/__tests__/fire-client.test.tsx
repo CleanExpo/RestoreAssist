@@ -47,4 +47,18 @@ describe("postFireAction (kind K12: only a final refusal releases the key)", () 
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
     expect(await postFireAction("insp-1", capture("Gas meter is off"), "k-1")).toMatchObject({ ok: false, kind: "unconfirmed" });
   });
+
+  it.each([
+    ["an unreadable body", "{not json"],
+    ["an empty body", ""],
+    ["a null body", "null"],
+    ["a body with no status", JSON.stringify({ outcome: { kind: "filed" } })],
+  ])("a 200 with %s is unconfirmed and never throws (round 15)", async (_label, body) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    await expect(postFireAction("insp-1", capture("Gas meter is off"), "k-1")).resolves.toMatchObject({
+      ok: false,
+      kind: "unconfirmed",
+      status: 200,
+    });
+  });
 });

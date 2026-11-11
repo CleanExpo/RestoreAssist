@@ -49,6 +49,8 @@ let calls: Call[] = [];
 let failNextPost = false;
 let refuseNextPost = false;
 let holdNextPost: number | null = null;
+let garbleNextPost = false;
+const replies = new Map<string, unknown>();
 
 async function snapshot(): Promise<FireWalkthroughResponse> {
   const loaded = await loadFireWalkthrough("insp-1", db, "tech-1");
@@ -76,10 +78,17 @@ const fakeFetch = vi.fn(async (input: string, init?: RequestInit) => {
     refuseNextPost = false;
     return json({ error: "Save refused" }, 422);
   }
+  // Like the idempotency layer: a key seen before replays its first answer.
+  if (key && replies.has(key)) return json(replies.get(key));
   const result = await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, fireActionSchema.parse(body));
   if (!result.ok) return json(result.body, result.httpStatus);
-  const after = await snapshot();
-  return json({ ...after, outcome: result.outcome });
+  const after = { ...(await snapshot()), outcome: result.outcome };
+  if (key) replies.set(key, after);
+  if (garbleNextPost) {
+    garbleNextPost = false;
+    return new Response("{unreadable", { status: 200, headers: { "content-type": "application/json" } });
+  }
+  return json(after);
 });
 
 // ── fake speech ───────────────────────────────────────────────────────────
@@ -151,6 +160,8 @@ beforeEach(() => {
   failNextPost = false;
   refuseNextPost = false;
   holdNextPost = null;
+  garbleNextPost = false;
+  replies.clear();
   spoken.length = 0;
   FakeRecognition.live = [];
   FakeRecognition.starts = 0;
@@ -394,6 +405,24 @@ describe("filing answers", () => {
     expect(captures[1].body).toEqual(captures[0].body);
     expect(captures.some((c) => c.body.transcript === "Smoke odour through the whole ground floor")).toBe(false);
     await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.earlierSaved));
+  });
+
+  it("a saved answer whose reply cannot be read stays retryable, never stuck on Saving (round 15)", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    garbleNextPost = true;
+    await typeAnswer("Gas meter is off and power isolated at the board");
+    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+    expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1);
+    const save = screen.getByRole("button", { name: FIRE_COPY.typedSubmit });
+    expect(save).toBeEnabled();
+
+    fireEvent.click(save);
+    await waitFor(() => expect(calls.filter((c) => c.action === "capture")).toHaveLength(2));
+    const [first, retry] = calls.filter((c) => c.action === "capture");
+    expect(retry.key).toBe(first.key);
+    await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue(""));
+    expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1);
   });
 });
 

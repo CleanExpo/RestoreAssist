@@ -95,19 +95,30 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       setSaving(true);
       setProblem(null);
       speech.setBusy(true);
-      const result = await postFireAction(inspectionId, save.action, save.key);
-      setSaving(false);
+      // The screen always leaves "Saving" (round 15), whatever happens below.
+      const release = () => {
+        setSaving(false);
+        speech.setBusy(false);
+      };
+      let result: Awaited<ReturnType<typeof postFireAction>>;
+      try {
+        result = await postFireAction(inspectionId, save.action, save.key);
+      } catch {
+        // postFireAction is built never to throw; if it does, nothing proves the outcome.
+        result = { ok: false, kind: "unconfirmed" };
+      }
       if (result.ok) {
         held.current = null;
+        release();
         setView(result.data);
         const sent = save.words;
         if (sent !== undefined) setTyped((t) => (t.trim() === sent.trim() ? "" : t));
-        speech.setBusy(false);
         save.onDone?.(result.data);
         // The newer request was not sent while the earlier one was waiting.
         if (earlier && JSON.stringify(earlier.action) !== JSON.stringify(action)) talk(FIRE_COPY.earlierSaved);
         return;
       }
+      release();
       // One rule for every failure (kind K11): words leave the typing box only
       // when the save succeeded, so a network drop and a server refusal both
       // keep what the technician said where they can correct and resend it.
@@ -121,7 +132,6 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         // the technician can read them before signing again.
         if (result.body?.code === "REVIEW_STALE") void refresh();
       }
-      speech.setBusy(false);
     },
     [inspectionId, refresh, speech, talk],
   );
