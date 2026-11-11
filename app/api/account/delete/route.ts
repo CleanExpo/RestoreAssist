@@ -205,6 +205,9 @@ export async function POST(request: NextRequest) {
         await tx.restorationDocument.updateMany(reassignToRetentionOwner);
         await tx.creditNote.updateMany(reassignToRetentionOwner);
         await tx.invoicePayment.updateMany(reassignToRetentionOwner);
+        // Fire walkthrough sign-offs live on the technician's voice sessions;
+        // the signer id stays inside each sign-off record.
+        await tx.voiceCopilotSession.updateMany(reassignToRetentionOwner);
         await tx.user.delete({ where: { id: user.id } });
       });
 

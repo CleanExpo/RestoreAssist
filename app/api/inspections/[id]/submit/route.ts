@@ -20,6 +20,7 @@ import {
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
+import { checkFireSubmitGate } from "@/lib/voice/fire-smoke/server";
 import { ensureMakeSafeSeeded } from "@/lib/compliance/seed-make-safe";
 import { checkScopeVariationGate } from "@/lib/compliance/scope-variation-gate";
 import { checkNzMoistureGate } from "@/lib/compliance/nz-moisture-gate";
@@ -263,6 +264,18 @@ export async function POST(
           },
           { status: 422 },
         );
+      }
+
+      // ── Fire and smoke Voice Copilot walkthrough gate ─────────────────────────
+      // A walkthrough that has started must be complete and signed by the
+      // technician. Keyed on the walkthrough, not claimType, which later
+      // assessment routes overwrite (lib/voice/fire-smoke/server.ts).
+      const fireGate = await checkFireSubmitGate({
+        id,
+        claimType: inspection.claimType,
+      });
+      if (fireGate.blocked) {
+        return NextResponse.json(fireGate.body, { status: fireGate.status });
       }
 
       // ── RA-1136b: Scope Variation compliance gate ──────────────────────────────

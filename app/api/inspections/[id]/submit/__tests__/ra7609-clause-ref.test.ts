@@ -12,6 +12,10 @@ import { NextRequest } from "next/server";
 import { sqmToSqft } from "@/lib/units";
 import { determineScopeItems } from "@/lib/nir-scope-determination";
 
+// Fire walkthrough gate: not under test here (see lib/voice/fire-smoke/__tests__/gate.test.ts).
+vi.mock("@/lib/voice/fire-smoke/server", () => ({
+  checkFireSubmitGate: async () => ({ blocked: false }),
+}));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 

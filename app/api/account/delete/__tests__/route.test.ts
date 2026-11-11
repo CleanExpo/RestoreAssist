@@ -36,6 +36,9 @@ const STATUTORY_REASSIGNED_DELEGATES = [
   "restorationDocument",
   "creditNote",
   "invoicePayment",
+  // Fire and smoke walkthrough sign-offs (VoiceCopilotObservation) cascade
+  // from the session, so the session is kept like a report.
+  "voiceCopilotSession",
 ] as const;
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
@@ -77,6 +80,7 @@ const prismaMock = vi.hoisted(() => {
     restorationDocument: { updateMany: ReturnType<typeof vi.fn> };
     creditNote: { updateMany: ReturnType<typeof vi.fn> };
     invoicePayment: { updateMany: ReturnType<typeof vi.fn> };
+    voiceCopilotSession: { updateMany: ReturnType<typeof vi.fn> };
     securityEvent: { create: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   } = {
@@ -88,6 +92,7 @@ const prismaMock = vi.hoisted(() => {
     restorationDocument: { updateMany: vi.fn() },
     creditNote: { updateMany: vi.fn() },
     invoicePayment: { updateMany: vi.fn() },
+    voiceCopilotSession: { updateMany: vi.fn() },
     securityEvent: { create: vi.fn() },
     // Interactive transaction: run the callback with the same delegate set as
     // the transactional client so tx.* calls are observable on the mock.
@@ -139,6 +144,7 @@ describe("POST /api/account/delete — statutory-record retention", () => {
     prismaMock.invoicePayment.updateMany.mockResolvedValue({
       count: 5,
     } as never);
+    prismaMock.voiceCopilotSession.updateMany.mockResolvedValue({ count: 2 } as never);
     prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
     prismaMock.user.updateMany.mockResolvedValue({ count: 2 } as never);
     prismaMock.securityEvent.create.mockResolvedValue({ id: "se-1" } as never);
