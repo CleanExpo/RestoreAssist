@@ -24,6 +24,7 @@ import {
   nationalRangeText,
   priceListReader,
   rateNotSetText,
+  readBlockedPricing,
   RATE_NOT_SET_LABEL,
   sumOrBlocked,
   TOTAL_NOT_AVAILABLE_NOTE,
@@ -221,5 +222,28 @@ describe("what a blocked result shows", () => {
     });
     expect(body.blocked.lines).toHaveLength(1);
     expect(body.blocked.total).toBeNull();
+  });
+});
+
+describe("readBlockedPricing: what a screen accepts as a blocked answer", () => {
+  const blocked = blockedPricing([], []);
+
+  it("reads the blocked result out of the route's answer", () => {
+    expect(readBlockedPricing({ error: { code: "RATE_NOT_SET" }, blocked })).toBe(
+      blocked,
+    );
+  });
+
+  it.each([
+    ["no body", null],
+    ["text", "Rate not set"],
+    ["an ordinary error", { error: "Something went wrong" }],
+    ["a successful quote", { lineItems: [], totalIncGST: 10 }],
+    ["a blocked key that is not a blocked result", { blocked: true }],
+    ["a result that is not blocked", { blocked: { ...blocked, status: "complete" } }],
+    ["a blocked result with no lines", { blocked: { status: "blocked", missing: [] } }],
+    ["a blocked result with no missing list", { blocked: { status: "blocked", lines: [] } }],
+  ])("%s is not a blocked answer", (_label, body) => {
+    expect(readBlockedPricing(body)).toBeNull();
   });
 });

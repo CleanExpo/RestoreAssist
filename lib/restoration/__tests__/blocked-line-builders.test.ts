@@ -1,0 +1,252 @@
+/**
+ * RA-8281 (B2): the two document builders, one unset rate at a time.
+ *
+ * For every price-list field, in several job shapes, that one field is cleared
+ * and the document is built. Whatever the field and the job, these hold:
+ *
+ *   - a line that needs the cleared rate is marked blocked and has no rate
+ *     and no amount (never $0);
+ *   - a line with no amount is always marked, so nothing is blank silently;
+ *   - a category with a blocked line has no total, and a category with no
+ *     total shows the blocked line that caused it;
+ *   - every total above it (labour, equipment, chemicals, admin, subtotal,
+ *     GST, total inc GST) that includes a blocked category is null, and the
+ *     cost analysis reads "Total not available: rate not set";
+ *   - when no line on the job needs the cleared rate, the document is whole.
+ *
+ * The route suites show single cases end to end; this holds the rule over the
+ * whole grid, so a `?? 0` on any one line or total is caught.
+ */
+import { describe, expect, it } from "vitest";
+import { getGstTreatment } from "@/lib/gst-rules";
+import { TOTAL_NOT_AVAILABLE_NOTE } from "@/lib/pricing/blocked-line";
+import {
+  buildCostEstimationData,
+  COST_ESTIMATION_RATE_FIELDS,
+} from "@/lib/restoration/cost-estimation-builder";
+import {
+  buildScopeOfWorksData,
+  SCOPE_OF_WORKS_RATE_FIELDS,
+} from "@/lib/restoration/scope-of-works-builder";
+
+const EQUIPMENT_FIELDS = [
+  "dehumidifierLGRDailyRate",
+  "dehumidifierDesiccantDailyRate",
+  "airMoverAxialDailyRate",
+  "airMoverCentrifugalDailyRate",
+  "afdUnitLargeDailyRate",
+  "injectionDryingSystemDailyRate",
+];
+const FIELDS = [
+  ...new Set([
+    ...COST_ESTIMATION_RATE_FIELDS,
+    ...SCOPE_OF_WORKS_RATE_FIELDS,
+    ...EQUIPMENT_FIELDS,
+  ]),
+];
+const FULL = Object.fromEntries(FIELDS.map((f, i) => [f, 50 + i * 7]));
+
+const JOBS = [
+  { tier1: { T1_Q7_hazards: ["None identified"], T1_Q6_materialsAffected: [] }, tier3: null },
+  {
+    tier1: {
+      T1_Q7_hazards: ["Active mould growth", "Biohazard present"],
+      T1_Q6_materialsAffected: ["Yellow tongue particleboard"],
+      T1_Q3_waterSource: "Sewage",
+    },
+    tier3: {
+      T3_Q1_timelineRequirements: "ASAP",
+      T3_Q5_class4DryingAssessment: "Class 4",
+      T3_Q3_chemicalTreatment: "Standard antimicrobial treatment",
+      T3_Q4_totalAffectedArea: "45 sqm",
+    },
+  },
+  {
+    tier1: { T1_Q7_hazards: ["Suspected asbestos"], T1_Q6_materialsAffected: [] },
+    tier3: {
+      T3_Q5_class4DryingAssessment: "Class 3 or 4",
+      T3_Q3_chemicalTreatment: "mould treatment",
+      T3_Q2_dryingPreferences: "Speed priority 5 days",
+    },
+  },
+];
+const EQUIPMENT = [
+  { groupId: "lgr-85", quantity: 2 },
+  { groupId: "desiccant-20", quantity: 1 },
+  { groupId: "airmover-800", quantity: 3 },
+];
+
+function inputs(job: (typeof JOBS)[number], cleared: string | null) {
+  return {
+    report: {
+      id: "rep_1",
+      reportNumber: "RA-1",
+      waterCategory: "2",
+      hazardType: "water damage",
+      technicianFieldReport: "Burst flexi hose under the vanity.",
+      estimatedDryingDuration: 4,
+      inspection: null,
+    },
+    analysis: null,
+    tier1: job.tier1,
+    tier2: null,
+    tier3: job.tier3,
+    pricingConfig: cleared ? { ...FULL, [cleared]: null } : FULL,
+    stateInfo: null,
+    equipmentSelection: EQUIPMENT,
+    scopeAreas: [{ length: 8, width: 5, wetPercentage: 100 }],
+  };
+}
+
+const cost = (job: (typeof JOBS)[number], cleared: string | null) =>
+  buildCostEstimationData({
+    ...inputs(job, cleared),
+    scopeData: { lineItems: [] },
+    gstTreatment: getGstTreatment("AU"),
+  }) as any;
+const scope = (job: (typeof JOBS)[number], cleared: string | null) =>
+  buildScopeOfWorksData(inputs(job, cleared) as never) as any;
+
+const RATE_KEYS = ["rate", "dailyRate", "ratePerSqm"];
+const isNumber = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+
+/** Checks one cost document; returns true when it is blocked. */
+function checkCost(doc: any): boolean {
+  const categories = Object.values(doc.categories) as any[];
+  let blockedLines = 0;
+  for (const category of categories) {
+    let blockedHere = 0;
+    for (const item of category.lineItems) {
+      if (item.pricingStatus) {
+        blockedHere++;
+        expect(item.subtotal, `${category.name}: ${item.description}`).toBeNull();
+        if (item.pricingStatus === "rate_not_set") {
+          for (const key of RATE_KEYS) {
+            if (key in item) expect(item[key], `${item.description}.${key}`).toBeNull();
+          }
+        }
+      } else {
+        expect(isNumber(item.subtotal), `${category.name}: ${item.description}`).toBe(true);
+      }
+    }
+    blockedLines += blockedHere;
+    if (blockedHere > 0) expect(category.total, category.name).toBeNull();
+    if (category.total === null) expect(blockedHere, category.name).toBeGreaterThan(0);
+  }
+  const blocked = blockedLines > 0;
+  const nullIf = (names: (name: string) => boolean) =>
+    categories.some((c) => names(c.name) && c.total === null);
+  const { totals } = doc;
+  const expectTotal = (key: string, shouldBlock: boolean) => {
+    if (shouldBlock) expect(totals[key], key).toBeNull();
+    else expect(isNumber(totals[key]), key).toBe(true);
+  };
+  expectTotal("totalLabour", nullIf((n) => n.includes("Labour")));
+  expectTotal("totalEquipment", nullIf((n) => n.includes("Equipment")));
+  expectTotal("totalChemicals", doc.categories.chemicalTreatment?.total === null);
+  expectTotal(
+    "totalAdmin",
+    [doc.categories.administration, doc.categories.callOut, doc.categories.thermalImaging].some(
+      (c) => c?.total === null,
+    ),
+  );
+  expectTotal("subtotal", blocked);
+  expectTotal("gst", blocked);
+  expectTotal("totalIncGST", blocked);
+  if (blocked) {
+    expect(doc.blockedPricing).toMatchObject({ status: "blocked", total: null });
+    expect(doc.industryComparison.analysis).toBe(TOTAL_NOT_AVAILABLE_NOTE);
+    expect(doc.industryComparison.estimated).toBeNull();
+    expect(
+      doc.blockedPricing.lines.filter((l: any) => l.pricingStatus !== "priced"),
+    ).toHaveLength(blockedLines);
+  } else {
+    expect(doc).not.toHaveProperty("blockedPricing");
+  }
+  return blocked;
+}
+
+/** Checks one scope of works; returns true when it is blocked. */
+function checkScope(doc: any): boolean {
+  let blockedLines = 0;
+  for (const item of doc.lineItems) {
+    if (item.pricingStatus) {
+      blockedLines++;
+      expect(item.subtotal, item.id).toBeNull();
+    } else {
+      expect(isNumber(item.subtotal), item.id).toBe(true);
+    }
+    for (const group of Object.values(item.equipment ?? {}) as any[]) {
+      for (const line of group.items ?? []) {
+        // A stored equipment line with no rate is marked on the line itself.
+        expect(line.dailyRate === null, `${item.id} ${line.groupId}`).toBe(
+          line.pricingStatus !== undefined,
+        );
+      }
+    }
+  }
+  if (blockedLines > 0) {
+    expect(doc.blockedPricing).toMatchObject({ status: "blocked", total: null });
+    expect(
+      doc.blockedPricing.lines.filter((l: any) => l.pricingStatus !== "priced"),
+    ).toHaveLength(blockedLines);
+  } else {
+    expect(doc).not.toHaveProperty("blockedPricing");
+  }
+  return blockedLines > 0;
+}
+
+describe("RA-8281 B2: each builder with one rate cleared at a time", () => {
+  const blockedBy = { cost: new Set<string>(), scope: new Set<string>() };
+
+  it("control: with every rate set both documents are whole", () => {
+    for (const job of JOBS) {
+      expect(checkCost(cost(job, null))).toBe(false);
+      expect(checkScope(scope(job, null))).toBe(false);
+    }
+  });
+
+  describe.each(FIELDS)("%s cleared", (field) => {
+    it.each(JOBS.map((job, i) => [i, job] as const))("cost estimation, job %i", (_i, job) => {
+      const doc = cost(job, field);
+      if (checkCost(doc)) {
+        blockedBy.cost.add(field);
+        expect(doc.blockedPricing.missing.map((m: any) => m.field)).toContain(field);
+      }
+    });
+
+    it.each(JOBS.map((job, i) => [i, job] as const))("scope of works, job %i", (_i, job) => {
+      const doc = scope(job, field);
+      if (checkScope(doc)) {
+        blockedBy.scope.add(field);
+        expect(doc.blockedPricing.missing.map((m: any) => m.field)).toContain(field);
+      }
+    });
+  });
+
+  it("positive control: the grid really blocks, on labour, equipment, chemical and fee fields", () => {
+    for (const field of [
+      "masterQualifiedNormalHours",
+      "qualifiedTechnicianNormalHours",
+      "labourerNormalHours",
+      "dehumidifierLGRDailyRate",
+      "dehumidifierDesiccantDailyRate",
+      "airMoverAxialDailyRate",
+      "administrationFee",
+      "callOutFee",
+      "thermalCameraUseCostPerAssessment",
+    ]) {
+      expect(blockedBy.cost.has(field), `cost: ${field}`).toBe(true);
+    }
+    for (const field of [
+      "masterQualifiedNormalHours",
+      "qualifiedTechnicianNormalHours",
+      "dehumidifierLGRDailyRate",
+      "dehumidifierDesiccantDailyRate",
+    ]) {
+      expect(blockedBy.scope.has(field), `scope: ${field}`).toBe(true);
+    }
+    expect(blockedBy.cost.size).toBeGreaterThanOrEqual(12);
+    expect(blockedBy.scope.size).toBeGreaterThanOrEqual(8);
+  });
+});
