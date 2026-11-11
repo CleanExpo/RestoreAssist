@@ -137,8 +137,17 @@ describe("POST generate-scope-of-works: a rate that is not set (RA-8281 B2)", ()
       subtotal: 50,
       pricingStatus: "priced",
     });
-    // Every line of the document is still listed (RW_6 needs Class 4 drying).
-    expect(body.blocked.lines).toHaveLength(9);
+    // Every line of the document is still listed (RW_6 needs Class 4 drying):
+    // nine lines, and each equipment line under RW_3 with its own amount.
+    const equipmentRows = body.blocked.lines.filter((l: { description: string }) =>
+      l.description.startsWith("RW_3 equipment: "),
+    );
+    expect(equipmentRows.length).toBeGreaterThan(0);
+    for (const row of equipmentRows) {
+      expect(row.pricingStatus).toBe("priced");
+      expect(typeof row.subtotal).toBe("number");
+    }
+    expect(body.blocked.lines).toHaveLength(9 + equipmentRows.length);
   });
 
   it("blocks the document and writes nothing to the report", async () => {

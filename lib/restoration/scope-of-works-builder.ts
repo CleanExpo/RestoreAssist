@@ -1,5 +1,6 @@
 import {
   blockedPricing,
+  type BlockedPricingLine,
   nationalRangeFor,
   priceListReader,
   sumOrBlocked,
@@ -433,20 +434,44 @@ export function buildScopeOfWorksData(data: {
   // shown to the contractor and never saved.
   const blocked = lineItems.some((item) => item.subtotal === null)
     ? blockedPricing(
-        lineItems.map((item) => ({
-          description: `${item.id}: ${item.description}`,
-          quantity: item.qty,
-          unit: item.unit,
-          // RW_5 is one rate times its days, so the notice shows that rate.
-          rate:
-            item.rate ??
-            (item.id === "RW_5" ? item.labour.qualified.rate : null),
-          subtotal: item.subtotal,
-          pricingStatus: item.pricingStatus ?? "priced",
-          rateField: item.rateField,
-          pricingNote: item.pricingNote,
-          nationalRange: item.nationalRange,
-        })),
+        lineItems.flatMap((item): BlockedPricingLine[] => [
+          {
+            description: `${item.id}: ${item.description}`,
+            quantity: item.qty,
+            unit: item.unit,
+            // RW_5 is one rate times its days, so the notice shows that rate.
+            rate:
+              item.rate ??
+              (item.id === "RW_5" ? item.labour.qualified.rate : null),
+            subtotal: item.subtotal,
+            pricingStatus: item.pricingStatus ?? "priced",
+            rateField: item.rateField,
+            pricingNote: item.pricingNote,
+            nationalRange: item.nationalRange,
+          },
+          // RW_3 carries the equipment. Each equipment line is listed under
+          // it with its own status, so two causes on one document (an unset
+          // rate and a saved line that cannot be read) are both shown: the
+          // RW_3 line alone can name only one of them.
+          ...(item.id === "RW_3"
+            ? Object.values(item.equipment as Record<string, any>).flatMap(
+                (group) =>
+                  group.items.map(
+                    (line: any): BlockedPricingLine => ({
+                      description: `${item.id} equipment: ${line.name}`,
+                      quantity: line.quantity,
+                      unit: `unit × ${dryingDuration} days`,
+                      rate: line.dailyRate,
+                      subtotal: line.total,
+                      pricingStatus: line.pricingStatus ?? "priced",
+                      rateField: line.rateField,
+                      pricingNote: line.pricingNote,
+                      nationalRange: line.nationalRange,
+                    }),
+                  ),
+              )
+            : []),
+        ]),
         documentMissing(P.missing(), equipmentBlocked),
       )
     : null;

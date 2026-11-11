@@ -18,6 +18,7 @@
  * whole grid, so a `?? 0` on any one line or total is caught.
  */
 import { describe, expect, it } from "vitest";
+import { getEquipmentGroupById } from "@/lib/equipment-matrix";
 import { getGstTreatment } from "@/lib/gst-rules";
 import { TOTAL_NOT_AVAILABLE_NOTE } from "@/lib/pricing/blocked-line";
 import {
@@ -182,6 +183,12 @@ function checkScope(doc: any): boolean {
         expect(line.dailyRate === null, `${item.id} ${line.groupId}`).toBe(
           line.pricingStatus !== undefined,
         );
+        // Each equipment line is listed in the blocked result under RW_3,
+        // so a blocked one counts as a blocked line of its own.
+        if (line.pricingStatus) {
+          blockedLines++;
+          expect(line.total, `${item.id} ${line.groupId}`).toBeNull();
+        }
       }
     }
   }
@@ -331,6 +338,54 @@ describe("RA-8281 B2: review of #2536", () => {
     const rows = Object.values(setup.equipment).flatMap((g: any) => g.items);
     expect(rows).toHaveLength(1);
     expect(isNumber(setup.subtotal)).toBe(true);
+  });
+
+  // Review round 6: two independent causes on the equipment of one document.
+  const TWO_CAUSES = [
+    { groupId: "lgr-85", quantity: 1 },
+    { groupId: "", quantity: 1 },
+    { groupId: "airmover-800", quantity: 3 },
+  ];
+  const twoCauses = () => ({
+    ...inputs(JOBS[0], "dehumidifierLGRDailyRate"),
+    equipmentSelection: TWO_CAUSES,
+  });
+  const nameOf = (groupId: string) => getEquipmentGroupById(groupId)!.name;
+  const expectBothCauses = (lines: any[]) => {
+    const notSet = lines.filter(
+      (l) =>
+        l.pricingStatus === "rate_not_set" &&
+        l.rateField === "dehumidifierLGRDailyRate" &&
+        l.description.includes(nameOf("lgr-85")),
+    );
+    expect(notSet.length, "the LGR line itself is listed blocked").toBeGreaterThan(0);
+    const unusable = lines.filter((l) => l.pricingStatus === "unusable_line");
+    expect(unusable.length, "the unreadable saved line is listed").toBeGreaterThan(0);
+    for (const l of [...notSet, ...unusable]) {
+      expect(l.subtotal).toBeNull();
+      expect(l.rate).toBeNull();
+    }
+    const priced = lines.filter(
+      (l) =>
+        l.pricingStatus === "priced" &&
+        l.description.includes(nameOf("airmover-800")),
+    );
+    expect(priced.length, "the priced air mover line is listed with its amount").toBeGreaterThan(0);
+    expect(isNumber(priced[0].subtotal)).toBe(true);
+  };
+
+  it("an unset equipment rate and an unreadable saved line on one scope are both listed in the blocked result", () => {
+    const doc = buildScopeOfWorksData(twoCauses() as never) as any;
+    expectBothCauses(doc.blockedPricing.lines);
+  });
+
+  it("an unset equipment rate and an unreadable saved line on one cost estimate are both listed in the blocked result", () => {
+    const doc = buildCostEstimationData({
+      ...twoCauses(),
+      scopeData: { lineItems: [] },
+      gstTreatment: getGstTreatment("AU"),
+    }) as any;
+    expectBothCauses(doc.blockedPricing.lines);
   });
 
   it("a blocked scope still shows the set rate of the daily monitoring line", () => {
