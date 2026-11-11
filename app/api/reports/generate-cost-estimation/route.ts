@@ -49,12 +49,20 @@ export async function POST(request: NextRequest) {
             select: { country: true },
           },
           pricingConfig: {
+            // Every equipment daily rate is selected: the one reader prices
+            // each stored equipment line from this row, and a column left out
+            // reads as "rate not set" and refuses the document (422).
             select: {
               id: true,
               administrationFee: true,
+              afdUnitLargeDailyRate: true,
+              airMoverAxialDailyRate: true,
+              airMoverCentrifugalDailyRate: true,
               antimicrobialTreatmentRate: true,
               biohazardTreatmentRate: true,
               callOutFee: true,
+              dehumidifierDesiccantDailyRate: true,
+              dehumidifierLGRDailyRate: true,
               extractionTruckMountedHourlyRate: true,
               injectionDryingSystemDailyRate: true,
               labourerNormalHours: true,

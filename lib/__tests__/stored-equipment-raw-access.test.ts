@@ -669,3 +669,59 @@ describe("RA-8281 B1 round 13 rule F: an equipment price-list rate is read as th
     expect(rawRateReadLines(line)).toEqual([]);
   });
 });
+
+/*
+ * Rule G (CodeRabbit, PR #2533): a route that loads only SOME price-list
+ * columns must load every equipment daily rate. The one reader prices each
+ * stored line from the price list it is handed; a column the query left out
+ * reads as "rate not set", so the document was refused (422) for the owner
+ * even with the rate set.
+ */
+function restrictedPriceListSelects(source: string): string[][] {
+  const out: string[][] = [];
+  const re = /pricingConfig:\s*\{\s*select:\s*\{([^}]*)\}/g;
+  for (const m of stripComments(source).matchAll(re)) {
+    out.push([...m[1].matchAll(/(\w+):\s*true/g)].map((k) => k[1]));
+  }
+  return out;
+}
+
+describe("RA-8281 B1 round 13 rule G: a restricted price-list query loads every equipment rate", () => {
+  const all = SCAN_DIRS.flatMap((d) => sourceFiles(join(ROOT, d))).map(posix);
+  const found = all.flatMap((file) =>
+    restrictedPriceListSelects(readFileSync(join(ROOT, file), "utf8")).map((keys) => ({ file, keys })),
+  );
+
+  it("finds the restricted queries (so an empty list is not read as a pass)", () => {
+    expect(found.map((f) => f.file).sort()).toEqual([
+      "app/api/reports/[id]/generate-forensic-pdf/route.ts",
+      "app/api/reports/generate-cost-estimation/route.ts",
+      "app/api/reports/generate-scope-of-works/route.ts",
+    ]);
+  });
+
+  it("each one selects all six equipment daily rates", () => {
+    const missing = found.flatMap(({ file, keys }) =>
+      EQUIPMENT_RATE_FIELDS.filter((f) => !keys.includes(f)).map((f) => `${file}: ${f}`),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it("a price list made of only the selected columns prices one of every catalogue item", async () => {
+    const { getAllEquipmentGroups } = await import("@/lib/equipment-matrix");
+    const { priceStoredEquipment } = await import("@/lib/reports/stored-equipment-pricing");
+    const lines = getAllEquipmentGroups().map((g) => ({ groupId: g.id, quantity: 1 }));
+    expect(lines.length).toBeGreaterThan(5);
+    for (const { file, keys } of found) {
+      const row = Object.fromEntries(keys.map((k) => [k, 50]));
+      const priced = priceStoredEquipment(lines, row, 2);
+      expect(priced.problems, file).toEqual([]);
+      expect(priced.total, file).toBe(lines.length * 100);
+    }
+  });
+
+  it("planted defect is reported: a query with one equipment rate left out", () => {
+    const src = "include: { pricingConfig: { select: { id: true, airMoverAxialDailyRate: true } } }";
+    expect(restrictedPriceListSelects(src)).toEqual([["id", "airMoverAxialDailyRate"]]);
+  });
+});

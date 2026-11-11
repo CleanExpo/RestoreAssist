@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
               administrationFee: true,
               afdUnitLargeDailyRate: true,
               airMoverAxialDailyRate: true,
+              airMoverCentrifugalDailyRate: true,
               antimicrobialTreatmentRate: true,
               biohazardTreatmentRate: true,
               callOutFee: true,
