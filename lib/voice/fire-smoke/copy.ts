@@ -22,6 +22,7 @@ export const FIRE_COPY = {
   typedSubmit: "Save answer",
   saveFailed:
     "I could not save that. Your words are in the typing box. Check your signal and tap Save answer to try again.",
+  earlierSaved: "Your earlier answer is saved now. Please give me your next answer again.",
   notHeard: "Sorry, I didn't catch that. Please say it again, or type it.",
   filed: (title: string) => `Saved to ${title}.`,
   confirmNo: "Okay. Which section does it belong to? Tap one below.",

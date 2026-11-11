@@ -1,45 +1,30 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createKeyRing, postFireAction } from "../_fire/fire-client";
+import { newIdempotencyKey, postFireAction } from "../_fire/fire-client";
 import type { FireAction } from "@/lib/voice/fire-smoke/schema";
 
 const capture = (transcript: string): FireAction =>
   ({ action: "capture", sessionId: "vs-1", transcript, currentSectionId: "services" }) as FireAction;
 
-describe("createKeyRing (kind K12: each unconfirmed save keeps its own key)", () => {
-  it("retrying an unconfirmed save reuses its key after another answer was sent in between", () => {
-    const keys = createKeyRing();
-    const first = keys.keyFor(capture("Gas meter is off"));
-    const other = keys.keyFor(capture("Power isolated at the board"));
-    expect(other).not.toBe(first);
-    expect(keys.keyFor(capture("Gas meter is off"))).toBe(first);
+describe("frozen save (kind K12: a key belongs to the save, never to the payload)", () => {
+  const hook = readFileSync(join(__dirname, "..", "_fire", "use-fire-walkthrough.ts"), "utf8");
+
+  it("every fire save is posted from one place, with the frozen action and its own key", () => {
+    expect(hook.match(/postFireAction\(/g) ?? []).toHaveLength(1);
+    expect(hook).toMatch(/postFireAction\(inspectionId, save\.action, save\.key\)/);
   });
 
-  it("settling one save releases only that save's key", () => {
-    const keys = createKeyRing();
-    const a = keys.keyFor(capture("Gas meter is off"));
-    const b = keys.keyFor(capture("Power isolated at the board"));
-    keys.settle(capture("Gas meter is off"));
-    expect(keys.keyFor(capture("Gas meter is off"))).not.toBe(a);
-    expect(keys.keyFor(capture("Power isolated at the board"))).toBe(b);
+  it("a key is made only when a new save is frozen, and the held save is re-sent first", () => {
+    expect(hook.match(/newIdempotencyKey\(\)/g) ?? []).toHaveLength(1);
+    expect(hook).toMatch(/const save: HeldSave = earlier \?\? \{ action, words, onDone, key: newIdempotencyKey\(\) \}/);
   });
 
-  it("never forgets an unconfirmed key, however many other answers are waiting (round 13)", () => {
-    const keys = createKeyRing();
-    const first = keys.keyFor(capture("answer 0"));
-    for (let i = 1; i <= 500; i += 1) keys.keyFor(capture(`answer ${i}`));
-    expect(keys.keyFor(capture("answer 0"))).toBe(first);
-  });
-
-  it("settle() is the only code that removes a key (one owner for the K12 rule)", () => {
-    const src = readFileSync(
-      join(__dirname, "..", "_fire", "fire-client.ts"),
-      "utf8",
-    );
-    const ring = src.slice(src.indexOf("export function createKeyRing"));
-    expect(ring.match(/\.delete\(|\.clear\(/g) ?? []).toHaveLength(1);
-    expect(ring.slice(ring.indexOf("settle("))).toMatch(/unconfirmed\.delete\(/);
+  it("no key is derived from the payload's contents", () => {
+    const client = readFileSync(join(__dirname, "..", "_fire", "fire-client.ts"), "utf8");
+    expect(client).not.toMatch(/createKeyRing|keyFor\(/);
+    expect(hook).not.toMatch(/keyFor\(/);
+    expect(newIdempotencyKey()).not.toBe(newIdempotencyKey());
   });
 });
 

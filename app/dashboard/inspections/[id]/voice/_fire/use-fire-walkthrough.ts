@@ -11,8 +11,16 @@ import { getFireSection } from "@/lib/voice/fire-smoke/checklist";
 import { FIRE_COPY } from "@/lib/voice/fire-smoke/copy";
 import { parseYesNo } from "@/lib/voice/fire-smoke/router";
 import type { FireAction, FireActionResponse, FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
-import { createKeyRing, getFireWalkthrough, postFireAction, startVoiceSession } from "./fire-client";
+import { getFireWalkthrough, newIdempotencyKey, postFireAction, startVoiceSession } from "./fire-client";
 import { useFireSpeech } from "./use-fire-speech";
+
+/** A save that has been sent and has no final reply yet (kind K12). */
+interface HeldSave {
+  readonly action: FireAction;
+  readonly words?: string;
+  readonly key: string;
+  readonly onDone?: (res: FireActionResponse) => void;
+}
 
 interface PendingAsk {
   // "section": is this answer part of the candidate section?
@@ -36,7 +44,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [noticeSpoken, setNoticeSpoken] = useState(false);
-  const keys = useRef(createKeyRing());
+  const held = useRef<HeldSave | null>(null);
   const handleTextRef = useRef<(text: string) => void>(() => {});
 
   const speech = useFireSpeech({
@@ -68,37 +76,52 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     if (res.ok) setView(res.data);
   }, [inspectionId]);
 
-  /** Sends one action. Returns the new state, or null after saying why not. */
+  /**
+   * Sends one action; onDone runs with the server's answer once it is saved.
+   *
+   * Kind K12 (fifth instance) is closed by design: a save is frozen the moment
+   * it is first sent, as one object holding the exact action, its words, its
+   * Idempotency-Key and what to do when it lands. While that save has no
+   * final reply, every send re-sends the frozen object unchanged, whatever
+   * the screen now shows (section, question, typing box), so nothing can give
+   * an unconfirmed answer a new key or a different body. Only a 2xx or a
+   * final refusal releases it; then the next answer can be sent.
+   */
   const send = useCallback(
-    async (action: FireAction, words?: string): Promise<FireActionResponse | null> => {
+    async (action: FireAction, words?: string, onDone?: (res: FireActionResponse) => void): Promise<void> => {
+      const earlier = held.current;
+      const save: HeldSave = earlier ?? { action, words, onDone, key: newIdempotencyKey() };
+      held.current = save;
       setSaving(true);
       setProblem(null);
       speech.setBusy(true);
-      const result = await postFireAction(inspectionId, action, keys.current.keyFor(action));
+      const result = await postFireAction(inspectionId, save.action, save.key);
       setSaving(false);
       if (result.ok) {
-        keys.current.settle(action);
+        held.current = null;
         setView(result.data);
-        if (words !== undefined) setTyped((t) => (t.trim() === words.trim() ? "" : t));
+        const sent = save.words;
+        if (sent !== undefined) setTyped((t) => (t.trim() === sent.trim() ? "" : t));
         speech.setBusy(false);
-        return result.data;
+        save.onDone?.(result.data);
+        // The newer request was not sent while the earlier one was waiting.
+        if (earlier && JSON.stringify(earlier.action) !== JSON.stringify(action)) talk(FIRE_COPY.earlierSaved);
+        return;
       }
       // One rule for every failure (kind K11): words leave the typing box only
       // when the save succeeded, so a network drop and a server refusal both
       // keep what the technician said where they can correct and resend it.
-      if (words !== undefined) setTyped(words);
+      if (save.words !== undefined) setTyped(save.words);
       if (result.kind === "unconfirmed") {
-        // Same key on retry, so a resend cannot double-file.
         talk(FIRE_COPY.saveFailed);
       } else {
-        keys.current.settle(action);
+        held.current = null;
         setProblem(result.message);
         // The job file changed since it was reviewed: show the new words so
         // the technician can read them before signing again.
         if (result.body?.code === "REVIEW_STALE") void refresh();
       }
       speech.setBusy(false);
-      return null;
     },
     [inspectionId, refresh, speech, talk],
   );
@@ -142,12 +165,11 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   const fileTo = useCallback(
     async (sectionId: string, transcript: string, routedBy: "technician_confirmed" | "technician_chose") => {
       if (!sessionId) return;
-      const res = await send({ action: "file", sessionId, sectionId, transcript, routedBy }, transcript);
-      if (res) {
+      await send({ action: "file", sessionId, sectionId, transcript, routedBy }, transcript, (res) => {
         setPicking(null);
         setCurrentSectionId(sectionId);
         handleOutcome(res, transcript);
-      }
+      });
     },
     [handleOutcome, send, sessionId],
   );
@@ -157,19 +179,21 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       const words = text.trim();
       if (!words || !sessionId || saving || !view.status.noticeAcknowledged) return;
       if (naFor) {
-        const res = await send({ action: "mark_na", sessionId, sectionId: naFor, reason: words, failedAttemptsBefore: 0 }, words);
-        if (res) handleOutcome(res, words);
+        await send({ action: "mark_na", sessionId, sectionId: naFor, reason: words, failedAttemptsBefore: 0 }, words, (res) =>
+          handleOutcome(res, words),
+        );
         return;
       }
       if (ask) {
         const answer = parseYesNo(words);
         if (ask.mode === "na") {
           if (answer === "yes") {
-            const res = await send(
-              { action: "mark_na", sessionId, sectionId: ask.candidateSectionId, reason: ask.transcript, failedAttemptsBefore: 0 },
-              ask.transcript,
+            const reason = ask.transcript;
+            await send(
+              { action: "mark_na", sessionId, sectionId: ask.candidateSectionId, reason, failedAttemptsBefore: 0 },
+              reason,
+              (res) => handleOutcome(res, reason),
             );
-            if (res) handleOutcome(res, ask.transcript);
           } else if (answer === "no") {
             // Keep the words, and any hazard in them, as an entry in the section.
             await fileTo(ask.candidateSectionId, ask.transcript, "technician_chose");
@@ -188,11 +212,11 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         talk(FIRE_COPY.confirmNo);
         return;
       }
-      const res = await send(
+      await send(
         { action: "capture", sessionId, transcript: words, currentSectionId: currentSectionId ?? undefined },
         words,
+        (res) => handleOutcome(res, words),
       );
-      if (res) handleOutcome(res, words);
     },
     [ask, currentSectionId, fileTo, handleOutcome, naFor, picking, saving, send, sessionId, talk, view.status.noticeAcknowledged],
   );
@@ -200,17 +224,18 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
 
   const acknowledge = useCallback(async () => {
     if (!sessionId) return;
-    const res = await send({
+    const ack: FireAction = {
       action: "acknowledge_notice",
       sessionId,
       spoken: noticeSpoken,
       recognitionMode: speech.supported ? "unknown" : "typed",
-    });
-    if (!res) return;
-    setCurrentSectionId(res.nextSectionId);
-    // Listening starts only once Margot has finished speaking.
-    talk(res.nextPrompt, () => {
-      if (speech.supported) speech.setListeningWanted(true);
+    };
+    await send(ack, undefined, (res) => {
+      setCurrentSectionId(res.nextSectionId);
+      // Listening starts only once Margot has finished speaking.
+      talk(res.nextPrompt, () => {
+        if (speech.supported) speech.setListeningWanted(true);
+      });
     });
   }, [noticeSpoken, send, sessionId, speech, talk]);
 
@@ -224,14 +249,14 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       if (!sessionId) return;
       // The sign-off names the exact answers on screen; the server refuses it
       // if anything was saved since (kind K5).
-      const res = await send({
+      const signing: FireAction = {
         action: "sign_off",
         sessionId,
         typedName,
         declarationAccepted: true,
         reviewedRevision: view.status.reviewRevision,
-      });
-      if (res) talk(FIRE_COPY.signedOff);
+      };
+      await send(signing, undefined, () => talk(FIRE_COPY.signedOff));
     },
     [send, sessionId, talk, view.status.reviewRevision],
   );

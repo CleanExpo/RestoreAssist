@@ -361,6 +361,40 @@ describe("filing answers", () => {
     expect(captures[0].key).toBeTruthy();
     expect(captures[1].key).toBe(captures[0].key);
   });
+
+  it("moving to another section after an unconfirmed save re-sends the same save and key (K12, round 14)", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    holdNextPost = 409;
+    await typeAnswer("All good here");
+    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+    fireEvent.click(screen.getByRole("button", { name: /^Next section/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Next section/ })).toHaveTextContent("Safety brief and PPE"));
+
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+    await waitFor(() => expect(calls.filter((c) => c.action === "capture")).toHaveLength(2));
+    const [first, retry] = calls.filter((c) => c.action === "capture");
+    expect(retry.key).toBe(first.key);
+    expect(retry.body).toEqual(first.body);
+    expect(first.body).toMatchObject({ currentSectionId: "site_access" });
+  });
+
+  it("a new answer while an earlier save is unconfirmed re-sends the earlier one first (K12, round 14)", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    failNextPost = true;
+    await typeAnswer("Gas meter is off and power isolated at the board");
+    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+
+    await typeAnswer("Smoke odour through the whole ground floor");
+    await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
+    const captures = calls.filter((c) => c.action === "capture");
+    expect(captures).toHaveLength(2);
+    expect(captures[1].key).toBe(captures[0].key);
+    expect(captures[1].body).toEqual(captures[0].body);
+    expect(captures.some((c) => c.body.transcript === "Smoke odour through the whole ground floor")).toBe(false);
+    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.earlierSaved));
+  });
 });
 
 describe("sign-off", () => {

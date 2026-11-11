@@ -84,37 +84,14 @@ export async function startVoiceSession(inspectionId: string): Promise<string | 
   return result.ok ? (result.data.session?.sessionId ?? null) : null;
 }
 
-function newKey(): string {
+/**
+ * A fresh Idempotency-Key for one save. The key belongs to the frozen save it
+ * is created with (use-fire-walkthrough, HeldSave), never to the payload's
+ * contents, so nothing on screen can change it (kind K12).
+ */
+export function newIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   return `fire-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-/**
- * Hands out Idempotency-Keys. Every save whose reply never arrived keeps its
- * own key (kind K12), so retrying it reuses that key even after other answers
- * were sent in between, and the server cannot file it twice.
- *
- * Design rule (K12, fourth instance): a key lives exactly as long as its save
- * is unconfirmed. settle() is the ONLY place a key is removed; there is no
- * size cap and no eviction. Each entry is one short string per answer that
- * never got a final reply, so memory is bounded by the answers on one job.
- */
-export function createKeyRing() {
-  const unconfirmed = new Map<string, string>();
-  return {
-    keyFor(action: FireAction): string {
-      const payload = JSON.stringify(action);
-      const known = unconfirmed.get(payload);
-      if (known) return known;
-      const key = newKey();
-      unconfirmed.set(payload, key);
-      return key;
-    },
-    /** Call when this action's reply arrives (success or refusal). */
-    settle(action: FireAction) {
-      unconfirmed.delete(JSON.stringify(action));
-    },
-  };
 }
