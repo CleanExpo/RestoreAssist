@@ -354,14 +354,43 @@ describe("the priced documents (cost estimation, scope of works)", () => {
       ["the stored text [null]", "[null]"],
       ["text that is not JSON", "{not json"],
       ["a line with no equipment type", [{ quantity: 2, dailyRate: 61 }]],
-    ])("%s refuses the document by name (RateNotSetError), not a TypeError", (_label, value) => {
-      expect(() => build(value)).toThrow(RateNotSetError);
-      expect(() => build(value)).toThrow(/cannot be priced/);
-    });
+    ])(
+      // RA-8281 (B2): the document is no longer refused by a throw. The line
+      // is shown, blocked, and the total is blocked with it.
+      "%s is shown as a blocked line with no amount, and the total is blocked, not a TypeError",
+      (_label, value) => {
+        const blocked = build(value).blockedPricing;
+        expect(blocked).toMatchObject({ status: "blocked", total: null });
+        // The saved line itself, once. (A scope of works also marks RW_3,
+        // the line that carries the equipment: its amount is not available.)
+        const unusable = blocked.lines.filter(
+          (l: { pricingStatus: string; description: string }) =>
+            l.pricingStatus === "unusable_line" &&
+            !l.description.startsWith("RW_3: "),
+        );
+        expect(unusable).toHaveLength(1);
+        expect(unusable[0]).toMatchObject({ rate: null, subtotal: null });
+        expect(unusable[0].pricingNote).toMatch(/cannot be priced/);
+        expect(blocked.missing.map((m: { note: string }) => m.note).join(" ")).toMatch(
+          /cannot be priced/,
+        );
+      },
+    );
 
-    it("a stale cached 61 with the rate cleared refuses the document; the cached rate is not used", () => {
-      expect(() => build(STALE, CLEARED)).toThrow(RateNotSetError);
-      expect(() => build(STALE, CLEARED)).toThrow(/Rate not set/);
+    it("a stale cached 61 with the rate cleared is a blocked line; the cached rate is not used", () => {
+      const blocked = build(STALE, CLEARED).blockedPricing;
+      expect(blocked).toMatchObject({ status: "blocked", total: null });
+      const lines = blocked.lines.filter(
+        (l: { rateField?: string }) => l.rateField === "dehumidifierLGRDailyRate",
+      );
+      expect(lines.length).toBeGreaterThan(0);
+      for (const line of lines) {
+        expect(line).toMatchObject({ pricingStatus: "rate_not_set", rate: null, subtotal: null });
+        expect(line.pricingNote).toMatch(/Rate not set/);
+      }
+      expect(blocked.missing.map((m: { field: string }) => m.field)).toContain(
+        "dehumidifierLGRDailyRate",
+      );
     });
 
     it("control: no equipment at all still builds", () => {
