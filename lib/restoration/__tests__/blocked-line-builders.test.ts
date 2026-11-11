@@ -323,6 +323,26 @@ describe("RA-8281 B2: review of #2536", () => {
     expect(priced.subtotal).toBe(priced.qty * rate);
   });
 
+  // CodeRabbit on 4ff5b93fe: the notice shows a line's description beside
+  // "Rate not set", so a blocked scope must name the treatment whose rate it
+  // reads. The priced document keeps main's wording for that line.
+  it.each([
+    ["Enhanced mould remediation (if active growth suspected)", ["None identified"], "mouldRemediationTreatmentRate", "RW_7: Mould remediation treatment"],
+    ["biohazard treatment", ["None identified"], "biohazardTreatmentRate", "RW_7: Biohazard treatment"],
+    ["Standard antimicrobial treatment", ["Biohazard contamination"], "biohazardTreatmentRate", "RW_7: Biohazard treatment"],
+    ["Standard antimicrobial treatment", ["None identified"], "antimicrobialTreatmentRate", "RW_7: Antimicrobial treatment"],
+  ])("scope of works: a blocked result names the treatment priced (%j, hazards %j)", (treatment, hazards, field, description) => {
+    const job = selected(treatment, hazards);
+    const blockedLines = scope(job, field).blockedPricing.lines.filter(
+      (l: any) => l.rateField === field && l.pricingStatus === "rate_not_set",
+    );
+    expect(blockedLines.map((l: any) => l.description)).toEqual([description]);
+    // Control, every rate set: the document's own line is worded as on main.
+    expect(chemicalLine(scope(job, null)).description).toBe(
+      "Antimicrobial Chemical Treatment",
+    );
+  });
+
   it("scope of works: the selected treatment still comes before the hazard ticked, as on main", () => {
     const job = selected("Mould treatment", ["Biohazard contamination"]);
     expect(chemicalLine(scope(job, null)).rate).toBe(

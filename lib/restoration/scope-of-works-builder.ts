@@ -387,6 +387,14 @@ export function buildScopeOfWorksData(data: {
   } else if (chemicalKind === "biohazard" || hasBiohazard) {
     chemicalField = "biohazardTreatmentRate";
   }
+  // The treatment whose rate RW_7 reads. A blocked result names it, so the
+  // contractor sets the right rate; the document's own line keeps its wording.
+  const chemicalTreatmentName =
+    chemicalField === "mouldRemediationTreatmentRate"
+      ? "Mould remediation treatment"
+      : chemicalField === "biohazardTreatmentRate"
+        ? "Biohazard treatment"
+        : "Antimicrobial treatment";
 
   lineItems.push({
     id: "RW_7",
@@ -439,7 +447,9 @@ export function buildScopeOfWorksData(data: {
     ? blockedPricing(
         lineItems.flatMap((item): BlockedPricingLine[] => [
           {
-            description: `${item.id}: ${item.description}`,
+            description: `${item.id}: ${
+              item.id === "RW_7" ? chemicalTreatmentName : item.description
+            }`,
             quantity: item.qty,
             unit: item.unit,
             // RW_5 is one rate times its days, so the notice shows that rate.
