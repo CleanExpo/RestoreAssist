@@ -13,6 +13,7 @@ import {
   FIRE_SECTION_IDS,
   getFireSection,
   isFireSectionId,
+  sectionSpeech,
 } from "./checklist";
 import { FIRE_COPY } from "./copy";
 import { clarifyingQuestion, routeUtterance } from "./router";
@@ -54,7 +55,7 @@ export function nextStep(status: WalkthroughStatus): {
   }
   const open = status.openSectionIds[0];
   if (open) {
-    return { nextPrompt: getFireSection(open)!.intro, nextSectionId: open };
+    return { nextPrompt: sectionSpeech(getFireSection(open)!), nextSectionId: open };
   }
   if (status.signoff.state === "changed") {
     return { nextPrompt: FIRE_COPY.changedAfterSignoff, nextSectionId: null };

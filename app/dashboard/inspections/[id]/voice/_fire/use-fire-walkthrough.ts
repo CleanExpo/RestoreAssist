@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getFireSection } from "@/lib/voice/fire-smoke/checklist";
+import { getFireSection, sectionSpeech } from "@/lib/voice/fire-smoke/checklist";
 import { FIRE_COPY } from "@/lib/voice/fire-smoke/copy";
 import { parseYesNo } from "@/lib/voice/fire-smoke/router";
 import type { FireAction, FireActionResponse, FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
@@ -146,7 +146,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     (sectionId: string | null, prefix?: string) => {
       setCurrentSectionId(sectionId);
       const section = sectionId ? getFireSection(sectionId) : undefined;
-      const next = section ? section.intro : FIRE_COPY.allDone;
+      const next = section ? sectionSpeech(section) : FIRE_COPY.allDone;
       talk(prefix ? `${prefix} ${next}` : next);
     },
     [talk],

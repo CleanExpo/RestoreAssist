@@ -389,6 +389,16 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
 
 export const FIRE_SECTION_IDS: readonly string[] = FIRE_CHECKLIST.map((s) => s.id);
 
+/**
+ * Everything Margot says when a section opens: its introduction, then every
+ * item question in order (round 18, kind K16). This is the only reader of
+ * section.intro on the spoken path, so no caller can speak the introduction
+ * and skip the sourced questions under it.
+ */
+export function sectionSpeech(section: FireChecklistSection): string {
+  return [section.intro, ...section.items.map((item) => item.prompt)].join(" ");
+}
+
 export function getFireSection(id: string): FireChecklistSection | undefined {
   return FIRE_CHECKLIST.find((s) => s.id === id);
 }

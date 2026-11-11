@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 import { FireWalkthrough, FIRE_TOGGLE_SIZE_PX } from "../_fire/FireWalkthrough";
 import { runFireAction, nextStep, type FireActionDb } from "@/lib/voice/fire-smoke/actions";
 import { loadFireWalkthrough } from "@/lib/voice/fire-smoke/server";
-import { FIRE_SECTION_IDS, getFireSection } from "@/lib/voice/fire-smoke/checklist";
+import { FIRE_SECTION_IDS, getFireSection, sectionSpeech } from "@/lib/voice/fire-smoke/checklist";
 import { FIRE_COPY } from "@/lib/voice/fire-smoke/copy";
 import { fireActionSchema, type FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
 
@@ -190,7 +190,7 @@ async function renderScreen() {
 async function acknowledgeAndFinishSpeaking() {
   fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.noticeAccept }));
   await waitFor(() => expect(fireCalls()).toContain("acknowledge_notice"));
-  await waitFor(() => expect(lastUtterance()?.text).toBe(getFireSection("site_access")!.intro));
+  await waitFor(() => expect(lastUtterance()?.text).toBe(sectionSpeech(getFireSection("site_access")!)));
   act(() => lastUtterance().end());
   await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
 }
@@ -214,7 +214,7 @@ describe("notice comes first", () => {
   it("records the notice before anything else, and listens only after Margot finishes speaking", async () => {
     await renderScreen();
     fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.noticeAccept }));
-    await waitFor(() => expect(lastUtterance()?.text).toBe(getFireSection("site_access")!.intro));
+    await waitFor(() => expect(lastUtterance()?.text).toBe(sectionSpeech(getFireSection("site_access")!)));
     expect(fireCalls()).toEqual(["acknowledge_notice"]);
     expect(rows.map((r) => r.type)).toEqual(["fire_notice_acknowledged"]);
     await new Promise((r) => setTimeout(r, 400));
@@ -263,7 +263,7 @@ describe("glove toggle", () => {
   it("drops Margot's own prompt when the mic hears it", async () => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();
-    act(() => FakeRecognition.live[0].hear(getFireSection("site_access")!.intro));
+    act(() => FakeRecognition.live[0].hear(sectionSpeech(getFireSection("site_access")!)));
     await new Promise((r) => setTimeout(r, 50));
     expect(fireCalls()).toEqual(["acknowledge_notice"]);
   });
