@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getFireSection, sectionSpeech } from "@/lib/voice/fire-smoke/checklist";
 import { FIRE_COPY } from "@/lib/voice/fire-smoke/copy";
-import { parseConfirmation } from "@/lib/voice/fire-smoke/router";
+import { parseBareConfirmation } from "@/lib/voice/fire-smoke/router";
 import type { FireAction, FireActionResponse, FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
 import { getFireWalkthrough, newIdempotencyKey, postFireAction, startVoiceSession } from "./fire-client";
 import { useFireSpeech } from "./use-fire-speech";
@@ -238,33 +238,16 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     [moveTo, talk],
   );
 
-  /**
-   * Words said after a yes or no are a new observation, never dropped: once
-   * the confirmed save has gone through, they are sent as their own capture.
-   */
-  const captureRest = useCallback(
-    async (rest: string, sectionId: string | null) => {
-      if (!rest || !sessionId) return;
-      await send(
-        { action: "capture", sessionId, transcript: rest, currentSectionId: sectionId ?? undefined },
-        rest,
-        (res) => handleOutcome(res, rest),
-      );
-    },
-    [handleOutcome, send, sessionId],
-  );
-
   const fileTo = useCallback(
-    async (sectionId: string, transcript: string, routedBy: "technician_confirmed" | "technician_chose", rest = "") => {
+    async (sectionId: string, transcript: string, routedBy: "technician_confirmed" | "technician_chose") => {
       if (!sessionId) return;
       await send({ action: "file", sessionId, sectionId, transcript, routedBy }, transcript, (res) => {
         setPicking(null);
         setCurrentSectionId(sectionId);
         handleOutcome(res, transcript);
-        void captureRest(rest, sectionId);
       });
     },
-    [captureRest, handleOutcome, send, sessionId],
+    [handleOutcome, send, sessionId],
   );
 
   const handleText = useCallback(
@@ -279,40 +262,35 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         return;
       }
       if (ask) {
-        const confirmation = parseConfirmation(words);
-        const answer = confirmation?.answer ?? null;
-        const rest = confirmation?.rest ?? "";
+        const answer = parseBareConfirmation(words);
+        if (answer === null) {
+          // Not a bare yes or no ("yes, and the ceiling is sagging"). Nothing
+          // is cut out of it: the whole reply waits in the typing box and the
+          // question stays open, so no word of it is lost or reversed.
+          if (!offerWords(words)) setProblem(FIRE_COPY.notSaved(words));
+          talk(ask.say);
+          return;
+        }
         if (ask.mode === "na") {
           if (answer === "yes") {
             const reason = ask.transcript;
             await send(
               { action: "mark_na", sessionId, sectionId: ask.candidateSectionId, reason, failedAttemptsBefore: 0 },
               reason,
-              (res) => {
-                handleOutcome(res, reason);
-                void captureRest(rest, res.nextSectionId);
-              },
+              (res) => handleOutcome(res, reason),
             );
-          } else if (answer === "no") {
+          } else {
             // Keep the words, and any hazard in them, as an entry in the section.
-            await fileTo(ask.candidateSectionId, ask.transcript, "technician_chose", rest);
-          } else talk(ask.say);
+            await fileTo(ask.candidateSectionId, ask.transcript, "technician_chose");
+          }
           return;
         }
-        if (answer === "yes") await fileTo(ask.candidateSectionId, ask.transcript, "technician_confirmed", rest);
-        else if (answer === "no") {
+        if (answer === "yes") await fileTo(ask.candidateSectionId, ask.transcript, "technician_confirmed");
+        else {
           setPicking(ask.transcript);
           setAsk(null);
-          // The extra words stay visible in the typing box until the technician
-          // sends them. A box holding exactly what was just submitted is spent.
-          if (rest) {
-            if (typedNow.current.trim() === words) {
-              typedNow.current = rest;
-              setTyped(rest);
-            } else if (!offerWords(rest)) setProblem(FIRE_COPY.notSaved(rest));
-          }
           talk(FIRE_COPY.confirmNo);
-        } else talk(ask.say);
+        }
         return;
       }
       if (picking) {
@@ -325,7 +303,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         (res) => handleOutcome(res, words),
       );
     },
-    [ask, captureRest, currentSectionId, fileTo, handleOutcome, naFor, offerWords, picking, saving, send, sessionId, talk, view.status.noticeAcknowledged],
+    [ask, currentSectionId, fileTo, handleOutcome, naFor, offerWords, picking, saving, send, sessionId, talk, view.status.noticeAcknowledged],
   );
   handleTextRef.current = (t) => void handleText(t);
 

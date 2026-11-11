@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clarifyingQuestion,
   isNaUtterance,
-  parseConfirmation,
+  parseBareConfirmation,
   parseYesNo,
   routeUtterance,
 } from "../router";
@@ -113,23 +113,25 @@ describe("helpers", () => {
   });
 });
 
-describe("parseConfirmation keeps what was said after the yes or no", () => {
+describe("parseBareConfirmation is a yes or no only when nothing else was said", () => {
   it.each([
-    ["Yes", "yes", ""],
-    ["yeah that's right", "yes", ""],
-    ["Yes, thanks", "yes", ""],
-    ["Yes, and the ceiling is sagging", "yes", "the ceiling is sagging"],
-    ["yep but there is water on the floor", "yes", "there is water on the floor"],
-    ["Yes, and no power at the switchboard", "yes", "no power at the switchboard"],
-    ["Yes, but not isolated at the gas meter", "yes", "not isolated at the gas meter"],
-    ["Yes, yes", "yes", "yes"],
-    ["No", "no", ""],
-    ["No, it's the structure", "no", "it's the structure"],
-  ])("%s", (text, answer, rest) => {
-    expect(parseConfirmation(text)).toEqual({ answer, rest });
+    ["Yes", "yes"],
+    ["yeah that's right", "yes"],
+    ["Yes, thanks", "yes"],
+    ["No", "no"],
+    ["No, thanks.", "no"],
+  ])("%s", (text, answer) => {
+    expect(parseBareConfirmation(text)).toBe(answer);
   });
 
-  it("is null when the words do not start with a yes or no", () => {
-    expect(parseConfirmation("the ceiling is sagging")).toBeNull();
+  it.each([
+    "Yes, and the ceiling is sagging",
+    "Yes, and no power at the switchboard",
+    "No power at the switchboard",
+    "No, it's the structure",
+    "Yes but not isolated at the gas meter",
+    "the ceiling is sagging",
+  ])("%s is not a confirmation, so no word of it can be cut", (text) => {
+    expect(parseBareConfirmation(text)).toBeNull();
   });
 });

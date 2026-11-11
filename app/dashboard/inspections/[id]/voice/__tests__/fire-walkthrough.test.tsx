@@ -357,56 +357,74 @@ describe("state held across screen changes (kind: a mode outliving the thing it 
     expect(toggle).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("a spoken Yes with more words files the confirmed answer AND keeps the extra observation", async () => {
+  it.each([
+    ["Yes, and the ceiling is sagging"],
+    ["Yes, and no power at the switchboard"],
+    ["No power at the switchboard"],
+  ])("a reply that is more than a bare yes or no (%s) is kept whole and answers nothing", async (reply) => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();
     await typeAnswer("All good here");
-    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
-    await typeAnswer("Yes, and the ceiling is sagging");
-    await waitFor(() => expect(calls.some((c) => c.action === "capture" && c.body.transcript === "the ceiling is sagging")).toBe(true));
-    expect(calls.find((c) => c.action === "file")!.body).toMatchObject({ sectionId: "site_access", transcript: "All good here", routedBy: "technician_confirmed" });
+    await screen.findByRole("group", { name: "Margot's question" });
+    act(() => lastUtterance().end());
+    await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
+    act(() => FakeRecognition.live[0].hear(reply));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue(reply));
+    expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument();
+    expect(calls.some((c) => c.action === "file" || c.action === "mark_na")).toBe(false);
   });
 
-  it("a negation after Yes is kept word for word in the saved observation", async () => {
-    await renderScreen();
-    await acknowledgeAndFinishSpeaking();
-    await typeAnswer("All good here");
-    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
-    await typeAnswer("Yes, and no power at the switchboard");
-    await waitFor(() => expect(calls.some((c) => c.action === "capture" && c.body.transcript === "no power at the switchboard")).toBe(true));
-  });
-
-  it("a spoken Yes to the N/A question with more words closes the section AND keeps the extra observation", async () => {
+  it("the same for the N/A question", async () => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();
     await typeAnswer("Not applicable, nobody else is on site");
-    await waitFor(() => screen.getByRole("button", { name: "Yes" }));
+    await screen.findByRole("group", { name: "Margot's question" });
     await typeAnswer("Yes, and the ceiling is sagging");
-    await waitFor(() => expect(calls.some((c) => c.action === "capture" && c.body.transcript === "the ceiling is sagging")).toBe(true));
-    expect(calls.find((c) => c.action === "mark_na")!.body).toMatchObject({ sectionId: "site_access", reason: "Not applicable, nobody else is on site" });
+    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent("as not applicable? Say yes or no."));
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("Yes, and the ceiling is sagging");
+    expect(calls.some((c) => c.action === "mark_na" || c.action === "file")).toBe(false);
   });
 
-  it("a spoken No with more words goes to the picker and the extra words are put in the typing box, not lost", async () => {
+  it.each([
+    ["an N/A question", "Not applicable, nobody else is on site"],
+    ["a which-section question", "All good here"],
+  ])("moving to another section while %s is open drops the question and keeps the words", async (_n, words) => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer(words);
+    await screen.findByRole("group", { name: "Margot's question" });
+    fireEvent.click(screen.getByRole("button", { name: /^Next section/ }));
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Margot's question" })).toBeNull());
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue(words);
+    expect(calls.some((c) => c.action === "mark_na" || c.action === "file")).toBe(false);
+  });
+
+  it("moving on while the section picker is open drops the picker and keeps the words", async () => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();
     await typeAnswer("All good here");
-    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
-    await typeAnswer("No, the ceiling is sagging");
+    await screen.findByRole("group", { name: "Margot's question" });
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
     await screen.findByRole("group", { name: "Choose a section" });
-    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("the ceiling is sagging");
+    fireEvent.click(screen.getByRole("button", { name: /^Next section/ }));
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Choose a section" })).toBeNull());
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("All good here");
   });
 
-  it("the same when the No is spoken and the box was empty", async () => {
+  it("a listening OFF chosen while the first prompt is spoken is still OFF when it ends", async () => {
     await renderScreen();
-    await acknowledgeAndFinishSpeaking();
-    await typeAnswer("All good here");
-    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.noticeAccept }));
+    await waitFor(() => expect(lastUtterance()?.text).toBe(sectionSpeech(getFireSection("site_access")!)));
+    const toggle = await screen.findByTestId("fire-listen-toggle");
+    fireEvent.click(toggle); // ON
+    fireEvent.click(toggle); // OFF again, still during the prompt
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
     act(() => lastUtterance().end());
-    await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
-    act(() => FakeRecognition.live[0].hear("No, the ceiling is sagging"));
-    await screen.findByRole("group", { name: "Choose a section" });
-    await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("the ceiling is sagging"));
+    await new Promise((r) => setTimeout(r, 400));
+    expect(FakeRecognition.starts).toBe(0);
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
   });
+
 });
 
 describe("filing answers", () => {

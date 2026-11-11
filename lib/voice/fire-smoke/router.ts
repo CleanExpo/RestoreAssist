@@ -63,27 +63,21 @@ export function isNaUtterance(text: string): boolean {
 }
 
 /**
- * What may follow a yes or no without being an observation. An allow-list, and
- * deliberately narrow: one leading connector, then only a pure acknowledgement
- * that is the WHOLE remainder. Content words, "no" and "not" among them, are
- * never trimmed: "yes, and no power at the switchboard" keeps "no power".
+ * A reply that is ONLY a confirmation: a yes or no word, optionally followed by
+ * pure acknowledgements. The words are never cut up: anything else ("yes, and
+ * the ceiling is sagging", "no power at the switchboard") is not a confirmation
+ * and must be kept whole by the caller, because dropping or trimming a word can
+ * reverse what the technician said.
  */
-const CONNECTOR = /^(?:and|but|also|so)\b[\s,.!;:-]*/i;
-const ACKNOWLEDGEMENT =
-  /^(?:that(?:'|\u2019)?s (?:right|correct)|that is (?:right|correct)|correct|right|please|thanks|thank you)[\s,.!;:-]*$/i;
-const CONFIRM_LEAD = /^(?:yes|yeah|yep|yup|correct|that's right|right|affirmative|sure|ok|okay|no|nope|nah|wrong|not that|negative)\b[\s,.!;:-]*/i;
+const BARE_YES =
+  /^(?:yes|yeah|yep|yup|correct|that's right|right|affirmative|sure|ok|okay)(?:[\s,.!]+(?:yes|that's right|that is right|correct|please|thanks|thank you))*[\s,.!]*$/;
+const BARE_NO = /^(?:no|nope|nah|wrong|not that|negative)(?:[\s,.!]+(?:no|please|thanks|thank you))*[\s,.!]*$/;
 
-/**
- * A yes or no, plus whatever else was said. "Yes, and the ceiling is
- * sagging" is a yes AND a new observation: the observation is returned in
- * `rest` so the caller files it, never drops it.
- */
-export function parseConfirmation(text: string): { answer: "yes" | "no"; rest: string } | null {
-  const answer = parseYesNo(text);
-  if (answer === null) return null;
-  let rest = text.replace(/^[^A-Za-z]+/, "").replace(CONFIRM_LEAD, "");
-  rest = rest.replace(CONNECTOR, "").trim();
-  return { answer, rest: ACKNOWLEDGEMENT.test(rest) ? "" : rest };
+export function parseBareConfirmation(text: string): "yes" | "no" | null {
+  const normalised = normaliseUtterance(text).replace(/^[^a-z]+/, "");
+  if (BARE_YES.test(normalised)) return "yes";
+  if (BARE_NO.test(normalised)) return "no";
+  return null;
 }
 
 export function parseYesNo(text: string): "yes" | "no" | null {
