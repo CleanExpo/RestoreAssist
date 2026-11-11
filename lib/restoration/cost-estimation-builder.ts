@@ -337,9 +337,10 @@ export function buildCostEstimationData(data: {
       for (const line of pricedEquipment.lines) {
         if (placed.has(line) || !matches(line)) continue;
         placed.add(line);
-        // A usable line of zero units adds nothing. A line that cannot be
-        // read has quantity 0 too, but it blocks the total, so it is shown.
-        if (line.usable && line.quantity <= 0) continue;
+        // A usable line of zero units adds nothing. A line with no amount
+        // (it cannot be read, or its rate is not set, whatever its
+        // quantity) blocks the total, so it is always shown.
+        if (line.quantity <= 0 && line.total !== null) continue;
         categories.equipment.lineItems.push({
           description: line.usable ? line.name : UNUSABLE_LINE_LABEL,
           qty: line.quantity,

@@ -43,6 +43,14 @@ export function BlockedPricingNotice({
   /** What was being priced, e.g. "Cost estimate". */
   title: string;
 }) {
+  // A rate is fixed in the price list; a saved equipment line that cannot be
+  // read is fixed on the equipment selection. Each gets its own instruction.
+  const ratesNotSet = blocked.lines.some(
+    (line) => line.pricingStatus === "rate_not_set",
+  );
+  const unusableLines = blocked.lines.some(
+    (line) => line.pricingStatus === "unusable_line",
+  );
   return (
     <section
       role="alert"
@@ -56,13 +64,24 @@ export function BlockedPricingNotice({
           <p className="font-semibold">
             {title}: {blocked.totalNote}
           </p>
-          <p>
-            Set the rates marked below in your{" "}
-            <Link href="/dashboard/pricing-config" className="underline">
-              price list
-            </Link>
-            , then generate it again. Nothing has been saved.
-          </p>
+          <div data-testid="blocked-pricing-instructions">
+            {(ratesNotSet || !unusableLines) && (
+              <p>
+                Set the rates marked below in your{" "}
+                <Link href="/dashboard/pricing-config" className="underline">
+                  price list
+                </Link>
+                .
+              </p>
+            )}
+            {unusableLines && (
+              <p>
+                Correct the saved equipment lines marked below: each needs an
+                equipment type and a whole-number quantity.
+              </p>
+            )}
+            <p>Then generate it again. Nothing has been saved.</p>
+          </div>
         </div>
       </div>
       <div className="overflow-x-auto">

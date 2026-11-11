@@ -132,6 +132,38 @@ describe("BlockedPricingNotice", () => {
     expect(container.textContent).not.toMatch(/\$0\.00/);
   });
 
+  const only = (status: string) =>
+    blockedPricing(
+      BLOCKED.lines.filter(
+        (l) => l.pricingStatus === status || l.pricingStatus === "priced",
+      ),
+      [],
+    );
+  const instructions = (blocked: BlockedPricing) =>
+    render(<BlockedPricingNotice blocked={blocked} title="Cost estimate" />)
+      .container.querySelector('[data-testid="blocked-pricing-instructions"]')
+      ?.textContent ?? "";
+
+  it("a saved line that cannot be priced is to be corrected, not sent to the price list", () => {
+    const text = instructions(only("unusable_line"));
+    expect(text).toContain("Correct the saved equipment lines marked below");
+    expect(text).not.toContain("price list");
+    expect(text).toContain("Nothing has been saved.");
+  });
+
+  it("a rate that is not set is to be set in the price list, with no equipment instruction", () => {
+    const text = instructions(only("rate_not_set"));
+    expect(text).toContain("Set the rates marked below in your price list");
+    expect(text).not.toContain("saved equipment lines");
+    expect(text).toContain("Nothing has been saved.");
+  });
+
+  it("a result with both kinds of blocked line gives both instructions", () => {
+    const text = instructions(BLOCKED);
+    expect(text).toContain("Set the rates marked below in your price list");
+    expect(text).toContain("Correct the saved equipment lines marked below");
+  });
+
   it("control: a priced line shows its own rate and amount", () => {
     const { container } = render(
       <BlockedPricingNotice blocked={BLOCKED} title="Cost estimate" />,

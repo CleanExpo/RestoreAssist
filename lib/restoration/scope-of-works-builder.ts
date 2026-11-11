@@ -248,9 +248,10 @@ export function buildScopeOfWorksData(data: {
         qualified: { hours: 6, rate: rate(QUALIFIED) },
       },
       equipment: pricedEquipment.lines.reduce((acc: any, line) => {
-        // A usable line of zero units adds nothing. A line that cannot be
-        // read has quantity 0 too, but it blocks the amount, so it is listed.
-        if (line.quantity > 0 || !line.usable) {
+        // A usable line of zero units adds nothing. A line with no amount
+        // (it cannot be read, or its rate is not set, whatever its
+        // quantity) blocks the subtotal, so it is always listed.
+        if (line.quantity > 0 || line.total === null) {
           const key = !line.usable
             ? "other"
             : line.groupId.startsWith("lgr-")
@@ -375,7 +376,9 @@ export function buildScopeOfWorksData(data: {
         ? "Biohazard treatment"
         : "Standard antimicrobial treatment");
   let chemicalField = "antimicrobialTreatmentRate";
-  if (chemicalType.includes("mould")) {
+  // Compared in lower case: the default above is "Mould remediation
+  // treatment", and a mould treatment is priced from the mould rate.
+  if (chemicalType.toLowerCase().includes("mould")) {
     chemicalField = "mouldRemediationTreatmentRate";
   } else if (chemicalType.includes("Biohazard") || hasBiohazard) {
     chemicalField = "biohazardTreatmentRate";
@@ -434,7 +437,10 @@ export function buildScopeOfWorksData(data: {
           description: `${item.id}: ${item.description}`,
           quantity: item.qty,
           unit: item.unit,
-          rate: item.rate ?? null,
+          // RW_5 is one rate times its days, so the notice shows that rate.
+          rate:
+            item.rate ??
+            (item.id === "RW_5" ? item.labour.qualified.rate : null),
           subtotal: item.subtotal,
           pricingStatus: item.pricingStatus ?? "priced",
           rateField: item.rateField,

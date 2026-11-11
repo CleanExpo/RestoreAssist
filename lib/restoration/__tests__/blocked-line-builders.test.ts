@@ -250,3 +250,106 @@ describe("RA-8281 B2: each builder with one rate cleared at a time", () => {
     expect(blockedBy.scope.size).toBeGreaterThanOrEqual(8);
   });
 });
+
+describe("RA-8281 B2: review of #2536", () => {
+  const MOULD_JOB = {
+    tier1: { T1_Q7_hazards: ["Active mould growth"], T1_Q6_materialsAffected: [] },
+    tier3: null,
+  } as unknown as (typeof JOBS)[number];
+  const chemicalLine = (doc: any) =>
+    doc.lineItems.find((item: any) => item.id === "RW_7");
+
+  it("the default mould treatment reads the mould rate: cleared, the scope is blocked on that field", () => {
+    const doc = scope(MOULD_JOB, "mouldRemediationTreatmentRate");
+    const line = chemicalLine(doc);
+    expect(line.pricingStatus).toBe("rate_not_set");
+    expect(line.rateField).toBe("mouldRemediationTreatmentRate");
+    expect(line.rate).toBeNull();
+    expect(line.subtotal).toBeNull();
+    expect(doc.blockedPricing?.status).toBe("blocked");
+  });
+
+  it("control: the default mould treatment is priced at the mould rate, and does not need the antimicrobial rate", () => {
+    const doc = scope(MOULD_JOB, "antimicrobialTreatmentRate");
+    const line = chemicalLine(doc);
+    expect(line.pricingStatus).toBeUndefined();
+    expect(line.rate).toBe(FULL.mouldRemediationTreatmentRate);
+    expect(line.subtotal).toBe(line.qty * FULL.mouldRemediationTreatmentRate);
+    expect(doc.blockedPricing ?? null).toBeNull();
+  });
+
+  const ZERO_UNITS = [
+    { groupId: "lgr-85", quantity: 0 },
+    { groupId: "airmover-800", quantity: 3 },
+  ];
+  const withEquipment = (cleared: string | null) => ({
+    ...inputs(JOBS[0], cleared),
+    equipmentSelection: ZERO_UNITS,
+  });
+
+  it("a zero-unit equipment line whose rate is not set is shown as the blocked line (cost estimate)", () => {
+    const doc = buildCostEstimationData({
+      ...withEquipment("dehumidifierLGRDailyRate"),
+      scopeData: { lineItems: [] },
+      gstTreatment: getGstTreatment("AU"),
+    }) as any;
+    const equipment = doc.categories.equipment;
+    expect(equipment.total).toBeNull();
+    const blockedRows = equipment.lineItems.filter(
+      (item: any) => item.pricingStatus === "rate_not_set",
+    );
+    expect(blockedRows).toHaveLength(1);
+    expect(blockedRows[0].rateField).toBe("dehumidifierLGRDailyRate");
+    expect(blockedRows[0].subtotal).toBeNull();
+  });
+
+  it("a zero-unit equipment line whose rate is not set is shown as the blocked line (scope of works)", () => {
+    const doc = buildScopeOfWorksData(
+      withEquipment("dehumidifierLGRDailyRate") as never,
+    ) as any;
+    const setup = doc.lineItems.find((item: any) => item.id === "RW_3");
+    expect(setup.subtotal).toBeNull();
+    const rows = Object.values(setup.equipment).flatMap((g: any) => g.items);
+    const blockedRows = rows.filter(
+      (row: any) => row.pricingStatus === "rate_not_set",
+    );
+    expect(blockedRows).toHaveLength(1);
+    expect(blockedRows[0].rateField).toBe("dehumidifierLGRDailyRate");
+    expect(blockedRows[0].total).toBeNull();
+  });
+
+  it("control: a zero-unit line with its rate set adds no row and blocks nothing", () => {
+    const costDoc = buildCostEstimationData({
+      ...withEquipment(null),
+      scopeData: { lineItems: [] },
+      gstTreatment: getGstTreatment("AU"),
+    }) as any;
+    expect(costDoc.categories.equipment.lineItems).toHaveLength(1);
+    expect(isNumber(costDoc.categories.equipment.total)).toBe(true);
+    const scopeDoc = buildScopeOfWorksData(withEquipment(null) as never) as any;
+    const setup = scopeDoc.lineItems.find((item: any) => item.id === "RW_3");
+    const rows = Object.values(setup.equipment).flatMap((g: any) => g.items);
+    expect(rows).toHaveLength(1);
+    expect(isNumber(setup.subtotal)).toBe(true);
+  });
+
+  it("a blocked scope still shows the set rate of the daily monitoring line", () => {
+    const doc = scope(JOBS[0], "administrationFee");
+    const line = doc.blockedPricing.lines.find((l: any) =>
+      l.description.startsWith("RW_5:"),
+    );
+    expect(line.pricingStatus).toBe("priced");
+    expect(line.rate).toBe(FULL.qualifiedTechnicianNormalHours);
+    expect(isNumber(line.subtotal)).toBe(true);
+  });
+
+  it("control: the daily monitoring line shows no rate when its own rate is not set", () => {
+    const doc = scope(JOBS[0], "qualifiedTechnicianNormalHours");
+    const line = doc.blockedPricing.lines.find((l: any) =>
+      l.description.startsWith("RW_5:"),
+    );
+    expect(line.pricingStatus).toBe("rate_not_set");
+    expect(line.rate).toBeNull();
+    expect(line.subtotal).toBeNull();
+  });
+});
