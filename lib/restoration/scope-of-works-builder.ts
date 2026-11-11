@@ -6,6 +6,7 @@ import {
   sumOrBlocked,
 } from "@/lib/pricing/blocked-line";
 import { billableDailyRate } from "@/lib/equipment-matrix";
+import { chemicalTreatmentKind } from "@/lib/restoration/chemical-treatment";
 import {
   AMOUNT_TOO_LARGE_NOTE,
   equipmentLineAmount,
@@ -376,12 +377,14 @@ export function buildScopeOfWorksData(data: {
       : hasBiohazard
         ? "Biohazard treatment"
         : "Standard antimicrobial treatment");
+  // Read by the one shared classifier, without regard to capitals: the
+  // default above is "Mould remediation treatment", and a mould treatment
+  // is priced from the mould rate.
+  const chemicalKind = chemicalTreatmentKind(chemicalType);
   let chemicalField = "antimicrobialTreatmentRate";
-  // Compared in lower case: the default above is "Mould remediation
-  // treatment", and a mould treatment is priced from the mould rate.
-  if (chemicalType.toLowerCase().includes("mould")) {
+  if (chemicalKind === "mould") {
     chemicalField = "mouldRemediationTreatmentRate";
-  } else if (chemicalType.includes("Biohazard") || hasBiohazard) {
+  } else if (chemicalKind === "biohazard" || hasBiohazard) {
     chemicalField = "biohazardTreatmentRate";
   }
 

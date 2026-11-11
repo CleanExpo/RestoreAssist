@@ -361,8 +361,12 @@ describe("the priced documents (cost estimation, scope of works)", () => {
       (_label, value) => {
         const blocked = build(value).blockedPricing;
         expect(blocked).toMatchObject({ status: "blocked", total: null });
+        // The saved line itself, once. (A scope of works also marks RW_3,
+        // the line that carries the equipment: its amount is not available.)
         const unusable = blocked.lines.filter(
-          (l: { pricingStatus: string }) => l.pricingStatus === "unusable_line",
+          (l: { pricingStatus: string; description: string }) =>
+            l.pricingStatus === "unusable_line" &&
+            !l.description.startsWith("RW_3: "),
         );
         expect(unusable).toHaveLength(1);
         expect(unusable[0]).toMatchObject({ rate: null, subtotal: null });

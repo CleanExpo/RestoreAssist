@@ -285,6 +285,51 @@ describe("RA-8281 B2: review of #2536", () => {
     expect(doc.blockedPricing ?? null).toBeNull();
   });
 
+  // Review round 7: the treatment a contractor selects decides the rate
+  // field whatever its capitals, in both documents, with no hazard ticked.
+  const selected = (treatment: string) =>
+    ({
+      tier1: { T1_Q7_hazards: ["None identified"], T1_Q6_materialsAffected: [] },
+      tier3: {
+        T3_Q3_chemicalTreatment: treatment,
+        T3_Q4_totalAffectedArea: "45 sqm",
+      },
+    }) as unknown as (typeof JOBS)[number];
+  const costChemicals = (doc: any) =>
+    (Object.values(doc.categories) as any[])
+      .flatMap((c) => c.lineItems)
+      .filter((item: any) => "ratePerSqm" in item);
+
+  it.each([
+    ["biohazard treatment", "biohazardTreatmentRate"],
+    ["Biohazard treatment (if contaminated water — Category 3)", "biohazardTreatmentRate"],
+    ["BIO-HAZARD TREATMENT", "biohazardTreatmentRate"],
+    ["Enhanced mould remediation (if active growth suspected)", "mouldRemediationTreatmentRate"],
+    ["MOULD TREATMENT", "mouldRemediationTreatmentRate"],
+    ["Standard antimicrobial treatment (preventative — all Category 1 losses)", "antimicrobialTreatmentRate"],
+  ])("selected treatment %j reads %s in both documents", (treatment, field) => {
+    const job = selected(treatment);
+    // Cleared: both documents are blocked on exactly that field.
+    const scopeLine = chemicalLine(scope(job, field));
+    expect(scopeLine.pricingStatus).toBe("rate_not_set");
+    expect(scopeLine.rateField).toBe(field);
+    expect(scopeLine.subtotal).toBeNull();
+    const costLines = costChemicals(cost(job, field));
+    expect(costLines).toHaveLength(1);
+    expect(costLines[0].pricingStatus).toBe("rate_not_set");
+    expect(costLines[0].rateField).toBe(field);
+    expect(costLines[0].subtotal).toBeNull();
+    // Control, every rate set: both are priced from that same field.
+    const rate = (FULL as Record<string, number>)[field];
+    const pricedScope = chemicalLine(scope(job, null));
+    expect(pricedScope.rate).toBe(rate);
+    expect(pricedScope.subtotal).toBe(pricedScope.qty * rate);
+    const pricedCost = costChemicals(cost(job, null));
+    expect(pricedCost).toHaveLength(1);
+    expect(pricedCost[0].ratePerSqm).toBe(rate);
+    expect(pricedCost[0].subtotal).toBe(pricedCost[0].sqm * rate);
+  });
+
   const ZERO_UNITS = [
     { groupId: "lgr-85", quantity: 0 },
     { groupId: "airmover-800", quantity: 3 },

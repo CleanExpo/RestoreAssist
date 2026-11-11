@@ -21,6 +21,7 @@ import {
 } from "@/lib/reports/stored-equipment-pricing";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
+import { chemicalTreatmentKind } from "@/lib/restoration/chemical-treatment";
 import { getGstTreatment } from "@/lib/gst-rules";
 /**
  * Exported for test. buildCostEstimationData is the pure builder that decides,
@@ -421,25 +422,35 @@ export function buildCostEstimationData(data: {
     (hasMould || hasBiohazard || tier3?.T3_Q3_chemicalTreatment)
   ) {
     const chemicalLines: any[] = [];
+    // The selected treatment counts as well as the hazard ticked, read by
+    // the one shared classifier: a selected mould or biohazard treatment is
+    // priced from its own rate, as the scope of works prices it.
+    const selectedKind = chemicalTreatmentKind(tier3?.T3_Q3_chemicalTreatment);
+    const mouldTreatment = hasMould || selectedKind === "mould";
+    const biohazardTreatment = hasBiohazard || selectedKind === "biohazard";
 
     // Standard antimicrobial treatment (if no specific hazard)
-    if (!hasMould && !hasBiohazard && tier3?.T3_Q3_chemicalTreatment) {
+    if (
+      !mouldTreatment &&
+      !biohazardTreatment &&
+      tier3?.T3_Q3_chemicalTreatment
+    ) {
       chemicalLines.push({
         description: "Anti-microbial Treatment",
         ...perSqm("antimicrobialTreatmentRate"),
       });
     }
 
-    // Mould remediation (only if mould hazard identified)
-    if (hasMould) {
+    // Mould remediation (mould hazard identified or mould treatment selected)
+    if (mouldTreatment) {
       chemicalLines.push({
         description: "Mould Remediation Treatment",
         ...perSqm("mouldRemediationTreatmentRate"),
       });
     }
 
-    // Biohazard treatment (only if biohazard identified)
-    if (hasBiohazard) {
+    // Biohazard treatment (biohazard identified or its treatment selected)
+    if (biohazardTreatment) {
       chemicalLines.push({
         description: "Bio-Hazard Treatment",
         ...perSqm("biohazardTreatmentRate"),
