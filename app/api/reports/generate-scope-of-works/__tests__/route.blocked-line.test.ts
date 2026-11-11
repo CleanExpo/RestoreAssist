@@ -54,6 +54,10 @@ vi.mock("@/lib/nrpg-rate-ranges", async (original) => {
 });
 
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
+import {
+  blockedParts,
+  expectNoRangeFigure,
+} from "@/lib/pricing/__tests__/no-range-figure";
 import { BASE_RATE_FIELDS } from "@/lib/pricing/rate-not-set";
 import { POST } from "../route";
 
@@ -98,7 +102,6 @@ type Line = {
   pricingStatus: string;
   rateField?: string;
   pricingNote?: string;
-  nationalRange?: unknown;
 };
 const lineFor = (lines: Line[], id: string) =>
   lines.find((l) => l.description.startsWith(`${id}:`)) as Line;
@@ -112,7 +115,7 @@ beforeEach(() => {
 });
 
 describe("POST generate-scope-of-works: a rate that is not set (RA-8281 B2)", () => {
-  it("shows the blocked line with its national range, beside the priced lines", async () => {
+  it("shows the blocked line with no national range, beside the priced lines", async () => {
     withPriceList(priceList({ administrationFee: null }));
 
     const res = await post();
@@ -120,7 +123,8 @@ describe("POST generate-scope-of-works: a rate that is not set (RA-8281 B2)", ()
 
     expect(res.status).toBe(422);
     expect(body.error.code).toBe("RATE_NOT_SET");
-    const range = NRPG_RATE_RANGES.administrationFee;
+    // RA-8281 step 1: no min or max of this field anywhere in the answer.
+    expectNoRangeFigure(blockedParts(body), "administrationFee");
     expect(lineFor(body.blocked.lines, "RW_10")).toEqual({
       description: "RW_10: Administration & Documentation Fee",
       quantity: 1,
@@ -129,8 +133,7 @@ describe("POST generate-scope-of-works: a rate that is not set (RA-8281 B2)", ()
       subtotal: null,
       pricingStatus: "rate_not_set",
       rateField: "administrationFee",
-      pricingNote: `Rate not set. Set administrationFee in your price list (national range $${range.min}-$${range.max}).`,
-      nationalRange: { min: range.min, max: range.max, unit: range.unit },
+      pricingNote: `Rate not set. Set administrationFee in your price list.`,
     });
     expect(lineFor(body.blocked.lines, "RW_1")).toMatchObject({
       rate: 50,
@@ -184,19 +187,19 @@ describe("POST generate-scope-of-works: a rate that is not set (RA-8281 B2)", ()
     });
   });
 
-  it("an equipment rate that is not set blocks the equipment line with its range", async () => {
+  it("an equipment rate that is not set blocks the equipment line with no range", async () => {
     withPriceList(priceList({ dehumidifierLGRDailyRate: null }));
 
     const res = await post();
     const body = await res.json();
 
     expect(res.status).toBe(422);
-    const range = NRPG_RATE_RANGES.dehumidifierLGRDailyRate;
+    // RA-8281 step 1: no min or max of this field anywhere in the answer.
+    expectNoRangeFigure(blockedParts(body), "dehumidifierLGRDailyRate");
     expect(lineFor(body.blocked.lines, "RW_3")).toMatchObject({
       subtotal: null,
       pricingStatus: "rate_not_set",
       rateField: "dehumidifierLGRDailyRate",
-      nationalRange: { min: range.min, max: range.max, unit: range.unit },
     });
     expect(reportUpdate).not.toHaveBeenCalled();
   });
@@ -213,7 +216,6 @@ describe("POST generate-scope-of-works: a rate that is not set (RA-8281 B2)", ()
       rate: null,
       subtotal: null,
       pricingStatus: "rate_not_set",
-      nationalRange: null,
       pricingNote: "Rate not set. Set administrationFee in your price list.",
     });
     expect(JSON.stringify(body)).not.toContain("national range");

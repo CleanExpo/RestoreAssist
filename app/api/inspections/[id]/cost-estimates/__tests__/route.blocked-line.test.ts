@@ -44,6 +44,10 @@ vi.mock("@/lib/nir-cost-estimation", async (original) => ({
 }));
 
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
+import {
+  blockedParts,
+  expectNoRangeFigure,
+} from "@/lib/pricing/__tests__/no-range-figure";
 import { POST } from "../route";
 
 const RATE_FIELDS = [
@@ -117,7 +121,7 @@ beforeEach(() => {
 });
 
 describe("POST cost-estimates: a rate that is not set (RA-8281 B2)", () => {
-  it("shows the blocked line with its national range, beside the priced line", async () => {
+  it("shows the blocked line with no national range, beside the priced line", async () => {
     inspectionRates.mockResolvedValue({
       ok: true,
       rates: priceList({ dehumidifierLGRDailyRate: null }),
@@ -128,7 +132,8 @@ describe("POST cost-estimates: a rate that is not set (RA-8281 B2)", () => {
 
     expect(res.status).toBe(422);
     expect(body.error.code).toBe("RATE_NOT_SET");
-    const range = NRPG_RATE_RANGES.dehumidifierLGRDailyRate;
+    // RA-8281 step 1: no min or max of this field anywhere in the answer.
+    expectNoRangeFigure(blockedParts(body), "dehumidifierLGRDailyRate");
     expect(body.blocked.lines).toEqual([
       {
         description: "LGR dehumidifiers",
@@ -138,8 +143,7 @@ describe("POST cost-estimates: a rate that is not set (RA-8281 B2)", () => {
         subtotal: null,
         pricingStatus: "rate_not_set",
         rateField: "dehumidifierLGRDailyRate",
-        pricingNote: `Rate not set. Set dehumidifierLGRDailyRate in your price list (national range $${range.min}-$${range.max} per day).`,
-        nationalRange: { min: range.min, max: range.max, unit: range.unit },
+        pricingNote: `Rate not set. Set dehumidifierLGRDailyRate in your price list.`,
       },
       {
         description: "Air movers",
@@ -208,7 +212,6 @@ describe("POST cost-estimates: a rate that is not set (RA-8281 B2)", () => {
       rate: null,
       subtotal: null,
       pricingStatus: "rate_not_set",
-      nationalRange: null,
       pricingNote:
         "Rate not set. Set dehumidifierLGRDailyRate in your price list.",
     });

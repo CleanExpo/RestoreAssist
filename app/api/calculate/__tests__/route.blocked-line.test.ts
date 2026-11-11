@@ -36,6 +36,10 @@ vi.mock("@/lib/nrpg-rate-ranges", async (original) => {
 });
 
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
+import {
+  blockedParts,
+  expectNoRangeFigure,
+} from "@/lib/pricing/__tests__/no-range-figure";
 import { BASE_RATE_FIELDS } from "@/lib/pricing/rate-not-set";
 import { POST } from "../route";
 
@@ -85,7 +89,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/calculate: a rate that is not set (RA-8281 B2)", () => {
-  it("shows the blocked line with its national range, beside the priced lines", async () => {
+  it("shows the blocked line with no national range, beside the priced lines", async () => {
     pricing.mockResolvedValue(priceList({ airMoverAxialDailyRate: null }));
 
     const res = await post();
@@ -93,7 +97,8 @@ describe("POST /api/calculate: a rate that is not set (RA-8281 B2)", () => {
 
     expect(res.status).toBe(422);
     expect(body.error.code).toBe("RATE_NOT_SET");
-    const range = NRPG_RATE_RANGES.airMoverAxialDailyRate;
+    // RA-8281 step 1: no min or max of this field anywhere in the answer.
+    expectNoRangeFigure(blockedParts(body), "airMoverAxialDailyRate");
     const byDescription = Object.fromEntries(
       body.blocked.lines.map((l: { description: string }) => [
         l.description,
@@ -108,8 +113,7 @@ describe("POST /api/calculate: a rate that is not set (RA-8281 B2)", () => {
       subtotal: null,
       pricingStatus: "rate_not_set",
       rateField: "airMoverAxialDailyRate",
-      pricingNote: `Rate not set. Set airMoverAxialDailyRate in your price list (national range $${range.min}-$${range.max} per day).`,
-      nationalRange: { min: range.min, max: range.max, unit: range.unit },
+      pricingNote: `Rate not set. Set airMoverAxialDailyRate in your price list.`,
     });
     expect(
       byDescription[
@@ -192,7 +196,6 @@ describe("POST /api/calculate: a rate that is not set (RA-8281 B2)", () => {
     expect(blocked).toMatchObject({
       rate: null,
       subtotal: null,
-      nationalRange: null,
       pricingNote: "Rate not set. Set airMoverAxialDailyRate in your price list.",
     });
     expect(JSON.stringify(body)).not.toContain("national range");

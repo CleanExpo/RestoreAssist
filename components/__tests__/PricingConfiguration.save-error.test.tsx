@@ -95,13 +95,13 @@ describe("price-list save refusal (RA-8281 B1)", () => {
   it("control: a flat string error (the NRPG range refusal) is shown as sent", async () => {
     mockFetch({
       error:
-        "Call-Out Fee rate $90.00 is outside the typical industry range ($100 – $350)",
+        "Call-Out Fee rate $90.00 is outside the national price range",
       field: "callOutFee",
     });
     await clearCallOutFeeAndSave();
     await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1));
     expect(toastError.mock.calls[0][0]).toContain(
-      "outside the typical industry range",
+      "outside the national price range",
     );
   });
 

@@ -70,7 +70,7 @@ export interface CostEstimateItem {
 
 /**
  * RA-8281 (B2): a line whose price-list rate the contractor has not set. It
- * is shown with "Rate not set" and the national range when one exists. It has
+ * is shown with "Rate not set" and the field to set. It has
  * no rate and no amount, and it blocks the estimate's total.
  */
 export interface BlockedCostEstimateItem
@@ -84,12 +84,15 @@ export interface BlockedCostEstimateItem
 /** Description prefix on a line whose item type has no configured rate. */
 export const NO_RATE_PREFIX = "No rate configured";
 
+/**
+ * A rate outside its NRPG range. It names the field and the contractor's own
+ * rate; it never carries the range figures (RA-8281, founder rule
+ * 2026-11-12).
+ */
 export interface NRPGViolation {
   scopeItemDescription: string;
   nrpgField: string;
   rate: number;
-  min: number;
-  max: number;
   label: string;
 }
 
@@ -154,7 +157,6 @@ export function blockedEstimatePricing(
             pricingStatus: item.pricingStatus,
             rateField: item.rateField,
             pricingNote: item.pricingNote,
-            nationalRange: item.nationalRange,
           }
         : {
             description: item.description,
@@ -449,7 +451,6 @@ export async function estimateCosts(
         missing.set(b.rateField, {
           field: b.rateField,
           note: b.pricingNote,
-          nationalRange: b.nationalRange,
         });
       }
     }
@@ -507,8 +508,6 @@ export async function estimateCosts(
       scopeItemDescription: i.description,
       nrpgField: i.nrpgField!,
       rate: i.rate,
-      min: i.nrpgRange!.min,
-      max: i.nrpgRange!.max,
       label: NRPG_RATE_RANGES[i.nrpgField!]?.label ?? i.nrpgField!,
     }));
 
@@ -573,7 +572,7 @@ function buildEstimateItem(
   if (rates && config.nrpgField) {
     // RA-8281: the contractor has a price list, so their own rate is the only
     // rate. An unset rate is never replaced by an NRPG midpoint or $0: the
-    // line is shown blocked (B2), with the national range for reference.
+    // line is shown blocked (B2). It carries no national range figure.
     const [unset] = blockedRates(rates, [config.nrpgField]);
     if (unset) {
       return {
@@ -586,13 +585,12 @@ function buildEstimateItem(
         subtotal: null,
         nrpgField: config.nrpgField,
         nrpgCompliant: true,
-        nrpgRange: unset.nationalRange,
+        nrpgRange: null,
         rateSource: "none",
         isEstimated: true,
         pricingStatus: "rate_not_set",
         rateField: unset.field,
         pricingNote: unset.note,
-        nationalRange: unset.nationalRange,
       };
     }
     rate = rates[config.nrpgField] as number;
@@ -783,8 +781,6 @@ export function validatePricingConfigNRPG(
         scopeItemDescription: result.label,
         nrpgField: field,
         rate: value,
-        min: result.min,
-        max: result.max,
         label: result.label,
       });
     }

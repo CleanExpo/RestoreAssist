@@ -6,7 +6,6 @@ import {
   pricingSaveErrorText,
   rateInputValue,
 } from "@/lib/pricing/rate-input";
-import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { DollarSign, Save, RefreshCw, Plus, Trash2, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -95,7 +94,7 @@ export default function PricingConfiguration({
     extractionElectricHourlyRate: 80.0,
     injectionDryingSystemDailyRate: 150.0,
     antimicrobialTreatmentRate: 8.5,
-    // RA-7001: floor of the NRPG $65-145/m² range (founder-approved 2026-07-06).
+    // RA-7001: founder-approved starting figure (2026-07-06).
     mouldRemediationTreatmentRate: 65.0,
     biohazardTreatmentRate: 25.0,
     administrationFee: 250.0,
@@ -260,9 +259,7 @@ export default function PricingConfiguration({
         }
       } else {
         const body = await response.json().catch(() => null);
-        toast.error(
-          pricingSaveErrorText(body, (f) => NRPG_RATE_RANGES[f]?.label),
-        );
+        toast.error(pricingSaveErrorText(body));
       }
     } catch (error) {
       console.error("Error saving pricing config:", error);

@@ -170,16 +170,17 @@ export async function PUT(request: NextRequest) {
       }
 
       // NRPG hard boundary validation
-      // RA-1548 — left raw: rich 400 with field/min/max siblings (the client
-      // uses them to highlight the offending input and show the range).
+      // RA-1548 — left raw: flat 400 with a `field` sibling (the client uses
+      // it to highlight the offending input).
+      // RA-8281: the range is read to check the value only. No range figure
+      // goes in the message or the body: the NRPG ranges are private
+      // reference data (founder rule, 2026-11-12).
       const range = NRPG_RATE_RANGES[field];
       if (range && (data[field] < range.min || data[field] > range.max)) {
         return NextResponse.json(
           {
-            error: `${range.label} rate $${data[field].toFixed(2)} is outside the typical industry range ($${range.min} – $${range.max})`,
+            error: `${range.label} rate $${data[field].toFixed(2)} is outside the national price range`,
             field,
-            min: range.min,
-            max: range.max,
           },
           { status: 400 },
         );

@@ -2,7 +2,7 @@
 /**
  * RA-8281 (B2): what a contractor sees when a pricing engine answers with a
  * blocked result. The notice lists every line; a line whose rate is not set
- * reads "Rate not set" with the national range when one exists and has no
+ * reads "Rate not set", never with a national range figure, and has no
  * amount; the total reads "Total not available: rate not set".
  *
  * The two document screens are driven through their real Generate button
@@ -12,11 +12,15 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import {
   blockedPricing,
+  blockedRates,
+  priceListReader,
   TOTAL_NOT_AVAILABLE_NOTE,
   type BlockedPricing,
 } from "@/lib/pricing/blocked-line";
+import { expectNoRangeFigure } from "@/lib/pricing/__tests__/no-range-figure";
 import { BlockedPricingNotice } from "@/components/pricing/BlockedPricingNotice";
 import CostEstimationViewer from "../CostEstimationViewer";
 import ScopeOfWorksViewer from "../ScopeOfWorksViewer";
@@ -37,7 +41,6 @@ const BLOCKED: BlockedPricing = blockedPricing(
       pricingStatus: "rate_not_set",
       rateField: "masterQualifiedNormalHours",
       pricingNote: "Rate not set. Set masterQualifiedNormalHours in your price list.",
-      nationalRange: { min: 60, max: 170, unit: "$/hr" },
     },
     {
       description: "Fire: Debris removal",
@@ -48,7 +51,6 @@ const BLOCKED: BlockedPricing = blockedPricing(
       pricingStatus: "rate_not_set",
       rateField: "rateFireDebrisRemoval",
       pricingNote: "Rate not set. Set rateFireDebrisRemoval in your price list.",
-      nationalRange: null,
     },
     {
       description: "Equipment: saved line",
@@ -86,18 +88,56 @@ afterEach(() => {
 });
 
 describe("BlockedPricingNotice", () => {
-  it("a line with a national range reads Rate not set with the range and no amount", () => {
+  it("a line whose field has a national range reads Rate not set, no range and no amount", () => {
     const { container } = render(
       <BlockedPricingNotice blocked={BLOCKED} title="Cost estimate" />,
     );
     const cells = rowFor(container, "Master technician").querySelectorAll("td");
-    expect(cells[2].textContent).toBe(
-      "Rate not set (national range $60-$170 per hr)",
-    );
+    expect(cells[2].textContent).toBe("Rate not set");
     expect(cells[3].textContent).toBe("—");
   });
 
-  it("a line with no national range reads Rate not set and nothing else", () => {
+  it("shows no range figure, even when an answer in the old shape still carries one", () => {
+    // RA-8281 step 1. The first render is what the engines send today. The
+    // second is the body B2 sent (a cached or in-flight answer from before
+    // this change): the screen must not print its range either.
+    const field = "masterQualifiedNormalHours";
+    const { min, max, unit } = NRPG_RATE_RANGES[field];
+    const today = blockedPricing(
+      [
+        {
+          description: "Labour: Master technician",
+          quantity: 7,
+          unit: "hr",
+          rate: null,
+          subtotal: null,
+          ...priceListReader({ [field]: null }).lineFields([field]),
+          pricingStatus: "rate_not_set",
+        },
+      ],
+      blockedRates({ [field]: null }, [field]),
+    );
+    const oldShape = {
+      ...today,
+      lines: today.lines.map((line) => ({
+        ...line,
+        nationalRange: { min, max, unit },
+      })),
+    } as BlockedPricing;
+
+    for (const blocked of [today, oldShape]) {
+      const { container, unmount } = render(
+        <BlockedPricingNotice blocked={blocked} title="Cost estimate" />,
+      );
+      const cells = rowFor(container, "Master technician").querySelectorAll("td");
+      expect(cells[2].textContent).toBe("Rate not set");
+      expectNoRangeFigure(container.textContent, field);
+      expectNoRangeFigure(container.innerHTML, field);
+      unmount();
+    }
+  });
+
+  it("a line whose field has no national range reads the same", () => {
     const { container } = render(
       <BlockedPricingNotice blocked={BLOCKED} title="Cost estimate" />,
     );
@@ -209,7 +249,7 @@ describe.each([
     fireEvent.click(await screen.findByRole("button", { name: button }));
     const notice = await screen.findByTestId("blocked-pricing");
     expect(notice.textContent).toContain(
-      "Rate not set (national range $60-$170 per hr)",
+      "Rate not set",
     );
     expect(notice.textContent).toContain(TOTAL_NOT_AVAILABLE_NOTE);
     expect(toastError).not.toHaveBeenCalled();
