@@ -64,6 +64,23 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
             {w.problem}
           </p>
         )}
+        {w.unsaved.length > 0 && (
+          <section aria-label="Words not saved" className="space-y-2 rounded-xl border border-red-500/40 bg-red-900/30 p-3 text-sm text-red-200">
+            {w.unsaved.map((words) => (
+              <div key={words} className="space-y-2">
+                <p>{FIRE_COPY.notSaved(words)}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" disabled={w.locked} onClick={() => w.restoreUnsaved(words)} className="min-h-12 rounded-xl border border-white/20">
+                    Move to the typing box
+                  </button>
+                  <button type="button" disabled={w.locked} onClick={() => w.discardUnsaved(words)} className="min-h-12 rounded-xl border border-white/20">
+                    Discard
+                  </button>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
         {w.pending && (
           <button
             type="button"

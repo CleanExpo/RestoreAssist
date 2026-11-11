@@ -368,6 +368,27 @@ describe("state held across screen changes (kind: a mode outliving the thing it 
     await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("Put that under safety brief"));
   });
 
+  it("an unfiled reply is not erased by a later save: it stays listed until restored or discarded", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    const box = screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder });
+    fireEvent.change(box, { target: { value: "Half typed note about the roof" } });
+    act(() => FakeRecognition.live[0].hear("All good here"));
+    await screen.findByRole("group", { name: "Margot's question" });
+    fireEvent.click(screen.getByRole("button", { name: /^Next section/ }));
+    const list = await screen.findByRole("region", { name: "Words not saved" });
+    expect(list).toHaveTextContent(FIRE_COPY.notSaved("All good here"));
+
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit })); // a later save
+    await waitFor(() => expect(calls.some((c) => c.body.transcript === "Half typed note about the roof")).toBe(true));
+    expect(screen.getByRole("region", { name: "Words not saved" })).toHaveTextContent(FIRE_COPY.notSaved("All good here"));
+
+    await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue(""));
+    fireEvent.click(within(screen.getByRole("region", { name: "Words not saved" })).getByRole("button", { name: "Move to the typing box" }));
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("All good here");
+    expect(screen.queryByRole("region", { name: "Words not saved" })).toBeNull();
+  });
+
   it("a listening OFF chosen while the first prompt is spoken is still OFF when it ends", async () => {
     await renderScreen();
     fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.noticeAccept }));
@@ -635,7 +656,7 @@ describe("filing answers", () => {
       refuseNextPost = true;
       act(() => FakeRecognition.live[0].hear("Power isolated but the wiring is damaged"));
       await waitFor(() =>
-        expect(screen.getByRole("alert")).toHaveTextContent(FIRE_COPY.notSaved("Power isolated but the wiring is damaged")),
+        expect(screen.getByRole("region", { name: "Words not saved" })).toHaveTextContent(FIRE_COPY.notSaved("Power isolated but the wiring is damaged")),
       );
       expect(box).toHaveValue("Half typed note");
     });

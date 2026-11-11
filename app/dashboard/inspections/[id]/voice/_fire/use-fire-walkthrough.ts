@@ -45,6 +45,8 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   // A save was sent and its outcome is unconfirmed (kind K17, round 21).
   const [pending, setPending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // Words not filed anywhere yet. Durable: only restoring or discarding removes one.
+  const [unsaved, setUnsaved] = useState<string[]>([]);
   const [noticeSpoken, setNoticeSpoken] = useState(false);
   const held = useRef<HeldSave | null>(null);
   // What the technician has in the typing box now, read after a save returns.
@@ -109,7 +111,8 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
    */
   const keepWords = useCallback(
     (words: string) => {
-      if (!offerWords(words)) setProblem(FIRE_COPY.notSaved(words));
+      if (offerWords(words)) return;
+      setUnsaved((list) => (list.includes(words) ? list : [...list, words]));
     },
     [offerWords],
   );
@@ -153,13 +156,13 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       }
       if (result.kind !== "refused") return;
       // Released by a final refusal: its words must stay visible somewhere.
-      const placed = save.words === undefined || offerWords(save.words);
-      setProblem(placed ? result.message : `${result.message} ${FIRE_COPY.notSaved(save.words!)}`);
+      if (save.words !== undefined) keepWords(save.words);
+      setProblem(result.message);
       // The job file changed since it was reviewed: show the new words so
       // the technician can read them before signing again.
       if (result.body?.code === "REVIEW_STALE") void refresh();
     },
-    [inspectionId, offerWords, refresh, speech, talk],
+    [inspectionId, keepWords, offerWords, refresh, speech, talk],
   );
 
   /**
@@ -391,6 +394,11 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     pick: whenFree((sectionId: string) => {
       if (picking) void fileTo(sectionId, picking, "technician_chose");
     }),
+    unsaved,
+    restoreUnsaved: whenFree((words: string) => {
+      if (offerWords(words)) setUnsaved((list) => list.filter((w) => w !== words));
+    }),
+    discardUnsaved: whenFree((words: string) => setUnsaved((list) => list.filter((w) => w !== words))),
     cancelPick: whenFree(() => {
       if (picking) keepWords(picking);
       setPicking(null);
