@@ -76,22 +76,30 @@ function newKey(): string {
   return `fire-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+/** Unconfirmed saves remembered at once; the oldest is forgotten beyond this. */
+const MAX_UNCONFIRMED = 50;
+
 /**
- * Hands out Idempotency-Keys: the same payload, retried after a failure,
- * gets the same key; anything else gets a fresh one.
+ * Hands out Idempotency-Keys. Every save whose reply never arrived keeps its
+ * own key (kind K12), so retrying it reuses that key even after other answers
+ * were sent in between, and the server cannot file it twice. A key is
+ * released only when that same payload's reply arrives.
  */
 export function createKeyRing() {
-  let pending: { payload: string; key: string } | null = null;
+  const unconfirmed = new Map<string, string>();
   return {
     keyFor(action: FireAction): string {
       const payload = JSON.stringify(action);
-      if (pending && pending.payload === payload) return pending.key;
-      pending = { payload, key: newKey() };
-      return pending.key;
+      const known = unconfirmed.get(payload);
+      if (known) return known;
+      const key = newKey();
+      unconfirmed.set(payload, key);
+      if (unconfirmed.size > MAX_UNCONFIRMED) unconfirmed.delete(unconfirmed.keys().next().value as string);
+      return key;
     },
-    /** Call after a reply arrives (success or refusal): the next save is new. */
-    settle() {
-      pending = null;
+    /** Call when this action's reply arrives (success or refusal). */
+    settle(action: FireAction) {
+      unconfirmed.delete(JSON.stringify(action));
     },
   };
 }

@@ -11,6 +11,9 @@
  * - Recognition is stopped while Margot speaks and resumes only after her
  *   utterance ends, so she is not recorded as the technician.
  * - A final transcript that repeats Margot's last prompt is dropped (echo).
+ * - Only the live recognition is heard (kind K4). Stopping detaches it first,
+ *   so a result, end or error it delivers afterwards (the stop() contract
+ *   allows a final result) does nothing: no save, no restart, no state.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -80,14 +83,21 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
     rec.interimResults = false;
     rec.lang = "en-AU";
     rec.maxAlternatives = 1;
-    rec.onstart = () => setListening(true);
+    // Every event from this recognition passes one check: is it still the
+    // live one, on a screen that is still open?
+    const live = () => !disposedRef.current && recRef.current === rec;
+    rec.onstart = () => {
+      if (live()) setListening(true);
+    };
     rec.onend = () => {
+      if (!live()) return;
       recRef.current = null;
       setListening(false);
       // Hands-free: carry on listening until the technician taps off.
       restartRef.current = setTimeout(() => startRecognition(), 250);
     };
     rec.onresult = (event) => {
+      if (!live()) return;
       const result = event.results[event.results.length - 1];
       if (!result?.isFinal) return;
       const transcript = result[0]?.transcript?.trim() ?? "";
@@ -95,6 +105,7 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
       handlersRef.current.onFinal(transcript);
     };
     rec.onerror = (event) => {
+      if (!live()) return;
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         wantedRef.current = false;
         setWanted(false);
@@ -109,9 +120,13 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
     }
   }, []);
 
+  /** Detach first, then stop: nothing this recognition reports later is heard. */
   const stopRecognition = useCallback(() => {
     const rec = recRef.current;
-    if (rec) rec.stop();
+    if (!rec) return;
+    recRef.current = null;
+    setListening(false);
+    rec.stop();
   }, []);
 
   const speak = useCallback(
@@ -190,7 +205,9 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
       if (pollRef.current !== undefined) clearInterval(pollRef.current);
       if (restartRef.current !== undefined) clearTimeout(restartRef.current);
       wantedRef.current = false;
-      recRef.current?.stop();
+      const rec = recRef.current;
+      recRef.current = null;
+      rec?.stop();
       if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
     },
     [],

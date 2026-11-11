@@ -43,6 +43,12 @@ const endSpeech = (u: FakeUtterance) => {
 
 class FakeRecognition {
   static starts = 0;
+  static last: FakeRecognition | null = null;
+  /**
+   * False models the real stop() contract: the engine may still deliver a
+   * final result from captured audio, and fires onend only later.
+   */
+  static endOnStop = true;
   continuous = true;
   interimResults = true;
   lang = "";
@@ -52,11 +58,12 @@ class FakeRecognition {
   onresult: ((e: unknown) => void) | null = null;
   onerror: ((e: unknown) => void) | null = null;
   start() {
+    FakeRecognition.last = this;
     FakeRecognition.starts += 1;
     this.onstart?.();
   }
   stop() {
-    this.onend?.();
+    if (FakeRecognition.endOnStop) this.onend?.();
   }
 }
 
@@ -74,6 +81,7 @@ beforeEach(() => {
   spoken.length = 0;
   silentEnd = false;
   FakeRecognition.starts = 0;
+  FakeRecognition.endOnStop = true;
   vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
   vi.stubGlobal("speechSynthesis", synth);
   vi.stubGlobal("webkitSpeechRecognition", FakeRecognition);
@@ -81,6 +89,46 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+});
+
+const finalResult = (transcript: string) => ({
+  results: [Object.assign([{ transcript }], { isFinal: true })],
+});
+
+describe("useFireSpeech: only the live recognition is heard (K4)", () => {
+  function heardHook() {
+    const onFinal = vi.fn();
+    const hook = renderHook(() => useFireSpeech({ onFinal, onBlocked: () => {} }));
+    act(() => hook.result.current.setListeningWanted(true));
+    return { hook, onFinal, rec: FakeRecognition.last! };
+  }
+
+  it("hears a final result from the live recognition", () => {
+    const { onFinal, rec } = heardHook();
+    act(() => rec.onresult?.(finalResult("Power is off at the board")));
+    expect(onFinal).toHaveBeenCalledWith("Power is off at the board");
+  });
+
+  it("a final result delivered after the screen is left never reaches onFinal", () => {
+    const { hook, onFinal, rec } = heardHook();
+    FakeRecognition.endOnStop = false;
+    hook.unmount(); // cleanup calls stop(); stop() may still deliver a result
+    act(() => rec.onresult?.(finalResult("Late words after leaving")));
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(onFinal).not.toHaveBeenCalled();
+  });
+
+  it("a result from a recognition stopped for Margot's prompt is dropped and does not restart the mic", () => {
+    const { hook, onFinal, rec } = heardHook();
+    FakeRecognition.endOnStop = false; // the engine reports late, as real ones may
+    act(() => hook.result.current.speak(LONG_PROMPT));
+    FakeRecognition.starts = 0;
+    act(() => rec.onresult?.(finalResult("Words from the stopped mic")));
+    act(() => rec.onend?.());
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(onFinal).not.toHaveBeenCalled();
+    expect(FakeRecognition.starts).toBe(0);
+  });
 });
 
 describe("useFireSpeech: mic waits for Margot", () => {

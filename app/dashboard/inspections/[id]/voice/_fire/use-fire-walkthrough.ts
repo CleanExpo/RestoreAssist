@@ -72,7 +72,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       const result = await postFireAction(inspectionId, action, keys.current.keyFor(action));
       setSaving(false);
       if (result.ok) {
-        keys.current.settle();
+        keys.current.settle(action);
         setView(result.data);
         if (words !== undefined) setTyped((t) => (t.trim() === words.trim() ? "" : t));
         speech.setBusy(false);
@@ -86,7 +86,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         // Same key on retry, so a resend cannot double-file.
         talk(FIRE_COPY.saveFailed);
       } else {
-        keys.current.settle();
+        keys.current.settle(action);
         setProblem(result.message);
       }
       speech.setBusy(false);
