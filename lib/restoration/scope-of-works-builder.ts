@@ -1,13 +1,20 @@
-import { assertRatesSet } from "@/lib/pricing/rate-not-set";
+import {
+  blockedPricing,
+  nationalRangeFor,
+  priceListReader,
+  sumOrBlocked,
+} from "@/lib/pricing/blocked-line";
 import { billableDailyRate } from "@/lib/equipment-matrix";
 import {
   AMOUNT_TOO_LARGE_NOTE,
-  assertEquipmentPriced,
   equipmentLineAmount,
+  equipmentLineBlockedFields,
   priceStoredEquipment,
   readStoredEquipment,
+  UNUSABLE_LINE_LABEL,
   type StoredEquipmentSelections,
 } from "@/lib/reports/stored-equipment-pricing";
+import { documentMissing } from "@/lib/restoration/cost-estimation-builder";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
 import { extractWaterCategory } from "@/lib/reports/extract-report-data";
@@ -61,52 +68,9 @@ export function buildScopeOfWorksData(data: {
     psychrometricAssessment,
     scopeAreas = [],
   } = data;
-  // RA-8281: never price an unset rate at $0 (null * n === 0 in JS).
-  assertRatesSet(pricingConfig, SCOPE_OF_WORKS_RATE_FIELDS);
-
   if (!pricingConfig) {
     throw new Error("Pricing configuration is required");
   }
-
-  const ensureNumber = (value: any): number => {
-    if (value === null || value === undefined || value === "") {
-      return 0;
-    }
-    const num = typeof value === "string" ? parseFloat(value) : Number(value);
-    if (isNaN(num)) {
-      return 0;
-    }
-    return num;
-  };
-
-  const rates = {
-    masterQualifiedNormalHours: ensureNumber(
-      pricingConfig.masterQualifiedNormalHours,
-    ),
-    qualifiedTechnicianNormalHours: ensureNumber(
-      pricingConfig.qualifiedTechnicianNormalHours,
-    ),
-    labourerNormalHours: ensureNumber(pricingConfig.labourerNormalHours),
-    extractionTruckMountedHourlyRate: ensureNumber(
-      pricingConfig.extractionTruckMountedHourlyRate,
-    ),
-    // The billable rate (to the whole cent), as for every equipment line.
-    injectionRate: billableDailyRate(
-      ensureNumber(pricingConfig.injectionDryingSystemDailyRate),
-    ),
-    thermalCameraUseCostPerAssessment: ensureNumber(
-      pricingConfig.thermalCameraUseCostPerAssessment,
-    ),
-    antimicrobialTreatmentRate: ensureNumber(
-      pricingConfig.antimicrobialTreatmentRate,
-    ),
-    mouldRemediationTreatmentRate: ensureNumber(
-      pricingConfig.mouldRemediationTreatmentRate,
-    ),
-    biohazardTreatmentRate: ensureNumber(pricingConfig.biohazardTreatmentRate),
-    callOutFee: ensureNumber(pricingConfig.callOutFee),
-    administrationFee: ensureNumber(pricingConfig.administrationFee),
-  };
 
   // Extract key information
   const waterCategory = tier1?.T1_Q3_waterSource
@@ -207,34 +171,72 @@ export function buildScopeOfWorksData(data: {
       ? Math.max(2, Math.min(8, Math.ceil(affectedAreaSqm / 25)))
       : 4);
 
-  // RA-8281 B1 round 13: priced from the current price list by the one
-  // reader. This document cannot show a blocked line, so an unset rate or a
-  // line that cannot be read refuses the whole document (RateNotSetError, 422
-  // from the route). It is never a $0 line and never an unnamed 500.
+  // RA-8281 B1 round 13: equipment is priced from the current price list by
+  // the one reader. B2: an unset rate, or an equipment line that cannot be
+  // read, makes the line that needs it a blocked line (no rate, no amount).
+  // It is never a $0 line and never left out.
   const pricedEquipment = priceStoredEquipment(
     equipmentSelection,
     pricingConfig,
     dryingDuration,
   );
-  assertEquipmentPriced(pricedEquipment);
+  const equipmentBlocked =
+    pricedEquipment.total === null ? pricedEquipment : null;
 
-  // Build line items
-  const lineItems = [
+  // RA-8281 (B2): every rate is read through the shared price-list reader. No
+  // rate is multiplied directly (null * n === 0 in JS): a figure that needs
+  // an unset rate is null.
+  const P = priceListReader(pricingConfig);
+  const MASTER = "masterQualifiedNormalHours";
+  const QUALIFIED = "qualifiedTechnicianNormalHours";
+  const LABOURER = "labourerNormalHours";
+  const THERMAL = "thermalCameraUseCostPerAssessment";
+  const INJECTION = "injectionDryingSystemDailyRate";
+  const rate = (field: string) => P.calc([field], (r) => r);
+  /** The blocked-line fields for a line that reads `fields` (and equipment). */
+  const blockedBy = (fields: string[], withEquipment = false) => {
+    const byRate = P.lineFields(fields);
+    if (!withEquipment || !equipmentBlocked) return byRate;
+    const equipmentNote = equipmentBlocked.problems.join(" ");
+    if ("pricingStatus" in byRate) {
+      return {
+        ...byRate,
+        pricingNote: `${byRate.pricingNote} ${equipmentNote}`.trim(),
+      };
+    }
+    const [unset] = equipmentBlocked.unset;
+    return unset
+      ? {
+          pricingStatus: "rate_not_set" as const,
+          rateField: unset.field,
+          pricingNote: equipmentNote,
+          nationalRange: nationalRangeFor(unset.field),
+        }
+      : { pricingStatus: "unusable_line" as const, pricingNote: equipmentNote };
+  };
+  const assessmentCount = dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1;
+
+  const lineItems: any[] = [
     {
       id: "RW_1",
       description: "Emergency Call-Out & Site Assessment",
       qty: 1,
       unit: "Call-out",
-      rate: rates.callOutFee,
-      subtotal: rates.callOutFee,
+      rate: rate("callOutFee"),
+      subtotal: rate("callOutFee"),
+      ...blockedBy(["callOutFee"]),
     },
     {
       id: "RW_2",
       description: "Standing Water Extraction (Truck-Mounted Unit)",
       qty: extractionHours,
       unit: "Hour",
-      rate: rates.extractionTruckMountedHourlyRate,
-      subtotal: extractionHours * rates.extractionTruckMountedHourlyRate,
+      rate: rate("extractionTruckMountedHourlyRate"),
+      subtotal: P.calc(
+        ["extractionTruckMountedHourlyRate"],
+        (r) => extractionHours * r,
+      ),
+      ...blockedBy(["extractionTruckMountedHourlyRate"]),
     },
     {
       id: "RW_3",
@@ -242,22 +244,26 @@ export function buildScopeOfWorksData(data: {
       qty: 1,
       unit: "Setup",
       labour: {
-        masterQualified: { hours: 4, rate: rates.masterQualifiedNormalHours },
-        qualified: { hours: 6, rate: rates.qualifiedTechnicianNormalHours },
+        masterQualified: { hours: 4, rate: rate(MASTER) },
+        qualified: { hours: 6, rate: rate(QUALIFIED) },
       },
       equipment: pricedEquipment.lines.reduce((acc: any, line) => {
-        if (line.quantity > 0) {
-          const key = line.groupId.startsWith("lgr-")
-            ? "lgr"
-            : line.groupId.startsWith("desiccant-")
-              ? "desiccant"
-              : line.groupId.startsWith("airmover-")
-                ? "airMovers"
-                : line.groupId.startsWith("heat-")
-                  ? "heat"
-                  : line.groupId.includes("afd")
-                    ? "afd"
-                    : "other";
+        // A usable line of zero units adds nothing. A line that cannot be
+        // read has quantity 0 too, but it blocks the amount, so it is listed.
+        if (line.quantity > 0 || !line.usable) {
+          const key = !line.usable
+            ? "other"
+            : line.groupId.startsWith("lgr-")
+              ? "lgr"
+              : line.groupId.startsWith("desiccant-")
+                ? "desiccant"
+                : line.groupId.startsWith("airmover-")
+                  ? "airMovers"
+                  : line.groupId.startsWith("heat-")
+                    ? "heat"
+                    : line.groupId.includes("afd")
+                      ? "afd"
+                      : "other";
 
           if (!acc[key]) {
             acc[key] = {
@@ -270,22 +276,24 @@ export function buildScopeOfWorksData(data: {
           acc[key].qty += line.quantity;
           acc[key].items.push({
             groupId: line.groupId,
-            name: line.name,
+            name: line.usable ? line.name : UNUSABLE_LINE_LABEL,
             quantity: line.quantity,
             dailyRate: line.dailyRate,
+            ...equipmentLineBlockedFields(line),
           });
         }
         return acc;
       }, {}),
-      subtotal:
-        4 * rates.masterQualifiedNormalHours +
-        6 * rates.qualifiedTechnicianNormalHours +
-        (pricedEquipment.total as number),
+      subtotal: sumOrBlocked([
+        P.calc([MASTER, QUALIFIED], (m, q) => 4 * m + 6 * q),
+        pricedEquipment.total,
+      ]),
+      ...blockedBy([MASTER, QUALIFIED], true),
     },
     {
       id: "RW_4",
       description: "Moisture Assessment & Thermal Imaging",
-      qty: dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1, // Standard: 3 assessments for 7+ days, 2 for 4-6 days, 1 for shorter
+      qty: assessmentCount, // Standard: 3 assessments for 7+ days, 2 for 4-6 days, 1 for shorter
       unit:
         dryingDuration >= 7
           ? "Assessment (Days 0, 3, 7)"
@@ -293,25 +301,16 @@ export function buildScopeOfWorksData(data: {
             ? "Assessment (Days 0, Final)"
             : "Assessment (Day 0)",
       labour: {
-        masterQualified: {
-          hours: dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1,
-          rate: rates.masterQualifiedNormalHours,
-        },
+        masterQualified: { hours: assessmentCount, rate: rate(MASTER) },
       },
       equipment: {
-        thermalCamera: {
-          qty: dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1,
-          rate: rates.thermalCameraUseCostPerAssessment,
-        },
+        thermalCamera: { qty: assessmentCount, rate: rate(THERMAL) },
       },
-      subtotal: (() => {
-        const assessmentCount =
-          dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1;
-        return (
-          assessmentCount * rates.masterQualifiedNormalHours +
-          assessmentCount * rates.thermalCameraUseCostPerAssessment
-        );
-      })(),
+      subtotal: P.calc(
+        [MASTER, THERMAL],
+        (m, t) => assessmentCount * m + assessmentCount * t,
+      ),
+      ...blockedBy([MASTER, THERMAL]),
     },
     {
       id: "RW_5",
@@ -319,49 +318,43 @@ export function buildScopeOfWorksData(data: {
       qty: dryingDuration,
       unit: "Day",
       labour: {
-        qualified: {
-          hours: dryingDuration,
-          rate: rates.qualifiedTechnicianNormalHours,
-        },
+        qualified: { hours: dryingDuration, rate: rate(QUALIFIED) },
       },
-      subtotal: dryingDuration * rates.qualifiedTechnicianNormalHours,
+      subtotal: P.calc([QUALIFIED], (q) => dryingDuration * q),
+      ...blockedBy([QUALIFIED]),
     },
   ];
 
-  // Add Class 4 drying if needed
+  // Add RW_6 only if Class 4 drying is needed
   if (needsClass4 && hasYellowTongue) {
-    // A whole-cent amount; a figure that is not an exact amount is refused,
-    // never shown as $0.
-    const injectionTotal = equipmentLineAmount(
-      rates.injectionRate,
-      1,
-      dryingDuration,
-    );
-    if (injectionTotal === null) throw new RangeError(AMOUNT_TOO_LARGE_NOTE);
+    // The billable rate (to the whole cent), as for every equipment line.
+    const injectionRate = P.calc([INJECTION], (r) => billableDailyRate(r));
     lineItems.push({
       id: "RW_6",
       description: "Drying Protocol — Yellow Tongue Sandwich Drying",
       qty: 1,
       unit: "Application",
       labour: {
-        masterQualified: { hours: 12, rate: rates.masterQualifiedNormalHours },
-        qualified: { hours: 8, rate: rates.qualifiedTechnicianNormalHours },
+        masterQualified: { hours: 12, rate: rate(MASTER) },
+        qualified: { hours: 8, rate: rate(QUALIFIED) },
       },
       equipment: {
-        injectionSystem: {
-          qty: 1,
-          days: dryingDuration,
-          rate: rates.injectionRate,
-        },
+        injectionSystem: { qty: 1, days: dryingDuration, rate: injectionRate },
       },
-      subtotal:
-        12 * rates.masterQualifiedNormalHours +
-        8 * rates.qualifiedTechnicianNormalHours +
-        injectionTotal,
+      subtotal: P.calc([MASTER, QUALIFIED, INJECTION], (m, q, i) => {
+        const injectionTotal = equipmentLineAmount(
+          billableDailyRate(i),
+          1,
+          dryingDuration,
+        );
+        if (injectionTotal === null) throw new RangeError(AMOUNT_TOO_LARGE_NOTE);
+        return 12 * m + 8 * q + injectionTotal;
+      }),
+      ...blockedBy([MASTER, QUALIFIED, INJECTION]),
     });
   }
 
-  // Chemical treatment - use actual data from tier3, analysis, or report
+  // Add RW_7 - Chemical treatment (use actual selection or determine from context)
   const chemicalType =
     tier3?.T3_Q3_chemicalTreatment ||
     analysis?.chemicalTreatment ||
@@ -370,11 +363,11 @@ export function buildScopeOfWorksData(data: {
       : hasBiohazard
         ? "Biohazard treatment"
         : "Standard antimicrobial treatment");
-  let chemicalRate = rates.antimicrobialTreatmentRate;
+  let chemicalField = "antimicrobialTreatmentRate";
   if (chemicalType.includes("mould")) {
-    chemicalRate = rates.mouldRemediationTreatmentRate;
+    chemicalField = "mouldRemediationTreatmentRate";
   } else if (chemicalType.includes("Biohazard") || hasBiohazard) {
-    chemicalRate = rates.biohazardTreatmentRate;
+    chemicalField = "biohazardTreatmentRate";
   }
 
   lineItems.push({
@@ -382,45 +375,64 @@ export function buildScopeOfWorksData(data: {
     description: "Antimicrobial Chemical Treatment",
     qty: affectedAreaSqm,
     unit: "Sqm",
-    rate: chemicalRate,
-    subtotal: affectedAreaSqm * chemicalRate,
+    rate: rate(chemicalField),
+    subtotal: P.calc([chemicalField], (r) => affectedAreaSqm * r),
+    ...blockedBy([chemicalField]),
   });
 
-  // Equipment collection
   lineItems.push({
     id: "RW_8",
     description: "Equipment Collection & Site Cleanup",
     qty: 1,
     unit: "Removal",
     labour: {
-      qualified: { hours: 2, rate: rates.qualifiedTechnicianNormalHours },
-      labourer: { hours: 2, rate: rates.labourerNormalHours },
+      qualified: { hours: 2, rate: rate(QUALIFIED) },
+      labourer: { hours: 2, rate: rate(LABOURER) },
     },
-    subtotal:
-      2 * rates.qualifiedTechnicianNormalHours + 2 * rates.labourerNormalHours,
-  } as any);
+    subtotal: P.calc([QUALIFIED, LABOURER], (q, l) => 2 * q + 2 * l),
+    ...blockedBy([QUALIFIED, LABOURER]),
+  });
 
-  // Final certification
   lineItems.push({
     id: "RW_9",
     description: "Final Drying Certification & Report",
     qty: 1,
     unit: "Certification",
     labour: {
-      masterQualified: { hours: 2, rate: rates.masterQualifiedNormalHours },
+      masterQualified: { hours: 2, rate: rate(MASTER) },
     },
-    subtotal: 2 * rates.masterQualifiedNormalHours,
-  } as any);
+    subtotal: P.calc([MASTER], (m) => 2 * m),
+    ...blockedBy([MASTER]),
+  });
 
-  // Administration fee
   lineItems.push({
     id: "RW_10",
     description: "Administration & Documentation Fee",
     qty: 1,
     unit: "Claim",
-    rate: rates.administrationFee,
-    subtotal: rates.administrationFee,
+    rate: rate("administrationFee"),
+    subtotal: rate("administrationFee"),
+    ...blockedBy(["administrationFee"]),
   });
+
+  // RA-8281 (B2): present only when a line is blocked. A blocked document is
+  // shown to the contractor and never saved.
+  const blocked = lineItems.some((item) => item.subtotal === null)
+    ? blockedPricing(
+        lineItems.map((item) => ({
+          description: `${item.id}: ${item.description}`,
+          quantity: item.qty,
+          unit: item.unit,
+          rate: item.rate ?? null,
+          subtotal: item.subtotal,
+          pricingStatus: item.pricingStatus ?? "priced",
+          rateField: item.rateField,
+          pricingNote: item.pricingNote,
+          nationalRange: item.nationalRange,
+        })),
+        documentMissing(P.missing(), equipmentBlocked),
+      )
+    : null;
 
   // Licensed trades
   const licensedTrades = [];
@@ -543,6 +555,7 @@ export function buildScopeOfWorksData(data: {
     hasClass4Drying: needsClass4,
     hazards: hazards.filter((h: string) => h !== "None identified"),
     safety,
+    ...(blocked ? { blockedPricing: blocked } : {}),
   };
 }
 

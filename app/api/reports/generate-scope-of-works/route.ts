@@ -4,11 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withCurrentEquipment } from "@/lib/reports/report-equipment-response";
 import { resolveStateInfo } from "@/lib/state-detection";
-import {
-  buildScopeOfWorksData,
-  SCOPE_OF_WORKS_RATE_FIELDS,
-} from "@/lib/restoration/scope-of-works-builder";
-import { RateNotSetError, unsetRates } from "@/lib/pricing/rate-not-set";
+import { buildScopeOfWorksData } from "@/lib/restoration/scope-of-works-builder";
+import { blockedPricingResponse } from "@/lib/pricing/blocked-line-response";
 import type { StoredEquipmentSelections } from "@/lib/reports/stored-equipment-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
@@ -184,16 +181,6 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // RA-8281: an unset price-list rate blocks the document; never $0.
-      const unset = unsetRates(pricingConfig, SCOPE_OF_WORKS_RATE_FIELDS);
-      if (unset.length > 0) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: unset.map((u) => u.note).join(" "),
-          status: 422,
-        });
-      }
-
       const stateInfo = resolveStateInfo({
         postcode: report.propertyPostcode,
         country: report.inspection?.propertyCountry,
@@ -230,6 +217,14 @@ export async function POST(request: NextRequest) {
         psychrometricAssessment,
         scopeAreas,
       });
+
+      // RA-8281 (B2): a line whose price-list rate is not set (or an
+      // equipment line that cannot be priced) is shown as a blocked line and
+      // the total is not available. A blocked document is never written to
+      // the report, so no reader of the saved document sees a missing amount.
+      if (scopeData.blockedPricing) {
+        return blockedPricingResponse(scopeData.blockedPricing);
+      }
 
       // RA-7003 store convergence: fold the inspection's captured scope items
       // into both the data payload and the client document.
@@ -277,14 +272,6 @@ export async function POST(request: NextRequest) {
         message: "Scope of Works generated successfully",
       });
     } catch (error) {
-      // RA-8281: an unset equipment rate (via getEquipmentDailyRate) blocks.
-      if (error instanceof RateNotSetError) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: error.message,
-          status: 422,
-        });
-      }
       return fromException(request, error, {
         stage: "generate-scope-of-works",
       });

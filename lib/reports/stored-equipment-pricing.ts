@@ -21,14 +21,24 @@
  */
 import {
   getEquipmentGroupById,
+  getEquipmentPricingField,
   isPricedEquipmentType,
   selectionDailyRate,
   type EquipmentSelection,
 } from "@/lib/equipment-matrix";
 import { RateNotSetError, type UnsetRate } from "@/lib/pricing/rate-not-set";
 
-/** What a report shows in place of a money figure it cannot compute. */
-export const RATE_NOT_SET_LABEL = "Rate not set";
+import {
+  nationalRangeFor,
+  RATE_NOT_SET_LABEL,
+  type BlockedLineFields,
+} from "@/lib/pricing/blocked-line";
+
+/**
+ * What a report shows in place of a money figure it cannot compute. Owned by
+ * lib/pricing/blocked-line.ts (RA-8281 B2); re-exported for B1's readers.
+ */
+export { RATE_NOT_SET_LABEL };
 
 /**
  * What a consumer holds before it is read: the database column (a JSON
@@ -462,6 +472,35 @@ export function assertEquipmentPriced(priced: PricedEquipment): void {
 }
 
 /** "$45.00", or "Rate not set" for a figure that could not be computed. */
+/**
+ * RA-8281 (B2): what a document line carries for an equipment line that has
+ * no amount, so the line is shown blocked instead of refusing the document.
+ * Nothing for a priced line. A rate the price list leaves unset names its
+ * field and the national range; a line that cannot be read, or whose amount
+ * is not exact, carries its note only.
+ */
+export function equipmentLineBlockedFields(
+  line: PricedEquipmentLine,
+):
+  | BlockedLineFields
+  | { pricingStatus: "unusable_line"; pricingNote: string }
+  | {} {
+  if (line.total !== null) return {};
+  const field = line.usable ? getEquipmentPricingField(line.groupId) : null;
+  if (field === null || line.note === AMOUNT_TOO_LARGE_NOTE) {
+    return {
+      pricingStatus: "unusable_line",
+      pricingNote: line.note ?? MALFORMED_LINE_NOTE,
+    };
+  }
+  return {
+    pricingStatus: "rate_not_set",
+    rateField: field,
+    pricingNote: line.note ?? `${RATE_NOT_SET_LABEL}.`,
+    nationalRange: nationalRangeFor(field),
+  };
+}
+
 export function moneyOrRateNotSet(value: number | null): string {
   return value === null ? RATE_NOT_SET_LABEL : `$${value.toFixed(2)}`;
 }
