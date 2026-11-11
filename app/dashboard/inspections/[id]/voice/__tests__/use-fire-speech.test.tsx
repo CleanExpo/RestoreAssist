@@ -3,7 +3,8 @@ import "@testing-library/jest-dom/vitest";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useFireSpeech } from "../_fire/use-fire-speech";
+import { isEcho, useFireSpeech } from "../_fire/use-fire-speech";
+import { getFireSection, sectionSpeech } from "@/lib/voice/fire-smoke/checklist";
 
 /**
  * The microphone may reopen only on a confirmed end of Margot's speech:
@@ -183,5 +184,22 @@ describe("useFireSpeech: React Strict Mode (development double mount)", () => {
     expect(FakeRecognition.starts).toBe(1);
     act(() => hook.result.current.speak("Short prompt."));
     expect(spoken).toHaveLength(1);
+  });
+});
+
+describe("isEcho drops only Margot's own prompt heard back, never a real answer", () => {
+  const prompt = sectionSpeech(getFireSection("site_access")!);
+
+  it("a technician answer that happens to reuse words from the prompt is not an echo", () => {
+    expect(isEcho("police or fire services have released the site", prompt)).toBe(false);
+  });
+
+  it("the whole prompt replayed is an echo", () => {
+    expect(isEcho(prompt, prompt)).toBe(true);
+  });
+
+  it("most of the prompt replayed (the start cut off) is still an echo", () => {
+    const words = prompt.split(" ");
+    expect(isEcho(words.slice(0, Math.ceil(words.length * 0.9)).join(" "), prompt)).toBe(true);
   });
 });

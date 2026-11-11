@@ -46,7 +46,10 @@ export function isEcho(transcript: string, lastPrompt: string): boolean {
   const said = normaliseUtterance(lastPrompt).replace(/[^a-z0-9 ]/g, "");
   if (!heard || !said) return false;
   if (heard === said) return true;
-  return heard.split(" ").length >= 4 && said.includes(heard);
+  // A real answer often reuses words from the prompt, so a substring is not
+  // an echo. Only a replay of most of the prompt (a clipped start or end) is.
+  const heardWords = heard.split(" ").length;
+  return heardWords >= 4 && said.includes(heard) && heardWords >= Math.ceil(said.split(" ").length * 0.8);
 }
 
 export interface FireSpeechHandlers {
