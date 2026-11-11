@@ -27,6 +27,7 @@ export const FIRE_COPY = {
   confirmNo: "Okay. Which section does it belong to? Tap one below.",
   naAskReason: "Tell me why this section does not apply, and I'll mark it N/A.",
   markedNa: (title: string) => `${title} marked not applicable.`,
+  confirmNa: (title: string) => `Mark the whole ${title} section as not applicable? Say yes or no.`,
   sectionDone: (title: string) => `That covers ${title}. Say more, or tap Next section.`,
   allDone:
     "Every section is filled in or marked not applicable. Please review the summary, then type your name and sign off.",

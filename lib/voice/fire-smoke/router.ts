@@ -13,7 +13,10 @@ import { FIRE_CHECKLIST, getFireSection, type FireChecklistSection } from "./che
 export type RouteDecision =
   | { kind: "file"; sectionId: string; score: number }
   | { kind: "ask"; candidateSectionId: string }
-  | { kind: "na"; sectionId: string; reason: string };
+  // A spoken N/A is only ever a proposal. Closing a whole section needs the
+  // technician's yes, because one sentence can say a part does not apply and
+  // still carry a hazard ("gas not applicable, but the wiring is live").
+  | { kind: "confirm_na"; sectionId: string; reason: string };
 
 const CURRENT_SECTION_LEAD = 0.5;
 const WINNING_MARGIN = 1;
@@ -74,7 +77,7 @@ export function routeUtterance(
   const current = currentSectionId ? getFireSection(currentSectionId) : undefined;
 
   if (current && isNaUtterance(normalised)) {
-    return { kind: "na", sectionId: current.id, reason: transcript.trim() };
+    return { kind: "confirm_na", sectionId: current.id, reason: transcript.trim() };
   }
 
   const scored = FIRE_CHECKLIST.map((section) => {

@@ -104,9 +104,14 @@ describe("fire checklist", () => {
     const swms = prompt("safety_brief", "swms_reviewed");
     expect(swms.startsWith("Will any work today be high-risk construction work")).toBe(true);
     const incident = prompt("safety_brief", "incident_notification");
-    expect(incident).toMatch(/notifiable incident/);
+    expect(incident).toMatch(/whether WorkSafe must be notified/);
     expect(incident).toMatch(/employer/);
     expect(incident).not.toMatch(/\bmay be a notifiable\b/);
+    // S42 (WorkSafe Victoria, Report an incident): the scene stays undisturbed
+    // until an inspector arrives or WorkSafe advises otherwise, not until the
+    // employer decides.
+    expect(incident).toMatch(/until a WorkSafe inspector arrives or WorkSafe says otherwise/);
+    expect(incident).not.toMatch(/until they decide/);
   });
 
   it("the research pack carries no real client details", () => {

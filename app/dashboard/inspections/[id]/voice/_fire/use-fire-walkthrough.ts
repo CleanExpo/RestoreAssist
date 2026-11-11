@@ -15,6 +15,9 @@ import { createKeyRing, postFireAction, startVoiceSession } from "./fire-client"
 import { useFireSpeech } from "./use-fire-speech";
 
 interface PendingAsk {
+  // "section": is this answer part of the candidate section?
+  // "na": close the whole candidate section as not applicable?
+  mode: "section" | "na";
   transcript: string;
   candidateSectionId: string;
   say: string;
@@ -104,7 +107,12 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       const outcome = res.outcome;
       if (!outcome) return;
       if (outcome.kind === "ask") {
-        setAsk({ transcript, candidateSectionId: outcome.candidateSectionId, say: outcome.say });
+        setAsk({ mode: "section", transcript, candidateSectionId: outcome.candidateSectionId, say: outcome.say });
+        talk(outcome.say);
+        return;
+      }
+      if (outcome.kind === "confirm_na") {
+        setAsk({ mode: "na", transcript, candidateSectionId: outcome.sectionId, say: outcome.say });
         talk(outcome.say);
         return;
       }
@@ -144,6 +152,19 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       }
       if (ask) {
         const answer = parseYesNo(words);
+        if (ask.mode === "na") {
+          if (answer === "yes") {
+            const res = await send(
+              { action: "mark_na", sessionId, sectionId: ask.candidateSectionId, reason: ask.transcript, failedAttemptsBefore: 0 },
+              ask.transcript,
+            );
+            if (res) handleOutcome(res, ask.transcript);
+          } else if (answer === "no") {
+            // Keep the words, and any hazard in them, as an entry in the section.
+            await fileTo(ask.candidateSectionId, ask.transcript, "technician_chose");
+          } else talk(ask.say);
+          return;
+        }
         if (answer === "yes") await fileTo(ask.candidateSectionId, ask.transcript, "technician_confirmed");
         else if (answer === "no") {
           setPicking(ask.transcript);

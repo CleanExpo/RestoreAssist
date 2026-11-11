@@ -274,6 +274,36 @@ describe("filing answers", () => {
     expect(calls.at(-1)!.body).toMatchObject({ action: "file", sectionId: "safety_brief", routedBy: "technician_chose" });
   });
 
+  it("asks before a spoken N/A closes a section, and No keeps the words as an entry", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer("Not applicable, but the electrical wiring is live and damaged");
+    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
+    expect(screen.getByTestId("margot-says")).toHaveTextContent("as not applicable? Say yes or no.");
+    expect(rows.filter((r) => r.type === "fire_section_na")).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
+    expect(rows.filter((r) => r.type === "fire_section_na")).toHaveLength(0);
+    expect(calls.at(-1)!.body).toMatchObject({
+      action: "file",
+      sectionId: "site_access",
+      routedBy: "technician_chose",
+      transcript: "Not applicable, but the electrical wiring is live and damaged",
+    });
+  });
+
+  it("Yes to the N/A question closes the section with the spoken reason", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer("Not applicable, nobody else is on site");
+    await waitFor(() => screen.getByRole("button", { name: "Yes" }));
+    expect(rows.filter((r) => r.type === "fire_section_na")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_na")).toHaveLength(1));
+    expect(calls.at(-1)!.body).toMatchObject({ action: "mark_na", sectionId: "site_access", reason: "Not applicable, nobody else is on site" });
+  });
+
   it("a failed save keeps the words, says so, and retries with the same key", async () => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();

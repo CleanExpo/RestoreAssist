@@ -101,7 +101,7 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
       {
         id: "incident_notification",
         prompt:
-          "Has anyone been hurt, or has anything dangerous happened on site? If so, has your employer been told straight away so they can decide whether it is a notifiable incident for WorkSafe, and is the scene being left as it is until they decide, unless you need to make it safe or help someone?",
+          "Has anyone been hurt, or has anything dangerous happened on site? If so, has your employer been told straight away so they can work out whether WorkSafe must be notified? If it is notifiable, is the scene being left as it is until a WorkSafe inspector arrives or WorkSafe says otherwise, unless you need to make it safe or help someone?",
         cites: [{ source: "S08", pinpoint: "s37, s38, s39" }],
       },
     ],

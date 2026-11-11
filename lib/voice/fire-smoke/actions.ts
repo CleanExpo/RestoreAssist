@@ -149,8 +149,11 @@ async function recordAnswer(
       const say = clarifyingQuestion(decision.candidateSectionId);
       return { ok: true, outcome: { kind: "ask", candidateSectionId: decision.candidateSectionId, say } };
     }
-    if (decision.kind === "na") {
-      return markNa(db, action.sessionId, decision.sectionId, decision.reason, 0, action.transcript, seq);
+    if (decision.kind === "confirm_na") {
+      // No write: the client asks "mark the whole section N/A?" and only a yes
+      // sends mark_na. A no files the words as an entry, so nothing is lost.
+      const say = FIRE_COPY.confirmNa(sectionTitle(decision.sectionId));
+      return { ok: true, outcome: { kind: "confirm_na", sectionId: decision.sectionId, reason: decision.reason, say } };
     }
     return fileEntry(db, action.sessionId, decision.sectionId, action.transcript, "router", seq);
   }

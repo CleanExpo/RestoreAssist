@@ -66,13 +66,21 @@ describe("routeUtterance", () => {
     ).toMatchObject({ kind: "file", sectionId: "services" });
   });
 
-  it("treats a not-applicable answer as N/A for the current section, keeping the words as the reason", () => {
+  it("treats a not-applicable answer as a proposal to confirm, keeping the words as the reason", () => {
     expect(routeUtterance("Not applicable, there is no gas at this house", "services")).toEqual({
-      kind: "na",
+      kind: "confirm_na",
       sectionId: "services",
       reason: "Not applicable, there is no gas at this house",
     });
-    expect(routeUtterance("N/A no contents left", "contents")).toMatchObject({ kind: "na" });
+    expect(routeUtterance("N/A no contents left", "contents")).toMatchObject({ kind: "confirm_na" });
+  });
+
+  // Kind K10: a voice utterance never closes a whole section by itself.
+  it("never closes a section straight from speech, even when the words carry a hazard", () => {
+    const decision = routeUtterance("Gas is not applicable, but the electrical wiring is live and damaged", "services");
+    expect(decision.kind).not.toBe("na");
+    expect(decision.kind).not.toBe("file");
+    expect(decision).toMatchObject({ kind: "confirm_na", sectionId: "services" });
   });
 
   it("never marks N/A without a current section", () => {

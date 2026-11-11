@@ -173,7 +173,8 @@ export interface FireWalkthroughResponse {
 export type CaptureOutcome =
   | { kind: "filed"; sectionId: string; say: string }
   | { kind: "ask"; candidateSectionId: string; say: string }
-  | { kind: "marked_na"; sectionId: string; say: string };
+  | { kind: "marked_na"; sectionId: string; say: string }
+  | { kind: "confirm_na"; sectionId: string; reason: string; say: string };
 
 export interface FireActionResponse extends FireWalkthroughResponse {
   outcome?: CaptureOutcome;
