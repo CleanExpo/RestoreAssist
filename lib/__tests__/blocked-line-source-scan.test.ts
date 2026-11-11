@@ -227,3 +227,87 @@ describe("RA-8281 B2 source scan", () => {
     );
   });
 });
+
+/**
+ * Rule D: a screen that asks an engine route for a price reads the blocked
+ * answer and shows it with the one notice. A screen that only reads
+ * `error.error` would show a blocked result as a bare error, or as nothing.
+ */
+const ENGINE_FETCH =
+  /fetch\(\s*[`"'][^`"']*(\/api\/calculate\b|\/api\/reports\/generate-cost-estimation\b|\/api\/reports\/generate-scope-of-works\b|\/cost-estimates[`"'])/;
+
+function screensNotShowingBlocked(
+  files: readonly string[],
+  source: (file: string) => string,
+): string[] {
+  return files.filter((f) => {
+    if (f.startsWith("app/api/")) return false;
+    const src = source(f);
+    if (!ENGINE_FETCH.test(src)) return false;
+    // A GET of saved estimates is not a pricing run; only a POST is.
+    if (!/method:\s*["']POST["']/.test(src)) return false;
+    return !(
+      /\breadBlockedPricing\s*\(/.test(src) && /<BlockedPricingNotice\b/.test(src)
+    );
+  });
+}
+
+describe("RA-8281 B2 Rule D: every screen that runs an engine shows a blocked result", () => {
+  it("the screens that call an engine route are the four known ones", () => {
+    expect(FILES.filter((f) => !f.startsWith("app/api/") && ENGINE_FETCH.test(read(f))).sort()).toEqual([
+      "app/dashboard/inspections/[id]/page.tsx",
+      "app/dashboard/quote/page.tsx",
+      "components/CostEstimationViewer.tsx",
+      "components/ScopeOfWorksViewer.tsx",
+    ]);
+  });
+
+  it("each of them reads the blocked answer and renders the notice", () => {
+    expect(screensNotShowingBlocked(FILES, read)).toEqual([]);
+  });
+
+  // The inspection page is too large to render in a unit test, so its
+  // handler is held by shape: the blocked answer is read and shown, and the
+  // handler returns before it can raise an error or touch the saved estimate.
+  const inspectionHandlerHolds = (src: string): boolean => {
+    const start = src.indexOf("const handleGenerateCosts = async");
+    const body = src.slice(start, src.indexOf("finally", start));
+    const read = body.indexOf("const blocked = readBlockedPricing(data);");
+    const show = body.indexOf("setBlockedCosts(blocked);");
+    const stop = body.indexOf("if (blocked) return;");
+    const fail = body.indexOf("if (!res.ok)");
+    const save = body.indexOf("setInspection(");
+    return (
+      start >= 0 && read >= 0 && read < show && show < stop && stop < fail && stop < save
+    );
+  };
+
+  it("the inspection page shows a blocked estimate before any error or saved-estimate update", () => {
+    const src = read("app/dashboard/inspections/[id]/page.tsx");
+    expect(inspectionHandlerHolds(src)).toBe(true);
+    expect(src).toMatch(/\{blockedCosts && \(/);
+    // Can fail: the early return removed, or moved after the error branch.
+    expect(inspectionHandlerHolds(src.replace("if (blocked) return;", ""))).toBe(false);
+    expect(
+      inspectionHandlerHolds(
+        src
+          .replace("if (blocked) return;", "")
+          .replace("setInspection((prev)", "if (blocked) return;\n setInspection((prev)"),
+      ),
+    ).toBe(false);
+  });
+
+  it("Rule D can fail: a screen with the blocked branch removed is reported", () => {
+    const target = "components/ScopeOfWorksViewer.tsx";
+    expect(
+      screensNotShowingBlocked(FILES, (file) =>
+        file === target ? read(file).replace(/readBlockedPricing\s*\(/g, "ignore(") : read(file),
+      ),
+    ).toEqual([target]);
+    expect(
+      screensNotShowingBlocked(FILES, (file) =>
+        file === target ? read(file).replace(/<BlockedPricingNotice\b/g, "<div") : read(file),
+      ),
+    ).toEqual([target]);
+  });
+});

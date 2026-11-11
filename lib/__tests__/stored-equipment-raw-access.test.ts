@@ -51,9 +51,9 @@ const EXCEPTIONS: Record<string, Exception> = {
     reason: "reads PricedEquipmentLine values returned by priceStoredEquipment",
   },
   "lib/restoration/cost-estimation-builder.ts": {
-    receivers: ["line", "l", "pricingConfig"],
+    receivers: ["line", "l", "pricingConfig", "item"],
     reason:
-      "reads StoredEquipmentLine / PricedEquipmentLine values from the one reader; pricingConfig.*DailyRate is the price list itself",
+      "reads StoredEquipmentLine / PricedEquipmentLine values from the one reader; pricingConfig.*DailyRate is the price list itself; item is a line of the document this file just built from those values (RA-8281 B2 blocked result)",
   },
   "lib/restoration/scope-of-works-builder.ts": {
     receivers: ["line"],
@@ -617,7 +617,6 @@ const RAW_RATE_READ_EXCEPTIONS: Record<string, string> = {
   "app/api/reports/initial-entry/route.ts":
     "validates the raw price-list value, then prices and stores billableDailyRate(listRate); held by the source test in rule E",
   // Other pricing domains with their own arithmetic; not equipment selections on a report (RA-8292).
-  "app/api/calculate/route.ts": "the quick calculator domain: its own unit-day arithmetic and defaults (RA-8292)",
   "lib/scope-biohazard.ts": "the biohazard scope domain: a unit cost on a scope item, not a stored selection (RA-8292)",
   "lib/scope-mould.ts": "the mould scope domain: a unit cost on a scope item, not a stored selection (RA-8292)",
   "lib/scope-storm.ts": "the storm scope domain: a unit cost on a scope item, not a stored selection (RA-8292)",

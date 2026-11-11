@@ -215,6 +215,21 @@ export function blockedPricing(
   };
 }
 
+/**
+ * The blocked result in a route's answer (blockedPricingResponse), or null
+ * when the answer is anything else. Screens call this on a failed pricing
+ * request so a blocked result is shown line by line, not as an error.
+ */
+export function readBlockedPricing(body: unknown): BlockedPricing | null {
+  const blocked = (body as { blocked?: Partial<BlockedPricing> } | null)
+    ?.blocked;
+  return blocked?.status === "blocked" &&
+    Array.isArray(blocked.lines) &&
+    Array.isArray(blocked.missing)
+    ? (blocked as BlockedPricing)
+    : null;
+}
+
 /** What a rate cell shows: the label, with the national range when one exists. */
 export function rateNotSetText(nationalRange?: NationalRange | null): string {
   return nationalRange

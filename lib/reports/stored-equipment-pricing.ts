@@ -21,7 +21,6 @@
  */
 import {
   getEquipmentGroupById,
-  getEquipmentPricingField,
   isPricedEquipmentType,
   selectionDailyRate,
   type EquipmentSelection,
@@ -68,6 +67,11 @@ export interface PricedEquipmentLine extends StoredEquipmentLine {
   total: number | null;
   /** "Rate not set. Set <field> ..." when the rate is not set, else null. */
   note: string | null;
+  /**
+   * RA-8281 (B2): the price-list field this line needs and the contractor has
+   * not set, as the rate reader reported it. Present only on such a line.
+   */
+  rateField?: string;
 }
 
 export interface PricedEquipment {
@@ -400,6 +404,7 @@ function priceRawLines(
       }
       let dailyRate: number | null;
       let note: string | null = null;
+      let rateField: string | undefined;
       try {
         dailyRate = selectionDailyRate(
           { groupId: read.groupId },
@@ -409,6 +414,7 @@ function priceRawLines(
         if (!(err instanceof RateNotSetError)) throw err;
         dailyRate = null;
         note = err.message;
+        rateField = err.unset[0]?.field;
         for (const u of err.unset) unset.set(u.field, u);
       }
       if (dailyRate !== null) {
@@ -431,6 +437,7 @@ function priceRawLines(
         dailyTotal: null,
         total: null,
         note,
+        ...(rateField !== undefined ? { rateField } : {}),
       };
     },
   );
@@ -486,8 +493,8 @@ export function equipmentLineBlockedFields(
   | { pricingStatus: "unusable_line"; pricingNote: string }
   | {} {
   if (line.total !== null) return {};
-  const field = line.usable ? getEquipmentPricingField(line.groupId) : null;
-  if (field === null || line.note === AMOUNT_TOO_LARGE_NOTE) {
+  const field = line.rateField;
+  if (field === undefined) {
     return {
       pricingStatus: "unusable_line",
       pricingNote: line.note ?? MALFORMED_LINE_NOTE,
