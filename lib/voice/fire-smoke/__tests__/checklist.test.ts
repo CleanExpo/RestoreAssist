@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { FIRE_CHECKLIST, FIRE_SECTION_IDS, isFireSectionId } from "../checklist";
+import { regulation } from "@/lib/compliance/regulatory-registry";
+import { ASBESTOS_PRESUMPTION_ID, FIRE_CHECKLIST, FIRE_SECTION_IDS, isFireSectionId } from "../checklist";
 import { FIRE_SOURCES, getFireSource } from "../sources";
 
 const PACK = readFileSync(
@@ -116,5 +117,14 @@ describe("fire checklist", () => {
 
   it("the research pack carries no real client details", () => {
     expect(PACK).not.toMatch(/RACV/i);
+  });
+});
+
+describe("asbestos build-year question", () => {
+  it("states the registry's Australian presumption year, never the old 1990 rule", () => {
+    const year = String(regulation(ASBESTOS_PRESUMPTION_ID).value);
+    const item = FIRE_CHECKLIST.flatMap((s) => s.items).find((i) => i.id === "building_age");
+    expect(item?.prompt).toContain(`before ${year}`);
+    expect(item?.prompt).not.toContain("1990");
   });
 });

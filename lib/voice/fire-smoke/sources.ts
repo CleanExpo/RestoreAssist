@@ -44,7 +44,7 @@ export const FIRE_SOURCES: readonly FireSource[] = [
     title: "AS-IICRC S500:2025 Standard for professional water damage restoration",
     publisher: "Standards Australia",
     version: "Current, published 28/03/2025 (adopts ANSI/IICRC S500:2021)",
-    url: "https://store.standards.org.au/product/as-iicrc-s500-2025",
+    url: "https://store.standards.org.au/product/as-iicrc-s500-2025", // standards-cite-ignore: Standards Australia store URL slug for AS-IICRC S500:2025
     openedOn: OPENED,
     licence: "TITLE_ONLY",
     appliesInVictoria: true,
@@ -54,7 +54,7 @@ export const FIRE_SOURCES: readonly FireSource[] = [
     title: "AS-IICRC S520:2025 Standard for professional mould remediation",
     publisher: "Standards Australia",
     version: "Current, published 28/11/2025 (adopts ANSI/IICRC S520:2024)",
-    url: "https://store.standards.org.au/product/as-iicrc-s520-2025",
+    url: "https://store.standards.org.au/product/as-iicrc-s520-2025", // standards-cite-ignore: Standards Australia store URL slug for AS-IICRC S520:2025
     openedOn: OPENED,
     licence: "TITLE_ONLY",
     appliesInVictoria: true,

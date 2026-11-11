@@ -13,6 +13,15 @@
  * migration).
  */
 
+import { regulation } from "@/lib/compliance/regulatory-registry";
+
+/**
+ * Buildings from before this year may contain asbestos. Read from the
+ * regulatory registry (asbestos.presumption-year.au), never written here.
+ */
+export const ASBESTOS_PRESUMPTION_ID = "asbestos.presumption-year.au";
+const asbestosBefore = regulation(ASBESTOS_PRESUMPTION_ID).value;
+
 export interface FireCitation {
   source: string;
   pinpoint?: string;
@@ -172,14 +181,14 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
     keywords: [
       "asbestos", "fibro", "acm", "hazmat", "hazardous", "lead", "lead paint",
       "chemical", "chemicals", "built in", "built before", "1990", "1980",
-      "1970", "eaves", "sample", "hygienist", "licensed removalist",
+      "1970", "2000", "eaves", "sample", "hygienist", "licensed removalist",
       "register", "debris", "ash", "soot",
     ],
     items: [
       {
         id: "building_age",
         prompt:
-          "Roughly when was the building built? Homes built before 1990 often contain asbestos, so assume it is there until tested.",
+          `Roughly when was the building built? Anything built before ${asbestosBefore} may contain asbestos, so assume it is there until tested.`,
         cites: [{ source: "S09", pinpoint: "r304" }, { source: "S24" }],
       },
       {
