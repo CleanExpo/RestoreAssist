@@ -91,14 +91,15 @@ function newKey(): string {
   return `fire-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** Unconfirmed saves remembered at once; the oldest is forgotten beyond this. */
-const MAX_UNCONFIRMED = 50;
-
 /**
  * Hands out Idempotency-Keys. Every save whose reply never arrived keeps its
  * own key (kind K12), so retrying it reuses that key even after other answers
- * were sent in between, and the server cannot file it twice. A key is
- * released only when that same payload's reply arrives.
+ * were sent in between, and the server cannot file it twice.
+ *
+ * Design rule (K12, fourth instance): a key lives exactly as long as its save
+ * is unconfirmed. settle() is the ONLY place a key is removed; there is no
+ * size cap and no eviction. Each entry is one short string per answer that
+ * never got a final reply, so memory is bounded by the answers on one job.
  */
 export function createKeyRing() {
   const unconfirmed = new Map<string, string>();
@@ -109,7 +110,6 @@ export function createKeyRing() {
       if (known) return known;
       const key = newKey();
       unconfirmed.set(payload, key);
-      if (unconfirmed.size > MAX_UNCONFIRMED) unconfirmed.delete(unconfirmed.keys().next().value as string);
       return key;
     },
     /** Call when this action's reply arrives (success or refusal). */

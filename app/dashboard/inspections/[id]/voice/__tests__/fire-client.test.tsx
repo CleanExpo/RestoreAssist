@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createKeyRing, postFireAction } from "../_fire/fire-client";
 import type { FireAction } from "@/lib/voice/fire-smoke/schema";
@@ -21,6 +23,23 @@ describe("createKeyRing (kind K12: each unconfirmed save keeps its own key)", ()
     keys.settle(capture("Gas meter is off"));
     expect(keys.keyFor(capture("Gas meter is off"))).not.toBe(a);
     expect(keys.keyFor(capture("Power isolated at the board"))).toBe(b);
+  });
+
+  it("never forgets an unconfirmed key, however many other answers are waiting (round 13)", () => {
+    const keys = createKeyRing();
+    const first = keys.keyFor(capture("answer 0"));
+    for (let i = 1; i <= 500; i += 1) keys.keyFor(capture(`answer ${i}`));
+    expect(keys.keyFor(capture("answer 0"))).toBe(first);
+  });
+
+  it("settle() is the only code that removes a key (one owner for the K12 rule)", () => {
+    const src = readFileSync(
+      join(__dirname, "..", "_fire", "fire-client.ts"),
+      "utf8",
+    );
+    const ring = src.slice(src.indexOf("export function createKeyRing"));
+    expect(ring.match(/\.delete\(|\.clear\(/g) ?? []).toHaveLength(1);
+    expect(ring.slice(ring.indexOf("settle("))).toMatch(/unconfirmed\.delete\(/);
   });
 });
 
