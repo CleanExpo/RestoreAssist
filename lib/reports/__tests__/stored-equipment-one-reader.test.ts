@@ -46,7 +46,6 @@ describe("the one reader: the stored column, parsed or not", () => {
   it.each([
     ["null", null],
     ["undefined", undefined],
-    ["blank text", "   "],
     ['the text "null"', "null"],
     ['the text "[]"', "[]"],
     ["an empty list", []],
@@ -57,6 +56,11 @@ describe("the one reader: the stored column, parsed or not", () => {
 
   it.each([
     ["text that is not JSON", "{not json"],
+    // Review 9: blank text is not "nothing sent". Only null and undefined are.
+    ["empty text", ""],
+    ["text of spaces", "   "],
+    ["text of a tab and a new line", "\t\n"],
+    ['the text of a blank JSON string', '"  "'],
     ["a null entry", [null]],
     ['the text "[null]"', "[null]"],
     ["a number", 7],

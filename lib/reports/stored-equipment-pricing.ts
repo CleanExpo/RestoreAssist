@@ -220,12 +220,14 @@ function hasOversizeQuantity(raw: unknown): boolean {
 
 /**
  * The stored column is a JSON string. Text that parses is its parsed value;
- * blank text is no value; text that does not parse stays as it is, so it
- * becomes one unreadable line below instead of an exception or "no equipment".
+ * text that does not parse stays as it is, so it becomes one unreadable line
+ * below instead of an exception or "no equipment". Blank text does not parse
+ * and is no exception (review 9): only null and undefined mean "no value",
+ * and the list [] is the one explicit empty list. Reading "" or spaces as
+ * absent let a save that posted them replace the saved lines with nothing.
  */
 function parseStored(value: unknown): unknown {
   if (typeof value !== "string") return value;
-  if (value.trim() === "") return null;
   try {
     return JSON.parse(value);
   } catch {

@@ -115,7 +115,7 @@ describe("GET /api/reports/[id] prices stored equipment now", () => {
     expect(body.equipmentCostTotal).toBeNull();
   });
 
-  it.each(["[null]", "{not json"])(
+  it.each(["[null]", "{not json", "   ", ""])(
     "stored %s is one line that is not usable with a blocked total (no 500)",
     async (column) => {
       stored(column, 244);
@@ -198,7 +198,7 @@ describe("PUT /api/reports/[id] answers with stored equipment priced now", () =>
     expect(body.equipmentCostTotal).toBe(70 * DAYS);
   });
 
-  it.each(["[null]", "{not json"])("stored %s: one line that is not usable, blocked total, no 500", async (column) => {
+  it.each(["[null]", "{not json", "   ", ""])("stored %s: one line that is not usable, blocked total, no 500", async (column) => {
     saved(column, 244);
     resolveReportPricing.mockResolvedValue({
       ok: true,

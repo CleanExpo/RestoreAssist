@@ -377,6 +377,27 @@ describe("equipment route: rate, and total reconcile for a part-cent rate", () =
   });
 });
 
+// Review 9: blank text posted as the whole selection used to read as "nothing
+// sent", so the save answered 200 and replaced the saved lines with [].
+describe("POST /api/reports/[id]/equipment refuses a blank text selection", () => {
+  it.each([["empty text", ""], ["spaces", "   "], ["a tab and a new line", "\t\n"]])(
+    "%s: 422, nothing stored",
+    async (_label, equipmentSelection) => {
+      resolveReportPricing.mockResolvedValue({
+        ok: true,
+        pricingConfig: { dehumidifierLGRDailyRate: 70 },
+      });
+      const res = await save({
+        equipmentSelection,
+        equipmentCostTotal: 0,
+        estimatedDryingDuration: DAYS,
+      });
+      expect(res.status).toBe(422);
+      expect(reportUpdate).not.toHaveBeenCalled();
+    },
+  );
+});
+
 // Review 6: an equipment type that is not one the price list prices (blank,
 // spaces, or any id outside the catalogue) is never priced from the rate
 // posted or cached on the line.
