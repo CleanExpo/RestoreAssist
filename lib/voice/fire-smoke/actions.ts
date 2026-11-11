@@ -31,7 +31,7 @@ import {
   type WalkthroughStatus,
 } from "./schema";
 import { loadFireWalkthrough, type FireDb } from "./server";
-import { newestSectionObservationAt, sectionObservationIds } from "./status";
+import { newestSectionObservationAt, nextFireSeq, sectionObservationIds } from "./status";
 
 export interface FireActionDb extends FireDb {
   voiceCopilotObservation: FireDb["voiceCopilotObservation"] & {
@@ -67,7 +67,8 @@ async function write(
   sessionId: string,
   type: FireObservationType,
   rawTranscript: string,
-  parsed: unknown,
+  parsed: object,
+  seq: number,
 ): Promise<void> {
   await db.voiceCopilotObservation.create({
     data: {
@@ -75,7 +76,7 @@ async function write(
       sessionId,
       type,
       rawTranscript,
-      parsed,
+      parsed: { ...parsed, seq },
       confidence: "high",
       needsConfirmation: false,
       createdAt: new Date(),
@@ -109,6 +110,9 @@ export async function runFireAction(
   action: FireAction,
 ): Promise<FireActionResult> {
   const before = await loadFireWalkthrough(ctx.inspectionId, db, ctx.userId);
+  // Taken while this transaction holds the inspection row lock, so it is
+  // unique and follows commit order. It, not createdAt, orders the rows.
+  const seq = nextFireSeq(before.observations);
   let outcome: CaptureOutcome | undefined;
 
   if (action.action === "acknowledge_notice") {
@@ -118,15 +122,15 @@ export async function runFireAction(
       spoken: action.spoken,
       recognitionMode: action.recognitionMode,
     });
-    await write(db, action.sessionId, FIRE_OBSERVATION_TYPES.notice, FIRE_COPY.notice, parsed);
+    await write(db, action.sessionId, FIRE_OBSERVATION_TYPES.notice, FIRE_COPY.notice, parsed, seq);
   } else if (action.action === "sign_off") {
-    const result = await signOff(db, ctx, action, before.status, before.observations);
+    const result = await signOff(db, ctx, action, before.status, before.observations, seq);
     if (!result.ok) return result;
   } else {
     const sectionId = action.action === "capture" ? action.currentSectionId : action.sectionId;
     if (sectionId !== undefined && !isFireSectionId(sectionId)) return UNKNOWN_SECTION;
     if (!before.status.noticeAcknowledged) return NOTICE_REQUIRED;
-    outcome = (await recordAnswer(db, action)).outcome;
+    outcome = (await recordAnswer(db, action, seq)).outcome;
   }
 
   const after = await loadFireWalkthrough(ctx.inspectionId, db, ctx.userId);
@@ -136,6 +140,7 @@ export async function runFireAction(
 async function recordAnswer(
   db: FireActionDb,
   action: Extract<FireAction, { action: "capture" | "file" | "mark_na" }>,
+  seq: number,
 ): Promise<{ ok: true; outcome: CaptureOutcome }> {
   // Section ids were checked in runFireAction before the notice gate.
   if (action.action === "capture") {
@@ -145,14 +150,14 @@ async function recordAnswer(
       return { ok: true, outcome: { kind: "ask", candidateSectionId: decision.candidateSectionId, say } };
     }
     if (decision.kind === "na") {
-      return markNa(db, action.sessionId, decision.sectionId, decision.reason, 0, action.transcript);
+      return markNa(db, action.sessionId, decision.sectionId, decision.reason, 0, action.transcript, seq);
     }
-    return fileEntry(db, action.sessionId, decision.sectionId, action.transcript, "router");
+    return fileEntry(db, action.sessionId, decision.sectionId, action.transcript, "router", seq);
   }
   if (action.action === "file") {
-    return fileEntry(db, action.sessionId, action.sectionId, action.transcript, action.routedBy);
+    return fileEntry(db, action.sessionId, action.sectionId, action.transcript, action.routedBy, seq);
   }
-  return markNa(db, action.sessionId, action.sectionId, action.reason, action.failedAttemptsBefore, action.reason);
+  return markNa(db, action.sessionId, action.sectionId, action.reason, action.failedAttemptsBefore, action.reason, seq);
 }
 
 async function fileEntry(
@@ -161,6 +166,7 @@ async function fileEntry(
   sectionId: string,
   note: string,
   routedBy: "router" | "technician_confirmed" | "technician_chose",
+  seq: number,
 ): Promise<{ ok: true; outcome: CaptureOutcome }> {
   const parsed = entryParsedSchema.parse({
     checklistVersion: FIRE_CHECKLIST_VERSION,
@@ -168,7 +174,7 @@ async function fileEntry(
     note,
     routedBy,
   });
-  await write(db, sessionId, FIRE_OBSERVATION_TYPES.entry, note, parsed);
+  await write(db, sessionId, FIRE_OBSERVATION_TYPES.entry, note, parsed, seq);
   return { ok: true, outcome: { kind: "filed", sectionId, say: FIRE_COPY.filed(sectionTitle(sectionId)) } };
 }
 
@@ -179,6 +185,7 @@ async function markNa(
   reason: string,
   failedAttemptsBefore: number,
   raw: string,
+  seq: number,
 ): Promise<{ ok: true; outcome: CaptureOutcome }> {
   const parsed = naParsedSchema.parse({
     checklistVersion: FIRE_CHECKLIST_VERSION,
@@ -186,7 +193,7 @@ async function markNa(
     reason,
     failedAttemptsBefore,
   });
-  await write(db, sessionId, FIRE_OBSERVATION_TYPES.na, raw, parsed);
+  await write(db, sessionId, FIRE_OBSERVATION_TYPES.na, raw, parsed, seq);
   return { ok: true, outcome: { kind: "marked_na", sectionId, say: FIRE_COPY.markedNa(sectionTitle(sectionId)) } };
 }
 
@@ -196,6 +203,7 @@ async function signOff(
   action: Extract<FireAction, { action: "sign_off" }>,
   status: WalkthroughStatus,
   observations: Parameters<typeof newestSectionObservationAt>[0],
+  seq: number,
 ): Promise<{ ok: true } | Extract<FireActionResult, { ok: false }>> {
   // A repeat sign-off while already validly signed returns the existing one.
   if (status.signoff.state === "signed") return { ok: true };
@@ -222,7 +230,7 @@ async function signOff(
     coveredRowIds: sectionObservationIds(FIRE_SECTION_IDS, observations),
     sectionStates,
   });
-  await write(db, action.sessionId, FIRE_OBSERVATION_TYPES.signoff, FIRE_COPY.signoffDeclaration, parsed);
+  await write(db, action.sessionId, FIRE_OBSERVATION_TYPES.signoff, FIRE_COPY.signoffDeclaration, parsed, seq);
   await db.auditLog.create({
     data: {
       inspectionId: ctx.inspectionId,

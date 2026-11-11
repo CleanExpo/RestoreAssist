@@ -64,11 +64,16 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
   const lastPromptRef = useRef("");
   /** Generation of the current utterance; an older one's end event is ignored. */
   const speechGenRef = useRef(0);
+  /** Set on unmount. Nothing may start the mic or run a callback after it. */
+  const disposedRef = useRef(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const restartRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const handlersRef = useRef({ onFinal, onBlocked });
   handlersRef.current = { onFinal, onBlocked };
 
   const startRecognition = useCallback(() => {
     const Ctor = recognitionCtor();
+    if (disposedRef.current) return;
     if (!Ctor || !wantedRef.current || speakingRef.current || busyRef.current || recRef.current) return;
     const rec = new Ctor();
     rec.continuous = false;
@@ -80,7 +85,7 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
       recRef.current = null;
       setListening(false);
       // Hands-free: carry on listening until the technician taps off.
-      setTimeout(() => startRecognition(), 250);
+      restartRef.current = setTimeout(() => startRecognition(), 250);
     };
     rec.onresult = (event) => {
       const result = event.results[event.results.length - 1];
@@ -111,11 +116,13 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
 
   const speak = useCallback(
     (text: string, after?: () => void) => {
+      if (disposedRef.current) return;
       lastPromptRef.current = text;
       stopRecognition();
       const gen = (speechGenRef.current += 1);
       let finished = false;
       let poll: ReturnType<typeof setInterval> | undefined;
+      if (pollRef.current !== undefined) clearInterval(pollRef.current);
       // Only a confirmed end may reopen the mic: the utterance's own end or
       // error event, or the engine reporting it is no longer speaking.
       // Elapsed time is never proof that Margot has stopped talking.
@@ -123,7 +130,8 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
         if (finished) return;
         finished = true;
         if (poll !== undefined) clearInterval(poll);
-        if (gen !== speechGenRef.current) return; // superseded by a newer prompt
+        // Superseded by a newer prompt, or the screen has gone away.
+        if (gen !== speechGenRef.current || disposedRef.current) return;
         speakingRef.current = false;
         setSpeaking(false);
         after?.();
@@ -148,6 +156,7 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
       poll = setInterval(() => {
         if (!synth.speaking && !synth.pending) finish();
       }, 500);
+      pollRef.current = poll;
     },
     [startRecognition, stopRecognition],
   );
@@ -174,6 +183,12 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
 
   useEffect(
     () => () => {
+      // Invalidate first, so the end event that cancel() fires below is a
+      // no-op: no callback runs and the mic cannot reopen.
+      disposedRef.current = true;
+      speechGenRef.current += 1;
+      if (pollRef.current !== undefined) clearInterval(pollRef.current);
+      if (restartRef.current !== undefined) clearTimeout(restartRef.current);
       wantedRef.current = false;
       recRef.current?.stop();
       if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();

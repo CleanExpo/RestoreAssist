@@ -30,6 +30,26 @@ describe("computeWalkthroughStatus", () => {
     expect(computeWalkthroughStatus(FIRE_SECTION_IDS, [notice()], null).noticeAcknowledged).toBe(false);
   });
 
+  it("same-millisecond writes: the later write wins whatever order the rows arrive in", () => {
+    const filled = entry("contents");
+    const markedNa = { ...na("contents"), createdAt: filled.createdAt };
+    for (const rows of [[filled, markedNa], [markedNa, filled]]) {
+      const contents = status(rows).sections.find((s) => s.sectionId === "contents")!;
+      expect(contents.state).toBe("na");
+    }
+    const naFirst = na("contents");
+    const thenFilled = { ...entry("contents"), createdAt: naFirst.createdAt };
+    for (const rows of [[naFirst, thenFilled], [thenFilled, naFirst]]) {
+      const contents = status(rows).sections.find((s) => s.sectionId === "contents")!;
+      expect(contents.state).toBe("filled");
+    }
+  });
+
+  it("a row with no write sequence never decides a section", () => {
+    const unsequenced = { ...entry("contents"), seq: 0 };
+    expect(status([unsequenced]).started).toBe(false);
+  });
+
   it("an entry fills its section; N/A with a reason marks it N/A", () => {
     const s = status([entry("structure"), na("services")]);
     const byId = Object.fromEntries(s.sections.map((x) => [x.sectionId, x]));

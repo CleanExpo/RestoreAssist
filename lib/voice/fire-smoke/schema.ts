@@ -84,6 +84,12 @@ export interface FireObservationRow {
   id: string;
   /** Owner of the voice session that wrote the row (server truth), or null if unknown. */
   userId: string | null;
+  /**
+   * Write sequence, taken while the inspection row lock was held, so it is
+   * unique and ordered per inspection. 0 when absent; such rows never
+   * decide a section or a sign-off.
+   */
+  seq: number;
   type: string;
   parsed: unknown;
   createdAt: Date | string;

@@ -114,8 +114,8 @@ const mockAuditCreate = vi.fn().mockResolvedValue({});
 const mockScopeItemCreateMany = vi.fn().mockResolvedValue({ count: 0 });
 const mockCostEstimateCreateMany = vi.fn().mockResolvedValue({ count: 0 });
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const client: Record<string, unknown> = {
     inspection: {
       findUnique: (...a: unknown[]) => mockInspectionFindUnique(...a),
       updateMany: (...a: unknown[]) => mockInspectionUpdateMany(...a),
@@ -133,8 +133,12 @@ vi.mock("@/lib/prisma", () => ({
     costEstimate: {
       createMany: (...a: unknown[]) => mockCostEstimateCreateMany(...a),
     },
-  },
-}));
+  };
+  // One client stands in for the transaction: a throw inside the callback
+  // propagates, as a rollback does.
+  client.$transaction = (fn: (tx: unknown) => Promise<unknown>) => fn(client);
+  return { prisma: client };
+});
 
 import { getServerSession } from "next-auth";
 const mockGetServerSession = vi.mocked(getServerSession);
@@ -176,18 +180,22 @@ const v = 1;
 let t = Date.parse("2026-11-11T09:00:00Z");
 let seq = 0;
 const at = () => new Date((t += 60_000));
-const entry = (sectionId: string, createdAt: Date = at()) => ({
-  id: `obs-${(seq += 1)}`,
-  sessionId: "vs-1",
-  type: "fire_section_entry",
-  parsed: { checklistVersion: v, sectionId, note: "Synthetic note", routedBy: "router" },
-  createdAt,
-});
+const entry = (sectionId: string, createdAt: Date = at()) => {
+  const n = (seq += 1);
+  return {
+    id: `obs-${n}`,
+    sessionId: "vs-1",
+    type: "fire_section_entry",
+    parsed: { checklistVersion: v, sectionId, note: "Synthetic note", routedBy: "router", seq: n },
+    createdAt,
+  };
+};
 const signoff = (covered: Array<{ id: string; createdAt: Date }>, createdAt: Date = at()) => ({
   id: `obs-${(seq += 1)}`,
   sessionId: "vs-1",
   type: "fire_walkthrough_signoff",
   parsed: {
+    seq,
     checklistVersion: v,
     typedName: "Sam Example",
     declarationAccepted: true,
@@ -257,6 +265,22 @@ describe("submit route — fire and smoke walkthrough gate", () => {
     expect(res.status).toBe(422);
     expect((await res.json()).code).toBe("CHANGED_AFTER_SIGNOFF");
     expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses when a fire edit lands between the first check and the claim", async () => {
+    const rows = FIRE_SECTION_IDS.map((id) => entry(id));
+    const signed = [...rows, signoff(rows)];
+    // First read: the early gate sees a signed walkthrough. Second read is
+    // the re-check inside the claim's transaction, after an edit committed.
+    mockFireObsFindMany
+      .mockResolvedValueOnce(signed)
+      .mockResolvedValueOnce([...signed, entry("contents")]);
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(422);
+    expect((await res.json()).code).toBe("CHANGED_AFTER_SIGNOFF");
+    expect(mockInspectionUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mockScopeItemCreateMany).not.toHaveBeenCalled();
   });
 
   it("lets a signed walkthrough through", async () => {

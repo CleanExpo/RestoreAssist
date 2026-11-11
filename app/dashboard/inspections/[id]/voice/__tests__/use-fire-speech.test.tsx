@@ -107,6 +107,16 @@ describe("useFireSpeech: mic waits for Margot", () => {
     expect(FakeRecognition.starts).toBe(1);
   });
 
+  it("leaving the screen mid-prompt runs no callback and never opens the mic", () => {
+    const hook = listeningHook();
+    const after = vi.fn();
+    act(() => hook.result.current.speak(LONG_PROMPT, after));
+    hook.unmount(); // cleanup cancel() fires the utterance's onerror
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(after).not.toHaveBeenCalled();
+    expect(FakeRecognition.starts).toBe(0);
+  });
+
   it("an earlier prompt's cancel event does not open the mic during the next prompt", () => {
     const hook = listeningHook();
     act(() => hook.result.current.speak("First prompt."));

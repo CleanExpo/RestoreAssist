@@ -8,9 +8,10 @@ export function resetClock(): void {
   clock = Date.parse("2026-11-11T09:00:00Z");
   seq = 0;
 }
-function nextId(): string {
+/** Each helper row takes the next write sequence, as a locked write would. */
+function next(): { id: string; seq: number } {
   seq += 1;
-  return `obs-${seq}`;
+  return { id: `obs-${seq}`, seq };
 }
 function tick(): Date {
   clock += 60_000;
@@ -18,28 +19,28 @@ function tick(): Date {
 }
 
 export function entry(sectionId: string, note = "Synthetic note for testing"): FireObservationRow {
-  return {
-    id: nextId(),
+  return withParsedSeq({
+    ...next(),
     userId: TECH,
     type: FIRE_OBSERVATION_TYPES.entry,
     parsed: { checklistVersion: FIRE_CHECKLIST_VERSION, sectionId, note, routedBy: "router" },
     createdAt: tick(),
-  };
+  });
 }
 
 export function na(sectionId: string, reason = "No gas connected to this property"): FireObservationRow {
-  return {
-    id: nextId(),
+  return withParsedSeq({
+    ...next(),
     userId: TECH,
     type: FIRE_OBSERVATION_TYPES.na,
     parsed: { checklistVersion: FIRE_CHECKLIST_VERSION, sectionId, reason, failedAttemptsBefore: 0 },
     createdAt: tick(),
-  };
+  });
 }
 
 export function notice(): FireObservationRow {
   return {
-    id: nextId(),
+    ...next(),
     userId: TECH,
     type: FIRE_OBSERVATION_TYPES.notice,
     parsed: {
@@ -55,8 +56,8 @@ export function notice(): FireObservationRow {
 /** A sign-off covering exactly the given section rows. */
 export function signoff(covered: FireObservationRow[]): FireObservationRow {
   const at = lastAt(covered).toISOString();
-  return {
-    id: nextId(),
+  return withParsedSeq({
+    ...next(),
     userId: TECH,
     type: FIRE_OBSERVATION_TYPES.signoff,
     parsed: {
@@ -69,7 +70,11 @@ export function signoff(covered: FireObservationRow[]): FireObservationRow {
       sectionStates: {},
     },
     createdAt: tick(),
-  };
+  });
+}
+
+function withParsedSeq(row: FireObservationRow): FireObservationRow {
+  return { ...row, parsed: { ...(row.parsed as object), seq: row.seq } };
 }
 
 /** Every section filled, in order. */

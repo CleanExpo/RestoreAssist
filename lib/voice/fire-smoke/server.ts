@@ -4,6 +4,7 @@
  * rows the same way (spec §0 R1, R5, R6).
  */
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { FIRE_SECTION_IDS } from "./checklist";
@@ -29,6 +30,12 @@ export interface LoadedFireWalkthrough {
   observations: FireObservationRow[];
   sessionCount: number;
   status: WalkthroughStatus;
+}
+
+/** The write sequence a fire row stored in its parsed body; 0 when absent. */
+function readSeq(parsed: unknown): number {
+  const value = (parsed as { seq?: unknown } | null)?.seq;
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
 }
 
 /**
@@ -63,6 +70,7 @@ export async function loadFireWalkthrough(
   const observations: FireObservationRow[] = rows.map(({ id, type, parsed, createdAt, session }) => ({
     id,
     userId: session?.userId ?? null,
+    seq: readSeq(parsed),
     type,
     parsed,
     createdAt,
@@ -143,4 +151,37 @@ export async function checkFireSubmitGate(
       openSectionIds: open,
     },
   };
+}
+
+class FireGateMovedError extends Error {
+  constructor(readonly result: FireSubmitGateResult) {
+    super("Fire walkthrough changed while the job was being submitted");
+  }
+}
+
+/**
+ * Submit claim bound to the fire gate. The claim (the DRAFT to SUBMITTED
+ * update) takes the inspection row lock first, and every fire write takes
+ * the same lock (writeWithinInspectionScope), so the gate re-read here sees
+ * every fire write committed before the claim, and no fire write can land
+ * until this transaction ends. A refusal rolls the claim back. Ordering is
+ * decided by the lock, never by comparing timestamps.
+ */
+export async function claimSubmitWithFireGate(
+  db: Pick<typeof prisma, "$transaction">,
+  inspection: { id: string; claimType?: string | null },
+  claim: (tx: Prisma.TransactionClient) => Promise<{ count: number }>,
+): Promise<{ count: number; fireBlock?: FireSubmitGateResult }> {
+  try {
+    return await db.$transaction(async (tx) => {
+      const claimed = await claim(tx);
+      if (claimed.count === 0) return { count: 0 };
+      const gate = await checkFireSubmitGate(inspection, tx as unknown as FireDb);
+      if (gate.blocked) throw new FireGateMovedError(gate);
+      return { count: claimed.count };
+    });
+  } catch (error) {
+    if (error instanceof FireGateMovedError) return { count: 0, fireBlock: error.result };
+    throw error;
+  }
 }

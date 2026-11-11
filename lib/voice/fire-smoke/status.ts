@@ -22,8 +22,22 @@ function toMillis(value: Date | string): number {
   return Number.isFinite(ms) ? ms : 0;
 }
 
-function byCreatedAt(a: FireObservationRow, b: FireObservationRow): number {
-  return toMillis(a.createdAt) - toMillis(b.createdAt);
+/**
+ * Write order. Each fire write takes its sequence number while it holds
+ * the inspection row lock, so sequence numbers are unique per inspection
+ * and follow commit order. Timestamps never decide order: two writes in
+ * the same millisecond must still have one fixed winner. Rows without a
+ * sequence are left out.
+ */
+function inWriteOrder(observations: readonly FireObservationRow[]): FireObservationRow[] {
+  return observations
+    .filter((row) => Number.isInteger(row.seq) && row.seq > 0)
+    .sort((a, b) => a.seq - b.seq || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+/** The sequence number the next fire write on this inspection takes. */
+export function nextFireSeq(observations: readonly FireObservationRow[]): number {
+  return observations.reduce((max, row) => (row.seq > max ? row.seq : max), 0) + 1;
 }
 
 interface SectionTally {
@@ -38,14 +52,12 @@ function tallySections(
   ordered: FireObservationRow[],
 ): {
   tallies: Map<string, SectionTally>;
-  newestSectionAt: number;
   sectionRowIds: string[];
 } {
   const known = new Set(sectionIds);
   const tallies = new Map<string, SectionTally>(
     sectionIds.map((id) => [id, { state: "todo", entryCount: 0 }]),
   );
-  let newestSectionAt = 0;
   const sectionRowIds: string[] = [];
   for (const row of ordered) {
     if (row.type === FIRE_OBSERVATION_TYPES.entry) {
@@ -55,7 +67,6 @@ function tallySections(
       tally.state = "filled";
       tally.entryCount += 1;
       tally.naReason = undefined;
-      newestSectionAt = Math.max(newestSectionAt, toMillis(row.createdAt));
       sectionRowIds.push(row.id);
     } else if (row.type === FIRE_OBSERVATION_TYPES.na) {
       const parsed = naParsedSchema.safeParse(row.parsed);
@@ -63,11 +74,10 @@ function tallySections(
       const tally = tallies.get(parsed.data.sectionId)!;
       tally.state = "na";
       tally.naReason = parsed.data.reason;
-      newestSectionAt = Math.max(newestSectionAt, toMillis(row.createdAt));
       sectionRowIds.push(row.id);
     }
   }
-  return { tallies, newestSectionAt, sectionRowIds };
+  return { tallies, sectionRowIds };
 }
 
 function latestSignoff(ordered: FireObservationRow[]) {
@@ -90,8 +100,8 @@ export function computeWalkthroughStatus(
   observations: readonly FireObservationRow[],
   viewerUserId: string | null,
 ): WalkthroughStatus {
-  const ordered = [...observations].sort(byCreatedAt);
-  const { tallies, newestSectionAt, sectionRowIds } = tallySections(
+  const ordered = inWriteOrder(observations);
+  const { tallies, sectionRowIds } = tallySections(
     sectionIds,
     ordered,
   );
@@ -102,10 +112,10 @@ export function computeWalkthroughStatus(
   const openSectionIds = sections
     .filter((s) => s.state === "todo")
     .map((s) => s.sectionId);
-  const started = newestSectionAt > 0;
+  const started = sectionRowIds.length > 0;
   const noticeAcknowledged =
     viewerUserId !== null &&
-    ordered.some(
+    observations.some(
       (row) =>
         row.type === FIRE_OBSERVATION_TYPES.notice &&
         row.userId === viewerUserId &&
@@ -142,8 +152,7 @@ export function sectionObservationIds(
   sectionIds: readonly string[],
   observations: readonly FireObservationRow[],
 ): string[] {
-  return tallySections(sectionIds, [...observations].sort(byCreatedAt))
-    .sectionRowIds;
+  return tallySections(sectionIds, inWriteOrder(observations)).sectionRowIds;
 }
 
 /** The newest section observation time, as ISO, for a sign-off's coversThrough. */

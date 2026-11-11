@@ -20,7 +20,10 @@ import {
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
-import { checkFireSubmitGate } from "@/lib/voice/fire-smoke/server";
+import {
+  checkFireSubmitGate,
+  claimSubmitWithFireGate,
+} from "@/lib/voice/fire-smoke/server";
 import { ensureMakeSafeSeeded } from "@/lib/compliance/seed-make-safe";
 import { checkScopeVariationGate } from "@/lib/compliance/scope-variation-gate";
 import { checkNzMoistureGate } from "@/lib/compliance/nz-moisture-gate";
@@ -329,14 +332,27 @@ export async function POST(
       // OR admin. Status-DRAFT predicate still serialises submits.
       // `updatedAt` pins the row submit validated above: a draft save that
       // committed in between bumps it, so stale children cannot be submitted.
-      const submitGuard = await prisma.inspection.updateMany({
-        where: {
-          ...tenancy.data.inspectionManyWhere,
-          status: "DRAFT",
-          updatedAt: inspection.updatedAt,
-        },
-        data: { status: "SUBMITTED", submittedAt: new Date() },
-      });
+      // The fire gate is read again inside the claim's transaction, after
+      // the claim holds the row lock that every fire write also takes, so a
+      // fire edit cannot slip in between the gate and the claim.
+      const submitGuard = await claimSubmitWithFireGate(
+        prisma,
+        { id, claimType: inspection.claimType },
+        (tx) =>
+          tx.inspection.updateMany({
+            where: {
+              ...tenancy.data.inspectionManyWhere,
+              status: "DRAFT",
+              updatedAt: inspection.updatedAt,
+            },
+            data: { status: "SUBMITTED", submittedAt: new Date() },
+          }),
+      );
+      if (submitGuard.fireBlock) {
+        return NextResponse.json(submitGuard.fireBlock.body, {
+          status: submitGuard.fireBlock.status ?? 422,
+        });
+      }
       // P1 #11.1 — fire-and-forget next-action nudge (CLAUDE.md rule #13).
       if (submitGuard.count > 0) {
         void onNextAction(id, InspectionStatus.SUBMITTED).catch((err) =>
